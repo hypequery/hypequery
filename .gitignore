@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+
+# IDE
+.idea
+.vscode
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage
+
+# Misc
+.DS_Store
+examples/basic-dashboard/src/generated/clickhouse-schema.ts

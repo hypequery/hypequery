@@ -1,0 +1,22 @@
+{
+  "name": "hypequery-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "start": "turbo run dev"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "typescript": "^4.9.0",
+    "eslint": "^8.0.0",
+    "turbo": "^1.10.0"
+  }
+}

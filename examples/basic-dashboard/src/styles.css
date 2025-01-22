@@ -1,0 +1,29 @@
+.App {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.data-preview {
+    background: #f5f5f5;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-top: 2rem;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+th,
+td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    background-color: #eee;
+}
