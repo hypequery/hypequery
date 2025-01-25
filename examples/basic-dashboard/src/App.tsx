@@ -31,7 +31,7 @@ function App() {
 					.orderBy('price_count', 'DESC')
 					.execute()
 
-				const testSum = await db.table('uk_price_paid').sum('price').count('price').execute();
+				const testSum = await db.table('uk_price_paid').count('price').sum('price').execute();
 				console.log({ testSum, results });
 			} catch (err) {
 				console.error('Error fetching data:', err);

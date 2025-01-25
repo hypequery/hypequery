@@ -1,4 +1,4 @@
-import { createClient, type ClickHouseClient } from '@clickhouse/client-web';
+import { createClient } from '@clickhouse/client-web';
 
 export class ClickHouseConnection {
 	private static instance: ReturnType<typeof createClient>;

@@ -2,13 +2,15 @@
     "extends": "../tsconfig/base.json",
     "compilerOptions": {
         "target": "es2020",
-        "module": "NodeNext",
-        "moduleResolution": "NodeNext",
+        "module": "es2020",
+        "moduleResolution": "Node",
         "outDir": "./dist",
         "rootDir": "./src",
         "composite": true,
         "allowSyntheticDefaultImports": true,
-        "esModuleInterop": true
+        "esModuleInterop": true,
+        "strict": true,
+        "skipLibCheck": true
     },
     "include": [
         "src/**/*"
