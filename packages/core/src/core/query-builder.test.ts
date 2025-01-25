@@ -212,4 +212,43 @@ describe('QueryBuilder', () => {
             spy.mockRestore();
         });
     });
+
+    describe('distinct', () => {
+        it('should add DISTINCT keyword to SELECT', () => {
+            const sql = builder
+                .distinct()
+                .select(['name'])
+                .toSQL();
+            expect(sql).toBe('SELECT DISTINCT name FROM test_table');
+        });
+
+        it('should work with DISTINCT and no SELECT', () => {
+            const sql = builder
+                .distinct()
+                .toSQL();
+            expect(sql).toBe('SELECT DISTINCT * FROM test_table');
+        });
+
+        it('should work with other clauses', () => {
+            const sql = builder
+                .distinct()
+                .select(['name', 'price'])
+                .where('price > 100')
+                .groupBy('name')
+                .having('COUNT(*) > 1')
+                .orderBy('price', 'DESC')
+                .limit(10)
+                .toSQL();
+            expect(sql).toBe('SELECT DISTINCT name, price FROM test_table WHERE price > 100 GROUP BY name HAVING COUNT(*) > 1 ORDER BY price DESC LIMIT 10');
+        });
+
+        it('should work with aggregations', () => {
+            const sql = builder
+                .distinct()
+                .select(['name'])
+                .sum('price')
+                .toSQL();
+            expect(sql).toBe('SELECT DISTINCT name, SUM(price) AS price_sum FROM test_table GROUP BY name');
+        });
+    });
 }); 

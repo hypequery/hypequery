@@ -13,6 +13,7 @@ export interface QueryConfig<T> {
 	groupBy?: string[];
 	having?: string[];
 	limit?: number;
+	distinct?: boolean;
 	orderBy?: Array<{
 		column: keyof T;
 		direction: OrderDirection;
@@ -82,6 +83,9 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 			this.schema,
 			this.originalSchema
 		) as any;
+
+		// Copy existing config including distinct flag
+		newBuilder.config = { ...this.config };
 
 		if (this.config.select) {
 			newBuilder.config.select = [
@@ -156,6 +160,11 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		return this;
 	}
 
+	distinct(): this {
+		this.config.distinct = true;
+		return this;
+	}
+
 	toSQL(): string {
 		const parts: string[] = [`SELECT ${this.formatSelect()}`];
 		parts.push(`FROM ${this.tableName}`);
@@ -187,8 +196,9 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 	}
 
 	private formatSelect(): string {
-		if (!this.config.select?.length) return '*';
-		return this.config.select.join(', ');
+		const distinctClause = this.config.distinct ? 'DISTINCT ' : '';
+		if (!this.config.select?.length) return distinctClause + '*';
+		return distinctClause + this.config.select.join(', ');
 	}
 
 	private formatGroupBy(): string {
