@@ -26,3 +26,5 @@ coverage
 # Misc
 .DS_Store
 examples/basic-dashboard/src/generated/clickhouse-schema.ts
+.turbo
+.turbo-build

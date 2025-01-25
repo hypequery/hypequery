@@ -11,6 +11,7 @@ export interface QueryConfig<T> {
 	select?: Array<keyof T | string>;
 	where?: string[];
 	groupBy?: string[];
+	having?: string[];
 	limit?: number;
 	orderBy?: Array<{
 		column: keyof T;
@@ -46,16 +47,23 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 
 
 	select<K extends keyof T>(columns: K[]): QueryBuilder<{
-		[P in K]: T[P] extends 'String' ? string :
-		T[P] extends 'Date' ? Date :
-		T[P] extends 'Float64' | 'Int32' | 'Int64' ? number : never;
-	}, true> {
-		const newBuilder = new QueryBuilder(
+		[P in K]: T[P] extends "String" ? string :
+		T[P] extends "Date" ? Date :
+		T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
+	}, true, {}> {
+		type NewT = {
+			[P in K]: T[P] extends "String" ? string :
+			T[P] extends "Date" ? Date :
+			T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
+		};
+
+		const newBuilder = new QueryBuilder<NewT, true>(
 			this.tableName,
-			this.schema
-		)
-		newBuilder.config.select = columns;
-		return newBuilder
+			{ name: this.schema.name, columns: {} as NewT },
+			this.originalSchema
+		);
+		newBuilder.config = { ...this.config, select: columns as string[] } as QueryConfig<NewT>;
+		return newBuilder;
 	}
 
 	private createAggregation<A extends keyof typeof this.originalSchema.columns, S extends string>(
@@ -142,6 +150,12 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		return this;
 	}
 
+	having(condition: string): this {
+		this.config.having = this.config.having || [];
+		this.config.having.push(condition);
+		return this;
+	}
+
 	toSQL(): string {
 		const parts: string[] = [`SELECT ${this.formatSelect()}`];
 		parts.push(`FROM ${this.tableName}`);
@@ -154,8 +168,8 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 			parts.push(`GROUP BY ${this.formatGroupBy()}`);
 		}
 
-		if (this.config.limit) {
-			parts.push(`LIMIT ${this.config.limit}`);
+		if (this.config.having?.length) {
+			parts.push(`HAVING ${this.config.having.join(' AND ')}`);
 		}
 
 		if (this.config.orderBy?.length) {
@@ -163,6 +177,10 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 				.map(({ column, direction }) => `${String(column)} ${direction}`)
 				.join(', ');
 			parts.push(`ORDER BY ${orderBy}`);
+		}
+
+		if (this.config.limit) {
+			parts.push(`LIMIT ${this.config.limit}`);
 		}
 
 		return parts.join(' ');

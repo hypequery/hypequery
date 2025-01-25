@@ -31,8 +31,17 @@ function App() {
 					.orderBy('price_count', 'DESC')
 					.execute()
 
-				const testSum = await db.table('uk_price_paid').sum('price').execute();
-				console.log({ testSum, results });
+				const result2 = await db
+					.table('uk_price_paid')
+					.select(['county'])
+					.sum('price')
+					.groupBy('county')
+					.having('price_sum > 1609302635584')
+					.orderBy('price_sum', 'DESC')
+					.execute();
+
+				const testSum = await db.table('uk_price_paid').sum('price').count('county').execute();
+				console.log({ result2, testSum, results });
 			} catch (err) {
 				console.error('Error fetching data:', err);
 				setError(err instanceof Error ? err.message : 'An error occurred');
@@ -65,8 +74,6 @@ function App() {
 					<tbody>
 						{records.map((record, i) => (
 							<tr key={i}>
-								<td>{record.type}</td>
-								<td>{record.county}</td>
 							</tr>
 						))}
 					</tbody>
