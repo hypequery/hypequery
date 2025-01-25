@@ -189,6 +189,23 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		return this.where(`${String(column)} IN (${formattedValues})`);
 	}
 
+	whereBetween(
+		column: keyof typeof this.originalSchema.columns,
+		range: [number | string | Date, number | string | Date]  // Explicitly type the tuple
+	): this {
+		const [min, max] = range;
+
+		if (min === null || max === null) {
+			throw new Error('BETWEEN values cannot be null');
+		}
+		const formatValue = (v: number | string | Date) =>
+			typeof v === 'string' ? `'${v}'` :
+				v instanceof Date ? v.toISOString().split('T')[0] :
+					v;
+
+		return this.where(`${String(column)} BETWEEN ${formatValue(min)} AND ${formatValue(max)}`);
+	}
+
 	toSQL(): string {
 		const parts: string[] = [`SELECT ${this.formatSelect()}`];
 		parts.push(`FROM ${this.tableName}`);

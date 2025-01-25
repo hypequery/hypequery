@@ -372,4 +372,68 @@ describe('QueryBuilder', () => {
             expect(sql).toBe("SELECT name, price FROM test_table WHERE price > 100 AND name IN ('test1', 'test2') ORDER BY price DESC");
         });
     });
+
+    describe('whereBetween', () => {
+        it('should add BETWEEN clause for numbers', () => {
+            const sql = builder
+                .whereBetween('price', [100, 200])
+                .toSQL();
+            expect(sql).toBe('SELECT * FROM test_table WHERE price BETWEEN 100 AND 200');
+        });
+
+        it('should add BETWEEN clause for strings', () => {
+            const sql = builder
+                .whereBetween('name', ['A', 'M'])
+                .toSQL();
+            expect(sql).toBe("SELECT * FROM test_table WHERE name BETWEEN 'A' AND 'M'");
+        });
+
+        it('should add BETWEEN clause for dates', () => {
+            const start = new Date('2023-01-01');
+            const end = new Date('2023-12-31');
+            const sql = builder
+                .whereBetween('created_at', [start, end])
+                .toSQL();
+            expect(sql).toBe('SELECT * FROM test_table WHERE created_at BETWEEN 2023-01-01 AND 2023-12-31');
+        });
+
+        it('should combine with other where conditions', () => {
+            const sql = builder
+                .where('category = "residential"')
+                .whereBetween('price', [100000, 200000])
+                .orWhere('status = "premium"')
+                .toSQL();
+            expect(sql).toBe('SELECT * FROM test_table WHERE category = "residential" AND price BETWEEN 100000 AND 200000 OR status = "premium"');
+        });
+
+        it('should work with other query clauses', () => {
+            const sql = builder
+                .select(['name', 'price'])
+                .whereBetween('price', [100, 200])
+                .groupBy('name')
+                .having('COUNT(*) > 1')
+                .orderBy('price', 'DESC')
+                .toSQL();
+            expect(sql).toBe('SELECT name, price FROM test_table WHERE price BETWEEN 100 AND 200 GROUP BY name HAVING COUNT(*) > 1 ORDER BY price DESC');
+        });
+
+        it('should handle null values appropriately', () => {
+            expect(() => {
+                // @ts-expect-error
+                builder.whereBetween('price', [null, 200]);
+            }).toThrow();
+
+            expect(() => {
+                // @ts-expect-error
+                builder.whereBetween('price', [100, null]);
+            }).toThrow();
+        });
+
+        it('should handle empty string values', () => {
+            const sql = builder
+                .whereBetween('name', ['', 'Z'])
+                .toSQL();
+            expect(sql).toBe("SELECT * FROM test_table WHERE name BETWEEN '' AND 'Z'");
+        });
+    });
 }); 

@@ -1039,3 +1039,30 @@
 2025-01-25T21:49:54.547314Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
 2025-01-25T21:49:54.547323Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
 2025-01-25T21:49:54.561171Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-01-25T21:54:08.844060Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.test.ts"), AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
+2025-01-25T21:54:08.844078Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:54:08.944552Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts"), AnchoredSystemPathBuf("packages/core/src/core/query-builder.test.ts")}
+2025-01-25T21:54:08.944563Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:54:08.944577Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-01-25T21:56:28.742502Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
+2025-01-25T21:56:28.742513Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:56:44.341436Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.test.ts")}
+2025-01-25T21:56:44.341446Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:56:44.341462Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-01-25T21:56:46.441809Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
+2025-01-25T21:56:46.441819Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:56:46.449609Z  WARN turborepo_lib::package_changes_watcher: hashes are the same, no need to rerun
+2025-01-25T21:56:55.141603Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/tsconfig.tsbuildinfo")}
+2025-01-25T21:56:55.141620Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:57:09.241280Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.test.ts")}
+2025-01-25T21:57:09.241290Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:58:03.640772Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
+2025-01-25T21:58:03.640781Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:58:09.540657Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
+2025-01-25T21:58:09.540665Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:58:10.559355Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
+2025-01-25T21:58:10.559444Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:58:13.440614Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/src/core/query-builder.ts")}
+2025-01-25T21:58:13.440625Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
+2025-01-25T21:58:20.440805Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("packages/core/tsconfig.tsbuildinfo")}
+2025-01-25T21:58:20.440815Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("@hypequery/core"), path: AnchoredSystemPathBuf("packages/core") }}))
