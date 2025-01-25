@@ -29,7 +29,7 @@ export interface QueryConfig<T> {
 }
 
 // Simplified QueryBuilder that only needs to know about the result type
-export class QueryBuilder<T> {
+export class QueryBuilder<T, HasSelect extends boolean = false> {
 	private config: QueryConfig<T> = {};
 	private tableName: string;
 	private schema: { name: string; columns: T };
@@ -59,7 +59,7 @@ export class QueryBuilder<T> {
 		[P in K]: T[P] extends 'String' ? string :
 		T[P] extends 'Date' ? Date :
 		T[P] extends 'Float64' | 'Int32' | 'Int64' ? number : never;
-	}> {
+	}, true> {
 		const newBuilder = new QueryBuilder(
 			this.tableName,
 			this.schema
@@ -71,33 +71,29 @@ export class QueryBuilder<T> {
 
 	sum<A extends keyof typeof this.originalSchema.columns>(
 		column: A
-	): QueryBuilder<{
-		[P in keyof T | `${A & string}_sum`]: P extends keyof T ? T[P] : number;
-	}> {
-		const newBuilder = new QueryBuilder<{
-			[P in keyof T | `${A & string}_sum`]: P extends keyof T ? T[P] : number;
-		}>(
+	): QueryBuilder<
+		HasSelect extends false
+		? Record<`${string & A}_sum`, string>
+		: { [P in keyof T | `${string & A}_sum`]: P extends keyof T ? T[P] : string }
+	> {
+		// Create new schema with only the sum column if no columns are selected
+		const newSchema = {
+			name: this.schema.name,
+			columns: this.config.select ? this.schema.columns : {} as Record<`${string & A}_sum`, string>
+		};
+
+		const newBuilder = new QueryBuilder(
 			this.tableName,
-			//@ts-ignore
-			this.schema,
+			newSchema,
 			this.originalSchema
 		);
 
-		// Copy existing configuration
-		newBuilder.config = { ...this.config };
-
-		// Add SUM to select
-		if (newBuilder.config.select) {
+		if (this.config.select) {
 			newBuilder.config.select = [
-				...newBuilder.config.select,
+				...this.config.select,
 				`SUM(${String(column)}) AS ${String(column)}_sum`
 			];
-
-			// Add GROUP BY for selected columns
-			//@ts-ignore
-			newBuilder.config.groupBy = newBuilder.config.select.filter(
-				col => col !== `SUM(${String(column)}) AS ${String(column)}_sum`
-			);
+			newBuilder.config.groupBy = this.config.select;
 		} else {
 			newBuilder.config.select = [`SUM(${String(column)}) AS ${String(column)}_sum`];
 		}

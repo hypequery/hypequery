@@ -83,7 +83,6 @@ function App() {
 					<tbody>
 						{records.map((record, i) => (
 							<tr key={i}>
-								<td>£{record.price.toLocaleString()}</td>
 								<td>{record.type}</td>
 								<td>{record.county}</td>
 							</tr>
