@@ -24,6 +24,7 @@ function App() {
 				type Debug<T> = { [P in keyof T]: T[P] }
 
 				// Then in your code:
+				/*
 				const query = db.table('uk_price_paid');
 				type TableType = Debug<typeof query>; // Check initial type
 
@@ -35,15 +36,18 @@ function App() {
 
 				const resultstest = await withSum.execute();
 				type FinalType = Debug<typeof resultstest>;
+*/
 
-				const results1 = await db
+				const results = await db
 					.table('uk_price_paid')
-					.select(['county', 'date'])
+					.select(['county'])
 					.sum('price')
 					.execute()
 
+				// console.log(results.toSQL())
+
 				const testSum = await db.table('uk_price_paid').sum('price').execute();
-				console.log({ testSum, results1 });
+				console.log({ testSum, results });
 				setRecords(results);
 
 

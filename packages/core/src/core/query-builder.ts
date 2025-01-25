@@ -83,14 +83,25 @@ export class QueryBuilder<T> {
 			this.originalSchema
 		);
 
-		if (this.config.select) {
+		// Copy existing configuration
+		newBuilder.config = { ...this.config };
+
+		// Add SUM to select
+		if (newBuilder.config.select) {
 			newBuilder.config.select = [
-				...this.config.select,
+				...newBuilder.config.select,
 				`SUM(${String(column)}) AS ${String(column)}_sum`
 			];
+
+			// Add GROUP BY for selected columns
+			//@ts-ignore
+			newBuilder.config.groupBy = newBuilder.config.select.filter(
+				col => col !== `SUM(${String(column)}) AS ${String(column)}_sum`
+			);
 		} else {
 			newBuilder.config.select = [`SUM(${String(column)}) AS ${String(column)}_sum`];
 		}
+
 		return newBuilder;
 	}
 
@@ -128,7 +139,8 @@ export class QueryBuilder<T> {
 			parts.push(`WHERE ${this.config.where.join(' AND ')}`);
 		}
 
-		if (this.config.groupBy) {
+		//@ts-ignore
+		if (this.config.groupBy?.length) {
 			parts.push(`GROUP BY ${this.formatGroupBy()}`);
 		}
 
@@ -138,6 +150,7 @@ export class QueryBuilder<T> {
 
 		return parts.join(' ');
 	}
+
 
 	private formatSelect(): string {
 		if (!this.config.select?.length) return '*';
