@@ -19,11 +19,22 @@ export type SelectExpression<T> = keyof T | number | { [alias: string]: string }
 export type WhereExpression = string;
 export type GroupByExpression<T> = keyof T | Array<keyof T>;
 
+export type ColumnToTS<T> = T extends 'String' ? string :
+    T extends 'Date' ? Date :
+    T extends 'Float64' | 'Int32' | 'Int64' ? number :
+    never;
+
+export type OrderDirection = 'ASC' | 'DESC';
+
 export interface QueryConfig<T> {
-    select?: Array<SelectExpression<T>>;
-    where?: WhereExpression[];
-    groupBy?: GroupByExpression<T>;
+    select?: Array<keyof T | string>;
+    where?: string[];
+    groupBy?: string[];
     limit?: number;
+    orderBy?: Array<{
+        column: keyof T;
+        direction: OrderDirection;
+    }>;
 }
 
 export type InferColumnType<T extends ColumnType> =
@@ -42,11 +53,12 @@ export type SelectedRecord<T, K extends keyof T> = {
     [P in K]: T[P] extends ColumnType ? InferColumnType<T[P]> : never;
 };
 
-export type TransformedValue<T> = T extends 'String' ? string :
-    T extends 'Date' ? Date :
-    T extends 'Float64' ? number :
-    T extends 'Int32' | 'Int64' ? number : never;
+export type TransformedColumns<T, K extends keyof T> = {
+    [P in K]: T[P] extends 'String' ? string :
+    T[P] extends 'Date' ? Date :
+    T[P] extends 'Float64' | 'Int32' | 'Int64' ? number : never;
+};
 
-export type SelectedColumns<T, K extends keyof T> = {
-    [P in K]: TransformedValue<T[P]>;
+export type AggregateColumn<T, A extends keyof T, Type extends string> = {
+    [P in `${string & A}_${Type}`]: string;
 };
