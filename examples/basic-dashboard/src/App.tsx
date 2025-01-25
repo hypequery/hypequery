@@ -10,6 +10,9 @@ const db = createQueryBuilder<IntrospectedSchema>({
 	database: import.meta.env.VITE_CLICKHOUSE_DATABASE,
 });
 
+const PAGE_SIZE = 10;
+const [page, setPage] = useState(0);
+
 function App() {
 	const [records, setRecords] = useState([]);
 	const [loading, setLoading] = useState(true);
@@ -18,12 +21,32 @@ function App() {
 	useEffect(() => {
 		const fetchData = async () => {
 			try {
-				const results = await db
+
+				// Add this at the top of your file to see expanded types
+				type Debug<T> = { [P in keyof T]: T[P] }
+
+				// Then in your code:
+				const query = db.table('uk_price_paid');
+				type TableType = Debug<typeof query>; // Check initial type
+
+				const withSelect = query.select(['county', 'date']);
+				type AfterSelect = Debug<typeof withSelect>; // Check type after select
+
+				const withSum = withSelect.sum('price');
+				type AfterSum = Debug<typeof withSum>; // Check type after sum
+
+				const resultstest = await withSum.execute();
+				type FinalType = Debug<typeof resultstest>;
+
+
+				const results1 = await db
 					.table('uk_price_paid')
-					.select(['price', 'type', 'county',])
-					.where('price > 1000000')
-					.limit(10)
-					.execute();
+					.select(['county', 'date'])
+					.sum('price')
+					.execute()
+
+
+				const testSum = await db.table('uk_price_paid').sum('price').execute();
 
 				setRecords(results);
 			} catch (err) {
@@ -35,7 +58,7 @@ function App() {
 		};
 
 		fetchData();
-	}, []);
+	}, [page]);
 
 	if (loading) return <div>Loading...</div>;
 	if (error) return <div>Error: {error}</div>;

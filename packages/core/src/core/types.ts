@@ -41,3 +41,12 @@ export type TableRecord<T> = {
 export type SelectedRecord<T, K extends keyof T> = {
     [P in K]: T[P] extends ColumnType ? InferColumnType<T[P]> : never;
 };
+
+export type TransformedValue<T> = T extends 'String' ? string :
+    T extends 'Date' ? Date :
+    T extends 'Float64' ? number :
+    T extends 'Int32' | 'Int64' ? number : never;
+
+export type SelectedColumns<T, K extends keyof T> = {
+    [P in K]: TransformedValue<T[P]>;
+};
