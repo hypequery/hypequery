@@ -10,8 +10,6 @@ const db = createQueryBuilder<IntrospectedSchema>({
 	database: import.meta.env.VITE_CLICKHOUSE_DATABASE,
 });
 
-const PAGE_SIZE = 10;
-const [page, setPage] = useState(0);
 
 function App() {
 	const [records, setRecords] = useState([]);
@@ -38,17 +36,17 @@ function App() {
 				const resultstest = await withSum.execute();
 				type FinalType = Debug<typeof resultstest>;
 
-
 				const results1 = await db
 					.table('uk_price_paid')
 					.select(['county', 'date'])
 					.sum('price')
 					.execute()
 
-
 				const testSum = await db.table('uk_price_paid').sum('price').execute();
-
+				console.log({ testSum, results1 });
 				setRecords(results);
+
+
 			} catch (err) {
 				console.error('Error fetching data:', err);
 				setError(err instanceof Error ? err.message : 'An error occurred');
@@ -58,7 +56,7 @@ function App() {
 		};
 
 		fetchData();
-	}, [page]);
+	}, []);
 
 	if (loading) return <div>Loading...</div>;
 	if (error) return <div>Error: {error}</div>;
