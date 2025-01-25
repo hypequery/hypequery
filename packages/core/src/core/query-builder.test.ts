@@ -13,23 +13,32 @@ jest.mock('./connection', () => ({
     }
 }));
 
+type TestSchema = {
+    id: 'Int32',
+    name: 'String',
+    price: 'Float64',
+    created_at: 'Date',
+    category: 'String'
+};
+
+const schema = {
+    name: 'test_table',
+    columns: {
+        id: 'Int32',
+        name: 'String',
+        price: 'Float64',
+        created_at: 'Date',
+        category: 'String'
+    } satisfies TestSchema
+};
+
+let builder: QueryBuilder<TestSchema>;
+
+beforeEach(() => {
+    builder = new QueryBuilder('test_table', schema);
+});
+
 describe('QueryBuilder', () => {
-    const schema = {
-        name: 'test_table',
-        columns: {
-            id: 'Int32',
-            name: 'String',
-            price: 'Float64',
-            created_at: 'Date'
-        }
-    };
-
-    let builder: QueryBuilder<typeof schema.columns>;
-
-    beforeEach(() => {
-        builder = new QueryBuilder('test_table', schema);
-    });
-
     describe('select', () => {
         it('should build SELECT query with specific columns', () => {
             const sql = builder
@@ -85,20 +94,84 @@ describe('QueryBuilder', () => {
         });
     });
 
-    describe('where', () => {
-        it('should add WHERE clause', () => {
-            const sql = builder
-                .where('price > 100')
-                .toSQL();
-            expect(sql).toBe('SELECT * FROM test_table WHERE price > 100');
+    describe('where conditions', () => {
+        describe('where (AND)', () => {
+            it('should add single WHERE condition', () => {
+                const sql = builder
+                    .where('price > 100')
+                    .toSQL();
+                expect(sql).toBe('SELECT * FROM test_table WHERE price > 100');
+            });
+
+            it('should combine multiple WHERE conditions with AND', () => {
+                const sql = builder
+                    .where('price > 100')
+                    .where('name = "test"')
+                    .toSQL();
+                expect(sql).toBe('SELECT * FROM test_table WHERE price > 100 AND name = "test"');
+            });
         });
 
-        it('should combine multiple WHERE conditions with AND', () => {
-            const sql = builder
-                .where('price > 100')
-                .where('name LIKE "%test%"')
-                .toSQL();
-            expect(sql).toBe('SELECT * FROM test_table WHERE price > 100 AND name LIKE "%test%"');
+        describe('orWhere', () => {
+            it('should add single OR condition', () => {
+                const sql = builder
+                    .orWhere('price > 100')
+                    .toSQL();
+                expect(sql).toBe('SELECT * FROM test_table WHERE price > 100');
+            });
+
+            it('should combine multiple OR conditions', () => {
+                const sql = builder
+                    .orWhere('price > 100')
+                    .orWhere('price < 50')
+                    .toSQL();
+                expect(sql).toBe('SELECT * FROM test_table WHERE price > 100 OR price < 50');
+            });
+        });
+
+        describe('where and orWhere combinations', () => {
+            it('should combine WHERE and OR WHERE', () => {
+                const sql = builder
+                    .where('price > 100')
+                    .orWhere('name = "test"')
+                    .toSQL();
+                expect(sql).toBe('SELECT * FROM test_table WHERE price > 100 OR name = "test"');
+            });
+
+            it('should handle complex combinations', () => {
+                const sql = builder
+                    .where('price > 100')
+                    .where('category = "A"')
+                    .orWhere('name = "test"')
+                    .where('status = "active"')
+                    .orWhere('rating > 4')
+                    .toSQL();
+                expect(sql).toBe('SELECT * FROM test_table WHERE price > 100 AND category = "A" OR name = "test" AND status = "active" OR rating > 4');
+            });
+
+            it('should work with other clauses', () => {
+                const sql = builder
+                    .select(['name', 'price', 'category'])
+                    .where('price > 100')
+                    .orWhere('name = "test"')
+                    .groupBy('category')
+                    .having('COUNT(*) > 1')
+                    .orderBy('price', 'DESC')
+                    .limit(10)
+                    .toSQL();
+                expect(sql).toBe('SELECT name, price, category FROM test_table WHERE price > 100 OR name = "test" GROUP BY category HAVING COUNT(*) > 1 ORDER BY price DESC LIMIT 10');
+            });
+        });
+
+        describe('whereIn with where combinations', () => {
+            it('should combine whereIn with where', () => {
+                const sql = builder
+                    .where('price > 100')
+                    .whereIn('name', ['test1', 'test2'])
+                    .orWhere('status = "active"')
+                    .toSQL();
+                expect(sql).toBe('SELECT * FROM test_table WHERE price > 100 AND name IN (\'test1\', \'test2\') OR status = "active"');
+            });
         });
     });
 
@@ -249,6 +322,54 @@ describe('QueryBuilder', () => {
                 .sum('price')
                 .toSQL();
             expect(sql).toBe('SELECT DISTINCT name, SUM(price) AS price_sum FROM test_table GROUP BY name');
+        });
+    });
+
+    describe('offset', () => {
+        it('should add OFFSET to LIMIT clause', () => {
+            const sql = builder
+                .select(['name', 'price'])
+                .limit(10)
+                .offset(20)
+                .toSQL();
+            expect(sql).toBe('SELECT name, price FROM test_table LIMIT 10 OFFSET 20');
+        });
+
+        it('should work with other clauses', () => {
+            const sql = builder
+                .select(['name'])
+                .where('price > 100')
+                .orderBy('name', 'ASC')
+                .limit(10)
+                .offset(5)
+                .toSQL();
+            expect(sql).toBe('SELECT name FROM test_table WHERE price > 100 ORDER BY name ASC LIMIT 10 OFFSET 5');
+        });
+    });
+
+    describe('whereIn', () => {
+        it('should add WHERE IN clause for strings', () => {
+            const sql = builder
+                .whereIn('name', ['test1', 'test2', 'test3'])
+                .toSQL();
+            expect(sql).toBe("SELECT * FROM test_table WHERE name IN ('test1', 'test2', 'test3')");
+        });
+
+        it('should add WHERE IN clause for numbers', () => {
+            const sql = builder
+                .whereIn('price', [100, 200, 300])
+                .toSQL();
+            expect(sql).toBe('SELECT * FROM test_table WHERE price IN (100, 200, 300)');
+        });
+
+        it('should work with other clauses', () => {
+            const sql = builder
+                .select(['name', 'price'])
+                .where('price > 100')
+                .whereIn('name', ['test1', 'test2'])
+                .orderBy('price', 'DESC')
+                .toSQL();
+            expect(sql).toBe("SELECT name, price FROM test_table WHERE price > 100 AND name IN ('test1', 'test2') ORDER BY price DESC");
         });
     });
 }); 

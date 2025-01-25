@@ -7,12 +7,20 @@ type ColumnToTS<T> = T extends 'String' ? string :
 
 export type OrderDirection = 'ASC' | 'DESC';
 
+type WhereType = 'AND' | 'OR';
+
+interface WhereCondition {
+	type: WhereType;
+	condition: string;
+}
+
 export interface QueryConfig<T> {
 	select?: Array<keyof T | string>;
-	where?: string[];
+	where?: WhereCondition[];
 	groupBy?: string[];
 	having?: string[];
 	limit?: number;
+	offset?: number;
 	distinct?: boolean;
 	orderBy?: Array<{
 		column: keyof T;
@@ -132,7 +140,13 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 
 	where(condition: string): this {
 		this.config.where = this.config.where || [];
-		this.config.where.push(condition);
+		this.config.where.push({ type: 'AND', condition });
+		return this;
+	}
+
+	orWhere(condition: string): this {
+		this.config.where = this.config.where || [];
+		this.config.where.push({ type: 'OR', condition });
 		return this;
 	}
 
@@ -145,6 +159,11 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 
 	limit(count: number): this {
 		this.config.limit = count;
+		return this;
+	}
+
+	offset(count: number): this {
+		this.config.offset = count;
 		return this;
 	}
 
@@ -165,12 +184,17 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		return this;
 	}
 
+	whereIn(column: keyof typeof this.originalSchema.columns, values: any[]): this {
+		const formattedValues = values.map(v => typeof v === 'string' ? `'${v}'` : v).join(', ');
+		return this.where(`${String(column)} IN (${formattedValues})`);
+	}
+
 	toSQL(): string {
 		const parts: string[] = [`SELECT ${this.formatSelect()}`];
 		parts.push(`FROM ${this.tableName}`);
 
 		if (this.config.where?.length) {
-			parts.push(`WHERE ${this.config.where.join(' AND ')}`);
+			parts.push(`WHERE ${this.formatWhere()}`);
 		}
 
 		if (this.config.groupBy?.length) {
@@ -189,7 +213,8 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		}
 
 		if (this.config.limit) {
-			parts.push(`LIMIT ${this.config.limit}`);
+			const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset}` : '';
+			parts.push(`LIMIT ${this.config.limit}${offsetClause}`);
 		}
 
 		return parts.join(' ');
@@ -207,6 +232,17 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 			return groupBy.join(', ');
 		}
 		return String(groupBy);
+	}
+
+	private formatWhere(): string {
+		if (!this.config.where?.length) return '';
+
+		return this.config.where
+			.map((where, index) => {
+				if (index === 0) return where.condition;
+				return `${where.type} ${where.condition}`;
+			})
+			.join(' ');
 	}
 
 }
