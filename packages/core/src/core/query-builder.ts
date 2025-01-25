@@ -21,15 +21,21 @@ type QueryResult<T, K extends keyof T, A extends keyof T> = Selected<T, K> & Agg
 // Type that adds aggregations to selected columns
 type WithAggregations<T, K extends keyof T, A extends keyof T> = Selected<T, K> & Aggregated<string & A>;
 
+export type OrderDirection = 'ASC' | 'DESC';
+
 export interface QueryConfig<T> {
 	select?: Array<keyof T | string>;
 	where?: string[];
 	groupBy?: keyof T | Array<keyof T>;
 	limit?: number;
+	orderBy?: Array<{
+		column: keyof T;
+		direction: OrderDirection;
+	}>;
 }
 
 // Simplified QueryBuilder that only needs to know about the result type
-export class QueryBuilder<T, HasSelect extends boolean = false> {
+export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {}> {
 	private config: QueryConfig<T> = {};
 	private tableName: string;
 	private schema: { name: string; columns: T };
@@ -74,7 +80,9 @@ export class QueryBuilder<T, HasSelect extends boolean = false> {
 	): QueryBuilder<
 		HasSelect extends false
 		? Record<`${string & A}_sum`, string>
-		: { [P in keyof T | `${string & A}_sum`]: P extends keyof T ? T[P] : string }
+		: { [P in keyof T | `${string & A}_sum`]: P extends keyof T ? T[P] : string },
+		HasSelect,
+		Aggregations & Record<`${string & A}_sum`, string>
 	> {
 		// Create new schema with only the sum column if no columns are selected
 		const newSchema = {
@@ -93,9 +101,122 @@ export class QueryBuilder<T, HasSelect extends boolean = false> {
 				...this.config.select,
 				`SUM(${String(column)}) AS ${String(column)}_sum`
 			];
-			newBuilder.config.groupBy = this.config.select;
+			newBuilder.config.groupBy = this.config.select.filter(col => !col.includes(' AS '));
 		} else {
 			newBuilder.config.select = [`SUM(${String(column)}) AS ${String(column)}_sum`];
+		}
+
+		return newBuilder;
+	}
+
+	count<A extends keyof typeof this.originalSchema.columns>(
+		column: A
+	): QueryBuilder<
+		HasSelect extends false
+		? Record<`${string & A}_count`, string>
+		: { [P in keyof T | `${string & A}_count`]: P extends keyof T ? T[P] : string },
+		HasSelect,
+		Aggregations & Record<`${string & A}_count`, string>
+	> {
+		const newBuilder = new QueryBuilder(
+			this.tableName,
+			this.schema,
+			this.originalSchema
+		);
+
+		if (this.config.select) {
+			newBuilder.config.select = [
+				...this.config.select,
+				`COUNT(${String(column)}) AS ${String(column)}_count`
+			];
+			// Only use original selected columns for GROUP BY
+			newBuilder.config.groupBy = this.config.select.filter(col => !col.includes(' AS '));
+		} else {
+			newBuilder.config.select = [`COUNT(${String(column)}) AS ${String(column)}_count`];
+		}
+
+		return newBuilder;
+	}
+
+	avg<A extends keyof typeof this.originalSchema.columns>(
+		column: A
+	): QueryBuilder<
+		HasSelect extends false
+		? Record<`${string & A}_avg`, string>
+		: { [P in keyof T | `${string & A}_avg`]: P extends keyof T ? T[P] : string },
+		HasSelect,
+		Aggregations & Record<`${string & A}_avg`, string>
+	> {
+		const newBuilder = new QueryBuilder(
+			this.tableName,
+			this.schema,
+			this.originalSchema
+		);
+
+		if (this.config.select) {
+			newBuilder.config.select = [
+				...this.config.select,
+				`AVG(${String(column)}) AS ${String(column)}_avg`
+			];
+			newBuilder.config.groupBy = this.config.select.filter(col => !col.includes(' AS '));
+		} else {
+			newBuilder.config.select = [`AVG(${String(column)}) AS ${String(column)}_avg`];
+		}
+
+		return newBuilder;
+	}
+
+	min<A extends keyof typeof this.originalSchema.columns>(
+		column: A
+	): QueryBuilder<
+		HasSelect extends false
+		? Record<`${string & A}_min`, string>
+		: { [P in keyof T | `${string & A}_min`]: P extends keyof T ? T[P] : string },
+		HasSelect,
+		Aggregations & Record<`${string & A}_min`, string>
+	> {
+		const newBuilder = new QueryBuilder(
+			this.tableName,
+			this.schema,
+			this.originalSchema
+		);
+
+		if (this.config.select) {
+			newBuilder.config.select = [
+				...this.config.select,
+				`MIN(${String(column)}) AS ${String(column)}_min`
+			];
+			newBuilder.config.groupBy = this.config.select.filter(col => !col.includes(' AS '));
+		} else {
+			newBuilder.config.select = [`MIN(${String(column)}) AS ${String(column)}_min`];
+		}
+
+		return newBuilder;
+	}
+
+	max<A extends keyof typeof this.originalSchema.columns>(
+		column: A
+	): QueryBuilder<
+		HasSelect extends false
+		? Record<`${string & A}_max`, string>
+		: { [P in keyof T | `${string & A}_max`]: P extends keyof T ? T[P] : string },
+		HasSelect,
+		Aggregations & Record<`${string & A}_max`, string>
+	> {
+		const newBuilder = new QueryBuilder(
+			this.tableName,
+			this.schema,
+			this.originalSchema
+		);
+
+		if (this.config.select) {
+			newBuilder.config.select = [
+				...this.config.select,
+				`MAX(${String(column)}) AS ${String(column)}_max`
+			];
+			newBuilder.config.groupBy = this.config.select.filter(col => !col.includes(' AS '));
+		} else {
+			newBuilder.config.select = [`MAX(${String(column)}) AS ${String(column)}_max`];
 		}
 
 		return newBuilder;
@@ -127,6 +248,12 @@ export class QueryBuilder<T, HasSelect extends boolean = false> {
 		return this;
 	}
 
+	orderBy(column: keyof T, direction: OrderDirection = 'ASC'): this {
+		this.config.orderBy = this.config.orderBy || [];
+		this.config.orderBy.push({ column, direction });
+		return this;
+	}
+
 	toSQL(): string {
 		const parts: string[] = [`SELECT ${this.formatSelect()}`];
 		parts.push(`FROM ${this.tableName}`);
@@ -144,9 +271,15 @@ export class QueryBuilder<T, HasSelect extends boolean = false> {
 			parts.push(`LIMIT ${this.config.limit}`);
 		}
 
+		if (this.config.orderBy?.length) {
+			const orderBy = this.config.orderBy
+				.map(({ column, direction }) => `${String(column)} ${direction}`)
+				.join(', ');
+			parts.push(`ORDER BY ${orderBy}`);
+		}
+
 		return parts.join(' ');
 	}
-
 
 	private formatSelect(): string {
 		if (!this.config.select?.length) return '*';

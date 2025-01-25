@@ -20,37 +20,19 @@ function App() {
 		const fetchData = async () => {
 			try {
 
-				// Add this at the top of your file to see expanded types
-				type Debug<T> = { [P in keyof T]: T[P] }
-
-				// Then in your code:
-				/*
-				const query = db.table('uk_price_paid');
-				type TableType = Debug<typeof query>; // Check initial type
-
-				const withSelect = query.select(['county', 'date']);
-				type AfterSelect = Debug<typeof withSelect>; // Check type after select
-
-				const withSum = withSelect.sum('price');
-				type AfterSum = Debug<typeof withSum>; // Check type after sum
-
-				const resultstest = await withSum.execute();
-				type FinalType = Debug<typeof resultstest>;
-*/
-
 				const results = await db
 					.table('uk_price_paid')
 					.select(['county'])
+					.count('price')
 					.sum('price')
+					.avg('price')
+					.min('price')
+					.max('price')
+					.orderBy('price_count', 'DESC')
 					.execute()
 
-				// console.log(results.toSQL())
-
-				const testSum = await db.table('uk_price_paid').sum('price').execute();
+				const testSum = await db.table('uk_price_paid').sum('price').count('price').execute();
 				console.log({ testSum, results });
-				setRecords(results);
-
-
 			} catch (err) {
 				console.error('Error fetching data:', err);
 				setError(err instanceof Error ? err.message : 'An error occurred');
