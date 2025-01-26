@@ -1,4 +1,5 @@
 import { ClickHouseConnection } from './connection';
+import { FilterOperator } from './types';
 
 type ColumnToTS<T> = T extends 'String' ? string :
 	T extends 'Date' ? Date :
@@ -10,8 +11,10 @@ export type OrderDirection = 'ASC' | 'DESC';
 type WhereType = 'AND' | 'OR';
 
 interface WhereCondition {
-	type: WhereType;
-	condition: string;
+	column: string;
+	operator: FilterOperator;
+	value: any;
+	conjunction: 'AND' | 'OR';
 }
 
 export interface QueryConfig<T> {
@@ -138,15 +141,33 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		return result.json<T[]>();
 	}
 
-	where(condition: string): this {
+	where<K extends keyof typeof this.originalSchema.columns>(
+		column: K,
+		operator: FilterOperator,
+		value: any
+	): this {
 		this.config.where = this.config.where || [];
-		this.config.where.push({ type: 'AND', condition });
+		this.config.where.push({
+			column: String(column),
+			operator,
+			value,
+			conjunction: 'AND'
+		});
 		return this;
 	}
 
-	orWhere(condition: string): this {
+	orWhere<K extends keyof typeof this.originalSchema.columns>(
+		column: K,
+		operator: FilterOperator,
+		value: any
+	): this {
 		this.config.where = this.config.where || [];
-		this.config.where.push({ type: 'OR', condition });
+		this.config.where.push({
+			column: String(column),
+			operator,
+			value,
+			conjunction: 'OR'
+		});
 		return this;
 	}
 
@@ -184,26 +205,14 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		return this;
 	}
 
-	whereIn(column: keyof typeof this.originalSchema.columns, values: any[]): this {
-		const formattedValues = values.map(v => typeof v === 'string' ? `'${v}'` : v).join(', ');
-		return this.where(`${String(column)} IN (${formattedValues})`);
-	}
-
 	whereBetween(
 		column: keyof typeof this.originalSchema.columns,
-		range: [number | string | Date, number | string | Date]  // Explicitly type the tuple
+		[min, max]: [number | string | Date, number | string | Date]
 	): this {
-		const [min, max] = range;
-
 		if (min === null || max === null) {
 			throw new Error('BETWEEN values cannot be null');
 		}
-		const formatValue = (v: number | string | Date) =>
-			typeof v === 'string' ? `'${v}'` :
-				v instanceof Date ? v.toISOString().split('T')[0] :
-					v;
-
-		return this.where(`${String(column)} BETWEEN ${formatValue(min)} AND ${formatValue(max)}`);
+		return this.where(column, 'between', [min, max]);
 	}
 
 	toSQL(): string {
@@ -255,11 +264,44 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		if (!this.config.where?.length) return '';
 
 		return this.config.where
-			.map((where, index) => {
-				if (index === 0) return where.condition;
-				return `${where.type} ${where.condition}`;
+			.map((condition, index) => {
+				const { column, operator, value, conjunction } = condition;
+				const prefix = index === 0 ? '' : ` ${conjunction}`;
+
+				switch (operator) {
+					case 'eq':
+						return `${prefix} ${column} = ${this.formatValue(value)}`.trim();
+					case 'neq':
+						return `${prefix} ${column} != ${this.formatValue(value)}`.trim();
+					case 'gt':
+						return `${prefix} ${column} > ${this.formatValue(value)}`.trim();
+					case 'gte':
+						return `${prefix} ${column} >= ${this.formatValue(value)}`.trim();
+					case 'lt':
+						return `${prefix} ${column} < ${this.formatValue(value)}`.trim();
+					case 'lte':
+						return `${prefix} ${column} <= ${this.formatValue(value)}`.trim();
+					case 'like':
+						return `${prefix} ${column} LIKE ${this.formatValue(value)}`.trim();
+					case 'in':
+						return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+					case 'notIn':
+						return `${prefix} ${column} NOT IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+					case 'between':
+						const [min, max] = value as [any, any];
+						return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max)}`.trim();
+					default:
+						throw new Error(`Unsupported operator: ${operator}`);
+				}
 			})
 			.join(' ');
+	}
+
+	private formatValue(value: any): string {
+		if (value === null) return 'NULL';
+		if (typeof value === 'string') return `'${value}'`;
+		if (value instanceof Date) return value.toISOString().split('T')[0];
+		return String(value);
 	}
 
 }

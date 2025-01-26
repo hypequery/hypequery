@@ -62,3 +62,22 @@ export type TransformedColumns<T, K extends keyof T> = {
 export type AggregateColumn<T, A extends keyof T, Type extends string> = {
     [P in `${string & A}_${Type}`]: string;
 };
+
+export type FilterOperator =
+    | 'eq'    // equals
+    | 'neq'   // not equals
+    | 'gt'    // greater than
+    | 'gte'   // greater than or equal
+    | 'lt'    // less than
+    | 'lte'   // less than or equal
+    | 'like'  // LIKE
+    | 'in'    // IN array
+    | 'notIn' // NOT IN array
+    | 'between';
+
+export interface WhereCondition {
+    column: string;
+    operator: FilterOperator;
+    value: any;
+    conjunction: 'AND' | 'OR';
+}
