@@ -81,10 +81,10 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		suffix: S
 	): QueryBuilder<
 		HasSelect extends false
-		? Aggregations & Record<`${string & A}_${S}`, string>
+		? { [K in `${A & string}_${S}` | keyof Aggregations]: string }
 		: { [P in keyof T | `${string & A}_${S}`]: P extends keyof T ? T[P] : string },
 		HasSelect,
-		Aggregations & Record<`${string & A}_${S}`, string>
+		{ [K in `${A & string}_${S}` | keyof Aggregations]: string }  // Merge into single type
 	> {
 		const newBuilder = new QueryBuilder(
 			this.tableName,

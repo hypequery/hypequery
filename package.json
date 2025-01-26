@@ -15,8 +15,9 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",
-    "typescript": "^4.9.0",
+    "@type-challenges/utils": "^0.1.1",
     "eslint": "^8.0.0",
-    "turbo": "^1.10.0"
+    "turbo": "^1.10.0",
+    "typescript": "^4.9.0"
   }
 }
