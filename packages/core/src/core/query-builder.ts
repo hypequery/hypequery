@@ -1,5 +1,5 @@
 import { ClickHouseConnection } from './connection';
-import { FilterOperator } from './types';
+import { FilterOperator, JoinType, JoinClause, ColumnType } from './types';
 
 type ColumnToTS<T> = T extends 'String' ? string :
 	T extends 'Date' ? Date :
@@ -29,10 +29,16 @@ export interface QueryConfig<T> {
 		column: keyof T;
 		direction: OrderDirection;
 	}>;
+	joins?: JoinClause[];
 }
 
 // Simplified QueryBuilder that only needs to know about the result type
-export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {}> {
+export class QueryBuilder<
+	T,
+	HasSelect extends boolean = false,
+	Aggregations = {},
+	J = T
+> {
 	private config: QueryConfig<T> = {};
 	private tableName: string;
 	private schema: { name: string; columns: T };
@@ -215,9 +221,51 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 		return this.where(column, 'between', [min, max]);
 	}
 
+	private addJoin<K extends keyof typeof this.originalSchema.columns,
+		NewT extends Record<string, ColumnType>>(
+			type: JoinType,
+			table: string,
+			leftColumn: K,
+			rightColumn: string,
+			alias?: string
+		): QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT> {
+		this.config.joins = this.config.joins || [];
+		this.config.joins.push({
+			type,
+			table,
+			leftColumn: String(leftColumn),
+			rightColumn,
+			alias
+		});
+
+		return this as QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT>;
+	}
+
+	innerJoin<NewT extends Record<string, ColumnType>>(
+		table: string,
+		leftColumn: keyof typeof this.originalSchema.columns,
+		rightColumn: string,
+		alias?: string
+	): QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT> {
+		return this.addJoin('INNER', table, leftColumn, rightColumn, alias);
+	}
+
+	leftJoin<NewT extends Record<string, ColumnType>>(
+		table: string,
+		leftColumn: keyof typeof this.originalSchema.columns,
+		rightColumn: string,
+		alias?: string
+	): QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT> {
+		return this.addJoin('LEFT', table, leftColumn, rightColumn, alias);
+	}
+
 	toSQL(): string {
 		const parts: string[] = [`SELECT ${this.formatSelect()}`];
 		parts.push(`FROM ${this.tableName}`);
+
+		if (this.config.joins?.length) {
+			parts.push(this.formatJoins());
+		}
 
 		if (this.config.where?.length) {
 			parts.push(`WHERE ${this.formatWhere()}`);
@@ -295,6 +343,15 @@ export class QueryBuilder<T, HasSelect extends boolean = false, Aggregations = {
 				}
 			})
 			.join(' ');
+	}
+
+	private formatJoins(): string {
+		return this.config.joins!.map(join => {
+			const tableClause = join.alias
+				? `${join.table} AS ${join.alias}`
+				: join.table;
+			return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
+		}).join(' ');
 	}
 
 	private formatValue(value: any): string {

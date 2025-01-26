@@ -26,9 +26,20 @@ export type ColumnToTS<T> = T extends 'String' ? string :
 
 export type OrderDirection = 'ASC' | 'DESC';
 
+export type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
+
+export interface JoinClause {
+    type: JoinType;
+    table: string;
+    leftColumn: string;
+    rightColumn: string;
+    alias?: string;
+}
+
 export interface QueryConfig<T> {
     select?: Array<keyof T | string>;
-    where?: string[];
+    where?: WhereCondition[];
+    joins?: JoinClause[];
     groupBy?: string[];
     limit?: number;
     orderBy?: Array<{
