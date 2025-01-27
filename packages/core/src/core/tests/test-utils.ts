@@ -23,7 +23,6 @@ export const TEST_SCHEMAS = {
   test_table: {
     name: 'test_table',
     columns: {
-
       id: 'Int32',
       name: 'String',
       price: 'Float64',

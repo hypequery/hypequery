@@ -2,386 +2,507 @@ import { ClickHouseConnection } from './connection';
 import { FilterOperator, JoinType, JoinClause, ColumnType } from './types';
 
 type ColumnToTS<T> = T extends 'String' ? string :
-	T extends 'Date' ? Date :
-	T extends 'Float64' | 'Int32' | 'Int64' ? number :
-	never;
+  T extends 'Date' ? Date :
+  T extends 'Float64' | 'Int32' | 'Int64' ? number :
+  never;
 
 export type OrderDirection = 'ASC' | 'DESC';
 
-type WhereType = 'AND' | 'OR';
 
 interface WhereCondition {
-	column: string;
-	operator: FilterOperator;
-	value: any;
-	conjunction: 'AND' | 'OR';
+  column: string;
+  operator: FilterOperator;
+  value: any;
+  conjunction: 'AND' | 'OR';
 }
 
 export interface QueryConfig<T> {
-	select?: Array<keyof T | string>;
-	where?: WhereCondition[];
-	groupBy?: string[];
-	having?: string[];
-	limit?: number;
-	offset?: number;
-	distinct?: boolean;
-	orderBy?: Array<{
-		column: keyof T;
-		direction: OrderDirection;
-	}>;
-	joins?: JoinClause[];
+  select?: Array<keyof T | string>;
+  where?: WhereCondition[];
+  groupBy?: string[];
+  having?: string[];
+  limit?: number;
+  offset?: number;
+  distinct?: boolean;
+  orderBy?: Array<{
+    column: keyof T;
+    direction: OrderDirection;
+  }>;
+  joins?: JoinClause[];
 }
 
-// Simplified QueryBuilder that only needs to know about the result type
+/**
+ * A type-safe query builder for ClickHouse databases.
+ * @template Schema - The full database schema
+ * @template T - The schema type of the current table
+ * @template HasSelect - Whether a SELECT clause has been applied
+ * @template Aggregations - The type of any aggregation functions applied
+ */
 export class QueryBuilder<
-	T,
-	HasSelect extends boolean = false,
-	Aggregations = {},
-	J = T
+  Schema extends { [tableName: string]: { [columnName: string]: any } },
+  T,
+  HasSelect extends boolean = false,
+  Aggregations = {},
 > {
-	private config: QueryConfig<T> = {};
-	private tableName: string;
-	private schema: { name: string; columns: T };
-	private originalSchema: { name: string; columns: any };
+  private config: QueryConfig<T> = {};
+  private tableName: string;
+  private schema: { name: string; columns: T };
+  private originalSchema: Schema;
 
-	constructor(
-		tableName: string,
-		schema: { name: string; columns: T },
-		originalSchema?: { name: string; columns: any }
-	) {
-		this.tableName = tableName;
-		this.schema = schema;
-		this.originalSchema = originalSchema || schema;
-	}
+  constructor(
+    tableName: string,
+    schema: { name: string; columns: T },
+    originalSchema: Schema
+  ) {
+    this.tableName = tableName;
+    this.schema = schema;
+    this.originalSchema = originalSchema
+  }
 
-	debug() {
-		console.log('Current Type:', {
-			schema: this.schema,
-			originalSchema: this.originalSchema,
-			config: this.config
-		});
-		return this;
-	}
+  debug() {
+    console.log('Current Type:', {
+      schema: this.schema,
+      originalSchema: this.originalSchema,
+      config: this.config
+    });
+    return this;
+  }
 
+  /**
+   * Selects specific columns from the table.
+   * @template K - The keys/columns to select
+   * @param {K[]} columns - Array of column names to select
+   * @returns {QueryBuilder} A new QueryBuilder instance with updated types
+   * @example
+   * ```ts
+   * builder.select(['id', 'name'])
+   * ```
+   */
+  select<K extends keyof T>(columns: K[]): QueryBuilder<Schema, {
+    [P in K]: T[P] extends "String" ? string :
+    T[P] extends "Date" ? Date :
+    T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
+  }, true, {}> {
+    type NewT = {
+      [P in K]: T[P] extends "String" ? string :
+      T[P] extends "Date" ? Date :
+      T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
+    };
 
-	select<K extends keyof T>(columns: K[]): QueryBuilder<{
-		[P in K]: T[P] extends "String" ? string :
-		T[P] extends "Date" ? Date :
-		T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
-	}, true, {}> {
-		type NewT = {
-			[P in K]: T[P] extends "String" ? string :
-			T[P] extends "Date" ? Date :
-			T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
-		};
+    const newBuilder = new QueryBuilder<Schema, NewT, true>(
+      this.tableName,
+      { name: this.schema.name, columns: {} as NewT },
+      this.originalSchema
+    );
+    newBuilder.config = { ...this.config, select: columns as string[] } as QueryConfig<NewT>;
+    return newBuilder;
+  }
 
-		const newBuilder = new QueryBuilder<NewT, true>(
-			this.tableName,
-			{ name: this.schema.name, columns: {} as NewT },
-			this.originalSchema
-		);
-		newBuilder.config = { ...this.config, select: columns as string[] } as QueryConfig<NewT>;
-		return newBuilder;
-	}
+  /**
+ * Creates an aggregation (COUNT, SUM, AVG etc) on a column
+ * @param column The column to aggregate
+ * @param fn The aggregation function (e.g., 'COUNT', 'SUM')
+ * @param suffix The suffix to append to the column name (e.g., 'count', 'sum')
+ */
+  private createAggregation<Column extends keyof typeof this.originalSchema.columns, Suffix extends string>(
+    column: Column,
+    fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
+    suffix: Suffix
+  ): QueryBuilder<
+    Schema,  // Keep original Schema
+    HasSelect extends false
+    ? { [K in `${Column & string}_${Suffix}` | keyof Aggregations]: string }
+    : { [P in keyof T | `${string & Column}_${Suffix}`]: P extends keyof T ? T[P] : string },
+    HasSelect,
+    { [K in `${Column & string}_${Suffix}` | keyof Aggregations]: string }
+  > {
+    const newBuilder = new QueryBuilder(
+      this.tableName,
+      this.schema,
+      this.originalSchema
+    ) as any;
 
-	private createAggregation<A extends keyof typeof this.originalSchema.columns, S extends string>(
-		column: A,
-		fn: string,
-		suffix: S
-	): QueryBuilder<
-		HasSelect extends false
-		? { [K in `${A & string}_${S}` | keyof Aggregations]: string }
-		: { [P in keyof T | `${string & A}_${S}`]: P extends keyof T ? T[P] : string },
-		HasSelect,
-		{ [K in `${A & string}_${S}` | keyof Aggregations]: string }  // Merge into single type
-	> {
-		const newBuilder = new QueryBuilder(
-			this.tableName,
-			this.schema,
-			this.originalSchema
-		) as any;
+    // Copy existing config 
+    newBuilder.config = { ...this.config };
 
-		// Copy existing config including distinct flag
-		newBuilder.config = { ...this.config };
+    if (this.config.select) {
+      newBuilder.config.select = [
+        ...(this.config.select as string[]),
+        `${fn}(${String(column)}) AS ${String(column)}_${suffix}`
+      ];
+      newBuilder.config.groupBy = (this.config.select as string[]).filter(col => !col.includes(' AS '));
+    } else {
+      newBuilder.config.select = [`${fn}(${String(column)}) AS ${String(column)}_${suffix}`];
+    }
 
-		if (this.config.select) {
-			newBuilder.config.select = [
-				...(this.config.select as string[]),
-				`${fn}(${String(column)}) AS ${String(column)}_${suffix}`
-			];
-			newBuilder.config.groupBy = (this.config.select as string[]).filter(col => !col.includes(' AS '));
-		} else {
-			newBuilder.config.select = [`${fn}(${String(column)}) AS ${String(column)}_${suffix}`];
-		}
+    return newBuilder;
+  }
 
-		return newBuilder;
-	}
+  sum<A extends keyof typeof this.originalSchema.columns>(column: A) {
+    return this.createAggregation(column, 'SUM', 'sum' as const);
+  }
 
-	sum<A extends keyof typeof this.originalSchema.columns>(column: A) {
-		return this.createAggregation(column, 'SUM', 'sum' as const);
-	}
+  count<A extends keyof typeof this.originalSchema.columns>(column: A) {
+    return this.createAggregation(column, 'COUNT', 'count' as const);
+  }
 
-	count<A extends keyof typeof this.originalSchema.columns>(column: A) {
-		return this.createAggregation(column, 'COUNT', 'count' as const);
-	}
+  avg<A extends keyof typeof this.originalSchema.columns>(column: A) {
+    return this.createAggregation(column, 'AVG', 'avg' as const);
+  }
 
-	avg<A extends keyof typeof this.originalSchema.columns>(column: A) {
-		return this.createAggregation(column, 'AVG', 'avg' as const);
-	}
+  min<A extends keyof typeof this.originalSchema.columns>(column: A) {
+    return this.createAggregation(column, 'MIN', 'min' as const);
+  }
 
-	min<A extends keyof typeof this.originalSchema.columns>(column: A) {
-		return this.createAggregation(column, 'MIN', 'min' as const);
-	}
+  max<A extends keyof typeof this.originalSchema.columns>(column: A) {
+    return this.createAggregation(column, 'MAX', 'max' as const);
+  }
 
-	max<A extends keyof typeof this.originalSchema.columns>(column: A) {
-		return this.createAggregation(column, 'MAX', 'max' as const);
-	}
+  /**
+   * Executes the query and returns the results.
+   * @returns {Promise<T[]>} Array of results matching the query
+   * @example
+   * ```ts
+   * const results = await builder.select(['id', 'name']).where('active', 'eq', true).execute()
+   * ```
+   */
+  async execute(): Promise<T[]> {
+    const client = ClickHouseConnection.getClient();
+    const result = await client.query({
+      query: this.toSQL(),
+      format: 'JSONEachRow'
+    });
 
-	async execute(): Promise<T[]> {
-		const client = ClickHouseConnection.getClient();
-		const result = await client.query({
-			query: this.toSQL(),
-			format: 'JSONEachRow'
-		});
+    return result.json<T[]>();
+  }
 
-		return result.json<T[]>();
-	}
+  /**
+   * Adds a WHERE clause to filter results.
+   * @template K - The column key type
+   * @param {K} column - The column to filter on
+   * @param {FilterOperator} operator - The comparison operator
+   * @param {any} value - The value to compare against
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.where('age', 'gt', 18)
+   * ```
+   */
+  where<K extends keyof typeof this.originalSchema.columns>(
+    column: K,
+    operator: FilterOperator,
+    value: any
+  ): this {
+    this.config.where = this.config.where || [];
+    this.config.where.push({
+      column: String(column),
+      operator,
+      value,
+      conjunction: 'AND'
+    });
+    return this;
+  }
 
-	where<K extends keyof typeof this.originalSchema.columns>(
-		column: K,
-		operator: FilterOperator,
-		value: any
-	): this {
-		this.config.where = this.config.where || [];
-		this.config.where.push({
-			column: String(column),
-			operator,
-			value,
-			conjunction: 'AND'
-		});
-		return this;
-	}
+  orWhere<K extends keyof typeof this.originalSchema.columns>(
+    column: K,
+    operator: FilterOperator,
+    value: any
+  ): this {
+    this.config.where = this.config.where || [];
+    this.config.where.push({
+      column: String(column),
+      operator,
+      value,
+      conjunction: 'OR'
+    });
+    return this;
+  }
 
-	orWhere<K extends keyof typeof this.originalSchema.columns>(
-		column: K,
-		operator: FilterOperator,
-		value: any
-	): this {
-		this.config.where = this.config.where || [];
-		this.config.where.push({
-			column: String(column),
-			operator,
-			value,
-			conjunction: 'OR'
-		});
-		return this;
-	}
+  /**
+   * Adds a GROUP BY clause.
+   * @param {keyof T | Array<keyof T>} columns - Column(s) to group by
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.groupBy(['category', 'status'])
+   * ```
+   */
+  groupBy(columns: keyof T | Array<keyof T>): this {
+    this.config.groupBy = Array.isArray(columns)
+      ? columns.map(String)
+      : [String(columns)];
+    return this;
+  }
 
-	groupBy(columns: keyof T | Array<keyof T>): this {
-		this.config.groupBy = Array.isArray(columns)
-			? columns.map(String)
-			: [String(columns)];
-		return this;
-	}
+  limit(count: number): this {
+    this.config.limit = count;
+    return this;
+  }
 
-	limit(count: number): this {
-		this.config.limit = count;
-		return this;
-	}
+  offset(count: number): this {
+    this.config.offset = count;
+    return this;
+  }
 
-	offset(count: number): this {
-		this.config.offset = count;
-		return this;
-	}
+  /**
+   * Adds an ORDER BY clause.
+   * @param {keyof T} column - The column to order by
+   * @param {OrderDirection} [direction='ASC'] - The sort direction
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.orderBy('created_at', 'DESC')
+   * ```
+   */
+  orderBy(column: keyof T, direction: OrderDirection = 'ASC'): this {
+    this.config.orderBy = this.config.orderBy || [];
+    this.config.orderBy.push({ column, direction });
+    return this;
+  }
 
-	orderBy(column: keyof T, direction: OrderDirection = 'ASC'): this {
-		this.config.orderBy = this.config.orderBy || [];
-		this.config.orderBy.push({ column, direction });
-		return this;
-	}
+  /**
+   * Adds a HAVING clause for filtering grouped results.
+   * @param {string} condition - The HAVING condition
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.having('COUNT(*) > 5')
+   * ```
+   */
+  having(condition: string): this {
+    this.config.having = this.config.having || [];
+    this.config.having.push(condition);
+    return this;
+  }
 
-	having(condition: string): this {
-		this.config.having = this.config.having || [];
-		this.config.having.push(condition);
-		return this;
-	}
+  distinct(): this {
+    this.config.distinct = true;
+    return this;
+  }
 
-	distinct(): this {
-		this.config.distinct = true;
-		return this;
-	}
+  whereBetween(
+    column: keyof typeof this.originalSchema.columns,
+    [min, max]: [number | string | Date, number | string | Date]
+  ): this {
+    if (min === null || max === null) {
+      throw new Error('BETWEEN values cannot be null');
+    }
+    return this.where(column, 'between', [min, max]);
+  }
 
-	whereBetween(
-		column: keyof typeof this.originalSchema.columns,
-		[min, max]: [number | string | Date, number | string | Date]
-	): this {
-		if (min === null || max === null) {
-			throw new Error('BETWEEN values cannot be null');
-		}
-		return this.where(column, 'between', [min, max]);
-	}
+  private addJoin<TableName extends keyof Schema>(
+    type: JoinType,
+    table: TableName,
+    leftColumn: keyof T,
+    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    alias?: string
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+    const newBuilder = new QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations>(
+      this.tableName,
+      {
+        name: this.schema.name,
+        columns: { ...this.schema.columns, ...this.originalSchema[table] }
+      },
+      this.originalSchema
+    );
 
-	private addJoin<K extends keyof typeof this.originalSchema.columns,
-		NewT extends Record<string, ColumnType>>(
-			type: JoinType,
-			table: string,
-			leftColumn: K,
-			rightColumn: string,
-			alias?: string
-		): QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT> {
-		this.config.joins = this.config.joins || [];
-		this.config.joins.push({
-			type,
-			table,
-			leftColumn: String(leftColumn),
-			rightColumn,
-			alias
-		});
+    newBuilder.config = { ...this.config };
+    newBuilder.config.joins = newBuilder.config.joins || [];
+    newBuilder.config.joins.push({ type, table: String(table), leftColumn: String(leftColumn), rightColumn, alias });
 
-		return this as QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT>;
-	}
+    return newBuilder;
+  }
 
-	innerJoin<NewT extends Record<string, ColumnType>>(
-		table: string,
-		leftColumn: keyof typeof this.originalSchema.columns,
-		rightColumn: string,
-		alias?: string
-	): QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT> {
-		return this.addJoin('INNER', table, leftColumn, rightColumn, alias);
-	}
+  /**
+   * Performs an INNER JOIN with another table.
+   * @template TableName - The name of the table to join with
+   * @param {TableName} table - The table to join
+   * @param {keyof T} leftColumn - The column from the current table
+   * @param {string} rightColumn - The column from the joined table in format 'table.column'
+   * @param {string} [alias] - Optional alias for the joined table
+   * @returns {QueryBuilder} A new QueryBuilder instance with joined table types
+   * @example
+   * ```ts
+   * builder.innerJoin('users', 'user_id', 'users.id')
+   * ```
+   */
+  innerJoin<
+    TableName extends keyof Schema
+  >(
+    table: TableName,
+    leftColumn: keyof T,
+    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    alias?: string
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+    return this.addJoin('INNER', table, leftColumn, rightColumn, alias);
+  }
 
-	leftJoin<NewT extends Record<string, ColumnType>>(
-		table: string,
-		leftColumn: keyof typeof this.originalSchema.columns,
-		rightColumn: string,
-		alias?: string
-	): QueryBuilder<T & NewT, HasSelect, Aggregations, J & NewT> {
-		return this.addJoin('LEFT', table, leftColumn, rightColumn, alias);
-	}
+  leftJoin<
+    TableName extends keyof Schema
+  >(
+    table: TableName,
+    leftColumn: keyof T,
+    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    alias?: string
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+    return this.addJoin('LEFT', table, leftColumn, rightColumn, alias);
+  }
 
-	toSQL(): string {
-		const parts: string[] = [`SELECT ${this.formatSelect()}`];
-		parts.push(`FROM ${this.tableName}`);
+  rightJoin<
+    TableName extends keyof Schema  // The table we're joining to
+  >(
+    table: TableName,
+    leftColumn: keyof T,
+    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    alias?: string
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+    return this.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
+  }
 
-		if (this.config.joins?.length) {
-			parts.push(this.formatJoins());
-		}
+  fullJoin<
+    TableName extends keyof Schema
+  >(
+    table: TableName,
+    leftColumn: keyof T,
+    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    alias?: string
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+    return this.addJoin('FULL', table, leftColumn, rightColumn, alias);
+  }
 
-		if (this.config.where?.length) {
-			parts.push(`WHERE ${this.formatWhere()}`);
-		}
+  /**
+   * Converts the query to its SQL string representation.
+   * @returns {string} The SQL query string
+   * @example
+   * ```ts
+   * const sql = builder.select(['id']).where('active', 'eq', true).toSQL()
+   * // SELECT id FROM table WHERE active = true
+   * ```
+   */
+  toSQL(): string {
+    const parts: string[] = [`SELECT ${this.formatSelect()}`];
+    parts.push(`FROM ${this.tableName}`);
 
-		if (this.config.groupBy?.length) {
-			parts.push(`GROUP BY ${this.formatGroupBy()}`);
-		}
+    if (this.config.joins?.length) {
+      parts.push(this.formatJoins());
+    }
 
-		if (this.config.having?.length) {
-			parts.push(`HAVING ${this.config.having.join(' AND ')}`);
-		}
+    if (this.config.where?.length) {
+      parts.push(`WHERE ${this.formatWhere()}`);
+    }
 
-		if (this.config.orderBy?.length) {
-			const orderBy = this.config.orderBy
-				.map(({ column, direction }) => `${String(column)} ${direction}`)
-				.join(', ');
-			parts.push(`ORDER BY ${orderBy}`);
-		}
+    if (this.config.groupBy?.length) {
+      parts.push(`GROUP BY ${this.formatGroupBy()}`);
+    }
 
-		if (this.config.limit) {
-			const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset}` : '';
-			parts.push(`LIMIT ${this.config.limit}${offsetClause}`);
-		}
+    if (this.config.having?.length) {
+      parts.push(`HAVING ${this.config.having.join(' AND ')}`);
+    }
 
-		return parts.join(' ');
-	}
+    if (this.config.orderBy?.length) {
+      const orderBy = this.config.orderBy
+        .map(({ column, direction }) => `${String(column)} ${direction}`)
+        .join(', ');
+      parts.push(`ORDER BY ${orderBy}`);
+    }
 
-	private formatSelect(): string {
-		const distinctClause = this.config.distinct ? 'DISTINCT ' : '';
-		if (!this.config.select?.length) return distinctClause + '*';
-		return distinctClause + this.config.select.join(', ');
-	}
+    if (this.config.limit) {
+      const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset}` : '';
+      parts.push(`LIMIT ${this.config.limit}${offsetClause}`);
+    }
 
-	private formatGroupBy(): string {
-		const groupBy = this.config.groupBy;
-		if (Array.isArray(groupBy)) {
-			return groupBy.join(', ');
-		}
-		return String(groupBy);
-	}
+    return parts.join(' ');
+  }
 
-	private formatWhere(): string {
-		if (!this.config.where?.length) return '';
+  private formatSelect(): string {
+    const distinctClause = this.config.distinct ? 'DISTINCT ' : '';
+    if (!this.config.select?.length) return distinctClause + '*';
+    return distinctClause + this.config.select.join(', ');
+  }
 
-		return this.config.where
-			.map((condition, index) => {
-				const { column, operator, value, conjunction } = condition;
-				const prefix = index === 0 ? '' : ` ${conjunction}`;
+  private formatGroupBy(): string {
+    const groupBy = this.config.groupBy;
+    if (Array.isArray(groupBy)) {
+      return groupBy.join(', ');
+    }
+    return String(groupBy);
+  }
 
-				switch (operator) {
-					case 'eq':
-						return `${prefix} ${column} = ${this.formatValue(value)}`.trim();
-					case 'neq':
-						return `${prefix} ${column} != ${this.formatValue(value)}`.trim();
-					case 'gt':
-						return `${prefix} ${column} > ${this.formatValue(value)}`.trim();
-					case 'gte':
-						return `${prefix} ${column} >= ${this.formatValue(value)}`.trim();
-					case 'lt':
-						return `${prefix} ${column} < ${this.formatValue(value)}`.trim();
-					case 'lte':
-						return `${prefix} ${column} <= ${this.formatValue(value)}`.trim();
-					case 'like':
-						return `${prefix} ${column} LIKE ${this.formatValue(value)}`.trim();
-					case 'in':
-						return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
-					case 'notIn':
-						return `${prefix} ${column} NOT IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
-					case 'between':
-						const [min, max] = value as [any, any];
-						return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max)}`.trim();
-					default:
-						throw new Error(`Unsupported operator: ${operator}`);
-				}
-			})
-			.join(' ');
-	}
+  private formatWhere(): string {
+    if (!this.config.where?.length) return '';
 
-	private formatJoins(): string {
-		return this.config.joins!.map(join => {
-			const tableClause = join.alias
-				? `${join.table} AS ${join.alias}`
-				: join.table;
-			return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
-		}).join(' ');
-	}
+    return this.config.where
+      .map((condition, index) => {
+        const { column, operator, value, conjunction } = condition;
+        const prefix = index === 0 ? '' : ` ${conjunction}`;
 
-	private formatValue(value: any): string {
-		if (value === null) return 'NULL';
-		if (typeof value === 'string') return `'${value}'`;
-		if (value instanceof Date) return value.toISOString().split('T')[0];
-		return String(value);
-	}
+        switch (operator) {
+          case 'eq':
+            return `${prefix} ${column} = ${this.formatValue(value)}`.trim();
+          case 'neq':
+            return `${prefix} ${column} != ${this.formatValue(value)}`.trim();
+          case 'gt':
+            return `${prefix} ${column} > ${this.formatValue(value)}`.trim();
+          case 'gte':
+            return `${prefix} ${column} >= ${this.formatValue(value)}`.trim();
+          case 'lt':
+            return `${prefix} ${column} < ${this.formatValue(value)}`.trim();
+          case 'lte':
+            return `${prefix} ${column} <= ${this.formatValue(value)}`.trim();
+          case 'like':
+            return `${prefix} ${column} LIKE ${this.formatValue(value)}`.trim();
+          case 'in':
+            return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+          case 'notIn':
+            return `${prefix} ${column} NOT IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+          case 'between':
+            const [min, max] = value as [any, any];
+            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max)}`.trim();
+          default:
+            throw new Error(`Unsupported operator: ${operator}`);
+        }
+      })
+      .join(' ');
+  }
+
+  private formatJoins(): string {
+    return this.config.joins!.map(join => {
+      const tableClause = join.alias
+        ? `${join.table} AS ${join.alias}`
+        : join.table;
+      return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
+    }).join(' ');
+  }
+
+  private formatValue(value: any): string {
+    if (value === null) return 'NULL';
+    if (typeof value === 'string') return `'${value}'`;
+    if (value instanceof Date) return value.toISOString().split('T')[0];
+    return String(value);
+  }
 
 }
 
 export function createQueryBuilder<T extends { [tableName: string]: { [columnName: string]: ColumnToTS<any> } }>(
-	config: {
-		host: string;
-		username?: string;
-		password?: string;
-		database?: string;
-	}
+  config: {
+    host: string;
+    username?: string;
+    password?: string;
+    database?: string;
+  }
 ) {
-	ClickHouseConnection.initialize(config);
+  ClickHouseConnection.initialize(config);
 
-	return {
-		table<TableName extends keyof T>(tableName: TableName): QueryBuilder<T[TableName]> {
-			return new QueryBuilder<T[TableName]>(
-				tableName as string,
-				{
-					name: tableName as string,
-					columns: {} as T[TableName]
-				}
-			);
-		}
-	};
+  return {
+    table<TableName extends keyof T>(tableName: TableName): QueryBuilder<T, T[TableName], false, {}> {
+      return new QueryBuilder<T, T[TableName], false, {}>(
+        tableName as string,
+        {
+          name: tableName as string,
+          columns: {} as T[TableName]
+        },
+        {} as T
+      );
+    }
+  };
 }
