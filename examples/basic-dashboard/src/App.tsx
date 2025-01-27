@@ -10,6 +10,9 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: import.meta.env.VITE_CLICKHOUSE_DATABASE,
 });
 
+type DBType = typeof db;
+
+
 
 function App() {
   const [records, setRecords] = useState([]);
@@ -21,9 +24,9 @@ function App() {
       try {
 
         const results = await db
-          .table('uk_prce_paid')
+          .table('uk_price_paid')
           .innerJoin(
-            'roperty_details',
+            'property_details',
             'postcode1',
             'property_details.bedrooms'
           )
@@ -36,12 +39,12 @@ function App() {
           .execute()
 
         const result2 = await db
-          .table('uk_price_pid')
+          .table('uk_price_paid')
           .select(['county'])
-          .sum('price')
+          .sum('pric')
           .groupBy('county')
           .having('price_sum > 1609302635584')
-          .orderBy('price_sum', 'DESC')
+          //   .orderBy('price_sum', 'DESC')
           .execute();
 
         const testSum = await db.table('uk_price_paid').sum('price').count('county').execute();

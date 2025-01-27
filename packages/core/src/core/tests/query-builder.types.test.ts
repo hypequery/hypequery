@@ -3,7 +3,7 @@ import { setupTestBuilder, TestSchema } from './test-utils.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
 describe('QueryBuilder - Type Safety', () => {
-  let builder: QueryBuilder<TestSchema>;
+  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>;
 
   beforeEach(() => {
     builder = setupTestBuilder();
@@ -45,5 +45,27 @@ describe('QueryBuilder - Type Safety', () => {
     }[];
 
     type Assert = Expect<Equal<Result, Expected>> extends true ? true : false;
+  });
+
+  it('should error on invalid table names', () => {
+    // @ts-expect-error - 'invalid_table' is not in schema
+    builder.innerJoin('invalid_table', 'id', 'invalid_table.id');
+
+    // @ts-expect-error - 'users222' is not in schema
+    builder.innerJoin('users222', 'created_by', 'users222.id');
+
+    // This should type check
+    builder.innerJoin('users', 'created_by', 'users.id');
+  });
+
+  it('should error on invalid column names in join conditions', () => {
+    // @ts-expect-error - 'invalid_column' doesn't exist in users table
+    builder.innerJoin('users', 'created_by', 'users.invalid_column');
+
+    // @ts-expect-error - 'fake_id' doesn't exist in current table
+    builder.innerJoin('users', 'fake_id', 'users.id');
+
+    // This should type check
+    builder.innerJoin('users', 'created_by', 'users.id');
   });
 }); 

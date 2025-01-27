@@ -1,9 +1,9 @@
 import { Equal, Expect } from '@type-challenges/utils';
 import { QueryBuilder } from '../query-builder';
-import { setupTestBuilder, TestSchema, UsersSchema } from './test-utils.js';
+import { setupTestBuilder, TestSchema } from './test-utils.js';
 
 describe('QueryBuilder - Joins', () => {
-  let builder: QueryBuilder<TestSchema>;
+  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], true, {}>;
 
   beforeEach(() => {
     builder = setupTestBuilder();

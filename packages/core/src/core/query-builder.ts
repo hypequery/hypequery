@@ -1,13 +1,7 @@
 import { ClickHouseConnection } from './connection';
 import { FilterOperator, JoinType, JoinClause, ColumnType } from './types';
 
-type ColumnToTS<T> = T extends 'String' ? string :
-  T extends 'Date' ? Date :
-  T extends 'Float64' | 'Int32' | 'Int64' ? number :
-  never;
-
 export type OrderDirection = 'ASC' | 'DESC';
-
 
 interface WhereCondition {
   column: string;
@@ -39,7 +33,7 @@ export interface QueryConfig<T> {
  * @template Aggregations - The type of any aggregation functions applied
  */
 export class QueryBuilder<
-  Schema extends { [tableName: string]: { [columnName: string]: any } },
+  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
@@ -483,7 +477,9 @@ export class QueryBuilder<
 
 }
 
-export function createQueryBuilder<T extends { [tableName: string]: { [columnName: string]: ColumnToTS<any> } }>(
+export function createQueryBuilder<Schema extends {
+  [K in keyof Schema]: { [columnName: string]: ColumnType }
+}>(
   config: {
     host: string;
     username?: string;
@@ -494,14 +490,14 @@ export function createQueryBuilder<T extends { [tableName: string]: { [columnNam
   ClickHouseConnection.initialize(config);
 
   return {
-    table<TableName extends keyof T>(tableName: TableName): QueryBuilder<T, T[TableName], false, {}> {
-      return new QueryBuilder<T, T[TableName], false, {}>(
+    table<TableName extends keyof Schema>(tableName: TableName): QueryBuilder<Schema, Schema[TableName], false, {}> {
+      return new QueryBuilder<Schema, Schema[TableName], false, {}>(
         tableName as string,
         {
           name: tableName as string,
-          columns: {} as T[TableName]
+          columns: {} as Schema[TableName]
         },
-        {} as T
+        {} as Schema
       );
     }
   };
