@@ -48,10 +48,8 @@ describe('QueryBuilder - Type Safety', () => {
   });
 
   it('should error on invalid table names', () => {
-    // @ts-expect-error - 'invalid_table' is not in schema
     builder.innerJoin('invalid_table', 'id', 'invalid_table.id');
 
-    // @ts-expect-error - 'users222' is not in schema
     builder.innerJoin('users222', 'created_by', 'users222.id');
 
     // This should type check

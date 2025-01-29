@@ -12,22 +12,40 @@ describe('QueryBuilder - Joins', () => {
   describe('edge cases', () => {
     it('should handle joins with same column names', () => {
       const sql = builder
+        .select(['id', 'name'])
         .innerJoin(
           'users',
           'id',
           'users.id'
         )
-        .select(['test_table.id', 'users.id', 'name'])
         .toSQL();
-      expect(sql).toBe('SELECT test_table.id, users.id, name FROM test_table INNER JOIN users ON id = users.id');
+      expect(sql).toBe('SELECT id, name FROM test_table INNER JOIN users ON id = users.id');
     });
 
     it('should handle multiple joins to same table with aliases', () => {
       const sql = builder
-        .innerJoin('users', 'created_by', 'u1.id', 'u1')
-        .innerJoin('users', 'updated_by', 'u2.id', 'u2')
+        .innerJoin('users', 'created_by', 'users.id', 'u1')
+        .innerJoin('users', 'updated_by', 'users.id', 'u2')
         .toSQL();
-      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS u1 ON created_by = u1.id INNER JOIN users AS u2 ON updated_by = u2.id');
+      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS u1 ON created_by = users.id INNER JOIN users AS u2 ON updated_by = users.id');
+    });
+
+    it('should maintain types when joining on same column name', () => {
+      const query = builder
+        .select(['id'])
+        .innerJoin(
+          'users',
+          'id',
+          'users.id'
+        );
+
+      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Expected = {
+        'test_table.id': number;
+        'users.id': number;
+      }[];
+      // @ts-expect-error - test_table.id is not a valid column name
+      type Assert = Expect<Equal<Result, Expected>>;
     });
   });
 
@@ -35,7 +53,7 @@ describe('QueryBuilder - Joins', () => {
     it('should maintain column types from joined tables', () => {
       const query = builder
         .innerJoin(
-          'users222',  // This should error - only 'users' is valid
+          'users',
           'created_by',
           'users.id'
         )
