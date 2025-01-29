@@ -37,6 +37,7 @@ export class QueryBuilder<
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
+  OriginalT = T
 > {
   private config: QueryConfig<T> = {};
   private tableName: string;
@@ -72,18 +73,22 @@ export class QueryBuilder<
    * builder.select(['id', 'name'])
    * ```
    */
-  select<K extends keyof T>(columns: K[]): QueryBuilder<Schema, {
-    [P in K]: T[P] extends "String" ? string :
-    T[P] extends "Date" ? Date :
-    T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
-  }, true, {}> {
-    type NewT = {
-      [P in K]: T[P] extends "String" ? string :
+  select<K extends keyof T | `${string}.${string}`>(columns: K[]): QueryBuilder<Schema, {
+    [P in K]: P extends keyof T ? (
+      T[P] extends "String" ? string :
       T[P] extends "Date" ? Date :
-      T[P] extends "Float64" | "Int32" | "Int64" ? number : never;
+      T[P] extends "Float64" | "Int32" | "Int64" ? number : never
+    ) : string;
+  }, true, {}, OriginalT> {
+    type NewT = {
+      [P in K]: P extends keyof T ? (
+        T[P] extends "String" ? string :
+        T[P] extends "Date" ? Date :
+        T[P] extends "Float64" | "Int32" | "Int64" ? number : never
+      ) : string;
     };
 
-    const newBuilder = new QueryBuilder<Schema, NewT, true>(
+    const newBuilder = new QueryBuilder<Schema, NewT, true, Aggregations, OriginalT>(
       this.tableName,
       { name: this.schema.name, columns: {} as NewT },
       this.originalSchema
@@ -287,11 +292,11 @@ export class QueryBuilder<
   private addJoin<TableName extends keyof Schema>(
     type: JoinType,
     table: TableName,
-    leftColumn: keyof T,
+    leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
-    const newBuilder = new QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations>(
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
+    const newBuilder = new QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT>(
       this.tableName,
       {
         name: this.schema.name,
@@ -324,10 +329,10 @@ export class QueryBuilder<
     TableName extends keyof Schema
   >(
     table: TableName,
-    leftColumn: keyof T,
+    leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
     return this.addJoin('INNER', table, leftColumn, rightColumn, alias);
   }
 
@@ -335,10 +340,10 @@ export class QueryBuilder<
     TableName extends keyof Schema
   >(
     table: TableName,
-    leftColumn: keyof T,
+    leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
     return this.addJoin('LEFT', table, leftColumn, rightColumn, alias);
   }
 
@@ -346,10 +351,10 @@ export class QueryBuilder<
     TableName extends keyof Schema  // The table we're joining to
   >(
     table: TableName,
-    leftColumn: keyof T,
+    leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
     return this.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
   }
 
@@ -357,10 +362,10 @@ export class QueryBuilder<
     TableName extends keyof Schema
   >(
     table: TableName,
-    leftColumn: keyof T,
+    leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations> {
+  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
     return this.addJoin('FULL', table, leftColumn, rightColumn, alias);
   }
 

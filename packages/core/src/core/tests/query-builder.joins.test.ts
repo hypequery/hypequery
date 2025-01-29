@@ -129,4 +129,85 @@ describe('QueryBuilder - Joins', () => {
       expect(sql).toBe('SELECT * FROM test_table FULL JOIN users ON created_by = users.id');
     });
   });
+
+  describe('complex join scenarios', () => {
+    it('should select specific columns from multiple joined tables', () => {
+      const sql = builder
+        .select(['test_table.id', 'test_table.name', 'users.user_name', 'users.email'])
+        .innerJoin(
+          'users',
+          'created_by',
+          'users.id'
+        )
+        .toSQL();
+      expect(sql).toBe('SELECT test_table.id, test_table.name, users.user_name, users.email FROM test_table INNER JOIN users ON created_by = users.id');
+    });
+
+    /*
+    it('should handle multiple joins with column selection', () => {
+      const sql = builder
+        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'])
+        .innerJoin('users', 'created_by', 'users.id', 'u1')
+        .leftJoin('users', 'updated_by', 'users.id', 'u2')
+        .toSQL();
+      expect(sql).toBe(
+        'SELECT test_table.name, u1.user_name as creator, u2.user_name as updater ' +
+        'FROM test_table ' +
+        'INNER JOIN users AS u1 ON created_by = users.id ' +
+        'LEFT JOIN users AS u2 ON updated_by = users.id'
+      );
+    });
+
+    describe('type safety for column selection', () => {
+      it('should maintain correct types for joined table columns', () => {
+        const query = builder
+          .select(['test_table.price', 'users.user_name'])
+          .innerJoin(
+            'users',
+            'created_by',
+            'users.id'
+          );
+
+        type Result = Awaited<ReturnType<typeof query.execute>>;
+        type Expected = {
+          'test_table.price': number;
+          'users.user_name': string;
+        }[];
+
+        type Assert = Expect<Equal<Result, Expected>>;
+      });
+
+      it('should error on non-existent columns', () => {
+        // @ts-expect-error - 'invalid_column' doesn't exist
+        builder.select(['test_table.invalid_column', 'users.user_name']);
+
+        // @ts-expect-error - 'wrong_column' doesn't exist
+        builder.select(['test_table.price', 'users.wrong_column']);
+      });
+    });
+
+    describe('join chain type safety', () => {
+      it('should maintain types through multiple joins', () => {
+        const query = builder
+          .innerJoin('users', 'created_by', 'users.id')
+          .select(['test_table.price', 'users.user_name']);
+
+        type Result = Awaited<ReturnType<typeof query.execute>>;
+        type Expected = {
+          'test_table.price': number;
+          'users.user_name': string;
+        }[];
+
+        type Assert = Expect<Equal<Result, Expected>>;
+      });
+
+      it('should error when joining same table without alias', () => {
+        // @ts-expect-error - Cannot join same table without alias
+        builder
+          .innerJoin('users', 'created_by', 'users.id')
+          .innerJoin('users', 'updated_by', 'users.id');
+      });
+    });
+    */
+  });
 }); 
