@@ -10,7 +10,11 @@ interface WhereCondition {
   conjunction: 'AND' | 'OR';
 }
 
-export interface QueryConfig<T> {
+type TableColumn<Schema> = {
+  [Table in keyof Schema]: `${string & Table}.${string & keyof Schema[Table]}`
+}[keyof Schema] | keyof Schema[keyof Schema];
+
+export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;
   where?: WhereCondition[];
   groupBy?: string[];
@@ -19,7 +23,7 @@ export interface QueryConfig<T> {
   offset?: number;
   distinct?: boolean;
   orderBy?: Array<{
-    column: keyof T;
+    column: keyof T | TableColumn<Schema>;
     direction: OrderDirection;
   }>;
   joins?: JoinClause[];
@@ -39,7 +43,7 @@ export class QueryBuilder<
   Aggregations = {},
   OriginalT = T
 > {
-  private config: QueryConfig<T> = {};
+  private config: QueryConfig<T, Schema> = {};
   private tableName: string;
   private schema: { name: string; columns: T };
   private originalSchema: Schema;
@@ -73,7 +77,9 @@ export class QueryBuilder<
    * builder.select(['id', 'name'])
    * ```
    */
-  select<K extends keyof T | `${string}.${string}`>(columns: K[]): QueryBuilder<Schema, {
+
+
+  select<K extends keyof T | TableColumn<Schema>>(columns: K[]): QueryBuilder<Schema, {
     [P in K]: P extends keyof T ? (
       T[P] extends "String" ? string :
       T[P] extends "Date" ? Date :
@@ -93,7 +99,7 @@ export class QueryBuilder<
       { name: this.schema.name, columns: {} as NewT },
       this.originalSchema
     );
-    newBuilder.config = { ...this.config, select: columns as string[] } as QueryConfig<NewT>;
+    newBuilder.config = { ...this.config, select: columns as string[] } as QueryConfig<NewT, Schema>;
     return newBuilder;
   }
 
@@ -187,7 +193,7 @@ export class QueryBuilder<
    * builder.where('age', 'gt', 18)
    * ```
    */
-  where<K extends keyof typeof this.originalSchema.columns>(
+  where<K extends keyof T | TableColumn<Schema>>(
     column: K,
     operator: FilterOperator,
     value: any
@@ -202,7 +208,7 @@ export class QueryBuilder<
     return this;
   }
 
-  orWhere<K extends keyof typeof this.originalSchema.columns>(
+  orWhere<K extends keyof T | TableColumn<Schema>>(
     column: K,
     operator: FilterOperator,
     value: any
@@ -226,7 +232,7 @@ export class QueryBuilder<
    * builder.groupBy(['category', 'status'])
    * ```
    */
-  groupBy(columns: keyof T | Array<keyof T>): this {
+  groupBy(columns: (keyof T | TableColumn<Schema>) | Array<keyof T | TableColumn<Schema>>): this {
     this.config.groupBy = Array.isArray(columns)
       ? columns.map(String)
       : [String(columns)];
@@ -253,7 +259,7 @@ export class QueryBuilder<
    * builder.orderBy('created_at', 'DESC')
    * ```
    */
-  orderBy(column: keyof T, direction: OrderDirection = 'ASC'): this {
+  orderBy<K extends keyof T | TableColumn<Schema>>(column: K, direction: OrderDirection = 'ASC'): this {
     this.config.orderBy = this.config.orderBy || [];
     this.config.orderBy.push({ column, direction });
     return this;
@@ -322,8 +328,8 @@ export class QueryBuilder<
    * @returns {QueryBuilder} A new QueryBuilder instance with joined table types
    * @example
    * ```ts
-   * builder.innerJoin('users', 'user_id', 'users.id')
-   * ```
+* builder.innerJoin('users', 'user_id', 'users.id')
+* ```
    */
   innerJoin<
     TableName extends keyof Schema
@@ -374,40 +380,40 @@ export class QueryBuilder<
    * @returns {string} The SQL query string
    * @example
    * ```ts
-   * const sql = builder.select(['id']).where('active', 'eq', true).toSQL()
-   * // SELECT id FROM table WHERE active = true
+* const sql = builder.select(['id']).where('active', 'eq', true).toSQL()
+  * // SELECT id FROM table WHERE active = true
    * ```
    */
   toSQL(): string {
     const parts: string[] = [`SELECT ${this.formatSelect()}`];
-    parts.push(`FROM ${this.tableName}`);
+    parts.push(`FROM ${this.tableName} `);
 
     if (this.config.joins?.length) {
       parts.push(this.formatJoins());
     }
 
     if (this.config.where?.length) {
-      parts.push(`WHERE ${this.formatWhere()}`);
+      parts.push(`WHERE ${this.formatWhere()} `);
     }
 
     if (this.config.groupBy?.length) {
-      parts.push(`GROUP BY ${this.formatGroupBy()}`);
+      parts.push(`GROUP BY ${this.formatGroupBy()} `);
     }
 
     if (this.config.having?.length) {
-      parts.push(`HAVING ${this.config.having.join(' AND ')}`);
+      parts.push(`HAVING ${this.config.having.join(' AND ')} `);
     }
 
     if (this.config.orderBy?.length) {
       const orderBy = this.config.orderBy
-        .map(({ column, direction }) => `${String(column)} ${direction}`)
+        .map(({ column, direction }) => `${String(column)} ${direction} `)
         .join(', ');
-      parts.push(`ORDER BY ${orderBy}`);
+      parts.push(`ORDER BY ${orderBy} `);
     }
 
     if (this.config.limit) {
-      const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset}` : '';
-      parts.push(`LIMIT ${this.config.limit}${offsetClause}`);
+      const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset} ` : '';
+      parts.push(`LIMIT ${this.config.limit}${offsetClause} `);
     }
 
     return parts.join(' ');
@@ -433,32 +439,32 @@ export class QueryBuilder<
     return this.config.where
       .map((condition, index) => {
         const { column, operator, value, conjunction } = condition;
-        const prefix = index === 0 ? '' : ` ${conjunction}`;
+        const prefix = index === 0 ? '' : ` ${conjunction} `;
 
         switch (operator) {
           case 'eq':
-            return `${prefix} ${column} = ${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} = ${this.formatValue(value)} `.trim();
           case 'neq':
-            return `${prefix} ${column} != ${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} != ${this.formatValue(value)} `.trim();
           case 'gt':
-            return `${prefix} ${column} > ${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} > ${this.formatValue(value)} `.trim();
           case 'gte':
-            return `${prefix} ${column} >= ${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} >= ${this.formatValue(value)} `.trim();
           case 'lt':
-            return `${prefix} ${column} < ${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} <${this.formatValue(value)}`.trim();
           case 'lte':
-            return `${prefix} ${column} <= ${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} <= ${this.formatValue(value)} `.trim();
           case 'like':
-            return `${prefix} ${column} LIKE ${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} LIKE ${this.formatValue(value)} `.trim();
           case 'in':
-            return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+            return `${prefix} ${column} IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
           case 'notIn':
-            return `${prefix} ${column} NOT IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+            return `${prefix} ${column} NOT IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
           case 'between':
             const [min, max] = value as [any, any];
-            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max)}`.trim();
+            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max)} `.trim();
           default:
-            throw new Error(`Unsupported operator: ${operator}`);
+            throw new Error(`Unsupported operator: ${operator} `);
         }
       })
       .join(' ');
@@ -467,9 +473,9 @@ export class QueryBuilder<
   private formatJoins(): string {
     return this.config.joins!.map(join => {
       const tableClause = join.alias
-        ? `${join.table} AS ${join.alias}`
+        ? `${join.table} AS ${join.alias} `
         : join.table;
-      return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
+      return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn} `;
     }).join(' ');
   }
 

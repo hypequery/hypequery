@@ -143,7 +143,6 @@ describe('QueryBuilder - Joins', () => {
       expect(sql).toBe('SELECT test_table.id, test_table.name, users.user_name, users.email FROM test_table INNER JOIN users ON created_by = users.id');
     });
 
-    /*
     it('should handle multiple joins with column selection', () => {
       const sql = builder
         .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'])
@@ -168,6 +167,7 @@ describe('QueryBuilder - Joins', () => {
             'users.id'
           );
 
+
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
           'test_table.price': number;
@@ -175,14 +175,6 @@ describe('QueryBuilder - Joins', () => {
         }[];
 
         type Assert = Expect<Equal<Result, Expected>>;
-      });
-
-      it('should error on non-existent columns', () => {
-        // @ts-expect-error - 'invalid_column' doesn't exist
-        builder.select(['test_table.invalid_column', 'users.user_name']);
-
-        // @ts-expect-error - 'wrong_column' doesn't exist
-        builder.select(['test_table.price', 'users.wrong_column']);
       });
     });
 
@@ -201,13 +193,7 @@ describe('QueryBuilder - Joins', () => {
         type Assert = Expect<Equal<Result, Expected>>;
       });
 
-      it('should error when joining same table without alias', () => {
-        // @ts-expect-error - Cannot join same table without alias
-        builder
-          .innerJoin('users', 'created_by', 'users.id')
-          .innerJoin('users', 'updated_by', 'users.id');
-      });
     });
-    */
+
   });
 }); 

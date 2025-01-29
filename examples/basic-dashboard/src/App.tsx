@@ -25,23 +25,23 @@ function App() {
 
         const results = await db
           .table('uk_price_paid')
-          .innerJoin(
-            'property_details',
-            'postcode1',
-            'property_details.bedrooms'
-          )
-          .count('price')
+          /*   .innerJoin(
+               'property_details',
+               'type',
+               'property_details.type'
+             )
+               */
+          .select(['uk_price_paid.county', 'price', 'postcode1', 'type'])
           .sum('price')
-          .avg('price')
-          .min('price')
-          .max('price')
-          .orderBy('price_count', 'DESC')
-          .execute()
+          .orderBy('price_sum', 'DESC')
+          .toSQL();
+
+        console.log({ results });
 
         const result2 = await db
           .table('uk_price_paid')
           .select(['county'])
-          .sum('pric')
+          .sum('price')
           .groupBy('county')
           .having('price_sum > 1609302635584')
           //   .orderBy('price_sum', 'DESC')
