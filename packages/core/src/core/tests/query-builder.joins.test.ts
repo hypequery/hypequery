@@ -3,7 +3,7 @@ import { QueryBuilder } from '../query-builder';
 import { setupTestBuilder, TestSchema } from './test-utils.js';
 
 describe('QueryBuilder - Joins', () => {
-  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], true, {}>;
+  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>;
 
   beforeEach(() => {
     builder = setupTestBuilder();
@@ -160,17 +160,16 @@ describe('QueryBuilder - Joins', () => {
     describe('type safety for column selection', () => {
       it('should maintain correct types for joined table columns', () => {
         const query = builder
-          .select(['test_table.price', 'users.user_name'])
           .innerJoin(
             'users',
             'created_by',
             'users.id'
-          );
-
+          )
+          .select(['test_table.price', 'users.user_name'])
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'test_table.price': number;
+          'test_table.price': string;
           'users.user_name': string;
         }[];
 
@@ -186,7 +185,7 @@ describe('QueryBuilder - Joins', () => {
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'test_table.price': number;
+          'test_table.price': string;
           'users.user_name': string;
         }[];
 

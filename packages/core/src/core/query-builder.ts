@@ -386,37 +386,37 @@ export class QueryBuilder<
    */
   toSQL(): string {
     const parts: string[] = [`SELECT ${this.formatSelect()}`];
-    parts.push(`FROM ${this.tableName} `);
+    parts.push(`FROM ${this.tableName}`);
 
     if (this.config.joins?.length) {
       parts.push(this.formatJoins());
     }
 
     if (this.config.where?.length) {
-      parts.push(`WHERE ${this.formatWhere()} `);
+      parts.push(`WHERE ${this.formatWhere()}`);
     }
 
     if (this.config.groupBy?.length) {
-      parts.push(`GROUP BY ${this.formatGroupBy()} `);
+      parts.push(`GROUP BY ${this.formatGroupBy()}`);
     }
 
     if (this.config.having?.length) {
-      parts.push(`HAVING ${this.config.having.join(' AND ')} `);
+      parts.push(`HAVING ${this.config.having.join(' AND ')}`);
     }
 
     if (this.config.orderBy?.length) {
       const orderBy = this.config.orderBy
-        .map(({ column, direction }) => `${String(column)} ${direction} `)
+        .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
         .join(', ');
-      parts.push(`ORDER BY ${orderBy} `);
+      parts.push(`ORDER BY ${orderBy}`);
     }
 
     if (this.config.limit) {
-      const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset} ` : '';
-      parts.push(`LIMIT ${this.config.limit}${offsetClause} `);
+      const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset}` : '';
+      parts.push(`LIMIT ${this.config.limit}${offsetClause}`);
     }
 
-    return parts.join(' ');
+    return parts.join(' ').trim();
   }
 
   private formatSelect(): string {
@@ -443,26 +443,26 @@ export class QueryBuilder<
 
         switch (operator) {
           case 'eq':
-            return `${prefix} ${column} = ${this.formatValue(value)} `.trim();
+            return `${prefix} ${column} = ${this.formatValue(value).trim()} `.trim();
           case 'neq':
-            return `${prefix} ${column} != ${this.formatValue(value)} `.trim();
+            return `${prefix} ${column} != ${this.formatValue(value).trim()} `.trim();
           case 'gt':
-            return `${prefix} ${column} > ${this.formatValue(value)} `.trim();
+            return `${prefix} ${column} > ${this.formatValue(value).trim()} `.trim();
           case 'gte':
-            return `${prefix} ${column} >= ${this.formatValue(value)} `.trim();
+            return `${prefix} ${column} >= ${this.formatValue(value).trim()} `.trim();
           case 'lt':
-            return `${prefix} ${column} <${this.formatValue(value)}`.trim();
+            return `${prefix} ${column} < ${this.formatValue(value).trim()} `.trim();
           case 'lte':
-            return `${prefix} ${column} <= ${this.formatValue(value)} `.trim();
+            return `${prefix} ${column} <= ${this.formatValue(value).trim()} `.trim();
           case 'like':
-            return `${prefix} ${column} LIKE ${this.formatValue(value)} `.trim();
+            return `${prefix} ${column} LIKE ${this.formatValue(value).trim()} `.trim();
           case 'in':
-            return `${prefix} ${column} IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+            return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')}) `.trim();
           case 'notIn':
-            return `${prefix} ${column} NOT IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+            return `${prefix} ${column} NOT IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')}) `.trim();
           case 'between':
             const [min, max] = value as [any, any];
-            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max)} `.trim();
+            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max).trim()} `.trim();
           default:
             throw new Error(`Unsupported operator: ${operator} `);
         }
@@ -473,9 +473,9 @@ export class QueryBuilder<
   private formatJoins(): string {
     return this.config.joins!.map(join => {
       const tableClause = join.alias
-        ? `${join.table} AS ${join.alias} `
+        ? `${join.table} AS ${join.alias}`
         : join.table;
-      return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn} `;
+      return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
     }).join(' ');
   }
 

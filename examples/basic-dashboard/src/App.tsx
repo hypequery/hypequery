@@ -25,16 +25,15 @@ function App() {
 
         const results = await db
           .table('uk_price_paid')
-          /*   .innerJoin(
-               'property_details',
-               'type',
-               'property_details.type'
-             )
-               */
           .select(['uk_price_paid.county', 'price', 'postcode1', 'type'])
+          .innerJoin(
+            'property_details',
+            'type',
+            'property_details.type'
+          )
           .sum('price')
           .orderBy('price_sum', 'DESC')
-          .toSQL();
+          .execute();
 
         console.log({ results });
 
