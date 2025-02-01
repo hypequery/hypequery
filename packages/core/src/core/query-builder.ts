@@ -94,82 +94,91 @@ export class QueryBuilder<
       T[P] extends "Date" ? Date :
       T[P] extends "Float64" | "Int32" | "Int64" ? number : never
     ) : string;
-  }, true, {}, OriginalT> {
+  } & Aggregations, true, Aggregations, OriginalT> {
     type NewT = {
-      [P in K]: P extends keyof T ? (
+      [P in K as P extends `${string}.${infer C}` ? C : P]: P extends keyof T ? (
         T[P] extends "String" ? string :
         T[P] extends "Date" ? Date :
         T[P] extends "Float64" | "Int32" | "Int64" ? number : never
       ) : string;
     };
 
-    const newBuilder = new QueryBuilder<Schema, NewT, true, Aggregations, OriginalT>(
+    const newBuilder = new QueryBuilder<Schema, NewT & Aggregations, true, Aggregations, OriginalT>(
       this.tableName,
-      { name: this.schema.name, columns: {} as NewT },
+      { name: this.schema.name, columns: {} as NewT & Aggregations },
       this.originalSchema
     );
-    newBuilder.config = { ...this.config, select: columns as string[] } as QueryConfig<NewT, Schema>;
-    return newBuilder as any
+    newBuilder.config = { ...this.config, select: columns as string[] };
+    return newBuilder;
   }
 
   /**
  * Creates an aggregation (COUNT, SUM, AVG etc) on a column
  * @param column The column to aggregate
  * @param fn The aggregation function (e.g., 'COUNT', 'SUM')
- * @param suffix The suffix to append to the column name (e.g., 'count', 'sum')
+ * @param alias The alias to append to the column name (e.g., 'count', 'sum')
  */
-  private createAggregation<Column extends keyof typeof this.originalSchema.columns, Suffix extends string>(
+  private createAggregation<Column extends keyof T, Alias extends string>(
     column: Column,
     fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
-    suffix: Suffix
+    alias: Alias
   ): QueryBuilder<
-    Schema,  // Keep original Schema
-    HasSelect extends false
-    ? { [K in `${Column & string}_${Suffix}` | keyof Aggregations]: string }
-    : { [P in keyof T | `${string & Column}_${Suffix}`]: P extends keyof T ? T[P] : string },
+    Schema,
+    T & { [K in Alias]: string },
     HasSelect,
-    { [K in `${Column & string}_${Suffix}` | keyof Aggregations]: string }
+    Aggregations & { [K in Alias]: string },
+    OriginalT
   > {
-    const newBuilder = new QueryBuilder(
-      this.tableName,
-      this.schema,
-      this.originalSchema
-    ) as any;
-
-    // Copy existing config 
-    newBuilder.config = { ...this.config };
+    const newBuilder = this.clone();
+    const aggregationSQL = `${fn}(${String(column)}) AS ${alias}`;
 
     if (this.config.select) {
-      newBuilder.config.select = [
-        ...(this.config.select as string[]),
-        `${fn}(${String(column)}) AS ${String(column)}_${suffix}`
-      ];
-      newBuilder.config.groupBy = (this.config.select as string[]).filter(col => !col.includes(' AS '));
+      newBuilder.config = {
+        ...this.config,
+        select: [...this.config.select, aggregationSQL].map(String)
+      };
+      newBuilder.config.groupBy = this.config.select.filter(col => !col.includes(' AS '));
     } else {
-      newBuilder.config.select = [`${fn}(${String(column)}) AS ${String(column)}_${suffix}`];
+      newBuilder.config = {
+        ...this.config,
+        select: [aggregationSQL].map(String)
+      };
     }
 
-    return newBuilder;
+    return newBuilder as any;
   }
 
-  sum<A extends keyof typeof this.originalSchema.columns>(column: A) {
-    return this.createAggregation(column, 'SUM', 'sum' as const);
+  sum<A extends keyof T, Alias extends string = `${A & string}_sum`>(
+    column: A,
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    T & { [K in typeof alias extends undefined ? `${A & string}_sum` : Alias]: string },
+    HasSelect,
+    Aggregations & { [K in typeof alias extends undefined ? `${A & string}_sum` : Alias]: string },
+    OriginalT
+  > {
+    return this.createAggregation(
+      column,
+      'SUM',
+      alias || `${String(column)}_sum`
+    ) as any;
   }
 
-  count<A extends keyof typeof this.originalSchema.columns>(column: A) {
-    return this.createAggregation(column, 'COUNT', 'count' as const);
+  count<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
+    return this.createAggregation(column, 'COUNT', alias || `${String(column)}_count`);
   }
 
-  avg<A extends keyof typeof this.originalSchema.columns>(column: A) {
-    return this.createAggregation(column, 'AVG', 'avg' as const);
+  avg<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
+    return this.createAggregation(column, 'AVG', alias || `${String(column)}_avg`);
   }
 
-  min<A extends keyof typeof this.originalSchema.columns>(column: A) {
-    return this.createAggregation(column, 'MIN', 'min' as const);
+  min<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
+    return this.createAggregation(column, 'MIN', alias || `${String(column)}_min`);
   }
 
-  max<A extends keyof typeof this.originalSchema.columns>(column: A) {
-    return this.createAggregation(column, 'MAX', 'max' as const);
+  max<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
+    return this.createAggregation(column, 'MAX', alias || `${String(column)}_max`);
   }
 
   /**

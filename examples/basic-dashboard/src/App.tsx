@@ -31,8 +31,8 @@ function App() {
             'type',
             'property_details.type'
           )
-          .sum('price')
-          .orderBy('price_sum', 'DESC')
+          .sum('price', 'total_price')
+          .orderBy('total_price', 'DESC')
           .limit(100)
           .execute();
 
