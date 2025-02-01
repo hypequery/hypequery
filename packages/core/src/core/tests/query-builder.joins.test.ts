@@ -169,8 +169,8 @@ describe('QueryBuilder - Joins', () => {
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'test_table.price': string;
-          'users.user_name': string;
+          'price': string;
+          'user_name': string;
         }[];
 
         type Assert = Expect<Equal<Result, Expected>>;
@@ -185,8 +185,8 @@ describe('QueryBuilder - Joins', () => {
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'test_table.price': string;
-          'users.user_name': string;
+          'price': string;
+          'user_name': string;
         }[];
 
         type Assert = Expect<Equal<Result, Expected>>;

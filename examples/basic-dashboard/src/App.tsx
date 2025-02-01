@@ -25,7 +25,7 @@ function App() {
 
         const results = await db
           .table('uk_price_paid')
-          .select(['uk_price_paid.county', 'price', 'postcode1', 'type'])
+          .select(['uk_price_paid.county', 'uk_price_paid.county', 'price', 'postcode1', 'type'])
           .innerJoin(
             'property_details',
             'type',
@@ -33,21 +33,12 @@ function App() {
           )
           .sum('price')
           .orderBy('price_sum', 'DESC')
+          .limit(100)
           .execute();
 
         console.log({ results });
 
-        const result2 = await db
-          .table('uk_price_paid')
-          .select(['county'])
-          .sum('price')
-          .groupBy('county')
-          .having('price_sum > 1609302635584')
-          //   .orderBy('price_sum', 'DESC')
-          .execute();
 
-        const testSum = await db.table('uk_price_paid').sum('price').count('county').execute();
-        console.log({ result2, testSum, results });
       } catch (err) {
         console.error('Error fetching data:', err);
         setError(err instanceof Error ? err.message : 'An error occurred');

@@ -67,6 +67,16 @@ export class QueryBuilder<
     return this;
   }
 
+  private clone(): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+    const newBuilder = new QueryBuilder(
+      this.tableName,
+      this.schema,
+      this.originalSchema
+    );
+    newBuilder.config = { ...this.config };
+    return newBuilder as any
+  }
+
   /**
    * Selects specific columns from the table.
    * @template K - The keys/columns to select
@@ -77,10 +87,9 @@ export class QueryBuilder<
    * builder.select(['id', 'name'])
    * ```
    */
-
-
   select<K extends keyof T | TableColumn<Schema>>(columns: K[]): QueryBuilder<Schema, {
-    [P in K]: P extends keyof T ? (
+    [P in K as P extends `${string}.${infer C}` ? C : P]: P extends keyof T
+    ? (
       T[P] extends "String" ? string :
       T[P] extends "Date" ? Date :
       T[P] extends "Float64" | "Int32" | "Int64" ? number : never
@@ -100,7 +109,7 @@ export class QueryBuilder<
       this.originalSchema
     );
     newBuilder.config = { ...this.config, select: columns as string[] } as QueryConfig<NewT, Schema>;
-    return newBuilder;
+    return newBuilder as any
   }
 
   /**
@@ -301,21 +310,13 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
-    const newBuilder = new QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT>(
-      this.tableName,
-      {
-        name: this.schema.name,
-        columns: { ...this.schema.columns, ...this.originalSchema[table] }
-      },
-      this.originalSchema
-    );
-
-    newBuilder.config = { ...this.config };
-    newBuilder.config.joins = newBuilder.config.joins || [];
-    newBuilder.config.joins.push({ type, table: String(table), leftColumn: String(leftColumn), rightColumn, alias });
-
-    return newBuilder;
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+    const newBuilder = this.clone();
+    newBuilder.config.joins = [
+      ...(this.config.joins || []),
+      { type, table: String(table), leftColumn: String(leftColumn), rightColumn, alias }
+    ];
+    return newBuilder as any;
   }
 
   /**
@@ -328,8 +329,8 @@ export class QueryBuilder<
    * @returns {QueryBuilder} A new QueryBuilder instance with joined table types
    * @example
    * ```ts
-* builder.innerJoin('users', 'user_id', 'users.id')
-* ```
+  * builder.innerJoin('users', 'user_id', 'users.id')
+  * ```
    */
   innerJoin<
     TableName extends keyof Schema
@@ -338,7 +339,7 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     return this.addJoin('INNER', table, leftColumn, rightColumn, alias);
   }
 
@@ -349,7 +350,7 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     return this.addJoin('LEFT', table, leftColumn, rightColumn, alias);
   }
 
@@ -360,7 +361,7 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     return this.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
   }
 
@@ -371,7 +372,7 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T & Schema[TableName], HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     return this.addJoin('FULL', table, leftColumn, rightColumn, alias);
   }
 
@@ -380,8 +381,8 @@ export class QueryBuilder<
    * @returns {string} The SQL query string
    * @example
    * ```ts
-* const sql = builder.select(['id']).where('active', 'eq', true).toSQL()
-  * // SELECT id FROM table WHERE active = true
+  * const sql = builder.select(['id']).where('active', 'eq', true).toSQL()
+    * // SELECT id FROM table WHERE active = true
    * ```
    */
   toSQL(): string {
@@ -412,11 +413,11 @@ export class QueryBuilder<
     }
 
     if (this.config.limit) {
-      const offsetClause = this.config.offset ? ` OFFSET ${this.config.offset}` : '';
-      parts.push(`LIMIT ${this.config.limit}${offsetClause}`);
+      const offsetClause = this.config.offset ? `OFFSET ${this.config.offset}` : '';
+      parts.push(`LIMIT ${this.config.limit} ${offsetClause}`);
     }
 
-    return parts.join(' ').trim();
+    return parts.join(' ').trim()
   }
 
   private formatSelect(): string {
@@ -443,28 +444,28 @@ export class QueryBuilder<
 
         switch (operator) {
           case 'eq':
-            return `${prefix} ${column} = ${this.formatValue(value).trim()} `.trim();
+            return `${prefix} ${column} = ${this.formatValue(value).trim()}`.trim();
           case 'neq':
             return `${prefix} ${column} != ${this.formatValue(value).trim()} `.trim();
           case 'gt':
-            return `${prefix} ${column} > ${this.formatValue(value).trim()} `.trim();
+            return `${prefix} ${column} > ${this.formatValue(value).trim()}`.trim();
           case 'gte':
-            return `${prefix} ${column} >= ${this.formatValue(value).trim()} `.trim();
+            return `${prefix} ${column} >= ${this.formatValue(value).trim()}`.trim();
           case 'lt':
-            return `${prefix} ${column} < ${this.formatValue(value).trim()} `.trim();
+            return `${prefix} ${column} < ${this.formatValue(value).trim()}`.trim();
           case 'lte':
-            return `${prefix} ${column} <= ${this.formatValue(value).trim()} `.trim();
+            return `${prefix} ${column} <= ${this.formatValue(value).trim()}`.trim();
           case 'like':
-            return `${prefix} ${column} LIKE ${this.formatValue(value).trim()} `.trim();
+            return `${prefix} ${column} LIKE ${this.formatValue(value).trim()}`.trim();
           case 'in':
-            return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')}) `.trim();
+            return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
           case 'notIn':
-            return `${prefix} ${column} NOT IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')}) `.trim();
+            return `${prefix} ${column} NOT IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
           case 'between':
             const [min, max] = value as [any, any];
-            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max).trim()} `.trim();
+            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max).trim()}`.trim();
           default:
-            throw new Error(`Unsupported operator: ${operator} `);
+            throw new Error(`Unsupported operator: ${operator}`);
         }
       })
       .join(' ');
@@ -476,7 +477,7 @@ export class QueryBuilder<
         ? `${join.table} AS ${join.alias}`
         : join.table;
       return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
-    }).join(' ');
+    }).join(' ')
   }
 
   private formatValue(value: any): string {
