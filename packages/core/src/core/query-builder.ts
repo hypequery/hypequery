@@ -94,18 +94,18 @@ export class QueryBuilder<
       T[P] extends "Date" ? Date :
       T[P] extends "Float64" | "Int32" | "Int64" ? number : never
     ) : string;
-  } & Aggregations, true, Aggregations, OriginalT> {
+  }, true, Aggregations, OriginalT> {
     type NewT = {
       [P in K as P extends `${string}.${infer C}` ? C : P]: P extends keyof T ? (
         T[P] extends "String" ? string :
         T[P] extends "Date" ? Date :
         T[P] extends "Float64" | "Int32" | "Int64" ? number : never
       ) : string;
-    };
+    }
 
-    const newBuilder = new QueryBuilder<Schema, NewT & Aggregations, true, Aggregations, OriginalT>(
+    const newBuilder = new QueryBuilder<Schema, NewT, true, Aggregations, OriginalT>(
       this.tableName,
-      { name: this.schema.name, columns: {} as NewT & Aggregations },
+      { name: this.schema.name, columns: {} as NewT },
       this.originalSchema
     );
     newBuilder.config = { ...this.config, select: columns as string[] };
@@ -124,9 +124,9 @@ export class QueryBuilder<
     alias: Alias
   ): QueryBuilder<
     Schema,
-    T & { [K in Alias]: string },
+    T,
     HasSelect,
-    Aggregations & { [K in Alias]: string },
+    Aggregations,
     OriginalT
   > {
     const newBuilder = this.clone();
@@ -153,9 +153,12 @@ export class QueryBuilder<
     alias?: Alias
   ): QueryBuilder<
     Schema,
-    T & { [K in typeof alias extends undefined ? `${A & string}_sum` : Alias]: string },
+    {
+      [K in keyof T | (typeof alias extends undefined ? `${A & string}_sum` : Alias)]:
+      K extends keyof T ? T[K] : string
+    },
     HasSelect,
-    Aggregations & { [K in typeof alias extends undefined ? `${A & string}_sum` : Alias]: string },
+    Aggregations,
     OriginalT
   > {
     return this.createAggregation(
@@ -165,20 +168,84 @@ export class QueryBuilder<
     ) as any;
   }
 
-  count<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
-    return this.createAggregation(column, 'COUNT', alias || `${String(column)}_count`);
+  count<A extends keyof T, Alias extends string = `${A & string}_count`>(
+    column: A,
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    {
+      [K in keyof T | (typeof alias extends undefined ? `${A & string}_count` : Alias)]:
+      K extends keyof T ? T[K] : string
+    },
+    HasSelect,
+    Aggregations,
+    OriginalT
+  > {
+    return this.createAggregation(
+      column,
+      'COUNT',
+      alias || `${String(column)}_count`
+    ) as any;
   }
 
-  avg<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
-    return this.createAggregation(column, 'AVG', alias || `${String(column)}_avg`);
+  avg<A extends keyof T, Alias extends string = `${A & string}_avg`>(
+    column: A,
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    {
+      [K in keyof T | (typeof alias extends undefined ? `${A & string}_avg` : Alias)]:
+      K extends keyof T ? T[K] : string
+    },
+    HasSelect,
+    Aggregations,
+    OriginalT
+  > {
+    return this.createAggregation(
+      column,
+      'AVG',
+      alias || `${String(column)}_avg`
+    ) as any;
   }
 
-  min<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
-    return this.createAggregation(column, 'MIN', alias || `${String(column)}_min`);
+  min<A extends keyof T, Alias extends string = `${A & string}_min`>(
+    column: A,
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    {
+      [K in keyof T | (typeof alias extends undefined ? `${A & string}_min` : Alias)]:
+      K extends keyof T ? T[K] : string
+    },
+    HasSelect,
+    Aggregations,
+    OriginalT
+  > {
+    return this.createAggregation(
+      column,
+      'MIN',
+      alias || `${String(column)}_min`
+    ) as any;
   }
 
-  max<A extends keyof T, Alias extends string>(column: A, alias?: Alias) {
-    return this.createAggregation(column, 'MAX', alias || `${String(column)}_max`);
+  max<A extends keyof T, Alias extends string = `${A & string}_max`>(
+    column: A,
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    {
+      [K in keyof T | (typeof alias extends undefined ? `${A & string}_max` : Alias)]:
+      K extends keyof T ? T[K] : string
+    },
+    HasSelect,
+    Aggregations,
+    OriginalT
+  > {
+    return this.createAggregation(
+      column,
+      'MAX',
+      alias || `${String(column)}_max`
+    ) as any;
   }
 
   /**
