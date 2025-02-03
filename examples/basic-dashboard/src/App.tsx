@@ -25,14 +25,14 @@ function App() {
 
         const results = await db
           .table('uk_price_paid')
-          .select(['uk_price_paid.county', 'uk_price_paid.county', 'price', 'postcode1', 'type'])
+          .select(['uk_price_paid.county', 'uk_price_paid.county', 'postcode1', 'type'])
           .innerJoin(
             'property_details',
             'type',
             'property_details.type'
           )
-          .count('price')
-          .orderBy('total_price', 'DESC')
+          .count('price', 'total_price')
+          //   .orderBy('total_price', 'DESC')
           .limit(100)
           .execute();
 
