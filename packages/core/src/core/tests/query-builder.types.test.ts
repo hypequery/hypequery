@@ -30,6 +30,10 @@ describe('QueryBuilder - Type Safety', () => {
       price_count: string;
     }[];
 
+    type Debug = {
+      result: Result;
+      expected: Expected;
+    };
     type Assert = Expect<Equal<Result, Expected>> extends true ? true : false;
   });
 

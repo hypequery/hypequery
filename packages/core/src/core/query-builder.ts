@@ -130,7 +130,8 @@ export class QueryBuilder<
     column: Column,
     fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
     alias: Alias
-  ): QueryBuilder<Schema, T & Record<Alias, string>, HasSelect, OriginalT> {
+  ): QueryBuilder<Schema, HasSelect extends true ? T & Record<Alias, string> : Record<Alias, string>,
+    HasSelect, {}, OriginalT> {
     const newBuilder = this.clone();
     const aggregationSQL = `${fn}(${String(column)}) AS ${alias}`;
 
@@ -160,6 +161,7 @@ export class QueryBuilder<
       K extends keyof T ? T[K] : string
     },
     HasSelect,
+    {},
     OriginalT
   > {
     return this.createAggregation(
@@ -174,11 +176,13 @@ export class QueryBuilder<
     alias?: Alias
   ): QueryBuilder<
     Schema,
-    {
-      [K in keyof T | (typeof alias extends undefined ? `${Column & string}_count` : Alias)]:
-      K extends keyof T ? T[K] : string
-    },
+    HasSelect extends true
+    ? {
+      [K in keyof T | Alias]: K extends keyof T ? T[K] : string
+    }
+    : Record<Alias, string>,
     HasSelect,
+    {},
     OriginalT
   > {
     return this.createAggregation(
@@ -193,10 +197,11 @@ export class QueryBuilder<
     alias?: Alias
   ): QueryBuilder<
     Schema,
-    {
-      [K in keyof T | (typeof alias extends undefined ? `${Column & string}_avg` : Alias)]:
-      K extends keyof T ? T[K] : string
-    },
+    HasSelect extends true
+    ? {
+      [K in keyof T | Alias]: K extends keyof T ? T[K] : string
+    }
+    : Record<Alias, string>,
     HasSelect,
     OriginalT
   > {
@@ -212,11 +217,13 @@ export class QueryBuilder<
     alias?: Alias
   ): QueryBuilder<
     Schema,
-    {
-      [K in keyof T | (typeof alias extends undefined ? `${Column & string}_min` : Alias)]:
-      K extends keyof T ? T[K] : string
-    },
+    HasSelect extends true
+    ? {
+      [K in keyof T | Alias]: K extends keyof T ? T[K] : string
+    }
+    : Record<Alias, string>,
     HasSelect,
+    {},
     OriginalT
   > {
     return this.createAggregation(
@@ -231,11 +238,13 @@ export class QueryBuilder<
     alias?: Alias
   ): QueryBuilder<
     Schema,
-    {
-      [K in keyof T | (typeof alias extends undefined ? `${Column & string}_max` : Alias)]:
-      K extends keyof T ? T[K] : string
-    },
+    HasSelect extends true
+    ? {
+      [K in keyof T | Alias]: K extends keyof T ? T[K] : string
+    }
+    : Record<Alias, string>,
     HasSelect,
+    {},
     OriginalT
   > {
     return this.createAggregation(

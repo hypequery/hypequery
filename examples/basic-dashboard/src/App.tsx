@@ -23,17 +23,19 @@ function App() {
     const fetchData = async () => {
       try {
 
+        // NEED TO FIX THIS TYPE BELOW AND THEN CHECK THE TESTS:
         const results = await db
           .table('uk_price_paid')
-          .select(['uk_price_paid.county', 'uk_price_paid.county', 'postcode1', 'type'])
-          .innerJoin(
-            'property_details',
-            'type',
-            'property_details.type'
-          )
-          .count('price', 'total_price')
+          //  .select(['uk_price_paid.county', 'uk_price_paid.county', 'postcode1', 'type'])
+          //  .innerJoin(
+          //   'property_details',
+          //   'type',
+          //   'property_details.type'
+          // )
+          .count('price')
+          .sum('price')
           //   .orderBy('total_price', 'DESC')
-          .limit(100)
+          // .limit(100)
           .execute();
 
         console.log({ results });

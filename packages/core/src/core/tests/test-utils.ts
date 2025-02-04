@@ -47,8 +47,8 @@ export const TEST_SCHEMAS: TestSchema = {
   }
 };
 
-export function setupTestBuilder(): QueryBuilder<TestSchema, TestSchema['test_table'], false, {}> {
-  return new QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>(
+export function setupTestBuilder(): QueryBuilder<TestSchema, TestSchema['test_table'], false, {}, TestSchema['test_table']> {
+  return new QueryBuilder<TestSchema, TestSchema['test_table'], false, {}, TestSchema['test_table']>(
     'test_table',
     {
       name: 'test_table',
