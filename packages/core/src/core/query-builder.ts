@@ -22,14 +22,6 @@ type AggregationType<T, Aggregations, Column, A extends string, Suffix extends s
   ? Aggregations & Record<A extends undefined ? `${Column & string}_${Suffix}` : A, string>
   : Record<A extends undefined ? `${Column & string}_${Suffix}` : A, string>;
 
-// HasSelect extends true
-// ? {
-//   [K in keyof T | Alias]: K extends keyof T ? T[K] : string
-// }
-// : Aggregations extends Record<string, string>
-// ? Aggregations & Record<typeof alias extends undefined ? `${Column & string}_count` : Alias, string>
-// : Record<typeof alias extends undefined ? `${Column & string}_count` : Alias, string>,
-
 
 export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;
