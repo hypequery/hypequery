@@ -130,8 +130,13 @@ export class QueryBuilder<
     column: Column,
     fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
     alias: Alias
-  ): QueryBuilder<Schema, HasSelect extends true ? T & Record<Alias, string> : Record<Alias, string>,
-    HasSelect, {}, OriginalT> {
+  ): QueryBuilder<
+    Schema,
+    HasSelect extends true ? T & Record<Alias, string> : Record<Alias, string>,
+    true,
+    Aggregations & Record<Alias, string>,
+    OriginalT
+  > {
     const newBuilder = this.clone();
     const aggregationSQL = `${fn}(${String(column)}) AS ${alias}`;
 
@@ -156,11 +161,15 @@ export class QueryBuilder<
     alias?: Alias
   ): QueryBuilder<
     Schema,
-    {
+    HasSelect extends true
+    ? {
       [K in keyof T | (typeof alias extends undefined ? `${Column & string}_sum` : Alias)]:
       K extends keyof T ? T[K] : string
-    },
-    HasSelect,
+    }
+    : Aggregations extends Record<string, string>
+    ? Aggregations & Record<typeof alias extends undefined ? `${Column & string}_sum` : Alias, string>
+    : Record<typeof alias extends undefined ? `${Column & string}_sum` : Alias, string>,
+    true,
     {},
     OriginalT
   > {
@@ -178,18 +187,22 @@ export class QueryBuilder<
     Schema,
     HasSelect extends true
     ? {
-      [K in keyof T | Alias]: K extends keyof T ? T[K] : string
+      [K in keyof T | (typeof alias extends undefined ? `${Column & string}_count` : Alias)]:
+      K extends keyof T ? T[K] : string
     }
-    : Record<Alias, string>,
-    HasSelect,
+    : Aggregations extends Record<string, string>
+    ? Aggregations & Record<typeof alias extends undefined ? `${Column & string}_count` : Alias, string>
+    : Record<typeof alias extends undefined ? `${Column & string}_count` : Alias, string>,
+    true,
     {},
     OriginalT
   > {
+    // @ts-ignore
     return this.createAggregation(
       column,
       'COUNT',
       alias || `${String(column)}_count`
-    ) as any;
+    );
   }
 
   avg<Column extends keyof OriginalT, Alias extends string = `${Column & string}_avg`>(
@@ -201,8 +214,11 @@ export class QueryBuilder<
     ? {
       [K in keyof T | Alias]: K extends keyof T ? T[K] : string
     }
-    : Record<Alias, string>,
-    HasSelect,
+    : Aggregations extends Record<string, string>
+    ? Aggregations & Record<typeof alias extends undefined ? `${Column & string}_count` : Alias, string>
+    : Record<typeof alias extends undefined ? `${Column & string}_count` : Alias, string>,
+    true,
+    {},
     OriginalT
   > {
     return this.createAggregation(
@@ -221,8 +237,10 @@ export class QueryBuilder<
     ? {
       [K in keyof T | Alias]: K extends keyof T ? T[K] : string
     }
-    : Record<Alias, string>,
-    HasSelect,
+    : Aggregations extends Record<string, string>
+    ? Aggregations & Record<typeof alias extends undefined ? `${Column & string}_min` : Alias, string>
+    : Record<typeof alias extends undefined ? `${Column & string}_min` : Alias, string>,
+    true,
     {},
     OriginalT
   > {
@@ -242,8 +260,10 @@ export class QueryBuilder<
     ? {
       [K in keyof T | Alias]: K extends keyof T ? T[K] : string
     }
-    : Record<Alias, string>,
-    HasSelect,
+    : Aggregations extends Record<string, string>
+    ? Aggregations & Record<typeof alias extends undefined ? `${Column & string}_max` : Alias, string>
+    : Record<typeof alias extends undefined ? `${Column & string}_max` : Alias, string>,
+    true,
     {},
     OriginalT
   > {

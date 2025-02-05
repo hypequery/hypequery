@@ -21,19 +21,15 @@ describe('QueryBuilder - Type Safety', () => {
 
   it('should return correct types for aggregations', () => {
     const query = builder
-      .sum('price')
-      .count('price');
+      .sum('price', 'total_price')
+      .count('price', 'total_count')
 
     type Result = Awaited<ReturnType<typeof query.execute>>;
     type Expected = {
-      price_sum: string;
-      price_count: string;
+      total_price: string;
+      total_count: string;
     }[];
 
-    type Debug = {
-      result: Result;
-      expected: Expected;
-    };
     type Assert = Expect<Equal<Result, Expected>> extends true ? true : false;
   });
 
