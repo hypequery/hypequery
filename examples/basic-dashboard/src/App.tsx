@@ -33,8 +33,9 @@ function App() {
           //   'property_details.type'
           // )  
 
-          .sum('price')
-          .count('price')
+
+
+          .sum('price').count('price', 'total_count')
           //  .min('price')
           //   .orderBy('total_price', 'DESC')
           // .limit(100)
