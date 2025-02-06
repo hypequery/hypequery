@@ -31,7 +31,7 @@ describe('QueryBuilder - Where Conditions', () => {
       const sql = builder
         .where('name', 'like', "%O'Brien%")
         .toSQL();
-      expect(sql).toBe("SELECT * FROM test_table WHERE name LIKE '%O'Brien%'");
+      expect(sql).toBe("SELECT * FROM test_table WHERE name LIKE '%O''Brien%'");
     });
   });
 
@@ -47,14 +47,14 @@ describe('QueryBuilder - Where Conditions', () => {
       const sql = builder
         .where('name', 'in', ["O'Brien", "McDonald's"])
         .toSQL();
-      expect(sql).toBe("SELECT * FROM test_table WHERE name IN ('O'Brien', 'McDonald's')");
+      expect(sql).toBe("SELECT * FROM test_table WHERE name IN ('O''Brien', 'McDonald''s')");
     });
 
     it('should handle empty arrays in IN', () => {
       const sql = builder
         .where('id', 'in', [])
         .toSQL();
-      expect(sql).toBe('SELECT * FROM test_table WHERE id IN ()');
+      expect(sql).toBe('SELECT * FROM test_table WHERE 1 = 0');
     });
   });
 }); 

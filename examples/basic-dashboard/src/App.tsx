@@ -23,19 +23,20 @@ function App() {
     const fetchData = async () => {
       try {
 
-        // NEED TO FIX THIS TYPE BELOW AND THEN CHECK THE TESTS:
+        //TODO:
+        // 1. Write tests for date functions
+        // 2. check the 
         const results = await db
           .table('uk_price_paid')
-          .select(['uk_price_paid.county', 'uk_price_paid.county', 'postcode1', 'type'])
+          .select(['uk_price_paid.county', 'uk_price_paid.county', 'postcode1', 'type', 'price'])
           //  .innerJoin(
           //   'property_details',
           //   'type',
           //   'property_details.type'
           // )  
 
-
-
-          .sum('price').count('price', 'total_count')
+          //   .sum('price').count('price', 'total_count')
+          .where('price', 'gt', 1000000)
           //  .min('price')
           //   .orderBy('total_price', 'DESC')
           // .limit(100)

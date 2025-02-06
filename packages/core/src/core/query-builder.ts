@@ -23,6 +23,40 @@ type AggregationType<T, Aggregations, Column, A extends string, Suffix extends s
   : Record<A extends undefined ? `${Column & string}_${Suffix}` : A, string>;
 
 
+function escapeValue(value: any): string {
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  else if (typeof value === 'number') {
+    return value.toString();
+  } else if (typeof value === 'string') {
+    // Escape single quotes by doubling them up.
+    return `'${value.replace(/'/g, "''")}'`;
+  } else if (value instanceof Date) {
+    return `'${value.toISOString()}'`;
+  } else {
+    // For other types, JSON.stringify is a simple option
+    return `'${JSON.stringify(value)}'`;
+  }
+}
+
+
+function substituteParameters(sql: string, params: any[]): string {
+  const parts = sql.split('?');
+  if (parts.length - 1 !== params.length) {
+    throw new Error(`Mismatch between placeholders and parameters. Found ${parts.length - 1} placeholders but ${params.length} parameters.`);
+  }
+
+  let substitutedSql = '';
+  for (let i = 0; i < params.length; i++) {
+    substitutedSql += parts[i] + escapeValue(params[i]);
+  }
+  substitutedSql += parts[parts.length - 1];
+
+  return substitutedSql;
+}
+
+
 export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;
   where?: WhereCondition[];
@@ -36,6 +70,7 @@ export interface QueryConfig<T, Schema> {
     direction: OrderDirection;
   }>;
   joins?: JoinClause[];
+  parameters?: any[];
 }
 
 /**
@@ -243,6 +278,18 @@ export class QueryBuilder<
     ) as any;
   }
 
+
+  toSQLWithParams(): { sql: string, parameters: any[] } {
+    const sql = this.toSQLWithoutParameters();
+    const parameters = this.config.parameters || [];
+    return { sql, parameters };
+  }
+
+  toSQL(): string {
+    const { sql, parameters } = this.toSQLWithParams();
+    return substituteParameters(sql, parameters);
+  }
+
   /**
    * Executes the query and returns the results.
    * @returns {Promise<T[]>} Array of results matching the query
@@ -253,10 +300,15 @@ export class QueryBuilder<
    */
   async execute(): Promise<T[]> {
     const client = ClickHouseConnection.getClient();
+    const { sql, parameters } = this.toSQLWithParams();
+
+    const finalSQL = substituteParameters(sql, parameters);
+
+    // Make sure your client supports passing the parameters.
     const result = await client.query({
-      query: this.toSQL(),
+      query: finalSQL,
       format: 'JSONEachRow'
-    });
+    } as any)
 
     return result.json<T[]>();
   }
@@ -279,12 +331,38 @@ export class QueryBuilder<
     value: any
   ): this {
     this.config.where = this.config.where || [];
-    this.config.where.push({
-      column: String(column),
-      operator,
-      value,
-      conjunction: 'AND'
-    });
+    if (operator === 'in' || operator === 'notIn') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
+      }
+      // Push the condition object with the array intact.
+      this.config.where.push({
+        column: String(column),
+        operator,
+        value, // Keep the array so that our formatWhere can map over it.
+        conjunction: 'AND'
+      });
+      if (!this.config.parameters) {
+        this.config.parameters = [];
+      }
+      // Append each element of the array to the parameters list.
+      for (const v of value) {
+        this.config.parameters.push(v);
+      }
+    } else {
+      // Default handling for scalar operators.
+      const placeholder = '?';
+      this.config.where.push({
+        column: String(column),
+        operator,
+        value: placeholder,
+        conjunction: 'AND'
+      });
+      if (!this.config.parameters) {
+        this.config.parameters = [];
+      }
+      this.config.parameters.push(value);
+    }
     return this;
   }
 
@@ -456,7 +534,7 @@ export class QueryBuilder<
     * // SELECT id FROM table WHERE active = true
    * ```
    */
-  toSQL(): string {
+  toSQLWithoutParameters(): string {
     const parts: string[] = [`SELECT ${this.formatSelect()}`];
     parts.push(`FROM ${this.tableName}`);
 
@@ -513,28 +591,48 @@ export class QueryBuilder<
         const { column, operator, value, conjunction } = condition;
         const prefix = index === 0 ? '' : ` ${conjunction} `;
 
+        // Use the value as is (placeholder) if it's "?".
+        const formattedValue = value === '?' ? '?' : this.formatValue(value).trim();
+
         switch (operator) {
           case 'eq':
-            return `${prefix} ${column} = ${this.formatValue(value).trim()}`.trim();
+            return `${prefix} ${column} = ${formattedValue}`.trim();
           case 'neq':
-            return `${prefix} ${column} != ${this.formatValue(value).trim()} `.trim();
+            return `${prefix} ${column} != ${formattedValue} `.trim();
           case 'gt':
-            return `${prefix} ${column} > ${this.formatValue(value).trim()}`.trim();
+            return `${prefix} ${column} > ${formattedValue}`.trim();
           case 'gte':
-            return `${prefix} ${column} >= ${this.formatValue(value).trim()}`.trim();
+            return `${prefix} ${column} >= ${formattedValue}`.trim();
           case 'lt':
-            return `${prefix} ${column} < ${this.formatValue(value).trim()}`.trim();
+            return `${prefix} ${column} < ${formattedValue}`.trim();
           case 'lte':
-            return `${prefix} ${column} <= ${this.formatValue(value).trim()}`.trim();
+            return `${prefix} ${column} <= ${formattedValue}`.trim();
           case 'like':
-            return `${prefix} ${column} LIKE ${this.formatValue(value).trim()}`.trim();
-          case 'in':
-            return `${prefix} ${column} IN (${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
-          case 'notIn':
-            return `${prefix} ${column} NOT IN(${(value as any[]).map(v => this.formatValue(v)).join(', ')})`.trim();
+            return `${prefix} ${column} LIKE ${formattedValue}`.trim();
+          case 'in': {
+            if (!Array.isArray(value)) {
+              throw new Error(`Expected an array for IN operator, but got ${typeof value}`);
+            }
+            if (value.length === 0) {
+              return `1 = 0`;
+            }
+            // Create one placeholder per element.
+            const placeholders = value.map(() => '?').join(', ');
+            return `${prefix}${column} IN (${placeholders})`.trim();
+          }
+
+          case 'notIn': {
+            if (!Array.isArray(value)) {
+              throw new Error(`Expected an array for NOT IN operator, but got ${typeof value}`);
+            }
+            if (value.length === 0) {
+              return `1 = 1`;
+            }
+            const placeholders = value.map(() => '?').join(', ');
+            return `${prefix}${column} NOT IN (${placeholders})`.trim();
+          }
           case 'between':
-            const [min, max] = value as [any, any];
-            return `${prefix} ${column} BETWEEN ${this.formatValue(min)} AND ${this.formatValue(max).trim()}`.trim();
+            return `${prefix}${column} BETWEEN ? AND ?`.trim();
           default:
             throw new Error(`Unsupported operator: ${operator}`);
         }
@@ -553,7 +651,8 @@ export class QueryBuilder<
 
   private formatValue(value: any): string {
     if (value === null) return 'NULL';
-    if (typeof value === 'string') return `'${value}'`;
+    if (typeof value === 'string') return `${value}`;
+    if (typeof value === 'boolean') return `${value}`;
     if (value instanceof Date) return value.toISOString().split('T')[0];
     return String(value);
   }
