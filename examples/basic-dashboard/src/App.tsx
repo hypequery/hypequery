@@ -37,6 +37,7 @@ function App() {
 
           //   .sum('price').count('price', 'total_count')
           .where('price', 'gt', 1000000)
+          .orWhere('price', 'lt', 1000000)
           //  .min('price')
           //   .orderBy('total_price', 'DESC')
           // .limit(100)

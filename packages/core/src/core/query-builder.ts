@@ -313,6 +313,48 @@ export class QueryBuilder<
     return result.json<T[]>();
   }
 
+  private addCondition<K extends keyof T | TableColumn<Schema>>(
+    conjunction: 'AND' | 'OR',
+    column: K,
+    operator: FilterOperator,
+    value: any
+  ) {
+    this.config.where = this.config.where || [];
+
+    if (operator === 'in' || operator === 'notIn') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
+      }
+      // Add the condition with the raw array value for special handling later.
+      this.config.where.push({
+        column: String(column),
+        operator,
+        value, // keep the array intact so that formatWhere maps over it.
+        conjunction
+      });
+      if (!this.config.parameters) {
+        this.config.parameters = [];
+      }
+      // Append each element of the array to the parameters list.
+      for (const v of value) {
+        this.config.parameters.push(v);
+      }
+    } else {
+      const placeholder = '?';
+      this.config.where.push({
+        column: String(column),
+        operator,
+        value: placeholder,
+        conjunction
+      });
+      if (!this.config.parameters) {
+        this.config.parameters = [];
+      }
+      this.config.parameters.push(value);
+    }
+  }
+
+
   /**
    * Adds a WHERE clause to filter results.
    * @template K - The column key type
@@ -330,39 +372,7 @@ export class QueryBuilder<
     operator: FilterOperator,
     value: any
   ): this {
-    this.config.where = this.config.where || [];
-    if (operator === 'in' || operator === 'notIn') {
-      if (!Array.isArray(value)) {
-        throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
-      }
-      // Push the condition object with the array intact.
-      this.config.where.push({
-        column: String(column),
-        operator,
-        value, // Keep the array so that our formatWhere can map over it.
-        conjunction: 'AND'
-      });
-      if (!this.config.parameters) {
-        this.config.parameters = [];
-      }
-      // Append each element of the array to the parameters list.
-      for (const v of value) {
-        this.config.parameters.push(v);
-      }
-    } else {
-      // Default handling for scalar operators.
-      const placeholder = '?';
-      this.config.where.push({
-        column: String(column),
-        operator,
-        value: placeholder,
-        conjunction: 'AND'
-      });
-      if (!this.config.parameters) {
-        this.config.parameters = [];
-      }
-      this.config.parameters.push(value);
-    }
+    this.addCondition('AND', column, operator, value);
     return this;
   }
 
@@ -371,13 +381,7 @@ export class QueryBuilder<
     operator: FilterOperator,
     value: any
   ): this {
-    this.config.where = this.config.where || [];
-    this.config.where.push({
-      column: String(column),
-      operator,
-      value,
-      conjunction: 'OR'
-    });
+    this.addCondition('OR', column, operator, value);
     return this;
   }
 
@@ -432,9 +436,15 @@ export class QueryBuilder<
    * builder.having('COUNT(*) > 5')
    * ```
    */
-  having(condition: string): this {
+  having(condition: string, parameters?: any[]): this {
     this.config.having = this.config.having || [];
     this.config.having.push(condition);
+    if (parameters && parameters.length > 0) {
+      if (!this.config.parameters) {
+        this.config.parameters = [];
+      }
+      this.config.parameters.push(...parameters);
+    }
     return this;
   }
 
@@ -590,54 +600,38 @@ export class QueryBuilder<
       .map((condition, index) => {
         const { column, operator, value, conjunction } = condition;
         const prefix = index === 0 ? '' : ` ${conjunction} `;
-
-        // Use the value as is (placeholder) if it's "?".
-        const formattedValue = value === '?' ? '?' : this.formatValue(value).trim();
-
-        switch (operator) {
-          case 'eq':
-            return `${prefix} ${column} = ${formattedValue}`.trim();
-          case 'neq':
-            return `${prefix} ${column} != ${formattedValue} `.trim();
-          case 'gt':
-            return `${prefix} ${column} > ${formattedValue}`.trim();
-          case 'gte':
-            return `${prefix} ${column} >= ${formattedValue}`.trim();
-          case 'lt':
-            return `${prefix} ${column} < ${formattedValue}`.trim();
-          case 'lte':
-            return `${prefix} ${column} <= ${formattedValue}`.trim();
-          case 'like':
-            return `${prefix} ${column} LIKE ${formattedValue}`.trim();
-          case 'in': {
-            if (!Array.isArray(value)) {
-              throw new Error(`Expected an array for IN operator, but got ${typeof value}`);
-            }
-            if (value.length === 0) {
-              return `1 = 0`;
-            }
-            // Create one placeholder per element.
-            const placeholders = value.map(() => '?').join(', ');
-            return `${prefix}${column} IN (${placeholders})`.trim();
+        if (operator === 'in' || operator === 'notIn') {
+          if (!Array.isArray(value)) {
+            throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
           }
-
-          case 'notIn': {
-            if (!Array.isArray(value)) {
-              throw new Error(`Expected an array for NOT IN operator, but got ${typeof value}`);
-            }
-            if (value.length === 0) {
-              return `1 = 1`;
-            }
-            const placeholders = value.map(() => '?').join(', ');
-            return `${prefix}${column} NOT IN (${placeholders})`.trim();
+          if (value.length === 0) {
+            return `${prefix}1 = 0`;
           }
-          case 'between':
-            return `${prefix}${column} BETWEEN ? AND ?`.trim();
-          default:
-            throw new Error(`Unsupported operator: ${operator}`);
+          const placeholders = value.map(() => '?').join(', ');
+          return `${prefix}${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${placeholders})`.trim();
+        } else if (operator === 'between') {
+          return `${prefix}${column} BETWEEN ? AND ?`.trim();
+        } else if (operator === 'like') {
+          return `${prefix}${column} LIKE ?`.trim();
+        } else {
+          return `${prefix}${column} ${this.getSqlOperator(operator)} ?`.trim();
         }
       })
       .join(' ');
+  }
+
+  private getSqlOperator(operator: FilterOperator): string {
+    switch (operator) {
+      case 'eq': return '=';
+      case 'neq': return '!=';
+      case 'gt': return '>';
+      case 'gte': return '>=';
+      case 'lt': return '<';
+      case 'lte': return '<=';
+      case 'like': return 'LIKE';
+      default:
+        throw new Error(`Unsupported operator: ${operator}`);
+    }
   }
 
   private formatJoins(): string {
