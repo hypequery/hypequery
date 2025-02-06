@@ -1,5 +1,7 @@
 import { ClickHouseConnection } from './connection';
+import { CrossFilter, FilterCondition } from './cross-filter';
 import { FilterOperator, JoinType, JoinClause, ColumnType } from './types';
+import { ClickHouseSettings } from '@clickhouse/client-web'
 
 export type OrderDirection = 'ASC' | 'DESC';
 
@@ -71,6 +73,9 @@ export interface QueryConfig<T, Schema> {
   }>;
   joins?: JoinClause[];
   parameters?: any[];
+  ctes?: string[];
+  unionQueries?: string[];
+  settings?: string;
 }
 
 /**
@@ -120,6 +125,79 @@ export class QueryBuilder<
     newBuilder.config = { ...this.config };
     return newBuilder as any
   }
+
+  // --- Analytics Helper: Add a CTE.
+  withCTE(alias: string, subquery: QueryBuilder<any, any> | string): this {
+    const cte = typeof subquery === 'string' ? subquery : subquery.toSQLWithoutParameters();
+    this.config.ctes = this.config.ctes || [];
+    this.config.ctes.push(`${alias} AS (${cte})`);
+    return this;
+  }
+
+  /**
+ * Groups results by a time interval using a specified ClickHouse function.
+ * 
+ * @param column - The column containing the date or timestamp.
+ * @param interval - The interval value. For example, "1 day" or "15 minute".
+ *                   This is only used when the method is 'toStartOfInterval'.
+ * @param method - The time bucketing function to use.
+ *                 Defaults to 'toStartOfInterval'.
+ *                 Other valid values include 'toStartOfMinute', 'toStartOfHour',
+ *                 'toStartOfDay', 'toStartOfWeek', 'toStartOfMonth', 'toStartOfQuarter', and 'toStartOfYear'.
+ * @returns The current QueryBuilder instance.
+ */
+  groupByTimeInterval(
+    column: keyof T | TableColumn<Schema>,
+    interval: string,
+    method: 'toStartOfInterval' | 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear' = 'toStartOfInterval'
+  ): this {
+    this.config.groupBy = this.config.groupBy || [];
+    if (method === 'toStartOfInterval') {
+      // Use the given interval together with the flexible function.
+      this.config.groupBy.push(`${method}(${String(column)}, INTERVAL ${interval})`);
+    } else {
+      // For fixed granularity functions, the interval parameter is ignored.
+      this.config.groupBy.push(`${method}(${String(column)})`);
+    }
+    return this;
+  }
+
+  // --- Analytics Helper: Add a raw SQL fragment.
+  raw(sql: string): this {
+    // Use raw() to inject SQL that isn't supported by the builder.
+    // Use with caution.
+    this.config.having = this.config.having || [];
+    this.config.having.push(sql);
+    return this;
+  }
+
+  // --- Analytics Helper: Add query settings.
+  settings(opts: ClickHouseSettings): this {
+    const settingsFragments = Object.entries(opts).map(([key, value]) => `${key}=${value}`);
+    this.config.settings = settingsFragments.join(', ');
+    return this;
+  }
+
+  // --- Analytics Helper: UNION support
+  union(query: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>): this {
+    this.config.unionQueries = this.config.unionQueries || [];
+    this.config.unionQueries.push(query.toSQLWithoutParameters());
+    return this;
+  }
+
+  /**
+ * Applies a set of cross filters to the current query.
+ * All filter conditions from the provided CrossFilter are added to the query.
+ * @param crossFilter - An instance of CrossFilter containing shared filter conditions.
+ * @returns The current QueryBuilder instance.
+ */
+  applyCrossFilters(crossFilter: CrossFilter): this {
+    crossFilter.getConditions().forEach((condition: FilterCondition) => {
+      this.where(condition.column, condition.operator, condition.value);
+    });
+    return this;
+  }
+
 
   /**
    * Selects specific columns from the table.
@@ -318,38 +396,26 @@ export class QueryBuilder<
     column: K,
     operator: FilterOperator,
     value: any
-  ) {
+  ): void {
     this.config.where = this.config.where || [];
+    this.config.parameters = this.config.parameters || [];
 
+    // Simply push the raw condition and value
+    this.config.where.push({
+      column: String(column),
+      operator,
+      value,  // Pass the raw value, not a placeholder string
+      conjunction
+    });
+
+    // Handle parameters based on operator type
     if (operator === 'in' || operator === 'notIn') {
-      if (!Array.isArray(value)) {
-        throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
-      }
-      // Add the condition with the raw array value for special handling later.
-      this.config.where.push({
-        column: String(column),
-        operator,
-        value, // keep the array intact so that formatWhere maps over it.
-        conjunction
-      });
-      if (!this.config.parameters) {
-        this.config.parameters = [];
-      }
-      // Append each element of the array to the parameters list.
-      for (const v of value) {
-        this.config.parameters.push(v);
-      }
-    } else {
-      const placeholder = '?';
-      this.config.where.push({
-        column: String(column),
-        operator,
-        value: placeholder,
-        conjunction
-      });
-      if (!this.config.parameters) {
-        this.config.parameters = [];
-      }
+      this.config.parameters.push(...value);
+    }
+    else if (operator === 'between') {
+      this.config.parameters.push(value[0], value[1]);
+    }
+    else {
       this.config.parameters.push(value);
     }
   }

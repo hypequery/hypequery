@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createQueryBuilder, } from '@hypequery/core';
+import { createQueryBuilder, CrossFilter } from '@hypequery/core';
 import { IntrospectedSchema } from './generated/generated-schema';
 import './styles.css';
 
@@ -10,7 +10,52 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: import.meta.env.VITE_CLICKHOUSE_DATABASE,
 });
 
-type DBType = typeof db;
+// Create a type for filters using the keys from the "uk_price_paid" table
+// You could also derive individual column names if needed.
+type UkPricePaidFilters = {
+  // For example, filter by type (e.g. 'Sale' or 'Purchase')
+  type?: string;
+  // Multi-select filter: filtering using town values from the schema.
+  towns?: string[];
+  // Date range filters using the "date" column.
+  startDate?: string;
+  endDate?: string;
+};
+
+/**
+ * Creates a CrossFilter instance based on dynamic filter values.
+ * This centralizes filter logic using types from your schema.
+ */
+function createUKPricePaidCrossFilter(filters: any): CrossFilter {
+  const crossFilter = new CrossFilter();
+
+  if (filters.type) {
+    crossFilter.add({
+      column: 'type',
+      operator: 'eq',
+      value: filters.type,
+    });
+  }
+
+  // Applying a multi-select filter using the "in" operator.
+  if (filters.towns && filters.towns.length > 0) {
+    crossFilter.add({
+      column: 'town',
+      operator: 'in',
+      value: filters.towns,
+    });
+  }
+
+  if (filters.startDate && filters.endDate) {
+    crossFilter.add({
+      column: 'date',
+      operator: 'between',
+      value: [filters.startDate, filters.endDate],
+    });
+  }
+
+  return crossFilter;
+}
 
 
 
@@ -19,32 +64,43 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const pricePaidFilters: UkPricePaidFilters = {
+    type: 'detached',
+    towns: ['London', 'Manchester'],
+    //  startDate: '2022-01-01',
+    //  endDate: '2022-12-31',
+  };
+
+
+  const crossFilter = createUKPricePaidCrossFilter(pricePaidFilters);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
-
         //TODO:
         // 1. Write tests for date functions
         // 2. check the 
-        const results = await db
-          .table('uk_price_paid')
-          .select(['uk_price_paid.county', 'uk_price_paid.county', 'postcode1', 'type', 'price'])
-          //  .innerJoin(
-          //   'property_details',
-          //   'type',
-          //   'property_details.type'
-          // )  
+        // const results = await db
+        //   .table('uk_price_paid')
+        //   .select(['uk_price_paid.county', 'uk_price_paid.county', 'postcode1', 'type', 'price'])
+        //   .where('price', 'gt', 1000000)
+        //   .orWhere('price', 'lt', 1000000)
+        //   .toSQL()
+        //  .execute();
 
-          //   .sum('price').count('price', 'total_count')
-          .where('price', 'gt', 1000000)
-          .orWhere('price', 'lt', 1000000)
-          //  .min('price')
-          //   .orderBy('total_price', 'DESC')
-          // .limit(100)
-          .execute();
+        console.log({ crossFilter });
 
-        console.log({ results });
+        const qb = await db.table('uk_price_paid')
+          .select(['date', 'price', 'town'])
+          .sum('price', 'total_price')
+          // .execute();
+          .applyCrossFilters(crossFilter)
 
+        const sql = await qb.toSQL();
+        console.log({ sql })
+
+        const results = await qb.execute();
+        console.log({ results })
 
       } catch (err) {
         console.error('Error fetching data:', err);
