@@ -15,6 +15,7 @@ import { AggregationFeature } from './features/aggregations';
 import { JoinFeature } from './features/joins';
 import { FilteringFeature } from './features/filtering';
 import { AnalyticsFeature } from './features/analytics';
+import { ExecutorFeature } from './features/executor';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -39,6 +40,7 @@ export class QueryBuilder<
   private joins: JoinFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private filtering: FilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private analytics: AnalyticsFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private executor: ExecutorFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -52,6 +54,7 @@ export class QueryBuilder<
     this.joins = new JoinFeature(this);
     this.filtering = new FilteringFeature(this);
     this.analytics = new AnalyticsFeature(this);
+    this.executor = new ExecutorFeature(this);
   }
 
   debug() {
@@ -248,39 +251,26 @@ export class QueryBuilder<
     return newBuilder as any;
   }
 
+  // Make needed properties accessible to features
+  getTableName() {
+    return this.tableName;
+  }
+
+  getFormatter() {
+    return this.formatter;
+  }
+
+  // Delegate execution methods to feature
+  toSQL(): string {
+    return this.executor.toSQL();
+  }
 
   toSQLWithParams(): { sql: string, parameters: any[] } {
-    const sql = this.toSQLWithoutParameters();
-    const parameters = this.config.parameters || [];
-    return { sql, parameters };
+    return this.executor.toSQLWithParams();
   }
 
-  toSQL(): string {
-    const { sql, parameters } = this.toSQLWithParams();
-    return substituteParameters(sql, parameters);
-  }
-
-  /**
-   * Executes the query and returns the results.
-   * @returns {Promise<T[]>} Array of results matching the query
-   * @example
-   * ```ts
-   * const results = await builder.select(['id', 'name']).where('active', 'eq', true).execute()
-   * ```
-   */
-  async execute(): Promise<T[]> {
-    const client = ClickHouseConnection.getClient();
-    const { sql, parameters } = this.toSQLWithParams();
-
-    const finalSQL = substituteParameters(sql, parameters);
-
-    // Make sure your client supports passing the parameters.
-    const result = await client.query({
-      query: finalSQL,
-      format: 'JSONEachRow'
-    } as any)
-
-    return result.json<T[]>();
+  execute(): Promise<T[]> {
+    return this.executor.execute();
   }
 
   /**
@@ -439,56 +429,6 @@ export class QueryBuilder<
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, rightColumn, alias);
     return newBuilder as any;
-  }
-
-  /**
-   * Converts the query to its SQL string representation.
-   * @returns {string} The SQL query string
-   * @example
-   * ```ts
-  * const sql = builder.select(['id']).where('active', 'eq', true).toSQL()
-    * // SELECT id FROM table WHERE active = true
-   * ```
-   */
-  toSQLWithoutParameters(): string {
-    const parts: string[] = [];
-
-    if (this.config.ctes?.length) {
-      parts.push(`WITH ${this.config.ctes.join(', ')}`);
-    }
-
-    parts.push(`SELECT ${this.formatter.formatSelect(this.config)}`)
-    parts.push(`FROM ${this.tableName}`);
-
-    if (this.config.joins?.length) {
-      parts.push(this.formatter.formatJoins(this.config));
-    }
-
-    if (this.config.where?.length) {
-      parts.push(`WHERE ${this.formatter.formatWhere(this.config)}`);
-    }
-
-    if (this.config.groupBy?.length) {
-      parts.push(`GROUP BY ${this.formatter.formatGroupBy(this.config)}`);
-    }
-
-    if (this.config.having?.length) {
-      parts.push(`HAVING ${this.config.having.join(' AND ')}`);
-    }
-
-    if (this.config.orderBy?.length) {
-      const orderBy = this.config.orderBy
-        .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
-        .join(', ');
-      parts.push(`ORDER BY ${orderBy}`);
-    }
-
-    if (this.config.limit) {
-      const offsetClause = this.config.offset ? `OFFSET ${this.config.offset}` : '';
-      parts.push(`LIMIT ${this.config.limit} ${offsetClause}`);
-    }
-
-    return parts.join(' ').trim()
   }
 
   // Make config accessible to features
