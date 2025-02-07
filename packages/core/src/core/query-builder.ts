@@ -1,62 +1,17 @@
 import { ClickHouseConnection } from './connection';
 import { CrossFilter, FilterCondition } from './cross-filter';
-import { FilterOperator, JoinType, JoinClause, ColumnType } from './types';
+import { substituteParameters } from './utils';
+import {
+  ColumnType,
+  FilterOperator,
+  OrderDirection,
+  TableColumn,
+  WhereCondition,
+  JoinClause,
+  AggregationType,
+  JoinType
+} from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
-
-export type OrderDirection = 'ASC' | 'DESC';
-
-interface WhereCondition {
-  column: string;
-  operator: FilterOperator;
-  value: any;
-  conjunction: 'AND' | 'OR';
-}
-
-
-type TableColumn<Schema> = {
-  [Table in keyof Schema]: `${string & Table}.${string & keyof Schema[Table]}`
-}[keyof Schema] | keyof Schema[keyof Schema];
-
-type AggregationType<T, Aggregations, Column, A extends string, Suffix extends string, HasSelect extends boolean> =
-  HasSelect extends true
-  ? { [K in keyof T | A]: K extends keyof T ? T[K] : string }
-  : Aggregations extends Record<string, string>
-  ? Aggregations & Record<A extends undefined ? `${Column & string}_${Suffix}` : A, string>
-  : Record<A extends undefined ? `${Column & string}_${Suffix}` : A, string>;
-
-
-function escapeValue(value: any): string {
-  if (typeof value === 'boolean') {
-    return value ? 'true' : 'false';
-  }
-  else if (typeof value === 'number') {
-    return value.toString();
-  } else if (typeof value === 'string') {
-    // Escape single quotes by doubling them up.
-    return `'${value.replace(/'/g, "''")}'`;
-  } else if (value instanceof Date) {
-    return `'${value.toISOString()}'`;
-  } else {
-    // For other types, JSON.stringify is a simple option
-    return `'${JSON.stringify(value)}'`;
-  }
-}
-
-
-function substituteParameters(sql: string, params: any[]): string {
-  const parts = sql.split('?');
-  if (parts.length - 1 !== params.length) {
-    throw new Error(`Mismatch between placeholders and parameters. Found ${parts.length - 1} placeholders but ${params.length} parameters.`);
-  }
-
-  let substitutedSql = '';
-  for (let i = 0; i < params.length; i++) {
-    substitutedSql += parts[i] + escapeValue(params[i]);
-  }
-  substitutedSql += parts[parts.length - 1];
-
-  return substitutedSql;
-}
 
 
 export interface QueryConfig<T, Schema> {
