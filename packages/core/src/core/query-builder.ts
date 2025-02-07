@@ -14,6 +14,7 @@ import { SQLFormatter } from './formatters/sql-formatter';
 import { AggregationFeature } from './features/aggregations';
 import { JoinFeature } from './features/joins';
 import { FilteringFeature } from './features/filtering';
+import { AnalyticsFeature } from './features/analytics';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -37,6 +38,7 @@ export class QueryBuilder<
   private aggregations: AggregationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private joins: JoinFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private filtering: FilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private analytics: AnalyticsFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -49,6 +51,7 @@ export class QueryBuilder<
     this.aggregations = new AggregationFeature(this);
     this.joins = new JoinFeature(this);
     this.filtering = new FilteringFeature(this);
+    this.analytics = new AnalyticsFeature(this);
   }
 
   debug() {
@@ -72,9 +75,7 @@ export class QueryBuilder<
 
   // --- Analytics Helper: Add a CTE.
   withCTE(alias: string, subquery: QueryBuilder<any, any> | string): this {
-    const cte = typeof subquery === 'string' ? subquery : subquery.toSQL();
-    this.config.ctes = this.config.ctes || [];
-    this.config.ctes.push(`${alias} AS (${cte})`);
+    this.config = this.analytics.addCTE(alias, subquery);
     return this;
   }
 
@@ -95,14 +96,7 @@ export class QueryBuilder<
     interval: string,
     method: 'toStartOfInterval' | 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear' = 'toStartOfInterval'
   ): this {
-    this.config.groupBy = this.config.groupBy || [];
-    if (method === 'toStartOfInterval') {
-      // Use the given interval together with the flexible function.
-      this.config.groupBy.push(`${method}(${String(column)}, INTERVAL ${interval})`);
-    } else {
-      // For fixed granularity functions, the interval parameter is ignored.
-      this.config.groupBy.push(`${method}(${String(column)})`);
-    }
+    this.config = this.analytics.addTimeInterval(column, interval, method);
     return this;
   }
 
@@ -117,11 +111,9 @@ export class QueryBuilder<
 
   // --- Analytics Helper: Add query settings.
   settings(opts: ClickHouseSettings): this {
-    const settingsFragments = Object.entries(opts).map(([key, value]) => `${key}=${value}`);
-    this.config.settings = settingsFragments.join(', ');
+    this.config = this.analytics.addSettings(opts);
     return this;
   }
-
 
   /**
  * Applies a set of cross filters to the current query.
