@@ -128,7 +128,7 @@ export class QueryBuilder<
 
   // --- Analytics Helper: Add a CTE.
   withCTE(alias: string, subquery: QueryBuilder<any, any> | string): this {
-    const cte = typeof subquery === 'string' ? subquery : subquery.toSQLWithoutParameters();
+    const cte = typeof subquery === 'string' ? subquery : subquery.toSQL();
     this.config.ctes = this.config.ctes || [];
     this.config.ctes.push(`${alias} AS (${cte})`);
     return this;
@@ -178,12 +178,6 @@ export class QueryBuilder<
     return this;
   }
 
-  // --- Analytics Helper: UNION support
-  union(query: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>): this {
-    this.config.unionQueries = this.config.unionQueries || [];
-    this.config.unionQueries.push(query.toSQLWithoutParameters());
-    return this;
-  }
 
   /**
  * Applies a set of cross filters to the current query.
@@ -611,7 +605,14 @@ export class QueryBuilder<
    * ```
    */
   toSQLWithoutParameters(): string {
-    const parts: string[] = [`SELECT ${this.formatSelect()}`];
+
+    const parts: string[] = [];
+
+    if (this.config.ctes?.length) {
+      parts.push(`WITH ${this.config.ctes.join(', ')}`);
+    }
+
+    parts.push(`SELECT ${this.formatSelect()}`)
     parts.push(`FROM ${this.tableName}`);
 
     if (this.config.joins?.length) {

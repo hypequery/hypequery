@@ -47,6 +47,17 @@ export const TEST_SCHEMAS: TestSchema = {
   }
 };
 
+export function setupUsersBuilder(): QueryBuilder<TestSchema, TestSchema['users'], false, {}, TestSchema['users']> {
+  return new QueryBuilder<TestSchema, TestSchema['users'], false, {}, TestSchema['users']>(
+    'users',
+    {
+      name: 'users',
+      columns: TEST_SCHEMAS.users
+    },
+    TEST_SCHEMAS
+  );
+}
+
 export function setupTestBuilder(): QueryBuilder<TestSchema, TestSchema['test_table'], false, {}, TestSchema['test_table']> {
   return new QueryBuilder<TestSchema, TestSchema['test_table'], false, {}, TestSchema['test_table']>(
     'test_table',
