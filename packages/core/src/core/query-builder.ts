@@ -7,15 +7,13 @@ import {
   OrderDirection,
   TableColumn,
   AggregationType,
-  JoinType,
   QueryConfig
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
 import { AggregationFeature } from './features/aggregations';
 import { JoinFeature } from './features/joins';
-
-
+import { FilteringFeature } from './features/filtering';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -38,6 +36,7 @@ export class QueryBuilder<
   private formatter = new SQLFormatter();
   private aggregations: AggregationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private joins: JoinFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private filtering: FilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -49,6 +48,7 @@ export class QueryBuilder<
     this.originalSchema = originalSchema
     this.aggregations = new AggregationFeature(this);
     this.joins = new JoinFeature(this);
+    this.filtering = new FilteringFeature(this);
   }
 
   debug() {
@@ -291,36 +291,6 @@ export class QueryBuilder<
     return result.json<T[]>();
   }
 
-  private addCondition<K extends keyof T | TableColumn<Schema>>(
-    conjunction: 'AND' | 'OR',
-    column: K,
-    operator: FilterOperator,
-    value: any
-  ): void {
-    this.config.where = this.config.where || [];
-    this.config.parameters = this.config.parameters || [];
-
-    // Simply push the raw condition and value
-    this.config.where.push({
-      column: String(column),
-      operator,
-      value,  // Pass the raw value, not a placeholder string
-      conjunction
-    });
-
-    // Handle parameters based on operator type
-    if (operator === 'in' || operator === 'notIn') {
-      this.config.parameters.push(...value);
-    }
-    else if (operator === 'between') {
-      this.config.parameters.push(value[0], value[1]);
-    }
-    else {
-      this.config.parameters.push(value);
-    }
-  }
-
-
   /**
    * Adds a WHERE clause to filter results.
    * @template K - The column key type
@@ -338,7 +308,7 @@ export class QueryBuilder<
     operator: FilterOperator,
     value: any
   ): this {
-    this.addCondition('AND', column, operator, value);
+    this.config = this.filtering.addCondition('AND', column, operator, value);
     return this;
   }
 
@@ -347,7 +317,7 @@ export class QueryBuilder<
     operator: FilterOperator,
     value: any
   ): this {
-    this.addCondition('OR', column, operator, value);
+    this.config = this.filtering.addCondition('OR', column, operator, value);
     return this;
   }
 
