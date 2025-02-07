@@ -16,6 +16,7 @@ import { JoinFeature } from './features/joins';
 import { FilteringFeature } from './features/filtering';
 import { AnalyticsFeature } from './features/analytics';
 import { ExecutorFeature } from './features/executor';
+import { QueryModifiersFeature } from './features/query-modifiers';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -41,6 +42,7 @@ export class QueryBuilder<
   private filtering: FilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private analytics: AnalyticsFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private executor: ExecutorFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private modifiers: QueryModifiersFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -55,6 +57,7 @@ export class QueryBuilder<
     this.filtering = new FilteringFeature(this);
     this.analytics = new AnalyticsFeature(this);
     this.executor = new ExecutorFeature(this);
+    this.modifiers = new QueryModifiersFeature(this);
   }
 
   debug() {
@@ -313,14 +316,12 @@ export class QueryBuilder<
    * ```
    */
   groupBy(columns: (keyof T | TableColumn<Schema>) | Array<keyof T | TableColumn<Schema>>): this {
-    this.config.groupBy = Array.isArray(columns)
-      ? columns.map(String)
-      : [String(columns)];
+    this.config = this.modifiers.addGroupBy(columns);
     return this;
   }
 
   limit(count: number): this {
-    this.config.limit = count;
+    this.config = this.modifiers.addLimit(count);
     return this;
   }
 
