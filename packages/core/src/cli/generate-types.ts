@@ -1,5 +1,5 @@
 import { ClickHouseConnection } from '../core/connection.js';
-import { ColumnType } from '../core/types.js';
+import { ColumnType } from '../types/base.js';
 import fs from 'fs/promises';
 import path from 'path';
 import dotenv from 'dotenv';

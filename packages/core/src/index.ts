@@ -8,6 +8,5 @@ export type {
   GroupByExpression,
   TableRecord,
   DatabaseSchema
-} from './core/types.js';
-
+} from './types/base';
 export { CrossFilter } from './core/cross-filter.js';

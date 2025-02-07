@@ -1,3 +1,5 @@
+import { ClickHouseType, InferClickHouseType } from "./clickhouse-types";
+
 export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;
   where?: WhereCondition[];
@@ -17,8 +19,23 @@ export interface QueryConfig<T, Schema> {
   settings?: string;
 }
 
+export interface TableSchema<T> {
+  name: string;
+  columns: T;
+}
 
-export type ColumnType = 'Int32' | 'String' | 'Float64' | 'Date' | 'DateTime' | 'Int64';
+export type DatabaseSchema = Record<string, Record<string, ColumnType>>;
+export type WhereExpression = string;
+export type GroupByExpression<T> = keyof T | Array<keyof T>;
+export type TableRecord<T> = {
+  [K in keyof T]: T[K] extends ColumnType ? InferColumnType<T[K]> : never;
+};
+
+// Replace the old ColumnType with the new one
+export type ColumnType = ClickHouseType;
+
+// Update InferColumnType to use the new InferClickHouseType
+export type InferColumnType<T extends ColumnType> = InferClickHouseType<T>;
 
 export type OrderDirection = 'ASC' | 'DESC';
 
@@ -47,13 +64,6 @@ export type TableColumn<Schema> = {
   [Table in keyof Schema]: `${string & Table}.${string & keyof Schema[Table]}`
 }[keyof Schema] | keyof Schema[keyof Schema];
 
-export type InferColumnType<T extends ColumnType> =
-  T extends 'String' ? string :
-  T extends 'Int32' | 'Int64' ? number :
-  T extends 'Float64' ? number :
-  T extends 'DateTime' | 'Date' ? Date :
-  T extends `Array(${infer U extends ColumnType})` ? Array<InferColumnType<U>> :
-  never;
 
 export type AggregationType<T, Aggregations, Column, A extends string, Suffix extends string, HasSelect extends boolean> =
   HasSelect extends true

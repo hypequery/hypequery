@@ -1,6 +1,5 @@
 import { ClickHouseConnection } from './connection';
 import { CrossFilter, FilterCondition } from './cross-filter';
-import { substituteParameters } from './utils';
 import {
   ColumnType,
   FilterOperator,
