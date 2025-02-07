@@ -6,32 +6,14 @@ import {
   FilterOperator,
   OrderDirection,
   TableColumn,
-  WhereCondition,
-  JoinClause,
   AggregationType,
-  JoinType
+  JoinType,
+  QueryConfig
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
+import { SQLFormatter } from './formatters/sql-formatter';
 
 
-export interface QueryConfig<T, Schema> {
-  select?: Array<keyof T | string>;
-  where?: WhereCondition[];
-  groupBy?: string[];
-  having?: string[];
-  limit?: number;
-  offset?: number;
-  distinct?: boolean;
-  orderBy?: Array<{
-    column: keyof T | TableColumn<Schema>;
-    direction: OrderDirection;
-  }>;
-  joins?: JoinClause[];
-  parameters?: any[];
-  ctes?: string[];
-  unionQueries?: string[];
-  settings?: string;
-}
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -51,6 +33,7 @@ export class QueryBuilder<
   private tableName: string;
   private schema: { name: string; columns: T };
   private originalSchema: Schema;
+  private formatter = new SQLFormatter();
 
   constructor(
     tableName: string,
@@ -560,26 +543,25 @@ export class QueryBuilder<
    * ```
    */
   toSQLWithoutParameters(): string {
-
     const parts: string[] = [];
 
     if (this.config.ctes?.length) {
       parts.push(`WITH ${this.config.ctes.join(', ')}`);
     }
 
-    parts.push(`SELECT ${this.formatSelect()}`)
+    parts.push(`SELECT ${this.formatter.formatSelect(this.config)}`)
     parts.push(`FROM ${this.tableName}`);
 
     if (this.config.joins?.length) {
-      parts.push(this.formatJoins());
+      parts.push(this.formatter.formatJoins(this.config));
     }
 
     if (this.config.where?.length) {
-      parts.push(`WHERE ${this.formatWhere()}`);
+      parts.push(`WHERE ${this.formatter.formatWhere(this.config)}`);
     }
 
     if (this.config.groupBy?.length) {
-      parts.push(`GROUP BY ${this.formatGroupBy()}`);
+      parts.push(`GROUP BY ${this.formatter.formatGroupBy(this.config)}`);
     }
 
     if (this.config.having?.length) {
@@ -599,78 +581,6 @@ export class QueryBuilder<
     }
 
     return parts.join(' ').trim()
-  }
-
-  private formatSelect(): string {
-    const distinctClause = this.config.distinct ? 'DISTINCT ' : '';
-    if (!this.config.select?.length) return distinctClause + '*';
-    return distinctClause + this.config.select.join(', ');
-  }
-
-  private formatGroupBy(): string {
-    const groupBy = this.config.groupBy;
-    if (Array.isArray(groupBy)) {
-      return groupBy.join(', ');
-    }
-    return String(groupBy);
-  }
-
-  private formatWhere(): string {
-    if (!this.config.where?.length) return '';
-
-    return this.config.where
-      .map((condition, index) => {
-        const { column, operator, value, conjunction } = condition;
-        const prefix = index === 0 ? '' : ` ${conjunction} `;
-        if (operator === 'in' || operator === 'notIn') {
-          if (!Array.isArray(value)) {
-            throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
-          }
-          if (value.length === 0) {
-            return `${prefix}1 = 0`;
-          }
-          const placeholders = value.map(() => '?').join(', ');
-          return `${prefix}${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${placeholders})`.trim();
-        } else if (operator === 'between') {
-          return `${prefix}${column} BETWEEN ? AND ?`.trim();
-        } else if (operator === 'like') {
-          return `${prefix}${column} LIKE ?`.trim();
-        } else {
-          return `${prefix}${column} ${this.getSqlOperator(operator)} ?`.trim();
-        }
-      })
-      .join(' ');
-  }
-
-  private getSqlOperator(operator: FilterOperator): string {
-    switch (operator) {
-      case 'eq': return '=';
-      case 'neq': return '!=';
-      case 'gt': return '>';
-      case 'gte': return '>=';
-      case 'lt': return '<';
-      case 'lte': return '<=';
-      case 'like': return 'LIKE';
-      default:
-        throw new Error(`Unsupported operator: ${operator}`);
-    }
-  }
-
-  private formatJoins(): string {
-    return this.config.joins!.map(join => {
-      const tableClause = join.alias
-        ? `${join.table} AS ${join.alias}`
-        : join.table;
-      return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
-    }).join(' ')
-  }
-
-  private formatValue(value: any): string {
-    if (value === null) return 'NULL';
-    if (typeof value === 'string') return `${value}`;
-    if (typeof value === 'boolean') return `${value}`;
-    if (value instanceof Date) return value.toISOString().split('T')[0];
-    return String(value);
   }
 
 }

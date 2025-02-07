@@ -1,3 +1,23 @@
+export interface QueryConfig<T, Schema> {
+  select?: Array<keyof T | string>;
+  where?: WhereCondition[];
+  groupBy?: string[];
+  having?: string[];
+  limit?: number;
+  offset?: number;
+  distinct?: boolean;
+  orderBy?: Array<{
+    column: keyof T | TableColumn<Schema>;
+    direction: OrderDirection;
+  }>;
+  joins?: JoinClause[];
+  parameters?: any[];
+  ctes?: string[];
+  unionQueries?: string[];
+  settings?: string;
+}
+
+
 export type ColumnType = 'Int32' | 'String' | 'Float64' | 'Date' | 'DateTime' | 'Int64';
 
 export type OrderDirection = 'ASC' | 'DESC';
