@@ -326,7 +326,7 @@ export class QueryBuilder<
   }
 
   offset(count: number): this {
-    this.config.offset = count;
+    this.config = this.modifiers.addOffset(count);
     return this;
   }
 
@@ -340,9 +340,11 @@ export class QueryBuilder<
    * builder.orderBy('created_at', 'DESC')
    * ```
    */
-  orderBy<K extends keyof T | TableColumn<Schema>>(column: K, direction: OrderDirection = 'ASC'): this {
-    this.config.orderBy = this.config.orderBy || [];
-    this.config.orderBy.push({ column, direction });
+  orderBy<K extends keyof T | TableColumn<Schema>>(
+    column: K,
+    direction: OrderDirection = 'ASC'
+  ): this {
+    this.config = this.modifiers.addOrderBy(column, direction);
     return this;
   }
 
@@ -356,19 +358,12 @@ export class QueryBuilder<
    * ```
    */
   having(condition: string, parameters?: any[]): this {
-    this.config.having = this.config.having || [];
-    this.config.having.push(condition);
-    if (parameters && parameters.length > 0) {
-      if (!this.config.parameters) {
-        this.config.parameters = [];
-      }
-      this.config.parameters.push(...parameters);
-    }
+    this.config = this.modifiers.addHaving(condition, parameters);
     return this;
   }
 
   distinct(): this {
-    this.config.distinct = true;
+    this.config = this.modifiers.setDistinct();
     return this;
   }
 
