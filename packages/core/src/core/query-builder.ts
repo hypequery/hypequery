@@ -13,6 +13,7 @@ import {
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
 import { AggregationFeature } from './features/aggregations';
+import { JoinFeature } from './features/joins';
 
 
 
@@ -36,6 +37,7 @@ export class QueryBuilder<
   private originalSchema: Schema;
   private formatter = new SQLFormatter();
   private aggregations: AggregationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private joins: JoinFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -46,6 +48,7 @@ export class QueryBuilder<
     this.schema = schema;
     this.originalSchema = originalSchema
     this.aggregations = new AggregationFeature(this);
+    this.joins = new JoinFeature(this);
   }
 
   debug() {
@@ -426,43 +429,15 @@ export class QueryBuilder<
     return this.where(column, 'between', [min, max]);
   }
 
-  private addJoin<TableName extends keyof Schema>(
-    type: JoinType,
+  innerJoin<TableName extends keyof Schema>(
     table: TableName,
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
-    newBuilder.config.joins = [
-      ...(this.config.joins || []),
-      { type, table: String(table), leftColumn: String(leftColumn), rightColumn, alias }
-    ];
+    newBuilder.config = this.joins.addJoin('INNER', table, leftColumn, rightColumn, alias);
     return newBuilder as any;
-  }
-
-  /**
-   * Performs an INNER JOIN with another table.
-   * @template TableName - The name of the table to join with
-   * @param {TableName} table - The table to join
-   * @param {keyof T} leftColumn - The column from the current table
-   * @param {string} rightColumn - The column from the joined table in format 'table.column'
-   * @param {string} [alias] - Optional alias for the joined table
-   * @returns {QueryBuilder} A new QueryBuilder instance with joined table types
-   * @example
-   * ```ts
-  * builder.innerJoin('users', 'user_id', 'users.id')
-  * ```
-   */
-  innerJoin<
-    TableName extends keyof Schema
-  >(
-    table: TableName,
-    leftColumn: keyof OriginalT,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
-    return this.addJoin('INNER', table, leftColumn, rightColumn, alias);
   }
 
   leftJoin<
@@ -473,7 +448,9 @@ export class QueryBuilder<
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
-    return this.addJoin('LEFT', table, leftColumn, rightColumn, alias);
+    const newBuilder = this.clone();
+    newBuilder.config = this.joins.addJoin('LEFT', table, leftColumn, rightColumn, alias);
+    return newBuilder as any;
   }
 
   rightJoin<
@@ -484,7 +461,9 @@ export class QueryBuilder<
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
-    return this.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
+    const newBuilder = this.clone();
+    newBuilder.config = this.joins.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
+    return newBuilder as any;
   }
 
   fullJoin<
@@ -495,7 +474,9 @@ export class QueryBuilder<
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
-    return this.addJoin('FULL', table, leftColumn, rightColumn, alias);
+    const newBuilder = this.clone();
+    newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, rightColumn, alias);
+    return newBuilder as any;
   }
 
   /**
