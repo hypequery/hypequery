@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
+import { AggregationFeature } from './features/aggregations';
 
 
 
@@ -34,6 +35,7 @@ export class QueryBuilder<
   private schema: { name: string; columns: T };
   private originalSchema: Schema;
   private formatter = new SQLFormatter();
+  private aggregations: AggregationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -43,6 +45,7 @@ export class QueryBuilder<
     this.tableName = tableName;
     this.schema = schema;
     this.originalSchema = originalSchema
+    this.aggregations = new AggregationFeature(this);
   }
 
   debug() {
@@ -173,35 +176,7 @@ export class QueryBuilder<
     return newBuilder as any;
   }
 
-  /**
- * Creates an aggregation (COUNT, SUM, AVG etc) on a column
- * @param column The column to aggregate
- * @param fn The aggregation function (e.g., 'COUNT', 'SUM')
- * @param alias The alias to append to the column name (e.g., 'count', 'sum')
- */
-  private createAggregation<Column extends keyof OriginalT, Alias extends string>(
-    column: Column,
-    fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
-    alias: Alias
-  ) {
-    const newBuilder = this.clone();
-    const aggregationSQL = `${fn}(${String(column)}) AS ${alias}`;
 
-    if (this.config.select) {
-      newBuilder.config = {
-        ...this.config,
-        select: [...(this.config.select || []).map(String), aggregationSQL],
-        groupBy: (this.config.select || []).map(String).filter(col => !col.includes(' AS '))
-      };
-    } else {
-      newBuilder.config = {
-        ...this.config,
-        select: [aggregationSQL]
-      };
-    }
-
-    return newBuilder as any;
-  }
 
   sum<Column extends keyof OriginalT, Alias extends string = `${Column & string}_sum`>(
     column: Column,
@@ -213,11 +188,9 @@ export class QueryBuilder<
     {},
     OriginalT
   > {
-    return this.createAggregation(
-      column,
-      'SUM',
-      alias || `${String(column)}_sum`
-    ) as any;
+    const newBuilder = this.clone();
+    newBuilder.config = this.aggregations.sum(column, alias);
+    return newBuilder as any;
   }
 
   count<Column extends keyof OriginalT, Alias extends string = `${Column & string}_count`>(
@@ -230,11 +203,9 @@ export class QueryBuilder<
     {},
     OriginalT
   > {
-    return this.createAggregation(
-      column,
-      'COUNT',
-      alias || `${String(column)}_count`
-    );
+    const newBuilder = this.clone();
+    newBuilder.config = this.aggregations.count(column, alias);
+    return newBuilder as any;
   }
 
   avg<Column extends keyof OriginalT, Alias extends string = `${Column & string}_avg`>(
@@ -247,11 +218,9 @@ export class QueryBuilder<
     {},
     OriginalT
   > {
-    return this.createAggregation(
-      column,
-      'AVG',
-      alias || `${String(column)}_avg`
-    ) as any;
+    const newBuilder = this.clone();
+    newBuilder.config = this.aggregations.avg(column, alias);
+    return newBuilder as any;
   }
 
   min<Column extends keyof OriginalT, Alias extends string = `${Column & string}_min`>(
@@ -264,11 +233,9 @@ export class QueryBuilder<
     {},
     OriginalT
   > {
-    return this.createAggregation(
-      column,
-      'MIN',
-      alias || `${String(column)}_min`
-    ) as any;
+    const newBuilder = this.clone();
+    newBuilder.config = this.aggregations.min(column, alias);
+    return newBuilder as any;
   }
 
   max<Column extends keyof OriginalT, Alias extends string = `${Column & string}_max`>(
@@ -281,11 +248,9 @@ export class QueryBuilder<
     {},
     OriginalT
   > {
-    return this.createAggregation(
-      column,
-      'MAX',
-      alias || `${String(column)}_max`
-    ) as any;
+    const newBuilder = this.clone();
+    newBuilder.config = this.aggregations.max(column, alias);
+    return newBuilder as any;
   }
 
 
@@ -581,6 +546,11 @@ export class QueryBuilder<
     }
 
     return parts.join(' ').trim()
+  }
+
+  // Make config accessible to features
+  getConfig() {
+    return this.config;
   }
 
 }
