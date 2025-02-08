@@ -38,9 +38,9 @@ describe('QueryBuilder - Where Conditions', () => {
   describe('edge cases', () => {
     it('should handle boolean values', () => {
       const sql = builder
-        .where('active', 'eq', true)
+        .where('active', 'eq', 1)
         .toSQL();
-      expect(sql).toBe('SELECT * FROM test_table WHERE active = true');
+      expect(sql).toBe('SELECT * FROM test_table WHERE active = 1');
     });
 
     it('should handle array with special characters in IN', () => {

@@ -6,7 +6,9 @@ import {
   OrderDirection,
   TableColumn,
   AggregationType,
-  QueryConfig
+  QueryConfig,
+  OperatorValueMap,
+  InferColumnType
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
@@ -275,6 +277,72 @@ export class QueryBuilder<
     return this.executor.execute();
   }
 
+
+  private validateFilterValue<K extends keyof OriginalT | TableColumn<Schema>>(
+    column: K,
+    operator: FilterOperator,
+    value: any
+  ) {
+    // Skip validation for joined table columns (table.column format)
+    if (String(column).includes('.')) {
+      return;
+    }
+
+    // Now we know it's a direct column
+    const columnType = this.schema.columns[column as keyof T] as ColumnType;
+
+    if (value === null || value === undefined) {
+      throw new Error(`Filter value for column '${String(column)}' cannot be null/undefined`);
+    }
+
+    // Add operator-specific validation
+    switch (operator) {
+      case 'in':
+      case 'notIn':
+        if (!Array.isArray(value)) {
+          throw new Error(`Value for '${operator}' operator must be an array`);
+        }
+        value.forEach(v => this.validateValueType(columnType, v, String(column)));
+        break;
+
+      case 'between':
+        if (!Array.isArray(value) || value.length !== 2) {
+          throw new Error(`Value for 'between' operator must be an array of 2 values`);
+        }
+        value.forEach(v => this.validateValueType(columnType, v, String(column)));
+        break;
+
+      default:
+        this.validateValueType(columnType, value, String(column));
+    }
+  }
+
+  private validateValueType(
+    columnType: ColumnType,  // Now properly typed as ColumnType
+    value: any,
+    columnName: string
+  ) {
+    switch (columnType) {
+      case 'Date':
+        if (!(value instanceof Date) && typeof value !== 'string') {
+          throw new Error(`Invalid date value for column '${columnName}'`);
+        }
+        break;
+      case 'Int32':
+      case 'Int64':
+      case 'Float64':
+        if (typeof value !== 'number') {
+          throw new Error(`Invalid numeric value for column '${columnName}'`);
+        }
+        break;
+      case 'String':
+        if (typeof value !== 'string') {
+          throw new Error(`Invalid string value for column '${columnName}'`);
+        }
+        break;
+    }
+  }
+
   /**
    * Adds a WHERE clause to filter results.
    * @template K - The column key type
@@ -287,16 +355,20 @@ export class QueryBuilder<
    * builder.where('age', 'gt', 18)
    * ```
    */
-  where<K extends keyof T | TableColumn<Schema>>(
+  where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any>>(
     column: K,
-    operator: FilterOperator,
-    value: any
+    operator: Op,
+    value: K extends keyof OriginalT
+      ? OperatorValueMap<OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never>[Op]
+      : any
   ): this {
+    this.validateFilterValue(column, operator, value);
+
     this.config = this.filtering.addCondition('AND', column, operator, value);
     return this;
   }
 
-  orWhere<K extends keyof T | TableColumn<Schema>>(
+  orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
     column: K,
     operator: FilterOperator,
     value: any
@@ -366,14 +438,17 @@ export class QueryBuilder<
     return this;
   }
 
-  whereBetween(
-    column: keyof typeof this.originalSchema.columns,
-    [min, max]: [number | string | Date, number | string | Date]
+  whereBetween<K extends keyof OriginalT>(
+    column: K,
+    [min, max]: [
+      OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never,
+      OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never
+    ]
   ): this {
     if (min === null || max === null) {
       throw new Error('BETWEEN values cannot be null');
     }
-    return this.where(column, 'between', [min, max]);
+    return this.where(column, 'between', [min, max] as any);
   }
 
   innerJoin<TableName extends keyof Schema>(

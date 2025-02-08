@@ -10,7 +10,7 @@ export class FilteringFeature<
 > {
   constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>) { }
 
-  addCondition<K extends keyof T | TableColumn<Schema>>(
+  addCondition<K extends keyof OriginalT | TableColumn<Schema>>(
     conjunction: 'AND' | 'OR',
     column: K,
     operator: FilterOperator,

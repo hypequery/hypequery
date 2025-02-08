@@ -1,4 +1,5 @@
 import { ClickHouseType, InferClickHouseType } from "./clickhouse-types";
+import { FilterOperator } from "./filters";
 
 export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;
@@ -45,10 +46,6 @@ export interface WhereCondition {
   value: any;
   conjunction: 'AND' | 'OR';
 }
-
-export type FilterOperator =
-  | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'
-  | 'like' | 'in' | 'notIn' | 'between';
 
 export type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
 

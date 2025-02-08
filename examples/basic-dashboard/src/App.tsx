@@ -26,7 +26,7 @@ type UkPricePaidFilters = {
  * Creates a CrossFilter instance based on dynamic filter values.
  * This centralizes filter logic using types from your schema.
  */
-function createUKPricePaidCrossFilter(filters: any): CrossFilter {
+function createUKPricePaidCrossFilter(filters: UkPricePaidFilters): CrossFilter {
   const crossFilter = new CrossFilter();
 
   if (filters.type) {
@@ -93,11 +93,7 @@ function App() {
         const qb = await db.table('uk_price_paid')
           .select(['date', 'price', 'town'])
           .sum('price', 'total_price')
-          // .execute();
-          .applyCrossFilters(crossFilter)
-
-        const sql = await qb.toSQL();
-        console.log({ sql })
+          .where('price', 'in', ['200'])
 
         const results = await qb.execute();
         console.log({ results })

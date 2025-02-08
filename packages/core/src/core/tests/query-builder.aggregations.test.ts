@@ -54,7 +54,7 @@ describe('QueryBuilder - Aggregations', () => {
       expect(sql).toBe('SELECT name, SUM(price) AS price_sum, COUNT(id) AS id_count FROM test_table GROUP BY name HAVING price_sum > 1000 AND id_count > 5');
     });
   });
-  /*
+
   it('should allow custom alias for SUM', () => {
     const sql = builder
       .sum('price', 'total_revenue')
@@ -85,6 +85,6 @@ describe('QueryBuilder - Aggregations', () => {
       'GROUP BY category'
     );
   });
-  */
+
 
 }); 
