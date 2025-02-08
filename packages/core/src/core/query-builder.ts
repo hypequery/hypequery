@@ -9,7 +9,6 @@ import {
   QueryConfig,
   OperatorValueMap,
   InferColumnType,
-  FilterCondition,
   FilterConditionInput
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
@@ -20,6 +19,7 @@ import { FilteringFeature } from './features/filtering';
 import { AnalyticsFeature } from './features/analytics';
 import { ExecutorFeature } from './features/executor';
 import { QueryModifiersFeature } from './features/query-modifiers';
+import { ValueValidator } from './validators/value-validator';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -285,64 +285,9 @@ export class QueryBuilder<
     operator: FilterOperator,
     value: any
   ) {
-    // Skip validation for joined table columns (table.column format)
-    if (String(column).includes('.')) {
-      return;
-    }
-
-    // Now we know it's a direct column
+    if (String(column).includes('.')) return;
     const columnType = this.schema.columns[column as keyof T] as ColumnType;
-
-    if (value === null || value === undefined) {
-      throw new Error(`Filter value for column '${String(column)}' cannot be null/undefined`);
-    }
-
-    // Add operator-specific validation
-    switch (operator) {
-      case 'in':
-      case 'notIn':
-        if (!Array.isArray(value)) {
-          throw new Error(`Value for '${operator}' operator must be an array`);
-        }
-        value.forEach(v => this.validateValueType(columnType, v, String(column)));
-        break;
-
-      case 'between':
-        if (!Array.isArray(value) || value.length !== 2) {
-          throw new Error(`Value for 'between' operator must be an array of 2 values`);
-        }
-        value.forEach(v => this.validateValueType(columnType, v, String(column)));
-        break;
-
-      default:
-        this.validateValueType(columnType, value, String(column));
-    }
-  }
-
-  private validateValueType(
-    columnType: ColumnType,  // Now properly typed as ColumnType
-    value: any,
-    columnName: string
-  ) {
-    switch (columnType) {
-      case 'Date':
-        if (!(value instanceof Date) && typeof value !== 'string') {
-          throw new Error(`Invalid date value for column '${columnName}'`);
-        }
-        break;
-      case 'Int32':
-      case 'Int64':
-      case 'Float64':
-        if (typeof value !== 'number') {
-          throw new Error(`Invalid numeric value for column '${columnName}'`);
-        }
-        break;
-      case 'String':
-        if (typeof value !== 'string') {
-          throw new Error(`Invalid string value for column '${columnName}'`);
-        }
-        break;
-    }
+    ValueValidator.validateFilterValue(columnType, operator, value, String(column));
   }
 
   /**
