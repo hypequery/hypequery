@@ -6,6 +6,7 @@ import {
   FilterConditionInput
 } from '../types';
 import { ValueValidator } from './validators/value-validator';
+import { FilterValidator } from './validators/filter-validator';
 
 export class CrossFilter<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } } = any,
@@ -69,6 +70,10 @@ export class CrossFilter<
     columnName: string,
     operator: FilterOperator
   ): void {
-    ValueValidator.validateFilterValue(columnType, operator, value, columnName);
+    FilterValidator.validateFilterCondition(
+      { column: columnName, operator, value },
+      columnType,
+      { allowNull: true }  // CrossFilter allows null values
+    );
   }
 }

@@ -20,6 +20,7 @@ import { AnalyticsFeature } from './features/analytics';
 import { ExecutorFeature } from './features/executor';
 import { QueryModifiersFeature } from './features/query-modifiers';
 import { ValueValidator } from './validators/value-validator';
+import { FilterValidator } from './validators/filter-validator';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -285,9 +286,13 @@ export class QueryBuilder<
     operator: FilterOperator,
     value: any
   ) {
-    if (String(column).includes('.')) return;
+    if (FilterValidator.validateJoinedColumn(String(column))) return;
+
     const columnType = this.schema.columns[column as keyof T] as ColumnType;
-    ValueValidator.validateFilterValue(columnType, operator, value, String(column));
+    FilterValidator.validateFilterCondition(
+      { column: String(column), operator, value },
+      columnType
+    );
   }
 
   /**
