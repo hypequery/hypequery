@@ -1,4 +1,5 @@
-import { CrossFilter, FilterCondition } from '../cross-filter';
+import { CrossFilter } from '../cross-filter';
+import { FilterConditionInput } from '../../types/filters';
 
 describe('CrossFilter', () => {
   let crossFilter: CrossFilter;
@@ -9,7 +10,7 @@ describe('CrossFilter', () => {
 
   describe('add', () => {
     it('should add a single filter condition', () => {
-      const condition: FilterCondition = {
+      const condition: FilterConditionInput = {
         column: 'status',
         operator: 'eq',
         value: 'active'
@@ -58,7 +59,7 @@ describe('CrossFilter', () => {
 
   describe('addMultiple', () => {
     it('should add multiple filter conditions', () => {
-      const conditions: FilterCondition[] = [
+      const conditions: FilterConditionInput[] = [
         {
           column: 'status',
           operator: 'eq',
@@ -93,7 +94,7 @@ describe('CrossFilter', () => {
     });
 
     it('should return copy of conditions array', () => {
-      const condition: FilterCondition = {
+      const condition: FilterConditionInput = {
         column: 'status',
         operator: 'eq',
         value: 'active'
@@ -114,7 +115,7 @@ describe('CrossFilter', () => {
 
   describe('complex filtering scenarios', () => {
     it('should handle date range filters', () => {
-      const dateFilter: FilterCondition = {
+      const dateFilter: FilterConditionInput = {
         column: 'created_at',
         operator: 'between',
         value: ['2023-01-01', '2023-12-31']
@@ -144,7 +145,7 @@ describe('CrossFilter', () => {
     });
 
     it('should handle array values for in operator', () => {
-      const inFilter: FilterCondition = {
+      const inFilter: FilterConditionInput = {
         column: 'status',
         operator: 'in',
         value: ['active', 'pending', 'completed']
@@ -161,10 +162,10 @@ describe('CrossFilter', () => {
       crossFilter.add({
         column: 'is_active',
         operator: 'eq',
-        value: true
+        value: 1
       });
 
-      expect(crossFilter.getConditions()[0].value).toBe(true);
+      expect(crossFilter.getConditions()[0].value).toBe(1);
     });
 
     it('should handle numeric values', () => {

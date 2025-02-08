@@ -1,4 +1,3 @@
-
 export type FilterValue<T> =
   T extends Date ? Date | string :
   T extends number ? number :
@@ -44,3 +43,10 @@ export type OperatorValueMap<T> = {
 };
 
 export type FilterOperator = keyof OperatorValueMap<any>;
+
+export interface FilterConditionInput<T = any> {
+  column: string;
+  operator: FilterOperator;
+  value: T;
+  conjunction?: 'AND' | 'OR';
+}

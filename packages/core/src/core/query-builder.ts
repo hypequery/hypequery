@@ -1,5 +1,5 @@
 import { ClickHouseConnection } from './connection';
-import { CrossFilter, FilterCondition } from './cross-filter';
+import { CrossFilter } from './cross-filter';
 import {
   ColumnType,
   FilterOperator,
@@ -8,7 +8,9 @@ import {
   AggregationType,
   QueryConfig,
   OperatorValueMap,
-  InferColumnType
+  InferColumnType,
+  FilterCondition,
+  FilterConditionInput
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
@@ -129,7 +131,7 @@ export class QueryBuilder<
  * @returns The current QueryBuilder instance.
  */
   applyCrossFilters(crossFilter: CrossFilter): this {
-    crossFilter.getConditions().forEach((condition: FilterCondition) => {
+    crossFilter.getConditions().forEach((condition: FilterConditionInput<any>) => {
       this.where(condition.column, condition.operator, condition.value);
     });
     return this;
