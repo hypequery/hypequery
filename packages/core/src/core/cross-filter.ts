@@ -5,14 +5,13 @@ import {
   OperatorValueMap,
   FilterConditionInput
 } from '../types';
-import { ValueValidator } from './validators/value-validator';
 import { FilterValidator } from './validators/filter-validator';
 
 export class CrossFilter<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } } = any,
   TableName extends keyof Schema = Extract<keyof Schema, string>
 > {
-  private conditions: Array<FilterConditionInput<any>> = [];
+  private conditions: Array<FilterConditionInput<any, Schema, Schema[TableName]>> = [];
 
   // Optionally pass a schema to get full type-validation.
   constructor(private schema?: Schema) { }
@@ -20,17 +19,13 @@ export class CrossFilter<
   add<
     ColumnName extends Extract<keyof Schema[TableName], string>,
     Op extends FilterOperator
-  >(condition: {
-    column: ColumnName;
-    operator: Op;
-    value: Schema extends any
-    ? Schema[TableName][ColumnName] extends ColumnType
-    ? OperatorValueMap<InferColumnType<Schema[TableName][ColumnName]>>[Op]
-    : never
-    : never;
-  }): this {
+  >(condition: FilterConditionInput<
+    OperatorValueMap<InferColumnType<Schema[TableName][ColumnName]>>[Op],
+    Schema,
+    Schema[TableName]
+  >): this {
     if (this.schema) {
-      const columnType = this.getColumnType(condition.column);
+      const columnType = this.getColumnType(String(condition.column));
       this.validateValueType(columnType, condition.value, String(condition.column), condition.operator);
     }
     this.conditions.push(condition);
@@ -42,9 +37,8 @@ export class CrossFilter<
     return this;
   }
 
-  getConditions(): Array<FilterConditionInput<any>> {
-    // Return a copy to avoid accidental mutations
-    return this.conditions
+  getConditions(): Array<FilterConditionInput<any, Schema, Schema[TableName]>> {
+    return this.conditions;
   }
 
   // Look up a column's type given its name.

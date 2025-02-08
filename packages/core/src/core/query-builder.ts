@@ -131,8 +131,8 @@ export class QueryBuilder<
  * @param crossFilter - An instance of CrossFilter containing shared filter conditions.
  * @returns The current QueryBuilder instance.
  */
-  applyCrossFilters(crossFilter: CrossFilter): this {
-    crossFilter.getConditions().forEach((condition: FilterConditionInput<any>) => {
+  applyCrossFilters(crossFilter: CrossFilter<Schema, keyof Schema>): this {
+    crossFilter.getConditions().forEach((condition: FilterConditionInput<any, Schema, Schema[keyof Schema]>) => {
       this.where(condition.column, condition.operator, condition.value);
     });
     return this;

@@ -1,3 +1,5 @@
+import { TableColumn } from "./base";
+
 export type FilterValue<T> =
   T extends Date ? Date | string :
   T extends number ? number :
@@ -44,8 +46,12 @@ export type OperatorValueMap<T> = {
 
 export type FilterOperator = keyof OperatorValueMap<any>;
 
-export interface FilterConditionInput<T = any> {
-  column: string;
+export interface FilterConditionInput<
+  T = any,
+  Schema extends Record<string, Record<string, any>> = any,
+  OriginalT extends Record<string, any> = any
+> {
+  column: keyof OriginalT | TableColumn<Schema>;
   operator: FilterOperator;
   value: T;
   conjunction?: 'AND' | 'OR';
