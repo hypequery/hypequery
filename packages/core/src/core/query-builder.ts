@@ -9,7 +9,6 @@ import {
   QueryConfig,
   OperatorValueMap,
   InferColumnType,
-  FilterConditionInput
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
@@ -19,7 +18,6 @@ import { FilteringFeature } from './features/filtering';
 import { AnalyticsFeature } from './features/analytics';
 import { ExecutorFeature } from './features/executor';
 import { QueryModifiersFeature } from './features/query-modifiers';
-import { ValueValidator } from './validators/value-validator';
 import { FilterValidator } from './validators/filter-validator';
 
 /**
@@ -126,14 +124,17 @@ export class QueryBuilder<
   }
 
   /**
- * Applies a set of cross filters to the current query.
- * All filter conditions from the provided CrossFilter are added to the query.
- * @param crossFilter - An instance of CrossFilter containing shared filter conditions.
- * @returns The current QueryBuilder instance.
- */
+   * Applies a set of cross filters to the current query.
+   * All filter conditions from the provided CrossFilter are added to the query.
+   * @param crossFilter - An instance of CrossFilter containing shared filter conditions.
+   * @returns The current QueryBuilder instance.
+   */
   applyCrossFilters(crossFilter: CrossFilter<Schema, keyof Schema>): this {
-    crossFilter.getConditions().forEach((condition: FilterConditionInput<any, Schema, Schema[keyof Schema]>) => {
-      this.where(condition.column, condition.operator, condition.value);
+    const filterGroup = crossFilter.getConditions();
+    filterGroup.conditions.forEach((item) => {
+      if ('column' in item) {
+        this.where(item.column, item.operator, item.value);
+      }
     });
     return this;
   }

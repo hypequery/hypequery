@@ -1,5 +1,5 @@
-import { CrossFilter } from '../cross-filter';
-import { FilterConditionInput } from '../../types/filters';
+import { CrossFilter, FilterGroup } from '../cross-filter';
+import { FilterConditionInput, FilterOperator } from '../../types/filters';
 
 describe('CrossFilter', () => {
   let crossFilter: CrossFilter;
@@ -17,8 +17,8 @@ describe('CrossFilter', () => {
       };
 
       crossFilter.add(condition);
-      expect(crossFilter.getConditions()).toHaveLength(1);
-      expect(crossFilter.getConditions()[0]).toEqual(condition);
+      const result = crossFilter.getConditions();
+      expect(result.conditions[0]).toEqual(condition);
     });
 
     it('should return this for method chaining', () => {
@@ -49,11 +49,11 @@ describe('CrossFilter', () => {
           value: ['2023-01-01', '2023-12-31']
         });
 
-      const conditions = crossFilter.getConditions();
-      expect(conditions).toHaveLength(3);
-      expect(conditions[0].operator).toBe('gt');
-      expect(conditions[1].operator).toBe('in');
-      expect(conditions[2].operator).toBe('between');
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(3);
+      expect(result.conditions[0].operator).toBe('gt');
+      expect(result.conditions[1].operator).toBe('in');
+      expect(result.conditions[2].operator).toBe('between');
     });
   });
 
@@ -73,8 +73,9 @@ describe('CrossFilter', () => {
       ];
 
       crossFilter.addMultiple(conditions);
-      expect(crossFilter.getConditions()).toHaveLength(2);
-      expect(crossFilter.getConditions()).toEqual(conditions);
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(2);
+      expect(result.conditions).toEqual(conditions);
     });
 
     it('should return this for method chaining', () => {
@@ -84,13 +85,15 @@ describe('CrossFilter', () => {
 
     it('should handle empty array', () => {
       crossFilter.addMultiple([]);
-      expect(crossFilter.getConditions()).toHaveLength(0);
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(0);
     });
   });
 
   describe('getConditions', () => {
-    it('should return empty array when no conditions added', () => {
-      expect(crossFilter.getConditions()).toEqual([]);
+    it('should return empty conditions array when no conditions added', () => {
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(0);
     });
 
     it('should return copy of conditions array', () => {
@@ -101,15 +104,17 @@ describe('CrossFilter', () => {
       };
 
       crossFilter.add(condition);
-      const conditions = crossFilter.getConditions();
-      conditions.push({
+      const result = crossFilter.getConditions();
+
+      // Modify the copy
+      result.conditions.push({
         column: 'test',
         operator: 'eq',
         value: 'test'
       });
 
-      // Original conditions should not be modified
-      expect(crossFilter.getConditions()).toHaveLength(2);
+      expect(result.conditions).toHaveLength(2);
+      expect(result.conditions[0]).toEqual(condition);
     });
   });
 
@@ -122,7 +127,9 @@ describe('CrossFilter', () => {
       };
 
       crossFilter.add(dateFilter);
-      expect(crossFilter.getConditions()[0]).toEqual(dateFilter);
+      const result = crossFilter.getConditions();
+      const condition = result.conditions[0] as FilterConditionInput;
+      expect(condition).toEqual(dateFilter);
     });
 
     it('should handle multiple conditions for same column', () => {
@@ -138,10 +145,12 @@ describe('CrossFilter', () => {
           value: 200
         });
 
-      const conditions = crossFilter.getConditions();
-      expect(conditions).toHaveLength(2);
-      expect(conditions[0].column).toBe('price');
-      expect(conditions[1].column).toBe('price');
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(2);
+      const firstCondition = result.conditions[0] as FilterConditionInput;
+      const secondCondition = result.conditions[1] as FilterConditionInput;
+      expect(firstCondition.column).toBe('price');
+      expect(secondCondition.column).toBe('price');
     });
 
     it('should handle array values for in operator', () => {
@@ -152,8 +161,10 @@ describe('CrossFilter', () => {
       };
 
       crossFilter.add(inFilter);
-      expect(crossFilter.getConditions()[0]).toEqual(inFilter);
-      expect(Array.isArray(crossFilter.getConditions()[0].value)).toBe(true);
+      const result = crossFilter.getConditions();
+      const condition = result.conditions[0] as FilterConditionInput;
+      expect(condition).toEqual(inFilter);
+      expect(Array.isArray(condition.value)).toBe(true);
     });
   });
 
@@ -165,7 +176,9 @@ describe('CrossFilter', () => {
         value: 1
       });
 
-      expect(crossFilter.getConditions()[0].value).toBe(1);
+      const result = crossFilter.getConditions();
+      const condition = result.conditions[0] as FilterConditionInput;
+      expect(condition.value).toBe(1);
     });
 
     it('should handle numeric values', () => {
@@ -175,7 +188,9 @@ describe('CrossFilter', () => {
         value: 0
       });
 
-      expect(typeof crossFilter.getConditions()[0].value).toBe('number');
+      const result = crossFilter.getConditions();
+      const condition = result.conditions[0] as FilterConditionInput;
+      expect(typeof condition.value).toBe('number');
     });
 
     it('should handle null values', () => {
@@ -185,7 +200,116 @@ describe('CrossFilter', () => {
         value: null
       });
 
-      expect(crossFilter.getConditions()[0].value).toBeNull();
+      const result = crossFilter.getConditions();
+      const condition = result.conditions[0] as FilterConditionInput;
+      expect(condition.value).toBeNull();
+    });
+  });
+
+  describe('addGroup', () => {
+    it('should add a group with AND operator', () => {
+      const conditions: FilterConditionInput[] = [
+        { column: 'region', operator: 'eq', value: 'North' },
+        { column: 'price', operator: 'gt', value: 1000 }
+      ];
+      crossFilter.addGroup(conditions, 'AND');
+
+      const result = crossFilter.getConditions();
+      expect(result.operator).toBe('AND');
+      expect(result.conditions).toHaveLength(1);
+
+      const group = result.conditions[0] as FilterGroup;
+      expect(group.operator).toBe('AND');
+      expect(group.conditions).toEqual(conditions);
+    });
+
+    it('should add a group with OR operator', () => {
+      const conditions: FilterConditionInput[] = [
+        { column: 'status', operator: 'eq', value: 'active' },
+        { column: 'region', operator: 'eq', value: 'South' }
+      ];
+      crossFilter.addGroup(conditions, 'OR');
+
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(1);
+
+      const group = result.conditions[0] as FilterGroup;
+      expect(group.operator).toBe('OR');
+      expect(group.conditions).toEqual(conditions);
+    });
+
+    it('should support mixing single conditions and groups', () => {
+      // Add a single condition
+      crossFilter.add({
+        column: 'status',
+        operator: 'eq',
+        value: 'active'
+      });
+
+      // Add a group
+      crossFilter.addGroup([
+        { column: 'region', operator: 'eq', value: 'North' },
+        { column: 'price', operator: 'gt', value: 1000 }
+      ], 'AND');
+
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(2);
+      expect(result.operator).toBe('AND');
+
+      // First condition should be the single condition
+      const firstCondition = result.conditions[0] as FilterConditionInput;
+      expect(firstCondition.column).toBe('status');
+
+      // Second condition should be the group
+      const group = result.conditions[1] as FilterGroup;
+      expect(group.operator).toBe('AND');
+      expect(group.conditions).toHaveLength(2);
+    });
+
+    it('should support nested groups', () => {
+      const innerGroup: FilterGroup = {
+        operator: 'AND',
+        conditions: [
+          { column: 'price', operator: 'gte', value: 100 },
+          { column: 'price', operator: 'lte', value: 200 }
+        ]
+      };
+
+      crossFilter.addGroup([
+        { column: 'region', operator: 'eq', value: 'North' },
+        innerGroup
+      ], 'OR');
+
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(1);
+
+      const outerGroup = result.conditions[0] as FilterGroup;
+      expect(outerGroup.operator).toBe('OR');
+      expect(outerGroup.conditions).toHaveLength(2);
+
+      const nestedGroup = outerGroup.conditions[1] as FilterGroup;
+      expect(nestedGroup.operator).toBe('AND');
+      expect(nestedGroup.conditions).toHaveLength(2);
+    });
+
+    it('should maintain type safety with schema validation', () => {
+      const schema = {
+        test_table: {
+          price: 'Float64' as const,
+          region: 'String' as const
+        }
+      };
+
+      const typedFilter = new CrossFilter(schema);
+
+      // This should work with valid types
+      typedFilter.addGroup([
+        { column: 'price', operator: 'gt', value: 1000 },
+        { column: 'region', operator: 'eq', value: 'North' }
+      ], 'AND');
+
+      const result = typedFilter.getConditions();
+      expect(result.conditions).toHaveLength(1);
     });
   });
 });

@@ -7,42 +7,108 @@ import {
 } from '../types';
 import { FilterValidator } from './validators/filter-validator';
 
+// Define FilterGroup interface for nested filter groups
+export interface FilterGroup<
+  Schema extends Record<string, Record<string, any>> = any,
+  OriginalT extends Record<string, any> = any
+> {
+  operator: 'AND' | 'OR';
+  conditions: Array<
+    FilterConditionInput<any, Schema, OriginalT> | FilterGroup<Schema, OriginalT>
+  >;
+}
+
+/**
+ * A type-safe filter builder supporting both simple conditions and complex nested groups.
+ * @template Schema - The full database schema type
+ * @template TableName - The specific table being filtered
+ */
 export class CrossFilter<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } } = any,
   TableName extends keyof Schema = Extract<keyof Schema, string>
 > {
-  private conditions: Array<FilterConditionInput<any, Schema, Schema[TableName]>> = [];
+  // Root group holding filter conditions or nested groups, defaulting to an implicit AND.
+  private rootGroup: FilterGroup<Schema, Schema[TableName]>;
 
   // Optionally pass a schema to get full type-validation.
-  constructor(private schema?: Schema) { }
+  constructor(private schema?: Schema) {
+    this.rootGroup = { operator: 'AND', conditions: [] };
+  }
 
+  /**
+   * Adds a single filter condition to the root group with an implicit AND conjunction.
+   * Performs type-safe validation if a schema is provided.
+   */
   add<
     ColumnName extends Extract<keyof Schema[TableName], string>,
     Op extends FilterOperator
-  >(condition: FilterConditionInput<
-    OperatorValueMap<InferColumnType<Schema[TableName][ColumnName]>>[Op],
-    Schema,
-    Schema[TableName]
-  >): this {
+  >(
+    condition: FilterConditionInput<
+      OperatorValueMap<InferColumnType<Schema[TableName][ColumnName]>>[Op],
+      Schema,
+      Schema[TableName]
+    >
+  ): this {
     if (this.schema) {
       const columnType = this.getColumnType(String(condition.column));
-      this.validateValueType(columnType, condition.value, String(condition.column), condition.operator);
+      this.validateValueType(
+        columnType,
+        condition.value,
+        String(condition.column),
+        condition.operator
+      );
     }
-    this.conditions.push(condition);
+    this.rootGroup.conditions.push(condition);
     return this;
   }
 
-  addMultiple(conditions: Array<FilterConditionInput<OperatorValueMap<InferColumnType<ColumnType>>[FilterOperator]>>): this {
-    this.conditions.push(...conditions);
+  /**
+   * Adds multiple filter conditions to the root group.
+   */
+  addMultiple(
+    conditions: Array<FilterConditionInput<any, Schema, Schema[TableName]>>
+  ): this {
+    if (this.schema) {
+      this.validateGroup(conditions);
+    }
+    this.rootGroup.conditions.push(...conditions);
     return this;
   }
 
-  getConditions(): Array<FilterConditionInput<any, Schema, Schema[TableName]>> {
-    return this.conditions;
+  /**
+   * Adds a nested group of filter conditions to the root group using the specified logical operator.
+   * @param groupConditions - Array of filter conditions or nested groups to be grouped together.
+   * @param operator - Logical operator ('AND' or 'OR') to combine the conditions in the group.
+   */
+  addGroup(
+    groupConditions: Array<
+      FilterConditionInput<any, Schema, Schema[TableName]> | FilterGroup<Schema, Schema[TableName]>
+    >,
+    operator: 'AND' | 'OR'
+  ): this {
+    if (this.schema) {
+      this.validateGroup(groupConditions);
+    }
+    const group: FilterGroup<Schema, Schema[TableName]> = {
+      operator,
+      conditions: groupConditions
+    };
+    this.rootGroup.conditions.push(group);
+    return this;
   }
 
-  // Look up a column's type given its name.
-  // If no schema was provided, we default to 'String'
+  /**
+   * Returns the current filter tree representing all conditions and groups.
+   */
+  getConditions(): FilterGroup<Schema, Schema[TableName]> {
+    return this.rootGroup;
+  }
+
+  /**
+   * Looks up a column's type from the schema.
+   * Defaults to 'String' if no schema is provided.
+   * @param column - The column name as a string.
+   */
   private getColumnType(column: string): ColumnType {
     if (!this.schema) {
       return 'String';
@@ -56,8 +122,9 @@ export class CrossFilter<
     throw new Error(`Column '${column}' not found in schema`);
   }
 
-  // Validate an operator–value combination.
-  // Re–uses similar logic to QueryBuilder's filter validation.
+  /**
+   * Validates the value of a filter condition against its expected column type.
+   */
   private validateValueType(
     columnType: ColumnType,
     value: any,
@@ -69,5 +136,38 @@ export class CrossFilter<
       columnType,
       { allowNull: true }  // CrossFilter allows null values
     );
+  }
+
+  /**
+   * Recursively validates an array of filter conditions and nested groups.
+   */
+  private validateGroup(
+    conditions: Array<
+      FilterConditionInput<any, Schema, Schema[TableName]> | FilterGroup<Schema, Schema[TableName]>
+    >
+  ): void {
+    for (const condition of conditions) {
+      if (this.isGroup(condition)) {
+        // Recursively validate nested groups
+        this.validateGroup(condition.conditions);
+      } else {
+        const columnType = this.getColumnType(String(condition.column));
+        this.validateValueType(
+          columnType,
+          condition.value,
+          String(condition.column),
+          condition.operator
+        );
+      }
+    }
+  }
+
+  /**
+   * Type guard to check if an item is a FilterGroup.
+   */
+  private isGroup(
+    item: FilterConditionInput<any, Schema, Schema[TableName]> | FilterGroup<Schema, Schema[TableName]>
+  ): item is FilterGroup<Schema, Schema[TableName]> {
+    return typeof (item as any).conditions !== 'undefined';
   }
 }
