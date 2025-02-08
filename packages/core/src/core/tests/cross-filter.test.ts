@@ -312,4 +312,163 @@ describe('CrossFilter', () => {
       expect(result.conditions).toHaveLength(1);
     });
   });
+
+  describe('time series filters', () => {
+    const schema = {
+      test_table: {
+        created_at: 'Date' as const,
+        updated_at: 'DateTime' as const,
+        name: 'String' as const
+      }
+    };
+
+    let typedFilter: CrossFilter<typeof schema, 'test_table'>;
+
+    beforeEach(() => {
+      typedFilter = new CrossFilter(schema);
+    });
+
+    describe('addDateRange', () => {
+      it('should add date range filter for today', () => {
+        typedFilter.addDateRange('created_at', 'today');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        expect(condition.column).toBe('created_at');
+        expect(condition.operator).toBe('between');
+        expect(Array.isArray(condition.value)).toBe(true);
+        expect(condition.value.length).toBe(2);
+      });
+
+      it('should not allow date range on non-date columns', () => {
+        // @ts-expect-error - name is not a date column
+        typedFilter.addDateRange('name', 'today');
+      });
+    });
+
+    describe('lastNDays', () => {
+      it('should add filter for last N days', () => {
+        typedFilter.lastNDays('created_at', 7);
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        expect(condition.column).toBe('created_at');
+        expect(condition.operator).toBe('between');
+        expect(Array.isArray(condition.value)).toBe(true);
+        expect(condition.value.length).toBe(2);
+      });
+
+      it('should not allow lastNDays on non-date columns', () => {
+        // @ts-expect-error - name is not a date column
+        typedFilter.lastNDays('name', 7);
+      });
+    });
+
+    describe('addComparisonPeriod', () => {
+      it('should add previous period filter', () => {
+        const currentRange: [Date, Date] = [new Date('2024-01-01'), new Date('2024-01-31')];
+        typedFilter.addComparisonPeriod('created_at', currentRange);
+
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        expect(condition.column).toBe('created_at');
+        expect(condition.operator).toBe('between');
+        expect(Array.isArray(condition.value)).toBe(true);
+        expect(condition.value.length).toBe(2);
+      });
+
+      it('should not allow comparison period on non-date columns', () => {
+        // @ts-expect-error - name is not a date column
+        typedFilter.addComparisonPeriod('name', [new Date(), new Date()]);
+      });
+    });
+
+    describe('addYearOverYear', () => {
+      it('should add year-over-year comparison', () => {
+        const currentRange: [Date, Date] = [new Date('2024-01-01'), new Date('2024-01-31')];
+        typedFilter.addYearOverYear('created_at', currentRange);
+
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        expect(condition.column).toBe('created_at');
+        expect(condition.operator).toBe('between');
+        expect(Array.isArray(condition.value)).toBe(true);
+        expect(condition.value.length).toBe(2);
+
+        // Should be same dates but previous year
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).getFullYear()).toBe(2023);
+        expect(new Date(end).getFullYear()).toBe(2023);
+      });
+
+      it('should not allow year-over-year on non-date columns', () => {
+        // @ts-expect-error - name is not a date column
+        typedFilter.addYearOverYear('name', [new Date(), new Date()]);
+      });
+    });
+  });
+
+  describe('topN', () => {
+    const schema = {
+      test_table: {
+        price: 'Float64' as const,
+        quantity: 'Int32' as const,
+        name: 'String' as const
+      }
+    };
+
+    let typedFilter: CrossFilter<typeof schema, 'test_table'>;
+
+    beforeEach(() => {
+      typedFilter = new CrossFilter(schema);
+    });
+
+    it('should create a filter for top N records', () => {
+      typedFilter.topN('price', 5);
+      const result = typedFilter.getConditions();
+
+      // Check the filter condition
+      const condition = result.conditions[0] as FilterConditionInput;
+      expect(condition.column).toBe('price');
+      expect(condition.operator).toBe('gt');
+      expect(condition.value).toBe(0);
+
+      // Check limit and order
+      expect(result.limit).toBe(5);
+      expect(result.orderBy).toEqual({
+        column: 'price',
+        direction: 'DESC'
+      });
+    });
+
+    it('should allow ascending order', () => {
+      typedFilter.topN('quantity', 10, 'asc');
+      const result = typedFilter.getConditions();
+
+      expect(result.limit).toBe(10);
+      expect(result.orderBy).toEqual({
+        column: 'quantity',
+        direction: 'ASC'
+      });
+    });
+
+    it('should default to descending order', () => {
+      typedFilter.topN('price', 3);
+      const result = typedFilter.getConditions();
+
+      expect(result.orderBy?.direction).toBe('DESC');
+    });
+
+    it('should maintain type safety for column names', () => {
+      // These should type check
+      typedFilter.topN('price', 5);
+      typedFilter.topN('quantity', 10, 'asc');
+
+      // This should fail type checking
+      // @ts-expect-error - invalid column
+      const _unused = () => typedFilter.topN('invalid_column', 5);
+    });
+  });
 });

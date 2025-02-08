@@ -16,7 +16,7 @@ export type FilterCondition<T> = {
   lte: T extends number | Date ? FilterValue<T> : never;
   in: FilterValue<T>[];
   notIn: FilterValue<T>[];
-  between: [FilterValue<T>, FilterValue<T>];
+  between: [FilterValue<T>, FilterValue<T>] | [string, string];
   like: T extends string ? string : never;
   notLike: T extends string ? string : never;
 };
@@ -26,20 +26,20 @@ export type FilterValueType<T, Op extends FilterOperator> =
   Op extends 'in' | 'notIn'
   ? T extends (infer U)[] ? U[] : T[]
   : Op extends 'between'
-  ? [T, T]
+  ? [T, T] | [string, string]
   : T;
 
 // Type-safe operator mapping
 export type OperatorValueMap<T> = {
-  'eq': T;
-  'neq': T;
-  'gt': T extends string | number | Date ? T : never;
-  'lt': T extends string | number | Date ? T : never;
-  'gte': T extends string | number | Date ? T : never;
-  'lte': T extends string | number | Date ? T : never;
-  'in': T[];
-  'notIn': T[];
-  'between': [T, T];
+  'eq': T | string;
+  'neq': T | string;
+  'gt': T extends string | number | Date ? T | string : never;
+  'lt': T extends string | number | Date ? T | string : never;
+  'gte': T extends string | number | Date ? T | string : never;
+  'lte': T extends string | number | Date ? T | string : never;
+  'in': (T | string)[];
+  'notIn': (T | string)[];
+  'between': [T | string, T | string] | [string, string];
   'like': T extends string ? string : never;
   'notLike': T extends string ? string : never;
 };
