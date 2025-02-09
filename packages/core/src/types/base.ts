@@ -68,3 +68,26 @@ export type AggregationType<T, Aggregations, Column, A extends string, Suffix ex
   : Aggregations extends Record<string, string>
   ? Aggregations & Record<A extends undefined ? `${Column & string}_${Suffix}` : A, string>
   : Record<A extends undefined ? `${Column & string}_${Suffix}` : A, string>;
+
+export interface PaginationOptions<T> {
+  pageSize: number;
+  after?: string;
+  before?: string;
+  orderBy?: Array<{
+    column: keyof T | TableColumn<any>;
+    direction: OrderDirection;
+  }>;
+}
+
+export interface PageInfo {
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  startCursor: string;
+  endCursor: string;
+  totalCount?: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  pageInfo: PageInfo;
+}

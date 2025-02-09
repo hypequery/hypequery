@@ -9,6 +9,9 @@ import {
   QueryConfig,
   OperatorValueMap,
   InferColumnType,
+  PaginationOptions,
+  PaginatedResult,
+  PageInfo
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
@@ -19,6 +22,7 @@ import { AnalyticsFeature } from './features/analytics';
 import { ExecutorFeature } from './features/executor';
 import { QueryModifiersFeature } from './features/query-modifiers';
 import { FilterValidator } from './validators/filter-validator';
+import { PaginationFeature } from './features/pagination';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -45,6 +49,7 @@ export class QueryBuilder<
   private analytics: AnalyticsFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private executor: ExecutorFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private modifiers: QueryModifiersFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private pagination: PaginationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -60,6 +65,7 @@ export class QueryBuilder<
     this.analytics = new AnalyticsFeature(this);
     this.executor = new ExecutorFeature(this);
     this.modifiers = new QueryModifiersFeature(this);
+    this.pagination = new PaginationFeature(this);
   }
 
   debug() {
@@ -459,6 +465,26 @@ export class QueryBuilder<
     return this.config;
   }
 
+  /**
+   * Paginates the query results using cursor-based pagination
+   */
+  async paginate(options: PaginationOptions<T>): Promise<PaginatedResult<T>> {
+    return this.pagination.paginate(options);
+  }
+
+  /**
+   * Gets the first page of results
+   */
+  async firstPage(pageSize: number): Promise<PaginatedResult<T>> {
+    return this.pagination.firstPage(pageSize);
+  }
+
+  /**
+   * Returns an async iterator that yields all pages
+   */
+  iteratePages(pageSize: number): AsyncGenerator<PaginatedResult<T>> {
+    return this.pagination.iteratePages(pageSize);
+  }
 }
 
 export function createQueryBuilder<Schema extends {
