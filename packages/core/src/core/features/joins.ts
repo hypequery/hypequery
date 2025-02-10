@@ -17,13 +17,16 @@ export class JoinFeature<
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ) {
+    console.log('JoinFeature.addJoin called with:', { type, table, leftColumn, rightColumn, alias });
     const config = this.builder.getConfig();
-    return {
+    const newConfig = {
       ...config,
       joins: [
         ...(config.joins || []),
         { type, table: String(table), leftColumn: String(leftColumn), rightColumn, alias }
       ]
     };
+    console.log('JoinFeature new config:', newConfig);
+    return newConfig;
   }
 } 

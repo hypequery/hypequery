@@ -23,6 +23,7 @@ import { ExecutorFeature } from './features/executor';
 import { QueryModifiersFeature } from './features/query-modifiers';
 import { FilterValidator } from './validators/filter-validator';
 import { PaginationFeature } from './features/pagination';
+import { JoinRelationships, JoinPath, JoinPathOptions } from './join-relationships';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -38,6 +39,8 @@ export class QueryBuilder<
   Aggregations = {},
   OriginalT = T
 > {
+  private static relationships: JoinRelationships<any>;
+
   private config: QueryConfig<T, Schema> = {};
   private tableName: string;
   private schema: { name: string; columns: T };
@@ -84,7 +87,15 @@ export class QueryBuilder<
       this.originalSchema
     );
     newBuilder.config = { ...this.config };
-    return newBuilder as any
+    // Initialize features with the new builder
+    newBuilder.aggregations = new AggregationFeature(newBuilder);
+    newBuilder.joins = new JoinFeature(newBuilder);
+    newBuilder.filtering = new FilteringFeature(newBuilder);
+    newBuilder.analytics = new AnalyticsFeature(newBuilder);
+    newBuilder.executor = new ExecutorFeature(newBuilder);
+    newBuilder.modifiers = new QueryModifiersFeature(newBuilder);
+    newBuilder.pagination = new PaginationFeature(newBuilder);
+    return newBuilder as any;
   }
 
   // --- Analytics Helper: Add a CTE.
@@ -416,9 +427,11 @@ export class QueryBuilder<
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+    console.log('Inner join called with:', { table, leftColumn, rightColumn, alias });
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('INNER', table, leftColumn, rightColumn, alias);
-    return newBuilder as any;
+    console.log('New config after inner join:', newBuilder.config);
+    return newBuilder;
   }
 
   leftJoin<
@@ -484,6 +497,44 @@ export class QueryBuilder<
    */
   iteratePages(pageSize: number): AsyncGenerator<PaginatedResult<T>> {
     return this.pagination.iteratePages(pageSize);
+  }
+
+  static setJoinRelationships<S extends { [tableName: string]: { [columnName: string]: ColumnType } }>(
+    relationships: JoinRelationships<S>
+  ): void {
+    this.relationships = relationships;
+  }
+
+  /**
+   * Apply a predefined join relationship
+   */
+  withRelation(name: string, options?: JoinPathOptions): this {
+    if (!QueryBuilder.relationships) {
+      throw new Error('Join relationships have not been initialized. Call QueryBuilder.setJoinRelationships first.');
+    }
+
+    const path = QueryBuilder.relationships.get(name);
+    if (!path) {
+      throw new Error(`Join relationship '${name}' not found`);
+    }
+
+    if (Array.isArray(path)) {
+      // Handle join chain
+      path.forEach(joinPath => {
+        const type = options?.type || joinPath.type || 'INNER';
+        const alias = options?.alias || joinPath.alias;
+        const table = String(joinPath.to) as Extract<keyof Schema, string>;
+        this.config = this.joins.addJoin(type, table, joinPath.leftColumn as any, `${table}.${joinPath.rightColumn}`, alias);
+      });
+    } else {
+      // Handle single join
+      const type = options?.type || path.type || 'INNER';
+      const alias = options?.alias || path.alias;
+      const table = String(path.to) as Extract<keyof Schema, string>;
+      this.config = this.joins.addJoin(type, table, path.leftColumn as any, `${table}.${path.rightColumn}`, alias);
+    }
+
+    return this;
   }
 }
 
