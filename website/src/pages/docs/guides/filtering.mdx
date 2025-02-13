@@ -1,0 +1,75 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Advanced Filtering
+description: Learn how to use advanced filtering capabilities in HypeQuery
+---
+
+# Advanced Filtering
+
+HypeQuery provides powerful filtering capabilities through the `CrossFilter` class and direct query methods. This guide covers all the filtering options available.
+
+## Basic Filtering
+
+Use the `where` method for simple conditions:
+
+```typescript
+const results = await db
+  .table('users')
+  .where('age', 'gt', 18)
+  .where('status', 'eq', 'active')
+  .execute();
+```
+
+## Complex Filtering with CrossFilter
+
+The `CrossFilter` class provides more advanced filtering capabilities:
+
+```typescript
+const filter = new CrossFilter()
+  .add({
+    column: 'status',
+    operator: 'in',
+    value: ['active', 'pending']
+  })
+  .addGroup([
+    {
+      column: 'created_at',
+      operator: 'gte',
+      value: new Date('2023-01-01')
+    },
+    {
+      column: 'total',
+      operator: 'gt',
+      value: 1000
+    }
+  ], 'OR');
+
+const results = await db
+  .table('orders')
+  .applyCrossFilters(filter)
+  .execute();
+```
+
+## Date Filtering
+
+Special methods for date-based filtering:
+
+```typescript
+const filter = new CrossFilter()
+  .addDateRange('created_at', 'last_30_days')
+  .addDateRange('updated_at', 'this_month');
+
+// Or use custom date ranges
+filter.lastNDays('created_at', 7);
+```
+
+### Available Date Ranges
+
+- `today`
+- `yesterday`
+- `last_7_days`
+- `last_30_days`
+- `this_month`
+- `last_month`
+- `this_quarter`
+- `year_to_date` 

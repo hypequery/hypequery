@@ -1,0 +1,117 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Query Building - HypeQuery Documentation
+---
+
+# Query Building
+
+HypeQuery provides a fluent, type-safe API for building SQL queries. This guide covers the core concepts of query building.
+
+## Basic Queries
+
+The most basic query starts with selecting a table and columns:
+
+```typescript
+const results = await db
+  .table('users')
+  .select(['id', 'name', 'email'])
+  .execute();
+```
+
+## Filtering
+
+Add WHERE clauses to filter your results:
+
+```typescript
+const results = await db
+  .table('users')
+  .select(['id', 'name'])
+  .where('age', 'gt', 18)
+  .where('status', 'eq', 'active')
+  .execute();
+```
+
+### Available Operators
+
+- `eq`: Equals
+- `neq`: Not equals
+- `gt`: Greater than
+- `gte`: Greater than or equal
+- `lt`: Less than
+- `lte`: Less than or equal
+- `in`: In array
+- `notIn`: Not in array
+- `between`: Between two values
+- `like`: Pattern matching
+
+## Aggregations
+
+Perform calculations on your data:
+
+```typescript
+const results = await db
+  .table('orders')
+  .select(['user_id'])
+  .sum('amount', 'total_spent')
+  .count('id', 'order_count')
+  .groupBy('user_id')
+  .having('total_spent > 1000')
+  .execute();
+```
+
+### Available Aggregations
+
+- `sum()`: Calculate the sum of a column
+- `count()`: Count records
+- `avg()`: Calculate the average
+- `min()`: Find the minimum value
+- `max()`: Find the maximum value
+
+## Ordering and Limiting
+
+Control the order and number of results:
+
+```typescript
+const results = await db
+  .table('posts')
+  .select(['title', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+```
+
+## Type Safety
+
+HypeQuery provides complete type safety:
+
+```typescript
+interface UserSchema {
+  id: 'Int32';
+  name: 'String';
+  email: 'String';
+  age: 'Int32';
+}
+
+interface Schema {
+  users: UserSchema;
+}
+
+const db = createQueryBuilder<Schema>();
+
+// TypeScript will catch these errors:
+db.table('invalid_table'); // Error: invalid table name
+db.table('users').select(['invalid_column']); // Error: invalid column
+db.table('users').where('age', 'gt', 'invalid'); // Error: age expects number
+```
+
+## Raw SQL
+
+When needed, you can include raw SQL:
+
+```typescript
+const results = await db
+  .table('users')
+  .select(['name'])
+  .raw('WHERE age > 18 AND status = "active"')
+  .execute();
+``` 

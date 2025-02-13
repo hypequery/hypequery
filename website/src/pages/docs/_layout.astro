@@ -1,0 +1,9 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+const { frontmatter } = Astro.props;
+---
+
+<DocsLayout title={frontmatter.title} description={frontmatter.description}>
+  <slot />
+</DocsLayout>
+

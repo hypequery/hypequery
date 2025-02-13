@@ -1,0 +1,69 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Join Relationships
+description: Learn how to work with table relationships in HypeQuery
+---
+
+# Join Relationships
+
+HypeQuery provides powerful features for managing table relationships and performing joins. This guide covers how to define and use join relationships effectively.
+
+## Basic Joins
+
+You can perform joins directly in your queries:
+
+```typescript
+const results = await db
+  .table('orders')
+  .innerJoin('users', 'user_id', 'users.id')
+  .select(['orders.id', 'users.name', 'orders.amount'])
+  .execute();
+```
+
+## Join Types
+
+HypeQuery supports all standard SQL join types:
+
+```typescript
+// Inner Join
+db.innerJoin('users', 'user_id', 'users.id')
+
+// Left Join
+db.leftJoin('users', 'user_id', 'users.id')
+
+// Right Join
+db.rightJoin('users', 'user_id', 'users.id')
+
+// Full Join
+db.fullJoin('users', 'user_id', 'users.id')
+```
+
+## Defining Reusable Relationships
+
+Define relationships once and reuse them across your application:
+
+```typescript
+// Define relationships
+QueryBuilder.setJoinRelationships({
+  userOrders: {
+    from: 'users',
+    to: 'orders',
+    leftColumn: 'id',
+    rightColumn: 'user_id'
+  },
+  orderItems: {
+    from: 'orders',
+    to: 'order_items',
+    leftColumn: 'id',
+    rightColumn: 'order_id'
+  }
+});
+
+// Use relationships in queries
+const results = await db
+  .table('users')
+  .withRelation('userOrders')
+  .withRelation('orderItems')
+  .select(['users.name', 'orders.id', 'order_items.product_name'])
+  .execute();
+``` 

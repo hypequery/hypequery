@@ -1,0 +1,110 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: HypeQuery Documentation
+---
+
+# Getting Started with HypeQuery
+
+HypeQuery is a TypeScript-first library for building type-safe dashboards with ClickHouse. This guide will help you get started with using HypeQuery in your project.
+
+## Installation
+
+```bash
+npm install @hypequery/core
+```
+
+## Basic Usage
+
+Here's a simple example of how to use HypeQuery:
+
+```typescript
+import { createQueryBuilder } from '@hypequery/core';
+
+const db = createQueryBuilder({
+  host: 'your-clickhouse-host',
+  database: 'your-database'
+});
+
+// Simple query
+const results = await db
+  .table('sales')
+  .select(['date', 'amount'])
+  .where('amount', 'gt', 1000)
+  .groupBy('date')
+  .sum('amount')
+  .execute();
+```
+
+## Key Features
+
+### Type-Safe Query Building
+
+HypeQuery provides complete type safety for your queries:
+
+```typescript
+// TypeScript will catch invalid column names or types
+const results = await db
+  .table('users')
+  .select(['name', 'email'])
+  .where('age', 'gt', 18)
+  .execute();
+```
+
+### Join Relationships
+
+Define and reuse join relationships across your queries:
+
+```typescript
+// Define a relationship
+QueryBuilder.setJoinRelationships({
+  userOrders: {
+    from: 'users',
+    to: 'orders',
+    leftColumn: 'id',
+    rightColumn: 'user_id'
+  }
+});
+
+// Use the relationship
+const results = await db
+  .table('users')
+  .withRelation('userOrders')
+  .select(['users.name', 'orders.total'])
+  .execute();
+```
+
+### Advanced Filtering
+
+Create complex filters with nested conditions:
+
+```typescript
+const filter = new CrossFilter()
+  .add({
+    column: 'status',
+    operator: 'in',
+    value: ['active', 'pending']
+  })
+  .addGroup([
+    {
+      column: 'created_at',
+      operator: 'gte',
+      value: new Date('2023-01-01')
+    },
+    {
+      column: 'total',
+      operator: 'gt',
+      value: 1000
+    }
+  ], 'OR');
+
+const results = await db
+  .table('orders')
+  .applyCrossFilters(filter)
+  .execute();
+```
+
+## Next Steps
+
+- Check out the [API Reference](/docs/api) for detailed documentation
+- See [Examples](/docs/examples) for more usage examples
+- Learn about [Advanced Features](/docs/advanced) for power users 

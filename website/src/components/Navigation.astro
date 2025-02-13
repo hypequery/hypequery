@@ -1,0 +1,31 @@
+---
+const navigation = [
+  { name: "Documentation", href: "/docs" },
+  { name: "GitHub", href: "https://github.com/yourusername/hypequery" },
+];
+---
+
+<header class="fixed inset-x-0 top-0 z-50 border-b border-gray-200 bg-white">
+  <nav
+    class="flex items-center justify-between p-6 lg:px-8"
+    aria-label="Global"
+  >
+    <div class="flex lg:flex-1">
+      <a href="/" class="-m-1.5 p-1.5">
+        <span class="text-xl font-bold text-indigo-600">hypequery</span>
+      </a>
+    </div>
+    <div class="flex gap-x-8 justify-end flex-1">
+      {
+        navigation.map((item) => (
+          <a
+            href={item.href}
+            class="text-sm font-semibold leading-6 text-gray-900 hover:text-indigo-600"
+          >
+            {item.name}
+          </a>
+        ))
+      }
+    </div>
+  </nav>
+</header>

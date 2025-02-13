@@ -1,0 +1,91 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: API Reference
+description: Complete API reference for HypeQuery
+---
+
+# API Reference
+
+This page provides a complete reference for all HypeQuery classes and methods.
+
+## QueryBuilder
+
+The main class for building queries.
+
+### Methods
+
+#### table(name: string)
+Specifies the table to query.
+
+```ts
+db.table('users')
+```
+
+#### select(columns: string[])
+Specifies which columns to select.
+
+```ts
+db.table('users').select(['id', 'name', 'email'])
+```
+
+## CrossFilter
+
+Class for building complex filters.
+
+### Methods
+
+#### add(filter: FilterCondition)
+Adds a single filter condition.
+
+```ts
+filter.add({
+  column: 'status',
+  operator: 'eq',
+  value: 'active'
+})
+```
+
+#### `where(column: string, operator: string, value: any)`
+Adds a WHERE clause to the query.
+
+```typescript
+db.table('users').where('age', 'gt', 18)
+```
+
+#### `groupBy(columns: string[])`
+Groups results by specified columns.
+
+```typescript
+db.table('orders').groupBy(['user_id'])
+```
+
+## JoinRelationships
+
+Static class for managing table relationships.
+
+### Methods
+
+#### `define(relationships: Record<string, JoinRelationship>)`
+Defines reusable join relationships.
+
+```typescript
+QueryBuilder.setJoinRelationships({
+  userOrders: {
+    from: 'users',
+    to: 'orders',
+    leftColumn: 'id',
+    rightColumn: 'user_id'
+  }
+})
+```
+
+## Types
+
+### Filter Operators
+
+Available filter operators:
+
+- Comparison: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`
+- Array: `in`, `notIn`
+- Range: `between`
+- Pattern: `like` 
