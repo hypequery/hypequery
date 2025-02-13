@@ -33,10 +33,9 @@ export default defineConfig({
                     className: [
                       'copy-button',
                       'absolute',
-                      'right-2',
-                      'top-2',
+                      'right-1',
+                      'top-1',
                       'rounded-md',
-                      'p-2',
                       'text-gray-400',
                       'opacity-0',
                       'transition-opacity',
