@@ -1,0 +1,11 @@
+---
+// Redirect /docs to /docs/quickstart
+export const prerender = false;
+
+if (
+  Astro.request.url.endsWith("/docs") ||
+  Astro.request.url.endsWith("/docs/")
+) {
+  return Astro.redirect("/docs/quickstart");
+}
+---
