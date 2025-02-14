@@ -1,12 +1,12 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Query Building
-description: Learn how to build type-safe queries with HypeQuery
+title: Query Building - HypeQuery
+description: Learn how to build powerful queries with HypeQuery's fluent API
 ---
 
 # Query Building
 
-HypeQuery provides a fluent, type-safe API for building SQL queries. This guide covers the core concepts of query building.
+HypeQuery provides a fluent, type-safe API for building SQL queries. This guide covers all the query building features available in the library.
 
 ## Basic Queries
 
@@ -21,6 +21,8 @@ const results = await db
 
 ## Filtering
 
+### Basic WHERE Clauses
+
 Add WHERE clauses to filter your results:
 
 ```typescript
@@ -32,18 +34,28 @@ const results = await db
   .execute();
 ```
 
-### Available Operators
+### OR Conditions
 
-- `eq`: Equals
-- `neq`: Not equals
-- `gt`: Greater than
-- `gte`: Greater than or equal
-- `lt`: Less than
-- `lte`: Less than or equal
-- `in`: In array
-- `notIn`: Not in array
-- `between`: Between two values
-- `like`: Pattern matching
+Use `orWhere` for OR conditions:
+
+```typescript
+const results = await db
+  .table('users')
+  .where('status', 'eq', 'active')
+  .orWhere('role', 'eq', 'admin')
+  .execute();
+```
+
+### Between Conditions
+
+Filter values within a range:
+
+```typescript
+const results = await db
+  .table('orders')
+  .whereBetween('amount', [100, 1000])
+  .execute();
+```
 
 ## Aggregations
 
@@ -55,15 +67,106 @@ const results = await db
   .select(['user_id'])
   .sum('amount', 'total_spent')
   .count('id', 'order_count')
+  .avg('amount', 'average_order')
+  .min('amount', 'smallest_order')
+  .max('amount', 'largest_order')
+  .groupBy('user_id')
+  .execute();
+```
+
+### Having Clauses
+
+Filter aggregated results:
+
+```typescript
+const results = await db
+  .table('orders')
+  .select(['user_id'])
+  .sum('amount', 'total_spent')
   .groupBy('user_id')
   .having('total_spent > 1000')
   .execute();
 ```
 
-### Available Aggregations
+## Distinct Queries
 
-- `sum()`: Calculate the sum of a column
-- `count()`: Count records
-- `avg()`: Calculate the average
-- `min()`: Find the minimum value
-- `max()`: Find the maximum value 
+Remove duplicate rows:
+
+```typescript
+const results = await db
+  .table('orders')
+  .select(['status'])
+  .distinct()
+  .execute();
+```
+
+## Ordering Results
+
+Control the order of your results:
+
+```typescript
+const results = await db
+  .table('posts')
+  .select(['title', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .orderBy('title', 'ASC')
+  .execute();
+```
+
+## Limiting Results
+
+Control the number of results:
+
+```typescript
+const results = await db
+  .table('posts')
+  .limit(10)
+  .offset(20) // Skip first 20 results
+  .execute();
+```
+
+## Complex Queries
+
+Combine multiple features for complex queries:
+
+```typescript
+const results = await db
+  .table('orders')
+  .select(['user_id', 'status'])
+  .where('created_at', 'gt', '2024-01-01')
+  .orWhere('status', 'eq', 'priority')
+  .groupBy(['user_id', 'status'])
+  .sum('amount', 'total_amount')
+  .having('total_amount > 5000')
+  .orderBy('total_amount', 'DESC')
+  .limit(100)
+  .execute();
+```
+
+## Type Safety
+
+All queries are fully type-safe:
+
+```typescript
+interface Schema {
+  orders: {
+    id: 'Int32';
+    amount: 'Float64';
+    status: 'String';
+    created_at: 'Date';
+  }
+}
+
+const db = createQueryBuilder<Schema>();
+
+// TypeScript will catch these errors:
+db.table('invalid_table'); // Error: invalid table name
+db.table('orders').select(['invalid_column']); // Error: invalid column
+db.table('orders').where('amount', 'gt', 'invalid'); // Error: amount expects number
+```
+
+## Next Steps
+
+- Learn about [Join Relationships](/docs/guides/joins) for querying related tables
+- Master [Filtering](/docs/guides/filtering) for complex data filtering
+- Explore [Advanced Functions](/docs/guides/advanced-functions) for CTEs and time-based queries 

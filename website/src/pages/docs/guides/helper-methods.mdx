@@ -1,0 +1,201 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Helper Methods - HypeQuery
+description: Learn about utility methods and additional features in HypeQuery
+---
+
+# Helper Methods
+
+HypeQuery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
+
+## SQL Generation
+
+### toSQL
+
+Get the raw SQL string for a query:
+
+```typescript
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('active', 'eq', true);
+
+const sql = query.toSQL();
+console.log(sql); // SELECT id, name FROM users WHERE active = true
+```
+
+### toSQLWithParams
+
+Get the SQL string and parameters separately:
+
+```typescript
+const query = db
+  .table('orders')
+  .where('amount', 'gt', 1000);
+
+const { sql, parameters } = query.toSQLWithParams();
+console.log(sql); // SELECT * FROM orders WHERE amount > ?
+console.log(parameters); // [1000]
+```
+
+## Raw SQL
+
+### Raw Expressions
+
+Include raw SQL expressions in your queries:
+
+```typescript
+const results = await db
+  .table('users')
+  .raw('WHERE age > 18 AND status = "active"')
+  .execute();
+```
+
+### Complex Raw SQL
+
+Use raw SQL for complex conditions:
+
+```typescript
+const results = await db
+  .table('events')
+  .raw(`
+    WHERE date BETWEEN 
+    toStartOfMonth(now()) 
+    AND toStartOfMonth(now()) + INTERVAL 1 MONTH
+  `)
+  .execute();
+```
+
+## Query Settings
+
+### Basic Settings
+
+Configure ClickHouse query settings:
+
+```typescript
+const results = await db
+  .table('large_table')
+  .settings({
+    max_execution_time: 30,
+    max_memory_usage: '10000000000'
+  })
+  .execute();
+```
+
+### Common Settings
+
+Frequently used settings:
+
+```typescript
+// Timeout settings
+.settings({ max_execution_time: 60 })
+
+// Memory settings
+.settings({ max_memory_usage: '4000000000' })
+
+// Thread settings
+.settings({ max_threads: 4 })
+
+// Multiple settings
+.settings({
+  max_execution_time: 30,
+  max_threads: 2,
+  max_memory_usage: '2000000000'
+})
+```
+
+## Debugging
+
+### debug
+
+Print query information for debugging:
+
+```typescript
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('active', 'eq', true)
+  .debug();
+
+// Logs:
+// - SQL query
+// - Parameters
+// - Settings
+```
+
+## Query Configuration
+
+### getConfig
+
+Access the current query configuration:
+
+```typescript
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('active', 'eq', true);
+
+const config = query.getConfig();
+console.log(config);
+// {
+//   select: ['id', 'name'],
+//   where: [...],
+//   parameters: [...],
+//   ...
+// }
+```
+
+## Type Safety
+
+Helper methods maintain type safety:
+
+```typescript
+interface Schema {
+  users: {
+    id: 'Int32';
+    name: 'String';
+    active: 'UInt8';
+  }
+}
+
+const db = createQueryBuilder<Schema>();
+
+// TypeScript will catch these errors:
+db.table('users')
+  .raw('WHERE invalid_column = 1') // No type checking for raw SQL
+  .settings({ invalid_setting: true }); // Error: invalid setting
+```
+
+## Best Practices
+
+1. **Use Raw SQL Sparingly**
+   ```typescript
+   // Prefer builder methods when possible
+   db.table('users').where('age', 'gt', 18) // Good
+
+   // Use raw SQL only when necessary
+   db.table('users').raw('WHERE age > 18') // Less ideal
+   ```
+
+2. **Debug in Development**
+   ```typescript
+   if (process.env.NODE_ENV === 'development') {
+     query.debug();
+   }
+   ```
+
+3. **Handle Settings Carefully**
+   ```typescript
+   // Consider environment when setting limits
+   const maxMemory = process.env.NODE_ENV === 'production'
+     ? '10000000000'  // 10GB in production
+     : '1000000000';  // 1GB in development
+
+   query.settings({ max_memory_usage: maxMemory });
+   ```
+
+## Next Steps
+
+- Learn about [Query Building](/docs/guides/query-building) for core query features
+- Explore [Advanced Functions](/docs/guides/advanced-functions) for complex queries
+- Check out the [API Reference](/docs/reference/api) for detailed method documentation 

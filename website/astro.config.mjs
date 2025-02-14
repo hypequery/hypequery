@@ -23,7 +23,7 @@ export default defineConfig({
             const wrapper = {
               type: 'element',
               tagName: 'div',
-              properties: { className: ['relative', 'group'] },
+              properties: { className: ['relative'] },
               children: [
                 node,
                 {
@@ -33,8 +33,8 @@ export default defineConfig({
                     className: [
                       'copy-button',
                       'absolute',
-                      'right-1',
-                      'top-1',
+                      'right-0',
+                      'top-0',
                       'rounded-md',
                       'text-gray-400',
                       'opacity-0',
@@ -61,8 +61,8 @@ export default defineConfig({
                     tagName: 'svg',
                     properties: {
                       xmlns: 'http://www.w3.org/2000/svg',
-                      width: '24',
-                      height: '24',
+                      width: '20',
+                      height: '20',
                       viewBox: '0 0 24 24',
                       fill: 'none',
                       stroke: 'currentColor',
