@@ -1,98 +1,106 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import CopyButton from "../components/CopyButton.astro";
 ---
 
-<Layout title="HypeQuery - Build ClickHouse Dashboards Fast!">
+<Layout title="HypeQuery - Type-safe ClickHouse Query Builder">
   <main>
-    <!-- Hero Section -->
-    <section class="relative overflow-hidden bg-gray-900 py-24 sm:py-32">
-      <div
-        class="absolute inset-0 bg-[url(/grid.svg)] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"
-      >
-      </div>
-      <div class="relative mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="text-center">
-          <div class="mb-8 flex justify-center">
-            <div
-              class="relative rounded-full px-3 py-1 text-sm leading-6 text-gray-400 ring-1 ring-gray-500/20"
-            >
-              Now with full TypeScript support
-              <span class="font-mono text-indigo-400">v1.0.0</span>
+    <!-- Hero section -->
+    <div class="relative isolate pt-14">
+      <div class="py-24 sm:py-32">
+        <div class="mx-auto max-w-7xl px-4 lg:px-6">
+          <div class="mx-auto max-w-3xl text-center">
+            <div class="relative mb-6 inline-block text-left min-w-[240px]">
+              <pre
+                class="rounded-lg bg-gray-900 px-6 py-3 text-sm text-gray-200 font-mono">npx hypequery create</pre>
+              <CopyButton text="npx hypequery create" />
             </div>
-          </div>
-          <h1
-            class="font-mono text-4xl font-bold tracking-tight text-white sm:text-6xl"
-          >
-            <span class="text-indigo-400">{`>`}</span> hypequery init<span
-              class="animate-blink">_</span
+            <h1
+              class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl"
             >
-          </h1>
-          <p class="mt-6 text-lg leading-8 text-gray-300">
-            Build type-safe dashboards with the power of ClickHouse and the joy
-            of TypeScript. No more SQL strings, just pure coding happiness! 🚀
-          </p>
-          <div class="mt-10 flex items-center justify-center gap-x-6">
-            <a
-              href="/docs"
-              class="rounded-md bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-            >
-              $ npm start tutorial
-            </a>
-            <a
-              href="https://github.com/yourusername/hypequery"
-              class="text-sm font-mono leading-6 text-gray-300 hover:text-white"
-            >
-              <span class="text-indigo-400">git</span> clone repo <span
-                aria-hidden="true">→</span
+              Build dashboards fast.
+              <span class="text-indigo-600">Powered by ClickHouse.</span>
+            </h1>
+            <p class="mt-6 text-lg leading-8 text-gray-600">
+              Build type-safe dashboards with the power of ClickHouse and the
+              joy of TypeScript.
+            </p>
+            <div class="mt-10 flex items-center justify-center gap-x-6">
+              <a
+                href="/docs/installation"
+                class="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
               >
-            </a>
+                Get Started
+              </a>
+              <a
+                href="https://github.com/yourusername/hypequery"
+                class="flex items-center gap-2 text-sm font-semibold leading-6 text-gray-900 hover:text-indigo-600"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  ><polygon
+                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                  ></polygon></svg
+                >
+                Star on GitHub
+              </a>
+            </div>
           </div>
-        </div>
 
-        <!-- Code Preview -->
-        <div class="mt-16 flow-root sm:mt-24">
-          <div
-            class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl"
-          >
+          <!-- Code Preview -->
+          <div class="mt-16 flow-root sm:mt-24">
             <div
-              class="absolute -top-px left-20 right-11 h-px bg-gradient-to-r from-indigo-500/0 via-indigo-500/70 to-indigo-500/0"
+              class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl"
             >
-            </div>
-            <div
-              class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
-            >
-            </div>
-            <div class="pl-4 pt-4">
-              <div class="flex text-sm leading-6">
-                <div class="flex h-7 items-center space-x-2">
-                  <div class="h-3 w-3 rounded-full bg-red-400"></div>
-                  <div class="h-3 w-3 rounded-full bg-yellow-400"></div>
-                  <div class="h-3 w-3 rounded-full bg-green-400"></div>
-                </div>
-                <div class="ml-4 flex items-center font-mono text-gray-400">
-                  dashboard.ts
+              <div
+                class="absolute -top-px left-20 right-11 h-px bg-gradient-to-r from-indigo-500/0 via-indigo-500/70 to-indigo-500/0"
+              >
+              </div>
+              <div
+                class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
+              >
+              </div>
+              <div class="pl-4 pt-4">
+                <div class="flex text-sm leading-6">
+                  <div class="flex h-7 items-center space-x-2">
+                    <div class="h-3 w-3 rounded-full bg-red-400"></div>
+                    <div class="h-3 w-3 rounded-full bg-yellow-400"></div>
+                    <div class="h-3 w-3 rounded-full bg-green-400"></div>
+                  </div>
+                  <div class="ml-4 flex items-center font-mono text-gray-400">
+                    dashboard.ts
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="mt-6 space-y-6 px-6 pb-14 text-gray-300">
-              <span class="text-gray-500"
-                >// Type-safe queries with autocomplete! 🎉</span
-              >
-              <span class="text-indigo-400">const</span> results = <span
-                class="text-indigo-400">await</span
-              > db .table(<span class="text-green-400">'events'</span>)
-              .select([<span class="text-green-400">'date'</span>, <span
-                class="text-green-400">'user_id'</span
-              >]) .where(<span class="text-green-400">'type'</span>, <span
-                class="text-green-400">'eq'</span
-              >, <span class="text-green-400">'purchase'</span>) .groupBy(<span
-                class="text-green-400">'date'</span
-              >) .sum(<span class="text-green-400">'amount'</span>) .execute();
+              <div class="mt-6 space-y-6 px-6 pb-14 text-gray-300">
+                <span class="text-gray-500"
+                  >// Type-safe queries with autocomplete! 🎉</span
+                >
+                <span class="text-indigo-400">const</span> results = <span
+                  class="text-indigo-400">await</span
+                > db .table(<span class="text-green-400">'events'</span>)
+                .select([<span class="text-green-400">'date'</span>, <span
+                  class="text-green-400">'user_id'</span
+                >]) .where(<span class="text-green-400">'type'</span>, <span
+                  class="text-green-400">'eq'</span
+                >, <span class="text-green-400">'purchase'</span>) .groupBy(<span
+                  class="text-green-400">'date'</span
+                >) .sum(<span class="text-green-400">'amount'</span>)
+                .execute();
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   </main>
 </Layout>
 
@@ -168,14 +176,14 @@ import Layout from "../layouts/Layout.astro";
                 ></path>
               </svg>
             </div>
-            Smart Joins
+            Smart Joins & Subqueries
           </dt>
           <dd
             class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
           >
             <p class="flex-auto">
-              Define relationships once, use them everywhere. No more JOIN
-              string gymnastics! 🤸‍♂️
+              Define relationships once, use them everywhere. Powerful subquery
+              support for complex analytics! 📊
             </p>
           </dd>
         </div>
@@ -207,8 +215,106 @@ import Layout from "../layouts/Layout.astro";
             class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
           >
             <p class="flex-auto">
-              Build complex filters with nested AND/OR conditions. All type-safe
-              and validated! 🎯
+              Cross-filtering support and reusable filters. Build complex
+              conditions with ease! 🎯
+            </p>
+          </dd>
+        </div>
+        <div class="flex flex-col">
+          <dt
+            class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+          >
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="w-6 h-6 text-white"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            Time Functions
+          </dt>
+          <dd
+            class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+          >
+            <p class="flex-auto">
+              Built-in time-based functions for date ranges, intervals, and
+              aggregations! ⏰
+            </p>
+          </dd>
+        </div>
+        <div class="flex flex-col">
+          <dt
+            class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+          >
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="w-6 h-6 text-white"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"
+                ></path>
+              </svg>
+            </div>
+            Smart Pagination
+          </dt>
+          <dd
+            class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+          >
+            <p class="flex-auto">
+              Efficient pagination with cursor support for large datasets.
+              Handle millions of rows with ease! 📄
+            </p>
+          </dd>
+        </div>
+        <div class="flex flex-col">
+          <dt
+            class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+          >
+            <div
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+                class="w-6 h-6 text-white"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"
+                ></path>
+              </svg>
+            </div>
+            Debugging Tools
+          </dt>
+          <dd
+            class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+          >
+            <p class="flex-auto">
+              Built-in debugging helpers to inspect queries, explain plans, and
+              optimize performance! 🔍
             </p>
           </dd>
         </div>

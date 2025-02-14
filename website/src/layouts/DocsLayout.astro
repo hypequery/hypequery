@@ -13,6 +13,9 @@ const {
   description = "HypeQuery documentation - Learn how to build type-safe dashboards with ClickHouse",
 } = Astro.props;
 
+// Get the current URL path
+const currentPath = Astro.url.pathname;
+
 // Define the navigation structure directly since we're using pages-based routing
 const sidebar = [
   {
@@ -23,21 +26,28 @@ const sidebar = [
     ],
   },
   {
-    title: "Guides",
+    title: "Core Features",
     items: [
       { title: "Query Building", href: "/docs/guides/query-building" },
       { title: "Join Relationships", href: "/docs/guides/joins" },
       { title: "Filtering", href: "/docs/guides/filtering" },
-      { title: "Advanced Functions", href: "/docs/guides/advanced-functions" },
-      { title: "Pagination", href: "/docs/guides/pagination" },
-      { title: "Helper Methods", href: "/docs/guides/helper-methods" },
+    ],
+  },
+  {
+    title: "Advanced Features",
+    items: [
+      { title: "Cross Filtering", href: "/docs/features/cross-filtering" },
+      { title: "Pagination", href: "/docs/features/pagination" },
+      { title: "Subqueries", href: "/docs/features/subqueries" },
+      { title: "Time Functions", href: "/docs/features/time-functions" },
+      { title: "Debugging", href: "/docs/features/debugging" },
     ],
   },
   {
     title: "Reference",
     items: [
       { title: "API Reference", href: "/docs/reference/api" },
-      { title: "Types", href: "/docs/reference/types" },
+      { title: "Best Practices", href: "/docs/reference/best-practices" },
     ],
   },
 ];
@@ -75,25 +85,34 @@ const sidebar = [
             class="sticky top-[4.5rem] -ml-0.5 h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden py-16 pl-0.5"
           >
             <nav class="w-56 pr-8 text-base lg:text-sm">
-              {
-                sidebar.map((section) => (
-                  <div class="mt-8 first:mt-0">
-                    <h3 class="font-semibold text-gray-900">{section.title}</h3>
-                    <ul class="mt-4 space-y-4">
-                      {section.items.map((item) => (
-                        <li>
-                          <a
-                            href={item.href}
-                            class="text-gray-600 hover:text-indigo-600"
-                          >
-                            {item.title}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))
-              }
+              <div class="mt-4 space-y-4">
+                {
+                  sidebar.map((section) => (
+                    <div class="mt-4">
+                      <h2 class="mb-1 font-medium text-gray-900">
+                        {section.title}
+                      </h2>
+                      <ul class="mt-1 space-y-1">
+                        {section.items.map((item) => (
+                          <li>
+                            <a
+                              href={item.href}
+                              class:list={[
+                                "block px-3 py-2 text-sm rounded-md transition-colors",
+                                currentPath === item.href
+                                  ? "bg-indigo-50 text-indigo-600 font-medium"
+                                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                              ]}
+                            >
+                              {item.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))
+                }
+              </div>
             </nav>
           </div>
         </div>
