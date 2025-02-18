@@ -1,0 +1,30 @@
+{
+  "name": "@hypequery/create-app",
+  "version": "0.1.0",
+  "description": "CLI tool to create HypeQuery example applications",
+  "type": "module",
+  "bin": {
+    "hypequery": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "execa": "^8.0.1",
+    "fs-extra": "^11.2.0",
+    "ora": "^8.0.1",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.11.19",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.0.2",
+    "typescript": "^5.3.3"
+  }
+}
