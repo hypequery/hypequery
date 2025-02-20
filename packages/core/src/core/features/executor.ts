@@ -28,7 +28,6 @@ export class ExecutorFeature<
     const client = ClickHouseConnection.getClient();
     const { sql, parameters } = this.toSQLWithParams();
     const finalSQL = substituteParameters(sql, parameters);
-
     const result = await client.query({
       query: finalSQL,
       format: 'JSONEachRow'
