@@ -5,10 +5,8 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 
-// Load environment variables from the example app
-dotenv.config({
-  path: path.resolve(process.cwd(), '../../examples/basic-dashboard/.env')
-});
+// Load environment variables from the current directory
+dotenv.config();
 
 interface ColumnInfo {
   name: string;
@@ -43,7 +41,7 @@ const clickhouseToTsType = (type: string): ColumnType => {
   }
 };
 
-async function generateTypes(outputPath: string) {
+export async function generateTypes(outputPath: string) {
   const client = ClickHouseConnection.getClient();
 
   // Get all tables
@@ -75,6 +73,11 @@ export interface IntrospectedSchema {`;
 
   typeDefinitions += '\n}\n';
 
+  // Ensure the output directory exists
+  const outputDir = path.dirname(path.resolve(outputPath));
+  await fs.mkdir(outputDir, { recursive: true });
+
+  // Write the file
   await fs.writeFile(path.resolve(outputPath), typeDefinitions);
 }
 
