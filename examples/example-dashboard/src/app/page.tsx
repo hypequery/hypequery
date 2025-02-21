@@ -32,8 +32,6 @@ export default function Home() {
     dropoffDateRange
   })
 
-  // Calculate maxCount once outside the mapping function
-  const maxCount = monthlyTripCounts ? Math.max(...monthlyTripCounts.map(d => d.count)) : 0
 
   return (
     <main className="p-4 space-y-4">
@@ -80,26 +78,7 @@ export default function Home() {
         ) : monthlyTripCounts && monthlyTripCounts.length > 0 ? (
           <div className="h-64">
             <div className="flex h-full items-end gap-2">
-              {monthlyTripCounts.map((item) => {
-                const height = (item.count / maxCount) * 100
-                return (
-                  <div
-                    key={item.month.toString()}
-                    className="flex-1 flex flex-col items-center"
-                  >
-                    <div className="text-sm text-gray-600 mb-2">
-                      {(item.count).toLocaleString()}
-                    </div>
-                    <div
-                      className="w-full bg-blue-500 rounded-t"
-                      style={{ height: `${height}%` }}
-                    />
-                    <div className="mt-2 text-sm text-gray-600 transform -rotate-45 origin-top-left">
-                      {format(new Date(item.month), 'MMM yyyy')}
-                    </div>
-                  </div>
-                )
-              })}
+
             </div>
           </div>
         ) : (

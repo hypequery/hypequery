@@ -1,4 +1,4 @@
-import { createQueryBuilder, CrossFilter } from "@hypequery/core"
+import { createQueryBuilder, CrossFilter, } from "@hypequery/core"
 import { IntrospectedSchema } from "@/generated/generated-schema"
 import { DateRange } from "react-day-picker"
 import { startOfDay, endOfDay, format } from "date-fns"
@@ -143,44 +143,30 @@ export async function fetchTripStats(filters: DateFilters = {}) {
   }
 }
 
-export async function fetchMonthlyTripCounts(filters: DateFilters = {}) {
-  console.log('Starting fetchMonthlyTripCounts')
-  try {
-    const query = db.table("trips")
-    const filter = createFilter(filters)
-    query.applyCrossFilters(filter)
+export const fetchMonthlyTripCounts = async (filters: DateFilters = {}) => {
+  console.log('Fetching monthly trip counts...');
 
-    // First get the full range without filters to see what data we have
-    const fullRangeQuery = db.table("trips")
-      .select(['pickup_datetime'])
-      .min('pickup_datetime')
-      .max('pickup_datetime')
+  const query = db.table("trips")
+  const filter = createFilter(filters)
+  query.applyCrossFilters(filter)
 
-    const fullRange = await fullRangeQuery.execute()
-    console.log('Full data range:', fullRange)
+  const sql = await query
+    .select(['pickup_datetime'])
+    .groupByTimeInterval('pickup_datetime', 'month', 'toStartOfMonth')
+    .count('trip_id', 'trip_count')
+    .orderBy('pickup_datetime', 'ASC')
+    .toSQL();
 
-    // Now get the monthly counts with filters applied
-    const sql = query
-      .select(['pickup_datetime'])
-      .count('trip_id', 'count')
-      .groupByTimeInterval('pickup_datetime', 'INTERVAL 1 MONTH', 'toStartOfMonth')
-      .limit(1000)
-      .orderBy('pickup_datetime', 'ASC')
-      .toSQL()
+  console.log('Generated SQL:', sql);
 
-    console.log('Generated SQL:', sql)
+  const result = await query
+    .select(['toStartOfWeek(pickup_datetime) as week'])
+    .count('trip_id', 'trip_count')
+    .execute();
 
-    const result = await query.execute()
-    console.log('Query result:', result)
+  return result.map(row => ({
+    date: row.week,
+    count: Number(row.trip_count)
+  }))
 
-    const transformed = result.map(row => ({
-      month: row.pickup_datetime,
-      count: Number(row.count)
-    }))
-    console.log('Transformed result:', transformed)
-    return transformed
-  } catch (error) {
-    console.error('Error in fetchMonthlyTripCounts:', error)
-    throw error
-  }
-} 
+}; 
