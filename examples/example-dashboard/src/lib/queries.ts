@@ -150,23 +150,13 @@ export const fetchMonthlyTripCounts = async (filters: DateFilters = {}) => {
   const filter = createFilter(filters)
   query.applyCrossFilters(filter)
 
-  const sql = await query
-    .select(['pickup_datetime'])
-    .groupByTimeInterval('pickup_datetime', 'month', 'toStartOfMonth')
-    .count('trip_id', 'trip_count')
-    .orderBy('pickup_datetime', 'ASC')
-    .toSQL();
-
-  console.log('Generated SQL:', sql);
-
   const result = await query
     .select(['toStartOfWeek(pickup_datetime) as week'])
     .count('trip_id', 'trip_count')
     .execute();
 
   return result.map(row => ({
-    date: row.week,
-    count: Number(row.trip_count)
-  }))
-
+    name: new Date(row.week).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+    value: Number(row.trip_count)
+  }));
 }; 

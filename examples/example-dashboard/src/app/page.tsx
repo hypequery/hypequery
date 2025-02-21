@@ -5,6 +5,7 @@ import { fetchAverageAmounts, fetchTripStats, fetchMonthlyTripCounts } from "@/l
 import { useFilters } from "@/lib/filters-context"
 import { Card } from "@/components/ui/card"
 import { format } from "date-fns"
+import { MonthlyTripsChart } from "@/components/monthly-trips-chart"
 
 export default function Home() {
   const { pickupDateRange, dropoffDateRange } = useFilters()
@@ -23,15 +24,6 @@ export default function Home() {
     queryKey: ['monthlyTripCounts', pickupDateRange, dropoffDateRange],
     queryFn: () => fetchMonthlyTripCounts({ pickupDateRange, dropoffDateRange })
   })
-
-  console.log('Component state:', {
-    monthlyTripCounts,
-    isLoadingMonthly,
-    monthlyError,
-    pickupDateRange,
-    dropoffDateRange
-  })
-
 
   return (
     <main className="p-4 space-y-4">
@@ -76,10 +68,8 @@ export default function Home() {
         ) : monthlyError ? (
           <p className="text-red-500">Error loading trip counts: {monthlyError.message}</p>
         ) : monthlyTripCounts && monthlyTripCounts.length > 0 ? (
-          <div className="h-64">
-            <div className="flex h-full items-end gap-2">
-
-            </div>
+          <div className="h-[400px]">
+            <MonthlyTripsChart data={monthlyTripCounts} />
           </div>
         ) : (
           <p>No data available for the selected date range</p>
