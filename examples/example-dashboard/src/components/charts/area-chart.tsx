@@ -1,7 +1,7 @@
 "use client"
 
 import { TrendingUp } from "lucide-react"
-import { Area, AreaChart, CartesianGrid, XAxis, ResponsiveContainer } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from "recharts"
 
 import {
   Card,
@@ -52,9 +52,9 @@ export function AreaChartComponent({
               data={data}
               margin={{
                 top: 20,
-                right: 20,
+                right: 30,
                 bottom: 60,
-                left: 20,
+                left: 40,
               }}
             >
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -66,6 +66,14 @@ export function AreaChartComponent({
                 angle={-45}
                 textAnchor="end"
                 height={60}
+                tick={{ fontSize: 12 }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) => value.toLocaleString()}
+                tick={{ fontSize: 12 }}
               />
               <ChartTooltip
                 cursor={false}
