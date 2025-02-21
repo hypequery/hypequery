@@ -1,7 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { fetchAverageAmounts, fetchTripStats, fetchMonthlyTripCounts } from "@/lib/queries"
+import { fetchAverageAmounts, fetchTripStats, fetchWeeklyTripCounts } from "@/lib/queries"
 import { useFilters } from "@/lib/filters-context"
 import { Card } from "@/components/ui/card"
 import { format } from "date-fns"
@@ -20,24 +20,17 @@ export default function Home() {
     queryFn: () => fetchTripStats({ pickupDateRange, dropoffDateRange })
   })
 
-  const { data: monthlyTripCounts, isLoading: isLoadingMonthly, error: monthlyError } = useQuery({
-    queryKey: ['monthlyTripCounts', pickupDateRange, dropoffDateRange],
-    queryFn: () => fetchMonthlyTripCounts({ pickupDateRange, dropoffDateRange })
+  const { data: weeklyTripCounts, isLoading: isLoadingWeekly, error: weeklyError } = useQuery({
+    queryKey: ['weeklyTripCounts', pickupDateRange, dropoffDateRange],
+    queryFn: () => fetchWeeklyTripCounts({ pickupDateRange, dropoffDateRange })
   })
 
-  console.log('Component state:', {
-    monthlyTripCounts,
-    isLoadingMonthly,
-    monthlyError,
-    pickupDateRange,
-    dropoffDateRange
-  })
-
-  const chartData = monthlyTripCounts?.map(({ name, value }) => ({
-    month: format(new Date(name), 'MMMM'),
+  const chartData = weeklyTripCounts?.map(({ name, value }) => ({
+    month: name,
     desktop: value
   })) || []
 
+  console.log({ chartData })
   return (
     <main className="p-4 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -74,25 +67,25 @@ export default function Home() {
         </Card>
       </div>
 
-      {isLoadingMonthly ? (
+      {isLoadingWeekly ? (
         <Card className="p-4">
-          <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
+          <h3 className="text-lg font-semibold mb-4">Weekly Trip Volume</h3>
           <p>Loading...</p>
         </Card>
-      ) : monthlyError ? (
+      ) : weeklyError ? (
         <Card className="p-4">
-          <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
-          <p className="text-red-500">Error loading trip counts: {monthlyError.message}</p>
+          <h3 className="text-lg font-semibold mb-4">Weekly Trip Volume</h3>
+          <p className="text-red-500">Error loading trip counts: {weeklyError.message}</p>
         </Card>
-      ) : monthlyTripCounts && monthlyTripCounts.length > 0 ? (
+      ) : weeklyTripCounts && weeklyTripCounts.length > 0 ? (
         <AreaChartComponent
           data={chartData}
-          title="Monthly Trip Volume"
-          description="Showing total trips per month"
+          title="Weekly Trip Volume"
+          description="Showing total trips per week"
         />
       ) : (
         <Card className="p-4">
-          <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
+          <h3 className="text-lg font-semibold mb-4">Weekly Trip Volume</h3>
           <p>No data available for the selected date range</p>
         </Card>
       )}

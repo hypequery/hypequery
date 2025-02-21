@@ -143,7 +143,7 @@ export async function fetchTripStats(filters: DateFilters = {}) {
   }
 }
 
-export const fetchMonthlyTripCounts = async (filters: DateFilters = {}) => {
+export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
   console.log('Fetching monthly trip counts...');
 
   const query = db.table("trips")
