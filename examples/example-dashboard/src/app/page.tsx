@@ -5,7 +5,7 @@ import { fetchAverageAmounts, fetchTripStats, fetchMonthlyTripCounts } from "@/l
 import { useFilters } from "@/lib/filters-context"
 import { Card } from "@/components/ui/card"
 import { format } from "date-fns"
-import { MonthlyTripsChart } from "@/components/monthly-trips-chart"
+import { AreaChartComponent } from "@/components/charts/area-chart"
 
 export default function Home() {
   const { pickupDateRange, dropoffDateRange } = useFilters()
@@ -24,6 +24,19 @@ export default function Home() {
     queryKey: ['monthlyTripCounts', pickupDateRange, dropoffDateRange],
     queryFn: () => fetchMonthlyTripCounts({ pickupDateRange, dropoffDateRange })
   })
+
+  console.log('Component state:', {
+    monthlyTripCounts,
+    isLoadingMonthly,
+    monthlyError,
+    pickupDateRange,
+    dropoffDateRange
+  })
+
+  const chartData = monthlyTripCounts?.map(({ name, value }) => ({
+    month: format(new Date(name), 'MMMM'),
+    desktop: value
+  })) || []
 
   return (
     <main className="p-4 space-y-4">
@@ -61,20 +74,28 @@ export default function Home() {
         </Card>
       </div>
 
-      <Card className="p-4">
-        <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
-        {isLoadingMonthly ? (
+      {isLoadingMonthly ? (
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
           <p>Loading...</p>
-        ) : monthlyError ? (
+        </Card>
+      ) : monthlyError ? (
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
           <p className="text-red-500">Error loading trip counts: {monthlyError.message}</p>
-        ) : monthlyTripCounts && monthlyTripCounts.length > 0 ? (
-          <div className="h-[400px]">
-            <MonthlyTripsChart data={monthlyTripCounts} />
-          </div>
-        ) : (
+        </Card>
+      ) : monthlyTripCounts && monthlyTripCounts.length > 0 ? (
+        <AreaChartComponent
+          data={chartData}
+          title="Monthly Trip Volume"
+          description="Showing total trips per month"
+        />
+      ) : (
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
           <p>No data available for the selected date range</p>
-        )}
-      </Card>
+        </Card>
+      )}
     </main>
   )
 }
