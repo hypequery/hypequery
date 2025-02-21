@@ -1,50 +1,111 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { KPICard } from "@/components/ui/kpi-card"
-import { fetchAverageAmounts, fetchTripStats } from "@/lib/queries"
+import { fetchAverageAmounts, fetchTripStats, fetchMonthlyTripCounts } from "@/lib/queries"
+import { useFilters } from "@/lib/filters-context"
+import { Card } from "@/components/ui/card"
+import { format } from "date-fns"
 
-export default function Page() {
+export default function Home() {
+  const { pickupDateRange, dropoffDateRange } = useFilters()
+
   const { data: averageAmounts, isLoading: isLoadingAmounts } = useQuery({
-    queryKey: ['averageAmounts'],
-    queryFn: fetchAverageAmounts,
+    queryKey: ['averageAmounts', pickupDateRange, dropoffDateRange],
+    queryFn: () => fetchAverageAmounts({ pickupDateRange, dropoffDateRange })
   })
 
   const { data: tripStats, isLoading: isLoadingStats } = useQuery({
-    queryKey: ['tripStats'],
-    queryFn: fetchTripStats,
+    queryKey: ['tripStats', pickupDateRange, dropoffDateRange],
+    queryFn: () => fetchTripStats({ pickupDateRange, dropoffDateRange })
   })
 
-  const isLoading = isLoadingAmounts || isLoadingStats
+  const { data: monthlyTripCounts, isLoading: isLoadingMonthly, error: monthlyError } = useQuery({
+    queryKey: ['monthlyTripCounts', pickupDateRange, dropoffDateRange],
+    queryFn: () => fetchMonthlyTripCounts({ pickupDateRange, dropoffDateRange })
+  })
+
+  console.log('Component state:', {
+    monthlyTripCounts,
+    isLoadingMonthly,
+    monthlyError,
+    pickupDateRange,
+    dropoffDateRange
+  })
+
+  // Calculate maxCount once outside the mapping function
+  const maxCount = monthlyTripCounts ? Math.max(...monthlyTripCounts.map(d => d.count)) : 0
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
+    <main className="p-4 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-2">Average Trip Amount</h3>
+          {isLoadingAmounts ? (
+            <p>Loading...</p>
+          ) : (
+            <div className="space-y-2">
+              <p>Total: ${averageAmounts?.total.toFixed(2)}</p>
+              <p>Tips: ${averageAmounts?.tips.toFixed(2)}</p>
+              <p>Tolls: ${averageAmounts?.tolls.toFixed(2)}</p>
+              <p>Fare: ${averageAmounts?.fare.toFixed(2)}</p>
+            </div>
+          )}
+        </Card>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <KPICard
-          title="Average Trip Amount"
-          value={averageAmounts ? `$${averageAmounts.total.toFixed(2)}` : '$0.00'}
-          loading={isLoading}
-          subValues={averageAmounts ? [
-            { label: "Tips", value: `$${averageAmounts.tips.toFixed(2)}` },
-            { label: "Tolls", value: `$${averageAmounts.tolls.toFixed(2)}` },
-            { label: "Fare", value: `$${averageAmounts.fare.toFixed(2)}` },
-          ] : undefined}
-        />
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-2">Average Trip Distance</h3>
+          {isLoadingStats ? (
+            <p>Loading...</p>
+          ) : (
+            <p>{tripStats?.avgDistance.toFixed(2)} miles</p>
+          )}
+        </Card>
 
-        <KPICard
-          title="Average Trip Distance"
-          value={tripStats ? `${tripStats.avgDistance.toFixed(2)} miles` : '0.00 miles'}
-          loading={isLoading}
-        />
-
-        <KPICard
-          title="Average Passengers"
-          value={tripStats ? tripStats.avgPassengers.toFixed(1) : '0.0'}
-          loading={isLoading}
-        />
+        <Card className="p-4">
+          <h3 className="text-lg font-semibold mb-2">Average Passengers</h3>
+          {isLoadingStats ? (
+            <p>Loading...</p>
+          ) : (
+            <p>{tripStats?.avgPassengers.toFixed(2)} passengers</p>
+          )}
+        </Card>
       </div>
-    </div>
+
+      <Card className="p-4">
+        <h3 className="text-lg font-semibold mb-4">Monthly Trip Volume</h3>
+        {isLoadingMonthly ? (
+          <p>Loading...</p>
+        ) : monthlyError ? (
+          <p className="text-red-500">Error loading trip counts: {monthlyError.message}</p>
+        ) : monthlyTripCounts && monthlyTripCounts.length > 0 ? (
+          <div className="h-64">
+            <div className="flex h-full items-end gap-2">
+              {monthlyTripCounts.map((item) => {
+                const height = (item.count / maxCount) * 100
+                return (
+                  <div
+                    key={item.month.toString()}
+                    className="flex-1 flex flex-col items-center"
+                  >
+                    <div className="text-sm text-gray-600 mb-2">
+                      {(item.count).toLocaleString()}
+                    </div>
+                    <div
+                      className="w-full bg-blue-500 rounded-t"
+                      style={{ height: `${height}%` }}
+                    />
+                    <div className="mt-2 text-sm text-gray-600 transform -rotate-45 origin-top-left">
+                      {format(new Date(item.month), 'MMM yyyy')}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ) : (
+          <p>No data available for the selected date range</p>
+        )}
+      </Card>
+    </main>
   )
 }

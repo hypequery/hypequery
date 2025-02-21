@@ -1,18 +1,27 @@
+'use client'
+
 import { DatePicker } from "@/components/ui/date-picker"
-import { DateRange } from "react-day-picker"
+import { useFilters } from "@/lib/filters-context"
 
-interface HeaderProps {
-  dateRange: DateRange | undefined
-  setDateRange: (dateRange: DateRange | undefined) => void
-}
+export function Header() {
+  const { pickupDateRange, setPickupDateRange, dropoffDateRange, setDropoffDateRange } = useFilters()
 
-export function Header({ dateRange, setDateRange }: HeaderProps) {
   return (
-    <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-      <div className="flex items-center gap-4">
-        <DatePicker dateRange={dateRange} setDateRange={setDateRange} />
+    <header className="border-b">
+      <div className="flex items-center h-16 px-4 gap-4">
+        <h1 className="text-lg font-semibold">NYC Taxi Dashboard</h1>
+        <div className="flex-1" />
+        <DatePicker
+          dateRange={pickupDateRange}
+          setDateRange={setPickupDateRange}
+          placeholder="Filter by pickup date"
+        />
+        <DatePicker
+          dateRange={dropoffDateRange}
+          setDateRange={setDropoffDateRange}
+          placeholder="Filter by dropoff date"
+        />
       </div>
-    </div>
+    </header>
   )
 } 

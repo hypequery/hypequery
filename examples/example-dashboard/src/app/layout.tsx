@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Layout } from "@/components/layout/layout";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { FiltersProvider } from "@/lib/filters-context";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full`}>
         <QueryProvider>
-          <Layout>{children}</Layout>
+          <FiltersProvider>
+            <Layout>{children}</Layout>
+          </FiltersProvider>
         </QueryProvider>
       </body>
     </html>

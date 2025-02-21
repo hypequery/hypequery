@@ -16,9 +16,15 @@ import { DateRange } from "react-day-picker"
 interface DatePickerProps {
   dateRange: DateRange | undefined
   setDateRange: (dateRange: DateRange | undefined) => void
+  placeholder?: string
 }
 
-export function DatePicker({ dateRange, setDateRange }: DatePickerProps) {
+export function DatePicker({ dateRange, setDateRange, placeholder = "Pick a date range" }: DatePickerProps) {
+  const disabledDays = {
+    before: new Date(2015, 0, 1),
+    after: new Date(2015, 11, 31)
+  }
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -40,7 +46,7 @@ export function DatePicker({ dateRange, setDateRange }: DatePickerProps) {
               format(dateRange.from, "LLL dd, y")
             )
           ) : (
-            <span>Pick a date range</span>
+            <span>{placeholder}</span>
           )}
         </Button>
       </PopoverTrigger>
@@ -48,10 +54,11 @@ export function DatePicker({ dateRange, setDateRange }: DatePickerProps) {
         <Calendar
           initialFocus
           mode="range"
-          defaultMonth={dateRange?.from}
+          defaultMonth={new Date(2015, 0)}
           selected={dateRange}
           onSelect={setDateRange}
           numberOfMonths={2}
+          disabled={disabledDays}
         />
       </PopoverContent>
     </Popover>

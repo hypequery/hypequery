@@ -1,5 +1,7 @@
-import { createQueryBuilder } from "@hypequery/core"
+import { createQueryBuilder, CrossFilter } from "@hypequery/core"
 import { IntrospectedSchema } from "@/generated/generated-schema"
+import { DateRange } from "react-day-picker"
+import { startOfDay, endOfDay, format } from "date-fns"
 
 const db = createQueryBuilder<IntrospectedSchema>({
   host: typeof window !== 'undefined' ? `${window.location.origin}/clickhouse` : 'http://localhost:3000/clickhouse',
@@ -8,15 +10,107 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: "default",
 })
 
-export async function fetchAverageAmounts() {
-  const result = await db
-    .table("trips")
+interface DateFilters {
+  pickupDateRange?: DateRange
+  dropoffDateRange?: DateRange
+}
+
+function formatDateTime(date: Date) {
+  return format(date, "yyyy-MM-dd HH:mm:ss")
+}
+
+// Function to check data ranges
+export async function checkDataRanges(filters: DateFilters = {}) {
+  // First get the full range without filters
+  const fullRangeQuery = db.table("trips")
+  const fullRange = await fullRangeQuery
+    .min('pickup_datetime', 'min_pickup')
+    .max('pickup_datetime', 'max_pickup')
+    .min('dropoff_datetime', 'min_dropoff')
+    .max('dropoff_datetime', 'max_dropoff')
+    .execute()
+
+
+  // Then get the filtered range if filters are applied
+  if (filters.pickupDateRange || filters.dropoffDateRange) {
+    const query = db.table("trips")
+    const filter = createFilter(filters)
+    query.applyCrossFilters(filter)
+
+    const result = await query
+      .min('pickup_datetime', 'min_pickup')
+      .max('pickup_datetime', 'max_pickup')
+      .min('dropoff_datetime', 'min_dropoff')
+      .max('dropoff_datetime', 'max_dropoff')
+      .execute()
+
+    return result[0]
+  }
+
+  return fullRange[0]
+}
+
+function createFilter(filters: DateFilters) {
+  const filter = new CrossFilter()
+
+  if (filters.pickupDateRange?.from) {
+    filter.add({
+      column: 'pickup_datetime',
+      operator: 'gte',
+      value: formatDateTime(startOfDay(filters.pickupDateRange.from))
+    })
+
+    if (filters.pickupDateRange.to) {
+      filter.add({
+        column: 'pickup_datetime',
+        operator: 'lte',
+        value: formatDateTime(endOfDay(filters.pickupDateRange.to))
+      })
+    }
+  }
+
+  if (filters.dropoffDateRange?.from) {
+    filter.add({
+      column: 'dropoff_datetime',
+      operator: 'gte',
+      value: formatDateTime(startOfDay(filters.dropoffDateRange.from))
+    })
+
+    if (filters.dropoffDateRange.to) {
+      filter.add({
+        column: 'dropoff_datetime',
+        operator: 'lte',
+        value: formatDateTime(endOfDay(filters.dropoffDateRange.to))
+      })
+    }
+  }
+
+  return filter
+}
+
+export async function fetchAverageAmounts(filters: DateFilters = {}) {
+  const query = db.table("trips")
+  const filter = createFilter(filters)
+  query.applyCrossFilters(filter)
+
+
+  const sql = await query
+    .avg("total_amount")
+    .avg("tip_amount")
+    .avg("tolls_amount")
+    .avg("fare_amount")
+    .toSQL()
+
+  console.log({ sql })
+
+  const result = await query
     .avg("total_amount")
     .avg("tip_amount")
     .avg("tolls_amount")
     .avg("fare_amount")
     .execute()
 
+  console.log({ result })
   if (!result.length) {
     throw new Error("No data found")
   }
@@ -29,9 +123,12 @@ export async function fetchAverageAmounts() {
   }
 }
 
-export async function fetchTripStats() {
-  const result = await db
-    .table("trips")
+export async function fetchTripStats(filters: DateFilters = {}) {
+  const query = db.table("trips")
+  const filter = createFilter(filters)
+  query.applyCrossFilters(filter)
+
+  const result = await query
     .avg("trip_distance")
     .avg("passenger_count")
     .execute()
@@ -43,5 +140,47 @@ export async function fetchTripStats() {
   return {
     avgDistance: Number(result[0].trip_distance_avg),
     avgPassengers: Number(result[0].passenger_count_avg),
+  }
+}
+
+export async function fetchMonthlyTripCounts(filters: DateFilters = {}) {
+  console.log('Starting fetchMonthlyTripCounts')
+  try {
+    const query = db.table("trips")
+    const filter = createFilter(filters)
+    query.applyCrossFilters(filter)
+
+    // First get the full range without filters to see what data we have
+    const fullRangeQuery = db.table("trips")
+      .select(['pickup_datetime'])
+      .min('pickup_datetime')
+      .max('pickup_datetime')
+
+    const fullRange = await fullRangeQuery.execute()
+    console.log('Full data range:', fullRange)
+
+    // Now get the monthly counts with filters applied
+    const sql = query
+      .select(['pickup_datetime'])
+      .count('trip_id', 'count')
+      .groupByTimeInterval('pickup_datetime', 'INTERVAL 1 MONTH', 'toStartOfMonth')
+      .limit(1000)
+      .orderBy('pickup_datetime', 'ASC')
+      .toSQL()
+
+    console.log('Generated SQL:', sql)
+
+    const result = await query.execute()
+    console.log('Query result:', result)
+
+    const transformed = result.map(row => ({
+      month: row.pickup_datetime,
+      count: Number(row.count)
+    }))
+    console.log('Transformed result:', transformed)
+    return transformed
+  } catch (error) {
+    console.error('Error in fetchMonthlyTripCounts:', error)
+    throw error
   }
 } 
