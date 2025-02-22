@@ -1,6 +1,4 @@
-'use client'
-
-import { createContext, useContext, ReactNode, useState } from "react"
+import { createContext, useContext, ReactNode } from "react"
 import { DateRange } from "react-day-picker"
 
 interface FiltersContextType {
@@ -22,12 +20,19 @@ export function useFilters() {
 
 interface FiltersProviderProps {
   children: ReactNode
+  pickupDateRange: DateRange | undefined
+  dropoffDateRange: DateRange | undefined
+  setPickupDateRange: (range: DateRange | undefined) => void
+  setDropoffDateRange: (range: DateRange | undefined) => void
 }
 
-export function FiltersProvider({ children }: FiltersProviderProps) {
-  const [pickupDateRange, setPickupDateRange] = useState<DateRange | undefined>(undefined)
-  const [dropoffDateRange, setDropoffDateRange] = useState<DateRange | undefined>(undefined)
-
+export function FiltersProvider({
+  children,
+  pickupDateRange,
+  dropoffDateRange,
+  setPickupDateRange,
+  setDropoffDateRange,
+}: FiltersProviderProps) {
   return (
     <FiltersContext.Provider
       value={{

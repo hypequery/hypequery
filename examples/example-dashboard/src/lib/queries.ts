@@ -159,4 +159,35 @@ export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
     name: new Date(row.week).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
     value: Number(row.trip_count)
   }));
-}; 
+};
+
+export async function fetchTrips(filters: DateFilters = {}) {
+  const query = db.table("trips")
+  const filter = createFilter(filters)
+  query.applyCrossFilters(filter)
+
+  const result = await query
+    .select([
+      "pickup_datetime",
+      "dropoff_datetime",
+      "trip_distance",
+      "passenger_count",
+      "fare_amount",
+      "tip_amount",
+      "total_amount",
+      "payment_type",
+      "vendor_id"
+    ])
+    .orderBy("pickup_datetime", "DESC")
+    .limit(100)
+    .execute()
+
+  return result.map(row => ({
+    ...row,
+    trip_distance: Number(row.trip_distance),
+    passenger_count: Number(row.passenger_count),
+    fare_amount: Number(row.fare_amount),
+    tip_amount: Number(row.tip_amount),
+    total_amount: Number(row.total_amount),
+  }))
+} 

@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query"
 import { fetchAverageAmounts, fetchTripStats, fetchWeeklyTripCounts } from "@/lib/queries"
 import { useFilters } from "@/lib/filters-context"
 import { Card } from "@/components/ui/card"
-import { format } from "date-fns"
 import { AreaChartComponent } from "@/components/charts/area-chart"
+import { TripsDataTable } from "@/components/trips-data-table"
 
 export default function Home() {
   const { pickupDateRange, dropoffDateRange } = useFilters()
@@ -89,6 +89,10 @@ export default function Home() {
           <p>No data available for the selected date range</p>
         </Card>
       )}
+
+      <Card className="p-4">
+        <TripsDataTable />
+      </Card>
     </main>
   )
 }
