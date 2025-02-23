@@ -101,7 +101,6 @@ export async function fetchAverageAmounts(filters: DateFilters = {}) {
     .avg("fare_amount")
     .toSQL()
 
-  console.log({ sql })
 
   const result = await query
     .avg("total_amount")
@@ -110,7 +109,7 @@ export async function fetchAverageAmounts(filters: DateFilters = {}) {
     .avg("fare_amount")
     .execute()
 
-  console.log({ result })
+
   if (!result.length) {
     throw new Error("No data found")
   }
@@ -144,7 +143,6 @@ export async function fetchTripStats(filters: DateFilters = {}) {
 }
 
 export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
-  console.log('Fetching monthly trip counts...');
 
   const query = db.table("trips")
   const filter = createFilter(filters)
@@ -161,7 +159,7 @@ export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
   }));
 };
 
-export async function fetchTrips(filters: DateFilters = {}) {
+export async function fetchTrips(filters: DateFilters = {}, { pageSize = 10, after, before }: { pageSize?: number; after?: string; before?: string } = {}) {
   const query = db.table("trips")
   const filter = createFilter(filters)
   query.applyCrossFilters(filter)
@@ -179,15 +177,24 @@ export async function fetchTrips(filters: DateFilters = {}) {
       "vendor_id"
     ])
     .orderBy("pickup_datetime", "DESC")
-    .limit(100)
-    .execute()
+    .paginate({
+      pageSize,
+      after,
+      before,
+      orderBy: [{ column: "pickup_datetime", direction: "DESC" }]
+    })
 
-  return result.map(row => ({
-    ...row,
-    trip_distance: Number(row.trip_distance),
-    passenger_count: Number(row.passenger_count),
-    fare_amount: Number(row.fare_amount),
-    tip_amount: Number(row.tip_amount),
-    total_amount: Number(row.total_amount),
-  }))
+  console.log({ result })
+
+  return {
+    ...result,
+    data: result.data.map(row => ({
+      ...row,
+      trip_distance: Number(row.trip_distance),
+      passenger_count: Number(row.passenger_count),
+      fare_amount: Number(row.fare_amount),
+      tip_amount: Number(row.tip_amount),
+      total_amount: Number(row.total_amount),
+    }))
+  }
 } 

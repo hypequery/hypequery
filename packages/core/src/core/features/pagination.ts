@@ -8,7 +8,34 @@ export class PaginationFeature<
   Aggregations = {},
   OriginalT = T
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>) { }
+  private static cursorStacks: Map<string, { stack: string[]; position: number }> = new Map();
+  private stackKey: string;
+
+  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>) {
+    // Create a unique key for this pagination instance based on the table and sort
+    this.stackKey = builder.getTableName();
+    if (!PaginationFeature.cursorStacks.has(this.stackKey)) {
+      PaginationFeature.cursorStacks.set(this.stackKey, { stack: [], position: -1 });
+    }
+  }
+
+  private get cursorStack(): string[] {
+    return PaginationFeature.cursorStacks.get(this.stackKey)!.stack;
+  }
+
+  private set cursorStack(value: string[]) {
+    const current = PaginationFeature.cursorStacks.get(this.stackKey)!;
+    PaginationFeature.cursorStacks.set(this.stackKey, { ...current, stack: value });
+  }
+
+  private get currentPosition(): number {
+    return PaginationFeature.cursorStacks.get(this.stackKey)!.position;
+  }
+
+  private set currentPosition(value: number) {
+    const current = PaginationFeature.cursorStacks.get(this.stackKey)!;
+    PaginationFeature.cursorStacks.set(this.stackKey, { ...current, position: value });
+  }
 
   private encodeCursor(values: Record<string, any>): string {
     return Buffer.from(JSON.stringify(values)).toString('base64');
@@ -19,35 +46,109 @@ export class PaginationFeature<
   }
 
   async paginate(options: PaginationOptions<T>): Promise<PaginatedResult<T>> {
-    const config = this.builder.getConfig();
-    const { pageSize, after, before, orderBy } = options;
+    const { pageSize, after, before, orderBy = [] } = options;
+    const requestSize = pageSize + 1;
 
-    // Apply ordering
-    if (orderBy) {
-      orderBy.forEach(({ column, direction }) => {
-        const typedColumn = column as unknown as keyof T | TableColumn<Schema>;
-        this.builder.orderBy(typedColumn, direction);
-      });
+    // Update cursor stack
+    if (after) {
+      // Moving forward: add new cursor and update position
+      if (this.currentPosition < this.cursorStack.length - 1) {
+        // If we're not at the end, truncate the stack
+        this.cursorStack = this.cursorStack.slice(0, this.currentPosition + 1);
+      }
+      this.cursorStack = [...this.cursorStack, after];
+      this.currentPosition = this.cursorStack.length - 1;
+    } else if (before) {
+      // Moving backward: find the cursor in the stack
+      const cursorIndex = this.cursorStack.indexOf(before);
+
+      if (cursorIndex === -1) {
+        // If cursor not found in stack, add it
+        if (this.currentPosition === this.cursorStack.length - 1) {
+          this.cursorStack = [...this.cursorStack, before];
+        }
+        // Move back one position
+        this.currentPosition = Math.max(-1, this.currentPosition - 1);
+      } else {
+        // Move to the previous cursor position
+        this.currentPosition = Math.max(-1, cursorIndex - 1);
+      }
+    } else {
+      // Reset for first page only if we don't have a cursor
+      if (!this.cursorStack.length) {
+        this.cursorStack = [];
+        this.currentPosition = -1;
+      }
     }
 
-    // Apply cursor conditions
-    if (after || before) {
-      const cursor = this.decodeCursor(after || before || '');
-      const direction = after ? 'gt' : 'lt';
+    console.log('Cursor Stack:', {
+      stackKey: this.stackKey,
+      stack: this.cursorStack,
+      position: this.currentPosition,
+      currentCursor: after || before,
+      isForward: !!after,
+      isBackward: !!before
+    });
 
-      Object.entries(cursor).forEach(([column, value]) => {
-        const typedColumn = column as unknown as keyof OriginalT;
-        this.builder.where(typedColumn, direction as any, value);
+    // Apply ordering first
+    orderBy.forEach(({ column, direction }) => {
+      this.builder.orderBy(column as any, direction);
+    });
+
+    // Handle cursor-based pagination
+    const cursor = after || before;
+    if (cursor && orderBy && orderBy.length > 0) {
+      const [{ column, direction }] = orderBy;
+      const columnName = String(column);
+      const cursorValues = this.decodeCursor(cursor);
+      const value = cursorValues[columnName];
+
+      console.log('Pagination Debug:', {
+        cursor,
+        direction,
+        columnName,
+        value,
+        isForward: !!after,
+        isBackward: !!before
       });
+
+      if (before) {
+        // For backward pagination:
+        // If sorting DESC, we want records > cursor
+        // If sorting ASC, we want records < cursor
+        const operator = direction === 'DESC' ? 'gt' : 'lt';
+        this.builder.where(columnName as any, operator, value);
+        // Reverse the order for backward pagination
+        orderBy.forEach(({ column, direction }) => {
+          const reversedDirection = direction === 'DESC' ? 'ASC' : 'DESC';
+          this.builder.orderBy(column as any, reversedDirection);
+        });
+      } else {
+        // For forward pagination:
+        // If sorting DESC, we want records < cursor
+        // If sorting ASC, we want records > cursor
+        const operator = direction === 'DESC' ? 'lt' : 'gt';
+        this.builder.where(columnName as any, operator, value);
+      }
     }
 
-    // Get one extra record to determine if there's a next/previous page
-    const limit = pageSize + 1;
-    this.builder.limit(limit);
+    this.builder.limit(requestSize);
 
     // Execute query
-    const results = await this.builder.execute();
-    const hasMore = results.length > pageSize;
+    let results = await this.builder.execute();
+    console.log('Query Results:', {
+      resultsLength: results.length,
+      requestSize,
+      pageSize,
+      hasMore: results.length > pageSize,
+      stackLength: this.cursorStack.length,
+      position: this.currentPosition
+    });
+
+    // For backward pagination, we need to reverse the results
+    if (before) {
+      results = results.reverse();
+    }
 
     // Only take pageSize records for the actual data
     const data = results.slice(0, pageSize);
@@ -56,14 +157,55 @@ export class PaginationFeature<
     const startCursor = data.length > 0 ? this.generateCursor(data[0], orderBy) : '';
     const endCursor = data.length > 0 ? this.generateCursor(data[data.length - 1], orderBy) : '';
 
-    const pageInfo: PageInfo = {
-      hasNextPage: hasMore,
-      hasPreviousPage: !!after,
-      startCursor,
-      endCursor
-    };
+    // Determine if there are more pages
+    const hasMore = results.length > pageSize;
 
-    return { data, pageInfo };
+    console.log('currentPosition: ', this.currentPosition)
+    // For the first page
+    if (!cursor) {
+      return {
+        data,
+        pageInfo: {
+          hasNextPage: hasMore,
+          hasPreviousPage: this.currentPosition > 0, // Only true if we have previous cursors in the stack
+          startCursor,
+          endCursor,
+          totalCount: 0,
+          totalPages: 0,
+          pageSize
+        }
+      };
+    }
+
+    // For pages accessed via 'before' cursor
+    if (before) {
+      return {
+        data,
+        pageInfo: {
+          hasNextPage: true, // We can always go forward when we've gone back
+          hasPreviousPage: this.currentPosition >= 0 || hasMore, // Can go back if we have history or more results
+          startCursor,
+          endCursor,
+          totalCount: 0,
+          totalPages: 0,
+          pageSize
+        }
+      };
+    }
+
+    // For pages accessed via 'after' cursor
+    return {
+      data,
+      pageInfo: {
+        hasNextPage: hasMore, // Can go forward if we have more results
+        hasPreviousPage: true, // We can always go back when we've gone forward
+        startCursor,
+        endCursor,
+        totalCount: 0,
+        totalPages: 0,
+        pageSize
+      }
+    };
   }
 
   private generateCursor(record: T, orderBy?: PaginationOptions<T>['orderBy']): string {
@@ -107,4 +249,4 @@ export class PaginationFeature<
       currentCursor = result.pageInfo.endCursor;
     }
   }
-} 
+}

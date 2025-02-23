@@ -84,7 +84,9 @@ export interface PageInfo {
   hasPreviousPage: boolean;
   startCursor: string;
   endCursor: string;
-  totalCount?: number;
+  totalCount: number;
+  totalPages: number;
+  pageSize: number;
 }
 
 export interface PaginatedResult<T> {
