@@ -50,32 +50,87 @@ jobs:
       - name: Build
         run: npm run build
         
-      - name: Get latest version
+      - name: Get latest version and tags
         id: get_version
         run: |
-          echo "LATEST_VERSION=$(npm view @hypequery/core version)" >> $GITHUB_OUTPUT
+          # Get the latest published version
+          LATEST_VERSION=$(npm view @hypequery/core version || echo "0.0.0")
+          echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_OUTPUT
+          
+          # Get existing tags
+          git fetch --tags
+          
+          # Check if the v1.0.0 tag exists
+          if git tag -l "v1.0.0" | grep -q "v1.0.0"; then
+            echo "TAG_1_0_0_EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "TAG_1_0_0_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
         continue-on-error: true
 
       - name: Install semantic-release globally
         run: |
           npm install -g semantic-release @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/git @semantic-release/github @semantic-release/npm @semantic-release/release-notes-generator
 
+      - name: Create temporary semantic-release config
+        run: |
+          cd packages/core
+          
+          # Determine release type
+          RELEASE_TYPE="${{ github.event_name == 'push' && 'beta' || github.event.inputs.release_type }}"
+          TAG_EXISTS="${{ steps.get_version.outputs.TAG_1_0_0_EXISTS }}"
+          
+          echo "Creating semantic-release config for $RELEASE_TYPE release..."
+          if [ "$RELEASE_TYPE" = "beta" ]; then
+            # For beta releases
+            cat > .releaserc.temp.cjs << 'EOL'
+          module.exports = {
+            branches: ['main'],
+            plugins: [
+              '@semantic-release/commit-analyzer',
+              '@semantic-release/release-notes-generator',
+              '@semantic-release/changelog',
+              ['@semantic-release/npm', {
+                npmPublish: true,
+              }],
+              ['@semantic-release/git', {
+                assets: ['package.json', 'CHANGELOG.md'],
+                message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}'
+              }],
+              '@semantic-release/github'
+            ]
+          };
+          EOL
+          else
+            # For stable releases, use the existing config
+            cp .releaserc.cjs .releaserc.temp.cjs
+          fi
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # When triggered by push, always use beta. For manual workflow, use the selected option
           RELEASE_TYPE: ${{ github.event_name == 'push' && 'beta' || github.event.inputs.release_type }}
-          LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_VERSION || '1.0.0' }}
         run: |
           cd packages/core
           echo "Publishing $RELEASE_TYPE release..."
-          echo "Last published version: $LATEST_VERSION"
+          echo "Last published version: ${{ steps.get_version.outputs.LATEST_VERSION }}"
+          echo "Tag v1.0.0 exists: ${{ steps.get_version.outputs.TAG_1_0_0_EXISTS }}"
           
           if [ "$RELEASE_TYPE" = "beta" ]; then
             # For beta releases
-            semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta
+            if [ "${{ steps.get_version.outputs.TAG_1_0_0_EXISTS }}" = "true" ]; then
+              # If we already have a v1.0.0 tag, need to start from next version with beta tag
+              NEXT_VERSION=$(echo "${{ steps.get_version.outputs.LATEST_VERSION }}" | awk -F. '{print $1"."$2+1".0"}')
+              echo "Using next version: $NEXT_VERSION-beta.1"
+              
+              # Force the next version with beta tag
+              npx semantic-release --extends ./.releaserc.temp.cjs --no-ci --prerelease beta
+            else
+              # First time release with beta tag
+              npx semantic-release --extends ./.releaserc.temp.cjs --no-ci --prerelease beta
+            fi
           else
             # For stable releases
-            semantic-release --extends ./.releaserc.cjs --no-ci --branches main
-          fi 
+            npx semantic-release --extends ./.releaserc.temp.cjs --no-ci
+          fi
