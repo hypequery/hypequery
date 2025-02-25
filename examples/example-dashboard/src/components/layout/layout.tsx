@@ -18,7 +18,7 @@ export function Layout({ children }: LayoutProps) {
         <Sidebar />
       </div>
       <div className="flex-1 flex flex-col">
-        <Header dateRange={dateRange} setDateRange={setDateRange} />
+        <Header />
         <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
           {children}
         </main>

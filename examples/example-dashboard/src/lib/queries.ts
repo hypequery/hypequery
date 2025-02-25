@@ -149,11 +149,13 @@ export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
   query.applyCrossFilters(filter)
 
   const result = await query
+    //@ts-ignore - requires fix in hypqeury package
     .select(['toStartOfWeek(pickup_datetime) as week'])
     .count('trip_id', 'trip_count')
     .execute();
 
   return result.map(row => ({
+    //@ts-ignore - requires fix in hypqeury package
     name: new Date(row.week).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
     value: Number(row.trip_count)
   }));

@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/card"
 import {
   ChartConfig,
-  ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
@@ -26,12 +25,6 @@ interface AreaChartProps {
   footer?: React.ReactNode
 }
 
-const chartConfig = {
-  desktop: {
-    label: "Trips",
-    color: "hsl(var(--chart-1))",
-  },
-} satisfies ChartConfig
 
 export function AreaChartComponent({
   data,
@@ -47,7 +40,9 @@ export function AreaChartComponent({
       </CardHeader>
       <CardContent>
         <div className="h-[400px] w-full">
+          {/* @ts-ignore */}
           <ResponsiveContainer width="100%" height="100%">
+            {/* @ts-ignore */}
             <AreaChart
               data={data}
               margin={{
@@ -58,6 +53,7 @@ export function AreaChartComponent({
               }}
             >
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              {/* @ts-ignore */}
               <XAxis
                 dataKey="month"
                 tickLine={false}
@@ -68,6 +64,7 @@ export function AreaChartComponent({
                 height={60}
                 tick={{ fontSize: 12 }}
               />
+              {/* @ts-ignore */}
               <YAxis
                 tickLine={false}
                 axisLine={false}
@@ -79,6 +76,7 @@ export function AreaChartComponent({
                 cursor={false}
                 content={<ChartTooltipContent indicator="line" />}
               />
+              {/* @ts-ignore */}
               <Area
                 dataKey="desktop"
                 type="monotone"

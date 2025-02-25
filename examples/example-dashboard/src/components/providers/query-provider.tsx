@@ -15,6 +15,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      {/* @ts-ignore */}
       {children}
     </QueryClientProvider>
   )

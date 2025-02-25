@@ -26,7 +26,9 @@ export function DatePicker({ dateRange, setDateRange, placeholder = "Pick a date
   }
 
   return (
+    //@ts-ignore
     <Popover>
+      {/* @ts-ignore */}
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
@@ -50,6 +52,7 @@ export function DatePicker({ dateRange, setDateRange, placeholder = "Pick a date
           )}
         </Button>
       </PopoverTrigger>
+      {/* @ts-ignore */}
       <PopoverContent align="start" className="w-auto p-0">
         <Calendar
           initialFocus

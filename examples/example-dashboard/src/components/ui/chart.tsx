@@ -64,10 +64,12 @@ export const ChartTooltip = React.forwardRef<any, ChartTooltipProps>(
   ({ content, ...props }, ref) => {
     if (!content) return null
 
-    // @ts-ignore - Recharts tooltip type issues
+
     return (
+      // @ts-ignore - Recharts tooltip type issues
       <Tooltip
         {...props}
+        // @ts-ignore - Recharts tooltip type issues
         content={content}
         cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
         wrapperStyle={{ outline: "none" }}
