@@ -55,8 +55,8 @@ jobs:
           cd packages/core
           if [ "$RELEASE_TYPE" = "beta" ]; then
             echo "Publishing beta release..."
-            npx semantic-release --extends ./.releaserc.cjs --no-ci
+            npx semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta
           else
             echo "Publishing stable release..."
-            npx semantic-release --extends ./.releaserc.cjs --branches main --no-ci
+            npx semantic-release --extends ./.releaserc.cjs --no-ci --branches main
           fi 

@@ -1,7 +1,7 @@
 {
   "name": "@hypequery/core",
   "version": "0.1.0",
-  "description": "Real-time ClickHouse query builder with TypeScript support",
+  "description": "ClickHouse typescript query builder",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -14,7 +14,9 @@
     "lint": "eslint src/**/*.ts",
     "generate-types": "NODE_OPTIONS=\"--loader ts-node/esm --experimental-specifier-resolution=node\" ts-node src/cli/bin.ts",
     "test-cli": "node --loader ts-node/esm src/cli/generate-test.ts",
-    "semantic-release": "semantic-release"
+    "semantic-release": "semantic-release",
+    "release:beta": "semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta",
+    "release:stable": "semantic-release --extends ./.releaserc.cjs --no-ci --branches main"
   },
   "dependencies": {
     "@clickhouse/client-web": "^0.2.0",
