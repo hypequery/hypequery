@@ -49,20 +49,6 @@ jobs:
 
       - name: Build
         run: npm run build
-      
-      - name: Remove conflicting tag if exists
-        run: |
-          # First fetch all tags
-          git fetch --tags
-          
-          # Check if v1.0.0 tag exists and remove it if needed
-          if git tag -l | grep -q "v1.0.0"; then
-            echo "Removing existing v1.0.0 tag locally"
-            git tag -d v1.0.0
-            
-            echo "Removing existing v1.0.0 tag from remote"
-            git push --delete origin v1.0.0 || echo "Tag may not exist on remote or couldn't be deleted"
-          fi
 
       - name: Release
         env:

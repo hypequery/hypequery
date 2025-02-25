@@ -1,13 +1,5 @@
 module.exports = {
-  branches: [
-    '+([0-9])?(.{+([0-9]),x}).x',
-    'main',
-    {
-      name: 'main',
-      prerelease: 'beta',
-      channel: 'beta'
-    }
-  ],
+  branches: ['main'],
   plugins: [
     '@semantic-release/commit-analyzer',
     ['@semantic-release/release-notes-generator', {
@@ -30,6 +22,5 @@ module.exports = {
     '@semantic-release/github'
   ],
   preset: 'angular',
-  tagFormat: 'v${version}',
-  initialVersion: '1.0.0'
-} 
+  tagFormat: 'v${version}'
+}
