@@ -63,36 +63,6 @@ jobs:
             echo "Removing existing v1.0.0 tag from remote"
             git push --delete origin v1.0.0 || echo "Tag may not exist on remote or couldn't be deleted"
           fi
-          
-      - name: Create custom .releaserc file
-        run: |
-          cd packages/core
-          
-          # Determine release type
-          RELEASE_TYPE="${{ github.event_name == 'push' && 'beta' || github.event.inputs.release_type }}"
-          
-          if [[ "$RELEASE_TYPE" == "beta" ]]; then
-            cat > .releaserc.custom.js << 'EOL'
-          module.exports = {
-            branches: ['main'],
-            plugins: [
-              '@semantic-release/commit-analyzer',
-              '@semantic-release/release-notes-generator',
-              '@semantic-release/changelog',
-              ['@semantic-release/npm', {
-                npmPublish: true
-              }],
-              ['@semantic-release/git', {
-                assets: ['package.json', 'CHANGELOG.md'],
-                message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}'
-              }],
-              '@semantic-release/github'
-            ]
-          };
-          EOL
-          else
-            cp .releaserc.cjs .releaserc.custom.js
-          fi
 
       - name: Release
         env:
@@ -106,9 +76,9 @@ jobs:
           if [[ "$RELEASE_TYPE" == "beta" ]]; then
             # For beta releases
             echo "Running semantic-release with beta prerelease tag"
-            npx semantic-release --extends ./.releaserc.custom.js --no-ci --prerelease beta
+            npx semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta
           else
             # For stable releases
             echo "Running semantic-release for stable release"
-            npx semantic-release --extends ./.releaserc.custom.js --no-ci
+            npx semantic-release --extends ./.releaserc.cjs --no-ci
           fi
