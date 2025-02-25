@@ -44,6 +44,12 @@ jobs:
 
       - name: Build
         run: npm run build
+        
+      - name: Get latest version
+        id: get_version
+        run: |
+          echo "LATEST_VERSION=$(npm view @hypequery/core version)" >> $GITHUB_OUTPUT
+        continue-on-error: true
 
       - name: Release
         env:
@@ -51,10 +57,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           # When triggered by push, always use beta. For manual workflow, use the selected option
           RELEASE_TYPE: ${{ github.event_name == 'push' && 'beta' || github.event.inputs.release_type }}
+          LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_VERSION || '1.0.0' }}
         run: |
           cd packages/core
           if [ "$RELEASE_TYPE" = "beta" ]; then
             echo "Publishing beta release..."
+            echo "Last published version: $LATEST_VERSION"
             npx semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta
           else
             echo "Publishing stable release..."
