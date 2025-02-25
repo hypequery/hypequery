@@ -12,8 +12,18 @@ module.exports = {
   ],
   plugins: [
     '@semantic-release/commit-analyzer',
-    '@semantic-release/release-notes-generator',
-    '@semantic-release/changelog',
+    ['@semantic-release/release-notes-generator', {
+      preset: 'angular',
+      writerOpts: {
+        groupBy: 'type',
+        commitGroupsSort: 'title',
+        commitsSort: 'header'
+      }
+    }],
+    ['@semantic-release/changelog', {
+      changelogFile: 'CHANGELOG.md',
+      changelogTitle: '# @hypequery/core Changelog'
+    }],
     '@semantic-release/npm',
     ['@semantic-release/git', {
       assets: ['package.json', 'CHANGELOG.md'],

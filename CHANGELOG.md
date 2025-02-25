@@ -1,6 +1,9 @@
-# 1.0.0 (2025-02-25)
+# HypeQuery Monorepo Changelog
 
+This monorepo contains multiple packages, each with their own changelog:
 
-### Features
+- [@hypequery/core Changelog](./packages/core/CHANGELOG.md) - The TypeScript-first ClickHouse query builder
 
-* **release:** rename pre-release to beta for version publishing ([66c7260](https://github.com/lureilly1/hypequery/commit/66c72602aa0b3cf2b327c0c53d80baea39d7985a))
+## Historical Changes
+
+Historical changes (before package-specific changelogs were implemented) can be found in [CHANGELOG.md.old](./CHANGELOG.md.old). 

@@ -51,6 +51,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           RELEASE_TYPE: ${{ github.event.inputs.release_type || 'pre-release' }}
         run: |
+          cd packages/core
           if [ "$RELEASE_TYPE" = "pre-release" ]; then
             npx semantic-release
           else
