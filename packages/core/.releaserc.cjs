@@ -2,7 +2,8 @@ module.exports = {
   branches: [
     {
       name: 'main',
-      channel: 'latest'
+      channel: 'latest',
+      prerelease: false
     },
     {
       name: 'main',

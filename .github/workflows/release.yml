@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        description: 'Release type (pre-release or release)'
+        description: 'Release type (beta or stable)'
         required: true
-        default: 'pre-release'
+        default: 'beta'
         type: choice
         options:
-          - pre-release
-          - release
+          - beta
+          - stable
 
 jobs:
   release:
@@ -49,11 +49,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          RELEASE_TYPE: ${{ github.event.inputs.release_type || 'pre-release' }}
+          # When triggered by push, always use beta. For manual workflow, use the selected option
+          RELEASE_TYPE: ${{ github.event_name == 'push' && 'beta' || github.event.inputs.release_type }}
         run: |
           cd packages/core
-          if [ "$RELEASE_TYPE" = "pre-release" ]; then
-            npx semantic-release
+          if [ "$RELEASE_TYPE" = "beta" ]; then
+            echo "Publishing beta release..."
+            npx semantic-release --extends ./.releaserc.cjs --no-ci
           else
-            npx semantic-release --branches main
+            echo "Publishing stable release..."
+            npx semantic-release --extends ./.releaserc.cjs --branches main --no-ci
           fi 
