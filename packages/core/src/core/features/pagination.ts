@@ -118,7 +118,7 @@ export class PaginationFeature<
     this.builder.limit(requestSize);
 
     // Execute query
-    let results = await this.builder.execute();
+    let results = await this.builder.execute()
 
 
     // For backward pagination, we need to reverse the results
@@ -142,7 +142,7 @@ export class PaginationFeature<
         data,
         pageInfo: {
           hasNextPage: hasMore,
-          hasPreviousPage: data.length > 0 && this.currentPosition > 0, // Only true if we have data and previous cursors
+          hasPreviousPage: this.currentPosition > 0, // Only true if we have previous cursors in the stack
           startCursor,
           endCursor,
           totalCount: 0,
@@ -158,7 +158,7 @@ export class PaginationFeature<
         data,
         pageInfo: {
           hasNextPage: true, // We can always go forward when we've gone back
-          hasPreviousPage: data.length > 0 && (this.currentPosition >= 0 || hasMore), // Only true if we have data and history or more results
+          hasPreviousPage: this.currentPosition >= 0 || hasMore, // Can go back if we have history or more results
           startCursor,
           endCursor,
           totalCount: 0,
@@ -172,8 +172,8 @@ export class PaginationFeature<
     return {
       data,
       pageInfo: {
-        hasNextPage: hasMore,
-        hasPreviousPage: data.length > 0, // Only true if we have data
+        hasNextPage: hasMore, // Can go forward if we have more results
+        hasPreviousPage: true, // We can always go back when we've gone forward
         startCursor,
         endCursor,
         totalCount: 0,

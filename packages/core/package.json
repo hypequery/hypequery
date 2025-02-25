@@ -42,6 +42,14 @@
     "esm": true,
     "experimentalSpecifiers": true
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lureilly1/hypequery-core.git"
+  },
+  "homepage": "https://hypequery.dev",
+  "bugs": {
+    "url": "https://github.com/lureilly1/hypequery-core/issues"
+  },
   "publishConfig": {
     "access": "public"
   }
