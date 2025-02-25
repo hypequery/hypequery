@@ -81,14 +81,6 @@ export class PaginationFeature<
       }
     }
 
-    console.log('Cursor Stack:', {
-      stackKey: this.stackKey,
-      stack: this.cursorStack,
-      position: this.currentPosition,
-      currentCursor: after || before,
-      isForward: !!after,
-      isBackward: !!before
-    });
 
     // Apply ordering first
     orderBy.forEach(({ column, direction }) => {
@@ -102,15 +94,6 @@ export class PaginationFeature<
       const columnName = String(column);
       const cursorValues = this.decodeCursor(cursor);
       const value = cursorValues[columnName];
-
-      console.log('Pagination Debug:', {
-        cursor,
-        direction,
-        columnName,
-        value,
-        isForward: !!after,
-        isBackward: !!before
-      });
 
       if (before) {
         // For backward pagination:
@@ -136,14 +119,7 @@ export class PaginationFeature<
 
     // Execute query
     let results = await this.builder.execute();
-    console.log('Query Results:', {
-      resultsLength: results.length,
-      requestSize,
-      pageSize,
-      hasMore: results.length > pageSize,
-      stackLength: this.cursorStack.length,
-      position: this.currentPosition
-    });
+
 
     // For backward pagination, we need to reverse the results
     if (before) {
@@ -160,14 +136,13 @@ export class PaginationFeature<
     // Determine if there are more pages
     const hasMore = results.length > pageSize;
 
-    console.log('currentPosition: ', this.currentPosition)
     // For the first page
     if (!cursor) {
       return {
         data,
         pageInfo: {
           hasNextPage: hasMore,
-          hasPreviousPage: this.currentPosition > 0, // Only true if we have previous cursors in the stack
+          hasPreviousPage: data.length > 0 && this.currentPosition > 0, // Only true if we have data and previous cursors
           startCursor,
           endCursor,
           totalCount: 0,
@@ -183,7 +158,7 @@ export class PaginationFeature<
         data,
         pageInfo: {
           hasNextPage: true, // We can always go forward when we've gone back
-          hasPreviousPage: this.currentPosition >= 0 || hasMore, // Can go back if we have history or more results
+          hasPreviousPage: data.length > 0 && (this.currentPosition >= 0 || hasMore), // Only true if we have data and history or more results
           startCursor,
           endCursor,
           totalCount: 0,
@@ -197,8 +172,8 @@ export class PaginationFeature<
     return {
       data,
       pageInfo: {
-        hasNextPage: hasMore, // Can go forward if we have more results
-        hasPreviousPage: true, // We can always go back when we've gone forward
+        hasNextPage: hasMore,
+        hasPreviousPage: data.length > 0, // Only true if we have data
         startCursor,
         endCursor,
         totalCount: 0,

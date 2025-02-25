@@ -427,10 +427,8 @@ export class QueryBuilder<
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
-    console.log('Inner join called with:', { table, leftColumn, rightColumn, alias });
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('INNER', table, leftColumn, rightColumn, alias);
-    console.log('New config after inner join:', newBuilder.config);
     return newBuilder;
   }
 

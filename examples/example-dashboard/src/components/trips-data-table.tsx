@@ -79,8 +79,6 @@ export function TripsDataTable() {
     return <div>Loading...</div>
   }
 
-  console.log({ data, cursor })
-
   return (
     <div className="space-y-4">
       <DataTable columns={columns} data={data?.data || []} />
