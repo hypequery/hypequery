@@ -30,5 +30,6 @@ module.exports = {
     '@semantic-release/github'
   ],
   preset: 'angular',
-  tagFormat: 'v${version}'
+  tagFormat: 'v${version}',
+  initialVersion: '1.0.0'
 } 
