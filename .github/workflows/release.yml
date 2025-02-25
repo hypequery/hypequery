@@ -29,6 +29,11 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          
+      - name: Configure Git
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -60,12 +65,18 @@ jobs:
           LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_VERSION || '1.0.0' }}
         run: |
           cd packages/core
+          
+          # Install semantic-release and its plugins globally to avoid module resolution issues
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/git @semantic-release/github @semantic-release/npm @semantic-release/release-notes-generator
+          
           if [ "$RELEASE_TYPE" = "beta" ]; then
             echo "Publishing beta release..."
             echo "Last published version: $LATEST_VERSION"
-            # Force a beta release with an explicit version to avoid conflicts
-            npx semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta --no-verify-conditions
+            # Simple direct approach that ensures beta tag
+            npm version prerelease --preid=beta
+            npm publish --tag beta
           else
             echo "Publishing stable release..."
-            npx semantic-release --extends ./.releaserc.cjs --no-ci --branches main
+            # For stable releases, use semantic-release
+            semantic-release --extends ./.releaserc.cjs --no-ci --branches main
           fi 
