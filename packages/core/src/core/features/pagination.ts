@@ -142,7 +142,7 @@ export class PaginationFeature<
         data,
         pageInfo: {
           hasNextPage: hasMore,
-          hasPreviousPage: this.currentPosition > 0, // Only true if we have previous cursors in the stack
+          hasPreviousPage: data.length > 0 && this.currentPosition > 0, // Only true if we have results AND previous cursors
           startCursor,
           endCursor,
           totalCount: 0,
@@ -158,7 +158,7 @@ export class PaginationFeature<
         data,
         pageInfo: {
           hasNextPage: true, // We can always go forward when we've gone back
-          hasPreviousPage: this.currentPosition >= 0 || hasMore, // Can go back if we have history or more results
+          hasPreviousPage: data.length > 0 && (this.currentPosition >= 0 || hasMore), // Need results to have previous page
           startCursor,
           endCursor,
           totalCount: 0,
@@ -173,7 +173,7 @@ export class PaginationFeature<
       data,
       pageInfo: {
         hasNextPage: hasMore, // Can go forward if we have more results
-        hasPreviousPage: true, // We can always go back when we've gone forward
+        hasPreviousPage: data.length > 0, // Need results to have previous page
         startCursor,
         endCursor,
         totalCount: 0,
