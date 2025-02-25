@@ -56,6 +56,10 @@ jobs:
           echo "LATEST_VERSION=$(npm view @hypequery/core version)" >> $GITHUB_OUTPUT
         continue-on-error: true
 
+      - name: Install semantic-release globally
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/git @semantic-release/github @semantic-release/npm @semantic-release/release-notes-generator
+
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,18 +69,13 @@ jobs:
           LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_VERSION || '1.0.0' }}
         run: |
           cd packages/core
-          
-          # Install semantic-release and its plugins globally to avoid module resolution issues
-          npm install -g semantic-release @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/git @semantic-release/github @semantic-release/npm @semantic-release/release-notes-generator
+          echo "Publishing $RELEASE_TYPE release..."
+          echo "Last published version: $LATEST_VERSION"
           
           if [ "$RELEASE_TYPE" = "beta" ]; then
-            echo "Publishing beta release..."
-            echo "Last published version: $LATEST_VERSION"
-            # Simple direct approach that ensures beta tag
-            npm version prerelease --preid=beta
-            npm publish --tag beta
+            # For beta releases
+            semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta
           else
-            echo "Publishing stable release..."
-            # For stable releases, use semantic-release
+            # For stable releases
             semantic-release --extends ./.releaserc.cjs --no-ci --branches main
           fi 
