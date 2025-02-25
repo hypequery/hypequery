@@ -1,1 +1,0 @@
-// HypeQuery Core - Coming Soon
