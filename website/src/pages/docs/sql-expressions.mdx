@@ -1,0 +1,155 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: SQL Expressions
+description: Using raw SQL expressions and ClickHouse functions with HypeQuery
+---
+
+# SQL Expressions
+
+HypeQuery provides a way to use raw SQL expressions and ClickHouse functions in your queries while maintaining type safety.
+
+## Raw SQL Expressions
+
+You can use the `raw` and `rawAs` functions to include raw SQL expressions in your queries:
+
+```typescript
+import { raw, rawAs } from '@hypequery/core';
+
+// Using raw SQL expression
+const query = builder
+  .table('events')
+  .select([
+    'id',
+    'user_id',
+    rawAs('COUNT(*)', 'total_count') // SQL function with alias
+  ])
+  .groupBy(['id', 'user_id'])
+  .toSQL();
+
+// Result: SELECT id, user_id, COUNT(*) AS total_count FROM events GROUP BY id, user_id
+```
+
+## ClickHouse Functions
+
+HypeQuery provides several helper functions for common ClickHouse operations:
+
+```typescript
+import { 
+  toDateTime,
+  formatDateTime,
+  toStartOfInterval,
+  datePart
+} from '@hypequery/core';
+
+const query = builder
+  .table('events')
+  .select([
+    'id',
+    'event_type',
+    toDateTime('timestamp', 'event_time'),            // toDateTime(timestamp) AS event_time
+    formatDateTime('timestamp', 'Y-m-d', 'date'),     // formatDateTime(timestamp, 'Y-m-d') AS date
+    toStartOfInterval('timestamp', '1 hour', 'hour')  // toStartOfInterval(timestamp, INTERVAL 1 hour) AS hour
+  ])
+  .where('event_type', 'eq', 'purchase')
+  .groupBy(['event_type', 'hour'])
+  .toSQL();
+```
+
+## Custom Functions
+
+You can use `raw` and `rawAs` for any custom ClickHouse function:
+
+```typescript
+// Using custom ClickHouse functions
+const query = builder
+  .table('events')
+  .select([
+    rawAs('arrayJoin(tags)', 'tag'),            // arrayJoin extraction
+    rawAs('sum(revenue)', 'total_revenue'),     // Aggregation
+    rawAs('round(avg(duration), 2)', 'avg_duration') // Multiple functions
+  ])
+  .toSQL();
+```
+
+## Type Handling
+
+When using SQL expressions, the resulting value will be typed as `any` in the return type. You can use TypeScript assertions if you need more specific typing:
+
+```typescript
+const result = await builder
+  .table('events')
+  .select([
+    'id',
+    rawAs('toDate(timestamp)', 'date')
+  ])
+  .execute();
+
+// TypeScript doesn't know the type of 'date', so you can assert it:
+const dates = result.map(row => row.date as Date);
+```
+
+## Available Helper Functions
+
+### toDateTime
+
+Converts a value to DateTime format:
+
+```typescript
+toDateTime('timestamp', 'formatted_time')
+// Results in: toDateTime(timestamp) AS formatted_time
+```
+
+### formatDateTime
+
+Formats a DateTime value using the specified format:
+
+```typescript
+formatDateTime('timestamp', 'Y-m-d H:i:s', 'formatted_date')
+// Results in: formatDateTime(timestamp, 'Y-m-d H:i:s') AS formatted_date
+```
+
+### toStartOfInterval
+
+Truncates a date/time value to the start of the specified interval:
+
+```typescript
+toStartOfInterval('timestamp', '1 day', 'day')
+// Results in: toStartOfInterval(timestamp, INTERVAL 1 day) AS day
+```
+
+### datePart
+
+Extracts a specific part (year, month, day, etc.) from a date/time value:
+
+```typescript
+datePart('year', 'timestamp', 'year')
+// Results in: toYear(timestamp) AS year
+
+datePart('month', 'timestamp', 'month')
+// Results in: toMonth(timestamp) AS month
+```
+
+## Usage in Aggregations
+
+SQL expressions are particularly useful in aggregation scenarios:
+
+```typescript
+const query = builder
+  .table('events')
+  .select([
+    datePart('month', 'timestamp', 'month'),
+    rawAs('sum(amount)', 'total_amount'),
+    rawAs('count()', 'event_count')
+  ])
+  .groupBy(['month'])
+  .orderBy('month')
+  .toSQL();
+
+// Result: SELECT toMonth(timestamp) AS month, sum(amount) AS total_amount, count() AS event_count FROM events GROUP BY month ORDER BY month ASC
+```
+
+## See Also
+
+- [Query Builder Basics](/docs/query-builder)
+- [Filtering](/docs/filtering)
+- [Aggregations](/docs/aggregations) 

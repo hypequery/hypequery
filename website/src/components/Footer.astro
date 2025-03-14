@@ -1,11 +1,13 @@
 ---
 const navigation = {
   products: [
-    { name: "Visual Builder", href: "#" },
     { name: "TypeScript SDK", href: "/docs" },
+    { name: "Visual Builder", href: "#beta-signup", isBeta: true },
   ],
   resources: [
     { name: "Documentation", href: "/docs" },
+    { name: "Core Features", href: "/docs/guides/query-building" },
+    { name: "Advanced Features", href: "/docs/features/cross-filtering" },
     { name: "GitHub", href: "https://github.com/hypequery/core" },
   ],
   social: [
@@ -25,7 +27,7 @@ const navigation = {
           >&gt; hypequery</span
         >
         <p class="text-sm leading-6 text-gray-600">
-          Making ClickHouse data accessible to everyone.
+          Type-safe ClickHouse queries for TypeScript developers.
         </p>
         <div class="flex space-x-6">
           {
@@ -60,9 +62,14 @@ const navigation = {
                 <li>
                   <a
                     href={item.href}
-                    class="text-sm leading-6 text-gray-600 hover:text-gray-900"
+                    class="text-sm leading-6 text-gray-600 hover:text-gray-900 flex items-center"
                   >
                     {item.name}
+                    {item.isBeta && (
+                      <span class="ml-2 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
+                        Beta
+                      </span>
+                    )}
                   </a>
                 </li>
               ))
