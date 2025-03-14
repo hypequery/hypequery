@@ -3,7 +3,7 @@ import Layout from "../layouts/Layout.astro";
 import CopyButton from "../components/CopyButton.astro";
 ---
 
-<Layout title="HypeQuery - Type-safe ClickHouse Query Builder">
+<Layout title="HypeQuery - Visual SQL Builder & TypeScript SDK for ClickHouse">
   <main>
     <!-- Hero section -->
     <div class="relative isolate pt-14">
@@ -18,22 +18,36 @@ import CopyButton from "../components/CopyButton.astro";
             <h1
               class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl flex flex-col"
             >
-              <span>The Clickhouse typescript SDK</span>
-              <span class="text-indigo-600"> Build dashboards fast</span>
+              <span>Visual SQL Builder for ClickHouse</span>
+              <span class="text-indigo-600">No code required</span>
             </h1>
             <p class="mt-6 text-lg leading-8 text-gray-600">
-              Build type-safe dashboards with the power of ClickHouse and the
-              joy of TypeScript.
+              Build powerful dashboards with our visual query builder or
+              leverage our TypeScript SDK. The easiest way to work with
+              ClickHouse data.
             </p>
+            <div class="mt-4 text-sm text-gray-500">
+              Powered by <a
+                href="https://github.com/hypequery/core"
+                class="text-indigo-600 hover:text-indigo-500 font-medium"
+                >hypequery/core</a
+              > - our open source TypeScript SDK
+            </div>
             <div class="mt-10 flex items-center justify-center gap-x-6">
               <a
-                href="/docs/installation"
+                href="#"
                 class="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
               >
-                Get Started
+                Try, it's free
               </a>
               <a
-                href="https://github.com/yourusername/hypequery"
+                href="/docs"
+                class="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-indigo-600 shadow-sm ring-1 ring-inset ring-indigo-200 hover:bg-indigo-50"
+              >
+                SDK Docs
+              </a>
+              <a
+                href="https://github.com/hypequery/core"
                 class="flex items-center gap-2 text-sm font-semibold leading-6 text-gray-900 hover:text-indigo-600"
               >
                 <svg
@@ -55,7 +69,7 @@ import CopyButton from "../components/CopyButton.astro";
             </div>
           </div>
 
-          <!-- Code Preview -->
+          <!-- Product Screenshot -->
           <div class="mt-16 flow-root sm:mt-24">
             <div
               class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl"
@@ -68,39 +82,67 @@ import CopyButton from "../components/CopyButton.astro";
                 class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
               >
               </div>
-              <div class="pl-4 pt-4">
-                <div class="flex text-sm leading-6">
-                  <div class="flex h-7 items-center space-x-2">
-                    <div class="h-3 w-3 rounded-full bg-red-400"></div>
-                    <div class="h-3 w-3 rounded-full bg-yellow-400"></div>
-                    <div class="h-3 w-3 rounded-full bg-green-400"></div>
-                  </div>
-                  <div class="ml-4 flex items-center font-mono text-gray-400">
-                    dashboard.ts
-                  </div>
-                </div>
-              </div>
-              <div class="mt-6 space-y-6 px-6 pb-14 text-gray-300">
-                <span class="text-gray-500"
-                  >// Type-safe queries with autocomplete! 🎉</span
-                >
-                <span class="text-indigo-400">const</span> results = <span
-                  class="text-indigo-400">await</span
-                > db .table(<span class="text-green-400">'events'</span>)
-                .select([<span class="text-green-400">'date'</span>, <span
-                  class="text-green-400">'user_id'</span
-                >]) .where(<span class="text-green-400">'type'</span>, <span
-                  class="text-green-400">'eq'</span
-                >, <span class="text-green-400">'purchase'</span>) .groupBy(<span
-                  class="text-green-400">'date'</span
-                >) .sum(<span class="text-green-400">'amount'</span>)
-                .execute();
+              <!-- PLACEHOLDER FOR VISUAL QUERY BUILDER SCREENSHOT -->
+              <div
+                class="flex justify-center items-center py-32 text-gray-400 font-medium"
+              >
+                [PLACEHOLDER: Visual Query Builder Interface Screenshot]
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Problem Statement Section -->
+    <section class="bg-gray-50 py-16 sm:py-24">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl lg:text-center">
+          <h2 class="text-base font-semibold leading-7 text-indigo-600">
+            The Challenge
+          </h2>
+          <p
+            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+          >
+            SQL complexity shouldn't slow you down
+          </p>
+          <p class="mt-6 text-lg leading-8 text-gray-600">
+            Technical teams spend hours writing complex SQL queries. Business
+            users wait for insights they need now. The gap between data and
+            decisions is costing you time and opportunities.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Solution Overview -->
+    <section class="bg-white py-16 sm:py-24">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl lg:text-center">
+          <h2 class="text-base font-semibold leading-7 text-indigo-600">
+            Our Solution
+          </h2>
+          <p
+            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+          >
+            Visual query building for everyone
+          </p>
+          <p class="mt-6 text-lg leading-8 text-gray-600">
+            Whether you're a SQL expert or business user, our visual interface
+            makes working with ClickHouse data intuitive and powerful. Toggle
+            between visual builder and SQL editor modes to work your way.
+          </p>
+        </div>
+        <div class="mt-16 flex justify-center">
+          <!-- PLACEHOLDER FOR SOLUTION SCREENSHOT -->
+          <div
+            class="w-full max-w-4xl h-96 bg-gray-100 rounded-lg flex justify-center items-center text-gray-400 font-medium"
+          >
+            [PLACEHOLDER: Interface showing visual builder and SQL editor modes]
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Features Section -->
     <section class="bg-white pb-24 sm:pb-32">
@@ -112,7 +154,7 @@ import CopyButton from "../components/CopyButton.astro";
           <p
             class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
           >
-            Everything you need to build amazing dashboards
+            Everything you need to explore your data
           </p>
         </div>
         <div class="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
@@ -141,14 +183,14 @@ import CopyButton from "../components/CopyButton.astro";
                     ></path>
                   </svg>
                 </div>
-                Type-Safe Queries
+                Visual Query Builder
               </dt>
               <dd
                 class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
               >
                 <p class="flex-auto">
-                  Full TypeScript support with autocomplete. Your IDE becomes
-                  your best friend! 🤝
+                  Drag-and-drop interface for building SQL queries without
+                  writing code. Perfect for business users.
                 </p>
               </dd>
             </div>
@@ -174,14 +216,14 @@ import CopyButton from "../components/CopyButton.astro";
                     ></path>
                   </svg>
                 </div>
-                Smart Joins & Subqueries
+                SQL Editor Mode
               </dt>
               <dd
                 class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
               >
                 <p class="flex-auto">
-                  Define relationships once, use them everywhere. Powerful
-                  subquery support for complex analytics! 📊
+                  Switch to SQL mode anytime for direct query editing with
+                  syntax highlighting and auto-completion.
                 </p>
               </dd>
             </div>
@@ -207,14 +249,14 @@ import CopyButton from "../components/CopyButton.astro";
                     ></path>
                   </svg>
                 </div>
-                Advanced Filtering
+                Schema Browser
               </dt>
               <dd
                 class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
               >
                 <p class="flex-auto">
-                  Cross-filtering support and reusable filters. Build complex
-                  conditions with ease! 🎯
+                  Explore your database structure with an intuitive browser that
+                  makes finding tables and columns easy.
                 </p>
               </dd>
             </div>
@@ -239,14 +281,14 @@ import CopyButton from "../components/CopyButton.astro";
                       d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </div>
-                Time Functions
+                Intelligent Joins
               </dt>
               <dd
                 class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
               >
                 <p class="flex-auto">
-                  Built-in time-based functions for date ranges, intervals, and
-                  aggregations! ⏰
+                  Automatic join relationship detection makes connecting tables
+                  simple, even for complex data models.
                 </p>
               </dd>
             </div>
@@ -272,14 +314,14 @@ import CopyButton from "../components/CopyButton.astro";
                     ></path>
                   </svg>
                 </div>
-                Smart Pagination
+                Powerful Visualizations
               </dt>
               <dd
                 class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
               >
                 <p class="flex-auto">
-                  Efficient pagination with cursor support for large datasets.
-                  Handle millions of rows with ease! 📄
+                  Create beautiful charts and dashboards directly from your
+                  query results with our visualization tools.
                 </p>
               </dd>
             </div>
@@ -309,18 +351,184 @@ import CopyButton from "../components/CopyButton.astro";
                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                   </svg>
                 </div>
-                Debugging Tools
+                Query Management
               </dt>
               <dd
                 class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
               >
                 <p class="flex-auto">
-                  Built-in debugging helpers to inspect queries, explain plans,
-                  and optimize performance! 🔍
+                  Save, organize, and reuse your queries in a personal
+                  workspace. Share insights with your team.
                 </p>
               </dd>
             </div>
           </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="bg-gray-50 py-16 sm:py-24">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl lg:text-center">
+          <h2 class="text-base font-semibold leading-7 text-indigo-600">
+            How It Works
+          </h2>
+          <p
+            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+          >
+            From data to insights in minutes
+          </p>
+        </div>
+        <div class="mt-16 max-w-2xl mx-auto">
+          <ol class="relative border-l border-indigo-200 ml-3">
+            <li class="mb-10 ml-6">
+              <span
+                class="absolute flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full -left-4 ring-4 ring-white"
+              >
+                <span class="text-indigo-600 font-bold">1</span>
+              </span>
+              <h3 class="font-semibold text-lg text-gray-900">
+                Connect to your database
+              </h3>
+              <p class="mt-2 text-gray-600">
+                Securely connect to your ClickHouse database with a few simple
+                steps.
+              </p>
+            </li>
+            <li class="mb-10 ml-6">
+              <span
+                class="absolute flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full -left-4 ring-4 ring-white"
+              >
+                <span class="text-indigo-600 font-bold">2</span>
+              </span>
+              <h3 class="font-semibold text-lg text-gray-900">
+                Browse your schema
+              </h3>
+              <p class="mt-2 text-gray-600">
+                Explore tables, columns, and relationships with our intuitive
+                schema browser.
+              </p>
+            </li>
+            <li class="mb-10 ml-6">
+              <span
+                class="absolute flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full -left-4 ring-4 ring-white"
+              >
+                <span class="text-indigo-600 font-bold">3</span>
+              </span>
+              <h3 class="font-semibold text-lg text-gray-900">
+                Build your query visually
+              </h3>
+              <p class="mt-2 text-gray-600">
+                Drag and drop to create queries or switch to SQL mode for direct
+                editing.
+              </p>
+            </li>
+            <li class="mb-10 ml-6">
+              <span
+                class="absolute flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full -left-4 ring-4 ring-white"
+              >
+                <span class="text-indigo-600 font-bold">4</span>
+              </span>
+              <h3 class="font-semibold text-lg text-gray-900">
+                Apply filters and aggregations
+              </h3>
+              <p class="mt-2 text-gray-600">
+                Refine your data with powerful filtering and aggregation
+                options.
+              </p>
+            </li>
+            <li class="ml-6">
+              <span
+                class="absolute flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full -left-4 ring-4 ring-white"
+              >
+                <span class="text-indigo-600 font-bold">5</span>
+              </span>
+              <h3 class="font-semibold text-lg text-gray-900">
+                Visualize and share
+              </h3>
+              <p class="mt-2 text-gray-600">
+                Create beautiful visualizations and share insights with your
+                team.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section class="bg-white py-16 sm:py-24">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl lg:text-center">
+          <h2 class="text-base font-semibold leading-7 text-indigo-600">
+            Use Cases
+          </h2>
+          <p
+            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+          >
+            Perfect for teams of all sizes
+          </p>
+        </div>
+        <div class="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="bg-gray-50 p-6 rounded-lg">
+            <h3 class="font-semibold text-lg text-gray-900">Data Analysis</h3>
+            <p class="mt-2 text-gray-600">
+              Explore and analyze data for business intelligence without complex
+              SQL.
+            </p>
+          </div>
+          <div class="bg-gray-50 p-6 rounded-lg">
+            <h3 class="font-semibold text-lg text-gray-900">
+              Ad-hoc Reporting
+            </h3>
+            <p class="mt-2 text-gray-600">
+              Create reports on demand without waiting for engineering
+              resources.
+            </p>
+          </div>
+          <div class="bg-gray-50 p-6 rounded-lg">
+            <h3 class="font-semibold text-lg text-gray-900">
+              Database Exploration
+            </h3>
+            <p class="mt-2 text-gray-600">
+              Understand complex database structures and document relationships.
+            </p>
+          </div>
+          <div class="bg-gray-50 p-6 rounded-lg">
+            <h3 class="font-semibold text-lg text-gray-900">
+              Performance Optimization
+            </h3>
+            <p class="mt-2 text-gray-600">
+              Identify bottlenecks and optimize query performance with ease.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="bg-indigo-600 py-16 sm:py-24">
+      <div class="mx-auto max-w-7xl px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl text-center">
+          <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Ready to simplify your data workflow?
+          </h2>
+          <p class="mt-6 text-lg leading-8 text-indigo-100">
+            Start building powerful queries visually today. No credit card
+            required.
+          </p>
+          <div class="mt-10 flex items-center justify-center gap-x-6">
+            <a
+              href="#"
+              class="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-indigo-600 shadow-sm hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              Try, it's free
+            </a>
+            <a href="/docs" class="text-sm font-semibold leading-6 text-white">
+              Learn about our SDK <span aria-hidden="true">→</span>
+            </a>
+          </div>
         </div>
       </div>
     </section>
