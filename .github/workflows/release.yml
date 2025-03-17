@@ -108,14 +108,23 @@ jobs:
 
       - name: Build packages
         run: |
-          # Build in proper dependency order
+          # First make sure there are no lingering build artifacts
+          rm -rf packages/*/dist
+
+          # Build clickhouse package with CLI included
+          cd packages/clickhouse
           npm run build
+          
+          # Verify the build succeeded
+          ls -la dist/index.js dist/index.d.ts dist/cli/bin.js
+          
+          # Return to root
+          cd ../..
         
       - name: Get latest version
         id: get_version
         run: |
           echo "LATEST_CLICKHOUSE_VERSION=$(npm view @hypequery/clickhouse version)" >> $GITHUB_OUTPUT
-          echo "LATEST_CLI_VERSION=$(npm view @hypequery/cli version)" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Install semantic-release globally
@@ -133,15 +142,4 @@ jobs:
           echo "Last published version: $LATEST_VERSION"
           
           # Run semantic-release with standard configuration
-          semantic-release --extends ./.releaserc.cjs --no-ci
-          
-      - name: Release CLI Package
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_CLI_VERSION || '0.1.0' }}
-        run: |
-          cd packages/cli
-          echo "Publishing CLI package..."
-          echo "Last published version: $LATEST_VERSION"
           semantic-release --extends ./.releaserc.cjs --no-ci

@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-// Using absolute path for development
-// @ts-ignore
-import { ClickHouseConnection } from '../../../packages/clickhouse/dist/index.js';
+import { ClickHouseConnection } from '../core/connection.js';
 import { generateTypes } from './generate-types.js';
 import path from 'path';
 import dotenv from 'dotenv';

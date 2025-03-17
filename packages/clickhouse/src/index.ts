@@ -28,3 +28,6 @@ export type {
   SqlExpression,
   AliasedExpression
 } from './core/utils/sql-expressions.js';
+
+// CLI exports
+export { generateTypes } from './cli/generate-types.js';

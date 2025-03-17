@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --skipLibCheck",
     "dev": "tsc --watch",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
@@ -15,7 +15,7 @@
     "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci"
   },
   "dependencies": {
-    "@hypequery/clickhouse": "^0.2.0",
+    "@hypequery/clickhouse": "*",
     "dotenv": "^16.0.0"
   },
   "devDependencies": {
