@@ -17,7 +17,6 @@ export type { JoinPath, JoinPathOptions } from './core/join-relationships.js';
 export { CrossFilter } from './core/cross-filter.js';
 export { logger } from './core/utils/logger.js';
 
-// Export SQL expression utilities
 export {
   raw,
   rawAs,
