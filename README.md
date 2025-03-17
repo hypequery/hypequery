@@ -2,15 +2,15 @@
 
 <div align="center">
   <img src="https://hypequery.dev/img/logo.svg" alt="HypeQuery Logo" width="200"/>
-  <h1>@hypequery/core</h1>
+  <h1>@hypequery/clickhouse</h1>
   <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
   
   [![GitHub license](https://img.shields.io/github/license/lukejreilly/hypequery)](https://github.com/lukejreilly/hypequery/blob/main/LICENSE)
-  [![npm version](https://badge.fury.io/js/@hypequery%2Fcore.svg)](https://badge.fury.io/js/@hypequery%2Fcore)
+  [![npm version](https://badge.fury.io/js/@hypequery%2Fclickhouse.svg)](https://badge.fury.io/js/@hypequery%2Fclickhouse)
   [![GitHub stars](https://img.shields.io/github/stars/lukejreilly/hypequery)](https://github.com/lukejreilly/hypequery/stargazers)
 </div>
 
-> **Note:** This package is published on npm as `@hypequery/core`. The unscoped package `hypequery-core` is unrelated and should not be used.
+> **Note:** This package is published on npm as `@hypequery/clickhouse`. The unscoped package `hypequery-core` is unrelated and should not be used.
 
 ## Overview
 
@@ -30,19 +30,19 @@ hypequery is a typescript-first query builder for ClickHouse designed specifical
 
 ```bash
 # npm
-npm install @hypequery/core
+npm install @hypequery/clickhouse
 
 # yarn
-yarn add @hypequery/core
+yarn add @hypequery/clickhouse
 
 # pnpm
-pnpm add @hypequery/core
+pnpm add @hypequery/clickhouse
 ```
 
 ## Quick Start
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { Schema } from './generated-schema';
 
 // Initialize the query builder
@@ -69,7 +69,7 @@ HypeQuery provides a CLI tool to generate TypeScript types from your ClickHouse 
 
 ```bash
 # Install globally (optional)
-npm install -g @hypequery/core
+npm install -g @hypequery/clickhouse
 
 # Generate schema types
 npx hypequery-generate --host your-clickhouse-host --database your-database
@@ -78,7 +78,7 @@ npx hypequery-generate --host your-clickhouse-host --database your-database
 This creates a `generated-schema.ts` file that you can import in your application:
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './generated-schema';
 
 const db = createQueryBuilder<IntrospectedSchema>({
@@ -90,8 +90,8 @@ const db = createQueryBuilder<IntrospectedSchema>({
 
 HypeQuery follows semantic versioning and provides multiple release channels:
 
-- **Latest**: Stable releases (`npm install @hypequery/core`)
-- **Beta**: Pre-release versions (`npm install @hypequery/core@beta`)
+- **Latest**: Stable releases (`npm install @hypequery/clickhouse`)
+- **Beta**: Pre-release versions (`npm install @hypequery/clickhouse@beta`)
 
 ## Documentation
 
@@ -156,7 +156,7 @@ db.table('trips').select(['non_existent_column']); // TypeScript error
 Implement interactive dashboards with cross-filtering support:
 
 ```typescript
-import { CrossFilter } from '@hypequery/core';
+import { CrossFilter } from '@hypequery/clickhouse';
 
 // Create a filter
 const filter = new CrossFilter()

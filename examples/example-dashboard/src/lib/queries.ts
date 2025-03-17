@@ -1,4 +1,4 @@
-import { createQueryBuilder, CrossFilter, logger } from "@hypequery/core"
+import { createQueryBuilder, CrossFilter, logger } from "@hypequery/clickhouse"
 import { DateRange } from "react-day-picker"
 import { startOfDay, endOfDay, format } from "date-fns"
 import { IntrospectedSchema } from "@/generated/generated-schema"

@@ -2,7 +2,7 @@
 
 <div align="center">
   <img src="https://hypequery.dev/img/logo.svg" alt="HypeQuery Logo" width="200"/>
-  <h1>@hypequery/core</h1>
+  <h1>@hypequery/clickhouse</h1>
   <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
   
   [![GitHub license](https://img.shields.io/github/license/lukejreilly/hypequery)](https://github.com/lukejreilly/hypequery/blob/main/LICENSE)

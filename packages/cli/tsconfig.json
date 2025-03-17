@@ -1,20 +1,20 @@
 {
-  "extends": "../../packages/tsconfig/base.json",
   "compilerOptions": {
     "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "Node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
     "outDir": "./dist",
-    "rootDir": "./src",
     "strict": true,
+    "declaration": true,
     "skipLibCheck": true,
-    "esModuleInterop": true
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "**/*.test.ts"
   ]
 }

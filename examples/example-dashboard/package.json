@@ -8,7 +8,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@hypequery/core": "*",
+    "@hypequery/clickhouse": "*",
     "@radix-ui/react-popover": "^1.0.7",
     "@radix-ui/react-slot": "^1.0.2",
     "@tanstack/react-query": "^5.66.8",

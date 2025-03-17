@@ -12,7 +12,7 @@ module.exports = {
     }],
     ['@semantic-release/changelog', {
       changelogFile: 'CHANGELOG.md',
-      changelogTitle: '# @hypequery/core Changelog'
+      changelogTitle: '# @hypequery/cli Changelog'
     }],
     '@semantic-release/npm',
     ['@semantic-release/git', {
@@ -22,5 +22,5 @@ module.exports = {
     '@semantic-release/github'
   ],
   preset: 'angular',
-  tagFormat: 'v${version}'
-}
+  tagFormat: 'cli-v${version}'
+} 

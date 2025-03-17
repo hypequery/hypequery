@@ -2,7 +2,10 @@
   "name": "hypequery-monorepo",
   "private": true,
   "workspaces": [
-    "packages/*",
+    "packages/clickhouse",
+    "packages/cli",
+    "packages/create-app",
+    "packages/tsconfig",
     "examples/*"
   ],
   "scripts": {

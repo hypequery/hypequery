@@ -1,6 +1,6 @@
 /**
  * This file provides a simplified logging interface for the example dashboard.
- * It serves as a placeholder for the actual logger implementation in @hypequery/core.
+ * It serves as a placeholder for the actual logger implementation in @hypequery/clickhouse.
  */
 
 // A simple logger interface that mimics the one expected by our example

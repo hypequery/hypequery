@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { ClickHouseConnection } from '../core/connection.js';
+import { ClickHouseConnection } from '@hypequery/clickhouse';
 import { generateTypes } from './generate-types.js';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -14,10 +14,10 @@ async function main() {
   try {
     // Initialize connection from env vars
     ClickHouseConnection.initialize({
-      host: process.env.VITE_CLICKHOUSE_HOST || 'http://localhost:8123',
-      username: process.env.VITE_CLICKHOUSE_USER || 'default',
-      password: process.env.VITE_CLICKHOUSE_PASSWORD,
-      database: process.env.VITE_CLICKHOUSE_DATABASE || 'default',
+      host: process.env.VITE_CLICKHOUSE_HOST || process.env.CLICKHOUSE_HOST || 'http://localhost:8123',
+      username: process.env.VITE_CLICKHOUSE_USER || process.env.CLICKHOUSE_USER || 'default',
+      password: process.env.VITE_CLICKHOUSE_PASSWORD || process.env.CLICKHOUSE_PASSWORD,
+      database: process.env.VITE_CLICKHOUSE_DATABASE || process.env.CLICKHOUSE_DATABASE || 'default',
     });
 
     await generateTypes(outputPath);

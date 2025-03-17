@@ -31,7 +31,7 @@ jobs:
         
       - name: Run unit tests
         run: npm run test:unit
-        working-directory: packages/core
+        working-directory: packages/clickhouse
         
   integration-test:
     name: Integration Tests
@@ -68,7 +68,7 @@ jobs:
         
       - name: Run integration tests
         run: npm run test:integration
-        working-directory: packages/core
+        working-directory: packages/clickhouse
         env:
           CLICKHOUSE_TEST_HOST: http://localhost:8123
           CLICKHOUSE_TEST_USER: default
@@ -112,22 +112,34 @@ jobs:
       - name: Get latest version
         id: get_version
         run: |
-          echo "LATEST_VERSION=$(npm view @hypequery/core version)" >> $GITHUB_OUTPUT
+          echo "LATEST_CLICKHOUSE_VERSION=$(npm view @hypequery/clickhouse version)" >> $GITHUB_OUTPUT
+          echo "LATEST_CLI_VERSION=$(npm view @hypequery/cli version)" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Install semantic-release globally
         run: |
           npm install -g semantic-release @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/git @semantic-release/github @semantic-release/npm @semantic-release/release-notes-generator
 
-      - name: Release
+      - name: Release Clickhouse Package
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_VERSION || '1.0.0' }}
+          LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_CLICKHOUSE_VERSION || '1.0.0' }}
         run: |
-          cd packages/core
-          echo "Publishing release..."
+          cd packages/clickhouse
+          echo "Publishing clickhouse package..."
           echo "Last published version: $LATEST_VERSION"
           
           # Run semantic-release with standard configuration
+          semantic-release --extends ./.releaserc.cjs --no-ci
+          
+      - name: Release CLI Package
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_CLI_VERSION || '0.1.0' }}
+        run: |
+          cd packages/cli
+          echo "Publishing CLI package..."
+          echo "Last published version: $LATEST_VERSION"
           semantic-release --extends ./.releaserc.cjs --no-ci
