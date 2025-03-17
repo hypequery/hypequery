@@ -8,11 +8,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "jest --testPathIgnorePatterns='integration'",
+    "test:watch": "jest  --testPathIgnorePatterns='integration' --watch",
     "test:coverage": "jest --coverage",
-    "test:integration": "jest --testMatch='**/integration/**/*.test.ts'",
-    "test:unit": "jest --testPathIgnorePatterns='integration'",
     "lint": "eslint src/**/*.ts",
     "generate-types": "NODE_OPTIONS=\"--loader ts-node/esm --experimental-specifier-resolution=node\" ts-node src/cli/bin.ts",
     "test-cli": "node --loader ts-node/esm src/cli/generate-test.ts",

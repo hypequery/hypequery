@@ -17,8 +17,8 @@ The streaming API uses the Web Streams API standard, providing a modern and effi
 ```typescript
 const builder = createQueryBuilder(schema).table('users');
 
-// Get a ReadableStream of results
-const stream = builder
+// Get a ReadableStream of results - note that stream() is async
+const stream = await builder
   .select(['id', 'name', 'email'])
   .where('age', 'gt', 18)
   .stream();
@@ -46,12 +46,13 @@ try {
 
 ### Key Concepts
 
-1. **Reader**: The `getReader()` method returns a reader that allows you to consume the stream
-2. **Reading Data**: The `read()` method returns a promise with:
+1. **Async Stream Method**: The `stream()` method returns a Promise that resolves to a ReadableStream
+2. **Reader**: The `getReader()` method returns a reader that allows you to consume the stream
+3. **Reading Data**: The `read()` method returns a promise with:
    - `done`: boolean indicating if the stream is finished
    - `value`: array of rows from the current batch
-3. **Resource Management**: Always use `try/finally` and call `reader.releaseLock()` when done
-4. **Error Handling**: Use `try/catch` to handle any errors during stream processing
+4. **Resource Management**: Always use `try/finally` and call `reader.releaseLock()` when done
+5. **Error Handling**: Use `try/catch` to handle any errors during stream processing
 
 ## Alternative: Event-Based Approach
 
@@ -60,7 +61,8 @@ If you prefer an event-based approach similar to Node.js streams, you can create
 ```typescript
 import { EventEmitter } from 'events';
 
-function streamToEvents<T>(stream: ReadableStream<T[]>) {
+async function streamToEvents<T>(streamPromise: Promise<ReadableStream<T[]>>) {
+  const stream = await streamPromise;
   const reader = stream.getReader();
   const emitter = new EventEmitter();
 
@@ -85,8 +87,8 @@ function streamToEvents<T>(stream: ReadableStream<T[]>) {
 }
 
 // Usage:
-const stream = builder.stream();
-const emitter = streamToEvents(stream);
+const streamPromise = builder.stream();
+const emitter = await streamToEvents(streamPromise);
 
 emitter.on('data', (rows: T[]) => {
   rows.forEach(row => {
@@ -104,6 +106,40 @@ emitter.on('error', (error) => {
 ```
 
 > **Note**: While the event-based approach is available, we recommend using the native Web Streams API as it provides better control over the streaming process and is more efficient.
+
+## Helper Functions
+
+For convenience, you might want to create helper functions to work with streams:
+
+```typescript
+// Process each row in a stream
+async function streamForEach<T>(
+  streamPromise: Promise<ReadableStream<T[]>>,
+  callback: (row: T) => void | Promise<void>
+): Promise<void> {
+  const stream = await streamPromise;
+  const reader = stream.getReader();
+  
+  try {
+    while (true) {
+      const { done, value: rows } = await reader.read();
+      if (done) break;
+      
+      for (const row of rows) {
+        await callback(row);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// Usage:
+await streamForEach(
+  builder.table('users').select(['id', 'name']).stream(),
+  user => console.log(user.name)
+);
+```
 
 ## Benefits of Streaming
 

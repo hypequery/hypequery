@@ -42,6 +42,13 @@ export interface TestSchema {
     status: 'String';
     created_at: 'DateTime';
   };
+  products: {
+    id: 'Int32';
+    name: 'String';
+    price: 'Float64';
+    category: 'String';
+    description: 'String';
+  };
 }
 
 // Helper to initialize the connection

@@ -2,11 +2,12 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard } from "lucide-react"
+import { LayoutDashboard, Car, Activity } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Streaming Demo", href: "/streaming", icon: Activity },
 ]
 
 export function Sidebar() {

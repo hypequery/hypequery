@@ -2,6 +2,7 @@ import { QueryBuilder } from '../query-builder';
 import { ColumnType } from '../../types';
 import { ClickHouseConnection } from '../connection';
 import { substituteParameters } from '../utils';
+import { logger } from '../utils/logger';
 
 export class ExecutorFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
@@ -28,12 +29,95 @@ export class ExecutorFeature<
     const client = ClickHouseConnection.getClient();
     const { sql, parameters } = this.toSQLWithParams();
     const finalSQL = substituteParameters(sql, parameters);
-    const result = await client.query({
+
+    const startTime = Date.now();
+    logger.logQuery({
       query: finalSQL,
-      format: 'JSONEachRow'
+      parameters,
+      startTime,
+      status: 'started'
     });
 
-    return result.json<T[]>();
+    try {
+      const result = await client.query({
+        query: finalSQL,
+        format: 'JSONEachRow'
+      });
+
+      const rows = await result.json<T[]>();
+      const endTime = Date.now();
+
+      logger.logQuery({
+        query: finalSQL,
+        parameters,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
+        status: 'completed',
+        rowCount: rows.length
+      });
+
+      return rows;
+    } catch (error) {
+      const endTime = Date.now();
+      logger.logQuery({
+        query: finalSQL,
+        parameters,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
+        status: 'error',
+        error: error as Error
+      });
+      throw error;
+    }
+  }
+
+  async stream(): Promise<ReadableStream<T[]>> {
+    const client = ClickHouseConnection.getClient();
+    const { sql, parameters } = this.toSQLWithParams();
+    const finalSQL = substituteParameters(sql, parameters);
+
+    const startTime = Date.now();
+    logger.logQuery({
+      query: finalSQL,
+      parameters,
+      startTime,
+      status: 'started'
+    });
+
+    try {
+      const result = await client.query({
+        query: finalSQL,
+        format: 'JSONEachRow'
+      });
+
+      const stream = result.stream();
+
+      const endTime = Date.now();
+      logger.logQuery({
+        query: finalSQL,
+        parameters,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
+        status: 'completed'
+      });
+
+      return stream as ReadableStream<T[]>;
+    } catch (error) {
+      const endTime = Date.now();
+      logger.logQuery({
+        query: finalSQL,
+        parameters,
+        startTime,
+        endTime,
+        duration: endTime - startTime,
+        status: 'error',
+        error: error as Error
+      });
+      throw error;
+    }
   }
 
   private toSQLWithoutParameters(): string {

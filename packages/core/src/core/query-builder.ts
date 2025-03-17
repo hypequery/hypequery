@@ -23,7 +23,8 @@ import { ExecutorFeature } from './features/executor';
 import { QueryModifiersFeature } from './features/query-modifiers';
 import { FilterValidator } from './validators/filter-validator';
 import { PaginationFeature } from './features/pagination';
-import { JoinRelationships, JoinPath, JoinPathOptions } from './join-relationships';
+import { JoinRelationships, JoinPathOptions } from './join-relationships';
+import { SqlExpression } from './utils/sql-expressions';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -81,7 +82,7 @@ export class QueryBuilder<
   }
 
   private clone(): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
-    const newBuilder = new QueryBuilder(
+    const newBuilder = new QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>(
       this.tableName,
       this.schema,
       this.originalSchema
@@ -156,7 +157,6 @@ export class QueryBuilder<
     return this;
   }
 
-
   /**
    * Selects specific columns from the table.
    * @template K - The keys/columns to select
@@ -167,39 +167,61 @@ export class QueryBuilder<
    * builder.select(['id', 'name'])
    * ```
    */
-  select<K extends keyof T | TableColumn<Schema>>(columns: K[]): QueryBuilder<Schema, {
-    [P in K as P extends `${string}.${infer C}` ? C : P]: P extends keyof T
-    ? (
-      T[P] extends "String" ? string :
-      T[P] extends "Date" ? Date :
-      T[P] extends "Float64" | "Int32" | "Int64" ? number : never
-    ) : string;
-  }, true, Aggregations, OriginalT> {
-    type NewT = {
-      [P in K as P extends `${string}.${infer C}` ? C : P]: P extends keyof T ? (
+  select<K extends keyof T | TableColumn<Schema> | SqlExpression>(
+    columns: K[]
+  ): QueryBuilder<
+    Schema,
+    {
+      [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]: P extends keyof T ? (
         T[P] extends "String" ? string :
         T[P] extends "Date" ? Date :
         T[P] extends "Float64" | "Int32" | "Int64" ? number : never
-      ) : string;
-    }
-
-    const newBuilder = new QueryBuilder<Schema, NewT, true, Aggregations, OriginalT>(
+      ) : string
+    },
+    true,
+    Aggregations,
+    OriginalT
+  > {
+    // Create a new builder with the appropriate type parameters
+    const newBuilder = new QueryBuilder<
+      Schema,
+      {
+        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]: P extends keyof T ? (
+          T[P] extends "String" ? string :
+          T[P] extends "Date" ? Date :
+          T[P] extends "Float64" | "Int32" | "Int64" ? number : never
+        ) : string
+      },
+      true,
+      Aggregations,
+      OriginalT
+    >(
       this.tableName,
-      { name: this.schema.name, columns: {} as NewT },
+      {
+        name: this.schema.name,
+        columns: {} as any // We need this cast because we only know the shape at runtime
+      },
       this.originalSchema
     );
+
+    // Process columns array to handle SqlExpressions and convert to strings
+    const processedColumns = columns.map(col => {
+      if (typeof col === 'object' && col !== null && '__type' in col) {
+        return (col as SqlExpression).toSql();
+      }
+      return String(col);
+    });
+
     newBuilder.config = {
       ...this.config,
-      select: columns.map(String),
+      select: processedColumns,
       orderBy: this.config.orderBy?.map(({ column, direction }) => ({
-        column: String(column) as keyof NewT | TableColumn<Schema>,
+        column: String(column) as any,
         direction
       }))
     };
-    return newBuilder as any;
+    return newBuilder as any
   }
-
-
 
   sum<Column extends keyof OriginalT, Alias extends string = `${Column & string}_sum`>(
     column: Column,
@@ -213,7 +235,7 @@ export class QueryBuilder<
   > {
     const newBuilder = this.clone();
     newBuilder.config = this.aggregations.sum(column, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   count<Column extends keyof OriginalT, Alias extends string = `${Column & string}_count`>(
@@ -228,7 +250,7 @@ export class QueryBuilder<
   > {
     const newBuilder = this.clone();
     newBuilder.config = this.aggregations.count(column, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   avg<Column extends keyof OriginalT, Alias extends string = `${Column & string}_avg`>(
@@ -243,7 +265,7 @@ export class QueryBuilder<
   > {
     const newBuilder = this.clone();
     newBuilder.config = this.aggregations.avg(column, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   min<Column extends keyof OriginalT, Alias extends string = `${Column & string}_min`>(
@@ -258,7 +280,7 @@ export class QueryBuilder<
   > {
     const newBuilder = this.clone();
     newBuilder.config = this.aggregations.min(column, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   max<Column extends keyof OriginalT, Alias extends string = `${Column & string}_max`>(
@@ -273,7 +295,7 @@ export class QueryBuilder<
   > {
     const newBuilder = this.clone();
     newBuilder.config = this.aggregations.max(column, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   // Make needed properties accessible to features
@@ -298,6 +320,31 @@ export class QueryBuilder<
     return this.executor.execute();
   }
 
+  async stream(): Promise<ReadableStream<T[]>> {
+    return this.executor.stream();
+  }
+
+  /**
+   * Processes each row in a stream with the provided callback function
+   * @param callback Function to call for each row in the stream
+   */
+  async streamForEach<R = void>(callback: (row: T) => R | Promise<R>): Promise<void> {
+    const stream = await this.stream();
+    const reader = stream.getReader();
+
+    try {
+      while (true) {
+        const { done, value: rows } = await reader.read();
+        if (done) break;
+
+        for (const row of rows) {
+          await callback(row);
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
 
   private validateFilterValue<K extends keyof OriginalT | TableColumn<Schema>>(
     column: K,
@@ -442,7 +489,7 @@ export class QueryBuilder<
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('LEFT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   rightJoin<
@@ -455,7 +502,7 @@ export class QueryBuilder<
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   fullJoin<
@@ -468,7 +515,7 @@ export class QueryBuilder<
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, rightColumn, alias);
-    return newBuilder as any;
+    return newBuilder as any
   }
 
   // Make config accessible to features
@@ -544,6 +591,18 @@ export function createQueryBuilder<Schema extends {
     username?: string;
     password?: string;
     database?: string;
+    http_headers?: Record<string, string>;
+    request_timeout?: number;
+    compression?: {
+      response?: boolean;
+      request?: boolean;
+    };
+    application?: string;
+    keep_alive?: {
+      enabled: boolean;
+    };
+    log?: any;
+    clickhouse_settings?: ClickHouseSettings;
   }
 ) {
   ClickHouseConnection.initialize(config);

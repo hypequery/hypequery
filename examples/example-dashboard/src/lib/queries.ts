@@ -1,14 +1,20 @@
-import { createQueryBuilder, CrossFilter, } from "@hypequery/core"
-import { IntrospectedSchema } from "@/generated/generated-schema"
+import { createQueryBuilder, CrossFilter, logger } from "@hypequery/core"
 import { DateRange } from "react-day-picker"
 import { startOfDay, endOfDay, format } from "date-fns"
+import { IntrospectedSchema } from "@/generated/generated-schema"
 
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: typeof window !== 'undefined' ? `${window.location.origin}/clickhouse` : 'http://localhost:3000/clickhouse',
-  username: "default",
-  password: "",
-  database: "default",
+  host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || "https://m6d9tftj53.eu-central-1.aws.clickhouse.cloud:8443",
+  username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER || "default",
+  password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || "~750fkqIiefux",
+  database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE || "default",
 })
+
+// Configure logger to show detailed info
+logger.configure({
+  level: 'debug',
+  enabled: true,
+});
 
 interface DateFilters {
   pickupDateRange?: DateRange
@@ -186,8 +192,6 @@ export async function fetchTrips(filters: DateFilters = {}, { pageSize = 10, aft
       orderBy: [{ column: "pickup_datetime", direction: "DESC" }]
     })
 
-  console.log({ result })
-
   return {
     ...result,
     data: result.data.map(row => ({
@@ -199,4 +203,136 @@ export async function fetchTrips(filters: DateFilters = {}, { pageSize = 10, aft
       total_amount: Number(row.total_amount),
     }))
   }
-} 
+}
+
+/**
+ * Fetch trips data using streaming for efficient memory usage and performance.
+ * This function demonstrates the streaming capability with HypeQuery's built-in logging.
+ */
+export async function fetchTripsByStreaming(
+  filters: DateFilters = {},
+  options: {
+    limit?: number,
+    onProgress?: (count: number, newRows?: any[]) => void,
+    onLog?: (logMessage: string) => void
+  } = {}
+) {
+  const { limit, onProgress, onLog } = options;
+  const logs: string[] = [];
+
+  // Function to log messages both to console and collect for UI
+  const logMessage = (message: string) => {
+    logs.push(message);
+    if (onLog) {
+      onLog(message);
+    }
+  };
+
+  logMessage('🚀 Starting streaming query for trips data...');
+
+  logger.configure({
+    level: 'debug',
+    enabled: true,
+    onQueryLog: (log) => {
+      if (log.status === 'started') {
+        logMessage(`🔍 Query started at ${new Date(log.startTime || 0).toLocaleTimeString()}`);
+      } else if (log.status === 'completed') {
+        logMessage(`✅ Query completed in ${log.duration || 0}ms with ${log.rowCount || 'unknown'} rows`);
+      } else if (log.status === 'error') {
+        logMessage(`❌ Query failed: ${log.error?.message || 'Unknown error'}`);
+      }
+    }
+  });
+
+  try {
+    // Create the base query
+    const query = db.table('trips')
+      .select([
+        'trip_id',
+        'pickup_datetime',
+        'dropoff_datetime',
+        'pickup_longitude',
+        'pickup_latitude',
+        'dropoff_longitude',
+        'dropoff_latitude',
+        'passenger_count',
+        'trip_distance',
+        'fare_amount',
+        'tip_amount',
+        'total_amount',
+        'payment_type'
+      ]);
+
+    // Apply filters
+    const filter = createFilter(filters);
+    query.applyCrossFilters(filter);
+
+    // Apply limit if provided (removing this allows unlimited rows)
+    if (limit) {
+      query.limit(limit);
+    }
+
+    // Track processing stats for batches and UI updates
+    let totalProcessed = 0;
+    let batchCount = 0;
+
+    // Get the stream
+    const stream = await query.stream();
+    const reader = stream.getReader();
+
+    // Process the stream
+    while (true) {
+      const { done, value: rows } = await reader.read();
+      if (done) break;
+
+      batchCount++;
+      totalProcessed += rows.length;
+
+      // Log batch progress
+      logMessage(`📦 Processing batch #${batchCount} with ${rows.length} rows (total: ${totalProcessed})`);
+
+      // Process this batch of rows using the json() method
+      const processedRows = rows.map((row: any) => {
+        // Log the first row data structure in the first batch for debugging
+        if (batchCount === 1 && rows.indexOf(row) === 0) {
+          logMessage(`🔍 Raw row data structure: ${JSON.stringify(row).substring(0, 100)}...`);
+        }
+
+        // Use the json() method to get the structured data
+        const rowData = row.json ? row.json() : row;
+
+        // Log the parsed data for debugging
+        if (batchCount === 1 && rows.indexOf(row) === 0) {
+          logMessage(`🔍 Parsed row data: ${JSON.stringify(rowData).substring(0, 100)}...`);
+        }
+
+        // Ensure numeric values are actually numbers
+        const safeNumber = (value: any) => {
+          const num = Number(value);
+          return isNaN(num) ? 0 : num;
+        };
+
+        return {
+          ...rowData,
+          trip_distance: safeNumber(rowData.trip_distance),
+          passenger_count: safeNumber(rowData.passenger_count),
+          fare_amount: safeNumber(rowData.fare_amount),
+          tip_amount: safeNumber(rowData.tip_amount),
+          total_amount: safeNumber(rowData.total_amount),
+        };
+      });
+
+      // Report progress with the new batch of rows
+      if (onProgress) {
+        onProgress(totalProcessed, processedRows);
+      }
+    }
+
+    logMessage(`✅ Streaming complete. Processed ${totalProcessed} rows in ${batchCount} batches.`);
+    return { totalRows: totalProcessed, logs };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logMessage(`❌ Error in streaming query: ${errorMessage}`);
+    throw error;
+  }
+}

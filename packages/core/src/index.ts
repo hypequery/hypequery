@@ -8,7 +8,25 @@ export type {
   WhereExpression,
   GroupByExpression,
   TableRecord,
-  DatabaseSchema
+  DatabaseSchema,
+  PaginatedResult,
+  PageInfo,
+  PaginationOptions
 } from './types/base';
 export type { JoinPath, JoinPathOptions } from './core/join-relationships.js';
 export { CrossFilter } from './core/cross-filter.js';
+export { logger } from './core/utils/logger.js';
+
+// Export SQL expression utilities
+export {
+  raw,
+  rawAs,
+  toDateTime,
+  formatDateTime,
+  toStartOfInterval,
+  datePart
+} from './core/utils/sql-expressions.js';
+export type {
+  SqlExpression,
+  AliasedExpression
+} from './core/utils/sql-expressions.js';
