@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "postbuild": "chmod +x packages/cli/dist/bin.js",
     "dev": "turbo run dev",
     "test": "turbo run test",
     "lint": "turbo run lint",

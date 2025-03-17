@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { ClickHouseConnection } from '@hypequery/clickhouse';
+// Use relative path during development, but the package name will be used when published
+import { ClickHouseConnection } from '../../../packages/clickhouse/src/index.js';
 import { generateTypes } from './generate-types.js';
 import path from 'path';
 import dotenv from 'dotenv';

@@ -106,8 +106,10 @@ jobs:
       - name: Install dependencies and generate lockfile
         run: npm install
 
-      - name: Build
-        run: npm run build
+      - name: Build packages
+        run: |
+          # Build in proper dependency order
+          npm run build
         
       - name: Get latest version
         id: get_version

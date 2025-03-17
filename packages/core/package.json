@@ -1,21 +1,24 @@
 {
-  "name": "@hypequery/cli",
-  "version": "0.1.0",
-  "description": "CLI tools for HypeQuery",
+  "name": "@hypequery/clickhouse",
+  "version": "0.2.0",
+  "description": "ClickHouse typescript query builder",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "jest",
+    "test:unit": "jest --testPathIgnorePatterns='integration'",
+    "test:watch": "jest  --testPathIgnorePatterns='integration' --watch",
+    "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
-    "prepublishOnly": "node ./scripts/fix-imports.js",
+    "generate-types": "NODE_OPTIONS=\"--loader ts-node/esm --experimental-specifier-resolution=node\" ts-node src/cli/bin.ts",
+    "test-cli": "node --loader ts-node/esm src/cli/generate-test.ts",
     "semantic-release": "npx semantic-release",
     "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci"
   },
   "dependencies": {
-    "@hypequery/clickhouse": "^0.2.0",
+    "@clickhouse/client-web": "^0.2.0",
     "dotenv": "^16.0.0"
   },
   "devDependencies": {
@@ -34,7 +37,7 @@
     "typescript": "^5.7.3"
   },
   "bin": {
-    "hypequery": "./dist/bin.js"
+    "hypequery-generate": "./dist/cli/bin.js"
   },
   "ts-node": {
     "esm": true,

@@ -1,4 +1,4 @@
-import { ClickHouseConnection, ColumnType } from '@hypequery/clickhouse';
+import { ClickHouseConnection, ColumnType } from '../../../packages/clickhouse/src/index.js';
 import fs from 'fs/promises';
 import path from 'path';
 import dotenv from 'dotenv';
