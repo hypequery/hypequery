@@ -15,8 +15,7 @@
     "generate-types": "NODE_OPTIONS=\"--loader ts-node/esm --experimental-specifier-resolution=node\" ts-node src/cli/bin.ts",
     "test-cli": "node --loader ts-node/esm src/cli/generate-test.ts",
     "semantic-release": "npx semantic-release",
-    "release:beta": "npx semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta --no-verify-conditions",
-    "release:stable": "npx semantic-release --extends ./.releaserc.cjs --no-ci --branches main"
+    "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci"
   },
   "dependencies": {
     "@clickhouse/client-web": "^0.2.0",

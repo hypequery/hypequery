@@ -4,10 +4,10 @@ import { startOfDay, endOfDay, format } from "date-fns"
 import { IntrospectedSchema } from "@/generated/generated-schema"
 
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST || "https://m6d9tftj53.eu-central-1.aws.clickhouse.cloud:8443",
-  username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER || "default",
-  password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD || "~750fkqIiefux",
-  database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE || "default",
+  host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST!,
+  username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,
+  password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+  database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE,
 })
 
 // Configure logger to show detailed info

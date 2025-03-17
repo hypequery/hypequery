@@ -5,14 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      release_type:
-        description: 'Release type (beta or stable)'
-        required: true
-        default: 'beta'
-        type: choice
-        options:
-          - beta
-          - stable
       run_integration_tests:
         description: 'Run integration tests'
         required: false
@@ -131,18 +123,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # When triggered by push, always use beta. For manual workflow, use the selected option
-          RELEASE_TYPE: ${{ github.event_name == 'push' && 'beta' || github.event.inputs.release_type }}
           LATEST_VERSION: ${{ steps.get_version.outputs.LATEST_VERSION || '1.0.0' }}
         run: |
           cd packages/core
-          echo "Publishing $RELEASE_TYPE release..."
+          echo "Publishing release..."
           echo "Last published version: $LATEST_VERSION"
           
-          if [ "$RELEASE_TYPE" = "beta" ]; then
-            # For beta releases
-            semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta
-          else
-            # For stable releases
-            semantic-release --extends ./.releaserc.cjs --no-ci --branches main
-          fi
+          # Run semantic-release with standard configuration
+          semantic-release --extends ./.releaserc.cjs --no-ci
