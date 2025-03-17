@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "jest --testPathIgnorePatterns='integration'",
+    "test:unit": "jest --testPathIgnorePatterns='integration'",
     "test:watch": "jest  --testPathIgnorePatterns='integration' --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
