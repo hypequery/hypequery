@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "postbuild": "chmod +x dist/cli/bin.js && cp README-CLI.md dist/",
     "dev": "tsc --watch",
     "test": "npm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='integration'",
@@ -17,10 +18,15 @@
     "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci"
   },
   "bin": {
-    "hypequery": "./dist/cli/bin.js"
+    "hypequery-generate-types": "./dist/cli/bin.js"
   },
+  "files": [
+    "dist",
+    "README-CLI.md"
+  ],
   "dependencies": {
-    "@clickhouse/client-web": "^0.2.0"
+    "@clickhouse/client-web": "^0.2.0",
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
     "@semantic-release/changelog": "^6.0.3",
@@ -31,7 +37,6 @@
     "@semantic-release/release-notes-generator": "^12.1.0",
     "@types/jest": "^29.5.11",
     "@types/node": "^18.19.80",
-    "dotenv": "^16.0.0",
     "jest": "^29.7.0",
     "semantic-release": "^23.0.2",
     "ts-jest": "^29.1.1",
