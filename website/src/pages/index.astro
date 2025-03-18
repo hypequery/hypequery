@@ -312,8 +312,8 @@ import Layout from "../layouts/Layout.astro";
                       class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
                     >
                       <p class="flex-auto">
-                        Build complex WHERE conditions with a powerful and
-                        intuitive filtering API.
+                        Define and apply cross filters to multiple queries with
+                        ease.
                       </p>
                     </dd>
                   </div>
@@ -393,61 +393,61 @@ import Layout from "../layouts/Layout.astro";
                       Join Private Beta
                     </button>
                   </form>
-                  <!-- Code Example -->
-                  <div class="mt-16 flow-root sm:mt-24">
+                </div>
+                <!-- Code Example -->
+                <div class="mt-16 flow-root sm:mt-24">
+                  <div
+                    class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl overflow-hidden"
+                  >
                     <div
-                      class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl overflow-hidden"
+                      class="absolute -top-px left-20 right-11 h-px bg-gradient-to-r from-indigo-500/0 via-indigo-500/70 to-indigo-500/0"
                     >
-                      <div
-                        class="absolute -top-px left-20 right-11 h-px bg-gradient-to-r from-indigo-500/0 via-indigo-500/70 to-indigo-500/0"
-                      >
-                      </div>
-                      <div
-                        class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
-                      >
-                      </div>
-                      <pre
-                        class="text-sm text-gray-100 p-4 overflow-auto">
-{`import { createQueryBuilder } from '@hypequery/clickhouse';
-
-// Type-safe schema definition
-interface MySchema {
-  users: {
-    id: 'Int32';
-    name: 'String';
-    email: 'String'; 
-    created_at: 'DateTime';
-  };
-  orders: {
-    id: 'Int32';
-    user_id: 'Int32';
-    amount: 'Float64';
-    created_at: 'DateTime';
-  };
-}
-
-// Create a query builder with your schema
-const builder = createQueryBuilder<MySchema>({
-  host: 'http://localhost:8123',
-  username: 'default',
-  password: 'password',
-  database: 'my_database'
-});
-
-// Build your queries with complete type safety
-const results = await builder
-  .table('users')
-  .innerJoin('orders', 'id', 'orders.user_id')
-  .select(['users.name', 'orders.amount'])
-  .where('orders.amount', 'gt', 100)
-  .orderBy('orders.created_at', 'DESC')
-  .execute();
-
-// Enjoy fully typed results!
-console.log(results[0].name, results[0].amount);`}
-              </pre>
+                    </div>
+                    <div
+                      class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
+                    >
                     </div>
                   </div>
+                  <pre
+                    class="text-sm text-gray-100 p-4 overflow-auto">
+                  {`import { createQueryBuilder } from '@hypequery/clickhouse';
+
+                  // Type-safe schema definition
+                  interface MySchema {
+                    users: {
+                      id: 'Int32';
+                      name: 'String';
+                      email: 'String'; 
+                      created_at: 'DateTime';
+                    };
+                    orders: {
+                      id: 'Int32';
+                      user_id: 'Int32';
+                      amount: 'Float64';
+                      created_at: 'DateTime';
+                    };
+                  }
+
+                  // Create a query builder with your schema
+                  const builder = createQueryBuilder<MySchema>({
+                    host: 'http://localhost:8123',
+                    username: 'default',
+                    password: 'password',
+                    database: 'my_database'
+                  });
+
+                  // Build your queries with complete type safety
+                  const results = await builder
+                    .table('users')
+                    .innerJoin('orders', 'id', 'orders.user_id')
+                    .select(['users.name', 'orders.amount'])
+                    .where('orders.amount', 'gt', 100)
+                    .orderBy('orders.created_at', 'DESC')
+                    .execute();
+
+                  // Enjoy fully typed results!
+                  console.log(results[0].name, results[0].amount);`}
+              </pre>
                 </div>
               </div>
             </div>
