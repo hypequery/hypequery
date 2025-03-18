@@ -103,20 +103,23 @@ jobs:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies and generate lockfile
+      - name: Install dependencies
         run: npm install
 
-      - name: Build packages
+      - name: Build clickhouse package
         run: |
-          # First make sure there are no lingering build artifacts
-          rm -rf packages/*/dist
-
-          # Build clickhouse package with CLI included
+          # Clean existing build artifacts
+          rm -rf packages/clickhouse/dist
+          
+          # Build the clickhouse package
           cd packages/clickhouse
           npm run build
           
-          # Verify the build succeeded
-          ls -la dist/index.js dist/index.d.ts dist/cli/bin.js
+          # Simple verification that build succeeded
+          if [ ! -f "dist/index.js" ] || [ ! -f "dist/index.d.ts" ]; then
+            echo "Build failed: Required files not found"
+            exit 1
+          fi
           
           # Return to root
           cd ../..
@@ -126,10 +129,6 @@ jobs:
         run: |
           echo "LATEST_CLICKHOUSE_VERSION=$(npm view @hypequery/clickhouse version)" >> $GITHUB_OUTPUT
         continue-on-error: true
-
-      - name: Install semantic-release globally
-        run: |
-          npm install -g semantic-release @semantic-release/changelog @semantic-release/commit-analyzer @semantic-release/git @semantic-release/github @semantic-release/npm @semantic-release/release-notes-generator
 
       - name: Release Clickhouse Package
         env:

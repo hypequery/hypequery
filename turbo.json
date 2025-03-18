@@ -27,12 +27,6 @@
     "dev": {
       "cache": false,
       "persistent": true
-    },
-    "generate-types": {
-      "cache": false,
-      "dependsOn": [
-        "build"
-      ]
     }
   }
 }

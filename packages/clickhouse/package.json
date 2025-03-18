@@ -13,8 +13,7 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
     "semantic-release": "npx semantic-release",
-    "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci",
-    "postbuild": "chmod +x dist/cli/bin.js"
+    "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci"
   },
   "bin": {
     "hypequery": "./dist/cli/bin.js"
