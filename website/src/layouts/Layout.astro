@@ -36,6 +36,76 @@ const {
     <Navigation />
     <slot />
     <Footer />
+
+    <script>
+      // Add copy buttons to code blocks
+      document.addEventListener("DOMContentLoaded", () => {
+        const codeBlocks = document.querySelectorAll("pre");
+
+        codeBlocks.forEach((codeBlock) => {
+          // Create a wrapper div to hold the code block and position it relatively
+          const wrapper = document.createElement("div");
+          wrapper.style.position = "relative";
+
+          // Check if parent node exists
+          if (codeBlock.parentNode) {
+            codeBlock.parentNode.insertBefore(wrapper, codeBlock);
+            wrapper.appendChild(codeBlock);
+
+            // Create the copy button
+            const copyButton = document.createElement("button");
+            copyButton.className = "copy-button";
+            copyButton.setAttribute("aria-label", "Copy code to clipboard");
+            copyButton.setAttribute("title", "Copy to clipboard");
+
+            // Add the SVG icons (copy and check)
+            copyButton.innerHTML = `
+              <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" class="check-icon hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            `;
+
+            // Handle the copy click
+            copyButton.addEventListener("click", () => {
+              const code = codeBlock.querySelector("code");
+
+              if (code) {
+                const text = code.innerText;
+
+                navigator.clipboard
+                  .writeText(text)
+                  .then(() => {
+                    // Show success state
+                    const copyIcon = copyButton.querySelector(".copy-icon");
+                    const checkIcon = copyButton.querySelector(".check-icon");
+
+                    if (copyIcon && checkIcon) {
+                      copyIcon.classList.add("hidden");
+                      checkIcon.classList.remove("hidden");
+
+                      // Reset after 2 seconds
+                      setTimeout(() => {
+                        copyIcon.classList.remove("hidden");
+                        checkIcon.classList.add("hidden");
+                      }, 2000);
+                    }
+                  })
+                  .catch((err) => {
+                    console.error("Failed to copy: ", err);
+                  });
+              }
+            });
+
+            // Add the button to the code block
+            wrapper.appendChild(copyButton);
+          }
+        });
+      });
+    </script>
   </body>
 </html>
 
@@ -72,5 +142,45 @@ const {
       Bitstream Vera Sans Mono,
       Courier New,
       monospace;
+  }
+
+  /* Copy button styles */
+  .copy-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.35rem;
+    border-radius: 0.25rem;
+    background-color: #ffffff25;
+    border: none;
+    cursor: pointer;
+    color: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition:
+      opacity 0.2s,
+      background-color 0.2s;
+  }
+
+  .copy-button:hover,
+  .copy-button:focus {
+    background-color: #ffffff40;
+    opacity: 1;
+  }
+
+  .copy-button svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  /* Show copy button when hovering the code block */
+  pre:hover .copy-button {
+    opacity: 1;
   }
 </style>

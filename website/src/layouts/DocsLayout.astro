@@ -80,19 +80,20 @@ const sidebar = [
     <div
       class="relative mx-auto max-w-8xl justify-center sm:px-2 lg:px-8 xl:px-12 pt-16"
     >
-      <div class="relative flex min-h-[calc(100vh-4rem)]">
+      <div class="relative flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
         <!-- Sidebar -->
-        <div class="hidden lg:relative lg:block lg:flex-none">
-          <div class="absolute inset-y-0 right-0 w-[1px] bg-gray-200"></div>
+        <div
+          class="relative block flex-none md:w-56 border-b md:border-b-0 md:border-r border-gray-200 mb-4 md:mb-0"
+        >
           <div
-            class="sticky top-[2rem] -ml-0.5 h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden py-16 pl-0.5"
+            class="md:sticky md:top-[2rem] h-auto md:h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden py-4 md:py-16 pl-0.5"
           >
-            <nav class="w-56 pr-8 text-base lg:text-sm">
+            <nav class="w-full pr-4 md:pr-8 text-sm">
               <div class="space-y-4">
                 {
                   sidebar.map((section) => (
                     <div class="mt-4">
-                      <h2 class="mb-1 font-medium text-gray-900">
+                      <h2 class="mb-2 py-1 font-medium text-gray-900">
                         {section.title}
                       </h2>
                       <ul class="mt-1 space-y-1">
@@ -101,7 +102,7 @@ const sidebar = [
                             <a
                               href={item.href}
                               class:list={[
-                                "block px-3 py-2 text-sm rounded-md transition-colors",
+                                "block px-3 py-2 md:py-2 text-sm rounded-md transition-colors",
                                 currentPath === item.href
                                   ? "bg-indigo-50 text-indigo-600 font-medium"
                                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
@@ -121,9 +122,7 @@ const sidebar = [
         </div>
 
         <!-- Main content -->
-        <div
-          class="min-w-0 max-w-2xl flex-auto px-4 py-16 lg:max-w-none lg:pl-8 lg:pr-0 xl:px-16"
-        >
+        <div class="min-w-0 flex-auto px-4 md:pl-8 py-8 md:py-16">
           <article class="prose max-w-none">
             <slot />
           </article>
@@ -131,102 +130,213 @@ const sidebar = [
       </div>
     </div>
     <Footer />
+
+    <script>
+      // Add copy buttons to code blocks
+      document.addEventListener("DOMContentLoaded", () => {
+        const codeBlocks = document.querySelectorAll("pre");
+
+        codeBlocks.forEach((codeBlock) => {
+          // Create a wrapper div to hold the code block and position it relatively
+          const wrapper = document.createElement("div");
+          wrapper.style.position = "relative";
+
+          // Check if parent node exists
+          if (codeBlock.parentNode) {
+            codeBlock.parentNode.insertBefore(wrapper, codeBlock);
+            wrapper.appendChild(codeBlock);
+
+            // Create the copy button
+            const copyButton = document.createElement("button");
+            copyButton.className = "copy-button";
+            copyButton.setAttribute("aria-label", "Copy code to clipboard");
+            copyButton.setAttribute("title", "Copy to clipboard");
+
+            // Add the SVG icons (copy and check)
+            copyButton.innerHTML = `
+              <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <svg xmlns="http://www.w3.org/2000/svg" class="check-icon hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            `;
+
+            // Handle the copy click
+            copyButton.addEventListener("click", () => {
+              const code = codeBlock.querySelector("code");
+
+              if (code) {
+                const text = code.innerText;
+
+                navigator.clipboard
+                  .writeText(text)
+                  .then(() => {
+                    // Show success state
+                    const copyIcon = copyButton.querySelector(".copy-icon");
+                    const checkIcon = copyButton.querySelector(".check-icon");
+
+                    if (copyIcon && checkIcon) {
+                      copyIcon.classList.add("hidden");
+                      checkIcon.classList.remove("hidden");
+
+                      // Reset after 2 seconds
+                      setTimeout(() => {
+                        copyIcon.classList.remove("hidden");
+                        checkIcon.classList.add("hidden");
+                      }, 2000);
+                    }
+                  })
+                  .catch((err) => {
+                    console.error("Failed to copy: ", err);
+                  });
+              }
+            });
+
+            // Add the button to the code block
+            wrapper.appendChild(copyButton);
+          }
+        });
+      });
+    </script>
+
+    <style is:global>
+      /* Copy button styles */
+      .copy-button {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.35rem;
+        border-radius: 0.25rem;
+        background-color: #ffffff25;
+        border: none;
+        cursor: pointer;
+        color: #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition:
+          opacity 0.2s,
+          background-color 0.2s;
+      }
+
+      .copy-button:hover,
+      .copy-button:focus {
+        background-color: #ffffff40;
+        opacity: 1;
+      }
+
+      .copy-button svg {
+        width: 1rem;
+        height: 1rem;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      /* Show copy button when hovering the code block */
+      pre:hover .copy-button {
+        opacity: 1;
+      }
+
+      /* Root variable definitions */
+      :root {
+        --font-fallback: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica,
+          Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
+        --font-body: "Poppins", var(--font-fallback);
+        --theme-text: #1f2937;
+        --theme-bg: #ffffff;
+        --theme-primary: #4f46e5;
+        --theme-primary-hover: #4338ca;
+      }
+
+      html {
+        font-family: var(--font-body);
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        color: var(--theme-text);
+        background: var(--theme-bg);
+      }
+
+      code {
+        font-family:
+          Menlo,
+          Monaco,
+          Lucida Console,
+          Liberation Mono,
+          DejaVu Sans Mono,
+          Bitstream Vera Sans Mono,
+          Courier New,
+          monospace;
+      }
+
+      /* Prose styles for markdown content */
+      .prose {
+        color: var(--theme-text);
+      }
+
+      .prose h1 {
+        font-size: 2.25em;
+        margin-top: 0;
+        margin-bottom: 0.8888889em;
+        line-height: 1.1111111;
+        font-weight: 600;
+      }
+
+      .prose h2 {
+        font-size: 1.5em;
+        margin-top: 2em;
+        margin-bottom: 1em;
+        line-height: 1.3333333;
+        font-weight: 600;
+      }
+
+      .prose h3 {
+        font-size: 1.25em;
+        margin-top: 1.6em;
+        margin-bottom: 0.6em;
+        line-height: 1.6;
+        font-weight: 600;
+      }
+
+      .prose code {
+        color: var(--theme-text);
+        background-color: #f3f4f6;
+        padding: 0.2em 0.4em;
+        border-radius: 0.25em;
+        font-size: 0.875em;
+      }
+
+      .prose pre {
+        color: #e5e7eb;
+        background-color: #1f2937;
+        overflow-x: auto;
+        font-size: 0.875em;
+        line-height: 1.7142857;
+        margin-top: 1.7142857em;
+        margin-bottom: 1.7142857em;
+        border-radius: 0.375rem;
+        padding: 0.8571429em 1.1428571em;
+      }
+
+      .prose pre code {
+        background-color: transparent;
+        border-width: 0;
+        border-radius: 0;
+        padding: 0;
+        font-weight: 400;
+        color: inherit;
+        font-size: inherit;
+        font-family: inherit;
+        line-height: inherit;
+      }
+    </style>
   </body>
 </html>
-
-<style is:global>
-  :root {
-    --font-fallback: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica,
-      Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
-    --font-body: "Poppins", var(--font-fallback);
-    --theme-text: #1f2937;
-    --theme-bg: #ffffff;
-    --theme-primary: #4f46e5;
-    --theme-primary-hover: #4338ca;
-  }
-
-  html {
-    font-family: var(--font-body);
-    scroll-behavior: smooth;
-  }
-
-  body {
-    margin: 0;
-    padding: 0;
-    color: var(--theme-text);
-    background: var(--theme-bg);
-  }
-
-  code {
-    font-family:
-      Menlo,
-      Monaco,
-      Lucida Console,
-      Liberation Mono,
-      DejaVu Sans Mono,
-      Bitstream Vera Sans Mono,
-      Courier New,
-      monospace;
-  }
-
-  /* Prose styles for markdown content */
-  .prose {
-    color: var(--theme-text);
-  }
-
-  .prose h1 {
-    font-size: 2.25em;
-    margin-top: 0;
-    margin-bottom: 0.8888889em;
-    line-height: 1.1111111;
-    font-weight: 600;
-  }
-
-  .prose h2 {
-    font-size: 1.5em;
-    margin-top: 2em;
-    margin-bottom: 1em;
-    line-height: 1.3333333;
-    font-weight: 600;
-  }
-
-  .prose h3 {
-    font-size: 1.25em;
-    margin-top: 1.6em;
-    margin-bottom: 0.6em;
-    line-height: 1.6;
-    font-weight: 600;
-  }
-
-  .prose code {
-    color: var(--theme-text);
-    background-color: #f3f4f6;
-    padding: 0.2em 0.4em;
-    border-radius: 0.25em;
-    font-size: 0.875em;
-  }
-
-  .prose pre {
-    color: #e5e7eb;
-    background-color: #1f2937;
-    overflow-x: auto;
-    font-size: 0.875em;
-    line-height: 1.7142857;
-    margin-top: 1.7142857em;
-    margin-bottom: 1.7142857em;
-    border-radius: 0.375rem;
-    padding: 0.8571429em 1.1428571em;
-  }
-
-  .prose pre code {
-    background-color: transparent;
-    border-width: 0;
-    border-radius: 0;
-    padding: 0;
-    font-weight: 400;
-    color: inherit;
-    font-size: inherit;
-    font-family: inherit;
-    line-height: inherit;
-  }
-</style>

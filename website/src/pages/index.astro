@@ -1,6 +1,5 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import CopyButton from "../components/CopyButton.astro";
 ---
 
 <Layout title="HypeQuery - TypeScript SDK for ClickHouse with Type Safety">
@@ -9,21 +8,20 @@ import CopyButton from "../components/CopyButton.astro";
     <div class="relative isolate pt-14">
       <div class="py-24 sm:py-32">
         <div class="mx-auto max-w-7xl px-4 lg:px-6">
-          <div class="mx-auto max-w-4xl text-center">
+          <div class="mx-auto max-w-4xl text-center pb-24">
             <div class="relative mb-6 inline-block text-left min-w-[240px]">
               <pre
-                class="rounded-lg bg-gray-900 px-6 py-3 text-sm text-gray-200 font-mono">npm install @hypequery/clickhouse</pre>
-              <CopyButton text="npm install @hypequery/clickhouse" />
+                class="rounded-lg bg-gray-900 px-10 py-3 text-sm text-gray-200 font-mono">npm install @hypequery/clickhouse</pre>
             </div>
             <h1
               class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl flex flex-col"
             >
-              <span>Type-Safe ClickHouse Queries</span>
+              <span>Type-Safe ClickHouse Dashboards</span>
               <span class="text-indigo-600">For TypeScript Developers</span>
             </h1>
             <p class="mt-6 text-lg leading-8 text-gray-600">
-              Build powerful ClickHouse queries with complete type safety. Our
-              TypeScript SDK gives you the perfect balance of power and
+              Build powerful ClickHouse dashboards with complete type safety.
+              Our TypeScript SDK gives you the perfect balance of power and
               simplicity.
             </p>
             <div class="mt-4 flex justify-center">
@@ -44,49 +42,372 @@ import CopyButton from "../components/CopyButton.astro";
                 Get Started
               </a>
               <a
-                href="https://github.com/hypequery/core"
+                href="https://github.com/hypequery/hypequery"
                 class="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-indigo-600 shadow-sm ring-1 ring-inset ring-indigo-200 hover:bg-indigo-50"
               >
                 GitHub
               </a>
-              <a
-                href="https://github.com/hypequery/core"
-                class="flex items-center gap-2 text-sm font-semibold leading-6 text-gray-900 hover:text-indigo-600"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  ><polygon
-                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                  ></polygon></svg
-                >
-                Star on GitHub
-              </a>
             </div>
           </div>
 
-          <!-- Code Example -->
-          <div class="mt-16 flow-root sm:mt-24">
-            <div
-              class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl overflow-hidden"
-            >
-              <div
-                class="absolute -top-px left-20 right-11 h-px bg-gradient-to-r from-indigo-500/0 via-indigo-500/70 to-indigo-500/0"
-              >
+          <!-- Problem Statement Section -->
+          <section class="bg-gray-50 py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="mx-auto max-w-2xl lg:text-center">
+                <h2 class="text-base font-semibold leading-7 text-indigo-600">
+                  The Challenge
+                </h2>
+                <p
+                  class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+                >
+                  ClickHouse queries, meet type safety
+                </p>
+                <p class="mt-6 text-lg leading-8 text-gray-600">
+                  Without types, ClickHouse queries are error-prone. String
+                  concatenation leads to SQL injection risks. Runtime errors
+                  cause production issues. And the disconnect between queries
+                  and result types wastes developer time.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Solution Overview -->
+          <section class="bg-white py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="mx-auto max-w-2xl lg:text-center">
+                <h2 class="text-base font-semibold leading-7 text-indigo-600">
+                  The Solution
+                </h2>
+                <p
+                  class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+                >
+                  A type-safe query builder designed for developers
+                </p>
+                <p class="mt-6 text-lg leading-8 text-gray-600">
+                  HypeQuery provides a fluent, type-safe API that makes working
+                  with ClickHouse a joy. Say goodbye to SQL strings and hello to
+                  autocomplete, runtime safety, and developer productivity.
+                </p>
+              </div>
+              <div class="mt-16 flex justify-center">
+                <div
+                  class="w-full max-w-4xl h-auto rounded-lg overflow-hidden border border-gray-200 shadow-lg"
+                >
+                  <!-- Code header -->
+                  <div
+                    class="flex items-center justify-between px-4 py-2 bg-gray-900 text-gray-200"
+                  >
+                    <div class="flex space-x-2">
+                      <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                      <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                      <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                    </div>
+                    <div class="text-xs font-mono">TypeScript</div>
+                  </div>
+                  <!-- Syntactically highlighted code -->
+                  <pre
+                    class="text-sm font-mono leading-relaxed bg-gray-900 p-6 m-0 overflow-auto">
+<code><span class="text-blue-400">// Type-safe column selection</span>
+<span class="text-indigo-300">builder</span>
+  <span class="text-gray-300">.</span><span class="text-green-400">table</span><span class="text-gray-300">(</span><span class="text-yellow-300">'users'</span><span class="text-gray-300">)</span>
+  <span class="text-gray-300">.</span><span class="text-green-400">select</span><span class="text-gray-300">(</span><span class="text-gray-300">[</span><span class="text-yellow-300">'id'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'name'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'email'</span><span class="text-gray-300">]</span><span class="text-gray-300">)</span> <span class="text-blue-400">// ✓ Type checked!</span>
+  <span class="text-gray-300">.</span><span class="text-green-400">select</span><span class="text-gray-300">(</span><span class="text-gray-300">[</span><span class="text-yellow-300">'not_a_column'</span><span class="text-gray-300">]</span><span class="text-gray-300">)</span>        <span class="text-red-400">// ✗ Type error!</span>
+
+<span class="text-blue-400">// Type-safe filtering</span>  
+<span class="text-indigo-300">builder</span>
+  <span class="text-gray-300">.</span><span class="text-green-400">table</span><span class="text-gray-300">(</span><span class="text-yellow-300">'users'</span><span class="text-gray-300">)</span>
+  <span class="text-gray-300">.</span><span class="text-green-400">where</span><span class="text-gray-300">(</span><span class="text-yellow-300">'age'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'gt'</span><span class="text-gray-300">,</span> <span class="text-purple-400">18</span><span class="text-gray-300">)</span>         <span class="text-blue-400">// ✓ Type checked!</span>
+  <span class="text-gray-300">.</span><span class="text-green-400">where</span><span class="text-gray-300">(</span><span class="text-yellow-300">'age'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'gt'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'string'</span><span class="text-gray-300">)</span>   <span class="text-red-400">// ✗ Type error!</span>
+
+<span class="text-blue-400">// Type-safe results</span>
+<span class="text-violet-400">const</span> <span class="text-indigo-300">users</span> <span class="text-gray-300">=</span> <span class="text-violet-400">await</span> <span class="text-indigo-300">builder</span><span class="text-gray-300">.</span><span class="text-green-400">table</span><span class="text-gray-300">(</span><span class="text-yellow-300">'users'</span><span class="text-gray-300">)</span><span class="text-gray-300">.</span><span class="text-green-400">execute</span><span class="text-gray-300">()</span>;
+<span class="text-indigo-300">console</span><span class="text-gray-300">.</span><span class="text-green-400">log</span><span class="text-gray-300">(</span><span class="text-indigo-300">users</span><span class="text-gray-300">[</span><span class="text-purple-400">0</span><span class="text-gray-300">]</span><span class="text-gray-300">.</span><span class="text-green-400">name</span><span class="text-gray-300">)</span>;       <span class="text-blue-400">// ✓ Type checked!</span>
+<span class="text-indigo-300">console</span><span class="text-gray-300">.</span><span class="text-green-400">log</span><span class="text-gray-300">(</span><span class="text-indigo-300">users</span><span class="text-gray-300">[</span><span class="text-purple-400">0</span><span class="text-gray-300">]</span><span class="text-gray-300">.</span><span class="text-green-400">not_a_prop</span><span class="text-gray-300">)</span>; <span class="text-red-400">// ✗ Type error!</span></code></pre>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Features Section -->
+          <section class="bg-white pb-24 sm:pb-32">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="mx-auto max-w-2xl lg:text-center">
+                <h2 class="text-base font-semibold leading-7 text-indigo-600">
+                  Features that spark joy ✨
+                </h2>
+                <p
+                  class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+                >
+                  Everything you need for ClickHouse development
+                </p>
               </div>
               <div
-                class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
+                class="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none"
               >
+                <dl
+                  class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3"
+                >
+                  <div class="flex flex-col">
+                    <dt
+                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+                    >
+                      <div
+                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="w-6 h-6 text-white"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"
+                          ></path>
+                        </svg>
+                      </div>
+                      Complete Type Safety
+                    </dt>
+                    <dd
+                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+                    >
+                      <p class="flex-auto">
+                        Every part of your query is type-checked - from table
+                        and column names to filter values and result types.
+                      </p>
+                    </dd>
+                  </div>
+                  <div class="flex flex-col">
+                    <dt
+                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+                    >
+                      <div
+                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="w-6 h-6 text-white"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
+                          ></path>
+                        </svg>
+                      </div>
+                      Flexible Join System
+                    </dt>
+                    <dd
+                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+                    >
+                      <p class="flex-auto">
+                        Easily create powerful joins with a fluent API. Set up
+                        relationship definitions for even more convenience.
+                      </p>
+                    </dd>
+                  </div>
+                  <div class="flex flex-col">
+                    <dt
+                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+                    >
+                      <div
+                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="w-6 h-6 text-white"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
+                          ></path>
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                      </div>
+                      SQL Expressions & Functions
+                    </dt>
+                    <dd
+                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+                    >
+                      <p class="flex-auto">
+                        Use raw SQL expressions and ClickHouse functions when
+                        you need them, while maintaining type safety.
+                      </p>
+                    </dd>
+                  </div>
+                  <div class="flex flex-col">
+                    <dt
+                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+                    >
+                      <div
+                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="w-6 h-6 text-white"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"
+                          ></path>
+                        </svg>
+                      </div>
+                      Streaming Support
+                    </dt>
+                    <dd
+                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+                    >
+                      <p class="flex-auto">
+                        Process large result sets efficiently with built-in
+                        support for Clickhouse query streaming
+                      </p>
+                    </dd>
+                  </div>
+                  <div class="flex flex-col">
+                    <dt
+                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+                    >
+                      <div
+                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="w-6 h-6 text-white"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
+                          ></path>
+                        </svg>
+                      </div>
+                      Advanced Filtering
+                    </dt>
+                    <dd
+                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+                    >
+                      <p class="flex-auto">
+                        Build complex WHERE conditions with a powerful and
+                        intuitive filtering API.
+                      </p>
+                    </dd>
+                  </div>
+                  <div class="flex flex-col">
+                    <dt
+                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
+                    >
+                      <div
+                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="w-6 h-6 text-white"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
+                        </svg>
+                      </div>
+                      Comprehensive Logging
+                    </dt>
+                    <dd
+                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
+                    >
+                      <p class="flex-auto">
+                        Track query execution with detailed logs of queries,
+                        parameters, timing, and row counts.
+                      </p>
+                    </dd>
+                  </div>
+                </dl>
               </div>
-              <pre
-                class="text-sm text-gray-100 p-4 overflow-auto">
+            </div>
+          </section>
+
+          <!-- Visual Query Builder Beta Section -->
+          <section id="beta-signup" class="bg-gray-50 py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="mx-auto max-w-2xl lg:text-center">
+                <h2 class="text-base font-semibold leading-7 text-indigo-600">
+                  Coming Soon
+                </h2>
+                <p
+                  class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+                >
+                  Visual Query Builder
+                </p>
+                <p class="mt-6 text-lg leading-8 text-gray-600">
+                  We're building a visual query builder on top of our powerful
+                  SDK. Sign up for our private beta to be the first to try it
+                  out!
+                </p>
+                <div class="mt-10 flex justify-center">
+                  <form class="flex w-full max-w-md flex-col gap-5 sm:flex-row">
+                    <label for="email-address" class="sr-only"
+                      >Email address</label
+                    >
+                    <input
+                      id="email-address"
+                      name="email"
+                      type="email"
+                      autocomplete="email"
+                      required
+                      class="min-w-0 flex-auto rounded-md border-0 bg-white px-3.5 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                      placeholder="Enter your email"
+                    />
+                    <button
+                      type="submit"
+                      class="flex-none rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                    >
+                      Join Private Beta
+                    </button>
+                  </form>
+                  <!-- Code Example -->
+                  <div class="mt-16 flow-root sm:mt-24">
+                    <div
+                      class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl overflow-hidden"
+                    >
+                      <div
+                        class="absolute -top-px left-20 right-11 h-px bg-gradient-to-r from-indigo-500/0 via-indigo-500/70 to-indigo-500/0"
+                      >
+                      </div>
+                      <div
+                        class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
+                      >
+                      </div>
+                      <pre
+                        class="text-sm text-gray-100 p-4 overflow-auto">
 {`import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // Type-safe schema definition
@@ -125,340 +446,15 @@ const results = await builder
 // Enjoy fully typed results!
 console.log(results[0].name, results[0].amount);`}
               </pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>
-
-    <!-- Problem Statement Section -->
-    <section class="bg-gray-50 py-16 sm:py-24">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="mx-auto max-w-2xl lg:text-center">
-          <h2 class="text-base font-semibold leading-7 text-indigo-600">
-            The Challenge
-          </h2>
-          <p
-            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-          >
-            ClickHouse queries, meet type safety
-          </p>
-          <p class="mt-6 text-lg leading-8 text-gray-600">
-            Without types, ClickHouse queries are error-prone. String
-            concatenation leads to SQL injection risks. Runtime errors cause
-            production issues. And the disconnect between queries and result
-            types wastes developer time.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Solution Overview -->
-    <section class="bg-white py-16 sm:py-24">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="mx-auto max-w-2xl lg:text-center">
-          <h2 class="text-base font-semibold leading-7 text-indigo-600">
-            Our Solution
-          </h2>
-          <p
-            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-          >
-            A type-safe query builder designed for developers
-          </p>
-          <p class="mt-6 text-lg leading-8 text-gray-600">
-            HypeQuery provides a fluent, type-safe API that makes working with
-            ClickHouse a joy. Say goodbye to SQL strings and hello to
-            autocomplete, runtime safety, and developer productivity.
-          </p>
-        </div>
-        <div class="mt-16 flex justify-center">
-          <div class="w-full max-w-4xl h-auto bg-gray-50 rounded-lg p-6">
-            <pre
-              class="text-sm text-gray-800 overflow-auto">
-{`// Type-safe column selection
-builder
-  .table('users')
-  .select(['id', 'name', 'email']) // ✓ Type checked!
-  .select(['not_a_column'])        // ✗ Type error!
-
-// Type-safe filtering  
-builder
-  .table('users')
-  .where('age', 'gt', 18)         // ✓ Type checked!
-  .where('age', 'gt', 'string')   // ✗ Type error!
-
-// Type-safe results
-const users = await builder.table('users').execute();
-console.log(users[0].name);       // ✓ Type checked!
-console.log(users[0].not_a_prop); // ✗ Type error!`}
-            </pre>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="bg-white pb-24 sm:pb-32">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="mx-auto max-w-2xl lg:text-center">
-          <h2 class="text-base font-semibold leading-7 text-indigo-600">
-            Features that spark joy ✨
-          </h2>
-          <p
-            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-          >
-            Everything you need for ClickHouse development
-          </p>
-        </div>
-        <div class="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <dl
-            class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3"
-          >
-            <div class="flex flex-col">
-              <dt
-                class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-              >
-                <div
-                  class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-6 h-6 text-white"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"
-                    ></path>
-                  </svg>
-                </div>
-                Complete Type Safety
-              </dt>
-              <dd
-                class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-              >
-                <p class="flex-auto">
-                  Every part of your query is type-checked - from table and
-                  column names to filter values and result types.
-                </p>
-              </dd>
-            </div>
-            <div class="flex flex-col">
-              <dt
-                class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-              >
-                <div
-                  class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-6 h-6 text-white"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-                    ></path>
-                  </svg>
-                </div>
-                Flexible Join System
-              </dt>
-              <dd
-                class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-              >
-                <p class="flex-auto">
-                  Easily create powerful joins with a fluent API. Set up
-                  relationship definitions for even more convenience.
-                </p>
-              </dd>
-            </div>
-            <div class="flex flex-col">
-              <dt
-                class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-              >
-                <div
-                  class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-6 h-6 text-white"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
-                    ></path>
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                  </svg>
-                </div>
-                SQL Expressions & Functions
-              </dt>
-              <dd
-                class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-              >
-                <p class="flex-auto">
-                  Use raw SQL expressions and ClickHouse functions when you need
-                  them, while maintaining type safety.
-                </p>
-              </dd>
-            </div>
-            <div class="flex flex-col">
-              <dt
-                class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-              >
-                <div
-                  class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-6 h-6 text-white"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"
-                    ></path>
-                  </svg>
-                </div>
-                Streaming Support
-              </dt>
-              <dd
-                class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-              >
-                <p class="flex-auto">
-                  Process large result sets efficiently with built-in streaming
-                  support using the Web Streams API.
-                </p>
-              </dd>
-            </div>
-            <div class="flex flex-col">
-              <dt
-                class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-              >
-                <div
-                  class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-6 h-6 text-white"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
-                    ></path>
-                  </svg>
-                </div>
-                Advanced Filtering
-              </dt>
-              <dd
-                class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-              >
-                <p class="flex-auto">
-                  Build complex WHERE conditions with a powerful and intuitive
-                  filtering API.
-                </p>
-              </dd>
-            </div>
-            <div class="flex flex-col">
-              <dt
-                class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-              >
-                <div
-                  class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke-width="1.5"
-                    stroke="currentColor"
-                    class="w-6 h-6 text-white"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-                Comprehensive Logging
-              </dt>
-              <dd
-                class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-              >
-                <p class="flex-auto">
-                  Track query execution with detailed logs of queries,
-                  parameters, timing, and row counts.
-                </p>
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-    </section>
-
-    <!-- Visual Query Builder Beta Section -->
-    <section id="beta-signup" class="bg-gray-50 py-16 sm:py-24">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="mx-auto max-w-2xl lg:text-center">
-          <h2 class="text-base font-semibold leading-7 text-indigo-600">
-            Coming Soon
-          </h2>
-          <p
-            class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-          >
-            Visual Query Builder
-          </p>
-          <p class="mt-6 text-lg leading-8 text-gray-600">
-            We're building a visual query builder on top of our powerful SDK.
-            Sign up for our private beta to be the first to try it out!
-          </p>
-          <div class="mt-10 flex justify-center">
-            <form class="flex w-full max-w-md flex-col gap-5 sm:flex-row">
-              <label for="email-address" class="sr-only">Email address</label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autocomplete="email"
-                required
-                class="min-w-0 flex-auto rounded-md border-0 bg-white px-3.5 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                placeholder="Enter your email"
-              />
-              <button
-                type="submit"
-                class="flex-none rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-              >
-                Join Private Beta
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <!-- CTA Section -->
     <section class="bg-indigo-600 py-16 sm:py-24">
