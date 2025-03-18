@@ -1,31 +1,43 @@
 ---
 layout: ../../layouts/DocsLayout.astro
 title: Quick Start - HypeQuery
-description: Start building a modern dashboard in under five minutes
+description: Get started with HypeQuery by building your first analytics dashboard
 ---
+
+<div class="prose">
 
 # Quick Start
 
-Start building a modern dashboard in under five minutes with hypequery, a typeScript-first library for building type-safe dashboards with ClickHouse.
+This guide will walk you through creating your first analytics dashboard using HypeQuery and Next.js.
 
-## Create Your Project
+## Creating a New Next.js Project
 
-The fastest way to get started is with our CLI:
+First, create a new Next.js project with TypeScript:
 
 ```bash
-npx hypequery-create my-dashboard
-cd my-dashboard
+npx create-next-app@latest my-analytics-dashboard --typescript --tailwind --app
+cd my-analytics-dashboard
 ```
 
-This will create a new project with:
-- A React dashboard template
-- Type-safe query builder setup
-- Pre-configured TypeScript and build tools
-- Example components and queries
+When prompted, select the following options:
+- Would you like to use TypeScript? → Yes
+- Would you like to use ESLint? → Yes
+- Would you like to use Tailwind CSS? → Yes
+- Would you like to use `src/` directory? → Yes
+- Would you like to use App Router? → Yes
+- Would you like to customize the default import alias? → No
 
-## Connect to ClickHouse
+## Installing HypeQuery
 
-Open `.env` and add your ClickHouse credentials:
+Install HypeQuery and its dependencies:
+
+```bash
+npm install @hypequery/clickhouse
+```
+
+## Setting Up Environment Variables
+
+Create a `.env.local` file in your project root:
 
 ```env
 CLICKHOUSE_HOST=your-instance.clickhouse.cloud
@@ -34,54 +46,206 @@ CLICKHOUSE_PASSWORD=your-password
 CLICKHOUSE_DATABASE=default
 ```
 
-## Generate Type Definitions
+## Configuring Next.js
 
-HypeQuery provides full type safety by generating TypeScript definitions from your ClickHouse schema:
+Update your `next.config.js` to include HypeQuery:
 
-```bash
-npm run generate-types
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  transpilePackages: ["@hypequery/clickhouse"],
+};
+
+module.exports = nextConfig;
 ```
 
-This will create type definitions for all your tables and columns, enabling full TypeScript support in your queries.
+## Creating the Database Connection
 
-## Your First Query
-
-Now you can start building type-safe queries. Here's a simple example:
+Create a new file `src/lib/db.ts`:
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
-import { IntrospectedSchema } from './generated/generated-schema';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: import.meta.env.CLICKHOUSE_HOST,
-  username: import.meta.env.CLICKHOUSE_USER,
-  password: import.meta.env.CLICKHOUSE_PASSWORD,
-  database: import.meta.env.CLICKHOUSE_DATABASE,
+// For TypeScript users, define your schema
+interface Schema {
+  users: {
+    id: 'Int32';
+    name: 'String';
+    email: 'String';
+    created_at: 'DateTime';
+  };
+  orders: {
+    id: 'Int32';
+    user_id: 'Int32';
+    amount: 'Float64';
+    created_at: 'DateTime';
+  };
+}
+
+// Create the query builder instance
+export const db = createQueryBuilder<Schema>({
+  host: process.env.CLICKHOUSE_HOST,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
 });
-
-// Your first query - TypeScript will autocomplete table and column names!
-const results = await db
-  .table('your_table')
-  .select(['date', 'value'])
-  .where('date', 'gt', '2024-01-01')
-  .sum('value', 'total')
-  .groupBy('date')
-  .execute();
 ```
 
-## Start the Development Server
+## Creating Your First Dashboard Component
 
-Run your dashboard locally:
+Create a new file `src/app/dashboard/page.tsx`:
+
+```typescript
+'use client';
+
+import { useState, useEffect } from 'react';
+import { db } from '@/lib/db';
+
+export default function DashboardPage() {
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const results = await db
+          .table('orders')
+          .select(['id', 'amount', 'created_at'])
+          .orderBy('created_at', 'DESC')
+          .limit(10)
+          .execute();
+
+        setRecentOrders(results);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Recent Orders</h1>
+      <div className="bg-white shadow rounded-lg">
+        <table className="min-w-full">
+          <thead>
+            <tr>
+              <th className="px-6 py-3 border-b">Order ID</th>
+              <th className="px-6 py-3 border-b">Amount</th>
+              <th className="px-6 py-3 border-b">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recentOrders.map((order) => (
+              <tr key={order.id}>
+                <td className="px-6 py-4">{order.id}</td>
+                <td className="px-6 py-4">${order.amount.toFixed(2)}</td>
+                <td className="px-6 py-4">
+                  {new Date(order.created_at).toLocaleDateString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+```
+
+## Adding Analytics Components
+
+Create a new file `src/components/OrderStats.tsx` for some analytics:
+
+```typescript
+'use client';
+
+import { useEffect, useState } from 'react';
+import { db } from '@/lib/db';
+
+export function OrderStats() {
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchStats() {
+      const results = await db
+        .table('orders')
+        .select([])
+        .count('id', 'total_orders')
+        .sum('amount', 'total_revenue')
+        .avg('amount', 'average_order')
+        .execute();
+
+      setStats(results[0]);
+    }
+
+    fetchStats();
+  }, []);
+
+  if (!stats) return <div>Loading stats...</div>;
+
+  return (
+    <div className="grid grid-cols-3 gap-4">
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-sm font-medium text-gray-500">Total Orders</h3>
+        <p className="mt-2 text-3xl font-semibold">{stats.total_orders}</p>
+      </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-sm font-medium text-gray-500">Total Revenue</h3>
+        <p className="mt-2 text-3xl font-semibold">
+          ${stats.total_revenue.toFixed(2)}
+        </p>
+      </div>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-sm font-medium text-gray-500">Average Order</h3>
+        <p className="mt-2 text-3xl font-semibold">
+          ${stats.average_order.toFixed(2)}
+        </p>
+      </div>
+    </div>
+  );
+}
+```
+
+Update your dashboard page to include the stats:
+
+```typescript
+import { OrderStats } from '@/components/OrderStats';
+
+// In your DashboardPage component:
+return (
+  <div className="p-8">
+    <OrderStats />
+    {/* Rest of your component */}
+  </div>
+);
+```
+
+## Running Your Application
+
+Start your development server:
 
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:3000` to see your dashboard in action!
+Visit `http://localhost:3000/dashboard` to see your analytics dashboard in action!
 
 ## Next Steps
 
-- Learn about [Query Building](/docs/guides/query-building)
-- Understand [Join Relationships](/docs/guides/joins)
-- Master [Advanced Filtering](/docs/guides/filtering)
-- Check out the [API Reference](/docs/reference/api) 
+Now that you have a basic dashboard set up, you can:
+
+- Add more complex queries using [Query Building](/docs/guides/query-building)
+- Implement real-time updates with [Streaming](/docs/streaming)
+- Add cross-filtering with [Advanced Filtering](/docs/guides/filtering)
+- Optimize performance with [Best Practices](/docs/reference/best-practices)
+
+</div> 

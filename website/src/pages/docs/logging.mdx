@@ -20,7 +20,7 @@ HypeQuery includes built-in logging support to help you track query execution, t
 The logger supports different log levels to control the verbosity of output:
 
 ```typescript
-import { logger } from '@hypequery/core';
+import { logger } from '@hypequery/clickhouse';
 
 // Available log levels:
 // - 'debug': Detailed information for debugging
@@ -37,7 +37,7 @@ logger.configure({
 ## Configuring the Logger
 
 ```typescript
-import { logger } from '@hypequery/core';
+import { logger } from '@hypequery/clickhouse';
 
 // Configure logging options
 logger.configure({
@@ -57,7 +57,7 @@ logger.configure({
 You can subscribe to logs for specific queries using a unique query ID:
 
 ```typescript
-import { logger } from '@hypequery/core';
+import { logger } from '@hypequery/clickhouse';
 
 // Subscribe to logs for a specific query
 const queryId = 'user-query-123';
@@ -111,7 +111,7 @@ try {
 You can implement custom logging handlers to integrate with your existing logging system:
 
 ```typescript
-import { logger } from '@hypequery/core';
+import { logger } from '@hypequery/clickhouse';
 import winston from 'winston';
 
 const winstonLogger = winston.createLogger({

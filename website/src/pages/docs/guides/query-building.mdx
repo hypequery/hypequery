@@ -13,6 +13,8 @@ HypeQuery provides a fluent, type-safe API for building SQL queries. This guide 
 The most basic query starts with selecting a table and columns:
 
 ```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
 const results = await db
   .table('users')
   .select(['id', 'name', 'email'])

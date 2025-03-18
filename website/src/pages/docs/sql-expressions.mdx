@@ -13,7 +13,7 @@ HypeQuery provides a way to use raw SQL expressions and ClickHouse functions in 
 You can use the `raw` and `rawAs` functions to include raw SQL expressions in your queries:
 
 ```typescript
-import { raw, rawAs } from '@hypequery/core';
+import { raw, rawAs } from '@hypequery/clickhouse';
 
 // Using raw SQL expression
 const query = builder
@@ -39,7 +39,7 @@ import {
   formatDateTime,
   toStartOfInterval,
   datePart
-} from '@hypequery/core';
+} from '@hypequery/clickhouse';
 
 const query = builder
   .table('events')

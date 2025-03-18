@@ -12,22 +12,23 @@ Get started using hypequery in your project by following these simple steps.
 
 Before installing hypequery, make sure you have:
 
-- Node.js 16 or higher
-- npm or yarn package manager
-- A ClickHouse instance to connect to either (cloud or self-hosted)
-
+ <ul>
+     <li>Node.js 16 or higher</li>
+     <li>npm or yarn package manager</li>
+     <li>A ClickHouse instance to connect to</li>
+   </ul>
 ## Installing the Package
 
 Install HypeQuery using npm:
 
 ```bash
-npm install @hypequery/core
+npm install @hypequery/clickhouse
 ```
 
 Or using yarn:
 
 ```bash
-yarn add @hypequery/core
+yarn add @hypequery/clickhouse
 ```
 
 ## Basic Setup
@@ -44,7 +45,7 @@ CLICKHOUSE_DATABASE=default
 2. Create a new file for your database configuration (e.g., `db.ts`):
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // For TypeScript users, you'll want to generate types for your schema
 // We'll cover this in the next section
@@ -96,7 +97,7 @@ hypequery generate-types
 3. Update your configuration to use the generated types:
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 import { Schema } from './generated/schema';
 
 export const db = createQueryBuilder<Schema>({

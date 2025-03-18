@@ -155,7 +155,7 @@ const results = await builder
 For more complex scenarios like correlated subqueries, you may need to use your database client directly:
 
 ```typescript
-import { ClickHouseConnection } from '@hypequery/core';
+import { ClickHouseConnection } from '@hypequery/clickhouse';
 
 // For complex queries that HypeQuery can't easily build
 const client = ClickHouseConnection.getClient();

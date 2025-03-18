@@ -18,7 +18,7 @@ import {
   ColumnType,
   TableSchema,
   DatabaseSchema
-} from '@hypequery/core';
+} from '@hypequery/clickhouse';
 
 // Core query builder type
 type QueryBuilder<
@@ -58,7 +58,7 @@ import {
   FilterCondition,
   FilterGroup,
   CrossFilter
-} from '@hypequery/core';
+} from '@hypequery/clickhouse';
 
 // Available filter operators
 type FilterOperator =
@@ -103,7 +103,7 @@ import {
   JoinClause,
   JoinPath,
   JoinRelationships
-} from '@hypequery/core';
+} from '@hypequery/clickhouse';
 
 // Available join types
 type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
@@ -138,7 +138,7 @@ import {
   PaginationOptions,
   PageInfo,
   PaginatedResult
-} from '@hypequery/core';
+} from '@hypequery/clickhouse';
 
 // Pagination options
 interface PaginationOptions<T> {
@@ -173,7 +173,7 @@ import {
   QueryConfig,
   OrderDirection,
   WhereCondition
-} from '@hypequery/core';
+} from '@hypequery/clickhouse';
 
 // Full query configuration
 interface QueryConfig<T, Schema> {
@@ -211,7 +211,7 @@ interface WhereCondition {
 HypeQuery provides utility types for inferring column types:
 
 ```typescript
-import { InferColumnType } from '@hypequery/core';
+import { InferColumnType } from '@hypequery/clickhouse';
 
 // Infer TypeScript type from ColumnType
 type InferredType = InferColumnType<ColumnType>;
@@ -232,7 +232,7 @@ import {
   ColumnType,
   FilterCondition,
   PaginationOptions
-} from '@hypequery/core';
+} from '@hypequery/clickhouse';
 
 // Define your schema
 interface UserSchema {

@@ -21,6 +21,7 @@ const sidebar = [
   {
     title: "Getting Started",
     items: [
+      { title: "Introduction", href: "/docs/introduction" },
       { title: "Installation", href: "/docs/installation" },
       { title: "Quick Start", href: "/docs/quickstart" },
     ],
@@ -336,6 +337,26 @@ const sidebar = [
         font-size: inherit;
         font-family: inherit;
         line-height: inherit;
+      }
+
+      /* Add styles for documentation lists */
+      .prose ul {
+        list-style-type: disc;
+        margin-top: 1em;
+        margin-bottom: 1em;
+        padding-left: 1.5em;
+      }
+
+      .prose ul li {
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+      }
+
+      /* For nested lists */
+      .prose ul ul {
+        list-style-type: circle;
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
       }
     </style>
   </body>
