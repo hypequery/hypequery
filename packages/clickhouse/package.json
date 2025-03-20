@@ -6,13 +6,15 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "postbuild": "chmod +x dist/cli/bin.js && cp README-CLI.md dist/",
+    "build": "npm run build:main && npm run build:cli",
+    "build:main": "tsc",
+    "build:cli": "node scripts/ensure-core-files.js && node scripts/handle-cli-files.js",
     "dev": "tsc --watch",
     "test": "npm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='integration'",
     "test:watch": "jest  --testPathIgnorePatterns='integration' --watch",
     "test:coverage": "jest --coverage",
+    "test:cli": "node scripts/test-cli-integration.js",
     "lint": "eslint src/**/*.ts",
     "semantic-release": "npx semantic-release",
     "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci"

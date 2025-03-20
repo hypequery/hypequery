@@ -20,7 +20,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "src/cli/**/*.js"
+    "**/*.test.ts"
   ]
 }

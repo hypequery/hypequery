@@ -113,12 +113,36 @@ jobs:
           
           # Build the clickhouse package
           cd packages/clickhouse
-          npm run build
+          echo "Starting build process..."
+          npm run build || echo "Build command failed with exit code $?"
+          
+          # Debug build output
+          echo "Checking build outputs..."
+          find dist -type f | sort
+          
+          # Debug file content if exists
+          if [ -f "dist/index.js" ]; then
+            echo "Found dist/index.js - First 10 lines:"
+            head -n 10 dist/index.js
+          else
+            echo "dist/index.js not found!"
+            echo "Directory listing:"
+            ls -la
+            echo "TypeScript config:"
+            cat tsconfig.json
+          fi
           
           # Simple verification that build succeeded
           if [ ! -f "dist/index.js" ] || [ ! -f "dist/index.d.ts" ]; then
             echo "Build failed: Required files not found"
             exit 1
+          fi
+          
+          # Check CLI files
+          if [ ! -f "dist/cli/bin.js" ]; then
+            echo "CLI file dist/cli/bin.js is missing!"
+          else
+            echo "CLI file is present."
           fi
           
           # Return to root
