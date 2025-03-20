@@ -7,6 +7,7 @@
  * 2. Copies all JavaScript files from src/cli to dist/cli
  * 3. Copies all declaration files (.d.ts) from src/cli to dist/cli
  * 4. Makes bin.js executable
+ * 5. Ensures all required exports are present
  */
 
 import fs from 'fs';
@@ -19,6 +20,7 @@ const rootDir = path.resolve(__dirname, '..');
 
 const srcCliDir = path.join(rootDir, 'src', 'cli');
 const distCliDir = path.join(rootDir, 'dist', 'cli');
+const distDir = path.join(rootDir, 'dist');
 
 console.log('Handling CLI files...');
 
@@ -63,20 +65,41 @@ if (!fs.existsSync(cliIndexPath)) {
   fs.writeFileSync(cliIndexPath, "export { generateTypes } from './generate-types.js';\n");
 }
 
-// Create an export from main index.js to CLI
-const mainIndexPath = path.join(rootDir, 'dist', 'index.js');
-const mainIndexContent = fs.existsSync(mainIndexPath) ? fs.readFileSync(mainIndexPath, 'utf-8') : '';
+// Ensure main index.js exists and has the correct exports
+const mainIndexPath = path.join(distDir, 'index.js');
+let mainIndexContent = '';
 
+if (fs.existsSync(mainIndexPath)) {
+  mainIndexContent = fs.readFileSync(mainIndexPath, 'utf-8');
+}
+
+// Add CLI exports if they're not present
 if (!mainIndexContent.includes("export { generateTypes } from './cli/generate-types.js'")) {
   console.log('Adding CLI exports to main index.js...');
 
-  // Create main index.js if it doesn't exist
-  if (!fs.existsSync(mainIndexPath)) {
-    fs.writeFileSync(mainIndexPath, '');
+  // Add a newline before adding exports if the file isn't empty
+  if (mainIndexContent.length > 0 && !mainIndexContent.endsWith('\n')) {
+    mainIndexContent += '\n';
   }
 
-  // Add the export
-  fs.appendFileSync(mainIndexPath, "\n// CLI exports\nexport { generateTypes } from './cli/generate-types.js';\n");
+  mainIndexContent += "\n// CLI exports\nexport { generateTypes } from './cli/generate-types.js';\n";
+  fs.writeFileSync(mainIndexPath, mainIndexContent);
+}
+
+// Verify required files exist
+const requiredFiles = [
+  'dist/cli/bin.js',
+  'dist/cli/generate-types.js',
+  'dist/cli/index.js',
+  'dist/index.js'
+];
+
+for (const file of requiredFiles) {
+  const filePath = path.join(rootDir, file);
+  if (!fs.existsSync(filePath)) {
+    console.error(`Error: Required file ${file} is missing!`);
+    process.exit(1);
+  }
 }
 
 console.log('CLI files handled successfully!'); 

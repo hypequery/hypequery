@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Simple script to ensure core files exist.
- * This is a minimal version that only creates essential files needed for the CLI.
+ * Script to ensure core files exist before building.
+ * This script:
+ * 1. Creates necessary directories if they don't exist
+ * 2. Creates core files if they don't exist
+ * 3. Verifies all required files are present
  */
 
 import fs from 'fs';
@@ -13,62 +16,88 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
+const srcDir = path.join(rootDir, 'src');
 const distDir = path.join(rootDir, 'dist');
-const coreDir = path.join(distDir, 'core');
 
 console.log('Ensuring core files exist...');
 
-// Create core directory if it doesn't exist
-if (!fs.existsSync(coreDir)) {
-  console.log('Creating core directory...');
-  fs.mkdirSync(coreDir, { recursive: true });
+// Create necessary directories
+const directories = [
+  path.join(distDir, 'core'),
+  path.join(distDir, 'core', 'features'),
+  path.join(distDir, 'core', 'formatters'),
+  path.join(distDir, 'core', 'utils'),
+  path.join(distDir, 'core', 'validators'),
+  path.join(distDir, 'core', 'tests'),
+  path.join(distDir, 'core', 'tests', 'integration'),
+  path.join(distDir, 'types'),
+  path.join(distDir, 'formatters'),
+  path.join(distDir, 'cli')
+];
+
+for (const dir of directories) {
+  if (!fs.existsSync(dir)) {
+    console.log(`Creating directory: ${path.relative(rootDir, dir)}`);
+    fs.mkdirSync(dir, { recursive: true });
+  }
 }
 
-// Create connection.js (required by CLI)
-const connectionJsPath = path.join(coreDir, 'connection.js');
-if (!fs.existsSync(connectionJsPath)) {
-  console.log('Creating connection.js...');
-  const connectionJsContent = `import { createClient } from '@clickhouse/client-web';
+// Verify source directories exist
+const requiredSourceDirs = [
+  path.join(srcDir, 'core'),
+  path.join(srcDir, 'types'),
+  path.join(srcDir, 'formatters'),
+  path.join(srcDir, 'cli')
+];
 
-/**
- * Manages the connection to the ClickHouse database
- */
-export class ClickHouseConnection {
-  static client;
-  static config;
-
-  /**
-   * Initialize the connection with configuration
-   */
-  static initialize(config) {
-    this.config = config;
-    this.client = createClient({
-      host: config.host,
-      username: config.username,
-      password: config.password,
-      database: config.database,
-    });
-    return this;
+for (const dir of requiredSourceDirs) {
+  if (!fs.existsSync(dir)) {
+    console.error(`Error: Required source directory ${path.relative(rootDir, dir)} does not exist!`);
+    process.exit(1);
   }
-
-  /**
-   * Get the ClickHouse client instance
-   */
-  static getClient() {
-    if (!this.client) {
-      throw new Error('ClickHouse connection not initialized. Call ClickHouseConnection.initialize() first.');
-    }
-    return this.client;
-  }
-
-  /**
-   * Get the current configuration
-   */
-  static getConfig() {
-    return this.config;
-  }
-}`;
-  fs.writeFileSync(connectionJsPath, connectionJsContent);
 }
 
-console.log('Core files created successfully!'); 
+// Verify core files exist
+const requiredCoreFiles = [
+  'query-builder.ts',
+  'connection.ts',
+  'join-relationships.ts',
+  'cross-filter.ts',
+  'utils/logger.ts',
+  'utils/sql-expressions.ts',
+  'features/aggregations.ts',
+  'features/analytics.ts',
+  'features/executor.ts',
+  'features/filtering.ts',
+  'features/joins.ts',
+  'features/pagination.ts',
+  'features/query-modifiers.ts',
+  'formatters/sql-formatter.ts',
+  'validators/filter-validator.ts',
+  'validators/value-validator.ts'
+];
+
+for (const file of requiredCoreFiles) {
+  const srcPath = path.join(srcDir, 'core', file);
+  if (!fs.existsSync(srcPath)) {
+    console.error(`Error: Required core file ${file} is missing from source!`);
+    process.exit(1);
+  }
+}
+
+// Verify CLI files exist
+const requiredCliFiles = [
+  'bin.js',
+  'generate-types.ts',
+  'index.ts'
+];
+
+for (const file of requiredCliFiles) {
+  const srcPath = path.join(srcDir, 'cli', file);
+  if (!fs.existsSync(srcPath)) {
+    console.error(`Error: Required CLI file ${file} is missing from source!`);
+    process.exit(1);
+  }
+}
+
+console.log('Core files verified successfully!'); 
