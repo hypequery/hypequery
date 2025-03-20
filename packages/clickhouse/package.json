@@ -6,9 +6,10 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
-    "build": "npm run build:main && npm run build:cli",
+    "build": "npm run build:main && npm run build:cli && npm run verify-build",
     "build:main": "tsc",
     "build:cli": "node scripts/ensure-core-files.js && node scripts/handle-cli-files.js",
+    "verify-build": "node scripts/verify-build.js",
     "dev": "tsc --watch",
     "test": "npm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='integration'",
