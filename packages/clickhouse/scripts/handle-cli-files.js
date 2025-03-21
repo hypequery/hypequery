@@ -24,6 +24,137 @@ const srcCliDir = path.join(srcDir, 'cli');
 const distDir = path.join(rootDir, 'dist');
 const distCliDir = path.join(distDir, 'cli');
 
+// Add this function after the existing imports but before any other code
+// Create bin.js file if it doesn't exist
+function createBinFileIfMissing() {
+  console.log('Checking for bin.js file...');
+
+  if (fs.existsSync(path.join(distCliDir, 'bin.js'))) {
+    console.log('bin.js already exists, skipping creation');
+    return;
+  }
+
+  console.log('bin.js not found, creating it as a fallback...');
+
+  // Standard bin.js content (simplified version)
+  const binJsContent = `#!/usr/bin/env node
+
+import { ClickHouseConnection } from '../core/connection.js';
+import { generateTypes } from './generate-types.js';
+import path from 'path';
+import dotenv from 'dotenv';
+import fs from 'fs/promises';
+
+// Load environment variables from the current directory
+dotenv.config();
+
+// Main CLI function
+async function main() {
+  console.log('HypeQuery TypeScript Generator');
+  
+  // Get output path (default or from args)
+  const outputPath = process.argv.length > 2 ? process.argv[2] : './generated-schema.ts';
+
+  try {
+    const host = process.env.CLICKHOUSE_HOST || 'http://localhost:8123';
+    const database = process.env.CLICKHOUSE_DATABASE || 'default';
+
+    // Initialize connection from env vars
+    ClickHouseConnection.initialize({
+      host,
+      username: process.env.CLICKHOUSE_USER || 'default',
+      password: process.env.CLICKHOUSE_PASSWORD || '',
+      database,
+    });
+
+    // Ensure directory exists
+    const dir = path.dirname(path.resolve(outputPath));
+    await fs.mkdir(dir, { recursive: true });
+
+    // Generate types
+    await generateTypes(outputPath);
+
+    console.log(\`Success! Types generated at \${path.resolve(outputPath)}\`);
+  } catch (error) {
+    console.error(\`Error generating types: \${error.message}\`);
+    process.exit(1);
+  }
+}
+
+// Execute the main function
+main();`;
+
+  // Try multiple methods to create the file
+  let success = false;
+
+  // Method 1: Direct file write
+  try {
+    console.log('Creating bin.js with fs.writeFileSync...');
+    fs.writeFileSync(path.join(distCliDir, 'bin.js'), binJsContent, { mode: 0o755 });
+    success = true;
+    console.log('✅ Successfully created bin.js via direct write');
+  } catch (error) {
+    console.error(`Error creating bin.js via direct write: ${error.message}`);
+  }
+
+  // Method 2: Shell command as fallback
+  if (!success && process.platform !== 'win32') {
+    try {
+      console.log('Creating bin.js with shell command...');
+      require('child_process').execSync(`cat > "${path.join(distCliDir, 'bin.js')}" << 'EOF'
+${binJsContent}
+EOF`, { stdio: 'inherit' });
+      success = true;
+      console.log('✅ Successfully created bin.js via shell command');
+    } catch (shellError) {
+      console.error(`Error creating bin.js via shell command: ${shellError.message}`);
+    }
+  }
+
+  // Method 3: Minimal version as last resort
+  if (!success) {
+    try {
+      console.log('Creating minimal bin.js as last resort...');
+      const minimalBinJs = `#!/usr/bin/env node
+console.log("HypeQuery TypeScript Generator (Minimal Version)");
+import { generateTypes } from './generate-types.js';
+generateTypes(process.argv[2] || './generated-schema.ts').catch(err => {
+  console.error(err);
+  process.exit(1);
+});`;
+
+      fs.writeFileSync(path.join(distCliDir, 'bin.js'), minimalBinJs, { mode: 0o755 });
+      success = true;
+      console.log('✅ Successfully created minimal bin.js');
+    } catch (error) {
+      console.error(`Error creating minimal bin.js: ${error.message}`);
+    }
+  }
+
+  // Make bin.js executable
+  if (success && process.platform !== 'win32') {
+    try {
+      console.log('Making bin.js executable...');
+      fs.chmodSync(path.join(distCliDir, 'bin.js'), 0o755);
+      console.log('✅ Made bin.js executable');
+    } catch (chmodError) {
+      console.error(`Error making bin.js executable via fs.chmod: ${chmodError.message}`);
+
+      try {
+        require('child_process').execSync(`chmod +x "${path.join(distCliDir, 'bin.js')}"`, { stdio: 'inherit' });
+        console.log('✅ Made bin.js executable via chmod command');
+      } catch (cmdError) {
+        console.error(`Error making bin.js executable via chmod command: ${cmdError.message}`);
+      }
+    }
+  }
+
+  if (!success) {
+    console.error('❌ All attempts to create bin.js failed!');
+    throw new Error('Failed to create bin.js file');
+  }
+}
+
 console.log('=================== CLI FILES HANDLER DIAGNOSTIC ===================');
 console.log(`Node version: ${process.version}`);
 console.log(`Current directory: ${process.cwd()}`);
@@ -32,12 +163,8 @@ console.log(`Root directory: ${rootDir}`);
 console.log(`Source CLI directory: ${srcCliDir}`);
 console.log(`Destination CLI directory: ${distCliDir}`);
 
-// Check if directories exist with detailed logging
-console.log('\nChecking directory existence:');
-console.log(`- Source dir (${srcDir}): ${fs.existsSync(srcDir) ? 'EXISTS' : 'MISSING'}`);
-console.log(`- Source CLI dir (${srcCliDir}): ${fs.existsSync(srcCliDir) ? 'EXISTS' : 'MISSING'}`);
-console.log(`- Dist dir (${distDir}): ${fs.existsSync(distDir) ? 'EXISTS' : 'MISSING'}`);
-console.log(`- Dist CLI dir (${distCliDir}): ${fs.existsSync(distCliDir) ? 'EXISTS' : 'MISSING'}`);
+// Now call the function after printing diagnostic info but before main processing
+createBinFileIfMissing();
 
 // Create dist/cli directory if it doesn't exist
 if (!fs.existsSync(distCliDir)) {

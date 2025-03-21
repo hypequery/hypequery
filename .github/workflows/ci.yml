@@ -1,0 +1,41 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Clean existing build artifacts
+        run: |
+          echo "# Clean existing build artifacts"
+          rm -rf packages/clickhouse/dist
+      - name: Build packages with CI script
+        run: |
+          echo "Starting build process..."
+          cd packages/clickhouse && npm run build:ci
+      - name: Verify bin.js file exists
+        run: |
+          if [ -f "packages/clickhouse/dist/cli/bin.js" ]; then
+            echo "✅ bin.js exists"
+            ls -la packages/clickhouse/dist/cli/bin.js
+            head -n 1 packages/clickhouse/dist/cli/bin.js
+          else
+            echo "❌ bin.js does not exist!"
+            ls -la packages/clickhouse/dist/cli/
+            exit 1
+          fi
+      - name: Run tests
+        run: npm test 
