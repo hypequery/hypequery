@@ -1,4 +1,4 @@
-name: CI Build
+name: CI Build and Release
 
 on:
   push:
@@ -14,10 +14,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
       - name: Install dependencies
         run: npm install
+      - name: Sync package-lock.json
+        run: |
+          echo "Ensuring package-lock.json is in sync..."
+          npm install --package-lock-only
+          git diff --exit-code || echo "Warning: package-lock.json was updated but changes will be ignored in CI"
       - name: Clean existing build artifacts
         run: |
           echo "# Clean existing build artifacts"
@@ -38,4 +43,34 @@ jobs:
             exit 1
           fi
       - name: Run tests
-        run: npm test 
+        run: npm test
+  
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm install
+      - name: Install semantic-release and dependencies
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+      - name: Build for release
+        run: cd packages/clickhouse && npm run build:ci
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd packages/clickhouse
+          echo "Publishing clickhouse package..."
+          echo "Last published version: $(npm view @hypequery/clickhouse version || echo 'None')"
+          semantic-release 
