@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Script to handle CLI files.
+ * Consolidated script to handle all CLI files.
  * This script:
  * 1. Creates the dist/cli directory if it doesn't exist
- * 2. Ensures all required CLI files exist in dist/cli
- * 3. Makes bin.js executable
+ * 2. Creates and makes bin.js executable
+ * 3. Ensures all required CLI files exist in dist/cli
  * 4. Ensures all required exports are present
  * 5. Performs detailed verification of required files
  */
@@ -24,137 +24,6 @@ const srcCliDir = path.join(srcDir, 'cli');
 const distDir = path.join(rootDir, 'dist');
 const distCliDir = path.join(distDir, 'cli');
 
-// Add this function after the existing imports but before any other code
-// Create bin.js file if it doesn't exist
-function createBinFileIfMissing() {
-  console.log('Checking for bin.js file...');
-
-  if (fs.existsSync(path.join(distCliDir, 'bin.js'))) {
-    console.log('bin.js already exists, skipping creation');
-    return;
-  }
-
-  console.log('bin.js not found, creating it as a fallback...');
-
-  // Standard bin.js content (simplified version)
-  const binJsContent = `#!/usr/bin/env node
-
-import { ClickHouseConnection } from '../core/connection.js';
-import { generateTypes } from './generate-types.js';
-import path from 'path';
-import dotenv from 'dotenv';
-import fs from 'fs/promises';
-
-// Load environment variables from the current directory
-dotenv.config();
-
-// Main CLI function
-async function main() {
-  console.log('HypeQuery TypeScript Generator');
-  
-  // Get output path (default or from args)
-  const outputPath = process.argv.length > 2 ? process.argv[2] : './generated-schema.ts';
-
-  try {
-    const host = process.env.CLICKHOUSE_HOST || 'http://localhost:8123';
-    const database = process.env.CLICKHOUSE_DATABASE || 'default';
-
-    // Initialize connection from env vars
-    ClickHouseConnection.initialize({
-      host,
-      username: process.env.CLICKHOUSE_USER || 'default',
-      password: process.env.CLICKHOUSE_PASSWORD || '',
-      database,
-    });
-
-    // Ensure directory exists
-    const dir = path.dirname(path.resolve(outputPath));
-    await fs.mkdir(dir, { recursive: true });
-
-    // Generate types
-    await generateTypes(outputPath);
-
-    console.log(\`Success! Types generated at \${path.resolve(outputPath)}\`);
-  } catch (error) {
-    console.error(\`Error generating types: \${error.message}\`);
-    process.exit(1);
-  }
-}
-
-// Execute the main function
-main();`;
-
-  // Try multiple methods to create the file
-  let success = false;
-
-  // Method 1: Direct file write
-  try {
-    console.log('Creating bin.js with fs.writeFileSync...');
-    fs.writeFileSync(path.join(distCliDir, 'bin.js'), binJsContent, { mode: 0o755 });
-    success = true;
-    console.log('✅ Successfully created bin.js via direct write');
-  } catch (error) {
-    console.error(`Error creating bin.js via direct write: ${error.message}`);
-  }
-
-  // Method 2: Shell command as fallback
-  if (!success && process.platform !== 'win32') {
-    try {
-      console.log('Creating bin.js with shell command...');
-      require('child_process').execSync(`cat > "${path.join(distCliDir, 'bin.js')}" << 'EOF'
-${binJsContent}
-EOF`, { stdio: 'inherit' });
-      success = true;
-      console.log('✅ Successfully created bin.js via shell command');
-    } catch (shellError) {
-      console.error(`Error creating bin.js via shell command: ${shellError.message}`);
-    }
-  }
-
-  // Method 3: Minimal version as last resort
-  if (!success) {
-    try {
-      console.log('Creating minimal bin.js as last resort...');
-      const minimalBinJs = `#!/usr/bin/env node
-console.log("HypeQuery TypeScript Generator (Minimal Version)");
-import { generateTypes } from './generate-types.js';
-generateTypes(process.argv[2] || './generated-schema.ts').catch(err => {
-  console.error(err);
-  process.exit(1);
-});`;
-
-      fs.writeFileSync(path.join(distCliDir, 'bin.js'), minimalBinJs, { mode: 0o755 });
-      success = true;
-      console.log('✅ Successfully created minimal bin.js');
-    } catch (error) {
-      console.error(`Error creating minimal bin.js: ${error.message}`);
-    }
-  }
-
-  // Make bin.js executable
-  if (success && process.platform !== 'win32') {
-    try {
-      console.log('Making bin.js executable...');
-      fs.chmodSync(path.join(distCliDir, 'bin.js'), 0o755);
-      console.log('✅ Made bin.js executable');
-    } catch (chmodError) {
-      console.error(`Error making bin.js executable via fs.chmod: ${chmodError.message}`);
-
-      try {
-        require('child_process').execSync(`chmod +x "${path.join(distCliDir, 'bin.js')}"`, { stdio: 'inherit' });
-        console.log('✅ Made bin.js executable via chmod command');
-      } catch (cmdError) {
-        console.error(`Error making bin.js executable via chmod command: ${cmdError.message}`);
-      }
-    }
-  }
-
-  if (!success) {
-    console.error('❌ All attempts to create bin.js failed!');
-    throw new Error('Failed to create bin.js file');
-  }
-}
-
 console.log('=================== CLI FILES HANDLER DIAGNOSTIC ===================');
 console.log(`Node version: ${process.version}`);
 console.log(`Current directory: ${process.cwd()}`);
@@ -163,47 +32,33 @@ console.log(`Root directory: ${rootDir}`);
 console.log(`Source CLI directory: ${srcCliDir}`);
 console.log(`Destination CLI directory: ${distCliDir}`);
 
-// Now call the function after printing diagnostic info but before main processing
-createBinFileIfMissing();
-
-// Create dist/cli directory if it doesn't exist
+// Create CLI directory if needed
 if (!fs.existsSync(distCliDir)) {
-  console.log('\nCreating dist/cli directory...');
+  console.log(`Creating CLI directory at ${distCliDir}...`);
   try {
     fs.mkdirSync(distCliDir, { recursive: true });
-    console.log(`✓ Successfully created directory: ${distCliDir}`);
+    console.log(`✅ CLI directory created successfully`);
   } catch (error) {
-    console.error(`❌ Failed to create directory ${distCliDir}: ${error.message}`);
-    process.exit(1);
-  }
-}
+    console.error(`❌ Failed to create CLI directory: ${error.message}`);
 
-// List source cli directory contents if it exists
-if (fs.existsSync(srcCliDir)) {
-  console.log('\nSource CLI directory contents:');
-  try {
-    const srcCliFiles = fs.readdirSync(srcCliDir);
-    if (srcCliFiles.length === 0) {
-      console.log('(empty)');
-    } else {
-      srcCliFiles.forEach(file => {
-        const filePath = path.join(srcCliDir, file);
-        const stats = fs.statSync(filePath);
-        console.log(` - ${file} (${stats.size} bytes, ${stats.isDirectory() ? 'directory' : 'file'})`);
-      });
+    // Try with shell command as fallback
+    try {
+      execSync(`mkdir -p "${distCliDir}"`, { stdio: 'inherit' });
+      console.log(`✅ CLI directory created via shell command`);
+    } catch (shellError) {
+      console.error(`❌ Failed to create CLI directory via shell command: ${shellError.message}`);
+      process.exit(1);
     }
-  } catch (error) {
-    console.error(`Error reading source CLI directory: ${error.message}`);
   }
-} else {
-  console.warn(`⚠️ Warning: Source CLI directory (${srcCliDir}) does not exist! Will create required files directly.`);
 }
 
-// Essential CLI files that must exist
-const essentialCliFiles = [
-  {
-    name: 'bin.js',
-    content: `#!/usr/bin/env node
+// Process bin.js file
+const binJsPath = path.join(distCliDir, 'bin.js');
+const binExists = fs.existsSync(binJsPath);
+console.log(`Checking for bin.js file...`);
+
+// Standard bin.js content
+const binJsContent = `#!/usr/bin/env node
 
 import { ClickHouseConnection } from '../core/connection.js';
 import { generateTypes } from './generate-types.js';
@@ -214,24 +69,92 @@ import fs from 'fs/promises';
 // Load environment variables from the current directory
 dotenv.config();
 
-// Main CLI function
+// ANSI color codes for prettier output
+const colors = {
+  reset: '\\x1b[0m',
+  bright: '\\x1b[1m',
+  dim: '\\x1b[2m',
+  green: '\\x1b[32m',
+  yellow: '\\x1b[33m',
+  blue: '\\x1b[34m',
+  red: '\\x1b[31m',
+  cyan: '\\x1b[36m'
+};
+
+/**
+ * Display a colorful banner with the tool name
+ */
+function showBanner() {
+  console.log(\`
+\${colors.bright}\${colors.cyan}HypeQuery TypeScript Generator\${colors.reset}
+\${colors.dim}Generate TypeScript types from your ClickHouse database schema\${colors.reset}
+  \`);
+}
+
+/**
+ * Show help information for the CLI
+ */
+function showHelp() {
+  console.log(\`
+\${colors.bright}Usage:\${colors.reset}
+  npx hypequery-generate-types [output-path] [options]
+
+\${colors.bright}Arguments:\${colors.reset}
+  output-path                Path where TypeScript definitions will be saved (default: "./generated-schema.ts")
+
+\${colors.bright}Environment variables:\${colors.reset}
+  CLICKHOUSE_HOST            ClickHouse server URL (default: http://localhost:8123)
+  CLICKHOUSE_USER            ClickHouse username (default: default)
+  CLICKHOUSE_PASSWORD        ClickHouse password
+  CLICKHOUSE_DATABASE        ClickHouse database name (default: default)
+
+\${colors.bright}Examples:\${colors.reset}
+  npx hypequery-generate-types
+  npx hypequery-generate-types ./src/types/db-schema.ts
+  CLICKHOUSE_HOST=http://my-clickhouse:8123 npx hypequery-generate-types
+
+\${colors.bright}Options:\${colors.reset}
+  --help, -h                 Show this help text
+  \`);
+}
+
+/**
+ * Main CLI function
+ */
 async function main() {
-  console.log('HypeQuery TypeScript Generator');
-  
+  showBanner();
+
+  // Process command line arguments
+  const args = process.argv.slice(2);
+
+  // Check for help flag
+  if (args.includes('--help') || args.includes('-h')) {
+    showHelp();
+    return;
+  }
+
   // Get output path (default or from args)
-  const outputPath = process.argv.length > 2 ? process.argv[2] : './generated-schema.ts';
+  const outputPath = args.length > 0 && !args[0].startsWith('-')
+    ? args[0]
+    : './generated-schema.ts';
 
   try {
-    const host = process.env.CLICKHOUSE_HOST || 'http://localhost:8123';
-    const database = process.env.CLICKHOUSE_DATABASE || 'default';
+    // Display connection info
+    const host = process.env.VITE_CLICKHOUSE_HOST || process.env.CLICKHOUSE_HOST || 'http://localhost:8123';
+    const database = process.env.VITE_CLICKHOUSE_DATABASE || process.env.CLICKHOUSE_DATABASE || 'default';
+
+    console.log(\`\${colors.dim}Connecting to ClickHouse at \${colors.reset}\${colors.bright}\${host}\${colors.reset}\`);
+    console.log(\`\${colors.dim}Database: \${colors.reset}\${colors.bright}\${database}\${colors.reset}\`);
 
     // Initialize connection from env vars
     ClickHouseConnection.initialize({
       host,
-      username: process.env.CLICKHOUSE_USER || 'default',
-      password: process.env.CLICKHOUSE_PASSWORD || '',
+      username: process.env.VITE_CLICKHOUSE_USER || process.env.CLICKHOUSE_USER || 'default',
+      password: process.env.VITE_CLICKHOUSE_PASSWORD || process.env.CLICKHOUSE_PASSWORD,
       database,
     });
+
+    console.log(\`\${colors.dim}Generating TypeScript definitions...\${colors.reset}\`);
 
     // Ensure directory exists
     const dir = path.dirname(path.resolve(outputPath));
@@ -240,62 +163,157 @@ async function main() {
     // Generate types
     await generateTypes(outputPath);
 
-    console.log(\`Success! Types generated at \${path.resolve(outputPath)}\`);
+    console.log(\`\${colors.green}✓ Success! \${colors.reset}Types generated at \${colors.bright}\${path.resolve(outputPath)}\${colors.reset}\`);
+    console.log(\`
+\${colors.dim}To use these types in your project:\${colors.reset}
+
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { IntrospectedSchema } from '\${outputPath.replace(/\\.ts$/, '')}';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+\`);
   } catch (error) {
-    console.error(\`Error generating types: \${error.message}\`);
+    console.error(\`\${colors.red}✗ Error generating types: \${colors.reset}\${error.message}\`);
+
+    // Provide more helpful error messages for common issues
+    if (error.message && error.message.includes('ECONNREFUSED')) {
+      console.error(\`
+\${colors.yellow}Connection refused.\${colors.reset} Please check:
+- Is ClickHouse running at \${process.env.CLICKHOUSE_HOST || 'http://localhost:8123'}?
+- Do you need to provide authentication credentials?
+- Are there any network/firewall restrictions?
+\`);
+    } else if (error.message && error.message.includes('Authentication failed')) {
+      console.error(\`
+\${colors.yellow}Authentication failed.\${colors.reset} Please check:
+- Are your CLICKHOUSE_USER and CLICKHOUSE_PASSWORD environment variables set correctly?
+- Does the user have sufficient permissions?
+\`);
+    } else if (error.message && error.message.includes('database does not exist')) {
+      console.error(\`
+\${colors.yellow}Database not found.\${colors.reset} Please check:
+- Is the CLICKHOUSE_DATABASE environment variable set correctly?
+- Does the database exist in your ClickHouse instance?
+\`);
+    }
+
+    console.error(\`\${colors.dim}For more information, use --help flag.\${colors.reset}\`);
     process.exit(1);
   }
 }
 
 // Execute the main function
-main();`
-  },
-  {
-    name: 'generate-types.js',
-    content: `import { ClickHouseConnection } from '../core/connection.js';
+main();`;
+
+// Preference for bin.js:
+// 1. Use source file if it exists (highest fidelity)
+// 2. Create from template if source doesn't exist
+
+if (fs.existsSync(path.join(srcCliDir, 'bin.js'))) {
+  console.log('Processing file: bin.js');
+  console.log(`- Source path: ${path.join(srcCliDir, 'bin.js')} (EXISTS)`);
+  console.log(`- Destination path: ${binJsPath} (${binExists ? 'EXISTS' : 'MISSING'})`);
+
+  console.log('- Copying bin.js from source...');
+  try {
+    fs.copyFileSync(path.join(srcCliDir, 'bin.js'), binJsPath);
+    console.log(`  ✓ Successfully copied from source`);
+  } catch (error) {
+    console.error(`  ❌ Error copying bin.js: ${error.message}`);
+    console.log('  Falling back to template...');
+
+    try {
+      fs.writeFileSync(binJsPath, binJsContent, { mode: 0o755 });
+      console.log(`  ✓ Successfully created from template`);
+    } catch (writeError) {
+      console.error(`  ❌ Error creating bin.js from template: ${writeError.message}`);
+      process.exit(1);
+    }
+  }
+} else {
+  console.log('bin.js not found in source, creating from template...');
+  try {
+    fs.writeFileSync(binJsPath, binJsContent, { mode: 0o755 });
+    console.log(`✓ Successfully created bin.js from template`);
+  } catch (error) {
+    console.error(`❌ Error creating bin.js: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+// Verification: check file exists
+console.log(`- Verification: File ${fs.existsSync(binJsPath) ? 'EXISTS' : 'MISSING'}, Size: ${fs.existsSync(binJsPath) ? fs.statSync(binJsPath).size : 0} bytes`);
+
+// Make bin.js executable
+console.log('- Making bin.js executable...');
+if (process.platform !== 'win32') {
+  try {
+    fs.chmodSync(binJsPath, 0o755);
+    console.log(`  ✓ Successfully made executable`);
+  } catch (error) {
+    console.error(`  ❌ Error making bin.js executable: ${error.message}`);
+    try {
+      execSync(`chmod +x "${binJsPath}"`, { stdio: 'inherit' });
+      console.log(`  ✓ Successfully made executable via chmod command`);
+    } catch (cmdError) {
+      console.error(`  ❌ Error making executable via chmod: ${cmdError.message}`);
+    }
+  }
+
+  // Verify permissions
+  try {
+    const permissions = fs.statSync(binJsPath).mode.toString(8);
+    console.log(`  - Current permissions: ${permissions}`);
+  } catch (error) {
+    console.error(`  ❌ Error checking permissions: ${error.message}`);
+  }
+}
+
+// Process generate-types.js
+console.log('\nProcessing file: generate-types.js');
+const generateTypesPath = path.join(distCliDir, 'generate-types.js');
+const generateTypesExists = fs.existsSync(generateTypesPath);
+
+console.log(`- Source path: ${path.join(srcCliDir, 'generate-types.js')} (${fs.existsSync(path.join(srcCliDir, 'generate-types.js')) ? 'EXISTS' : 'MISSING'})`);
+console.log(`- Destination path: ${generateTypesPath} (${generateTypesExists ? 'EXISTS' : 'MISSING'})`);
+
+if (fs.existsSync(path.join(srcCliDir, 'generate-types.js'))) {
+  console.log('- Copying generate-types.js from source...');
+  try {
+    fs.copyFileSync(path.join(srcCliDir, 'generate-types.js'), generateTypesPath);
+    console.log(`  ✓ Successfully copied from source`);
+  } catch (error) {
+    console.error(`  ❌ Error copying generate-types.js: ${error.message}`);
+  }
+} else {
+  console.error('❌ generate-types.js not found in source! This is a required file.');
+
+  // Minimal generate-types.js fallback
+  const minimalGenerateTypes = `import { ClickHouseConnection } from '../core/connection.js';
 import fs from 'fs/promises';
 import path from 'path';
-import dotenv from 'dotenv';
-
-// Load environment variables from the current directory
-dotenv.config();
 
 /**
- * Generates TypeScript type definitions from the ClickHouse database schema
- * @param {string} outputPath - The file path where the type definitions will be written
- * @returns {Promise<void>}
+ * Minimal implementation of generateTypes
  */
 export async function generateTypes(outputPath) {
   const client = ClickHouseConnection.getClient();
-
-  // Get all tables
-  const tablesQuery = await client.query({
-    query: 'SHOW TABLES',
-    format: 'JSONEachRow'
-  });
-  const tables = await tablesQuery.json();
-
-  let typeDefinitions = \`// Generated by @hypequery/clickhouse
-import { ColumnType } from '@hypequery/clickhouse';
-
-export interface IntrospectedSchema {\`;
-
-  // Get columns for each table
-  for (const table of tables) {
-    const columnsQuery = await client.query({
-      query: \`DESCRIBE \${table.name}\`,
-      format: 'JSONEachRow'
-    });
-    const columns = await columnsQuery.json();
-
-    typeDefinitions += \`\\n  \${table.name}: {\`;
-    for (const column of columns) {
-      typeDefinitions += \`\\n    \${column.name}: 'String';\`;
-    }
-    typeDefinitions += '\\n  };';
-  }
-
-  typeDefinitions += '\\n}\\n';
+  
+  // Create a minimal type definition
+  const typeDefinitions = \`// Generated by @hypequery/clickhouse
+export interface IntrospectedSchema {
+  // This is a placeholder. Actual schema introspection failed.
+  // Please ensure your ClickHouse connection is properly configured.
+  [tableName: string]: {
+    [columnName: string]: string;
+  };
+}
+\`;
 
   // Ensure the output directory exists
   const outputDir = path.dirname(path.resolve(outputPath));
@@ -303,299 +321,160 @@ export interface IntrospectedSchema {\`;
 
   // Write the file
   await fs.writeFile(path.resolve(outputPath), typeDefinitions);
-}`
-  },
-  {
-    name: 'index.js',
-    content: `// CLI module exports
-export { generateTypes } from './generate-types.js';`
+}`;
+
+  try {
+    fs.writeFileSync(generateTypesPath, minimalGenerateTypes);
+    console.log(`✓ Successfully created minimal generate-types.js (${minimalGenerateTypes.length} bytes)`);
+  } catch (error) {
+    console.error(`❌ Error creating minimal generate-types.js: ${error.message}`);
+    process.exit(1);
   }
-];
+}
 
-// Check for and copy or create essential CLI files
-console.log('\nProcessing essential CLI files:');
-for (const file of essentialCliFiles) {
-  const srcPath = path.join(srcCliDir, file.name);
-  const destPath = path.join(distCliDir, file.name);
+// Process index.js
+console.log('\nProcessing file: index.js');
+const cliIndexPath = path.join(distCliDir, 'index.js');
 
-  console.log(`\nProcessing file: ${file.name}`);
-  console.log(`- Source path: ${srcPath} (${fs.existsSync(srcPath) ? 'EXISTS' : 'MISSING'})`);
-  console.log(`- Destination path: ${destPath} (${fs.existsSync(destPath) ? 'EXISTS' : 'MISSING'})`);
+console.log(`- Source path: ${path.join(srcCliDir, 'index.js')} (${fs.existsSync(path.join(srcCliDir, 'index.js')) ? 'EXISTS' : 'MISSING'})`);
+console.log(`- Destination path: ${cliIndexPath} (${fs.existsSync(cliIndexPath) ? 'EXISTS' : 'MISSING'})`);
 
-  let fileCreated = false;
-  let fileError = null;
-
-  if (fs.existsSync(srcPath)) {
-    console.log(`- Copying ${file.name} from source...`);
-    try {
-      fs.copyFileSync(srcPath, destPath);
-      fileCreated = true;
-      console.log(`  ✓ Successfully copied from source`);
-    } catch (error) {
-      fileError = error;
-      console.error(`  ❌ Error copying from source: ${error.message}`);
-    }
-  } else if (!fs.existsSync(destPath)) {
-    console.log(`- Creating ${file.name} in dist...`);
-    try {
-      fs.writeFileSync(destPath, file.content);
-      fileCreated = true;
-      console.log(`  ✓ Successfully created in dist`);
-    } catch (error) {
-      fileError = error;
-      console.error(`  ❌ Error creating file: ${error.message}`);
-    }
-  } else {
-    console.log(`- File ${file.name} already exists in dist.`);
-    fileCreated = true;
+if (fs.existsSync(path.join(srcCliDir, 'index.js'))) {
+  console.log('- Copying index.js from source...');
+  try {
+    fs.copyFileSync(path.join(srcCliDir, 'index.js'), cliIndexPath);
+    console.log(`  ✓ Successfully copied from source`);
+  } catch (error) {
+    console.error(`  ❌ Error copying index.js: ${error.message}`);
   }
+} else {
+  console.log('index.js not found in source, creating basic version...');
 
-  // Double-check file exists and has content
-  if (fileCreated) {
-    try {
-      const exists = fs.existsSync(destPath);
-      const stats = exists ? fs.statSync(destPath) : null;
-      const fileSize = stats ? stats.size : 0;
+  const cliIndexContent = `export { generateTypes } from './generate-types.js';`;
 
-      console.log(`- Verification: File ${exists ? 'EXISTS' : 'MISSING'}, Size: ${fileSize} bytes`);
-
-      if (exists && fileSize === 0) {
-        console.error(`  ⚠️ Warning: File exists but is empty!`);
-      }
-    } catch (error) {
-      console.error(`  ❌ Error verifying file: ${error.message}`);
-    }
+  try {
+    fs.writeFileSync(cliIndexPath, cliIndexContent);
+    console.log(`✓ Successfully created CLI index.js (${cliIndexContent.length} bytes)`);
+  } catch (error) {
+    console.error(`❌ Error creating CLI index.js: ${error.message}`);
   }
+}
 
-  // Make bin.js executable
-  if (file.name === 'bin.js' && fileCreated) {
+// Copy any additional TypeScript definition files
+console.log('\nCopying additional files from source:');
+const additionalFiles = ['generate-types.d.ts', 'index.d.ts'];
+
+for (const file of additionalFiles) {
+  const sourcePath = path.join(srcCliDir, file);
+  const destPath = path.join(distCliDir, file);
+
+  if (fs.existsSync(sourcePath)) {
+    console.log(`- Copying additional file: ${file}`);
     try {
-      console.log('- Making bin.js executable...');
-      fs.chmodSync(destPath, '755');
-      console.log('  ✓ Successfully made executable');
-
-      // Double check permissions
-      const stats = fs.statSync(destPath);
-      const permissions = stats.mode.toString(8).slice(-3);
-      console.log(`  - Current permissions: ${permissions}`);
+      fs.copyFileSync(sourcePath, destPath);
+      console.log(`  ✓ Successfully copied`);
     } catch (error) {
-      console.warn(`  ⚠️ Could not make bin.js executable: ${error.message}`);
-
-      // Try alternative method on Unix systems
-      try {
-        console.log('  - Trying alternative chmod method...');
-        execSync(`chmod +x "${destPath}"`);
-
-        const stats = fs.statSync(destPath);
-        const permissions = stats.mode.toString(8).slice(-3);
-        console.log(`  - New permissions: ${permissions}`);
-      } catch (chmodError) {
-        console.error(`  ❌ Alternative chmod also failed: ${chmodError.message}`);
-      }
-    }
-  }
-
-  // If there was an error and the file was not created, create it one more time as a fallback
-  if (fileError && !fileCreated && file.name === 'bin.js') {
-    console.log('- 🛠️ FALLBACK: Attempting one more time with direct write for bin.js...');
-    try {
-      // Create parent directory if needed
-      if (!fs.existsSync(distCliDir)) {
-        fs.mkdirSync(distCliDir, { recursive: true });
-      }
-
-      // Write file content directly
-      fs.writeFileSync(destPath, file.content, { mode: 0o755 });
-
-      // Verify file
-      const exists = fs.existsSync(destPath);
-      const stats = exists ? fs.statSync(destPath) : null;
-      const fileSize = stats ? stats.size : 0;
-
-      console.log(`  - Fallback result: File ${exists ? 'EXISTS' : 'MISSING'}, Size: ${fileSize} bytes`);
-    } catch (fallbackError) {
-      console.error(`  ❌ Fallback creation also failed: ${fallbackError.message}`);
+      console.error(`  ❌ Error copying ${file}: ${error.message}`);
     }
   }
 }
 
-// Copy any other JS and declaration files
-if (fs.existsSync(srcCliDir)) {
-  console.log('\nCopying additional files from source:');
-  const cliFiles = fs.readdirSync(srcCliDir);
-  for (const file of cliFiles) {
-    if ((file.endsWith('.js') || file.endsWith('.d.ts')) &&
-      !essentialCliFiles.some(f => f.name === file)) {
-      const srcPath = path.join(srcCliDir, file);
-      const destPath = path.join(distCliDir, file);
-
-      console.log(`- Copying additional file: ${file}`);
-      try {
-        fs.copyFileSync(srcPath, destPath);
-        console.log(`  ✓ Successfully copied`);
-      } catch (error) {
-        console.error(`  ❌ Error copying: ${error.message}`);
-      }
-    }
-  }
-}
-
-// Ensure main index.js exists and has the correct exports
-const mainIndexPath = path.join(distDir, 'index.js');
-let mainIndexContent = '';
-
+// Ensure the main index.js has CLI exports
 console.log('\nChecking main index.js for CLI exports:');
-console.log(`- Path: ${mainIndexPath} (${fs.existsSync(mainIndexPath) ? 'EXISTS' : 'MISSING'})`);
+const mainIndexPath = path.join(distDir, 'index.js');
 
 if (fs.existsSync(mainIndexPath)) {
+  console.log(`- Path: ${mainIndexPath} (EXISTS)`);
+
   try {
-    mainIndexContent = fs.readFileSync(mainIndexPath, 'utf-8');
-    console.log(`- Current index.js size: ${mainIndexContent.length} bytes`);
-    console.log(`- First 100 chars: ${mainIndexContent.substring(0, 100).replace(/\n/g, '\\n')}...`);
+    const indexContent = fs.readFileSync(mainIndexPath, 'utf8');
+    console.log(`- Current index.js size: ${indexContent.length} bytes`);
+    console.log(`- First 100 chars: ${indexContent.substring(0, 100)}...`);
 
-    if (mainIndexContent.includes("export { generateTypes } from './cli/generate-types.js'")) {
-      console.log('✓ CLI exports found in main index.js');
-    } else {
-      console.log('- Adding CLI exports to main index.js...');
+    // Add CLI exports if needed
+    if (!indexContent.includes('cli/generate-types')) {
+      console.log('- Adding CLI exports to index.js...');
 
-      // Add a newline before adding exports if the file isn't empty
-      if (mainIndexContent.length > 0 && !mainIndexContent.endsWith('\n')) {
-        mainIndexContent += '\n';
+      // Try to find a good insertion point - after last export
+      let newContent;
+      if (indexContent.trim().endsWith(';')) {
+        newContent = `${indexContent}\n\n// CLI exports\nexport { generateTypes } from './cli/generate-types.js';\n`;
+      } else {
+        newContent = `${indexContent.trim()}\n\n// CLI exports\nexport { generateTypes } from './cli/generate-types.js';\n`;
       }
 
-      mainIndexContent += "\n// CLI exports\nexport { generateTypes } from './cli/generate-types.js';\n";
-      fs.writeFileSync(mainIndexPath, mainIndexContent);
-      console.log('✓ CLI exports added to main index.js');
+      fs.writeFileSync(mainIndexPath, newContent);
+      console.log('✓ Added CLI exports to main index.js');
+    } else {
+      console.log('✓ CLI exports found in main index.js');
     }
   } catch (error) {
     console.error(`❌ Error processing main index.js: ${error.message}`);
   }
 } else {
-  console.warn('⚠️ Warning: Main index.js does not exist! Creating minimal version...');
-  mainIndexContent = `// Minimal index.js created by CLI build script
+  console.warn(`⚠️ Main index.js not found at ${mainIndexPath}, creating it...`);
+
+  const mainIndexContent = `// Main entry point
 export { ClickHouseConnection } from './core/connection.js';
 
 // CLI exports
 export { generateTypes } from './cli/generate-types.js';
 `;
+
   try {
     fs.writeFileSync(mainIndexPath, mainIndexContent);
-    console.log('✓ Created minimal main index.js with CLI exports');
+    console.log(`✓ Created main index.js with CLI exports`);
   } catch (error) {
-    console.error(`❌ Error creating minimal index.js: ${error.message}`);
+    console.error(`❌ Error creating main index.js: ${error.message}`);
   }
 }
 
-// Verify required files exist
+// Final verification
 console.log('\nVerifying required files:');
 const requiredFiles = [
-  'dist/cli/bin.js',
-  'dist/cli/generate-types.js',
-  'dist/cli/index.js',
-  'dist/index.js'
+  { path: path.join(distCliDir, 'bin.js'), description: 'CLI binary' },
+  { path: path.join(distCliDir, 'generate-types.js'), description: 'Type generator' },
+  { path: path.join(distCliDir, 'index.js'), description: 'CLI index' },
+  { path: path.join(distDir, 'index.js'), description: 'Main package index' }
 ];
 
-let allFilesExist = true;
 for (const file of requiredFiles) {
-  const filePath = path.join(rootDir, file);
-  try {
-    const exists = fs.existsSync(filePath);
-    if (exists) {
-      const stats = fs.statSync(filePath);
-      console.log(`✓ Found: ${file} (${stats.size} bytes)`);
+  if (fs.existsSync(file.path)) {
+    const stats = fs.statSync(file.path);
+    console.log(`✓ Found: ${path.relative(rootDir, file.path)} (${stats.size} bytes)`);
 
-      // For bin.js, check if it's executable
-      if (file === 'dist/cli/bin.js') {
-        const permissions = stats.mode.toString(8).slice(-3);
-        console.log(`  - Permissions: ${permissions}`);
-
-        // Check content of bin.js
-        try {
-          const content = fs.readFileSync(filePath, 'utf8');
-          console.log(`  - First line: ${content.split('\n')[0]}`);
-          console.log(`  - Content length: ${content.length} bytes`);
-        } catch (readError) {
-          console.error(`  ❌ Error reading bin.js content: ${readError.message}`);
-        }
-      }
-    } else {
-      console.error(`✗ Missing: ${file}`);
-      allFilesExist = false;
-
-      // Additional diagnostics for missing bin.js
-      if (file === 'dist/cli/bin.js') {
-        console.log(`  - Checking parent directory (${path.dirname(filePath)}):`);
-        try {
-          if (fs.existsSync(path.dirname(filePath))) {
-            const dirContents = fs.readdirSync(path.dirname(filePath));
-            console.log(`  - Directory contents: ${dirContents.join(', ') || '(empty)'}`);
-          } else {
-            console.log(`  - Parent directory does not exist!`);
-          }
-        } catch (dirError) {
-          console.error(`  ❌ Error checking parent directory: ${dirError.message}`);
-        }
-      }
-    }
-  } catch (error) {
-    console.error(`❌ Error checking ${file}: ${error.message}`);
-    allFilesExist = false;
-  }
-}
-
-// List all files in dist/cli
-console.log('\nFinal contents of dist/cli directory:');
-try {
-  if (fs.existsSync(distCliDir)) {
-    const cliDirContents = fs.readdirSync(distCliDir);
-    if (cliDirContents.length === 0) {
-      console.log('(empty)');
-    } else {
-      cliDirContents.forEach(file => {
-        const filePath = path.join(distCliDir, file);
-        const stats = fs.statSync(filePath);
-        console.log(` - ${file} (${stats.size} bytes)`);
-      });
+    // Additional checks for bin.js
+    if (file.path.endsWith('bin.js')) {
+      const content = fs.readFileSync(file.path, 'utf8');
+      const firstLine = content.split('\n')[0];
+      console.log(`  - First line: "${firstLine}"`);
+      console.log(`  - Content length: ${content.length} bytes`);
     }
   } else {
-    console.error(`❌ dist/cli directory does not exist at the end of processing!`);
+    console.error(`❌ Missing required file: ${path.relative(rootDir, file.path)} (${file.description})`);
+    process.exit(1);
   }
-} catch (error) {
-  console.error(`❌ Error reading dist/cli directory: ${error.message}`);
 }
+
+// List final directory contents
+console.log('\nFinal contents of dist/cli directory:');
+function listFilesInDir(directory, prefix = '') {
+  const files = fs.readdirSync(directory);
+
+  for (const file of files) {
+    const fullPath = path.join(directory, file);
+    const stats = fs.statSync(fullPath);
+
+    if (stats.isDirectory()) {
+      console.log(`${prefix} - ${file}/`);
+      listFilesInDir(fullPath, `${prefix}  `);
+    } else {
+      console.log(`${prefix} - ${file} (${stats.size} bytes)`);
+    }
+  }
+}
+
+listFilesInDir(distCliDir);
 
 console.log('\n====================== END OF DIAGNOSTIC ======================');
-
-if (!allFilesExist) {
-  console.error('\n❌ Some required files are missing! Build will fail.');
-  process.exit(1);
-}
-
-console.log('\n✅ CLI files handled successfully!');
-
-function listFilesInDir(directory, prefix = '') {
-  try {
-    if (!fs.existsSync(directory)) {
-      return [`${prefix}Directory does not exist: ${directory}`];
-    }
-
-    const files = fs.readdirSync(directory);
-    let result = [];
-
-    for (const file of files) {
-      const fullPath = path.join(directory, file);
-      const stats = fs.statSync(fullPath);
-
-      if (stats.isDirectory()) {
-        result.push(`${prefix}${file}/ (dir)`);
-        result = result.concat(listFilesInDir(fullPath, `${prefix}  `));
-      } else {
-        result.push(`${prefix}${file} (${stats.size} bytes)`);
-      }
-    }
-
-    return result;
-  } catch (error) {
-    return [`${prefix}Error listing directory: ${error.message}`];
-  }
-} 
+console.log('\n✅ CLI files handled successfully!'); 
