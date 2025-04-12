@@ -12,7 +12,11 @@
     "dev": "turbo run dev",
     "test": "turbo run test",
     "lint": "turbo run lint",
-    "start": "turbo run dev"
+    "start": "turbo run dev",
+    "docs:api": "cd packages/clickhouse && npm run docs:api",
+    "docs:mdx": "cd packages/clickhouse && npm run docs:mdx",
+    "fix:mdx": "node packages/clickhouse/scripts/fix-mdx-frontmatter.js",
+    "build:website": "npm run docs:mdx && npm run fix:mdx && cd website && npm run build"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.0.0",

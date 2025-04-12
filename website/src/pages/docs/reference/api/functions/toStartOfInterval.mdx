@@ -1,0 +1,39 @@
+---
+layout: ../../../../../layouts/DocsLayout.astro
+title: Function - toStartOfInterval()
+description: API documentation for HypeQuery ClickHouse library
+---
+
+toStartOfInterval
+
+# Function: toStartOfInterval()
+
+**toStartOfInterval**(`field`, `interval`, `alias`?): [`SqlExpression`](/docs/reference/api/../interfaces/SqlExpression) \| [`AliasedExpression`](/docs/reference/api/../interfaces/AliasedExpression)
+
+Truncates a date/time value to the start of the specified interval
+
+## Parameters
+
+### field
+
+`string`
+
+The field to truncate
+
+### interval
+
+`string`
+
+The interval (e.g., '1 day', '15 minute')
+
+### alias?
+
+`string`
+
+Optional alias for the result
+
+## Returns
+
+[`SqlExpression`](/docs/reference/api/../interfaces/SqlExpression) \| [`AliasedExpression`](/docs/reference/api/../interfaces/AliasedExpression)
+
+SQL expression or aliased expression

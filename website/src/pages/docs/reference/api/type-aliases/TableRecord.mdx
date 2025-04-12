@@ -1,0 +1,17 @@
+---
+layout: ../../../../../layouts/DocsLayout.astro
+title: Type Alias - TableRecord\<T\>
+description: API documentation for HypeQuery ClickHouse library
+---
+
+TableRecord
+
+# Type Alias: TableRecord\<T\>
+
+**TableRecord**\<`T`\> = `{ [K in keyof T]: T[K] extends ColumnType ? InferColumnType<T[K]> : never }`
+
+## Type Parameters
+
+### T
+
+`T`

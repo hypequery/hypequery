@@ -1,0 +1,82 @@
+---
+layout: ../../../../../layouts/DocsLayout.astro
+title: Interface - QueryConfig\<T, Schema\>
+description: API documentation for HypeQuery ClickHouse library
+---
+
+QueryConfig
+
+# Interface: QueryConfig\<T, Schema\>
+
+## Type Parameters
+
+### T
+
+`T`
+
+### Schema
+
+`Schema`
+
+## Properties
+
+### ctes?
+
+`optional` **ctes**: `string`[]
+
+### distinct?
+
+`optional` **distinct**: `boolean`
+
+### groupBy?
+
+`optional` **groupBy**: `string`[]
+
+### having?
+
+`optional` **having**: `string`[]
+
+### joins?
+
+`optional` **joins**: `JoinClause`[]
+
+### limit?
+
+`optional` **limit**: `number`
+
+### offset?
+
+`optional` **offset**: `number`
+
+### orderBy?
+
+`optional` **orderBy**: `object`[]
+
+#### column
+
+**column**: keyof `T` \| `TableColumn`\<`Schema`\>
+
+#### direction
+
+**direction**: `OrderDirection`
+
+### parameters?
+
+`optional` **parameters**: `any`[]
+
+### select?
+
+`optional` **select**: (`string` \| keyof `T`)[]
+
+### settings?
+
+`optional` **settings**: `string`
+
+### unionQueries?
+
+`optional` **unionQueries**: `string`[]
+
+### where?
+
+`optional` **where**: `WhereCondition`[]
+

@@ -1,0 +1,1614 @@
+---
+import Layout from "../../layouts/LandingLayout.astro";
+import Button from "../../components/Button.astro";
+import Icons from "../../components/Icons.astro";
+import Card from "../../components/Card.astro";
+import Cards from "../../components/Cards.astro";
+---
+
+<Layout
+  title="HypeQuery Platform"
+  description="Build dashboards, create queries, and visualize data without writing a single line of code."
+>
+  <!-- Hero Section -->
+  <section
+    class="relative py-20 overflow-hidden bg-gradient-to-b from-indigo-50 to-white"
+  >
+    <div class="container mx-auto px-4 my-20">
+      <div class="max-w-4xl mx-auto text-center">
+        <h1
+          class="text-4xl md:text-5xl font-bold text-gray-900 mb-6 animate-on-scroll"
+        >
+          Unlock Insights with No-Code Data Analytics
+        </h1>
+        <p class="text-lg md:text-xl text-gray-600 mb-8 animate-on-scroll">
+          Build dashboards, create queries, and visualize data without writing a
+          single line of code.
+        </p>
+        <div class="animate-on-scroll">
+          <Button
+            size="lg"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            Join the waitlist
+          </Button>
+        </div>
+
+        <!-- Hero visual -->
+        <div class="mt-12 relative rounded-xl shadow-2xl animate-on-scroll">
+          <!-- Placeholder for dashboard animation/screenshot -->
+          <div
+            class="relative aspect-[16/9] bg-white rounded-xl overflow-hidden border border-gray-200"
+          >
+            <div
+              class="absolute inset-0 flex items-center justify-center bg-gray-100"
+            >
+              <span class="text-gray-400 flex items-center gap-2">
+                <Icons name="dashboard" class="w-6 h-6" />
+                Dashboard Animation Placeholder
+              </span>
+            </div>
+            <!-- You'll replace this with your actual dashboard image or animation -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Background decorative shapes -->
+    <div
+      class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none"
+    >
+      <div
+        class="absolute top-1/4 right-[5%] w-64 h-64 bg-indigo-100 rounded-full mix-blend-multiply opacity-70 animate-blob"
+      >
+      </div>
+      <div
+        class="absolute top-1/3 left-[10%] w-72 h-72 bg-blue-100 rounded-full mix-blend-multiply opacity-70 animate-blob animation-delay-2000"
+      >
+      </div>
+      <div
+        class="absolute bottom-1/4 right-[20%] w-48 h-48 bg-purple-100 rounded-full mix-blend-multiply opacity-70 animate-blob animation-delay-4000"
+      >
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="py-20">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 animate-on-scroll"
+        >
+          Powerful Features, No Code Required
+        </h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto animate-on-scroll">
+          Our visual query builder makes data analysis accessible to everyone,
+          regardless of technical expertise.
+        </p>
+      </div>
+
+      <!-- Redesigned features section with 2-column layout for better screenshots -->
+      <div class="space-y-24">
+        <!-- Feature 1: No-Code Query Building -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <div class="order-2 md:order-1 animate-on-scroll">
+            <div class="mb-6">
+              <div
+                class="w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center mb-4"
+              >
+                <Icons name="drag" class="w-7 h-7 text-indigo-600" />
+              </div>
+              <h3 class="text-2xl font-semibold mb-3">
+                No-Code Query Building
+              </h3>
+              <p class="text-gray-600 text-lg">
+                Create complex queries with a simple drag-and-drop interface.
+                Connect tables, apply filters, and aggregate data - all without
+                writing a single line of SQL.
+              </p>
+            </div>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Intuitive visual interface</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Real-time validation and preview</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Advanced filtering capabilities</span>
+              </li>
+            </ul>
+          </div>
+          <div class="order-1 md:order-2 animate-on-scroll">
+            <div
+              class="rounded-xl overflow-hidden border border-gray-200 shadow-lg"
+            >
+              <div
+                class="aspect-[16/10] bg-white flex items-center justify-center relative p-2"
+              >
+                <!-- Replace with actual screenshot -->
+                <div
+                  class="absolute inset-0 bg-gray-100 flex items-center justify-center"
+                >
+                  <span class="text-gray-400 flex items-center gap-2">
+                    <Icons name="drag" class="w-6 h-6" />
+                    Query Builder Screenshot
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 2: Advanced Visualizations -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <div class="animate-on-scroll">
+            <div
+              class="rounded-xl overflow-hidden border border-gray-200 shadow-lg"
+            >
+              <div
+                class="aspect-[16/10] bg-white flex items-center justify-center relative p-2"
+              >
+                <!-- Replace with actual screenshot -->
+                <div
+                  class="absolute inset-0 bg-gray-100 flex items-center justify-center"
+                >
+                  <span class="text-gray-400 flex items-center gap-2">
+                    <Icons name="chart" class="w-6 h-6" />
+                    Visualization Example
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="animate-on-scroll">
+            <div class="mb-6">
+              <div
+                class="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-4"
+              >
+                <Icons name="chart" class="w-7 h-7 text-blue-600" />
+              </div>
+              <h3 class="text-2xl font-semibold mb-3">
+                Advanced Visualizations
+              </h3>
+              <p class="text-gray-600 text-lg">
+                Transform raw data into stunning, interactive visualizations
+                that tell a story. Choose from a variety of chart types and
+                customize every aspect.
+              </p>
+            </div>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-blue-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Multiple chart types and visualizations</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-blue-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Interactive drill-down capabilities</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-blue-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Customizable colors and styling</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Feature 3: Dashboarding -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <div class="order-2 md:order-1 animate-on-scroll">
+            <div class="mb-6">
+              <div
+                class="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mb-4"
+              >
+                <Icons name="dashboard" class="w-7 h-7 text-purple-600" />
+              </div>
+              <h3 class="text-2xl font-semibold mb-3">
+                Interactive Dashboards
+              </h3>
+              <p class="text-gray-600 text-lg">
+                Build custom dashboards that combine multiple visualizations and
+                data sources. Create a complete story with your data that
+                updates in real-time.
+              </p>
+            </div>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-purple-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Drag-and-drop dashboard builder</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-purple-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Cross-filtering between visualizations</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-purple-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Scheduled refresh and data alerts</span>
+              </li>
+            </ul>
+          </div>
+          <div class="order-1 md:order-2 animate-on-scroll">
+            <div
+              class="rounded-xl overflow-hidden border border-gray-200 shadow-lg"
+            >
+              <div
+                class="aspect-[16/10] bg-white flex items-center justify-center relative p-2"
+              >
+                <!-- Replace with actual screenshot -->
+                <div
+                  class="absolute inset-0 bg-gray-100 flex items-center justify-center"
+                >
+                  <span class="text-gray-400 flex items-center gap-2">
+                    <Icons name="dashboard" class="w-6 h-6" />
+                    Dashboard Example
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 4: Collaboration -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <div class="animate-on-scroll">
+            <div
+              class="rounded-xl overflow-hidden border border-gray-200 shadow-lg"
+            >
+              <div
+                class="aspect-[16/10] bg-white flex items-center justify-center relative p-2"
+              >
+                <!-- Replace with actual screenshot -->
+                <div
+                  class="absolute inset-0 bg-gray-100 flex items-center justify-center"
+                >
+                  <span class="text-gray-400 flex items-center gap-2">
+                    <Icons name="share" class="w-6 h-6" />
+                    Collaboration Example
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="animate-on-scroll">
+            <div class="mb-6">
+              <div
+                class="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-4"
+              >
+                <Icons name="share" class="w-7 h-7 text-green-600" />
+              </div>
+              <h3 class="text-2xl font-semibold mb-3">Team Collaboration</h3>
+              <p class="text-gray-600 text-lg">
+                Share dashboards and insights with your team in real-time. Work
+                together on data projects and create a single source of truth
+                for your organization.
+              </p>
+            </div>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-green-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Real-time collaborative editing</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-green-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Commenting and annotation tools</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-green-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Granular access controls and permissions</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Use Cases Section -->
+  <section class="py-20 bg-gray-50">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 animate-on-scroll"
+        >
+          Used By Teams of All Types
+        </h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto animate-on-scroll">
+          From startups to enterprises, our visual query builder helps teams of
+          all sizes unlock the power of their data.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Use Case 1: For Businesses -->
+        <div class="bg-white rounded-xl shadow-md p-8 h-full animate-on-scroll">
+          <div
+            class="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-6"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-8 h-8 text-indigo-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3">For Businesses</h3>
+          <p class="text-gray-600">
+            Monitor KPIs, track performance, and make data-driven decisions.
+          </p>
+
+          <ul class="mt-4 space-y-2">
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Analyze key business metrics in real-time</span>
+            </li>
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Generate executive-level reports</span>
+            </li>
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Identify trends and opportunities</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Use Case 2: For Teams -->
+        <div class="bg-white rounded-xl shadow-md p-8 h-full animate-on-scroll">
+          <div
+            class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-6"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-8 h-8 text-blue-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3">For Teams</h3>
+          <p class="text-gray-600">
+            Collaborate on data projects and share insights effortlessly.
+          </p>
+
+          <ul class="mt-4 space-y-2">
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-blue-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Share dashboards with your team</span>
+            </li>
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-blue-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Add comments and annotations</span>
+            </li>
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-blue-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Work together in real-time</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Use Case 3: For Individuals -->
+        <div class="bg-white rounded-xl shadow-md p-8 h-full animate-on-scroll">
+          <div
+            class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-8 h-8 text-green-600"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <h3 class="text-xl font-semibold mb-3">For Individuals</h3>
+          <p class="text-gray-600">
+            Explore and visualize your personal data with ease.
+          </p>
+
+          <ul class="mt-4 space-y-2">
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-green-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>No technical skills required</span>
+            </li>
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-green-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Create beautiful visualizations</span>
+            </li>
+            <li class="flex items-start">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-green-600 mr-2 mt-0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Get up and running in minutes</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials Section -->
+  <section class="py-20">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 animate-on-scroll"
+        >
+          What Our Users Say
+        </h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto animate-on-scroll">
+          Join thousands of teams who are already using our visual query builder
+          to transform their data analytics workflow.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Testimonial 1 -->
+        <div class="bg-white rounded-xl shadow-md p-8 animate-on-scroll">
+          <div class="flex items-center mb-6">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+          </div>
+          <blockquote class="text-gray-600 italic mb-6">
+            "This platform has transformed how we analyze data! We've cut our
+            reporting time in half and discovered insights we never would have
+            found otherwise."
+          </blockquote>
+          <div class="flex items-center">
+            <div class="w-12 h-12 bg-gray-200 rounded-full mr-4">
+              <!-- User avatar placeholder -->
+            </div>
+            <div>
+              <p class="font-semibold">Sarah Johnson</p>
+              <p class="text-sm text-gray-500">Data Analyst, TechCorp</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testimonial 2 -->
+        <div class="bg-white rounded-xl shadow-md p-8 animate-on-scroll">
+          <div class="flex items-center mb-6">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+          </div>
+          <blockquote class="text-gray-600 italic mb-6">
+            "As a non-technical founder, I was struggling to make sense of our
+            data. This visual query builder changed everything - I can now
+            create insights without bothering our dev team!"
+          </blockquote>
+          <div class="flex items-center">
+            <div class="w-12 h-12 bg-gray-200 rounded-full mr-4">
+              <!-- User avatar placeholder -->
+            </div>
+            <div>
+              <p class="font-semibold">Michael Rodriguez</p>
+              <p class="text-sm text-gray-500">CEO, StartupX</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Testimonial 3 -->
+        <div class="bg-white rounded-xl shadow-md p-8 animate-on-scroll">
+          <div class="flex items-center mb-6">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
+              ></path>
+            </svg>
+          </div>
+          <blockquote class="text-gray-600 italic mb-6">
+            "The ability to create dashboards and share them with stakeholders
+            has been a game-changer. Our executive team is now making decisions
+            based on real-time data, not gut feelings."
+          </blockquote>
+          <div class="flex items-center">
+            <div class="w-12 h-12 bg-gray-200 rounded-full mr-4">
+              <!-- User avatar placeholder -->
+            </div>
+            <div>
+              <p class="font-semibold">Emily Chen</p>
+              <p class="text-sm text-gray-500">
+                Product Manager, Enterprise Inc
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Company logos -->
+      <div class="mt-16">
+        <p class="text-center text-gray-500 mb-8">
+          Trusted by innovative companies worldwide
+        </p>
+        <div class="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+          <!-- Placeholder for company logos -->
+          <div class="w-32 h-12 bg-gray-200 rounded"></div>
+          <div class="w-32 h-12 bg-gray-200 rounded"></div>
+          <div class="w-32 h-12 bg-gray-200 rounded"></div>
+          <div class="w-32 h-12 bg-gray-200 rounded"></div>
+          <div class="w-32 h-12 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section class="py-20 bg-gray-50">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 animate-on-scroll"
+        >
+          Simple, Transparent Pricing
+        </h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto animate-on-scroll">
+          Choose the plan that fits your needs. All plans include core features
+          with different usage limits.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <!-- Free Plan -->
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden animate-on-scroll"
+        >
+          <div class="p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Free</h3>
+            <div class="flex items-baseline mb-6">
+              <span class="text-4xl font-bold text-gray-900">$0</span>
+              <span class="text-gray-500 ml-1">/month</span>
+            </div>
+            <p class="text-gray-600 mb-6">
+              Basic features for individuals and small teams.
+            </p>
+            <Button class="w-full" variant="outline">Get Started</Button>
+          </div>
+          <div class="px-8 py-6 bg-gray-50">
+            <h4 class="text-sm font-semibold text-gray-900 mb-4">
+              What's included:
+            </h4>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Up to 3 dashboards</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Basic visualization types</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>1 team member</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Community support</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Pro Plan -->
+        <div
+          class="bg-white rounded-xl shadow-xl overflow-hidden transform scale-105 z-10 animate-on-scroll"
+        >
+          <div class="bg-indigo-600 py-2">
+            <p class="text-center text-white text-sm font-medium">
+              MOST POPULAR
+            </p>
+          </div>
+          <div class="p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Pro</h3>
+            <div class="flex items-baseline mb-6">
+              <span class="text-4xl font-bold text-gray-900">$49</span>
+              <span class="text-gray-500 ml-1">/month</span>
+            </div>
+            <p class="text-gray-600 mb-6">
+              Advanced features for businesses and power users.
+            </p>
+            <Button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
+              >Start Free Trial</Button
+            >
+          </div>
+          <div class="px-8 py-6 bg-gray-50">
+            <h4 class="text-sm font-semibold text-gray-900 mb-4">
+              Everything in Free, plus:
+            </h4>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Unlimited dashboards</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Advanced visualization types</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Up to 10 team members</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Priority email support</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Advanced filtering options</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Enterprise Plan -->
+        <div
+          class="bg-white rounded-xl shadow-md overflow-hidden animate-on-scroll"
+        >
+          <div class="p-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Enterprise</h3>
+            <div class="flex items-baseline mb-6">
+              <span class="text-4xl font-bold text-gray-900">Custom</span>
+            </div>
+            <p class="text-gray-600 mb-6">
+              Custom solutions for large organizations.
+            </p>
+            <Button class="w-full" variant="outline">Contact Sales</Button>
+          </div>
+          <div class="px-8 py-6 bg-gray-50">
+            <h4 class="text-sm font-semibold text-gray-900 mb-4">
+              Everything in Pro, plus:
+            </h4>
+            <ul class="space-y-3">
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Custom integrations</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Dedicated support</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Unlimited team members</span>
+              </li>
+              <li class="flex items-start">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-indigo-600 mr-2 mt-0.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>SLA & premium security</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparison table -->
+      <div
+        class="mt-16 max-w-5xl mx-auto bg-white rounded-xl shadow-md overflow-hidden animate-on-scroll"
+      >
+        <div class="p-6 border-b border-gray-200">
+          <h3 class="text-xl font-semibold text-gray-900">Compare Plans</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-gray-50">
+                <th
+                  class="py-4 px-6 text-left text-sm font-semibold text-gray-600"
+                  >Feature</th
+                >
+                <th
+                  class="py-4 px-6 text-center text-sm font-semibold text-gray-600"
+                  >Free</th
+                >
+                <th
+                  class="py-4 px-6 text-center text-sm font-semibold text-gray-600"
+                  >Pro</th
+                >
+                <th
+                  class="py-4 px-6 text-center text-sm font-semibold text-gray-600"
+                  >Enterprise</th
+                >
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <tr>
+                <td class="py-4 px-6 text-sm text-gray-700">Dashboards</td>
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Up to 3</td
+                >
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Unlimited</td
+                >
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Unlimited</td
+                >
+              </tr>
+              <tr>
+                <td class="py-4 px-6 text-sm text-gray-700">Team Members</td>
+                <td class="py-4 px-6 text-center text-sm text-gray-700">1</td>
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Up to 10</td
+                >
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Unlimited</td
+                >
+              </tr>
+              <tr>
+                <td class="py-4 px-6 text-sm text-gray-700">Visualizations</td>
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Basic</td
+                >
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Advanced</td
+                >
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Custom</td
+                >
+              </tr>
+              <tr>
+                <td class="py-4 px-6 text-sm text-gray-700">Support</td>
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Community</td
+                >
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Priority Email</td
+                >
+                <td class="py-4 px-6 text-center text-sm text-gray-700"
+                  >Dedicated Rep</td
+                >
+              </tr>
+              <tr>
+                <td class="py-4 px-6 text-sm text-gray-700"
+                  >Custom Integrations</td
+                >
+                <td class="py-4 px-6 text-center text-sm">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 text-gray-400 mx-auto"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </td>
+                <td class="py-4 px-6 text-center text-sm">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 text-gray-400 mx-auto"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </td>
+                <td class="py-4 px-6 text-center text-sm">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 text-indigo-600 mx-auto"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="py-20">
+    <div class="container mx-auto px-4">
+      <div class="text-center mb-16">
+        <h2
+          class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 animate-on-scroll"
+        >
+          Frequently Asked Questions
+        </h2>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto animate-on-scroll">
+          Find answers to common questions about our visual query builder.
+        </p>
+      </div>
+
+      <div
+        class="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden animate-on-scroll"
+      >
+        <div class="divide-y divide-gray-200">
+          <!-- FAQ Item 1 -->
+          <div class="py-6 px-6">
+            <button
+              class="flex justify-between items-center w-full text-left faq-button"
+              onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')"
+            >
+              <h3 class="text-lg font-semibold text-gray-900">
+                Do I need to know SQL to use this platform?
+              </h3>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-gray-500 transform transition-transform"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="mt-4 text-gray-600 hidden">
+              <p>
+                No, our visual query builder is designed to be completely
+                no-code. You can create complex queries using our drag-and-drop
+                interface without writing a single line of SQL.
+              </p>
+            </div>
+          </div>
+
+          <!-- FAQ Item 2 -->
+          <div class="py-6 px-6">
+            <button
+              class="flex justify-between items-center w-full text-left faq-button"
+              onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')"
+            >
+              <h3 class="text-lg font-semibold text-gray-900">
+                Can I share dashboards with my team?
+              </h3>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-gray-500 transform transition-transform"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="mt-4 text-gray-600 hidden">
+              <p>
+                Yes, you can easily share dashboards with your team members. Our
+                Pro and Enterprise plans include collaboration features that
+                allow multiple users to view and edit dashboards together.
+              </p>
+            </div>
+          </div>
+
+          <!-- FAQ Item 3 -->
+          <div class="py-6 px-6">
+            <button
+              class="flex justify-between items-center w-full text-left faq-button"
+              onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')"
+            >
+              <h3 class="text-lg font-semibold text-gray-900">
+                Is my data secure?
+              </h3>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-gray-500 transform transition-transform"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="mt-4 text-gray-600 hidden">
+              <p>
+                Absolutely. We take data security very seriously. Your data is
+                encrypted both in transit and at rest. We follow industry best
+                practices and comply with all relevant data protection
+                regulations.
+              </p>
+            </div>
+          </div>
+
+          <!-- FAQ Item 4 -->
+          <div class="py-6 px-6">
+            <button
+              class="flex justify-between items-center w-full text-left faq-button"
+              onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')"
+            >
+              <h3 class="text-lg font-semibold text-gray-900">
+                What databases do you support?
+              </h3>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-gray-500 transform transition-transform"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="mt-4 text-gray-600 hidden">
+              <p>
+                Our platform is built specifically for ClickHouse databases.
+                We've designed our visual query builder to take full advantage
+                of ClickHouse's powerful features for analytics workloads.
+              </p>
+            </div>
+          </div>
+
+          <!-- FAQ Item 5 -->
+          <div class="py-6 px-6">
+            <button
+              class="flex justify-between items-center w-full text-left faq-button"
+              onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('svg').classList.toggle('rotate-180')"
+            >
+              <h3 class="text-lg font-semibold text-gray-900">
+                How long does it take to set up?
+              </h3>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 text-gray-500 transform transition-transform"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="mt-4 text-gray-600 hidden">
+              <p>
+                You can be up and running in minutes. Simply connect to your
+                ClickHouse database, and you're ready to start building
+                dashboards. No complicated setup or configuration required.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Newsletter Section -->
+  <section class="py-20 bg-indigo-50">
+    <div class="container mx-auto px-4">
+      <div class="max-w-3xl mx-auto text-center">
+        <h2 class="text-3xl font-bold text-gray-900 mb-4 animate-on-scroll">
+          Stay Updated with the Latest Features
+        </h2>
+        <p class="text-lg text-gray-600 mb-8 animate-on-scroll">
+          Join our newsletter to get the latest updates on new features, tips,
+          and best practices.
+        </p>
+
+        <form class="max-w-lg mx-auto animate-on-scroll">
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1">
+              <label for="email" class="sr-only">Email address</label>
+              <input
+                type="email"
+                id="email"
+                required
+                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Enter your email address"
+              />
+            </div>
+            <Button
+              class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white"
+            >
+              Subscribe
+            </Button>
+          </div>
+          <p class="text-sm text-gray-500 mt-3">
+            We respect your privacy. We'll only use your email to send you
+            updates about our product.
+          </p>
+        </form>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  // Simple script to handle FAQ accordion functionality
+  document.addEventListener("DOMContentLoaded", () => {
+    const faqButtons = document.querySelectorAll(".faq-button");
+    faqButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const content = button.nextElementSibling;
+        if (content) {
+          content.classList.toggle("hidden");
+          const svg = button.querySelector("svg");
+          if (svg) {
+            svg.classList.toggle("rotate-180");
+          }
+        }
+      });
+    });
+  });
+</script>
+
+<style>
+  /* Blob animation for background elements */
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+</style>

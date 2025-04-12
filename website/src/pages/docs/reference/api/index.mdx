@@ -1,0 +1,101 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: API Reference
+description: API documentation for HypeQuery ClickHouse library
+---
+
+import { Card, Cards } from '../../../../components/ui/card';
+
+# HypeQuery ClickHouse API Reference
+
+This comprehensive API reference documents all public classes, methods, and types available in the HypeQuery ClickHouse library.
+
+## API Documentation Structure
+
+<Cards>
+  <Card title="Classes" href="/docs/reference/api/classes/ClickHouseConnection">
+    The main classes that make up the HypeQuery ClickHouse library, including ClickHouseConnection, CrossFilter, and more.
+  </Card>
+  <Card title="Functions" href="/docs/reference/api/functions/createQueryBuilder">
+    Utility functions like createQueryBuilder, datePart, formatDateTime and raw SQL helpers.
+  </Card>
+  <Card title="Interfaces" href="/docs/reference/api/interfaces/QueryConfig">
+    Type definitions for objects used throughout the library, such as QueryConfig and PaginationOptions.
+  </Card>
+  <Card title="Type Aliases" href="/docs/reference/api/type-aliases/ColumnType">
+    Type aliases that define important structures like DatabaseSchema and ColumnType.
+  </Card>
+  <Card title="Variables" href="/docs/reference/api/variables/logger">
+    Global variables and constants used in the library.
+  </Card>
+</Cards>
+
+## Key Components
+
+### Core Classes
+
+- [ClickHouseConnection](/docs/reference/api/classes/ClickHouseConnection) - The main entry point for connecting to ClickHouse
+- [CrossFilter](/docs/reference/api/classes/CrossFilter) - Provides cross-filtering functionality for dashboards
+- [JoinRelationships](/docs/reference/api/classes/JoinRelationships) - Manage join relationships between tables
+
+### Essential Functions
+
+- [createQueryBuilder](/docs/reference/api/functions/createQueryBuilder) - Create a new query builder instance
+- [raw](/docs/reference/api/functions/raw) - Create raw SQL expressions
+- [datePart](/docs/reference/api/functions/datePart) - Extract parts from date values
+- [formatDateTime](/docs/reference/api/functions/formatDateTime) - Format date and time values
+
+## Example Usage
+
+```typescript
+import { 
+  ClickHouseConnection, 
+  createQueryBuilder,
+  raw 
+} from '@hypequery/clickhouse';
+
+// Initialize the connection
+ClickHouseConnection.initialize({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database'
+});
+
+// Create a query builder
+const queryBuilder = createQueryBuilder();
+
+// Build and execute a query
+const results = await queryBuilder
+  .from('my_table')
+  .select(['id', 'name', raw('sum(value) as total_value')])
+  .where('value > ?', [100])
+  .groupBy('id', 'name')
+  .orderBy('name', 'asc')
+  .limit(10)
+  .execute();
+```
+
+## Implementing Type Safety
+
+For the best development experience, you can generate TypeScript types from your ClickHouse database schema:
+
+```typescript
+import { generateTypes } from '@hypequery/clickhouse';
+
+// Generate types from your database schema
+await generateTypes('./src/types/db-schema.ts');
+
+// Import the generated types
+import { IntrospectedSchema } from './types/db-schema';
+
+// Create a type-safe query builder
+const db = createQueryBuilder<IntrospectedSchema>();
+
+// Now you get full type checking and autocompletion
+const results = await db
+  .from('users')  // Table name is type-checked
+  .select(['id', 'name', 'email'])  // Column names are type-checked
+  .where('id > ?', [100])
+  .execute();
+```

@@ -1,0 +1,43 @@
+---
+layout: ../../../../../layouts/DocsLayout.astro
+title: Interface - AliasedExpression
+description: API documentation for HypeQuery ClickHouse library
+---
+
+AliasedExpression
+
+# Interface: AliasedExpression
+
+Represents an aliased SQL expression that can be used in select clauses
+
+## Extends
+
+- [`SqlExpression`](/docs/reference/api/SqlExpression)
+
+## Properties
+
+### \_\_type
+
+**\_\_type**: `"aliased_expression"`
+
+#### Overrides
+
+[`SqlExpression`](/docs/reference/api/SqlExpression).[`__type`](SqlExpression.md#__type)
+
+### alias
+
+**alias**: `string`
+
+## Methods
+
+### toSql()
+
+**toSql**(): `string`
+
+#### Returns
+
+`string`
+
+#### Inherited from
+
+[`SqlExpression`](/docs/reference/api/SqlExpression).[`toSql`](SqlExpression.md#tosql)

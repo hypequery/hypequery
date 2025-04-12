@@ -1,0 +1,26 @@
+{
+  "entryPoints": [
+    "src/index.ts"
+  ],
+  "out": "../../website/public/api-reference",
+  "name": "HypeQuery ClickHouse API",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "hideGenerator": true,
+  "categorizeByGroup": true,
+  "categoryOrder": [
+    "Core",
+    "Query Builder",
+    "Features",
+    "CLI Tools",
+    "*"
+  ],
+  "plugin": [
+    "typedoc-plugin-markdown"
+  ],
+  "theme": "default",
+  "sort": [
+    "alphabetical"
+  ]
+}

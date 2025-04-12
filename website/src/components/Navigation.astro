@@ -1,7 +1,7 @@
 ---
 const navigation = [
-  { name: "SDK Docs", href: "/docs" },
-  { name: "Visual Builder", href: "#beta-signup", isNew: true, isBeta: true },
+  { name: "Docs", href: "/docs" },
+  { name: "Platform", href: "/platform", isNew: true },
   {
     name: "GitHub",
     href: "https://github.com/hypequery/clickhouse",
@@ -50,7 +50,7 @@ const navigation = [
                 {item.name}
                 {item.isNew && (
                   <span class="ml-2 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
-                    {item.isBeta ? "Beta" : "New"}
+                    {"isBeta" in item && item.isBeta ? "Coming soon" : "New"}
                   </span>
                 )}
               </>

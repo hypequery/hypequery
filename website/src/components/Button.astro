@@ -1,0 +1,51 @@
+---
+interface Props {
+  variant?: "default" | "outline" | "ghost" | "link";
+  size?: "default" | "sm" | "lg";
+  class?: string;
+  href?: string;
+}
+
+const {
+  variant = "default",
+  size = "default",
+  class: className = "",
+  href,
+} = Astro.props;
+
+// Base classes
+const baseClasses =
+  "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:opacity-50";
+
+// Variant classes
+const variantClasses = {
+  default: "bg-indigo-600 text-white hover:bg-indigo-700",
+  outline:
+    "border border-gray-300 bg-transparent hover:bg-gray-50 text-gray-700",
+  ghost: "bg-transparent hover:bg-gray-100 text-gray-700",
+  link: "bg-transparent underline-offset-4 hover:underline text-indigo-600 p-0 font-normal",
+};
+
+// Size classes
+const sizeClasses = {
+  default: "h-10 px-4 py-2 text-sm",
+  sm: "h-8 px-3 text-xs",
+  lg: "h-12 px-6 text-base",
+};
+
+// Combine all classes
+const classes = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;
+---
+
+{
+  href ? (
+    <a href={href} class={classes}>
+      <slot />
+    </a>
+  ) : (
+    <button class={classes}>
+      <slot />
+    </button>
+  )
+}
+

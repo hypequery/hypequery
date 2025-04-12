@@ -21,7 +21,9 @@
     "test:cli": "node scripts/test-cli-integration.js",
     "lint": "eslint src/**/*.ts",
     "semantic-release": "npx semantic-release",
-    "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci"
+    "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci",
+    "docs:api": "typedoc --options typedoc.json",
+    "docs:mdx": "npm run docs:api && node scripts/process-typedoc-markdown.js"
   },
   "bin": {
     "hypequery-generate-types": "./dist/cli/bin.js"
@@ -47,6 +49,8 @@
     "semantic-release": "^23.0.2",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.0",
+    "typedoc": "^0.28.1",
+    "typedoc-plugin-markdown": "^4.6.0",
     "typescript": "^5.7.3"
   },
   "ts-node": {

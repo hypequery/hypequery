@@ -1,0 +1,39 @@
+---
+layout: ../../../../../layouts/DocsLayout.astro
+title: Function - formatDateTime()
+description: API documentation for HypeQuery ClickHouse library
+---
+
+formatDateTime
+
+# Function: formatDateTime()
+
+**formatDateTime**(`field`, `format`, `alias`?): [`SqlExpression`](/docs/reference/api/../interfaces/SqlExpression) \| [`AliasedExpression`](/docs/reference/api/../interfaces/AliasedExpression)
+
+Formats a DateTime value using the specified format
+
+## Parameters
+
+### field
+
+`string`
+
+The field or expression to format
+
+### format
+
+`string`
+
+The date format string
+
+### alias?
+
+`string`
+
+Optional alias for the result
+
+## Returns
+
+[`SqlExpression`](/docs/reference/api/../interfaces/SqlExpression) \| [`AliasedExpression`](/docs/reference/api/../interfaces/AliasedExpression)
+
+SQL expression or aliased expression

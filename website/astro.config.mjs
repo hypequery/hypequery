@@ -102,5 +102,12 @@ export default defineConfig({
     })
   ],
   site: 'https://hypequery.dev',
-  compressHTML: true
+  compressHTML: true,
+  // Ensure assets in the public directory are preserved during build
+  build: {
+    // Preserve the structure of the public directory
+    assets: 'assets',
+    // Preserve all files in public directory
+    assetsPrefix: '/'
+  }
 });

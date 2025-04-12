@@ -1,0 +1,48 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Introduction - hypequery
+description: Learn what HypeQuery is and why you should use it for ClickHouse development
+---
+
+# Type Generation
+
+Generating types from your ClickHouse database is fundamental to building with hypequery. This page outlines how to use our CLI to do this.
+
+## Usage
+
+```bash
+npx hypequery-generate-types [output-path] [options]
+```
+
+## Arguments
+  <b>output-path</b>                Path where TypeScript definitions will be saved (default: "./generated-schema.ts")
+
+## Environment variables
+
+<table style="width: 100%;">
+  <tr>
+    <td>CLICKHOUSE_HOST</td>
+    <td>ClickHouse server URL (default: http://localhost:8123)</td>
+  </tr>
+  <tr>
+    <td>CLICKHOUSE_USER</td>
+    <td>ClickHouse username (default: default)</td>
+  </tr>
+  <tr>
+    <td>CLICKHOUSE_PASSWORD</td>
+    <td>ClickHouse password</td>
+  </tr>
+  <tr>
+    <td>CLICKHOUSE_DATABASE</td>
+    <td>ClickHouse database name (default: default)</td>
+  </tr>
+  </table>
+
+
+## Examples
+  npx hypequery-generate-types
+  npx hypequery-generate-types ./src/types/db-schema.ts
+  CLICKHOUSE_HOST=http://my-clickhouse:8123 npx hypequery-generate-types
+
+## Options
+  --help, -h                 Show this help text

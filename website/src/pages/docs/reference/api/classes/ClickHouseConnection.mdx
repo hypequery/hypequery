@@ -1,0 +1,105 @@
+---
+layout: ../../../../../layouts/DocsLayout.astro
+title: Class - ClickHouseConnection
+description: API documentation for HypeQuery ClickHouse library
+---
+
+ClickHouseConnection
+
+# Class: ClickHouseConnection
+
+The main entry point for connecting to a ClickHouse database.
+Provides static methods to initialize the connection and retrieve the client.
+
+## Example
+
+```typescript
+// Initialize the connection
+ClickHouseConnection.initialize({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database'
+});
+
+// Get the client to execute queries directly
+const client = ClickHouseConnection.getClient();
+const result = await client.query({
+  query: 'SELECT * FROM my_table',
+  format: 'JSONEachRow'
+});
+```
+
+## Constructors
+
+### Constructor
+
+**new ClickHouseConnection**(): `ClickHouseConnection`
+
+#### Returns
+
+`ClickHouseConnection`
+
+## Methods
+
+### getClient()
+
+`static` **getClient**(): `WebClickHouseClient`
+
+Retrieves the ClickHouse client instance for direct query execution.
+
+#### Returns
+
+`WebClickHouseClient`
+
+The ClickHouse client instance
+
+#### Throws
+
+Will throw an error if the connection has not been initialized
+
+#### Example
+
+```typescript
+const client = ClickHouseConnection.getClient();
+const result = await client.query({
+  query: 'SELECT * FROM my_table',
+  format: 'JSONEachRow'
+});
+```
+
+### initialize()
+
+`static` **initialize**(`config`): *typeof* `ClickHouseConnection`
+
+Initializes the ClickHouse connection with the provided configuration.
+This method must be called before any queries can be executed.
+
+#### Parameters
+
+##### config
+
+`ClickHouseConnectionOptions`
+
+The connection configuration options
+
+#### Returns
+
+*typeof* `ClickHouseConnection`
+
+The ClickHouseConnection class for method chaining
+
+#### Throws
+
+Will throw an error if the connection cannot be established
+
+#### Example
+
+```typescript
+ClickHouseConnection.initialize({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database'
+});
+```

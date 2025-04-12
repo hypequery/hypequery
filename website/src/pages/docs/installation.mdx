@@ -1,6 +1,6 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Installation - HypeQuery
+title: Installation
 description: Learn how to install and set up HypeQuery in your project
 ---
 
@@ -17,9 +17,10 @@ Before installing hypequery, make sure you have:
      <li>npm or yarn package manager</li>
      <li>A ClickHouse instance to connect to</li>
    </ul>
+
 ## Installing the Package
 
-Install HypeQuery using npm:
+Install hypequery using npm:
 
 ```bash
 npm install @hypequery/clickhouse
@@ -47,9 +48,30 @@ CLICKHOUSE_DATABASE=default
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
-// For TypeScript users, you'll want to generate types for your schema
-// We'll cover this in the next section
 export const db = createQueryBuilder({
+  host: process.env.CLICKHOUSE_HOST,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+```
+
+## Adding Type Safety
+
+For the best development experience, generate TypeScript types for your ClickHouse schema:
+
+1. Generate types for your schema:
+
+```bash
+npx hypequery generate-types
+```
+2. Update your configuration to use the generated types:
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { Schema } from './generated/schema';
+
+export const db = createQueryBuilder<Schema>({
   host: process.env.CLICKHOUSE_HOST,
   username: process.env.CLICKHOUSE_USER,
   password: process.env.CLICKHOUSE_PASSWORD,
@@ -71,41 +93,10 @@ async function getRecentOrders() {
     .select(['id', 'customer_name', 'amount'])
     .where('created_at', 'gt', '2024-01-01')
     .orderBy('created_at', 'DESC')
-    .limit(10)
     .execute();
 
   console.log('Recent orders:', results);
 }
-```
-
-## Type Safety (Recommended)
-
-For the best development experience, generate TypeScript types for your ClickHouse schema:
-
-1. Install the CLI tool globally:
-
-```bash
-npm install -g @hypequery/cli
-```
-
-2. Generate types for your schema:
-
-```bash
-hypequery generate-types
-```
-
-3. Update your configuration to use the generated types:
-
-```typescript
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { Schema } from './generated/schema';
-
-export const db = createQueryBuilder<Schema>({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
 ```
 
 Now you'll get full TypeScript support, including:
@@ -116,7 +107,6 @@ Now you'll get full TypeScript support, including:
 
 ## Next Steps
 
-- Continue with the [Quickstart Guide](/docs/quickstart)
 - Learn about [Query Building](/docs/guides/query-building)
 - Understand [Join Relationships](/docs/guides/joins)
 - Master [Advanced Filtering](/docs/guides/filtering)

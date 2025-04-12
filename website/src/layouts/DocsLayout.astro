@@ -23,7 +23,8 @@ const sidebar = [
     items: [
       { title: "Introduction", href: "/docs/introduction" },
       { title: "Installation", href: "/docs/installation" },
-      { title: "Quick Start", href: "/docs/quickstart" },
+      { title: "Type Generation", href: "/docs/type-generation" },
+      // { title: "Quick Start", href: "/docs/quickstart" },
     ],
   },
   {
@@ -52,6 +53,136 @@ const sidebar = [
     items: [
       { title: "API Reference", href: "/docs/reference/api" },
       { title: "Best Practices", href: "/docs/reference/best-practices" },
+    ],
+  },
+  {
+    title: "API Documentation",
+    items: [
+      { title: "Overview", href: "/docs/reference/api" },
+      { title: "Documentation", href: "/docs/reference/api/README" },
+      { title: "Globals", href: "/docs/reference/api/globals" },
+      {
+        title: "Classes",
+        href: "/docs/reference/api/classes/ClickHouseConnection",
+        items: [
+          {
+            title: "ClickHouseConnection",
+            href: "/docs/reference/api/classes/ClickHouseConnection",
+          },
+          {
+            title: "CrossFilter",
+            href: "/docs/reference/api/classes/CrossFilter",
+          },
+          {
+            title: "JoinRelationships",
+            href: "/docs/reference/api/classes/JoinRelationships",
+          },
+        ],
+      },
+      {
+        title: "Functions",
+        href: "/docs/reference/api/functions/createQueryBuilder",
+        items: [
+          {
+            title: "createQueryBuilder",
+            href: "/docs/reference/api/functions/createQueryBuilder",
+          },
+          { title: "datePart", href: "/docs/reference/api/functions/datePart" },
+          {
+            title: "formatDateTime",
+            href: "/docs/reference/api/functions/formatDateTime",
+          },
+          {
+            title: "generateTypes",
+            href: "/docs/reference/api/functions/generateTypes",
+          },
+          { title: "raw", href: "/docs/reference/api/functions/raw" },
+          { title: "rawAs", href: "/docs/reference/api/functions/rawAs" },
+          {
+            title: "toDateTime",
+            href: "/docs/reference/api/functions/toDateTime",
+          },
+          {
+            title: "toStartOfInterval",
+            href: "/docs/reference/api/functions/toStartOfInterval",
+          },
+        ],
+      },
+      {
+        title: "Interfaces",
+        href: "/docs/reference/api/interfaces/QueryConfig",
+        items: [
+          {
+            title: "AliasedExpression",
+            href: "/docs/reference/api/interfaces/AliasedExpression",
+          },
+          {
+            title: "JoinPath",
+            href: "/docs/reference/api/interfaces/JoinPath",
+          },
+          {
+            title: "JoinPathOptions",
+            href: "/docs/reference/api/interfaces/JoinPathOptions",
+          },
+          {
+            title: "PageInfo",
+            href: "/docs/reference/api/interfaces/PageInfo",
+          },
+          {
+            title: "PaginatedResult",
+            href: "/docs/reference/api/interfaces/PaginatedResult",
+          },
+          {
+            title: "PaginationOptions",
+            href: "/docs/reference/api/interfaces/PaginationOptions",
+          },
+          {
+            title: "QueryConfig",
+            href: "/docs/reference/api/interfaces/QueryConfig",
+          },
+          {
+            title: "SqlExpression",
+            href: "/docs/reference/api/interfaces/SqlExpression",
+          },
+          {
+            title: "TableSchema",
+            href: "/docs/reference/api/interfaces/TableSchema",
+          },
+        ],
+      },
+      {
+        title: "Type Aliases",
+        href: "/docs/reference/api/type-aliases/ColumnType",
+        items: [
+          {
+            title: "ColumnType",
+            href: "/docs/reference/api/type-aliases/ColumnType",
+          },
+          {
+            title: "DatabaseSchema",
+            href: "/docs/reference/api/type-aliases/DatabaseSchema",
+          },
+          {
+            title: "GroupByExpression",
+            href: "/docs/reference/api/type-aliases/GroupByExpression",
+          },
+          {
+            title: "TableRecord",
+            href: "/docs/reference/api/type-aliases/TableRecord",
+          },
+          {
+            title: "WhereExpression",
+            href: "/docs/reference/api/type-aliases/WhereExpression",
+          },
+        ],
+      },
+      {
+        title: "Variables",
+        href: "/docs/reference/api/variables/logger",
+        items: [
+          { title: "logger", href: "/docs/reference/api/variables/logger" },
+        ],
+      },
     ],
   },
 ];
@@ -111,6 +242,25 @@ const sidebar = [
                             >
                               {item.title}
                             </a>
+                            {item.items && (
+                              <ul class="mt-1 pl-4 space-y-1">
+                                {item.items.map((subItem) => (
+                                  <li>
+                                    <a
+                                      href={subItem.href}
+                                      class:list={[
+                                        "block px-3 py-1 text-sm rounded-md transition-colors",
+                                        currentPath === subItem.href
+                                          ? "text-indigo-600 font-medium"
+                                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                                      ]}
+                                    >
+                                      {subItem.title}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -122,11 +272,32 @@ const sidebar = [
           </div>
         </div>
 
-        <!-- Main content -->
+        <!-- Main content with On-this-page TOC -->
         <div class="min-w-0 flex-auto px-4 md:pl-8 py-8 md:py-16">
-          <article class="prose max-w-none">
-            <slot />
-          </article>
+          <div class="flex flex-col lg:flex-row">
+            <article class="prose max-w-none lg:max-w-3xl flex-grow">
+              <slot />
+            </article>
+
+            <!-- On this page navigation -->
+            <div class="hidden lg:block lg:w-64 lg:flex-none lg:pl-8">
+              <div class="sticky top-16 overflow-y-auto">
+                <div class="border-l pl-4 border-gray-200">
+                  <h3 class="text-sm font-semibold text-gray-900 mb-4">
+                    On this page
+                  </h3>
+                  <div id="on-this-page" class="text-sm">
+                    <!-- JS will populate this -->
+                    <div class="skeleton-loader animate-pulse space-y-2">
+                      <div class="h-4 bg-gray-100 rounded w-3/4"></div>
+                      <div class="h-4 bg-gray-100 rounded w-2/3"></div>
+                      <div class="h-4 bg-gray-100 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -203,7 +374,113 @@ const sidebar = [
             wrapper.appendChild(copyButton);
           }
         });
+
+        // Generate the "On this page" navigation
+        generateTableOfContents();
       });
+
+      // Function to generate the table of contents
+      function generateTableOfContents() {
+        const article = document.querySelector("article.prose");
+        const tocContainer = document.getElementById("on-this-page");
+
+        if (!article || !tocContainer) return;
+
+        // Clear loading state
+        tocContainer.innerHTML = "";
+
+        // Find all h1, h2 and h3 elements in the article, but exclude the first h1 (which is typically the title)
+        const allHeadings = Array.from(article.querySelectorAll("h1, h2, h3"));
+        const headings = allHeadings.filter(
+          (heading, index) => !(heading.tagName === "H1" && index === 0),
+        );
+
+        if (headings.length === 0) {
+          const fallbackHeadings = article.querySelectorAll("b, strong");
+          if (fallbackHeadings.length > 0) {
+            // Use bold text as fallback headings
+            createTOCFromElements(fallbackHeadings, tocContainer);
+          } else {
+            tocContainer.innerHTML =
+              '<p class="text-gray-500 italic">No sections found</p>';
+          }
+          return;
+        }
+
+        createTOCFromElements(headings, tocContainer);
+      }
+
+      // Helper function to create TOC from a list of elements
+      function createTOCFromElements(
+        elements: NodeListOf<Element> | Element[],
+        tocContainer: HTMLElement,
+      ) {
+        const toc = document.createElement("ul");
+        toc.className = "space-y-2 text-sm";
+
+        elements.forEach((element: Element, index: number) => {
+          // Create an id for the heading if it doesn't have one
+          if (!element.id) {
+            element.id = `toc-section-${index}`;
+          }
+
+          const listItem = document.createElement("li");
+          const link = document.createElement("a");
+
+          link.href = `#${element.id}`;
+          link.textContent = element.textContent || "";
+
+          const isMainHeading =
+            element.tagName === "H1" || element.tagName === "H2";
+          link.className = isMainHeading
+            ? "text-gray-900 hover:text-indigo-600 font-medium block py-1"
+            : "text-gray-600 hover:text-indigo-600 block py-1 pl-4";
+
+          // Add click event to smooth scroll
+          link.addEventListener("click", (e) => {
+            e.preventDefault();
+            const headingElement = document.querySelector(`#${element.id}`);
+            if (headingElement) {
+              headingElement.scrollIntoView({
+                behavior: "smooth",
+              });
+              // Update the URL hash without jumping
+              history.pushState(null, "", `#${element.id}`);
+            }
+          });
+
+          listItem.appendChild(link);
+          toc.appendChild(listItem);
+        });
+
+        tocContainer.appendChild(toc);
+
+        // Add scroll spy functionality
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                // Get all links in the TOC
+                const links = tocContainer.querySelectorAll("a");
+
+                // Remove active class from all links
+                links.forEach((link: Element) => {
+                  link.classList.remove("text-indigo-600");
+                  if (link.getAttribute("href") === `#${entry.target.id}`) {
+                    link.classList.add("text-indigo-600");
+                  }
+                });
+              }
+            });
+          },
+          { rootMargin: "-100px 0px -66% 0px" },
+        );
+
+        // Observe all the elements
+        elements.forEach((element: Element) => {
+          observer.observe(element);
+        });
+      }
     </script>
 
     <style is:global>
@@ -293,6 +570,7 @@ const sidebar = [
         margin-bottom: 0.8888889em;
         line-height: 1.1111111;
         font-weight: 600;
+        scroll-margin-top: 5rem;
       }
 
       .prose h2 {
@@ -301,6 +579,7 @@ const sidebar = [
         margin-bottom: 1em;
         line-height: 1.3333333;
         font-weight: 600;
+        scroll-margin-top: 5rem;
       }
 
       .prose h3 {
@@ -309,6 +588,7 @@ const sidebar = [
         margin-bottom: 0.6em;
         line-height: 1.6;
         font-weight: 600;
+        scroll-margin-top: 5rem;
       }
 
       .prose code {

@@ -1,0 +1,95 @@
+---
+import Button from "../Button.astro";
+import Icons from "../Icons.astro";
+---
+
+<!-- Hero Section -->
+<section
+  class="relative py-20 overflow-hidden bg-gradient-to-b from-indigo-50 to-white"
+>
+  <div class="container mx-auto px-4 my-20">
+    <div class="max-w-4xl mx-auto text-center">
+      <h1
+        class="text-4xl md:text-5xl font-bold text-gray-900 mb-6 animate-on-scroll"
+      >
+        No Code ClickHouse Dashboard have never been easier
+      </h1>
+      <p class="text-lg md:text-xl text-gray-600 mb-8 animate-on-scroll">
+        Build dashboards, create queries, and visualize data without writing a
+        single line of code.
+      </p>
+      <div class="animate-on-scroll">
+        <Button size="lg" class="bg-indigo-600 hover:bg-indigo-700 text-white">
+          Join the waitlist
+        </Button>
+      </div>
+
+      <!-- Hero visual -->
+      <div class="mt-12 relative rounded-xl shadow-2xl animate-on-scroll">
+        <!-- Placeholder for dashboard animation/screenshot -->
+        <div
+          class="relative aspect-[16/9] bg-white rounded-xl overflow-hidden border border-gray-200"
+        >
+          <div
+            class="absolute inset-0 flex items-center justify-center bg-gray-100"
+          >
+            <span class="text-gray-400 flex items-center gap-2">
+              <Icons name="dashboard" class="w-6 h-6" />
+              Dashboard Animation Placeholder
+            </span>
+          </div>
+          <!-- You'll replace this with your actual dashboard image or animation -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Background decorative shapes -->
+  <div
+    class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none"
+  >
+    <div
+      class="absolute top-1/4 right-[5%] w-64 h-64 bg-indigo-100 rounded-full mix-blend-multiply opacity-70 animate-blob"
+    >
+    </div>
+    <div
+      class="absolute top-1/3 left-[10%] w-72 h-72 bg-blue-100 rounded-full mix-blend-multiply opacity-70 animate-blob animation-delay-2000"
+    >
+    </div>
+    <div
+      class="absolute bottom-1/4 right-[20%] w-48 h-48 bg-purple-100 rounded-full mix-blend-multiply opacity-70 animate-blob animation-delay-4000"
+    >
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Blob animation for background elements */
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  .animation-delay-4000 {
+    animation-delay: 4s;
+  }
+</style>
+

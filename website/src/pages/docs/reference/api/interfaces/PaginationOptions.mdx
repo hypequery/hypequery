@@ -1,0 +1,42 @@
+---
+layout: ../../../../../layouts/DocsLayout.astro
+title: Interface - PaginationOptions\<T\>
+description: API documentation for HypeQuery ClickHouse library
+---
+
+PaginationOptions
+
+# Interface: PaginationOptions\<T\>
+
+## Type Parameters
+
+### T
+
+`T`
+
+## Properties
+
+### after?
+
+`optional` **after**: `string`
+
+### before?
+
+`optional` **before**: `string`
+
+### orderBy?
+
+`optional` **orderBy**: `object`[]
+
+#### column
+
+**column**: `TableColumn`\<`any`\> \| keyof `T`
+
+#### direction
+
+**direction**: `OrderDirection`
+
+### pageSize
+
+**pageSize**: `number`
+
