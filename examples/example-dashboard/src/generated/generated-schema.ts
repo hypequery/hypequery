@@ -2,7 +2,6 @@
 export interface IntrospectedSchema {
   trips: {
     trip_id: 'String';
-    vendor_id: 'String';
     pickup_date: 'Date';
     pickup_datetime: 'DateTime';
     dropoff_date: 'Date';

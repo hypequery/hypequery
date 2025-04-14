@@ -57,10 +57,14 @@ for (const file of essentialFiles) {
     // If this is the index.js file, check its content
     if (file === 'index.js') {
       const content = fs.readFileSync(filePath, 'utf8');
-      if (content.includes("export { generateTypes } from './cli/generate-types.js'")) {
-        console.log(`  ${colors.green}✓ index.js includes CLI exports${colors.reset}`);
+
+      // We no longer check for CLI exports in index.js since we've deliberately removed them
+      // to prevent Node.js-specific modules from being bundled in browser environments
+      if (content.includes("export { ClickHouseConnection }") &&
+        content.includes("export { createQueryBuilder }")) {
+        console.log(`  ${colors.green}✓ index.js includes core exports${colors.reset}`);
       } else {
-        console.log(`  ${colors.red}✗ index.js is missing CLI exports${colors.reset}`);
+        console.log(`  ${colors.red}✗ index.js is missing core exports${colors.reset}`);
         printFileContent(filePath, 10);
       }
     }

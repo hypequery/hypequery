@@ -7,6 +7,9 @@ services:
     ports:
       - "8123:8123"
       - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
     environment:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=hypequery_test
@@ -21,4 +24,15 @@ services:
       interval: 3s
       timeout: 5s
       retries: 10
-      start_period: 10s 
+      start_period: 10s
+    restart: on-failure
+    networks:
+      - hypequery-test-network
+
+networks:
+  hypequery-test-network:
+    driver: bridge
+
+volumes:
+  clickhouse-data:
+  clickhouse-logs: 

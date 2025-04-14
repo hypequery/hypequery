@@ -99,22 +99,12 @@ export async function fetchAverageAmounts(filters: DateFilters = {}) {
   const filter = createFilter(filters)
   query.applyCrossFilters(filter)
 
-
-  const sql = await query
-    .avg("total_amount")
-    .avg("tip_amount")
-    .avg("tolls_amount")
-    .avg("fare_amount")
-    .toSQL()
-
-
   const result = await query
     .avg("total_amount")
     .avg("tip_amount")
     .avg("tolls_amount")
     .avg("fare_amount")
     .execute()
-
 
   if (!result.length) {
     throw new Error("No data found")
@@ -182,7 +172,6 @@ export async function fetchTrips(filters: DateFilters = {}, { pageSize = 10, aft
       "tip_amount",
       "total_amount",
       "payment_type",
-      "vendor_id"
     ])
     .orderBy("pickup_datetime", "DESC")
     .paginate({

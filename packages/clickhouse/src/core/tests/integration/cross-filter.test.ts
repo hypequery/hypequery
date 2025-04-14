@@ -1,8 +1,6 @@
 import {
   initializeTestConnection,
   setupTestDatabase,
-  startClickHouseContainer,
-  stopClickHouseContainer,
   TestSchema,
   TEST_DATA
 } from './setup';
@@ -19,26 +17,15 @@ describe('Integration Tests - Cross Filtering', () => {
     beforeAll(async () => {
       if (!SKIP_INTEGRATION_TESTS) {
         try {
-          // Start ClickHouse container
-          startClickHouseContainer();
-
-          // Initialize connection
+          // Setup only - don't start/stop container (handled by shell script)
           db = await initializeTestConnection();
-
-          // Set up test database
           await setupTestDatabase();
         } catch (error) {
           console.error('Failed to set up integration tests:', error);
           throw error;
         }
       }
-    }, 60000); // Allow up to 60 seconds for setup
-
-    afterAll(() => {
-      if (!SKIP_INTEGRATION_TESTS) {
-        stopClickHouseContainer();
-      }
-    });
+    }, 30000);
 
     test('should apply simple cross filter', async () => {
       // Create a cross filter for category = 'A'

@@ -18,7 +18,6 @@ type Trip = {
   tip_amount: number
   total_amount: number
   payment_type: string
-  vendor_id: string
 }
 
 const columns: ColumnDef<Trip>[] = [
@@ -59,10 +58,6 @@ const columns: ColumnDef<Trip>[] = [
   {
     accessorKey: "payment_type",
     header: "Payment Type",
-  },
-  {
-    accessorKey: "vendor_id",
-    header: "Vendor",
   },
 ]
 

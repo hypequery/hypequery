@@ -8,6 +8,5 @@ export interface IntrospectedSchema {
     tip_amount: "Float64"
     total_amount: "Float64"
     payment_type: "String"
-    vendor_id: "String"
   }
 } 

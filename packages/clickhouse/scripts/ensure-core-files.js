@@ -154,10 +154,22 @@ const indexPath = path.join(distDir, 'index.js');
 console.log(`\nCreating index.js at path: ${indexPath}`);
 try {
   fs.writeFileSync(indexPath, `// Main entry point
+export { createQueryBuilder } from './core/query-builder.js';
 export { ClickHouseConnection } from './core/connection.js';
+export { JoinRelationships } from './core/join-relationships.js';
+export { CrossFilter } from './core/cross-filter.js';
+export { logger } from './core/utils/logger.js';
+export {
+  raw,
+  rawAs,
+  toDateTime,
+  formatDateTime,
+  toStartOfInterval,
+  datePart
+} from './core/utils/sql-expressions.js';
 
-// CLI exports
-export { generateTypes } from './cli/generate-types.js';
+// Note: CLI functionality is deliberately not exported from the main package
+// This prevents Node.js-specific modules from being included in browser bundles
 `);
   console.log('✓ Successfully wrote index.js');
   console.log(`- index.js exists: ${fs.existsSync(indexPath)}`);

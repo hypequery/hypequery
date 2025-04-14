@@ -391,9 +391,12 @@ if (fs.existsSync(mainIndexPath)) {
     console.log(`- Current index.js size: ${indexContent.length} bytes`);
     console.log(`- First 100 chars: ${indexContent.substring(0, 100)}...`);
 
-    // Add CLI exports if needed
-    if (!indexContent.includes('cli/generate-types')) {
-      console.log('- Adding CLI exports to index.js...');
+    // Check if index.js contains the comment about not exporting CLI functionality
+    if (indexContent.includes('CLI functionality is deliberately not exported')) {
+      console.log('✓ Index.js follows the new pattern of not exporting CLI functionality directly');
+    } else if (!indexContent.includes('cli/generate-types')) {
+      // For backward compatibility, still add the export if it's an older format without the comment
+      console.log('- Adding CLI exports to index.js for backward compatibility...');
 
       // Try to find a good insertion point - after last export
       let newContent;
@@ -414,16 +417,29 @@ if (fs.existsSync(mainIndexPath)) {
 } else {
   console.warn(`⚠️ Main index.js not found at ${mainIndexPath}, creating it...`);
 
+  // Create new index.js with the non-CLI-exporting pattern
   const mainIndexContent = `// Main entry point
+export { createQueryBuilder } from './core/query-builder.js';
 export { ClickHouseConnection } from './core/connection.js';
+export { JoinRelationships } from './core/join-relationships.js';
+export { CrossFilter } from './core/cross-filter.js';
+export { logger } from './core/utils/logger.js';
+export {
+  raw,
+  rawAs,
+  toDateTime,
+  formatDateTime,
+  toStartOfInterval,
+  datePart
+} from './core/utils/sql-expressions.js';
 
-// CLI exports
-export { generateTypes } from './cli/generate-types.js';
+// Note: CLI functionality is deliberately not exported from the main package
+// This prevents Node.js-specific modules from being included in browser bundles
 `;
 
   try {
     fs.writeFileSync(mainIndexPath, mainIndexContent);
-    console.log(`✓ Created main index.js with CLI exports`);
+    console.log(`✓ Created main index.js without CLI exports for browser compatibility`);
   } catch (error) {
     console.error(`❌ Error creating main index.js: ${error.message}`);
   }

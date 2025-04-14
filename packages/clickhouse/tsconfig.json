@@ -1,26 +1,22 @@
 {
-  "extends": "../tsconfig/base.json",
   "compilerOptions": {
     "target": "es2020",
     "module": "es2020",
     "moduleResolution": "Node",
     "outDir": "./dist",
     "rootDir": "./src",
-    "composite": true,
     "declaration": true,
     "declarationMap": true,
-    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true
   },
   "include": [
-    "src/**/*"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "src/cli/**/*.js"
+    "**/*.test.ts"
   ]
 }

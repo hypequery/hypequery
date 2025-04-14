@@ -29,5 +29,5 @@ export type {
   AliasedExpression
 } from './core/utils/sql-expressions.js';
 
-// CLI exports
-export { generateTypes } from './cli/generate-types.js';
+// Note: CLI functionality is deliberately not exported from the main package
+// This prevents Node.js-specific modules from being included in browser bundles

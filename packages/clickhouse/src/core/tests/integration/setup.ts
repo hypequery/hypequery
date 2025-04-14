@@ -1,340 +1,369 @@
-import { execSync } from 'child_process';
-import { createQueryBuilder } from '../../../index';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { ClickHouseConnection } from '../../connection';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { logger as hypeQueryLogger } from '../../utils/logger';
 
-// Configuration for the test ClickHouse instance
-const CLICKHOUSE_HOST = process.env.CLICKHOUSE_TEST_HOST || 'http://localhost:8123';
-const CLICKHOUSE_USER = process.env.CLICKHOUSE_TEST_USER || 'hypequery';
-const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_TEST_PASSWORD || 'hypequery_test';
-const CLICKHOUSE_DB = process.env.CLICKHOUSE_TEST_DB || 'test_db';
+// Disable the HypeQuery logger to prevent "logs after tests" errors
+// This must be done early in the setup, before any queries run
+hypeQueryLogger.configure({ enabled: false });
 
-// Log connection details for debugging
-console.log('Initializing ClickHouse connection with:', {
-  host: CLICKHOUSE_HOST,
-  user: CLICKHOUSE_USER,
-  password: CLICKHOUSE_PASSWORD ? 'PROVIDED' : 'NOT_PROVIDED',
-  database: CLICKHOUSE_DB
-});
-
-// Schema for our test database
-export interface TestSchema {
-  test_table: {
-    id: 'Int32';
-    name: 'String';
-    price: 'Float64';
-    created_at: 'DateTime';
-    category: 'String';
-    active: 'UInt8';
-  };
-  users: {
-    id: 'Int32';
-    user_name: 'String';
-    email: 'String';
-    created_at: 'DateTime';
-    status: 'String';
-  };
-  orders: {
-    id: 'Int32';
-    user_id: 'Int32';
-    product_id: 'Int32';
-    quantity: 'Int32';
-    total: 'Float64';
-    status: 'String';
-    created_at: 'DateTime';
-  };
-  products: {
-    id: 'Int32';
-    name: 'String';
-    price: 'Float64';
-    category: 'String';
-    description: 'String';
-  };
-}
-
-// Helper to initialize the connection
-export async function initializeTestConnection() {
-  try {
-    ClickHouseConnection.initialize({
-      host: CLICKHOUSE_HOST,
-      username: CLICKHOUSE_USER,
-      password: CLICKHOUSE_PASSWORD,
-      database: CLICKHOUSE_DB
-    });
-
-    // Test the connection
-    const client = ClickHouseConnection.getClient();
-    await client.ping();
-    console.log('ClickHouse connection successfully established');
-
-    return createQueryBuilder<TestSchema>({
-      host: CLICKHOUSE_HOST,
-      username: CLICKHOUSE_USER,
-      password: CLICKHOUSE_PASSWORD,
-      database: CLICKHOUSE_DB
-    });
-  } catch (error) {
-    console.error('Failed to initialize ClickHouse connection:', error);
-    throw error;
+// Setup a logger that respects test environment
+const logger = {
+  info: (message: string, ...args: any[]) => {
+    if (process.env.DEBUG === 'true') {
+      console.log(`[INFO] ${message}`, ...args);
+    }
+  },
+  error: (message: string, ...args: any[]) => {
+    if (process.env.DEBUG === 'true' || process.env.SUPPRESS_ERRORS !== 'true') {
+      console.error(`[ERROR] ${message}`, ...args);
+    }
+  },
+  warn: (message: string, ...args: any[]) => {
+    if (process.env.DEBUG === 'true') {
+      console.warn(`[WARN] ${message}`, ...args);
+    }
   }
-}
-
-// SQL to create test tables
-const CREATE_TEST_TABLE = `
-CREATE TABLE IF NOT EXISTS test_table (
-  id Int32,
-  name String,
-  price Float64,
-  created_at DateTime,
-  category String,
-  active UInt8
-) ENGINE = MergeTree()
-ORDER BY id
-`;
-
-const CREATE_USERS_TABLE = `
-CREATE TABLE IF NOT EXISTS users (
-  id Int32,
-  user_name String,
-  email String,
-  created_at DateTime,
-  status String
-) ENGINE = MergeTree()
-ORDER BY id
-`;
-
-const CREATE_ORDERS_TABLE = `
-CREATE TABLE IF NOT EXISTS orders (
-  id Int32,
-  user_id Int32,
-  product_id Int32,
-  quantity Int32,
-  total Float64,
-  status String,
-  created_at DateTime
-) ENGINE = MergeTree()
-ORDER BY id
-`;
-
-const CREATE_PRODUCTS_TABLE = `
-CREATE TABLE IF NOT EXISTS products (
-  id Int32,
-  name String,
-  price Float64,
-  category String,
-  description String
-) ENGINE = MergeTree()
-ORDER BY id
-`;
-
-// Sample data for tests
-export const TEST_DATA = {
-  test_table: [
-    { id: 1, name: 'Product 1', price: 10.99, created_at: '2023-01-01 00:00:00', category: 'A', active: 1 },
-    { id: 2, name: 'Product 2', price: 20.50, created_at: '2023-01-02 00:00:00', category: 'B', active: 1 },
-    { id: 3, name: 'Product 3', price: 15.75, created_at: '2023-01-03 00:00:00', category: 'A', active: 0 },
-    { id: 4, name: 'Product 4', price: 25.00, created_at: '2023-01-04 00:00:00', category: 'C', active: 1 },
-    { id: 5, name: 'Product 5', price: 30.25, created_at: '2023-01-05 00:00:00', category: 'B', active: 0 },
-    { id: 6, name: 'Product 6', price: 12.99, created_at: '2023-01-06 00:00:00', category: 'A', active: 1 },
-    { id: 7, name: 'Product 7', price: 22.50, created_at: '2023-01-07 00:00:00', category: 'B', active: 1 },
-    { id: 8, name: 'Product 8', price: 18.75, created_at: '2023-01-08 00:00:00', category: 'C', active: 0 }
-  ],
-  users: [
-    { id: 1, user_name: 'user1', email: 'user1@example.com', created_at: '2023-01-01 00:00:00', status: 'active' },
-    { id: 2, user_name: 'user2', email: 'user2@example.com', created_at: '2023-01-02 00:00:00', status: 'active' },
-    { id: 3, user_name: 'user3', email: 'user3@example.com', created_at: '2023-01-03 00:00:00', status: 'inactive' },
-    { id: 4, user_name: 'user4', email: 'user4@example.com', created_at: '2023-01-04 00:00:00', status: 'active' },
-    { id: 5, user_name: 'user5', email: 'user5@example.com', created_at: '2023-01-05 00:00:00', status: 'pending' }
-  ],
-  orders: [
-    { id: 1, user_id: 1, product_id: 1, quantity: 2, total: 21.98, status: 'completed', created_at: '2023-01-10 10:00:00' },
-    { id: 2, user_id: 1, product_id: 3, quantity: 1, total: 15.75, status: 'completed', created_at: '2023-01-11 11:00:00' },
-    { id: 3, user_id: 2, product_id: 2, quantity: 3, total: 61.50, status: 'completed', created_at: '2023-01-12 12:00:00' },
-    { id: 4, user_id: 3, product_id: 5, quantity: 1, total: 30.25, status: 'pending', created_at: '2023-01-13 13:00:00' },
-    { id: 5, user_id: 4, product_id: 4, quantity: 2, total: 50.00, status: 'completed', created_at: '2023-01-14 14:00:00' },
-    { id: 6, user_id: 2, product_id: 6, quantity: 1, total: 12.99, status: 'cancelled', created_at: '2023-01-15 15:00:00' },
-    { id: 7, user_id: 5, product_id: 7, quantity: 4, total: 90.00, status: 'pending', created_at: '2023-01-16 16:00:00' },
-    { id: 8, user_id: 1, product_id: 8, quantity: 1, total: 18.75, status: 'completed', created_at: '2023-01-17 17:00:00' }
-  ],
-  products: [
-    { id: 1, name: 'Product A', price: 10.99, category: 'Electronics', description: 'A great electronic device' },
-    { id: 2, name: 'Product B', price: 20.50, category: 'Clothing', description: 'Comfortable clothing item' },
-    { id: 3, name: 'Product C', price: 15.75, category: 'Electronics', description: 'Another electronic gadget' },
-    { id: 4, name: 'Product D', price: 25.00, category: 'Home', description: 'Home decoration item' },
-    { id: 5, name: 'Product E', price: 30.25, category: 'Kitchen', description: 'Useful kitchen tool' },
-    { id: 6, name: 'Product F', price: 12.99, category: 'Office', description: 'Office supplies' },
-    { id: 7, name: 'Product G', price: 22.50, category: 'Electronics', description: 'Premium electronic device' },
-    { id: 8, name: 'Product H', price: 18.75, category: 'Clothing', description: 'Stylish clothing piece' }
-  ]
 };
 
-// Helper to set up the test database
-export async function setupTestDatabase() {
-  const client = ClickHouseConnection.getClient();
+const execAsync = promisify(exec);
 
-  // Create database if it doesn't exist
-  await client.command({
-    query: `CREATE DATABASE IF NOT EXISTS ${CLICKHOUSE_DB}`
-  });
+// Create a path to the project root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '../../../../../');
 
-  // Use the test database
-  await client.command({
-    query: `USE ${CLICKHOUSE_DB}`
-  });
+// Connection configuration (with defaults that can be overridden by env variables)
+const config = {
+  host: process.env.CLICKHOUSE_TEST_HOST || 'http://localhost:8123',
+  user: process.env.CLICKHOUSE_TEST_USER || 'default',
+  password: process.env.CLICKHOUSE_TEST_PASSWORD || 'hypequery_test',
+  database: process.env.CLICKHOUSE_TEST_DB || 'test_db',
+};
 
-  // Create test tables
-  await client.command({
-    query: CREATE_TEST_TABLE
-  });
+// Initialize the ClickHouse connection
+export const initializeTestConnection = async () => {
+  logger.info('Initializing ClickHouse connection with config:', config);
 
-  await client.command({
-    query: CREATE_USERS_TABLE
-  });
-
-  await client.command({
-    query: CREATE_ORDERS_TABLE
-  });
-
-  await client.command({
-    query: CREATE_PRODUCTS_TABLE
-  });
-
-  // Truncate tables if they exist
-  await client.command({
-    query: `TRUNCATE TABLE IF EXISTS test_table`
-  });
-
-  await client.command({
-    query: `TRUNCATE TABLE IF EXISTS users`
-  });
-
-  await client.command({
-    query: `TRUNCATE TABLE IF EXISTS orders`
-  });
-
-  await client.command({
-    query: `TRUNCATE TABLE IF EXISTS products`
-  });
-
-  // Insert test data
-  // For test_table
-  for (const item of TEST_DATA.test_table) {
-    await client.command({
-      query: `
-        INSERT INTO test_table (id, name, price, created_at, category, active)
-        VALUES (${item.id}, '${item.name}', ${item.price}, '${item.created_at}', '${item.category}', ${item.active})
-      `
-    });
-  }
-
-  // For users
-  for (const user of TEST_DATA.users) {
-    await client.command({
-      query: `
-        INSERT INTO users (id, user_name, email, created_at, status)
-        VALUES (${user.id}, '${user.user_name}', '${user.email}', '${user.created_at}', '${user.status}')
-      `
-    });
-  }
-
-  // For orders
-  for (const order of TEST_DATA.orders) {
-    await client.command({
-      query: `
-        INSERT INTO orders (id, user_id, product_id, quantity, total, status, created_at)
-        VALUES (${order.id}, ${order.user_id}, ${order.product_id}, ${order.quantity}, ${order.total}, '${order.status}', '${order.created_at}')
-      `
-    });
-  }
-
-  // For products
-  for (const product of TEST_DATA.products) {
-    await client.command({
-      query: `
-        INSERT INTO products (id, name, price, category, description)
-        VALUES (${product.id}, '${product.name}', ${product.price}, '${product.category}', '${product.description}')
-      `
-    });
-  }
-}
-
-// Helper to check if Docker is available
-export function isDockerAvailable(): boolean {
   try {
-    execSync('docker --version', { stdio: 'ignore' });
+    // Make sure ClickHouse is initialized
+    ensureConnectionInitialized();
+
+    // Test connection by getting client and pinging
+    const client = ClickHouseConnection.getClient();
+    await client.ping();
+
+    logger.info('ClickHouse connection successful');
+
+    // Return the query builder from the index file
+    const { createQueryBuilder } = await import('../../../index.js');
+    return createQueryBuilder({
+      host: config.host,
+      username: config.user,
+      password: config.password,
+      database: config.database,
+    });
+  } catch (error) {
+    logger.error('Failed to connect to ClickHouse:', error);
+    throw error;
+  }
+};
+
+// Helper function to ensure connection is initialized
+export const ensureConnectionInitialized = () => {
+  // If connection hasn't been initialized yet, initialize it
+  try {
+    ClickHouseConnection.getClient();
+  } catch (error) {
+    // If we get "not initialized" error, initialize the connection
+    logger.info('Initializing ClickHouse connection...');
+    ClickHouseConnection.initialize({
+      host: config.host,
+      username: config.user,
+      password: config.password,
+      database: config.database,
+    });
+  }
+  return ClickHouseConnection.getClient();
+};
+
+// Check if Docker is installed
+export const isDockerAvailable = async (): Promise<boolean> => {
+  try {
+    await execAsync('docker --version');
     return true;
   } catch (error) {
     return false;
   }
-}
+};
 
-// Helper to start a ClickHouse Docker container for testing
-export function startClickHouseContainer() {
-  if (!isDockerAvailable()) {
-    console.warn('Docker is not available. Integration tests will use the configured ClickHouse instance.');
-    return;
+// Check if Docker Compose is installed
+export const isDockerComposeAvailable = async (): Promise<boolean> => {
+  try {
+    await execAsync('docker compose version');
+    return true;
+  } catch (error) {
+    try {
+      // Try the hyphenated version for older installations
+      await execAsync('docker-compose --version');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+};
+
+// Check if a docker container is running
+export const isContainerRunning = async (containerName: string): Promise<boolean> => {
+  try {
+    const { stdout } = await execAsync(`docker ps --filter "name=${containerName}" --format "{{.Names}}"`);
+    return stdout.trim() === containerName;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Check if ClickHouse is ready
+export const isClickHouseReady = async (): Promise<boolean> => {
+  try {
+    const client = ClickHouseConnection.getClient();
+    await client.ping();
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+// Start the ClickHouse container
+export const startClickHouseContainer = async (): Promise<void> => {
+  const dockerAvailable = await isDockerAvailable();
+  if (!dockerAvailable) {
+    throw new Error('Docker is not available. Please install Docker to run integration tests.');
   }
 
-  try {
-    // Check if container is already running
-    const containerId = execSync('docker ps -q -f name=hypequery-test-clickhouse').toString().trim();
-    if (containerId) {
-      console.log('ClickHouse test container is already running.');
-      return;
-    }
+  const composeAvailable = await isDockerComposeAvailable();
 
-    // Start a new container with the hypequery user already configured
-    execSync(
-      `docker run -d --name hypequery-test-clickhouse -p 8123:8123 -p 9000:9000 --ulimit nofile=262144:262144 -e CLICKHOUSE_USER=${CLICKHOUSE_USER} -e CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD} -e CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1 clickhouse/clickhouse-server:latest`,
-      { stdio: 'inherit' }
-    );
-
-    console.log('Started ClickHouse test container with user:', CLICKHOUSE_USER);
-
-    // Wait for ClickHouse to be ready
-    let attempts = 0;
-    const maxAttempts = 30;
-    while (attempts < maxAttempts) {
-      try {
-        execSync('curl -s http://localhost:8123/ping', { stdio: 'ignore' });
-        console.log('ClickHouse is ready.');
-        break;
-      } catch (error) {
-        attempts++;
-        if (attempts >= maxAttempts) {
-          throw new Error('ClickHouse failed to start in time.');
-        }
-        console.log(`Waiting for ClickHouse to be ready... (${attempts}/${maxAttempts})`);
-        execSync('sleep 1');
-      }
-    }
-
-    // Create the test database
+  // Use Docker Compose if available
+  if (composeAvailable) {
+    logger.info('Starting ClickHouse container with Docker Compose...');
     try {
-      execSync(`
-        docker exec hypequery-test-clickhouse clickhouse-client -u ${CLICKHOUSE_USER} --password ${CLICKHOUSE_PASSWORD} --query "CREATE DATABASE IF NOT EXISTS ${CLICKHOUSE_DB}"
-      `, { stdio: 'inherit' });
-      console.log(`Created database '${CLICKHOUSE_DB}'.`);
+      // Fix the path to the docker-compose.test.yml file
+      const composePath = path.resolve(projectRoot, 'packages/clickhouse/docker-compose.test.yml');
+      logger.info(`Using Docker Compose file at: ${composePath}`);
+
+      // Make sure we're executing the command from the correct directory
+      await execAsync(`docker compose -f "${composePath}" up -d`);
     } catch (error) {
-      console.error('Failed to create database:', error);
+      logger.error('Failed to start ClickHouse container with Docker Compose:', error);
       throw error;
     }
-  } catch (error) {
-    console.error('Failed to start ClickHouse container:', error);
-    throw error;
+  } else {
+    // Fallback to Docker run
+    logger.info('Starting ClickHouse container with Docker...');
+    try {
+      await execAsync(`
+        docker run -d --name hypequery-test-clickhouse 
+        -p 8123:8123 -p 9000:9000
+        -e CLICKHOUSE_USER=${config.user}
+        -e CLICKHOUSE_PASSWORD=${config.password}
+        -e CLICKHOUSE_DB=${config.database}
+        --ulimit nofile=262144:262144
+        clickhouse/clickhouse-server:latest
+      `);
+    } catch (error) {
+      logger.error('Failed to start ClickHouse container with Docker:', error);
+      throw error;
+    }
   }
+};
+
+// Wait for ClickHouse to be ready
+export const waitForClickHouse = async (
+  maxAttempts = 30,
+  retryInterval = 1000
+): Promise<void> => {
+  logger.info('Waiting for ClickHouse to be ready...');
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (await isClickHouseReady()) {
+      logger.info('ClickHouse is ready!');
+      return;
+    }
+    logger.info(`Waiting for ClickHouse... Attempt ${attempt}/${maxAttempts}`);
+    await new Promise(resolve => setTimeout(resolve, retryInterval));
+  }
+
+  throw new Error(`ClickHouse failed to start after ${maxAttempts} attempts`);
+};
+
+// Stop the ClickHouse container
+export const stopClickHouseContainer = async (): Promise<void> => {
+  const composeAvailable = await isDockerComposeAvailable();
+
+  if (composeAvailable) {
+    logger.info('Stopping ClickHouse container with Docker Compose...');
+    try {
+      // Fix the path to the docker-compose.test.yml file
+      const composePath = path.resolve(projectRoot, 'packages/clickhouse/docker-compose.test.yml');
+      logger.info(`Using Docker Compose file at: ${composePath}`);
+
+      // Make sure we're executing the command from the correct directory
+      await execAsync(`docker compose -f "${composePath}" down -v`);
+    } catch (error) {
+      logger.error('Failed to stop ClickHouse container with Docker Compose:', error);
+      // Log the error but don't throw, so the tests can complete
+      // This allows for manual cleanup if needed
+    }
+  } else {
+    logger.info('Stopping ClickHouse container with Docker...');
+    try {
+      await execAsync('docker stop hypequery-test-clickhouse && docker rm hypequery-test-clickhouse');
+    } catch (error) {
+      logger.error('Failed to stop ClickHouse container with Docker:', error);
+      // Log the error but don't throw, so the tests can complete
+    }
+  }
+};
+
+// Define the test schema types
+export interface TestSchema {
+  test_table: Array<{
+    id: number;
+    name: string;
+    category: string;
+    price: number;
+    created_at: string;
+    is_active: boolean;
+  }>;
+  users: Array<{
+    id: number;
+    user_name: string;
+    email: string;
+    status: string;
+    created_at: string;
+  }>;
+  orders: Array<{
+    id: number;
+    user_id: number;
+    product_id: number;
+    quantity: number;
+    total: number;
+    status: string;
+    created_at: string;
+  }>;
 }
 
-// Helper to stop the ClickHouse Docker container
-export function stopClickHouseContainer() {
-  if (!isDockerAvailable()) {
-    return;
-  }
+// Test data
+export const TEST_DATA: TestSchema = {
+  test_table: [
+    { id: 1, name: 'Product A', category: 'A', price: 10.5, created_at: '2023-01-01', is_active: true },
+    { id: 2, name: 'Product B', category: 'B', price: 20.75, created_at: '2023-01-02', is_active: true },
+    { id: 3, name: 'Product C', category: 'A', price: 15.0, created_at: '2023-01-03', is_active: false },
+    { id: 4, name: 'Product D', category: 'C', price: 8.25, created_at: '2023-01-04', is_active: true },
+    { id: 5, name: 'Product E', category: 'B', price: 30.0, created_at: '2023-01-05', is_active: true },
+  ],
+  users: [
+    { id: 1, user_name: 'john_doe', email: 'john@example.com', status: 'active', created_at: '2023-01-01' },
+    { id: 2, user_name: 'jane_smith', email: 'jane@example.com', status: 'active', created_at: '2023-01-02' },
+    { id: 3, user_name: 'bob_jones', email: 'bob@example.com', status: 'inactive', created_at: '2023-01-03' },
+  ],
+  orders: [
+    { id: 1, user_id: 1, product_id: 1, quantity: 2, total: 21.0, status: 'completed', created_at: '2023-01-10' },
+    { id: 2, user_id: 1, product_id: 3, quantity: 1, total: 15.0, status: 'completed', created_at: '2023-01-11' },
+    { id: 3, user_id: 2, product_id: 2, quantity: 3, total: 62.25, status: 'pending', created_at: '2023-01-12' },
+    { id: 4, user_id: 2, product_id: 5, quantity: 1, total: 30.0, status: 'completed', created_at: '2023-01-13' },
+    { id: 5, user_id: 3, product_id: 4, quantity: 2, total: 16.5, status: 'cancelled', created_at: '2023-01-14' },
+  ],
+};
+
+// Setup the test database
+export const setupTestDatabase = async (): Promise<void> => {
+  // Make sure connection is initialized before getting client
+  const client = ensureConnectionInitialized();
 
   try {
-    execSync('docker stop hypequery-test-clickhouse', { stdio: 'ignore' });
-    execSync('docker rm hypequery-test-clickhouse', { stdio: 'ignore' });
-    console.log('Stopped and removed ClickHouse test container.');
+    // Create and use database if it doesn't exist
+    await client.exec({ query: `CREATE DATABASE IF NOT EXISTS ${config.database}` });
+    await client.exec({ query: `USE ${config.database}` });
+
+    // Drop tables if they exist
+    await client.exec({ query: 'DROP TABLE IF EXISTS test_table' });
+    await client.exec({ query: 'DROP TABLE IF EXISTS users' });
+    await client.exec({ query: 'DROP TABLE IF EXISTS orders' });
+
+    // Create tables
+    await client.exec({
+      query: `
+        CREATE TABLE test_table (
+          id UInt32,
+          name String,
+          category String,
+          price Float64,
+          created_at Date,
+          is_active Boolean
+        ) ENGINE = MergeTree()
+        ORDER BY id
+      `
+    });
+
+    await client.exec({
+      query: `
+        CREATE TABLE users (
+          id UInt32,
+          user_name String,
+          email String,
+          status String,
+          created_at Date
+        ) ENGINE = MergeTree()
+        ORDER BY id
+      `
+    });
+
+    await client.exec({
+      query: `
+        CREATE TABLE orders (
+          id UInt32,
+          user_id UInt32,
+          product_id UInt32,
+          quantity UInt32,
+          total Float64,
+          status String,
+          created_at Date
+        ) ENGINE = MergeTree()
+        ORDER BY id
+      `
+    });
+
+    // Insert test data
+    for (const row of TEST_DATA.test_table) {
+      await client.insert({
+        table: 'test_table',
+        values: [row],
+        format: 'JSONEachRow'
+      });
+    }
+
+    for (const row of TEST_DATA.users) {
+      await client.insert({
+        table: 'users',
+        values: [row],
+        format: 'JSONEachRow'
+      });
+    }
+
+    for (const row of TEST_DATA.orders) {
+      await client.insert({
+        table: 'orders',
+        values: [row],
+        format: 'JSONEachRow'
+      });
+    }
+
+    logger.info('Test database setup complete');
   } catch (error) {
-    console.error('Failed to stop ClickHouse container:', error);
+    logger.error('Failed to set up test database:', error);
+    throw error;
   }
-} 
+}; 

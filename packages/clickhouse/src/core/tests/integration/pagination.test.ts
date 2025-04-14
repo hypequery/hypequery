@@ -6,6 +6,7 @@ import {
   TestSchema,
   TEST_DATA
 } from './setup';
+import { ClickHouseConnection } from '../../../core/connection';
 
 // Skip integration tests if running in CI or if explicitly disabled
 const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';
@@ -33,11 +34,45 @@ describe('Integration Tests - Pagination', () => {
       }
     }, 60000); // Allow up to 60 seconds for setup
 
-    afterAll(() => {
+    afterAll(async () => {
       if (!SKIP_INTEGRATION_TESTS) {
-        stopClickHouseContainer();
+        try {
+          // Wait for any pending operations to complete
+          console.log('Starting test cleanup...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Close any active client connections to prevent lingering queries
+          if (db) {
+            try {
+              const client = ClickHouseConnection.getClient();
+              console.log('Closing ClickHouse client connection...');
+
+              // Wait for any in-flight queries to complete
+              await new Promise(resolve => setTimeout(resolve, 500));
+
+              // Ensure we're not running any more queries
+              await client.close().catch(err => {
+                console.error('Error closing ClickHouse client:', err);
+              });
+
+              console.log('ClickHouse client closed successfully');
+            } catch (closeError) {
+              console.error('Error during client close:', closeError);
+            }
+          }
+
+          // Then stop the container
+          console.log('Stopping ClickHouse container...');
+          await stopClickHouseContainer();
+          console.log('Cleanup completed');
+
+          // Make sure all async operations have a chance to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error('Error during test cleanup:', error);
+        }
       }
-    });
+    }, 15000); // Allow up to 15 seconds for teardown
 
     test('should paginate results with cursor-based pagination', async () => {
       // Get first page
@@ -143,6 +178,7 @@ describe('Integration Tests - Pagination', () => {
           orderBy: [{ column: 'id', direction: 'ASC' }]
         });
 
+      console.log('CHECK!!!!: ', result.pageInfo)
       expect(result.data).toHaveLength(2);
       expect(result.pageInfo.hasNextPage).toBe(false);
       expect(result.pageInfo.hasPreviousPage).toBe(false);
