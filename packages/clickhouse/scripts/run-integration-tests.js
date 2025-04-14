@@ -26,7 +26,7 @@ const result = spawnSync('npx', [
   '--runInBand',
   '--forceExit',
   '--detectOpenHandles',
-  '--config=jest.config.mjs',
+  '--config=jest.config.cjs',
   '--testTimeout=30000'
 ], {
   cwd: projectRoot,
