@@ -1,14 +1,6 @@
 import { createClient } from '@clickhouse/client-web';
 import type { ClickHouseSettings } from '@clickhouse/client-web';
 
-// Define a Logger interface matching what the ClickHouse client expects
-interface Logger {
-  trace(message: string, ...args: any[]): void;
-  debug(message: string, ...args: any[]): void;
-  info(message: string, ...args: any[]): void;
-  warn(message: string, ...args: any[]): void;
-  error(message: string, ...args: any[]): void;
-}
 
 /**
  * Configuration options for the ClickHouse connection.
@@ -27,7 +19,7 @@ interface Logger {
 export interface ClickHouseConnectionOptions {
   /**
    * The URL of the ClickHouse server, including protocol and port.
-   * Example: 'http://localhost:8123'
+   * Example: 'http://localhost:8123' or 'https://your-instance.clickhouse.cloud:8443'
    */
   host: string;
 
@@ -45,6 +37,12 @@ export interface ClickHouseConnectionOptions {
    * The database to connect to. Defaults to 'default' if not provided.
    */
   database?: string;
+
+  /**
+   * Enable secure connection (TLS/SSL). 
+   * This is automatically set to true if the host URL starts with https://
+   */
+  secure?: boolean;
 
   /**
    * Custom HTTP headers to include with each request.
@@ -123,11 +121,21 @@ export class ClickHouseConnection {
    * 
    * @example
    * ```typescript
+   * // For a local ClickHouse instance
    * ClickHouseConnection.initialize({
    *   host: 'http://localhost:8123',
    *   username: 'default',
    *   password: 'password',
    *   database: 'my_database'
+   * });
+   * 
+   * // For a ClickHouse Cloud instance
+   * ClickHouseConnection.initialize({
+   *   host: 'https://your-instance.clickhouse.cloud:8443',
+   *   username: 'default',
+   *   password: 'your-password',
+   *   database: 'my_database',
+   *   secure: true
    * });
    * ```
    */
@@ -139,6 +147,15 @@ export class ClickHouseConnection {
       password: config.password,
       database: config.database,
     };
+
+    // Automatically enable secure mode for HTTPS URLs
+    const isSecure = config.secure || config.host.startsWith('https://');
+    if (isSecure) {
+      clientConfig.tls = {
+        ca_cert: undefined, // Use system CA certificates
+        verify: true,
+      };
+    }
 
     // Add the extended options if provided
     if (config.http_headers) clientConfig.http_headers = config.http_headers;

@@ -37,25 +37,82 @@ ${colors.dim}Generate TypeScript types from your ClickHouse database schema${col
 function showHelp() {
   console.log(`
 ${colors.bright}Usage:${colors.reset}
-  npx hypequery-generate-types [output-path] [options]
+  npx hypequery-generate-types [options]
 
-${colors.bright}Arguments:${colors.reset}
-  output-path                Path where TypeScript definitions will be saved (default: "./generated-schema.ts")
+${colors.bright}Options:${colors.reset}
+  --output=<path>            Path where TypeScript definitions will be saved (default: "./generated-schema.ts")
+  --host=<url>               ClickHouse server URL (default: http://localhost:8123)
+  --username=<user>          ClickHouse username (default: default)
+  --password=<password>      ClickHouse password
+  --database=<db>            ClickHouse database name (default: default)
+  --include-tables=<tables>  Comma-separated list of tables to include (default: all)
+  --exclude-tables=<tables>  Comma-separated list of tables to exclude (default: none)
+  --secure                   Use HTTPS/TLS for connection
+  --help, -h                 Show this help text
 
 ${colors.bright}Environment variables:${colors.reset}
-  CLICKHOUSE_HOST            ClickHouse server URL (default: http://localhost:8123)
-  CLICKHOUSE_USER            ClickHouse username (default: default)
+  CLICKHOUSE_HOST            ClickHouse server URL
+  VITE_CLICKHOUSE_HOST       Alternative variable for Vite projects
+  NEXT_PUBLIC_CLICKHOUSE_HOST Alternative variable for Next.js projects
+  
+  CLICKHOUSE_USER            ClickHouse username
+  VITE_CLICKHOUSE_USER       Alternative variable for Vite projects
+  NEXT_PUBLIC_CLICKHOUSE_USER Alternative variable for Next.js projects
+  
   CLICKHOUSE_PASSWORD        ClickHouse password
-  CLICKHOUSE_DATABASE        ClickHouse database name (default: default)
+  VITE_CLICKHOUSE_PASSWORD   Alternative variable for Vite projects
+  NEXT_PUBLIC_CLICKHOUSE_PASSWORD Alternative variable for Next.js projects
+  
+  CLICKHOUSE_DATABASE        ClickHouse database name
+  VITE_CLICKHOUSE_DATABASE   Alternative variable for Vite projects
+  NEXT_PUBLIC_CLICKHOUSE_DATABASE Alternative variable for Next.js projects
 
 ${colors.bright}Examples:${colors.reset}
   npx hypequery-generate-types
-  npx hypequery-generate-types ./src/types/db-schema.ts
-  CLICKHOUSE_HOST=http://my-clickhouse:8123 npx hypequery-generate-types
-
-${colors.bright}Options:${colors.reset}
-  --help, -h                 Show this help text
+  npx hypequery-generate-types --output=./src/types/db-schema.ts
+  npx hypequery-generate-types --host=https://your-instance.clickhouse.cloud:8443 --secure
+  npx hypequery-generate-types --host=http://localhost:8123 --username=default --password=password --database=my_db
+  npx hypequery-generate-types --include-tables=users,orders,products
   `);
+}
+
+/**
+ * Parse command line arguments into a configuration object
+ */
+function parseArguments(args) {
+  const config = {
+    output: './generated-schema.ts',
+    includeTables: [],
+    excludeTables: [],
+    secure: false
+  };
+
+  for (const arg of args) {
+    if (arg.startsWith('--output=')) {
+      config.output = arg.substring('--output='.length);
+    } else if (arg.startsWith('--host=')) {
+      config.host = arg.substring('--host='.length);
+    } else if (arg.startsWith('--username=')) {
+      config.username = arg.substring('--username='.length);
+    } else if (arg.startsWith('--password=')) {
+      config.password = arg.substring('--password='.length);
+    } else if (arg.startsWith('--database=')) {
+      config.database = arg.substring('--database='.length);
+    } else if (arg.startsWith('--include-tables=')) {
+      config.includeTables = arg.substring('--include-tables='.length).split(',');
+    } else if (arg.startsWith('--exclude-tables=')) {
+      config.excludeTables = arg.substring('--exclude-tables='.length).split(',');
+    } else if (arg === '--secure') {
+      config.secure = true;
+    } else if (arg === '--help' || arg === '-h') {
+      config.showHelp = true;
+    } else if (!arg.startsWith('-') && !config.output) {
+      // For backwards compatibility, treat the first non-flag argument as the output path
+      config.output = arg;
+    }
+  }
+
+  return config;
 }
 
 /**
@@ -66,55 +123,82 @@ async function main() {
 
   // Process command line arguments
   const args = process.argv.slice(2);
+  const config = parseArguments(args);
 
   // Check for help flag
-  if (args.includes('--help') || args.includes('-h')) {
+  if (config.showHelp) {
     showHelp();
     return;
   }
 
-  // Get output path (default or from args)
-  const outputPath = args.length > 0 && !args[0].startsWith('-')
-    ? args[0]
-    : './generated-schema.ts';
-
   try {
-    // Display connection info
-    const host = process.env.VITE_CLICKHOUSE_HOST || process.env.CLICKHOUSE_HOST || 'http://localhost:8123';
-    const database = process.env.VITE_CLICKHOUSE_DATABASE || process.env.CLICKHOUSE_DATABASE || 'default';
+    // Get connection parameters from args and environment variables
+    const host = config.host ||
+      process.env.CLICKHOUSE_HOST ||
+      process.env.VITE_CLICKHOUSE_HOST ||
+      process.env.NEXT_PUBLIC_CLICKHOUSE_HOST ||
+      'http://localhost:8123';
+
+    const username = config.username ||
+      process.env.CLICKHOUSE_USER ||
+      process.env.VITE_CLICKHOUSE_USER ||
+      process.env.NEXT_PUBLIC_CLICKHOUSE_USER ||
+      'default';
+
+    const password = config.password ||
+      process.env.CLICKHOUSE_PASSWORD ||
+      process.env.VITE_CLICKHOUSE_PASSWORD ||
+      process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD;
+
+    const database = config.database ||
+      process.env.CLICKHOUSE_DATABASE ||
+      process.env.VITE_CLICKHOUSE_DATABASE ||
+      process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE ||
+      'default';
 
     console.log(`${colors.dim}Connecting to ClickHouse at ${colors.reset}${colors.bright}${host}${colors.reset}`);
     console.log(`${colors.dim}Database: ${colors.reset}${colors.bright}${database}${colors.reset}`);
 
-    // Initialize connection from env vars
-    ClickHouseConnection.initialize({
+    // Configure connection
+    const connectionConfig = {
       host,
-      username: process.env.VITE_CLICKHOUSE_USER || process.env.CLICKHOUSE_USER || 'default',
-      password: process.env.VITE_CLICKHOUSE_PASSWORD || process.env.CLICKHOUSE_PASSWORD,
+      username,
+      password,
       database,
-    });
+    };
+
+    // Add secure connection options if needed
+    if (config.secure || host.startsWith('https://')) {
+      connectionConfig.secure = true;
+    }
+
+    // Initialize connection
+    ClickHouseConnection.initialize(connectionConfig);
 
     console.log(`${colors.dim}Generating TypeScript definitions...${colors.reset}`);
 
     // Ensure directory exists
-    const dir = path.dirname(path.resolve(outputPath));
+    const dir = path.dirname(path.resolve(config.output));
     await fs.mkdir(dir, { recursive: true });
 
     // Generate types
-    await generateTypes(outputPath);
+    await generateTypes(config.output, {
+      includeTables: config.includeTables.length > 0 ? config.includeTables : undefined,
+      excludeTables: config.excludeTables.length > 0 ? config.excludeTables : undefined
+    });
 
-    console.log(`${colors.green}✓ Success! ${colors.reset}Types generated at ${colors.bright}${path.resolve(outputPath)}${colors.reset}`);
+    console.log(`${colors.green}✓ Success! ${colors.reset}Types generated at ${colors.bright}${path.resolve(config.output)}${colors.reset}`);
     console.log(`
 ${colors.dim}To use these types in your project:${colors.reset}
 
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { IntrospectedSchema } from '${outputPath.replace(/\.ts$/, '')}';
+import { IntrospectedSchema } from '${config.output.replace(/\.ts$/, '')}';
 
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
+  host: '${host}',
+  username: '${username}',
+  password: '********',
+  database: '${database}'
 });
 `);
   } catch (error) {
@@ -124,21 +208,29 @@ const db = createQueryBuilder<IntrospectedSchema>({
     if (error.message && error.message.includes('ECONNREFUSED')) {
       console.error(`
 ${colors.yellow}Connection refused.${colors.reset} Please check:
-- Is ClickHouse running at ${process.env.CLICKHOUSE_HOST || 'http://localhost:8123'}?
+- Is ClickHouse running at the specified host?
 - Do you need to provide authentication credentials?
 - Are there any network/firewall restrictions?
+- For cloud instances, did you include the port (usually 8443) and use HTTPS?
 `);
     } else if (error.message && error.message.includes('Authentication failed')) {
       console.error(`
 ${colors.yellow}Authentication failed.${colors.reset} Please check:
-- Are your CLICKHOUSE_USER and CLICKHOUSE_PASSWORD environment variables set correctly?
+- Are your username and password correct?
+- For ClickHouse Cloud, did you use the correct credentials from your cloud dashboard?
 - Does the user have sufficient permissions?
 `);
     } else if (error.message && error.message.includes('database does not exist')) {
       console.error(`
 ${colors.yellow}Database not found.${colors.reset} Please check:
-- Is the CLICKHOUSE_DATABASE environment variable set correctly?
+- Is the database name correct?
 - Does the database exist in your ClickHouse instance?
+`);
+    } else if (error.message && error.message.includes('certificate')) {
+      console.error(`
+${colors.yellow}SSL/TLS certificate issue.${colors.reset} For secure connections:
+- Try adding the --secure flag
+- For ClickHouse Cloud, make sure you're using https:// and port 8443
 `);
     }
 
