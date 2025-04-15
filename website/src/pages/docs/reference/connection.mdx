@@ -1,0 +1,190 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Connecting to ClickHouse
+description: Learn how to connect to ClickHouse databases with hypequery
+---
+
+# Connecting to ClickHouse
+
+hypequery needs to establish a connection to your ClickHouse database before executing queries. This page explains the various connection options and authentication methods supported by the library.
+
+## Basic Connection
+
+The simplest way to connect to ClickHouse is by providing the host, username, password, and database name:
+
+```typescript
+import { ClickHouseConnection } from '@hypequery/clickhouse';
+
+ClickHouseConnection.initialize({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database'
+});
+```
+
+## Connection Options
+
+hypequery supports all the connection options provided by the official ClickHouse JavaScript client. Here's a detailed reference of the `ClickHouseConnectionOptions` interface:
+
+### Core Connection Options
+
+| Option | Type | Description | Default |
+|--------|------|-------------|---------|
+| `host` | `string` | The URL of the ClickHouse server, including protocol and port (e.g., 'http://localhost:8123') | Required |
+| `username` | `string` | Username for authentication | 'default' |
+| `password` | `string` | Password for authentication | undefined |
+| `database` | `string` | The database to connect to | 'default' |
+| `secure` | `boolean` | Enable secure connection (TLS/SSL). Automatically set to true if the host URL starts with https:// | false |
+
+### Authentication Options
+
+hypequery supports multiple authentication methods:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `username` & `password` | `string` | Traditional username/password authentication |
+| `http_headers` | `Record<string, string>` | Custom HTTP headers to include with each request, can be used for custom authentication methods |
+
+### Advanced Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `http_headers` | `Record<string, string>` | Custom HTTP headers to include with each request |
+| `request_timeout` | `number` | Request timeout in milliseconds |
+| `compression` | `{ response?: boolean; request?: boolean }` | Enable compression for requests and/or responses |
+| `application` | `string` | Application name to identify in ClickHouse server logs |
+| `keep_alive` | `{ enabled: boolean }` | Keep-alive connection settings |
+| `log` | `any` | Logger configuration |
+| `clickhouse_settings` | `ClickHouseSettings` | Additional ClickHouse-specific settings |
+
+## Authentication Methods
+
+### Basic Authentication
+
+```typescript
+ClickHouseConnection.initialize({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database'
+});
+```
+
+### Service Token Authentication
+
+For more secure authentication, especially when connecting through a proxy service:
+
+```typescript
+ClickHouseConnection.initialize({
+  host: 'https://your-clickhouse-proxy.com',
+  service_token: 'your-secure-token',
+  database: 'my_database'
+});
+```
+
+When using service token authentication:
+- The token is sent in the `Authorization: Bearer <token>` HTTP header
+- Username and password are ignored completely
+- This is ideal for modern authentication proxies and API gateways
+- Provides better security than sending raw credentials
+
+
+### Custom Headers Authentication
+
+For cases where you need to provide custom authentication headers:
+
+```typescript
+ClickHouseConnection.initialize({
+  host: 'https://clickhouse-behind-proxy.com',
+  http_headers: {
+    'My-Auth-Header': '...',
+  },
+  database: 'my_database'
+});
+```
+
+
+## ClickHouse Settings
+
+You can configure specific ClickHouse settings by using the `clickhouse_settings` option. This accepts an object of key-value pairs that map directly to ClickHouse server settings:
+
+```typescript
+ClickHouseConnection.initialize({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database',
+  clickhouse_settings: {
+    max_execution_time: 30,
+    wait_end_of_query: 1,
+    send_progress_in_http_headers: 1
+  }
+});
+```
+
+Common settings include:
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `max_execution_time` | `number` | Maximum query execution time in seconds |
+| `max_block_size` | `number` | Maximum block size for reading data |
+| `wait_end_of_query` | `number` | Wait for the query to complete before sending the response |
+| `send_progress_in_http_headers` | `number` | Send query progress in HTTP headers |
+| `log_queries` | `number` | Log queries on the server side |
+| `output_format_json_quote_64bit_integers` | `number` | Quote 64-bit integers in JSON output |
+
+## Connection with Compression
+
+To reduce network traffic at the cost of some CPU usage, you can enable compression:
+
+```typescript
+ClickHouseConnection.initialize({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database',
+  compression: {
+    request: true,   // Compress data sent to ClickHouse
+    response: true   // Decompress data received from ClickHouse
+  }
+});
+```
+
+## Connection through a Proxy
+
+If your ClickHouse instance is behind a proxy:
+
+```typescript
+ClickHouseConnection.initialize({
+  host: 'http://proxy-url:8123',
+  username: 'default',
+  password: 'password',
+  database: 'my_database',
+  http_headers: {
+    'X-Forwarded-For': 'client-ip',
+    'X-Real-IP': 'client-ip'
+  }
+});
+```
+
+
+## References and Resources
+
+hypequery's connection options are fully compatible with the official ClickHouse JavaScript client. Our connection implementation is a thin wrapper around the official client, so you can refer to their documentation for additional details:
+  <br />
+  <a href="https://clickhouse.com/docs/integrations/javascript" className="text-blue-600 hover:underline font-medium">
+     ClickHouse JavaScript Client
+   </a>
+  <br />
+The hypequery ClickHouse library adopts the same configuration format and options as the official client, making it easy to migrate between the two or to follow the official documentation for connection-related issues.
+
+
+## Troubleshooting Connection Issues
+
+If you encounter connection issues, check the following:
+
+1. Verify that your ClickHouse server is running and accessible from your application
+2. Check that the host URL includes the correct protocol (http/https) and port
+3. Ensure your credentials (username/password or token) are correct
+5. Check for any network restrictions or firewalls that might block the connection 

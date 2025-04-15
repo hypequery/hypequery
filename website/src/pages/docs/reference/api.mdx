@@ -1,12 +1,12 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: API Reference
-description: Complete API reference for HypeQuery
+description: Complete API reference for hypequery
 ---
 
 # API Reference
 
-This page provides a complete reference for all HypeQuery classes and methods.
+This page provides a complete reference for all hypequery classes and methods.
 
 ## QueryBuilder
 

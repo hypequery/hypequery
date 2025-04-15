@@ -1,12 +1,12 @@
 ---
 layout: ../../layouts/DocsLayout.astro
 title: Logging Support
-description: Track and monitor your ClickHouse queries with HypeQuery's logging system
+description: Track and monitor your ClickHouse queries with hypequery's logging system
 ---
 
 # Logging Support
 
-HypeQuery includes built-in logging support to help you track query execution, timing, and status. The logger provides detailed information about your queries, including:
+hypequery includes built-in logging support to help you track query execution, timing, and status. The logger provides detailed information about your queries, including:
 
 - Query SQL and parameters
 - Execution start and end times
@@ -145,8 +145,8 @@ const results = await builder
   .execute();
 
 // You'll see logs like:
-// [HypeQuery Debug] Query started: SELECT id, name FROM users WHERE age > ?
-// [HypeQuery Info] Query completed: SELECT id, name FROM users WHERE age > ? (duration: 45ms, rows: 100)
+// [hypequery Debug] Query started: SELECT id, name FROM users WHERE age > ?
+// [hypequery Info] Query completed: SELECT id, name FROM users WHERE age > ? (duration: 45ms, rows: 100)
 ```
 
 ## Logging with Streaming
@@ -160,8 +160,8 @@ const stream = builder
   .stream();
 
 // The logger will show:
-// [HypeQuery Debug] Query started: SELECT timestamp, event_type FROM events
-// [HypeQuery Info] Query completed: SELECT timestamp, event_type FROM events (duration: 120ms, rows: 1000)
+// [hypequery Debug] Query started: SELECT timestamp, event_type FROM events
+// [hypequery Info] Query completed: SELECT timestamp, event_type FROM events (duration: 120ms, rows: 1000)
 ```
 
 ## Viewing Logs
@@ -171,8 +171,8 @@ There are several ways to view and manage your query logs:
 1. **Console Output** (Default):
 ```typescript
 // Logs are automatically printed to console
-// [HypeQuery Debug] Query started: SELECT id, name FROM users WHERE age > ?
-// [HypeQuery Info] Query completed: SELECT id, name FROM users WHERE age > ? (duration: 45ms, rows: 100)
+// [hypequery Debug] Query started: SELECT id, name FROM users WHERE age > ?
+// [hypequery Info] Query completed: SELECT id, name FROM users WHERE age > ? (duration: 45ms, rows: 100)
 ```
 
 2. **Custom Log Handler**:

@@ -1,12 +1,12 @@
 ---
 layout: ../../layouts/DocsLayout.astro
 title: SQL Expressions
-description: Using raw SQL expressions and ClickHouse functions with HypeQuery
+description: Using raw SQL expressions and ClickHouse functions with hypequery
 ---
 
 # SQL Expressions
 
-HypeQuery provides a way to use raw SQL expressions and ClickHouse functions in your queries while maintaining type safety.
+hypequery provides a way to use raw SQL expressions and ClickHouse functions in your queries while maintaining type safety.
 
 ## Raw SQL Expressions
 
@@ -31,7 +31,7 @@ const query = builder
 
 ## ClickHouse Functions
 
-HypeQuery provides several helper functions for common ClickHouse operations:
+hypequery provides several helper functions for common ClickHouse operations:
 
 ```typescript
 import { 
@@ -86,47 +86,6 @@ const result = await builder
 
 // TypeScript doesn't know the type of 'date', so you can assert it:
 const dates = result.map(row => row.date as Date);
-```
-
-## Available Helper Functions
-
-### toDateTime
-
-Converts a value to DateTime format:
-
-```typescript
-toDateTime('timestamp', 'formatted_time')
-// Results in: toDateTime(timestamp) AS formatted_time
-```
-
-### formatDateTime
-
-Formats a DateTime value using the specified format:
-
-```typescript
-formatDateTime('timestamp', 'Y-m-d H:i:s', 'formatted_date')
-// Results in: formatDateTime(timestamp, 'Y-m-d H:i:s') AS formatted_date
-```
-
-### toStartOfInterval
-
-Truncates a date/time value to the start of the specified interval:
-
-```typescript
-toStartOfInterval('timestamp', '1 day', 'day')
-// Results in: toStartOfInterval(timestamp, INTERVAL 1 day) AS day
-```
-
-### datePart
-
-Extracts a specific part (year, month, day, etc.) from a date/time value:
-
-```typescript
-datePart('year', 'timestamp', 'year')
-// Results in: toYear(timestamp) AS year
-
-datePart('month', 'timestamp', 'month')
-// Results in: toMonth(timestamp) AS month
 ```
 
 ## Usage in Aggregations

@@ -6,7 +6,7 @@ order: 1
 
 # Example Guide
 
-This is an example guide that demonstrates how to use HypeQuery effectively.
+This is an example guide that demonstrates how to use hypequery effectively.
 
 ## Basic Usage
 

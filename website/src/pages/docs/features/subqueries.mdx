@@ -1,12 +1,12 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: Subqueries & CTEs
-description: Learn how to use subqueries and Common Table Expressions (CTEs) in HypeQuery
+description: Learn how to use subqueries and Common Table Expressions (CTEs) in hypequery
 ---
 
 # Subqueries & CTEs
 
-HypeQuery provides support for Common Table Expressions (CTEs) and raw SQL capabilities that allow you to create complex queries with subqueries.
+hypequery provides support for Common Table Expressions (CTEs) and raw SQL capabilities that allow you to create complex queries with subqueries.
 
 ## Common Table Expressions (CTEs)
 
@@ -124,7 +124,7 @@ HAVING SUM(total) > 1000 AND COUNT(DISTINCT product_id) >= 3
 
 ## Limitations and Workarounds
 
-HypeQuery doesn't directly support nested subqueries in WHERE clauses, but you can work around this with CTEs or raw SQL expressions:
+hypequery doesn't directly support nested subqueries in WHERE clauses, but you can work around this with CTEs or raw SQL expressions:
 
 ### Example: IN Subqueries
 
@@ -157,7 +157,7 @@ For more complex scenarios like correlated subqueries, you may need to use your 
 ```typescript
 import { ClickHouseConnection } from '@hypequery/clickhouse';
 
-// For complex queries that HypeQuery can't easily build
+// For complex queries that hypequery can't easily build
 const client = ClickHouseConnection.getClient();
 const result = await client.query({
   query: `

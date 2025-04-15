@@ -1,8 +1,8 @@
-**HypeQuery ClickHouse API**
+**hypequery ClickHouse API**
 
 ***
 
-# HypeQuery
+# hypequery
 
 <div align="center">
   <img src="https://hypequery.dev/img/logo.svg" alt="HypeQuery Logo" width="200"/>
@@ -69,7 +69,7 @@ const results = await db
 
 ## Schema Generation
 
-HypeQuery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
+hypequery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
 
 ```bash
 # Install globally (optional)
@@ -94,7 +94,7 @@ const db = createQueryBuilder<IntrospectedSchema>({
 
 ### Type-Safe Queries
 
-HypeQuery provides full TypeScript support, ensuring your queries are type-safe:
+hypequery provides full TypeScript support, ensuring your queries are type-safe:
 
 ```typescript
 // Column names are type-checked
@@ -171,7 +171,7 @@ const prevPage = await db.table('trips')
 
 ### Advanced Queries
 
-HypeQuery supports complex queries including joins, aggregations, and subqueries:
+hypequery supports complex queries including joins, aggregations, and subqueries:
 
 ```typescript
 // Aggregations
@@ -228,7 +228,7 @@ const db = createQueryBuilder<Schema>({
 
 ## Versioning and Release Channels
 
-HypeQuery follows semantic versioning and provides multiple release channels:
+hypequery follows semantic versioning and provides multiple release channels:
 
 - **Latest**: Stable releases (`npm install @hypequery/core`)
 - **Beta**: Pre-release versions (`npm install @hypequery/core@beta`)

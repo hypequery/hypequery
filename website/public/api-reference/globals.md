@@ -2,7 +2,7 @@
 
 ***
 
-# HypeQuery ClickHouse API
+# hypequery ClickHouse API
 
 ## Classes
 

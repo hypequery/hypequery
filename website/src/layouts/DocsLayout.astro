@@ -10,7 +10,7 @@ interface Props {
 
 const {
   title,
-  description = "HypeQuery documentation - Learn how to build type-safe dashboards with ClickHouse",
+  description = "hypequery documentation - Learn how to build type-safe dashboards with ClickHouse",
 } = Astro.props;
 
 // Get the current URL path
@@ -23,6 +23,7 @@ const sidebar = [
     items: [
       { title: "Introduction", href: "/docs/introduction" },
       { title: "Installation", href: "/docs/installation" },
+      { title: "Connecting to ClickHouse", href: "/docs/reference/connection" },
       { title: "Type Generation", href: "/docs/type-generation" },
       // { title: "Quick Start", href: "/docs/quickstart" },
     ],
@@ -34,32 +35,33 @@ const sidebar = [
       { title: "Join Relationships", href: "/docs/guides/joins" },
       { title: "Filtering", href: "/docs/guides/filtering" },
       { title: "SQL Expressions", href: "/docs/sql-expressions" },
+      { title: "Time-Based Functions", href: "/docs/time-based-functions" },
     ],
   },
   {
     title: "Advanced Features",
     items: [
-      { title: "Cross Filtering", href: "/docs/features/cross-filtering" },
-      { title: "Pagination", href: "/docs/features/pagination" },
+      // { title: "Cross Filtering", href: "/docs/features/cross-filtering" },
+      // { title: "Pagination", href: "/docs/features/pagination" },
       { title: "Subqueries", href: "/docs/features/subqueries" },
-      { title: "Time Functions", href: "/docs/features/time-functions" },
-      { title: "Debugging", href: "/docs/features/debugging" },
+      { title: "Helper methods", href: "/docs/guides/helper-methods" },
+      // { title: "Debugging", href: "/docs/features/debugging" },
       { title: "Streaming", href: "/docs/streaming" },
       { title: "Logging", href: "/docs/logging" },
     ],
   },
-  {
-    title: "Reference",
-    items: [
-      { title: "API Reference", href: "/docs/reference/api" },
-      { title: "Best Practices", href: "/docs/reference/best-practices" },
-    ],
-  },
+  // {
+  //   title: "Reference",
+  //   items: [
+  //     { title: "API Reference", href: "/docs/reference/api" },
+  //     { title: "Best Practices", href: "/docs/reference/best-practices" },
+  //   ],
+  // },
   {
     title: "API Documentation",
     items: [
-      { title: "Overview", href: "/docs/reference/api" },
-      { title: "Documentation", href: "/docs/reference/api/README" },
+      // { title: "Overview", href: "/docs/reference/api" },
+      // { title: "Documentation", href: "/docs/reference/api/README" },
       { title: "Globals", href: "/docs/reference/api/globals" },
       {
         title: "Classes",

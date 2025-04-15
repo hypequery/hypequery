@@ -128,15 +128,6 @@ export class ClickHouseConnection {
    *   password: 'password',
    *   database: 'my_database'
    * });
-   * 
-   * // For a ClickHouse Cloud instance
-   * ClickHouseConnection.initialize({
-   *   host: 'https://your-instance.clickhouse.cloud:8443',
-   *   username: 'default',
-   *   password: 'your-password',
-   *   database: 'my_database',
-   *   secure: true
-   * });
    * ```
    */
   static initialize(config: ClickHouseConnectionOptions): typeof ClickHouseConnection {
@@ -147,15 +138,6 @@ export class ClickHouseConnection {
       password: config.password,
       database: config.database,
     };
-
-    // Automatically enable secure mode for HTTPS URLs
-    const isSecure = config.secure || config.host.startsWith('https://');
-    if (isSecure) {
-      clientConfig.tls = {
-        ca_cert: undefined, // Use system CA certificates
-        verify: true,
-      };
-    }
 
     // Add the extended options if provided
     if (config.http_headers) clientConfig.http_headers = config.http_headers;

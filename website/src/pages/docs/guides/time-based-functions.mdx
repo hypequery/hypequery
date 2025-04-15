@@ -1,42 +1,51 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Advanced Functions - HypeQuery
-description: Learn about advanced query features like CTEs and time-based functions
+title: Time Based Functions - hypequery
+description: Learn about time-based query features
 ---
 
-# Advanced Functions
 
-HypeQuery provides several advanced features for complex queries and analytics. This guide covers Common Table Expressions (CTEs) and time-based functions.
+# Time-Based Functions
 
-## Common Table Expressions (CTEs)
+### toDateTime
 
-CTEs allow you to create temporary named result sets that you can reference within your query:
-
-```typescript
-const subquery = db
-  .table('orders')
-  .select(['user_id'])
-  .sum('amount', 'total_spent')
-  .groupBy('user_id');
-
-const results = await db
-  .table('users')
-  .withCTE('user_totals', subquery)
-  .select(['users.name', 'user_totals.total_spent'])
-  .execute();
-```
-
-You can also use raw SQL for CTEs:
+Converts a value to DateTime format:
 
 ```typescript
-const results = await db
-  .table('users')
-  .withCTE(
-    'active_users',
-    'SELECT user_id FROM sessions WHERE last_active > NOW() - INTERVAL 1 DAY'
-  )
-  .execute();
+toDateTime('timestamp', 'formatted_time')
+// Results in: toDateTime(timestamp) AS formatted_time
 ```
+
+### formatDateTime
+
+Formats a DateTime value using the specified format:
+
+```typescript
+formatDateTime('timestamp', 'Y-m-d H:i:s', 'formatted_date')
+// Results in: formatDateTime(timestamp, 'Y-m-d H:i:s') AS formatted_date
+```
+
+### toStartOfInterval
+
+Truncates a date/time value to the start of the specified interval:
+
+```typescript
+toStartOfInterval('timestamp', '1 day', 'day')
+// Results in: toStartOfInterval(timestamp, INTERVAL 1 day) AS day
+```
+
+### datePart
+
+Extracts a specific part (year, month, day, etc.) from a date/time value:
+
+```typescript
+datePart('year', 'timestamp', 'year')
+// Results in: toYear(timestamp) AS year
+
+datePart('month', 'timestamp', 'month')
+// Results in: toMonth(timestamp) AS month
+```
+
 
 ## Time-Based Functions
 
