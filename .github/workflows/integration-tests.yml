@@ -49,6 +49,9 @@ jobs:
     - name: Build packages
       run: npm run build
     
+    - name: Make scripts executable
+      run: chmod +x packages/clickhouse/scripts/run-integration-tests.js
+    
     - name: Run integration tests
       run: npm run test:integration
       env:

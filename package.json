@@ -11,6 +11,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
+    "test:integration": "cd packages/clickhouse && npm run test:integration",
     "lint": "turbo run lint",
     "start": "turbo run dev",
     "docs:api": "cd packages/clickhouse && npm run docs:api",
