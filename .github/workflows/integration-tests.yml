@@ -62,5 +62,7 @@ jobs:
         CLICKHOUSE_TEST_USER: default
         CLICKHOUSE_TEST_PASSWORD: hypequery_test
         CLICKHOUSE_TEST_DB: test_db
+        # Node options for proper ESM and crypto support
+        NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
         # For debugging
         DEBUG: true 
