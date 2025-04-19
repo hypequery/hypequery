@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "license": "Apache-2.0",
   "scripts": {
     "build": "npm run build:main && npm run build:cli && npm run fix-typedefs && npm run verify-build || npm run diagnose-ci",
     "build:main": "tsc --project tsconfig.json",
@@ -62,11 +63,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/lureilly1/hypequery.git"
+    "url": "https://github.com/hypequery/hypequery.git"
   },
-  "homepage": "https://hypequery.dev",
+  "homepage": "https://hypequery.com",
   "bugs": {
-    "url": "https://github.com/lureilly1/hypequery/issues"
+    "url": "https://github.com/hypequery/hypequery/issues"
   },
   "publishConfig": {
     "access": "public"
