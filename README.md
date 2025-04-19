@@ -1,7 +1,8 @@
-# HypeQuery
+   <span class="font-mono text-xl font-bold text-indigo-600"
+          >&gt; hypequery</span
+        >
 
 <div align="center">
-  <img src="https://hypequery.dev/img/logo.svg" alt="HypeQuery Logo" width="200"/>
   <h1>@hypequery/clickhouse</h1>
   <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
   
@@ -14,14 +15,13 @@
 
 ## Overview
 
-hypequery is a typescript-first query builder for ClickHouse designed specifically for building real-time, type-safe analytics dashboards. Unlike generic SQL query builders, HypeQuery understands your ClickHouse schema and provides full type checking throughout your codebase, making it ideal for data-intensive applications.
+hypequery is a typescript-first query builder for ClickHouse designed specifically for building real-time, type-safe analytics dashboards. Unlike generic SQL query builders, hypequery understands your ClickHouse schema and provides full type checking, making it ideal for data-intensive applications.
 
 ## Features
 
-- 🎯 **Type-Safe**: Full TypeScript support with inferred types from your ClickHouse schema
+- 🎯 **Type-Safe**: Full TypeScript support with types from your ClickHouse schema
 - 🚀 **Performant**: Built for real-time analytics with optimized query generation
 - 🔍 **Cross Filtering**: Powerful cross-filtering capabilities for interactive dashboards
-- 📊 **Dashboard Ready**: Built-in support for pagination, sorting, and filtering
 - 🛠️ **Developer Friendly**: Fluent API design for an intuitive development experience
 - 📱 **Platform Agnostic**: Works in both Node.js and browser environments
 - 🔄 **Schema Generation**: CLI tool to generate TypeScript types from your ClickHouse schema
@@ -95,13 +95,13 @@ HypeQuery follows semantic versioning and provides multiple release channels:
 
 ## Documentation
 
-For detailed documentation and examples, visit our [documentation site](https://hypequery.dev/docs).
+For detailed documentation and examples, visit our [documentation site](https://hypequery.com/docs).
 
-- [Getting Started](https://hypequery.dev/docs/installation)
-- [Query Building](https://hypequery.dev/docs/guides/query-building)
-- [Filtering](https://hypequery.dev/docs/guides/filtering)
-- [Pagination](https://hypequery.dev/docs/features/pagination)
-- [API Reference](https://hypequery.dev/docs/reference/api)
+- [Getting Started](https://hypequery.com/docs/installation)
+- [Query Building](https://hypequery.com/docs/guides/query-building)
+- [Filtering](https://hypequery.com/docs/guides/filtering)
+- [Pagination](https://hypequery.com/docs/features/pagination)
+- [API Reference](https://hypequery.com/docs/reference/api)
 
 ## Examples
 
@@ -125,11 +125,11 @@ We welcome contributions! Please see our [contributing guide](CONTRIBUTING.md) f
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- 📚 [Documentation](https://hypequery.dev/docs)
+- 📚 [Documentation](https://hypequery.com/docs)
 - 🐛 [Issue Tracker](https://github.com/lukejreilly/hypequery/issues)
 - 💬 [Discussions](https://github.com/lukejreilly/hypequery/discussions)
 
@@ -181,37 +181,6 @@ const query2 = db.table('drivers')
   .execute();
 ```
 
-### Pagination
-
-Built-in cursor-based pagination for efficient data loading:
-
-```typescript
-// First page
-const firstPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10
-  });
-
-// Next page
-const nextPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10,
-    after: firstPage.pageInfo.endCursor
-  });
-
-// Previous page
-const prevPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10,
-    before: nextPage.pageInfo.startCursor
-  });
-```
 
 ### Advanced Queries
 
@@ -242,36 +211,8 @@ const customQuery = await db.table('trips')
   .execute();
 ```
 
-## Environment Support
-
-### Browser Environment
-
-For browser usage, you'll typically need to set up a proxy server to avoid CORS issues:
-
-```typescript
-const db = createQueryBuilder<Schema>({
-  host: '/api/clickhouse', // Proxy through your API route
-  username: 'default',
-  password: '',
-  database: 'default'
-});
-```
-
-### Node.js Environment
-
-For server-side applications, you can connect directly to ClickHouse:
-
-```typescript
-const db = createQueryBuilder<Schema>({
-  host: 'http://your-clickhouse-server:8123',
-  username: 'default',
-  password: 'your-password',
-  database: 'default'
-});
-```
-
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by the HypeQuery team</sub>
+  <sub>Built with ❤️ by the hypequery team</sub>
 </div> 

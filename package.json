@@ -7,6 +7,7 @@
     "packages/tsconfig",
     "examples/*"
   ],
+  "license": "Apache-2.0",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
