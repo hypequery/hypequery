@@ -1,5 +1,6 @@
 import { CrossFilter, FilterGroup } from '../cross-filter';
 import { FilterConditionInput, FilterOperator } from '../../types/filters';
+import { createQueryBuilder } from '../query-builder';
 
 describe('CrossFilter', () => {
   let crossFilter: CrossFilter;
@@ -266,6 +267,76 @@ describe('CrossFilter', () => {
       expect(group.conditions).toHaveLength(2);
     });
 
+    it('should support nested groups with complex structure', () => {
+      // Create a filter with nested groups
+      const crossFilter = new CrossFilter();
+
+      // Create an inner group with AND logic (price between 100 and 200)
+      const innerGroup: FilterGroup = {
+        operator: 'AND',
+        conditions: [
+          { column: 'price', operator: 'gte', value: 100 },
+          { column: 'price', operator: 'lte', value: 200 }
+        ]
+      };
+
+      // Create another inner group with OR logic (status is active OR pending)
+      const statusGroup: FilterGroup = {
+        operator: 'OR',
+        conditions: [
+          { column: 'status', operator: 'eq', value: 'active' },
+          { column: 'status', operator: 'eq', value: 'pending' }
+        ]
+      };
+
+      // Add a group with OR logic between:
+      // 1. region is North
+      // 2. price is between 100 and 200 (inner AND group)
+      // 3. status is active OR pending (inner OR group)
+      crossFilter.addGroup([
+        { column: 'region', operator: 'eq', value: 'North' },
+        innerGroup,
+        statusGroup
+      ], 'OR');
+
+      // Verify the in-memory structure is correct
+      const result = crossFilter.getConditions();
+      expect(result.conditions).toHaveLength(1);
+
+      const outerGroup = result.conditions[0] as FilterGroup;
+      expect(outerGroup.operator).toBe('OR');
+      expect(outerGroup.conditions).toHaveLength(3);
+
+      // Verify the first condition is a simple equality
+      const firstCondition = outerGroup.conditions[0] as FilterConditionInput;
+      expect(firstCondition.column).toBe('region');
+      expect(firstCondition.operator).toBe('eq');
+      expect(firstCondition.value).toBe('North');
+
+      // Verify the second condition is a nested AND group for price range
+      const priceGroup = outerGroup.conditions[1] as FilterGroup;
+      expect(priceGroup.operator).toBe('AND');
+      expect(priceGroup.conditions).toHaveLength(2);
+      expect((priceGroup.conditions[0] as FilterConditionInput).column).toBe('price');
+      expect((priceGroup.conditions[0] as FilterConditionInput).operator).toBe('gte');
+      expect((priceGroup.conditions[0] as FilterConditionInput).value).toBe(100);
+      expect((priceGroup.conditions[1] as FilterConditionInput).column).toBe('price');
+      expect((priceGroup.conditions[1] as FilterConditionInput).operator).toBe('lte');
+      expect((priceGroup.conditions[1] as FilterConditionInput).value).toBe(200);
+
+      // Verify the third condition is a nested OR group for status
+      const statusGroupResult = outerGroup.conditions[2] as FilterGroup;
+      expect(statusGroupResult.operator).toBe('OR');
+      expect(statusGroupResult.conditions).toHaveLength(2);
+      expect((statusGroupResult.conditions[0] as FilterConditionInput).column).toBe('status');
+      expect((statusGroupResult.conditions[0] as FilterConditionInput).operator).toBe('eq');
+      expect((statusGroupResult.conditions[0] as FilterConditionInput).value).toBe('active');
+      expect((statusGroupResult.conditions[1] as FilterConditionInput).column).toBe('status');
+      expect((statusGroupResult.conditions[1] as FilterConditionInput).operator).toBe('eq');
+      expect((statusGroupResult.conditions[1] as FilterConditionInput).value).toBe('pending');
+    });
+
+    // Original test can remain for structural checks only
     it('should support nested groups', () => {
       const innerGroup: FilterGroup = {
         operator: 'AND',

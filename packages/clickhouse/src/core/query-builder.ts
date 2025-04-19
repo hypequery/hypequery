@@ -11,7 +11,6 @@ import {
   InferColumnType,
   PaginationOptions,
   PaginatedResult,
-  PageInfo
 } from '../types';
 import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
@@ -24,7 +23,8 @@ import { QueryModifiersFeature } from './features/query-modifiers';
 import { FilterValidator } from './validators/filter-validator';
 import { PaginationFeature } from './features/pagination';
 import { JoinRelationships, JoinPathOptions } from './join-relationships';
-import { SqlExpression } from './utils/sql-expressions';
+import { SqlExpression, raw } from './utils/sql-expressions';
+import { CrossFilteringFeature } from './features/cross-filtering';
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -54,6 +54,7 @@ export class QueryBuilder<
   private executor: ExecutorFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private modifiers: QueryModifiersFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
   private pagination: PaginationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private crossFiltering: CrossFilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
 
   constructor(
     tableName: string,
@@ -70,6 +71,7 @@ export class QueryBuilder<
     this.executor = new ExecutorFeature(this);
     this.modifiers = new QueryModifiersFeature(this);
     this.pagination = new PaginationFeature(this);
+    this.crossFiltering = new CrossFilteringFeature(this);
   }
 
   debug() {
@@ -81,7 +83,7 @@ export class QueryBuilder<
     return this;
   }
 
-  private clone(): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+  clone(): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = new QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>(
       this.tableName,
       this.schema,
@@ -96,6 +98,7 @@ export class QueryBuilder<
     newBuilder.executor = new ExecutorFeature(newBuilder);
     newBuilder.modifiers = new QueryModifiersFeature(newBuilder);
     newBuilder.pagination = new PaginationFeature(newBuilder);
+    newBuilder.crossFiltering = new CrossFilteringFeature(newBuilder);
     return newBuilder as any;
   }
 
@@ -148,12 +151,7 @@ export class QueryBuilder<
    * @returns The current QueryBuilder instance.
    */
   applyCrossFilters(crossFilter: CrossFilter<Schema, keyof Schema>): this {
-    const filterGroup = crossFilter.getConditions();
-    filterGroup.conditions.forEach((item) => {
-      if ('column' in item) {
-        this.where(item.column, item.operator, item.value);
-      }
-    });
+    this.config = this.crossFiltering.applyCrossFilters(crossFilter);
     return this;
   }
 
@@ -391,6 +389,42 @@ export class QueryBuilder<
     value: any
   ): this {
     this.config = this.filtering.addCondition('OR', column, operator, value);
+    return this;
+  }
+
+  /**
+   * Creates a parenthesized group of WHERE conditions joined with AND/OR operators.
+   * @param {Function} callback - Function that builds the conditions within the group
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.whereGroup(qb => {
+   *   qb.where('status', 'eq', 'active').orWhere('status', 'eq', 'pending');
+   * })
+   * ```
+   */
+  whereGroup(callback: (builder: this) => void): this {
+    this.config = this.filtering.startWhereGroup();
+    callback(this);
+    this.config = this.filtering.endWhereGroup();
+    return this;
+  }
+
+  /**
+   * Creates a parenthesized group of WHERE conditions joined with OR operator.
+   * @param {Function} callback - Function that builds the conditions within the group
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.orWhereGroup(qb => {
+   *   qb.where('status', 'eq', 'active').orWhere('status', 'eq', 'pending');
+   * })
+   * ```
+   */
+  orWhereGroup(callback: (builder: this) => void): this {
+    this.config = this.filtering.startOrWhereGroup();
+    callback(this);
+    this.config = this.filtering.endWhereGroup();
     return this;
   }
 

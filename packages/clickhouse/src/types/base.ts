@@ -45,6 +45,7 @@ export interface WhereCondition {
   operator: FilterOperator;
   value: any;
   conjunction: 'AND' | 'OR';
+  type?: 'condition' | 'group-start' | 'group-end';
 }
 
 export type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';

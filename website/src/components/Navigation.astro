@@ -1,13 +1,21 @@
 ---
 const navigation = [
   { name: "Docs", href: "/docs" },
-  { name: "Platform", href: "/platform", isNew: true },
+  // { name: "Platform", href: "/platform", isNew: true },
   {
     name: "GitHub",
     href: "https://github.com/hypequery/clickhouse",
     icon: true,
   },
 ];
+
+type NavigationItem = {
+  name: string;
+  href: string;
+  icon?: boolean;
+  isNew?: boolean;
+  isBeta?: boolean;
+};
 ---
 
 <header class="fixed inset-x-0 top-0 z-50 border-b border-gray-200 bg-white">
@@ -24,7 +32,7 @@ const navigation = [
     </div>
     <div class="flex gap-x-8 justify-end flex-1">
       {
-        navigation.map((item) => (
+        navigation.map((item: NavigationItem) => (
           <a
             href={item.href}
             class="text-sm font-semibold leading-6 text-gray-900 hover:text-indigo-600 flex items-center"

@@ -1,7 +1,7 @@
+// @ts-nocheck
 import {
   initializeTestConnection,
   setupTestDatabase,
-  TestSchema,
   TEST_DATA
 } from './setup';
 import { CrossFilter } from '../../../index';
@@ -56,7 +56,7 @@ describe('Integration Tests - Cross Filtering', () => {
         value: 'A'
       });
       filter.add({
-        column: 'active',
+        column: 'is_active',
         operator: 'eq',
         value: 1
       });
@@ -68,10 +68,10 @@ describe('Integration Tests - Cross Filtering', () => {
 
       // Verify results
       const expectedCount = TEST_DATA.test_table.filter(
-        item => item.category === 'A' && item.active === 1
+        item => item.category === 'A' && item.is_active === true
       ).length;
       expect(result).toHaveLength(expectedCount);
-      expect(result.every(item => String(item.category) === 'A' && Number(item.active) === 1)).toBe(true);
+      expect(result.every(item => String(item.category) === 'A' && Number(item.is_active) === 1)).toBe(true);
     });
 
     test('should apply range filters', async () => {
@@ -124,6 +124,10 @@ describe('Integration Tests - Cross Filtering', () => {
         .applyCrossFilters(filter)
         .execute();
 
+      console.log('SQL: ', await db.table('test_table')
+        .applyCrossFilters(filter)
+        .toSQL())
+
       // Verify results
       const expectedCount = TEST_DATA.test_table.filter(
         item => item.category === 'A' || item.category === 'B'
@@ -161,7 +165,7 @@ describe('Integration Tests - Cross Filtering', () => {
           value: 15
         },
         {
-          column: 'active',
+          column: 'is_active',
           operator: 'eq',
           value: 0
         }
@@ -175,14 +179,14 @@ describe('Integration Tests - Cross Filtering', () => {
       // Verify results
       const expectedCount = TEST_DATA.test_table.filter(
         item => (item.category === 'A' || item.category === 'B') &&
-          (item.price > 15 || item.active === 0)
+          (item.price > 15 || !item.is_active)
       ).length;
       expect(result).toHaveLength(expectedCount);
 
       // Verify each result matches our complex condition
       expect(result.every(item =>
         (String(item.category) === 'A' || String(item.category) === 'B') &&
-        (Number(item.price) > 15 || Number(item.active) === 0)
+        (Number(item.price) > 15 || Number(item.is_active) === 0)
       )).toBe(true);
     });
 
@@ -190,7 +194,7 @@ describe('Integration Tests - Cross Filtering', () => {
       // Create a cross filter for active = 1
       const filter = new CrossFilter();
       filter.add({
-        column: 'active',
+        column: 'is_active',
         operator: 'eq',
         value: 1
       });
@@ -210,14 +214,14 @@ describe('Integration Tests - Cross Filtering', () => {
 
       // Verify first query results
       const expectedActiveCount = TEST_DATA.test_table.filter(
-        item => item.active === 1
+        item => item.is_active
       ).length;
       expect(allActiveResult).toHaveLength(expectedActiveCount);
-      expect(allActiveResult.every(item => Number(item.active) === 1)).toBe(true);
+      expect(allActiveResult.every(item => Number(item.is_active) === 1)).toBe(true);
 
       // Verify second query results
       const categories = [...new Set(TEST_DATA.test_table
-        .filter(item => item.active === 1)
+        .filter(item => item.is_active)
         .map(item => item.category))];
 
       expect(countByCategory).toHaveLength(categories.length);
@@ -225,7 +229,7 @@ describe('Integration Tests - Cross Filtering', () => {
       // Check counts for each category
       for (const category of categories) {
         const expectedCount = TEST_DATA.test_table.filter(
-          item => item.category === category && item.active === 1
+          item => item.category === category && item.is_active
         ).length;
 
         const categoryResult = countByCategory.find(item => String(item.category) === category);

@@ -91,6 +91,8 @@ class Logger {
   }
 
   logQuery(log: QueryLog): void {
+    if (!this.enabled) return;
+
     if (this.onQueryLog) {
       this.onQueryLog(log);
     }
@@ -101,8 +103,6 @@ class Logger {
         subscribers.forEach(callback => callback(log));
       }
     }
-
-    if (!this.enabled) return;
 
     const { query, parameters, duration, status, error, rowCount } = log;
     const message = `Query ${status}: ${query}`;

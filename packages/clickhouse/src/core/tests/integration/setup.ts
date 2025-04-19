@@ -13,7 +13,6 @@ hypeQueryLogger.configure({ enabled: false });
 const logger = {
   info: (message: string, ...args: any[]) => {
     if (process.env.DEBUG === 'true') {
-      console.log(`[INFO] ${message}`, ...args);
     }
   },
   error: (message: string, ...args: any[]) => {
@@ -228,7 +227,7 @@ export const stopClickHouseContainer = async (): Promise<void> => {
 };
 
 // Define the test schema types
-export interface TestSchema {
+export interface TestSchemaType {
   test_table: Array<{
     id: number;
     name: string;
@@ -256,7 +255,7 @@ export interface TestSchema {
 }
 
 // Test data
-export const TEST_DATA: TestSchema = {
+export const TEST_DATA: TestSchemaType = {
   test_table: [
     { id: 1, name: 'Product A', category: 'A', price: 10.5, created_at: '2023-01-01', is_active: true },
     { id: 2, name: 'Product B', category: 'B', price: 20.75, created_at: '2023-01-02', is_active: true },

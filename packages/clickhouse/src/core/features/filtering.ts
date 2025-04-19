@@ -24,7 +24,8 @@ export class FilteringFeature<
       column: String(column),
       operator,
       value,
-      conjunction
+      conjunction,
+      type: 'condition'
     });
 
     if (operator === 'in' || operator === 'notIn') {
@@ -41,6 +42,72 @@ export class FilteringFeature<
       ...config,
       where,
       parameters
+    };
+  }
+
+  /**
+   * Adds a group-start marker to start a parenthesized group of conditions with AND conjunction
+   * @returns The updated query config
+   */
+  startWhereGroup() {
+    const config = this.builder.getConfig();
+    const where = config.where || [];
+
+    where.push({
+      column: '', // Not used for group markers
+      operator: 'eq', // Not used for group markers
+      value: null, // Not used for group markers
+      conjunction: 'AND',
+      type: 'group-start'
+    });
+
+    return {
+      ...config,
+      where
+    };
+  }
+
+  /**
+   * Adds a group-start marker to start a parenthesized group of conditions with OR conjunction
+   * @returns The updated query config
+   */
+  startOrWhereGroup() {
+    const config = this.builder.getConfig();
+    const where = config.where || [];
+
+    where.push({
+      column: '', // Not used for group markers
+      operator: 'eq', // Not used for group markers
+      value: null, // Not used for group markers
+      conjunction: 'OR',
+      type: 'group-start'
+    });
+
+    return {
+      ...config,
+      where
+    };
+  }
+
+  /**
+   * Adds a group-end marker to end a parenthesized group of conditions
+   * @returns The updated query config
+   */
+  endWhereGroup() {
+    const config = this.builder.getConfig();
+    const where = config.where || [];
+
+    where.push({
+      column: '', // Not used for group markers
+      operator: 'eq', // Not used for group markers
+      value: null, // Not used for group markers
+      conjunction: 'AND', // Not relevant for end markers
+      type: 'group-end'
+    });
+
+    return {
+      ...config,
+      where
     };
   }
 } 

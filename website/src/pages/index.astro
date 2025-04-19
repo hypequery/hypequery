@@ -30,10 +30,7 @@ import Layout from "../layouts/Layout.astro";
               <span
                 class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10"
               >
-                Coming Soon: hypequery Platform - <a
-                  href="#beta-signup"
-                  class="underline font-semibold">Join Private Beta</a
-                >
+                <a href="/docs" class="underline font-semibold">Get Started</a>
               </span>
             </div>
             <div
@@ -369,103 +366,36 @@ import Layout from "../layouts/Layout.astro";
             </div>
           </section>
 
-          <!-- Visual Query Builder Beta Section -->
-          <section id="beta-signup" class="bg-gray-50 py-16 sm:py-24">
+          <!-- CTA Section -->
+          <section class="bg-indigo-600 py-16 sm:py-24">
             <div class="mx-auto max-w-7xl px-6 lg:px-8">
-              <div class="mx-auto max-w-2xl lg:text-center">
+              <div class="mx-auto max-w-2xl text-center">
                 <h2
-                  class="text-base font-semibold leading-7 text-indigo-600 animate-on-scroll"
+                  class="text-3xl font-bold tracking-tight text-white sm:text-4xl animate-on-scroll"
                 >
-                  Coming Soon
+                  Ready to build with type safety?
                 </h2>
                 <p
-                  class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl animate-on-scroll"
+                  class="mt-6 text-lg leading-8 text-indigo-100 animate-on-scroll"
                 >
-                  Visual Query Builder
+                  Get started with our TypeScript SDK today and transform how
+                  you work with ClickHouse.
                 </p>
-                <p
-                  class="mt-6 text-lg leading-8 text-gray-600 animate-on-scroll"
+                <div
+                  class="mt-10 flex items-center justify-center gap-x-6 animate-on-scroll"
                 >
-                  We're building a visual query builder on top of our powerful
-                  SDK. Sign up for our private beta to be the first to try it
-                  out!
-                </p>
-                <div class="mt-10 flex justify-center animate-on-scroll">
-                  <form class="flex w-full max-w-md flex-col gap-5 sm:flex-row">
-                    <label for="email-address" class="sr-only"
-                      >Email address</label
-                    >
-                    <input
-                      id="email-address"
-                      name="email"
-                      type="email"
-                      autocomplete="email"
-                      required
-                      class="min-w-0 flex-auto rounded-md border-0 bg-white px-3.5 py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                      placeholder="Enter your email"
-                    />
-                    <button
-                      type="submit"
-                      class="flex-none rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-                    >
-                      Join Private Beta
-                    </button>
-                  </form>
-                </div>
-                <!-- Code Example -->
-                <div class="mt-16 flow-root sm:mt-24 animate-on-scroll">
-                  <div
-                    class="relative rounded-xl bg-gray-800/50 p-2 ring-1 ring-white/10 backdrop-blur-xl overflow-hidden"
+                  <a
+                    href="/docs"
+                    class="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-indigo-600 shadow-sm hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    <div
-                      class="absolute -top-px left-20 right-11 h-px bg-gradient-to-r from-indigo-500/0 via-indigo-500/70 to-indigo-500/0"
-                    >
-                    </div>
-                    <div
-                      class="absolute -bottom-px left-11 right-20 h-px bg-gradient-to-r from-indigo-400/0 via-indigo-400/70 to-indigo-400/0"
-                    >
-                    </div>
-                  </div>
-                  <pre
-                    class="text-sm text-gray-100 p-4 overflow-auto">
-                  {`import { createQueryBuilder } from '@hypequery/clickhouse';
-
-                  // Type-safe schema definition
-                  interface MySchema {
-                    users: {
-                      id: 'Int32';
-                      name: 'String';
-                      email: 'String'; 
-                      created_at: 'DateTime';
-                    };
-                    orders: {
-                      id: 'Int32';
-                      user_id: 'Int32';
-                      amount: 'Float64';
-                      created_at: 'DateTime';
-                    };
-                  }
-
-                  // Create a query builder with your schema
-                  const builder = createQueryBuilder<MySchema>({
-                    host: 'http://localhost:8123',
-                    username: 'default',
-                    password: 'password',
-                    database: 'my_database'
-                  });
-
-                  // Build your queries with complete type safety
-                  const results = await builder
-                    .table('users')
-                    .innerJoin('orders', 'id', 'orders.user_id')
-                    .select(['users.name', 'orders.amount'])
-                    .where('orders.amount', 'gt', 100)
-                    .orderBy('orders.created_at', 'DESC')
-                    .execute();
-
-                  // Enjoy fully typed results!
-                  console.log(results[0].name, results[0].amount);`}
-              </pre>
+                    Get Started
+                  </a>
+                  <a
+                    href="https://github.com/hypequery/clickhouse"
+                    class="text-sm font-semibold leading-6 text-white"
+                  >
+                    View on GitHub <span aria-hidden="true">→</span>
+                  </a>
                 </div>
               </div>
             </div>
@@ -473,39 +403,6 @@ import Layout from "../layouts/Layout.astro";
         </div>
       </div>
     </div>
-
-    <!-- CTA Section -->
-    <section class="bg-indigo-600 py-16 sm:py-24">
-      <div class="mx-auto max-w-7xl px-6 lg:px-8">
-        <div class="mx-auto max-w-2xl text-center">
-          <h2
-            class="text-3xl font-bold tracking-tight text-white sm:text-4xl animate-on-scroll"
-          >
-            Ready to build with type safety?
-          </h2>
-          <p class="mt-6 text-lg leading-8 text-indigo-100 animate-on-scroll">
-            Get started with our TypeScript SDK today and transform how you work
-            with ClickHouse.
-          </p>
-          <div
-            class="mt-10 flex items-center justify-center gap-x-6 animate-on-scroll"
-          >
-            <a
-              href="/docs"
-              class="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-indigo-600 shadow-sm hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            >
-              Get Started
-            </a>
-            <a
-              href="https://github.com/hypequery/clickhouse"
-              class="text-sm font-semibold leading-6 text-white"
-            >
-              View on GitHub <span aria-hidden="true">→</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
   </main>
 </Layout>
 

@@ -9,6 +9,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # Add ClickHouse service container conditionally
+    services:
+      # Only set up ClickHouse if integration tests are enabled
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        ports:
+          - 8123:8123
+          - 9000:9000
+        env:
+          CLICKHOUSE_USER: default
+          CLICKHOUSE_PASSWORD: hypequery_test
+          CLICKHOUSE_DB: test_db
+          CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
     steps:
       - uses: actions/checkout@v3
       - name: Setup Node.js
@@ -42,8 +62,19 @@ jobs:
             ls -la packages/clickhouse/dist/cli/
             exit 1
           fi
-      - name: Run tests
+      - name: Run unit tests
         run: npm test
+        
+      # Add a step for integration tests
+      - name: Run integration tests
+        if: ${{ vars.ENABLE_CI_INTEGRATION_TESTS == 'true' }}
+        run: npm run test:integration
+        env:
+          ENABLE_CI_INTEGRATION_TESTS: true
+          CLICKHOUSE_TEST_HOST: http://localhost:8123
+          CLICKHOUSE_TEST_USER: default
+          CLICKHOUSE_TEST_PASSWORD: hypequery_test
+          CLICKHOUSE_TEST_DB: test_db
   
   release:
     needs: build
