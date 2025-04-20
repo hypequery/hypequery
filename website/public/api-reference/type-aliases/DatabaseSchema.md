@@ -8,4 +8,4 @@
 
 > **DatabaseSchema** = `Record`\<`string`, `Record`\<`string`, [`ColumnType`](ColumnType.md)\>\>
 
-Defined in: [types/base.ts:28](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L28)
+Defined in: [types/base.ts:28](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L28)

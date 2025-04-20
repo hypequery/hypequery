@@ -6,7 +6,7 @@
 
 # Interface: AliasedExpression
 
-Defined in: [core/utils/sql-expressions.ts:12](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/utils/sql-expressions.ts#L12)
+Defined in: [core/utils/sql-expressions.ts:12](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/utils/sql-expressions.ts#L12)
 
 Represents an aliased SQL expression that can be used in select clauses
 
@@ -20,7 +20,7 @@ Represents an aliased SQL expression that can be used in select clauses
 
 > **\_\_type**: `"aliased_expression"`
 
-Defined in: [core/utils/sql-expressions.ts:13](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/utils/sql-expressions.ts#L13)
+Defined in: [core/utils/sql-expressions.ts:13](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/utils/sql-expressions.ts#L13)
 
 #### Overrides
 
@@ -32,7 +32,7 @@ Defined in: [core/utils/sql-expressions.ts:13](https://github.com/hypequery/hype
 
 > **alias**: `string`
 
-Defined in: [core/utils/sql-expressions.ts:14](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/utils/sql-expressions.ts#L14)
+Defined in: [core/utils/sql-expressions.ts:14](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/utils/sql-expressions.ts#L14)
 
 ## Methods
 
@@ -40,7 +40,7 @@ Defined in: [core/utils/sql-expressions.ts:14](https://github.com/hypequery/hype
 
 > **toSql**(): `string`
 
-Defined in: [core/utils/sql-expressions.ts:6](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/utils/sql-expressions.ts#L6)
+Defined in: [core/utils/sql-expressions.ts:6](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/utils/sql-expressions.ts#L6)
 
 #### Returns
 

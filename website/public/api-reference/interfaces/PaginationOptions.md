@@ -6,7 +6,7 @@
 
 # Interface: PaginationOptions\<T\>
 
-Defined in: [types/base.ts:73](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L73)
+Defined in: [types/base.ts:73](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L73)
 
 ## Type Parameters
 
@@ -20,7 +20,7 @@ Defined in: [types/base.ts:73](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **after**: `string`
 
-Defined in: [types/base.ts:75](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L75)
+Defined in: [types/base.ts:75](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L75)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [types/base.ts:75](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **before**: `string`
 
-Defined in: [types/base.ts:76](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L76)
+Defined in: [types/base.ts:76](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L76)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [types/base.ts:76](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **orderBy**: `object`[]
 
-Defined in: [types/base.ts:77](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L77)
+Defined in: [types/base.ts:77](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L77)
 
 #### column
 
@@ -52,4 +52,4 @@ Defined in: [types/base.ts:77](https://github.com/hypequery/hypequery/blob/3a853
 
 > **pageSize**: `number`
 
-Defined in: [types/base.ts:74](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L74)
+Defined in: [types/base.ts:74](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L74)

@@ -6,7 +6,7 @@
 
 # Class: ClickHouseConnection
 
-Defined in: [core/connection.ts:111](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/connection.ts#L111)
+Defined in: [core/connection.ts:111](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/connection.ts#L111)
 
 The main entry point for connecting to a ClickHouse database.
 Provides static methods to initialize the connection and retrieve the client.
@@ -46,7 +46,7 @@ const result = await client.query({
 
 > `static` **getClient**(): `WebClickHouseClient`
 
-Defined in: [core/connection.ts:170](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/connection.ts#L170)
+Defined in: [core/connection.ts:170](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/connection.ts#L170)
 
 Retrieves the ClickHouse client instance for direct query execution.
 
@@ -76,7 +76,7 @@ const result = await client.query({
 
 > `static` **initialize**(`config`): *typeof* `ClickHouseConnection`
 
-Defined in: [core/connection.ts:133](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/connection.ts#L133)
+Defined in: [core/connection.ts:133](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/connection.ts#L133)
 
 Initializes the ClickHouse connection with the provided configuration.
 This method must be called before any queries can be executed.

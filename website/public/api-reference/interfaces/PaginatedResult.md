@@ -6,7 +6,7 @@
 
 # Interface: PaginatedResult\<T\>
 
-Defined in: [types/base.ts:93](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L93)
+Defined in: [types/base.ts:93](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L93)
 
 ## Type Parameters
 
@@ -20,7 +20,7 @@ Defined in: [types/base.ts:93](https://github.com/hypequery/hypequery/blob/3a853
 
 > **data**: `T`[]
 
-Defined in: [types/base.ts:94](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L94)
+Defined in: [types/base.ts:94](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L94)
 
 ***
 
@@ -28,4 +28,4 @@ Defined in: [types/base.ts:94](https://github.com/hypequery/hypequery/blob/3a853
 
 > **pageInfo**: [`PageInfo`](PageInfo.md)
 
-Defined in: [types/base.ts:95](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L95)
+Defined in: [types/base.ts:95](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/types/base.ts#L95)

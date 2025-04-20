@@ -6,7 +6,7 @@
 
 # Interface: JoinPath\<Schema\>
 
-Defined in: [core/join-relationships.ts:3](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L3)
+Defined in: [core/join-relationships.ts:3](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/join-relationships.ts#L3)
 
 ## Type Parameters
 
@@ -20,7 +20,7 @@ Defined in: [core/join-relationships.ts:3](https://github.com/hypequery/hypequer
 
 > `optional` **alias**: `string`
 
-Defined in: [core/join-relationships.ts:9](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L9)
+Defined in: [core/join-relationships.ts:9](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/join-relationships.ts#L9)
 
 ***
 
@@ -28,7 +28,7 @@ Defined in: [core/join-relationships.ts:9](https://github.com/hypequery/hypequer
 
 > **from**: keyof `Schema`
 
-Defined in: [core/join-relationships.ts:4](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L4)
+Defined in: [core/join-relationships.ts:4](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/join-relationships.ts#L4)
 
 ***
 
@@ -36,7 +36,7 @@ Defined in: [core/join-relationships.ts:4](https://github.com/hypequery/hypequer
 
 > **leftColumn**: `string`
 
-Defined in: [core/join-relationships.ts:6](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L6)
+Defined in: [core/join-relationships.ts:6](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/join-relationships.ts#L6)
 
 ***
 
@@ -44,7 +44,7 @@ Defined in: [core/join-relationships.ts:6](https://github.com/hypequery/hypequer
 
 > **rightColumn**: `string`
 
-Defined in: [core/join-relationships.ts:7](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L7)
+Defined in: [core/join-relationships.ts:7](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/join-relationships.ts#L7)
 
 ***
 
@@ -52,7 +52,7 @@ Defined in: [core/join-relationships.ts:7](https://github.com/hypequery/hypequer
 
 > **to**: keyof `Schema`
 
-Defined in: [core/join-relationships.ts:5](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L5)
+Defined in: [core/join-relationships.ts:5](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/join-relationships.ts#L5)
 
 ***
 
@@ -60,4 +60,4 @@ Defined in: [core/join-relationships.ts:5](https://github.com/hypequery/hypequer
 
 > `optional` **type**: `JoinType`
 
-Defined in: [core/join-relationships.ts:8](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L8)
+Defined in: [core/join-relationships.ts:8](https://github.com/hypequery/hypequery/blob/ae4f4eab4c2fdf4856fe5bd7c69fb922444337a1/packages/clickhouse/src/core/join-relationships.ts#L8)
