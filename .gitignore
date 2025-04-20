@@ -28,3 +28,6 @@ coverage
 examples/basic-dashboard/src/generated/clickhouse-schema.ts
 .turbo
 .turbo-build
+
+# Local Netlify folder
+.netlify

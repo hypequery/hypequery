@@ -1,101 +1,58 @@
 ---
 layout: ../../../../layouts/DocsLayout.astro
 title: API Reference
-description: API documentation for hypequery ClickHouse library
+description: API documentation for HypeQuery ClickHouse library
 ---
 
-import { Card, Cards } from '../../../../components/ui/card';
+# HypeQuery ClickHouse API Reference
 
-# hypequery ClickHouse API Reference
+This comprehensive API reference documents all public classes, methods, and types available in the HypeQuery ClickHouse library.
 
-This comprehensive API reference documents all public classes, methods, and types available in the hypequery ClickHouse library.
+## API Documentation Sections
 
-## API Documentation Structure
+The API reference is organized into the following sections:
 
-<Cards>
-  <Card title="Classes" href="/docs/reference/api/classes/ClickHouseConnection">
-    The main classes that make up the hypequery ClickHouse library, including ClickHouseConnection, CrossFilter, and more.
-  </Card>
-  <Card title="Functions" href="/docs/reference/api/functions/createQueryBuilder">
-    Utility functions like createQueryBuilder, datePart, formatDateTime and raw SQL helpers.
-  </Card>
-  <Card title="Interfaces" href="/docs/reference/api/interfaces/QueryConfig">
-    Type definitions for objects used throughout the library, such as QueryConfig and PaginationOptions.
-  </Card>
-  <Card title="Type Aliases" href="/docs/reference/api/type-aliases/ColumnType">
-    Type aliases that define important structures like DatabaseSchema and ColumnType.
-  </Card>
-  <Card title="Variables" href="/docs/reference/api/variables/logger">
-    Global variables and constants used in the library.
-  </Card>
-</Cards>
+### Classes
 
-## Key Components
+These are the main classes you'll interact with:
 
-### Core Classes
+- [ClickHouseConnection](/docs/reference/api/classes/ClickHouseConnection) - Main connection class for ClickHouse
+- [CrossFilter](/docs/reference/api/classes/CrossFilter) - Cross-filtering functionality
+- [JoinRelationships](/docs/reference/api/classes/JoinRelationships) - Define and manage join relationships
 
-- [ClickHouseConnection](/docs/reference/api/classes/ClickHouseConnection) - The main entry point for connecting to ClickHouse
-- [CrossFilter](/docs/reference/api/classes/CrossFilter) - Provides cross-filtering functionality for dashboards
-- [JoinRelationships](/docs/reference/api/classes/JoinRelationships) - Manage join relationships between tables
+### Functions
 
-### Essential Functions
+Utility functions for working with ClickHouse:
 
-- [createQueryBuilder](/docs/reference/api/functions/createQueryBuilder) - Create a new query builder instance
-- [raw](/docs/reference/api/functions/raw) - Create raw SQL expressions
+- [createQueryBuilder](/docs/reference/api/functions/createQueryBuilder) - Create a query builder
 - [datePart](/docs/reference/api/functions/datePart) - Extract parts from date values
 - [formatDateTime](/docs/reference/api/functions/formatDateTime) - Format date and time values
+- [raw](/docs/reference/api/functions/raw) - Create raw SQL expressions
 
-## Example Usage
+### Interfaces
 
-```typescript
-import { 
-  ClickHouseConnection, 
-  createQueryBuilder,
-  raw 
-} from '@hypequery/clickhouse';
+Type definitions for objects used throughout the library:
 
-// Initialize the connection
-ClickHouseConnection.initialize({
-  host: 'http://localhost:8123',
-  username: 'default',
-  password: 'password',
-  database: 'my_database'
-});
+- [QueryConfig](/docs/reference/api/interfaces/QueryConfig) - Query configuration options
+- [PaginationOptions](/docs/reference/api/interfaces/PaginationOptions) - Pagination configuration
+- [JoinPath](/docs/reference/api/interfaces/JoinPath) - Join path configuration
 
-// Create a query builder
-const queryBuilder = createQueryBuilder();
+### Type Aliases
 
-// Build and execute a query
-const results = await queryBuilder
-  .from('my_table')
-  .select(['id', 'name', raw('sum(value) as total_value')])
-  .where('value > ?', [100])
-  .groupBy('id', 'name')
-  .orderBy('name', 'asc')
-  .limit(10)
-  .execute();
-```
+Common type definitions:
 
-## Implementing Type Safety
+- [ColumnType](/docs/reference/api/type-aliases/ColumnType) - Column type definition
+- [DatabaseSchema](/docs/reference/api/type-aliases/DatabaseSchema) - Database schema definition
 
-For the best development experience, you can generate TypeScript types from your ClickHouse database schema:
+## How to Use This Reference
 
-```typescript
-import { generateTypes } from '@hypequery/clickhouse';
+This reference is automatically generated from the source code and is intended to be a comprehensive resource for developers using the HypeQuery ClickHouse library.
 
-// Generate types from your database schema
-await generateTypes('./src/types/db-schema.ts');
+For each component, you'll find:
 
-// Import the generated types
-import { IntrospectedSchema } from './types/db-schema';
+- Method signatures with parameter and return types
+- Type definitions
+- JSDoc comments explaining functionality
+- Example code where available
 
-// Create a type-safe query builder
-const db = createQueryBuilder<IntrospectedSchema>();
-
-// Now you get full type checking and autocompletion
-const results = await db
-  .from('users')  // Table name is type-checked
-  .select(['id', 'name', 'email'])  // Column names are type-checked
-  .where('id > ?', [100])
-  .execute();
-```
+If you're new to the library, we recommend starting with the [Introduction](/docs/introduction) and [Quick Start](/docs/installation) guides before diving into the API reference.

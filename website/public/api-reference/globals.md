@@ -2,7 +2,7 @@
 
 ***
 
-# hypequery ClickHouse API
+# HypeQuery ClickHouse API
 
 ## Classes
 
@@ -44,7 +44,6 @@
 - [createQueryBuilder](functions/createQueryBuilder.md)
 - [datePart](functions/datePart.md)
 - [formatDateTime](functions/formatDateTime.md)
-- [generateTypes](functions/generateTypes.md)
 - [raw](functions/raw.md)
 - [rawAs](functions/rawAs.md)
 - [toDateTime](functions/toDateTime.md)

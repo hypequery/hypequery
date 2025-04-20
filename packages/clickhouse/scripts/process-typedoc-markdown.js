@@ -259,8 +259,6 @@ title: API Reference
 description: Complete API reference for the HypeQuery ClickHouse library
 ---
 
-import { Card, Cards } from '../../../components/ui/card';
-
 # HypeQuery ClickHouse API Reference
 
 This comprehensive API reference documents all public classes, methods, and types available in the HypeQuery ClickHouse library.
