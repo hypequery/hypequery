@@ -1,6 +1,6 @@
 # example netlify.toml
 [build]
-  command = "npm ci && npm run build:website"
+  command = "npm ci && cd website && npm ci && npm run build"
   publish = "website/dist"
   functions = "website/.netlify/v1/functions"
 
