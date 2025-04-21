@@ -8,4 +8,4 @@
 
 > **WhereExpression** = `string`
 
-Defined in: [types/base.ts:29](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L29)
+Defined in: [types/base.ts:29](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L29)

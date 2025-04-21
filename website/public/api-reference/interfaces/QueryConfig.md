@@ -6,7 +6,7 @@
 
 # Interface: QueryConfig\<T, Schema\>
 
-Defined in: [types/base.ts:4](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L4)
+Defined in: [types/base.ts:4](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L4)
 
 ## Type Parameters
 
@@ -24,7 +24,7 @@ Defined in: [types/base.ts:4](https://github.com/hypequery/hypequery/blob/3a8535
 
 > `optional` **ctes**: `string`[]
 
-Defined in: [types/base.ts:18](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L18)
+Defined in: [types/base.ts:18](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L18)
 
 ***
 
@@ -32,7 +32,7 @@ Defined in: [types/base.ts:18](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **distinct**: `boolean`
 
-Defined in: [types/base.ts:11](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L11)
+Defined in: [types/base.ts:11](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L11)
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [types/base.ts:11](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **groupBy**: `string`[]
 
-Defined in: [types/base.ts:7](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L7)
+Defined in: [types/base.ts:7](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L7)
 
 ***
 
@@ -48,7 +48,7 @@ Defined in: [types/base.ts:7](https://github.com/hypequery/hypequery/blob/3a8535
 
 > `optional` **having**: `string`[]
 
-Defined in: [types/base.ts:8](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L8)
+Defined in: [types/base.ts:8](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L8)
 
 ***
 
@@ -56,7 +56,7 @@ Defined in: [types/base.ts:8](https://github.com/hypequery/hypequery/blob/3a8535
 
 > `optional` **joins**: `JoinClause`[]
 
-Defined in: [types/base.ts:16](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L16)
+Defined in: [types/base.ts:16](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L16)
 
 ***
 
@@ -64,7 +64,7 @@ Defined in: [types/base.ts:16](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **limit**: `number`
 
-Defined in: [types/base.ts:9](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L9)
+Defined in: [types/base.ts:9](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L9)
 
 ***
 
@@ -72,7 +72,7 @@ Defined in: [types/base.ts:9](https://github.com/hypequery/hypequery/blob/3a8535
 
 > `optional` **offset**: `number`
 
-Defined in: [types/base.ts:10](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L10)
+Defined in: [types/base.ts:10](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L10)
 
 ***
 
@@ -80,7 +80,7 @@ Defined in: [types/base.ts:10](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **orderBy**: `object`[]
 
-Defined in: [types/base.ts:12](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L12)
+Defined in: [types/base.ts:12](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L12)
 
 #### column
 
@@ -96,7 +96,7 @@ Defined in: [types/base.ts:12](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **parameters**: `any`[]
 
-Defined in: [types/base.ts:17](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L17)
+Defined in: [types/base.ts:17](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L17)
 
 ***
 
@@ -104,7 +104,7 @@ Defined in: [types/base.ts:17](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **select**: (`string` \| keyof `T`)[]
 
-Defined in: [types/base.ts:5](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L5)
+Defined in: [types/base.ts:5](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L5)
 
 ***
 
@@ -112,7 +112,7 @@ Defined in: [types/base.ts:5](https://github.com/hypequery/hypequery/blob/3a8535
 
 > `optional` **settings**: `string`
 
-Defined in: [types/base.ts:20](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L20)
+Defined in: [types/base.ts:20](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L20)
 
 ***
 
@@ -120,7 +120,7 @@ Defined in: [types/base.ts:20](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **unionQueries**: `string`[]
 
-Defined in: [types/base.ts:19](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L19)
+Defined in: [types/base.ts:19](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L19)
 
 ***
 
@@ -128,4 +128,4 @@ Defined in: [types/base.ts:19](https://github.com/hypequery/hypequery/blob/3a853
 
 > `optional` **where**: `WhereCondition`[]
 
-Defined in: [types/base.ts:6](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L6)
+Defined in: [types/base.ts:6](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L6)

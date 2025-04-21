@@ -6,7 +6,7 @@
 
 # Interface: TableSchema\<T\>
 
-Defined in: [types/base.ts:23](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L23)
+Defined in: [types/base.ts:23](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L23)
 
 ## Type Parameters
 
@@ -20,7 +20,7 @@ Defined in: [types/base.ts:23](https://github.com/hypequery/hypequery/blob/3a853
 
 > **columns**: `T`
 
-Defined in: [types/base.ts:25](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L25)
+Defined in: [types/base.ts:25](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L25)
 
 ***
 
@@ -28,4 +28,4 @@ Defined in: [types/base.ts:25](https://github.com/hypequery/hypequery/blob/3a853
 
 > **name**: `string`
 
-Defined in: [types/base.ts:24](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L24)
+Defined in: [types/base.ts:24](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L24)

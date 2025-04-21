@@ -8,7 +8,7 @@
 
 > **GroupByExpression**\<`T`\> = keyof `T` \| keyof `T`[]
 
-Defined in: [types/base.ts:30](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L30)
+Defined in: [types/base.ts:30](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L30)
 
 ## Type Parameters
 

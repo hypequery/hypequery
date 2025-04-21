@@ -6,7 +6,7 @@
 
 # Interface: JoinPathOptions
 
-Defined in: [core/join-relationships.ts:12](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L12)
+Defined in: [core/join-relationships.ts:12](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L12)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [core/join-relationships.ts:12](https://github.com/hypequery/hypeque
 
 > `optional` **alias**: `string`
 
-Defined in: [core/join-relationships.ts:14](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L14)
+Defined in: [core/join-relationships.ts:14](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L14)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [core/join-relationships.ts:14](https://github.com/hypequery/hypeque
 
 > `optional` **context**: `Record`\<`string`, `any`\>
 
-Defined in: [core/join-relationships.ts:15](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L15)
+Defined in: [core/join-relationships.ts:15](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L15)
 
 ***
 
@@ -30,4 +30,4 @@ Defined in: [core/join-relationships.ts:15](https://github.com/hypequery/hypeque
 
 > `optional` **type**: `JoinType`
 
-Defined in: [core/join-relationships.ts:13](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L13)
+Defined in: [core/join-relationships.ts:13](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L13)

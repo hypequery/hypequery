@@ -6,7 +6,7 @@
 
 # Class: JoinRelationships\<Schema\>
 
-Defined in: [core/join-relationships.ts:18](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L18)
+Defined in: [core/join-relationships.ts:18](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L18)
 
 ## Type Parameters
 
@@ -30,7 +30,7 @@ Defined in: [core/join-relationships.ts:18](https://github.com/hypequery/hypeque
 
 > **clear**(): `void`
 
-Defined in: [core/join-relationships.ts:68](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L68)
+Defined in: [core/join-relationships.ts:68](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L68)
 
 Clear all join relationships
 
@@ -44,7 +44,7 @@ Clear all join relationships
 
 > **define**(`name`, `path`): `void`
 
-Defined in: [core/join-relationships.ts:24](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L24)
+Defined in: [core/join-relationships.ts:24](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L24)
 
 Define a single join relationship
 
@@ -68,7 +68,7 @@ Define a single join relationship
 
 > **defineChain**(`name`, `paths`): `void`
 
-Defined in: [core/join-relationships.ts:34](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L34)
+Defined in: [core/join-relationships.ts:34](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L34)
 
 Define a chain of join relationships
 
@@ -92,7 +92,7 @@ Define a chain of join relationships
 
 > **get**(`name`): `undefined` \| [`JoinPath`](../interfaces/JoinPath.md)\<`Schema`\> \| [`JoinPath`](../interfaces/JoinPath.md)\<`Schema`\>[]
 
-Defined in: [core/join-relationships.ts:47](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L47)
+Defined in: [core/join-relationships.ts:47](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L47)
 
 Get a join relationship by name
 
@@ -112,7 +112,7 @@ Get a join relationship by name
 
 > **getDefinedRelationships**(): `string`[]
 
-Defined in: [core/join-relationships.ts:75](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L75)
+Defined in: [core/join-relationships.ts:75](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L75)
 
 Get all defined relationship names
 
@@ -126,7 +126,7 @@ Get all defined relationship names
 
 > **has**(`name`): `boolean`
 
-Defined in: [core/join-relationships.ts:54](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L54)
+Defined in: [core/join-relationships.ts:54](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L54)
 
 Check if a join relationship exists
 
@@ -146,7 +146,7 @@ Check if a join relationship exists
 
 > **remove**(`name`): `boolean`
 
-Defined in: [core/join-relationships.ts:61](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/join-relationships.ts#L61)
+Defined in: [core/join-relationships.ts:61](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/join-relationships.ts#L61)
 
 Remove a join relationship
 

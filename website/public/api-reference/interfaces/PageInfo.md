@@ -6,7 +6,7 @@
 
 # Interface: PageInfo
 
-Defined in: [types/base.ts:83](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L83)
+Defined in: [types/base.ts:83](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L83)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [types/base.ts:83](https://github.com/hypequery/hypequery/blob/3a853
 
 > **endCursor**: `string`
 
-Defined in: [types/base.ts:87](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L87)
+Defined in: [types/base.ts:87](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L87)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [types/base.ts:87](https://github.com/hypequery/hypequery/blob/3a853
 
 > **hasNextPage**: `boolean`
 
-Defined in: [types/base.ts:84](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L84)
+Defined in: [types/base.ts:84](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L84)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [types/base.ts:84](https://github.com/hypequery/hypequery/blob/3a853
 
 > **hasPreviousPage**: `boolean`
 
-Defined in: [types/base.ts:85](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L85)
+Defined in: [types/base.ts:85](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L85)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [types/base.ts:85](https://github.com/hypequery/hypequery/blob/3a853
 
 > **pageSize**: `number`
 
-Defined in: [types/base.ts:90](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L90)
+Defined in: [types/base.ts:90](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L90)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [types/base.ts:90](https://github.com/hypequery/hypequery/blob/3a853
 
 > **startCursor**: `string`
 
-Defined in: [types/base.ts:86](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L86)
+Defined in: [types/base.ts:86](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L86)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [types/base.ts:86](https://github.com/hypequery/hypequery/blob/3a853
 
 > **totalCount**: `number`
 
-Defined in: [types/base.ts:88](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L88)
+Defined in: [types/base.ts:88](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L88)
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [types/base.ts:88](https://github.com/hypequery/hypequery/blob/3a853
 
 > **totalPages**: `number`
 
-Defined in: [types/base.ts:89](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/types/base.ts#L89)
+Defined in: [types/base.ts:89](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/types/base.ts#L89)

@@ -8,7 +8,7 @@
 
 > **createQueryBuilder**\<`Schema`\>(`config`): `object`
 
-Defined in: [core/query-builder.ts:620](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/query-builder.ts#L620)
+Defined in: [core/query-builder.ts:620](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/query-builder.ts#L620)
 
 ## Type Parameters
 

@@ -2,7 +2,7 @@
 [build]
   command = "npm ci && cd website && npm ci && npm run build"
   publish = "website/dist"
-  functions = "netlify/functions"
+  functions = "website/.netlify/v1/functions"
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.
   ## Not needed for static site generators.
@@ -23,10 +23,9 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Redirects for SPA navigation
+# This makes sure all routes are handled by the SSR function
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "website/.netlify/v1/functions/ssr"
   status = 200
   force = false
-  conditions = {Role = ["admin"]}

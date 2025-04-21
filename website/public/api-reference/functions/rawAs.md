@@ -8,7 +8,7 @@
 
 > **rawAs**(`sql`, `alias`): [`AliasedExpression`](../interfaces/AliasedExpression.md)
 
-Defined in: [core/utils/sql-expressions.ts:35](https://github.com/hypequery/hypequery/blob/3a853586c0085fc2ab37dc87d6e763ba6887182a/packages/clickhouse/src/core/utils/sql-expressions.ts#L35)
+Defined in: [core/utils/sql-expressions.ts:35](https://github.com/hypequery/hypequery/blob/64a7970b0d65bd3e69a2e7876f19dbfe29817833/packages/clickhouse/src/core/utils/sql-expressions.ts#L35)
 
 Creates an aliased SQL expression for use in SELECT clauses
 

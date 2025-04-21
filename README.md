@@ -6,12 +6,12 @@
   <h1>@hypequery/clickhouse</h1>
   <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
   
-  [![GitHub license](https://img.shields.io/github/license/lukejreilly/hypequery)](https://github.com/lukejreilly/hypequery/blob/main/LICENSE)
+  [![GitHub license](https://img.shields.io/github/license/hypequery/hypequery)](https://github.com/hypequery/hypequery/blob/main/LICENSE)
   [![npm version](https://badge.fury.io/js/@hypequery%2Fclickhouse.svg)](https://badge.fury.io/js/@hypequery%2Fclickhouse)
-  [![GitHub stars](https://img.shields.io/github/stars/lukejreilly/hypequery)](https://github.com/lukejreilly/hypequery/stargazers)
+  [![GitHub stars](https://img.shields.io/github/stars/hypequery/hypequery)](https://github.com/hypequery/hypequery/stargazers)
 </div>
 
-> **Note:** This package is published on npm as `@hypequery/clickhouse`. The unscoped package `hypequery-core` is unrelated and should not be used.
+> **Note:** This package is published on npm as `@hypequery/clickhouse`.
 
 ## Overview
 
@@ -138,13 +138,13 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 
 ### Type-Safe Queries
 
-HypeQuery provides full TypeScript support, ensuring your queries are type-safe:
+hypequery provides full TypeScript support, ensuring your queries are type-safe:
 
 ```typescript
 // Column names are type-checked
 const query = db.table('trips')
   .select(['pickup_datetime', 'total_amount']) 
-  .where('total_amount', '>', 50)
+  .where('total_amount', 'gt', 50)
   .execute();
 
 // Type error if column doesn't exist
@@ -192,7 +192,7 @@ const stats = await db.table('trips')
   .avg('total_amount')
   .max('trip_distance')
   .count('trip_id')
-  .where('pickup_datetime', '>=', '2024-01-01')
+  .where('pickup_datetime', 'gte', '2024-01-01')
   .execute();
 
 // Joins
