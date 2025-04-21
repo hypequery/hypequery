@@ -72,10 +72,16 @@ const {
             // Handle the copy click
             copyButton.addEventListener("click", () => {
               const code = codeBlock.querySelector("code");
+              let text;
 
               if (code) {
-                const text = code.innerText;
+                text = code.innerText;
+              } else {
+                // If there's no code element, use the pre element's text content directly
+                text = codeBlock.innerText;
+              }
 
+              if (text) {
                 navigator.clipboard
                   .writeText(text)
                   .then(() => {
