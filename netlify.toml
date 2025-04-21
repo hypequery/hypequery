@@ -26,6 +26,6 @@
 # This makes sure all routes are handled by the SSR function
 [[redirects]]
   from = "/*"
-  to = "/.netlify/v1/functions/ssr"
+  to = "website/.netlify/v1/functions/ssr"
   status = 200
   force = false
