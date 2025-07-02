@@ -1,7 +1,7 @@
-# example netlify.toml
 [build]
-  command = "npm ci && cd website && npm ci && npm run build"
-  publish = "website/dist"
+  base = "website"
+  command = "npm run build"
+  publish = "dist"
   functions = "website/.netlify/v1/functions"
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.
@@ -21,7 +21,7 @@
   ## more info on configuring this file: https://ntl.fyi/file-based-build-config
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "20.8.1"
 
 # This makes sure all routes are handled by the SSR function
 [[redirects]]
