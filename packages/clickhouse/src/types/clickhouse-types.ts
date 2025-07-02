@@ -13,6 +13,7 @@ export type ClickHouseDecimal =
 export type ClickHouseDateTime =
   | 'Date' | 'Date32'
   | 'DateTime'
+  | `DateTime('${string}')` // With timezone
   | `DateTime64(${number})` // For subsecond precision
   | `DateTime64(${number}, '${string}')`; // With timezone
 
