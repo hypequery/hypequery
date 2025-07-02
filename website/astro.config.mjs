@@ -2,7 +2,6 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 import mdx from '@astrojs/mdx';
-import netlify from '@astrojs/netlify';
 
 // https://astro.build/config
 export default defineConfig({
@@ -22,11 +21,10 @@ export default defineConfig({
       }
     })
   ],
-  site: 'https://hypequery.dev',
+  site: 'https://hypequery.com',
   compressHTML: true,
-  // Add the Netlify adapter for server-side rendering support
-  output: 'server',
-  adapter: netlify(),
+  // Use static output for development
+  output: 'static',
   // Ensure assets in the public directory are preserved during build
   build: {
     // Preserve the structure of the public directory
