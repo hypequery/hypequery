@@ -43,10 +43,10 @@ pnpm add @hypequery/clickhouse
 
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './generated-schema';
+import type { IntrospectedSchema } from './generated-schema';
 
 // Initialize the query builder
-const db = createQueryBuilder<Schema>({
+const db = createQueryBuilder<IntrospectedSchema>({
   host: 'your-clickhouse-host',
   username: 'default',
   password: '',
@@ -72,7 +72,7 @@ HypeQuery provides a CLI tool to generate TypeScript types from your ClickHouse 
 npm install -g @hypequery/clickhouse
 
 # Generate schema types
-npx hypequery-generate --host your-clickhouse-host --database your-database
+npx hypequery-generate-types --host your-clickhouse-host --database your-database
 ```
 
 This creates a `generated-schema.ts` file that you can import in your application:
