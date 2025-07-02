@@ -1,7 +1,7 @@
 [build]
   base = "website"
   command = "npm run build"
-  publish = "website/dist"
+  publish = "dist"
   functions = "website/.netlify/v1/functions"
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.
