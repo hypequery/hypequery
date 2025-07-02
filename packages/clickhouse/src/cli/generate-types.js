@@ -118,7 +118,8 @@ export interface IntrospectedSchema {`;
 
     typeDefinitions += `\n  ${table.name}: {`;
     for (const column of columns) {
-      typeDefinitions += `\n    ${column.name}: '${clickhouseToTsType(column.type)}';`;
+      const clickHouseType = column.type.replace.replace(/'/g, "\\'"); // Escape single quotes, e.g. `DateTime('UTC')`
+      typeDefinitions += `\n    ${column.name}: '${clickHouseType}';`;
     }
     typeDefinitions += '\n  };';
   }
