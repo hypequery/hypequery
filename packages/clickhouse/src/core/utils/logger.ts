@@ -68,25 +68,25 @@ class Logger {
 
   debug(message: string, ...args: any[]): void {
     if (this.shouldLog('debug')) {
-      console.debug(`[HypeQuery Debug] ${message}`, ...args);
+      console.debug(`[hypequery Debug] ${message}`, ...args);
     }
   }
 
   info(message: string, ...args: any[]): void {
     if (this.shouldLog('info')) {
-      console.info(`[HypeQuery Info] ${message}`, ...args);
+      console.info(`[hypequery Info] ${message}`, ...args);
     }
   }
 
   warn(message: string, ...args: any[]): void {
     if (this.shouldLog('warn')) {
-      console.warn(`[HypeQuery Warn] ${message}`, ...args);
+      console.warn(`[hypequery Warn] ${message}`, ...args);
     }
   }
 
   error(message: string, ...args: any[]): void {
     if (this.shouldLog('error')) {
-      console.error(`[HypeQuery Error] ${message}`, ...args);
+      console.error(`[hypequery Error] ${message}`, ...args);
     }
   }
 

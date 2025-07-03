@@ -1,4 +1,4 @@
-# HypeQuery TypeScript Generator
+# hypequery TypeScript Generator
 
 This tool automatically generates TypeScript type definitions from your ClickHouse database schema.
 

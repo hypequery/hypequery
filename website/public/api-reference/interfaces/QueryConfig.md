@@ -1,8 +1,8 @@
-[**HypeQuery ClickHouse API**](../README.md)
+[**hypequery ClickHouse API**](../README.md)
 
 ***
 
-[HypeQuery ClickHouse API](../globals.md) / QueryConfig
+[hypequery ClickHouse API](../globals.md) / QueryConfig
 
 # Interface: QueryConfig\<T, Schema\>
 

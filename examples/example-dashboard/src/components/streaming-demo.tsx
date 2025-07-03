@@ -53,7 +53,7 @@ const StreamingDemo = () => {
               setBatchesProcessed(prev => prev + 1);
             }
           },
-          // Directly capture logs from the HypeQuery logging system
+          // Directly capture logs from the hypequery logging system
           onLog: (logMessage: string) => {
             setLogs(prev => [...prev, logMessage]);
           }
@@ -76,9 +76,9 @@ const StreamingDemo = () => {
       {/* Main Card */}
       <Card className="p-6">
         <div className="mb-4">
-          <h2 className="text-xl font-bold mb-2">HypeQuery Streaming Demo</h2>
+          <h2 className="text-xl font-bold mb-2">hypequery Streaming Demo</h2>
           <p className="text-sm text-gray-500">
-            Demonstrates real-time data loading with HypeQuery's streaming capabilities
+            Demonstrates real-time data loading with hypequery's streaming capabilities
           </p>
         </div>
 
@@ -147,7 +147,7 @@ const StreamingDemo = () => {
             )}
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Data is fetched from ClickHouse using HypeQuery's streaming capabilities.
+            Data is fetched from ClickHouse using hypequery's streaming capabilities.
             {isLoading && ' Loading all available data in real-time...'}
           </p>
         </div>
@@ -162,7 +162,7 @@ const StreamingDemo = () => {
           </Button>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Direct logs from HypeQuery's query execution and streaming process
+          Direct logs from hypequery's query execution and streaming process
         </p>
 
         <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-md h-[300px] overflow-auto font-mono text-xs">
@@ -185,7 +185,7 @@ const StreamingDemo = () => {
               </div>
             ))
           ) : (
-            <p className="text-gray-500">Run a streaming query to see HypeQuery logs</p>
+            <p className="text-gray-500">Run a streaming query to see hypequery logs</p>
           )}
         </div>
       </Card>

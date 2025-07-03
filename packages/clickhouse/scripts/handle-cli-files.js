@@ -86,7 +86,7 @@ const colors = {
  */
 function showBanner() {
   console.log(\`
-\${colors.bright}\${colors.cyan}HypeQuery TypeScript Generator\${colors.reset}
+\${colors.bright}\${colors.cyan}hypequery TypeScript Generator\${colors.reset}
 \${colors.dim}Generate TypeScript types from your ClickHouse database schema\${colors.reset}
   \`);
 }

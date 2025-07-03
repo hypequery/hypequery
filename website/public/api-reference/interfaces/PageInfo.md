@@ -1,8 +1,8 @@
-[**HypeQuery ClickHouse API**](../README.md)
+[**hypequery ClickHouse API**](../README.md)
 
 ***
 
-[HypeQuery ClickHouse API](../globals.md) / PageInfo
+[hypequery ClickHouse API](../globals.md) / PageInfo
 
 # Interface: PageInfo
 

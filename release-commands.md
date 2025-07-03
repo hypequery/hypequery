@@ -1,4 +1,4 @@
-# HypeQuery Release Commands
+# hypequery Release Commands
 
 ## Stable Release Command
 To publish a stable release from the main branch:

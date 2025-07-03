@@ -76,9 +76,9 @@ function fixFrontMatter(filePath) {
       let contentAfterFrontmatter = content.substring(endOfFrontmatter + 3);
 
       // Clean up the content:
-      // 1. Remove the HypeQuery ClickHouse API links
-      contentAfterFrontmatter = contentAfterFrontmatter.replace(/\[\*\*HypeQuery ClickHouse API\*\*\]\(\/docs\/reference\/api\/\.\.\/README\)/g, '');
-      contentAfterFrontmatter = contentAfterFrontmatter.replace(/\[HypeQuery ClickHouse API\]\(\/docs\/reference\/api\/\.\.\/globals\) \/ /g, '');
+      // 1. Remove the hypequery ClickHouse API links
+      contentAfterFrontmatter = contentAfterFrontmatter.replace(/\[\*\*hypequery ClickHouse API\*\*\]\(\/docs\/reference\/api\/\.\.\/README\)/g, '');
+      contentAfterFrontmatter = contentAfterFrontmatter.replace(/\[hypequery ClickHouse API\]\(\/docs\/reference\/api\/\.\.\/globals\) \/ /g, '');
 
       // 2. Remove the > decorators from function signatures
       contentAfterFrontmatter = contentAfterFrontmatter.replace(/^> /gm, '');
@@ -93,7 +93,7 @@ function fixFrontMatter(filePath) {
       const newFrontmatter = `---
 layout: ${layoutPath}
 title: ${title}
-description: API documentation for HypeQuery ClickHouse library
+description: API documentation for hypequery ClickHouse library
 ---`;
 
       // Combine the new frontmatter with the cleaned content

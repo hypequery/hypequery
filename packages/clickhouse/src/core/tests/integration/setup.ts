@@ -5,7 +5,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { logger as hypeQueryLogger } from '../../utils/logger';
 
-// Disable the HypeQuery logger to prevent "logs after tests" errors
+// Disable the hypequery logger to prevent "logs after tests" errors
 // This must be done early in the setup, before any queries run
 hypeQueryLogger.configure({ enabled: false });
 

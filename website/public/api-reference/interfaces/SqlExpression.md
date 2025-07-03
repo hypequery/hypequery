@@ -1,8 +1,8 @@
-[**HypeQuery ClickHouse API**](../README.md)
+[**hypequery ClickHouse API**](../README.md)
 
 ***
 
-[HypeQuery ClickHouse API](../globals.md) / SqlExpression
+[hypequery ClickHouse API](../globals.md) / SqlExpression
 
 # Interface: SqlExpression
 

@@ -1,4 +1,4 @@
-# HypeQuery Monorepo Changelog
+# hypequery Monorepo Changelog
 
 This monorepo contains:
 

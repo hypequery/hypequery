@@ -8,8 +8,8 @@ import { FiltersProvider } from "@/lib/filters-context";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "HypeQuery Dashboard",
-  description: "Example dashboard built with HypeQuery",
+  title: "hypequery Dashboard",
+  description: "Example dashboard built with hypequery",
 };
 
 export default function RootLayout({

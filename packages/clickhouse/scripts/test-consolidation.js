@@ -139,7 +139,7 @@ async function testCliHelpCommand() {
 
   // Check for key elements in the help output
   const requiredHelpText = [
-    'HypeQuery TypeScript Generator',
+    'hypequery TypeScript Generator',
     'Usage:',
     'npx hypequery-generate-types',
     'Arguments:',

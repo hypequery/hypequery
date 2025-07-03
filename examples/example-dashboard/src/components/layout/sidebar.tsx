@@ -16,7 +16,7 @@ export function Sidebar() {
   return (
     <div className="flex h-full flex-col gap-y-5 bg-gray-900 px-6 pb-4">
       <div className="flex h-16 shrink-0 items-center text-white">
-        <span className="text-xl font-bold">HypeQuery</span>
+        <span className="text-xl font-bold">hypequery</span>
       </div>
       <nav className="flex flex-1 flex-col">
         <ul role="list" className="flex flex-1 flex-col gap-y-7">
