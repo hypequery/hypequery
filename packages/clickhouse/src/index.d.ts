@@ -25,7 +25,8 @@ export {
   toDateTime,
   formatDateTime,
   toStartOfInterval,
-  datePart
+  datePart,
+  FormatDateTimeOptions
 } from './core/utils/sql-expressions';
 export type {
   SqlExpression,

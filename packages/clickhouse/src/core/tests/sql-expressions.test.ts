@@ -28,8 +28,15 @@ describe('SQL Expressions', () => {
       const expr = formatDateTime('created_at', 'Y-m-d');
       expect(expr.toSql()).toBe('formatDateTime(created_at, \'Y-m-d\')');
 
-      const aliasedExpr = formatDateTime('created_at', 'Y-m-d', 'formatted_date');
+      const aliasedExpr = formatDateTime('created_at', 'Y-m-d', { alias: 'formatted_date' });
       expect(aliasedExpr.toSql()).toBe('formatDateTime(created_at, \'Y-m-d\') AS formatted_date');
+
+      // Test with timezone parameter
+      const exprWithTz = formatDateTime('created_at', 'Y-m-d', { timezone: 'UTC' });
+      expect(exprWithTz.toSql()).toBe('formatDateTime(created_at, \'Y-m-d\', \'UTC\')');
+
+      const aliasedExprWithTz = formatDateTime('created_at', 'Y-m-d', { timezone: 'UTC', alias: 'formatted_date' });
+      expect(aliasedExprWithTz.toSql()).toBe('formatDateTime(created_at, \'Y-m-d\', \'UTC\') AS formatted_date');
     });
 
     it('should provide helper for toStartOfInterval function', () => {
@@ -77,7 +84,7 @@ describe('SQL Expressions', () => {
         .select([
           'id',
           toDateTime('created_at', 'date_time'),
-          formatDateTime('created_at', 'Y-m-d', 'formatted_date')
+          formatDateTime('created_at', 'Y-m-d', { alias: 'formatted_date' })
         ])
         .toSQL();
 
@@ -102,12 +109,12 @@ describe('SQL Expressions', () => {
         .select([
           'test_table.id',
           rawAs('COUNT(DISTINCT test_table.name)', 'unique_names'),
-          formatDateTime('test_table.created_at', 'Y-m-d', 'date')
+          formatDateTime('test_table.created_at', 'Y-m-d', { timezone: 'Europe/Amsterdam', alias: 'date' })
         ])
         .groupBy(['test_table.id', 'date'])
         .toSQL();
 
-      expect(sql).toBe('SELECT test_table.id, COUNT(DISTINCT test_table.name) AS unique_names, formatDateTime(test_table.created_at, \'Y-m-d\') AS date FROM test_table GROUP BY test_table.id, date');
+      expect(sql).toBe('SELECT test_table.id, COUNT(DISTINCT test_table.name) AS unique_names, formatDateTime(test_table.created_at, \'Y-m-d\', \'Europe/Amsterdam\') AS date FROM test_table GROUP BY test_table.id, date');
     });
   });
 }); 

@@ -15,6 +15,9 @@ core/features/aggregations.js
 core/features/analytics.d.ts
 core/features/analytics.d.ts.map
 core/features/analytics.js
+core/features/cross-filtering.d.ts
+core/features/cross-filtering.d.ts.map
+core/features/cross-filtering.js
 core/features/executor.d.ts
 core/features/executor.d.ts.map
 core/features/executor.js
@@ -42,9 +45,15 @@ core/query-builder.js
 core/tests/index.d.ts
 core/tests/index.d.ts.map
 core/tests/index.js
+core/tests/integration/pagination-test-tbc.d.ts
+core/tests/integration/pagination-test-tbc.d.ts.map
+core/tests/integration/pagination-test-tbc.js
 core/tests/integration/setup.d.ts
 core/tests/integration/setup.d.ts.map
 core/tests/integration/setup.js
+core/tests/integration/test-config.d.ts
+core/tests/integration/test-config.d.ts.map
+core/tests/integration/test-config.js
 core/tests/integration/test-initializer.d.ts
 core/tests/integration/test-initializer.d.ts.map
 core/tests/integration/test-initializer.js

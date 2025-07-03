@@ -21,8 +21,12 @@ toDateTime('timestamp', 'formatted_time')
 Formats a DateTime value using the specified format:
 
 ```typescript
-formatDateTime('timestamp', 'Y-m-d H:i:s', 'formatted_date')
+formatDateTime('timestamp', 'Y-m-d H:i:s', { alias: 'formatted_date' })
 // Results in: formatDateTime(timestamp, 'Y-m-d H:i:s') AS formatted_date
+
+// With timezone
+formatDateTime('timestamp', 'Y-m-d H:i:s', { timezone: 'UTC', alias: 'formatted_date' })
+// Results in: formatDateTime(timestamp, 'Y-m-d H:i:s', 'UTC') AS formatted_date
 ```
 
 ### toStartOfInterval

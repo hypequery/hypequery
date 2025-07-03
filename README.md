@@ -130,8 +130,8 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 ## Support
 
 - 📚 [Documentation](https://hypequery.com/docs)
-- 🐛 [Issue Tracker](https://github.com/lukejreilly/hypequery/issues)
-- 💬 [Discussions](https://github.com/lukejreilly/hypequery/discussions)
+- 🐛 [Issue Tracker](https://github.com/hypequery/hypequery/issues)
+- 💬 [Discussions](https://github.com/hypequery/hypequery/discussions)
 
 
 ## Core Features

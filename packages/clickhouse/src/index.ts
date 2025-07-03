@@ -22,7 +22,8 @@ export {
   toDateTime,
   formatDateTime,
   toStartOfInterval,
-  datePart
+  datePart,
+  FormatDateTimeOptions
 } from './core/utils/sql-expressions.js';
 export type {
   SqlExpression,
