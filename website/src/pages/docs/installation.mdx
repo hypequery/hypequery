@@ -69,9 +69,9 @@ npx hypequery-generate-types
 
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { Schema } from './generated/schema';
+import { IntrospectedSchema } from './generated/schema';
 
-export const db = createQueryBuilder<Schema>({
+export const db = createQueryBuilder<IntrospectedSchema>({
   host: process.env.CLICKHOUSE_HOST,
   username: process.env.CLICKHOUSE_USER,
   password: process.env.CLICKHOUSE_PASSWORD,

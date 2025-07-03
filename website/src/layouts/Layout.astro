@@ -8,10 +8,8 @@ interface Props {
   description?: string;
 }
 
-const {
-  title,
-  description = "hypequery offers a visual SQL builder for ClickHouse and a TypeScript SDK. Build powerful dashboards visually or with code - the easiest way to work with ClickHouse data.",
-} = Astro.props;
+const { title, description = "hypequery is a TypeScript SDK for ClickHouse." } =
+  Astro.props;
 ---
 
 <!doctype html>
@@ -19,7 +17,7 @@ const {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.png" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
