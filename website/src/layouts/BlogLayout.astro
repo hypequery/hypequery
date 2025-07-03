@@ -1,0 +1,125 @@
+---
+import Layout from "./Layout.astro";
+
+interface Props {
+  post: {
+    data: {
+      title: string;
+      description?: string;
+      pubDate: Date;
+      heroImage?: string;
+    };
+  };
+}
+
+const { post } = Astro.props;
+const { title, description, pubDate, heroImage } = post.data;
+---
+
+<Layout title={title} description={description}>
+  <main class="max-w-4xl mx-auto px-4 py-8 mt-20">
+    <article>
+      <!-- Header -->
+      <header class="mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">{title}</h1>
+        <div class="flex items-center text-gray-600 mb-4">
+          <time datetime={pubDate.toISOString()}>
+            {
+              pubDate.toLocaleDateString("en-GB", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            }
+          </time>
+        </div>
+        {
+          description && (
+            <p class="text-xl text-gray-700 leading-relaxed">{description}</p>
+          )
+        }
+      </header>
+
+      <!-- Hero Image -->
+      {
+        heroImage && (
+          <div class="mb-8">
+            <img
+              src={heroImage}
+              alt={title}
+              class="w-full h-64 object-cover rounded-lg shadow-md"
+            />
+          </div>
+        )
+      }
+
+      <!-- Content -->
+      <div class="prose prose-lg prose-indigo max-w-none">
+        <slot />
+      </div>
+
+      <!-- Footer -->
+      <footer class="mt-12 pt-8 border-t border-gray-200">
+        <div class="flex items-center justify-between">
+          <div class="text-sm text-gray-600">
+            <a href="/blog" class="hover:text-indigo-600 transition-colors">
+              ← Back to Blog
+            </a>
+          </div>
+          <div class="text-sm text-gray-600">
+            Share this post:
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(Astro.url.href)}`}
+              class="ml-2 text-blue-500 hover:text-blue-600 transition-colors"
+            >
+              Twitter
+            </a>
+          </div>
+        </div>
+      </footer>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .blog-content {
+    @apply text-gray-800 leading-relaxed;
+  }
+
+  .blog-content h2 {
+    @apply text-2xl font-bold text-gray-900 mt-8 mb-4;
+  }
+
+  .blog-content h3 {
+    @apply text-xl font-semibold text-gray-900 mt-6 mb-3;
+  }
+
+  .blog-content p {
+    @apply mb-4;
+  }
+
+  .blog-content ul,
+  .blog-content ol {
+    @apply mb-4 pl-6;
+  }
+
+  .blog-content li {
+    @apply mb-1;
+  }
+
+  .blog-content code {
+    @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono;
+  }
+
+  .blog-content pre {
+    @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4;
+  }
+
+  .blog-content pre code {
+    @apply bg-transparent p-0 text-gray-100;
+  }
+
+  .blog-content blockquote {
+    @apply border-l-4 border-indigo-500 pl-4 italic text-gray-700 my-4;
+  }
+</style>

@@ -276,7 +276,7 @@ dotenv.config();
 
 // Main CLI function
 async function main() {
-  console.log('HypeQuery TypeScript Generator');
+  console.log('hypequery TypeScript Generator');
   
   // Get output path (default or from args)
   const outputPath = process.argv.length > 2 ? process.argv[2] : './generated-schema.ts';
@@ -337,7 +337,7 @@ dotenv.config();
 
 // Main CLI function
 async function main() {
-  console.log('HypeQuery TypeScript Generator');
+  console.log('hypequery TypeScript Generator');
   
   // Get output path (default or from args)
   const outputPath = process.argv.length > 2 ? process.argv[2] : './generated-schema.ts';
@@ -394,7 +394,7 @@ import { generateTypes } from './generate-types.js';
 
 // Main CLI function
 async function main() {
-  console.log('HypeQuery TypeScript Generator (Fallback Version)');
+  console.log('hypequery TypeScript Generator (Fallback Version)');
   const outputPath = process.argv.length > 2 ? process.argv[2] : './generated-schema.ts';
   try {
     await generateTypes(outputPath);

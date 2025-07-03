@@ -3,7 +3,7 @@
     "src/index.ts"
   ],
   "out": "../../website/public/api-reference",
-  "name": "HypeQuery ClickHouse API",
+  "name": "hypequery ClickHouse API",
   "excludePrivate": true,
   "excludeProtected": true,
   "excludeExternals": true,

@@ -65,7 +65,7 @@ const results = await db
 
 ## Schema Generation
 
-HypeQuery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
+hypequery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
 
 ```bash
 # Install globally (optional)
@@ -88,7 +88,7 @@ const db = createQueryBuilder<IntrospectedSchema>({
 
 ## Versioning and Release Channels
 
-HypeQuery follows semantic versioning and provides multiple release channels:
+hypequery follows semantic versioning and provides multiple release channels:
 
 - **Latest**: Stable releases (`npm install @hypequery/clickhouse`)
 - **Beta**: Pre-release versions (`npm install @hypequery/clickhouse@beta`)
@@ -107,8 +107,8 @@ For detailed documentation and examples, visit our [documentation site](https://
 
 Check out our example implementations:
 
-- [Example Dashboard](https://github.com/lukejreilly/hypequery/tree/main/examples/example-dashboard): A complete Next.js dashboard with HypeQuery
-- [React Query Integration](https://hypequery.dev/docs/guides/integrations/react-query): Using HypeQuery with React Query
+- [Example Dashboard](https://github.com/lukejreilly/hypequery/tree/main/examples/example-dashboard): A complete Next.js dashboard with hypequery
+- [React Query Integration](https://hypequery.dev/docs/guides/integrations/react-query): Using hypequery with React Query
 - [Time Series Analysis](https://hypequery.dev/docs/guides/timeseries): Building time series analytics
 
 ## Troubleshooting
@@ -184,7 +184,7 @@ const query2 = db.table('drivers')
 
 ### Advanced Queries
 
-HypeQuery supports complex queries including joins, aggregations, and subqueries:
+hypequery supports complex queries including joins, aggregations, and subqueries:
 
 ```typescript
 // Aggregations

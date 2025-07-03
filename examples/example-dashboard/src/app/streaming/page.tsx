@@ -16,9 +16,9 @@ export default function StreamingPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">HypeQuery Streaming Demo</h1>
+        <h1 className="text-3xl font-bold mb-2">hypequery Streaming Demo</h1>
         <p className="text-gray-500">
-          This page demonstrates HypeQuery's streaming capabilities for handling
+          This page demonstrates hypequery's streaming capabilities for handling
           large result sets efficiently with real-time data loading.
         </p>
       </div>

@@ -19,6 +19,7 @@
     "@astrojs/mdx": "^4.0.8",
     "@astrojs/tailwind": "^5.1.5",
     "@tailwindcss/postcss": "^4.0.5",
+    "@tailwindcss/typography": "^0.5.16",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.1"
   }

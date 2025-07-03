@@ -114,7 +114,7 @@ function processFile(file, baseDir, relativePath = '') {
     const frontmatter = `---
 layout: ${layoutPath}
 title: ${title}
-description: API documentation for HypeQuery ClickHouse library
+description: API documentation for hypequery ClickHouse library
 ---
 
 `;
@@ -212,7 +212,7 @@ allFiles.forEach(file => {
   const frontmatter = `---
 layout: ${layoutPath}
 title: ${title}
-description: API documentation for HypeQuery ClickHouse library
+description: API documentation for hypequery ClickHouse library
 ---
 
 `;
@@ -228,8 +228,8 @@ description: API documentation for HypeQuery ClickHouse library
 
   // Clean up the content:
   // 1. Remove the TypeDoc navigation links that create clutter
-  content = content.replace(/\[\*\*HypeQuery ClickHouse API\*\*\]\(.*?\)/g, '');
-  content = content.replace(/\[HypeQuery ClickHouse API\]\(.*?\) \/ /g, '');
+  content = content.replace(/\[\*\*hypequery ClickHouse API\*\*\]\(.*?\)/g, '');
+  content = content.replace(/\[hypequery ClickHouse API\]\(.*?\) \/ /g, '');
 
   // 2. Remove the > decorators from function signatures
   content = content.replace(/^> /gm, '');
@@ -256,12 +256,12 @@ description: API documentation for HypeQuery ClickHouse library
 const indexContent = `---
 layout: ../../../layouts/DocsLayout.astro
 title: API Reference
-description: Complete API reference for the HypeQuery ClickHouse library
+description: Complete API reference for the hypequery ClickHouse library
 ---
 
-# HypeQuery ClickHouse API Reference
+# hypequery ClickHouse API Reference
 
-This comprehensive API reference documents all public classes, methods, and types available in the HypeQuery ClickHouse library.
+This comprehensive API reference documents all public classes, methods, and types available in the hypequery ClickHouse library.
 
 ## API Documentation Sections
 
@@ -301,7 +301,7 @@ Common type definitions:
 
 ## How to Use This Reference
 
-This reference is automatically generated from the source code and is intended to be a comprehensive resource for developers using the HypeQuery ClickHouse library.
+This reference is automatically generated from the source code and is intended to be a comprehensive resource for developers using the hypequery ClickHouse library.
 
 For each component, you'll find:
 

@@ -1,7 +1,7 @@
-# HypeQuery
+# hypequery
 
 <div align="center">
-  <img src="https://hypequery.dev/img/logo.svg" alt="HypeQuery Logo" width="200"/>
+  <img src="https://hypequery.dev/img/logo.svg" alt="hypequery Logo" width="200"/>
   <h1>@hypequery/clickhouse</h1>
   <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
   
@@ -14,7 +14,7 @@
 
 ## Overview
 
-hypequery is a typescript-first query builder for ClickHouse designed specifically for building real-time, type-safe analytics dashboards. Unlike generic SQL query builders, HypeQuery understands your ClickHouse schema and provides full type checking throughout your codebase, making it ideal for data-intensive applications.
+hypequery is a typescript-first query builder for ClickHouse designed specifically for building real-time, type-safe analytics dashboards. Unlike generic SQL query builders, hypequery understands your ClickHouse schema and provides full type checking throughout your codebase, making it ideal for data-intensive applications.
 
 ## Features
 
@@ -65,7 +65,7 @@ const results = await db
 
 ## Schema Generation
 
-HypeQuery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
+hypequery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
 
 ```bash
 # Install globally (optional)
@@ -90,7 +90,7 @@ const db = createQueryBuilder<IntrospectedSchema>({
 
 ### Type-Safe Queries
 
-HypeQuery provides full TypeScript support, ensuring your queries are type-safe:
+hypequery provides full TypeScript support, ensuring your queries are type-safe:
 
 ```typescript
 // Column names are type-checked
@@ -167,7 +167,7 @@ const prevPage = await db.table('trips')
 
 ### Advanced Queries
 
-HypeQuery supports complex queries including joins, aggregations, and subqueries:
+hypequery supports complex queries including joins, aggregations, and subqueries:
 
 ```typescript
 // Aggregations
@@ -224,7 +224,7 @@ const db = createQueryBuilder<Schema>({
 
 ## Versioning and Release Channels
 
-HypeQuery follows semantic versioning and provides multiple release channels:
+hypequery follows semantic versioning and provides multiple release channels:
 
 - **Latest**: Stable releases (`npm install @hypequery/core`)
 - **Beta**: Pre-release versions (`npm install @hypequery/core@beta`)
@@ -243,8 +243,8 @@ For detailed documentation and examples, visit our [documentation site](https://
 
 Check out our example implementations:
 
-- [Example Dashboard](https://github.com/lukejreilly/hypequery/tree/main/examples/example-dashboard): A complete Next.js dashboard with HypeQuery
-- [React Query Integration](https://hypequery.dev/docs/guides/integrations/react-query): Using HypeQuery with React Query
+- [Example Dashboard](https://github.com/lukejreilly/hypequery/tree/main/examples/example-dashboard): A complete Next.js dashboard with hypequery
+- [React Query Integration](https://hypequery.dev/docs/guides/integrations/react-query): Using hypequery with React Query
 - [Time Series Analysis](https://hypequery.dev/docs/guides/timeseries): Building time series analytics
 
 ## Troubleshooting
@@ -272,5 +272,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by the HypeQuery team</sub>
+  <sub>Built with ❤️ by the hypequery team</sub>
 </div> 

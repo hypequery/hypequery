@@ -196,7 +196,7 @@ export async function fetchTrips(filters: DateFilters = {}, { pageSize = 10, aft
 
 /**
  * Fetch trips data using streaming for efficient memory usage and performance.
- * This function demonstrates the streaming capability with HypeQuery's built-in logging.
+ * This function demonstrates the streaming capability with hypequery's built-in logging.
  */
 export async function fetchTripsByStreaming(
   filters: DateFilters = {},

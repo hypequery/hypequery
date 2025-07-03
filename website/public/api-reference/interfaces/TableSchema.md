@@ -1,8 +1,8 @@
-[**HypeQuery ClickHouse API**](../README.md)
+[**hypequery ClickHouse API**](../README.md)
 
 ***
 
-[HypeQuery ClickHouse API](../globals.md) / TableSchema
+[hypequery ClickHouse API](../globals.md) / TableSchema
 
 # Interface: TableSchema\<T\>
 
