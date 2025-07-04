@@ -22,9 +22,8 @@
     "test:coverage": "jest --coverage --config=jest.config.cjs",
     "test:cli": "node scripts/test-cli-integration.js",
     "lint": "eslint src/**/*.ts",
-    "semantic-release": "npx semantic-release --extends ./.releaserc.cjs",
+    "semantic-release": "npx semantic-release",
     "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci",
-    "release:dry-run": "npx semantic-release --extends ./.releaserc.cjs --dry-run",
     "docs:api": "typedoc --options typedoc.json",
     "docs:mdx": "npm run docs:api && node scripts/process-typedoc-markdown.js"
   },
