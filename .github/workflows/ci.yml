@@ -97,9 +97,11 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies
         run: npm install
+      - name: Install semantic-release and dependencies
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
       - name: Build for release
         run: cd packages/clickhouse && npm run build:ci
       - name: Configure Git
@@ -110,9 +112,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_ENV: production
         run: |
           cd packages/clickhouse
-          echo "Publishing @hypequery/clickhouse package..."
+          echo "Publishing clickhouse package..."
           echo "Last published version: $(npm view @hypequery/clickhouse version || echo 'None')"
-          npx semantic-release --extends ./.releaserc.cjs 
+          semantic-release 
