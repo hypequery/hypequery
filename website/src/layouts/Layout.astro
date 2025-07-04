@@ -37,6 +37,12 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
     <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"
     ></script>
 
+    <!-- Umami Analytics -->
+    <script
+      defer
+      src="https://cloud.umami.is/script.js"
+      data-website-id="e5dd7de0-ba7e-4fd6-a56c-79a58ab4f5a8"></script>
+
     <!-- Google Analytics -->
     {
       gaMeasurementId && (
@@ -44,6 +50,8 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
           <script
             async
             src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+            onload="console.log('GA script loaded successfully')"
+            onerror="console.error('GA script failed to load')"
           />
           <script
             set:html={`
@@ -51,6 +59,7 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
           gtag('config', '${gaMeasurementId}');
+          console.log('GA initialized with ID: ${gaMeasurementId}');
         `}
           />
         </>
