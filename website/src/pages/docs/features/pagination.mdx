@@ -13,7 +13,7 @@ hypequery provides robust support for cursor-based pagination, allowing you to e
 Unlike traditional offset-based pagination, cursor-based pagination uses a cursor (a pointer to a specific record) to determine where to start fetching the next set of results. This approach is more efficient and reliable, especially for large datasets.
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const builder = createQueryBuilder(schema).table('users');
 
@@ -159,7 +159,7 @@ Here's a complete example of implementing pagination in a user interface:
 
 ```typescript
 import { useState } from 'react';
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 function UserList() {
   const [currentPage, setCurrentPage] = useState(null);
@@ -227,4 +227,13 @@ function UserList() {
 
 - [Streaming](/docs/streaming)
 - [Query Building](/docs/guides/query-building)
-- [Filtering](/docs/guides/filtering) 
+- [Filtering](/docs/guides/filtering)
+
+## Advanced Pagination Patterns
+
+For more complex pagination scenarios, you can combine multiple techniques:
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+// ... existing code ... 

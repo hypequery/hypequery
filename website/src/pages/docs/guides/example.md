@@ -1,19 +1,19 @@
 ---
-title: Example Guide
-description: A guide in my new Starlight docs site.
+title: "Example Guide"
+description: "Learn how to use hypequery with a practical example"
 order: 1
 ---
 
 # Example Guide
 
-This is an example guide that demonstrates how to use hypequery effectively.
+This guide shows you how to use hypequery to build type-safe ClickHouse queries.
 
 ## Basic Usage
 
 Here's a simple example:
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const db = createQueryBuilder({
   host: 'your-clickhouse-host',
