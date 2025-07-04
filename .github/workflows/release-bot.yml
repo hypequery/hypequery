@@ -2,13 +2,15 @@ name: Release Bot
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
     branches: [main]
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -21,10 +23,98 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm install
+      - name: Build for analysis
+        run: cd packages/clickhouse && npm run build:ci
+      - name: Configure Git
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
       - name: Analyze release impact
+        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd packages/clickhouse
           echo "Analyzing release impact for PR #${{ github.event.pull_request.number }}..."
-          npx semantic-release --extends ./.releaserc.cjs --dry-run 
+          
+          # Run semantic release analysis and capture output
+          OUTPUT=$(npx semantic-release --extends ./.releaserc.cjs --dry-run --no-ci 2>&1 || true)
+          echo "analysis_output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Extract version info if available
+          if echo "$OUTPUT" | grep -q "The next release version is"; then
+            VERSION=$(echo "$OUTPUT" | grep "The next release version is" | sed 's/.*The next release version is //')
+            echo "next_version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "next_version=none" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if there are any commits that would trigger a release
+          if echo "$OUTPUT" | grep -q "No new release"; then
+            echo "has_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_release=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Comment on PR (Will Release)
+        if: steps.semantic.outputs.has_release == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const output = `${{ steps.semantic.outputs.analysis_output }}`;
+            const nextVersion = '${{ steps.semantic.outputs.next_version }}';
+            
+            let comment = `## 🚀 Semantic Release Analysis
+            
+            This PR will trigger a **${nextVersion}** release when merged to main.
+            
+            <details>
+            <summary>Release Analysis Details</summary>
+            
+            \`\`\`
+            ${output}
+            \`\`\`
+            
+            </details>
+            
+            ---
+            *This analysis is provided by semantic-release*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      - name: Comment on PR (No Release)
+        if: steps.semantic.outputs.has_release == 'false'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const output = `${{ steps.semantic.outputs.analysis_output }}`;
+            
+            let comment = `## 📋 Semantic Release Analysis
+            
+            This PR will **not** trigger a new release when merged to main.
+            
+            <details>
+            <summary>Analysis Details</summary>
+            
+            \`\`\`
+            ${output}
+            \`\`\`
+            
+            </details>
+            
+            ---
+            *This analysis is provided by semantic-release*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            }); 
