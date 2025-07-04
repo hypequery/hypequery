@@ -17,7 +17,7 @@ CTEs are temporary result sets that you can reference within a query. They help 
 You can use another QueryBuilder instance as a CTE:
 
 ```typescript
-import { createQueryBuilder } from '@hypequery/core';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const builder = createQueryBuilder(schema);
 
@@ -149,98 +149,3 @@ const results = await builder
   .innerJoin('active_categories', 'category_id', 'active_categories.id')
   .execute();
 ```
-
-### Example: Correlated Subqueries
-
-For more complex scenarios like correlated subqueries, you may need to use your database client directly:
-
-```typescript
-import { ClickHouseConnection } from '@hypequery/clickhouse';
-
-// For complex queries that hypequery can't easily build
-const client = ClickHouseConnection.getClient();
-const result = await client.query({
-  query: `
-    SELECT 
-      u.id as user_id,
-      u.user_name,
-      (
-        SELECT COUNT(*)
-        FROM orders o
-        WHERE o.user_id = u.id AND o.status = 'completed'
-      ) as completed_orders
-    FROM users u
-    WHERE u.status = 'active'
-  `,
-  format: 'JSONEachRow'
-});
-
-const data = await result.json();
-```
-
-## Use Cases
-
-### Analytics Queries
-
-CTEs are particularly useful for analytics queries:
-
-```typescript
-const results = await builder
-  .table('events')
-  .withCTE(
-    'daily_stats',
-    'SELECT toDate(timestamp) as day, COUNT(*) as events, COUNT(DISTINCT user_id) as users FROM events GROUP BY day'
-  )
-  .withCTE(
-    'weekly_stats',
-    'SELECT toStartOfWeek(day) as week, SUM(events) as events, SUM(users) as users FROM daily_stats GROUP BY week'
-  )
-  .select(['week', 'events', 'users'])
-  .from('weekly_stats')
-  .orderBy('week', 'DESC')
-  .limit(10)
-  .execute();
-```
-
-### Hierarchical Data
-
-For hierarchical data or recursive queries, use a raw SQL approach with CTEs:
-
-```typescript
-const client = ClickHouseConnection.getClient();
-const result = await client.query({
-  query: `
-    WITH RECURSIVE category_tree AS (
-      SELECT id, parent_id, name, 1 as level
-      FROM categories
-      WHERE parent_id IS NULL
-      
-      UNION ALL
-      
-      SELECT c.id, c.parent_id, c.name, ct.level + 1
-      FROM categories c
-      INNER JOIN category_tree ct ON c.parent_id = ct.id
-    )
-    SELECT * FROM category_tree ORDER BY level, name
-  `,
-  format: 'JSONEachRow'
-});
-
-const data = await result.json();
-```
-
-## Best Practices
-
-1. **Use CTEs for readability**: Break complex queries into logical parts with CTEs.
-
-2. **Optimize CTE reuse**: ClickHouse may materialize CTEs if used multiple times in a query.
-
-3. **Consider performance**: Complex subqueries can impact performance; test with representative data volumes.
-
-4. **Type safety**: When using raw SQL, you may lose type safety. Cast results appropriately.
-
-## See Also
-
-- [Query Building](/docs/guides/query-building)
-- [Join Relationships](/docs/guides/joins)
-- [SQL Expressions](/docs/sql-expressions) 
