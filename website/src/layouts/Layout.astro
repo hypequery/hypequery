@@ -10,6 +10,9 @@ interface Props {
 
 const { title, description = "hypequery is a TypeScript SDK for ClickHouse." } =
   Astro.props;
+
+// Get Google Analytics Measurement ID from environment variable
+const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
 ---
 
 <!doctype html>
@@ -29,6 +32,32 @@ const { title, description = "hypequery is a TypeScript SDK for ClickHouse." } =
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Netlify Identity Widget -->
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"
+    ></script>
+
+    <!-- Google Analytics -->
+    {
+      gaMeasurementId && (
+        <>
+          <script
+            type="text/partytown"
+            async
+            src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+          />
+          <script
+            type="text/partytown"
+            set:html={`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${gaMeasurementId}');
+        `}
+          />
+        </>
+      )
+    }
   </head>
   <body class="h-full">
     <Navigation />
@@ -36,6 +65,17 @@ const { title, description = "hypequery is a TypeScript SDK for ClickHouse." } =
     <Footer />
 
     <script>
+      // Netlify Identity redirect
+      if ((window as any).netlifyIdentity) {
+        (window as any).netlifyIdentity.on("init", (user: any) => {
+          if (!user) {
+            (window as any).netlifyIdentity.on("login", () => {
+              document.location.href = "/admin/";
+            });
+          }
+        });
+      }
+
       // Add copy buttons to code blocks
       document.addEventListener("DOMContentLoaded", () => {
         const codeBlocks = document.querySelectorAll("pre");

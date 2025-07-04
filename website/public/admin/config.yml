@@ -2,6 +2,7 @@ backend:
   name: git-gateway
   branch: main
 
+# Enable local backend for development (bypasses authentication)
 local_backend: true
 
 media_folder: "public/images/uploads"
@@ -9,13 +10,13 @@ public_folder: "/images/uploads"
 
 collections:
   - name: "blog"
-    label: "Blog Posts"
+    label: "Blog"
     folder: "src/content/blog"
     create: true
     slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
     fields:
       - { label: "Title", name: "title", widget: "string" }
       - { label: "Description", name: "description", widget: "text", required: false }
-      - { label: "Publish Date", name: "pubDate", widget: "datetime" }
+      - { label: "Publish Date", name: "pubDate", widget: "datetime", format: "YYYY-MM-DDTHH:mm:ss.SSSZ" }
       - { label: "Hero Image", name: "heroImage", widget: "image", required: false }
       - { label: "Body", name: "body", widget: "markdown" } 
