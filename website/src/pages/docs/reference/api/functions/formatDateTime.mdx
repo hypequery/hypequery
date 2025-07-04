@@ -8,7 +8,7 @@ formatDateTime
 
 # Function: formatDateTime()
 
-**formatDateTime**(`field`, `format`, `alias`?): [`SqlExpression`](/docs/reference/api/../interfaces/SqlExpression) \| [`AliasedExpression`](/docs/reference/api/../interfaces/AliasedExpression)
+**formatDateTime**(`field`, `format`, `options`?): [`SqlExpression`](/docs/reference/api/../interfaces/SqlExpression) \| [`AliasedExpression`](/docs/reference/api/../interfaces/AliasedExpression)
 
 Formats a DateTime value using the specified format
 
@@ -26,14 +26,49 @@ The field or expression to format
 
 The date format string
 
-### alias?
+### options?
 
-`string`
+`FormatDateTimeOptions`
 
-Optional alias for the result
+Optional configuration including timezone and alias
+
+#### FormatDateTimeOptions
+
+```typescript
+interface FormatDateTimeOptions {
+  timezone?: string;  // Optional timezone parameter (e.g., 'UTC', 'America/New_York')
+  alias?: string;     // Optional alias for the result
+}
+```
 
 ## Returns
 
 [`SqlExpression`](/docs/reference/api/../interfaces/SqlExpression) \| [`AliasedExpression`](/docs/reference/api/../interfaces/AliasedExpression)
 
 SQL expression or aliased expression
+
+## Examples
+
+```typescript
+// Basic formatting
+formatDateTime('created_at', 'Y-m-d H:i:s')
+
+// With timezone
+formatDateTime('created_at', 'Y-m-d H:i:s', { timezone: 'UTC' })
+
+// With alias
+formatDateTime('created_at', 'Y-m-d H:i:s', { alias: 'formatted_date' })
+
+// With timezone and alias
+formatDateTime('created_at', 'Y-m-d H:i:s', { 
+  timezone: 'America/New_York', 
+  alias: 'formatted_date' 
+})
+
+// Super clean with destructuring for common options
+const commonOptions = { timezone: 'UTC' };
+formatDateTime('created_at', 'Y-m-d H:i:s', {
+  ...commonOptions,
+  alias: 'date_formatted'
+})
+```

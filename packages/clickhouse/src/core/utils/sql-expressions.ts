@@ -54,17 +54,34 @@ export function toDateTime(field: string, alias?: string): SqlExpression | Alias
     : raw(`toDateTime(${field})`);
 }
 
+export interface FormatDateTimeOptions {
+  timezone?: string;
+  alias?: string;     // hypequery-specific feature
+}
+
 /**
  * Formats a DateTime value using the specified format
  * @param field The field or expression to format
  * @param format The date format string
- * @param alias Optional alias for the result
+ * @param options Optional configuration including timezone and alias
  * @returns SQL expression or aliased expression
  */
-export function formatDateTime(field: string, format: string, alias?: string): SqlExpression | AliasedExpression {
-  return alias
-    ? rawAs(`formatDateTime(${field}, '${format}')`, alias)
-    : raw(`formatDateTime(${field}, '${format}')`);
+export function formatDateTime(
+  field: string,
+  format: string,
+  options: FormatDateTimeOptions = {}
+): SqlExpression | AliasedExpression {
+  const { timezone, alias } = options;
+
+  let sql = `formatDateTime(${field}, '${format}'`;
+
+  if (timezone) {
+    sql += `, '${timezone}'`;
+  }
+
+  sql += ')';
+
+  return alias ? rawAs(sql, alias) : raw(sql);
 }
 
 /**
