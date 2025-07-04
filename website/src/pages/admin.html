@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <link href="/admin/config.yml" type="text/yaml" rel="cms-config-url" />
+  <title>Content Manager</title>
+</head>
+
+<body>
+  <script src="https://unpkg.com/decap-cms@^3.1.2/dist/decap-cms.js"></script>
+  <script>
+    // Development mode - bypass authentication for local testing
+    if (window.location.hostname === 'localhost') {
+      // For local development, you can access the CMS directly
+      console.log('Development mode: CMS should be accessible without authentication');
+    }
+  </script>
+</body>
+
+</html>

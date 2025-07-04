@@ -1,0 +1,59 @@
+/* Decap CMS Custom Styles */
+
+/* Improve the overall look */
+.cms {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Style the header */
+.cms-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Style buttons */
+.cms-btn {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cms-btn-primary {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.cms-btn-primary:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+}
+
+/* Style form fields */
+.cms-input {
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+}
+
+.cms-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Style the sidebar */
+.cms-sidebar {
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+}
+
+/* Style collection items */
+.cms-collection-item {
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.cms-collection-item:hover {
+  border-color: #4f46e5;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
