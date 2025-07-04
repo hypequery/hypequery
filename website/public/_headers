@@ -1,3 +1,6 @@
+# Global headers for all pages
+/*
+
 # Netlify CMS headers
 /admin/*
   X-Frame-Options: DENY
