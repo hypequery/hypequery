@@ -1,6 +1,5 @@
 # Global headers for all pages
 /*
-  Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://identity.netlify.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://identity.netlify.com; frame-src 'self' https://identity.netlify.com;"
 
 # Netlify CMS headers
 /admin/*
