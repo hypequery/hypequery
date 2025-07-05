@@ -115,7 +115,6 @@ export interface IntrospectedSchema {`;
       format: 'JSONEachRow'
     });
     const columns = await columnsQuery.json();
-
     typeDefinitions += `\n  ${table.name}: {`;
     for (const column of columns) {
       const clickHouseType = column.type.replace(/'/g, "\\'"); // Escape single quotes, e.g. `DateTime('UTC')`
