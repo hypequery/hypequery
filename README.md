@@ -97,7 +97,6 @@ For detailed documentation and examples, visit our [documentation site](https://
 - [Getting Started](https://hypequery.com/docs/installation)
 - [Query Building](https://hypequery.com/docs/guides/query-building)
 - [Filtering](https://hypequery.com/docs/guides/filtering)
-- [Pagination](https://hypequery.com/docs/features/pagination)
 - [API Reference](https://hypequery.com/docs/reference/api)
 
 ## Troubleshooting
@@ -108,9 +107,6 @@ For detailed documentation and examples, visit our [documentation site](https://
 - **CORS Issues**: Use a proxy server for browser environments
 - **Type Errors**: Make sure to regenerate your schema types after schema changes
 
-## Contributing
-
-We welcome contributions! Please see our [contributing guide](CONTRIBUTING.md) for details.
 
 ## License
 
