@@ -3,6 +3,7 @@
 // Export standard library components
 export { createQueryBuilder } from './core/query-builder';
 export { ClickHouseConnection } from './core/connection';
+export type { ClickHouseConnectionOptions } from './core/connection';
 export { JoinRelationships } from './core/join-relationships';
 export type {
   TableSchema,

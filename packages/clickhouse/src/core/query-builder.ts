@@ -1,4 +1,4 @@
-import { ClickHouseConnection } from './connection';
+import { ClickHouseConnection, ClickHouseConnectionOptions } from './connection';
 import { CrossFilter } from './cross-filter';
 import {
   ColumnType,
@@ -310,7 +310,7 @@ export class QueryBuilder<
     return this.executor.toSQL();
   }
 
-  toSQLWithParams(): { sql: string, parameters: any[] } {
+  toSQLWithParams() {
     return this.executor.toSQLWithParams();
   }
 
@@ -523,7 +523,7 @@ export class QueryBuilder<
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('LEFT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    return newBuilder
   }
 
   rightJoin<
@@ -536,7 +536,7 @@ export class QueryBuilder<
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    return newBuilder
   }
 
   fullJoin<
@@ -549,7 +549,7 @@ export class QueryBuilder<
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    return newBuilder
   }
 
   // Make config accessible to features
@@ -620,24 +620,7 @@ export class QueryBuilder<
 export function createQueryBuilder<Schema extends {
   [K in keyof Schema]: { [columnName: string]: ColumnType }
 }>(
-  config: {
-    host: string;
-    username?: string;
-    password?: string;
-    database?: string;
-    http_headers?: Record<string, string>;
-    request_timeout?: number;
-    compression?: {
-      response?: boolean;
-      request?: boolean;
-    };
-    application?: string;
-    keep_alive?: {
-      enabled: boolean;
-    };
-    log?: any;
-    clickhouse_settings?: ClickHouseSettings;
-  }
+  config: ClickHouseConnectionOptions
 ) {
   ClickHouseConnection.initialize(config);
 
