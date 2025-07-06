@@ -1,13 +1,13 @@
 # hypequery
 
 <div align="center">
-  <img src="https://hypequery.dev/img/logo.svg" alt="hypequery Logo" width="200"/>
+  <img src="https://hypequery.com/img/logo.svg" alt="hypequery Logo" width="200"/>
   <h1>@hypequery/clickhouse</h1>
   <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
   
-  [![GitHub license](https://img.shields.io/github/license/lukejreilly/hypequery)](https://github.com/lukejreilly/hypequery/blob/main/LICENSE)
-  [![npm version](https://badge.fury.io/js/@hypequery%2Fcore.svg)](https://badge.fury.io/js/@hypequery%2Fcore)
-  [![GitHub stars](https://img.shields.io/github/stars/lukejreilly/hypequery)](https://github.com/lukejreilly/hypequery/stargazers)
+  [![GitHub license](https://img.shields.io/github/license/hypequery/hypequery)](https://github.com/hypequery/hypequery/blob/main/LICENSE)
+  [![npm version](https://badge.fury.io/js/@hypequery%2Fclickhouse.svg)](https://badge.fury.io/js/@hypequery%2Fclickhouse)
+  [![GitHub stars](https://img.shields.io/github/stars/hypequery/hypequery)](https://github.com/hypequery/hypequery/stargazers)
 </div>
 
 
@@ -46,10 +46,10 @@ pnpm add @hypequery/clickhouse
 
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './generated-schema';
+import type { IntrospectedSchema } from './generated-schema';
 
 // Initialize the query builder
-const db = createQueryBuilder<Schema>({
+const db = createQueryBuilder<IntrospectedSchema>({
   host: 'your-clickhouse-host',
   username: 'default',
   password: '',
@@ -75,7 +75,7 @@ hypequery provides a CLI tool to generate TypeScript types from your ClickHouse 
 npm install -g @hypequery/clickhouse
 
 # Generate schema types
-npx hypequery-generate --host your-clickhouse-host --database your-database
+npx hypequery-generate-types --host your-clickhouse-host --database your-database
 ```
 
 This creates a `generated-schema.ts` file that you can import in your application:
@@ -136,38 +136,6 @@ const query2 = db.table('drivers')
   .execute();
 ```
 
-### Pagination
-
-Built-in cursor-based pagination for efficient data loading:
-
-```typescript
-// First page
-const firstPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10
-  });
-
-// Next page
-const nextPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10,
-    after: firstPage.pageInfo.endCursor
-  });
-
-// Previous page
-const prevPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10,
-    before: nextPage.pageInfo.startCursor
-  });
-```
-
 ### Advanced Queries
 
 hypequery supports complex queries including joins, aggregations, and subqueries:
@@ -204,7 +172,7 @@ const customQuery = await db.table('trips')
 For browser usage, you'll typically need to set up a proxy server to avoid CORS issues:
 
 ```typescript
-const db = createQueryBuilder<Schema>({
+const db = createQueryBuilder<IntrospectedSchema>({
   host: '/api/clickhouse', // Proxy through your API route
   username: 'default',
   password: '',
@@ -217,7 +185,7 @@ const db = createQueryBuilder<Schema>({
 For server-side applications, you can connect directly to ClickHouse:
 
 ```typescript
-const db = createQueryBuilder<Schema>({
+const db = createQueryBuilder<IntrospectedSchema>({
   host: 'http://your-clickhouse-server:8123',
   username: 'default',
   password: 'your-password',
@@ -234,21 +202,14 @@ hypequery follows semantic versioning and provides multiple release channels:
 
 ## Documentation
 
-For detailed documentation and examples, visit our [documentation site](https://hypequery.dev/docs).
+For detailed documentation and examples, visit our [documentation site](https://hypequery.com/docs).
 
-- [Getting Started](https://hypequery.dev/docs/installation)
-- [Query Building](https://hypequery.dev/docs/guides/query-building)
-- [Filtering](https://hypequery.dev/docs/guides/filtering)
-- [Pagination](https://hypequery.dev/docs/features/pagination)
-- [API Reference](https://hypequery.dev/docs/reference/api)
+- [Getting Started](https://hypequery.com/docs/installation)
+- [Query Building](https://hypequery.com/docs/guides/query-building)
+- [Filtering](https://hypequery.com/docs/guides/filtering)
+- [Pagination](https://hypequery.com/docs/features/pagination)
+- [API Reference](https://hypequery.com/docs/reference/api)
 
-## Examples
-
-Check out our example implementations:
-
-- [Example Dashboard](https://github.com/lukejreilly/hypequery/tree/main/examples/example-dashboard): A complete Next.js dashboard with hypequery
-- [React Query Integration](https://hypequery.dev/docs/guides/integrations/react-query): Using hypequery with React Query
-- [Time Series Analysis](https://hypequery.dev/docs/guides/timeseries): Building time series analytics
 
 ## Troubleshooting
 
@@ -264,13 +225,13 @@ We welcome contributions! Please see our [contributing guide](CONTRIBUTING.md) f
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- 📚 [Documentation](https://hypequery.dev/docs)
-- 🐛 [Issue Tracker](https://github.com/lukejreilly/hypequery/issues)
-- 💬 [Discussions](https://github.com/lukejreilly/hypequery/discussions)
+- 📚 [Documentation](https://hypequery.com/docs)
+- 🐛 [Issue Tracker](https://github.com/hypequery/hypequery/issues)
+- 💬 [Discussions](https://github.com/hypequery/hypequery/discussions)
 
 ---
 

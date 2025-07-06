@@ -1,6 +1,3 @@
-   <span class="font-mono text-xl font-bold text-indigo-600"
-          >&gt; hypequery</span
-        >
 
 <div align="center">
   <h1>@hypequery/clickhouse</h1>
@@ -102,14 +99,6 @@ For detailed documentation and examples, visit our [documentation site](https://
 - [Filtering](https://hypequery.com/docs/guides/filtering)
 - [Pagination](https://hypequery.com/docs/features/pagination)
 - [API Reference](https://hypequery.com/docs/reference/api)
-
-## Examples
-
-Check out our example implementations:
-
-- [Example Dashboard](https://github.com/lukejreilly/hypequery/tree/main/examples/example-dashboard): A complete Next.js dashboard with hypequery
-- [React Query Integration](https://hypequery.dev/docs/guides/integrations/react-query): Using hypequery with React Query
-- [Time Series Analysis](https://hypequery.dev/docs/guides/timeseries): Building time series analytics
 
 ## Troubleshooting
 
