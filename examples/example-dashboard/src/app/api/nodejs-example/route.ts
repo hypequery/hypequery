@@ -4,7 +4,7 @@ import { createClient } from '@clickhouse/client';
 import { IntrospectedSchema } from '@/generated/generated-schema';
 
 function getDb() {
-  // Initialize the query builder with manual injection
+  // Initialize the query builder
   return createQueryBuilder<IntrospectedSchema>({
     host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST!,
     username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,

@@ -12,11 +12,11 @@
 
 ## Overview
 
-hypequery is a typescript-first query builder for ClickHouse designed specifically for building type-safe analytics dashboards. Unlike generic SQL query builders, hypequery understands your ClickHouse schema and provides full type checking throughout your codebase, making it ideal for data-intensive applications.
+hypequery is a typescript-first query builder for ClickHouse designed specifically for building type-safe analytics dashboards. Unlike generic SQL query builders, hypequery understands your ClickHouse schema and provides full type checking, making it ideal for data-intensive applications.
 
 ## Features
 
-- 🎯 **Type-Safe**: Full TypeScript support with inferred types from your ClickHouse schema
+- 🎯 **Type-Safe**: Full TypeScript support with types from your ClickHouse schema
 - 🚀 **Performant**: Built for real-time analytics with optimized query generation
 - 🔍 **Cross Filtering**: Powerful cross-filtering capabilities for interactive dashboards
 - 🛠️ **Developer Friendly**: Fluent API design for an intuitive development experience
@@ -39,7 +39,7 @@ npm install @hypequery/clickhouse @clickhouse/client-web
 
 **Note**: The library supports multiple client selection strategies:
 - **Manual injection**: Explicitly provide a client instance (required for browser environments)
-- **Auto-detection with fallback**: Automatically selects the client for Node.js environments
+- **Auto-detection**: Automatically selects the client for Node.js environments
 
 ## Quick Start
 
@@ -130,7 +130,7 @@ hypequery provides full TypeScript support, ensuring your queries are type-safe:
 // Column names are type-checked
 const query = db.table('trips')
   .select(['pickup_datetime', 'total_amount']) 
-  .where('total_amount', '>', 50)
+  .where('total_amount', 'GT', 50)
   .execute();
 
 // Type error if column doesn't exist
