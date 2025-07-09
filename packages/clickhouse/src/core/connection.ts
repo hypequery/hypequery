@@ -52,45 +52,6 @@ function getClickHouseClientSync(): ClickHouseClientModule {
   );
 }
 
-// Helper function to create client config from connection options
-function createClientConfig(config: ClickHouseConfig): ClickHouseConfig {
-  // If a client is provided, we don't need to create a config
-  if (isClientConfig(config)) {
-    return {} as ClickHouseConfig;
-  }
-
-  // At this point, we know we have a host-based config
-  if (!isHostConfig(config)) {
-    throw new Error('Invalid configuration: must provide either host or client');
-  }
-
-  const clientConfig: ClickHouseConfig = {
-    host: config.host,
-    username: config.username,
-    password: config.password,
-    database: config.database,
-  };
-
-  // Add optional configuration if provided
-  const optionalProps = [
-    'http_headers',
-    'request_timeout',
-    'compression',
-    'application',
-    'keep_alive',
-    'log',
-    'clickhouse_settings'
-  ] as const;
-
-  for (const prop of optionalProps) {
-    if (config[prop] !== undefined) {
-      clientConfig[prop] = config[prop];
-    }
-  }
-
-  return clientConfig;
-}
-
 /**
  * The main entry point for connecting to a ClickHouse database.
  * Provides static methods to initialize the connection and retrieve the client.
@@ -181,7 +142,7 @@ export class ClickHouseConnection {
 
     // Otherwise, auto-detect the client (we know we have a host-based config)
     this.clientModule = getClickHouseClientSync();
-    this.instance = this.clientModule.createClient(createClientConfig(config));
+    this.instance = this.clientModule.createClient(config);
     return ClickHouseConnection;
   }
 

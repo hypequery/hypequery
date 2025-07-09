@@ -22,50 +22,20 @@ import { QueryModifiersFeature } from './features/query-modifiers';
 import { FilterValidator } from './validators/filter-validator';
 import { PaginationFeature } from './features/pagination';
 import { JoinRelationships, JoinPathOptions } from './join-relationships';
-import { SqlExpression, raw } from './utils/sql-expressions';
+import { SqlExpression } from './utils/sql-expressions';
 import { CrossFilteringFeature } from './features/cross-filtering';
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
-/**
- * Common configuration options for ClickHouse connections.
- */
-export interface ClickHouseCommonConfig {
-  /** Username for authentication. */
-  username?: string;
-  /** Password for authentication. */
-  password?: string;
-  /** The database to connect to. */
-  database?: string;
-  /** Custom HTTP headers to include with each request. */
-  http_headers?: Record<string, string>;
-  /** Request timeout in milliseconds. */
-  request_timeout?: number;
-  /** Compression options for the connection. */
-  compression?: {
-    response?: boolean;
-    request?: boolean;
-  };
-  /** Application name to identify in ClickHouse server logs. */
-  application?: string;
-  /** Keep-alive connection settings. */
-  keep_alive?: {
-    enabled: boolean;
-  };
-  /** Logger configuration. */
-  log?: any;
-  /** Additional ClickHouse-specific settings. */
-  clickhouse_settings?: ClickHouseSettings;
-}
 
 /**
  * Configuration for host-based connections.
  */
-export interface ClickHouseHostConfig extends ClickHouseCommonConfig {
+export interface ClickHouseHostConfig extends BaseClickHouseClientConfigOptions {
   /** The ClickHouse server host URL. */
   host: string;
 }
@@ -73,7 +43,7 @@ export interface ClickHouseHostConfig extends ClickHouseCommonConfig {
 /**
  * Configuration for client-based connections.
  */
-export interface ClickHouseClientConfig extends ClickHouseCommonConfig {
+export interface ClickHouseClientConfig extends BaseClickHouseClientConfigOptions {
   /** Pre-configured ClickHouse client instance. */
   client: ClickHouseClient;
 }

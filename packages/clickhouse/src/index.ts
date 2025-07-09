@@ -4,8 +4,7 @@ export { JoinRelationships } from './core/join-relationships.js';
 export type {
   ClickHouseConfig,
   ClickHouseHostConfig,
-  ClickHouseClientConfig,
-  ClickHouseCommonConfig
+  ClickHouseClientConfig
 } from './core/query-builder.js';
 export { isHostConfig, isClientConfig } from './core/query-builder.js';
 export type {

@@ -1,5 +1,3 @@
-# hypequery
-
 <div align="center">
   <h1>@hypequery/clickhouse</h1>
   <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
