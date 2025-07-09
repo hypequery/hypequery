@@ -128,7 +128,7 @@ hypequery provides full TypeScript support, ensuring your queries are type-safe:
 // Column names are type-checked
 const query = db.table('trips')
   .select(['pickup_datetime', 'total_amount']) 
-  .where('total_amount', 'GT', 50)
+  .where('total_amount', 'gt', 50)
   .execute();
 
 // Type error if column doesn't exist
@@ -184,14 +184,6 @@ const tripsWithDrivers = await db.table('trips')
   .join('drivers', 'trips.driver_id', 'drivers.id')
   .execute();
 
-// Raw SQL when needed
-const customQuery = await db.table('trips')
-  .select([
-    db.raw('toStartOfDay(pickup_datetime) as day'),
-    'count() as trip_count'
-  ])
-  .groupBy(db.raw('toStartOfDay(pickup_datetime)'))
-  .execute();
 ```
 
 
