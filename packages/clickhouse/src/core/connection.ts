@@ -12,12 +12,12 @@ interface ClickHouseClientModule {
   ClickHouseSettings?: ClickHouseSettings;
 }
 
-// Function to synchronously get the appropriate client with fallback
+// Function to synchronously get the appropriate client
 function getClickHouseClientSync(): ClickHouseClientModule {
   const isDev = process.env.NODE_ENV === 'development';
   const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
 
-  // In Node.js environment, try Node.js client first, then fallback to web client
+  // In Node.js environment, use Node.js client only
   if (isNode) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -30,26 +30,11 @@ function getClickHouseClientSync(): ClickHouseClientModule {
         ClickHouseSettings: clientNode.ClickHouseSettings || {}
       };
     } catch (error) {
-      // Fallback to web client in Node.js
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const clientWeb = require('@clickhouse/client-web');
-        if (isDev) {
-          console.log('hypequery: Using @clickhouse/client-web (Node.js client not available)');
-        }
-        return {
-          createClient: clientWeb.createClient,
-          ClickHouseSettings: clientWeb.ClickHouseSettings || {}
-        };
-      } catch (webError) {
-        throw new Error(
-          'No ClickHouse client found. Please install one of the following:\n' +
-          '- @clickhouse/client (recommended for Node.js environments)\n' +
-          '- @clickhouse/client-web (for browser/universal environments)\n\n' +
-          'Install with: npm install @clickhouse/client or npm install @clickhouse/client-web\n\n' +
-          'Alternatively, you can provide a client instance directly in the config.client option.'
-        );
-      }
+      throw new Error(
+        '@clickhouse/client is required for Node.js environments.\n\n' +
+        'Install with: npm install @clickhouse/client\n\n' +
+        'Alternatively, you can provide a client instance directly in the config.client option.'
+      );
     }
   }
 
@@ -112,8 +97,7 @@ function createClientConfig(config: ClickHouseConfig): ClickHouseConfig {
  * 
  * Supports two modes of operation:
  * 1. **Manual injection**: Provide a client instance via `config.client` (required for browser environments)
- * 2. **Auto-detection with fallback**: Automatically selects the best client for Node.js environments
- *    - Tries @clickhouse/client first, falls back to @clickhouse/client-web
+ * 2. **Auto-detection**: Automatically uses @clickhouse/client for Node.js environments
  * 
  * @category Core
  * @example
@@ -149,8 +133,8 @@ function createClientConfig(config: ClickHouseConfig): ClickHouseConfig {
  * ```
  * 
  * @note This library requires one of the following peer dependencies:
- * - @clickhouse/client (recommended for Node.js environments)
- * - @clickhouse/client-web (for browser/universal environments)
+ * - @clickhouse/client (for Node.js environments)
+ * - @clickhouse/client-web (for browser environments)
  * 
  * **Important**: Browser environments require manual injection because `require()` calls don't work in browsers.
  */
@@ -164,8 +148,7 @@ export class ClickHouseConnection {
    * 
    * **Priority order:**
    * 1. If `config.client` is provided, use it directly (manual injection)
-   * 2. Otherwise, auto-detect the best client for Node.js environments:
-   *    - Tries @clickhouse/client first, falls back to @clickhouse/client-web
+   * 2. Otherwise, auto-detect @clickhouse/client for Node.js environments
    * 
    * **Note**: Browser environments require manual injection because `require()` calls don't work in browsers.
    * 
