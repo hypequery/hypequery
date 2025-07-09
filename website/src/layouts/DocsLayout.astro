@@ -2,6 +2,7 @@
 import Navigation from "../components/Navigation.astro";
 import Footer from "../components/Footer.astro";
 import Head from "../components/Head.astro";
+import TableOfContents from "../components/TableOfContents.astro";
 import "../styles/base.css";
 
 interface Props {
@@ -265,31 +266,15 @@ const sidebar = [
           </div>
         </div>
 
-        <!-- Main content with On-this-page TOC -->
+        <!-- Main content with Table of Contents -->
         <div class="min-w-0 flex-auto px-4 md:pl-8 py-8 md:py-16">
           <div class="flex flex-col lg:flex-row">
             <article class="prose max-w-none lg:max-w-3xl flex-grow">
               <slot />
             </article>
 
-            <!-- On this page navigation -->
-            <div class="hidden lg:block lg:w-64 lg:flex-none lg:pl-8">
-              <div class="sticky top-16 overflow-y-auto">
-                <div class="border-l pl-4 border-gray-200">
-                  <h3 class="text-sm font-semibold text-gray-900 mb-4">
-                    On this page
-                  </h3>
-                  <div id="on-this-page" class="text-sm">
-                    <!-- JS will populate this -->
-                    <div class="skeleton-loader animate-pulse space-y-2">
-                      <div class="h-4 bg-gray-100 rounded w-3/4"></div>
-                      <div class="h-4 bg-gray-100 rounded w-2/3"></div>
-                      <div class="h-4 bg-gray-100 rounded w-1/2"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <!-- Table of Contents -->
+            <TableOfContents />
           </div>
         </div>
       </div>
@@ -300,229 +285,122 @@ const sidebar = [
       <Footer />
     </div>
 
-    <script>
-      // Add copy buttons to code blocks
-      document.addEventListener("DOMContentLoaded", () => {
+    <script is:inline>
+      // Simple copy button implementation
+      function addCopyButtons() {
         const codeBlocks = document.querySelectorAll("pre");
+        console.log("Found code blocks:", codeBlocks.length);
 
-        codeBlocks.forEach((codeBlock) => {
-          // Create a wrapper div to hold the code block and position it relatively
-          const wrapper = document.createElement("div");
-          wrapper.style.position = "relative";
+        codeBlocks.forEach((block, index) => {
+          // Create a simple copy button with icon
+          const button = document.createElement("button");
+          button.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          `;
+          button.setAttribute("title", "Copy");
+          button.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #6b7280;
+            border: 1px solid #d1d5db;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          `;
 
-          // Check if parent node exists
-          if (codeBlock.parentNode) {
-            codeBlock.parentNode.insertBefore(wrapper, codeBlock);
-            wrapper.appendChild(codeBlock);
+          // Show button on hover
+          block.addEventListener("mouseenter", () => {
+            button.style.opacity = "1";
+          });
 
-            // Create the copy button
-            const copyButton = document.createElement("button");
-            copyButton.className = "copy-button";
-            copyButton.setAttribute("aria-label", "Copy code to clipboard");
-            copyButton.setAttribute("title", "Copy to clipboard");
+          block.addEventListener("mouseleave", () => {
+            button.style.opacity = "0";
+          });
 
-            // Add the SVG icons (copy and check)
-            copyButton.innerHTML = `
-              <svg xmlns="http://www.w3.org/2000/svg" class="copy-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              <svg xmlns="http://www.w3.org/2000/svg" class="check-icon hidden" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          // Copy functionality
+          button.addEventListener("click", () => {
+            const code = block.querySelector("code");
+            const text = code ? code.textContent : block.textContent;
+
+            // Immediately show "Copied!" tooltip
+            button.setAttribute("title", "Copied!");
+            button.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
             `;
+            button.style.background = "rgba(34, 197, 94, 0.9)";
+            button.style.color = "white";
+            button.style.borderColor = "#22c55e";
 
-            // Handle the copy click
-            copyButton.addEventListener("click", () => {
-              const code = codeBlock.querySelector("code");
-              let text;
-
-              if (code) {
-                text = code.innerText;
-              } else {
-                // If there's no code element, use the pre element's text content directly
-                text = codeBlock.innerText;
-              }
-
-              if (text) {
-                navigator.clipboard
-                  .writeText(text)
-                  .then(() => {
-                    // Show success state
-                    const copyIcon = copyButton.querySelector(".copy-icon");
-                    const checkIcon = copyButton.querySelector(".check-icon");
-
-                    if (copyIcon && checkIcon) {
-                      copyIcon.classList.add("hidden");
-                      checkIcon.classList.remove("hidden");
-
-                      // Reset after 2 seconds
-                      setTimeout(() => {
-                        copyIcon.classList.remove("hidden");
-                        checkIcon.classList.add("hidden");
-                      }, 2000);
-                    }
-                  })
-                  .catch((err) => {
-                    console.error("Failed to copy: ", err);
-                  });
-              }
-            });
-
-            // Add the button to the code block
-            wrapper.appendChild(copyButton);
-          }
-        });
-
-        // Generate the "On this page" navigation
-        generateTableOfContents();
-      });
-
-      // Function to generate the table of contents
-      function generateTableOfContents() {
-        const article = document.querySelector("article.prose");
-        const tocContainer = document.getElementById("on-this-page");
-
-        if (!article || !tocContainer) return;
-
-        // Clear loading state
-        tocContainer.innerHTML = "";
-
-        // Find all h1, h2 and h3 elements in the article, but exclude the first h1 (which is typically the title)
-        const allHeadings = Array.from(article.querySelectorAll("h1, h2, h3"));
-        const headings = allHeadings.filter(
-          (heading, index) => !(heading.tagName === "H1" && index === 0),
-        );
-
-        if (headings.length === 0) {
-          const fallbackHeadings = article.querySelectorAll("b, strong");
-          if (fallbackHeadings.length > 0) {
-            // Use bold text as fallback headings
-            createTOCFromElements(fallbackHeadings, tocContainer);
-          } else {
-            tocContainer.innerHTML =
-              '<p class="text-gray-500 italic">No sections found</p>';
-          }
-          return;
-        }
-
-        createTOCFromElements(headings, tocContainer);
-      }
-
-      // Helper function to create TOC from a list of elements
-      function createTOCFromElements(
-        elements: NodeListOf<Element> | Element[],
-        tocContainer: HTMLElement,
-      ) {
-        const toc = document.createElement("ul");
-        toc.className = "space-y-2 text-sm";
-
-        elements.forEach((element: Element, index: number) => {
-          // Create an id for the heading if it doesn't have one
-          if (!element.id) {
-            element.id = `toc-section-${index}`;
-          }
-
-          const listItem = document.createElement("li");
-          const link = document.createElement("a");
-
-          link.href = `#${element.id}`;
-          link.textContent = element.textContent || "";
-
-          const isMainHeading =
-            element.tagName === "H1" || element.tagName === "H2";
-          link.className = isMainHeading
-            ? "text-gray-900 hover:text-indigo-600 font-medium block py-1"
-            : "text-gray-600 hover:text-indigo-600 block py-1 pl-4";
-
-          // Add click event to smooth scroll
-          link.addEventListener("click", (e) => {
-            e.preventDefault();
-            const headingElement = document.querySelector(`#${element.id}`);
-            if (headingElement) {
-              headingElement.scrollIntoView({
-                behavior: "smooth",
+            navigator.clipboard
+              .writeText(text)
+              .then(() => {
+                // Keep the "Copied!" state for 2 seconds
+                setTimeout(() => {
+                  button.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  `;
+                  button.setAttribute("title", "Copy");
+                  button.style.background = "rgba(255, 255, 255, 0.9)";
+                  button.style.color = "#6b7280";
+                  button.style.borderColor = "#d1d5db";
+                }, 2000);
+              })
+              .catch((err) => {
+                console.error("Failed to copy:", err);
+                // Reset on error
+                button.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                `;
+                button.setAttribute("title", "Copy");
+                button.style.background = "rgba(255, 255, 255, 0.9)";
+                button.style.color = "#6b7280";
+                button.style.borderColor = "#d1d5db";
               });
-              // Update the URL hash without jumping
-              history.pushState(null, "", `#${element.id}`);
-            }
           });
 
-          listItem.appendChild(link);
-          toc.appendChild(listItem);
-        });
+          // Make block relative and add button
+          block.style.position = "relative";
+          block.appendChild(button);
 
-        tocContainer.appendChild(toc);
-
-        // Add scroll spy functionality
-        const observer = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              if (entry.isIntersecting) {
-                // Get all links in the TOC
-                const links = tocContainer.querySelectorAll("a");
-
-                // Remove active class from all links
-                links.forEach((link: Element) => {
-                  link.classList.remove("text-indigo-600");
-                  if (link.getAttribute("href") === `#${entry.target.id}`) {
-                    link.classList.add("text-indigo-600");
-                  }
-                });
-              }
-            });
-          },
-          { rootMargin: "-100px 0px -66% 0px" },
-        );
-
-        // Observe all the elements
-        elements.forEach((element: Element) => {
-          observer.observe(element);
+          console.log(`Added copy button to block ${index + 1}`);
         });
       }
+
+      // Try multiple times to ensure it works
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", addCopyButtons);
+      } else {
+        addCopyButtons();
+      }
+
+      // Also try on window load
+      window.addEventListener("load", addCopyButtons);
+
+      // And try after a delay
+      setTimeout(addCopyButtons, 1000);
     </script>
 
     <style is:global>
-      /* Copy button styles */
-      .copy-button {
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
-        padding: 0.35rem;
-        border-radius: 0.25rem;
-        background-color: #ffffff25;
-        border: none;
-        cursor: pointer;
-        color: #e5e7eb;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        transition:
-          opacity 0.2s,
-          background-color 0.2s;
-      }
-
-      .copy-button:hover,
-      .copy-button:focus {
-        background-color: #ffffff40;
-        opacity: 1;
-      }
-
-      .copy-button svg {
-        width: 1rem;
-        height: 1rem;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      /* Show copy button when hovering the code block */
-      pre:hover .copy-button {
-        opacity: 1;
-      }
-
       /* Root variable definitions */
       :root {
         --font-fallback: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica,
@@ -585,6 +463,33 @@ const sidebar = [
         font-size: 1.25em;
         margin-top: 1.6em;
         margin-bottom: 0.6em;
+        line-height: 1.6;
+        font-weight: 600;
+        scroll-margin-top: 5rem;
+      }
+
+      .prose h4 {
+        font-size: 1.125em;
+        margin-top: 1.4em;
+        margin-bottom: 0.5em;
+        line-height: 1.6;
+        font-weight: 600;
+        scroll-margin-top: 5rem;
+      }
+
+      .prose h5 {
+        font-size: 1em;
+        margin-top: 1.2em;
+        margin-bottom: 0.4em;
+        line-height: 1.6;
+        font-weight: 600;
+        scroll-margin-top: 5rem;
+      }
+
+      .prose h6 {
+        font-size: 0.875em;
+        margin-top: 1em;
+        margin-bottom: 0.3em;
         line-height: 1.6;
         font-weight: 600;
         scroll-margin-top: 5rem;

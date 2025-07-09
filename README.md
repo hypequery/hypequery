@@ -183,7 +183,7 @@ const stats = await db.table('trips')
 // Joins
 const tripsWithDrivers = await db.table('trips')
   .select(['trips.trip_id', 'trips.total_amount', 'drivers.name'])
-  .join('drivers', 'trips.driver_id', '=', 'drivers.id')
+  .innerJoin('drivers', 'trips.driver_id', 'drivers.id')
   .execute();
 
 // Raw SQL when needed
