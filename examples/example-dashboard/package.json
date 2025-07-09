@@ -8,6 +8,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.11.2",
+    "@clickhouse/client-web": "^1.11.2",
     "@hypequery/clickhouse": "*",
     "@radix-ui/react-popover": "^1.0.7",
     "@radix-ui/react-slot": "^1.0.2",

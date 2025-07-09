@@ -35,11 +35,25 @@
     "README-CLI.md"
   ],
   "dependencies": {
-    "@clickhouse/client-web": "^0.2.0",
     "dotenv": "^16.0.0"
+  },
+  "peerDependencies": {
+    "@clickhouse/client": "^0.2.0 || ^1.0.0",
+    "@clickhouse/client-web": "^0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@clickhouse/client": {
+      "optional": true
+    },
+    "@clickhouse/client-web": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
+    "@clickhouse/client": "^1.11.2",
+    "@clickhouse/client-common": "^1.11.2",
+    "@clickhouse/client-web": "^1.11.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^11.1.0",
     "@semantic-release/git": "^10.0.1",

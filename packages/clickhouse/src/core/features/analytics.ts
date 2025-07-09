@@ -1,6 +1,6 @@
 import { QueryBuilder } from '../query-builder';
 import { ColumnType, TableColumn } from '../../types';
-import { ClickHouseSettings } from '@clickhouse/client-web';
+import { ClickHouseSettings } from '@clickhouse/client-common'
 
 export class AnalyticsFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },

@@ -12,7 +12,6 @@ import {
   PaginationOptions,
   PaginatedResult,
 } from '../types';
-import { ClickHouseSettings } from '@clickhouse/client-web'
 import { SQLFormatter } from './formatters/sql-formatter';
 import { AggregationFeature } from './features/aggregations';
 import { JoinFeature } from './features/joins';
@@ -25,6 +24,79 @@ import { PaginationFeature } from './features/pagination';
 import { JoinRelationships, JoinPathOptions } from './join-relationships';
 import { SqlExpression, raw } from './utils/sql-expressions';
 import { CrossFilteringFeature } from './features/cross-filtering';
+import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
+import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
+
+// Union type that accepts either client type
+type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
+
+/**
+ * Common configuration options for ClickHouse connections.
+ */
+export interface ClickHouseCommonConfig {
+  /** Username for authentication. */
+  username?: string;
+  /** Password for authentication. */
+  password?: string;
+  /** The database to connect to. */
+  database?: string;
+  /** Custom HTTP headers to include with each request. */
+  http_headers?: Record<string, string>;
+  /** Request timeout in milliseconds. */
+  request_timeout?: number;
+  /** Compression options for the connection. */
+  compression?: {
+    response?: boolean;
+    request?: boolean;
+  };
+  /** Application name to identify in ClickHouse server logs. */
+  application?: string;
+  /** Keep-alive connection settings. */
+  keep_alive?: {
+    enabled: boolean;
+  };
+  /** Logger configuration. */
+  log?: any;
+  /** Additional ClickHouse-specific settings. */
+  clickhouse_settings?: ClickHouseSettings;
+}
+
+/**
+ * Configuration for host-based connections.
+ */
+export interface ClickHouseHostConfig extends ClickHouseCommonConfig {
+  /** The ClickHouse server host URL. */
+  host: string;
+}
+
+/**
+ * Configuration for client-based connections.
+ */
+export interface ClickHouseClientConfig extends ClickHouseCommonConfig {
+  /** Pre-configured ClickHouse client instance. */
+  client: ClickHouseClient;
+}
+
+/**
+ * Configuration options for ClickHouse connections.
+ * Either provide a client instance OR connection details, but not both.
+ */
+export type ClickHouseConfig = ClickHouseHostConfig | ClickHouseClientConfig;
+
+/**
+ * Type guard to check if a config is a host-based configuration.
+ */
+export function isHostConfig(config: ClickHouseConfig): config is ClickHouseHostConfig {
+  return 'host' in config && !('client' in config);
+}
+
+/**
+ * Type guard to check if a config is a client-based configuration.
+ */
+export function isClientConfig(config: ClickHouseConfig): config is ClickHouseClientConfig {
+  return 'client' in config && !('host' in config);
+}
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -620,24 +692,7 @@ export class QueryBuilder<
 export function createQueryBuilder<Schema extends {
   [K in keyof Schema]: { [columnName: string]: ColumnType }
 }>(
-  config: {
-    host: string;
-    username?: string;
-    password?: string;
-    database?: string;
-    http_headers?: Record<string, string>;
-    request_timeout?: number;
-    compression?: {
-      response?: boolean;
-      request?: boolean;
-    };
-    application?: string;
-    keep_alive?: {
-      enabled: boolean;
-    };
-    log?: any;
-    clickhouse_settings?: ClickHouseSettings;
-  }
+  config: ClickHouseConfig
 ) {
   ClickHouseConnection.initialize(config);
 
