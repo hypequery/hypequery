@@ -44,7 +44,7 @@ export class ExecutorFeature<
         format: 'JSONEachRow'
       });
 
-      const rows = await result.json<T[]>();
+      const rows = await result.json<T>();
       const endTime = Date.now();
 
       logger.logQuery({

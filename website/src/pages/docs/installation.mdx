@@ -20,19 +20,35 @@ Before installing hypequery, make sure you have:
 
 ## Installing the Package
 
-Install hypequery using npm:
+### For Node.js environments:
 
 ```bash
-npm install @hypequery/clickhouse
+# npm
+npm install @hypequery/clickhouse @clickhouse/client
+
+# yarn
+yarn add @hypequery/clickhouse @clickhouse/client
+
+# pnpm
+pnpm add @hypequery/clickhouse @clickhouse/client
+
 ```
 
-Or using yarn:
+### For browser environments:
 
 ```bash
-yarn add @hypequery/clickhouse
+npm install @hypequery/clickhouse @clickhouse/client-web
+
+# yarn
+yarn add @hypequery/clickhouse @clickhouse/client-web
+
+# pnpm
+pnpm add @hypequery/clickhouse @clickhouse/client-web
 ```
 
 ## Basic Setup
+
+### Node.js Environment
 
 1. First, create an `.env` file in your project root:
 
@@ -43,7 +59,7 @@ CLICKHOUSE_PASSWORD=your-password
 CLICKHOUSE_DATABASE=default
 ```
 
-2. Create a new file for your database configuration (e.g., `db.ts`):
+2. Create a new file for your database configuration (e.g., `db.ts`). Alternatively, you can pass the client directly as demonstrated in the browser envrionment example below.
 
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -56,6 +72,26 @@ export const db = createQueryBuilder({
 });
 ```
 
+### Browser Environment
+
+For browser environments, you need to manually inject the ClickHouse client:
+
+```typescript
+import { createClient } from '@clickhouse/client-web';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const client = createClient({
+  host: 'https://your-clickhouse-proxy.com',
+  username: 'default',
+  password: 'password',
+  database: 'default'
+});
+
+export const db = createQueryBuilder({
+  client // Explicitly provide the client
+});
+```
+
 ## Adding Type Safety
 
 For the best development experience, generate TypeScript types for your ClickHouse schema:
@@ -65,6 +101,7 @@ For the best development experience, generate TypeScript types for your ClickHou
 ```bash
 npx hypequery-generate-types
 ```
+
 2. Update your configuration to use the generated types:
 
 ```typescript

@@ -1,98 +1,83 @@
-import { createClient } from '@clickhouse/client-web';
-import type { ClickHouseSettings } from '@clickhouse/client-web';
+import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
+import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
+import type { ClickHouseConfig, ClickHouseHostConfig } from './query-builder';
+import { isClientConfig, isHostConfig } from './query-builder';
 
+// Union type that accepts either client type
+type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
-/**
- * Configuration options for the ClickHouse connection.
- * 
- * @category Core
- * @example
- * ```typescript
- * const config = {
- *   host: 'http://localhost:8123',
- *   username: 'default',
- *   password: 'password',
- *   database: 'my_database'
- * };
- * ```
- */
-export interface ClickHouseConnectionOptions {
-  /**
-   * The URL of the ClickHouse server, including protocol and port.
-   * Example: 'http://localhost:8123' or 'https://your-instance.clickhouse.cloud:8443'
-   */
-  host: string;
+interface ClickHouseClientModule {
+  createClient: (config: ClickHouseConfig) => ClickHouseClient;
+  ClickHouseSettings?: ClickHouseSettings;
+}
 
-  /**
-   * Username for authentication. Defaults to 'default' if not provided.
-   */
-  username?: string;
+// Function to synchronously get the appropriate client
+function getClickHouseClientSync(): ClickHouseClientModule {
+  const isDev = process.env.NODE_ENV === 'development';
+  const isNode = typeof process !== 'undefined' && process.versions && process.versions.node;
 
-  /**
-   * Password for authentication.
-   */
-  password?: string;
+  // In Node.js environment, use Node.js client only
+  if (isNode) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const clientNode = require('@clickhouse/client');
+      if (isDev) {
+        console.log('hypequery: Using @clickhouse/client for Node.js environment');
+      }
+      return {
+        createClient: clientNode.createClient,
+        ClickHouseSettings: clientNode.ClickHouseSettings || {}
+      };
+    } catch (error) {
+      throw new Error(
+        '@clickhouse/client is required for Node.js environments.\n\n' +
+        'Install with: npm install @clickhouse/client\n\n' +
+        'Alternatively, you can provide a client instance directly in the config.client option.'
+      );
+    }
+  }
 
-  /**
-   * The database to connect to. Defaults to 'default' if not provided.
-   */
-  database?: string;
-
-  /**
-   * Enable secure connection (TLS/SSL). 
-   * This is automatically set to true if the host URL starts with https://
-   */
-  secure?: boolean;
-
-  /**
-   * Custom HTTP headers to include with each request.
-   */
-  http_headers?: Record<string, string>;
-
-  /**
-   * Request timeout in milliseconds.
-   */
-  request_timeout?: number;
-
-  /**
-   * Compression options for the connection.
-   */
-  compression?: {
-    response?: boolean;
-    request?: boolean;
-  };
-
-  /**
-   * Application name to identify in ClickHouse server logs.
-   */
-  application?: string;
-
-  /**
-   * Keep-alive connection settings.
-   */
-  keep_alive?: {
-    enabled: boolean;
-  };
-
-  /**
-   * Logger configuration.
-   */
-  log?: any;
-
-  /**
-   * Additional ClickHouse-specific settings.
-   */
-  clickhouse_settings?: ClickHouseSettings;
+  // For browser environments, require() doesn't work, so we can't auto-detect
+  // Users must use manual injection in browser environments
+  throw new Error(
+    'Unable to auto-detect ClickHouse client in browser environment. ' +
+    'Please use manual injection by providing a client instance:\n\n' +
+    '```typescript\n' +
+    'import { createClient } from \'@clickhouse/client-web\';\n' +
+    'const client = createClient({ host: \'http://localhost:8123\' });\n' +
+    'ClickHouseConnection.initialize({ host: \'http://localhost:8123\', client });\n' +
+    '```\n\n' +
+    'This is required because browser environments cannot use require() to load modules.'
+  );
 }
 
 /**
  * The main entry point for connecting to a ClickHouse database.
  * Provides static methods to initialize the connection and retrieve the client.
  * 
+ * Supports two modes of operation:
+ * 1. **Manual injection**: Provide a client instance via `config.client` (required for browser environments)
+ * 2. **Auto-detection**: Automatically uses @clickhouse/client for Node.js environments
+ * 
  * @category Core
  * @example
  * ```typescript
- * // Initialize the connection
+ * // Method 1: Manual injection (required for browser environments)
+ * import { createClient } from '@clickhouse/client-web';
+ * const client = createClient({
+ *   host: 'http://localhost:8123',
+ *   username: 'default',
+ *   password: 'password'
+ * });
+ * 
+ * ClickHouseConnection.initialize({
+ *   host: 'http://localhost:8123',
+ *   database: 'my_database',
+ *   client // Explicitly provide the client
+ * });
+ * 
+ * // Method 2: Auto-detection (Node.js environments only)
  * ClickHouseConnection.initialize({
  *   host: 'http://localhost:8123',
  *   username: 'default',
@@ -107,21 +92,39 @@ export interface ClickHouseConnectionOptions {
  *   format: 'JSONEachRow'
  * });
  * ```
+ * 
+ * @note This library requires one of the following peer dependencies:
+ * - @clickhouse/client (for Node.js environments)
+ * - @clickhouse/client-web (for browser environments)
+ * 
+ * **Important**: Browser environments require manual injection because `require()` calls don't work in browsers.
  */
 export class ClickHouseConnection {
-  private static instance: ReturnType<typeof createClient>;
+  private static instance: ClickHouseClient | null = null;
+  private static clientModule: ClickHouseClientModule | null = null;
 
   /**
    * Initializes the ClickHouse connection with the provided configuration.
    * This method must be called before any queries can be executed.
    * 
+   * **Priority order:**
+   * 1. If `config.client` is provided, use it directly (manual injection)
+   * 2. Otherwise, auto-detect @clickhouse/client for Node.js environments
+   * 
+   * **Note**: Browser environments require manual injection because `require()` calls don't work in browsers.
+   * 
    * @param config - The connection configuration options
    * @returns The ClickHouseConnection class for method chaining
-   * @throws Will throw an error if the connection cannot be established
+   * @throws Will throw an error if no ClickHouse client is available
    * 
    * @example
    * ```typescript
-   * // For a local ClickHouse instance
+   * // Manual injection (required for browser environments)
+   * import { createClient } from '@clickhouse/client-web';
+   * const client = createClient({ host: 'http://localhost:8123' });
+   * ClickHouseConnection.initialize({ host: 'http://localhost:8123', client });
+   * 
+   * // Auto-detection (Node.js environments only)
    * ClickHouseConnection.initialize({
    *   host: 'http://localhost:8123',
    *   username: 'default',
@@ -130,25 +133,16 @@ export class ClickHouseConnection {
    * });
    * ```
    */
-  static initialize(config: ClickHouseConnectionOptions): typeof ClickHouseConnection {
-    // Create a client config object with only the standard options
-    const clientConfig: any = {
-      host: config.host,
-      username: config.username,
-      password: config.password,
-      database: config.database,
-    };
+  static initialize(config: ClickHouseConfig): typeof ClickHouseConnection {
+    // If a client is explicitly provided, use it directly
+    if (isClientConfig(config)) {
+      this.instance = config.client;
+      return ClickHouseConnection;
+    }
 
-    // Add the extended options if provided
-    if (config.http_headers) clientConfig.http_headers = config.http_headers;
-    if (config.request_timeout) clientConfig.request_timeout = config.request_timeout;
-    if (config.compression) clientConfig.compression = config.compression;
-    if (config.application) clientConfig.application = config.application;
-    if (config.keep_alive) clientConfig.keep_alive = config.keep_alive;
-    if (config.log) clientConfig.log = config.log;
-    if (config.clickhouse_settings) clientConfig.clickhouse_settings = config.clickhouse_settings;
-
-    this.instance = createClient(clientConfig);
+    // Otherwise, auto-detect the client (we know we have a host-based config)
+    this.clientModule = getClickHouseClientSync();
+    this.instance = this.clientModule.createClient(config);
     return ClickHouseConnection;
   }
 
@@ -167,10 +161,20 @@ export class ClickHouseConnection {
    * });
    * ```
    */
-  static getClient(): ReturnType<typeof createClient> {
+  static getClient(): ClickHouseClient {
     if (!this.instance) {
-      throw new Error('ClickHouse connection not initialized');
+      throw new Error('ClickHouse connection not initialized. Call ClickHouseConnection.initialize() first.');
     }
     return this.instance;
   }
-} 
+
+  /**
+   * Gets the ClickHouseSettings type from the loaded client module.
+   * Only available when using auto-detection (not manual injection).
+   * 
+   * @returns The ClickHouseSettings type or an empty object if not available
+   */
+  static getClickHouseSettings(): ClickHouseSettings {
+    return this.clientModule?.ClickHouseSettings || {};
+  }
+}

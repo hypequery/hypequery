@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# hypequery Example Dashboard
 
-## Getting Started
+This example demonstrates how to use hypequery with different ClickHouse clients in different environments.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### 1. Browser Dashboard (`/`)
+- Uses `@clickhouse/client-web` with manual injection
+- Direct browser-to-ClickHouse connection
+- Real-time filtering and cross-filtering
+- Interactive charts and data tables
+
+### 2. Node.js Example (`/nodejs-example`)
+- Uses `@clickhouse/client` with manual injection
+- Server-side API route (`/api/nodejs-example`)
+- Secure credential handling
+- Pagination and aggregated statistics
+
+### 3. Streaming Demo (`/streaming`)
+- Demonstrates hypequery's streaming capabilities
+- Real-time data processing
+- Memory-efficient handling of large datasets
+
+## Client Setup Examples
+
+### Browser Environment
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client-web';
+
+// Manual injection (required for browsers)
+const client = createClient({
+  host: 'your-clickhouse-host',
+  username: 'default',
+  password: 'password'
+});
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'your-clickhouse-host',
+  client // Explicitly provide client
+});
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Node.js Environment
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client';
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+// Manual injection (recommended for Node.js)
+const client = createClient({
+  host: 'your-clickhouse-host',
+  username: 'default',
+  password: 'password'
+});
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'your-clickhouse-host',
+  client // Explicitly provide client
+});
+```
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+Set up your ClickHouse connection in `.env.local`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```env
+NEXT_PUBLIC_CLICKHOUSE_HOST=http://localhost:8123
+NEXT_PUBLIC_CLICKHOUSE_USER=default
+NEXT_PUBLIC_CLICKHOUSE_PASSWORD=password
+NEXT_PUBLIC_CLICKHOUSE_DATABASE=default
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Running the Example
 
-## Deploy on Vercel
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. Set up environment variables in `.env.local`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000)
+
+## Key Differences
+
+| Aspect | Browser | Node.js |
+|--------|---------|---------|
+| **Client** | `@clickhouse/client-web` | `@clickhouse/client` |
+| **Environment** | Client-side | Server-side |
+| **Security** | Credentials exposed | Credentials secure |
+| **Performance** | Limited by browser | Full Node.js performance |
+| **Use Cases** | Real-time dashboards | APIs, data processing |
+| **CORS** | Requires configuration | No CORS issues |
+
+## Dependencies
+
+- `@hypequery/clickhouse` - Main query builder
+- `@clickhouse/client-web` - Browser client
+- `@clickhouse/client` - Node.js client
+- `@tanstack/react-query` - Data fetching
+- `@tremor/react` - Charts and UI components
+- `next` - React framework
+- `tailwindcss` - Styling

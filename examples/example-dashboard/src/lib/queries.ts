@@ -1,14 +1,24 @@
 import { createQueryBuilder, CrossFilter, logger } from "@hypequery/clickhouse"
+import { createClient } from "@clickhouse/client-web"
 import { DateRange } from "react-day-picker"
 import { startOfDay, endOfDay, format } from "date-fns"
 import { IntrospectedSchema } from "@/generated/generated-schema"
 
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST!,
-  username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,
-  password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
-  database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE,
-})
+function getDb() {
+  // Create the ClickHouse client explicitly for browser environment
+  const client = createClient({
+    host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST!,
+    username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,
+    password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+    database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE,
+  });
+
+  // Initialize the query builder with manual injection
+  return createQueryBuilder<IntrospectedSchema>({
+    client
+  });
+
+}
 
 // Configure logger to show detailed info
 logger.configure({
@@ -27,6 +37,7 @@ function formatDateTime(date: Date) {
 
 // Function to check data ranges
 export async function checkDataRanges(filters: DateFilters = {}) {
+  const db = getDb();
   // First get the full range without filters
   const fullRangeQuery = db.table("trips")
   const fullRange = await fullRangeQuery
@@ -95,6 +106,7 @@ function createFilter(filters: DateFilters) {
 }
 
 export async function fetchAverageAmounts(filters: DateFilters = {}) {
+  const db = getDb();
   const query = db.table("trips")
   const filter = createFilter(filters)
   query.applyCrossFilters(filter)
@@ -119,6 +131,7 @@ export async function fetchAverageAmounts(filters: DateFilters = {}) {
 }
 
 export async function fetchTripStats(filters: DateFilters = {}) {
+  const db = getDb();
   const query = db.table("trips")
   const filter = createFilter(filters)
   query.applyCrossFilters(filter)
@@ -139,6 +152,7 @@ export async function fetchTripStats(filters: DateFilters = {}) {
 }
 
 export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
+  const db = getDb();
 
   const query = db.table("trips")
   const filter = createFilter(filters)
@@ -158,6 +172,7 @@ export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
 };
 
 export async function fetchTrips(filters: DateFilters = {}, { pageSize = 10, after, before }: { pageSize?: number; after?: string; before?: string } = {}) {
+  const db = getDb();
   const query = db.table("trips")
   const filter = createFilter(filters)
   query.applyCrossFilters(filter)
@@ -234,6 +249,7 @@ export async function fetchTripsByStreaming(
   });
 
   try {
+    const db = getDb();
     // Create the base query
     const query = db.table('trips')
       .select([
