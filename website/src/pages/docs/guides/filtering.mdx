@@ -22,7 +22,7 @@ const results = await db
 
 ## Complex Filtering with CrossFilter
 
-The CrossFilter class provides more advanced filtering capabilities with support for nested groups, date ranges, and complex conditions.
+The CrossFilter class provides more advanced filtering capabilities with support for nested groups and complex conditions.
 
 ### Basic CrossFilter Usage
 
@@ -158,38 +158,6 @@ const conditions = filter.getConditions();
 console.log(conditions);
 ```
 
-### Date Filtering Methods
-
-#### `addDateRange(column, range)`
-Adds predefined date ranges:
-
-```typescript
-filter.addDateRange('created_at', 'last_30_days');
-```
-
-#### `lastNDays(column, days)`
-Adds a custom N-day range:
-
-```typescript
-filter.lastNDays('created_at', 7); // Last 7 days
-```
-
-#### `addComparisonPeriod(column, currentRange)`
-Adds a comparison period (same length as current range):
-
-```typescript
-const currentRange = [new Date('2024-01-01'), new Date('2024-01-31')];
-filter.addComparisonPeriod('created_at', currentRange);
-```
-
-#### `addYearOverYear(column, currentRange)`
-Adds year-over-year comparison:
-
-```typescript
-const currentRange = [new Date('2024-01-01'), new Date('2024-01-31')];
-filter.addYearOverYear('created_at', currentRange);
-```
-
 ### Advanced Methods
 
 #### `topN(valueColumn, n, orderBy)`
@@ -199,18 +167,75 @@ Creates a filter for top N records:
 filter.topN('revenue', 10, 'desc'); // Top 10 by revenue
 ```
 
-## Available Date Ranges
+## Date Filtering Patterns
 
-| Range | Description | Example |
-|-------|-------------|---------|
-| `today` | Current day | 2024-01-15 00:00:00 to 2024-01-15 23:59:59 |
-| `yesterday` | Previous day | 2024-01-14 00:00:00 to 2024-01-14 23:59:59 |
-| `last_7_days` | Last 7 days | 2024-01-08 to 2024-01-15 |
-| `last_30_days` | Last 30 days | 2023-12-16 to 2024-01-15 |
-| `this_month` | Current month | 2024-01-01 to 2024-01-31 |
-| `last_month` | Previous month | 2023-12-01 to 2023-12-31 |
-| `this_quarter` | Current quarter | 2024-01-01 to 2024-03-31 |
-| `year_to_date` | Year to date | 2024-01-01 to current date |
+
+### Using date-fns
+
+```typescript
+import { startOfDay, endOfDay, subDays, startOfMonth, endOfMonth } from 'date-fns';
+
+// Today's range
+const today = new Date();
+const todayStart = startOfDay(today);
+const todayEnd = endOfDay(today);
+
+const filter = new CrossFilter()
+  .add({
+    column: 'created_at',
+    operator: 'between',
+    value: [todayStart.toISOString(), todayEnd.toISOString()]
+  });
+
+// Last 7 days
+const sevenDaysAgo = subDays(today, 7);
+const filter = new CrossFilter()
+  .add({
+    column: 'created_at',
+    operator: 'between',
+    value: [sevenDaysAgo.toISOString(), today.toISOString()]
+  });
+
+// This month
+const monthStart = startOfMonth(today);
+const monthEnd = endOfMonth(today);
+const filter = new CrossFilter()
+  .add({
+    column: 'created_at',
+    operator: 'between',
+    value: [monthStart.toISOString(), monthEnd.toISOString()]
+  });
+```
+
+### Using dayjs
+
+```typescript
+import dayjs from 'dayjs';
+
+// Today's range
+const today = dayjs();
+const filter = new CrossFilter()
+  .add({
+    column: 'created_at',
+    operator: 'between',
+    value: [
+      today.startOf('day').toISOString(),
+      today.endOf('day').toISOString()
+    ]
+  });
+
+// Last 30 days
+const thirtyDaysAgo = dayjs().subtract(30, 'day');
+const filter = new CrossFilter()
+  .add({
+    column: 'created_at',
+    operator: 'between',
+    value: [
+      thirtyDaysAgo.toISOString(),
+      today.toISOString()
+    ]
+  });
+```
 
 ## Complex Examples
 
@@ -245,20 +270,42 @@ const filter = new CrossFilter()
   ], 'OR');
 ```
 
-### Date-Based Filtering
+### Date-Based Filtering with date-fns
 
 ```typescript
+import { startOfMonth, endOfMonth, subDays } from 'date-fns';
+
+const today = new Date();
+const monthStart = startOfMonth(today);
+const monthEnd = endOfMonth(today);
+const sevenDaysAgo = subDays(today, 7);
+
 const filter = new CrossFilter()
-  .addDateRange('created_at', 'this_month')
-  .addDateRange('updated_at', 'last_7_days')
-  .lastNDays('last_login', 30);
+  .add({
+    column: 'created_at',
+    operator: 'between',
+    value: [monthStart.toISOString(), monthEnd.toISOString()]
+  })
+  .add({
+    column: 'updated_at',
+    operator: 'between',
+    value: [sevenDaysAgo.toISOString(), today.toISOString()]
+  });
 ```
 
 ### Top N with Date Filtering
 
 ```typescript
+import { subDays } from 'date-fns';
+
+const thirtyDaysAgo = subDays(new Date(), 30);
+
 const filter = new CrossFilter()
-  .addDateRange('created_at', 'last_30_days')
+  .add({
+    column: 'created_at',
+    operator: 'between',
+    value: [thirtyDaysAgo.toISOString(), new Date().toISOString()]
+  })
   .topN('revenue', 10, 'desc');
 ```
 

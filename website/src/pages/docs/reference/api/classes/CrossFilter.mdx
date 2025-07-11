@@ -69,54 +69,6 @@ Performs type-safe validation if a schema is provided.
 
 `this`
 
-### addComparisonPeriod()
-
-**addComparisonPeriod**\<`K`\>(`column`, `currentRange`): `this`
-
-#### Type Parameters
-
-##### K
-
-`K` *extends* `string` \| `number` \| `symbol`
-
-#### Parameters
-
-##### column
-
-`K` *extends* keyof `Schema`\[`TableName`\] ? `Schema`\[`TableName`\]\[`K`\<`K`\>\] *extends* `"Date"` \| `"DateTime"` ? `K`\<`K`\> : `never` : `never`
-
-##### currentRange
-
-\[`Date`, `Date`\]
-
-#### Returns
-
-`this`
-
-### addDateRange()
-
-**addDateRange**\<`K`\>(`column`, `range`): `this`
-
-#### Type Parameters
-
-##### K
-
-`K` *extends* `string` \| `number` \| `symbol`
-
-#### Parameters
-
-##### column
-
-`K` *extends* keyof `Schema`\[`TableName`\] ? `Schema`\[`TableName`\]\[`K`\<`K`\>\] *extends* `"Date"` \| `"DateTime"` ? `K`\<`K`\> : `never` : `never`
-
-##### range
-
-`DateRangeType`
-
-#### Returns
-
-`this`
-
 ### addGroup()
 
 **addGroup**(`groupConditions`, `operator`): `this`
@@ -157,30 +109,6 @@ Adds multiple filter conditions to the root group.
 
 `this`
 
-### addYearOverYear()
-
-**addYearOverYear**\<`K`\>(`column`, `currentRange`): `this`
-
-#### Type Parameters
-
-##### K
-
-`K` *extends* `string` \| `number` \| `symbol`
-
-#### Parameters
-
-##### column
-
-`K` *extends* keyof `Schema`\[`TableName`\] ? `Schema`\[`TableName`\]\[`K`\<`K`\>\] *extends* `"Date"` \| `"DateTime"` ? `K`\<`K`\> : `never` : `never`
-
-##### currentRange
-
-\[`Date`, `Date`\]
-
-#### Returns
-
-`this`
-
 ### getConditions()
 
 **getConditions**(): `FilterGroup`\<`Schema`, `Schema`\[`TableName`\]\>
@@ -190,30 +118,6 @@ Returns the current filter tree representing all conditions and groups.
 #### Returns
 
 `FilterGroup`\<`Schema`, `Schema`\[`TableName`\]\>
-
-### lastNDays()
-
-**lastNDays**\<`K`\>(`column`, `days`): `this`
-
-#### Type Parameters
-
-##### K
-
-`K` *extends* `string` \| `number` \| `symbol`
-
-#### Parameters
-
-##### column
-
-`K` *extends* keyof `Schema`\[`TableName`\] ? `Schema`\[`TableName`\]\[`K`\<`K`\>\] *extends* `"Date"` \| `"DateTime"` ? `K`\<`K`\> : `never` : `never`
-
-##### days
-
-`number`
-
-#### Returns
-
-`this`
 
 ### topN()
 
