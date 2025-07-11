@@ -1,4 +1,4 @@
-export { createQueryBuilder } from './core/query-builder.js';
+export { createQueryBuilder, QueryBuilder } from './core/query-builder.js';
 export { ClickHouseConnection } from './core/connection.js';
 export { JoinRelationships } from './core/join-relationships.js';
 export type {

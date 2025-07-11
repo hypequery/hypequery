@@ -1,0 +1,68 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: Raw - hypequery
+description: Learn how to use raw SQL expressions in hypequery
+---
+
+# raw
+
+The `raw` function allows you to inject a raw SQL expression into your query. This is useful for advanced expressions or when you need to use SQL features not directly supported by the query builder API.
+
+## Usage
+
+```ts
+import { qb } from 'hypequery';
+
+qb('users')
+  .select(['id', qb.raw('COUNT(*) as total')])
+  .where(qb.raw('age > ?', [18]))
+  .toSQL();
+// SELECT id, COUNT(*) as total FROM users WHERE age > 18
+```
+
+## Parameters
+- `expression: string` – The raw SQL string. You can use `?` placeholders for parameterized values.
+- `params?: any[]` – (Optional) Array of values to safely interpolate into the SQL string.
+
+## Examples
+
+### Complex Date Filtering
+
+```ts
+qb('orders')
+  .select(['id', 'total'])
+  .where(qb.raw('created_at >= subtractDays(now(), 7)'))
+  .toSQL();
+// SELECT id, total FROM orders WHERE created_at >= subtractDays(now(), 7)
+```
+
+### String Functions
+
+```ts
+qb('users')
+  .select(['id', 'name'])
+  .where(qb.raw('LENGTH(name) > 10'))
+  .toSQL();
+// SELECT id, name FROM users WHERE LENGTH(name) > 10
+```
+
+### Parameterized Queries
+
+```ts
+const minAge = 18;
+const maxAge = 65;
+
+qb('users')
+  .select(['id', 'name'])
+  .where(qb.raw('age BETWEEN ? AND ?', [minAge, maxAge]))
+  .toSQL();
+// SELECT id, name FROM users WHERE age BETWEEN 18 AND 65
+```
+
+## Type Safety
+
+The `raw` function bypasses TypeScript's type checking for the injected SQL. The query builder cannot validate the syntax or types of raw expressions.
+
+## Notes
+- Use `raw` with caution. It bypasses automatic escaping and type safety for the injected SQL.
+- Prefer query builder methods when possible for safety and maintainability. 

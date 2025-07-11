@@ -27,7 +27,6 @@ const sidebar = [
       { title: "Installation", href: "/docs/installation" },
       { title: "Connecting to ClickHouse", href: "/docs/reference/connection" },
       { title: "Type Generation", href: "/docs/type-generation" },
-      // { title: "Quick Start", href: "/docs/quickstart" },
     ],
   },
   {
@@ -35,12 +34,37 @@ const sidebar = [
     items: [
       { title: "Query Building", href: "/docs/guides/query-building" },
       { title: "Join Relationships", href: "/docs/guides/joins" },
-      { title: "Filtering", href: "/docs/guides/filtering" },
-      { title: "SQL Expressions", href: "/docs/sql-expressions" },
+      { title: "Cross Filtering", href: "/docs/guides/filtering" },
       {
         title: "Time-Based Functions",
         href: "/docs/guides/time-based-functions",
       },
+    ],
+  },
+  {
+    title: "Query Builder",
+    items: [
+      { title: "Select", href: "/docs/functions/query-builder/select" },
+      { title: "Where", href: "/docs/functions/query-builder/where" },
+      { title: "Joins", href: "/docs/functions/query-builder/joins" },
+      { title: "Group By", href: "/docs/functions/query-builder/group-by" },
+      { title: "Having", href: "/docs/functions/query-builder/having" },
+      { title: "Order By", href: "/docs/functions/query-builder/order-by" },
+      { title: "Limit", href: "/docs/functions/query-builder/limit" },
+      { title: "Offset", href: "/docs/functions/query-builder/offset" },
+      { title: "Distinct", href: "/docs/functions/query-builder/distinct" },
+      { title: "CTEs", href: "/docs/functions/query-builder/ctes" },
+      {
+        title: "Execute & toSQL",
+        href: "/docs/functions/query-builder/execute",
+      },
+    ],
+  },
+  {
+    title: "SQL Functions",
+    items: [
+      { title: "Raw", href: "/docs/functions/sql-functions/raw" },
+      { title: "Raw As", href: "/docs/functions/sql-functions/rawAs" },
     ],
   },
   {
@@ -51,7 +75,7 @@ const sidebar = [
       { title: "Subqueries", href: "/docs/features/subqueries" },
       { title: "Helper methods", href: "/docs/guides/helper-methods" },
       // { title: "Debugging", href: "/docs/features/debugging" },
-      { title: "Streaming", href: "/docs/streaming" },
+      { title: "Streaming", href: "/docs/guides/streaming" },
       { title: "Logging", href: "/docs/logging" },
     ],
   },
@@ -128,10 +152,6 @@ const sidebar = [
             href: "/docs/reference/api/interfaces/ClickHouseClientConfig",
           },
           {
-            title: "ClickHouseCommonConfig",
-            href: "/docs/reference/api/interfaces/ClickHouseCommonConfig",
-          },
-          {
             title: "ClickHouseHostConfig",
             href: "/docs/reference/api/interfaces/ClickHouseHostConfig",
           },
@@ -148,14 +168,6 @@ const sidebar = [
             href: "/docs/reference/api/interfaces/PageInfo",
           },
           {
-            title: "PaginatedResult",
-            href: "/docs/reference/api/interfaces/PaginatedResult",
-          },
-          {
-            title: "PaginationOptions",
-            href: "/docs/reference/api/interfaces/PaginationOptions",
-          },
-          {
             title: "QueryConfig",
             href: "/docs/reference/api/interfaces/QueryConfig",
           },
@@ -169,53 +181,21 @@ const sidebar = [
           },
         ],
       },
-      {
-        title: "Type Aliases",
-        href: "/docs/reference/api/type-aliases/ColumnType",
-        items: [
-          {
-            title: "ClickHouseClient",
-            href: "/docs/reference/api/type-aliases/ClickHouseClient",
-          },
-          {
-            title: "ClickHouseConfig",
-            href: "/docs/reference/api/type-aliases/ClickHouseConfig",
-          },
-          {
-            title: "ColumnType",
-            href: "/docs/reference/api/type-aliases/ColumnType",
-          },
-          {
-            title: "DatabaseSchema",
-            href: "/docs/reference/api/type-aliases/DatabaseSchema",
-          },
-          {
-            title: "GroupByExpression",
-            href: "/docs/reference/api/type-aliases/GroupByExpression",
-          },
-          {
-            title: "TableRecord",
-            href: "/docs/reference/api/type-aliases/TableRecord",
-          },
-          {
-            title: "WhereExpression",
-            href: "/docs/reference/api/type-aliases/WhereExpression",
-          },
-        ],
-      },
-      {
-        title: "Variables",
-        href: "/docs/reference/api/variables/logger",
-        items: [
-          {
-            title: "logger",
-            href: "/docs/reference/api/variables/logger",
-          },
-        ],
-      },
     ],
   },
 ];
+
+// Helper function to check if a section should be expanded by default
+function shouldExpandSection(section: any, currentPath: string): boolean {
+  // Check if current page is in this section
+  return section.items.some((item: any) => {
+    if (item.href === currentPath) return true;
+    if (item.items) {
+      return item.items.some((subItem: any) => subItem.href === currentPath);
+    }
+    return false;
+  });
+}
 ---
 
 <!doctype html>
@@ -227,7 +207,7 @@ const sidebar = [
     <Navigation />
 
     <div
-      class="relative mx-auto max-w-8xl justify-center sm:px-2 lg:px-8 xl:px-12 pt-16"
+      class="relative mx-auto max-w-8xl justify-center sm:px-2 lg:px-8 xl:px-12 pt-10"
     >
       <div class="relative flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
         <!-- Sidebar -->
@@ -235,68 +215,100 @@ const sidebar = [
           class="relative block flex-none md:w-56 border-b md:border-b-0 md:border-r border-gray-200 mb-4 md:mb-0"
         >
           <div
-            class="md:sticky md:top-[2rem] h-auto md:h-[calc(100vh-4.5rem)] overflow-y-auto overflow-x-hidden py-4 md:py-16 pl-0.5"
+            class="md:sticky md:top-10 h-auto md:h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden -py-4 md:py-16 pl-0.5"
           >
             <nav class="w-full pr-4 md:pr-8 text-sm">
               <div class="space-y-4">
                 {
-                  sidebar.map((section) => (
-                    <div class="mt-4">
-                      <h2 class="mb-2 py-1 font-medium text-gray-900">
-                        {section.title}
-                      </h2>
-                      <ul class="mt-1 space-y-1">
-                        {section.items.map((item) => (
-                          <li>
-                            <a
-                              href={item.href}
-                              class:list={[
-                                "block px-3 py-2 md:py-2 text-sm rounded-md transition-colors",
-                                currentPath === item.href
-                                  ? "bg-indigo-50 text-indigo-600 font-medium"
-                                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
-                              ]}
-                            >
-                              {item.title}
-                            </a>
-                            {item.items && (
-                              <ul class="mt-1 pl-4 space-y-1">
-                                {item.items.map((subItem) => (
-                                  <li>
-                                    <a
-                                      href={subItem.href}
-                                      class:list={[
-                                        "block px-3 py-1 text-sm rounded-md transition-colors",
-                                        currentPath === subItem.href
-                                          ? "text-indigo-600 font-medium"
-                                          : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
-                                      ]}
-                                    >
-                                      {subItem.title}
-                                    </a>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))
+                  sidebar.map((section) => {
+                    const isExpanded = shouldExpandSection(
+                      section,
+                      currentPath,
+                    );
+                    return (
+                      <div class="mt-4">
+                        <button
+                          class="flex items-center justify-between w-full mb-2 py-1 font-medium text-gray-900 hover:text-indigo-600 transition-colors"
+                          data-section-id={section.title
+                            .replace(/\s+/g, "-")
+                            .toLowerCase()}
+                        >
+                          <span>{section.title}</span>
+                          <svg
+                            id={`chevron-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
+                            class={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </button>
+                        <ul
+                          id={`section-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
+                          class={`mt-1 space-y-1 transition-all duration-200 ${isExpanded ? "block" : "hidden"}`}
+                        >
+                          {section.items.map((item) => (
+                            <li>
+                              <a
+                                href={item.href}
+                                class:list={[
+                                  "block px-3 py-2 md:py-2 text-sm rounded-md transition-colors",
+                                  currentPath === item.href
+                                    ? "bg-indigo-50 text-indigo-600 font-medium"
+                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                                ]}
+                              >
+                                {item.title}
+                              </a>
+                              {item.items && (
+                                <ul class="mt-1 pl-4 space-y-1">
+                                  {item.items.map((subItem) => (
+                                    <li>
+                                      <a
+                                        href={subItem.href}
+                                        class:list={[
+                                          "block px-3 py-1 text-sm rounded-md transition-colors",
+                                          currentPath === subItem.href
+                                            ? "text-indigo-600 font-medium"
+                                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                                        ]}
+                                      >
+                                        {subItem.title}
+                                      </a>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })
                 }
               </div>
             </nav>
           </div>
         </div>
 
-        <!-- Main content with Table of Contents -->
+        <!-- Main content -->
         <div class="min-w-0 flex-auto px-4 md:pl-8 py-8 md:py-16">
           <div class="flex flex-col lg:flex-row">
             <article class="prose max-w-none lg:max-w-3xl flex-grow">
               <slot />
             </article>
+          </div>
+        </div>
 
-            <!-- Table of Contents -->
+        <!-- Table of contents -->
+        <div class="hidden xl:block relative flex-none w-80 pl-8">
+          <div class="sticky top-10 h-[calc(100vh-4rem)] overflow-y-auto py-16">
             <TableOfContents />
           </div>
         </div>
@@ -307,6 +319,78 @@ const sidebar = [
     <div class="bg-gray-50">
       <Footer />
     </div>
+
+    <script>
+      // Collapsible sidebar functionality
+      function toggleSection(sectionId: string) {
+        const section = document.getElementById(`section-${sectionId}`);
+        const chevron = document.getElementById(`chevron-${sectionId}`);
+
+        if (section && chevron) {
+          const isHidden = section.classList.contains("hidden");
+
+          if (isHidden) {
+            section.classList.remove("hidden");
+            chevron.classList.add("rotate-180");
+          } else {
+            section.classList.add("hidden");
+            chevron.classList.remove("rotate-180");
+          }
+        }
+      }
+
+      // Add event listeners to sidebar buttons
+      function initializeSidebar() {
+        const sidebarButtons = document.querySelectorAll("[data-section-id]");
+
+        sidebarButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            const sectionId = button.getAttribute("data-section-id");
+            if (sectionId) {
+              toggleSection(sectionId);
+            }
+          });
+        });
+      }
+
+      // Expand sections that contain the current page on page load
+      function expandCurrentSection() {
+        const currentPath = window.location.pathname;
+        const sections = document.querySelectorAll('[id^="section-"]');
+
+        sections.forEach((section) => {
+          const sectionId = section.id.replace("section-", "");
+          const links = section.querySelectorAll("a");
+          let shouldExpand = false;
+
+          links.forEach((link) => {
+            if (link.getAttribute("href") === currentPath) {
+              shouldExpand = true;
+            }
+          });
+
+          if (shouldExpand) {
+            section.classList.remove("hidden");
+            const chevron = document.getElementById(`chevron-${sectionId}`);
+            if (chevron) {
+              chevron.classList.add("rotate-180");
+            }
+          }
+        });
+      }
+
+      // Initialize everything when DOM is ready
+      document.addEventListener("DOMContentLoaded", () => {
+        initializeSidebar();
+        expandCurrentSection();
+      });
+
+      // Also initialize on Astro page loads (for SPA-like behavior)
+      document.addEventListener("astro:page-load", () => {
+        initializeSidebar();
+        expandCurrentSection();
+      });
+    </script>
 
     <script is:inline>
       // Simple copy button implementation
@@ -465,7 +549,7 @@ const sidebar = [
       }
 
       .prose h1 {
-        font-size: 2.25em;
+        font-size: 2em;
         margin-top: 0;
         margin-bottom: 0.8888889em;
         line-height: 1.1111111;
@@ -474,7 +558,7 @@ const sidebar = [
       }
 
       .prose h2 {
-        font-size: 1.5em;
+        font-size: 1.35em;
         margin-top: 2em;
         margin-bottom: 1em;
         line-height: 1.3333333;
@@ -483,7 +567,7 @@ const sidebar = [
       }
 
       .prose h3 {
-        font-size: 1.25em;
+        font-size: 1.125em;
         margin-top: 1.6em;
         margin-bottom: 0.6em;
         line-height: 1.6;
@@ -492,7 +576,7 @@ const sidebar = [
       }
 
       .prose h4 {
-        font-size: 1.125em;
+        font-size: 1em;
         margin-top: 1.4em;
         margin-bottom: 0.5em;
         line-height: 1.6;
@@ -501,7 +585,7 @@ const sidebar = [
       }
 
       .prose h5 {
-        font-size: 1em;
+        font-size: 0.9em;
         margin-top: 1.2em;
         margin-bottom: 0.4em;
         line-height: 1.6;
@@ -510,7 +594,7 @@ const sidebar = [
       }
 
       .prose h6 {
-        font-size: 0.875em;
+        font-size: 0.8em;
         margin-top: 1em;
         margin-bottom: 0.3em;
         line-height: 1.6;
@@ -523,14 +607,14 @@ const sidebar = [
         background-color: #f3f4f6;
         padding: 0.2em 0.4em;
         border-radius: 0.25em;
-        font-size: 0.875em;
+        font-size: 0.8em;
       }
 
       .prose pre {
         color: #e5e7eb;
         background-color: #1f2937;
         overflow-x: auto;
-        font-size: 0.875em;
+        font-size: 0.8em;
         line-height: 1.7142857;
         margin-top: 1.7142857em;
         margin-bottom: 1.7142857em;
@@ -568,6 +652,15 @@ const sidebar = [
         list-style-type: circle;
         margin-top: 0.5em;
         margin-bottom: 0.5em;
+      }
+
+      /* Table of contents font sizes */
+      .toc {
+        font-size: 0.8rem;
+      }
+
+      .toc a {
+        font-size: 0.8rem;
       }
     </style>
   </body>

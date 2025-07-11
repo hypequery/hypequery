@@ -400,6 +400,27 @@ describe('CrossFilter', () => {
     });
 
     describe('addDateRange', () => {
+      // Mock current date for consistent testing
+      const mockDate = new Date('2024-01-15T12:00:00Z');
+      let originalDate: typeof Date;
+
+      beforeEach(() => {
+        originalDate = global.Date;
+        global.Date = class extends Date {
+          constructor(...args: any[]) {
+            if (args.length === 0) {
+              super(mockDate);
+            } else {
+              super(...(args as [any]));
+            }
+          }
+        } as any;
+      });
+
+      afterEach(() => {
+        global.Date = originalDate;
+      });
+
       it('should add date range filter for today', () => {
         typedFilter.addDateRange('created_at', 'today');
         const result = typedFilter.getConditions();
@@ -409,6 +430,132 @@ describe('CrossFilter', () => {
         expect(condition.operator).toBe('between');
         expect(Array.isArray(condition.value)).toBe(true);
         expect(condition.value.length).toBe(2);
+
+        const [start, end] = condition.value as string[];
+        // The implementation creates dates in local timezone, then converts to UTC
+        // Mock date is 2024-01-15T12:00:00Z, so today starts at 00:00 local time
+        expect(new Date(start).toISOString()).toBe('2024-01-14T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-15T22:59:59.999Z');
+      });
+
+      it('should add date range filter for yesterday', () => {
+        typedFilter.addDateRange('created_at', 'yesterday');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2024-01-13T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-14T22:59:59.999Z');
+      });
+
+      it('should add date range filter for last_7_days', () => {
+        typedFilter.addDateRange('created_at', 'last_7_days');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2024-01-08T12:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-15T12:00:00.000Z');
+      });
+
+      it('should add date range filter for last_30_days', () => {
+        typedFilter.addDateRange('created_at', 'last_30_days');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-12-16T12:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-15T12:00:00.000Z');
+      });
+
+      it('should add date range filter for this_month', () => {
+        typedFilter.addDateRange('created_at', 'this_month');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-12-31T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-30T23:00:00.000Z');
+      });
+
+      it('should add date range filter for last_month', () => {
+        typedFilter.addDateRange('created_at', 'last_month');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-11-30T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2023-12-30T23:00:00.000Z');
+      });
+
+      it('should add date range filter for this_quarter', () => {
+        typedFilter.addDateRange('created_at', 'this_quarter');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-12-31T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-03-30T23:00:00.000Z');
+      });
+
+      it('should add date range filter for year_to_date', () => {
+        typedFilter.addDateRange('created_at', 'year_to_date');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-12-31T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-15T12:00:00.000Z');
+      });
+
+      it('should handle month boundary edge cases', () => {
+        // Test with date at end of month
+        const endOfMonthDate = new Date('2024-01-31T12:00:00Z');
+        global.Date = class extends Date {
+          constructor(...args: any[]) {
+            if (args.length === 0) {
+              super(endOfMonthDate);
+            } else {
+              super(...(args as [any]));
+            }
+          }
+        } as any;
+
+        typedFilter.addDateRange('created_at', 'this_month');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-12-31T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-30T23:00:00.000Z');
+      });
+
+      it('should handle leap year February', () => {
+        // Test with leap year February
+        const leapYearDate = new Date('2024-02-29T12:00:00Z');
+        global.Date = class extends Date {
+          constructor(...args: any[]) {
+            if (args.length === 0) {
+              super(leapYearDate);
+            } else {
+              super(...(args as [any]));
+            }
+          }
+        } as any;
+
+        typedFilter.addDateRange('created_at', 'this_month');
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2024-01-31T23:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-02-28T23:00:00.000Z');
+      });
+
+      it('should throw error for unsupported date range', () => {
+        expect(() => {
+          (typedFilter as any).addDateRange('created_at', 'invalid_range');
+        }).toThrow('Unsupported date range: invalid_range');
       });
 
       it('should not allow date range on non-date columns', () => {
@@ -427,6 +574,39 @@ describe('CrossFilter', () => {
         expect(condition.operator).toBe('between');
         expect(Array.isArray(condition.value)).toBe(true);
         expect(condition.value.length).toBe(2);
+
+        const [start, end] = condition.value as string[];
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const now = new Date();
+
+        // Verify the range is approximately N days
+        const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        expect(daysDiff).toBe(7);
+        expect(endDate.getTime()).toBeCloseTo(now.getTime(), -2); // Within 100ms
+      });
+
+      it('should handle different N values', () => {
+        typedFilter.lastNDays('created_at', 30);
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+        expect(daysDiff).toBe(30);
+      });
+
+      it('should handle zero days', () => {
+        typedFilter.lastNDays('created_at', 0);
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        expect(startDate.getTime()).toBe(endDate.getTime());
       });
 
       it('should not allow lastNDays on non-date columns', () => {
@@ -447,6 +627,36 @@ describe('CrossFilter', () => {
         expect(condition.operator).toBe('between');
         expect(Array.isArray(condition.value)).toBe(true);
         expect(condition.value.length).toBe(2);
+
+        const [start, end] = condition.value as string[];
+        // Should be same length period but shifted back by the period length
+        expect(new Date(start).toISOString()).toBe('2023-12-02T00:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-01T00:00:00.000Z');
+      });
+
+      it('should handle different period lengths', () => {
+        const currentRange: [Date, Date] = [new Date('2024-01-15'), new Date('2024-01-20')];
+        typedFilter.addComparisonPeriod('created_at', currentRange);
+
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        // Should be 5-day period shifted back by 5 days
+        expect(new Date(start).toISOString()).toBe('2024-01-10T00:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-15T00:00:00.000Z');
+      });
+
+      it('should handle year boundary', () => {
+        const currentRange: [Date, Date] = [new Date('2024-01-01'), new Date('2024-01-15')];
+        typedFilter.addComparisonPeriod('created_at', currentRange);
+
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-12-18T00:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2024-01-01T00:00:00.000Z');
       });
 
       it('should not allow comparison period on non-date columns', () => {
@@ -468,10 +678,35 @@ describe('CrossFilter', () => {
         expect(Array.isArray(condition.value)).toBe(true);
         expect(condition.value.length).toBe(2);
 
-        // Should be same dates but previous year
         const [start, end] = condition.value as string[];
-        expect(new Date(start).getFullYear()).toBe(2023);
-        expect(new Date(end).getFullYear()).toBe(2023);
+        // Should be same dates but previous year
+        expect(new Date(start).toISOString()).toBe('2023-01-01T00:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2023-01-31T00:00:00.000Z');
+      });
+
+      it('should handle leap year dates', () => {
+        const currentRange: [Date, Date] = [new Date('2024-02-29'), new Date('2024-02-29')];
+        typedFilter.addYearOverYear('created_at', currentRange);
+
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        // Should handle leap year correctly (2023-03-01 since 2023-02-28 doesn't exist)
+        expect(new Date(start).toISOString()).toBe('2023-03-01T00:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2023-03-01T00:00:00.000Z');
+      });
+
+      it('should handle different month ranges', () => {
+        const currentRange: [Date, Date] = [new Date('2024-06-15'), new Date('2024-07-15')];
+        typedFilter.addYearOverYear('created_at', currentRange);
+
+        const result = typedFilter.getConditions();
+        const condition = result.conditions[0] as FilterConditionInput;
+
+        const [start, end] = condition.value as string[];
+        expect(new Date(start).toISOString()).toBe('2023-06-15T00:00:00.000Z');
+        expect(new Date(end).toISOString()).toBe('2023-07-15T00:00:00.000Z');
       });
 
       it('should not allow year-over-year on non-date columns', () => {

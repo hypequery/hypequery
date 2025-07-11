@@ -43,27 +43,61 @@ db.fullJoin('users', 'user_id', 'users.id')
 Define relationships once and reuse them across your application:
 
 ```typescript
+import { createQueryBuilder, JoinRelationships, QueryBuilder } from '@hypequery/clickhouse';
+
 // Define relationships
-QueryBuilder.setJoinRelationships({
-  userOrders: {
-    from: 'users',
-    to: 'orders',
-    leftColumn: 'id',
-    rightColumn: 'user_id'
-  },
-  orderItems: {
-    from: 'orders',
-    to: 'order_items',
-    leftColumn: 'id',
-    rightColumn: 'order_id'
-  }
+const relationships = new JoinRelationships<Schema>();
+
+relationships.define('userOrders', {
+  from: 'test_table',
+  to: 'users',
+  leftColumn: 'created_by',
+  rightColumn: 'id',
+  type: 'LEFT'
 });
+
+relationships.define('orderItems', {
+  from: 'test_table',
+  to: 'users',
+  leftColumn: 'updated_by',
+  rightColumn: 'id',
+  type: 'LEFT'
+});
+
+// Set relationships globally
+QueryBuilder.setJoinRelationships(relationships);
 
 // Use relationships in queries
 const results = await db
-  .table('users')
+  .table('test_table')
   .withRelation('userOrders')
   .withRelation('orderItems')
-  .select(['users.name', 'orders.id', 'order_items.product_name'])
+  .select(['name', 'users.user_name', 'users.email'])
+  .execute();
+
+// Use relationships with filtering
+const activeUserResults = await db
+  .table('test_table')
+  .withRelation('userOrders')
+  .where('active', 'eq', 1)
+  .where('users.user_name', 'like', '%admin%')
+  .select(['id', 'name', 'users.user_name'])
+  .execute();
+
+// Use relationships with aggregations
+const userStats = await db
+  .table('test_table')
+  .withRelation('userOrders')
+  .select(['users.user_name'])
+  .sum('price', 'total_price')
+  .count('id', 'item_count')
+  .groupBy(['users.user_name'])
+  .execute();
+
+// Override relationship options at query time
+const innerJoinResults = await db
+  .table('test_table')
+  .withRelation('userOrders', { type: 'INNER', alias: 'user_orders' })
+  .select(['name', 'user_orders.user_name'])
   .execute();
 ``` 

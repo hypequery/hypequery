@@ -1,12 +1,12 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Advanced Filtering
-description: Learn how to use advanced filtering capabilities in hypequery
+title: Advanced Filtering - hypequery
+description: Learn about advanced filtering capabilities with CrossFilter in hypequery
 ---
 
 # Advanced Filtering
 
-hypequery provides powerful filtering capabilities through the `CrossFilter` class and direct query methods. This guide covers all the filtering options available.
+hypequery provides powerful filtering capabilities through the CrossFilter class and direct query methods. This guide covers all the filtering options available.
 
 ## Basic Filtering
 
@@ -22,9 +22,13 @@ const results = await db
 
 ## Complex Filtering with CrossFilter
 
-The `CrossFilter` class provides more advanced filtering capabilities:
+The CrossFilter class provides more advanced filtering capabilities with support for nested groups, date ranges, and complex conditions.
+
+### Basic CrossFilter Usage
 
 ```typescript
+import { CrossFilter } from '@hypequery/clickhouse';
+
 const filter = new CrossFilter()
   .add({
     column: 'status',
@@ -50,26 +54,243 @@ const results = await db
   .execute();
 ```
 
-## Date Filtering
+## CrossFilter Properties
 
-Special methods for date-based filtering:
+### FilterConditionInput Interface
+
+Each filter condition uses the `FilterConditionInput` interface:
+
+```typescript
+interface FilterConditionInput<T = any, Schema = any, OriginalT = any> {
+  column: keyof OriginalT | TableColumn<Schema>;
+  operator: FilterOperator;
+  value: T;
+  conjunction?: 'AND' | 'OR';
+}
+```
+
+#### Properties:
+
+- **`column`**: The column name to filter on (supports cross-table references)
+- **`operator`**: The comparison operator (see supported operators below)
+- **`value`**: The value to compare against
+- **`conjunction`**: Optional logical operator ('AND' or 'OR') for combining conditions
+
+### Supported Operators
+
+| Operator | Description | Value Type | Example |
+|----------|-------------|------------|---------|
+| `eq` | Equal to | Any | `{ operator: 'eq', value: 'active' }` |
+| `neq` | Not equal to | Any | `{ operator: 'neq', value: 'inactive' }` |
+| `gt` | Greater than | Number, Date | `{ operator: 'gt', value: 100 }` |
+| `gte` | Greater than or equal | Number, Date | `{ operator: 'gte', value: 100 }` |
+| `lt` | Less than | Number, Date | `{ operator: 'lt', value: 1000 }` |
+| `lte` | Less than or equal | Number, Date | `{ operator: 'lte', value: 1000 }` |
+| `in` | In array | Array | `{ operator: 'in', value: ['A', 'B', 'C'] }` |
+| `notIn` | Not in array | Array | `{ operator: 'notIn', value: ['X', 'Y'] }` |
+| `between` | Between range | Array of 2 values | `{ operator: 'between', value: [100, 200] }` |
+| `like` | Pattern match | String | `{ operator: 'like', value: '%test%' }` |
+| `notLike` | Not pattern match | String | `{ operator: 'notLike', value: '%admin%' }` |
+
+### FilterGroup Interface
+
+For nested filter groups:
+
+```typescript
+interface FilterGroup<Schema = any, OriginalT = any> {
+  operator: 'AND' | 'OR';
+  conditions: Array<FilterConditionInput | FilterGroup>;
+  limit?: number;
+  orderBy?: {
+    column: keyof OriginalT;
+    direction: 'ASC' | 'DESC';
+  };
+}
+```
+
+#### Properties:
+
+- **`operator`**: Logical operator to combine conditions ('AND' or 'OR')
+- **`conditions`**: Array of filter conditions or nested groups
+- **`limit`**: Optional limit for the number of results
+- **`orderBy`**: Optional ordering configuration
+
+## CrossFilter Methods
+
+### Core Methods
+
+#### `add(condition: FilterConditionInput)`
+Adds a single filter condition:
+
+```typescript
+filter.add({
+  column: 'status',
+  operator: 'eq',
+  value: 'active'
+});
+```
+
+#### `addMultiple(conditions: FilterConditionInput[])`
+Adds multiple filter conditions at once:
+
+```typescript
+filter.addMultiple([
+  { column: 'status', operator: 'eq', value: 'active' },
+  { column: 'age', operator: 'gte', value: 18 }
+]);
+```
+
+#### `addGroup(conditions: Array<FilterConditionInput | FilterGroup>, operator: 'AND' | 'OR')`
+Adds a nested group of conditions:
+
+```typescript
+filter.addGroup([
+  { column: 'price', operator: 'gte', value: 100 },
+  { column: 'price', operator: 'lte', value: 500 }
+], 'AND');
+```
+
+#### `getConditions(): FilterGroup`
+Returns the current filter tree:
+
+```typescript
+const conditions = filter.getConditions();
+console.log(conditions);
+```
+
+### Date Filtering Methods
+
+#### `addDateRange(column, range)`
+Adds predefined date ranges:
+
+```typescript
+filter.addDateRange('created_at', 'last_30_days');
+```
+
+#### `lastNDays(column, days)`
+Adds a custom N-day range:
+
+```typescript
+filter.lastNDays('created_at', 7); // Last 7 days
+```
+
+#### `addComparisonPeriod(column, currentRange)`
+Adds a comparison period (same length as current range):
+
+```typescript
+const currentRange = [new Date('2024-01-01'), new Date('2024-01-31')];
+filter.addComparisonPeriod('created_at', currentRange);
+```
+
+#### `addYearOverYear(column, currentRange)`
+Adds year-over-year comparison:
+
+```typescript
+const currentRange = [new Date('2024-01-01'), new Date('2024-01-31')];
+filter.addYearOverYear('created_at', currentRange);
+```
+
+### Advanced Methods
+
+#### `topN(valueColumn, n, orderBy)`
+Creates a filter for top N records:
+
+```typescript
+filter.topN('revenue', 10, 'desc'); // Top 10 by revenue
+```
+
+## Available Date Ranges
+
+| Range | Description | Example |
+|-------|-------------|---------|
+| `today` | Current day | 2024-01-15 00:00:00 to 2024-01-15 23:59:59 |
+| `yesterday` | Previous day | 2024-01-14 00:00:00 to 2024-01-14 23:59:59 |
+| `last_7_days` | Last 7 days | 2024-01-08 to 2024-01-15 |
+| `last_30_days` | Last 30 days | 2023-12-16 to 2024-01-15 |
+| `this_month` | Current month | 2024-01-01 to 2024-01-31 |
+| `last_month` | Previous month | 2023-12-01 to 2023-12-31 |
+| `this_quarter` | Current quarter | 2024-01-01 to 2024-03-31 |
+| `year_to_date` | Year to date | 2024-01-01 to current date |
+
+## Complex Examples
+
+### Nested Filter Groups
+
+```typescript
+const filter = new CrossFilter()
+  .add({ column: 'status', operator: 'eq', value: 'active' })
+  .addGroup([
+    {
+      column: 'category',
+      operator: 'in',
+      value: ['electronics', 'books']
+    },
+    {
+      column: 'price',
+      operator: 'between',
+      value: [50, 200]
+    }
+  ], 'AND')
+  .addGroup([
+    {
+      column: 'created_at',
+      operator: 'gte',
+      value: new Date('2024-01-01')
+    },
+    {
+      column: 'rating',
+      operator: 'gte',
+      value: 4.0
+    }
+  ], 'OR');
+```
+
+### Date-Based Filtering
+
+```typescript
+const filter = new CrossFilter()
+  .addDateRange('created_at', 'this_month')
+  .addDateRange('updated_at', 'last_7_days')
+  .lastNDays('last_login', 30);
+```
+
+### Top N with Date Filtering
 
 ```typescript
 const filter = new CrossFilter()
   .addDateRange('created_at', 'last_30_days')
-  .addDateRange('updated_at', 'this_month');
-
-// Or use custom date ranges
-filter.lastNDays('created_at', 7);
+  .topN('revenue', 10, 'desc');
 ```
 
-### Available Date Ranges
+### Cross-Table Filtering
 
-- `today`
-- `yesterday`
-- `last_7_days`
-- `last_30_days`
-- `this_month`
-- `last_month`
-- `this_quarter`
-- `year_to_date` 
+```typescript
+const filter = new CrossFilter()
+  .add({ column: 'users.status', operator: 'eq', value: 'active' })
+  .add({ column: 'orders.total', operator: 'gt', value: 1000 });
+```
+
+## Type Safety
+
+CrossFilter provides full TypeScript support when initialized with a schema:
+
+```typescript
+interface Schema {
+  users: {
+    id: 'UInt32';
+    name: 'String';
+    age: 'UInt32';
+    status: 'String';
+    created_at: 'DateTime';
+  };
+  orders: {
+    id: 'UInt32';
+    user_id: 'UInt32';
+    total: 'Float64';
+    status: 'String';
+  };
+}
+
+const filter = new CrossFilter<Schema, 'users'>(schema);
+// Now you get type checking for column names and values
+``` 
