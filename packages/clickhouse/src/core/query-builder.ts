@@ -387,10 +387,26 @@ export class QueryBuilder<
   }
 
   private validateFilterValue<K extends keyof OriginalT | TableColumn<Schema>>(
-    column: K,
+    column: K | K[],
     operator: FilterOperator,
     value: any
   ) {
+    // Handle tuple columns
+    if (Array.isArray(column)) {
+      // For tuple operations, we don't validate individual column types
+      // as they might be cross-table references
+      return;
+    }
+
+    // Skip validation for advanced IN operators - they handle their own validation
+    const advancedInOperators = [
+      'globalIn', 'globalNotIn', 'inSubquery', 'globalInSubquery',
+      'inTable', 'globalInTable', 'inTuple', 'globalInTuple'
+    ];
+    if (advancedInOperators.includes(operator)) {
+      return;
+    }
+
     if (FilterValidator.validateJoinedColumn(String(column))) return;
 
     const columnType = this.schema.columns[column as keyof T] as ColumnType;
@@ -418,9 +434,41 @@ export class QueryBuilder<
     value: K extends keyof OriginalT
       ? OperatorValueMap<OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never>[Op]
       : any
+  ): this;
+  /**
+   * Adds a WHERE clause for tuple IN operations.
+   * @template K - The column keys type
+   * @param {K[]} columns - The columns to filter on (for tuple operations)
+   * @param {'inTuple' | 'globalInTuple'} operator - The tuple IN operator
+   * @param {any} value - The array of tuples to compare against
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.where(['counter_id', 'user_id'], 'inTuple', [[34, 123], [101500, 456]])
+   * ```
+   */
+  where<K extends keyof OriginalT | TableColumn<Schema>>(
+    columns: K[],
+    operator: 'inTuple' | 'globalInTuple',
+    value: any
+  ): this;
+  where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any>>(
+    columnOrColumns: K | K[],
+    operator: Op,
+    value: any
   ): this {
-    this.validateFilterValue(column, operator, value);
+    // Handle tuple operations
+    if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
+      // For tuple operations, we need to handle the column array specially
+      const columns = columnOrColumns as K[];
+      this.validateFilterValue(columns, operator, value);
+      this.config = this.filtering.addCondition('AND', columns, operator, value);
+      return this;
+    }
 
+    // Handle regular operations
+    const column = columnOrColumns as K;
+    this.validateFilterValue(column, operator, value);
     this.config = this.filtering.addCondition('AND', column, operator, value);
     return this;
   }
@@ -429,7 +477,41 @@ export class QueryBuilder<
     column: K,
     operator: FilterOperator,
     value: any
+  ): this;
+  /**
+   * Adds an OR WHERE clause for tuple IN operations.
+   * @template K - The column keys type
+   * @param {K[]} columns - The columns to filter on (for tuple operations)
+   * @param {'inTuple' | 'globalInTuple'} operator - The tuple IN operator
+   * @param {any} value - The array of tuples to compare against
+   * @returns {this} The current QueryBuilder instance
+   * @example
+   * ```ts
+   * builder.orWhere(['counter_id', 'user_id'], 'inTuple', [[34, 123], [101500, 456]])
+   * ```
+   */
+  orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
+    columns: K[],
+    operator: 'inTuple' | 'globalInTuple',
+    value: any
+  ): this;
+  orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
+    columnOrColumns: K | K[],
+    operator: FilterOperator,
+    value: any
   ): this {
+    // Handle tuple operations
+    if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
+      // For tuple operations, we need to handle the column array specially
+      const columns = columnOrColumns as K[];
+      this.validateFilterValue(columns, operator, value);
+      this.config = this.filtering.addCondition('OR', columns, operator, value);
+      return this;
+    }
+
+    // Handle regular operations
+    const column = columnOrColumns as K;
+    this.validateFilterValue(column, operator, value);
     this.config = this.filtering.addCondition('OR', column, operator, value);
     return this;
   }
