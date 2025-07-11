@@ -1,0 +1,133 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: CTEs - hypequery
+description: Learn how to use Common Table Expressions (CTEs) in hypequery
+---
+
+# CTEs
+
+Common Table Expressions (CTEs) allow you to define temporary result sets that can be referenced within a query. This is useful for complex queries, recursive operations, and improving query readability.
+
+## Basic Usage
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<Schema>();
+
+// Define a CTE
+const activeUsers = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
+
+// Use the CTE in a query
+const query = db
+  .table('orders')
+  .withCTE('active_users', activeUsers)
+  .leftJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select(['orders.id', 'active_users.name'])
+  .toSQL();
+// Result: WITH active_users AS (SELECT id, name FROM users WHERE status = 'active') SELECT orders.id, active_users.name FROM orders LEFT JOIN active_users ON orders.user_id = active_users.id
+```
+
+## Type Definitions
+
+```typescript
+withCTE(alias: string, subquery: QueryBuilder<any, any> | string): this
+```
+
+### Parameters
+
+- **`alias`**: The name for the CTE that can be referenced in the main query
+- **`subquery`**: Either a QueryBuilder instance or a raw SQL string defining the CTE
+
+### Returns
+
+Returns the query builder instance for method chaining.
+
+## Examples
+
+### Basic CTE
+
+```typescript
+// Simple CTE with a subquery
+const recentOrders = db
+  .table('orders')
+  .select(['user_id', 'total'])
+  .where('created_at', 'gte', '2024-01-01');
+
+const query = db
+  .table('users')
+  .withCTE('recent_orders', recentOrders)
+  .leftJoin('recent_orders', 'users.id', 'recent_orders.user_id')
+  .select(['users.name', 'recent_orders.total'])
+  .toSQL();
+// Result: WITH recent_orders AS (SELECT user_id, total FROM orders WHERE created_at >= '2024-01-01') SELECT users.name, recent_orders.total FROM users LEFT JOIN recent_orders ON users.id = recent_orders.user_id
+```
+
+### Multiple CTEs
+
+```typescript
+// Define multiple CTEs
+const activeUsers = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
+
+const highValueOrders = db
+  .table('orders')
+  .select(['user_id', 'total'])
+  .where('total', 'gte', 1000);
+
+const query = db
+  .table('active_users')
+  .withCTE('active_users', activeUsers)
+  .withCTE('high_value_orders', highValueOrders)
+  .leftJoin('high_value_orders', 'active_users.id', 'high_value_orders.user_id')
+  .select(['active_users.name', 'high_value_orders.total'])
+  .toSQL();
+// Result: WITH active_users AS (SELECT id, name FROM users WHERE status = 'active'), high_value_orders AS (SELECT user_id, total FROM orders WHERE total >= 1000) SELECT active_users.name, high_value_orders.total FROM active_users LEFT JOIN high_value_orders ON active_users.id = high_value_orders.user_id
+```
+
+## Type Safety
+
+CTEs provide TypeScript support through the query builder:
+
+```typescript
+interface Schema {
+  users: {
+    id: 'UInt32';
+    name: 'String';
+    email: 'String';
+  };
+  orders: {
+    id: 'UInt32';
+    user_id: 'UInt32';
+    total: 'Float64';
+    status: 'String';
+  };
+}
+
+const db = createQueryBuilder<Schema>();
+
+// ✅ Type-safe CTE with subquery
+const activeUsers = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
+
+const query = db
+  .table('orders')
+  .withCTE('active_users', activeUsers)
+  .leftJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select(['orders.id', 'active_users.name'])
+  .toSQL();
+
+// ⚠️ Raw SQL CTEs don't have type checking
+const query2 = db
+  .table('users')
+  .withCTE('raw_cte', 'SELECT * FROM some_table')
+  .select(['users.name'])
+  .toSQL();
+``` 

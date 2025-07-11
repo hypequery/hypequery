@@ -1,0 +1,96 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: Limit - hypequery
+description: Learn how to limit the number of query results in hypequery
+---
+
+# Limit
+
+The `limit` method allows you to restrict the number of rows returned by your query. This is commonly used for performance optimization and controlling result set size.
+
+## Basic Usage
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<Schema>();
+
+// Limit results to 10 rows
+const query = db
+  .table('users')
+  .select(['id', 'name', 'email'])
+  .limit(10)
+  .toSQL();
+// Result: SELECT id, name, email FROM users LIMIT 10
+```
+
+## Type Definitions
+
+```typescript
+limit(count: number): this
+```
+
+### Parameters
+
+- **`count`**: The maximum number of rows to return
+
+### Returns
+
+Returns the query builder instance for method chaining.
+
+## Examples
+
+### Basic Limiting
+
+```typescript
+// Limit to 5 users
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .limit(5)
+  .toSQL();
+// Result: SELECT id, name FROM users LIMIT 5
+```
+
+### Limit with Ordering
+
+```typescript
+// Get top 10 users by creation date
+const query = db
+  .table('users')
+  .select(['id', 'name', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .toSQL();
+// Result: SELECT id, name, created_at FROM users ORDER BY created_at DESC LIMIT 10
+```
+
+## Type Safety
+
+The `limit` method provides basic TypeScript support:
+
+```typescript
+interface UserSchema {
+  users: {
+    id: 'UInt32';
+    name: 'String';
+    email: 'String';
+  };
+}
+
+const db = createQueryBuilder<UserSchema>();
+
+// ✅ Valid limit value
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .limit(10) // Positive integer
+  .toSQL();
+
+// ❌ TypeScript error for invalid limit
+const query2 = db
+  .table('users')
+  .select(['id', 'name'])
+  .limit(-5) // TypeScript error: negative number
+  .toSQL();
+``` 

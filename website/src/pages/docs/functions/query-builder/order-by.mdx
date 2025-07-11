@@ -1,0 +1,207 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: Order By - hypequery
+description: Learn how to sort query results with order by clauses in hypequery
+---
+
+# Order By
+
+The `orderBy` method allows you to sort your query results by specified columns in ascending or descending order.
+
+## Basic Usage
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<Schema>();
+
+// Sort by a single column
+const query = db
+  .table('users')
+  .select(['id', 'name', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .toSQL();
+// Result: SELECT id, name, created_at FROM users ORDER BY created_at DESC
+```
+
+## Type Definitions
+
+```typescript
+orderBy<K extends keyof T | TableColumn<Schema>>(column: K, direction: OrderDirection = 'ASC'): this
+```
+
+### Parameters
+
+- **`column`**: The column to sort by
+- **`direction`**: Sort direction - `'ASC'` (ascending) or `'DESC'` (descending), defaults to `'ASC'`
+
+### Returns
+
+Returns the query builder instance for method chaining.
+
+## Examples
+
+### Single Column Ordering
+
+```typescript
+// Sort by name in ascending order
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .orderBy('name', 'ASC')
+  .toSQL();
+// Result: SELECT id, name FROM users ORDER BY name ASC
+
+// Sort by created_at in descending order
+const query2 = db
+  .table('users')
+  .select(['id', 'name', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .toSQL();
+// Result: SELECT id, name, created_at FROM users ORDER BY created_at DESC
+```
+
+### Multiple Column Ordering
+
+```typescript
+// Sort by multiple columns
+const query = db
+  .table('users')
+  .select(['id', 'name', 'age', 'created_at'])
+  .orderBy('age', 'DESC')
+  .orderBy('name', 'ASC')
+  .orderBy('created_at', 'DESC')
+  .toSQL();
+// Result: SELECT id, name, age, created_at FROM users ORDER BY age DESC, name ASC, created_at DESC
+```
+
+### Ordering with Aggregations
+
+```typescript
+// Sort by aggregated values
+const query = db
+  .table('orders')
+  .select(['user_id'])
+  .sum('total', 'total_spent')
+  .groupBy(['user_id'])
+  .orderBy('total_spent', 'DESC')
+  .toSQL();
+// Result: SELECT user_id, SUM(total) AS total_spent FROM orders GROUP BY user_id ORDER BY total_spent DESC
+```
+
+### Ordering with Joins
+
+```typescript
+// Sort by columns from joined tables
+const query = db
+  .table('orders')
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .select(['orders.id', 'orders.total', 'users.name'])
+  .orderBy('users.name', 'ASC')
+  .orderBy('orders.total', 'DESC')
+  .toSQL();
+// Result: SELECT orders.id, orders.total, users.name FROM orders LEFT JOIN users ON orders.user_id = users.id ORDER BY users.name ASC, orders.total DESC
+```
+
+### Ordering with Expressions
+
+```typescript
+import { rawAs } from '@hypequery/clickhouse';
+
+// Sort by computed expressions
+const query = db
+  .table('orders')
+  .select([
+    'user_id',
+    rawAs('SUM(total)', 'total_spent'),
+    rawAs('COUNT(*)', 'order_count')
+  ])
+  .groupBy(['user_id'])
+  .orderBy('total_spent', 'DESC')
+  .orderBy('order_count', 'ASC')
+  .toSQL();
+// Result: SELECT user_id, SUM(total) AS total_spent, COUNT(*) AS order_count FROM orders GROUP BY user_id ORDER BY total_spent DESC, order_count ASC
+```
+
+### Ordering with Window Functions
+
+```typescript
+// Sort by window function results
+const query = db
+  .table('orders')
+  .select([
+    'user_id',
+    rawAs('SUM(total)', 'total_spent'),
+    rawAs('ROW_NUMBER() OVER (ORDER BY SUM(total) DESC)', 'rank')
+  ])
+  .groupBy(['user_id'])
+  .orderBy('rank', 'ASC')
+  .toSQL();
+// Result: SELECT user_id, SUM(total) AS total_spent, ROW_NUMBER() OVER (ORDER BY SUM(total) DESC) AS rank FROM orders GROUP BY user_id ORDER BY rank ASC
+```
+
+### Ordering with Date Functions
+
+```typescript
+import { datePart } from '@hypequery/clickhouse';
+
+// Sort by date parts
+const query = db
+  .table('orders')
+  .select([
+    datePart('year', 'created_at', 'year'),
+    datePart('month', 'created_at', 'month'),
+    rawAs('SUM(total)', 'total_revenue')
+  ])
+  .groupBy(['year', 'month'])
+  .orderBy('year', 'ASC')
+  .orderBy('month', 'ASC')
+  .toSQL();
+// Result: SELECT toYear(created_at) AS year, toMonth(created_at) AS month, SUM(total) AS total_revenue FROM orders GROUP BY year, month ORDER BY year ASC, month ASC
+```
+
+## Type Safety
+
+The `orderBy` method provides full TypeScript support:
+
+```typescript
+interface UserSchema {
+  users: {
+    id: 'UInt32';
+    name: 'String';
+    age: 'UInt8';
+    email: 'String';
+    created_at: 'DateTime';
+  };
+}
+
+const db = createQueryBuilder<UserSchema>();
+
+// ✅ Type-safe column references
+const query = db
+  .table('users')
+  .select(['id', 'name', 'age'])
+  .orderBy('age', 'DESC') // TypeScript knows 'age' is a valid column
+  .orderBy('name', 'ASC')
+  .toSQL();
+
+// ❌ TypeScript error for invalid column
+const query2 = db
+  .table('users')
+  .select(['id', 'name'])
+  .orderBy('invalid_column', 'ASC') // TypeScript error
+  .toSQL();
+
+// ✅ Type-safe direction values
+const query3 = db
+  .table('users')
+  .orderBy('name', 'ASC') // Valid
+  .orderBy('age', 'DESC') // Valid
+  .toSQL();
+
+// ❌ TypeScript error for invalid direction
+const query4 = db
+  .table('users')
+  .orderBy('name', 'INVALID') // TypeScript error
+  .toSQL();
+```

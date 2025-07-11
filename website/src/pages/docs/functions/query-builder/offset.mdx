@@ -1,0 +1,106 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: Offset - hypequery
+description: Learn how to skip query results in hypequery
+---
+
+# Offset
+
+The `offset` method allows you to skip a specified number of rows from the beginning of your query results. This is commonly used with `limit()` for controlling result sets.
+
+## Basic Usage
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<Schema>();
+
+// Skip first 20 rows and return next 10
+const query = db
+  .table('users')
+  .select(['id', 'name', 'email'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .offset(20)
+  .toSQL();
+// Result: SELECT id, name, email FROM users ORDER BY created_at DESC LIMIT 10 OFFSET 20
+```
+
+## Type Definitions
+
+```typescript
+offset(count: number): this
+```
+
+### Parameters
+
+- **`count`**: The number of rows to skip from the beginning
+
+### Returns
+
+Returns the query builder instance for method chaining.
+
+## Examples
+
+### Basic Offset
+
+```typescript
+// Skip first 10 users, get next 10
+const query = db
+  .table('users')
+  .select(['id', 'name', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .offset(10)
+  .toSQL();
+// Result: SELECT id, name, created_at FROM users ORDER BY created_at DESC LIMIT 10 OFFSET 10
+```
+
+### Offset with Filtering
+
+```typescript
+// Skip first 50 active users, get next 10
+const query = db
+  .table('users')
+  .select(['id', 'name', 'status'])
+  .where('status', 'eq', 'active')
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .offset(50)
+  .toSQL();
+// Result: SELECT id, name, status FROM users WHERE status = 'active' ORDER BY created_at DESC LIMIT 10 OFFSET 50
+```
+
+## Type Safety
+
+The `offset` method provides basic TypeScript support:
+
+```typescript
+interface UserSchema {
+  users: {
+    id: 'UInt32';
+    name: 'String';
+    email: 'String';
+  };
+}
+
+const db = createQueryBuilder<UserSchema>();
+
+// ✅ Valid offset value
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .offset(20) // Positive integer
+  .toSQL();
+
+// ❌ TypeScript error for invalid offset
+const query2 = db
+  .table('users')
+  .select(['id', 'name'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .offset(-5) // TypeScript error: negative number
+  .toSQL();
+``` 
