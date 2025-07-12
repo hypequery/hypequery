@@ -19,18 +19,32 @@ export type FilterCondition<T> = {
   between: [FilterValue<T>, FilterValue<T>] | [string, string];
   like: T extends string ? string : never;
   notLike: T extends string ? string : never;
+  globalIn: FilterValue<T>[];
+  globalNotIn: FilterValue<T>[];
+  inSubquery: string;
+  globalInSubquery: string;
+  inTable: string;
+  globalInTable: string;
+  inTuple: [FilterValue<T>, FilterValue<T>][];
+  globalInTuple: [FilterValue<T>, FilterValue<T>][];
 };
 
 // Define type-safe filter operators and their expected value types
-export type FilterValueType<T, Op extends FilterOperator> =
-  Op extends 'in' | 'notIn'
+export type FilterValueType<T, Op extends FilterOperator, Schema = any> =
+  Op extends 'in' | 'notIn' | 'globalIn' | 'globalNotIn'
   ? T extends (infer U)[] ? U[] : T[]
   : Op extends 'between'
   ? [T, T] | [string, string]
+  : Op extends 'inSubquery' | 'globalInSubquery'
+  ? string
+  : Op extends 'inTable' | 'globalInTable'
+  ? keyof Schema
+  : Op extends 'inTuple' | 'globalInTuple'
+  ? [T, T][]
   : T;
 
 // Type-safe operator mapping
-export type OperatorValueMap<T> = {
+export type OperatorValueMap<T, Schema = any> = {
   'eq': T | string;
   'neq': T | string;
   'gt': T extends string | number | Date ? T | string : never;
@@ -42,6 +56,14 @@ export type OperatorValueMap<T> = {
   'between': [T | string, T | string] | [string, string];
   'like': T extends string ? string : never;
   'notLike': T extends string ? string : never;
+  'globalIn': (T | string)[];
+  'globalNotIn': (T | string)[];
+  'inSubquery': string;
+  'globalInSubquery': string;
+  'inTable': keyof Schema;
+  'globalInTable': keyof Schema;
+  'inTuple': [T | string, T | string][];
+  'globalInTuple': [T | string, T | string][];
 };
 
 export type FilterOperator = keyof OperatorValueMap<any>;

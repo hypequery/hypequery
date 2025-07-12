@@ -44,6 +44,7 @@ export class SQLFormatter {
       // Reset the afterGroupStart flag
       afterGroupStart = false;
 
+      // Handle IN operators
       if (operator === 'in' || operator === 'notIn') {
         if (!Array.isArray(value)) {
           throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
@@ -53,7 +54,44 @@ export class SQLFormatter {
         }
         const placeholders = value.map(() => '?').join(', ');
         return `${prefix}${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${placeholders})`.trim();
-      } else if (operator === 'between') {
+      }
+      // Handle GLOBAL IN operators
+      else if (operator === 'globalIn' || operator === 'globalNotIn') {
+        if (!Array.isArray(value)) {
+          throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
+        }
+        if (value.length === 0) {
+          return `${prefix}1 = 0`;
+        }
+        const placeholders = value.map(() => '?').join(', ');
+        return `${prefix}${column} ${operator === 'globalIn' ? 'GLOBAL IN' : 'GLOBAL NOT IN'} (${placeholders})`.trim();
+      }
+      // Handle subquery IN operators
+      else if (operator === 'inSubquery' || operator === 'globalInSubquery') {
+        if (typeof value !== 'string') {
+          throw new Error(`Expected a string (subquery) for ${operator} operator, but got ${typeof value}`);
+        }
+        return `${prefix}${column} ${operator === 'inSubquery' ? 'IN' : 'GLOBAL IN'} (${value})`.trim();
+      }
+      // Handle table reference IN operators
+      else if (operator === 'inTable' || operator === 'globalInTable') {
+        if (typeof value !== 'string') {
+          throw new Error(`Expected a string (table name) for ${operator} operator, but got ${typeof value}`);
+        }
+        return `${prefix}${column} ${operator === 'inTable' ? 'IN' : 'GLOBAL IN'} ${value}`.trim();
+      }
+      // Handle tuple IN operators
+      else if (operator === 'inTuple' || operator === 'globalInTuple') {
+        if (!Array.isArray(value)) {
+          throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
+        }
+        if (value.length === 0) {
+          return `${prefix}1 = 0`;
+        }
+        const placeholders = value.map(() => '(?, ?)').join(', ');
+        return `${prefix}${column} ${operator === 'inTuple' ? 'IN' : 'GLOBAL IN'} (${placeholders})`.trim();
+      }
+      else if (operator === 'between') {
         return `${prefix}${column} BETWEEN ? AND ?`.trim();
       } else if (operator === 'like') {
         return `${prefix}${column} LIKE ?`.trim();
