@@ -30,19 +30,21 @@ export type FilterCondition<T> = {
 };
 
 // Define type-safe filter operators and their expected value types
-export type FilterValueType<T, Op extends FilterOperator> =
+export type FilterValueType<T, Op extends FilterOperator, Schema = any> =
   Op extends 'in' | 'notIn' | 'globalIn' | 'globalNotIn'
   ? T extends (infer U)[] ? U[] : T[]
   : Op extends 'between'
   ? [T, T] | [string, string]
-  : Op extends 'inSubquery' | 'globalInSubquery' | 'inTable' | 'globalInTable'
+  : Op extends 'inSubquery' | 'globalInSubquery'
   ? string
+  : Op extends 'inTable' | 'globalInTable'
+  ? keyof Schema
   : Op extends 'inTuple' | 'globalInTuple'
   ? [T, T][]
   : T;
 
 // Type-safe operator mapping
-export type OperatorValueMap<T> = {
+export type OperatorValueMap<T, Schema = any> = {
   'eq': T | string;
   'neq': T | string;
   'gt': T extends string | number | Date ? T | string : never;
@@ -58,8 +60,8 @@ export type OperatorValueMap<T> = {
   'globalNotIn': (T | string)[];
   'inSubquery': string;
   'globalInSubquery': string;
-  'inTable': string;
-  'globalInTable': string;
+  'inTable': keyof Schema;
+  'globalInTable': keyof Schema;
   'inTuple': [T | string, T | string][];
   'globalInTuple': [T | string, T | string][];
 };

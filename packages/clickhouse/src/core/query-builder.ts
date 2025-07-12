@@ -76,7 +76,7 @@ export function isClientConfig(config: ClickHouseConfig): config is ClickHouseCl
  * @template Aggregations - The type of any aggregation functions applied
  */
 export class QueryBuilder<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
+  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
@@ -428,11 +428,11 @@ export class QueryBuilder<
    * builder.where('age', 'gt', 18)
    * ```
    */
-  where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any>>(
-    column: K,
+  where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any, Schema>>(
+    columnOrColumns: K | K[],
     operator: Op,
     value: K extends keyof OriginalT
-      ? OperatorValueMap<OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never>[Op]
+      ? OperatorValueMap<OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never, Schema>[Op]
       : any
   ): this;
   /**
@@ -702,7 +702,7 @@ export class QueryBuilder<
     return this.pagination.iteratePages(pageSize);
   }
 
-  static setJoinRelationships<S extends { [tableName: string]: { [columnName: string]: ColumnType } }>(
+  static setJoinRelationships<S extends { [K in keyof S]: { [columnName: string]: ColumnType } }>(
     relationships: JoinRelationships<S>
   ): void {
     this.relationships = relationships;
