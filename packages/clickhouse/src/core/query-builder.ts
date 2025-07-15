@@ -45,6 +45,7 @@ export interface ClickHouseClientConfig extends BaseClickHouseClientConfigOption
  */
 export type ClickHouseConfig = BaseClickHouseClientConfigOptions | ClickHouseClientConfig;
 
+
 /**
  * Type guard to check if a config is a host-based configuration.
  */
