@@ -31,15 +31,6 @@ import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
-
-/**
- * Configuration for host-based connections.
- */
-export interface ClickHouseHostConfig extends BaseClickHouseClientConfigOptions {
-  /** The ClickHouse server host URL. */
-  host: string;
-}
-
 /**
  * Configuration for client-based connections.
  */
@@ -52,12 +43,12 @@ export interface ClickHouseClientConfig extends BaseClickHouseClientConfigOption
  * Configuration options for ClickHouse connections.
  * Either provide a client instance OR connection details, but not both.
  */
-export type ClickHouseConfig = ClickHouseHostConfig | ClickHouseClientConfig;
+export type ClickHouseConfig = BaseClickHouseClientConfigOptions | ClickHouseClientConfig;
 
 /**
  * Type guard to check if a config is a host-based configuration.
  */
-export function isHostConfig(config: ClickHouseConfig): config is ClickHouseHostConfig {
+export function isHostConfig(config: ClickHouseConfig): config is BaseClickHouseClientConfigOptions {
   return 'host' in config && !('client' in config);
 }
 
