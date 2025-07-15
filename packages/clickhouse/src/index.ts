@@ -6,6 +6,9 @@ export type {
   ClickHouseClientConfig
 } from './core/query-builder.js';
 export { isHostConfig, isClientConfig } from './core/query-builder.js';
+export type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
+export type { ClickHouseClient } from '@clickhouse/client';
+export type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 export type {
   TableSchema,
   QueryConfig,
