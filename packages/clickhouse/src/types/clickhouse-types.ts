@@ -23,6 +23,11 @@ export type ClickHouseString =
   | `FixedString(${number})`
   | 'UUID';
 
+// Enum types
+export type ClickHouseEnum =
+  | `Enum8(${string})`
+  | `Enum16(${string})`;
+
 // Complex types
 export type ClickHouseArray = `Array(${ClickHouseBaseType})`;
 export type ClickHouseNullable = `Nullable(${ClickHouseBaseType})`;
@@ -35,7 +40,8 @@ export type ClickHouseBaseType =
   | ClickHouseFloat
   | ClickHouseDecimal
   | ClickHouseDateTime
-  | ClickHouseString;
+  | ClickHouseString
+  | ClickHouseEnum;
 
 // Combined type for all possible ClickHouse types
 export type ClickHouseType =
@@ -52,6 +58,7 @@ export type InferClickHouseType<T extends ClickHouseType> =
   T extends ClickHouseDecimal ? number :
   T extends ClickHouseDateTime ? Date :
   T extends ClickHouseString ? string :
+  T extends ClickHouseEnum ? string :
   T extends `Array(${infer U extends ClickHouseBaseType})` ? Array<InferClickHouseType<U>> :
   T extends `Nullable(${infer U extends ClickHouseBaseType})` ? InferClickHouseType<U> | null :
   T extends `LowCardinality(${infer U extends ClickHouseString})` ? InferClickHouseType<U> :

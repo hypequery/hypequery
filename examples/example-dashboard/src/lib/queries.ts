@@ -59,6 +59,7 @@ export async function checkDataRanges(filters: DateFilters = {}) {
       .max('pickup_datetime', 'max_pickup')
       .min('dropoff_datetime', 'min_dropoff')
       .max('dropoff_datetime', 'max_dropoff')
+      .where('payment_type', 'eq', 'CSHss')
       .execute()
 
     return result[0]
