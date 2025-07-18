@@ -27,7 +27,7 @@ This library requires one of the following ClickHouse clients as a peer dependen
 
 ### For Node.js environments
 ```bash
-npm install @hypequery/clickhouse @clickhouse/client
+npm install @hypequery/clickhouse
 ```
 
 ### For browser/universal environments
