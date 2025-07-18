@@ -1,6 +1,7 @@
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
+import { createClient as createNodeClient } from '@clickhouse/client';
 import type { ClickHouseConfig } from './query-builder';
 import { isClientConfig } from './query-builder';
 
@@ -19,23 +20,13 @@ function getClickHouseClientSync(): ClickHouseClientModule {
 
   // In Node.js environment, use Node.js client only
   if (isNode) {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const clientNode = require('@clickhouse/client');
-      if (isDev) {
-        console.log('hypequery: Using @clickhouse/client for Node.js environment');
-      }
-      return {
-        createClient: clientNode.createClient,
-        ClickHouseSettings: clientNode.ClickHouseSettings || {}
-      };
-    } catch (error) {
-      throw new Error(
-        '@clickhouse/client is required for Node.js environments.\n\n' +
-        'Install with: npm install @clickhouse/client\n\n' +
-        'Alternatively, you can provide a client instance directly in the config.client option.'
-      );
+    if (isDev) {
+      console.log('hypequery: Using @clickhouse/client for Node.js environment');
     }
+    return {
+      createClient: createNodeClient,
+      ClickHouseSettings: {}
+    };
   }
 
   // For browser environments, require() doesn't work, so we can't auto-detect
