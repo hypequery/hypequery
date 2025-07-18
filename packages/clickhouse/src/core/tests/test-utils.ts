@@ -1,6 +1,5 @@
 import { QueryBuilder } from '../query-builder';
 
-type ColumnType = 'Int32' | 'String' | 'Float64' | 'Date' | 'UInt8'
 
 export type TestTableSchema = {
   id: 'Int32';
@@ -11,6 +10,10 @@ export type TestTableSchema = {
   active: 'UInt8';
   created_by: 'Int32';
   updated_by: 'Int32';
+  status: 'String';
+  brand: 'String';
+  total: 'Int32';
+  priority: 'String';
 };
 
 export type UsersSchema = {
@@ -36,7 +39,11 @@ export const TEST_SCHEMAS: TestSchema = {
     category: 'String',
     active: 'UInt8',
     created_by: 'Int32',
-    updated_by: 'Int32'
+    updated_by: 'Int32',
+    status: 'String',
+    brand: 'String',
+    total: 'Int32',
+    priority: 'String',
   },
   users: {
     id: 'Int32',

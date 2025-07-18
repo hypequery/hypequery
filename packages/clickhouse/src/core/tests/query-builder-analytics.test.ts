@@ -48,14 +48,14 @@ describe('QueryBuilder Analytics Features', () => {
 
     it('should work with select and where clauses', () => {
       const sql = queryBuilder
-        .select(['created_at', 'count'])
-        .where('status', 'eq', 'active')
+        .select(['created_at', 'name'])
+        .where('active', 'eq', 'true')
         .groupByTimeInterval('created_at', '1 hour')
         .toSQL();
 
       expect(sql).toBe(
-        'SELECT created_at, count FROM test_table ' +
-        `WHERE status = 'active' ` +
+        'SELECT created_at, name FROM test_table ' +
+        `WHERE active = 'true' ` +
         'GROUP BY toStartOfInterval(created_at, INTERVAL 1 hour)'
       );
     });
@@ -93,8 +93,8 @@ describe('QueryBuilder Analytics Features', () => {
   describe('withCTE', () => {
     it('should add CTE using a subquery', () => {
       const subquery = builderUsers
-        .select(['id', 'name'])
-        .where('active', 'eq', true);
+        .select(['id', 'user_name'])
+        .where('user_name', 'eq', 'John Doe');
 
       const sql = queryBuilder
         .withCTE('filtered_users', subquery)
@@ -103,8 +103,8 @@ describe('QueryBuilder Analytics Features', () => {
 
       expect(sql).toBe(
         'WITH filtered_users AS (' +
-        'SELECT id, name FROM users ' +
-        'WHERE active = true' +
+        'SELECT id, user_name FROM users ' +
+        "WHERE user_name = 'John Doe'" +
         ') ' +
         'SELECT id FROM test_table'
       );

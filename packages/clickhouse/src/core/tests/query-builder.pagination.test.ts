@@ -13,7 +13,11 @@ describe('QueryBuilder - Pagination', () => {
     category: 'test' as unknown as 'String',
     active: 1 as unknown as 'UInt8',
     created_by: 1 as unknown as 'Int32',
-    updated_by: 1 as unknown as 'Int32'
+    updated_by: 1 as unknown as 'Int32',
+    status: 'active' as unknown as 'String',
+    brand: 'test' as unknown as 'String',
+    total: 1 as unknown as 'Int32',
+    priority: 'medium' as unknown as 'String'
   });
 
   beforeEach(() => {

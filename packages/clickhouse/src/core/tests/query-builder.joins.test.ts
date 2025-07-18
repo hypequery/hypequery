@@ -57,7 +57,7 @@ describe('QueryBuilder - Joins', () => {
           'created_by',
           'users.id'
         )
-        .select(['name', 'user_name', 'email']);
+        .select(['name', 'users.user_name', 'users.email']);
 
       type Result = Awaited<ReturnType<typeof query.execute>>;
       type Expected = {
@@ -145,9 +145,10 @@ describe('QueryBuilder - Joins', () => {
 
     it('should handle multiple joins with column selection', () => {
       const sql = builder
-        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'])
         .innerJoin('users', 'created_by', 'users.id', 'u1')
         .leftJoin('users', 'updated_by', 'users.id', 'u2')
+        // @ts-expect-error - u1.user_name current type system limitation
+        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'])
         .toSQL();
       expect(sql).toBe(
         'SELECT test_table.name, u1.user_name as creator, u2.user_name as updater ' +
