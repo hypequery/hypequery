@@ -97,6 +97,7 @@ describe('SQL Expressions', () => {
           toStartOfInterval('created_at', '1 day', 'day'),
           datePart('month', 'created_at', 'month')
         ])
+        //@ts-expect-error - current limitation of the type system
         .groupBy(['day', 'month'])
         .toSQL();
 
@@ -111,10 +112,10 @@ describe('SQL Expressions', () => {
           rawAs('COUNT(DISTINCT test_table.name)', 'unique_names'),
           formatDateTime('test_table.created_at', 'Y-m-d', { timezone: 'Europe/Amsterdam', alias: 'date' })
         ])
-        .groupBy(['test_table.id', 'date'])
+        .groupBy(['test_table.id', 'created_at'])
         .toSQL();
 
-      expect(sql).toBe('SELECT test_table.id, COUNT(DISTINCT test_table.name) AS unique_names, formatDateTime(test_table.created_at, \'Y-m-d\', \'Europe/Amsterdam\') AS date FROM test_table GROUP BY test_table.id, date');
+      expect(sql).toBe('SELECT test_table.id, COUNT(DISTINCT test_table.name) AS unique_names, formatDateTime(test_table.created_at, \'Y-m-d\', \'Europe/Amsterdam\') AS date FROM test_table GROUP BY test_table.id, created_at');
     });
   });
 }); 

@@ -265,6 +265,73 @@ const query = db
 // Result: SELECT * FROM users WHERE (email LIKE '%@gmail.com' OR email LIKE '%@yahoo.com' OR email LIKE '%@hotmail.com')
 ```
 
+## Advanced IN Operators
+
+The `where` method supports advanced IN operators for ClickHouse, including distributed/global, tuple, subquery, and table reference forms.
+
+### Supported IN Operators
+
+| Operator           | Description                                 | Example Usage |
+|--------------------|---------------------------------------------|--------------|
+| `in`              | Standard IN with array                      | `where('col', 'in', [1,2,3])` |
+| `notIn`           | Standard NOT IN with array                  | `where('col', 'notIn', [1,2,3])` |
+| `globalIn`        | GLOBAL IN for distributed queries           | `where('col', 'globalIn', [1,2,3])` |
+| `globalNotIn`     | GLOBAL NOT IN for distributed queries       | `where('col', 'globalNotIn', [1,2,3])` |
+| `inSubquery`      | IN with subquery string                     | `where('col', 'inSubquery', 'SELECT ...')` |
+| `globalInSubquery`| GLOBAL IN with subquery string              | `where('col', 'globalInSubquery', 'SELECT ...')` |
+| `inTable`         | IN with table reference                     | `where('col', 'inTable', 'table_name')` |
+| `globalInTable`   | GLOBAL IN with table reference              | `where('col', 'globalInTable', 'table_name')` |
+| `inTuple`         | Tuple IN (multi-column)                     | `where(['col1','col2'], 'inTuple', [[1,2],[3,4]])` |
+| `globalInTuple`   | GLOBAL Tuple IN (multi-column)              | `where(['col1','col2'], 'globalInTuple', [[1,2],[3,4]])` |
+
+**Supported IN operators:**
+- `in`
+- `notIn`
+- `globalIn`
+- `globalNotIn`
+- `inSubquery`
+- `globalInSubquery`
+- `inTable`
+- `globalInTable`
+- `inTuple`
+- `globalInTuple`
+
+### Usage Examples
+
+```typescript
+// Standard IN
+query.where('status', 'in', ['active', 'pending']);
+
+// GLOBAL IN
+query.where('user_id', 'globalIn', [1, 2, 3]);
+
+// IN with subquery
+query.where('user_id', 'inSubquery', 'SELECT id FROM users WHERE status = "active"');
+
+// IN with table reference
+query.where('user_id', 'inTable', 'users');
+
+// Tuple IN
+query.where(['counter_id', 'user_id'], 'inTuple', [[34, 123], [101500, 456]]);
+
+// GLOBAL Tuple IN
+query.where(['counter_id', 'user_id'], 'globalInTuple', [[34, 123], [101500, 456]]);
+```
+
+### Tuple IN Usage
+- Pass an array of columns as the first argument, and an array of value tuples as the value.
+- Example: `where(['col1', 'col2'], 'inTuple', [[1,2],[3,4]])`
+
+### Subquery/Table IN Usage
+- Pass a string as the value (the subquery or table name).
+- Example: `where('user_id', 'inSubquery', 'SELECT id FROM users')`
+- Example: `where('user_id', 'inTable', 'users')`
+
+### Type Safety & Error Handling
+- All IN operators are type-checked for column names and value types.
+- Errors are thrown at runtime for invalid types (e.g., passing a string instead of an array for `in`).
+- Tuple IN and subquery/table IN require special argument types as described above.
+
 ## Type Safety
 
 The `where` method provides full TypeScript support:

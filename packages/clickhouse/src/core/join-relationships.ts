@@ -15,7 +15,7 @@ export interface JoinPathOptions {
   context?: Record<string, any>;
 }
 
-export class JoinRelationships<Schema extends { [tableName: string]: { [columnName: string]: ColumnType } }> {
+export class JoinRelationships<Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } }> {
   private paths = new Map<string, JoinPath<Schema> | JoinPath<Schema>[]>();
 
   /**

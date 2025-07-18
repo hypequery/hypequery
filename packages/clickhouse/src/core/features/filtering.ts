@@ -12,7 +12,7 @@ export class FilteringFeature<
 
   addCondition<K extends keyof OriginalT | TableColumn<Schema>>(
     conjunction: 'AND' | 'OR',
-    column: K,
+    column: K | K[],
     operator: FilterOperator,
     value: any
   ) {
@@ -20,16 +20,45 @@ export class FilteringFeature<
     const where = config.where || [];
     const parameters = config.parameters || [];
 
+    // Handle tuple columns
+    const columnString = Array.isArray(column)
+      ? `(${column.map(String).join(', ')})`
+      : String(column);
+
     where.push({
-      column: String(column),
+      column: columnString,
       operator,
       value,
       conjunction,
       type: 'condition'
     });
 
-    if (operator === 'in' || operator === 'notIn') {
+    // Handle different parameter types based on operator
+    if (operator === 'in' || operator === 'notIn' || operator === 'globalIn' || operator === 'globalNotIn') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
+      }
       parameters.push(...value);
+    }
+    else if (operator === 'inTuple' || operator === 'globalInTuple') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
+      }
+      value.forEach((tuple: any[]) => {
+        parameters.push(...tuple);
+      });
+    }
+    else if (operator === 'inSubquery' || operator === 'globalInSubquery') {
+      if (typeof value !== 'string') {
+        throw new Error(`Expected a string (subquery) for ${operator} operator, but got ${typeof value}`);
+      }
+      // No parameters
+    }
+    else if (operator === 'inTable' || operator === 'globalInTable') {
+      if (typeof value !== 'string') {
+        throw new Error(`Expected a string (table name) for ${operator} operator, but got ${typeof value}`);
+      }
+      // No parameters
     }
     else if (operator === 'between') {
       parameters.push(value[0], value[1]);
