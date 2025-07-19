@@ -22,9 +22,8 @@ async function fixDtsImports() {
       let content = await fs.readFile(filePath, 'utf8');
       let modified = false;
 
-      // Fix relative imports by adding .js extension
-      // This regex matches relative imports that don't already have an extension
-      const importRegex = /from\s+['"](\.\/[^'"]*?)(['"])/g;
+      // Pattern 1: import statements with relative paths (both ./ and ../)
+      const importRegex = /from\s+['"](\.\/[^'"]*?|\.\.\/[^'"]*?)(['"])/g;
 
       content = content.replace(importRegex, (match, importPath, quote) => {
         // Skip if it already has an extension
@@ -36,6 +35,42 @@ async function fixDtsImports() {
         if (importPath.startsWith('./') || importPath.startsWith('../')) {
           modified = true;
           return `from ${quote}${importPath}.js${quote}`;
+        }
+
+        return match;
+      });
+
+      // Pattern 2: export statements with relative paths (both ./ and ../)
+      const exportRegex = /export\s+\*\s+from\s+['"](\.\/[^'"]*?|\.\.\/[^'"]*?)(['"])/g;
+
+      content = content.replace(exportRegex, (match, importPath, quote) => {
+        // Skip if it already has an extension
+        if (importPath.includes('.js') || importPath.includes('.d.ts')) {
+          return match;
+        }
+
+        // Add .js extension for relative exports
+        if (importPath.startsWith('./') || importPath.startsWith('../')) {
+          modified = true;
+          return `export * from ${quote}${importPath}.js${quote}`;
+        }
+
+        return match;
+      });
+
+      // Pattern 3: export { ... } from statements
+      const exportNamedRegex = /export\s+\{[^}]*\}\s+from\s+['"](\.\/[^'"]*?|\.\.\/[^'"]*?)(['"])/g;
+
+      content = content.replace(exportNamedRegex, (match, importPath, quote) => {
+        // Skip if it already has an extension
+        if (importPath.includes('.js') || importPath.includes('.d.ts')) {
+          return match;
+        }
+
+        // Add .js extension for relative exports
+        if (importPath.startsWith('./') || importPath.startsWith('../')) {
+          modified = true;
+          return match.replace(`${quote}${importPath}${quote}`, `${quote}${importPath}.js${quote}`);
         }
 
         return match;
