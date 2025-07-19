@@ -5,6 +5,12 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "license": "Apache-2.0",
   "scripts": {
     "build": "npm run build:main && npm run build:cli && npm run fix-typedefs && npm run fix-dts-imports && npm run verify-build || npm run diagnose-ci",
