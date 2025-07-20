@@ -1,4 +1,4 @@
-import { QueryConfig, FilterOperator } from '../../types';
+import { QueryConfig, FilterOperator } from '../../types/index.js';
 
 export class SQLFormatter {
   formatSelect(config: QueryConfig<any, any>): string {

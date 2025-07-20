@@ -1,5 +1,5 @@
-import { ClickHouseConnection } from './connection';
-import { CrossFilter } from './cross-filter';
+import { ClickHouseConnection } from './connection.js';
+import { CrossFilter } from './cross-filter.js';
 import {
   ColumnType,
   FilterOperator,
@@ -11,19 +11,19 @@ import {
   InferColumnType,
   PaginationOptions,
   PaginatedResult,
-} from '../types';
-import { SQLFormatter } from './formatters/sql-formatter';
-import { AggregationFeature } from './features/aggregations';
-import { JoinFeature } from './features/joins';
-import { FilteringFeature } from './features/filtering';
-import { AnalyticsFeature } from './features/analytics';
-import { ExecutorFeature } from './features/executor';
-import { QueryModifiersFeature } from './features/query-modifiers';
-import { FilterValidator } from './validators/filter-validator';
-import { PaginationFeature } from './features/pagination';
-import { JoinRelationships, JoinPathOptions } from './join-relationships';
-import { SqlExpression } from './utils/sql-expressions';
-import { CrossFilteringFeature } from './features/cross-filtering';
+} from '../types/index.js';
+import { SQLFormatter } from './formatters/sql-formatter.js';
+import { AggregationFeature } from './features/aggregations.js';
+import { JoinFeature } from './features/joins.js';
+import { FilteringFeature } from './features/filtering.js';
+import { AnalyticsFeature } from './features/analytics.js';
+import { ExecutorFeature } from './features/executor.js';
+import { QueryModifiersFeature } from './features/query-modifiers.js';
+import { FilterValidator } from './validators/filter-validator.js';
+import { PaginationFeature } from './features/pagination.js';
+import { JoinRelationships, JoinPathOptions } from './join-relationships.js';
+import { SqlExpression } from './utils/sql-expressions.js';
+import { CrossFilteringFeature } from './features/cross-filtering.js';
 import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';

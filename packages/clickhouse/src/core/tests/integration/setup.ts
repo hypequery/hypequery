@@ -1,9 +1,9 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { ClickHouseConnection } from '../../connection';
+import { ClickHouseConnection } from '../../connection.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { logger as hypeQueryLogger } from '../../utils/logger';
+import { logger as hypeQueryLogger } from '../../utils/logger.js';
 
 // Disable the hypequery logger to prevent "logs after tests" errors
 // This must be done early in the setup, before any queries run

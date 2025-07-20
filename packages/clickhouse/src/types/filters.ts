@@ -1,4 +1,4 @@
-import { TableColumn } from "./base";
+import { TableColumn } from "./base.js";
 
 export type FilterValue<T> =
   T extends Date ? Date | string :

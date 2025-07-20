@@ -1,5 +1,5 @@
-import { JoinRelationships } from '../join-relationships';
-import { QueryBuilder } from '../query-builder';
+import { JoinRelationships } from '../join-relationships.js';
+import { QueryBuilder } from '../query-builder.js';
 import { TestSchema, setupTestBuilder } from './test-utils.js';
 
 describe('JoinRelationships', () => {

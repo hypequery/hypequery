@@ -4,9 +4,9 @@ import {
   setupTestDatabase,
   TEST_DATA
 } from './setup';
-import { ClickHouseConnection } from '../../connection';
-import { createQueryBuilder } from '../../../index';
-import { TestSchemaType } from './setup';
+import { ClickHouseConnection } from '../../connection.js';
+import { createQueryBuilder } from '../../../index.js';
+import { TestSchemaType } from './setup.js';
 
 // Skip integration tests if running in CI or if explicitly disabled
 const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';

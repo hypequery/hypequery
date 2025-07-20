@@ -1,11 +1,9 @@
 import {
   initializeTestConnection,
   setupTestDatabase,
-  startClickHouseContainer,
-  stopClickHouseContainer,
-  TEST_DATA
-} from './setup';
-import { ClickHouseConnection } from '../../connection';
+  TestSchemaType
+} from './setup.js';
+import { ClickHouseConnection } from '../../connection.js';
 
 // Skipping tests becuase this feature is not ready
 const SKIP_INTEGRATION_TESTS = true // process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';

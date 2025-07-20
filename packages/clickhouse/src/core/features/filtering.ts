@@ -1,5 +1,5 @@
-import { QueryBuilder } from '../query-builder';
-import { ColumnType, FilterOperator, TableColumn } from '../../types';
+import { QueryBuilder } from '../query-builder.js';
+import { ColumnType, FilterOperator, TableColumn } from '../../types/index.js';
 
 export class FilteringFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },

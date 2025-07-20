@@ -1,5 +1,5 @@
-import { ColumnType, FilterOperator, FilterConditionInput } from '../../types';
-import { ValueValidator } from './value-validator';
+import { ColumnType, FilterConditionInput } from '../../types/index.js';
+import { ValueValidator } from './value-validator.js';
 
 export class FilterValidator {
   static validateFilterCondition<T = any>(

@@ -1,6 +1,6 @@
-import { QueryBuilder } from '../query-builder';
+import { QueryBuilder } from '../query-builder.js';
 import { setupTestBuilder, TestSchema } from './test-utils.js';
-import { PaginatedResult } from '../../types';
+import { PaginatedResult } from '../../types/index.js';
 
 describe('QueryBuilder - Pagination', () => {
   let builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>;

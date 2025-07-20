@@ -6,7 +6,6 @@ const db = createQueryBuilder<IntrospectedSchema>({
 });
 
 const table = db.table('otel_logs')
+//@ts-expect-error - This should fail type checking
 const validResults = await table.select(['foo', 'bar']).where('foo', 'eq', 'bar').toSQL();
 console.log('Valid SQL Query:', validResults);
-
-console.log('Type safety is working! Invalid column names would cause TypeScript errors.'); 

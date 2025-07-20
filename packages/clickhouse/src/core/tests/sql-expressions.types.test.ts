@@ -1,4 +1,4 @@
-import { formatDateTime, FormatDateTimeOptions, toDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions';
+import { formatDateTime, toDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions.js';
 
 describe('SQL Expressions - Type Safety', () => {
   describe('formatDateTime', () => {

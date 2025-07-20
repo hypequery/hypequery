@@ -1,5 +1,5 @@
 import { Equal, Expect } from '@type-challenges/utils';
-import { QueryBuilder } from '../query-builder';
+import { QueryBuilder } from '../query-builder.js';
 import { setupTestBuilder, TestSchema } from './test-utils.js';
 
 describe('QueryBuilder - Joins', () => {

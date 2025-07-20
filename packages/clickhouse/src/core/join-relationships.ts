@@ -1,4 +1,4 @@
-import { ColumnType, JoinType } from '../types';
+import { ColumnType, JoinType } from '../types/index.js';
 
 export interface JoinPath<Schema> {
   from: keyof Schema;

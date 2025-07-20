@@ -1,5 +1,5 @@
-import { QueryBuilder } from '../query-builder';
-import { ColumnType } from '../../types';
+import { QueryBuilder } from '../query-builder.js';
+import { ColumnType } from '../../types/index.js';
 
 export class AggregationFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },

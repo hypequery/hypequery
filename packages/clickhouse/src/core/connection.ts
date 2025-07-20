@@ -2,8 +2,8 @@ import type { ClickHouseSettings } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import { createClient as createNodeClient } from '@clickhouse/client';
-import type { ClickHouseConfig } from './query-builder';
-import { isClientConfig } from './query-builder';
+import type { ClickHouseConfig } from './query-builder.js';
+import { isClientConfig } from './query-builder.js';
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;

@@ -1,4 +1,4 @@
-import { QueryBuilder } from '../query-builder';
+import { QueryBuilder } from '../query-builder.js';
 import { setupTestBuilder, TestSchema } from './test-utils.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 

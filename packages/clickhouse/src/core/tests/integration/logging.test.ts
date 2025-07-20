@@ -1,9 +1,9 @@
-import { createQueryBuilder } from '../../../index';
-import { initializeTestConnection, setupTestDatabase } from './setup';
-import { logger } from '../../utils/logger';
+import { createQueryBuilder } from '../../../index.js';
+import { initializeTestConnection, setupTestDatabase } from './setup.js';
+import { logger } from '../../utils/logger.js';
 
 // Import centralized test configuration
-import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config';
+import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 
 // Only run these tests if not skipped
 (SKIP_INTEGRATION_TESTS ? describe.skip : describe)('Logging Support', () => {

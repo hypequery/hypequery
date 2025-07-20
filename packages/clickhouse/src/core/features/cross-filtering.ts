@@ -1,8 +1,8 @@
 //@ts-
 
-import { QueryBuilder } from '../query-builder';
-import { CrossFilter, FilterGroup } from '../cross-filter';
-import { FilterConditionInput, ColumnType, TableColumn } from '../../types';
+import { QueryBuilder } from '../query-builder.js';
+import { CrossFilter, FilterGroup } from '../cross-filter.js';
+import { FilterConditionInput, ColumnType, TableColumn } from '../../types/index.js';
 
 /**
  * Type guard to check if an object is a FilterConditionInput

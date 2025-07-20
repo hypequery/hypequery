@@ -1,5 +1,5 @@
-import { QueryBuilder } from '../query-builder';
-import { setupTestBuilder, setupUsersBuilder, TestSchema, UsersSchema } from './test-utils';
+import { QueryBuilder } from '../query-builder.js';
+import { setupTestBuilder, setupUsersBuilder, TestSchema, } from './test-utils.js';
 
 
 describe('QueryBuilder Analytics Features', () => {

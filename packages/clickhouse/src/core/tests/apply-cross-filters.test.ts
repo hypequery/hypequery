@@ -1,6 +1,5 @@
-import { CrossFilter, FilterGroup } from '../cross-filter';
-import { createQueryBuilder } from '../query-builder';
-import { QueryBuilder } from '../query-builder';
+import { CrossFilter, FilterGroup } from '../cross-filter.js';
+import { createQueryBuilder } from '../query-builder.js';
 
 // Mock connection to avoid actual DB connection
 jest.mock('../connection', () => ({
