@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "isolatedModules": false,
+    "allowImportingTsExtensions": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "**/*.test.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

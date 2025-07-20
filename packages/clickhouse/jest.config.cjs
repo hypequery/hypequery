@@ -4,6 +4,7 @@ module.exports = {
       'ts-jest',
       {
         useESM: true,
+        tsconfig: 'tsconfig.test.json'
       },
     ],
   },
@@ -16,9 +17,4 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(@clickhouse)/)',
   ],
-  globals: {
-    'ts-jest': {
-      useESM: true,
-    },
-  },
 }; 
