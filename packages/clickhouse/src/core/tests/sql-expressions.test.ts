@@ -1,5 +1,5 @@
-import { raw, rawAs, toDateTime, formatDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions';
-import { setupTestBuilder, TestSchema } from './test-utils';
+import { raw, rawAs, toDateTime, formatDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions.js';
+import { setupTestBuilder } from './test-utils.js';
 
 describe('SQL Expressions', () => {
   describe('Utility Functions', () => {

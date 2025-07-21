@@ -1,6 +1,5 @@
-import { CrossFilter, FilterGroup } from '../cross-filter';
-import { FilterConditionInput, FilterOperator } from '../../types/filters';
-import { createQueryBuilder } from '../query-builder';
+import { CrossFilter, FilterGroup } from '../cross-filter.js';
+import { FilterConditionInput, FilterOperator } from '../../types/filters.js';
 
 describe('CrossFilter', () => {
   let crossFilter: CrossFilter;

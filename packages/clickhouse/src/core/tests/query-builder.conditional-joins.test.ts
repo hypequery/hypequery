@@ -1,4 +1,4 @@
-import { createQueryBuilder } from '../query-builder';
+import { createQueryBuilder } from '../query-builder.js';
 
 interface TestSchema {
   test_table: {

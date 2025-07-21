@@ -5,14 +5,18 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "license": "Apache-2.0",
   "scripts": {
-    "build": "npm run build:main && npm run build:cli && npm run fix-typedefs && npm run fix-dts-imports && npm run verify-build || npm run diagnose-ci",
+    "build": "npm run build:main && npm run build:cli && npm run verify-build || npm run diagnose-ci",
     "build:main": "tsc --project tsconfig.json",
     "build:cli": "node scripts/ensure-core-files.js && node scripts/handle-cli-files.js",
-    "build:ci": "npm run build:main && node scripts/ensure-core-files.js && node scripts/handle-cli-files.js && npm run fix-typedefs && npm run fix-dts-imports && npm run verify-build || npm run diagnose-ci",
-    "fix-typedefs": "node scripts/fix-typedefs.js",
-    "fix-dts-imports": "node scripts/fix-dts-imports.js",
+    "build:ci": "npm run build:main && node scripts/ensure-core-files.js && node scripts/handle-cli-files.js && npm run verify-build || npm run diagnose-ci",
     "verify-build": "node scripts/verify-build.js",
     "diagnose-ci": "node scripts/diagnose-ci.js",
     "dev": "tsc --watch",

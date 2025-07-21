@@ -1,8 +1,8 @@
-import { createQueryBuilder } from '../../../index';
-import { initializeTestConnection, setupTestDatabase } from './setup';
+import { createQueryBuilder } from '../../../index.js';
+import { initializeTestConnection, setupTestDatabase } from './setup.js';
 
 // Import centralized test configuration
-import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config';
+import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 
 // Define a type for the response chunks we're getting
 interface ResponseChunk {

@@ -1,4 +1,4 @@
-import { ColumnType, FilterOperator } from '../../types';
+import { ColumnType, FilterOperator } from '../../types/index.js';
 
 export class ValueValidator {
   static validateFilterValue(

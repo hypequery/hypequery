@@ -1,5 +1,5 @@
-import { ClickHouseType, InferClickHouseType } from "./clickhouse-types";
-import { FilterOperator } from "./filters";
+import { ClickHouseType, InferClickHouseType } from "./clickhouse-types.js";
+import { FilterOperator } from "./filters.js";
 
 export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;

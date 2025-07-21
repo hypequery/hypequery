@@ -1,6 +1,6 @@
 import { setupTestBuilder, TestSchema } from './test-utils.js';
 import type { Equal, Expect } from '@type-challenges/utils';
-import { QueryBuilder } from '../query-builder';
+import { QueryBuilder } from '../query-builder.js';
 
 describe('Advanced IN Operators', () => {
   let builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>;

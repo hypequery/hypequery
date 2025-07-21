@@ -1,8 +1,8 @@
-import { QueryBuilder } from '../query-builder';
-import { ColumnType } from '../../types';
-import { ClickHouseConnection } from '../connection';
-import { substituteParameters } from '../utils';
-import { logger } from '../utils/logger';
+import { QueryBuilder } from '../query-builder.js';
+import { ColumnType } from '../../types/index.js';
+import { ClickHouseConnection } from '../connection.js';
+import { substituteParameters } from '../utils.js';
+import { logger } from '../utils/logger.js';
 
 export class ExecutorFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },

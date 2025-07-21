@@ -1,2 +1,2 @@
-export * from './base';
-export * from './filters';
+export * from './base.js';
+export * from './filters.js';

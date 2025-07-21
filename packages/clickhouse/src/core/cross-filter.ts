@@ -1,11 +1,6 @@
-import {
-  ColumnType,
-  FilterOperator,
-  InferColumnType,
-  OperatorValueMap,
-  FilterConditionInput
-} from '../types';
-import { FilterValidator } from './validators/filter-validator';
+import { FilterValidator } from './validators/filter-validator.js';
+import { FilterConditionInput, FilterOperator, OperatorValueMap } from '../types/index.js';
+import type { ColumnType, InferColumnType } from '../types/index.js';
 
 // Define FilterGroup interface for nested filter groups
 export interface FilterGroup<

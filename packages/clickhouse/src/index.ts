@@ -1,39 +1,50 @@
-export { createQueryBuilder, QueryBuilder } from './core/query-builder';
-export { ClickHouseConnection } from './core/connection';
-export { JoinRelationships } from './core/join-relationships';
+export { createQueryBuilder, QueryBuilder } from './core/query-builder.js';
+export { ClickHouseConnection } from './core/connection.js';
+export { JoinRelationships } from './core/join-relationships.js';
+
+// Re-export types for convenience
 export type {
   ClickHouseConfig,
   ClickHouseClientConfig
-} from './core/query-builder';
-export { isClientConfig } from './core/query-builder';
+} from './core/query-builder.js';
+export { isClientConfig } from './core/query-builder.js';
+
+// Re-export utility types
 export type {
-  TableSchema,
-  QueryConfig,
   ColumnType,
-  WhereExpression,
-  GroupByExpression,
-  TableRecord,
-  DatabaseSchema,
+  TableColumn,
+  OrderDirection,
+  QueryConfig,
+  InferColumnType,
+  PaginationOptions,
   PaginatedResult,
   PageInfo,
-  PaginationOptions
-} from './types/base';
-export type { JoinPath, JoinPathOptions } from './core/join-relationships';
-export { CrossFilter } from './core/cross-filter';
-export { logger } from './core/utils/logger';
+  AggregationType
+} from './types/base.js';
+
+// Re-export filter types
+export type {
+  FilterOperator,
+  OperatorValueMap,
+  FilterConditionInput
+} from './types/filters.js';
+
+export type { JoinPath, JoinPathOptions } from './core/join-relationships.js';
+export { CrossFilter } from './core/cross-filter.js';
+export { logger } from './core/utils/logger.js';
+
+// Re-export SQL expression utilities
 export {
   raw,
   rawAs,
   toDateTime,
   formatDateTime,
   toStartOfInterval,
-  datePart,
-  FormatDateTimeOptions
-} from './core/utils/sql-expressions';
+  datePart
+} from './core/utils/sql-expressions.js';
+
+// Re-export SQL expression types
 export type {
   SqlExpression,
-  AliasedExpression
-} from './core/utils/sql-expressions';
-
-// Note: CLI functionality is deliberately not exported from the main package
-// This prevents Node.js-specific modules from being included in browser bundles
+  FormatDateTimeOptions
+} from './core/utils/sql-expressions.js';
