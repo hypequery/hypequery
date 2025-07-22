@@ -2,6 +2,7 @@ import { ClickHouseConnection } from './connection.js';
 import { CrossFilter } from './cross-filter.js';
 import {
   ColumnType,
+  InferClickHouseType,
   FilterOperator,
   OrderDirection,
   TableColumn,
@@ -51,6 +52,10 @@ export type ClickHouseConfig = BaseClickHouseClientConfigOptions | ClickHouseCli
 export function isClientConfig(config: ClickHouseConfig): config is ClickHouseClientConfig {
   return 'client' in config && !('host' in config);
 }
+
+type SelectResult<T, K extends keyof T> = {
+  [P in K]: T[P] extends ColumnType ? InferClickHouseType<T[P]> : unknown
+};
 
 /**
  * A type-safe query builder for ClickHouse databases.
@@ -191,16 +196,18 @@ export class QueryBuilder<
    * builder.select(['id', 'name'])
    * ```
    */
-  select<K extends keyof T | TableColumn<Schema> | SqlExpression>(
+  // Updated select method - simplified
+  select<K extends keyof T>(
     columns: K[]
   ): QueryBuilder<
     Schema,
     {
-      [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]: P extends keyof T ? (
-        T[P] extends "String" ? string :
-        T[P] extends "Date" ? Date :
-        T[P] extends "Float64" | "Int32" | "Int64" ? number : never
-      ) : string
+      [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
+      P extends keyof T
+      ? T[P] extends ColumnType
+      ? InferClickHouseType<T[P]>
+      : unknown
+      : string
     },
     true,
     Aggregations,
@@ -210,11 +217,12 @@ export class QueryBuilder<
     const newBuilder = new QueryBuilder<
       Schema,
       {
-        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]: P extends keyof T ? (
-          T[P] extends "String" ? string :
-          T[P] extends "Date" ? Date :
-          T[P] extends "Float64" | "Int32" | "Int64" ? number : never
-        ) : string
+        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
+        P extends keyof T
+        ? T[P] extends ColumnType
+        ? InferClickHouseType<T[P]>
+        : unknown
+        : string
       },
       true,
       Aggregations,
@@ -223,7 +231,7 @@ export class QueryBuilder<
       this.tableName,
       {
         name: this.schema.name,
-        columns: {} as any // We need this cast because we only know the shape at runtime
+        columns: {} as any
       },
       this.originalSchema
     );
