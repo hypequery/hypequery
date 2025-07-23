@@ -53,10 +53,6 @@ export function isClientConfig(config: ClickHouseConfig): config is ClickHouseCl
   return 'client' in config && !('host' in config);
 }
 
-type SelectResult<T, K extends keyof T> = {
-  [P in K]: T[P] extends ColumnType ? InferClickHouseType<T[P]> : unknown
-};
-
 /**
  * A type-safe query builder for ClickHouse databases.
  * @template Schema - The full database schema
@@ -196,8 +192,7 @@ export class QueryBuilder<
    * builder.select(['id', 'name'])
    * ```
    */
-  // Updated select method - simplified
-  select<K extends keyof T>(
+  select<K extends keyof T | TableColumn<Schema> | SqlExpression>(
     columns: K[]
   ): QueryBuilder<
     Schema,

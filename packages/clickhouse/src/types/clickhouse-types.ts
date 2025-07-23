@@ -97,10 +97,3 @@ export type ClickHouseSchema = Record<string, ClickHouseType>;
 export type InferSchemaType<T extends ClickHouseSchema> = {
   [K in keyof T]: InferClickHouseType<T[K]>;
 };
-
-type Test1 = InferClickHouseType<'Bool'>;
-type Test2 = InferClickHouseType<'Array(LowCardinality(String))'>;
-type Test3 = InferClickHouseType<'Map(LowCardinality(String), String)'>;
-type Test4 = InferClickHouseType<'Array(Map(LowCardinality(String), String))'>;
-type Test5 = InferClickHouseType<'Map(LowCardinality(String), String)'>;
-type Test6 = InferClickHouseType<'Nullable(Array(String))'>;
