@@ -117,8 +117,8 @@ import Layout from "../layouts/Layout.astro";
 <span class="text-violet-400">const</span> <span class="text-indigo-300">query</span> <span class="text-gray-300">=</span> <span class="text-yellow-300">`</span>
 <span class="text-yellow-300">  SELECT user_id, name, email</span>
 <span class="text-yellow-300">  FROM users</span>
-<span class="text-yellow-300">  WHERE age > ${</span><span class="text-purple-400">userAge</span><span class="text-yellow-300">}</span>
-<span class="text-yellow-300">    AND status = '${</span><span class="text-purple-400">userStatus</span><span class="text-yellow-300">}'</span>
+<span class="text-yellow-300">  WHERE age > '$&lcub;<span class="text-purple-400">userAge</span>&rcub;'
+<span class="text-yellow-300">    AND status = '$&lcub;<span class="text-purple-400">userStatus</span>&rcub;'
 <span class="text-yellow-300">  ORDER BY created_at DESC</span>
 <span class="text-yellow-300">  LIMIT 10</span>
 <span class="text-yellow-300">`</span><span class="text-gray-300">;</span>
@@ -150,7 +150,7 @@ import Layout from "../layouts/Layout.astro";
                           <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
                             <span class="text-red-600 text-xs">✕</span>
                           </div>
-                          <span class="text-sm text-red-700">Runtime errors only</span>
+                          <span class="text-sm text-red-700">Risk of runtime errors</span>
                         </div>
                         <div class="flex items-center space-x-3">
                           <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
@@ -229,110 +229,6 @@ import Layout from "../layouts/Layout.astro";
               </div>
             </div>
           </section>
-
-          <!-- Email Signup Section - Variation 1: Community-Focused -->
-          <section class="bg-gradient-to-br from-indigo-50 to-blue-50 py-16 sm:py-24">
-            <div class="mx-auto max-w-4xl px-6 lg:px-8">
-              <div class="text-center">
-                <h2 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-4">
-                  Join the hypequery community
-                </h2>
-                <p class="text-lg text-gray-600 mb-8">
-                  Get early access to new features, ClickHouse optimization tips, and TypeScript best practices as we build.
-                </p>
-                
-                <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
-                  <div class="flex items-center justify-center space-x-4 mb-6">
-                    <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <span class="text-indigo-600 text-xl">📊</span>
-                    </div>
-                    <div class="text-left">
-                      <h3 class="font-semibold text-gray-900">Free: ClickHouse Performance Optimization Guide</h3>
-                      <p class="text-sm text-gray-600">20+ proven techniques used by data teams at scale</p>
-                    </div>
-                  </div>
-                  
-                  <div class="max-w-md mx-auto">
-                    <div class="flex space-x-3">
-                      <input
-                        type="email"
-                        placeholder="your.email@company.com"
-                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      />
-                      <button class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
-                        Get Guide
-                      </button>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-2">Join our community • No spam • Unsubscribe anytime</p>
-                  </div>
-                </div>
-                
-                <div class="flex items-center justify-center space-x-6 text-sm text-gray-600">
-                  <div class="flex items-center space-x-2">
-                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>Early access to new features</span>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span>Weekly insights & tips</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- Email Signup Section - Variation 2: Education-Focused -->
-          <!--
-          <section class="bg-gradient-to-br from-emerald-50 to-teal-50 py-16 sm:py-24">
-            <div class="mx-auto max-w-4xl px-6 lg:px-8">
-              <div class="text-center">
-                <h2 class="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mb-4">
-                  Master TypeScript + ClickHouse in 30 days
-                </h2>
-                <p class="text-lg text-gray-600 mb-8">
-                  Get our comprehensive best practices guide and learn from real-world patterns used by production teams.
-                </p>
-                
-                <div class="bg-white rounded-xl shadow-lg p-8 mb-8">
-                  <div class="flex items-center justify-center space-x-4 mb-6">
-                    <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                      <span class="text-emerald-600 text-xl">🎯</span>
-                    </div>
-                    <div class="text-left">
-                      <h3 class="font-semibold text-gray-900">TypeScript + ClickHouse Best Practices</h3>
-                      <p class="text-sm text-gray-600">Schema design, query patterns, and performance optimization</p>
-                    </div>
-                  </div>
-                  
-                  <div class="max-w-md mx-auto">
-                    <div class="flex space-x-3">
-                      <input
-                        type="email"
-                        placeholder="your.email@company.com"
-                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                      />
-                      <button class="px-6 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors">
-                        Download Guide
-                      </button>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-2">Free 30-day course • Expert insights • Production-ready patterns</p>
-                  </div>
-                </div>
-                
-                <div class="flex items-center justify-center space-x-6 text-sm text-gray-600">
-                  <div class="flex items-center space-x-2">
-                    <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                    <span>Used by 500+ engineering teams</span>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <div class="w-2 h-2 bg-teal-500 rounded-full"></div>
-                    <span>Updated monthly with new patterns</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
 
           <!-- Features Section -->
           <section class="bg-white pb-24 sm:pb-32">
