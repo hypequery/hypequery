@@ -9,12 +9,13 @@ interface TestCrossDatabaseSchema {
   // Cross-database tables
   __databases: {
     information_schema: {
-      my_table: { column: 'String'; user_id: 'UInt64' };
+      tables: { table_name: 'String'; table_schema: 'String'; table_type: 'String' };
       query_log: { query: 'String'; event_time: 'DateTime'; user: 'String' };
     };
 
     system: {
       tables: { database: 'String'; name: 'String'; engine: 'String' };
+      query_log: { query: 'String'; event_time: 'DateTime'; user: 'String' };
     };
   }
 }
@@ -72,8 +73,8 @@ describe('Cross-Database Join Functionality', () => {
   describe('Cross-Database Joins', () => {
     it('should support cross-database INNER JOIN', () => {
       const query = db.table('users')
-        .innerJoin('information_schema.my_table', 'name', 'information_schema.my_table.column')
-        .select(['users.name', 'information_schema.my_table.user_id'])
+        .innerJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+        .select(['users.name', 'information_schema.tables.table_type'])
         .toSQL();
 
       expect(query).toContain('INNER JOIN `information_schema`.`tables` ON name = information_schema.tables.table_name');
@@ -81,8 +82,8 @@ describe('Cross-Database Join Functionality', () => {
 
     it('should support cross-database LEFT JOIN', () => {
       const query = db.table('users')
-        .leftJoin('information_schema.my_table', 'name', 'information_schema.my_table.column')
-        .select(['users.name', 'information_schema.my_table.column'])
+        .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+        .select(['users.name', 'information_schema.tables.table_type'])
         .toSQL();
 
       expect(query).toContain('LEFT JOIN `information_schema`.`tables` ON name = information_schema.tables.table_name');
@@ -103,14 +104,14 @@ describe('Cross-Database Join Functionality', () => {
         .select(['users.name', 'system.tables.engine'])
         .toSQL();
 
-      expect(query).toContain('FULL JOIN `system`.`query_log` ON name = system.query_log.user');
+      expect(query).toContain('FULL JOIN `system`.`tables` ON name = system.tables.name');
     });
   });
 
   describe('Complex Cross-Database Queries', () => {
     it('should support multiple cross-database joins', () => {
       const query = db.table('users')
-        .leftJoin('information_schema.query_log', 'name', 'information_schema.query_log.query', 'ist')
+        .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name', 'ist')
         .innerJoin('system.tables', 'id', 'system.tables.database', 'st')
         .select(['users.name', 'ist.table_type' as any, 'st.engine' as any])
         .where('ist.table_schema' as any, 'eq', 'default')
@@ -129,8 +130,8 @@ describe('Cross-Database Join Functionality', () => {
     it('should support mixed same-database and cross-database joins', () => {
       const query = db.table('users')
         .leftJoin('posts', 'id', 'posts.user_id')
-        .leftJoin('information_schema.my_table', 'name', 'information_schema.my_table.column')
-        .select(['users.name', 'posts.title', 'information_schema.my_table.column'])
+        .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+        .select(['users.name', 'posts.title', 'information_schema.tables.table_type'])
         .toSQL();
 
       expect(query).toContain('LEFT JOIN posts ON id = posts.user_id');
@@ -150,7 +151,7 @@ describe('Cross-Database Join Functionality', () => {
 
     it('should correctly parse cross-database table names', () => {
       const query = db.table('users')
-        .leftJoin('information_schema.query_log', 'id', 'information_schema.query_log.query')
+        .leftJoin('information_schema.tables', 'id', 'information_schema.tables.table_name')
         .toSQL();
 
       expect(query).toContain('LEFT JOIN `information_schema`.`tables` ON id = information_schema.tables.table_name');
@@ -158,10 +159,10 @@ describe('Cross-Database Join Functionality', () => {
 
     it('should handle table names with special characters', () => {
       const query = db.table('users')
-        .leftJoin('information_schema.my_table', 'id', 'information_schema.my_table.column')
+        .leftJoin('information_schema.tables', 'id', 'information_schema.tables.table_name')
         .toSQL();
 
-      expect(query).toContain('LEFT JOIN `my-database`.`my-table` ON id = my-database.my-table.column');
+      expect(query).toContain('LEFT JOIN `information_schema`.`tables` ON id = information_schema.tables.table_name');
     });
   });
 
@@ -179,8 +180,8 @@ describe('Cross-Database Join Functionality', () => {
     it('should provide type safety for cross-database tables', () => {
       // This should compile without errors
       const query = db.table('users')
-        .leftJoin('information_schema.query_log', 'name', 'information_schema.query_log.query')
-        .select(['users.name', 'information_schema.query_log.event_time'])
+        .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+        .select(['users.name', 'information_schema.tables.table_type'])
         .toSQL();
 
       expect(typeof query).toBe('string');
@@ -202,9 +203,9 @@ describe('Cross-Database Join Functionality', () => {
   describe('SQL Generation', () => {
     it('should generate correct SQL for complex cross-database query', () => {
       const query = db.table('users')
-        .leftJoin('information_schema.query_log', 'name', 'information_schema.query_log.query')
-        .select(['users.name', 'information_schema.query_log.event_time'])
-        .where('information_schema.query_log.event_time', 'eq', 'default')
+        .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+        .select(['users.name', 'information_schema.tables.table_type'])
+        .where('information_schema.tables.table_schema', 'eq', 'default')
         .orderBy('users.name', 'ASC')
         .limit(5)
         .toSQL();

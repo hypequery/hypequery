@@ -1,5 +1,5 @@
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType, JoinType, TableReference } from '../../types/index.js';
+import { JoinType, TableReference } from '../../types/index.js';
 
 export class JoinFeature<
   Schema,

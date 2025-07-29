@@ -4,8 +4,8 @@ import type { ColumnType, InferColumnType, SchemaWithCrossDatabaseSupport } from
 
 // Define FilterGroup interface for nested filter groups
 export interface FilterGroup<
-  Schema = SchemaWithCrossDatabaseSupport,
-  OriginalT = Record<string, any>
+  Schema,
+  OriginalT
 > {
   operator: 'AND' | 'OR';
   conditions: Array<
