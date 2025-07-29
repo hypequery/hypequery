@@ -1,8 +1,9 @@
 import { CrossFilter, FilterGroup } from '../cross-filter.js';
-import { FilterConditionInput, FilterOperator } from '../../types/filters.js';
+import { FilterConditionInput } from '../../types/filters.js';
+import { SchemaWithCrossDatabaseSupport } from '../../types/index.js';
 
 describe('CrossFilter', () => {
-  let crossFilter: CrossFilter;
+  let crossFilter: CrossFilter<SchemaWithCrossDatabaseSupport>;
 
   beforeEach(() => {
     crossFilter = new CrossFilter();

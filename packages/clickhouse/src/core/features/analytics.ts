@@ -3,7 +3,7 @@ import { ColumnType, TableColumn } from '../../types/index.js';
 import { ClickHouseSettings } from '@clickhouse/client-common'
 
 export class AnalyticsFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
+  Schema,
   T,
   HasSelect extends boolean = false,
   Aggregations = {},

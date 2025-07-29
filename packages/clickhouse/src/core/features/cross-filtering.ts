@@ -22,7 +22,7 @@ function isFilterGroup(obj: any): obj is FilterGroup<any, any> {
  * Feature for handling cross-filter operations on queries
  */
 export class CrossFilteringFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
+  Schema,
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
