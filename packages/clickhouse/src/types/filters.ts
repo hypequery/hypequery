@@ -1,4 +1,4 @@
-import { TableColumn } from "./base.js";
+import { SchemaWithCrossDatabaseSupport, TableColumn } from "./base.js";
 
 export type FilterValue<T> =
   T extends Date ? Date | string :
@@ -70,8 +70,8 @@ export type FilterOperator = keyof OperatorValueMap<any>;
 
 export interface FilterConditionInput<
   T = any,
-  Schema extends Record<string, Record<string, any>> = any,
-  OriginalT extends Record<string, any> = any
+  Schema = SchemaWithCrossDatabaseSupport,
+  OriginalT = Record<string, any>
 > {
   column: keyof OriginalT | TableColumn<Schema>;
   operator: FilterOperator;

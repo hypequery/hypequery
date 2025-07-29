@@ -45,6 +45,7 @@ ${colors.bright}Options:${colors.reset}
   --username=<user>          ClickHouse username (default: default)
   --password=<password>      ClickHouse password
   --database=<db>            ClickHouse database name (default: default)
+  --databases=<dbs>          Comma-separated list of databases to include for cross-database support
   --include-tables=<tables>  Comma-separated list of tables to include (default: all)
   --exclude-tables=<tables>  Comma-separated list of tables to exclude (default: none)
   --secure                   Use HTTPS/TLS for connection
@@ -73,6 +74,7 @@ ${colors.bright}Examples:${colors.reset}
   npx hypequery-generate-types --host=https://your-instance.clickhouse.cloud:8443 --secure
   npx hypequery-generate-types --host=http://localhost:8123 --username=default --password=password --database=my_db
   npx hypequery-generate-types --include-tables=users,orders,products
+  npx hypequery-generate-types --databases=default,information_schema,system
   `);
 }
 
@@ -84,6 +86,7 @@ function parseArguments(args) {
     output: './generated-schema.ts',
     includeTables: [],
     excludeTables: [],
+    databases: [],
     secure: false
   };
 
@@ -98,6 +101,8 @@ function parseArguments(args) {
       config.password = arg.substring('--password='.length);
     } else if (arg.startsWith('--database=')) {
       config.database = arg.substring('--database='.length);
+    } else if (arg.startsWith('--databases=')) {
+      config.databases = arg.substring('--databases='.length).split(',');
     } else if (arg.startsWith('--include-tables=')) {
       config.includeTables = arg.substring('--include-tables='.length).split(',');
     } else if (arg.startsWith('--exclude-tables=')) {
@@ -159,6 +164,11 @@ async function main() {
     console.log(`${colors.dim}Connecting to ClickHouse at ${colors.reset}${colors.bright}${host}${colors.reset}`);
     console.log(`${colors.dim}Database: ${colors.reset}${colors.bright}${database}${colors.reset}`);
 
+    // Show cross-database information if specified
+    if (config.databases.length > 0) {
+      console.log(`${colors.dim}Cross-database support enabled for: ${colors.reset}${colors.bright}${config.databases.join(', ')}${colors.reset}`);
+    }
+
     // Configure connection
     const connectionConfig = {
       host,
@@ -184,11 +194,44 @@ async function main() {
     // Generate types
     await generateTypes(config.output, {
       includeTables: config.includeTables.length > 0 ? config.includeTables : undefined,
-      excludeTables: config.excludeTables.length > 0 ? config.excludeTables : undefined
+      excludeTables: config.excludeTables.length > 0 ? config.excludeTables : undefined,
+      databases: config.databases.length > 0 ? config.databases : undefined
     });
 
     console.log(`${colors.green}✓ Success! ${colors.reset}Types generated at ${colors.bright}${path.resolve(config.output)}${colors.reset}`);
-    console.log(`
+
+    // Show usage information based on whether cross-database support was enabled
+    if (config.databases.length > 0) {
+      console.log(`
+${colors.dim}Cross-database support enabled! You can now use:${colors.reset}
+
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { IntrospectedSchema } from '${config.output.replace(/\.ts$/, '')}';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: '${host}',
+  username: '${username}',
+  password: '********',
+  database: '${database}'
+});
+
+// Query from default database
+const users = await db.table('users').select(['id', 'name']).execute();
+
+// Query from cross-database table
+const tables = await db.crossTable('information_schema.tables')
+  .select(['table_name', 'table_schema'])
+  .execute();
+
+// Cross-database join
+const userTables = await db.table('users')
+  .leftJoinCrossDatabase('information_schema.tables', 'name', 'information_schema.tables.table_name')
+  .select(['users.name', 'information_schema.tables.table_type'])
+  .where('information_schema.tables.table_schema', 'eq', 'default')
+  .execute();
+`);
+    } else {
+      console.log(`
 ${colors.dim}To use these types in your project:${colors.reset}
 
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -200,7 +243,10 @@ const db = createQueryBuilder<IntrospectedSchema>({
   password: '********',
   database: '${database}'
 });
+
+// For cross-database support, use: --databases=default,information_schema,system
 `);
+    }
   } catch (error) {
     console.error(`${colors.red}✗ Error generating types: ${colors.reset}${error.message}`);
 

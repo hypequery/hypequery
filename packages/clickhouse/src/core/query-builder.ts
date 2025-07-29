@@ -12,6 +12,7 @@ import {
   InferColumnType,
   PaginationOptions,
   PaginatedResult,
+  TableReference,
 } from '../types/index.js';
 import { SQLFormatter } from './formatters/sql-formatter.js';
 import { AggregationFeature } from './features/aggregations.js';
@@ -61,7 +62,7 @@ export function isClientConfig(config: ClickHouseConfig): config is ClickHouseCl
  * @template Aggregations - The type of any aggregation functions applied
  */
 export class QueryBuilder<
-  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
+  Schema,
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
@@ -613,54 +614,48 @@ export class QueryBuilder<
     return this.where(column, 'between', [min, max] as any);
   }
 
-  innerJoin<TableName extends keyof Schema>(
+  innerJoin<TableName extends TableReference<Schema>>(
     table: TableName,
-    leftColumn: keyof OriginalT,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    leftColumn: keyof OriginalT & string,
+    rightColumn: TableColumn<Schema>,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('INNER', table, leftColumn, rightColumn, alias);
+    newBuilder.config = this.joins.addJoin('INNER', table, leftColumn, String(rightColumn), alias);
     return newBuilder;
   }
 
-  leftJoin<
-    TableName extends keyof Schema
-  >(
+  leftJoin<TableName extends TableReference<Schema>>(
     table: TableName,
-    leftColumn: keyof OriginalT,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    leftColumn: keyof OriginalT & string,
+    rightColumn: TableColumn<Schema>,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('LEFT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    newBuilder.config = this.joins.addJoin('LEFT', table, leftColumn, String(rightColumn), alias);
+    return newBuilder;
   }
 
-  rightJoin<
-    TableName extends keyof Schema  // The table we're joining to
-  >(
+  rightJoin<TableName extends TableReference<Schema>>(
     table: TableName,
-    leftColumn: keyof OriginalT,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    leftColumn: keyof OriginalT & string,
+    rightColumn: TableColumn<Schema>,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    newBuilder.config = this.joins.addJoin('RIGHT', table, leftColumn, String(rightColumn), alias);
+    return newBuilder;
   }
 
-  fullJoin<
-    TableName extends keyof Schema
-  >(
+  fullJoin<TableName extends TableReference<Schema>>(
     table: TableName,
-    leftColumn: keyof OriginalT,
-    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    leftColumn: keyof OriginalT & string,
+    rightColumn: TableColumn<Schema>,
     alias?: string
   ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
     const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, String(rightColumn), alias);
+    return newBuilder;
   }
 
   // Make config accessible to features
@@ -729,7 +724,9 @@ export class QueryBuilder<
 }
 
 export function createQueryBuilder<Schema extends {
-  [K in keyof Schema]: { [columnName: string]: ColumnType }
+  [K in keyof Schema]: K extends '__databases'
+  ? { [databaseName: string]: { [tableName: string]: { [columnName: string]: ColumnType } } }
+  : { [columnName: string]: ColumnType }
 }>(
   config: ClickHouseConfig
 ) {
@@ -745,6 +742,6 @@ export function createQueryBuilder<Schema extends {
         },
         {} as Schema
       );
-    }
+    },
   };
 }
