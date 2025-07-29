@@ -19,4 +19,13 @@ export interface IntrospectedSchema {
     ScopeAttributes: 'Map(LowCardinality(String), String)';
     LogAttributes: 'Map(LowCardinality(String), String)';
   };
+
+  __databases: {
+    system: {
+      test_table: {
+        ScopeVersion: 'LowCardinality(String)';
+        ScopeAttributes: 'Map(LowCardinality(String), String)';
+      }
+    }
+  }
 } 

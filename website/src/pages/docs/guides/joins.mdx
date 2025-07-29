@@ -1,12 +1,12 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: Join Relationships
-description: Learn how to work with table relationships in hypequery
+description: Learn how to work with table relationships and cross-database joins in hypequery
 ---
 
 # Join Relationships
 
-hypequery provides powerful features for managing table relationships and performing joins. This guide covers how to define and use join relationships effectively.
+hypequery provides powerful features for managing table relationships and performing joins, including support for cross-database operations. This guide covers how to define and use join relationships effectively.
 
 ## Basic Joins
 
@@ -36,6 +36,115 @@ db.rightJoin('users', 'user_id', 'users.id')
 
 // Full Join
 db.fullJoin('users', 'user_id', 'users.id')
+```
+
+## Cross-Database Joins
+
+hypequery supports joining tables from different databases on the same ClickHouse server. This is particularly useful for accessing system tables or metadata.
+
+### Basic Cross-Database Joins
+
+```typescript
+// Join with information_schema tables
+const tableInfo = await db
+  .table('users')
+  .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+  .select(['users.name', 'information_schema.tables.table_type'])
+  .where('information_schema.tables.table_schema', 'eq', 'default')
+  .execute();
+
+// Join with system tables
+const systemInfo = await db
+  .table('users')
+  .innerJoin('system.tables', 'id', 'system.tables.database')
+  .select(['users.name', 'system.tables.engine'])
+  .where('system.tables.database', 'eq', 'default')
+  .execute();
+```
+
+### Complex Cross-Database Queries
+
+```typescript
+// Multiple cross-database joins with aliases
+const complexQuery = await db
+  .table('users')
+  .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name', 'ist')
+  .innerJoin('system.tables', 'id', 'system.tables.database', 'st')
+  .select(['users.name', 'ist.table_type', 'st.engine'])
+  .where('ist.table_schema', 'eq', 'default')
+  .where('st.database', 'eq', 'default')
+  .orderBy('users.name', 'ASC')
+  .limit(10)
+  .execute();
+```
+
+### Mixed Same-Database and Cross-Database Joins
+
+```typescript
+// Combine same-database and cross-database joins
+const mixedQuery = await db
+  .table('users')
+  .leftJoin('posts', 'id', 'posts.user_id') // Same database
+  .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name') // Cross-database
+  .select(['users.name', 'posts.title', 'information_schema.tables.table_type'])
+  .execute();
+```
+
+## Table Name Format
+
+### Same-Database Tables
+For tables in the current database, use simple table names:
+```typescript
+db.leftJoin('users', 'user_id', 'users.id')
+```
+
+### Cross-Database Tables
+For tables in other databases, use the `database.table` format:
+```typescript
+db.leftJoin('information_schema.tables', 'user_id', 'information_schema.tables.id')
+db.leftJoin('system.query_log', 'user_id', 'system.query_log.user')
+```
+
+## Type Safety
+
+hypequery provides full type safety for both same-database and cross-database joins. When you generate types for multiple databases, TypeScript will catch invalid references at compile time:
+
+```typescript
+// ✅ Valid - TypeScript knows about information_schema.tables
+.leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+
+// ❌ Invalid - TypeScript error
+.leftJoin('nonexistent_db.fake_table', 'name', 'nonexistent_db.fake_table.column')
+```
+
+## Generating Types for Cross-Database Support
+
+To enable type safety for cross-database joins, generate types for multiple databases:
+
+```bash
+npx hypequery generate-types --databases default,information_schema,system
+```
+
+This creates a schema with cross-database support:
+
+```typescript
+interface IntrospectedSchema {
+  // Default database tables
+  users: { id: 'UInt64'; name: 'String'; email: 'String' };
+  posts: { id: 'UInt64'; title: 'String'; user_id: 'UInt64' };
+  
+  // Cross-database tables
+  __databases: {
+    information_schema: {
+      tables: { table_name: 'String'; table_schema: 'String'; table_type: 'String' };
+      columns: { table_name: 'String'; column_name: 'String'; data_type: 'String' };
+    };
+    system: {
+      tables: { database: 'String'; name: 'String'; engine: 'String' };
+      query_log: { query: 'String'; event_time: 'DateTime'; user: 'String' };
+    };
+  };
+}
 ```
 
 ## Defining Reusable Relationships
@@ -100,4 +209,141 @@ const innerJoinResults = await db
   .withRelation('userOrders', { type: 'INNER', alias: 'user_orders' })
   .select(['name', 'user_orders.user_name'])
   .execute();
-``` 
+```
+
+## Advanced Join Patterns
+
+### Self-Joins
+
+```typescript
+// Join a table with itself
+const employeeHierarchy = await db
+  .table('employees')
+  .leftJoin('employees', 'manager_id', 'employees.id', 'manager')
+  .select(['employees.name', 'manager.name as manager_name'])
+  .execute();
+```
+
+### Multiple Joins with Aggregations
+
+```typescript
+const userActivityStats = await db
+  .table('users')
+  .leftJoin('posts', 'id', 'posts.user_id')
+  .leftJoin('comments', 'id', 'comments.user_id')
+  .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+  .select(['users.name'])
+  .count('posts.id', 'post_count')
+  .count('comments.id', 'comment_count')
+  .groupBy(['users.name'])
+  .having('post_count > 0 OR comment_count > 0')
+  .execute();
+```
+
+### Conditional Joins
+
+```typescript
+// Use different join types based on conditions
+const query = db.table('users');
+
+if (includePosts) {
+  query.leftJoin('posts', 'id', 'posts.user_id');
+}
+
+if (includeSystemInfo) {
+  query.leftJoin('system.tables', 'id', 'system.tables.database');
+}
+
+const results = await query
+  .select(['users.name'])
+  .execute();
+```
+
+## Best Practices
+
+### 1. Use Aliases for Clarity
+```typescript
+// Good: Clear aliases
+.leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name', 'ist')
+.leftJoin('system.tables', 'id', 'system.tables.database', 'st')
+
+// Avoid: No aliases can make queries hard to read
+.leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+```
+
+### 2. Leverage Type Safety
+```typescript
+// Generate types for all databases you need
+npx hypequery generate-types --databases default,information_schema,system
+
+// TypeScript will catch errors at compile time
+.leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name') // ✅
+.leftJoin('nonexistent.table', 'name', 'nonexistent.table.column') // ❌ TypeScript error
+```
+
+### 3. Optimize Cross-Database Queries
+```typescript
+// Add appropriate filters to reduce data transfer
+.leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+.where('information_schema.tables.table_schema', 'eq', 'default')
+```
+
+### 4. Use Relationships for Common Patterns
+```typescript
+// Define once, use everywhere
+relationships.define('userInfo', {
+  from: 'orders',
+  to: 'users',
+  leftColumn: 'user_id',
+  rightColumn: 'id',
+  type: 'LEFT'
+});
+
+// Use consistently across your application
+.withRelation('userInfo')
+```
+
+## Error Handling
+
+hypequery provides helpful error messages for common join issues:
+
+```typescript
+// Invalid table reference
+.leftJoin('nonexistent.table', 'id', 'nonexistent.table.column')
+// Error: Table 'nonexistent.table' not found in schema
+
+// Invalid column reference
+.leftJoin('users', 'invalid_column', 'users.id')
+// Error: Column 'invalid_column' not found in table
+
+// Cross-database permission issues
+.leftJoin('restricted_database.table', 'id', 'restricted_database.table.column')
+// Warning: Joining with database 'restricted_database' may require special permissions
+```
+
+## Performance Considerations
+
+### Cross-Database Joins
+- Cross-database joins may be slower than same-database joins
+- Consider adding appropriate WHERE clauses to limit data
+- Use indexes on join columns when possible
+- Monitor query performance and optimize as needed
+
+### Join Order
+- ClickHouse's query optimizer handles join ordering automatically
+- For complex queries, consider breaking them into smaller parts
+- Use EXPLAIN to understand query execution plans
+
+```typescript
+// Complex query - consider breaking into parts
+const complexQuery = await db
+  .table('users')
+  .leftJoin('posts', 'id', 'posts.user_id')
+  .leftJoin('comments', 'id', 'comments.user_id')
+  .leftJoin('information_schema.tables', 'name', 'information_schema.tables.table_name')
+  .leftJoin('system.tables', 'id', 'system.tables.database')
+  .select(['users.name', 'posts.title', 'comments.content'])
+  .execute();
+```
+
+For more information about cross-database functionality, see the [Cross-Database Guide](/docs/guides/cross-database). 
