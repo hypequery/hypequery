@@ -5,7 +5,7 @@ import { substituteParameters } from '../utils.js';
 import { logger } from '../utils/logger.js';
 
 export class ExecutorFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
+  Schema,
   T,
   HasSelect extends boolean = false,
   Aggregations = {},

@@ -1,11 +1,11 @@
 import { FilterValidator } from './validators/filter-validator.js';
 import { FilterConditionInput, FilterOperator, OperatorValueMap } from '../types/index.js';
-import type { ColumnType, InferColumnType } from '../types/index.js';
+import type { ColumnType, InferColumnType, SchemaWithCrossDatabaseSupport } from '../types/index.js';
 
 // Define FilterGroup interface for nested filter groups
 export interface FilterGroup<
-  Schema extends Record<string, Record<string, any>> = any,
-  OriginalT extends Record<string, any> = any
+  Schema,
+  OriginalT
 > {
   operator: 'AND' | 'OR';
   conditions: Array<
@@ -24,7 +24,7 @@ export interface FilterGroup<
  * @template TableName - The specific table being filtered
  */
 export class CrossFilter<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } } = any,
+  Schema,
   TableName extends keyof Schema = Extract<keyof Schema, string>
 > {
   // Root group holding filter conditions or nested groups, defaulting to an implicit AND.
@@ -40,11 +40,11 @@ export class CrossFilter<
    * Performs type-safe validation if a schema is provided.
    */
   add<
-    ColumnName extends Extract<keyof Schema[TableName], string>,
+    ColumnName extends keyof Schema[TableName] & string,
     Op extends FilterOperator
   >(
     condition: FilterConditionInput<
-      OperatorValueMap<InferColumnType<Schema[TableName][ColumnName]>>[Op],
+      OperatorValueMap<InferColumnType<Schema[TableName][ColumnName] & ColumnType>>[Op],
       Schema,
       Schema[TableName]
     >
@@ -59,17 +59,10 @@ export class CrossFilter<
       );
     }
 
-    // Convert Date objects to ISO strings for ClickHouse
-    let value = condition.value;
-    if (Array.isArray(value)) {
-      value = value.map(v => v instanceof Date ? v.toISOString() : v) as typeof value;
-    } else if (value instanceof Date) {
-      value = value.toISOString() as typeof value;
-    }
-
+    // Store the condition value directly (consumers should pass strings for dates)
     this.rootGroup.conditions.push({
       ...condition,
-      value
+      value: condition.value
     });
     return this;
   }
@@ -126,9 +119,9 @@ export class CrossFilter<
       return 'String';
     }
     for (const table in this.schema) {
-      const tableSchema = this.schema[table];
-      if (column in tableSchema) {
-        return tableSchema[column];
+      const tableSchema = this.schema[table as keyof Schema];
+      if (typeof tableSchema === 'object' && tableSchema !== null && column in tableSchema) {
+        return (tableSchema as Record<string, ColumnType>)[column];
       }
     }
     throw new Error(`Column '${column}' not found in schema`);
@@ -189,7 +182,7 @@ export class CrossFilter<
    * @param n - Number of records to return
    * @param orderBy - Sort direction, defaults to 'desc'
    */
-  topN<K extends keyof Schema[TableName]>(
+  topN<K extends keyof Schema[TableName] & string>(
     valueColumn: K,
     n: number,
     orderBy: 'desc' | 'asc' = 'desc'

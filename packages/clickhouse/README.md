@@ -20,6 +20,7 @@ hypequery is a typescript-first query builder for ClickHouse designed specifical
 - 🛠️ **Developer Friendly**: Fluent API design for an intuitive development experience
 - 📱 **Platform Agnostic**: Works in both Node.js and browser environments
 - 🔄 **Schema Generation**: CLI tool to generate TypeScript types from your ClickHouse schema
+- 🌐 **Cross-Database Support**: Query and join tables across multiple databases on the same server
 
 ## Installation
 
@@ -186,6 +187,31 @@ const tripsWithDrivers = await db.table('trips')
 
 ```
 
+### Cross-Database Support
+
+Query and join tables across multiple databases on the same ClickHouse server:
+
+```bash
+# Generate types for multiple databases
+npx hypequery-generate-types --databases=default,information_schema,system
+```
+
+```typescript
+// Query from cross-database table
+const tables = await db.crossTable('information_schema.tables')
+  .select(['table_name', 'table_schema'])
+  .where('table_schema', 'eq', 'default')
+  .execute();
+
+// Cross-database join
+const userTables = await db.table('users')
+  .leftJoinCrossDatabase('information_schema.tables', 'name', 'information_schema.tables.table_name')
+  .select(['users.name', 'information_schema.tables.table_type'])
+  .where('information_schema.tables.table_schema', 'eq', 'default')
+  .execute();
+```
+
+For detailed cross-database documentation, see [CROSS_DATABASE.md](./CROSS_DATABASE.md).
 
 **Benefits:**
 - ✅ Works in all environments (Node.js, browser, bundlers)
