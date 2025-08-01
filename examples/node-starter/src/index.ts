@@ -7,4 +7,5 @@ const db = createQueryBuilder<IntrospectedSchema>({
 
 const table = db.table('otel_logs')
 const validResults = await table.select(['ResourceAttributes', 'Body', 'ScopeVersion']).limit(100).execute();
-console.log('Valid SQL Query:', validResults);
+const validResults2 = await table.select('*').limit(100).execute();
+console.log('Valid SQL Query:', validResults, validResults2);
