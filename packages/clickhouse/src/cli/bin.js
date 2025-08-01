@@ -50,6 +50,8 @@ ${colors.bright}Options:${colors.reset}
   --secure                   Use HTTPS/TLS for connection
   --help, -h                 Show this help text
 
+${colors.dim}Note: All options support both formats: --option=value or --option value${colors.reset}
+
 ${colors.bright}Environment variables:${colors.reset}
   CLICKHOUSE_HOST            ClickHouse server URL
   VITE_CLICKHOUSE_HOST       Alternative variable for Vite projects
@@ -70,9 +72,11 @@ ${colors.bright}Environment variables:${colors.reset}
 ${colors.bright}Examples:${colors.reset}
   npx hypequery-generate-types
   npx hypequery-generate-types --output=./src/types/db-schema.ts
+  npx hypequery-generate-types --output ./src/types/db-schema.ts
   npx hypequery-generate-types --host=https://your-instance.clickhouse.cloud:8443 --secure
-  npx hypequery-generate-types --host=http://localhost:8123 --username=default --password=password --database=my_db
+  npx hypequery-generate-types --host http://localhost:8123 --username default --password password --database my_db
   npx hypequery-generate-types --include-tables=users,orders,products
+  npx hypequery-generate-types --include-tables users,orders,products
   `);
 }
 
@@ -87,28 +91,66 @@ function parseArguments(args) {
     secure: false
   };
 
-  for (const arg of args) {
-    if (arg.startsWith('--output=')) {
-      config.output = arg.substring('--output='.length);
-    } else if (arg.startsWith('--host=')) {
-      config.host = arg.substring('--host='.length);
-    } else if (arg.startsWith('--username=')) {
-      config.username = arg.substring('--username='.length);
-    } else if (arg.startsWith('--password=')) {
-      config.password = arg.substring('--password='.length);
-    } else if (arg.startsWith('--database=')) {
-      config.database = arg.substring('--database='.length);
-    } else if (arg.startsWith('--include-tables=')) {
-      config.includeTables = arg.substring('--include-tables='.length).split(',');
-    } else if (arg.startsWith('--exclude-tables=')) {
-      config.excludeTables = arg.substring('--exclude-tables='.length).split(',');
-    } else if (arg === '--secure') {
-      config.secure = true;
-    } else if (arg === '--help' || arg === '-h') {
-      config.showHelp = true;
-    } else if (!arg.startsWith('-') && !config.output) {
-      // For backwards compatibility, treat the first non-flag argument as the output path
-      config.output = arg;
+  // Helper function to extract value from --param=value format
+  function getParamValue(arg, paramName) {
+    if (arg.startsWith(`${paramName}=`)) {
+      return arg.substring(paramName.length + 1); // +1 for the '=' character
+    }
+    return null;
+  }
+
+  // Helper function to get next argument as value
+  function getNextArgValue(args, index) {
+    return args[index + 1];
+  }
+
+  // Parameter handlers map
+  const paramHandlers = {
+    '--output': (value) => config.output = value,
+    '--host': (value) => config.host = value,
+    '--username': (value) => config.username = value,
+    '--password': (value) => config.password = value,
+    '--database': (value) => config.database = value,
+    '--include-tables': (value) => config.includeTables = value.split(','),
+    '--exclude-tables': (value) => config.excludeTables = value.split(',')
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    let handled = false;
+
+    // Handle parameters with values
+    for (const [paramName, handler] of Object.entries(paramHandlers)) {
+      // Check for --param=value format
+      const value = getParamValue(arg, paramName);
+      if (value !== null) {
+        handler(value);
+        handled = true;
+        break;
+      }
+
+      // Check for --param value format
+      if (arg === paramName) {
+        const nextValue = getNextArgValue(args, i);
+        if (nextValue && !nextValue.startsWith('-')) {
+          handler(nextValue);
+          i++; // Skip the next argument since we consumed it
+          handled = true;
+          break;
+        }
+      }
+    }
+
+    // Handle boolean flags
+    if (!handled) {
+      if (arg === '--secure') {
+        config.secure = true;
+      } else if (arg === '--help' || arg === '-h') {
+        config.showHelp = true;
+      } else if (!arg.startsWith('-') && !config.output) {
+        // For backwards compatibility, treat the first non-flag argument as the output path
+        config.output = arg;
+      }
     }
   }
 
