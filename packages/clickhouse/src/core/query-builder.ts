@@ -224,7 +224,7 @@ export class QueryBuilder<
         ...this.config,
         select: ['*'],
         orderBy: this.config.orderBy?.map(({ column, direction }) => ({
-          column: String(column) as any,
+          column: String(column),
           direction
         }))
       };
@@ -232,7 +232,7 @@ export class QueryBuilder<
     }
 
     // Handle array case - select specific columns
-    const columns = columnsOrAsterisk as K[];
+    const columns = columnsOrAsterisk
 
     // Create a new builder with the appropriate type parameters
     const newBuilder = new QueryBuilder<
