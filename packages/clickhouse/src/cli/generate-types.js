@@ -35,6 +35,40 @@ const clickhouseToTsType = (type) => {
     return `${clickhouseToTsType(innerType)} | null`;
   }
 
+  // Handle Map types
+  if (type.startsWith('Map(')) {
+    // Extract key and value types from Map(KeyType, ValueType)
+    const mapContent = type.slice(4, -1); // Remove 'Map(' and ')'
+    const commaIndex = mapContent.lastIndexOf(',');
+    if (commaIndex !== -1) {
+      const keyType = mapContent.substring(0, commaIndex).trim();
+      const valueType = mapContent.substring(commaIndex + 1).trim();
+
+      // Handle different key types
+      let keyTsType = 'string';
+      if (keyType === 'LowCardinality(String)') {
+        keyTsType = 'string';
+      } else if (keyType.includes('Int') || keyType.includes('UInt')) {
+        keyTsType = 'number';
+      }
+
+      // Handle different value types
+      let valueTsType = 'unknown';
+      if (valueType.startsWith('Array(')) {
+        const innerType = valueType.slice(6, -1);
+        valueTsType = `Array<${clickhouseToTsType(innerType)}>`;
+      } else if (valueType.startsWith('Nullable(')) {
+        const innerType = valueType.slice(9, -1);
+        valueTsType = `${clickhouseToTsType(innerType)} | null`;
+      } else {
+        valueTsType = clickhouseToTsType(valueType);
+      }
+
+      return `Record<${keyTsType}, ${valueTsType}>`;
+    }
+    return 'Record<string, unknown>';
+  }
+
   switch (type.toLowerCase()) {
     case 'string':
     case 'fixedstring':
@@ -43,12 +77,16 @@ const clickhouseToTsType = (type) => {
     case 'int16':
     case 'int32':
     case 'uint8':
+    case 'int64':
     case 'uint16':
     case 'uint32':
-      return 'number';
-    case 'int64':
     case 'uint64':
-      return 'string'; // Use string for 64-bit integers to avoid precision loss
+      return 'number';
+    case 'uint128':
+    case 'uint256':
+    case 'int128':
+    case 'int256':
+      return 'string';
     case 'float32':
     case 'float64':
     case 'decimal':

@@ -182,32 +182,58 @@ export class QueryBuilder<
     return this;
   }
 
+
   /**
    * Selects specific columns from the table.
    * @template K - The keys/columns to select
-   * @param {K[]} columns - Array of column names to select
+   * @param {K[] | '*'} columnsOrAsterisk - Array of column names to select or '*' for all columns
    * @returns {QueryBuilder} A new QueryBuilder instance with updated types
    * @example
    * ```ts
    * builder.select(['id', 'name'])
+   * builder.select('*')
    * ```
    */
-  select<K extends keyof T | TableColumn<Schema> | SqlExpression>(
-    columns: K[]
-  ): QueryBuilder<
-    Schema,
-    {
-      [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
-      P extends keyof T
-      ? T[P] extends ColumnType
-      ? InferClickHouseType<T[P]>
-      : unknown
-      : string
-    },
-    true,
-    Aggregations,
-    OriginalT
-  > {
+  select<K extends keyof T | TableColumn<Schema> | SqlExpression = keyof T | TableColumn<Schema> | SqlExpression>(
+    columnsOrAsterisk: K[] | '*'
+  ): K[] extends typeof columnsOrAsterisk
+    ? QueryBuilder<
+      Schema,
+      {
+        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
+        P extends keyof T
+        ? T[P] extends ColumnType
+        ? InferClickHouseType<T[P]>
+        : unknown
+        : string
+      },
+      true,
+      Aggregations,
+      OriginalT
+    >
+    : QueryBuilder<Schema, T, true, Aggregations, OriginalT> {
+    // Handle '*' case - return all columns with original type
+    if (columnsOrAsterisk === '*') {
+      const newBuilder = new QueryBuilder<Schema, T, true, Aggregations, OriginalT>(
+        this.tableName,
+        this.schema,
+        this.originalSchema
+      );
+
+      newBuilder.config = {
+        ...this.config,
+        select: ['*'],
+        orderBy: this.config.orderBy?.map(({ column, direction }) => ({
+          column: String(column),
+          direction
+        }))
+      };
+      return newBuilder as any;
+    }
+
+    // Handle array case - select specific columns
+    const columns = columnsOrAsterisk
+
     // Create a new builder with the appropriate type parameters
     const newBuilder = new QueryBuilder<
       Schema,

@@ -20,6 +20,22 @@ describe('QueryBuilder - Basic Operations', () => {
       const sql = builder.toSQL();
       expect(sql).toBe('SELECT * FROM test_table');
     });
+
+    it('should handle select("*") for all columns', () => {
+      const sql = builder
+        .select('*')
+        .toSQL();
+      expect(sql).toBe('SELECT * FROM test_table');
+    });
+
+    it('should handle select("*") with additional clauses', () => {
+      const sql = builder
+        .select('*')
+        .where('id', 'gt', 1)
+        .limit(10)
+        .toSQL();
+      expect(sql).toBe('SELECT * FROM test_table WHERE id > 1 LIMIT 10');
+    });
   });
 
   describe('distinct', () => {
