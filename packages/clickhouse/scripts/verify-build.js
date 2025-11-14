@@ -185,10 +185,62 @@ function printFileContent(filePath, lines = 10) {
   }
 }
 
+// Check for browser compatibility - ensure no static imports of Node.js-only packages
+console.log('\nChecking browser compatibility:');
+const connectionJsPath = path.join(distDir, 'core', 'connection.js');
+let browserCompatibilityIssues = [];
+
+if (fs.existsSync(connectionJsPath)) {
+  const content = fs.readFileSync(connectionJsPath, 'utf8');
+
+  // Check for static imports of Node.js-only packages at the top of the file
+  // These would cause bundlers to include Node.js dependencies in browser builds
+  const nodeOnlyPackages = [
+    '@clickhouse/client'
+  ];
+
+  // Get the first 10 lines where imports typically are
+  const firstLines = content.split('\n').slice(0, 10).join('\n');
+
+  for (const pkg of nodeOnlyPackages) {
+    // Check for static import statements (not dynamic require)
+    const staticImportPattern = new RegExp(`import\\s+.*from\\s+['"]${pkg}['"]`, 'g');
+    const matches = firstLines.match(staticImportPattern);
+
+    if (matches) {
+      console.log(`${colors.red}✗ Found static import of Node.js-only package: ${pkg}${colors.reset}`);
+      console.log(`  ${colors.yellow}This will cause browser bundling issues!${colors.reset}`);
+      console.log(`  ${colors.dim}Matched: ${matches.join(', ')}${colors.reset}`);
+      browserCompatibilityIssues.push(`Static import of ${pkg} found in connection.js`);
+    }
+  }
+
+  // Verify that dynamic require() is present for Node.js client
+  if (content.includes("require('@clickhouse/client')")) {
+    console.log(`${colors.green}✓ Using dynamic require() for Node.js client${colors.reset}`);
+  } else {
+    console.log(`${colors.yellow}⚠ No dynamic require() found for @clickhouse/client${colors.reset}`);
+    console.log(`  ${colors.dim}This might be intentional if using a different approach${colors.reset}`);
+  }
+
+  if (browserCompatibilityIssues.length === 0) {
+    console.log(`${colors.green}✓ No browser compatibility issues detected${colors.reset}`);
+  }
+} else {
+  console.error(`${colors.red}✗ connection.js not found for browser compatibility check${colors.reset}`);
+  browserCompatibilityIssues.push('connection.js missing');
+}
+
 // Print summary
-if (missingEssentialFiles.length > 0) {
+if (missingEssentialFiles.length > 0 || browserCompatibilityIssues.length > 0) {
   console.error(`\n${colors.red}${colors.bright}Build verification failed!${colors.reset}`);
-  console.error(`${colors.red}${missingEssentialFiles.length} essential files are missing.${colors.reset}`);
+  if (missingEssentialFiles.length > 0) {
+    console.error(`${colors.red}${missingEssentialFiles.length} essential files are missing.${colors.reset}`);
+  }
+  if (browserCompatibilityIssues.length > 0) {
+    console.error(`${colors.red}${browserCompatibilityIssues.length} browser compatibility issues found:${colors.reset}`);
+    browserCompatibilityIssues.forEach(issue => console.error(`  - ${issue}`));
+  }
   process.exit(1);
 } else {
   console.log(`\n${colors.green}${colors.bright}Build verification passed!${colors.reset}`);

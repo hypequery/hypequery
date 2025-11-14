@@ -1,7 +1,22 @@
+/**
+ * ⚠️ IMPORTANT: Browser Compatibility Warning ⚠️
+ *
+ * DO NOT add static imports of Node.js-only packages in this file!
+ *
+ * ❌ WRONG: import { ... } from '@' + 'clickhouse/client' (static import)
+ * ✅ CORRECT: Use dynamic require() inside getClickHouseClientSync()
+ *
+ * Static imports cause bundlers (webpack/Next.js/Vite) to include Node.js
+ * dependencies in browser bundles, breaking browser compatibility even when
+ * users correctly use manual injection with @clickhouse/client-web.
+ *
+ * The build verification script (scripts/verify-build.js) will fail if
+ * static imports of Node.js packages are detected.
+ */
+
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
-import { createClient as createNodeClient } from '@clickhouse/client';
 import type { ClickHouseConfig } from './query-builder.js';
 import { isClientConfig } from './query-builder.js';
 
@@ -20,12 +35,15 @@ function getClickHouseClientSync(): ClickHouseClientModule {
 
   // In Node.js environment, use Node.js client only
   if (isNode) {
+    // Use dynamic import to avoid bundling Node.js client in browser builds
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const clientNode = require('@clickhouse/client');
     if (isDev) {
       console.log('hypequery: Using @clickhouse/client for Node.js environment');
     }
     return {
-      createClient: createNodeClient,
-      ClickHouseSettings: {}
+      createClient: clientNode.createClient,
+      ClickHouseSettings: clientNode.ClickHouseSettings || {}
     };
   }
 

@@ -54,9 +54,6 @@ core/tests/integration/setup.js
 core/tests/integration/test-config.d.ts
 core/tests/integration/test-config.d.ts.map
 core/tests/integration/test-config.js
-core/tests/integration/test-initializer.d.ts
-core/tests/integration/test-initializer.d.ts.map
-core/tests/integration/test-initializer.js
 core/tests/test-utils.d.ts
 core/tests/test-utils.d.ts.map
 core/tests/test-utils.js
