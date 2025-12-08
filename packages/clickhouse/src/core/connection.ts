@@ -1,9 +1,10 @@
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
-import { createClient as createNodeClient } from '@clickhouse/client';
 import type { ClickHouseConfig } from './query-builder.js';
 import { isClientConfig } from './query-builder.js';
+import { getAutoClientModule } from './env/auto-client.js';
+import type { AutoClientModule } from './env/auto-client.js';
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
@@ -23,9 +24,10 @@ function getClickHouseClientSync(): ClickHouseClientModule {
     if (isDev) {
       console.log('hypequery: Using @clickhouse/client for Node.js environment');
     }
+    const clientModule: AutoClientModule = getAutoClientModule();
     return {
-      createClient: createNodeClient,
-      ClickHouseSettings: {}
+      createClient: clientModule.createClient,
+      ClickHouseSettings: clientModule.ClickHouseSettings || {}
     };
   }
 
