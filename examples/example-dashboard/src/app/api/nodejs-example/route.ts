@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createQueryBuilder, raw } from '@hypequery/clickhouse';
-import { createClient } from '@clickhouse/client';
 import { IntrospectedSchema } from '@/generated/generated-schema';
 
 function getDb() {

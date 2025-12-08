@@ -5,6 +5,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "browser": {
+    "./dist/core/env/auto-client.js": "./dist/core/env/auto-client.browser.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

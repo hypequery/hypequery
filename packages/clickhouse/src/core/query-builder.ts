@@ -50,7 +50,7 @@ export type ClickHouseConfig = BaseClickHouseClientConfigOptions | ClickHouseCli
  * Type guard to check if a config is a client-based configuration.
  */
 export function isClientConfig(config: ClickHouseConfig): config is ClickHouseClientConfig {
-  return 'client' in config && !('host' in config);
+  return 'client' in config && config.client !== undefined;
 }
 
 /**
