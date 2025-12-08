@@ -18,7 +18,7 @@ export function getAutoClientModule(): AutoClientModule {
       const settings = (clientModule as { ClickHouseSettings?: ClickHouseSettings }).ClickHouseSettings;
       cachedModule = {
         createClient: clientModule.createClient,
-        ClickHouseSettings: settings ?? ({} as ClickHouseSettings)
+        ClickHouseSettings: settings ?? {}
       };
     } catch (error) {
       throw new Error(
