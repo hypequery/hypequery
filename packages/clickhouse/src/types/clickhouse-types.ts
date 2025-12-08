@@ -45,6 +45,8 @@ export type ClickHouseType =
   | `Nullable(Array(${ClickHouseBaseType}))`
   | `LowCardinality(${ClickHouseString})`
   | `LowCardinality(${ClickHouseEnum})`
+  | `LowCardinality(Nullable(${ClickHouseString}))`
+  | `LowCardinality(Nullable(${ClickHouseEnum}))`
   | `Map(String, ${ClickHouseBaseType})`
   | `Map(String, Array(${ClickHouseBaseType}))`
   | `Map(String, Nullable(${ClickHouseBaseType}))`
@@ -79,9 +81,13 @@ export type InferClickHouseType<T extends ClickHouseType, Depth extends number =
   ? InferClickHouseType<U, Add1<Depth>> | null
   : unknown | null
   : T extends `LowCardinality(${infer U})`
-  ? U extends ClickHouseString | ClickHouseEnum
-  ? InferClickHouseType<U, Add1<Depth>>
-  : unknown
+  ? U extends `Nullable(${infer V})`
+    ? V extends ClickHouseString | ClickHouseEnum
+      ? InferClickHouseType<V, Add1<Depth>> | null
+      : unknown | null
+    : U extends ClickHouseString | ClickHouseEnum
+      ? InferClickHouseType<U, Add1<Depth>>
+      : unknown
   : T extends `Map(${string}, ${infer V})`
   ? V extends ClickHouseType
   ? Record<string, InferClickHouseType<V, Add1<Depth>>>
