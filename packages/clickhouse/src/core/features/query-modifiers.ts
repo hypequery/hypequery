@@ -2,7 +2,7 @@ import { QueryBuilder } from '../query-builder.js';
 import { ColumnType, OrderDirection, TableColumn } from '../../types/index.js';
 
 export class QueryModifiersFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
+  Schema,
   T,
   HasSelect extends boolean = false,
   Aggregations = {},

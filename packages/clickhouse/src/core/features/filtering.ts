@@ -2,7 +2,7 @@ import { QueryBuilder } from '../query-builder.js';
 import { ColumnType, FilterOperator, TableColumn } from '../../types/index.js';
 
 export class FilteringFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
+  Schema,
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
