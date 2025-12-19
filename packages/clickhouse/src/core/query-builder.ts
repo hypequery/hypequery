@@ -1,18 +1,16 @@
 import { ClickHouseConnection } from './connection.js';
 import { CrossFilter } from './cross-filter.js';
 import {
-  ColumnType,
-  InferClickHouseType,
-  FilterOperator,
-  OrderDirection,
-  TableColumn,
   AggregationType,
-  QueryConfig,
+  FilterOperator,
+  InferClickHouseType,
   OperatorValueMap,
-  InferColumnType,
-  PaginationOptions,
+  OrderDirection,
   PaginatedResult,
+  PaginationOptions,
+  QueryConfig,
 } from '../types/index.js';
+import { ColumnType, InferColumnType, TableColumn } from '../types/schema.js';
 import { SQLFormatter } from './formatters/sql-formatter.js';
 import { AggregationFeature } from './features/aggregations.js';
 import { JoinFeature } from './features/joins.js';
@@ -177,7 +175,7 @@ export class QueryBuilder<
    * @param crossFilter - An instance of CrossFilter containing shared filter conditions.
    * @returns The current QueryBuilder instance.
    */
-  applyCrossFilters(crossFilter: CrossFilter<Schema, keyof Schema>): this {
+  applyCrossFilters(crossFilter: CrossFilter<Schema, Extract<keyof Schema, string>>): this {
     this.config = this.crossFiltering.applyCrossFilters(crossFilter);
     return this;
   }
@@ -226,7 +224,7 @@ export class QueryBuilder<
         orderBy: this.config.orderBy?.map(({ column, direction }) => ({
           column: String(column),
           direction
-        }))
+        })) as any
       };
       return newBuilder as any;
     }
@@ -269,7 +267,7 @@ export class QueryBuilder<
       ...this.config,
       select: processedColumns,
       orderBy: this.config.orderBy?.map(({ column, direction }) => ({
-        column: String(column) as any,
+        column: String(column),
         direction
       }))
     };
@@ -740,23 +738,23 @@ export class QueryBuilder<
         const type = options?.type || joinPath.type || 'INNER';
         const alias = options?.alias || joinPath.alias;
         const table = String(joinPath.to) as Extract<keyof Schema, string>;
-        this.config = this.joins.addJoin(type, table, joinPath.leftColumn as any, `${table}.${joinPath.rightColumn}`, alias);
+        const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
+        this.config = this.joins.addJoin(type, table, joinPath.leftColumn as any, rightColumn, alias);
       });
     } else {
       // Handle single join
       const type = options?.type || path.type || 'INNER';
       const alias = options?.alias || path.alias;
       const table = String(path.to) as Extract<keyof Schema, string>;
-      this.config = this.joins.addJoin(type, table, path.leftColumn as any, `${table}.${path.rightColumn}`, alias);
+      const rightColumn = `${table}.${path.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
+      this.config = this.joins.addJoin(type, table, path.leftColumn as any, rightColumn, alias);
     }
 
     return this;
   }
 }
 
-export function createQueryBuilder<Schema extends {
-  [K in keyof Schema]: { [columnName: string]: ColumnType }
-}>(
+export function createQueryBuilder<Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } }>(
   config: ClickHouseConfig
 ) {
   ClickHouseConnection.initialize(config);

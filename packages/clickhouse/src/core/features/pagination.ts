@@ -1,5 +1,6 @@
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType, PaginationOptions, PaginatedResult, PageInfo, TableColumn } from '../../types/index.js';
+import { PaginatedResult, PageInfo, PaginationOptions } from '../../types/index.js';
+import { ColumnType, TableColumn } from '../../types/schema.js';
 
 export class PaginationFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },

@@ -9,6 +9,12 @@ core/connection.js
 core/cross-filter.d.ts
 core/cross-filter.d.ts.map
 core/cross-filter.js
+core/env/auto-client.browser.d.ts
+core/env/auto-client.browser.d.ts.map
+core/env/auto-client.browser.js
+core/env/auto-client.d.ts
+core/env/auto-client.d.ts.map
+core/env/auto-client.js
 core/features/aggregations.d.ts
 core/features/aggregations.d.ts.map
 core/features/aggregations.js
@@ -54,9 +60,6 @@ core/tests/integration/setup.js
 core/tests/integration/test-config.d.ts
 core/tests/integration/test-config.d.ts.map
 core/tests/integration/test-config.js
-core/tests/integration/test-initializer.d.ts
-core/tests/integration/test-initializer.d.ts.map
-core/tests/integration/test-initializer.js
 core/tests/test-utils.d.ts
 core/tests/test-utils.d.ts.map
 core/tests/test-utils.js
@@ -93,3 +96,6 @@ types/filters.js
 types/index.d.ts
 types/index.d.ts.map
 types/index.js
+types/schema.d.ts
+types/schema.d.ts.map
+types/schema.js

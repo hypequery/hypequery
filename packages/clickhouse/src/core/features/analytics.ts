@@ -1,5 +1,5 @@
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType, TableColumn } from '../../types/index.js';
+import { ColumnType, TableColumn } from '../../types/schema.js';
 import { ClickHouseSettings } from '@clickhouse/client-common'
 
 export class AnalyticsFeature<

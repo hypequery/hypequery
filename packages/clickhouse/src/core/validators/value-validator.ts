@@ -1,4 +1,5 @@
-import { ColumnType, FilterOperator } from '../../types/index.js';
+import { FilterOperator } from '../../types/index.js';
+import { ColumnType } from '../../types/schema.js';
 
 export class ValueValidator {
   static validateFilterValue(

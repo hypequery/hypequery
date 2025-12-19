@@ -5,13 +5,15 @@ export { createQueryBuilder } from './core/query-builder';
 export { ClickHouseConnection } from './core/connection';
 export { JoinRelationships } from './core/join-relationships';
 export type {
-  TableSchema,
-  QueryConfig,
   ColumnType,
-  WhereExpression,
-  GroupByExpression,
+  TableSchema,
   TableRecord,
   DatabaseSchema,
+} from './types/schema';
+export type {
+  QueryConfig,
+  WhereExpression,
+  GroupByExpression,
   PaginatedResult,
   PageInfo,
   PaginationOptions

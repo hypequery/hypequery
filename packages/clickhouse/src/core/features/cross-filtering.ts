@@ -2,7 +2,8 @@
 
 import { QueryBuilder } from '../query-builder.js';
 import { CrossFilter, FilterGroup } from '../cross-filter.js';
-import { FilterConditionInput, ColumnType, TableColumn } from '../../types/index.js';
+import { FilterConditionInput } from '../../types/index.js';
+import { AnySchema, TableColumn } from '../../types/schema.js';
 
 /**
  * Type guard to check if an object is a FilterConditionInput
@@ -22,7 +23,7 @@ function isFilterGroup(obj: any): obj is FilterGroup<any, any> {
  * Feature for handling cross-filter operations on queries
  */
 export class CrossFilteringFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
+  Schema extends AnySchema,
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
@@ -35,7 +36,7 @@ export class CrossFilteringFeature<
    * @param crossFilter - An instance of CrossFilter containing shared filter conditions
    * @returns Updated query config
    */
-  applyCrossFilters(crossFilter: CrossFilter<Schema, keyof Schema>) {
+  applyCrossFilters(crossFilter: CrossFilter<Schema, Extract<keyof Schema, string>>) {
     const filterGroup = crossFilter.getConditions();
 
     if (filterGroup.conditions.length === 0) {
