@@ -17,4 +17,5 @@ module.exports = {
   transformIgnorePatterns: [
     'node_modules/(?!(@clickhouse)/)',
   ],
-}; 
+  watchman: false,
+};

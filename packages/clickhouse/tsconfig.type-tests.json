@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "rootDir": "./",
+    "outDir": "./.type-tests"
+  },
+  "include": [
+    "type-tests/**/*.ts"
+  ],
+  "exclude": []
+}

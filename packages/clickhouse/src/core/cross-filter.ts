@@ -1,11 +1,11 @@
 import { FilterValidator } from './validators/filter-validator.js';
 import { FilterConditionInput, FilterOperator, OperatorValueMap } from '../types/index.js';
-import type { ColumnType, InferColumnType } from '../types/index.js';
+import type { AnySchema, ColumnType, InferColumnType } from '../types/schema.js';
 
 // Define FilterGroup interface for nested filter groups
 export interface FilterGroup<
-  Schema extends Record<string, Record<string, any>> = any,
-  OriginalT extends Record<string, any> = any
+  Schema extends AnySchema = AnySchema,
+  OriginalT extends Record<string, any> = Record<string, any>
 > {
   operator: 'AND' | 'OR';
   conditions: Array<
@@ -24,8 +24,8 @@ export interface FilterGroup<
  * @template TableName - The specific table being filtered
  */
 export class CrossFilter<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } } = any,
-  TableName extends keyof Schema = Extract<keyof Schema, string>
+  Schema extends AnySchema = AnySchema,
+  TableName extends keyof Schema & string = Extract<keyof Schema, string>
 > {
   // Root group holding filter conditions or nested groups, defaulting to an implicit AND.
   private rootGroup: FilterGroup<Schema, Schema[TableName]>;
@@ -125,10 +125,11 @@ export class CrossFilter<
     if (!this.schema) {
       return 'String';
     }
-    for (const table in this.schema) {
+    for (const table of Object.keys(this.schema) as Array<keyof Schema>) {
       const tableSchema = this.schema[table];
       if (column in tableSchema) {
-        return tableSchema[column];
+        const columnKey = column as keyof typeof tableSchema;
+        return tableSchema[columnKey];
       }
     }
     throw new Error(`Column '${column}' not found in schema`);

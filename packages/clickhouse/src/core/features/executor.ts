@@ -1,5 +1,5 @@
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType } from '../../types/index.js';
+import { ColumnType } from '../../types/schema.js';
 import { ClickHouseConnection } from '../connection.js';
 import { substituteParameters } from '../utils.js';
 import { logger } from '../utils/logger.js';

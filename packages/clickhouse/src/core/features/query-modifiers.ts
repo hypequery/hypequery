@@ -1,5 +1,6 @@
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType, OrderDirection, TableColumn } from '../../types/index.js';
+import { OrderDirection } from '../../types/index.js';
+import { ColumnType, TableColumn } from '../../types/schema.js';
 
 export class QueryModifiersFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },

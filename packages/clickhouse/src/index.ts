@@ -9,13 +9,18 @@ export type {
 } from './core/query-builder.js';
 export { isClientConfig } from './core/query-builder.js';
 
-// Re-export utility types
+// Re-export schema helpers + query utility types
 export type {
   ColumnType,
   TableColumn,
+  TableSchema,
+  TableRecord,
+  DatabaseSchema,
+  InferColumnType,
+} from './types/schema.js';
+export type {
   OrderDirection,
   QueryConfig,
-  InferColumnType,
   PaginationOptions,
   PaginatedResult,
   PageInfo,

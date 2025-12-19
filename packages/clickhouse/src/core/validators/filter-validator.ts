@@ -1,4 +1,5 @@
-import { ColumnType, FilterConditionInput } from '../../types/index.js';
+import { FilterConditionInput } from '../../types/index.js';
+import { ColumnType } from '../../types/schema.js';
 import { ValueValidator } from './value-validator.js';
 
 export class FilterValidator {

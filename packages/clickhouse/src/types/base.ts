@@ -1,5 +1,5 @@
-import { ClickHouseType, InferClickHouseType } from "./clickhouse-types.js";
 import { FilterOperator } from "./filters.js";
+import type { TableColumn } from './schema.js';
 
 export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;
@@ -20,23 +20,10 @@ export interface QueryConfig<T, Schema> {
   settings?: string;
 }
 
-export interface TableSchema<T> {
-  name: string;
-  columns: T;
-}
+export type { ColumnType, TableSchema, DatabaseSchema, TableRecord, InferColumnType, TableColumn } from './schema.js';
 
-export type DatabaseSchema = Record<string, Record<string, ColumnType>>;
 export type WhereExpression = string;
 export type GroupByExpression<T> = keyof T | Array<keyof T>;
-export type TableRecord<T> = {
-  [K in keyof T]: T[K] extends ColumnType ? InferColumnType<T[K]> : never;
-};
-
-// Replace the old ColumnType with the new one
-export type ColumnType = ClickHouseType;
-
-// Update InferColumnType to use the new InferClickHouseType
-export type InferColumnType<T extends ColumnType> = InferClickHouseType<T>;
 
 export type OrderDirection = 'ASC' | 'DESC';
 
@@ -57,11 +44,6 @@ export interface JoinClause {
   rightColumn: string;
   alias?: string;
 }
-
-export type TableColumn<Schema> = {
-  [Table in keyof Schema]: `${string & Table}.${string & keyof Schema[Table]}`
-}[keyof Schema] | keyof Schema[keyof Schema];
-
 
 export type AggregationType<T, Aggregations, Column, A extends string, Suffix extends string, HasSelect extends boolean> =
   HasSelect extends true
