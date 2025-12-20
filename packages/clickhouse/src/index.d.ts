@@ -35,5 +35,12 @@ export type {
   AliasedExpression
 } from './core/utils/sql-expressions';
 
+export type {
+  PredicateExpression,
+  PredicateLiteral,
+  PredicateBuilder,
+  PredicateArg
+} from './core/utils/predicate-builder';
+
 // CLI exports
 export { generateTypes } from './cli/generate-types'; 

@@ -32,8 +32,10 @@ const query = db
 ```typescript
 where(column: keyof T | TableColumn<Schema>, operator: WhereOperator, value: any): this
 where(condition: WhereExpression): this
+where(builder: (expr: PredicateBuilder) => PredicateExpression): this
 
 orWhere(column: keyof T | TableColumn<Schema>, operator: WhereOperator, value: any): this
+orWhere(builder: (expr: PredicateBuilder) => PredicateExpression): this
 
 whereGroup(callback: (builder: this) => void): this
 orWhereGroup(callback: (builder: this) => void): this
@@ -46,6 +48,8 @@ orWhereGroup(callback: (builder: this) => void): this
 - **`value`**: The value to compare against
 - **`condition`**: A `WhereExpression` object
 - **`callback`**: A function that receives a `WhereBuilder` for complex conditions
+- **`builder`**: Function that receives predicate helpers for ClickHouse expressions (available on `where` and `orWhere`)
+- **`args`**: Arguments used inside the builder (columns, literals, arrays, or nested expressions)
 
 ### Returns
 
@@ -215,6 +219,16 @@ const query = db
   .where('users.country', 'eq', 'US')
   .toSQL();
 // Result: SELECT * FROM orders LEFT JOIN users ON orders.user_id = users.id WHERE orders.status = 'completed' AND users.country = 'US'
+
+// Use function predicates for advanced filters
+const taggedProducts = db
+  .table('products')
+  .where(expr => expr.and([
+    expr.fn('hasAny', 'tags', ['launch', 'beta']),
+    expr.fn('endsWith', 'status', expr.literal('active'))
+  ]))
+  .toSQL();
+// SELECT * FROM products WHERE (hasAny(tags, ['launch', 'beta']) AND endsWith(status, 'active'))
 ```
 
 ## Advanced Patterns
@@ -264,6 +278,41 @@ const query = db
   .toSQL();
 // Result: SELECT * FROM users WHERE (email LIKE '%@gmail.com' OR email LIKE '%@yahoo.com' OR email LIKE '%@hotmail.com')
 ```
+
+## Function Predicates
+
+Use ClickHouse functions directly inside `WHERE` clauses with the predicate builder callback. This mirrors query-builder patterns in tools like Kysely or Drizzle and scales to complex expressions.
+
+```typescript
+db.table('products')
+  .where(expr => expr.fn('hasAny', 'tags', ['foo', 'bar']))
+  .orWhere(expr =>
+    expr.fn(
+      'hasAny',
+      expr.fn('lowerUTF8', 'tags'),
+      ['beta', 'launch']
+    )
+  )
+  .toSQL();
+// SELECT * FROM products WHERE hasAny(tags, ['foo', 'bar']) OR hasAny(lowerUTF8(tags), ['beta', 'launch'])
+
+// Escape hatch for custom fragments
+db.table('products')
+  .where(expr => expr.raw("hasAny(tags, ['foo','bar'])"))
+  .toSQL();
+// SELECT * FROM products WHERE hasAny(tags, ['foo','bar'])
+```
+
+Builder helpers exposed in the callback:
+
+- `expr.fn(name, ...args)` – variadic function helper; strings become column refs, arrays become ClickHouse literals, primitives become parameters
+- `expr.col(column)` – explicit column references for edge cases
+- `expr.array(values)` – build ClickHouse array literals explicitly when needed
+- `expr.literal(value)` / `expr.value(value)` – force literal values (useful when a string should not be treated as a column)
+- `expr.raw(sql)` – inline raw SQL fragments when necessary
+- `expr.and([...])` / `expr.or([...])` – combine multiple expressions without manual parentheses (or call `.orWhere(expr => …)` for top-level OR blocks)
+
+Use the builder form whenever you need nested functions, string literals, or other advanced patterns.
 
 ## Advanced IN Operators
 

@@ -27,13 +27,22 @@ export type GroupByExpression<T> = keyof T | Array<keyof T>;
 
 export type OrderDirection = 'ASC' | 'DESC';
 
-export interface WhereCondition {
+export interface StandardWhereCondition {
   column: string;
   operator: FilterOperator;
   value: any;
   conjunction: 'AND' | 'OR';
   type?: 'condition' | 'group-start' | 'group-end';
 }
+
+export interface ExpressionWhereCondition {
+  type: 'expression';
+  expression: string;
+  parameters: any[];
+  conjunction: 'AND' | 'OR';
+}
+
+export type WhereCondition = StandardWhereCondition | ExpressionWhereCondition;
 
 export type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
 

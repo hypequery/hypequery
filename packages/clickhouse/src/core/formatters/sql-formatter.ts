@@ -23,6 +23,13 @@ export class SQLFormatter {
 
     // First pass - generate the SQL fragments for each condition
     const fragments = config.where.map((condition, index) => {
+      // Handle expression predicates
+      if (condition.type === 'expression') {
+        const prefix = index === 0 || afterGroupStart ? '' : ` ${condition.conjunction} `;
+        afterGroupStart = false;
+        return `${prefix}${condition.expression}`.trim();
+      }
+
       // Handle special group markers
       if (condition.type === 'group-start') {
         const prefix = index === 0 ? '' : ` ${condition.conjunction} `;

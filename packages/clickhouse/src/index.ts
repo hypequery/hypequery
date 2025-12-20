@@ -53,3 +53,11 @@ export type {
   SqlExpression,
   FormatDateTimeOptions
 } from './core/utils/sql-expressions.js';
+
+// Predicate expression types
+export type {
+  PredicateExpression,
+  PredicateLiteral,
+  PredicateBuilder,
+  PredicateArg
+} from './core/utils/predicate-builder.js';

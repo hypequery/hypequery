@@ -184,6 +184,16 @@ const tripsWithDrivers = await db.table('trips')
   .join('drivers', 'trips.driver_id', 'drivers.id')
   .execute();
 
+// Function predicates via builder callback
+const taggedProducts = await db.table('products')
+  .where(expr => expr.and([
+    expr.fn('hasAny', 'tags', ['launch', 'beta']),
+    expr.fn('endsWith', 'status', expr.literal('active'))
+  ]))
+  .orWhere(expr => expr.fn('notEmpty', 'tags'))
+  .toSQL();
+// SELECT * FROM products WHERE (hasAny(tags, ['launch', 'beta']) AND endsWith(status, 'active')) OR notEmpty(tags)
+
 ```
 
 
