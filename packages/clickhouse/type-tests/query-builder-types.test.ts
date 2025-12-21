@@ -1,6 +1,7 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
 import { setupTestBuilder, setupUsersBuilder, TestSchema } from '../src/core/tests/test-utils.js';
 import { createPredicateBuilder } from '../src/core/utils/predicate-builder.js';
+import { rawAs } from '../src/core/utils/sql-expressions.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
 const builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}> = setupTestBuilder();
@@ -101,3 +102,15 @@ predicateBuilder.fn('hasAny', 'tags', ['foo']);
 predicateBuilder.fn('hasAny', 'unknown_column', ['foo']);
 
 builder.orWhere(expr => expr.fn('hasAny', 'tags', ['foo']));
+
+const aliasSelection = builder.select([
+  rawAs<number, 'avg_total'>('AVG(total_amount)', 'avg_total')
+] as const);
+type AliasSelectionResult = Awaited<ReturnType<typeof aliasSelection.execute>>;
+type ExpectedAliasSelectionResult = { avg_total: number }[];
+type AssertAliasSelection = Expect<Equal<AliasSelectionResult, ExpectedAliasSelectionResult>>;
+type AliasRow = AliasSelectionResult[number];
+type AliasRowKeys = keyof AliasRow;
+type AssertAliasRowKeys = Expect<Equal<AliasRowKeys, 'avg_total'>>;
+type AliasValue = AliasRow['avg_total'];
+type AssertAliasValue = Expect<Equal<AliasValue, number>>;

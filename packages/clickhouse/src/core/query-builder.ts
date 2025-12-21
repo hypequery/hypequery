@@ -21,7 +21,7 @@ import { QueryModifiersFeature } from './features/query-modifiers.js';
 import { FilterValidator } from './validators/filter-validator.js';
 import { PaginationFeature } from './features/pagination.js';
 import { JoinRelationships, JoinPathOptions } from './join-relationships.js';
-import { SqlExpression } from './utils/sql-expressions.js';
+import { SqlExpression, AliasedExpression } from './utils/sql-expressions.js';
 import {
   PredicateBuilder,
   PredicateExpression,
@@ -34,6 +34,38 @@ import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
+
+type SelectableItem<
+  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
+  T
+> = keyof T | TableColumn<Schema> | SqlExpression;
+
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+
+type Simplify<T> = { [K in keyof T]: T[K] } & {};
+
+type ColumnSelectionRecord<
+  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
+  T,
+  K
+> = {
+  [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
+  P extends keyof T
+    ? T[P] extends ColumnType
+      ? InferColumnType<T[P]>
+      : unknown
+    : string;
+};
+
+type ExpressionSelectionRecord<K> = UnionToIntersection<
+  K extends AliasedExpression<infer R, infer A> ? { [P in A]: R } : {}
+>;
+
+type SelectionResult<
+  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
+  T,
+  K
+> = Simplify<ColumnSelectionRecord<Schema, T, K> & ExpressionSelectionRecord<K>>;
 
 /**
  * Configuration for client-based connections.
@@ -197,24 +229,17 @@ export class QueryBuilder<
    * builder.select('*')
    * ```
    */
-  select<K extends keyof T | TableColumn<Schema> | SqlExpression = keyof T | TableColumn<Schema> | SqlExpression>(
-    columnsOrAsterisk: K[] | '*'
-  ): K[] extends typeof columnsOrAsterisk
-    ? QueryBuilder<
-      Schema,
-      {
-        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
-        P extends keyof T
-        ? T[P] extends ColumnType
-        ? InferClickHouseType<T[P]>
-        : unknown
-        : string
-      },
-      true,
-      Aggregations,
-      OriginalT
-    >
-    : QueryBuilder<Schema, T, true, Aggregations, OriginalT> {
+  select(columnsOrAsterisk: '*'): QueryBuilder<Schema, T, true, Aggregations, OriginalT>;
+  select<Selections extends ReadonlyArray<SelectableItem<Schema, T>>>(
+    columnsOrAsterisk: Selections
+  ): QueryBuilder<
+    Schema,
+    SelectionResult<Schema, T, Selections[number]>,
+    true,
+    Aggregations,
+    OriginalT
+  >;
+  select<Selections extends ReadonlyArray<SelectableItem<Schema, T>>>(columnsOrAsterisk: '*' | Selections) {
     // Handle '*' case - return all columns with original type
     if (columnsOrAsterisk === '*') {
       const newBuilder = new QueryBuilder<Schema, T, true, Aggregations, OriginalT>(
@@ -231,23 +256,16 @@ export class QueryBuilder<
           direction
         })) as any
       };
-      return newBuilder as any;
+      return newBuilder as QueryBuilder<Schema, T, true, Aggregations, OriginalT>;
     }
 
     // Handle array case - select specific columns
-    const columns = columnsOrAsterisk
+    const columns = columnsOrAsterisk as Selections;
 
     // Create a new builder with the appropriate type parameters
     const newBuilder = new QueryBuilder<
       Schema,
-      {
-        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
-        P extends keyof T
-        ? T[P] extends ColumnType
-        ? InferClickHouseType<T[P]>
-        : unknown
-        : string
-      },
+      any,
       true,
       Aggregations,
       OriginalT
@@ -276,7 +294,13 @@ export class QueryBuilder<
         direction
       }))
     };
-    return newBuilder as any
+    return newBuilder as QueryBuilder<
+      Schema,
+      SelectionResult<Schema, T, Selections[number]>,
+      true,
+      Aggregations,
+      OriginalT
+    >;
   }
 
   sum<Column extends keyof OriginalT, Alias extends string = `${Column & string}_sum`>(

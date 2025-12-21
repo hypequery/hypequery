@@ -51,7 +51,8 @@ export {
 // Re-export SQL expression types
 export type {
   SqlExpression,
-  FormatDateTimeOptions
+  FormatDateTimeOptions,
+  AliasedExpression
 } from './core/utils/sql-expressions.js';
 
 // Predicate expression types
