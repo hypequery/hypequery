@@ -327,6 +327,19 @@ Builder helpers exposed in the callback:
 
 Use the builder form whenever you need nested functions, string literals, or other advanced patterns.
 
+### Aliased Selections
+
+```typescript
+import { rawAs } from '@hypequery/clickhouse';
+
+const totals = await db.table('trips')
+  .select([
+    rawAs<number, 'avg_total'>('AVG(total_amount)', 'avg_total')
+  ] as const)
+  .execute();
+// totals has type Array<{ avg_total: number }>
+```
+
 ## Advanced IN Operators
 
 The `where` method supports advanced IN operators for ClickHouse, including distributed/global, tuple, subquery, and table reference forms.

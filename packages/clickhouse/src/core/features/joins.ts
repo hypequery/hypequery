@@ -7,9 +7,10 @@ export class JoinFeature<
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
-  OriginalT = T
+  OriginalT = T,
+  VisibleTables extends keyof Schema = never
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>) { }
+  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
 
   addJoin<TableName extends keyof Schema>(
     type: JoinType,
