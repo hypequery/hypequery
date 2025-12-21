@@ -37,6 +37,7 @@ export interface IntrospectedSchema {
     payment_type: 'Enum8(\'CSH\' = 1, \'CRE\' = 2, \'NOC\' = 3, \'DIS\' = 4, \'UNK\' = 5)';
     pickup_ntaname: 'LowCardinality(String)';
     dropoff_ntaname: 'LowCardinality(String)';
+    tags: 'Array(String)';
   };
 }
 

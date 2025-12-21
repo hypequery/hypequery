@@ -12,6 +12,9 @@ Use `orWhere` to create OR conditions between multiple filters.
 
 Use `whereGroup` and `orWhereGroup` to create parenthesized groups of conditions.
 
+Use the builder callback form e.g. `.where(expr => expr.fn(...))` to model advanced
+predicates in a type-safe way.
+
 ## Basic Usage
 
 ```typescript
@@ -301,6 +304,16 @@ db.table('products')
   .where(expr => expr.raw("hasAny(tags, ['foo','bar'])"))
   .toSQL();
 // SELECT * FROM products WHERE hasAny(tags, ['foo','bar'])
+```
+
+Note that Strings are treated as column identifiers for type-safety. Wrap literal values with
+`expr.literal(...)` (or `expr.value(...)`) so they’re parameterized instead of interpreted as column names.
+
+```typescript
+// String literals must be wrapped
+db.table('products')
+  .where(expr => expr.fn('equals', 'status', expr.literal('active')))
+  .toSQL();
 ```
 
 Builder helpers exposed in the callback:
