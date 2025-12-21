@@ -1,6 +1,7 @@
 import { QueryBuilder } from '../query-builder.js';
 import { FilterOperator } from '../../types/index.js';
 import { ColumnType, TableColumn } from '../../types/schema.js';
+import { PredicateExpression } from '../utils/predicate-builder.js';
 
 export class FilteringFeature<
   Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
@@ -67,6 +68,30 @@ export class FilteringFeature<
     else {
       parameters.push(value);
     }
+
+    return {
+      ...config,
+      where,
+      parameters
+    };
+  }
+
+  addExpressionCondition(
+    conjunction: 'AND' | 'OR',
+    expression: PredicateExpression
+  ) {
+    const config = this.builder.getConfig();
+    const where = config.where || [];
+    const parameters = config.parameters || [];
+
+    where.push({
+      type: 'expression',
+      expression: expression.sql,
+      parameters: expression.parameters,
+      conjunction
+    });
+
+    parameters.push(...expression.parameters);
 
     return {
       ...config,

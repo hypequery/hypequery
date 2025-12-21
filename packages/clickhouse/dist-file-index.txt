@@ -66,6 +66,9 @@ core/tests/test-utils.js
 core/utils/logger.d.ts
 core/utils/logger.d.ts.map
 core/utils/logger.js
+core/utils/predicate-builder.d.ts
+core/utils/predicate-builder.d.ts.map
+core/utils/predicate-builder.js
 core/utils/sql-expressions.d.ts
 core/utils/sql-expressions.d.ts.map
 core/utils/sql-expressions.js

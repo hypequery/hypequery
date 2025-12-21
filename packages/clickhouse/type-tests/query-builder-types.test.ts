@@ -1,5 +1,6 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
 import { setupTestBuilder, setupUsersBuilder, TestSchema } from '../src/core/tests/test-utils.js';
+import { createPredicateBuilder } from '../src/core/utils/predicate-builder.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
 const builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}> = setupTestBuilder();
@@ -93,3 +94,10 @@ const chainQuery = builder
 type ChainResult = Awaited<ReturnType<typeof chainQuery.execute>>;
 type ChainExpected = { name: string; is_premium: boolean; metadata: Record<string, string> }[];
 type AssertChainSelect = Expect<Equal<ChainResult, ChainExpected>>;
+
+const predicateBuilder = createPredicateBuilder<TestSchema, TestSchema['test_table']>();
+predicateBuilder.fn('hasAny', 'tags', ['foo']);
+// @ts-expect-error - invalid column should be rejected
+predicateBuilder.fn('hasAny', 'unknown_column', ['foo']);
+
+builder.orWhere(expr => expr.fn('hasAny', 'tags', ['foo']));

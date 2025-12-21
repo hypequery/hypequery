@@ -271,4 +271,96 @@ describe('QueryBuilder - Where Conditions', () => {
       expect(sql).toBe('SELECT * FROM test_table WHERE active = 1 OR (price >= 1000)');
     });
   });
-}); 
+
+  describe('function predicates', () => {
+    it('should support expression builder within where', () => {
+      const sql = builder
+        .where(expr => expr.fn('startsWith', 'name', expr.literal('foo')))
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE startsWith(name, 'foo')");
+    });
+
+    it('should support expression builder with OR logic', () => {
+      const sql = builder
+        .where(expr =>
+          expr.or([
+            expr.fn('hasAny', 'tags', ['foo']),
+            expr.raw("status = 'active'")
+          ])
+        )
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE (hasAny(tags, ['foo'])) OR (status = 'active')");
+    });
+
+    it('should support orWhere with builder callback', () => {
+      const sql = builder
+        .where('status', 'eq', 'active')
+        .orWhere(expr => expr.fn('hasAny', 'tags', ['foo']))
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE status = 'active' OR hasAny(tags, ['foo'])");
+    });
+
+    it('should support nested function expressions with literals', () => {
+      const sql = builder
+        .where(expr =>
+          expr.fn(
+            'hasAny',
+            expr.fn('lowerUTF8', 'tags'),
+            ['foo', 'bar']
+          )
+        )
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE hasAny(lowerUTF8(tags), ['foo', 'bar'])");
+    });
+
+    it('should support logical combinations', () => {
+      const sql = builder
+        .where(expr =>
+          expr.and([
+            expr.fn('hasAny', 'tags', ['foo']),
+            expr.or([
+              expr.raw("status = 'active'"),
+              expr.raw('priority > 5')
+            ])
+          ])
+        )
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE (hasAny(tags, ['foo'])) AND ((status = 'active') OR (priority > 5))");
+    });
+
+    it('should support raw expressions as arguments', () => {
+      const sql = builder
+        .where(expr =>
+          expr.fn(
+            'hasAny',
+            expr.raw('lowerUTF8(tags)'),
+            expr.raw("['foo','bar']")
+          )
+        )
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE hasAny(lowerUTF8(tags), ['foo','bar'])");
+    });
+
+    it('should allow raw expressions directly', () => {
+      const sql = builder
+        .where(expr => expr.raw("hasAny(tags, ['foo','bar'])"))
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE hasAny(tags, ['foo','bar'])");
+    });
+
+    it('should support other ClickHouse boolean functions', () => {
+      const sql = builder
+        .where(expr =>
+          expr.and([
+            expr.or([
+              expr.fn('startsWith', 'name', expr.literal('foo')),
+              expr.fn('notEmpty', 'tags')
+            ]),
+            expr.fn('endsWith', 'status', expr.literal('ing'))
+          ])
+        )
+        .toSQL();
+      expect(sql).toBe("SELECT * FROM test_table WHERE ((startsWith(name, 'foo')) OR (notEmpty(tags))) AND (endsWith(status, 'ing'))");
+    });
+  });
+});

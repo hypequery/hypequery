@@ -22,6 +22,11 @@ import { FilterValidator } from './validators/filter-validator.js';
 import { PaginationFeature } from './features/pagination.js';
 import { JoinRelationships, JoinPathOptions } from './join-relationships.js';
 import { SqlExpression } from './utils/sql-expressions.js';
+import {
+  PredicateBuilder,
+  PredicateExpression,
+  createPredicateBuilder,
+} from './utils/predicate-builder.js';
 import { CrossFilteringFeature } from './features/cross-filtering.js';
 import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
@@ -439,6 +444,9 @@ export class QueryBuilder<
    * builder.where('age', 'gt', 18)
    * ```
    */
+  where(
+    expressionBuilder: (expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression
+  ): this;
   where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any, Schema>>(
     columnOrColumns: K | K[],
     operator: Op,
@@ -464,10 +472,20 @@ export class QueryBuilder<
     value: any
   ): this;
   where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any>>(
-    columnOrColumns: K | K[],
-    operator: Op,
-    value: any
+    columnOrColumns: K | K[] | ((expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression),
+    operator?: Op,
+    value?: any
   ): this {
+    if (typeof columnOrColumns === 'function') {
+      const expression = columnOrColumns(createPredicateBuilder<Schema, OriginalT>());
+      this.config = this.filtering.addExpressionCondition('AND', expression);
+      return this;
+    }
+
+    if (operator === undefined) {
+      throw new Error('Operator is required when specifying a column for where()');
+    }
+
     // Handle tuple operations
     if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
       // For tuple operations, we need to handle the column array specially
@@ -484,6 +502,9 @@ export class QueryBuilder<
     return this;
   }
 
+  orWhere(
+    expressionBuilder: (expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression
+  ): this;
   orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
     column: K,
     operator: FilterOperator,
@@ -507,10 +528,20 @@ export class QueryBuilder<
     value: any
   ): this;
   orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
-    columnOrColumns: K | K[],
-    operator: FilterOperator,
-    value: any
+    columnOrColumns: K | K[] | ((expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression),
+    operator?: FilterOperator,
+    value?: any
   ): this {
+    if (typeof columnOrColumns === 'function') {
+      const expression = columnOrColumns(createPredicateBuilder<Schema, OriginalT>());
+      this.config = this.filtering.addExpressionCondition('OR', expression);
+      return this;
+    }
+
+    if (operator === undefined) {
+      throw new Error('Operator is required when specifying a column for orWhere()');
+    }
+
     // Handle tuple operations
     if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
       // For tuple operations, we need to handle the column array specially

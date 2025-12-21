@@ -184,6 +184,7 @@ const tripsWithDrivers = await db.table('trips')
   .join('drivers', 'trips.driver_id', 'drivers.id')
   .execute();
 
+
 ```
 
 
