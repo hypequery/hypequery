@@ -194,7 +194,6 @@ const taggedProducts = await db.table('products')
   .toSQL();
 ```
 
-
 **Benefits:**
 - ✅ Works in all environments (Node.js, browser, bundlers)
 - ✅ Explicit control over client configuration
