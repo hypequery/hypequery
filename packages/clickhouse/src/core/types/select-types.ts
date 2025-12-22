@@ -1,12 +1,18 @@
 import type { SqlExpression, AliasedExpression } from '../utils/sql-expressions.js';
-import type { ColumnType, InferColumnType, TableColumnForTables } from '../../types/schema.js';
-import type { AnyBuilderState, BaseRow } from './builder-state.js';
+import type { ColumnType, InferColumnType } from '../../types/schema.js';
+import type { AnyBuilderState, BaseRow, ResolveTableSchema } from './builder-state.js';
 import { Simplify, UnionToIntersection } from './type-helpers.js';
 
-export type QualifiedColumnKeys<State extends AnyBuilderState> = Extract<
-  TableColumnForTables<State['schema'], State['tables']>,
-  `${string}.${string}`
->;
+type TableIdentifiers<State extends AnyBuilderState> = State['tables'] & string;
+
+type QualifiedColumnsFor<State extends AnyBuilderState, Table extends string> =
+  ResolveTableSchema<State, Table> extends Record<string, ColumnType>
+    ? `${Table}.${Extract<keyof ResolveTableSchema<State, Table>, string>}`
+    : never;
+
+export type QualifiedColumnKeys<State extends AnyBuilderState> = {
+  [Table in TableIdentifiers<State>]: QualifiedColumnsFor<State, Table>
+}[TableIdentifiers<State>];
 
 export type BaseColumnKeys<State extends AnyBuilderState> = keyof BaseRow<State>;
 export type OutputColumnKeys<State extends AnyBuilderState> = keyof State['output'];
@@ -22,20 +28,23 @@ export type SelectableItem<State extends AnyBuilderState> =
 
 export type ColumnSelectionKey<P> = P extends `${string}.${infer C}` ? C : P;
 
+type QualifiedColumnValue<State extends AnyBuilderState, P> =
+  P extends `${infer Table}.${infer Column}`
+    ? ResolveTableSchema<State, Table> extends Record<string, ColumnType>
+      ? Column extends keyof ResolveTableSchema<State, Table>
+        ? ResolveTableSchema<State, Table>[Column] extends ColumnType
+          ? InferColumnType<ResolveTableSchema<State, Table>[Column]>
+          : never
+        : never
+      : never
+    : never;
+
 export type ColumnSelectionValue<State extends AnyBuilderState, P> =
   P extends OutputColumnKeys<State>
     ? State['output'][P]
     : P extends BaseColumnKeys<State>
       ? BaseRow<State>[P]
-      : P extends `${infer Table}.${infer Column}`
-        ? Table extends State['tables']
-          ? Column extends keyof State['schema'][Table]
-            ? State['schema'][Table][Column] extends ColumnType
-              ? InferColumnType<State['schema'][Table][Column]>
-              : never
-            : never
-          : never
-        : never;
+      : QualifiedColumnValue<State, P>;
 
 export type ColumnSelectionRecord<
   State extends AnyBuilderState,

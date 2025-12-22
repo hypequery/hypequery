@@ -146,3 +146,14 @@ const cteQuery = builder.withCTE('recent_orders', cteSource).select(['id'] as co
 type CteResult = Awaited<ReturnType<typeof cteQuery.execute>>;
 type CteExpected = { id: number }[];
 type AssertCteState = Expect<Equal<CteResult, CteExpected>>;
+
+const aliasJoin = builder
+  .innerJoin('users', 'created_by', 'users.id', 'creator')
+  .selectConst('creator.user_name');
+type AliasJoinResult = Awaited<ReturnType<typeof aliasJoin.execute>>;
+type AliasJoinExpected = { user_name: string }[];
+type AssertAliasJoin = Expect<Equal<AliasJoinResult, AliasJoinExpected>>;
+
+builder
+  .innerJoin('users', 'created_by', 'users.id', 'creator')
+  .where('creator.user_name', 'eq', 'team@example.com');

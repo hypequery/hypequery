@@ -32,12 +32,14 @@ import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/clien
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import type {
   BuilderState,
+  AnyBuilderState,
   SchemaDefinition,
   InitialState,
   UpdateOutput,
   WidenTables,
   AppendToOutput,
-  BaseRow
+  BaseRow,
+  AddAlias
 } from './types/builder-state.js';
 import {
   SelectableItem,
@@ -46,11 +48,11 @@ import {
   ColumnSelectionValue
 } from './types/select-types.js';
 
-type WhereColumn<State extends BuilderState<any, any, any, any>> = SelectableColumn<State>;
+type WhereColumn<State extends AnyBuilderState> = SelectableColumn<State>;
 
 type ColumnOperatorValue<
-  Schema extends SchemaDefinition,
-  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>,
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>,
   Column extends WhereColumn<State>,
   Op extends keyof OperatorValueMap<any, Schema>
 > = OperatorValueMap<ColumnSelectionValue<State, Column>, Schema>[Op];
@@ -85,7 +87,7 @@ export function isClientConfig(config: ClickHouseConfig): config is ClickHouseCl
  */
 export class QueryBuilder<
   Schema extends SchemaDefinition<Schema>,
-  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
   private static relationships: JoinRelationships<any>;
 
@@ -119,7 +121,13 @@ export class QueryBuilder<
   }
 
   private fork<
-    NextState extends BuilderState<Schema, keyof Schema, any, State['baseTable']>
+    NextState extends BuilderState<
+      Schema,
+      string,
+      any,
+      State['baseTable'],
+      Partial<Record<string, keyof Schema>>
+    >
   >(
     state: NextState,
     config: QueryConfig<NextState['output'], Schema>
@@ -140,7 +148,7 @@ export class QueryBuilder<
   // --- Analytics Helper: Add a CTE.
   withCTE(
     alias: string,
-    subquery: QueryBuilder<any, BuilderState<any, any, any, any>> | string
+    subquery: QueryBuilder<any, AnyBuilderState> | string
   ): this {
     this.config = this.analytics.addCTE(alias, subquery);
     return this;
@@ -247,6 +255,12 @@ export class QueryBuilder<
     } as QueryConfig<NextState['output'], Schema>;
 
     return this.fork(nextState, nextConfig);
+  }
+
+  selectConst<Selections extends ReadonlyArray<SelectableItem<State>>>(
+    ...columns: Selections
+  ): QueryBuilder<Schema, UpdateOutput<State, SelectionResult<State, Selections[number]>>> {
+    return this.select(columns);
   }
 
   sum<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_sum`>(
@@ -608,54 +622,81 @@ export class QueryBuilder<
     return this.where(column, 'between', [min, max] as any);
   }
 
-  innerJoin<TableName extends keyof Schema>(
+  innerJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, WidenTables<State, TableName>> {
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+      : WidenTables<State, TableName>
+  > {
     return this.applyJoin('INNER', table, leftColumn, rightColumn, alias);
   }
 
-  leftJoin<TableName extends keyof Schema>(
+  leftJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, WidenTables<State, TableName>> {
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+      : WidenTables<State, TableName>
+  > {
     return this.applyJoin('LEFT', table, leftColumn, rightColumn, alias);
   }
 
-  rightJoin<TableName extends keyof Schema>(
+  rightJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, WidenTables<State, TableName>> {
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+      : WidenTables<State, TableName>
+  > {
     return this.applyJoin('RIGHT', table, leftColumn, rightColumn, alias);
   }
 
-  fullJoin<TableName extends keyof Schema>(
+  fullJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, WidenTables<State, TableName>> {
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+      : WidenTables<State, TableName>
+  > {
     return this.applyJoin('FULL', table, leftColumn, rightColumn, alias);
   }
 
-  private applyJoin<TableName extends keyof Schema>(
+  private applyJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     type: JoinType,
     table: TableName,
     leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, WidenTables<State, TableName>> {
-    type NextState = WidenTables<State, TableName>;
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+      : WidenTables<State, TableName>
+  > {
+    type JoinedState = WidenTables<State, TableName>;
+    type NextState = Alias extends string ? AddAlias<JoinedState, Alias, TableName> : JoinedState;
+
     const nextState = {
       ...this.state,
-      tables: this.state.tables
-    } as NextState;
+      aliases: alias ? { ...this.state.aliases, [alias]: table } : this.state.aliases
+    } as unknown as NextState;
 
     const nextConfig = this.joins.addJoin(type, table, String(leftColumn), rightColumn, alias) as QueryConfig<NextState['output'], Schema>;
     return this.fork<NextState>(nextState, nextConfig);
@@ -730,10 +771,10 @@ export class QueryBuilder<
 
 export type SelectQB<
   Schema extends SchemaDefinition<Schema>,
-  Tables extends keyof Schema,
+  Tables extends string,
   Output,
-  BaseTable extends keyof Schema = Tables
-> = QueryBuilder<Schema, BuilderState<Schema, Tables, Output, BaseTable>>;
+  BaseTable extends keyof Schema
+> = QueryBuilder<Schema, BuilderState<Schema, Tables, Output, BaseTable, {}>>;
 
 export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
   config: ClickHouseConfig
@@ -741,7 +782,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
   ClickHouseConnection.initialize(config);
 
   return {
-    table<TableName extends keyof Schema>(tableName: TableName): SelectQB<
+    table<TableName extends Extract<keyof Schema, string>>(tableName: TableName): SelectQB<
       Schema,
       TableName,
       InitialState<Schema, TableName>['output'],
@@ -752,7 +793,8 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         tables: tableName,
         output: {} as InitialState<Schema, TableName>['output'],
         baseTable: tableName,
-        base: {} as Schema[TableName]
+        base: {} as Schema[TableName],
+        aliases: {} as Partial<Record<string, keyof Schema>>
       } as InitialState<Schema, TableName>;
 
       return new QueryBuilder<Schema, typeof state>(tableName as string, state);

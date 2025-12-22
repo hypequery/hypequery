@@ -96,24 +96,26 @@ type TestTableState = BuilderState<
   'test_table'
 >;
 
-export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<TestSchema['users']>> {
+export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<TestSchema['users']>, 'users'> {
   const state: UsersState = {
     schema: TEST_SCHEMAS,
     tables: 'users',
     output: {} as TableRecord<TestSchema['users']>,
     baseTable: 'users',
-    base: TEST_SCHEMAS.users
+    base: TEST_SCHEMAS.users,
+    aliases: {}
   };
   return new QueryBuilder<TestSchema, UsersState>('users', state);
 }
 
-export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableRecord<TestSchema['test_table']>> {
+export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableRecord<TestSchema['test_table']>, 'test_table'> {
   const state: TestTableState = {
     schema: TEST_SCHEMAS,
     tables: 'test_table',
     output: {} as TableRecord<TestSchema['test_table']>,
     baseTable: 'test_table',
-    base: TEST_SCHEMAS.test_table
+    base: TEST_SCHEMAS.test_table,
+    aliases: {}
   };
   return new QueryBuilder<TestSchema, TestTableState>('test_table', state);
 }

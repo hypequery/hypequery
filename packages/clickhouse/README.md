@@ -191,7 +191,18 @@ const tripsWithUsers = await db.table('trips')
   .where('users.email', 'like', '%@example.com')
   .execute();
 
+// Keep literal column inference with selectConst and reuse joined columns in ORDER BY / HAVING
+const sortedTrips = await db.table('trips')
+  .innerJoin('users', 'trips.user_id', 'users.id')
+  .selectConst('users.email', 'trips.trip_id')
+  .groupBy(['users.email', 'trips.trip_id'])
+  .having('COUNT(*) > 1')
+  .orderBy('users.email', 'DESC')
+  .execute();
+
 ```
+
+`selectConst()` preserves literal column names (including aliases like `users.email`), which means TypeScript keeps those identifiers available for downstream `orderBy`, `groupBy`, and `having` calls.
 
 **Benefits:**
 - ✅ Works in all environments (Node.js, browser, bundlers)

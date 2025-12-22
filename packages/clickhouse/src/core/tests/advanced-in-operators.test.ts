@@ -191,8 +191,8 @@ describe('Advanced IN Operators', () => {
 
     it('should work with whereGroup', () => {
       const query = builder
-        .whereGroup(builder => {
-          builder
+        .whereGroup(groupBuilder => {
+          groupBuilder
             .where('id', 'globalIn', [1, 2, 3])
             .orWhere('created_by', 'inSubquery', 'SELECT id FROM users WHERE active = 1');
         })

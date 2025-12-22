@@ -4,7 +4,7 @@ import { PaginatedResult, PaginationOptions } from '../../types/index.js';
 
 export class PaginationFeature<
   Schema extends SchemaDefinition<Schema>,
-  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
   private static cursorStacks: Map<string, { stack: string[]; position: number }> = new Map();
   private stackKey: string;

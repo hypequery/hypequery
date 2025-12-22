@@ -4,7 +4,7 @@ import { JoinType } from '../../types/index.js';
 
 export class JoinFeature<
   Schema extends SchemaDefinition<Schema>,
-  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 

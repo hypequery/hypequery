@@ -52,7 +52,8 @@ const qb = new QueryBuilder<AppSchema, UsersState>(
     tables: 'users',
     output: {} as TableRecord<AppSchema['users']>,
     baseTable: 'users',
-    base: {} as AppSchema['users']
+    base: {} as AppSchema['users'],
+    aliases: {}
   }
 );
 

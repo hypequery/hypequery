@@ -58,4 +58,18 @@ describe('QueryBuilder - Basic Operations', () => {
       expect(sql).toBe('SELECT AVG(price) AS avg_price FROM test_table HAVING avg_price > 10');
     });
   });
+
+  describe('CTEs', () => {
+    it('should support withCTE using builder instances', () => {
+      const recentIds = builder.select(['id'] as const).where('price', 'gt', 25);
+      const sql = builder
+        .withCTE('recent_ids', recentIds)
+        .select(['id'] as const)
+        .where('id', 'inSubquery', 'SELECT id FROM recent_ids')
+        .toSQL();
+
+      expect(sql).toContain('WITH recent_ids AS (SELECT id FROM test_table WHERE price > 25)');
+      expect(sql).toContain('SELECT id FROM test_table WHERE id IN (SELECT id FROM recent_ids)');
+    });
+  });
 }); 

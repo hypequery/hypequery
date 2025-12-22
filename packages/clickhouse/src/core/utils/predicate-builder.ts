@@ -1,5 +1,5 @@
-import { TableColumnForTables } from '../../types/schema.js';
 import type { AnyBuilderState, BaseRow } from '../types/builder-state.js';
+import type { SelectableColumn } from '../types/select-types.js';
 
 export type PredicatePrimitive = string | number | boolean | Date | null;
 type PredicateValue = Exclude<PredicatePrimitive, string>;
@@ -19,7 +19,7 @@ export interface PredicateLiteral<T = PredicatePrimitive> {
 export type ColumnReference<State extends AnyBuilderState> =
   | keyof BaseRow<State>
   | keyof State['output']
-  | TableColumnForTables<State['schema'], State['tables']>;
+  | Extract<SelectableColumn<State>, string>;
 
 export type PredicateArg<State extends AnyBuilderState> =
   | ColumnReference<State>
