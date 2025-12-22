@@ -4,7 +4,7 @@ import { TestSchema, setupTestBuilder } from './test-utils.js';
 
 describe('JoinRelationships', () => {
   let relationships: JoinRelationships<TestSchema>;
-  let builder: QueryBuilder<TestSchema, TestSchema['test_table']>;
+  let builder: ReturnType<typeof setupTestBuilder>;
 
   beforeEach(() => {
     relationships = new JoinRelationships<TestSchema>();

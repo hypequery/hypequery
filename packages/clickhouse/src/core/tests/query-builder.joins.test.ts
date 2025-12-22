@@ -1,9 +1,8 @@
 import { Equal, Expect } from '@type-challenges/utils';
-import { QueryBuilder } from '../query-builder.js';
-import { setupTestBuilder, TestSchema } from './test-utils.js';
+import { setupTestBuilder } from './test-utils.js';
 
 describe('QueryBuilder - Joins', () => {
-  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>;
+  let builder: ReturnType<typeof setupTestBuilder>;
 
   beforeEach(() => {
     builder = setupTestBuilder();
@@ -133,12 +132,12 @@ describe('QueryBuilder - Joins', () => {
   describe('complex join scenarios', () => {
     it('should select specific columns from multiple joined tables', () => {
       const sql = builder
-        .select(['test_table.id', 'test_table.name', 'users.user_name', 'users.email'])
         .innerJoin(
           'users',
           'created_by',
           'users.id'
         )
+        .select(['test_table.id', 'test_table.name', 'users.user_name', 'users.email'] as const)
         .toSQL();
       expect(sql).toBe('SELECT test_table.id, test_table.name, users.user_name, users.email FROM test_table INNER JOIN users ON created_by = users.id');
     });
@@ -148,7 +147,7 @@ describe('QueryBuilder - Joins', () => {
         .innerJoin('users', 'created_by', 'users.id', 'u1')
         .leftJoin('users', 'updated_by', 'users.id', 'u2')
         // @ts-expect-error - u1.user_name current type system limitation
-        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'])
+        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'] as const)
         .toSQL();
       expect(sql).toBe(
         'SELECT test_table.name, u1.user_name as creator, u2.user_name as updater ' +
@@ -166,12 +165,12 @@ describe('QueryBuilder - Joins', () => {
             'created_by',
             'users.id'
           )
-          .select(['test_table.price', 'users.user_name'])
+          .select(['test_table.price', 'users.user_name'] as const);
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'price': string;
-          'user_name': string;
+          price: number;
+          user_name: string;
         }[];
 
         type Assert = Expect<Equal<Result, Expected>>;
@@ -182,17 +181,35 @@ describe('QueryBuilder - Joins', () => {
       it('should maintain types through multiple joins', () => {
         const query = builder
           .innerJoin('users', 'created_by', 'users.id')
-          .select(['test_table.price', 'users.user_name']);
+          .select(['test_table.price', 'users.user_name'] as const);
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'price': string;
-          'user_name': string;
+          price: number;
+          user_name: string;
         }[];
 
         type Assert = Expect<Equal<Result, Expected>>;
       });
 
+    });
+
+    it('should allow grouping, ordering, and having using joined table columns', () => {
+      const sql = builder
+        .innerJoin('users', 'created_by', 'users.id')
+        .select(['users.user_name', 'test_table.name'] as const)
+        .groupBy(['users.user_name', 'test_table.name'])
+        .orderBy('users.user_name', 'DESC')
+        .having('COUNT(*) > 1')
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT users.user_name, test_table.name FROM test_table ' +
+        'INNER JOIN users ON created_by = users.id ' +
+        'GROUP BY users.user_name, test_table.name ' +
+        'HAVING COUNT(*) > 1 ' +
+        'ORDER BY users.user_name DESC'
+      );
     });
 
   });

@@ -1,10 +1,9 @@
-import { QueryBuilder } from '../query-builder.js';
-import { setupTestBuilder, setupUsersBuilder, TestSchema, } from './test-utils.js';
+import { setupTestBuilder, setupUsersBuilder } from './test-utils.js';
 
 
 describe('QueryBuilder Analytics Features', () => {
-  let queryBuilder: QueryBuilder<TestSchema, TestSchema['test_table'], true, {}>;
-  let builderUsers: QueryBuilder<TestSchema, TestSchema['users'], true, {}>;
+  let queryBuilder: ReturnType<typeof setupTestBuilder>;
+  let builderUsers: ReturnType<typeof setupUsersBuilder>;
 
   beforeEach(() => {
     queryBuilder = setupTestBuilder();

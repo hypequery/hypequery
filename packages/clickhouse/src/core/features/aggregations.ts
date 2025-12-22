@@ -1,22 +1,18 @@
+import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType } from '../../types/schema.js';
 
 export class AggregationFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
-  T,
-  HasSelect extends boolean = false,
-  Aggregations = {},
-  OriginalT = T,
-  VisibleTables extends keyof Schema = never
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
+  constructor(private builder: QueryBuilder<Schema, State>) { }
 
-  private createAggregation<Column extends keyof OriginalT, Alias extends string>(
-    column: Column,
+  private createAggregation(
+    column: string,
     fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
-    alias: Alias
+    alias: string
   ) {
-    const aggregationSQL = `${fn}(${String(column)}) AS ${alias}`;
+    const aggregationSQL = `${fn}(${column}) AS ${alias}`;
     const config = this.builder.getConfig();
 
     if (config.select) {
@@ -33,58 +29,23 @@ export class AggregationFeature<
     };
   }
 
-  sum<Column extends keyof OriginalT, Alias extends string = `${Column & string}_sum`>(
-    column: Column,
-    alias?: Alias
-  ) {
-    return this.createAggregation(
-      column,
-      'SUM',
-      alias || `${String(column)}_sum`
-    );
+  sum(column: string, alias: string) {
+    return this.createAggregation(column, 'SUM', alias);
   }
 
-  count<Column extends keyof OriginalT, Alias extends string = `${Column & string}_count`>(
-    column: Column,
-    alias?: Alias
-  ) {
-    return this.createAggregation(
-      column,
-      'COUNT',
-      alias || `${String(column)}_count`
-    );
+  count(column: string, alias: string) {
+    return this.createAggregation(column, 'COUNT', alias);
   }
 
-  avg<Column extends keyof OriginalT, Alias extends string = `${Column & string}_avg`>(
-    column: Column,
-    alias?: Alias
-  ) {
-    return this.createAggregation(
-      column,
-      'AVG',
-      alias || `${String(column)}_avg`
-    );
+  avg(column: string, alias: string) {
+    return this.createAggregation(column, 'AVG', alias);
   }
 
-  min<Column extends keyof OriginalT, Alias extends string = `${Column & string}_min`>(
-    column: Column,
-    alias?: Alias
-  ) {
-    return this.createAggregation(
-      column,
-      'MIN',
-      alias || `${String(column)}_min`
-    );
+  min(column: string, alias: string) {
+    return this.createAggregation(column, 'MIN', alias);
   }
 
-  max<Column extends keyof OriginalT, Alias extends string = `${Column & string}_max`>(
-    column: Column,
-    alias?: Alias
-  ) {
-    return this.createAggregation(
-      column,
-      'MAX',
-      alias || `${String(column)}_max`
-    );
+  max(column: string, alias: string) {
+    return this.createAggregation(column, 'MAX', alias);
   }
-} 
+}

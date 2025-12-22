@@ -1,4 +1,5 @@
-import { TableColumn } from '../../types/schema.js';
+import { TableColumnForTables } from '../../types/schema.js';
+import type { AnyBuilderState, BaseRow } from '../types/builder-state.js';
 
 export type PredicatePrimitive = string | number | boolean | Date | null;
 type PredicateValue = Exclude<PredicatePrimitive, string>;
@@ -7,7 +8,6 @@ export interface PredicateExpression<T = unknown> {
   __type: 'predicate_expression';
   sql: string;
   parameters: any[];
-  // Phantom property for type inference
   readonly expressionType?: T | undefined;
 }
 
@@ -16,18 +16,21 @@ export interface PredicateLiteral<T = PredicatePrimitive> {
   value: T;
 }
 
-export type ColumnReference<Schema, OriginalT> = keyof OriginalT | TableColumn<Schema>;
+export type ColumnReference<State extends AnyBuilderState> =
+  | keyof BaseRow<State>
+  | keyof State['output']
+  | TableColumnForTables<State['schema'], State['tables']>;
 
-export type PredicateArg<Schema, OriginalT> =
-  | ColumnReference<Schema, OriginalT>
+export type PredicateArg<State extends AnyBuilderState> =
+  | ColumnReference<State>
   | PredicateExpression
   | PredicateLiteral
   | PredicateValue
   | PredicatePrimitive[];
 
-export interface PredicateBuilder<Schema, OriginalT> {
-  fn<T = unknown>(name: string, ...args: Array<PredicateArg<Schema, OriginalT>>): PredicateExpression<T>;
-  col(column: ColumnReference<Schema, OriginalT>): PredicateExpression;
+export interface PredicateBuilder<State extends AnyBuilderState> {
+  fn<T = unknown>(name: string, ...args: Array<PredicateArg<State>>): PredicateExpression<T>;
+  col(column: ColumnReference<State>): PredicateExpression;
   value<T extends PredicatePrimitive>(value: T): PredicateLiteral<T>;
   literal<T extends PredicatePrimitive>(value: T): PredicateLiteral<T>;
   array(values: Array<PredicatePrimitive | PredicateLiteral>): PredicateExpression;
@@ -89,8 +92,8 @@ function normalizeLiteralValue(value: PredicatePrimitive | PredicateLiteral): Pr
   throw new Error('Unsupported literal value in predicate array');
 }
 
-function normalizeArgument<Schema, OriginalT>(
-  arg: PredicateArg<Schema, OriginalT>
+function normalizeArgument<State extends AnyBuilderState>(
+  arg: PredicateArg<State>
 ): PredicateExpression {
   if (isPredicateExpression(arg)) {
     return arg;
@@ -119,9 +122,9 @@ function normalizeArgument<Schema, OriginalT>(
   throw new Error('Unsupported predicate argument type');
 }
 
-function buildFunctionExpression<Schema, OriginalT, T = unknown>(
+function buildFunctionExpression<State extends AnyBuilderState, T = unknown>(
   name: string,
-  args: PredicateArg<Schema, OriginalT>[]
+  args: PredicateArg<State>[]
 ): PredicateExpression<T> {
   const builtArgs = args.map(arg => normalizeArgument(arg));
   const sql = `${name}(${builtArgs.map(arg => arg.sql).join(', ')})`;
@@ -142,10 +145,10 @@ function buildLogical(operator: 'AND' | 'OR', expressions: PredicateExpression[]
   return createExpression(sql, parameters);
 }
 
-export function createPredicateBuilder<Schema, OriginalT>(): PredicateBuilder<Schema, OriginalT> {
+export function createPredicateBuilder<State extends AnyBuilderState>(): PredicateBuilder<State> {
   return {
-    fn: <T = unknown>(name: string, ...args: Array<PredicateArg<Schema, OriginalT>>) =>
-      buildFunctionExpression<Schema, OriginalT, T>(name, args),
+    fn: <T = unknown>(name: string, ...args: Array<PredicateArg<State>>) =>
+      buildFunctionExpression<State, T>(name, args),
     col: column => createExpression(String(column)),
     value: value => literal(value),
     literal: value => literal(value),

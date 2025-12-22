@@ -1,8 +1,8 @@
-import { QueryBuilder } from '../query-builder.js';
-import { setupTestBuilder, TestSchema } from './test-utils.js';
+import { setupTestBuilder } from './test-utils.js';
+import { rawAs } from '../utils/sql-expressions.js';
 
 describe('QueryBuilder - Basic Operations', () => {
-  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], true, {}>;
+  let builder: ReturnType<typeof setupTestBuilder>;
 
   beforeEach(() => {
     builder = setupTestBuilder();
@@ -45,6 +45,17 @@ describe('QueryBuilder - Basic Operations', () => {
         .select(['name'])
         .toSQL();
       expect(sql).toBe('SELECT DISTINCT name FROM test_table');
+    });
+  });
+
+  describe('expressions and aliases', () => {
+    it('should support selecting expressions and filtering via HAVING with the alias', () => {
+      const sql = builder
+        .select([rawAs<number, 'avg_price'>('AVG(price)', 'avg_price')] as const)
+        .having('avg_price > 10')
+        .toSQL();
+
+      expect(sql).toBe('SELECT AVG(price) AS avg_price FROM test_table HAVING avg_price > 10');
     });
   });
 }); 

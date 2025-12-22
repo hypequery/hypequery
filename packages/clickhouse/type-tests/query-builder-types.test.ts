@@ -4,7 +4,8 @@ import { createPredicateBuilder } from '../src/core/utils/predicate-builder.js';
 import { rawAs } from '../src/core/utils/sql-expressions.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
-const builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}> = setupTestBuilder();
+const builder = setupTestBuilder();
+type BuilderStateType = typeof builder extends QueryBuilder<any, infer S> ? S : never;
 
 const simpleSelect = builder.select(['created_at', 'price']);
 type SimpleResult = Awaited<ReturnType<typeof simpleSelect.execute>>;
@@ -21,10 +22,12 @@ type SelectAggResult = Awaited<ReturnType<typeof selectWithAgg.execute>>;
 type SelectAggExpected = { category: string; price_sum: string }[];
 type AssertSelectAggregations = Expect<Equal<SelectAggResult, SelectAggExpected>>;
 
+type JoinTables = Parameters<typeof builder.innerJoin>[0];
+type AssertJoinTables = Expect<Equal<JoinTables, keyof TestSchema>>;
 // @ts-expect-error - table does not exist
-builder.innerJoin('invalid_table', 'id', 'invalid_table.id');
+const invalidJoinTable: JoinTables = 'invalid_table';
 // @ts-expect-error - table does not exist
-builder.innerJoin('users222', 'created_by', 'users222.id');
+const invalidJoinTableAlias: JoinTables = 'users222';
 
 builder.innerJoin('users', 'created_by', 'users.id');
 
@@ -96,7 +99,7 @@ type ChainResult = Awaited<ReturnType<typeof chainQuery.execute>>;
 type ChainExpected = { name: string; is_premium: boolean; metadata: Record<string, string> }[];
 type AssertChainSelect = Expect<Equal<ChainResult, ChainExpected>>;
 
-const predicateBuilder = createPredicateBuilder<TestSchema, TestSchema['test_table']>();
+const predicateBuilder = createPredicateBuilder<BuilderStateType>();
 predicateBuilder.fn('hasAny', 'tags', ['foo']);
 // @ts-expect-error - invalid column should be rejected
 predicateBuilder.fn('hasAny', 'unknown_column', ['foo']);
@@ -114,3 +117,32 @@ type AliasRowKeys = keyof AliasRow;
 type AssertAliasRowKeys = Expect<Equal<AliasRowKeys, 'avg_total'>>;
 type AliasValue = AliasRow['avg_total'];
 type AssertAliasValue = Expect<Equal<AliasValue, number>>;
+
+const joinedColumnsQuery = builder
+  .innerJoin('users', 'created_by', 'users.id')
+  .select(['users.email', 'name']);
+type JoinedColumnsResult = Awaited<ReturnType<typeof joinedColumnsQuery.execute>>;
+type JoinedColumnsExpected = { email: string; name: string }[];
+type AssertJoinedColumns = Expect<Equal<JoinedColumnsResult, JoinedColumnsExpected>>;
+
+const aliasWhereQuery = aliasSelection.where('avg_total', 'gt', 10);
+type AliasWhereResult = Awaited<ReturnType<typeof aliasWhereQuery.execute>>;
+type AssertAliasWhere = Expect<Equal<AliasWhereResult, { avg_total: number }[]>>;
+
+const nestedJoinState = builder
+  .innerJoin('users', 'created_by', 'users.id')
+  .innerJoin('users', 'updated_by', 'users.id')
+  .select(['users.user_name']);
+type NestedJoinResult = Awaited<ReturnType<typeof nestedJoinState.execute>>;
+type NestedJoinExpected = { user_name: string }[];
+type AssertNestedJoin = Expect<Equal<NestedJoinResult, NestedJoinExpected>>;
+
+builder
+  .innerJoin('users', 'created_by', 'users.id')
+  .where('users.email', 'eq', 'team@example.com');
+
+const cteSource = builder.select(['id'] as const).where('price', 'gt', 50);
+const cteQuery = builder.withCTE('recent_orders', cteSource).select(['id'] as const);
+type CteResult = Awaited<ReturnType<typeof cteQuery.execute>>;
+type CteExpected = { id: number }[];
+type AssertCteState = Expect<Equal<CteResult, CteExpected>>;

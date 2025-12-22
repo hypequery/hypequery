@@ -1,4 +1,5 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
+import type { BuilderState } from '../src/core/types/builder-state.js';
 import type { TableColumn, TableRecord } from '../src/types/schema.js';
 
 // Simple helper utilities for compile-time assertions
@@ -37,10 +38,22 @@ type ExpectedColumns =
 type _TableColumnShape = Expect<Equal<TableColumn<AppSchema>, ExpectedColumns>>;
 
 // Instantiate a QueryBuilder purely for type checking
-const qb = new QueryBuilder<AppSchema, AppSchema['users'], false, {}, AppSchema['users']>(
+type UsersState = BuilderState<
+  AppSchema,
   'users',
-  { name: 'users', columns: {} as AppSchema['users'] },
-  {} as AppSchema
+  TableRecord<AppSchema['users']>,
+  'users'
+>;
+
+const qb = new QueryBuilder<AppSchema, UsersState>(
+  'users',
+  {
+    schema: {} as AppSchema,
+    tables: 'users',
+    output: {} as TableRecord<AppSchema['users']>,
+    baseTable: 'users',
+    base: {} as AppSchema['users']
+  }
 );
 
 const selected = qb.select(['id', 'name']);

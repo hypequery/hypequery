@@ -184,6 +184,13 @@ const tripsWithDrivers = await db.table('trips')
   .join('drivers', 'trips.driver_id', 'drivers.id')
   .execute();
 
+// After joining, TypeScript understands the expanded scope
+const tripsWithUsers = await db.table('trips')
+  .innerJoin('users', 'trips.user_id', 'users.id')
+  .select(['users.email', 'trips.trip_id'])
+  .where('users.email', 'like', '%@example.com')
+  .execute();
+
 ```
 
 **Benefits:**

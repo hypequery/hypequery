@@ -1,8 +1,7 @@
-import { QueryBuilder } from '../query-builder.js';
-import { setupTestBuilder, TestSchema } from './test-utils.js';
+import { setupTestBuilder } from './test-utils.js';
 
 describe('QueryBuilder - Grouping and Ordering', () => {
-  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], true, {}>;
+  let builder: ReturnType<typeof setupTestBuilder>;
 
   beforeEach(() => {
     builder = setupTestBuilder();

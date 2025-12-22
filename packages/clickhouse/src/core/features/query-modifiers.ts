@@ -1,18 +1,14 @@
+import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { OrderDirection } from '../../types/index.js';
-import { ColumnType, TableColumn } from '../../types/schema.js';
 
 export class QueryModifiersFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
-  T,
-  HasSelect extends boolean = false,
-  Aggregations = {},
-  OriginalT = T,
-  VisibleTables extends keyof Schema = never
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
+  constructor(private builder: QueryBuilder<Schema, State>) { }
 
-  addGroupBy(columns: (keyof T | TableColumn<Schema>) | Array<keyof T | TableColumn<Schema>>) {
+  addGroupBy(columns: string | string[]) {
     const config = this.builder.getConfig();
     return {
       ...config,
@@ -36,7 +32,7 @@ export class QueryModifiersFeature<
     };
   }
 
-  addOrderBy<K extends keyof T | TableColumn<Schema>>(column: K, direction: OrderDirection = 'ASC') {
+  addOrderBy(column: string, direction: OrderDirection = 'ASC') {
     const config = this.builder.getConfig();
     return {
       ...config,
@@ -63,4 +59,4 @@ export class QueryModifiersFeature<
       distinct: true
     };
   }
-} 
+}

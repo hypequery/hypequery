@@ -1,18 +1,14 @@
+import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType } from '../../types/schema.js';
 import { ClickHouseConnection } from '../connection.js';
 import { substituteParameters } from '../utils.js';
 import { logger } from '../utils/logger.js';
 
 export class ExecutorFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
-  T,
-  HasSelect extends boolean = false,
-  Aggregations = {},
-  OriginalT = T,
-  VisibleTables extends keyof Schema = never
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
+  constructor(private builder: QueryBuilder<Schema, State>) { }
 
   toSQLWithParams(): { sql: string, parameters: any[] } {
     const sql = this.toSQLWithoutParameters();
@@ -26,7 +22,7 @@ export class ExecutorFeature<
     return substituteParameters(sql, parameters);
   }
 
-  async execute(): Promise<T[]> {
+  async execute(): Promise<State['output'][]> {
     const client = ClickHouseConnection.getClient();
     const { sql, parameters } = this.toSQLWithParams();
     const finalSQL = substituteParameters(sql, parameters);
@@ -45,7 +41,7 @@ export class ExecutorFeature<
         format: 'JSONEachRow'
       });
 
-      const rows = await result.json<T>();
+      const rows = await result.json<State['output']>();
       const endTime = Date.now();
 
       logger.logQuery({
@@ -74,7 +70,7 @@ export class ExecutorFeature<
     }
   }
 
-  async stream(): Promise<ReadableStream<T[]>> {
+  async stream(): Promise<ReadableStream<State['output'][]>> {
     const client = ClickHouseConnection.getClient();
     const { sql, parameters } = this.toSQLWithParams();
     const finalSQL = substituteParameters(sql, parameters);
@@ -105,7 +101,7 @@ export class ExecutorFeature<
         status: 'completed'
       });
 
-      return stream as ReadableStream<T[]>;
+      return stream as ReadableStream<State['output'][]>;
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
@@ -163,4 +159,4 @@ export class ExecutorFeature<
 
     return parts.join(' ').trim();
   }
-} 
+}

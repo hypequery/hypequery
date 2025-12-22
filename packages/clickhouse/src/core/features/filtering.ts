@@ -1,21 +1,17 @@
+import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { FilterOperator } from '../../types/index.js';
-import { ColumnType, TableColumn } from '../../types/schema.js';
 import { PredicateExpression } from '../utils/predicate-builder.js';
 
 export class FilteringFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
-  T,
-  HasSelect extends boolean = false,
-  Aggregations = {},
-  OriginalT = T,
-  VisibleTables extends keyof Schema = never
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, keyof Schema, any, keyof Schema>
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
+  constructor(private builder: QueryBuilder<Schema, State>) { }
 
-  addCondition<K extends keyof OriginalT | TableColumn<Schema>>(
+  addCondition(
     conjunction: 'AND' | 'OR',
-    column: K | K[],
+    column: string | string[],
     operator: FilterOperator,
     value: any
   ) {
@@ -23,7 +19,6 @@ export class FilteringFeature<
     const where = config.where || [];
     const parameters = config.parameters || [];
 
-    // Handle tuple columns
     const columnString = Array.isArray(column)
       ? `(${column.map(String).join(', ')})`
       : String(column);
@@ -36,7 +31,6 @@ export class FilteringFeature<
       type: 'condition'
     });
 
-    // Handle different parameter types based on operator
     if (operator === 'in' || operator === 'notIn' || operator === 'globalIn' || operator === 'globalNotIn') {
       if (!Array.isArray(value)) {
         throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
@@ -55,13 +49,11 @@ export class FilteringFeature<
       if (typeof value !== 'string') {
         throw new Error(`Expected a string (subquery) for ${operator} operator, but got ${typeof value}`);
       }
-      // No parameters
     }
     else if (operator === 'inTable' || operator === 'globalInTable') {
       if (typeof value !== 'string') {
         throw new Error(`Expected a string (table name) for ${operator} operator, but got ${typeof value}`);
       }
-      // No parameters
     }
     else if (operator === 'between') {
       parameters.push(value[0], value[1]);
@@ -101,18 +93,14 @@ export class FilteringFeature<
     };
   }
 
-  /**
-   * Adds a group-start marker to start a parenthesized group of conditions with AND conjunction
-   * @returns The updated query config
-   */
   startWhereGroup() {
     const config = this.builder.getConfig();
     const where = config.where || [];
 
     where.push({
-      column: '', // Not used for group markers
-      operator: 'eq', // Not used for group markers
-      value: null, // Not used for group markers
+      column: '',
+      operator: 'eq',
+      value: null,
       conjunction: 'AND',
       type: 'group-start'
     });
@@ -123,18 +111,14 @@ export class FilteringFeature<
     };
   }
 
-  /**
-   * Adds a group-start marker to start a parenthesized group of conditions with OR conjunction
-   * @returns The updated query config
-   */
   startOrWhereGroup() {
     const config = this.builder.getConfig();
     const where = config.where || [];
 
     where.push({
-      column: '', // Not used for group markers
-      operator: 'eq', // Not used for group markers
-      value: null, // Not used for group markers
+      column: '',
+      operator: 'eq',
+      value: null,
       conjunction: 'OR',
       type: 'group-start'
     });
@@ -145,19 +129,15 @@ export class FilteringFeature<
     };
   }
 
-  /**
-   * Adds a group-end marker to end a parenthesized group of conditions
-   * @returns The updated query config
-   */
   endWhereGroup() {
     const config = this.builder.getConfig();
     const where = config.where || [];
 
     where.push({
-      column: '', // Not used for group markers
-      operator: 'eq', // Not used for group markers
-      value: null, // Not used for group markers
-      conjunction: 'AND', // Not relevant for end markers
+      column: '',
+      operator: 'eq',
+      value: null,
+      conjunction: 'AND',
       type: 'group-end'
     });
 
@@ -166,4 +146,4 @@ export class FilteringFeature<
       where
     };
   }
-} 
+}

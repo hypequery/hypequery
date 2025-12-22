@@ -24,17 +24,13 @@ describe('Conditional Joins', () => {
 
   it('should build dynamic joins based on conditions', () => {
     function buildUserQuery(includeCreator: boolean, includeUpdater: boolean) {
-      let query = db.table('test_table').select(['id', 'name']);
-
-      if (includeCreator) {
-        query = query.leftJoin('users', 'created_by', 'users.id');
-      }
-
-      if (includeUpdater) {
-        query = query.leftJoin('users', 'updated_by', 'users.id', 'updater');
-      }
-
-      return query;
+      const base = db.table('test_table').select(['id', 'name']);
+      const withCreator = includeCreator
+        ? base.leftJoin('users', 'created_by', 'users.id')
+        : base;
+      return includeUpdater
+        ? withCreator.leftJoin('users', 'updated_by', 'users.id', 'updater')
+        : withCreator;
     }
 
     // Test with creator only
@@ -68,21 +64,15 @@ describe('Conditional Joins', () => {
       includeDepartment?: boolean;
       joinType?: 'LEFT' | 'INNER';
     }) {
-      let query = db.table('test_table').select(['id', 'name']);
-
-      if (options.includeCreator) {
-        if (options.joinType === 'INNER') {
-          query = query.innerJoin('users', 'created_by', 'users.id', 'creator');
-        } else {
-          query = query.leftJoin('users', 'created_by', 'users.id', 'creator');
-        }
-      }
-
-      if (options.includeUpdater) {
-        query = query.leftJoin('users', 'updated_by', 'users.id', 'updater');
-      }
-
-      return query;
+      const base = db.table('test_table').select(['id', 'name']);
+      const withCreator = options.includeCreator
+        ? options.joinType === 'INNER'
+          ? base.innerJoin('users', 'created_by', 'users.id', 'creator')
+          : base.leftJoin('users', 'created_by', 'users.id', 'creator')
+        : base;
+      return options.includeUpdater
+        ? withCreator.leftJoin('users', 'updated_by', 'users.id', 'updater')
+        : withCreator;
     }
 
     // Test with INNER join for creator
@@ -107,15 +97,10 @@ describe('Conditional Joins', () => {
 
   it('should maintain type safety in conditional joins', () => {
     function buildTypedQuery(includeCreator: boolean) {
-      let query = db.table('test_table').select(['id', 'name']);
-
-      if (includeCreator) {
-        query = query.leftJoin('users', 'created_by', 'users.id');
-        // The query should be valid and executable
-        expect(() => query.toSQL()).not.toThrow();
-      }
-
-      return query;
+      const base = db.table('test_table').select(['id', 'name']);
+      return includeCreator
+        ? base.leftJoin('users', 'created_by', 'users.id')
+        : base;
     }
 
     const query = buildTypedQuery(true);
