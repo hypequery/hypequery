@@ -1,5 +1,11 @@
 # @hypequery/clickhouse Changelog
 
+## [1.3.2]
+
+### Features
+
+* refactor the query builder around a single Kysely-style state object: joins now widen the visible-table set (including aliases), predicates/order/group/having all read from that state, and the new `selectConst()` helper locks in literal column inference for downstream clauses. Runtime/type tests and docs were updated to cover alias-aware joins, HAVING-on-alias flows, and `withCTE` pipelines.
+
 ## [1.3.1]
 
 ### Features

@@ -42,7 +42,7 @@ export class CrossFilteringFeature<
     conditions.forEach(condition => {
       if (isFilterCondition(condition)) {
         this.builder.where(
-          condition.column as any,
+          condition.column,
           condition.operator,
           condition.value
         );
@@ -71,7 +71,7 @@ export class CrossFilteringFeature<
     const firstCondition = conditions[0];
     if (isFilterCondition(firstCondition)) {
       builder.where(
-        firstCondition.column as any,
+        firstCondition.column,
         firstCondition.operator,
         firstCondition.value
       );
@@ -93,7 +93,7 @@ export class CrossFilteringFeature<
       const condition = conditions[i];
       if (isFilterCondition(condition)) {
         builder.orWhere(
-          condition.column as any,
+          condition.column,
           condition.operator,
           condition.value
         );

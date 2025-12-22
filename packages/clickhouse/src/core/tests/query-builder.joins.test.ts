@@ -123,7 +123,7 @@ describe('QueryBuilder - Joins', () => {
           'created_by',
           'users.id'
         )
-        .select(['test_table.id', 'test_table.name', 'users.user_name', 'users.email'] as const)
+        .select(['test_table.id', 'test_table.name', 'users.user_name', 'users.email'])
         .toSQL();
       expect(sql).toBe('SELECT test_table.id, test_table.name, users.user_name, users.email FROM test_table INNER JOIN users ON created_by = users.id');
     });
@@ -133,7 +133,7 @@ describe('QueryBuilder - Joins', () => {
         .innerJoin('users', 'created_by', 'users.id', 'u1')
         .leftJoin('users', 'updated_by', 'users.id', 'u2')
         // @ts-expect-error - u1.user_name current type system limitation
-        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'] as const)
+        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'])
         .toSQL();
       expect(sql).toBe(
         'SELECT test_table.name, u1.user_name as creator, u2.user_name as updater ' +
@@ -167,7 +167,7 @@ describe('QueryBuilder - Joins', () => {
       it('should maintain types through multiple joins', () => {
         const query = builder
           .innerJoin('users', 'created_by', 'users.id')
-          .select(['test_table.price', 'users.user_name'] as const);
+          .select(['test_table.price', 'users.user_name']);
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
@@ -183,7 +183,7 @@ describe('QueryBuilder - Joins', () => {
     it('should allow grouping, ordering, and having using joined table columns', () => {
       const sql = builder
         .innerJoin('users', 'created_by', 'users.id')
-        .select(['users.user_name', 'test_table.name'] as const)
+        .select(['users.user_name', 'test_table.name'])
         .groupBy(['users.user_name', 'test_table.name'])
         .orderBy('users.user_name', 'DESC')
         .having('COUNT(*) > 1')
