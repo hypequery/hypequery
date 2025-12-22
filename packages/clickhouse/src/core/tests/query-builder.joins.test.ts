@@ -175,7 +175,7 @@ describe('QueryBuilder - Joins', () => {
       it('should maintain types through multiple joins', () => {
         const query = builder
           .innerJoin('users', 'created_by', 'users.id')
-          .select(['test_table.price', 'users.user_name'] as const);
+          .select(['test_table.price', 'users.user_name']);
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
