@@ -184,9 +184,7 @@ const tripsWithDrivers = await db.table('trips')
   .join('drivers', 'trips.driver_id', 'drivers.id')
   .execute();
 
-
 ```
-
 
 **Benefits:**
 - ✅ Works in all environments (Node.js, browser, bundlers)

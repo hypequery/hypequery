@@ -3,10 +3,12 @@ import { TableColumn } from '../../types/schema.js';
 export type PredicatePrimitive = string | number | boolean | Date | null;
 type PredicateValue = Exclude<PredicatePrimitive, string>;
 
-export interface PredicateExpression {
+export interface PredicateExpression<T = unknown> {
   __type: 'predicate_expression';
   sql: string;
   parameters: any[];
+  // Phantom property for type inference
+  readonly expressionType?: T | undefined;
 }
 
 export interface PredicateLiteral<T = PredicatePrimitive> {
@@ -24,21 +26,22 @@ export type PredicateArg<Schema, OriginalT> =
   | PredicatePrimitive[];
 
 export interface PredicateBuilder<Schema, OriginalT> {
-  fn(name: string, ...args: Array<PredicateArg<Schema, OriginalT>>): PredicateExpression;
+  fn<T = unknown>(name: string, ...args: Array<PredicateArg<Schema, OriginalT>>): PredicateExpression<T>;
   col(column: ColumnReference<Schema, OriginalT>): PredicateExpression;
   value<T extends PredicatePrimitive>(value: T): PredicateLiteral<T>;
   literal<T extends PredicatePrimitive>(value: T): PredicateLiteral<T>;
   array(values: Array<PredicatePrimitive | PredicateLiteral>): PredicateExpression;
   raw(sql: string): PredicateExpression;
-  and(expressions: PredicateExpression[]): PredicateExpression;
-  or(expressions: PredicateExpression[]): PredicateExpression;
+  and(expressions: PredicateExpression[]): PredicateExpression<boolean>;
+  or(expressions: PredicateExpression[]): PredicateExpression<boolean>;
 }
 
-function createExpression(sql: string, parameters: any[] = []): PredicateExpression {
+function createExpression<T = unknown>(sql: string, parameters: any[] = []): PredicateExpression<T> {
   return {
     __type: 'predicate_expression',
     sql,
-    parameters
+    parameters,
+    expressionType: undefined as T | undefined
   };
 }
 
@@ -116,22 +119,22 @@ function normalizeArgument<Schema, OriginalT>(
   throw new Error('Unsupported predicate argument type');
 }
 
-function buildFunctionExpression<Schema, OriginalT>(
+function buildFunctionExpression<Schema, OriginalT, T = unknown>(
   name: string,
   args: PredicateArg<Schema, OriginalT>[]
-): PredicateExpression {
+): PredicateExpression<T> {
   const builtArgs = args.map(arg => normalizeArgument(arg));
   const sql = `${name}(${builtArgs.map(arg => arg.sql).join(', ')})`;
   const parameters = builtArgs.flatMap(arg => arg.parameters);
   return createExpression(sql, parameters);
 }
 
-function buildLogical(operator: 'AND' | 'OR', expressions: PredicateExpression[]): PredicateExpression {
+function buildLogical(operator: 'AND' | 'OR', expressions: PredicateExpression[]): PredicateExpression<boolean> {
   if (!expressions.length) {
     throw new Error(`${operator} requires at least one expression`);
   }
   if (expressions.length === 1) {
-    return expressions[0];
+    return expressions[0] as PredicateExpression<boolean>;
   }
 
   const sql = expressions.map(expr => `(${expr.sql})`).join(` ${operator} `);
@@ -141,7 +144,8 @@ function buildLogical(operator: 'AND' | 'OR', expressions: PredicateExpression[]
 
 export function createPredicateBuilder<Schema, OriginalT>(): PredicateBuilder<Schema, OriginalT> {
   return {
-    fn: (name, ...args) => buildFunctionExpression<Schema, OriginalT>(name, args),
+    fn: <T = unknown>(name: string, ...args: Array<PredicateArg<Schema, OriginalT>>) =>
+      buildFunctionExpression<Schema, OriginalT, T>(name, args),
     col: column => createExpression(String(column)),
     value: value => literal(value),
     literal: value => literal(value),

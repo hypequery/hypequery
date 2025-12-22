@@ -6,9 +6,10 @@ export class AggregationFeature<
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
-  OriginalT = T
+  OriginalT = T,
+  VisibleTables extends keyof Schema = never
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>) { }
+  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
 
   private createAggregation<Column extends keyof OriginalT, Alias extends string>(
     column: Column,

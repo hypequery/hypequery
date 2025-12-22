@@ -7,12 +7,13 @@ export class PaginationFeature<
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
-  OriginalT = T
+  OriginalT = T,
+  VisibleTables extends keyof Schema = never
 > {
   private static cursorStacks: Map<string, { stack: string[]; position: number }> = new Map();
   private stackKey: string;
 
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>) {
+  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) {
     // Create a unique key for this pagination instance based on the table and sort
     this.stackKey = builder.getTableName();
     if (!PaginationFeature.cursorStacks.has(this.stackKey)) {

@@ -10,7 +10,7 @@ import {
   PaginationOptions,
   QueryConfig,
 } from '../types/index.js';
-import { ColumnType, InferColumnType, TableColumn } from '../types/schema.js';
+import { ColumnType, InferColumnType, TableColumn, TableColumnForTables } from '../types/schema.js';
 import { SQLFormatter } from './formatters/sql-formatter.js';
 import { AggregationFeature } from './features/aggregations.js';
 import { JoinFeature } from './features/joins.js';
@@ -21,7 +21,7 @@ import { QueryModifiersFeature } from './features/query-modifiers.js';
 import { FilterValidator } from './validators/filter-validator.js';
 import { PaginationFeature } from './features/pagination.js';
 import { JoinRelationships, JoinPathOptions } from './join-relationships.js';
-import { SqlExpression } from './utils/sql-expressions.js';
+import { SqlExpression, AliasedExpression } from './utils/sql-expressions.js';
 import {
   PredicateBuilder,
   PredicateExpression,
@@ -31,9 +31,19 @@ import { CrossFilteringFeature } from './features/cross-filtering.js';
 import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
+import {
+  SelectableItem as SelectableItemType,
+  SelectionResult
+} from './types/select-types.js';
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
+
+type SelectableItem<
+  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
+  T,
+  VisibleTables extends keyof Schema
+> = SelectableItemType<Schema, T, VisibleTables>;
 
 /**
  * Configuration for client-based connections.
@@ -68,7 +78,8 @@ export class QueryBuilder<
   T,
   HasSelect extends boolean = false,
   Aggregations = {},
-  OriginalT = T
+  OriginalT = T,
+  VisibleTables extends keyof Schema = never
 > {
   private static relationships: JoinRelationships<any>;
 
@@ -77,14 +88,14 @@ export class QueryBuilder<
   private schema: { name: string; columns: T };
   private originalSchema: Schema;
   private formatter = new SQLFormatter();
-  private aggregations: AggregationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
-  private joins: JoinFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
-  private filtering: FilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
-  private analytics: AnalyticsFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
-  private executor: ExecutorFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
-  private modifiers: QueryModifiersFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
-  private pagination: PaginationFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
-  private crossFiltering: CrossFilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT>;
+  private aggregations: AggregationFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private joins: JoinFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private filtering: FilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private analytics: AnalyticsFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private executor: ExecutorFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private modifiers: QueryModifiersFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private pagination: PaginationFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private crossFiltering: CrossFilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
 
   constructor(
     tableName: string,
@@ -113,8 +124,8 @@ export class QueryBuilder<
     return this;
   }
 
-  clone(): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
-    const newBuilder = new QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT>(
+  clone(): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables> {
+    const newBuilder = new QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>(
       this.tableName,
       this.schema,
       this.originalSchema
@@ -197,27 +208,21 @@ export class QueryBuilder<
    * builder.select('*')
    * ```
    */
-  select<K extends keyof T | TableColumn<Schema> | SqlExpression = keyof T | TableColumn<Schema> | SqlExpression>(
-    columnsOrAsterisk: K[] | '*'
-  ): K[] extends typeof columnsOrAsterisk
-    ? QueryBuilder<
-      Schema,
-      {
-        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
-        P extends keyof T
-        ? T[P] extends ColumnType
-        ? InferClickHouseType<T[P]>
-        : unknown
-        : string
-      },
-      true,
-      Aggregations,
-      OriginalT
-    >
-    : QueryBuilder<Schema, T, true, Aggregations, OriginalT> {
+  select(columnsOrAsterisk: '*'): QueryBuilder<Schema, T, true, Aggregations, OriginalT>;
+  select<Selections extends ReadonlyArray<SelectableItem<Schema, T, VisibleTables>>>(
+    columnsOrAsterisk: Selections
+  ): QueryBuilder<
+    Schema,
+    SelectionResult<Schema, T, VisibleTables, Selections[number]>,
+    true,
+    Aggregations,
+    OriginalT,
+    VisibleTables
+  >;
+  select<Selections extends ReadonlyArray<SelectableItem<Schema, T, VisibleTables>>>(columnsOrAsterisk: '*' | Selections) {
     // Handle '*' case - return all columns with original type
     if (columnsOrAsterisk === '*') {
-      const newBuilder = new QueryBuilder<Schema, T, true, Aggregations, OriginalT>(
+      const newBuilder = new QueryBuilder<Schema, T, true, Aggregations, OriginalT, VisibleTables>(
         this.tableName,
         this.schema,
         this.originalSchema
@@ -231,26 +236,20 @@ export class QueryBuilder<
           direction
         })) as any
       };
-      return newBuilder as any;
+      return newBuilder as QueryBuilder<Schema, T, true, Aggregations, OriginalT>;
     }
 
     // Handle array case - select specific columns
-    const columns = columnsOrAsterisk
+    const columns = columnsOrAsterisk as Selections;
 
     // Create a new builder with the appropriate type parameters
     const newBuilder = new QueryBuilder<
       Schema,
-      {
-        [P in Extract<K, keyof T | TableColumn<Schema>> as P extends `${string}.${infer C}` ? C : P]:
-        P extends keyof T
-        ? T[P] extends ColumnType
-        ? InferClickHouseType<T[P]>
-        : unknown
-        : string
-      },
+      any,
       true,
       Aggregations,
-      OriginalT
+      OriginalT,
+      VisibleTables
     >(
       this.tableName,
       {
@@ -276,7 +275,14 @@ export class QueryBuilder<
         direction
       }))
     };
-    return newBuilder as any
+    return newBuilder as QueryBuilder<
+      Schema,
+      SelectionResult<Schema, T, VisibleTables, Selections[number]>,
+      true,
+      Aggregations,
+      OriginalT,
+      VisibleTables
+    >;
   }
 
   sum<Column extends keyof OriginalT, Alias extends string = `${Column & string}_sum`>(
@@ -628,7 +634,7 @@ export class QueryBuilder<
    * builder.orderBy('created_at', 'DESC')
    * ```
    */
-  orderBy<K extends keyof T | TableColumn<Schema>>(
+  orderBy<K extends keyof T | TableColumnForTables<Schema, VisibleTables>>(
     column: K,
     direction: OrderDirection = 'ASC'
   ): this {
@@ -673,10 +679,10 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('INNER', table, leftColumn, rightColumn, alias);
-    return newBuilder;
+    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
   }
 
   leftJoin<
@@ -686,10 +692,10 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('LEFT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
   }
 
   rightJoin<
@@ -699,10 +705,10 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
   }
 
   fullJoin<
@@ -712,10 +718,10 @@ export class QueryBuilder<
     leftColumn: keyof OriginalT,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT> {
+  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
     const newBuilder = this.clone();
     newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, rightColumn, alias);
-    return newBuilder as any
+    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
   }
 
   // Make config accessible to features
@@ -792,7 +798,7 @@ export function createQueryBuilder<Schema extends { [K in keyof Schema]: { [colu
 
   return {
     table<TableName extends keyof Schema>(tableName: TableName): QueryBuilder<Schema, Schema[TableName], false, {}> {
-      return new QueryBuilder<Schema, Schema[TableName], false, {}>(
+      return new QueryBuilder<Schema, Schema[TableName], false, {}, Schema[TableName], TableName>(
         tableName as string,
         {
           name: tableName as string,
