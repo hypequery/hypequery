@@ -24,8 +24,8 @@ export type AnyBuilderState = BuilderState<any, any, any, any, any>;
 
 export type BaseRow<State extends AnyBuilderState> = Simplify<{
   [K in keyof State['base']]: State['base'][K] extends ColumnType
-    ? InferColumnType<State['base'][K]>
-    : never;
+  ? InferColumnType<State['base'][K]>
+  : never;
 }>;
 
 export type WidenTables<
@@ -45,10 +45,10 @@ export type InitialState<
 
 export type ExplicitSelectionState<State extends AnyBuilderState> =
   BaseRow<State> extends State['output']
-    ? State['output'] extends BaseRow<State>
-      ? false
-      : true
-    : true;
+  ? State['output'] extends BaseRow<State>
+  ? false
+  : true
+  : true;
 
 export type AppendToOutput<
   State extends AnyBuilderState,
@@ -56,8 +56,8 @@ export type AppendToOutput<
 > = UpdateOutput<
   State,
   ExplicitSelectionState<State> extends true
-    ? Simplify<State['output'] & Added>
-    : Simplify<Added>
+  ? Simplify<State['output'] & Added>
+  : Simplify<Added>
 >;
 
 export type AddAlias<
@@ -78,5 +78,5 @@ export type ResolveTableSchema<
 > = Table extends keyof State['schema']
   ? State['schema'][Table]
   : Table extends keyof State['aliases']
-    ? State['schema'][State['aliases'][Table]]
-    : never;
+  ? State['schema'][State['aliases'][Table]]
+  : never;
