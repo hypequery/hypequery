@@ -31,6 +31,10 @@ import { CrossFilteringFeature } from './features/cross-filtering.js';
 import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
+import {
+  SelectableItem as SelectableItemType,
+  SelectionResult
+} from './types/select-types.js';
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
@@ -39,36 +43,7 @@ type SelectableItem<
   Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
   T,
   VisibleTables extends keyof Schema
-> = keyof T | TableColumnForTables<Schema, VisibleTables> | SqlExpression;
-
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
-
-type Simplify<T> = { [K in keyof T]: T[K] } & {};
-
-type ColumnSelectionRecord<
-  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
-  T,
-  VisibleTables extends keyof Schema,
-  K
-> = {
-  [P in Extract<K, keyof T | TableColumnForTables<Schema, VisibleTables>> as P extends `${string}.${infer C}` ? C : P]:
-  P extends keyof T
-    ? T[P] extends ColumnType
-      ? InferColumnType<T[P]>
-      : unknown
-    : string;
-};
-
-type ExpressionSelectionRecord<K> = UnionToIntersection<
-  K extends AliasedExpression<infer R, infer A> ? { [P in A]: R } : {}
->;
-
-type SelectionResult<
-  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
-  T,
-  VisibleTables extends keyof Schema,
-  K
-> = Simplify<ColumnSelectionRecord<Schema, T, VisibleTables, K> & ExpressionSelectionRecord<K>>;
+> = SelectableItemType<Schema, T, VisibleTables>;
 
 /**
  * Configuration for client-based connections.

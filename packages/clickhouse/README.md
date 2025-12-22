@@ -184,24 +184,7 @@ const tripsWithDrivers = await db.table('trips')
   .join('drivers', 'trips.driver_id', 'drivers.id')
   .execute();
 
-// Function predicates + alias-aware selects
-import { rawAs } from '@hypequery/clickhouse';
-
-const recentHighValue = await db.table('trips')
-  .where(expr => expr.and([
-    expr.fn('hasAny', 'tags', ['launch', 'beta']),
-    expr.fn('endsWith', 'status', expr.literal('active'))
-  ]))
-  .orWhere(expr => expr.fn('notEmpty', 'tags'))
-  .select([
-    rawAs<number, 'avg_total'>('AVG(total_amount)', 'avg_total')
-  ] as const)
-  .toSQL();
-// SELECT ... WHERE ...; TypeScript knows the result has { avg_total: number }
-
-
 ```
-
 
 **Benefits:**
 - ✅ Works in all environments (Node.js, browser, bundlers)

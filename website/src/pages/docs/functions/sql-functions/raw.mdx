@@ -66,3 +66,16 @@ The `raw` function bypasses TypeScript's type checking for the injected SQL. The
 ## Notes
 - Use `raw` with caution. It bypasses automatic escaping and type safety for the injected SQL.
 - Prefer query builder methods when possible for safety and maintainability. 
+
+## Aliased Selections
+
+```ts
+import { rawAs } from '@hypequery/clickhouse';
+
+const totals = await db.table('trips')
+  .select([
+    rawAs<number, 'avg_total'>('AVG(total_amount)', 'avg_total')
+  ] as const)
+  .execute();
+// totals has type Array<{ avg_total: number }>
+```

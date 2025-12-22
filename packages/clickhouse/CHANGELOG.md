@@ -1,6 +1,6 @@
 # @hypequery/clickhouse Changelog
 
-## [1.3.10]
+## [1.3.1]
 
 ### Features
 
