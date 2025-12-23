@@ -5,9 +5,22 @@ export { JoinRelationships } from './core/join-relationships.js';
 // Re-export types for convenience
 export type {
   ClickHouseConfig,
-  ClickHouseClientConfig
+  ClickHouseClientConfig,
+  CreateQueryBuilderConfig,
+  ExecuteOptions
 } from './core/query-builder.js';
 export { isClientConfig } from './core/query-builder.js';
+export type {
+  CacheOptions,
+  CacheConfig,
+  CacheProvider,
+  CacheEntry,
+  CacheStatus
+} from './core/cache/types.js';
+export { CacheController } from './core/cache/controller.js';
+export { MemoryCacheProvider } from './core/cache/providers/memory-lru.js';
+export { MemoryCacheProvider as MemoryLRUCacheProvider } from './core/cache/providers/memory-lru.js';
+export { NoopCacheProvider } from './core/cache/providers/noop.js';
 
 // Re-export schema helpers + query utility types
 export type {

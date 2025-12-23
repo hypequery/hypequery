@@ -96,7 +96,8 @@ export class PaginationFeature<
 
     this.builder.limit(requestSize);
 
-    let results = await this.builder.execute();
+    // Pagination mutates builder state per page; bypass caching until pagination-specific caching is designed.
+    let results = await this.builder.execute({ cache: { mode: 'no-store' } });
 
     if (before) {
       results = results.reverse();

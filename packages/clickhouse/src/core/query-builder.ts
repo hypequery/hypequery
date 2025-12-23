@@ -30,6 +30,12 @@ import { CrossFilteringFeature } from './features/cross-filtering.js';
 import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
+import type { CacheOptions, CacheConfig } from './cache/types.js';
+import type { QueryRuntimeContext } from './cache/runtime-context.js';
+import { buildRuntimeContext, resolveCacheConfig } from './cache/runtime-context.js';
+import { CacheController } from './cache/controller.js';
+import { executeWithCache } from './cache/cache-manager.js';
+import { MemoryCacheProvider } from './cache/providers/memory-lru.js';
 import type {
   BuilderState,
   AnyBuilderState,
@@ -59,6 +65,30 @@ type ColumnOperatorValue<
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
+
+export interface ExecuteOptions {
+  queryId?: string;
+  cache?: CacheOptions;
+}
+
+function mergeDefinedCacheOptions(target: CacheOptions | undefined, update?: CacheOptions): CacheOptions | undefined {
+  if (!update) return target;
+  const result: CacheOptions = { ...(target || {}) };
+  for (const [key, value] of Object.entries(update) as [keyof CacheOptions, unknown][]) {
+    if (key === 'tags') {
+      const current = result.tags || [];
+      const incoming = (value as string[]) || [];
+      if (incoming.length) {
+        result.tags = Array.from(new Set([...current, ...incoming]));
+      }
+      continue;
+    }
+    if (value !== undefined) {
+      (result as Record<string, unknown>)[key as string] = value;
+    }
+  }
+  return result;
+}
 
 /**
  * Configuration for client-based connections.
@@ -103,13 +133,17 @@ export class QueryBuilder<
   private modifiers: QueryModifiersFeature<Schema, State>;
   private pagination: PaginationFeature<Schema, State>;
   private crossFiltering: CrossFilteringFeature<Schema, State>;
+  private runtime: QueryRuntimeContext;
+  private cacheOptions?: CacheOptions;
 
   constructor(
     tableName: string,
-    state: State
+    state: State,
+    runtime: QueryRuntimeContext
   ) {
     this.tableName = tableName;
     this.state = state;
+    this.runtime = runtime;
     this.aggregations = new AggregationFeature(this);
     this.joins = new JoinFeature(this);
     this.filtering = new FilteringFeature(this);
@@ -132,8 +166,9 @@ export class QueryBuilder<
     state: NextState,
     config: QueryConfig<NextState['output'], Schema>
   ): QueryBuilder<Schema, NextState> {
-    const builder = new QueryBuilder<Schema, NextState>(this.tableName, state);
+    const builder = new QueryBuilder<Schema, NextState>(this.tableName, state, this.runtime);
     builder.config = { ...config };
+    builder.cacheOptions = this.cacheOptions;
     return builder;
   }
 
@@ -142,6 +177,11 @@ export class QueryBuilder<
       state: this.state,
       config: this.config
     });
+    return this;
+  }
+
+  cache(options: CacheOptions): this {
+    this.cacheOptions = mergeDefinedCacheOptions(this.cacheOptions, options) || options;
     return this;
   }
 
@@ -348,6 +388,18 @@ export class QueryBuilder<
     return this.formatter;
   }
 
+  getRuntimeContext() {
+    return this.runtime;
+  }
+
+  getCacheOptions() {
+    return this.cacheOptions;
+  }
+
+  getExecutor() {
+    return this.executor;
+  }
+
   // Delegate execution methods to feature
   toSQL(): string {
     return this.executor.toSQL();
@@ -357,8 +409,8 @@ export class QueryBuilder<
     return this.executor.toSQLWithParams();
   }
 
-  execute(): Promise<State['output'][]> {
-    return this.executor.execute();
+  execute(options?: ExecuteOptions): Promise<State['output'][]> {
+    return executeWithCache(this, options);
   }
 
   async stream(): Promise<ReadableStream<State['output'][]>> {
@@ -788,12 +840,37 @@ export type SelectQB<
   BaseTable extends keyof Schema
 > = QueryBuilder<Schema, BuilderState<Schema, Tables, Output, BaseTable, {}>>;
 
+export type CreateQueryBuilderConfig = ClickHouseConfig & {
+  cache?: CacheConfig;
+};
+
+function deriveNamespace(config: ClickHouseConfig): string {
+  if (isClientConfig(config)) {
+    return 'client';
+  }
+  const host = 'host' in config ? config.host : 'unknown-host';
+  const database = 'database' in config ? config.database : 'default';
+  const username = 'username' in config ? config.username : 'default';
+  return `${host || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
+}
+
 export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
-  config: ClickHouseConfig
+  config: CreateQueryBuilderConfig
 ) {
-  ClickHouseConnection.initialize(config);
+  const { cache: cacheConfig, ...connectionConfig } = config as ClickHouseConfig & { cache?: CacheConfig };
+  ClickHouseConnection.initialize(connectionConfig as ClickHouseConfig);
+
+  const namespace = cacheConfig?.namespace || deriveNamespace(connectionConfig as ClickHouseConfig);
+  const provider = cacheConfig?.provider ?? (cacheConfig ? new MemoryCacheProvider() : undefined);
+  const mergedCacheConfig = cacheConfig
+    ? { ...cacheConfig, namespace, provider }
+    : { namespace, provider } as CacheConfig;
+  const runtimeConfig = resolveCacheConfig(mergedCacheConfig, namespace);
+  const runtime = buildRuntimeContext(runtimeConfig);
+  const cacheController = new CacheController(runtime);
 
   return {
+    cache: cacheController,
     table<TableName extends Extract<keyof Schema, string>>(tableName: TableName): SelectQB<
       Schema,
       TableName,
@@ -809,7 +886,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         aliases: {} as Partial<Record<string, keyof Schema>>
       } as InitialState<Schema, TableName>;
 
-      return new QueryBuilder<Schema, typeof state>(tableName as string, state);
+      return new QueryBuilder<Schema, typeof state>(tableName as string, state, runtime);
     }
   };
 }
