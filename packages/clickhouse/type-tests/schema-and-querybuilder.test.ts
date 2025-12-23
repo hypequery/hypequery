@@ -1,6 +1,7 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
 import type { BuilderState } from '../src/core/types/builder-state.js';
 import type { TableColumn, TableRecord } from '../src/types/schema.js';
+import { buildRuntimeContext, resolveCacheConfig } from '../src/core/cache/runtime-context.js';
 
 // Simple helper utilities for compile-time assertions
 // The compiler will emit errors if any of these constraints fail, giving us type regression coverage.
@@ -45,6 +46,8 @@ type UsersState = BuilderState<
   'users'
 >;
 
+const runtime = buildRuntimeContext(resolveCacheConfig(undefined, 'type-tests'));
+
 const qb = new QueryBuilder<AppSchema, UsersState>(
   'users',
   {
@@ -54,7 +57,8 @@ const qb = new QueryBuilder<AppSchema, UsersState>(
     baseTable: 'users',
     base: {} as AppSchema['users'],
     aliases: {}
-  }
+  },
+  runtime
 );
 
 const selected = qb.select(['id', 'name']);

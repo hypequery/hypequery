@@ -1,6 +1,7 @@
 import { QueryBuilder, SelectQB } from '../query-builder.js';
 import type { BuilderState } from '../types/builder-state.js';
 import type { TableRecord } from '../../types/schema.js';
+import { buildRuntimeContext, resolveCacheConfig } from '../cache/runtime-context.js';
 
 export type TestTableSchema = {
   id: 'Int32';
@@ -82,6 +83,10 @@ export const TEST_SCHEMAS: TestSchema = {
   }
 };
 
+function createTestRuntime() {
+  return buildRuntimeContext(resolveCacheConfig(undefined, 'tests'));
+}
+
 type UsersState = BuilderState<
   TestSchema,
   'users',
@@ -105,7 +110,7 @@ export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<T
     base: TEST_SCHEMAS.users,
     aliases: {}
   };
-  return new QueryBuilder<TestSchema, UsersState>('users', state);
+  return new QueryBuilder<TestSchema, UsersState>('users', state, createTestRuntime());
 }
 
 export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableRecord<TestSchema['test_table']>, 'test_table'> {
@@ -117,5 +122,5 @@ export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableReco
     base: TEST_SCHEMAS.test_table,
     aliases: {}
   };
-  return new QueryBuilder<TestSchema, TestTableState>('test_table', state);
+  return new QueryBuilder<TestSchema, TestTableState>('test_table', state, createTestRuntime());
 }

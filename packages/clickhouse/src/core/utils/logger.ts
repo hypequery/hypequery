@@ -1,3 +1,5 @@
+import type { CacheStatus } from '../cache/types.js';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export interface QueryLog {
@@ -10,6 +12,11 @@ export interface QueryLog {
   error?: Error;
   rowCount?: number;
   queryId?: string;
+  cacheStatus?: CacheStatus;
+  cacheKey?: string;
+  cacheMode?: string;
+  cacheAgeMs?: number;
+  cacheRowCount?: number;
 }
 
 export interface LoggerOptions {
@@ -104,13 +111,18 @@ class Logger {
       }
     }
 
-    const { query, parameters, duration, status, error, rowCount } = log;
+    const { query, parameters, duration, status, error, rowCount, cacheStatus, cacheKey, cacheMode, cacheAgeMs, cacheRowCount } = log;
     const message = `Query ${status}: ${query}`;
     const details = {
       parameters,
       duration: duration ? `${duration}ms` : undefined,
       rowCount,
-      error: error?.message
+      error: error?.message,
+      cacheStatus,
+      cacheKey,
+      cacheMode,
+      cacheAgeMs,
+      cacheRowCount
     };
 
     switch (status) {
