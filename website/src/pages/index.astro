@@ -2,13 +2,13 @@
 import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout title="hypequery - TypeScript SDK for ClickHouse with Type Safety">
+<Layout title="HypeQuery - Type-Safe Analytics for ClickHouse">
   <main>
     <!-- Hero section -->
     <div class="relative isolate pt-14">
       <div class="py-24 sm:py-32">
         <div class="mx-auto max-w-7xl px-4 lg:px-6">
-          <div class="mx-auto max-w-4xl text-center pb-24">
+          <div class="mx-auto max-w-4xl text-center pb-20">
             <div
               class="relative mb-6 inline-block text-left min-w-[240px] animate-on-scroll"
             >
@@ -18,10 +18,15 @@ import Layout from "../layouts/Layout.astro";
             <h1
               class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl flex flex-col animate-on-scroll"
             >
-              <span>Type-Safe Query Builder for ClickHouse</span>
+              <span>Type-Safe Analytics for ClickHouse</span>
             </h1>
+            <p class="mt-4 text-xl font-semibold text-indigo-600 animate-on-scroll">
+              Queries, metrics, and APIs — all in TypeScript
+            </p>
             <p class="mt-6 text-lg leading-8 text-gray-600 animate-on-scroll">
-              Stop writing raw SQL. Build dashboards, APIs, and data pipelines with compile-time validation. Our TypeScript SDK brings type safety to analytical workloads.
+              Build reliable analytics with compile-time safety. Define queries and
+              metrics once, cache them automatically, and reuse them across
+              dashboards, APIs, and data pipelines.
             </p>
             <div
               class="mt-10 flex items-center justify-center gap-x-6 animate-on-scroll"
@@ -39,7 +44,35 @@ import Layout from "../layouts/Layout.astro";
                 GitHub
               </a>
             </div>
+            <div class="mt-12 animate-on-scroll">
+              <div
+                class="mx-auto max-w-3xl rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/60 p-8 text-left"
+              >
+                <p class="text-sm font-semibold text-indigo-700">
+                  Placeholder: Product screenshot or API snippet
+                </p>
+                <p class="mt-2 text-sm text-indigo-700/80">
+                  Drop in a dashboard preview, query builder UI, or API response
+                  example here to reinforce how HypeQuery fits into real apps.
+                </p>
+              </div>
+            </div>
           </div>
+
+          <!-- Social Proof -->
+          <section class="bg-white pb-16 sm:pb-20">
+            <div class="mx-auto max-w-4xl px-6 lg:px-8">
+              <div class="rounded-2xl border border-gray-200 bg-gray-50 p-8 text-center">
+                <p class="text-lg font-semibold text-gray-900">
+                  “HypeQuery has transformed how we work with ClickHouse.”
+                </p>
+                <p class="mt-2 text-sm text-gray-500">— Early user</p>
+                <p class="mt-6 text-sm text-gray-600">
+                  Open-source · Used in production · Growing community
+                </p>
+              </div>
+            </div>
+          </section>
 
           <!-- Problem Statement Section -->
           <section class="bg-gray-50 py-16 sm:py-24">
@@ -48,20 +81,42 @@ import Layout from "../layouts/Layout.astro";
                 <h2
                   class="text-base font-semibold leading-7 text-indigo-600 animate-on-scroll"
                 >
-                  The Challenge
+                  The Problem
                 </h2>
                 <p
                   class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl animate-on-scroll"
                 >
-                  ClickHouse queries, meet type safety
+                  Analytics code breaks in production — not at compile time
                 </p>
                 <p
                   class="mt-6 text-lg leading-8 text-gray-600 animate-on-scroll"
                 >
-                  Without types, ClickHouse queries are error-prone. String
-                  concatenation leads to SQL injection risks. Runtime errors
-                  cause production issues. And the disconnect between queries
-                  and result types wastes developer time.
+                  ClickHouse is fast and powerful, but the developer experience isn’t:
+                </p>
+                <ul class="mt-6 space-y-3 text-left text-gray-600">
+                  <li class="flex items-start gap-3">
+                    <span class="mt-1 text-indigo-500">•</span>
+                    SQL strings aren’t type-checked
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <span class="mt-1 text-indigo-500">•</span>
+                    Result shapes drift silently
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <span class="mt-1 text-indigo-500">•</span>
+                    Metrics get copy-pasted across codebases
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <span class="mt-1 text-indigo-500">•</span>
+                    Caching is bolted on manually
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <span class="mt-1 text-indigo-500">•</span>
+                    Bugs show up only at runtime
+                  </li>
+                </ul>
+                <p class="mt-6 text-lg leading-8 text-gray-600">
+                  Analytics logic becomes brittle, duplicated, and expensive to change.
                 </p>
               </div>
             </div>
@@ -79,17 +134,20 @@ import Layout from "../layouts/Layout.astro";
                 <p
                   class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl animate-on-scroll"
                 >
-                  A type-safe query builder designed for developers
+                  A TypeScript-first analytics layer for ClickHouse
                 </p>
                 <p
                   class="mt-6 text-lg leading-8 text-gray-600 animate-on-scroll"
                 >
-                  hypequery provides a fluent, type-safe API that makes working
-                  with ClickHouse a joy. Say goodbye to SQL strings and hello to
-                  autocomplete, runtime safety, and developer productivity.
+                  HypeQuery brings type safety, reuse, and performance primitives to
+                  ClickHouse — without hiding SQL or forcing a hosted platform.
+                </p>
+                <p class="mt-4 text-lg leading-8 text-gray-600">
+                  You write analytics logic once, in TypeScript. HypeQuery handles
+                  correctness, reuse, and performance.
                 </p>
               </div>
-              
+
               <!-- Before vs After Comparison -->
               <div class="mt-16 animate-on-scroll">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -97,77 +155,11 @@ import Layout from "../layouts/Layout.astro";
                   <div class="space-y-4">
                     <div class="flex items-center space-x-2">
                       <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                      <h3 class="text-lg font-semibold text-gray-900">Before: Raw SQL</h3>
+                      <h3 class="text-lg font-semibold text-gray-900">
+                        Before: raw SQL everywhere
+                      </h3>
                     </div>
                     <div class="rounded-lg overflow-hidden border border-gray-200 shadow-lg">
-                      <!-- Code header -->
-                      <div class="flex items-center justify-between px-4 py-2 bg-gray-900 text-gray-200">
-                        <div class="flex space-x-2">
-                          <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                          <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-                          <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                        </div>
-                        <div class="text-xs font-mono">Typescript</div>
-                      </div>
-                      <!-- Code content -->
-                      <pre class="text-sm font-mono leading-relaxed bg-gray-900 p-6 m-0 overflow-auto">
-<code><span class="text-red-400">// ❌ Error-prone string concatenation</span>
-<span class="text-violet-400">const</span> <span class="text-indigo-300">query</span> <span class="text-gray-300">=</span> <span class="text-yellow-300">`</span>
-<span class="text-yellow-300">  SELECT user_id, name, email</span>
-<span class="text-yellow-300">  FROM users</span>
-<span class="text-yellow-300">  WHERE age > '$&lcub;<span class="text-purple-400">userAge</span>&rcub;'
-<span class="text-yellow-300">    AND status = '$&lcub;<span class="text-purple-400">userStatus</span>&rcub;'
-<span class="text-yellow-300">  ORDER BY created_at DESC</span>
-<span class="text-yellow-300">  LIMIT 10</span>
-<span class="text-yellow-300">`</span><span class="text-gray-300">;</span>
-
-<span class="text-red-400">// ❌ No type checking</span>
-<span class="text-violet-400">const</span> <span class="text-indigo-300">result</span> <span class="text-gray-300">=</span> <span class="text-violet-400">await</span> <span class="text-indigo-300">client</span><span class="text-gray-300">.</span><span class="text-green-400">query</span><span class="text-gray-300">(</span><span class="text-indigo-300">query</span><span class="text-gray-300">);</span>
-
-<span class="text-red-400">// ❌ Runtime errors only</span>
-<span class="text-indigo-300">result</span><span class="text-gray-300">.</span><span class="text-green-400">forEach</span><span class="text-gray-300">(</span><span class="text-indigo-300">user</span> <span class="text-gray-300">=></span> <span class="text-gray-300">{</span>
-<span class="text-gray-300">  console</span><span class="text-gray-300">.</span><span class="text-green-400">log</span><span class="text-gray-300">(</span><span class="text-indigo-300">user</span><span class="text-gray-300">.</span><span class="text-green-400">non_existent_field</span><span class="text-gray-300">);</span>
-<span class="text-gray-300">});</span></code></pre>
-                    </div>
-                    <div class="mt-4 p-4 bg-red-50 rounded-lg border border-red-100">
-                      <h4 class="text-sm font-semibold text-red-800 mb-3">Pain Points</h4>
-                      <div class="space-y-2">
-                        <div class="flex items-center space-x-3">
-                          <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
-                            <span class="text-red-600 text-xs">✕</span>
-                          </div>
-                          <span class="text-sm text-red-700">SQL injection vulnerabilities</span>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                          <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
-                            <span class="text-red-600 text-xs">✕</span>
-                          </div>
-                          <span class="text-sm text-red-700">No autocomplete or IntelliSense</span>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                          <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
-                            <span class="text-red-600 text-xs">✕</span>
-                          </div>
-                          <span class="text-sm text-red-700">Risk of runtime errors</span>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                          <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
-                            <span class="text-red-600 text-xs">✕</span>
-                          </div>
-                          <span class="text-sm text-red-700">Manual type definitions</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- After: hypequery -->
-                  <div class="space-y-4">
-                    <div class="flex items-center space-x-2">
-                      <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                      <h3 class="text-lg font-semibold text-gray-900">After: hypequery</h3>
-                    </div>
-                    <div class="rounded-lg overflow-hidden border border-gray-200 shadow-lg">
-                      <!-- Code header -->
                       <div class="flex items-center justify-between px-4 py-2 bg-gray-900 text-gray-200">
                         <div class="flex space-x-2">
                           <div class="w-3 h-3 rounded-full bg-red-500"></div>
@@ -176,49 +168,86 @@ import Layout from "../layouts/Layout.astro";
                         </div>
                         <div class="text-xs font-mono">TypeScript</div>
                       </div>
-                      <!-- Code content -->
                       <pre class="text-sm font-mono leading-relaxed bg-gray-900 p-6 m-0 overflow-auto">
-<code><span class="text-green-400">// ✅ Type-safe query builder</span>
-<span class="text-violet-400">const</span> <span class="text-indigo-300">users</span> <span class="text-gray-300">=</span> <span class="text-violet-400">await</span> <span class="text-indigo-300">db</span>
-<span class="text-gray-300">  .</span><span class="text-green-400">table</span><span class="text-gray-300">(</span><span class="text-yellow-300">'users'</span><span class="text-gray-300">)</span>
-<span class="text-gray-300">  .</span><span class="text-green-400">select</span><span class="text-gray-300">([</span><span class="text-yellow-300">'user_id'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'name'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'email'</span><span class="text-gray-300">])</span>
-<span class="text-gray-300">  .</span><span class="text-green-400">where</span><span class="text-gray-300">(</span><span class="text-yellow-300">'age'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'gt'</span><span class="text-gray-300">,</span> <span class="text-purple-400">age</span><span class="text-gray-300">)</span>
-<span class="text-gray-300">  .</span><span class="text-green-400">where</span><span class="text-gray-300">(</span><span class="text-yellow-300">'status'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'eq'</span><span class="text-gray-300">,</span> <span class="text-purple-400">status</span><span class="text-gray-300">)</span>
-<span class="text-gray-300">  .</span><span class="text-green-400">orderBy</span><span class="text-gray-300">(</span><span class="text-yellow-300">'created_at'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'DESC'</span><span class="text-gray-300">)</span>
-<span class="text-gray-300">  .</span><span class="text-green-400">limit</span><span class="text-gray-300">(</span><span class="text-purple-400">10</span><span class="text-gray-300">)</span>
+<code><span class="text-violet-400">const</span> <span class="text-indigo-300">query</span> <span class="text-gray-300">=</span> <span class="text-yellow-300">`</span>
+<span class="text-yellow-300">  SELECT COUNT(DISTINCT user_id) AS dau</span>
+<span class="text-yellow-300">  FROM events</span>
+<span class="text-yellow-300">  WHERE created_at &gt;= '$&lcub;<span class="text-purple-400">date</span>&rcub;'</span>
+<span class="text-yellow-300">`</span><span class="text-gray-300">;</span>
+
+<span class="text-violet-400">const</span> <span class="text-indigo-300">result</span> <span class="text-gray-300">=</span> <span class="text-violet-400">await</span> <span class="text-indigo-300">client</span><span class="text-gray-300">.</span><span class="text-green-400">query</span><span class="text-gray-300">(</span><span class="text-indigo-300">query</span><span class="text-gray-300">);</span>
+<span class="text-indigo-300">console</span><span class="text-gray-300">.</span><span class="text-green-400">log</span><span class="text-gray-300">(</span><span class="text-indigo-300">result</span><span class="text-gray-300">[</span><span class="text-purple-400">0</span><span class="text-gray-300">].</span><span class="text-green-400">dauu</span><span class="text-gray-300">);</span> <span class="text-red-400">// ❌ runtime bug</span></code></pre>
+                    </div>
+                    <div class="mt-4 p-4 bg-red-50 rounded-lg border border-red-100">
+                      <div class="space-y-2">
+                        <div class="flex items-center space-x-3">
+                          <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
+                            <span class="text-red-600 text-xs">✕</span>
+                          </div>
+                          <span class="text-sm text-red-700">No type safety</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                          <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
+                            <span class="text-red-600 text-xs">✕</span>
+                          </div>
+                          <span class="text-sm text-red-700">Copy-pasted queries</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                          <div class="flex-shrink-0 w-5 h-5 bg-red-100 rounded-full flex items-center justify-center">
+                            <span class="text-red-600 text-xs">✕</span>
+                          </div>
+                          <span class="text-sm text-red-700">Runtime-only failures</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- After: HypeQuery -->
+                  <div class="space-y-4">
+                    <div class="flex items-center space-x-2">
+                      <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                      <h3 class="text-lg font-semibold text-gray-900">
+                        After: HypeQuery
+                      </h3>
+                    </div>
+                    <div class="rounded-lg overflow-hidden border border-gray-200 shadow-lg">
+                      <div class="flex items-center justify-between px-4 py-2 bg-gray-900 text-gray-200">
+                        <div class="flex space-x-2">
+                          <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                          <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                          <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        </div>
+                        <div class="text-xs font-mono">TypeScript</div>
+                      </div>
+                      <pre class="text-sm font-mono leading-relaxed bg-gray-900 p-6 m-0 overflow-auto">
+<code><span class="text-violet-400">const</span> <span class="text-indigo-300">dau</span> <span class="text-gray-300">=</span> <span class="text-violet-400">await</span> <span class="text-indigo-300">db</span>
+<span class="text-gray-300">  .</span><span class="text-green-400">table</span><span class="text-gray-300">(</span><span class="text-yellow-300">'events'</span><span class="text-gray-300">)</span>
+<span class="text-gray-300">  .</span><span class="text-green-400">select</span><span class="text-gray-300">(</span><span class="text-indigo-300">db</span><span class="text-gray-300">.</span><span class="text-green-400">fn</span><span class="text-gray-300">.</span><span class="text-green-400">countDistinct</span><span class="text-gray-300">(</span><span class="text-yellow-300">'user_id'</span><span class="text-gray-300">).</span><span class="text-green-400">as</span><span class="text-gray-300">(</span><span class="text-yellow-300">'dau'</span><span class="text-gray-300">))</span>
+<span class="text-gray-300">  .</span><span class="text-green-400">where</span><span class="text-gray-300">(</span><span class="text-yellow-300">'created_at'</span><span class="text-gray-300">,</span> <span class="text-yellow-300">'gte'</span><span class="text-gray-300">,</span> <span class="text-purple-400">date</span><span class="text-gray-300">)</span>
 <span class="text-gray-300">  .</span><span class="text-green-400">execute</span><span class="text-gray-300">();</span>
 
-<span class="text-green-400">// ✅ Full type safety & autocomplete</span>
-<span class="text-indigo-300">users</span><span class="text-gray-300">.</span><span class="text-green-400">forEach</span><span class="text-gray-300">(</span><span class="text-indigo-300">user</span> <span class="text-gray-300">=></span> <span class="text-gray-300">{</span>
-<span class="text-gray-300">  console</span><span class="text-gray-300">.</span><span class="text-green-400">log</span><span class="text-gray-300">(</span><span class="text-indigo-300">user</span><span class="text-gray-300">.</span><span class="text-green-400">name</span><span class="text-gray-300">);</span> <span class="text-green-400">// ✅ Type checked!</span>
-<span class="text-gray-300">});</span></code></pre>
+<span class="text-green-400">// ✅ Fully typed</span>
+<span class="text-indigo-300">console</span><span class="text-gray-300">.</span><span class="text-green-400">log</span><span class="text-gray-300">(</span><span class="text-indigo-300">dau</span><span class="text-gray-300">[</span><span class="text-purple-400">0</span><span class="text-gray-300">].</span><span class="text-green-400">dau</span><span class="text-gray-300">);</span></code></pre>
                     </div>
                     <div class="mt-4 p-4 bg-green-50 rounded-lg border border-green-100">
-                      <h4 class="text-sm font-semibold text-green-800 mb-3">Benefits</h4>
                       <div class="space-y-2">
                         <div class="flex items-center space-x-3">
                           <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
                             <span class="text-green-600 text-xs">✓</span>
                           </div>
-                          <span class="text-sm text-green-700">SQL injection protection</span>
+                          <span class="text-sm text-green-700">Compile-time validation</span>
                         </div>
                         <div class="flex items-center space-x-3">
                           <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
                             <span class="text-green-600 text-xs">✓</span>
                           </div>
-                          <span class="text-sm text-green-700">Full autocomplete & IntelliSense</span>
+                          <span class="text-sm text-green-700">Autocomplete everywhere</span>
                         </div>
                         <div class="flex items-center space-x-3">
                           <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
                             <span class="text-green-600 text-xs">✓</span>
                           </div>
-                          <span class="text-sm text-green-700">Compile-time error checking</span>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                          <div class="flex-shrink-0 w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
-                            <span class="text-green-600 text-xs">✓</span>
-                          </div>
-                          <span class="text-sm text-green-700">Auto-generated types</span>
+                          <span class="text-sm text-green-700">Safer, reusable analytics logic</span>
                         </div>
                       </div>
                     </div>
@@ -228,230 +257,214 @@ import Layout from "../layouts/Layout.astro";
             </div>
           </section>
 
-          <!-- Features Section -->
-          <section class="bg-white pb-24 sm:pb-32">
+          <!-- Core Capabilities -->
+          <section class="bg-gray-50 py-16 sm:py-24">
             <div class="mx-auto max-w-7xl px-6 lg:px-8">
               <div class="mx-auto max-w-2xl lg:text-center">
                 <h2
                   class="text-base font-semibold leading-7 text-indigo-600 animate-on-scroll"
                 >
-                  Features that spark joy ✨
+                  Core Capabilities
                 </h2>
                 <p
                   class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl animate-on-scroll"
                 >
-                  Everything you need for ClickHouse development
+                  The analytics primitives you actually need
                 </p>
               </div>
               <div
-                class="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none"
+                class="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 lg:max-w-none lg:grid-cols-2"
               >
-                <dl
-                  class="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3"
+                <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 class="text-lg font-semibold text-gray-900">🧠 Type-Safe Queries</h3>
+                  <p class="mt-3 text-sm text-gray-600">
+                    Every table, column, filter, and result is checked at compile
+                    time.
+                  </p>
+                </div>
+                <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 class="text-lg font-semibold text-gray-900">🧱 Metrics &amp; Semantic Layer <span class="text-indigo-600">(new)</span></h3>
+                  <p class="mt-3 text-sm text-gray-600">
+                    Define metrics once and reuse them everywhere.
+                  </p>
+                  <pre class="mt-4 rounded-lg bg-gray-900 p-4 text-xs text-gray-200 overflow-auto"><code>const DAU = db.metric('dau', () =>
+  db.table('events')
+    .select(db.fn.countDistinct('user_id').as('dau'))
+);</code></pre>
+                  <ul class="mt-4 space-y-2 text-sm text-gray-600">
+                    <li>• No more duplicated SQL</li>
+                    <li>• One source of truth for business metrics</li>
+                  </ul>
+                </div>
+                <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 class="text-lg font-semibold text-gray-900">⚡ Built-in Caching <span class="text-indigo-600">(new)</span></h3>
+                  <p class="mt-3 text-sm text-gray-600">
+                    Cache analytics results automatically with configurable TTLs.
+                  </p>
+                  <pre class="mt-4 rounded-lg bg-gray-900 p-4 text-xs text-gray-200 overflow-auto"><code>await db.cache.getOrCompute(
+  'dau',
+  DAU,
+  { ttl: 60 }
+);</code></pre>
+                  <ul class="mt-4 space-y-2 text-sm text-gray-600">
+                    <li>• Faster dashboards</li>
+                    <li>• Lower ClickHouse load</li>
+                    <li>• No Redis boilerplate</li>
+                  </ul>
+                </div>
+                <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 class="text-lg font-semibold text-gray-900">🔗 Query Composition</h3>
+                  <p class="mt-3 text-sm text-gray-600">
+                    Compose filters, joins, and shared logic across queries safely.
+                  </p>
+                  <ul class="mt-4 space-y-2 text-sm text-gray-600">
+                    <li>• Cross-query filters</li>
+                    <li>• Reusable fragments</li>
+                    <li>• Fully typed composition</li>
+                  </ul>
+                </div>
+                <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h3 class="text-lg font-semibold text-gray-900">📊 Streaming &amp; Performance</h3>
+                  <p class="mt-3 text-sm text-gray-600">
+                    Handle large datasets efficiently with streaming support and
+                    execution logging.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- What You Can Build -->
+          <section class="bg-white py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="mx-auto max-w-2xl lg:text-center">
+                <h2
+                  class="text-base font-semibold leading-7 text-indigo-600 animate-on-scroll"
                 >
-                  <div class="flex flex-col animate-on-scroll">
-                    <dt
-                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-                    >
-                      <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-6 h-6 text-white"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"
-                          ></path>
-                        </svg>
-                      </div>
-                      Complete Type Safety
-                    </dt>
-                    <dd
-                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-                    >
-                      <p class="flex-auto">
-                        Every part of your query is type-checked - from table
-                        and column names to filter values and result types.
-                      </p>
-                    </dd>
-                  </div>
-                  <div class="flex flex-col animate-on-scroll">
-                    <dt
-                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-                    >
-                      <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-6 h-6 text-white"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"
-                          ></path>
-                        </svg>
-                      </div>
-                      Flexible Join System
-                    </dt>
-                    <dd
-                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-                    >
-                      <p class="flex-auto">
-                        Easily create powerful joins with a fluent API. Set up
-                        relationship definitions for even more convenience.
-                      </p>
-                    </dd>
-                  </div>
-                  <div class="flex flex-col animate-on-scroll">
-                    <dt
-                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-                    >
-                      <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-6 h-6 text-white"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"
-                          ></path>
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
-                      </div>
-                      SQL Expressions & Functions
-                    </dt>
-                    <dd
-                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-                    >
-                      <p class="flex-auto">
-                        Use raw SQL expressions and ClickHouse functions when
-                        you need them, while maintaining type safety.
-                      </p>
-                    </dd>
-                  </div>
-                  <div class="flex flex-col animate-on-scroll">
-                    <dt
-                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-                    >
-                      <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-6 h-6 text-white"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5"
-                          ></path>
-                        </svg>
-                      </div>
-                      Streaming Support
-                    </dt>
-                    <dd
-                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-                    >
-                      <p class="flex-auto">
-                        Process large result sets efficiently with built-in
-                        support for Clickhouse query streaming
-                      </p>
-                    </dd>
-                  </div>
-                  <div class="flex flex-col animate-on-scroll">
-                    <dt
-                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-                    >
-                      <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-6 h-6 text-white"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z"
-                          ></path>
-                        </svg>
-                      </div>
-                      Advanced Filtering
-                    </dt>
-                    <dd
-                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-                    >
-                      <p class="flex-auto">
-                        Define and apply cross filters to multiple queries with
-                        ease.
-                      </p>
-                    </dd>
-                  </div>
-                  <div class="flex flex-col animate-on-scroll">
-                    <dt
-                      class="flex items-center gap-x-3 text-base font-semibold leading-7 text-gray-900"
-                    >
-                      <div
-                        class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke-width="1.5"
-                          stroke="currentColor"
-                          class="w-6 h-6 text-white"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                          ></path>
-                        </svg>
-                      </div>
-                      Comprehensive Logging
-                    </dt>
-                    <dd
-                      class="mt-4 flex flex-auto flex-col text-base leading-7 text-gray-600"
-                    >
-                      <p class="flex-auto">
-                        Track query execution with detailed logs of queries,
-                        parameters, timing, and row counts.
-                      </p>
-                    </dd>
-                  </div>
-                </dl>
+                  What You Can Build
+                </h2>
+                <p
+                  class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl animate-on-scroll"
+                >
+                  Analytics that lives in your app
+                </p>
+              </div>
+              <div class="mx-auto mt-12 grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
+                <div class="rounded-xl border border-gray-200 p-6">
+                  <p class="text-sm font-semibold text-gray-900">📈 Product &amp; operational dashboards</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 p-6">
+                  <p class="text-sm font-semibold text-gray-900">🔌 Analytics APIs for frontend apps</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 p-6">
+                  <p class="text-sm font-semibold text-gray-900">🧮 Reusable metric layers</p>
+                </div>
+                <div class="rounded-xl border border-gray-200 p-6">
+                  <p class="text-sm font-semibold text-gray-900">🔄 Data pipelines &amp; transformations</p>
+                </div>
+              </div>
+              <p class="mt-8 text-center text-gray-600">
+                HypeQuery fits inside your existing Node.js app — no new platform required.
+              </p>
+            </div>
+          </section>
+
+          <!-- How It Fits -->
+          <section class="bg-gray-50 py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="mx-auto max-w-2xl lg:text-center">
+                <h2
+                  class="text-base font-semibold leading-7 text-indigo-600 animate-on-scroll"
+                >
+                  How It Fits in Your Stack
+                </h2>
+              </div>
+              <div class="mx-auto mt-10 max-w-3xl">
+                <div class="rounded-2xl border border-gray-200 bg-white p-6">
+                  <pre class="text-sm leading-7 text-gray-700">
+Frontend / Dashboard
+        ↓
+Analytics API (Node.js)
+        ↓
+HypeQuery
+  ├─ Type-safe queries
+  ├─ Metrics layer
+  ├─ Caching
+  └─ Telemetry hooks
+        ↓
+ClickHouse</pre>
+                  <p class="mt-4 text-sm text-gray-600">
+                    You stay in control of your infrastructure.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Why HypeQuery -->
+          <section class="bg-white py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-6 lg:px-8">
+              <div class="mx-auto max-w-2xl lg:text-center">
+                <h2
+                  class="text-base font-semibold leading-7 text-indigo-600 animate-on-scroll"
+                >
+                  Why HypeQuery
+                </h2>
+              </div>
+              <div class="mt-10 overflow-x-auto">
+                <table class="min-w-full border border-gray-200 text-left text-sm">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="border border-gray-200 px-4 py-3 font-semibold text-gray-900"> </th>
+                      <th class="border border-gray-200 px-4 py-3 font-semibold text-gray-900">HypeQuery</th>
+                      <th class="border border-gray-200 px-4 py-3 font-semibold text-gray-900">Raw SQL</th>
+                      <th class="border border-gray-200 px-4 py-3 font-semibold text-gray-900">Hosted Analytics</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="border border-gray-200 px-4 py-3 font-medium text-gray-700">Type-safe</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">❌</td>
+                      <td class="border border-gray-200 px-4 py-3">⚠️ partial</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-200 px-4 py-3 font-medium text-gray-700">Reusable metrics</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">❌</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-200 px-4 py-3 font-medium text-gray-700">Embedded in app</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">❌</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-200 px-4 py-3 font-medium text-gray-700">Self-hosted</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">❌</td>
+                    </tr>
+                    <tr>
+                      <td class="border border-gray-200 px-4 py-3 font-medium text-gray-700">Zero lock-in</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">✅</td>
+                      <td class="border border-gray-200 px-4 py-3">❌</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="mt-10 rounded-2xl border border-indigo-100 bg-indigo-50 p-8">
+                <h3 class="text-lg font-semibold text-indigo-900">
+                  Open Source, Built for Developers
+                </h3>
+                <ul class="mt-4 space-y-2 text-sm text-indigo-900">
+                  <li>• MIT licensed</li>
+                  <li>• No vendor lock-in</li>
+                  <li>• Works with your existing ClickHouse setup</li>
+                  <li>• Designed to scale from scripts → production APIs</li>
+                </ul>
               </div>
             </div>
           </section>
@@ -463,14 +476,17 @@ import Layout from "../layouts/Layout.astro";
                 <h2
                   class="text-3xl font-bold tracking-tight text-white sm:text-4xl animate-on-scroll"
                 >
-                  Ready to build with type safety?
+                  Get Started
                 </h2>
                 <p
                   class="mt-6 text-lg leading-8 text-indigo-100 animate-on-scroll"
                 >
-                  Get started with our TypeScript SDK today and transform how
-                  you work with ClickHouse.
+                  Build safer analytics in minutes.
                 </p>
+                <div class="mt-8">
+                  <pre
+                    class="inline-block rounded-lg bg-gray-900 px-8 py-3 text-sm text-gray-200 font-mono"><code>npm install @hypequery/clickhouse</code></pre>
+                </div>
                 <div
                   class="mt-10 flex items-center justify-center gap-x-6 animate-on-scroll"
                 >
@@ -478,7 +494,7 @@ import Layout from "../layouts/Layout.astro";
                     href="/docs"
                     class="rounded-md bg-white px-3.5 py-2.5 text-sm font-semibold text-indigo-600 shadow-sm hover:bg-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
-                    Get Started
+                    Read the Docs
                   </a>
                   <a
                     href="https://github.com/hypequery/clickhouse"

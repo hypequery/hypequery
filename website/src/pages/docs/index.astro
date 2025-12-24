@@ -1,10 +1,138 @@
 ---
-export const prerender = false;
+import DocsLayout from "../../layouts/DocsLayout.astro";
 
-if (
-  Astro.request.url.endsWith("/docs") ||
-  Astro.request.url.endsWith("/docs/")
-) {
-  return Astro.redirect("/docs/introduction");
-}
+const sections = [
+  {
+    title: "Introduction",
+    description: "Get the big-picture overview before you dive in.",
+    icon: "🧭",
+    href: "/docs/introduction/what-is-hypequery",
+    links: [
+      { label: "What is HypeQuery?", href: "/docs/introduction/what-is-hypequery" },
+      { label: "When to use it", href: "/docs/introduction/when-to-use-it" },
+    ],
+  },
+  {
+    title: "Getting Started",
+    description: "Install HypeQuery and run your first query.",
+    icon: "🚀",
+    href: "/docs/getting-started/installation",
+    links: [
+      { label: "Installation", href: "/docs/getting-started/installation" },
+      { label: "Your first query", href: "/docs/getting-started/your-first-query" },
+    ],
+  },
+  {
+    title: "Query Builder",
+    description: "Build type-safe queries with filters, joins, and streaming.",
+    icon: "🧱",
+    href: "/docs/query-builder/tables-and-schema",
+    links: [
+      { label: "Tables & schema", href: "/docs/query-builder/tables-and-schema" },
+      { label: "Selects & filters", href: "/docs/query-builder/selects-and-filters" },
+    ],
+  },
+  {
+    title: "Metrics",
+    description: "Create a semantic layer that scales across your org.",
+    icon: "📈",
+    href: "/docs/metrics/defining-metrics",
+    links: [
+      { label: "Defining metrics", href: "/docs/metrics/defining-metrics" },
+      { label: "Reusing metrics", href: "/docs/metrics/reusing-metrics" },
+    ],
+  },
+  {
+    title: "Caching & Execution",
+    description: "Improve performance and avoid expensive queries.",
+    icon: "⚡️",
+    href: "/docs/caching-and-execution/why-caching-matters",
+    links: [
+      { label: "Why caching matters", href: "/docs/caching-and-execution/why-caching-matters" },
+      { label: "TTL strategies", href: "/docs/caching-and-execution/ttl-strategies" },
+    ],
+  },
+  {
+    title: "Recipes",
+    description: "Ship analytics APIs, dashboards, and background jobs.",
+    icon: "🧩",
+    href: "/docs/recipes/analytics-api",
+    links: [
+      { label: "Analytics API", href: "/docs/recipes/analytics-api" },
+      { label: "Dashboard backend", href: "/docs/recipes/dashboard-backend" },
+    ],
+  },
+  {
+    title: "Observability",
+    description: "Understand performance and control telemetry.",
+    icon: "🔍",
+    href: "/docs/observability/logging",
+    links: [
+      { label: "Logging", href: "/docs/observability/logging" },
+      { label: "Telemetry (opt-out)", href: "/docs/observability/telemetry-opt-out" },
+    ],
+  },
+  {
+    title: "Advanced",
+    description: "Go deeper with internals and escape hatches.",
+    icon: "🧠",
+    href: "/docs/advanced/raw-sql-escape-hatches",
+    links: [
+      { label: "Raw SQL escape hatches", href: "/docs/advanced/raw-sql-escape-hatches" },
+      { label: "Custom functions", href: "/docs/advanced/custom-functions" },
+    ],
+  },
+];
 ---
+
+<DocsLayout
+  title="Documentation"
+  description="Guides and references for building type-safe analytics with HypeQuery."
+>
+  <div class="prose max-w-none">
+    <h1>Docs</h1>
+    <p>
+      Learn how to build reliable analytics with HypeQuery — from your first
+      query to reusable metrics and caching strategies.
+    </p>
+  </div>
+
+  <div class="mt-10 grid gap-6 lg:grid-cols-2">
+    {sections.map((section) => (
+      <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="text-2xl">{section.icon}</div>
+            <h2 class="mt-3 text-xl font-semibold text-gray-900">{section.title}</h2>
+          </div>
+          <a
+            class="text-sm font-semibold text-indigo-600 hover:text-indigo-500"
+            href={section.href}
+          >
+            View section →
+          </a>
+        </div>
+        <p class="mt-2 text-sm text-gray-600">{section.description}</p>
+        <ul class="mt-4 space-y-2 text-sm text-gray-700">
+          {section.links.map((link) => (
+            <li>
+              <a class="text-indigo-600 hover:text-indigo-500" href={link.href}>
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+
+  <div class="mt-12 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/60 p-6">
+    <h2 class="text-lg font-semibold text-indigo-900">Need real-world examples?</h2>
+    <p class="mt-2 text-sm text-indigo-900">
+      Start with practical patterns that show why HypeQuery is safer than raw SQL.
+    </p>
+    <a class="mt-4 inline-flex text-sm font-semibold text-indigo-700 hover:text-indigo-600" href="/docs/examples">
+      Explore examples →
+    </a>
+  </div>
+</DocsLayout>

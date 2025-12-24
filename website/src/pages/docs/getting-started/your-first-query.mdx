@@ -1,0 +1,29 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Your first query
+description: Write and run your first type-safe query.
+---
+
+<div class="prose">
+
+# Your first query
+
+Define a simple query against an events table and execute it with full type
+safety.
+
+```ts
+const dau = await db
+  .table("events")
+  .select(db.fn.countDistinct("user_id").as("dau"))
+  .where("created_at", "gte", new Date())
+  .execute();
+
+console.log(dau[0].dau);
+```
+
+## Next steps
+
+- [Defining metrics](/docs/metrics/defining-metrics)
+- [Caching & execution](/docs/caching-and-execution/why-caching-matters)
+
+</div>

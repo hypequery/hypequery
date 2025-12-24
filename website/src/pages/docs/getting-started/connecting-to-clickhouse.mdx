@@ -1,0 +1,35 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Connecting to ClickHouse
+description: Connect your app to ClickHouse and configure a client.
+---
+
+<div class="prose">
+
+# Connecting to ClickHouse
+
+Create a client and point it at your ClickHouse cluster. Keep credentials in
+environment variables so you can rotate them safely.
+
+```ts
+import { createClient } from "@hypequery/clickhouse";
+
+const db = createClient({
+  host: process.env.CLICKHOUSE_HOST,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: "analytics",
+});
+```
+
+## Recommended setup
+
+- Use a dedicated analytics user with least-privilege access.
+- Configure connection pooling in your deployment environment.
+
+## Next steps
+
+- [Your first query](/docs/getting-started/your-first-query)
+- [Tables & schema](/docs/query-builder/tables-and-schema)
+
+</div>
