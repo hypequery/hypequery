@@ -1,0 +1,304 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Examples
+description: Real-world patterns for building analytics with HypeQuery.
+---
+
+<div class="prose">
+
+# Examples
+
+**Real-world patterns for building analytics with HypeQuery**
+
+This page is a single, scalable hub of examples that show **why HypeQuery is safer than raw SQL**.
+
+- Query building
+- Metrics
+- Caching
+- APIs
+- Performance patterns
+
+---
+
+## Quick Start (5-minute win)
+
+### Basic Query
+
+```ts
+const users = await db
+  .table('users')
+  .select(['id', 'email'])
+  .where('active', 'eq', true)
+  .limit(10)
+  .execute();
+```
+
+**Why this is better than raw SQL:** the table, columns, and result shape are type-checked.
+
+**Go deeper:**
+- [Selects & filters](/docs/query-builder/selects-and-filters)
+- [Your first query](/docs/getting-started/your-first-query)
+
+---
+
+## Core Query Patterns
+
+### Filtering & conditions
+
+```ts
+const activeTeams = await db
+  .table('teams')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active')
+  .where('created_at', 'gte', lastQuarter)
+  .execute();
+```
+
+**Why this is better than raw SQL:** filter values are validated and autocomplete catches typos.
+
+### Joins
+
+```ts
+const rows = await db
+  .table('events')
+  .join('users', 'events.user_id', 'users.id')
+  .select(['events.event_name', 'users.email'])
+  .limit(50)
+  .execute();
+```
+
+**Why this is better than raw SQL:** join columns are type-checked and refactors are safer.
+
+### Aggregations
+
+```ts
+const totals = await db
+  .table('orders')
+  .select([
+    'account_id',
+    db.fn.sum('amount').as('revenue'),
+  ])
+  .groupBy('account_id')
+  .execute();
+```
+
+**Why this is better than raw SQL:** aggregate aliases are typed in the result.
+
+### Expressions & functions
+
+```ts
+const cohorts = await db
+  .table('events')
+  .select([
+    db.fn.toStartOfMonth('created_at').as('month'),
+    db.fn.countDistinct('user_id').as('dau'),
+  ])
+  .groupBy('month')
+  .execute();
+```
+
+**Why this is better than raw SQL:** expression helpers enforce correct arguments.
+
+### Streaming queries
+
+```ts
+for await (const chunk of db.table('events').select(['id']).stream()) {
+  processChunk(chunk);
+}
+```
+
+**Why this is better than raw SQL:** streaming is built-in and typed end-to-end.
+
+---
+
+## Metrics (Semantic Layer)
+
+### Defining a metric
+
+```ts
+const DAU = hq.metric('dau', ({ from, to }) =>
+  db.table('events')
+    .select(db.fn.countDistinct('user_id').as('dau'))
+    .whereBetween('timestamp', from, to)
+);
+```
+
+**Why this is better than raw SQL:** one source of truth with reusable, typed metrics.
+
+### Reusing metrics
+
+```ts
+const [dau] = await DAU.run({ from, to });
+```
+
+### Parameterized metrics
+
+```ts
+const ActiveUsersByPlan = hq.metric('active_users_by_plan', ({ plan }) =>
+  db.table('users')
+    .select(db.fn.countDistinct('id').as('active_users'))
+    .where('plan', 'eq', plan)
+);
+```
+
+**Why this is better than raw SQL:** parameters are validated and reused safely.
+
+---
+
+## Caching Patterns
+
+### Basic TTL caching
+
+```ts
+const dau = await hq.cache.getOrCompute(
+  DAU,
+  { from, to },
+  { ttl: '5m' }
+);
+```
+
+**Why this is better than raw SQL:** caching is built-in, not bolted on later.
+
+### Cache keys & parameters
+
+```ts
+const revenue = await hq.cache.getOrCompute(
+  Revenue,
+  { accountId, from, to },
+  { ttl: '10m' }
+);
+```
+
+### Cache invalidation strategy
+
+```ts
+await hq.cache.invalidate('dau');
+```
+
+**Why this is better than raw SQL:** no custom Redis boilerplate required.
+
+---
+
+## API Patterns
+
+### Auto-generated endpoints
+
+```ts
+hq.api('/metrics/dau', async () => DAU.run({ from, to }));
+```
+
+### Dashboard endpoints
+
+```ts
+hq.api('/metrics/dashboard', async () => ({
+  dau: await DAU.run({ from, to }),
+  revenue: await Revenue.run({ from, to }),
+}));
+```
+
+### Combining metrics
+
+```ts
+hq.api('/metrics/overview', async () => ({
+  dau: await DAU.run({ from, to }),
+  conversions: await Conversions.run({ from, to }),
+  churn: await Churn.run({ from, to }),
+}));
+```
+
+**Why this is better than raw SQL:** you expose safe, consistent analytics APIs.
+
+---
+
+## Performance & Safety
+
+### Query limits
+
+```ts
+const rows = await db.table('events').select(['id']).limit(1000).execute();
+```
+
+### Guardrails
+
+```ts
+hq.guardrails({ maxRows: 100000, timeoutMs: 30000 });
+```
+
+### Logging & telemetry hooks
+
+```ts
+hq.onQuery((event) => logger.info(event));
+```
+
+### Avoiding expensive queries
+
+```ts
+const summary = await hq.cache.getOrCompute(
+  SummaryMetrics,
+  { from, to },
+  { ttl: '1h' }
+);
+```
+
+**Why this is better than raw SQL:** performance patterns are first-class features.
+
+---
+
+## Real-World Use Cases
+
+### Product analytics backend
+
+Problem: consistent KPIs across teams.
+
+```ts
+const KPIs = hq.metric('kpis', () =>
+  db.table('events').select([
+    countDistinct('user_id').as('dau'),
+    countDistinct('session_id').as('sessions'),
+  ])
+);
+```
+
+### Internal dashboards
+
+Problem: fast dashboards without cache glue.
+
+```ts
+await hq.cache.getOrCompute(
+  KPIs,
+  { from, to },
+  { ttl: '5m' }
+);
+```
+
+### Data APIs for frontend apps
+
+Problem: safe analytics endpoints.
+
+```ts
+hq.api('/metrics/app', () =>
+  AppMetrics.run({ from, to })
+);
+```
+
+### Data pipelines & exports
+
+Problem: reliable scheduled jobs.
+
+```ts
+for await (const chunk of ExportQuery.stream()) {
+  writeToS3(chunk);
+}
+```
+
+---
+
+## What’s Next
+
+- [Docs overview](/docs)
+- [GitHub](https://github.com/hypequery/hypequery)
+- [Roadmap](https://github.com/hypequery/hypequery/issues)
+
+**CTA:** Start with metrics → add caching → expose APIs.
+
+</div>

@@ -21,76 +21,118 @@ const currentPath = Astro.url.pathname;
 // Define the navigation structure directly since we're using pages-based routing
 const sidebar = [
   {
-    title: "Getting Started",
+    title: "Overview",
+    items: [{ title: "Docs landing", href: "/docs" }],
+  },
+  {
+    title: "Examples",
+    items: [{ title: "Examples", href: "/docs/examples" }],
+  },
+  {
+    title: "Introduction",
     items: [
-      { title: "Introduction", href: "/docs/introduction" },
-      { title: "Installation", href: "/docs/installation" },
-      { title: "Connecting to ClickHouse", href: "/docs/reference/connection" },
-      { title: "Type Generation", href: "/docs/type-generation" },
+      {
+        title: "What is HypeQuery?",
+        href: "/docs/introduction/what-is-hypequery",
+      },
+      { title: "When to use it", href: "/docs/introduction/when-to-use-it" },
+      {
+        title: "How it fits your stack",
+        href: "/docs/introduction/how-it-fits-your-stack",
+      },
     ],
   },
   {
-    title: "Core Features",
+    title: "Getting Started",
     items: [
-      { title: "Query Building", href: "/docs/guides/query-building" },
-      { title: "Join Relationships", href: "/docs/guides/joins" },
-      { title: "Cross Filtering", href: "/docs/guides/filtering" },
+      { title: "Installation", href: "/docs/getting-started/installation" },
       {
-        title: "Time-Based Functions",
-        href: "/docs/guides/time-based-functions",
+        title: "Connecting to ClickHouse",
+        href: "/docs/getting-started/connecting-to-clickhouse",
       },
+      { title: "Your first query", href: "/docs/getting-started/your-first-query" },
     ],
   },
   {
     title: "Query Builder",
     items: [
-      { title: "Select", href: "/docs/functions/query-builder/select" },
-      { title: "Where", href: "/docs/functions/query-builder/where" },
-      { title: "Joins", href: "/docs/functions/query-builder/joins" },
-      { title: "Group By", href: "/docs/functions/query-builder/group-by" },
-      { title: "Having", href: "/docs/functions/query-builder/having" },
-      { title: "Order By", href: "/docs/functions/query-builder/order-by" },
-      { title: "Limit", href: "/docs/functions/query-builder/limit" },
-      { title: "Offset", href: "/docs/functions/query-builder/offset" },
-      { title: "Distinct", href: "/docs/functions/query-builder/distinct" },
-      { title: "CTEs", href: "/docs/functions/query-builder/ctes" },
+      { title: "Tables & schema", href: "/docs/query-builder/tables-and-schema" },
       {
-        title: "Execute & toSQL",
-        href: "/docs/functions/query-builder/execute",
+        title: "Selects & filters",
+        href: "/docs/query-builder/selects-and-filters",
+      },
+      { title: "Joins", href: "/docs/query-builder/joins" },
+      { title: "Expressions", href: "/docs/query-builder/expressions" },
+      { title: "Streaming", href: "/docs/query-builder/streaming" },
+    ],
+  },
+  {
+    title: "Metrics",
+    items: [
+      { title: "Defining metrics", href: "/docs/metrics/defining-metrics" },
+      { title: "Reusing metrics", href: "/docs/metrics/reusing-metrics" },
+      { title: "Shared filters", href: "/docs/metrics/shared-filters" },
+      { title: "Composition", href: "/docs/metrics/composition" },
+    ],
+  },
+  {
+    title: "Caching & Execution",
+    items: [
+      {
+        title: "Why caching matters",
+        href: "/docs/caching-and-execution/why-caching-matters",
+      },
+      {
+        title: "Cache backends",
+        href: "/docs/caching-and-execution/cache-backends",
+      },
+      {
+        title: "TTL strategies",
+        href: "/docs/caching-and-execution/ttl-strategies",
+      },
+      {
+        title: "Avoiding expensive queries",
+        href: "/docs/caching-and-execution/avoiding-expensive-queries",
       },
     ],
   },
   {
-    title: "SQL Functions",
+    title: "Recipes",
     items: [
-      { title: "Raw", href: "/docs/functions/sql-functions/raw" },
-      { title: "Raw As", href: "/docs/functions/sql-functions/rawAs" },
+      { title: "Analytics API", href: "/docs/recipes/analytics-api" },
+      { title: "Dashboard backend", href: "/docs/recipes/dashboard-backend" },
+      { title: "Background jobs", href: "/docs/recipes/background-jobs" },
+      {
+        title: "Multi-tenant analytics",
+        href: "/docs/recipes/multi-tenant-analytics",
+      },
     ],
   },
   {
-    title: "Advanced Features",
+    title: "Observability (future-safe)",
     items: [
-      // { title: "Cross Filtering", href: "/docs/features/cross-filtering" },
-      // { title: "Pagination", href: "/docs/features/pagination" },
-      { title: "Subqueries", href: "/docs/features/subqueries" },
-      { title: "Helper methods", href: "/docs/guides/helper-methods" },
-      // { title: "Debugging", href: "/docs/features/debugging" },
-      { title: "Streaming", href: "/docs/guides/streaming" },
-      { title: "Logging", href: "/docs/logging" },
+      { title: "Logging", href: "/docs/observability/logging" },
+      { title: "Telemetry (opt-out)", href: "/docs/observability/telemetry-opt-out" },
+      {
+        title: "Performance insights",
+        href: "/docs/observability/performance-insights",
+      },
     ],
   },
-  // {
-  //   title: "Reference",
-  //   items: [
-  //     { title: "API Reference", href: "/docs/reference/api" },
-  //     { title: "Best Practices", href: "/docs/reference/best-practices" },
-  //   ],
-  // },
+  {
+    title: "Advanced",
+    items: [
+      {
+        title: "Raw SQL escape hatches",
+        href: "/docs/advanced/raw-sql-escape-hatches",
+      },
+      { title: "Custom functions", href: "/docs/advanced/custom-functions" },
+      { title: "Internals", href: "/docs/advanced/internals" },
+    ],
+  },
   {
     title: "API Documentation",
     items: [
-      // { title: "Overview", href: "/docs/reference/api" },
-      // { title: "Documentation", href: "/docs/reference/api/README" },
       { title: "Globals", href: "/docs/reference/api/globals" },
       {
         title: "Classes",
