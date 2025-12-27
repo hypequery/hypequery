@@ -31,6 +31,7 @@ This example demonstrates how to use hypequery with different ClickHouse clients
 - Demonstrates cache warming and tag-based invalidation
 - Optional Upstash Redis provider for shared caches
 - Includes `/api/cache/warm` endpoint to pre-populate frequently accessed metrics
+- Exposes `/api/cache/stats` to inspect cache hit/miss totals in the UI or monitoring tools
 
 #### Testing caching locally
 
@@ -41,6 +42,10 @@ await fetch('/api/cache/warm', { method: 'POST' });
 // Reuse cached queries inside components
 import { fetchSummaryWithCache } from '@/lib/queries';
 const summary = await fetchSummaryWithCache();
+
+// Observe cache stats (GET /api/cache/stats)
+const stats = await fetch('/api/cache/stats').then(r => r.json());
+console.log('Cache hit rate', stats.hitRate);
 ```
 
 ## Client Setup Examples

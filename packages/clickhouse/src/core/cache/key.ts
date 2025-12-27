@@ -6,6 +6,7 @@ interface CacheKeyInput {
   parameters: unknown[];
   settings?: Record<string, unknown> | undefined;
   version?: string;
+  tableName?: string;
 }
 
 const FNV_OFFSET = BigInt('0xcbf29ce484222325');
@@ -21,10 +22,24 @@ function fnv1a64(value: string): string {
   return hash.toString(16);
 }
 
-export function computeCacheKey({ namespace, sql, parameters, settings, version = 'v1' }: CacheKeyInput): string {
+function formatSegment(segment?: string): string {
+  if (!segment) return 'query';
+  const sanitized = segment.replace(/[^a-zA-Z0-9_-]/g, '-');
+  return sanitized.slice(0, 48) || 'query';
+}
+
+export function computeCacheKey({
+  namespace,
+  sql,
+  parameters,
+  settings,
+  version = 'v1',
+  tableName
+}: CacheKeyInput): string {
   const serializedParams = stableStringify(parameters);
   const serializedSettings = stableStringify(settings || null);
   const material = `${sql}\n${serializedParams}\n${serializedSettings}`;
   const digest = fnv1a64(material);
-  return `hq:${version}:${namespace}:${digest}`;
+  const tableSegment = formatSegment(tableName);
+  return `hq:${version}:${namespace}:${tableSegment}:${digest}`;
 }

@@ -2,13 +2,12 @@ import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { ClickHouseConnection } from '../connection.js';
 import { substituteParameters } from '../utils.js';
-import { logger } from '../utils/logger.js';
+import { logger, type QueryLog } from '../utils/logger.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
-import type { CacheLogMetadata } from '../cache/types.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
-  cacheMetadata?: CacheLogMetadata;
+  logContext?: Partial<QueryLog>;
 }
 
 export class ExecutorFeature<
@@ -41,7 +40,7 @@ export class ExecutorFeature<
       startTime,
       status: 'started',
       queryId: options?.queryId,
-      ...options?.cacheMetadata
+      ...options?.logContext
     });
 
     try {
@@ -63,7 +62,7 @@ export class ExecutorFeature<
         rowCount: rows.length,
         queryId: options?.queryId,
         cacheRowCount: rows.length,
-        ...options?.cacheMetadata
+        ...options?.logContext
       });
 
       return rows;
@@ -78,7 +77,7 @@ export class ExecutorFeature<
         status: 'error',
         error: error as Error,
         queryId: options?.queryId,
-        ...options?.cacheMetadata
+        ...options?.logContext
       });
       throw error;
     }

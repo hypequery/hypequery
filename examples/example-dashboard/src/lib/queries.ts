@@ -267,6 +267,10 @@ export async function warmDashboardCache() {
   ]);
 }
 
+export function getDashboardCacheStats() {
+  return cachedDb.cache.getStats();
+}
+
 /**
  * Fetch trips data using streaming for efficient memory usage and performance.
  * This function demonstrates the streaming capability with hypequery's built-in logging.

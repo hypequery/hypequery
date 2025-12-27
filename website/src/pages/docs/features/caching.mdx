@@ -54,6 +54,12 @@ Pass cache options to `execute()` for one-time behavior changes (without mutatin
 await activeUsers.execute({ cache: { mode: 'network-first', staleIfError: true } });
 ```
 
+Need to bypass caching temporarily? Pass `cache: false` (or `.cache(false)` during builder configuration) to force `mode: 'no-store'` without rewriting the rest of the options:
+
+```typescript
+const uncached = await activeUsers.execute({ cache: false });
+```
+
 Configuration merges in this order: global defaults → `.cache()` → `execute({ cache })`.
 
 ## Cache Modes & Semantics
@@ -97,12 +103,21 @@ If multiple widgets issue the same query concurrently, only one actual ClickHous
 
 ## Invalidation & Tagging
 
-`createQueryBuilder` now exposes a cache controller for manual invalidation:
+`createQueryBuilder` exposes a cache controller for manual invalidation and cache maintenance:
 
 ```typescript
 await db.cache.invalidateKey('hq:v1:analytics|default:abcd1234');
 await db.cache.invalidateTags(['users', 'orders']);
 await db.cache.clear(); // clears the current namespace when supported by the provider
+
+// Warm key dashboard queries at start-up
+await db.cache.warm([
+  () => db.table('users').count().cache({ tags: ['users'] }).execute(),
+  () => db.table('orders').sum('total').cache({ tags: ['orders'] }).execute()
+]);
+
+// Inspect stats (hitRate counts stale hits as successful serves)
+const { hits, misses, staleHits, hitRate } = db.cache.getStats();
 ```
 
 Tags come from two places:
@@ -111,6 +126,20 @@ Tags come from two places:
 2. **Manual tags** — provided via `.cache({ tags: [...] })` or `execute({ cache })`.
 
 Providers can optionally implement `deleteByTag(namespace, tag)` and `clearNamespace(namespace)` to support efficient invalidation on external stores. The built-in Memory LRU provider maintains its own tag index in-process.
+
+Cache keys follow the pattern `hq:<version>:<namespace>:<table-or-alias>:<digest>`, which keeps the hashed fingerprint while adding a human-readable prefix to simplify debugging.
+
+## Observability & Stats
+
+Every query builder exposes lightweight cache stats so you can chart hit ratios or alert when misses spike:
+
+```typescript
+const stats = db.cache.getStats();
+// => { hits, misses, staleHits, revalidations, hitRate }
+console.log(`Cache hit rate: ${(stats.hitRate * 100).toFixed(1)}%`);
+```
+
+`hitRate` treats `hit` and `stale-hit` events as successful cache serves, giving a clearer view for SWR-heavy dashboards. Pair this with `logger.configure({ onQueryLog })` to forward query-level cache metadata to your observability stack.
 
 ## Bring Your Own Cache Provider
 
@@ -201,5 +230,6 @@ You can also use `serialize`/`deserialize` at the per-query level for niche case
 - **Observe**: hook `logger.onQueryLog` to track hit/miss rates and adjust TTLs.
 - **Avoid volatile SQL**: queries that reference `now()` or highly dynamic filters should stay `no-store`.
 - **Handle streaming separately**: streaming APIs intentionally bypass caching.
+- **Dispose in-memory providers**: if you rely on `MemoryCacheProvider` in long-running servers, call `provider.dispose()` during shutdown to stop the cleanup interval.
 
 For a hands-on example, see the `cache.test.ts` integration test in the repository—it mirrors a real dashboard flow and shows how cache hits and tag invalidation behave end-to-end.

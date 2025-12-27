@@ -243,4 +243,102 @@ describe('Cache manager integration', () => {
     expect(metadataLogs.some(entry => entry.cacheStatus === 'hit')).toBe(true);
     expect(metadataLogs.every(entry => entry.cacheKey)).toBe(true);
   });
+
+  it('bypasses caching when execute receives cache: false', async () => {
+    const provider = new TestCacheProvider();
+    queryMock.mockImplementation(() => Promise.resolve({
+      json: () => Promise.resolve([{ id: 1, email: 'no-cache', active: 1 }])
+    }));
+
+    const db = createQueryBuilder<TestSchema>({
+      ...baseConfig,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 5_000,
+        provider
+      }
+    });
+
+    const query = db.table('users').select(['id']);
+    await query.execute({ cache: false });
+
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(provider.store.size).toBe(0);
+    const stats = db.cache.getStats();
+    expect(stats.misses).toBe(1);
+    expect(stats.hits).toBe(0);
+    expect(stats.hitRate).toBe(0);
+  });
+
+  it('warms queries via db.cache.warm', async () => {
+    let callCount = 0;
+    queryMock.mockImplementation(() => Promise.resolve({
+      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
+    }));
+
+    const provider = new MemoryCacheProvider({ maxEntries: 10 });
+    const db = createQueryBuilder<TestSchema>({
+      ...baseConfig,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 10_000,
+        provider
+      }
+    });
+
+    const firstQuery = db.table('users').select(['id']).cache({ tags: ['users'] });
+    const secondQuery = db.table('users').select(['email']).cache({ tags: ['users'] });
+
+    await db.cache.warm([
+      () => firstQuery.execute(),
+      () => secondQuery.execute()
+    ]);
+
+    expect(queryMock).toHaveBeenCalledTimes(2);
+
+    await firstQuery.execute();
+    expect(queryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports hit rate including stale serves', async () => {
+    let callCount = 0;
+    queryMock.mockImplementation(() => Promise.resolve({
+      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
+    }));
+
+    const provider = new MemoryCacheProvider({ maxEntries: 10 });
+    const db = createQueryBuilder<TestSchema>({
+      ...baseConfig,
+      cache: {
+        mode: 'stale-while-revalidate',
+        ttlMs: 100,
+        staleTtlMs: 1_000,
+        provider
+      }
+    });
+
+    const query = db.table('users').select(['id']);
+    const nowSpy = jest.spyOn(Date, 'now');
+    let currentTime = 0;
+    nowSpy.mockImplementation(() => currentTime);
+
+    try {
+      await query.execute();
+      currentTime = 50;
+      await query.execute();
+      let stats = db.cache.getStats();
+      expect(stats.misses).toBe(1);
+      expect(stats.hits).toBe(1);
+      expect(stats.staleHits).toBe(0);
+      expect(stats.hitRate).toBeCloseTo(0.5, 5);
+
+      currentTime = 500;
+      await query.execute();
+      stats = db.cache.getStats();
+      expect(stats.staleHits).toBe(1);
+      expect(stats.hitRate).toBeCloseTo(2 / 3, 5);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
 });

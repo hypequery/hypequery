@@ -69,7 +69,10 @@ export async function executeWithCache<
 ): Promise<State['output'][]> {
   const runtime = builder.getRuntimeContext();
   const provider = runtime.provider;
-  const mergedOptions = mergeCacheOptions(runtime.defaults, builder.getCacheOptions(), options?.cache);
+  const normalizedExecuteCache = options?.cache === false
+    ? { mode: 'no-store' as const, ttlMs: 0, staleTtlMs: 0, cacheTimeMs: 0 }
+    : options?.cache;
+  const mergedOptions = mergeCacheOptions(runtime.defaults, builder.getCacheOptions(), normalizedExecuteCache);
   const mode = mergedOptions.mode ?? 'no-store';
 
   if (!provider || mode === 'no-store' || !isCacheable(mergedOptions)) {
@@ -78,35 +81,44 @@ export async function executeWithCache<
     }
     return builder.getExecutor().execute({
       queryId: options?.queryId,
-      cacheMetadata: { cacheStatus: 'bypass', cacheMode: mode }
+      logContext: { cacheStatus: 'bypass', cacheMode: mode }
     });
   }
 
   const activeProvider = provider;
 
   const { sql, parameters } = builder.toSQLWithParams();
+  const tableName = builder.getTableName();
   const namespace = mergedOptions.namespace || runtime.namespace;
   const key = mergedOptions.key || computeCacheKey({
     namespace,
     sql,
     parameters,
     settings: builder.getConfig().settings ? { settings: builder.getConfig().settings } : undefined,
-    version: runtime.versionTag
+    version: runtime.versionTag,
+    tableName
   });
 
   const entry = await activeProvider.get(key);
+  if (!entry) {
+    runtime.parsedValues.delete(key);
+  }
   const now = Date.now();
   const fresh = entry ? now < entry.createdAt + entry.ttlMs : false;
   const staleAcceptable = entry ? now < entry.createdAt + entry.ttlMs + entry.staleTtlMs : false;
   const deserialize = mergedOptions.deserialize || runtime.deserialize;
   const serialize = mergedOptions.serialize || runtime.serialize;
 
-  const respondFromCache = async (status: CacheStatus): Promise<State['output'][]> => {
-    if (!entry) {
-      return [];
+  const respondFromCache = async (cacheEntry: CacheEntry, status: CacheStatus): Promise<State['output'][]> => {
+    const memoized = runtime.parsedValues.get(key);
+    let rows: State['output'][];
+    if (memoized && memoized.createdAt === cacheEntry.createdAt) {
+      rows = memoized.rows as State['output'][];
+    } else {
+      rows = await deserialize(cacheEntry.value) as State['output'][];
+      runtime.parsedValues.set(key, { createdAt: cacheEntry.createdAt, rows, tags: cacheEntry.tags });
     }
-    const rows = await deserialize(entry.value) as State['output'][];
-    const cacheAge = entry ? now - entry.createdAt : undefined;
+    const cacheAge = now - cacheEntry.createdAt;
     if (status === 'hit') {
       runtime.stats.hits += 1;
     } else if (status === 'stale-hit') {
@@ -118,7 +130,7 @@ export async function executeWithCache<
       status,
       cacheKey: key,
       options: mergedOptions,
-      rowCount: entry.rowCount ?? rows.length,
+      rowCount: cacheEntry.rowCount ?? rows.length,
       ageMs: cacheAge,
       queryId: options?.queryId
     });
@@ -127,7 +139,7 @@ export async function executeWithCache<
 
   if (mode === 'cache-first') {
     if (entry && fresh) {
-      return respondFromCache('hit');
+      return respondFromCache(entry, 'hit');
     }
     runtime.stats.misses += 1;
     return fetchAndStore('miss');
@@ -135,11 +147,11 @@ export async function executeWithCache<
 
   if (mode === 'stale-while-revalidate') {
     if (entry && fresh) {
-      return respondFromCache('hit');
+      return respondFromCache(entry, 'hit');
     }
     if (entry && staleAcceptable) {
       scheduleRevalidation();
-      return respondFromCache('stale-hit');
+      return respondFromCache(entry, 'stale-hit');
     }
     runtime.stats.misses += 1;
     return fetchAndStore('miss');
@@ -151,7 +163,7 @@ export async function executeWithCache<
       return await fetchAndStore('miss');
     } catch (error) {
       if (mergedOptions.staleIfError && entry && staleAcceptable) {
-        return respondFromCache('stale-hit');
+        return respondFromCache(entry, 'stale-hit');
       }
       throw error;
     }
@@ -160,7 +172,7 @@ export async function executeWithCache<
   runtime.stats.misses += 1;
   return builder.getExecutor().execute({
     queryId: options?.queryId,
-    cacheMetadata: { cacheStatus: 'bypass', cacheMode: mode }
+    logContext: { cacheStatus: 'bypass', cacheMode: mode }
   });
 
   async function fetchAndStore(cacheStatus: CacheStatus): Promise<State['output'][]> {
@@ -171,7 +183,7 @@ export async function executeWithCache<
     const promise = (async () => {
       const rows = await builder.getExecutor().execute({
         queryId: options?.queryId,
-        cacheMetadata: { cacheStatus, cacheKey: key, cacheMode: mode }
+        logContext: { cacheStatus, cacheKey: key, cacheMode: mode }
       });
 
       const encoded = await serialize(rows);
@@ -193,6 +205,7 @@ export async function executeWithCache<
       };
 
       await activeProvider.set(key, newEntry);
+      runtime.parsedValues.set(key, { createdAt: newEntry.createdAt, rows, tags: newEntry.tags });
       return rows;
     })();
 
