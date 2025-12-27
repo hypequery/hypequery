@@ -4,7 +4,9 @@
 
 ### Features
 
-* refactor the query builder around a single Kysely-style state object: joins now widen the visible-table set (including aliases), predicates/order/group/having all read from that state, and the new `selectConst()` helper locks in literal column inference for downstream clauses. Runtime/type tests and docs were updated to cover alias-aware joins, HAVING-on-alias flows, and `withCTE` pipelines.
+* refactor the query builder around a single state object: joins now widen the visible-table set (including aliases), predicates/order/group/having all read from that state, and the new `selectConst()` helper locks in literal column inference for downstream clauses. Runtime/type tests and docs were updated to cover alias-aware joins, HAVING-on-alias flows, and `withCTE` pipelines.
+
+**Note:** Because joins now register tables before the select clause is evaluated, builder chains that previously called `.select()` before `.join()` may surface new type errors. Reorder joins ahead of select clauses to resolve the stricter checking without a runtime change.
 
 ## [1.3.1]
 
@@ -17,11 +19,3 @@
 ### Features
 
 * add predicate-builder callbacks (with ClickHouse function + logical helpers) to `where`/`orWhere`, enabling predicates like `hasAny(tags, ['foo','bar'])` without raw SQL; columns/arrays are inferred automatically and `expr.raw()` provides an escape hatch for edge cases
-
-
-# [0.2.0](https://github.com/lureilly1/hypequery/compare/v0.1.0...v0.2.0) (2025-03-17)
-
-
-### Features
-
-* improve streaming functionality with json() method support ([0f00b72](https://github.com/lureilly1/hypequery/commit/0f00b7297d025868427e9c7b579f0b4b97703eff))
