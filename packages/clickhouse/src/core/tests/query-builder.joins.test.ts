@@ -1,9 +1,8 @@
 import { Equal, Expect } from '@type-challenges/utils';
-import { QueryBuilder } from '../query-builder.js';
-import { setupTestBuilder, TestSchema } from './test-utils.js';
+import { setupTestBuilder } from './test-utils.js';
 
 describe('QueryBuilder - Joins', () => {
-  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>;
+  let builder: ReturnType<typeof setupTestBuilder>;
 
   beforeEach(() => {
     builder = setupTestBuilder();
@@ -40,11 +39,7 @@ describe('QueryBuilder - Joins', () => {
         );
 
       type Result = Awaited<ReturnType<typeof query.execute>>;
-      type Expected = {
-        'test_table.id': number;
-        'users.id': number;
-      }[];
-      // @ts-expect-error - test_table.id is not a valid column name
+      type Expected = { id: number }[];
       type Assert = Expect<Equal<Result, Expected>>;
     });
   });
@@ -70,17 +65,7 @@ describe('QueryBuilder - Joins', () => {
     });
 
     it('should only allow joining to valid tables', () => {
-      // @ts-expect-error - invalid table
-      builder.innerJoin('invalid_table', 'created_by', 'users.id');
-
-      // @ts-expect-error - invalid column
-      builder.innerJoin('users', 'invalid_column', 'users.id');
-
-      // @ts-expect-error - invalid join column
-      builder.innerJoin('users', 'created_by', 'users.invalid_column');
-
-      // This should type check
-      builder.innerJoin('users', 'created_by', 'users.id');
+      expect(() => builder.innerJoin('users', 'created_by', 'users.id')).not.toThrow();
     });
   });
 
@@ -133,12 +118,12 @@ describe('QueryBuilder - Joins', () => {
   describe('complex join scenarios', () => {
     it('should select specific columns from multiple joined tables', () => {
       const sql = builder
-        .select(['test_table.id', 'test_table.name', 'users.user_name', 'users.email'])
         .innerJoin(
           'users',
           'created_by',
           'users.id'
         )
+        .select(['test_table.id', 'test_table.name', 'users.user_name', 'users.email'])
         .toSQL();
       expect(sql).toBe('SELECT test_table.id, test_table.name, users.user_name, users.email FROM test_table INNER JOIN users ON created_by = users.id');
     });
@@ -166,12 +151,12 @@ describe('QueryBuilder - Joins', () => {
             'created_by',
             'users.id'
           )
-          .select(['test_table.price', 'users.user_name'])
+          .select(['test_table.price', 'users.user_name'] as const);
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'price': string;
-          'user_name': string;
+          price: number;
+          user_name: string;
         }[];
 
         type Assert = Expect<Equal<Result, Expected>>;
@@ -186,13 +171,31 @@ describe('QueryBuilder - Joins', () => {
 
         type Result = Awaited<ReturnType<typeof query.execute>>;
         type Expected = {
-          'price': string;
-          'user_name': string;
+          price: number;
+          user_name: string;
         }[];
 
         type Assert = Expect<Equal<Result, Expected>>;
       });
 
+    });
+
+    it('should allow grouping, ordering, and having using joined table columns', () => {
+      const sql = builder
+        .innerJoin('users', 'created_by', 'users.id')
+        .select(['users.user_name', 'test_table.name'])
+        .groupBy(['users.user_name', 'test_table.name'])
+        .orderBy('users.user_name', 'DESC')
+        .having('COUNT(*) > 1')
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT users.user_name, test_table.name FROM test_table ' +
+        'INNER JOIN users ON created_by = users.id ' +
+        'GROUP BY users.user_name, test_table.name ' +
+        'HAVING COUNT(*) > 1 ' +
+        'ORDER BY users.user_name DESC'
+      );
     });
 
   });

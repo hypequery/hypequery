@@ -1,21 +1,17 @@
+import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { JoinType } from '../../types/index.js';
-import { ColumnType } from '../../types/schema.js';
 
 export class JoinFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
-  T,
-  HasSelect extends boolean = false,
-  Aggregations = {},
-  OriginalT = T,
-  VisibleTables extends keyof Schema = never
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
+  constructor(private builder: QueryBuilder<Schema, State>) { }
 
   addJoin<TableName extends keyof Schema>(
     type: JoinType,
     table: TableName,
-    leftColumn: keyof OriginalT,
+    leftColumn: string,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
   ) {
@@ -29,4 +25,4 @@ export class JoinFeature<
     };
     return newConfig;
   }
-} 
+}

@@ -1,9 +1,8 @@
-import { setupTestBuilder, TestSchema } from './test-utils.js';
+import { setupTestBuilder } from './test-utils.js';
 import type { Equal, Expect } from '@type-challenges/utils';
-import { QueryBuilder } from '../query-builder.js';
 
 describe('Advanced IN Operators', () => {
-  let builder: QueryBuilder<TestSchema, TestSchema['test_table'], false, {}>;
+  let builder: ReturnType<typeof setupTestBuilder>;
 
   beforeEach(() => {
     builder = setupTestBuilder();
@@ -192,8 +191,8 @@ describe('Advanced IN Operators', () => {
 
     it('should work with whereGroup', () => {
       const query = builder
-        .whereGroup(builder => {
-          builder
+        .whereGroup(groupBuilder => {
+          groupBuilder
             .where('id', 'globalIn', [1, 2, 3])
             .orWhere('created_by', 'inSubquery', 'SELECT id FROM users WHERE active = 1');
         })
@@ -246,6 +245,7 @@ describe('Advanced IN Operators', () => {
 
     it('should work with cross-table column references', () => {
       const query = builder
+        .innerJoin('users', 'created_by', 'users.id')
         .where('users.user_name', 'globalIn', ['active', 'pending'])
         .where('users.email', 'inSubquery', 'SELECT email FROM users WHERE active = 1');
 

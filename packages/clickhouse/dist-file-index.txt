@@ -63,6 +63,15 @@ core/tests/integration/test-config.js
 core/tests/test-utils.d.ts
 core/tests/test-utils.d.ts.map
 core/tests/test-utils.js
+core/types/builder-state.d.ts
+core/types/builder-state.d.ts.map
+core/types/builder-state.js
+core/types/select-types.d.ts
+core/types/select-types.d.ts.map
+core/types/select-types.js
+core/types/type-helpers.d.ts
+core/types/type-helpers.d.ts.map
+core/types/type-helpers.js
 core/utils/logger.d.ts
 core/utils/logger.d.ts.map
 core/utils/logger.js

@@ -1,4 +1,6 @@
-import { QueryBuilder } from '../query-builder.js';
+import { QueryBuilder, SelectQB } from '../query-builder.js';
+import type { BuilderState } from '../types/builder-state.js';
+import type { TableRecord } from '../../types/schema.js';
 
 export type TestTableSchema = {
   id: 'Int32';
@@ -80,25 +82,40 @@ export const TEST_SCHEMAS: TestSchema = {
   }
 };
 
+type UsersState = BuilderState<
+  TestSchema,
+  'users',
+  TableRecord<TestSchema['users']>,
+  'users'
+>;
 
-export function setupUsersBuilder(): QueryBuilder<TestSchema, TestSchema['users'], false, {}, TestSchema['users']> {
-  return new QueryBuilder<TestSchema, TestSchema['users'], false, {}, TestSchema['users']>(
-    'users',
-    {
-      name: 'users',
-      columns: TEST_SCHEMAS.users
-    },
-    TEST_SCHEMAS
-  );
+type TestTableState = BuilderState<
+  TestSchema,
+  'test_table',
+  TableRecord<TestSchema['test_table']>,
+  'test_table'
+>;
+
+export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<TestSchema['users']>, 'users'> {
+  const state: UsersState = {
+    schema: TEST_SCHEMAS,
+    tables: 'users',
+    output: {} as TableRecord<TestSchema['users']>,
+    baseTable: 'users',
+    base: TEST_SCHEMAS.users,
+    aliases: {}
+  };
+  return new QueryBuilder<TestSchema, UsersState>('users', state);
 }
 
-export function setupTestBuilder(): QueryBuilder<TestSchema, TestSchema['test_table'], false, {}, TestSchema['test_table']> {
-  return new QueryBuilder<TestSchema, TestSchema['test_table'], false, {}, TestSchema['test_table']>(
-    'test_table',
-    {
-      name: 'test_table',
-      columns: TEST_SCHEMAS.test_table
-    },
-    TEST_SCHEMAS
-  );
+export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableRecord<TestSchema['test_table']>, 'test_table'> {
+  const state: TestTableState = {
+    schema: TEST_SCHEMAS,
+    tables: 'test_table',
+    output: {} as TableRecord<TestSchema['test_table']>,
+    baseTable: 'test_table',
+    base: TEST_SCHEMAS.test_table,
+    aliases: {}
+  };
+  return new QueryBuilder<TestSchema, TestTableState>('test_table', state);
 }

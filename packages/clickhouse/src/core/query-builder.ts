@@ -1,16 +1,15 @@
 import { ClickHouseConnection } from './connection.js';
 import { CrossFilter } from './cross-filter.js';
 import {
-  AggregationType,
   FilterOperator,
-  InferClickHouseType,
   OperatorValueMap,
   OrderDirection,
   PaginatedResult,
   PaginationOptions,
   QueryConfig,
+  JoinType
 } from '../types/index.js';
-import { ColumnType, InferColumnType, TableColumn, TableColumnForTables } from '../types/schema.js';
+import { ColumnType, InferColumnType } from '../types/schema.js';
 import { SQLFormatter } from './formatters/sql-formatter.js';
 import { AggregationFeature } from './features/aggregations.js';
 import { JoinFeature } from './features/joins.js';
@@ -21,7 +20,7 @@ import { QueryModifiersFeature } from './features/query-modifiers.js';
 import { FilterValidator } from './validators/filter-validator.js';
 import { PaginationFeature } from './features/pagination.js';
 import { JoinRelationships, JoinPathOptions } from './join-relationships.js';
-import { SqlExpression, AliasedExpression } from './utils/sql-expressions.js';
+import { SqlExpression } from './utils/sql-expressions.js';
 import {
   PredicateBuilder,
   PredicateExpression,
@@ -31,19 +30,35 @@ import { CrossFilteringFeature } from './features/cross-filtering.js';
 import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
+import type {
+  BuilderState,
+  AnyBuilderState,
+  SchemaDefinition,
+  InitialState,
+  UpdateOutput,
+  WidenTables,
+  AppendToOutput,
+  BaseRow,
+  AddAlias
+} from './types/builder-state.js';
 import {
-  SelectableItem as SelectableItemType,
-  SelectionResult
+  SelectableItem,
+  SelectableColumn,
+  SelectionResult,
+  ColumnSelectionValue
 } from './types/select-types.js';
+
+type WhereColumn<State extends AnyBuilderState> = SelectableColumn<State>;
+
+type ColumnOperatorValue<
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>,
+  Column extends WhereColumn<State>,
+  Op extends keyof OperatorValueMap<any, Schema>
+> = OperatorValueMap<ColumnSelectionValue<State, Column>, Schema>[Op];
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
-
-type SelectableItem<
-  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
-  T,
-  VisibleTables extends keyof Schema
-> = SelectableItemType<Schema, T, VisibleTables>;
 
 /**
  * Configuration for client-based connections.
@@ -68,43 +83,33 @@ export function isClientConfig(config: ClickHouseConfig): config is ClickHouseCl
 
 /**
  * A type-safe query builder for ClickHouse databases.
- * @template Schema - The full database schema
- * @template T - The schema type of the current table
- * @template HasSelect - Whether a SELECT clause has been applied
- * @template Aggregations - The type of any aggregation functions applied
+ * The builder carries a single state object that encodes scope, output, and schema metadata.
  */
 export class QueryBuilder<
-  Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } },
-  T,
-  HasSelect extends boolean = false,
-  Aggregations = {},
-  OriginalT = T,
-  VisibleTables extends keyof Schema = never
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
   private static relationships: JoinRelationships<any>;
 
-  private config: QueryConfig<T, Schema> = {};
+  private config: QueryConfig<State['output'], Schema> = {};
   private tableName: string;
-  private schema: { name: string; columns: T };
-  private originalSchema: Schema;
+  private state: State;
   private formatter = new SQLFormatter();
-  private aggregations: AggregationFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
-  private joins: JoinFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
-  private filtering: FilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
-  private analytics: AnalyticsFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
-  private executor: ExecutorFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
-  private modifiers: QueryModifiersFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
-  private pagination: PaginationFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
-  private crossFiltering: CrossFilteringFeature<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>;
+  private aggregations: AggregationFeature<Schema, State>;
+  private joins: JoinFeature<Schema, State>;
+  private filtering: FilteringFeature<Schema, State>;
+  private analytics: AnalyticsFeature<Schema, State>;
+  private executor: ExecutorFeature<Schema, State>;
+  private modifiers: QueryModifiersFeature<Schema, State>;
+  private pagination: PaginationFeature<Schema, State>;
+  private crossFiltering: CrossFilteringFeature<Schema, State>;
 
   constructor(
     tableName: string,
-    schema: { name: string; columns: T },
-    originalSchema: Schema
+    state: State
   ) {
     this.tableName = tableName;
-    this.schema = schema;
-    this.originalSchema = originalSchema
+    this.state = state;
     this.aggregations = new AggregationFeature(this);
     this.joins = new JoinFeature(this);
     this.filtering = new FilteringFeature(this);
@@ -115,36 +120,36 @@ export class QueryBuilder<
     this.crossFiltering = new CrossFilteringFeature(this);
   }
 
+  private fork<
+    NextState extends BuilderState<
+      Schema,
+      string,
+      any,
+      State['baseTable'],
+      Partial<Record<string, keyof Schema>>
+    >
+  >(
+    state: NextState,
+    config: QueryConfig<NextState['output'], Schema>
+  ): QueryBuilder<Schema, NextState> {
+    const builder = new QueryBuilder<Schema, NextState>(this.tableName, state);
+    builder.config = { ...config };
+    return builder;
+  }
+
   debug() {
     console.log('Current Type:', {
-      schema: this.schema,
-      originalSchema: this.originalSchema,
+      state: this.state,
       config: this.config
     });
     return this;
   }
 
-  clone(): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables> {
-    const newBuilder = new QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>(
-      this.tableName,
-      this.schema,
-      this.originalSchema
-    );
-    newBuilder.config = { ...this.config };
-    // Initialize features with the new builder
-    newBuilder.aggregations = new AggregationFeature(newBuilder);
-    newBuilder.joins = new JoinFeature(newBuilder);
-    newBuilder.filtering = new FilteringFeature(newBuilder);
-    newBuilder.analytics = new AnalyticsFeature(newBuilder);
-    newBuilder.executor = new ExecutorFeature(newBuilder);
-    newBuilder.modifiers = new QueryModifiersFeature(newBuilder);
-    newBuilder.pagination = new PaginationFeature(newBuilder);
-    newBuilder.crossFiltering = new CrossFilteringFeature(newBuilder);
-    return newBuilder as any;
-  }
-
   // --- Analytics Helper: Add a CTE.
-  withCTE(alias: string, subquery: QueryBuilder<any, any> | string): this {
+  withCTE(
+    alias: string,
+    subquery: QueryBuilder<any, AnyBuilderState> | string
+  ): this {
     this.config = this.analytics.addCTE(alias, subquery);
     return this;
   }
@@ -162,11 +167,11 @@ export class QueryBuilder<
  * @returns The current QueryBuilder instance.
  */
   groupByTimeInterval(
-    column: keyof T | TableColumn<Schema>,
+    column: SelectableColumn<State>,
     interval: string,
     method: 'toStartOfInterval' | 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear' = 'toStartOfInterval'
   ): this {
-    this.config = this.analytics.addTimeInterval(column, interval, method);
+    this.config = this.analytics.addTimeInterval(String(column), interval, method);
     return this;
   }
 
@@ -208,58 +213,32 @@ export class QueryBuilder<
    * builder.select('*')
    * ```
    */
-  select(columnsOrAsterisk: '*'): QueryBuilder<Schema, T, true, Aggregations, OriginalT>;
-  select<Selections extends ReadonlyArray<SelectableItem<Schema, T, VisibleTables>>>(
+  select(columnsOrAsterisk: '*'): QueryBuilder<Schema, UpdateOutput<State, BaseRow<State>>>;
+  select<Selections extends ReadonlyArray<SelectableItem<State>>>(
     columnsOrAsterisk: Selections
-  ): QueryBuilder<
-    Schema,
-    SelectionResult<Schema, T, VisibleTables, Selections[number]>,
-    true,
-    Aggregations,
-    OriginalT,
-    VisibleTables
-  >;
-  select<Selections extends ReadonlyArray<SelectableItem<Schema, T, VisibleTables>>>(columnsOrAsterisk: '*' | Selections) {
-    // Handle '*' case - return all columns with original type
+  ): QueryBuilder<Schema, UpdateOutput<State, SelectionResult<State, Selections[number]>>>;
+  select<Selections extends ReadonlyArray<SelectableItem<State>>>(columnsOrAsterisk: '*' | Selections) {
     if (columnsOrAsterisk === '*') {
-      const newBuilder = new QueryBuilder<Schema, T, true, Aggregations, OriginalT, VisibleTables>(
-        this.tableName,
-        this.schema,
-        this.originalSchema
-      );
+      type NextState = UpdateOutput<State, BaseRow<State>>;
+      const nextState = {
+        ...this.state,
+        output: {}
+      } as NextState;
 
-      newBuilder.config = {
+      const nextConfig = {
         ...this.config,
         select: ['*'],
         orderBy: this.config.orderBy?.map(({ column, direction }) => ({
           column: String(column),
           direction
-        })) as any
-      };
-      return newBuilder as QueryBuilder<Schema, T, true, Aggregations, OriginalT>;
+        }))
+      } as QueryConfig<NextState['output'], Schema>;
+
+      return this.fork(nextState, nextConfig);
     }
 
-    // Handle array case - select specific columns
     const columns = columnsOrAsterisk as Selections;
 
-    // Create a new builder with the appropriate type parameters
-    const newBuilder = new QueryBuilder<
-      Schema,
-      any,
-      true,
-      Aggregations,
-      OriginalT,
-      VisibleTables
-    >(
-      this.tableName,
-      {
-        name: this.schema.name,
-        columns: {} as any
-      },
-      this.originalSchema
-    );
-
-    // Process columns array to handle SqlExpressions and convert to strings
     const processedColumns = columns.map(col => {
       if (typeof col === 'object' && col !== null && '__type' in col) {
         return (col as SqlExpression).toSql();
@@ -267,97 +246,92 @@ export class QueryBuilder<
       return String(col);
     });
 
-    newBuilder.config = {
+    type NextState = UpdateOutput<State, SelectionResult<State, Selections[number]>>;
+    const nextState = {
+      ...this.state,
+      output: {} as SelectionResult<State, Selections[number]>
+    } as NextState;
+
+    const nextConfig = {
       ...this.config,
       select: processedColumns,
       orderBy: this.config.orderBy?.map(({ column, direction }) => ({
         column: String(column),
         direction
       }))
-    };
-    return newBuilder as QueryBuilder<
-      Schema,
-      SelectionResult<Schema, T, VisibleTables, Selections[number]>,
-      true,
-      Aggregations,
-      OriginalT,
-      VisibleTables
-    >;
+    } as QueryConfig<NextState['output'], Schema>;
+
+    return this.fork(nextState, nextConfig);
   }
 
-  sum<Column extends keyof OriginalT, Alias extends string = `${Column & string}_sum`>(
-    column: Column,
-    alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    AggregationType<T, Aggregations, Column, Alias, 'sum', HasSelect>,
-    true,
-    {},
-    OriginalT
-  > {
-    const newBuilder = this.clone();
-    newBuilder.config = this.aggregations.sum(column, alias);
-    return newBuilder as any
+  selectConst<Selections extends ReadonlyArray<SelectableItem<State>>>(
+    ...columns: Selections
+  ): QueryBuilder<Schema, UpdateOutput<State, SelectionResult<State, Selections[number]>>> {
+    return this.select(columns);
   }
 
-  count<Column extends keyof OriginalT, Alias extends string = `${Column & string}_count`>(
+  sum<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_sum`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    AggregationType<T, Aggregations, Column, Alias, 'count', HasSelect>,
-    true,
-    {},
-    OriginalT
-  > {
-    const newBuilder = this.clone();
-    newBuilder.config = this.aggregations.count(column, alias);
-    return newBuilder as any
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'sum', (col, finalAlias) =>
+      this.aggregations.sum(col, finalAlias)
+    );
   }
 
-  avg<Column extends keyof OriginalT, Alias extends string = `${Column & string}_avg`>(
+  count<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_count`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    AggregationType<T, Aggregations, Column, Alias, 'avg', HasSelect>,
-    true,
-    {},
-    OriginalT
-  > {
-    const newBuilder = this.clone();
-    newBuilder.config = this.aggregations.avg(column, alias);
-    return newBuilder as any
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'count', (col, finalAlias) =>
+      this.aggregations.count(col, finalAlias)
+    );
   }
 
-  min<Column extends keyof OriginalT, Alias extends string = `${Column & string}_min`>(
+  avg<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_avg`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    AggregationType<T, Aggregations, Column, Alias, 'min', HasSelect>,
-    true,
-    {},
-    OriginalT
-  > {
-    const newBuilder = this.clone();
-    newBuilder.config = this.aggregations.min(column, alias);
-    return newBuilder as any
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'avg', (col, finalAlias) =>
+      this.aggregations.avg(col, finalAlias)
+    );
   }
 
-  max<Column extends keyof OriginalT, Alias extends string = `${Column & string}_max`>(
+  min<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_min`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<
-    Schema,
-    AggregationType<T, Aggregations, Column, Alias, 'max', HasSelect>,
-    true,
-    {},
-    OriginalT
-  > {
-    const newBuilder = this.clone();
-    newBuilder.config = this.aggregations.max(column, alias);
-    return newBuilder as any
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'min', (col, finalAlias) =>
+      this.aggregations.min(col, finalAlias)
+    );
+  }
+
+  max<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_max`>(
+    column: Column,
+    alias?: Alias
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'max', (col, finalAlias) =>
+      this.aggregations.max(col, finalAlias)
+    );
+  }
+
+  private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string>(
+    column: Column,
+    alias: Alias | undefined,
+    suffix: string,
+    updater: (column: string, alias: Alias) => QueryConfig<any, Schema>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    const columnName = String(column);
+    const finalAlias = (alias || `${columnName}_${suffix}`) as Alias;
+
+    type NextState = AppendToOutput<State, Record<Alias, string>>;
+    const nextState = {
+      ...this.state,
+      output: {} as NextState['output']
+    } as NextState;
+
+    const nextConfig = updater(columnName, finalAlias) as QueryConfig<NextState['output'], Schema>;
+    return this.fork(nextState, nextConfig);
   }
 
   // Make needed properties accessible to features
@@ -378,11 +352,11 @@ export class QueryBuilder<
     return this.executor.toSQLWithParams();
   }
 
-  execute(): Promise<T[]> {
+  execute(): Promise<State['output'][]> {
     return this.executor.execute();
   }
 
-  async stream(): Promise<ReadableStream<T[]>> {
+  async stream(): Promise<ReadableStream<State['output'][]>> {
     return this.executor.stream();
   }
 
@@ -390,7 +364,7 @@ export class QueryBuilder<
    * Processes each row in a stream with the provided callback function
    * @param callback Function to call for each row in the stream
    */
-  async streamForEach<R = void>(callback: (row: T) => R | Promise<R>): Promise<void> {
+  async streamForEach<R = void>(callback: (row: State['output']) => R | Promise<R>): Promise<void> {
     const stream = await this.stream();
     const reader = stream.getReader();
 
@@ -408,8 +382,8 @@ export class QueryBuilder<
     }
   }
 
-  private validateFilterValue<K extends keyof OriginalT | TableColumn<Schema>>(
-    column: K | K[],
+  private validateFilterValue<Column extends SelectableColumn<State>>(
+    column: Column | Column[],
     operator: FilterOperator,
     value: any
   ) {
@@ -429,11 +403,13 @@ export class QueryBuilder<
       return;
     }
 
-    if (FilterValidator.validateJoinedColumn(String(column))) return;
+    const columnName = String(column);
+    if (FilterValidator.validateJoinedColumn(columnName)) return;
 
-    const columnType = this.schema.columns[column as keyof T] as ColumnType;
+    const baseColumns = this.state.base as Record<string, ColumnType>;
+    const columnType = baseColumns[columnName as keyof typeof baseColumns];
     FilterValidator.validateFilterCondition(
-      { column: String(column), operator, value },
+      { column: columnName, operator, value },
       columnType
     );
   }
@@ -451,14 +427,12 @@ export class QueryBuilder<
    * ```
    */
   where(
-    expressionBuilder: (expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression
+    expressionBuilder: (expr: PredicateBuilder<State>) => PredicateExpression
   ): this;
-  where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any, Schema>>(
-    columnOrColumns: K | K[],
+  where<Column extends WhereColumn<State>, Op extends keyof OperatorValueMap<any, Schema>>(
+    columnOrColumns: Column | Column[],
     operator: Op,
-    value: K extends keyof OriginalT
-      ? OperatorValueMap<OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never, Schema>[Op]
-      : any
+    value: ColumnOperatorValue<Schema, State, Column, Op>
   ): this;
   /**
    * Adds a WHERE clause for tuple IN operations.
@@ -472,18 +446,18 @@ export class QueryBuilder<
    * builder.where(['counter_id', 'user_id'], 'inTuple', [[34, 123], [101500, 456]])
    * ```
    */
-  where<K extends keyof OriginalT | TableColumn<Schema>>(
-    columns: K[],
+  where<Column extends WhereColumn<State>>(
+    columns: Column[],
     operator: 'inTuple' | 'globalInTuple',
     value: any
   ): this;
-  where<K extends keyof OriginalT | TableColumn<Schema>, Op extends keyof OperatorValueMap<any>>(
-    columnOrColumns: K | K[] | ((expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression),
+  where<Column extends WhereColumn<State>, Op extends keyof OperatorValueMap<any, Schema>>(
+    columnOrColumns: Column | Column[] | ((expr: PredicateBuilder<State>) => PredicateExpression),
     operator?: Op,
     value?: any
   ): this {
     if (typeof columnOrColumns === 'function') {
-      const expression = columnOrColumns(createPredicateBuilder<Schema, OriginalT>());
+      const expression = columnOrColumns(createPredicateBuilder<State>());
       this.config = this.filtering.addExpressionCondition('AND', expression);
       return this;
     }
@@ -494,52 +468,38 @@ export class QueryBuilder<
 
     // Handle tuple operations
     if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
-      // For tuple operations, we need to handle the column array specially
-      const columns = columnOrColumns as K[];
+      const columns = columnOrColumns as Column[];
       this.validateFilterValue(columns, operator, value);
-      this.config = this.filtering.addCondition('AND', columns, operator, value);
+      this.config = this.filtering.addCondition('AND', columns.map(String), operator, value);
       return this;
     }
 
-    // Handle regular operations
-    const column = columnOrColumns as K;
+    const column = columnOrColumns as Column;
     this.validateFilterValue(column, operator, value);
-    this.config = this.filtering.addCondition('AND', column, operator, value);
+    this.config = this.filtering.addCondition('AND', String(column), operator, value);
     return this;
   }
 
   orWhere(
-    expressionBuilder: (expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression
+    expressionBuilder: (expr: PredicateBuilder<State>) => PredicateExpression
   ): this;
-  orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
-    column: K,
+  orWhere<Column extends WhereColumn<State>>(
+    column: Column,
     operator: FilterOperator,
     value: any
   ): this;
-  /**
-   * Adds an OR WHERE clause for tuple IN operations.
-   * @template K - The column keys type
-   * @param {K[]} columns - The columns to filter on (for tuple operations)
-   * @param {'inTuple' | 'globalInTuple'} operator - The tuple IN operator
-   * @param {any} value - The array of tuples to compare against
-   * @returns {this} The current QueryBuilder instance
-   * @example
-   * ```ts
-   * builder.orWhere(['counter_id', 'user_id'], 'inTuple', [[34, 123], [101500, 456]])
-   * ```
-   */
-  orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
-    columns: K[],
+  orWhere<Column extends WhereColumn<State>>(
+    columns: Column[],
     operator: 'inTuple' | 'globalInTuple',
     value: any
   ): this;
-  orWhere<K extends keyof OriginalT | TableColumn<Schema>>(
-    columnOrColumns: K | K[] | ((expr: PredicateBuilder<Schema, OriginalT>) => PredicateExpression),
+  orWhere<Column extends WhereColumn<State>>(
+    columnOrColumns: Column | Column[] | ((expr: PredicateBuilder<State>) => PredicateExpression),
     operator?: FilterOperator,
     value?: any
   ): this {
     if (typeof columnOrColumns === 'function') {
-      const expression = columnOrColumns(createPredicateBuilder<Schema, OriginalT>());
+      const expression = columnOrColumns(createPredicateBuilder<State>());
       this.config = this.filtering.addExpressionCondition('OR', expression);
       return this;
     }
@@ -548,19 +508,16 @@ export class QueryBuilder<
       throw new Error('Operator is required when specifying a column for orWhere()');
     }
 
-    // Handle tuple operations
     if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
-      // For tuple operations, we need to handle the column array specially
-      const columns = columnOrColumns as K[];
+      const columns = columnOrColumns as Column[];
       this.validateFilterValue(columns, operator, value);
-      this.config = this.filtering.addCondition('OR', columns, operator, value);
+      this.config = this.filtering.addCondition('OR', columns.map(String), operator, value);
       return this;
     }
 
-    // Handle regular operations
-    const column = columnOrColumns as K;
+    const column = columnOrColumns as Column;
     this.validateFilterValue(column, operator, value);
-    this.config = this.filtering.addCondition('OR', column, operator, value);
+    this.config = this.filtering.addCondition('OR', String(column), operator, value);
     return this;
   }
 
@@ -609,8 +566,9 @@ export class QueryBuilder<
    * builder.groupBy(['category', 'status'])
    * ```
    */
-  groupBy(columns: (keyof T | TableColumn<Schema>) | Array<keyof T | TableColumn<Schema>>): this {
-    this.config = this.modifiers.addGroupBy(columns);
+  groupBy(columns: SelectableColumn<State> | Array<SelectableColumn<State>>): this {
+    const normalized = Array.isArray(columns) ? columns.map(String) : String(columns);
+    this.config = this.modifiers.addGroupBy(normalized);
     return this;
   }
 
@@ -634,11 +592,11 @@ export class QueryBuilder<
    * builder.orderBy('created_at', 'DESC')
    * ```
    */
-  orderBy<K extends keyof T | TableColumnForTables<Schema, VisibleTables>>(
-    column: K,
+  orderBy(
+    column: SelectableColumn<State>,
     direction: OrderDirection = 'ASC'
   ): this {
-    this.config = this.modifiers.addOrderBy(column, direction);
+    this.config = this.modifiers.addOrderBy(String(column), direction);
     return this;
   }
 
@@ -661,12 +619,9 @@ export class QueryBuilder<
     return this;
   }
 
-  whereBetween<K extends keyof OriginalT>(
-    column: K,
-    [min, max]: [
-      OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never,
-      OriginalT[K] extends ColumnType ? InferColumnType<OriginalT[K]> : never
-    ]
+  whereBetween<Column extends keyof BaseRow<State>>(
+    column: Column,
+    [min, max]: [BaseRow<State>[Column], BaseRow<State>[Column]]
   ): this {
     if (min === null || max === null) {
       throw new Error('BETWEEN values cannot be null');
@@ -674,54 +629,84 @@ export class QueryBuilder<
     return this.where(column, 'between', [min, max] as any);
   }
 
-  innerJoin<TableName extends keyof Schema>(
+  innerJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
-    leftColumn: keyof OriginalT,
+    leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
-    const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('INNER', table, leftColumn, rightColumn, alias);
-    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
+  > {
+    return this.applyJoin('INNER', table, leftColumn, rightColumn, alias);
   }
 
-  leftJoin<
-    TableName extends keyof Schema
-  >(
+  leftJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
-    leftColumn: keyof OriginalT,
+    leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
-    const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('LEFT', table, leftColumn, rightColumn, alias);
-    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
+  > {
+    return this.applyJoin('LEFT', table, leftColumn, rightColumn, alias);
   }
 
-  rightJoin<
-    TableName extends keyof Schema  // The table we're joining to
-  >(
+  rightJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
-    leftColumn: keyof OriginalT,
+    leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
-    const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('RIGHT', table, leftColumn, rightColumn, alias);
-    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
+  > {
+    return this.applyJoin('RIGHT', table, leftColumn, rightColumn, alias);
   }
 
-  fullJoin<
-    TableName extends keyof Schema
-  >(
+  fullJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
-    leftColumn: keyof OriginalT,
+    leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
-  ): QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName> {
-    const newBuilder = this.clone();
-    newBuilder.config = this.joins.addJoin('FULL', table, leftColumn, rightColumn, alias);
-    return newBuilder as QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables | TableName>;
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
+  > {
+    return this.applyJoin('FULL', table, leftColumn, rightColumn, alias);
+  }
+
+  private applyJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+    type: JoinType,
+    table: TableName,
+    leftColumn: keyof BaseRow<State>,
+    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    alias?: Alias
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
+  > {
+    type JoinedState = WidenTables<State, TableName>;
+    type NextState = Alias extends string ? AddAlias<JoinedState, Alias, TableName> : JoinedState;
+
+    const nextState = {
+      ...this.state,
+      aliases: alias ? { ...this.state.aliases, [alias]: table } : this.state.aliases
+    } as unknown as NextState;
+
+    const nextConfig = this.joins.addJoin(type, table, String(leftColumn), rightColumn, alias) as QueryConfig<NextState['output'], Schema>;
+    return this.fork<NextState>(nextState, nextConfig);
   }
 
   // Make config accessible to features
@@ -732,25 +717,25 @@ export class QueryBuilder<
   /**
    * Paginates the query results using cursor-based pagination
    */
-  async paginate(options: PaginationOptions<T>): Promise<PaginatedResult<T>> {
+  async paginate(options: PaginationOptions<State['output']>): Promise<PaginatedResult<State['output']>> {
     return this.pagination.paginate(options);
   }
 
   /**
    * Gets the first page of results
    */
-  async firstPage(pageSize: number): Promise<PaginatedResult<T>> {
+  async firstPage(pageSize: number): Promise<PaginatedResult<State['output']>> {
     return this.pagination.firstPage(pageSize);
   }
 
   /**
    * Returns an async iterator that yields all pages
    */
-  iteratePages(pageSize: number): AsyncGenerator<PaginatedResult<T>> {
+  iteratePages(pageSize: number): AsyncGenerator<PaginatedResult<State['output']>> {
     return this.pagination.iteratePages(pageSize);
   }
 
-  static setJoinRelationships<S extends { [K in keyof S]: { [columnName: string]: ColumnType } }>(
+  static setJoinRelationships<S extends SchemaDefinition<S>>(
     relationships: JoinRelationships<S>
   ): void {
     this.relationships = relationships;
@@ -791,21 +776,35 @@ export class QueryBuilder<
   }
 }
 
-export function createQueryBuilder<Schema extends { [K in keyof Schema]: { [columnName: string]: ColumnType } }>(
+export type SelectQB<
+  Schema extends SchemaDefinition<Schema>,
+  Tables extends string,
+  Output,
+  BaseTable extends keyof Schema
+> = QueryBuilder<Schema, BuilderState<Schema, Tables, Output, BaseTable, {}>>;
+
+export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
   config: ClickHouseConfig
 ) {
   ClickHouseConnection.initialize(config);
 
   return {
-    table<TableName extends keyof Schema>(tableName: TableName): QueryBuilder<Schema, Schema[TableName], false, {}> {
-      return new QueryBuilder<Schema, Schema[TableName], false, {}, Schema[TableName], TableName>(
-        tableName as string,
-        {
-          name: tableName as string,
-          columns: {} as Schema[TableName]
-        },
-        {} as Schema
-      );
+    table<TableName extends Extract<keyof Schema, string>>(tableName: TableName): SelectQB<
+      Schema,
+      TableName,
+      InitialState<Schema, TableName>['output'],
+      TableName
+    > {
+      const state = {
+        schema: {} as Schema,
+        tables: tableName,
+        output: {} as InitialState<Schema, TableName>['output'],
+        baseTable: tableName,
+        base: {} as Schema[TableName],
+        aliases: {} as Partial<Record<string, keyof Schema>>
+      } as InitialState<Schema, TableName>;
+
+      return new QueryBuilder<Schema, typeof state>(tableName as string, state);
     }
   };
 }

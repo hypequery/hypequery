@@ -1,18 +1,14 @@
+import { ClickHouseSettings } from '@clickhouse/client-common';
+import type { AnyBuilderState, BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { ColumnType, TableColumn } from '../../types/schema.js';
-import { ClickHouseSettings } from '@clickhouse/client-common'
 
 export class AnalyticsFeature<
-  Schema extends { [tableName: string]: { [columnName: string]: ColumnType } },
-  T,
-  HasSelect extends boolean = false,
-  Aggregations = {},
-  OriginalT = T,
-  VisibleTables extends keyof Schema = never
+  Schema extends SchemaDefinition<Schema>,
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
-  constructor(private builder: QueryBuilder<Schema, T, HasSelect, Aggregations, OriginalT, VisibleTables>) { }
+  constructor(private builder: QueryBuilder<Schema, State>) { }
 
-  addCTE(alias: string, subquery: QueryBuilder<any, any> | string) {
+  addCTE(alias: string, subquery: QueryBuilder<any, AnyBuilderState> | string) {
     const config = this.builder.getConfig();
     const cte = typeof subquery === 'string' ? subquery : subquery.toSQL();
     return {
@@ -22,7 +18,7 @@ export class AnalyticsFeature<
   }
 
   addTimeInterval(
-    column: keyof T | TableColumn<Schema>,
+    column: string,
     interval: string,
     method: 'toStartOfInterval' | 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear'
   ) {
@@ -30,9 +26,9 @@ export class AnalyticsFeature<
     const groupBy = config.groupBy || [];
 
     if (method === 'toStartOfInterval') {
-      groupBy.push(`${method}(${String(column)}, INTERVAL ${interval})`);
+      groupBy.push(`${method}(${column}, INTERVAL ${interval})`);
     } else {
-      groupBy.push(`${method}(${String(column)})`);
+      groupBy.push(`${method}(${column})`);
     }
 
     return {
@@ -49,4 +45,4 @@ export class AnalyticsFeature<
       settings: settingsFragments.join(', ')
     };
   }
-} 
+}
