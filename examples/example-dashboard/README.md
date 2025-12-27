@@ -1,4 +1,3 @@
-
 # hypequery Example Dashboard
 
 This example demonstrates how to use hypequery with different ClickHouse clients in different environments.
