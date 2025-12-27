@@ -213,21 +213,28 @@ export class QueryBuilder<
    * builder.select('*')
    * ```
    */
-  select(columnsOrAsterisk: '*'): this;
+  select(columnsOrAsterisk: '*'): QueryBuilder<Schema, UpdateOutput<State, BaseRow<State>>>;
   select<Selections extends ReadonlyArray<SelectableItem<State>>>(
     columnsOrAsterisk: Selections
   ): QueryBuilder<Schema, UpdateOutput<State, SelectionResult<State, Selections[number]>>>;
   select<Selections extends ReadonlyArray<SelectableItem<State>>>(columnsOrAsterisk: '*' | Selections) {
     if (columnsOrAsterisk === '*') {
-      this.config = {
+      type NextState = UpdateOutput<State, BaseRow<State>>;
+      const nextState = {
+        ...this.state,
+        output: {}
+      } as NextState;
+
+      const nextConfig = {
         ...this.config,
         select: ['*'],
         orderBy: this.config.orderBy?.map(({ column, direction }) => ({
           column: String(column),
           direction
         }))
-      };
-      return this;
+      } as QueryConfig<NextState['output'], Schema>;
+
+      return this.fork(nextState, nextConfig);
     }
 
     const columns = columnsOrAsterisk as Selections;
@@ -630,8 +637,8 @@ export class QueryBuilder<
   ): QueryBuilder<
     Schema,
     Alias extends string
-      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-      : WidenTables<State, TableName>
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
   > {
     return this.applyJoin('INNER', table, leftColumn, rightColumn, alias);
   }
@@ -644,8 +651,8 @@ export class QueryBuilder<
   ): QueryBuilder<
     Schema,
     Alias extends string
-      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-      : WidenTables<State, TableName>
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
   > {
     return this.applyJoin('LEFT', table, leftColumn, rightColumn, alias);
   }
@@ -658,8 +665,8 @@ export class QueryBuilder<
   ): QueryBuilder<
     Schema,
     Alias extends string
-      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-      : WidenTables<State, TableName>
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
   > {
     return this.applyJoin('RIGHT', table, leftColumn, rightColumn, alias);
   }
@@ -672,8 +679,8 @@ export class QueryBuilder<
   ): QueryBuilder<
     Schema,
     Alias extends string
-      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-      : WidenTables<State, TableName>
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
   > {
     return this.applyJoin('FULL', table, leftColumn, rightColumn, alias);
   }
@@ -687,8 +694,8 @@ export class QueryBuilder<
   ): QueryBuilder<
     Schema,
     Alias extends string
-      ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
-      : WidenTables<State, TableName>
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
   > {
     type JoinedState = WidenTables<State, TableName>;
     type NextState = Alias extends string ? AddAlias<JoinedState, Alias, TableName> : JoinedState;

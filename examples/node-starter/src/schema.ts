@@ -18,6 +18,7 @@ export interface IntrospectedSchema {
     ScopeVersion: 'LowCardinality(String)';
     ScopeAttributes: 'Map(LowCardinality(String), String)';
     LogAttributes: 'Map(LowCardinality(String), String)';
+    Test: 'Int32'
   };
   test_logs: {
     LogName: 'String';

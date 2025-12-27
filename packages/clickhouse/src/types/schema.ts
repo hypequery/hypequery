@@ -14,7 +14,7 @@ export interface TableSchema<TColumns> {
 }
 
 export type TableRecord<TColumns> = {
-  [K in keyof TColumns]: TColumns[K] extends ColumnType ? InferColumnType<TColumns[K]> : never;
+  [K in keyof TColumns]: InferColumnType<Extract<TColumns[K], ColumnType>>;
 };
 
 export type QualifiedColumn<Schema, TableName extends keyof Schema> =
