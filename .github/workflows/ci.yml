@@ -10,9 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    # Add ClickHouse service container conditionally
     services:
-      # Only set up ClickHouse if integration tests are enabled
       clickhouse:
         image: clickhouse/clickhouse-server:latest
         ports:
@@ -44,13 +42,9 @@ jobs:
           npm install --package-lock-only
           git diff --exit-code || echo "Warning: package-lock.json was updated but changes will be ignored in CI"
       - name: Clean existing build artifacts
-        run: |
-          echo "# Clean existing build artifacts"
-          rm -rf packages/clickhouse/dist
+        run: rm -rf packages/clickhouse/dist
       - name: Build packages with CI script
-        run: |
-          echo "Starting build process..."
-          cd packages/clickhouse && npm run build:ci
+        run: cd packages/clickhouse && npm run build:ci
       - name: Verify bin.js file exists
         run: |
           if [ -f "packages/clickhouse/dist/cli/bin.js" ]; then
@@ -64,18 +58,14 @@ jobs:
           fi
       - name: Run unit tests
         run: npm test
-        
-      # Add a step for integration tests
       - name: Run integration tests
         if: ${{ vars.ENABLE_CI_INTEGRATION_TESTS == 'true' }}
         run: npm run test:integration
         env:
-          ENABLE_CI_INTEGRATION_TESTS: true
           CLICKHOUSE_TEST_HOST: http://localhost:8123
           CLICKHOUSE_TEST_USER: default
           CLICKHOUSE_TEST_PASSWORD: hypequery_test
           CLICKHOUSE_TEST_DB: test_db
-          # Node options for proper ESM and crypto support
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
   
   release:
@@ -87,16 +77,17 @@ jobs:
       issues: write
       pull-requests: write
       packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
           cache: 'npm'
+          registry-url: https://registry.npmjs.org
       - name: Install dependencies
         run: npm install
       - name: Install semantic-release and dependencies
@@ -104,14 +95,13 @@ jobs:
           npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
       - name: Build for release
         run: cd packages/clickhouse && npm run build:ci
-      - name: Configure Git
+      - name: Configure Git identity
         run: |
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd packages/clickhouse
           echo "Publishing clickhouse package..."
