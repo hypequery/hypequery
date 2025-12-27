@@ -26,9 +26,17 @@ export class MemoryCacheProvider implements CacheProvider {
     this.cleanupIntervalMs = options.cleanupIntervalMs ?? 30_000;
     if (this.cleanupIntervalMs > 0 && typeof setInterval !== 'undefined') {
       this.cleanupTimer = setInterval(() => this.cleanup(), this.cleanupIntervalMs);
-      if (typeof this.cleanupTimer === 'object' && 'unref' in this.cleanupTimer && typeof this.cleanupTimer.unref === 'function') {
-        this.cleanupTimer.unref();
+      const timer = this.cleanupTimer
+      if (typeof timer.unref === 'function') {
+        timer.unref();
       }
+    }
+  }
+
+  dispose(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = undefined;
     }
   }
 
@@ -105,6 +113,7 @@ export class MemoryCacheProvider implements CacheProvider {
         this.delete(key);
       }
     }
+    this.cleanupTagIndex();
   }
 
   private indexTags(key: string, tags?: string[]) {
@@ -135,6 +144,19 @@ export class MemoryCacheProvider implements CacheProvider {
 
   private getTagIndexKey(namespace: string, tag: string) {
     return `${namespace}:${tag}`;
+  }
+
+  private cleanupTagIndex() {
+    for (const [indexKey, keys] of this.tagIndex) {
+      for (const key of keys) {
+        if (!this.entries.has(key)) {
+          keys.delete(key);
+        }
+      }
+      if (!keys.size) {
+        this.tagIndex.delete(indexKey);
+      }
+    }
   }
 }
 

@@ -68,7 +68,7 @@ type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
 export interface ExecuteOptions {
   queryId?: string;
-  cache?: CacheOptions;
+  cache?: CacheOptions | false;
 }
 
 function mergeDefinedCacheOptions(target: CacheOptions | undefined, update?: CacheOptions): CacheOptions | undefined {
@@ -180,7 +180,11 @@ export class QueryBuilder<
     return this;
   }
 
-  cache(options: CacheOptions): this {
+  cache(options: CacheOptions | false): this {
+    if (options === false) {
+      this.cacheOptions = { mode: 'no-store', ttlMs: 0, staleTtlMs: 0, cacheTimeMs: 0 };
+      return this;
+    }
     this.cacheOptions = mergeDefinedCacheOptions(this.cacheOptions, options) || options;
     return this;
   }

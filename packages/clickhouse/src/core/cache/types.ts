@@ -14,14 +14,6 @@ export type CacheDeserializeFn<T = unknown> = (raw: string | Uint8Array) => T | 
 
 export type CacheStatus = 'hit' | 'miss' | 'stale-hit' | 'revalidate' | 'bypass';
 
-export interface CacheLogMetadata {
-  cacheStatus?: CacheStatus;
-  cacheKey?: string;
-  cacheMode?: HypeQueryCacheMode;
-  cacheAgeMs?: number;
-  cacheRowCount?: number;
-}
-
 export interface CacheOptions {
   mode?: HypeQueryCacheMode;
   ttlMs?: number;

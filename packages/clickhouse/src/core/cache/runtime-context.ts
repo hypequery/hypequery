@@ -26,6 +26,13 @@ export interface QueryRuntimeContext {
   deserialize: CacheDeserializeFn;
   inFlight: Map<string, Promise<unknown>>;
   stats: CacheStats;
+  parsedValues: Map<string, ParsedValueEntry>;
+}
+
+export interface ParsedValueEntry {
+  createdAt: number;
+  rows: unknown;
+  tags?: string[];
 }
 
 export function createCacheStats(): CacheStats {
@@ -73,7 +80,8 @@ export function buildRuntimeContext(config: CacheRuntimeConfig): QueryRuntimeCon
     serialize: config.serialize,
     deserialize: config.deserialize,
     inFlight: new Map(),
-    stats: createCacheStats()
+    stats: createCacheStats(),
+    parsedValues: new Map()
   };
 }
 
