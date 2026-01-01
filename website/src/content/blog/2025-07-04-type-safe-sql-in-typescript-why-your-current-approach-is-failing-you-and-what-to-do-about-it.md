@@ -4,10 +4,13 @@ title: "Type-Safe SQL in TypeScript: Why Your Current Approach is Failing You (A
 description: Developer productivity suffers when SQL queries break at runtime instead of compile time. Type-safe SQL in TypeScript isn't just a nice-to-have, it's essential for building reliable applications. This guide explores why traditional approaches fall short and shows you how modern solutions like hypequery can transform your development workflow.
 pubDate: 2025-07-04T11:10:00.000Z
 heroImage: ""
+tags:
+  - TypeScript
+  - Type Safety
 ---
 
 
-### The Hidden Cost of Runtime SQL Errors
+## The Hidden Cost of Runtime SQL Errors
 
 Here's the scenario: you deploy your application, confident that your type checking caught all potential issues, only to discover SQL-related runtime errors in production. Despite TypeScript's powerful static analysis, **database queries remain a significant blind spot** in most applications.
 
@@ -33,9 +36,9 @@ This approach suffers from multiple critical issues:
 3. **Runtime type mismatches** when database schema changes
 4. **Lost productivity** from debugging issues that should be caught at compile time
 
-### Why Popular TypeScript SQL Libraries Still Fall Short
+## Why Popular TypeScript SQL Libraries Still Fall Short
 
-#### The ts-sql-query Approach
+## The ts-sql-query Approach
 
 `ts-sql-query` was one of the first libraries to tackle type-safe SQL in TypeScript. While it provides compile-time query validation, it has several limitations:
 
@@ -57,7 +60,7 @@ const customerWithId = connection.selectFrom(tCustomer)
 * Complex setup for advanced features like streaming queries
 * Limited support for modern analytics workloads
 
-#### The Kysely Solution
+## The Kysely Solution
 
 Kysely has gained popularity as a type-safe query builder for Node.js. It offers strong TypeScript integration:
 
@@ -82,7 +85,7 @@ const user = await db
 * Complex joins require verbose syntax
 * Missing analytics-specific features like cross-filtering
 
-#### The ORM Dilemma: Prisma vs. Drizzle
+## The ORM Dilemma: Prisma vs. Drizzle
 
 Modern ORMs like Prisma and Drizzle provide type safety but with different tradeoffs:
 
@@ -100,7 +103,7 @@ Modern ORMs like Prisma and Drizzle provide type safety but with different trade
 
 According to recent performance comparisons, **Drizzle generally outperforms Prisma** in speed tests, particularly in serverless environments, while Prisma focuses more on developer experience and ease of use.
 
-### The ClickHouse Challenge: Why Analytics Needs Special Treatment
+## The ClickHouse Challenge: Why Analytics Needs Special Treatment
 
 ClickHouse has emerged as the go-to database for analytics and dashboards, but **connecting it to TypeScript applications safely remains challenging**. The official ClickHouse JavaScript client provides basic TypeScript support but lacks query-level type safety:
 
@@ -121,11 +124,11 @@ const resultSet = await client.query({
 const data = await resultSet.json();
 ```
 
-### hypequery: The Type-Safe Solution Built for ClickHouse
+## hypequery: The Type-Safe Solution Built for ClickHouse
 
 hypequery addresses these challenges with a **ClickHouse-first approach** to type-safe SQL in TypeScript. Here's how it transforms the developer experience:
 
-#### Complete Type Safety from Query to Result
+## Complete Type Safety from Query to Result
 
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -153,7 +156,7 @@ console.log(user.name); // ✅ Type-safe
 console.log(user.invalidProperty); // ❌ Compile-time error
 ```
 
-#### Advanced Analytics Features
+## Advanced Analytics Features
 
 Unlike general-purpose query builders, hypequery provides **analytics-specific features** built specifically for ClickHouse:
 
@@ -184,7 +187,7 @@ const revenueQuery = db
   .execute();
 ```
 
-#### Time-Based Analytics
+## Time-Based Analytics
 
 ClickHouse excels at time-series data, and hypequery makes it easy to leverage these capabilities:
 
@@ -210,11 +213,11 @@ const monthlyRevenue = await db
   .execute();
 ```
 
-### Real-World Impact: From Hours to Minutes
+## Real-World Impact: From Hours to Minutes
 
 The difference between traditional approaches and hypequery becomes clear in real development scenarios:
 
-#### Before hypequery (Traditional Approach)
+## Before hypequery (Traditional Approach)
 
 ```typescript
 // Hours of debugging runtime errors
@@ -239,7 +242,7 @@ const stats = await getUserStats(123);
 console.log(stats.orderCount); // Runtime error: property doesn't exist
 ```
 
-#### After hypequery (Type-Safe Approach)
+## After hypequery (Type-Safe Approach)
 
 ```typescript
 // Compile-time safety, immediate feedback
@@ -261,17 +264,17 @@ console.log(stats.order_count); // ✅ Type-safe, autocomplete works
 console.log(stats.invalidProperty); // ❌ Compile-time error
 ```
 
-### Getting Started with hypequery
+## Getting Started with hypequery
 
 Ready to transform your TypeScript + ClickHouse development experience? Here's how to get started:
 
-#### Installation
+## Installation
 
 ```bash
 npm install @hypequery/clickhouse
 ```
 
-#### Basic Setup
+## Basic Setup
 
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -292,7 +295,7 @@ const db = createQueryBuilder<YourSchema>({
 });
 ```
 
-#### Your First Type-Safe Query
+## Your First Type-Safe Query
 
 ```typescript
 const users = await db
@@ -309,7 +312,7 @@ users.forEach(user => {
 });
 ```
 
-### Conclusion
+## Conclusion
 
 Type-safe SQL in TypeScript isn't just a luxury—it's essential for building reliable, maintainable applications. While traditional approaches and general-purpose libraries fall short, hypequery provides a **ClickHouse-first solution** that delivers:
 

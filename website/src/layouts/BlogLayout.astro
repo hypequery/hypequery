@@ -1,5 +1,6 @@
 ---
 import Layout from "./Layout.astro";
+import type { MarkdownHeading } from "astro";
 
 interface Props {
   post: {
@@ -8,140 +9,178 @@ interface Props {
       description?: string;
       pubDate: Date;
       heroImage?: string;
+      tags?: string[];
     };
   };
+  headings?: MarkdownHeading[];
 }
 
-const { post } = Astro.props;
-const { title, description, pubDate, heroImage } = post.data;
+const { post, headings = [] } = Astro.props as Props;
+const { title, description, pubDate, heroImage, tags = [] } = post.data;
+
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+
+const tableOfContents = headings
+  .filter((heading) => heading.depth === 2 || heading.depth === 3)
+  .slice(0, 4)
+  .map((heading, index) => ({
+    ...heading,
+    slug: heading.slug || slugify(`${heading.text}-${index}`),
+  }));
+
+const hasTableOfContents = tableOfContents.length > 0;
+const formatDate = (date: Date) =>
+  date.toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 ---
 
 <Layout title={title} description={description}>
-  <main class="max-w-4xl mx-auto px-4 py-8 mt-20">
-    <!-- Back Button -->
+  <main class="max-w-6xl mx-auto px-4 py-10 mt-16">
     <div class="mb-6">
       <a
         href="/blog"
         class="inline-flex items-center text-sm text-gray-600 hover:text-indigo-600 transition-colors"
       >
-        <svg
-          class="w-4 h-4 mr-2"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M15 19l-7-7 7-7"></path>
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
         </svg>
         Back to Blog
       </a>
     </div>
 
-    <article>
-      <!-- Header -->
-      <header class="mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 mb-4">{title}</h1>
-        <div class="flex items-center text-gray-600 mb-4">
-          <time datetime={pubDate.toISOString()}>
-            {
-              pubDate.toLocaleDateString("en-GB", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            }
-          </time>
-        </div>
+    <div class={`flex flex-col gap-10 ${
+      hasTableOfContents ? 'lg:flex-row lg:items-start' : ''
+    }`}>
+      <article class={`blog-article ${hasTableOfContents ? 'lg:flex-1' : ''}`}>
         {
-          description && (
-            <p class="text-xl text-gray-700 leading-relaxed">{description}</p>
+          hasTableOfContents && (
+            <details class="lg:hidden mb-6 rounded-2xl border border-gray-200 p-4" open>
+              <summary class="text-sm font-semibold text-gray-700 cursor-pointer">
+                Jump to section
+              </summary>
+              <nav class="mt-4 space-y-2 text-sm">
+                {
+                  tableOfContents.map((heading) => (
+                    <a
+                      href={`#${heading.slug}`}
+                      class={`block rounded-lg px-3 py-2 text-gray-600 hover:text-indigo-600 transition-colors ${
+                        heading.depth === 3 ? "pl-6" : ""
+                      }`}
+                    >
+                      {heading.text}
+                    </a>
+                  ))
+                }
+              </nav>
+            </details>
           )
         }
-      </header>
 
-      <!-- Hero Image -->
-      {
-        heroImage && (
-          <div class="mb-8">
-            <img
-              src={heroImage}
-              alt={title}
-              class="w-full h-64 object-cover rounded-lg shadow-md"
-            />
+        <header class="mb-10">
+          <p class="text-sm uppercase tracking-[0.3em] text-indigo-500 mb-3">
+            {formatDate(pubDate)}
+          </p>
+          <h1 class="text-4xl md:text-5xl font-semibold text-gray-900 mb-4">{title}</h1>
+          {description && (
+            <p class="text-xl text-gray-700 leading-relaxed">{description}</p>
+          )}
+          {
+            tags.length > 0 && (
+              <div class="mt-5 flex flex-wrap gap-3">
+                {tags.map((tag) => (
+                  <span class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )
+          }
+        </header>
+
+        {heroImage && (
+          <div class="mb-10">
+            <img src={heroImage} alt={title} class="w-full h-72 object-cover rounded-3xl" />
           </div>
-        )
-      }
+        )}
 
-      <!-- Content -->
-      <div class="prose prose-lg prose-indigo max-w-none">
-        <slot />
-      </div>
+        <div class="prose prose-lg prose-slate max-w-none">
+          <slot />
+        </div>
 
-      <!-- Footer -->
-      <footer class="mt-12 pt-8 border-t border-gray-200">
-        <div class="flex items-center justify-between">
-          <div class="text-sm text-gray-600">
-            <a href="/blog" class="hover:text-indigo-600 transition-colors">
-              ← Back to Blog
-            </a>
-          </div>
+        <footer class="mt-16 pt-8 border-t border-gray-200 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <a href="/blog" class="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
+            ← Back to Blog
+          </a>
           <div class="text-sm text-gray-600">
             Share this post:
             <a
               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(Astro.url.href)}`}
-              class="ml-2 text-blue-500 hover:text-blue-600 transition-colors"
+              class="ml-2 text-indigo-600 hover:text-indigo-700 font-medium"
             >
               Twitter
             </a>
           </div>
-        </div>
-      </footer>
-    </article>
+        </footer>
+      </article>
+
+      {
+        hasTableOfContents && (
+          <aside class="lg:w-64 lg:flex-none lg:sticky lg:top-28 self-start space-y-4">
+            <div class="text-sm font-semibold text-gray-500 tracking-wider uppercase">
+              On this page
+            </div>
+            <nav class="space-y-2 text-sm">
+              {
+                tableOfContents.map((heading) => (
+                  <a
+                    href={`#${heading.slug}`}
+                    class={`block rounded-lg px-3 py-2 text-gray-600 hover:text-indigo-600 transition-colors ${
+                      heading.depth === 3 ? "pl-6 text-gray-500" : ""
+                    }`}
+                  >
+                    {heading.text}
+                  </a>
+                ))
+              }
+            </nav>
+          </aside>
+        )
+      }
+    </div>
   </main>
 </Layout>
 
 <style>
-  .blog-content {
-    @apply text-gray-800 leading-relaxed;
+  :global(.blog-article .prose h2),
+  :global(.blog-article .prose h3) {
+    scroll-margin-top: 120px;
+    position: relative;
   }
 
-  .blog-content h2 {
-    @apply text-2xl font-bold text-gray-900 mt-8 mb-4;
+  :global(.blog-article .prose h2 .heading-anchor),
+  :global(.blog-article .prose h3 .heading-anchor) {
+    display: inline;
+    opacity: 0;
+    margin-left: 0.5rem;
+    font-size: 0.85em;
+    color: #6366f1;
+    text-decoration: none;
+    transition: opacity 0.2s ease;
   }
 
-  .blog-content h3 {
-    @apply text-xl font-semibold text-gray-900 mt-6 mb-3;
-  }
-
-  .blog-content p {
-    @apply mb-4;
-  }
-
-  .blog-content ul,
-  .blog-content ol {
-    @apply mb-4 pl-6;
-  }
-
-  .blog-content li {
-    @apply mb-1;
-  }
-
-  .blog-content code {
-    @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono;
-  }
-
-  .blog-content pre {
-    @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4;
-  }
-
-  .blog-content pre code {
-    @apply bg-transparent p-0 text-gray-100;
-  }
-
-  .blog-content blockquote {
-    @apply border-l-4 border-indigo-500 pl-4 italic text-gray-700 my-4;
+  :global(.blog-article .prose h2:hover .heading-anchor),
+  :global(.blog-article .prose h2 .heading-anchor:focus),
+  :global(.blog-article .prose h3:hover .heading-anchor),
+  :global(.blog-article .prose h3 .heading-anchor:focus) {
+    opacity: 1;
   }
 </style>
