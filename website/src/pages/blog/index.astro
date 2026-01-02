@@ -7,25 +7,8 @@ const posts = (await getCollection("blog")).sort(
     new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime(),
 );
 
-const allTags = Array.from(
-  new Set(posts.flatMap((post) => post.data.tags ?? [])),
-).sort((a, b) => a.localeCompare(b));
-
-const selectedTag = Astro.url.searchParams.get("tag");
-const filteredPosts = selectedTag
-  ? posts.filter((post) => post.data.tags?.includes(selectedTag))
-  : posts;
-
-const featuredPosts = filteredPosts.slice(0, 2);
-const remainingPosts = filteredPosts.slice(2);
-const postsPayload = posts.map((post) => ({
-  slug: post.slug,
-  title: post.data.title,
-  description: post.data.description ?? "",
-  pubDate: post.data.pubDate.toISOString(),
-  heroImage: post.data.heroImage ?? "",
-  tags: post.data.tags ?? [],
-}));
+const featuredPosts = posts.slice(0, 2);
+const remainingPosts = posts.slice(2);
 
 const formatDate = (date: Date) =>
   date.toLocaleDateString("en-GB", {
@@ -67,69 +50,22 @@ const formatDate = (date: Date) =>
           </div>
           <script async src="https://subscribe-forms.beehiiv.com/embed.js"
           ></script>
-          <iframe
-            src="https://subscribe-forms.beehiiv.com/db9fcd69-8fa2-4fa1-a5f6-3e89edc605ed"
-            class="beehiiv-embed"
-            data-test-id="beehiiv-embed"
-            frameborder="0"
-            scrolling="no"
-            style="width: 908px; height: 100px; margin: 0; border-radius: 0 !important; background-color: transparent; box-shadow: 0 0 #0000; max-width: 100%;"
-          ></iframe>
+          <div class="w-full flex justify-center">
+            <iframe
+              src="https://subscribe-forms.beehiiv.com/db9fcd69-8fa2-4fa1-a5f6-3e89edc605ed"
+              class="beehiiv-embed"
+              data-test-id="beehiiv-embed"
+              frameborder="0"
+              scrolling="no"
+              style="width: 908px; height: 100px; margin: 0; border-radius: 0 !important; background-color: transparent; box-shadow: 0 0 #0000; max-width: 100%;"
+            ></iframe>
+          </div>
         </div>
       </div>
     </header>
 
-    <section class="mb-10" data-tags-root>
-      <div class="flex flex-wrap items-center justify-center gap-3 text-center">
-        <button
-          type="button"
-          data-tag-filter=""
-          class={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-            selectedTag ? "bg-gray-100 text-gray-700" : "bg-gray-900 text-white"
-          }`}
-        >
-          All topics
-        </button>
-        {
-          allTags.map((tag) => {
-            const isActive = selectedTag === tag;
-            return (
-              <button
-                type="button"
-                data-tag-filter={tag}
-                class={`px-4 py-2 rounded-full text-sm font-medium transition-colors border ${
-                  isActive
-                    ? "bg-indigo-50 border-indigo-500 text-indigo-700"
-                    : "border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-900"
-                }`}
-              >
-                {tag}
-              </button>
-            );
-          })
-        }
-      </div>
-    </section>
-
-    <div
-      id="emptyState"
-      class={`text-center py-16 border border-dashed border-gray-200 rounded-2xl ${
-        filteredPosts.length ? "hidden" : ""
-      }`}
-    >
-      <p class="text-lg text-gray-700 mb-2">
-        No posts yet for "<span data-selected-tag>{selectedTag ?? ""}</span>".
-      </p>
-      <button type="button" data-tag-filter="" class="text-indigo-600 font-medium">
-        Reset filters
-      </button>
-    </div>
-
-    <section
-      id="featuredSection"
-      class={`grid gap-6 md:grid-cols-2 mb-12 ${featuredPosts.length ? "" : "hidden"}`}
-    >
-      <div id="featuredPosts" class="grid gap-6 md:grid-cols-2">
+    {featuredPosts.length > 0 && (
+      <section class="grid gap-6 md:grid-cols-2 mb-12">
         {featuredPosts.map((post) => (
           <article class="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
             {post.data.heroImage && (
@@ -143,17 +79,6 @@ const formatDate = (date: Date) =>
               </div>
             )}
             <div class="p-6 flex flex-col gap-4">
-              <div class="flex flex-wrap gap-2">
-                {(post.data.tags ?? []).map((tag) => (
-                  <button
-                    type="button"
-                    data-tag-trigger={tag}
-                    class="text-xs uppercase tracking-wide bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full"
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
               <div>
                 <time class="text-sm text-gray-500">{formatDate(post.data.pubDate)}</time>
                 <h2 class="text-2xl font-semibold text-gray-900 mt-2 mb-3">
@@ -179,28 +104,15 @@ const formatDate = (date: Date) =>
             </div>
           </article>
         ))}
-      </div>
-    </section>
+      </section>
+    )}
 
-    <section id="listSection" class={`space-y-6 ${remainingPosts.length ? "" : "hidden"}`}>
-      <div id="postList" class="space-y-6">
+    {remainingPosts.length > 0 && (
+      <section class="space-y-6">
         {remainingPosts.map((post) => (
           <article class="border border-gray-200 rounded-2xl p-6 hover:border-gray-300 transition-colors">
             <div class="flex flex-col gap-3">
-              <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
-                <time>{formatDate(post.data.pubDate)}</time>
-                <div class="flex flex-wrap gap-2">
-                  {(post.data.tags ?? []).map((tag) => (
-                    <button
-                      type="button"
-                      data-tag-trigger={tag}
-                      class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <time class="text-sm text-gray-500">{formatDate(post.data.pubDate)}</time>
               <h3 class="text-xl font-semibold text-gray-900">
                 <a href={`/blog/${post.slug}`} class="hover:text-indigo-600 transition-colors">
                   {post.data.title}
@@ -218,165 +130,13 @@ const formatDate = (date: Date) =>
             </div>
           </article>
         ))}
+      </section>
+    )}
+
+    {posts.length === 0 && (
+      <div class="text-center py-16 border border-dashed border-gray-200 rounded-2xl">
+        <p class="text-lg text-gray-700 mb-2">No posts yet. Check back soon!</p>
       </div>
-    </section>
+    )}
   </main>
 </Layout>
-
-<script type="application/json" id="blog-data">
-  {JSON.stringify(postsPayload).replace(/</g, "\\u003c")}
-</script>
-
-<script>
-  const dataEl = document.getElementById('blog-data');
-  const postsData = dataEl ? JSON.parse(dataEl.textContent || '[]') : [];
-  const featuredSection = document.getElementById('featuredSection');
-  const featuredContainer = document.getElementById('featuredPosts');
-  const listSection = document.getElementById('listSection');
-  const listContainer = document.getElementById('postList');
-  const emptyState = document.getElementById('emptyState');
-  const emptyTag = document.querySelector('[data-selected-tag]');
-  const tagButtons = Array.from(document.querySelectorAll('[data-tag-filter]'));
-
-  const formatDate = (value) =>
-    new Date(value).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-
-  const escapeHtml = (str = '') =>
-    str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
-  const renderChip = (tag, variant = 'featured') => {
-    const base =
-      variant === 'featured'
-        ? 'text-xs uppercase tracking-wide bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full'
-        : 'px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs';
-    return `<button type="button" data-tag-trigger="${escapeHtml(tag)}" class="${base}">${escapeHtml(tag)}</button>`;
-  };
-
-  const renderFeaturedCard = (post) => {
-    const chips = (post.tags || []).map((tag) => renderChip(tag, 'featured')).join('');
-    const hero = post.heroImage
-      ? `<div class="h-36 overflow-hidden"><img src="${escapeHtml(post.heroImage)}" alt="${escapeHtml(
-          post.title,
-        )}" class="w-full h-full object-cover" loading="lazy" /></div>`
-      : '';
-    return `<article class="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-      ${hero}
-      <div class="p-6 flex flex-col gap-4">
-        <div class="flex flex-wrap gap-2">${chips}</div>
-        <div>
-          <time class="text-sm text-gray-500">${formatDate(post.pubDate)}</time>
-          <h2 class="text-2xl font-semibold text-gray-900 mt-2 mb-3">
-            <a href="/blog/${escapeHtml(post.slug)}" class="hover:text-indigo-600 transition-colors">${escapeHtml(post.title)}</a>
-          </h2>
-          ${post.description ? `<p class="text-gray-600 leading-relaxed">${escapeHtml(post.description)}</p>` : ''}
-        </div>
-        <div>
-          <a href="/blog/${escapeHtml(post.slug)}" class="inline-flex items-center font-semibold text-indigo-600">
-            Read article
-            <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-        </div>
-      </div>
-    </article>`;
-  };
-
-  const renderListCard = (post) => {
-    const chips = (post.tags || []).map((tag) => renderChip(tag, 'list')).join('');
-    return `<article class="border border-gray-200 rounded-2xl p-6 hover:border-gray-300 transition-colors">
-      <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
-          <time>${formatDate(post.pubDate)}</time>
-          <div class="flex flex-wrap gap-2">${chips}</div>
-        </div>
-        <h3 class="text-xl font-semibold text-gray-900">
-          <a href="/blog/${escapeHtml(post.slug)}" class="hover:text-indigo-600 transition-colors">${escapeHtml(post.title)}</a>
-        </h3>
-        ${post.description ? `<p class="text-gray-600 leading-relaxed">${escapeHtml(post.description)}</p>` : ''}
-        <a href="/blog/${escapeHtml(post.slug)}" class="inline-flex items-center text-indigo-600 font-medium">
-          Read more
-          <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
-        </a>
-      </div>
-    </article>`;
-  };
-
-  const updateButtonStates = (activeTag) => {
-    tagButtons.forEach((btn) => {
-      const tag = btn.dataset.tagFilter || '';
-      const isActive = tag === (activeTag || '');
-      if (tag === '') {
-        btn.classList.toggle('bg-gray-900', !activeTag);
-        btn.classList.toggle('text-white', !activeTag);
-        btn.classList.toggle('bg-gray-100', !!activeTag);
-        btn.classList.toggle('text-gray-700', !!activeTag);
-      } else {
-        btn.classList.toggle('bg-indigo-50', isActive);
-        btn.classList.toggle('border-indigo-500', isActive);
-        btn.classList.toggle('text-indigo-700', isActive);
-        btn.classList.toggle('border-gray-200', !isActive);
-        btn.classList.toggle('text-gray-600', !isActive);
-      }
-    });
-  };
-
-  const renderPosts = (tag) => {
-    const filtered = tag ? postsData.filter((post) => (post.tags || []).includes(tag)) : postsData;
-    const featured = filtered.slice(0, 2);
-    const list = filtered.slice(2);
-
-    if (featuredContainer) {
-      featuredContainer.innerHTML = featured.map(renderFeaturedCard).join('');
-    }
-    if (listContainer) {
-      listContainer.innerHTML = list.map(renderListCard).join('');
-    }
-
-    if (featuredSection) {
-      featuredSection.classList.toggle('hidden', featured.length === 0);
-    }
-    if (listSection) {
-      listSection.classList.toggle('hidden', list.length === 0);
-    }
-    if (emptyState) {
-      emptyState.classList.toggle('hidden', filtered.length !== 0);
-    }
-    if (emptyTag) {
-      emptyTag.textContent = tag || '';
-    }
-
-    const url = new URL(window.location.href);
-    if (tag) {
-      url.searchParams.set('tag', tag);
-    } else {
-      url.searchParams.delete('tag');
-    }
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-    updateButtonStates(tag);
-  };
-
-  const initialTag = new URLSearchParams(window.location.search).get('tag') || '';
-  if (postsData.length) {
-    renderPosts(initialTag);
-  }
-
-  document.addEventListener('click', (event) => {
-    const target = event.target.closest('[data-tag-filter], [data-tag-trigger]');
-    if (!target) return;
-    event.preventDefault();
-    const tag = target.dataset.tagFilter ?? target.dataset.tagTrigger ?? '';
-    renderPosts(tag);
-  });
-</script>

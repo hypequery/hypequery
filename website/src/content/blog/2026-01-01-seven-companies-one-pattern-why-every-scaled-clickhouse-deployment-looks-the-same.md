@@ -4,9 +4,6 @@ title: "Seven Companies, One Pattern: Why Every Scaled ClickHouse Deployment Loo
 description: "Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft, and Contentsquare independently built near identical abstraction layers on top of ClickHouse. The shared architecture isn't coincidence, it is forced by the economics of making high performance schemas accessible at organisational scale."
 pubDate: 2026-01-01T17:08:36.000Z
 heroImage: ""
-tags:
-  - ClickHouse
-  - Architecture
 ---
 
 Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft, and Contentsquare share more than ClickHouse adoption. Each independently built the same abstraction stack—query translation engines, semantic layers, and self service interfaces that let thousands of people query without reading a line of raw ClickHouse SQL. Different industries, different workloads, identical pattern.

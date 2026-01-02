@@ -9,14 +9,13 @@ interface Props {
       description?: string;
       pubDate: Date;
       heroImage?: string;
-      tags?: string[];
     };
   };
   headings?: MarkdownHeading[];
 }
 
 const { post, headings = [] } = Astro.props as Props;
-const { title, description, pubDate, heroImage, tags = [] } = post.data;
+const { title, description, pubDate, heroImage } = post.data;
 
 const slugify = (value: string) =>
   value
@@ -93,17 +92,6 @@ const formatDate = (date: Date) =>
           {description && (
             <p class="text-xl text-gray-700 leading-relaxed">{description}</p>
           )}
-          {
-            tags.length > 0 && (
-              <div class="mt-5 flex flex-wrap gap-3">
-                {tags.map((tag) => (
-                  <span class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )
-          }
         </header>
 
         {heroImage && (

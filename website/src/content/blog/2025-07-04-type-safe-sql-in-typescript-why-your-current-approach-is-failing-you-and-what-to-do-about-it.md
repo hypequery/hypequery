@@ -4,9 +4,6 @@ title: "Type-Safe SQL in TypeScript: Why Your Current Approach is Failing You (A
 description: Developer productivity suffers when SQL queries break at runtime instead of compile time. Type-safe SQL in TypeScript isn't just a nice-to-have, it's essential for building reliable applications. This guide explores why traditional approaches fall short and shows you how modern solutions like hypequery can transform your development workflow.
 pubDate: 2025-07-04T11:10:00.000Z
 heroImage: ""
-tags:
-  - TypeScript
-  - Type Safety
 ---
 
 
