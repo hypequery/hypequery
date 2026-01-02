@@ -19,26 +19,23 @@ const testFiles = args.length > 0 ? args : ['src/core/tests/integration'];
 
 console.log(`Running integration tests for: ${testFiles.join(', ')}`);
 
-// Use Jest directly with flags to handle async operations properly
+// Execute Vitest in band so the ClickHouse containers are reused
 const result = spawnSync('npx', [
-  'jest',
+  'vitest',
+  'run',
+  '--config=vitest.integration.config.ts',
   ...testFiles,
-  '--runInBand',
-  '--forceExit',
-  '--detectOpenHandles',
-  '--config=jest.config.cjs',
-  '--testTimeout=30000'
+  '--runInBand'
 ], {
   cwd: projectRoot,
   stdio: 'inherit',
   env: {
     ...process.env,
-    NODE_OPTIONS: "--experimental-vm-modules --no-warnings",
     DEBUG: 'true'
   }
 });
 
 console.log('Integration tests completed.');
 
-// Exit with the same code as the Jest process
-process.exit(result.status); 
+// Exit with the same code as the Vitest process
+process.exit(result.status);

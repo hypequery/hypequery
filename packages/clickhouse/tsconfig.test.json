@@ -4,7 +4,10 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "isolatedModules": false,
-    "allowImportingTsExtensions": false
+    "allowImportingTsExtensions": false,
+    "types": [
+      "vitest/globals"
+    ]
   },
   "include": [
     "src/**/*.ts",
