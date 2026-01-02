@@ -2,6 +2,7 @@
 title: "Type-Safe Schema Management & Evolution in ClickHouse: Keeping Analytics in Sync"
 description: "Learn how to solve schema evolution challenges in ClickHouse with automated type generation, compile-time safety, and best practices for keeping your analytics applications resilient as your data grows."
 pubDate: 2025-07-23
+heroImage: ""
 ---
 
 Modern analytics applications rely on ClickHouse for its speed and scalability, but as team structures and business needs evolve, so too must your schema. Uncontrolled schema changes known as schema drift - can silently break applications or degrade performance, especially when teams manage both application and analytics codebases in strongly typed languages like TypeScript.
