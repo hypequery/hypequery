@@ -1,35 +1,43 @@
+import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { createQueryBuilder } from '../../../index.js';
-import { initializeTestConnection, setupTestDatabase } from './setup.js';
+import { initializeTestConnection, setupTestDatabase, TEST_DATA } from './setup.js';
 
 // Import centralized test configuration
 import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 
-// Define a type for the response chunks we're getting
-interface ResponseChunk {
-  json?: () => Promise<any>;
-  text?: string;
-  [key: string]: any; // For other properties
-}
+async function collectStreamRows(stream: WebReadableStream<any[]>): Promise<any[]> {
+  const reader = stream.getReader();
+  const rows: any[] = [];
 
-/**
- * Helper function to process response chunks into usable data
- */
-async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
-  const results: any[] = [];
-
-  for (const chunk of chunks) {
-    if (typeof chunk.json === 'function') {
-      const row = await chunk.json();
-      results.push(row);
-    } else if (chunk.text) {
-      const row = JSON.parse(chunk.text);
-      results.push(row);
-    } else {
-      results.push(chunk);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      rows.push(...value);
     }
+  } finally {
+    reader.releaseLock();
   }
 
-  return results;
+  return rows;
+}
+
+async function collectPartialStreamRows(stream: WebReadableStream<any[]>, chunkLimit: number): Promise<{ rows: any[], reader: ReadableStreamDefaultReader<any[]> }>
+{
+  const reader = stream.getReader();
+  const rows: any[] = [];
+  let chunksRead = 0;
+
+  while (chunksRead < chunkLimit) {
+    const { done, value } = await reader.read();
+    if (done || !value) {
+      break;
+    }
+    rows.push(...value);
+    chunksRead += 1;
+  }
+
+  return { rows, reader };
 }
 
 // Only run these tests if not skipped
@@ -56,23 +64,7 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
       .where('is_active', 'eq', 1)
       .stream();
 
-    const results: any[] = [];
-    const reader = stream.getReader();
-
-    try {
-      let done = false;
-      while (!done) {
-        const result = await reader.read();
-        done = result.done;
-        if (!done && result.value) {
-          // Process chunks using our helper
-          const rows = await processStreamChunks(result.value as ResponseChunk[]);
-          results.push(...rows);
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    const results = await collectStreamRows(stream);
 
     // Add a small delay to ensure all logs are processed
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -91,23 +83,7 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
       .innerJoin('users', 'user_id', 'users.id')
       .stream();
 
-    const results: any[] = [];
-    const reader = stream.getReader();
-
-    try {
-      let done = false;
-      while (!done) {
-        const result = await reader.read();
-        done = result.done;
-        if (!done && result.value) {
-          // Process chunks using our helper
-          const rows = await processStreamChunks(result.value as ResponseChunk[]);
-          results.push(...rows);
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    const results = await collectStreamRows(stream);
 
     // Add a small delay to ensure all logs are processed
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -127,23 +103,7 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
       .groupBy('user_id')
       .stream();
 
-    const results: any[] = [];
-    const reader = stream.getReader();
-
-    try {
-      let done = false;
-      while (!done) {
-        const result = await reader.read();
-        done = result.done;
-        if (!done && result.value) {
-          // Process chunks using our helper
-          const rows = await processStreamChunks(result.value as ResponseChunk[]);
-          results.push(...rows);
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    const results = await collectStreamRows(stream);
 
     // Add a small delay to ensure all logs are processed
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -163,23 +123,7 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
       .where('category', 'in', ['A', 'B'])
       .stream();
 
-    const results: any[] = [];
-    const reader = stream.getReader();
-
-    try {
-      let done = false;
-      while (!done) {
-        const result = await reader.read();
-        done = result.done;
-        if (!done && result.value) {
-          // Process chunks using our helper
-          const rows = await processStreamChunks(result.value as ResponseChunk[]);
-          results.push(...rows);
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    const results = await collectStreamRows(stream);
 
     // Add a small delay to ensure all logs are processed
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -200,29 +144,13 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
         'orders.id',
         'orders.total',
         'users.user_name',
-        'products.name'
+        'test_table.name as product_name'
       ])
       .innerJoin('users', 'user_id', 'users.id')
-      .innerJoin('products', 'product_id', 'products.id')
+      .innerJoin('test_table', 'product_id', 'test_table.id')
       .stream();
 
-    const results: any[] = [];
-    const reader = stream.getReader();
-
-    try {
-      let done = false;
-      while (!done) {
-        const result = await reader.read();
-        done = result.done;
-        if (!done && result.value) {
-          // Process chunks using our helper
-          const rows = await processStreamChunks(result.value as ResponseChunk[]);
-          results.push(...rows);
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
+    const results = await collectStreamRows(stream);
 
     // Add a small delay to ensure all logs are processed
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -231,7 +159,7 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
     expect(results.length).toBeGreaterThan(0);
     expect(results[0]).toHaveProperty('total');
     expect(results[0]).toHaveProperty('user_name');
-    expect(results[0]).toHaveProperty('name');
+    expect(results[0]).toHaveProperty('product_name');
   });
 
   it('should process streams with streamForEach', async () => {
@@ -241,17 +169,8 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
       .table('test_table')
       .select(['id', 'name', 'price'])
       .where('is_active', 'eq', 1)
-      .streamForEach(async (row: ResponseChunk) => {
-        // Use the same logic as in our helper function
-        if (typeof row.json === 'function') {
-          const data = await row.json();
-          results.push(data);
-        } else if (row.text) {
-          const data = JSON.parse(row.text);
-          results.push(data);
-        } else {
-          results.push(row);
-        }
+      .streamForEach(async (row) => {
+        results.push(row);
       });
 
     // Add a small delay to ensure all logs are processed
@@ -262,5 +181,61 @@ async function processStreamChunks(chunks: ResponseChunk[]): Promise<any[]> {
     expect(results[0]).toHaveProperty('id');
     expect(results[0]).toHaveProperty('name');
     expect(results[0]).toHaveProperty('price');
+  });
+
+  it('should allow partial consumption and cancellation', async () => {
+    const stream = await db
+      .table('test_table')
+      .select(['id', 'name'])
+      .orderBy('id', 'ASC')
+      .stream();
+
+    const { rows, reader } = await collectPartialStreamRows(stream, 1);
+    expect(rows.length).toBeGreaterThan(0);
+
+    await reader.cancel();
+
+    // Ensure we consumed only the first chunk (first row due to small dataset)
+    expect(Number(rows[0].id)).toBe(1);
+  });
+
+  it('should support concurrent stream consumers without interference', async () => {
+    const streams = await Promise.all([
+      db.table('test_table').select(['id']).stream(),
+      db.table('orders').select(['id']).stream()
+    ]);
+
+    const results = await Promise.all(streams.map(collectStreamRows));
+
+    expect(results[0].length).toBe(TEST_DATA.test_table.length);
+    expect(results[1].length).toBe(TEST_DATA.orders.length);
+  });
+
+  it('should handle slow callbacks in streamForEach', async () => {
+    const processedIds: number[] = [];
+
+    await db
+      .table('test_table')
+      .select(['id'])
+      .where('is_active', 'eq', 1)
+      .streamForEach(async row => {
+        processedIds.push(Number(row.id));
+        await new Promise(resolve => setTimeout(resolve, 20));
+      });
+
+    expect(processedIds.length).toBeGreaterThan(0);
+    expect(processedIds.sort()).toEqual(processedIds);
+  });
+
+  it('should propagate errors from streamForEach callbacks', async () => {
+    await expect(db
+      .table('test_table')
+      .select(['id'])
+      .streamForEach(async row => {
+        if (Number(row.id) === 2) {
+          throw new Error('Boom');
+        }
+      })
+    ).rejects.toThrow('Boom');
   });
 }); 

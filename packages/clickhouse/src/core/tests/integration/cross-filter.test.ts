@@ -5,9 +5,7 @@ import {
   TEST_DATA
 } from './setup';
 import { CrossFilter } from '../../../index';
-
-// Skip integration tests if running in CI or if explicitly disabled
-const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';
+import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 
 describe('Integration Tests - Cross Filtering', () => {
   // Only run these tests if not skipped
@@ -25,7 +23,7 @@ describe('Integration Tests - Cross Filtering', () => {
           throw error;
         }
       }
-    }, 30000);
+    }, SETUP_TIMEOUT);
 
     test('should apply simple cross filter', async () => {
       // Create a cross filter for category = 'A'

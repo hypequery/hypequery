@@ -4,6 +4,7 @@ import { ClickHouseConnection } from '../../connection.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { logger as hypeQueryLogger } from '../../utils/logger.js';
+import rawTestData from './test-data.json';
 
 // Disable the hypequery logger to prevent "logs after tests" errors
 // This must be done early in the setup, before any queries run
@@ -254,31 +255,69 @@ export interface TestSchemaType {
   }>;
 }
 
+function normalizeDateValue(value: string): string {
+  if (!value) {
+    return value;
+  }
+
+  if (value.includes('T')) {
+    return value.split('T')[0];
+  }
+
+  if (value.includes(' ')) {
+    return value.split(' ')[0];
+  }
+
+  return value;
+}
+
+function normalizeTestData() {
+  const testTable = (rawTestData.test_table ?? []).map(row => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    price: row.price,
+    created_at: normalizeDateValue(row.created_at),
+    is_active: row.is_active
+  }));
+
+  const users = (rawTestData.users ?? []).map(row => ({
+    id: row.id,
+    user_name: row.user_name,
+    email: row.email,
+    status: row.status,
+    created_at: normalizeDateValue(row.created_at)
+  }));
+
+  const orders = (rawTestData.orders ?? []).map(row => ({
+    id: row.id,
+    user_id: row.user_id,
+    product_id: row.product_id,
+    quantity: row.quantity,
+    total: row.total,
+    status: row.status,
+    created_at: normalizeDateValue(row.created_at)
+  }));
+
+  return { test_table: testTable, users, orders } satisfies TestSchemaType;
+}
+
 // Test data
-export const TEST_DATA: TestSchemaType = {
-  test_table: [
-    { id: 1, name: 'Product A', category: 'A', price: 10.5, created_at: '2023-01-01', is_active: true },
-    { id: 2, name: 'Product B', category: 'B', price: 20.75, created_at: '2023-01-02', is_active: true },
-    { id: 3, name: 'Product C', category: 'A', price: 15.0, created_at: '2023-01-03', is_active: false },
-    { id: 4, name: 'Product D', category: 'C', price: 8.25, created_at: '2023-01-04', is_active: true },
-    { id: 5, name: 'Product E', category: 'B', price: 30.0, created_at: '2023-01-05', is_active: true },
-  ],
-  users: [
-    { id: 1, user_name: 'john_doe', email: 'john@example.com', status: 'active', created_at: '2023-01-01' },
-    { id: 2, user_name: 'jane_smith', email: 'jane@example.com', status: 'active', created_at: '2023-01-02' },
-    { id: 3, user_name: 'bob_jones', email: 'bob@example.com', status: 'inactive', created_at: '2023-01-03' },
-  ],
-  orders: [
-    { id: 1, user_id: 1, product_id: 1, quantity: 2, total: 21.0, status: 'completed', created_at: '2023-01-10' },
-    { id: 2, user_id: 1, product_id: 3, quantity: 1, total: 15.0, status: 'completed', created_at: '2023-01-11' },
-    { id: 3, user_id: 2, product_id: 2, quantity: 3, total: 62.25, status: 'pending', created_at: '2023-01-12' },
-    { id: 4, user_id: 2, product_id: 5, quantity: 1, total: 30.0, status: 'completed', created_at: '2023-01-13' },
-    { id: 5, user_id: 3, product_id: 4, quantity: 2, total: 16.5, status: 'cancelled', created_at: '2023-01-14' },
-  ],
-};
+export const TEST_DATA: TestSchemaType = normalizeTestData();
+
+let hasSetupRun = false;
 
 // Setup the test database
 export const setupTestDatabase = async (): Promise<void> => {
+  if (process.env.HYPEQUERY_SKIP_TEST_DB_SETUP === 'true') {
+    logger.info('Skipping test database setup because HYPEQUERY_SKIP_TEST_DB_SETUP is true.');
+    return;
+  }
+
+  if (hasSetupRun) {
+    return;
+  }
+
   // Make sure connection is initialized before getting client
   const client = ensureConnectionInitialized();
 
@@ -360,8 +399,10 @@ export const setupTestDatabase = async (): Promise<void> => {
       });
     }
 
+    hasSetupRun = true;
     logger.info('Test database setup complete');
   } catch (error) {
+    hasSetupRun = false;
     logger.error('Failed to set up test database:', error);
     throw error;
   }
