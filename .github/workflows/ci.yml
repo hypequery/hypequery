@@ -59,7 +59,6 @@ jobs:
       - name: Run unit tests
         run: npm test
       - name: Run integration tests
-        if: ${{ vars.ENABLE_CI_INTEGRATION_TESTS == 'true' }}
         run: npm run test:integration
         env:
           CLICKHOUSE_TEST_HOST: http://localhost:8123

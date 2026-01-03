@@ -1,13 +1,14 @@
+import { vi } from 'vitest';
 import { CrossFilter, FilterGroup } from '../cross-filter.js';
 import { createQueryBuilder } from '../query-builder.js';
 
 // Mock connection to avoid actual DB connection
-jest.mock('../connection', () => ({
+vi.mock('../connection', () => ({
   ClickHouseConnection: {
-    initialize: jest.fn(),
-    getClient: jest.fn(() => ({
-      query: jest.fn(),
-      exec: jest.fn()
+    initialize: vi.fn(),
+    getClient: vi.fn(() => ({
+      query: vi.fn(),
+      exec: vi.fn()
     }))
   }
 }));

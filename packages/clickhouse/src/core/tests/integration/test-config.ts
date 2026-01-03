@@ -5,12 +5,10 @@
 
 /**
  * Whether to skip integration tests:
- * - Skip if SKIP_INTEGRATION_TESTS is explicitly set to 'true'
- * - In CI environments, skip unless ENABLE_CI_INTEGRATION_TESTS is set to 'true'
+ * - Only skip when SKIP_INTEGRATION_TESTS is explicitly set to 'true'
+ *   (used locally when ClickHouse is unavailable)
  */
-export const SKIP_INTEGRATION_TESTS =
-  process.env.SKIP_INTEGRATION_TESTS === 'true' ||
-  (process.env.CI === 'true' && process.env.ENABLE_CI_INTEGRATION_TESTS !== 'true');
+export const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true';
 
 /**
  * Default timeout for test setup (in milliseconds)

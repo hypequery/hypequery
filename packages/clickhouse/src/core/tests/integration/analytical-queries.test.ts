@@ -6,7 +6,7 @@ import {
 } from './setup';
 import { ClickHouseConnection } from '../../connection.js';
 import { createQueryBuilder } from '../../../index.js';
-import { raw, rawAs } from '../../utils/sql-expressions/index.js';
+import { raw, rawAs } from '../../utils/sql-expressions.js';
 
 // Skip integration tests if running in CI or if explicitly disabled
 const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';
@@ -90,9 +90,15 @@ describe('Integration Tests - Analytical Queries', () => {
         .orderBy('total_sales', 'DESC')
         .execute();
 
-      // Verify we have results for each category
-      const categories = [...new Set(TEST_DATA.test_table.map(p => p.category))];
-      expect(result).toHaveLength(categories.length);
+      // Verify we have results for each category that has orders
+      const categoriesWithOrders = [
+        ...new Set(
+          TEST_DATA.orders
+            .map(order => TEST_DATA.test_table.find(product => product.id === order.product_id)?.category)
+            .filter((category): category is string => Boolean(category))
+        )
+      ];
+      expect(result).toHaveLength(categoriesWithOrders.length);
 
       // Verify the calculations for each category
       for (const row of result) {
