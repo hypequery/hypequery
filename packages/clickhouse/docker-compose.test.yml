@@ -3,7 +3,7 @@ services:
     image: clickhouse/clickhouse-server:latest
     container_name: hypequery-test-clickhouse
     ports:
-      - "8123:8123"
+      - "${CLICKHOUSE_TEST_PORT:-8123}:8123"
       - "9000:9000"
     volumes:
       - clickhouse-data:/var/lib/clickhouse

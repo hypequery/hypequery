@@ -37,8 +37,9 @@ const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '../../../../../');
 
 // Connection configuration (with defaults that can be overridden by env variables)
+const CLICKHOUSE_TEST_PORT = process.env.CLICKHOUSE_TEST_PORT || '8123';
 const config = {
-  host: process.env.CLICKHOUSE_TEST_HOST || 'http://localhost:8123',
+  host: process.env.CLICKHOUSE_TEST_HOST || `http://localhost:${CLICKHOUSE_TEST_PORT}`,
   user: process.env.CLICKHOUSE_TEST_USER || 'default',
   password: process.env.CLICKHOUSE_TEST_PASSWORD || 'hypequery_test',
   database: process.env.CLICKHOUSE_TEST_DB || 'test_db',

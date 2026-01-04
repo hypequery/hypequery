@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
+import net from 'node:net';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +13,8 @@ const composeFile = path.resolve(packageRoot, 'docker-compose.test.yml');
 const testDataPath = path.resolve(packageRoot, 'src/core/tests/integration/test-data.json');
 
 const CONTAINER_NAME = 'hypequery-test-clickhouse';
-const CLICKHOUSE_HOST = process.env.CLICKHOUSE_TEST_HOST ?? 'http://localhost:8123';
+let CLICKHOUSE_PORT = process.env.CLICKHOUSE_TEST_PORT ?? '8123';
+let CLICKHOUSE_HOST = process.env.CLICKHOUSE_TEST_HOST ?? `http://localhost:${CLICKHOUSE_PORT}`;
 const CLICKHOUSE_USER = process.env.CLICKHOUSE_TEST_USER ?? 'default';
 const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_TEST_PASSWORD ?? 'hypequery_test';
 const CLICKHOUSE_DB = process.env.CLICKHOUSE_TEST_DB ?? 'test_db';
@@ -55,6 +57,48 @@ for (const arg of process.argv.slice(2)) {
 
 function log(message) {
   console.log(`[integration] ${message}`);
+}
+
+async function checkPortAvailability(port) {
+  return new Promise(resolve => {
+    const tester = net.createServer();
+    tester.once('error', error => {
+      if ('code' in error && error.code === 'EADDRINUSE') {
+        resolve(false);
+      } else {
+        resolve(false);
+      }
+    });
+    tester.once('listening', () => {
+      tester.close(() => resolve(true));
+    });
+    tester.listen(port, '0.0.0.0');
+  });
+}
+
+async function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.on('error', reject);
+    server.listen(0, '0.0.0.0', () => {
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+async function ensureTestPort() {
+  const preferred = Number(process.env.CLICKHOUSE_TEST_PORT ?? '8123');
+  if (await checkPortAvailability(preferred)) {
+    process.env.CLICKHOUSE_TEST_PORT = String(preferred);
+    return preferred;
+  }
+
+  const fallback = await findFreePort();
+  process.env.CLICKHOUSE_TEST_PORT = String(fallback);
+  log(`Port ${preferred} is in use. Using ${fallback} for ClickHouse tests.`);
+  return fallback;
 }
 
 function runCommand(command, args, { cwd = packageRoot, capture = false, env = process.env } = {}) {
@@ -293,6 +337,11 @@ async function runVitest() {
 
 async function main() {
   await ensureDockerDaemon();
+  const resolvedPort = await ensureTestPort();
+  CLICKHOUSE_PORT = String(resolvedPort);
+  if (!process.env.CLICKHOUSE_TEST_HOST) {
+    CLICKHOUSE_HOST = `http://localhost:${CLICKHOUSE_PORT}`;
+  }
   const compose = await detectComposeCommand();
   const containerRunning = await isContainerRunning();
   let startedContainer = false;
