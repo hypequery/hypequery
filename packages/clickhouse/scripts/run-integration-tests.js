@@ -88,16 +88,16 @@ async function findFreePort() {
   });
 }
 
-async function ensureTestPort() {
-  const preferred = Number(process.env.CLICKHOUSE_TEST_PORT ?? '8123');
+async function ensurePort(envVar, defaultPort) {
+  const preferred = Number(process.env[envVar] ?? defaultPort);
   if (await checkPortAvailability(preferred)) {
-    process.env.CLICKHOUSE_TEST_PORT = String(preferred);
+    process.env[envVar] = String(preferred);
     return preferred;
   }
 
   const fallback = await findFreePort();
-  process.env.CLICKHOUSE_TEST_PORT = String(fallback);
-  log(`Port ${preferred} is in use. Using ${fallback} for ClickHouse tests.`);
+  process.env[envVar] = String(fallback);
+  log(`Port ${preferred} is in use. Using ${fallback} for ${envVar}.`);
   return fallback;
 }
 
@@ -337,7 +337,7 @@ async function runVitest() {
 
 async function main() {
   await ensureDockerDaemon();
-  const resolvedPort = await ensureTestPort();
+  const resolvedPort = await ensurePort('CLICKHOUSE_TEST_PORT', '8123');
   CLICKHOUSE_PORT = String(resolvedPort);
   if (!process.env.CLICKHOUSE_TEST_HOST) {
     CLICKHOUSE_HOST = `http://localhost:${CLICKHOUSE_PORT}`;
