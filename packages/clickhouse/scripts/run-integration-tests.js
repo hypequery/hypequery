@@ -342,6 +342,7 @@ async function main() {
   if (!process.env.CLICKHOUSE_TEST_HOST) {
     CLICKHOUSE_HOST = `http://localhost:${CLICKHOUSE_PORT}`;
   }
+  await ensurePort('CLICKHOUSE_TEST_NATIVE_PORT', '9000');
   const compose = await detectComposeCommand();
   const containerRunning = await isContainerRunning();
   let startedContainer = false;
