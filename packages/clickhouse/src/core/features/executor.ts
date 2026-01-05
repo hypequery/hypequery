@@ -90,8 +90,8 @@ export class ExecutorFeature<
         format: 'JSONEachRow'
       });
 
-      //@ts-ignore
-      const webStream = createJsonEachRowStream<State['output']>(result.stream());
+      const stream = result.stream();
+      const webStream = createJsonEachRowStream(stream);
 
       const endTime = Date.now();
       logger.logQuery({

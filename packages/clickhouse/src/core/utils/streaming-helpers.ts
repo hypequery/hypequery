@@ -113,14 +113,35 @@ async function createChunkReader(nodeStream: NodeJS.ReadableStream): Promise<Str
   return { readNext, close };
 }
 
-export function createJsonEachRowStream<T>(nodeStream: NodeJS.ReadableStream): ReadableStream<T[]> {
+async function createWebStreamReader<T>(webStream: ReadableStream<T>): Promise<StreamReader> {
+  const reader = webStream.getReader();
+
+  const readNext = async () => {
+    const result = await reader.read();
+    return { done: Boolean(result.done), value: result.value } satisfies StreamReaderResult;
+  };
+
+  const close = async () => {
+    try {
+      await reader.cancel();
+    } catch { }
+  };
+
+  return { readNext, close };
+}
+
+export function createJsonEachRowStream<T>(stream: NodeJS.ReadableStream | ReadableStream<T[]>): ReadableStream<T[]> {
   const { flush, append } = createBufferFlusher<T>();
 
   let readerPromise: Promise<StreamReader>;
 
   const ensureReader = () => {
     if (!readerPromise) {
-      readerPromise = createChunkReader(nodeStream);
+      if (typeof (stream as ReadableStream<T[]> | undefined)?.getReader === 'function') {
+        readerPromise = createWebStreamReader(stream as ReadableStream<T[]>);
+      } else {
+        readerPromise = createChunkReader(stream as NodeJS.ReadableStream);
+      }
     }
     return readerPromise;
   };

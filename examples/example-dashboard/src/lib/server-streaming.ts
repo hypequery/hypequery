@@ -3,26 +3,6 @@ import 'server-only';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { IntrospectedSchema } from '@/generated/generated-schema';
 
-const CLICKHOUSE_HOST = process.env.CLICKHOUSE_HOST ?? process.env.NEXT_PUBLIC_CLICKHOUSE_HOST;
-const CLICKHOUSE_USER = process.env.CLICKHOUSE_USER ?? process.env.NEXT_PUBLIC_CLICKHOUSE_USER;
-const CLICKHOUSE_PASSWORD = process.env.CLICKHOUSE_PASSWORD ?? process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD;
-const CLICKHOUSE_DB = process.env.CLICKHOUSE_DATABASE ?? process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE;
-
-function ensureEnv(value: string | undefined, name: string) {
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-function getServerDb() {
-  return createQueryBuilder<IntrospectedSchema>({
-    host: ensureEnv(CLICKHOUSE_HOST, 'CLICKHOUSE_HOST'),
-    username: ensureEnv(CLICKHOUSE_USER, 'CLICKHOUSE_USER'),
-    password: ensureEnv(CLICKHOUSE_PASSWORD, 'CLICKHOUSE_PASSWORD'),
-    database: ensureEnv(CLICKHOUSE_DB, 'CLICKHOUSE_DATABASE'),
-  });
-}
 
 export interface ServerStreamingSummary {
   totalRows: number;
@@ -57,7 +37,12 @@ interface ServerStreamOptions {
 }
 
 export async function streamTripsOnServer({ limit = 10000, sampleSize = 20 }: ServerStreamOptions = {}): Promise<ServerStreamingSummary> {
-  const db = getServerDb();
+  const db = createQueryBuilder<IntrospectedSchema>({
+    host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST,
+    username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,
+    password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+    database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE
+  });
   const query = db.table('trips')
     .select([
       'trip_id',
