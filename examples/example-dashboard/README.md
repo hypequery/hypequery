@@ -21,6 +21,11 @@ This example demonstrates how to use hypequery with different ClickHouse clients
 - Real-time data processing
 - Memory-efficient handling of large datasets
 
+### 4. Server Streaming Demo (`/streaming/server`)
+- Streams ClickHouse results entirely on the server
+- Aggregates data before sending a compact payload to the browser
+- Highlights how to pair hypequery streaming with Next.js server components
+
 ## Client Setup Examples
 
 ### Browser Environment

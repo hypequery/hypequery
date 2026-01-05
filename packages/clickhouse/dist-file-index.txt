@@ -60,6 +60,7 @@ core/tests/integration/setup.js
 core/tests/integration/test-config.d.ts
 core/tests/integration/test-config.d.ts.map
 core/tests/integration/test-config.js
+core/tests/integration/test-data.json
 core/tests/test-utils.d.ts
 core/tests/test-utils.d.ts.map
 core/tests/test-utils.js
@@ -81,6 +82,9 @@ core/utils/predicate-builder.js
 core/utils/sql-expressions.d.ts
 core/utils/sql-expressions.d.ts.map
 core/utils/sql-expressions.js
+core/utils/streaming-helpers.d.ts
+core/utils/streaming-helpers.d.ts.map
+core/utils/streaming-helpers.js
 core/utils.d.ts
 core/utils.d.ts.map
 core/utils.js

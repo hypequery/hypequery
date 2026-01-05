@@ -7,9 +7,7 @@ import {
 import { ClickHouseConnection } from '../../connection.js';
 import { createQueryBuilder } from '../../../index.js';
 import { TestSchemaType } from './setup.js';
-
-// Skip integration tests if running in CI or if explicitly disabled
-const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';
+import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 
 // Define types for our query results
 interface OrderUserResult {
@@ -83,7 +81,7 @@ describe('Integration Tests - Complex Joins', () => {
           throw error;
         }
       }
-    }, 30000);
+    }, SETUP_TIMEOUT);
 
     test('should join orders with users', async () => {
       const result = await db

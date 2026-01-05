@@ -1,5 +1,6 @@
+import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { createQueryBuilder } from '../../../index.js';
-import { initializeTestConnection, setupTestDatabase } from './setup.js';
+import { initializeTestConnection, setupTestDatabase, TEST_DATA } from './setup.js';
 import { logger } from '../../utils/logger.js';
 
 // Import centralized test configuration
@@ -9,6 +10,18 @@ import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 (SKIP_INTEGRATION_TESTS ? describe.skip : describe)('Logging Support', () => {
   let db: ReturnType<typeof createQueryBuilder<any>>;
   let queryLogs: any[] = [];
+
+  async function collectStream(stream: WebReadableStream<any[]>) {
+    const reader = stream.getReader();
+    try {
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
 
   beforeAll(async () => {
     if (!SKIP_INTEGRATION_TESTS) {
@@ -135,5 +148,20 @@ import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
       .execute();
 
     expect(queryLogs.length).toBe(2);  // Now we should get both start and complete logs
+  });
+
+  it('should log concurrent streaming queries without losing entries', async () => {
+    const streams = await Promise.all([
+      db.table('test_table').select(['id']).stream(),
+      db.table('orders').select(['id']).stream()
+    ]);
+
+    await Promise.all(streams.map(stream => collectStream(stream)));
+
+    const completedLogs = queryLogs.filter(log => log.status === 'completed');
+    const startedLogs = queryLogs.filter(log => log.status === 'started');
+
+    expect(startedLogs.length).toBe(2);
+    expect(completedLogs.length).toBe(2);
   });
 }); 

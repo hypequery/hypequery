@@ -3,6 +3,7 @@ import { QueryBuilder } from '../query-builder.js';
 import { ClickHouseConnection } from '../connection.js';
 import { substituteParameters } from '../utils.js';
 import { logger } from '../utils/logger.js';
+import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 
 export class ExecutorFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -90,6 +91,7 @@ export class ExecutorFeature<
       });
 
       const stream = result.stream();
+      const webStream = createJsonEachRowStream(stream);
 
       const endTime = Date.now();
       logger.logQuery({
@@ -101,7 +103,7 @@ export class ExecutorFeature<
         status: 'completed'
       });
 
-      return stream as ReadableStream<State['output'][]>;
+      return webStream;
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
