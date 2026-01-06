@@ -8,8 +8,6 @@ description: Learn how to enable caching, handle invalidation, and plug in custo
 
 hypequery ships with an opt-in caching layer that sits directly on top of `execute()`. It computes deterministic keys from the generated SQL + parameters, deduplicates in-flight requests, and can serve stale results while new data is refreshed in the background. The feature is disabled by default and can be enabled on a per-connection or per-query basis.
 
-> **Note**: Streaming queries are never cached, and pagination helpers force `mode: 'no-store'` until pagination-specific caching semantics are designed.
-
 ## Enabling Caching
 
 ### Global configuration

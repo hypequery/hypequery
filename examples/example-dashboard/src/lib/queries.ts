@@ -31,6 +31,11 @@ function getCachedDb() {
 
   const externalProvider = createRedisCacheFromEnv();
   const provider = externalProvider ?? createMemoryCache();
+  console.info(
+    externalProvider
+      ? '[cache] Using external Redis provider for cached queries'
+      : '[cache] Using in-memory LRU provider for cached queries'
+  );
 
   return createQueryBuilder<IntrospectedSchema>({
     client,
@@ -44,13 +49,75 @@ function getCachedDb() {
   });
 }
 
-const cachedDb = getCachedDb();
+export const cachedDb = getCachedDb();
+logger.configure({
+  level: 'debug',
+  enabled: true,
+  onQueryLog: log => {
+    if (log?.cacheStatus) {
+      console.info(
+        `[cache] status=${log.cacheStatus} mode=${log.cacheMode} key=${log.cacheKey ?? 'n/a'} rows=${log.cacheRowCount ?? log.rowCount ?? 'n/a'}`
+      );
+    }
+  }
+});
 
 // Configure logger to show detailed info
 logger.configure({
   level: 'debug',
   enabled: true,
+  onQueryLog: log => {
+    if (log?.cacheStatus) {
+      console.info(
+        `[cache] status=${log.cacheStatus} mode=${log.cacheMode} key=${log.cacheKey ?? 'n/a'} rows=${log.cacheRowCount ?? log.rowCount ?? 'n/a'}`
+      );
+    }
+  }
 });
+
+export async function fetchCachedAverageAmounts(filters: DateFilters = {}) {
+  const before = cachedDb.cache.getStats();
+  const queryId = `cached-average-${Date.now()}`;
+  const cacheKey = 'cached-average-amounts';
+
+  const query = cachedDb.table('trips');
+  const filter = createFilter(filters);
+  query.applyCrossFilters(filter);
+
+  const rows = await query
+    .avg('total_amount')
+    .avg('tip_amount')
+    .avg('tolls_amount')
+    .avg('fare_amount')
+    .cache({ key: cacheKey, tags: ['trips'], ttlMs: 30_000, staleTtlMs: 60_000 })
+    .execute({ queryId });
+
+  const after = cachedDb.cache.getStats();
+  let cacheStatus: 'miss' | 'hit' | 'stale-hit' | 'bypass' = 'bypass';
+  if (after.hits > before.hits) {
+    cacheStatus = 'hit';
+  } else if (after.staleHits > before.staleHits) {
+    cacheStatus = 'stale-hit';
+  } else if (after.misses > before.misses) {
+    cacheStatus = 'miss';
+  }
+
+  return {
+    summary: {
+      total: Number(rows[0]?.total_amount_avg || 0),
+      tips: Number(rows[0]?.tip_amount_avg || 0),
+      tolls: Number(rows[0]?.tolls_amount_avg || 0),
+      fare: Number(rows[0]?.fare_amount_avg || 0)
+    },
+    cacheStats: after,
+    cacheStatus,
+    queryId
+  };
+}
+
+export async function invalidateCacheDemo() {
+  await cachedDb.cache.invalidateTags(['trips']);
+}
 
 interface DateFilters {
   pickupDateRange?: DateRange

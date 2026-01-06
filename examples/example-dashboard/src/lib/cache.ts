@@ -1,10 +1,12 @@
 import { MemoryCacheProvider, type CacheProvider, type CacheEntry } from '@hypequery/clickhouse';
 
 export function createMemoryCache() {
-  return new MemoryCacheProvider({
-    maxEntries: Number(process.env.NEXT_PUBLIC_CACHE_MAX_ENTRIES ?? 500),
-    maxBytes: Number(process.env.NEXT_PUBLIC_CACHE_MAX_BYTES ?? 50 * 1024 * 1024),
-  });
+  const maxEntries = Number(process.env.NEXT_PUBLIC_CACHE_MAX_ENTRIES ?? 500);
+  const maxBytes = Number(process.env.NEXT_PUBLIC_CACHE_MAX_BYTES ?? 50 * 1024 * 1024);
+  console.info(
+    `[cache] Initializing in-memory cache (maxEntries=${maxEntries}, maxBytes=${Math.round(maxBytes / 1024 / 1024)}MB)`
+  );
+  return new MemoryCacheProvider({ maxEntries, maxBytes });
 }
 
 export class UpstashRedisCache implements CacheProvider<string> {
@@ -55,5 +57,6 @@ export function createRedisCacheFromEnv() {
     return undefined;
   }
 
+  console.info('[cache] Using Upstash Redis cache provider from environment variables');
   return new UpstashRedisCache(url, token);
 }

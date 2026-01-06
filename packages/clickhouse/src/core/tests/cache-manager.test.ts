@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createQueryBuilder } from '../query-builder.js';
 import { MemoryCacheProvider } from '../cache/providers/memory-lru.js';
 import type { CacheEntry, CacheProvider } from '../cache/types.js';
@@ -7,13 +8,13 @@ import { executeWithCache } from '../cache/cache-manager.js';
 import { buildRuntimeContext, resolveCacheConfig } from '../cache/runtime-context.js';
 import { logger } from '../utils/logger.js';
 
-const queryMock = jest.fn();
-const logSpy = jest.spyOn(logger, 'logQuery');
+const queryMock = vi.fn();
+const logSpy = vi.spyOn(logger, 'logQuery');
 
-jest.mock('../connection', () => ({
+vi.mock('../connection', () => ({
   ClickHouseConnection: {
-    initialize: jest.fn(),
-    getClient: jest.fn(() => ({
+    initialize: vi.fn(),
+    getClient: vi.fn(() => ({
       query: (...args: unknown[]) => queryMock(...args)
     }))
   }
@@ -120,7 +121,7 @@ describe('Cache manager integration', () => {
     });
 
     const query = db.table('users').select(['id']);
-    const nowSpy = jest.spyOn(Date, 'now');
+    const nowSpy = vi.spyOn(Date, 'now');
     let currentTime = 0;
     nowSpy.mockImplementation(() => currentTime);
 
@@ -318,7 +319,7 @@ describe('Cache manager integration', () => {
     });
 
     const query = db.table('users').select(['id']);
-    const nowSpy = jest.spyOn(Date, 'now');
+    const nowSpy = vi.spyOn(Date, 'now');
     let currentTime = 0;
     nowSpy.mockImplementation(() => currentTime);
 
