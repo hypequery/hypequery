@@ -9,7 +9,7 @@ import {
   QueryConfig,
   JoinType
 } from '../types/index.js';
-import { AnySchema, ColumnType, InferColumnType } from '../types/schema.js';
+import { AnySchema, ColumnType } from '../types/schema.js';
 import { SQLFormatter } from './formatters/sql-formatter.js';
 import { AggregationFeature } from './features/aggregations.js';
 import { JoinFeature } from './features/joins.js';
@@ -19,7 +19,7 @@ import { ExecutorFeature } from './features/executor.js';
 import { QueryModifiersFeature } from './features/query-modifiers.js';
 import { FilterValidator } from './validators/filter-validator.js';
 import { PaginationFeature } from './features/pagination.js';
-import { JoinRelationships, JoinPathOptions } from './join-relationships.js';
+import { JoinRelationships, JoinPathOptions, type JoinPath } from './join-relationships.js';
 import { SqlExpression } from './utils/sql-expressions.js';
 import {
   PredicateBuilder,
@@ -32,11 +32,8 @@ import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/clien
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import type { CacheOptions, CacheConfig } from './cache/types.js';
 import type { QueryRuntimeContext } from './cache/runtime-context.js';
-import { buildRuntimeContext, resolveCacheConfig } from './cache/runtime-context.js';
-import { CacheController } from './cache/controller.js';
 import { executeWithCache } from './cache/cache-manager.js';
-import { MemoryCacheProvider } from './cache/providers/memory-lru.js';
-import { mergeCacheOptionsPartial } from './cache/utils.js';
+import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.js';
 import type {
   BuilderState,
   AnyBuilderState,
@@ -788,31 +785,28 @@ export class QueryBuilder<
    * Apply a predefined join relationship
    */
   withRelation(name: string, options?: JoinPathOptions): this {
-    if (!QueryBuilder.relationships) {
+    const relationships = QueryBuilder.relationships;
+    if (!relationships) {
       throw new Error('Join relationships have not been initialized. Call QueryBuilder.setJoinRelationships first.');
     }
 
-    const path = QueryBuilder.relationships.get(name);
+    const path = relationships.get(name);
     if (!path) {
       throw new Error(`Join relationship '${name}' not found`);
     }
 
+    const applyJoin = (joinPath: JoinPath<Schema>) => {
+      const type = options?.type || joinPath.type || 'INNER';
+      const alias = options?.alias || joinPath.alias;
+      const table = String(joinPath.to) as Extract<keyof Schema, string>;
+      const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
+      this.config = this.joins.addJoin(type, table, joinPath.leftColumn as any, rightColumn, alias);
+    };
+
     if (Array.isArray(path)) {
-      // Handle join chain
-      path.forEach(joinPath => {
-        const type = options?.type || joinPath.type || 'INNER';
-        const alias = options?.alias || joinPath.alias;
-        const table = String(joinPath.to) as Extract<keyof Schema, string>;
-        const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
-        this.config = this.joins.addJoin(type, table, joinPath.leftColumn as any, rightColumn, alias);
-      });
+      path.forEach(applyJoin);
     } else {
-      // Handle single join
-      const type = options?.type || path.type || 'INNER';
-      const alias = options?.alias || path.alias;
-      const table = String(path.to) as Extract<keyof Schema, string>;
-      const rightColumn = `${table}.${path.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
-      this.config = this.joins.addJoin(type, table, path.leftColumn as any, rightColumn, alias);
+      applyJoin(path);
     }
 
     return this;
@@ -847,13 +841,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
   ClickHouseConnection.initialize(connectionConfig as ClickHouseConfig);
 
   const namespace = cacheConfig?.namespace || deriveNamespace(connectionConfig as ClickHouseConfig);
-  const provider = cacheConfig?.provider ?? (cacheConfig ? new MemoryCacheProvider() : undefined);
-  const mergedCacheConfig = cacheConfig
-    ? { ...cacheConfig, namespace, provider }
-    : { namespace, provider } as CacheConfig;
-  const runtimeConfig = resolveCacheConfig(mergedCacheConfig, namespace);
-  const runtime = buildRuntimeContext(runtimeConfig);
-  const cacheController = new CacheController(runtime);
+  const { runtime, cacheController } = initializeCacheRuntime(cacheConfig, namespace);
 
   return {
     cache: cacheController,

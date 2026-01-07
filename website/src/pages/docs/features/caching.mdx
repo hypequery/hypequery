@@ -230,14 +230,3 @@ const db = createQueryBuilder({
 ```
 
 You can also use `serialize`/`deserialize` at the per-query level for niche cases.
-
-## Best Practices
-
-- **Start conservative**: enable caching per dashboard / workload rather than globally.
-- **Use tags**: tag by table, tenant, or dashboard ID so you can invalidate surgically.
-- **Observe**: hook `logger.onQueryLog` to track hit/miss rates and adjust TTLs.
-- **Avoid volatile SQL**: queries that reference `now()` or highly dynamic filters should stay `no-store`.
-- **Handle streaming separately**: streaming APIs intentionally bypass caching.
-- **Dispose in-memory providers**: if you rely on `MemoryCacheProvider` in long-running servers, call `provider.dispose()` during shutdown to stop the cleanup interval.
-
-For a hands-on example, see the `cache.test.ts` integration test in the repository—it mirrors a real dashboard flow and shows how cache hits and tag invalidation behave end-to-end.
