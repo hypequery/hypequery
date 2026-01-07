@@ -70,19 +70,13 @@ export async function executeWithCache<
   const runtime = builder.getRuntimeContext();
   const provider = runtime.provider;
   const normalizedExecuteCache = options?.cache === false
-    ? { mode: 'no-store' as const, ttlMs: 0, staleTtlMs: 0, cacheTimeMs: 0 }
+    ? { mode: 'no-store' as const }
     : options?.cache;
   const mergedOptions = mergeCacheOptions(runtime.defaults, builder.getCacheOptions(), normalizedExecuteCache);
   const mode = mergedOptions.mode ?? 'no-store';
 
   if (!provider || mode === 'no-store' || !isCacheable(mergedOptions)) {
-    if (provider) {
-      runtime.stats.misses += 1;
-    }
-    return builder.getExecutor().execute({
-      queryId: options?.queryId,
-      logContext: { cacheStatus: 'bypass', cacheMode: mode }
-    });
+    return runWithoutCache('bypass');
   }
 
   const activeProvider = provider;
@@ -103,9 +97,8 @@ export async function executeWithCache<
   if (!entry) {
     runtime.parsedValues.delete(key);
   }
-  const now = Date.now();
-  const fresh = entry ? now < entry.createdAt + entry.ttlMs : false;
-  const staleAcceptable = entry ? now < entry.createdAt + entry.ttlMs + entry.staleTtlMs : false;
+  const fresh = entry ? Date.now() < entry.createdAt + entry.ttlMs : false;
+  const staleAcceptable = entry ? Date.now() < entry.createdAt + entry.ttlMs + entry.staleTtlMs : false;
   const deserialize = mergedOptions.deserialize || runtime.deserialize;
   const serialize = mergedOptions.serialize || runtime.serialize;
 
@@ -118,7 +111,7 @@ export async function executeWithCache<
       rows = await deserialize(cacheEntry.value) as State['output'][];
       runtime.parsedValues.set(key, { createdAt: cacheEntry.createdAt, rows, tags: cacheEntry.tags });
     }
-    const cacheAge = now - cacheEntry.createdAt;
+    const cacheAge = Date.now() - cacheEntry.createdAt;
     if (status === 'hit') {
       runtime.stats.hits += 1;
     } else if (status === 'stale-hit') {
@@ -169,11 +162,7 @@ export async function executeWithCache<
     }
   }
 
-  runtime.stats.misses += 1;
-  return builder.getExecutor().execute({
-    queryId: options?.queryId,
-    logContext: { cacheStatus: 'bypass', cacheMode: mode }
-  });
+  return runWithoutCache('bypass');
 
   async function fetchAndStore(cacheStatus: CacheStatus): Promise<State['output'][]> {
     if (mergedOptions.dedupe !== false && runtime.inFlight.has(key)) {
@@ -220,5 +209,15 @@ export async function executeWithCache<
   function scheduleRevalidation() {
     runtime.stats.revalidations += 1;
     fetchAndStore('revalidate').catch(() => undefined);
+  }
+
+  function runWithoutCache(cacheStatus: CacheStatus) {
+    if (provider) {
+      runtime.stats.misses += 1;
+    }
+    return builder.getExecutor().execute({
+      queryId: options?.queryId,
+      logContext: { cacheStatus, cacheMode: mode }
+    });
   }
 }

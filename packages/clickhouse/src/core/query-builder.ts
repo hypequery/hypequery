@@ -36,6 +36,7 @@ import { buildRuntimeContext, resolveCacheConfig } from './cache/runtime-context
 import { CacheController } from './cache/controller.js';
 import { executeWithCache } from './cache/cache-manager.js';
 import { MemoryCacheProvider } from './cache/providers/memory-lru.js';
+import { mergeCacheOptionsPartial } from './cache/utils.js';
 import type {
   BuilderState,
   AnyBuilderState,
@@ -69,25 +70,6 @@ type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 export interface ExecuteOptions {
   queryId?: string;
   cache?: CacheOptions | false;
-}
-
-function mergeDefinedCacheOptions(target: CacheOptions | undefined, update?: CacheOptions): CacheOptions | undefined {
-  if (!update) return target;
-  const result: CacheOptions = { ...(target || {}) };
-  for (const [key, value] of Object.entries(update) as [keyof CacheOptions, unknown][]) {
-    if (key === 'tags') {
-      const current = result.tags || [];
-      const incoming = (value as string[]) || [];
-      if (incoming.length) {
-        result.tags = Array.from(new Set([...current, ...incoming]));
-      }
-      continue;
-    }
-    if (value !== undefined) {
-      (result as Record<string, unknown>)[key as string] = value;
-    }
-  }
-  return result;
 }
 
 /**
@@ -185,7 +167,7 @@ export class QueryBuilder<
       this.cacheOptions = { mode: 'no-store', ttlMs: 0, staleTtlMs: 0, cacheTimeMs: 0 };
       return this;
     }
-    this.cacheOptions = mergeDefinedCacheOptions(this.cacheOptions, options) || options;
+    this.cacheOptions = mergeCacheOptionsPartial(this.cacheOptions, options);
     return this;
   }
 
