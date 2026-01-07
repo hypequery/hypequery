@@ -381,6 +381,24 @@ describe('CrossFilter', () => {
       const result = typedFilter.getConditions();
       expect(result.conditions).toHaveLength(1);
     });
+
+    it('should validate only the provided table when schema and table name are passed', () => {
+      const schema = {
+        orders: {
+          total: 'Float64' as const,
+          status: 'String' as const
+        },
+        drivers: {
+          name: 'String' as const
+        }
+      };
+
+      const typedFilter = new CrossFilter(schema, 'orders');
+
+      expect(() => typedFilter.add({ column: 'total', operator: 'gt', value: 100 })).not.toThrow();
+      expect(() => typedFilter.add({ column: 'status', operator: 'eq', value: 'active' })).not.toThrow();
+      expect(() => typedFilter.add({ column: 'name', operator: 'eq', value: 'Jamal' })).toThrow("Column 'name' not found in schema");
+    });
   });
 
   describe('topN', () => {

@@ -1,4 +1,4 @@
-import { createQueryBuilder, CrossFilter, logger } from "@hypequery/clickhouse"
+import { createQueryBuilder, CrossFilter, logger, toStartOfInterval } from "@hypequery/clickhouse"
 import { createClient } from "@clickhouse/client-web"
 import { DateRange } from "react-day-picker"
 import { startOfDay, endOfDay, format } from "date-fns"
@@ -159,13 +159,11 @@ export const fetchWeeklyTripCounts = async (filters: DateFilters = {}) => {
   query.applyCrossFilters(filter)
 
   const result = await query
-    //@ts-ignore - requires fix in hypqeury package
-    .select(['toStartOfWeek(pickup_datetime) as week'])
+    .select([toStartOfInterval('pickup_datetime', '1 week', 'week')])
     .count('trip_id', 'trip_count')
     .execute();
 
   return result.map(row => ({
-    //@ts-ignore - requires fix in hypqeury package
     name: new Date(row.week).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
     value: Number(row.trip_count)
   }));

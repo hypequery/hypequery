@@ -9,7 +9,7 @@ import {
   QueryConfig,
   JoinType
 } from '../types/index.js';
-import { ColumnType, InferColumnType } from '../types/schema.js';
+import { AnySchema, ColumnType, InferColumnType } from '../types/schema.js';
 import { SQLFormatter } from './formatters/sql-formatter.js';
 import { AggregationFeature } from './features/aggregations.js';
 import { JoinFeature } from './features/joins.js';
@@ -196,8 +196,13 @@ export class QueryBuilder<
    * @param crossFilter - An instance of CrossFilter containing shared filter conditions.
    * @returns The current QueryBuilder instance.
    */
-  applyCrossFilters(crossFilter: CrossFilter<Schema, Extract<keyof Schema, string>>): this {
-    this.config = this.crossFiltering.applyCrossFilters(crossFilter);
+  applyCrossFilters<TableName extends Extract<keyof Schema, string>>(crossFilter: CrossFilter<Schema, TableName>): this;
+  applyCrossFilters(crossFilter: CrossFilter<AnySchema, string>): this;
+  applyCrossFilters(
+    crossFilter: CrossFilter<Schema, Extract<keyof Schema, string>> | CrossFilter<AnySchema, string>
+  ): this {
+    const normalized = crossFilter as unknown as CrossFilter<Schema, Extract<keyof Schema, string>>;
+    this.config = this.crossFiltering.applyCrossFilters(normalized);
     return this;
   }
 

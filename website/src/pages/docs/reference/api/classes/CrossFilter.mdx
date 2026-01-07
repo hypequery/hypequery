@@ -28,7 +28,13 @@ The specific table being filtered
 
 ### Constructor
 
-**new CrossFilter**\<`Schema`, `TableName`\>(`schema`?): `CrossFilter`\<`Schema`, `TableName`\>
+**new CrossFilter**\<`Schema`, `TableName`\>(`schema`?, `tableName`?): `CrossFilter`\<`Schema`, `TableName`\>
+
+Constructors support three modes:
+
+1. `new CrossFilter()` – schema-agnostic filters for quick, ad-hoc usage.
+2. `new CrossFilter(schema)` – validates columns against the provided schema across every table.
+3. `new CrossFilter(schema, 'table_name')` – validates columns against a specific table, enabling the best editor autocomplete when reused across queries.
 
 #### Parameters
 
@@ -36,9 +42,28 @@ The specific table being filtered
 
 `Schema`
 
+##### tableName?
+
+`TableName`
+
 #### Returns
 
 `CrossFilter`\<`Schema`, `TableName`\>
+
+```ts
+import { CrossFilter } from '@hypequery/clickhouse';
+
+const schema = {
+  trips: {
+    pickup_datetime: 'DateTime',
+    total_amount: 'Float32',
+    // ...rest of your columns
+  }
+} as const;
+
+const typedFilter = new CrossFilter(schema, 'trips')
+  .add({ column: 'pickup_datetime', operator: 'gte', value: '2024-01-01' });
+```
 
 ## Methods
 

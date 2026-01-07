@@ -1,10 +1,9 @@
 //@ts-
 
-import type { BuilderState } from '../types/builder-state.js';
+import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { CrossFilter, FilterGroup } from '../cross-filter.js';
 import { FilterConditionInput } from '../../types/index.js';
-import { AnySchema } from '../../types/schema.js';
 
 function isFilterCondition(obj: any): obj is FilterConditionInput<any, any, any> {
   return obj && 'column' in obj && 'operator' in obj && 'value' in obj;
@@ -15,7 +14,7 @@ function isFilterGroup(obj: any): obj is FilterGroup<any, any> {
 }
 
 export class CrossFilteringFeature<
-  Schema extends AnySchema,
+  Schema extends SchemaDefinition<Schema>,
   State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }

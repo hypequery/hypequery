@@ -119,7 +119,8 @@ Implement interactive dashboards with cross-filtering support:
 import { CrossFilter } from '@hypequery/clickhouse';
 
 // Create a filter
-const filter = new CrossFilter()
+import schema from '@/generated/schema-definition';
+const filter = new CrossFilter(schema, 'trips')
   .add({
     column: 'pickup_datetime',
     operator: 'gte',
