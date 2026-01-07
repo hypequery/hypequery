@@ -217,6 +217,63 @@ describe('Cache manager integration', () => {
     expect(provider.store.size).toBe(0);
   });
 
+  it('defaults cacheTimeMs to ttl + staleTtl when not explicitly provided', async () => {
+    const provider = new TestCacheProvider();
+    queryMock.mockImplementation(() => Promise.resolve({
+      json: () => Promise.resolve([{ id: 1, email: 'ttl', active: 1 }])
+    }));
+
+    const db = createQueryBuilder<TestSchema>({
+      ...baseConfig,
+      cache: {
+        mode: 'stale-while-revalidate',
+        ttlMs: 0,
+        staleTtlMs: 0,
+        provider
+      }
+    });
+
+    await db.table('users')
+      .select(['id'])
+      .cache({ ttlMs: 200, staleTtlMs: 800 })
+      .execute();
+
+    const [entry] = Array.from(provider.store.values());
+    expect(entry?.cacheTimeMs).toBe(1000);
+  });
+
+  it('invalidates tags for memory cache providers when namespaces include protocol prefixes', async () => {
+    let callCount = 0;
+    queryMock.mockImplementation(() => Promise.resolve({
+      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
+    }));
+
+    const provider = new MemoryCacheProvider({ maxEntries: 10 });
+    const db = createQueryBuilder<TestSchema>({
+      ...baseConfig,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 10_000,
+        provider
+      }
+    });
+
+    const runQuery = () => db
+      .table('users')
+      .select(['id'])
+      .cache({ tags: ['users'], ttlMs: 10_000 })
+      .execute();
+
+    await runQuery();
+    await runQuery();
+    expect(callCount).toBe(1);
+
+    await db.cache.invalidateTags(['users']);
+
+    await runQuery();
+    expect(callCount).toBe(2);
+  });
+
   // NOTE: network-first fallback is exercised via integration path; add unit coverage once ExecutorFeature is injectable.
 
   it('records cache metadata in logs for hits and stale hits', async () => {

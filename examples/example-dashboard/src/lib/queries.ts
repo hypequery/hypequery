@@ -3,7 +3,7 @@ import { createClient } from "@clickhouse/client-web"
 import { DateRange } from "react-day-picker"
 import { startOfDay, endOfDay, format } from "date-fns"
 import { IntrospectedSchema } from "@/generated/generated-schema"
-import { createMemoryCache, createRedisCacheFromEnv } from "./cache"
+import { createMemoryCache } from "./cache"
 
 function getDb() {
   // Create the ClickHouse client explicitly for browser environment
@@ -29,13 +29,8 @@ function getCachedDb() {
     database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE,
   });
 
-  const externalProvider = createRedisCacheFromEnv();
-  const provider = externalProvider ?? createMemoryCache();
-  console.info(
-    externalProvider
-      ? '[cache] Using external Redis provider for cached queries'
-      : '[cache] Using in-memory LRU provider for cached queries'
-  );
+  const provider = createMemoryCache();
+  console.info('[cache] Using in-memory LRU provider for cached queries');
 
   return createQueryBuilder<IntrospectedSchema>({
     client,

@@ -8,11 +8,10 @@ import type {
 } from './types.js';
 import { defaultSerialize, defaultDeserialize } from './serialization.js';
 
-const DEFAULT_CACHE_OPTIONS: Required<Pick<CacheOptions, 'mode' | 'ttlMs' | 'staleTtlMs' | 'cacheTimeMs' | 'staleIfError' | 'dedupe'>> = {
+const DEFAULT_CACHE_OPTIONS: Required<Pick<CacheOptions, 'mode' | 'ttlMs' | 'staleTtlMs' | 'staleIfError' | 'dedupe'>> & Pick<CacheOptions, 'cacheTimeMs'> = {
   mode: 'no-store',
   ttlMs: 0,
   staleTtlMs: 0,
-  cacheTimeMs: 0,
   staleIfError: false,
   dedupe: true
 };

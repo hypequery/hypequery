@@ -1,4 +1,3 @@
-//@ts-
 
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';

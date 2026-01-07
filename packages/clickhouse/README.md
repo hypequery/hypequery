@@ -255,6 +255,20 @@ const db = createQueryBuilder<IntrospectedSchema>({
 ```
 
 
+## Testing
+
+Run the fast feedback loop with:
+
+```bash
+npm run test
+```
+
+This command runs type checks + unit tests only. To exercise the ClickHouse-backed integration suite, ensure a test ClickHouse instance is available (or set the required env vars) and run:
+
+```bash
+npm run test:integration
+```
+
 ## Versioning and Release Channels
 
 hypequery follows semantic versioning and provides multiple release channels:

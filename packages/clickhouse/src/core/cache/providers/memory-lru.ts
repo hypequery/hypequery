@@ -8,7 +8,16 @@ export interface MemoryLRUCacheOptions {
 
 function extractNamespace(key: string): string {
   const parts = key.split(':');
-  return parts.length >= 4 ? parts[2] : 'default';
+  if (parts.length < 4) {
+    return 'default';
+  }
+  if (parts.length === 4) {
+    return parts[2];
+  }
+  // Namespace may contain additional ':' (e.g., protocol prefixes); rejoin everything
+  // between the version segment and the trailing table/digest tokens.
+  const namespace = parts.slice(2, -2).join(':');
+  return namespace || 'default';
 }
 
 export class MemoryCacheProvider implements CacheProvider {

@@ -29,7 +29,6 @@ This example demonstrates how to use hypequery with different ClickHouse clients
 ### 5. Cached Dashboard Helpers (internal utilities)
 - Shows how to enable caching for dashboard queries
 - Demonstrates cache warming and tag-based invalidation
-- Optional Upstash Redis provider for shared caches
 - Includes `/api/cache/warm` endpoint to pre-populate frequently accessed metrics
 - Exposes `/api/cache/stats` to inspect cache hit/miss totals in the UI or monitoring tools
 
@@ -100,9 +99,6 @@ NEXT_PUBLIC_CACHE_TTL=5000
 NEXT_PUBLIC_CACHE_STALE_TTL=60000
 NEXT_PUBLIC_CACHE_MAX_ENTRIES=500
 NEXT_PUBLIC_CACHE_MAX_BYTES=52428800
-# Optional Upstash Redis configuration
-NEXT_PUBLIC_UPSTASH_REDIS_REST_URL=
-NEXT_PUBLIC_UPSTASH_REDIS_REST_TOKEN=
 ```
 
 ## Running the Example

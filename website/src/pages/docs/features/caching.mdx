@@ -157,21 +157,19 @@ class RedisCacheProvider implements CacheProvider<string> {
 
   async set(key: string, entry: CacheEntry) {
     await this.client.set(key, JSON.stringify(entry), 'PX', entry.cacheTimeMs || entry.ttlMs);
-    if (entry.tags?.length) {
-      await Promise.all(entry.tags.map(tag => this.client.sadd(`tag:${tag}`, key)));
-    }
   }
 
   async delete(key: string) {
     await this.client.del(key);
   }
 
-  async deleteByTag(_namespace: string, tag: string) {
-    const keys = await this.client.smembers(`tag:${tag}`);
+  async deleteByTag(namespace: string, tag: string) {
+    const tagKey = `hq:tag:${namespace}:${tag}`;
+    const keys = await this.client.smembers(tagKey);
     if (keys.length) {
       await this.client.del(...keys);
     }
-    await this.client.del(`tag:${tag}`);
+    await this.client.del(tagKey);
   }
 }
 ```
@@ -190,6 +188,18 @@ const db = createQueryBuilder({
   }
 });
 ```
+
+> **Tip:** If your provider supports tag-based invalidation or namespace clearing, implement `deleteByTag(namespace, tag)` (and optionally `clearNamespace(namespace)`). The cache controller will call these hooks whenever `db.cache.invalidateTags(...)` or `db.cache.clear()` runs, keeping your external store in sync with the in-memory parsed-value cache.
+
+### Provider Responsibilities
+
+When wiring a custom cache backend, make sure to:
+
+- **Respect TTL fields** — store entries with a TTL equal to `cacheTimeMs` (or `ttlMs + staleTtlMs` if `cacheTimeMs` is undefined) so stale entries remain available for revalidation and `staleIfError`.
+- **Clean tag indexes** — if you maintain per-tag key sets, remove keys from those sets when entries expire or are deleted to avoid orphaned references.
+- **Forward metadata** — persist the tags array you receive so `db.cache.invalidateTags(...)` can find the right keys later.
+
+Following these guidelines keeps remote caches behaviorally identical to the built-in memory provider.
 
 For Upstash (REST) or Cloudflare KV, implement the same `get/set/delete` contract using their HTTP APIs.
 
