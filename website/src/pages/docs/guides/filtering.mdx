@@ -54,6 +54,21 @@ const results = await db
   .execute();
 ```
 
+### Schema-Aware Filters
+
+If you keep a schema definition object (for example generated from the CLI), pass it to the constructor to get auto-complete and validation on every column:
+
+```typescript
+import { CrossFilter } from '@hypequery/clickhouse';
+import schema from '@/generated/schema-definition';
+
+const orderFilters = new CrossFilter(schema, 'orders')
+  .add({ column: 'status', operator: 'eq', value: 'active' })
+  .add({ column: 'total', operator: 'gt', value: 100 });
+
+await db.table('orders').applyCrossFilters(orderFilters).execute();
+```
+
 ## CrossFilter Properties
 
 ### FilterConditionInput Interface

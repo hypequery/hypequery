@@ -1,0 +1,66 @@
+---
+layout: ../../../../layouts/DocsLayout.astro
+title: selectExpr helper - hypequery
+description: Use selectExpr to wrap arbitrary SQL expressions with optional aliases.
+---
+
+# selectExpr
+
+`selectExpr` is a convenience helper that wraps a raw SQL fragment and optionally assigns it an alias. It behaves like a concise combination of `raw` and `rawAs`, so the moment you provide an alias it becomes available to `groupBy`, `orderBy`, and the returned row type.
+
+## Usage
+
+```ts
+import { selectExpr } from '@hypequery/clickhouse';
+
+const query = db.table('trips')
+  .select([
+    selectExpr('toStartOfWeek(pickup_datetime)', 'week'),
+    selectExpr('count()', 'trip_count')
+  ])
+  .groupBy('week')
+  .orderBy('week');
+```
+
+## Parameters
+- `expression: string` – The SQL expression to inject.
+- `alias?: string` – Optional alias. When omitted, the helper behaves like `raw()`.
+
+## Examples
+
+### Interval Bucketing
+
+```ts
+const query = db.table('events')
+  .select([
+    selectExpr('toStartOfInterval(timestamp, INTERVAL 1 hour)', 'hour'),
+    selectExpr('count()', 'event_count')
+  ])
+  .groupBy('hour');
+```
+
+### Complex Calculations
+
+```ts
+const query = db.table('orders')
+  .select([
+    selectExpr('SUM(total)', 'total_revenue'),
+    selectExpr('ROUND(AVG(total), 2)', 'avg_order'),
+    selectExpr('COUNT(DISTINCT user_id)', 'unique_buyers')
+  ]);
+```
+
+### Without Alias
+
+```ts
+const query = db.table('users')
+  .select([
+    'id',
+    selectExpr('JSONExtractString(metadata, \"country\")')
+  ]);
+```
+
+## Notes
+- Use `selectExpr` whenever you need to expose an alias to downstream clauses or TypeScript.
+- The helper does not perform SQL escaping—only use trusted input when building the expression strings.
+- When you need parameterised SQL with placeholders, continue using `raw`/`rawAs` with bound parameters.

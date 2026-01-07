@@ -42,6 +42,7 @@ export { logger } from './core/utils/logger.js';
 export {
   raw,
   rawAs,
+  selectExpr,
   toDateTime,
   formatDateTime,
   toStartOfInterval,

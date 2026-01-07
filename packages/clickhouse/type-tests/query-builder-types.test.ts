@@ -1,11 +1,21 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
-import { setupTestBuilder, setupUsersBuilder, TestSchema } from '../src/core/tests/test-utils.js';
+import { CrossFilter } from '../src/core/cross-filter.js';
+import { setupTestBuilder, setupUsersBuilder, TestSchema, TEST_SCHEMAS } from '../src/core/tests/test-utils.js';
 import { createPredicateBuilder } from '../src/core/utils/predicate-builder.js';
 import { rawAs } from '../src/core/utils/sql-expressions.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
 const builder = setupTestBuilder();
 type BuilderStateType = typeof builder extends QueryBuilder<any, infer S> ? S : never;
+
+const crossFilter = new CrossFilter();
+builder.applyCrossFilters(crossFilter);
+
+const typedCrossFilter = new CrossFilter<TestSchema, 'test_table'>();
+builder.applyCrossFilters(typedCrossFilter);
+
+const inferredCrossFilter = new CrossFilter(TEST_SCHEMAS, 'test_table');
+builder.applyCrossFilters(inferredCrossFilter);
 
 const simpleSelect = builder.select(['created_at', 'price']);
 type SimpleResult = Awaited<ReturnType<typeof simpleSelect.execute>>;

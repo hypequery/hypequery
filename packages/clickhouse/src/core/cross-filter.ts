@@ -1,10 +1,14 @@
 import { FilterValidator } from './validators/filter-validator.js';
 import { FilterConditionInput, FilterOperator, OperatorValueMap } from '../types/index.js';
-import type { AnySchema, ColumnType, InferColumnType } from '../types/schema.js';
+import type { ColumnType, InferColumnType } from '../types/schema.js';
+import type { SchemaDefinition } from './types/builder-state.js';
+
+type GenericSchema = Record<string, Record<string, ColumnType>>;
+type GenericSchemaDefinition = SchemaDefinition<GenericSchema>;
 
 // Define FilterGroup interface for nested filter groups
 export interface FilterGroup<
-  Schema extends AnySchema = AnySchema,
+  Schema extends SchemaDefinition<Schema> = GenericSchemaDefinition,
   OriginalT extends Record<string, any> = Record<string, any>
 > {
   operator: 'AND' | 'OR';
@@ -24,14 +28,21 @@ export interface FilterGroup<
  * @template TableName - The specific table being filtered
  */
 export class CrossFilter<
-  Schema extends AnySchema = AnySchema,
+  Schema extends SchemaDefinition<Schema> = GenericSchemaDefinition,
   TableName extends keyof Schema & string = Extract<keyof Schema, string>
 > {
   // Root group holding filter conditions or nested groups, defaulting to an implicit AND.
   private rootGroup: FilterGroup<Schema, Schema[TableName]>;
+  private schema?: Schema;
+  private targetTable?: TableName;
 
-  // Optionally pass a schema to get full type-validation.
-  constructor(private schema?: Schema) {
+  // Optionally pass a schema (and table name) to get full type-validation.
+  constructor();
+  constructor(schema: Schema);
+  constructor(schema: Schema, tableName: TableName);
+  constructor(schema?: Schema, tableName?: TableName) {
+    this.schema = schema;
+    this.targetTable = tableName;
     this.rootGroup = { operator: 'AND', conditions: [] };
   }
 
@@ -125,7 +136,8 @@ export class CrossFilter<
     if (!this.schema) {
       return 'String';
     }
-    for (const table of Object.keys(this.schema) as Array<keyof Schema>) {
+    const tables = this.targetTable ? [this.targetTable] : (Object.keys(this.schema) as Array<keyof Schema>);
+    for (const table of tables) {
       const tableSchema = this.schema[table];
       if (column in tableSchema) {
         const columnKey = column as keyof typeof tableSchema;

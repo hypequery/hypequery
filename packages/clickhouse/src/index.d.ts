@@ -24,6 +24,7 @@ export { logger } from './core/utils/logger';
 export {
   raw,
   rawAs,
+  selectExpr,
   toDateTime,
   formatDateTime,
   toStartOfInterval,

@@ -10,10 +10,10 @@ hypequery provides a way to use raw SQL expressions and ClickHouse functions in 
 
 ## Raw SQL Expressions
 
-You can use the `raw` and `rawAs` functions to include raw SQL expressions in your queries:
+You can use the `raw`, `rawAs`, or `selectExpr` helpers to include raw SQL expressions in your queries:
 
 ```typescript
-import { raw, rawAs } from '@hypequery/clickhouse';
+import { raw, rawAs, selectExpr } from '@hypequery/clickhouse';
 
 // Using raw SQL expression
 const query = builder
@@ -21,13 +21,16 @@ const query = builder
   .select([
     'id',
     'user_id',
-    rawAs('COUNT(*)', 'total_count') // SQL function with alias
+    rawAs('COUNT(*)', 'total_count'), // SQL function with alias
+    selectExpr('toStartOfWeek(event_time)', 'week')
   ])
   .groupBy(['id', 'user_id'])
   .toSQL();
 
 // Result: SELECT id, user_id, COUNT(*) AS total_count FROM events GROUP BY id, user_id
 ```
+
+`selectExpr` combines the safety of `raw` with automatic alias handling, so the alias is immediately available to `groupBy`, `orderBy`, and the result type.
 
 ## ClickHouse Functions
 
@@ -57,7 +60,7 @@ const query = builder
 
 ## Custom Functions
 
-You can use `raw` and `rawAs` for any custom ClickHouse function:
+You can use `raw`, `rawAs`, or `selectExpr` for any custom ClickHouse function:
 
 ```typescript
 // Using custom ClickHouse functions
@@ -69,6 +72,23 @@ const query = builder
     rawAs('round(avg(duration), 2)', 'avg_duration') // Multiple functions
   ])
   .toSQL();
+```
+
+### selectExpr Helper
+
+When you need both a custom expression and an alias, `selectExpr` is the most concise option and immediately wires the alias back into the type system:
+
+```typescript
+import { selectExpr } from '@hypequery/clickhouse';
+
+const weekly = await builder
+  .table('trips')
+  .select([
+    selectExpr('toStartOfWeek(pickup_datetime)', 'week'),
+    'count() as trip_count'
+  ])
+  .groupBy('week')
+  .execute();
 ```
 
 ## Type Handling

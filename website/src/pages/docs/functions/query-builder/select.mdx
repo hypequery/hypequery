@@ -68,7 +68,7 @@ const query = db
 ### Select with Aliases
 
 ```typescript
-import { rawAs } from '@hypequery/clickhouse';
+import { rawAs, selectExpr } from '@hypequery/clickhouse';
 
 // Select columns with aliases
 const query = db
@@ -95,9 +95,9 @@ db.table('users').select([
   rawAs('email', 'user_email')
 ])
 
-// 2. Complex expressions - use 'rawAs' function
+// 2. Complex expressions - use 'rawAs' or 'selectExpr'
 db.table('users').select([
-  rawAs('LENGTH(name)', 'name_length'),
+  selectExpr('LENGTH(name)', 'name_length'),
   rawAs('UPPER(email)', 'email_uppercase')
 ])
 
@@ -111,7 +111,7 @@ db.table('orders')
 ### Select with Expressions
 
 ```typescript
-import { raw, rawAs, toDateTime } from '@hypequery/clickhouse';
+import { raw, rawAs, selectExpr, toDateTime } from '@hypequery/clickhouse';
 
 // Select with computed expressions
 const query = db
@@ -119,7 +119,7 @@ const query = db
   .select([
     'id',
     'name',
-    rawAs('LENGTH(name)', 'name_length'),
+    selectExpr('LENGTH(name)', 'name_length'),
     toDateTime('created_at', 'signup_datetime')
   ])
   .toSQL();

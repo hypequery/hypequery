@@ -22,8 +22,13 @@ export type SelectableColumn<State extends AnyBuilderState> =
   | BaseColumnKeys<State>
   | QualifiedColumnKeys<State>;
 
+type StringSelectableColumn<State extends AnyBuilderState> = Extract<SelectableColumn<State>, string>;
+type AsKeyword = 'as' | 'AS' | 'As' | 'aS';
+type AliasedColumnString<State extends AnyBuilderState> = `${StringSelectableColumn<State>} ${AsKeyword} ${string}`;
+
 export type SelectableItem<State extends AnyBuilderState> =
   | SelectableColumn<State>
+  | AliasedColumnString<State>
   | SqlExpression;
 
 export type ColumnSelectionKey<P> = P extends `${string}.${infer C}` ? C : P;
@@ -53,6 +58,24 @@ export type ColumnSelectionRecord<
   [P in Extract<K, SelectableColumn<State>> as ColumnSelectionKey<P>]: ColumnSelectionValue<State, P>;
 };
 
+type ParsedAliasedColumn<
+  State extends AnyBuilderState,
+  Entry extends string
+> = Entry extends `${infer Column} ${infer Keyword} ${infer Alias}`
+  ? Lowercase<Keyword> extends 'as'
+    ? Column extends StringSelectableColumn<State>
+      ? { [P in Alias]: ColumnSelectionValue<State, Column> }
+      : {}
+    : {}
+  : {};
+
+type AliasedColumnSelectionRecord<
+  State extends AnyBuilderState,
+  K
+> = [Extract<K, string>] extends [never]
+  ? {}
+  : UnionToIntersection<ParsedAliasedColumn<State, Extract<K, string>>>;
+
 export type ExpressionSelectionRecord<K> = UnionToIntersection<
   K extends AliasedExpression<infer R, infer A> ? { [P in A]: R } : {}
 >;
@@ -60,4 +83,8 @@ export type ExpressionSelectionRecord<K> = UnionToIntersection<
 export type SelectionResult<
   State extends AnyBuilderState,
   K
-> = Simplify<ColumnSelectionRecord<State, K> & ExpressionSelectionRecord<K>>;
+> = Simplify<
+  ColumnSelectionRecord<State, K>
+  & ExpressionSelectionRecord<K>
+  & AliasedColumnSelectionRecord<State, K>
+>;

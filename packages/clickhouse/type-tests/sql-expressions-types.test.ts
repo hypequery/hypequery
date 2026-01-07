@@ -1,4 +1,4 @@
-import { formatDateTime, toDateTime, toStartOfInterval, datePart } from '../src/core/utils/sql-expressions.js';
+import { formatDateTime, toDateTime, toStartOfInterval, datePart, selectExpr } from '../src/core/utils/sql-expressions.js';
 
 // Valid usages compile fine
 formatDateTime('created_at', 'Y-m-d H:i:s');
@@ -47,3 +47,9 @@ datePart('second', 'created_at');
  datePart('year', 123);
 // @ts-expect-error alias must be string
  datePart('year', 'created_at', 123);
+
+selectExpr('COUNT(*)');
+selectExpr('COUNT(*)', 'total');
+selectExpr<number>('toUInt32(some_column)', 'value');
+// @ts-expect-error alias must be string
+ selectExpr('COUNT(*)', 123);

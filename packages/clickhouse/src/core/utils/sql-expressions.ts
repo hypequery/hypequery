@@ -28,6 +28,18 @@ export function raw<T = unknown>(sql: string): SqlExpression<T> {
   };
 }
 
+export function selectExpr<T = unknown>(sql: string): SqlExpression<T>;
+export function selectExpr<T = unknown, Alias extends string = string>(
+  sql: string,
+  alias: Alias
+): AliasedExpression<T, Alias>;
+export function selectExpr<T = unknown>(
+  sql: string,
+  alias?: string
+): SqlExpression<T> | AliasedExpression<T> {
+  return alias ? rawAs<T>(sql, alias) : raw<T>(sql);
+}
+
 /**
  * Creates an aliased SQL expression for use in SELECT clauses
  * @param sql The SQL expression string
@@ -51,9 +63,11 @@ export function rawAs<T = unknown, Alias extends string = string>(sql: string, a
  * @param alias Optional alias for the result
  * @returns SQL expression or aliased expression
  */
-export function toDateTime<T extends string = string>(field: string, alias?: T): SqlExpression<Date> | AliasedExpression<Date, T> {
+export function toDateTime(field: string): SqlExpression<Date>;
+export function toDateTime<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toDateTime(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
   return alias
-    ? rawAs<Date, T>(`toDateTime(${field})`, alias)
+    ? rawAs<Date>(`toDateTime(${field})`, alias)
     : raw<Date>(`toDateTime(${field})`);
 }
 
@@ -62,6 +76,9 @@ export interface FormatDateTimeOptions {
   alias?: string;     // hypequery-specific feature
 }
 
+type FormatDateTimeAliasOptions<Alias extends string> = FormatDateTimeOptions & { alias: Alias };
+type FormatDateTimeNoAliasOptions = Omit<FormatDateTimeOptions, 'alias'> & { alias?: undefined };
+
 /**
  * Formats a DateTime value using the specified format
  * @param field The field or expression to format
@@ -69,11 +86,21 @@ export interface FormatDateTimeOptions {
  * @param options Optional configuration including timezone and alias
  * @returns SQL expression or aliased expression
  */
-export function formatDateTime<T extends string = string>(
+export function formatDateTime(
+  field: string,
+  format: string,
+  options?: FormatDateTimeNoAliasOptions
+): SqlExpression<string>;
+export function formatDateTime<T extends string>(
+  field: string,
+  format: string,
+  options: FormatDateTimeAliasOptions<T>
+): AliasedExpression<string, T>;
+export function formatDateTime(
   field: string,
   format: string,
   options: FormatDateTimeOptions = {}
-): SqlExpression<string> | AliasedExpression<string, T> {
+): SqlExpression<string> | AliasedExpression<string> {
   const { timezone, alias } = options;
 
   let sql = `formatDateTime(${field}, '${format}'`;
@@ -84,7 +111,7 @@ export function formatDateTime<T extends string = string>(
 
   sql += ')';
 
-  return alias ? rawAs<string, T>(sql, alias as T) : raw<string>(sql);
+  return alias ? rawAs<string>(sql, alias) : raw<string>(sql);
 }
 
 /**
@@ -94,9 +121,11 @@ export function formatDateTime<T extends string = string>(
  * @param alias Optional alias for the result
  * @returns SQL expression or aliased expression
  */
-export function toStartOfInterval<T extends string = string>(field: string, interval: string, alias?: T): SqlExpression<Date> | AliasedExpression<Date, T> {
+export function toStartOfInterval(field: string, interval: string): SqlExpression<Date>;
+export function toStartOfInterval<T extends string>(field: string, interval: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfInterval(field: string, interval: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
   return alias
-    ? rawAs<Date, T>(`toStartOfInterval(${field}, INTERVAL ${interval})`, alias)
+    ? rawAs<Date>(`toStartOfInterval(${field}, INTERVAL ${interval})`, alias)
     : raw<Date>(`toStartOfInterval(${field}, INTERVAL ${interval})`);
 }
 
@@ -107,9 +136,22 @@ export function toStartOfInterval<T extends string = string>(field: string, inte
  * @param alias Optional alias for the result
  * @returns SQL expression or aliased expression
  */
-export function datePart<T extends string = string>(part: 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second', field: string, alias?: T): SqlExpression<number> | AliasedExpression<number, T> {
+export function datePart(
+  part: 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second',
+  field: string
+): SqlExpression<number>;
+export function datePart<T extends string>(
+  part: 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second',
+  field: string,
+  alias: T
+): AliasedExpression<number, T>;
+export function datePart(
+  part: 'year' | 'quarter' | 'month' | 'week' | 'day' | 'hour' | 'minute' | 'second',
+  field: string,
+  alias?: string
+): SqlExpression<number> | AliasedExpression<number> {
   const functionName = `to${part.charAt(0).toUpperCase() + part.slice(1)}`;
   return alias
-    ? rawAs<number, T>(`${functionName}(${field})`, alias)
+    ? rawAs<number>(`${functionName}(${field})`, alias)
     : raw<number>(`${functionName}(${field})`);
 }

@@ -129,12 +129,20 @@ describe('QueryBuilder - Joins', () => {
     });
 
     it('should handle multiple joins with column selection', () => {
-      const sql = builder
+      const query = builder
         .innerJoin('users', 'created_by', 'users.id', 'u1')
         .leftJoin('users', 'updated_by', 'users.id', 'u2')
-        // @ts-expect-error - u1.user_name current type system limitation
-        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater'])
-        .toSQL();
+        .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater']);
+
+      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Expected = {
+        name: string;
+        creator: string;
+        updater: string;
+      }[];
+      type Assert = Expect<Equal<Result, Expected>>;
+
+      const sql = query.toSQL();
       expect(sql).toBe(
         'SELECT test_table.name, u1.user_name as creator, u2.user_name as updater ' +
         'FROM test_table ' +

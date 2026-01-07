@@ -1,4 +1,5 @@
-import { raw, rawAs, toDateTime, formatDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions.js';
+import { Equal, Expect } from '@type-challenges/utils';
+import { raw, rawAs, selectExpr, toDateTime, formatDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions.js';
 import { setupTestBuilder } from './test-utils.js';
 
 describe('SQL Expressions', () => {
@@ -79,6 +80,21 @@ describe('SQL Expressions', () => {
       expect(sql).toBe('SELECT id, COUNT(*) AS total FROM test_table');
     });
 
+    it('should support selectExpr helper with alias inference', () => {
+      const query = builder
+        .select([
+          selectExpr('toStartOfWeek(created_at)', 'week'),
+          'id'
+        ])
+        .groupBy('week');
+
+      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Expected = { week: unknown; id: number }[];
+      type Assert = Expect<Equal<Result, Expected>>;
+
+      expect(query.toSQL()).toBe('SELECT toStartOfWeek(created_at) AS week, id FROM test_table GROUP BY week');
+    });
+
     it('should handle ClickHouse functions with aliases', () => {
       const sql = builder
         .select([
@@ -92,16 +108,18 @@ describe('SQL Expressions', () => {
     });
 
     it('should handle ClickHouse interval functions', () => {
-      const sql = builder
+      const query = builder
         .select([
           toStartOfInterval('created_at', '1 day', 'day'),
           datePart('month', 'created_at', 'month')
         ])
-        //@ts-expect-error - current limitation of the type system
-        .groupBy(['day', 'month'])
-        .toSQL();
+        .groupBy(['day', 'month']);
 
-      expect(sql).toBe('SELECT toStartOfInterval(created_at, INTERVAL 1 day) AS day, toMonth(created_at) AS month FROM test_table GROUP BY day, month');
+      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Expected = { day: Date; month: number }[];
+      type Assert = Expect<Equal<Result, Expected>>;
+
+      expect(query.toSQL()).toBe('SELECT toStartOfInterval(created_at, INTERVAL 1 day) AS day, toMonth(created_at) AS month FROM test_table GROUP BY day, month');
     });
 
     it('should handle complex expressions with joins', () => {
