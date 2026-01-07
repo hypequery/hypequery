@@ -26,8 +26,8 @@ const slugify = (value: string) =>
     .replace(/-+/g, "-");
 
 const tableOfContents = headings
-  .filter((heading) => heading.depth === 2 || heading.depth === 3)
-  .slice(0, 4)
+  .filter((heading) => heading.depth === 2)
+  .slice(0, 12)
   .map((heading, index) => ({
     ...heading,
     slug: heading.slug || slugify(`${heading.text}-${index}`),
