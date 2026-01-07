@@ -2,8 +2,13 @@ import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { ClickHouseConnection } from '../connection.js';
 import { substituteParameters } from '../utils.js';
-import { logger } from '../utils/logger.js';
+import { logger, type QueryLog } from '../utils/logger.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
+
+interface ExecutorRunOptions {
+  queryId?: string;
+  logContext?: Partial<QueryLog>;
+}
 
 export class ExecutorFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -23,7 +28,7 @@ export class ExecutorFeature<
     return substituteParameters(sql, parameters);
   }
 
-  async execute(): Promise<State['output'][]> {
+  async execute(options?: ExecutorRunOptions): Promise<State['output'][]> {
     const client = ClickHouseConnection.getClient();
     const { sql, parameters } = this.toSQLWithParams();
     const finalSQL = substituteParameters(sql, parameters);
@@ -33,7 +38,9 @@ export class ExecutorFeature<
       query: finalSQL,
       parameters,
       startTime,
-      status: 'started'
+      status: 'started',
+      queryId: options?.queryId,
+      ...options?.logContext
     });
 
     try {
@@ -52,7 +59,10 @@ export class ExecutorFeature<
         endTime,
         duration: endTime - startTime,
         status: 'completed',
-        rowCount: rows.length
+        rowCount: rows.length,
+        queryId: options?.queryId,
+        cacheRowCount: rows.length,
+        ...options?.logContext
       });
 
       return rows;
@@ -65,7 +75,9 @@ export class ExecutorFeature<
         endTime,
         duration: endTime - startTime,
         status: 'error',
-        error: error as Error
+        error: error as Error,
+        queryId: options?.queryId,
+        ...options?.logContext
       });
       throw error;
     }

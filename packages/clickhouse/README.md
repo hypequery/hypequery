@@ -95,6 +95,39 @@ const results = await db
   .execute();
 ```
 
+## Caching (Experimental)
+
+The query builder can cache results with deterministic keys, stale-while-revalidate behavior, and pluggable providers.
+
+```typescript
+import { createQueryBuilder, MemoryCacheProvider } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'your-clickhouse-host',
+  username: 'default',
+  password: '',
+  database: 'default',
+  cache: {
+    mode: 'stale-while-revalidate',
+    ttlMs: 2_000,
+    staleTtlMs: 30_000,
+    provider: new MemoryCacheProvider({ maxEntries: 5_000 })
+  }
+});
+
+const rows = await db
+  .table('users')
+  .select(['id', 'email'])
+  .where('active', '=', true)
+  .cache({ tags: ['users'] })
+  .execute();
+
+// Programmatic invalidation
+await db.cache.invalidateTags(['users']);
+```
+
+Use `.cache()` to attach defaults to a fluent chain, pass `execute({ cache: { ... } })` for one-off overrides, or call `db.cache.*` for manual invalidation. For a deep dive on cache modes, invalidation, advanced serialization, and bring-your-own-provider recipes (Redis/Upstash, compression, etc.), see the [Caching guide](https://hypequery.com/docs/features/caching).
+
 ## Schema Generation
 
 hypequery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
@@ -222,6 +255,20 @@ const db = createQueryBuilder<IntrospectedSchema>({
 ```
 
 
+## Testing
+
+Run the fast feedback loop with:
+
+```bash
+npm run test
+```
+
+This command runs type checks + unit tests only. To exercise the ClickHouse-backed integration suite, ensure a test ClickHouse instance is available (or set the required env vars) and run:
+
+```bash
+npm run test:integration
+```
+
 ## Versioning and Release Channels
 
 hypequery follows semantic versioning and provides multiple release channels:
@@ -236,7 +283,6 @@ For detailed documentation and examples, visit our [documentation site](https://
 - [Getting Started](https://hypequery.com/docs/installation)
 - [Query Building](https://hypequery.com/docs/guides/query-building)
 - [Filtering](https://hypequery.com/docs/guides/filtering)
-- [Pagination](https://hypequery.com/docs/features/pagination)
 - [API Reference](https://hypequery.com/docs/reference/api)
 
 

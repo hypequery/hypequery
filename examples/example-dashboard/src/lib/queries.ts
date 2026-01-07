@@ -3,6 +3,7 @@ import { createClient } from "@clickhouse/client-web"
 import { DateRange } from "react-day-picker"
 import { startOfDay, endOfDay, format } from "date-fns"
 import { IntrospectedSchema } from "@/generated/generated-schema"
+import { createMemoryCache } from "./cache"
 
 function getDb() {
   // Create the ClickHouse client explicitly for browser environment
@@ -20,11 +21,98 @@ function getDb() {
 
 }
 
+function getCachedDb() {
+  const client = createClient({
+    host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST!,
+    username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,
+    password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
+    database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE,
+  });
+
+  const provider = createMemoryCache();
+  console.info('[cache] Using in-memory LRU provider for cached queries');
+
+  return createQueryBuilder<IntrospectedSchema>({
+    client,
+    cache: {
+      mode: (process.env.NEXT_PUBLIC_CACHE_MODE as 'cache-first' | 'network-first' | 'stale-while-revalidate') ?? 'stale-while-revalidate',
+      ttlMs: Number(process.env.NEXT_PUBLIC_CACHE_TTL ?? 5_000),
+      staleTtlMs: Number(process.env.NEXT_PUBLIC_CACHE_STALE_TTL ?? 60_000),
+      staleIfError: true,
+      provider,
+    }
+  });
+}
+
+export const cachedDb = getCachedDb();
+logger.configure({
+  level: 'debug',
+  enabled: true,
+  onQueryLog: log => {
+    if (log?.cacheStatus) {
+      console.info(
+        `[cache] status=${log.cacheStatus} mode=${log.cacheMode} key=${log.cacheKey ?? 'n/a'} rows=${log.cacheRowCount ?? log.rowCount ?? 'n/a'}`
+      );
+    }
+  }
+});
+
 // Configure logger to show detailed info
 logger.configure({
   level: 'debug',
   enabled: true,
+  onQueryLog: log => {
+    if (log?.cacheStatus) {
+      console.info(
+        `[cache] status=${log.cacheStatus} mode=${log.cacheMode} key=${log.cacheKey ?? 'n/a'} rows=${log.cacheRowCount ?? log.rowCount ?? 'n/a'}`
+      );
+    }
+  }
 });
+
+export async function fetchCachedAverageAmounts(filters: DateFilters = {}) {
+  const before = cachedDb.cache.getStats();
+  const queryId = `cached-average-${Date.now()}`;
+  const cacheKey = 'cached-average-amounts';
+
+  const query = cachedDb.table('trips');
+  const filter = createFilter(filters);
+  query.applyCrossFilters(filter);
+
+  const rows = await query
+    .avg('total_amount')
+    .avg('tip_amount')
+    .avg('tolls_amount')
+    .avg('fare_amount')
+    .cache({ key: cacheKey, tags: ['trips'], ttlMs: 30_000, staleTtlMs: 60_000 })
+    .execute({ queryId });
+
+  const after = cachedDb.cache.getStats();
+  let cacheStatus: 'miss' | 'hit' | 'stale-hit' | 'bypass' = 'bypass';
+  if (after.hits > before.hits) {
+    cacheStatus = 'hit';
+  } else if (after.staleHits > before.staleHits) {
+    cacheStatus = 'stale-hit';
+  } else if (after.misses > before.misses) {
+    cacheStatus = 'miss';
+  }
+
+  return {
+    summary: {
+      total: Number(rows[0]?.total_amount_avg || 0),
+      tips: Number(rows[0]?.tip_amount_avg || 0),
+      tolls: Number(rows[0]?.tolls_amount_avg || 0),
+      fare: Number(rows[0]?.fare_amount_avg || 0)
+    },
+    cacheStats: after,
+    cacheStatus,
+    queryId
+  };
+}
+
+export async function invalidateCacheDemo() {
+  await cachedDb.cache.invalidateTags(['trips']);
+}
 
 interface DateFilters {
   pickupDateRange?: DateRange
@@ -205,6 +293,44 @@ export async function fetchTrips(filters: DateFilters = {}, { pageSize = 10, aft
       total_amount: Number(row.total_amount),
     }))
   }
+}
+
+export async function fetchSummaryWithCache(filters: DateFilters = {}) {
+  const filter = createFilter(filters);
+
+  const [avgAmounts, tripStats] = await Promise.all([
+    cachedDb
+      .table('trips')
+      .applyCrossFilters(filter)
+      .avg('total_amount')
+      .avg('tip_amount')
+      .avg('fare_amount')
+      .cache({ tags: ['trips', 'summary'] })
+      .execute(),
+    cachedDb
+      .table('trips')
+      .applyCrossFilters(filter)
+      .avg('trip_distance')
+      .avg('passenger_count')
+      .cache({ tags: ['trips', 'stats'] })
+      .execute()
+  ]);
+
+  return {
+    avgAmounts: avgAmounts[0],
+    tripStats: tripStats[0]
+  };
+}
+
+export async function warmDashboardCache() {
+  await Promise.all([
+    cachedDb.table('trips').count('*', 'trip_count').cache({ tags: ['trips'], ttlMs: 30_000 }).execute(),
+    cachedDb.table('users').count('*', 'users').cache({ tags: ['users'], ttlMs: 30_000 }).execute()
+  ]);
+}
+
+export function getDashboardCacheStats() {
+  return cachedDb.cache.getStats();
 }
 
 /**

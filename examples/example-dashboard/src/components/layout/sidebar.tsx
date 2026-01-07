@@ -9,6 +9,7 @@ const navigation = [
   { name: "Dashboard (Browser)", href: "/", icon: LayoutDashboard },
   { name: "Node.js Example", href: "/nodejs-example", icon: Server },
   { name: "Streaming Demo", href: "/streaming", icon: Activity },
+  { name: "Cache Demo", href: "/cache", icon: Cloud },
   { name: "Server Streaming", href: "/streaming/server", icon: Cloud },
 ]
 

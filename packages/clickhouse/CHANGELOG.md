@@ -1,5 +1,21 @@
 # @hypequery/clickhouse Changelog
 
+## [1.4.0]
+
+### Features
+
+* add an experimental caching layer that plugs into every `execute()` call: supports `cache-first`, `network-first`, and `stale-while-revalidate` modes, per-query overrides, tag invalidation, in-flight dedupe, cache-aware logging metadata, and a `CacheController` API for warming or inspecting hit stats. Ships with a memory LRU provider plus serialization helpers and provider hooks for custom stores.
+
+* expand the example dashboard with a cache demo page (`/cache`), refresh/invalidate buttons, warming + stats API routes, and environment toggles so developers can see cache hits/misses/stale hits in real time.
+
+### Fixes / Improvements
+
+* ensure cached entries default `cacheTimeMs` to `ttlMs + staleTtlMs`, fix namespace parsing in the memory provider so tag invalidation works even when the host contains a protocol, and run `mergeCacheOptionsPartial`/`initializeCacheRuntime` helpers to keep query-builder lean.
+
+* simplify the example dashboard configuration by removing the Upstash fallback, documenting provider requirements (tag hooks/TTL handling), and adding `/api/cache/*` endpoints to warm caches and inspect hit rates.
+
+* make `npm run test` fast again (unit + type tests only) while moving integration tests behind `npm run test:integration`, and streamline `withRelation` so chained relationships reuse a single join applier.
+
 ## [1.3.2]
 
 ### Features

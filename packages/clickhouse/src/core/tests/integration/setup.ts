@@ -45,6 +45,8 @@ const config = {
   database: process.env.CLICKHOUSE_TEST_DB || 'test_db',
 };
 
+export const TEST_CONNECTION_CONFIG = config;
+
 // Initialize the ClickHouse connection
 export const initializeTestConnection = async () => {
   logger.info('Initializing ClickHouse connection with config:', config);

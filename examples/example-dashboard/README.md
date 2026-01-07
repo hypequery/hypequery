@@ -26,6 +26,27 @@ This example demonstrates how to use hypequery with different ClickHouse clients
 - Aggregates data before sending a compact payload to the browser
 - Highlights how to pair hypequery streaming with Next.js server components
 
+### 5. Cached Dashboard Helpers (internal utilities)
+- Shows how to enable caching for dashboard queries
+- Demonstrates cache warming and tag-based invalidation
+- Includes `/api/cache/warm` endpoint to pre-populate frequently accessed metrics
+- Exposes `/api/cache/stats` to inspect cache hit/miss totals in the UI or monitoring tools
+
+#### Testing caching locally
+
+```ts
+// Warm caches (POST /api/cache/warm)
+await fetch('/api/cache/warm', { method: 'POST' });
+
+// Reuse cached queries inside components
+import { fetchSummaryWithCache } from '@/lib/queries';
+const summary = await fetchSummaryWithCache();
+
+// Observe cache stats (GET /api/cache/stats)
+const stats = await fetch('/api/cache/stats').then(r => r.json());
+console.log('Cache hit rate', stats.hitRate);
+```
+
 ## Client Setup Examples
 
 ### Browser Environment
@@ -73,6 +94,11 @@ NEXT_PUBLIC_CLICKHOUSE_HOST=http://localhost:8123
 NEXT_PUBLIC_CLICKHOUSE_USER=default
 NEXT_PUBLIC_CLICKHOUSE_PASSWORD=password
 NEXT_PUBLIC_CLICKHOUSE_DATABASE=default
+NEXT_PUBLIC_CACHE_MODE=stale-while-revalidate
+NEXT_PUBLIC_CACHE_TTL=5000
+NEXT_PUBLIC_CACHE_STALE_TTL=60000
+NEXT_PUBLIC_CACHE_MAX_ENTRIES=500
+NEXT_PUBLIC_CACHE_MAX_BYTES=52428800
 ```
 
 ## Running the Example
