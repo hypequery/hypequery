@@ -244,7 +244,7 @@ describe('QueryBuilder - Where Conditions', () => {
 
     it('should handle empty whereGroup', () => {
       const sql = builder
-        .whereGroup((qb) => {
+        .whereGroup((_qb) => {
           // Empty group
         })
         .toSQL();

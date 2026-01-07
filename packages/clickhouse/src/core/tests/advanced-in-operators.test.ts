@@ -1,5 +1,4 @@
 import { setupTestBuilder } from './test-utils.js';
-import type { Equal, Expect } from '@type-challenges/utils';
 
 describe('Advanced IN Operators', () => {
   let builder: ReturnType<typeof setupTestBuilder>;

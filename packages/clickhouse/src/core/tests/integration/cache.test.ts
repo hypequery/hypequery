@@ -1,6 +1,5 @@
 import { createQueryBuilder } from '../../../index.js';
 import { MemoryCacheProvider } from '../../cache/providers/memory-lru.js';
-import { raw } from '../../utils/sql-expressions.js';
 import { logger } from '../../utils/logger.js';
 import {
   initializeTestConnection,

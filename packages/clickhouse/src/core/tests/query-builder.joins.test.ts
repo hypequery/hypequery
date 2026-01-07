@@ -1,4 +1,4 @@
-import { Equal, Expect } from '@type-challenges/utils';
+import type { Equal, Expect } from '@type-challenges/utils';
 import { setupTestBuilder } from './test-utils.js';
 
 describe('QueryBuilder - Joins', () => {
@@ -40,7 +40,7 @@ describe('QueryBuilder - Joins', () => {
 
       type Result = Awaited<ReturnType<typeof query.execute>>;
       type Expected = { id: number }[];
-      type Assert = Expect<Equal<Result, Expected>>;
+      type _Assert = Expect<Equal<Result, Expected>>;
     });
   });
 
@@ -61,7 +61,7 @@ describe('QueryBuilder - Joins', () => {
         email: string;
       }[];
 
-      type Assert = Expect<Equal<Result, Expected>>;
+      type _Assert = Expect<Equal<Result, Expected>>;
     });
 
     it('should only allow joining to valid tables', () => {
@@ -140,7 +140,7 @@ describe('QueryBuilder - Joins', () => {
         creator: string;
         updater: string;
       }[];
-      type Assert = Expect<Equal<Result, Expected>>;
+      type _Assert = Expect<Equal<Result, Expected>>;
 
       const sql = query.toSQL();
       expect(sql).toBe(
@@ -167,7 +167,7 @@ describe('QueryBuilder - Joins', () => {
           user_name: string;
         }[];
 
-        type Assert = Expect<Equal<Result, Expected>>;
+        type _Assert = Expect<Equal<Result, Expected>>;
       });
     });
 
@@ -183,7 +183,7 @@ describe('QueryBuilder - Joins', () => {
           user_name: string;
         }[];
 
-        type Assert = Expect<Equal<Result, Expected>>;
+        type _Assert = Expect<Equal<Result, Expected>>;
       });
 
     });

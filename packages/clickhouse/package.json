@@ -31,7 +31,7 @@
     "test:watch": "vitest watch --config vitest.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.config.ts",
     "test:cli": "node scripts/test-cli-integration.js",
-    "lint": "eslint src/**/*.ts",
+    "lint": "eslint --ext .ts \"src/**/*.ts\"",
     "semantic-release": "npx semantic-release",
     "release": "npx semantic-release --extends ./.releaserc.cjs --no-ci",
     "docs:api": "typedoc --options typedoc.json",

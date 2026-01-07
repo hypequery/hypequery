@@ -1,4 +1,4 @@
-import { Equal, Expect } from '@type-challenges/utils';
+import type { Equal, Expect } from '@type-challenges/utils';
 import { raw, rawAs, selectExpr, toDateTime, formatDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions.js';
 import { setupTestBuilder } from './test-utils.js';
 
@@ -90,7 +90,7 @@ describe('SQL Expressions', () => {
 
       type Result = Awaited<ReturnType<typeof query.execute>>;
       type Expected = { week: unknown; id: number }[];
-      type Assert = Expect<Equal<Result, Expected>>;
+      type _Assert = Expect<Equal<Result, Expected>>;
 
       expect(query.toSQL()).toBe('SELECT toStartOfWeek(created_at) AS week, id FROM test_table GROUP BY week');
     });
@@ -117,7 +117,7 @@ describe('SQL Expressions', () => {
 
       type Result = Awaited<ReturnType<typeof query.execute>>;
       type Expected = { day: Date; month: number }[];
-      type Assert = Expect<Equal<Result, Expected>>;
+      type _Assert = Expect<Equal<Result, Expected>>;
 
       expect(query.toSQL()).toBe('SELECT toStartOfInterval(created_at, INTERVAL 1 day) AS day, toMonth(created_at) AS month FROM test_table GROUP BY day, month');
     });

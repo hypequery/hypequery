@@ -4,8 +4,8 @@ import { ClickHouseConnection } from '../../connection.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { logger as hypeQueryLogger } from '../../utils/logger.js';
-//@ts-expect-error
-import rawTestData from './test-data.json'
+// @ts-expect-error: raw JSON import for supplying fixture data
+import rawTestData from './test-data.json';
 
 // Disable the hypequery logger to prevent "logs after tests" errors
 // This must be done early in the setup, before any queries run
@@ -15,6 +15,7 @@ hypeQueryLogger.configure({ enabled: false });
 const logger = {
   info: (message: string, ...args: any[]) => {
     if (process.env.DEBUG === 'true') {
+      console.info(`[INFO] ${message}`, ...args);
     }
   },
   error: (message: string, ...args: any[]) => {

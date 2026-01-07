@@ -4,61 +4,10 @@ import {
   setupTestDatabase,
   TEST_DATA
 } from './setup';
-import { ClickHouseConnection } from '../../connection.js';
-import { createQueryBuilder } from '../../../index.js';
-import { raw, rawAs } from '../../utils/sql-expressions.js';
+import { raw } from '../../utils/sql-expressions.js';
 
 // Skip integration tests if running in CI or if explicitly disabled
 const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';
-
-// Define types for our query results
-interface CategorySalesResult {
-  category: string;
-  total_sales: number;
-  order_count: number;
-  avg_order_value: number;
-}
-
-interface UserPurchaseResult {
-  user_id: number;
-  user_name: string;
-  total_spent: number;
-  order_count: number;
-}
-
-interface ProductPopularityResult {
-  product_id: number;
-  product_name: string;
-  total_quantity: number;
-  total_revenue: number;
-}
-
-interface OrderStatusResult {
-  status: string;
-  order_count: number;
-  percentage: number;
-}
-
-interface DailyOrdersResult {
-  order_date: string;
-  order_count: number;
-  total_sales: number;
-}
-
-interface RetentionResult {
-  user_id: number;
-  user_name: string;
-  first_order_date: string;
-  repeat_orders: number;
-}
-
-interface CohortAnalysisResult {
-  cohort_month: string;
-  cohort_size: number;
-  month_number: number;
-  active_users: number;
-  retention_rate: number;
-}
 
 describe('Integration Tests - Analytical Queries', () => {
   // Only run these tests if not skipped
@@ -257,7 +206,6 @@ describe('Integration Tests - Analytical Queries', () => {
       // Verify the calculations for each date
       for (let i = 0; i < result.length; i++) {
         const row = result[i];
-        const rowDate = row.order_date.split('T')[0]; // Format might be different
         const dateOrders = ordersByDate[uniqueDates[i]];
 
         const expectedOrderCount = dateOrders.length;

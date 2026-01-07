@@ -2,10 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createQueryBuilder } from '../query-builder.js';
 import { MemoryCacheProvider } from '../cache/providers/memory-lru.js';
 import type { CacheEntry, CacheProvider } from '../cache/types.js';
-import type { QueryBuilder } from '../query-builder.js';
-import type { QueryConfig } from '../../types/index.js';
-import { executeWithCache } from '../cache/cache-manager.js';
-import { buildRuntimeContext, resolveCacheConfig } from '../cache/runtime-context.js';
 import { logger } from '../utils/logger.js';
 
 const queryMock = vi.fn();
