@@ -1,14 +1,6 @@
 // @ts-nocheck
 
-import {
-  initializeTestConnection,
-  setupTestDatabase,
-  TestSchemaType
-} from './setup.js';
-import { ClickHouseConnection } from '../../connection.js';
-
-// Skipping tests becuase this feature is not ready
-const SKIP_INTEGRATION_TESTS = true // process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';
+// Skipping tests because this feature is not ready
 
 describe('Integration Tests - Pagination', () => {
   // Only run these tests if not skipped

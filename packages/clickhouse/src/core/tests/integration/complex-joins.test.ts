@@ -4,66 +4,7 @@ import {
   setupTestDatabase,
   TEST_DATA
 } from './setup';
-import { ClickHouseConnection } from '../../connection.js';
-import { createQueryBuilder } from '../../../index.js';
-import { TestSchemaType } from './setup.js';
 import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
-
-// Define types for our query results
-interface OrderUserResult {
-  order_id: number;
-  total: number;
-  order_status: string;
-  user_name: string;
-  email: string;
-}
-
-interface OrderProductResult {
-  order_id: number;
-  quantity: number;
-  total: number;
-  product_name: string;
-  product_price: number;
-}
-
-interface OrderUserProductResult {
-  order_id: number;
-  user_name: string;
-  product_name: string;
-  quantity: number;
-  total: number;
-  order_status: string;
-}
-
-interface UserOrdersResult {
-  user_id: number;
-  user_name: string;
-  order_count: number;
-  total_spent: number;
-}
-
-interface FilteredJoinResult {
-  order_id: number;
-  user_name: string;
-  product_name: string;
-  total: number;
-}
-
-interface UserSubqueryResult {
-  user_id: number;
-  user_name: string;
-  user_status: string;
-  completed_orders: number;
-  total_spent: number;
-}
-
-interface WindowFunctionResult {
-  order_id: number;
-  user_name: string;
-  total: number;
-  created_at: string;
-  running_total: number;
-}
 
 describe('Integration Tests - Complex Joins', () => {
   // Only run these tests if not skipped

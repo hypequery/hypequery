@@ -1,6 +1,6 @@
 import type { ReadableStream as WebReadableStream } from 'node:stream/web';
 import { createQueryBuilder } from '../../../index.js';
-import { initializeTestConnection, setupTestDatabase, TEST_DATA } from './setup.js';
+import { initializeTestConnection, setupTestDatabase } from './setup.js';
 import { logger } from '../../utils/logger.js';
 
 // Import centralized test configuration
