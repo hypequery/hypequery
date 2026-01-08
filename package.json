@@ -4,6 +4,7 @@
   "workspaces": [
     "packages/clickhouse",
     "packages/create-app",
+    "packages/serve",
     "packages/tsconfig",
     "examples/*"
   ],

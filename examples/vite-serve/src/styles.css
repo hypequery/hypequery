@@ -1,0 +1,42 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  background-color: #f4f6fb;
+  color: #0f172a;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+section {
+  background: white;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.stat {
+  font-size: 2.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.error {
+  color: #dc2626;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+td,
+th {
+  padding: 0.35rem 0.25rem;
+}

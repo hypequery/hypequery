@@ -1,0 +1,41 @@
+{
+  "name": "@hypequery/serve",
+  "version": "0.0.1",
+  "description": "Declarative HTTP server for exposing HypeQuery analytics endpoints",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "hypequery-serve": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.23.5",
+    "openapi-typescript": "^7.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

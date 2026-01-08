@@ -1,0 +1,29 @@
+{
+  "name": "vite-serve-example",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx src/server.ts",
+    "dev:web": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.11.2",
+    "@hypequery/clickhouse": "*",
+    "@hypequery/serve": "*",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "4.3.4",
+    "concurrently": "8.2.2",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "vite": "5.4.8"
+  }
+}

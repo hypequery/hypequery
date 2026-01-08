@@ -116,6 +116,24 @@ import type { IntrospectedSchema } from './generated-schema';
 const db = createQueryBuilder<IntrospectedSchema>({
   // connection details
 });
+
+## Serve CLI (optional)
+
+Jumpstart your semantic layer with the lightweight serve CLI:
+
+```bash
+# Scaffold src/hypequery.ts with defineServe boilerplate
+npx hypequery-serve init
+
+# Preview your metrics with the dev server (OpenAPI + docs)
+npx hypequery-serve dev src/hypequery.js --port 4000
+
+# Generate a typed SDK from /openapi.json
+npx hypequery-serve sdk --input ./openapi.json --output ./sdk
+```
+
+The CLI is optional—`api.execute("metric")` works without ever starting a server—but these helpers make
+it trivial to scaffold, preview, and share your queries when you need to.
 ```
 
 ## Core Features
