@@ -27,6 +27,9 @@ core/cache/serialization.js
 core/cache/types.d.ts
 core/cache/types.d.ts.map
 core/cache/types.js
+core/cache/utils.d.ts
+core/cache/utils.d.ts.map
+core/cache/utils.js
 core/connection.d.ts
 core/connection.d.ts.map
 core/connection.js

@@ -2,6 +2,7 @@
   "name": "hypequery-monorepo",
   "private": true,
   "workspaces": [
+    "packages/cli",
     "packages/clickhouse",
     "packages/create-app",
     "packages/serve",
