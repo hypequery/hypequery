@@ -7,7 +7,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "hypequery-serve": "dist/cli.js"
+    "hypequery": "dist/cli.js"
   },
   "exports": {
     ".": {
@@ -30,8 +30,17 @@
     "zod-to-json-schema": "^3.23.5",
     "openapi-typescript": "^7.4.2"
   },
+  "peerDependencies": {
+    "tsx": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "tsx": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^20.11.30",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^2.1.6"
   },

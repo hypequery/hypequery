@@ -7,7 +7,7 @@ import type {
   ServeRequest,
   ServeResponse,
   StartServerOptions,
-} from "../types";
+} from "../types.js";
 
 const readRequestBody = async (req: IncomingMessage): Promise<Buffer> => {
   const chunks: Buffer[] = [];
@@ -99,7 +99,16 @@ const sendResponse = (res: ServerResponse, response: ServeResponse) => {
     res.setHeader("content-type", "application/json; charset=utf-8");
   }
 
-  res.end(JSON.stringify(response.body ?? null));
+  const contentType = res.getHeader("content-type");
+  const isJson = typeof contentType === "string" && contentType.includes("application/json");
+
+  if (isJson) {
+    res.end(JSON.stringify(response.body ?? null));
+  } else if (typeof response.body === "string") {
+    res.end(response.body);
+  } else {
+    res.end(JSON.stringify(response.body ?? null));
+  }
 };
 
 const sendError = (res: ServerResponse, error: unknown) => {

@@ -11,7 +11,7 @@ import type {
   QueryResolverArgs,
   ServeEndpoint,
   ServeQueryConfig,
-} from "./types";
+} from "./types.js";
 
 type QueryDefinition = ServeQueryConfig<any, any, any> | ExecutableQuery<any, any, any>;
 
@@ -65,6 +65,7 @@ export const createEndpoint = (
     requiresAuth: normalized.auth ? true : undefined,
     deprecated: undefined,
     visibility: "public",
+    custom: normalized.custom,
   };
   const runner = resolveQueryRunner(normalized.query);
 
@@ -88,6 +89,7 @@ export const createEndpoint = (
     query: normalized.query,
     middlewares: normalized.middlewares ?? [],
     auth: normalized.auth ?? null,
+    tenant: normalized.tenant,
     metadata,
     cacheTtlMs: normalized.cacheTtlMs ?? null,
     defaultHeaders: undefined,

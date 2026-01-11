@@ -1,4 +1,4 @@
-import type { EndpointRegistry, HttpMethod, ServeEndpoint } from "./types";
+import type { EndpointRegistry, HttpMethod, ServeEndpoint } from "./types.js";
 
 const trimSlashes = (value: string) => value.replace(/^\/+|\/+$/g, "");
 

@@ -1,0 +1,234 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Query Building - hypequery
+description: Learn how to build powerful queries with hypequery's fluent API
+---
+
+# Query Building
+
+hypequery gives you a fluent, strongly typed builder for composing SQL. This page consolidates every core clause—from `select()` through `execute()`—so you can skim one guide instead of jumping between tiny references.
+
+## Basic queries
+
+Start by choosing a table, projecting columns, and running the query:
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<Schema>();
+
+const results = await db
+  .table('users')
+  .select(['id', 'name', 'email'])
+  .execute();
+```
+
+## Selecting columns
+
+### Select only what you need
+
+```typescript
+const query = db
+  .table('users')
+  .select(['id', 'name', 'created_at'])
+  .toSQL();
+// SELECT id, name, created_at FROM users
+```
+
+Pass `'*'` to select every column or mix in aliased expressions:
+
+```typescript
+import { rawAs, selectExpr, toDateTime } from '@hypequery/clickhouse';
+
+db.table('users').select([
+  'id',
+  rawAs('name', 'display_name'),
+  selectExpr('LENGTH(name)', 'name_length'),
+  toDateTime('created_at', 'signed_up_at')
+]);
+```
+
+You can also reference columns from joined tables (`'orders.total'`) or reuse aggregates (`sum('amount', 'total')`) directly in `select()`.
+
+## Filtering rows
+
+`where()` clauses accept column/operator/value triples, prebuilt expressions, or a predicate builder callback.
+
+```typescript
+const adultsInUS = db
+  .table('users')
+  .where('age', 'gte', 18)
+  .where('country', 'eq', 'US')
+  .execute();
+```
+
+Operator cheatsheet:
+
+| Operator | Description |
+| --- | --- |
+| `eq`, `neq` | equality / inequality |
+| `gt`, `gte`, `lt`, `lte` | numeric comparisons |
+| `like`, `notLike` | pattern matches |
+| `in`, `notIn` | membership tests |
+| `between` | inclusive range |
+
+Use `orWhere` plus grouping helpers for complex logic:
+
+```typescript
+const filtered = db
+  .table('orders')
+  .whereGroup((and) => {
+    and.where('status', 'eq', 'completed').orWhere('priority', 'eq', 'high');
+  })
+  .orWhereGroup((or) => {
+    or.where('total', 'gte', 10_000).where('country', 'eq', 'US');
+  })
+  .execute();
+```
+
+For raw predicate control, use the callback form: `where((expr) => expr.fn('lowerUTF8', 'email').like('%@company.com'))`.
+
+## Joining tables
+
+Join helpers accept the target table plus the join keys; TypeScript ensures both sides exist.
+
+```typescript
+const orders = await db
+  .table('orders')
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'orders.total',
+    rawAs('users.name', 'customer_name'),
+  ])
+  .execute();
+```
+
+Available join types: `innerJoin`, `leftJoin`, `rightJoin`, and `fullJoin`. If you defined relationships via `withRelation()`, you can skip the join keys: `db.table('orders').withRelation('orders.user')`.
+
+## Aggregations & grouping
+
+Combine aggregations with `groupBy()` to build rollups:
+
+```typescript
+const spendByUser = await db
+  .table('orders')
+  .select(['user_id'])
+  .sum('total', 'total_spent')
+  .count('id', 'order_count')
+  .groupBy(['user_id'])
+  .execute();
+```
+
+Common helper methods include `sum`, `avg`, `min`, `max`, and `distinctCount`. You can pass column names or expressions to `groupBy()`; use array syntax for multi-column groups.
+
+### HAVING filters
+
+Call `having()` to filter aggregated rows. Each call is AND-ed automatically:
+
+```typescript
+const whales = await db
+  .table('orders')
+  .select(['user_id'])
+  .sum('total', 'total_spent')
+  .groupBy(['user_id'])
+  .having('total_spent > 5000')
+  .having('count() >= 3')
+  .execute();
+```
+
+## Ordering & pagination
+
+Chain `orderBy()` calls for multi-column sorting, then clamp the result set with `limit()` / `offset()`:
+
+```typescript
+const newest = await db
+  .table('posts')
+  .select(['id', 'title', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .orderBy('title', 'ASC')
+  .limit(20)
+  .offset(40)
+  .execute();
+```
+
+Both `limit()` and `offset()` validate that you pass non-negative numbers.
+
+## Distinct rows
+
+Add `distinct()` anywhere in the chain to remove duplicates:
+
+```typescript
+const countries = await db
+  .table('users')
+  .select(['country'])
+  .distinct()
+  .execute();
+```
+
+## Common table expressions (CTEs)
+
+Reuse subqueries via `withCTE(alias, subquery)`:
+
+```typescript
+const activeUsers = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
+
+const recent = await db
+  .table('orders')
+  .withCTE('active_users', activeUsers)
+  .leftJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select(['orders.id', 'active_users.name'])
+  .execute();
+```
+
+You can register multiple CTEs by chaining `withCTE()` calls. Passing a raw SQL string is allowed, but you lose type safety for that chunk.
+
+## Running queries
+
+Use `execute()` when you need results, or `toSQL()`/`toSQLWithParams()` for debugging and logging:
+
+```typescript
+const sql = db
+  .table('orders')
+  .select(['user_id'])
+  .sum('total', 'total_spent')
+  .where('total', 'gte', 1000)
+  .groupBy(['user_id'])
+  .toSQL();
+// -> SELECT user_id, SUM(total) AS total_spent ...
+
+const results = await db
+  .table('orders')
+  .select(['id', 'total'])
+  .execute();
+```
+
+Need streaming? Use `stream()` to grab a `ReadableStream` or `streamForEach()` to iterate row-by-row without buffering the full result set.
+
+## Type safety recap
+
+All builder calls are typed based on your schema definition:
+
+```typescript
+interface Schema {
+  orders: {
+    id: 'UInt32';
+    user_id: 'UInt32';
+    total: 'Float64';
+    created_at: 'DateTime';
+  };
+}
+
+db.table('orders').select(['id', 'total']); // ✅
+db.table('orders').where('total', 'gt', 500); // ✅
+db.table('orders').select(['missing']); // ❌ compile-time error
+```
+
+## Next steps
+
+- Define reusable metrics with [Metric Modules](/docs/define/metric-modules)
+- Model complex schemas and relationships in [Schema Modeling](/docs/define/schema-modeling)
+- Learn cursor pagination patterns in [Pagination](/docs/define/pagination)

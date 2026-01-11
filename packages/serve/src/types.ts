@@ -49,7 +49,7 @@ export interface ServeError extends Error {
 
 export type EndpointVisibility = "public" | "internal" | "private";
 
-export interface EndpointMetadata {
+export interface EndpointMetadata<TCustom = Record<string, unknown>> {
   path: string;
   method: HttpMethod;
   summary?: string;
@@ -59,14 +59,59 @@ export interface EndpointMetadata {
   requiresAuth?: boolean;
   cacheTtlMs?: number | null;
   visibility: EndpointVisibility;
+  /** Custom metadata fields for application-specific use cases */
+  custom?: TCustom;
 }
 
 export interface AuthContext {
-  user?: unknown;
-  apiKey?: string;
+  userId?: string;
+  roles?: string[];
   scopes?: string[];
+  tenantId?: string;
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
+}
+
+/**
+ * Configuration for multi-tenant query isolation.
+ * Automatically enforces tenant-scoped data access.
+ */
+export interface TenantConfig<TAuth extends AuthContext = AuthContext> {
+  /**
+   * Function to extract the tenant ID from the auth context.
+   * @example
+   * extract: (auth) => auth.tenantId
+   * extract: (auth) => auth.organizationId
+   */
+  extract: (auth: TAuth) => string | null | undefined;
+
+  /**
+   * Whether tenant context is required.
+   * If true, requests without a valid tenant ID will be rejected.
+   * @default true
+   */
+  required?: boolean;
+
+  /**
+   * Column name for tenant filtering (e.g., 'organization_id', 'tenant_id').
+   * When specified with mode='auto-inject', provides tenant-scoped query helpers.
+   * @example
+   * column: 'organization_id'
+   */
+  column?: string;
+
+  /**
+   * Tenant isolation mode.
+   * - 'auto-inject': Provides tenant-scoped query helpers in context (recommended)
+   * - 'manual': Developer must manually filter queries (for complex cases)
+   * @default 'manual'
+   */
+  mode?: 'auto-inject' | 'manual';
+
+  /**
+   * Custom error message when tenant validation fails.
+   */
+  errorMessage?: string;
 }
 
 export interface AuthStrategyContext {
@@ -82,6 +127,8 @@ export type EndpointContext<TInput = unknown, TAuth extends AuthContext = AuthCo
   QueryRuntimeContext<TAuth> & {
     input: TInput;
     metadata: EndpointMetadata;
+    /** Extracted tenant ID if tenant config is enabled */
+    tenantId?: string;
   };
 
 export type EndpointHandler<
@@ -160,6 +207,7 @@ export interface ServeEndpoint<
   query?: ExecutableQuery<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>;
   middlewares: ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>[];
   auth?: AuthStrategy<TAuth> | null;
+  tenant?: TenantConfig<TAuth>;
   metadata: EndpointMetadata;
   cacheTtlMs?: number | null;
   defaultHeaders?: Record<string, string>;
@@ -180,7 +228,10 @@ export interface ServeQueryConfig<
   outputSchema?: TOutputSchema;
   middlewares?: ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>[];
   auth?: AuthStrategy<TAuth> | null;
+  tenant?: TenantConfig<TAuth>;
   cacheTtlMs?: number | null;
+  /** Custom metadata for application-specific use cases */
+  custom?: Record<string, unknown>;
 }
 
 export type ServeQueriesMap = Record<
@@ -262,10 +313,13 @@ export interface ServeConfig<
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
+  /** Global tenant configuration applied to all queries (can be overridden per-query) */
+  tenant?: TenantConfig<TAuth>;
   docs?: DocsOptions;
   openapi?: OpenApiOptions;
   sdk?: SdkGeneratorOptions;
   context?: ServeContextFactory<TAuth>;
+  hooks?: ServeLifecycleHooks<TAuth>;
 }
 
 export interface RouteRegistrationOptions {
@@ -314,6 +368,41 @@ export interface ServeBuilder<
   start(options?: StartServerOptions): Promise<ServeStartResult>;
 }
 
+export interface RequestLifecycleBase<TAuth extends AuthContext = AuthContext> {
+  requestId: string;
+  queryKey: string;
+  metadata: EndpointMetadata;
+  request: ServeRequest;
+  auth: TAuth | null;
+}
+
+export interface RequestStartEvent<TAuth extends AuthContext = AuthContext>
+  extends RequestLifecycleBase<TAuth> {}
+
+export interface RequestEndEvent<TAuth extends AuthContext = AuthContext>
+  extends RequestLifecycleBase<TAuth> {
+  durationMs: number;
+  result: unknown;
+}
+
+export interface RequestErrorEvent<TAuth extends AuthContext = AuthContext>
+  extends RequestLifecycleBase<TAuth> {
+  durationMs: number;
+  error: unknown;
+}
+
+export interface AuthFailureEvent<TAuth extends AuthContext = AuthContext>
+  extends RequestLifecycleBase<TAuth> {
+  reason: "MISSING" | "INVALID";
+}
+
+export interface ServeLifecycleHooks<TAuth extends AuthContext = AuthContext> {
+  onRequestStart?: (event: RequestStartEvent<TAuth>) => MaybePromise<void>;
+  onRequestEnd?: (event: RequestEndEvent<TAuth>) => MaybePromise<void>;
+  onError?: (event: RequestErrorEvent<TAuth>) => MaybePromise<void>;
+  onAuthFailure?: (event: AuthFailureEvent<TAuth>) => MaybePromise<void>;
+}
+
 export interface ToolkitDescription {
   basePath?: string;
   queries: Array<ToolkitQueryDescription>;
@@ -328,8 +417,10 @@ export interface ToolkitQueryDescription {
   tags: string[];
   visibility: EndpointVisibility;
   requiresAuth: boolean;
+  requiresTenant?: boolean;
   inputSchema?: unknown;
   outputSchema?: unknown;
+  custom?: Record<string, unknown>;
 }
 
 export interface EndpointRegistry {
@@ -344,7 +435,7 @@ export interface ServeStartResult {
 
 export type FetchHandler = (request: Request) => Promise<Response>;
 
-type MaybePromise<T> = Promise<T> | T;
+export type MaybePromise<T> = Promise<T> | T;
 
 export type ServeContextFactory<TAuth extends AuthContext> =
   | Record<string, unknown>

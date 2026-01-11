@@ -1,0 +1,568 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Input/output schemas
+description: Validate requests and responses with Zod schemas for type-safe APIs
+---
+
+<div class="prose">
+
+# Input/output schemas
+
+Use Zod schemas to validate incoming requests and document expected responses. This provides runtime validation, compile-time type safety, and automatic OpenAPI schema generation.
+
+## Why schemas?
+
+Schemas provide:
+- **Runtime validation** - Reject invalid requests before query execution
+- **Type safety** - Full TypeScript inference from Zod to your handlers
+- **Auto-documentation** - OpenAPI schemas generated automatically
+- **Error handling** - Detailed validation errors returned to clients
+- **AI agent compatibility** - JSON Schema for tool discovery
+
+## Input schemas
+
+Define what data your endpoint accepts:
+
+```typescript
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+
+const api = defineServe({
+  queries: {
+    revenue: {
+      inputSchema: z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+        currency: z.enum(['USD', 'EUR', 'GBP']).default('USD'),
+        includeRefunds: z.boolean().optional(),
+      }),
+      query: async ({ input }) => {
+        // input is fully typed based on inputSchema!
+        const { startDate, endDate, currency, includeRefunds } = input;
+
+        return db.table('transactions')
+          .where('date', '>=', startDate)
+          .where('date', '<=', endDate)
+          .where('currency', currency)
+          .sum('amount');
+      },
+    },
+  },
+});
+```
+
+### Validation errors
+
+Invalid requests return detailed error messages:
+
+```json
+{
+  "error": {
+    "type": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": {
+      "issues": [
+        {
+          "code": "invalid_type",
+          "expected": "string",
+          "received": "number",
+          "path": ["startDate"],
+          "message": "Expected string, received number"
+        }
+      ]
+    }
+  }
+}
+```
+
+## Output schemas
+
+Document what your endpoint returns:
+
+```typescript
+queries: {
+  revenue: {
+    inputSchema: z.object({
+      startDate: z.string(),
+      endDate: z.string(),
+    }),
+    outputSchema: z.object({
+      total: z.number(),
+      currency: z.string(),
+      breakdown: z.array(z.object({
+        date: z.string(),
+        amount: z.number(),
+        transactionCount: z.number(),
+      })),
+      metadata: z.object({
+        generatedAt: z.string(),
+        queryDurationMs: z.number(),
+      }),
+    }),
+    query: async ({ input }) => {
+      // Return value is type-checked against outputSchema
+      return {
+        total: 42000,
+        currency: 'USD',
+        breakdown: [
+          { date: '2025-01-01', amount: 10000, transactionCount: 50 },
+          { date: '2025-01-02', amount: 12000, transactionCount: 60 },
+        ],
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          queryDurationMs: 123,
+        },
+      };
+    },
+  },
+}
+```
+
+## Common schema patterns
+
+### Date ranges
+
+```typescript
+const dateRangeSchema = z.object({
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+}).refine(
+  (data) => new Date(data.startDate) < new Date(data.endDate),
+  { message: 'startDate must be before endDate' }
+);
+
+queries: {
+  metrics: {
+    inputSchema: dateRangeSchema,
+    query: async ({ input }) => { /* ... */ },
+  },
+}
+```
+
+### Pagination
+
+```typescript
+const paginationSchema = z.object({
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().min(1).max(100).default(20),
+});
+
+queries: {
+  users: {
+    inputSchema: paginationSchema,
+    outputSchema: z.object({
+      data: z.array(z.object({
+        id: z.string(),
+        email: z.string(),
+        name: z.string(),
+      })),
+      pagination: z.object({
+        page: z.number(),
+        pageSize: z.number(),
+        totalPages: z.number(),
+        totalCount: z.number(),
+      }),
+    }),
+    query: async ({ input }) => {
+      const { page, pageSize } = input;
+      const offset = (page - 1) * pageSize;
+
+      const [data, totalCount] = await Promise.all([
+        db.table('users').limit(pageSize).offset(offset).select('*'),
+        db.table('users').count('*'),
+      ]);
+
+      return {
+        data,
+        pagination: {
+          page,
+          pageSize,
+          totalPages: Math.ceil(totalCount / pageSize),
+          totalCount,
+        },
+      };
+    },
+  },
+}
+```
+
+### Filters
+
+```typescript
+const filterSchema = z.object({
+  status: z.enum(['pending', 'completed', 'cancelled']).optional(),
+  minAmount: z.number().positive().optional(),
+  maxAmount: z.number().positive().optional(),
+  userId: z.string().uuid().optional(),
+  tags: z.array(z.string()).optional(),
+}).refine(
+  (data) => !data.minAmount || !data.maxAmount || data.minAmount < data.maxAmount,
+  { message: 'minAmount must be less than maxAmount' }
+);
+
+queries: {
+  transactions: {
+    inputSchema: filterSchema,
+    query: async ({ input }) => {
+      let query = db.table('transactions');
+
+      if (input.status) {
+        query = query.where('status', input.status);
+      }
+      if (input.minAmount) {
+        query = query.where('amount', '>=', input.minAmount);
+      }
+      if (input.maxAmount) {
+        query = query.where('amount', '<=', input.maxAmount);
+      }
+      if (input.userId) {
+        query = query.where('user_id', input.userId);
+      }
+      if (input.tags?.length) {
+        query = query.whereIn('tag', input.tags);
+      }
+
+      return query.select('*');
+    },
+  },
+}
+```
+
+### Unions and discriminated unions
+
+```typescript
+const reportSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('revenue'),
+    currency: z.enum(['USD', 'EUR']),
+    includeRefunds: z.boolean(),
+  }),
+  z.object({
+    type: z.literal('users'),
+    includeInactive: z.boolean(),
+    segment: z.enum(['free', 'paid', 'enterprise']),
+  }),
+  z.object({
+    type: z.literal('performance'),
+    metric: z.enum(['latency', 'throughput', 'errors']),
+    percentile: z.number().min(50).max(99),
+  }),
+]);
+
+queries: {
+  generateReport: {
+    inputSchema: reportSchema,
+    query: async ({ input }) => {
+      switch (input.type) {
+        case 'revenue':
+          return generateRevenueReport(input.currency, input.includeRefunds);
+        case 'users':
+          return generateUserReport(input.includeInactive, input.segment);
+        case 'performance':
+          return generatePerformanceReport(input.metric, input.percentile);
+      }
+    },
+  },
+}
+```
+
+## Reusable schemas
+
+Define shared schemas once and reuse them:
+
+```typescript
+// schemas/common.ts
+import { z } from 'zod';
+
+export const dateRangeSchema = z.object({
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+});
+
+export const currencySchema = z.enum(['USD', 'EUR', 'GBP', 'JPY']);
+
+export const paginationInputSchema = z.object({
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().min(1).max(100).default(20),
+});
+
+export const paginationOutputSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
+  z.object({
+    data: z.array(dataSchema),
+    pagination: z.object({
+      page: z.number(),
+      pageSize: z.number(),
+      totalPages: z.number(),
+      totalCount: z.number(),
+    }),
+  });
+
+// api/index.ts
+import { dateRangeSchema, currencySchema, paginationOutputSchema } from './schemas/common';
+
+const userSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  name: z.string(),
+});
+
+const api = defineServe({
+  queries: {
+    revenue: {
+      inputSchema: dateRangeSchema.extend({
+        currency: currencySchema,
+      }),
+      query: async ({ input }) => { /* ... */ },
+    },
+    users: {
+      inputSchema: paginationInputSchema,
+      outputSchema: paginationOutputSchema(userSchema),
+      query: async ({ input }) => { /* ... */ },
+    },
+  },
+});
+```
+
+## Type inference
+
+TypeScript automatically infers types from your schemas:
+
+```typescript
+const userSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  age: z.number().int().positive().optional(),
+});
+
+type User = z.infer<typeof userSchema>;
+// type User = {
+//   id: string;
+//   email: string;
+//   name: string;
+//   age?: number | undefined;
+// }
+
+queries: {
+  createUser: {
+    inputSchema: userSchema,
+    outputSchema: userSchema.extend({
+      createdAt: z.string().datetime(),
+    }),
+    query: async ({ input }) => {
+      // input: User (fully typed!)
+      const user = await db.table('users').insert(input).returning('*');
+
+      return {
+        ...user,
+        createdAt: new Date().toISOString(),
+      };
+    },
+  },
+}
+```
+
+## OpenAPI generation
+
+Schemas automatically generate OpenAPI documentation:
+
+```typescript
+queries: {
+  revenue: {
+    inputSchema: z.object({
+      startDate: z.string().datetime().describe('Start of date range (ISO 8601)'),
+      endDate: z.string().datetime().describe('End of date range (ISO 8601)'),
+      currency: z.enum(['USD', 'EUR']).default('USD').describe('Currency code'),
+    }),
+    outputSchema: z.object({
+      total: z.number().describe('Total revenue in specified currency'),
+      transactionCount: z.number().int().describe('Number of transactions'),
+    }),
+    summary: 'Get revenue for date range',
+    description: 'Returns total revenue and transaction count',
+    query: async ({ input }) => { /* ... */ },
+  },
+}
+
+// Auto-generates OpenAPI spec:
+// {
+//   "/metrics/revenue": {
+//     "get": {
+//       "summary": "Get revenue for date range",
+//       "description": "Returns total revenue and transaction count",
+//       "parameters": [
+//         {
+//           "name": "startDate",
+//           "in": "query",
+//           "description": "Start of date range (ISO 8601)",
+//           "required": true,
+//           "schema": { "type": "string", "format": "date-time" }
+//         },
+//         ...
+//       ],
+//       "responses": {
+//         "200": {
+//           "description": "Successful response",
+//           "content": {
+//             "application/json": {
+//               "schema": {
+//                 "type": "object",
+//                 "properties": {
+//                   "total": { "type": "number", "description": "Total revenue..." },
+//                   "transactionCount": { "type": "integer", "description": "Number of..." }
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
+```
+
+## Best practices
+
+### 1. Use `.describe()` for documentation
+
+```typescript
+// ✅ Good - rich documentation
+inputSchema: z.object({
+  userId: z.string().uuid().describe('Unique identifier for the user'),
+  includeInactive: z.boolean()
+    .default(false)
+    .describe('Include users who have been deactivated'),
+})
+
+// ❌ Missing context
+inputSchema: z.object({
+  userId: z.string().uuid(),
+  includeInactive: z.boolean().default(false),
+})
+```
+
+### 2. Provide sensible defaults
+
+```typescript
+// ✅ Good - works without optional params
+inputSchema: z.object({
+  page: z.number().default(1),
+  pageSize: z.number().default(20),
+  sortBy: z.enum(['date', 'amount']).default('date'),
+})
+
+// ⚠️ Forces users to provide every field
+inputSchema: z.object({
+  page: z.number(),
+  pageSize: z.number(),
+  sortBy: z.enum(['date', 'amount']),
+})
+```
+
+### 3. Validate business logic
+
+```typescript
+// ✅ Good - enforces business rules
+inputSchema: z.object({
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+}).refine(
+  (data) => {
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+    const daysDiff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff <= 90;
+  },
+  { message: 'Date range cannot exceed 90 days' }
+)
+```
+
+### 4. Keep schemas close to usage
+
+```typescript
+// ✅ Good - easy to maintain
+queries: {
+  revenue: {
+    inputSchema: z.object({ /* ... */ }),
+    outputSchema: z.object({ /* ... */ }),
+    query: async ({ input }) => { /* ... */ },
+  },
+}
+
+// ⚠️ Harder to maintain - split across files
+// schemas/revenue.ts
+export const revenueInput = z.object({ /* ... */ });
+
+// queries/revenue.ts
+import { revenueInput } from '../schemas/revenue';
+queries: {
+  revenue: {
+    inputSchema: revenueInput,
+    query: async ({ input }) => { /* ... */ },
+  },
+}
+```
+
+## Advanced patterns
+
+### Conditional validation
+
+```typescript
+inputSchema: z.object({
+  paymentMethod: z.enum(['card', 'bank_transfer']),
+  cardNumber: z.string().optional(),
+  accountNumber: z.string().optional(),
+}).refine(
+  (data) => {
+    if (data.paymentMethod === 'card') {
+      return !!data.cardNumber;
+    }
+    if (data.paymentMethod === 'bank_transfer') {
+      return !!data.accountNumber;
+    }
+    return true;
+  },
+  {
+    message: 'cardNumber required for card payments, accountNumber for bank transfers',
+  }
+)
+```
+
+### Transform and preprocess
+
+```typescript
+inputSchema: z.object({
+  email: z.string().email().transform(s => s.toLowerCase()),
+  tags: z.string().transform(s => s.split(',').map(t => t.trim())),
+  createdAt: z.string().pipe(z.coerce.date()),
+})
+
+// Input: { email: "USER@EXAMPLE.COM", tags: "urgent, review", createdAt: "2025-01-01" }
+// Transformed: { email: "user@example.com", tags: ["urgent", "review"], createdAt: Date(...) }
+```
+
+### Recursive schemas
+
+```typescript
+type Category = {
+  id: string;
+  name: string;
+  children?: Category[];
+};
+
+const categorySchema: z.ZodType<Category> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    children: z.array(categorySchema).optional(),
+  })
+);
+```
+
+## Next steps
+
+- Learn about [Query definitions](/docs/define/metric-modules) for endpoint configuration
+- Add [Custom metadata](/docs/ship/custom-metadata) to enrich schemas
+- Explore [HTTP + OpenAPI](/docs/ship/http-openapi) for auto-generated docs
+
+</div>

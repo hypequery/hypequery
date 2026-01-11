@@ -1,0 +1,86 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Internal Dashboards
+description: Power dashboards with hypequery metrics via HTTP APIs
+---
+
+# Internal Dashboards
+
+Use hypequery to expose a curated, type-safe API for internal dashboards and BI tools.
+
+## Use Case
+
+You want to:
+- Build internal dashboards with consistent metrics
+- Prevent SQL duplication across tools
+- Maintain a single source of truth for business logic
+- Give teams self-service access to approved metrics
+
+## Pattern: Serve HTTP API
+
+Use `hypequery serve` to expose metrics over HTTP:
+
+```typescript
+// Define your metrics
+export const revenueMetrics = defineServe({
+  metrics: {
+    weeklyRevenue: {
+      handler: async ({ startDate, endDate }) => {
+        return await createQueryBuilder(orders)
+          .where({ created_at: { gte: startDate, lte: endDate } })
+          .select(['date', 'sum(amount) as revenue'])
+          .groupBy('date')
+          .execute();
+      },
+      input: z.object({
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+    },
+  },
+});
+```
+
+```bash
+# Start the server
+hypequery serve dev
+```
+
+## Frontend Integration
+
+Call from your dashboard frontend:
+
+```typescript
+// React component
+import { api } from './generated/client';
+
+function RevenueDashboard() {
+  const { data } = useQuery(['revenue'], () =>
+    api.run('weeklyRevenue', {
+      startDate: '2024-01-01',
+      endDate: '2024-01-31',
+    })
+  );
+
+  return <Chart data={data} />;
+}
+```
+
+## With BI Tools
+
+Some BI tools can consume OpenAPI specs:
+
+1. Generate OpenAPI spec: `hypequery openapi`
+2. Import into your BI tool (Retool, Metabase, etc.)
+3. Build dashboards using pre-defined metrics
+
+## Benefits
+
+- **No SQL in dashboards**: Dashboards call named metrics, not raw SQL
+- **Consistent logic**: All dashboards use the same metric definitions
+- **Type safety**: Generated SDKs provide autocompletion
+- **Change propagation**: Update a metric once, all dashboards update
+
+---
+
+**Related**: [HTTP & OpenAPI](/docs/ship/http-openapi) | [AI Agents](/docs/recipes/ai-agents)

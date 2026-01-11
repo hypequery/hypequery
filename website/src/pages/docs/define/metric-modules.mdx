@@ -1,0 +1,466 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Query definitions
+description: Define API endpoints with defineServe for type-safe query execution
+---
+
+<div class="prose">
+
+# Query definitions
+
+Transform your HypeQuery metrics into HTTP endpoints using `defineServe`. This creates a type-safe, self-documenting API layer that can be consumed via HTTP, executed directly, or called from AI agents.
+
+## Basic structure
+
+A query definition wraps your metric logic with metadata, validation, and routing:
+
+```typescript
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+
+const api = defineServe({
+  queries: {
+    weeklyRevenue: {
+      query: async ({ input }) => {
+        return db.table('transactions')
+          .where('date', '>=', input.startDate)
+          .where('date', '<=', input.endDate)
+          .sum('amount');
+      },
+      inputSchema: z.object({
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+      outputSchema: z.object({
+        total: z.number(),
+      }),
+      summary: 'Get weekly revenue totals',
+      description: 'Returns sum of all transactions for a date range',
+      tags: ['revenue', 'analytics'],
+    },
+  },
+});
+
+// Register HTTP route
+api.route('/metrics/weekly-revenue', api.queries.weeklyRevenue);
+```
+
+## Query configuration
+
+Each query accepts the following options:
+
+### `query` (required)
+
+The core function that executes your metric logic:
+
+```typescript
+query: async ({ input, ctx }) => {
+  // input: validated request payload
+  // ctx: request context (auth, tenantId, locals, etc.)
+
+  return db.table('orders')
+    .where('created_at', '>=', input.startDate)
+    .select('*');
+}
+```
+
+### `inputSchema` (optional)
+
+Zod schema for request validation:
+
+```typescript
+inputSchema: z.object({
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  status: z.enum(['pending', 'completed']).optional(),
+})
+```
+
+### `outputSchema` (optional)
+
+Zod schema for response typing and documentation:
+
+```typescript
+outputSchema: z.object({
+  total: z.number(),
+  currency: z.string(),
+  breakdown: z.array(z.object({
+    date: z.string(),
+    amount: z.number(),
+  })),
+})
+```
+
+### `method` (optional)
+
+HTTP method for this query. Defaults to `GET`:
+
+```typescript
+method: 'POST' // or 'GET', 'PUT', 'PATCH', 'DELETE'
+```
+
+### `summary` (optional)
+
+Short description for OpenAPI documentation:
+
+```typescript
+summary: 'Get weekly revenue totals'
+```
+
+### `description` (optional)
+
+Detailed description for documentation:
+
+```typescript
+description: 'Returns the sum of all transactions within a given date range, grouped by day'
+```
+
+### `tags` (optional)
+
+Tags for grouping in OpenAPI/documentation:
+
+```typescript
+tags: ['revenue', 'analytics', 'financial']
+```
+
+### `middlewares` (optional)
+
+Endpoint-specific middleware:
+
+```typescript
+middlewares: [
+  async (ctx, next) => {
+    console.log('Before query execution');
+    const result = await next();
+    console.log('After query execution');
+    return result;
+  },
+]
+```
+
+### `auth` (optional)
+
+Endpoint-specific authentication:
+
+```typescript
+auth: async ({ request }) => {
+  const token = request.headers['x-api-key'];
+  if (token === 'secret') {
+    return { userId: '123', role: 'admin' };
+  }
+  return null;
+}
+```
+
+### `tenant` (optional)
+
+Tenant isolation configuration (see [Multi-tenant isolation](/docs/ship/multi-tenancy)):
+
+```typescript
+tenant: {
+  extract: (auth) => auth.organizationId,
+  required: true,
+}
+```
+
+### `cacheTtlMs` (optional)
+
+Cache duration in milliseconds:
+
+```typescript
+cacheTtlMs: 60_000 // Cache for 1 minute
+```
+
+### `custom` (optional)
+
+Custom metadata (see [Custom metadata](/docs/ship/custom-metadata)):
+
+```typescript
+custom: {
+  owner: 'data-team',
+  sla: '100ms',
+  criticality: 'high',
+}
+```
+
+## Organizing queries
+
+### Single file approach
+
+For small projects, define all queries in one file:
+
+```typescript
+// api/index.ts
+import { defineServe } from '@hypequery/serve';
+
+const api = defineServe({
+  queries: {
+    revenue: { /* ... */ },
+    users: { /* ... */ },
+    orders: { /* ... */ },
+  },
+});
+
+api.route('/metrics/revenue', api.queries.revenue);
+api.route('/metrics/users', api.queries.users);
+api.route('/metrics/orders', api.queries.orders);
+
+export default api;
+```
+
+### Module-based approach
+
+For larger projects, split by domain:
+
+```typescript
+// metrics/revenue.ts
+export const revenueQueries = {
+  weeklyRevenue: {
+    query: async ({ input }) => { /* ... */ },
+    inputSchema: z.object({ /* ... */ }),
+  },
+  monthlyRevenue: {
+    query: async ({ input }) => { /* ... */ },
+  },
+};
+
+// metrics/users.ts
+export const userQueries = {
+  activeUsers: {
+    query: async ({ input }) => { /* ... */ },
+  },
+};
+
+// api/index.ts
+import { defineServe } from '@hypequery/serve';
+import { revenueQueries } from './metrics/revenue';
+import { userQueries } from './metrics/users';
+
+const api = defineServe({
+  queries: {
+    ...revenueQueries,
+    ...userQueries,
+  },
+});
+
+// Auto-register all routes
+Object.entries(api.queries).forEach(([key, query]) => {
+  const path = `/metrics/${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
+  api.route(path, query);
+});
+
+export default api;
+```
+
+### Factory pattern
+
+For queries with shared logic:
+
+```typescript
+// lib/query-factory.ts
+import { z } from 'zod';
+
+export const createDateRangeQuery = (table: string, sumColumn: string) => ({
+  query: async ({ input }) => {
+    return db.table(table)
+      .where('date', '>=', input.startDate)
+      .where('date', '<=', input.endDate)
+      .sum(sumColumn);
+  },
+  inputSchema: z.object({
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  outputSchema: z.object({
+    total: z.number(),
+  }),
+});
+
+// Use the factory
+const api = defineServe({
+  queries: {
+    revenue: createDateRangeQuery('transactions', 'amount'),
+    refunds: createDateRangeQuery('refunds', 'amount'),
+  },
+});
+```
+
+## Execution modes
+
+### HTTP execution
+
+```typescript
+// Deploy as HTTP server
+api.start({ port: 3000 });
+
+// Or use as middleware in Next.js, Express, etc.
+export default api.handler;
+```
+
+### Direct execution
+
+```typescript
+// Execute without HTTP layer
+const result = await api.execute('weeklyRevenue', {
+  input: {
+    startDate: '2025-01-01',
+    endDate: '2025-01-07',
+  },
+});
+```
+
+### AI agent integration
+
+```typescript
+// Expose to AI agents via MCP
+const description = api.describe();
+
+description.queries.forEach(query => {
+  console.log({
+    name: query.key,
+    description: query.summary,
+    parameters: query.inputSchema,
+    output: query.outputSchema,
+  });
+});
+```
+
+## Global configuration
+
+Apply settings to all queries:
+
+```typescript
+const api = defineServe({
+  basePath: '/api/v1',
+
+  // Global auth
+  auth: async ({ request }) => {
+    return verifyToken(request.headers['authorization']);
+  },
+
+  // Global tenant isolation
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    required: true,
+  },
+
+  // Global middleware
+  middlewares: [
+    async (ctx, next) => {
+      const start = Date.now();
+      const result = await next();
+      console.log(`${ctx.metadata.path} took ${Date.now() - start}ms`);
+      return result;
+    },
+  ],
+
+  // Global context factory
+  context: async ({ request, auth }) => ({
+    db: createDbConnection(),
+    logger: createLogger({ userId: auth?.userId }),
+  }),
+
+  // Lifecycle hooks
+  hooks: {
+    onRequestStart: async (event) => {
+      console.log(`Request started: ${event.queryKey}`);
+    },
+    onRequestEnd: async (event) => {
+      console.log(`Request completed in ${event.durationMs}ms`);
+    },
+    onError: async (event) => {
+      console.error(`Error in ${event.queryKey}:`, event.error);
+    },
+  },
+
+  queries: {
+    // Your queries inherit all global config
+  },
+});
+```
+
+## Best practices
+
+### 1. Use descriptive query keys
+
+```typescript
+// ✅ Good - clear and specific
+queries: {
+  weeklyRevenue: { /* ... */ },
+  activeUsersByRegion: { /* ... */ },
+  topSellingProducts: { /* ... */ },
+}
+
+// ❌ Bad - vague
+queries: {
+  query1: { /* ... */ },
+  getData: { /* ... */ },
+  fetch: { /* ... */ },
+}
+```
+
+### 2. Always provide schemas for public APIs
+
+```typescript
+// ✅ Good - validated and documented
+queries: {
+  revenue: {
+    query: async ({ input }) => { /* ... */ },
+    inputSchema: z.object({ startDate: z.string(), endDate: z.string() }),
+    outputSchema: z.object({ total: z.number() }),
+  },
+}
+
+// ⚠️ Acceptable for internal use only
+queries: {
+  internalMetric: {
+    query: async () => { /* ... */ },
+    // No schemas - type safety via execute() only
+  },
+}
+```
+
+### 3. Include summary and tags
+
+```typescript
+queries: {
+  revenue: {
+    query: async ({ input }) => { /* ... */ },
+    summary: 'Get revenue totals for date range',
+    description: 'Calculates sum of all completed transactions',
+    tags: ['revenue', 'financial', 'analytics'],
+  },
+}
+```
+
+### 4. Leverage shared configuration
+
+```typescript
+// Don't repeat yourself - use global config
+const api = defineServe({
+  auth: myGlobalAuth,
+  tenant: myGlobalTenant,
+  middlewares: [loggingMiddleware],
+
+  queries: {
+    // All inherit global config
+    query1: { /* ... */ },
+    query2: { /* ... */ },
+
+    // Override when needed
+    adminQuery: {
+      query: { /* ... */ },
+      auth: adminOnlyAuth, // Override
+    },
+  },
+});
+```
+
+## Next steps
+
+- Learn about [Input/output schemas](/docs/endpoints/schemas) for validation
+- Add [Custom metadata](/docs/ship/custom-metadata) for governance
+- Configure [Multi-tenant isolation](/docs/ship/multi-tenancy)
+- Explore [HTTP + OpenAPI](/docs/ship/http-openapi) delivery
+
+</div>

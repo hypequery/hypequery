@@ -1,0 +1,135 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Cron & Scheduled Automation
+description: Run metrics on a schedule and automate analytics workflows
+---
+
+# Cron & Scheduled Automation
+
+Automate metric execution with cron jobs, scheduled tasks, and data pipelines.
+
+## Use Case
+
+You need to:
+- Run metrics on a regular schedule
+- Generate automated reports
+- Build data pipelines with analytics
+- Trigger actions based on metric results
+
+## Pattern: Scheduled Execution
+
+Combine hypequery with your scheduling tool of choice.
+
+### With GitHub Actions
+
+```yaml
+# .github/workflows/daily-metrics.yml
+name: Daily Metrics
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Every day at midnight
+
+jobs:
+  run-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run daily metrics
+        run: npm run metrics:daily
+```
+
+```typescript
+// scripts/daily-metrics.ts
+import { dailyActiveUsers, weeklyRevenue } from './metrics';
+
+async function runDailyMetrics() {
+  const dau = await dailyActiveUsers.execute();
+  const revenue = await weeklyRevenue.execute();
+
+  await saveToDatabase({ dau, revenue });
+  await sendSlackNotification({ dau, revenue });
+}
+```
+
+### With Node Cron
+
+```typescript
+import cron from 'node-cron';
+import { userGrowth } from './metrics/growth';
+
+// Run every hour
+cron.schedule('0 * * * *', async () => {
+  const growth = await userGrowth.execute();
+
+  if (growth.percentChange > 10) {
+    await alert('Unusual growth detected!', growth);
+  }
+});
+```
+
+### With AWS Lambda
+
+```typescript
+// lambda/scheduled-metrics.ts
+export const handler = async (event: ScheduledEvent) => {
+  const metrics = await Promise.all([
+    api.run('activeUsers'),
+    api.run('revenue'),
+    api.run('engagement'),
+  ]);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(metrics),
+  };
+};
+```
+
+## Data Pipeline Integration
+
+Integrate with dbt, Airflow, or other pipeline tools:
+
+```python
+# Airflow DAG
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+import requests
+
+def run_hypequery_metric():
+    response = requests.post(
+        'http://localhost:8787/api/run',
+        json={'metric': 'weeklyRevenue', 'params': {...}}
+    )
+    return response.json()
+
+dag = DAG('analytics_pipeline', schedule_interval='@daily')
+task = PythonOperator(task_id='run_metric', python_callable=run_hypequery_metric, dag=dag)
+```
+
+## Conditional Alerts
+
+Run metrics and trigger alerts based on conditions:
+
+```typescript
+import { sendAlert } from './alerts';
+import { errorRate } from './metrics/errors';
+
+cron.schedule('*/5 * * * *', async () => {
+  const errors = await errorRate.execute();
+
+  if (errors.rate > 0.05) {
+    await sendAlert('High error rate detected', errors);
+  }
+});
+```
+
+## Best Practices
+
+- **Idempotency**: Ensure metrics can safely run multiple times
+- **Timeouts**: Set execution timeouts for long-running metrics
+- **Retries**: Implement retry logic for transient failures
+- **Monitoring**: Track successful and failed executions
+
+---
+
+**Related**: [Backend Jobs](/docs/recipes/backend-jobs) | [Observability](/docs/operate/observability)

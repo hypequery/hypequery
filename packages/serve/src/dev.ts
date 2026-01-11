@@ -1,7 +1,7 @@
 import type { AddressInfo } from "net";
 
-import { startNodeServer } from "./adapters/node";
-import type { ServeBuilder, StartServerOptions } from "./types";
+import { startNodeServer } from "./adapters/node.js";
+import type { ServeBuilder, StartServerOptions } from "./types.js";
 
 export interface ServeDevOptions extends StartServerOptions {
   logger?: (message: string) => void;
@@ -35,7 +35,7 @@ export const serveDev = async <
       typeof address === "object" && address
         ? `${address.address}:${address.port}`
         : `${hostname}:${port}`;
-    logger(`HypeQuery dev server running at http://${display}`);
+    logger(`hypequery dev server running at http://${display}`);
     logger(`Docs available at http://${display}/docs`);
   }
 

@@ -1,4 +1,4 @@
-import type { FetchHandler, HttpMethod, ServeHandler, ServeRequest } from "../types";
+import type { FetchHandler, HttpMethod, ServeHandler, ServeRequest } from "../types.js";
 
 const extractHeaders = (request: Request) => {
   const headers: Record<string, string> = {};
@@ -60,12 +60,26 @@ export const createFetchHandler = (handler: ServeHandler): FetchHandler => {
     };
 
     const response = await handler(serveRequest);
-    return new Response(JSON.stringify(response.body ?? null), {
+    const responseHeaders = {
+      "content-type": "application/json; charset=utf-8",
+      ...response.headers,
+    };
+
+    const contentType = responseHeaders["content-type"];
+    const isJson = contentType && contentType.includes("application/json");
+
+    let body: string;
+    if (isJson) {
+      body = JSON.stringify(response.body ?? null);
+    } else if (typeof response.body === "string") {
+      body = response.body;
+    } else {
+      body = JSON.stringify(response.body ?? null);
+    }
+
+    return new Response(body, {
       status: response.status,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-        ...response.headers,
-      },
+      headers: responseHeaders,
     });
   };
 };

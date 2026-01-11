@@ -1,6 +1,6 @@
-import { createFetchHandler } from "./fetch";
-import { createNodeHandler } from "./node";
-import type { ServeHandler } from "../types";
+import { createFetchHandler } from "./fetch.js";
+import { createNodeHandler } from "./node.js";
+import type { ServeHandler } from "../types.js";
 
 type VercelEdgeHandler = (request: Request) => Promise<Response>;
 type VercelNodeHandler = (req: unknown, res: unknown) => Promise<void> | void;

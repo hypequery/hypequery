@@ -1,12 +1,12 @@
-import type { DocsOptions } from "./types";
+import type { DocsOptions } from "./types.js";
 
-const REDOC_CDN = "https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js";
+const REDOC_CDN = "https://cdn.jsdelivr.net/npm/redoc@latest/bundles/redoc.standalone.js";
 
 const sanitize = (value: string | undefined, fallback = "") =>
   (value ?? fallback).replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export const buildDocsHtml = (openapiUrl: string, options?: DocsOptions) => {
-  const title = sanitize(options?.title, "HypeQuery Serve");
+  const title = sanitize(options?.title, "hypequery");
   const subtitle = sanitize(options?.subtitle);
   const darkClass = options?.darkMode ? "hq-docs--dark" : "";
 

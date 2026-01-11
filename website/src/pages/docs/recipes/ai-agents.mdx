@@ -1,0 +1,92 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: AI Agents & Automation
+description: Give AI agents structured, discoverable analytics
+---
+
+# AI Agents & Automation
+
+Provide AI agents with type-safe, discoverable analytics without raw SQL access.
+
+## Use Case
+
+You want to:
+- Let AI agents query your analytics safely
+- Provide structured inputs and outputs
+- List available metrics programmatically
+- Avoid giving agents raw database access
+
+## Pattern: Discoverable Metrics
+
+With hypequery, agents can discover and execute metrics:
+
+```typescript
+// Agent discovers available metrics
+const metrics = await api.list();
+// Returns: ['weeklyRevenue', 'activeUsers', 'userEngagement', ...]
+
+// Agent inspects a metric's schema
+const schema = await api.schema('weeklyRevenue');
+// Returns: { input: { startDate: 'string', endDate: 'string' }, output: [...] }
+
+// Agent executes with proper types
+const data = await api.run('weeklyRevenue', {
+  startDate: '2024-01-01',
+  endDate: '2024-01-31',
+});
+```
+
+## Integration Example
+
+LangChain tool integration:
+
+```typescript
+import { DynamicStructuredTool } from 'langchain/tools';
+import { z } from 'zod';
+
+const analyticsTool = new DynamicStructuredTool({
+  name: 'query_analytics',
+  description: 'Query analytics metrics',
+  schema: z.object({
+    metric: z.string(),
+    params: z.record(z.any()),
+  }),
+  func: async ({ metric, params }) => {
+    return await api.run(metric, params);
+  },
+});
+```
+
+## Benefits Over Raw SQL
+
+| Approach | Type Safety | Discoverability | Security |
+|----------|-------------|-----------------|----------|
+| Raw SQL | ❌ | ❌ | ❌ |
+| String Templates | ❌ | ❌ | ⚠️ |
+| hypequery Metrics | ✅ | ✅ | ✅ |
+
+## Safety Features
+
+- **Input validation**: Zod schemas prevent invalid queries
+- **No SQL injection**: Agents can't write arbitrary SQL
+- **Rate limiting**: Apply per-metric rate limits
+- **Auditing**: Log all agent queries
+
+## Example: Slack Bot
+
+```typescript
+app.command('/analytics', async ({ command, ack, respond }) => {
+  await ack();
+
+  const prompt = command.text;
+  const metric = await llm.chooseMetric(prompt, api.list());
+  const params = await llm.extractParams(prompt, api.schema(metric));
+
+  const data = await api.run(metric, params);
+  await respond(formatData(data));
+});
+```
+
+---
+
+**Related**: [HTTP & OpenAPI](/docs/ship/http-openapi) | [Governance](/docs/operate/governance)

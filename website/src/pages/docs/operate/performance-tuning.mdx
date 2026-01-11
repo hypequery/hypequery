@@ -1,0 +1,225 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Performance & Tuning
+description: Optimize query performance and ClickHouse configuration
+---
+
+# Performance & Tuning
+
+Learn how to optimize hypequery performance and tune ClickHouse for analytics workloads.
+
+## Query Optimization
+
+### Use Selective Filters Early
+
+Apply filters before aggregations to reduce data scanning:
+
+```typescript
+// Good: Filter first
+createQueryBuilder(events)
+  .where({ tenant_id: '123', date: { gte: '2024-01-01' } })
+  .select(['count(*) as total'])
+  .execute();
+
+// Avoid: Aggregating before filtering
+createQueryBuilder(events)
+  .select(['tenant_id', 'count(*) as total'])
+  .groupBy('tenant_id')
+  .having({ tenant_id: '123' })
+  .execute();
+```
+
+### Project Only Needed Columns
+
+Don't select unnecessary columns:
+
+```typescript
+// Good: Select only what you need
+createQueryBuilder(users)
+  .select(['id', 'email'])
+  .execute();
+
+// Avoid: SELECT *
+createQueryBuilder(users)
+  .select('*')
+  .execute();
+```
+
+### Use Appropriate Indexes
+
+Ensure your ClickHouse tables use proper ORDER BY:
+
+```sql
+-- Order by commonly filtered columns
+CREATE TABLE events (
+  timestamp DateTime,
+  tenant_id String,
+  event_name String,
+  properties String
+)
+ENGINE = MergeTree()
+ORDER BY (tenant_id, timestamp);
+```
+
+## ClickHouse Configuration
+
+### Connection Pooling
+
+Reuse connections instead of creating new ones:
+
+```typescript
+// Create a single connection instance
+export const connection = new ClickHouseConnection({
+  host: process.env.CLICKHOUSE_HOST,
+  max_open_connections: 10,
+});
+
+// Reuse across queries
+export const createQuery = () =>
+  createQueryBuilder(table, { connection });
+```
+
+### Query Timeouts
+
+Set timeouts to prevent long-running queries:
+
+```typescript
+const query = createQueryBuilder(events)
+  .where({ date: { gte: '2024-01-01' } })
+  .timeout(30000); // 30 seconds
+
+await query.execute();
+```
+
+### Batch Processing
+
+Process large datasets in batches:
+
+```typescript
+async function processBatch(offset: number, limit: number) {
+  return await createQueryBuilder(events)
+    .where({ processed: false })
+    .orderBy('timestamp')
+    .offset(offset)
+    .limit(limit)
+    .execute();
+}
+
+// Process in chunks
+for (let i = 0; i < total; i += 1000) {
+  const batch = await processBatch(i, 1000);
+  await processBatch(batch);
+}
+```
+
+## Caching Strategies
+
+### Query-Level Caching
+
+Cache expensive queries:
+
+```typescript
+import { withCache } from '@hypequery/cache';
+
+const expensiveMetric = withCache(
+  createQueryBuilder(events)
+    .select(['date', 'count(*) as total'])
+    .groupBy('date'),
+  {
+    ttl: 300, // 5 minutes
+    key: 'daily-counts',
+  }
+);
+```
+
+### Materialized Views
+
+Pre-aggregate common queries in ClickHouse:
+
+```sql
+CREATE MATERIALIZED VIEW daily_aggregates
+ENGINE = SummingMergeTree()
+ORDER BY (date, tenant_id)
+AS SELECT
+  toDate(timestamp) as date,
+  tenant_id,
+  count() as event_count
+FROM events
+GROUP BY date, tenant_id;
+
+-- Query the materialized view
+SELECT * FROM daily_aggregates WHERE date >= today() - 7;
+```
+
+## Monitoring Performance
+
+### Query Profiling
+
+Log slow queries:
+
+```typescript
+import { logger } from './logger';
+
+const query = createQueryBuilder(events)
+  .onExecute((sql, duration) => {
+    if (duration > 1000) {
+      logger.warn('Slow query detected', { sql, duration });
+    }
+  });
+```
+
+### Connection Pool Monitoring
+
+Track connection pool health:
+
+```typescript
+setInterval(() => {
+  const stats = connection.getPoolStats();
+  logger.info('Connection pool stats', {
+    active: stats.active,
+    idle: stats.idle,
+    waiting: stats.waiting,
+  });
+}, 60000);
+```
+
+## ClickHouse Best Practices
+
+- **Partition large tables**: Use `PARTITION BY` for time-series data
+- **Use appropriate engines**: MergeTree for most cases, ReplacingMergeTree for deduplication
+- **Compress data**: Enable compression for string columns
+- **Avoid JOINs when possible**: Denormalize data for analytical queries
+- **Monitor disk usage**: Set up alerts for disk space
+
+## Common Pitfalls
+
+### Avoid SELECT DISTINCT on Large Datasets
+
+```typescript
+// Avoid
+createQueryBuilder(events)
+  .select('DISTINCT user_id')
+  .execute();
+
+// Better: Use GROUP BY
+createQueryBuilder(events)
+  .select(['user_id'])
+  .groupBy('user_id')
+  .execute();
+```
+
+### Don't Over-Index
+
+Too many indexes slow down inserts:
+
+```sql
+-- Avoid multiple indexes
+ORDER BY (tenant_id, timestamp, user_id, event_name)
+
+-- Better: Index most-filtered columns
+ORDER BY (tenant_id, timestamp)
+```
+
+---
+
+**Related**: [Caching & Scheduling](/docs/ship/caching-scheduling) | [Observability](/docs/operate/observability)

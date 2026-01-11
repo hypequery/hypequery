@@ -1,0 +1,270 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Versioning & Stability
+description: Manage metric versions and maintain backward compatibility
+---
+
+# Versioning & Stability
+
+Learn how to version metrics, manage breaking changes, and maintain stability in production.
+
+## Semantic Versioning for Metrics
+
+Treat metrics like APIs and version them accordingly.
+
+### Version Naming Convention
+
+```typescript
+// metrics/revenue/v1.ts
+export const weeklyRevenueV1 = createQueryBuilder(orders)
+  .select(['week', 'sum(amount) as revenue'])
+  .groupBy('week');
+
+// metrics/revenue/v2.ts (with breaking changes)
+export const weeklyRevenueV2 = createQueryBuilder(orders)
+  .select(['week', 'sum(net_amount) as revenue', 'sum(tax) as tax'])
+  .groupBy('week');
+```
+
+### Export Strategy
+
+Maintain multiple versions simultaneously:
+
+```typescript
+// metrics/revenue/index.ts
+export { weeklyRevenueV1 } from './v1';
+export { weeklyRevenueV2 } from './v2';
+
+// Default to latest
+export { weeklyRevenueV2 as weeklyRevenue } from './v2';
+```
+
+## Breaking vs Non-Breaking Changes
+
+### Non-Breaking Changes (Safe)
+
+These changes don't require new versions:
+
+- Adding new optional fields
+- Adding new metrics
+- Improving performance
+- Fixing bugs that don't change output
+
+```typescript
+// Before
+export const userStats = createQueryBuilder(users)
+  .select(['id', 'name']);
+
+// After (non-breaking: added optional field)
+export const userStats = createQueryBuilder(users)
+  .select(['id', 'name', 'email']); // Added email
+```
+
+### Breaking Changes (Require New Version)
+
+These changes require a new version:
+
+- Removing fields
+- Renaming fields
+- Changing data types
+- Changing aggregation logic
+- Modifying filters
+
+```typescript
+// Breaking change: Renamed field
+// Before: { revenue: number }
+// After: { totalRevenue: number }
+
+// Solution: Create v2
+export const revenueV2 = createQueryBuilder(orders)
+  .select(['sum(amount) as totalRevenue']); // Renamed
+```
+
+## Deprecation Strategy
+
+### Mark Metrics as Deprecated
+
+```typescript
+/**
+ * @deprecated Use weeklyRevenueV2 instead. Will be removed in v3.0.0
+ */
+export const weeklyRevenueV1 = createQueryBuilder(orders)
+  .select(['week', 'sum(amount) as revenue'])
+  .groupBy('week');
+```
+
+### Gradual Migration
+
+1. Release v2 alongside v1
+2. Update consumers to use v2
+3. Deprecate v1 with warning
+4. Remove v1 in next major version
+
+```typescript
+// Step 1: Add v2
+export const metricV2 = newImplementation();
+
+// Step 2: Deprecate v1
+export const metricV1 = oldImplementation()
+  .tap(() => console.warn('metricV1 is deprecated, use metricV2'));
+
+// Step 3: Default to v2
+export { metricV2 as metric };
+
+// Step 4: Remove v1 in next release
+```
+
+## Stability Guarantees
+
+### Input Validation
+
+Use Zod to enforce stable input schemas:
+
+```typescript
+import { z } from 'zod';
+
+const revenueInputSchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export const weeklyRevenue = (input: unknown) => {
+  const params = revenueInputSchema.parse(input);
+
+  return createQueryBuilder(orders)
+    .where({
+      date: { gte: params.startDate, lte: params.endDate },
+    })
+    .execute();
+};
+```
+
+### Output Stability
+
+Ensure output structure remains consistent:
+
+```typescript
+// Define output type
+interface RevenueOutput {
+  date: string;
+  revenue: number;
+  // Never remove fields, only add
+}
+
+export const weeklyRevenue = async (): Promise<RevenueOutput[]> => {
+  return await createQueryBuilder(orders)
+    .select(['date', 'sum(amount) as revenue'])
+    .groupBy('date')
+    .execute();
+};
+```
+
+## Testing for Stability
+
+### Snapshot Testing
+
+Test that metric output structure doesn't change:
+
+```typescript
+import { expect, test } from 'vitest';
+import { weeklyRevenue } from './metrics';
+
+test('weeklyRevenue output structure', async () => {
+  const result = await weeklyRevenue.execute();
+
+  expect(result[0]).toMatchObject({
+    date: expect.any(String),
+    revenue: expect.any(Number),
+  });
+});
+```
+
+### Contract Testing
+
+Ensure consumers don't break:
+
+```typescript
+test('weeklyRevenue maintains contract', async () => {
+  const result = await weeklyRevenue.execute();
+
+  // Assert required fields exist
+  expect(result[0]).toHaveProperty('date');
+  expect(result[0]).toHaveProperty('revenue');
+
+  // Assert types
+  expect(typeof result[0].date).toBe('string');
+  expect(typeof result[0].revenue).toBe('number');
+});
+```
+
+## Schema Evolution
+
+### Additive Changes Only
+
+When evolving schemas, only add fields:
+
+```typescript
+// v1
+interface UserStatsV1 {
+  id: string;
+  name: string;
+}
+
+// v2 (additive)
+interface UserStatsV2 extends UserStatsV1 {
+  email?: string; // Optional new field
+  createdAt?: string;
+}
+```
+
+### Handle Missing Data
+
+Gracefully handle schema changes in ClickHouse:
+
+```typescript
+export const userStats = createQueryBuilder(users)
+  .select([
+    'id',
+    'name',
+    'ifNull(email, \'\') as email', // Handle missing column
+  ])
+  .execute();
+```
+
+## Production Checklist
+
+Before deploying metric changes:
+
+- [ ] Is this a breaking change?
+- [ ] If yes, did you create a new version?
+- [ ] Did you update all consumers?
+- [ ] Did you add tests for the new version?
+- [ ] Did you document the deprecation timeline?
+- [ ] Did you update OpenAPI specs (if using HTTP)?
+
+## Monitoring Changes
+
+Track metric usage to plan deprecations:
+
+```typescript
+import { track } from './analytics';
+
+export const weeklyRevenueV1 = createQueryBuilder(orders)
+  .tap(() => track('metric_used', { name: 'weeklyRevenueV1' }))
+  .execute();
+```
+
+Review usage before removing deprecated metrics:
+
+```sql
+-- Query usage analytics
+SELECT metric_name, count() as usage_count
+FROM metric_usage
+WHERE timestamp > now() - INTERVAL 30 DAY
+GROUP BY metric_name
+ORDER BY usage_count DESC;
+```
+
+---
+
+**Related**: [Governance](/docs/operate/governance) | [API Reference](/docs/reference/api-reference)

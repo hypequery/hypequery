@@ -1,7 +1,7 @@
 import type { ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-import type { OpenApiDocument, OpenApiOptions, ServeEndpoint } from "./types";
+import type { OpenApiDocument, OpenApiOptions, ServeEndpoint } from "./types.js";
 
 const ERROR_SCHEMA = {
   type: "object",
@@ -34,16 +34,59 @@ const dereferenceSchema = (schema: any) => {
   return schema;
 };
 
+const removeDefinitions = (schema: any): any => {
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+
+  // Handle arrays
+  if (Array.isArray(schema)) {
+    return schema.map(item => removeDefinitions(item));
+  }
+
+  // If this schema has a $ref and definitions, inline the definition
+  if (schema.$ref && schema.definitions) {
+    const refKey = String(schema.$ref).split("/").pop();
+    if (refKey && schema.definitions[refKey]) {
+      const resolved = schema.definitions[refKey];
+      delete schema.$ref;
+      delete schema.definitions;
+      return removeDefinitions({ ...schema, ...resolved });
+    }
+  }
+
+  // Remove definitions property if it exists
+  const { definitions, $ref, ...rest } = schema;
+
+  // Recursively clean nested objects and arrays
+  const result: any = {};
+  for (const [key, value] of Object.entries(rest)) {
+    if (Array.isArray(value)) {
+      result[key] = value.map(item =>
+        typeof item === "object" && item !== null ? removeDefinitions(item) : item
+      );
+    } else if (typeof value === "object" && value !== null) {
+      result[key] = removeDefinitions(value);
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result;
+};
+
 const toJsonSchema = (schema: ZodTypeAny | undefined, name: string) => {
   if (!schema) {
     return { type: "object" };
   }
 
-  return zodToJsonSchema(schema as any, {
+  const jsonSchema = zodToJsonSchema(schema as any, {
     target: "openApi3",
     name,
     $refStrategy: "none",
   }) as Record<string, unknown>;
+
+  return removeDefinitions(jsonSchema);
 };
 
 const toQueryParameters = (schema: ZodTypeAny | undefined, name: string) => {
@@ -130,7 +173,7 @@ const toOperation = (endpoint: ServeEndpoint, nameSuffix: string) => {
 const normalizeInfo = (options?: OpenApiOptions) => {
   const info = options?.info;
   return {
-    title: info?.title ?? "HypeQuery Serve API",
+    title: info?.title ?? "hypequery API",
     version: options?.version ?? "1.0.0",
     description: info?.description,
     termsOfService: info?.termsOfService,
