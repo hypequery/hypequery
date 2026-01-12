@@ -1,150 +1,137 @@
 ---
-layout: ../../layouts/DocsLayout.astro
-title: Installation
-description: Learn how to install and set up hypequery in your project
+layout: ../../../layouts/DocsLayout.astro
+title: Manual Installation
+description: Install @hypequery packages, configure env vars, and prep your project for the CLI
 ---
 
-# Installation
+<div class="prose">
 
-Get started using hypequery in your project by following these simple steps.
+# Manual Installation
 
-## Prerequisites
+Use this page as the “zero-to-installed” checklist before you run the CLI or scaffold metrics.
 
-Before installing hypequery, make sure you have:
+## Requirements
 
- <ul>
-     <li>Node.js v20 or higher</li>
-     <li>npm or yarn package manager</li>
-     <li>A ClickHouse instance to connect to</li>
-   </ul>
+- **Node.js 18+** (local dev relies on native `fetch` and top-level await)
+- **Package manager** – npm, pnpm, or Yarn
+- **ClickHouse instance** – self-hosted or ClickHouse Cloud
+- **Env loader** – `dotenv`, `tsx`, or any framework mechanism that hydrates `process.env`
 
-## Installing the Package
+## 1. Install core packages
 
-### For Node.js environments:
+These packages cover query building, the CLI, and the dev server:
 
 ```bash
 # npm
-npm install @hypequery/clickhouse
-
-# yarn
-yarn add @hypequery/clickhouse
+npm install -D @hypequery/cli tsx
+npm install @hypequery/clickhouse @hypequery/serve
 
 # pnpm
-pnpm add @hypequery/clickhouse
-
-```
-
-### For browser environments:
-
-```bash
-npm install @hypequery/clickhouse @clickhouse/client-web
+pnpm add -D @hypequery/cli tsx
+pnpm add @hypequery/clickhouse @hypequery/serve
 
 # yarn
-yarn add @hypequery/clickhouse @clickhouse/client-web
-
-# pnpm
-pnpm add @hypequery/clickhouse @clickhouse/client-web
+yarn add -D @hypequery/cli tsx
+yarn add @hypequery/clickhouse @hypequery/serve
 ```
 
-## Basic Setup
+Notes:
 
-### Node.js Environment
+- Install the CLI locally so your team pins a version in `package.json`. Run via `npx hypequery <command>` or `npm run hypequery -- <command>`.
+- `tsx` is optional but recommended if you run TypeScript directly (the CLI will use it for `hypequery dev` against `.ts` modules).
+- You can still install the CLI globally for convenience, but keep the project-local dependency for CI and teammates.
 
-1. First, create an `.env` file in your project root:
+## 2. Configure environment variables
+
+Create an `.env` file (the CLI will generate one later, but manual setup works too):
 
 ```env
-CLICKHOUSE_HOST=your-instance.clickhouse.cloud
-CLICKHOUSE_USER=default
-CLICKHOUSE_PASSWORD=your-password
+CLICKHOUSE_HOST=https://example.clickhouse.cloud:8443
 CLICKHOUSE_DATABASE=default
+CLICKHOUSE_USERNAME=cli_user
+CLICKHOUSE_PASSWORD=super-secret
 ```
 
-2. Create a new file for your database configuration (e.g., `db.ts`). Alternatively, you can pass the client directly as demonstrated in the browser envrionment example below.
+Load this file before importing `analytics/client.ts`. For plain Node projects add `dotenv/config` to the top of your entrypoint or use `tsx --env-file=.env` during development.
 
-```typescript
-import { createQueryBuilder } from '@hypequery/clickhouse';
+## 3. Manual project setup (optional)
 
-export const db = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
-```
+If you’d rather not run `hypequery init` yet:
 
-### Browser Environment
+1. Create `analytics/schema.ts`, `analytics/client.ts`, and `analytics/queries.ts`.
+2. `schema.ts` can begin as an empty interface:
+   ```ts
+   export interface IntrospectedSchema {}
+   ```
+3. `client.ts` wires the ClickHouse connection:
+   ```ts
+   import 'dotenv/config';
+   import { createQueryBuilder } from '@hypequery/clickhouse';
+   import type { IntrospectedSchema } from './schema.js';
 
-For browser environments, you need to manually inject the ClickHouse client:
+   export const db = createQueryBuilder<IntrospectedSchema>({
+     host: process.env.CLICKHOUSE_HOST!,
+     database: process.env.CLICKHOUSE_DATABASE!,
+     username: process.env.CLICKHOUSE_USERNAME!,
+     password: process.env.CLICKHOUSE_PASSWORD,
+   });
+   ```
+4. `queries.ts` exports a placeholder `defineServe` instance:
+   ```ts
+   import { defineServe } from '@hypequery/serve';
+   import { db } from './client.js';
 
-```typescript
-import { createClient } from '@clickhouse/client-web';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+   export const api = defineServe({
+     context: () => ({ db }),
+     queries: {
+       healthcheck: {
+         query: async () => ({ ok: true }),
+       },
+     },
+   });
+   ```
 
-const client = createClient({
-  host: 'https://your-clickhouse-proxy.com',
-  username: 'default',
-  password: 'password',
-  database: 'default'
-});
+You can rerun `npx hypequery init --force` later to regenerate these files with richer scaffolding and type generation.
 
-export const db = createQueryBuilder({
-  client // Explicitly provide the client
-});
-```
+## 4. Framework notes
 
-## Adding Type Safety
+**Next.js / Remix / other SSR frameworks**
 
-For the best development experience, generate TypeScript types for your ClickHouse schema:
+- Keep the `analytics/` directory at the project root so the CLI and server runtimes resolve files consistently.
+- Add a script like `"hq": "hypequery"` to `package.json`, then run `npm run hq dev` during development.
+- Ensure env vars are available wherever you import `api`. When deploying to edge platforms, swap the handler with the fetch adapter:
 
-1. Generate types for your schema:
+  ```ts
+  // app/api/analytics/route.ts (Next.js App Router)
+  import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+  import { api } from '../../../analytics/queries';
+
+  const handler = createFetchHandler(api.handler);
+
+  export const GET = handler;
+  export const POST = handler;
+  ```
+
+**Vite / SPA frameworks**
+
+- Store hypequery files server-side—browsers should call the generated HTTP endpoints, not ClickHouse directly.
+- Proxy `/docs` and `/openapi.json` from the dev server if you want UI parity with your frontend preview.
+
+## 5. Verify the install
+
+Run a couple of quick checks:
 
 ```bash
-npx hypequery-generate-types
+npx hypequery --help
+npx hypequery init --no-interactive --database clickhouse --path analytics --no-example
 ```
 
-2. Update your configuration to use the generated types:
+The second command exits early if required env vars are missing—ideal for CI smoke tests.
 
-```typescript
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { IntrospectedSchema } from './generated/schema';
+## Next steps
 
-export const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
-```
+- [Project setup](/docs/quickstart/project-setup) – guided CLI walkthrough
+- [First metric](/docs/quickstart/first-metric) – define and run your first query
+- [Serve reference](/docs/reference/serve) – deep dive into `defineServe`, middleware, and adapters
 
-## Your First Query
-
-Here's a simple example to get you started:
-
-```typescript
-// Import the db instance from your configuration file
-import { db } from './db';
-
-async function getRecentOrders() {
-  const results = await db
-    .table('orders')
-    .select(['id', 'customer_name', 'amount'])
-    .where('created_at', 'gt', '2024-01-01')
-    .orderBy('created_at', 'DESC')
-    .execute();
-
-  console.log('Recent orders:', results);
-}
-```
-
-Now you'll get full TypeScript support, including:
-- Autocomplete for table names
-- Type-safe column selection
-- Validation of filter conditions
-- Type checking for aggregations
-
-## Next Steps
-
-- Learn about [Query Building](/docs/guides/query-building)
-- Understand [Join Relationships](/docs/guides/joins)
-- Master [Advanced Filtering](/docs/guides/filtering)
-- Check out the [API Reference](/docs/reference/api) 
+</div>

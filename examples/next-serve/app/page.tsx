@@ -15,7 +15,7 @@ export default async function Page() {
   return (
     <main>
       <section>
-        <h1>Next.js + HypeQuery Serve</h1>
+        <h1>Next.js + hypequery Serve</h1>
         <p>
           This page calls the auto-generated API routes exposed through <code>@hypequery/serve</code>
           , running entirely inside a Next.js Route Handler.

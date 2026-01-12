@@ -8,7 +8,7 @@ describe('queries template', () => {
     });
 
     expect(result).toContain('import { defineServe }');
-    expect(result).toContain('import { db } from \'./client.js\'');
+    expect(result).toContain('import { db } from \'./client\'');
     expect(result).toContain('exampleMetric');
     expect(result).toContain('ok: true');
   });

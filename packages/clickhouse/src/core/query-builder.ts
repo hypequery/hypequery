@@ -33,6 +33,7 @@ import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client
 import type { CacheOptions, CacheConfig } from './cache/types.js';
 import type { QueryRuntimeContext } from './cache/runtime-context.js';
 import { executeWithCache } from './cache/cache-manager.js';
+import { substituteParameters } from './utils.js';
 import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.js';
 import type {
   BuilderState,
@@ -845,6 +846,15 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
 
   return {
     cache: cacheController,
+    async rawQuery<TResult = any>(sql: string, params: unknown[] = []) {
+      const client = ClickHouseConnection.getClient();
+      const finalSQL = substituteParameters(sql, params);
+      const result = await client.query({
+        query: finalSQL,
+        format: 'JSONEachRow'
+      });
+      return result.json<TResult[]>();
+    },
     table<TableName extends Extract<keyof Schema, string>>(tableName: TableName): SelectQB<
       Schema,
       TableName,

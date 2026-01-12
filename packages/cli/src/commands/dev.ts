@@ -88,7 +88,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       const baseUrl = `http://${hostname}:${port}`;
 
       logger.box([
-        `Local:    ${baseUrl}`,
         `Docs:     ${baseUrl}/docs`,
         `OpenAPI:  ${baseUrl}/openapi.json`,
       ]);

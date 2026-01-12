@@ -6,229 +6,392 @@ description: Learn how to build powerful queries with hypequery's fluent API
 
 # Query Building
 
-hypequery gives you a fluent, strongly typed builder for composing SQL. This page consolidates every core clause—from `select()` through `execute()`—so you can skim one guide instead of jumping between tiny references.
+Every hypequery project starts with a `defineServe` export that exposes a fluent ClickHouse builder through `ctx.db`. This page shows the most common clauses—`select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and `toSQL`—using the exact syntax you’ll drop into `analytics/queries.ts`.
 
-## Basic queries
+```ts
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client.js';
 
-Start by choosing a table, projecting columns, and running the query:
-
-```typescript
-import { createQueryBuilder } from '@hypequery/clickhouse';
-
-const db = createQueryBuilder<Schema>();
-
-const results = await db
-  .table('users')
-  .select(['id', 'name', 'email'])
-  .execute();
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: {
+    // examples below
+  },
+});
 ```
+
+---
 
 ## Selecting columns
 
-### Select only what you need
-
-```typescript
-const query = db
-  .table('users')
-  .select(['id', 'name', 'created_at'])
-  .toSQL();
-// SELECT id, name, created_at FROM users
+```ts
+activeUsers: {
+  query: ({ ctx }) =>
+    ctx.db.table('users').select([
+      'id',
+      'email AS user_email',
+      ctx.db.rawAs('status', 'account_status'),
+    ]),
+}
 ```
 
-Pass `'*'` to select every column or mix in aliased expressions:
+- Write aliases inline (`'email AS user_email'`) or use helpers like `rawAs`, `selectExpr`, `toDateTime` when you’re building expressions.
+- Use `select('*')` when you truly need every column:
 
-```typescript
-import { rawAs, selectExpr, toDateTime } from '@hypequery/clickhouse';
+  ```ts
+  allUsers: {
+    query: ({ ctx }) => ctx.db.table('users').select('*'),
+  }
+  ```
 
-db.table('users').select([
-  'id',
-  rawAs('name', 'display_name'),
-  selectExpr('LENGTH(name)', 'name_length'),
-  toDateTime('created_at', 'signed_up_at')
-]);
+---
+
+## Where conditions
+
+`where` is the most flexible clause in the builder: pass column/operator/value triples, raw predicates, or predicate-builder callbacks, and chain them in any combination.
+
+```ts
+monthlyTrials: {
+  inputSchema: z.object({ month: z.string() }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('trials')
+      .where('started_at', 'gte', `${input.month}-01`)
+      .where('started_at', 'lt', `${input.month}-31`)
+      .where('status', 'eq', 'active'),
+}
 ```
 
-You can also reference columns from joined tables (`'orders.total'`) or reuse aggregates (`sum('amount', 'total')`) directly in `select()`.
+**Type definitions**
 
-## Filtering rows
+```
+where(column, operator, value): this
+where(condition: WhereExpression): this
+where(builder: (expr) => PredicateExpression): this
 
-`where()` clauses accept column/operator/value triples, prebuilt expressions, or a predicate builder callback.
+orWhere(column, operator, value): this
+orWhere(builder: (expr) => PredicateExpression): this
 
-```typescript
-const adultsInUS = db
-  .table('users')
-  .where('age', 'gte', 18)
-  .where('country', 'eq', 'US')
-  .execute();
+whereGroup(callback: (builder) => void): this
+orWhereGroup(callback: (builder) => void): this
 ```
 
-Operator cheatsheet:
+- `column` – Valid base/joined column name.
+- `operator` – `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `like`, `notLike`, `in`, `notIn`, `between`, etc.
+- `value` – Value/array passed to the operator (strings, numbers, arrays, subqueries).
+- `condition` – Prebuilt `WhereExpression` (useful when reusing predicates).
+- `builder` – Receives the predicate helpers shown below.
+- Every call returns the builder for chaining.
 
-| Operator | Description |
-| --- | --- |
-| `eq`, `neq` | equality / inequality |
-| `gt`, `gte`, `lt`, `lte` | numeric comparisons |
-| `like`, `notLike` | pattern matches |
-| `in`, `notIn` | membership tests |
-| `between` | inclusive range |
+### Comparison cheat sheet:
 
-Use `orWhere` plus grouping helpers for complex logic:
+| Operator | Description | Example |
+| --- | --- | --- |
+| `eq` / `neq` | Equal / not equal | `where('age', 'eq', 25)` |
+| `gt` / `gte` | Greater than (or equal) | `where('age', 'gte', 18)` |
+| `lt` / `lte` | Less than (or equal) | `where('price', 'lt', 100)` |
+| `like` / `notLike` | Pattern matches | `where('email', 'like', '%@company.com')` |
+| `in` / `notIn` | Array membership | `where('status', 'in', ['active', 'pending'])` |
+| `between` | Inclusive range | `where('age', 'between', [18, 65])` |
 
-```typescript
-const filtered = db
-  .table('orders')
-  .whereGroup((and) => {
-    and.where('status', 'eq', 'completed').orWhere('priority', 'eq', 'high');
-  })
-  .orWhereGroup((or) => {
-    or.where('total', 'gte', 10_000).where('country', 'eq', 'US');
-  })
-  .execute();
+### Function Predicates
+
+  ```ts
+  taggedProducts: {
+    query: ({ ctx }) =>
+      ctx.db
+        .table('products')
+        .where((expr) =>
+          expr.and([
+            expr.fn('hasAny', 'tags', ['launch', 'beta']),
+            expr.fn('endsWith', 'status', expr.literal('active')),
+          ])
+        ),
+  }
+  ```
+
+  The callback receives a `PredicateBuilder` with helpers like `expr.fn`, `expr.literal`, `expr.array`, `expr.raw`, `expr.and`, and `expr.or` so you can model ClickHouse functions safely.
+
+  Builder helper summary:
+
+  | Helper | Purpose |
+  | --- | --- |
+  | `expr.fn(name, ...args)` | Variadic function helper; strings become column refs, arrays become ClickHouse literals, primitives become parameters. |
+  | `expr.col(column)` | Explicit column reference for edge cases. |
+  | `expr.array(values)` | Build ClickHouse array literals explicitly when needed. |
+  | `expr.literal(value)` / `expr.value(value)` | Force literal values so strings aren’t treated as column names. |
+  | `expr.raw(sql)` | Inline raw SQL fragments when necessary. |
+  | `expr.and([...])` / `expr.or([...])` | Combine multiple expressions without manual parentheses (or call `.orWhere(expr => …)` for top-level OR blocks). |
+
+### Advanced IN Operators
+
+The where method supports advanced IN operators for ClickHouse, including distributed/global, tuple, subquery, and table reference forms.
+
+All IN operator variants are supported:
+
+```ts
+tupleJoin: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('events')
+      .where(['counter_id', 'user_id'], 'inTuple', [
+        [34, 123],
+        [101500, 456],
+      ]),
+}
 ```
 
-For raw predicate control, use the callback form: `where((expr) => expr.fn('lowerUTF8', 'email').like('%@company.com'))`.
+| Operator | Description | Example |
+| --- | --- | --- |
+| `in` / `notIn` | Standard array membership | `where('status', 'in', ['active', 'pending'])` |
+| `globalIn` / `globalNotIn` | GLOBAL IN for distributed tables | `where('user_id', 'globalIn', [1, 2, 3])` |
+| `inSubquery` / `globalInSubquery` | Subquery string | `where('user_id', 'inSubquery', 'SELECT id FROM users')` |
+| `inTable` / `globalInTable` | Table reference | `where('user_id', 'inTable', 'users')` |
+| `inTuple` / `globalInTuple` | Multi-column tuple membership | `where(['c1','c2'], 'inTuple', [[1,2],[3,4]])` |
 
-## Joining tables
+---
 
-Join helpers accept the target table plus the join keys; TypeScript ensures both sides exist.
+## Joins
 
-```typescript
-const orders = await db
-  .table('orders')
-  .leftJoin('users', 'orders.user_id', 'users.id')
-  .select([
-    'orders.id',
-    'orders.total',
-    rawAs('users.name', 'customer_name'),
-  ])
-  .execute();
+<div class="not-prose my-6 rounded-xl border border-blue-100/60 bg-blue-50/80 dark:bg-slate-900/90 dark:border-blue-400/40 p-4 text-sm text-blue-900 dark:text-slate-100">
+  <div class="flex items-start gap-3">
+    <svg class="h-5 w-5 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 1010 10A10 10 0 0012 2z" />
+    </svg>
+    <p class="text-sm leading-5 text-blue-900">
+      TypeScript only exposes columns from a joined table after you register the join. Call
+      <code>leftJoin('users', ...)</code> before referencing <code>users.email</code> in <code>select</code>,
+      <code>where</code>, etc., so those fields exist on the builder type.
+    </p>
+  </div>
+</div>
+
+```ts
+ordersWithUsers: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('orders')
+      .leftJoin('users', 'orders.user_id', 'users.id')
+      .select([
+        'orders.id',
+        'orders.total',
+        'users.email AS customer_email',
+      ]),
+}
 ```
 
-Available join types: `innerJoin`, `leftJoin`, `rightJoin`, and `fullJoin`. If you defined relationships via `withRelation()`, you can skip the join keys: `db.table('orders').withRelation('orders.user')`.
+Available helpers: `innerJoin`, `leftJoin`, `rightJoin`, `fullJoin`.
 
-## Aggregations & grouping
+---
 
-Combine aggregations with `groupBy()` to build rollups:
+## Group By
 
-```typescript
-const spendByUser = await db
+```ts
+revenueByCountry: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('orders')
+      .select(['country'])
+      .sum('total', 'total_revenue')
+      .groupBy(['country']),
+}
+```
+
+Call aggregation helpers (`sum`, `avg`, `count`, `distinctCount`, etc.) before `groupBy`.
+
+---
+
+## Having
+
+```ts
+powerUsers: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('orders')
+      .select(['user_id'])
+      .sum('total', 'total_spent')
+      .groupBy(['user_id'])
+      .having((expr) => expr.fn('sum', 'total').gt(5000))
+      .having((expr) => expr.fn('count').gte(3)),
+}
+```
+
+`having` accepts raw strings or predicate callbacks. Each call is AND-ed.
+
+---
+
+## Order by
+
+```ts
+mostRecentSessions: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('sessions')
+      .select(['id', 'user_id', 'started_at'])
+      .orderBy('started_at', 'DESC')
+      .orderBy('id', 'ASC'),
+}
+```
+
+- Signature: `orderBy(column, direction = 'ASC')`
+- `column` accepts any base/joined column. `direction` is `'ASC'` or `'DESC'` (defaults to ascending).
+- Chain multiple calls for secondary sorting.
+
+---
+
+## Limit & Offset
+
+```ts
+paginatedEvents: {
+  inputSchema: z.object({ limit: z.number().default(50), offset: z.number().default(0) }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('events')
+      .select(['id', 'name'])
+      .orderBy('occurred_at', 'DESC')
+      .limit(input.limit)
+      .offset(input.offset),
+}
+```
+
+Both helpers validate non-negative numbers.
+
+---
+
+## toSQL
+
+```ts
+const preview = ctx.db
   .table('orders')
   .select(['user_id'])
   .sum('total', 'total_spent')
-  .count('id', 'order_count')
-  .groupBy(['user_id'])
-  .execute();
+  .groupBy(['user_id']);
+
+const sql = preview.toSQL();
+// SELECT user_id, sum(total) AS total_spent FROM orders GROUP BY user_id
 ```
 
-Common helper methods include `sum`, `avg`, `min`, `max`, and `distinctCount`. You can pass column names or expressions to `groupBy()`; use array syntax for multi-column groups.
+`toSQLWithParams()` returns `{ sql, params }` for parameterized output.
 
-### HAVING filters
+---
 
-Call `having()` to filter aggregated rows. Each call is AND-ed automatically:
+## Distinct
 
-```typescript
-const whales = await db
-  .table('orders')
-  .select(['user_id'])
-  .sum('total', 'total_spent')
-  .groupBy(['user_id'])
-  .having('total_spent > 5000')
-  .having('count() >= 3')
-  .execute();
+```ts
+countries: {
+  query: ({ ctx }) =>
+    ctx.db.table('users').select(['country']).distinct(),
+}
 ```
 
-## Ordering & pagination
+- Signature: `distinct(): this`
+- Removes duplicate rows from the result set (ClickHouse `DISTINCT`).
 
-Chain `orderBy()` calls for multi-column sorting, then clamp the result set with `limit()` / `offset()`:
+---
 
-```typescript
-const newest = await db
-  .table('posts')
-  .select(['id', 'title', 'created_at'])
-  .orderBy('created_at', 'DESC')
-  .orderBy('title', 'ASC')
-  .limit(20)
-  .offset(40)
-  .execute();
+## Time-based functions
+
+```ts
+timeBuckets: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('events')
+      .select([
+        toDateTime('occurred_at', 'event_ts'),
+        formatDateTime('occurred_at', 'Y-MM-dd HH:00', { alias: 'hour_bucket' }),
+        toStartOfInterval('occurred_at', '1 hour', 'hour_start'),
+        datePart('week', 'occurred_at', 'week_no'),
+      ])
+      .groupBy(['hour_bucket', 'hour_start', 'week_no'])
+      .orderBy('hour_bucket', 'ASC'),
+}
 ```
 
-Both `limit()` and `offset()` validate that you pass non-negative numbers.
+- `toDateTime(field, alias?)` converts values into ClickHouse `DateTime` objects.
+- `formatDateTime(field, format, { timezone?, alias? })` formats timestamps with optional `timezone`.
+- `toStartOfInterval(field, interval, alias?)` truncates to windows like `'15 minute'`, `'7 day'`.
+- `datePart(part, field, alias?)` extracts `year`, `month`, `day`, etc.
 
-## Distinct rows
+### Grouping by time intervals
 
-Add `distinct()` anywhere in the chain to remove duplicates:
-
-```typescript
-const countries = await db
-  .table('users')
-  .select(['country'])
-  .distinct()
-  .execute();
+```ts
+hourlySpend: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('orders')
+      .sum('total', 'total_spend')
+      .groupByTimeInterval('created_at', '1 hour'),
+}
 ```
 
-## Common table expressions (CTEs)
+- Built-in helpers: `groupByTimeInterval('timestamp', null, 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear')`.
+- Custom intervals: pass `'5 minute'`, `'2 hour'`, `'7 day'`, etc., as the second argument.
 
-Reuse subqueries via `withCTE(alias, subquery)`:
+### Query settings
 
-```typescript
-const activeUsers = db
+```ts
+constrainedQuery: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('large_table')
+      .settings({
+        max_execution_time: 60,
+        max_threads: 4,
+        max_memory_usage: '10000000000',
+      })
+      .select(['id'])
+      .limit(1000),
+}
+```
+
+- Settings map directly to ClickHouse query settings.
+- TypeScript ensures date/time columns are used where required (`groupByTimeInterval` errors if you pass a numeric column).
+
+---
+
+## Common Table Expressions (CTEs)
+
+```ts
+const activeUsers = ctx.db
   .table('users')
   .select(['id', 'name'])
   .where('status', 'eq', 'active');
 
-const recent = await db
-  .table('orders')
-  .withCTE('active_users', activeUsers)
-  .leftJoin('active_users', 'orders.user_id', 'active_users.id')
-  .select(['orders.id', 'active_users.name'])
-  .execute();
-```
-
-You can register multiple CTEs by chaining `withCTE()` calls. Passing a raw SQL string is allowed, but you lose type safety for that chunk.
-
-## Running queries
-
-Use `execute()` when you need results, or `toSQL()`/`toSQLWithParams()` for debugging and logging:
-
-```typescript
-const sql = db
-  .table('orders')
-  .select(['user_id'])
-  .sum('total', 'total_spent')
-  .where('total', 'gte', 1000)
-  .groupBy(['user_id'])
-  .toSQL();
-// -> SELECT user_id, SUM(total) AS total_spent ...
-
-const results = await db
-  .table('orders')
-  .select(['id', 'total'])
-  .execute();
-```
-
-Need streaming? Use `stream()` to grab a `ReadableStream` or `streamForEach()` to iterate row-by-row without buffering the full result set.
-
-## Type safety recap
-
-All builder calls are typed based on your schema definition:
-
-```typescript
-interface Schema {
-  orders: {
-    id: 'UInt32';
-    user_id: 'UInt32';
-    total: 'Float64';
-    created_at: 'DateTime';
-  };
+cteExample: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('orders')
+      .withCTE('active_users', activeUsers)
+      .leftJoin('active_users', 'orders.user_id', 'active_users.id')
+      .select(['orders.id', 'active_users.name']),
 }
-
-db.table('orders').select(['id', 'total']); // ✅
-db.table('orders').where('total', 'gt', 500); // ✅
-db.table('orders').select(['missing']); // ❌ compile-time error
 ```
 
-## Next steps
+- Signature: `withCTE(alias, subquery | rawSql)`.
+- Chain multiple CTEs:
 
-- Define reusable metrics with [Metric Modules](/docs/define/metric-modules)
-- Model complex schemas and relationships in [Schema Modeling](/docs/define/schema-modeling)
-- Learn cursor pagination patterns in [Pagination](/docs/define/pagination)
+```ts
+complexReport: {
+  query: ({ ctx }) => {
+    const activeUsers = ctx.db
+      .table('users')
+      .select(['id', 'name'])
+      .where('status', 'eq', 'active');
+
+    const highValueOrders = ctx.db
+      .table('orders')
+      .select(['user_id', 'total'])
+      .where('total', 'gte', 1000);
+
+    return ctx.db
+      .table('users')
+      .withCTE('active_users', activeUsers)
+      .withCTE('high_value_orders', highValueOrders)
+      .leftJoin('high_value_orders', 'users.id', 'high_value_orders.user_id')
+      .select(['users.name', 'high_value_orders.total']);
+  },
+}
+```
+
+Use raw SQL strings when needed: `.withCTE('recent', 'SELECT ...')`.

@@ -17,7 +17,7 @@ At a high level, hypequery works like this:
 1. You define your metrics and queries in code
 2. Those definitions are compiled into an executable form
 3. You choose how and where to run them
-4. Delivery mechanisms (HTTP, SDKs, agents) sit at the edge
+4. Delivery mechanisms (HTTP adapters, agents) sit at the edge
 
 **The core idea:**
 analytics logic is defined once, and execution is a deployment choice.
@@ -72,7 +72,6 @@ Delivery is optional and interchangeable.
 
 - Application code (`api.run`)
 - HTTP endpoints
-- Generated SDKs
 - AI agents and automation
 
 These are adapters, not core logic.
@@ -91,7 +90,7 @@ A typical flow looks like:
 2. **Metrics** reference schemas
 3. **Execution engine** compiles and runs queries
 4. **Results** are returned to the caller
-5. **(Optional)** Results pass through HTTP or SDK layers
+5. **(Optional)** Results pass through HTTP adapters
 
 Every step is explicit and inspectable.
 
@@ -119,7 +118,6 @@ Features like:
 
 - HTTP servers
 - OpenAPI generation
-- SDK clients
 - Caching
 - Observability
 

@@ -15,7 +15,6 @@ export async function promptDatabaseType(): Promise<DatabaseType | null> {
     choices: [
       { title: 'ClickHouse', value: 'clickhouse' },
       { title: 'BigQuery (coming soon)', value: 'bigquery', disabled: true },
-      { title: 'PostgreSQL (coming soon)', value: 'postgres', disabled: true },
     ],
     initial: 0,
   });

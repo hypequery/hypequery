@@ -298,13 +298,6 @@ export interface OpenApiDocument {
   };
 }
 
-export interface SdkGeneratorOptions {
-  enabled?: boolean;
-  outputPath?: string;
-  clientName?: string;
-  runtime?: "fetch" | "axios";
-}
-
 export interface ServeConfig<
   TQueries extends ServeQueriesMap = ServeQueriesMap,
   TAuth extends AuthContext = AuthContext
@@ -317,7 +310,6 @@ export interface ServeConfig<
   tenant?: TenantConfig<TAuth>;
   docs?: DocsOptions;
   openapi?: OpenApiOptions;
-  sdk?: SdkGeneratorOptions;
   context?: ServeContextFactory<TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
 }

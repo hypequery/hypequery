@@ -1,0 +1,173 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Standalone Query Builder
+description: Use createQueryBuilder directly only when defineServe doesn't fit
+---
+
+# Standalone Query Builder
+
+You can run the query builder on its own if all you need is type safety and SQL fluency, just remember you’re skipping the extra benefits `defineServe` layers on top.
+
+## When to use it
+
+- ✅ One-off scripts or data migrations
+- ✅ Custom abstraction layers where you wrap hypequery yourself
+- ✅ Performance testing / benchmarks
+- ✅ Internal tools that never need HTTP, caching, or docs
+- ❌ Anything that benefits from auth, caching, docs, or multi-tenancy — use `defineServe` instead.
+
+## Basic usage
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './analytics/schema.js';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: 'default',
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const users = await db
+  .table('users')
+  .where('status', 'eq', 'active')
+  .orderBy('created_at', 'DESC')
+  .limit(20)
+  .execute();
+```
+
+Everything from the fluent API works the same as inside `defineServe` (joins, aggregations, CTEs, predicates, etc.).
+
+## Caching
+
+Global cache config mirrors what `defineServe` wires up automatically:
+
+```ts
+import { MemoryCacheProvider } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  cache: {
+    mode: 'stale-while-revalidate',
+    ttlMs: 2_000,
+    staleTtlMs: 30_000,
+    staleIfError: true,
+    provider: new MemoryCacheProvider({ maxEntries: 1000 }),
+  },
+});
+
+const activeUsers = db
+  .table('users')
+  .where('status', 'eq', 'active')
+  .cache({ tags: ['users'], ttlMs: 5_000 });
+
+const rows = await activeUsers.execute({ cache: { mode: 'network-first' } });
+```
+
+> ℹ️ Cache precedence: global config → `.cache()` on the builder → `execute({ cache })`. Use `cache: false` to bypass caching temporarily.
+
+### Cache modes
+
+| Mode | Behavior |
+| --- | --- |
+| `cache-first` | Return cached rows when fresh; otherwise hit ClickHouse. |
+| `network-first` | Always hit ClickHouse, optionally falling back to stale data when `staleIfError` is true. |
+| `stale-while-revalidate` | Serve stale rows immediately while refreshing in the background. |
+| `no-store` | Skip cache entirely. |
+
+Additional knobs: `ttlMs`, `staleTtlMs`, `cacheTimeMs`, `dedupe`, custom `serialize`/`deserialize`, and `tags` for invalidation. Use `db.cache.invalidateKey(...)`, `db.cache.invalidateTags([...])`, or `db.cache.clear()` to manage entries manually.
+
+## Streaming
+
+The standalone builder exposes the same streaming primitives:
+
+```ts
+const stream = await db
+  .table('orders')
+  .select(['id', 'total'])
+  .where('status', 'eq', 'completed')
+  .stream();
+
+const reader = stream.getReader();
+try {
+  while (true) {
+    const { done, value: rows } = await reader.read();
+    if (done) break;
+    rows.forEach((row) => console.log(row));
+  }
+} finally {
+  reader.releaseLock();
+}
+```
+
+Or use the helper:
+
+```ts
+await db
+  .table('events')
+  .select(['id', 'event_type'])
+  .streamForEach(async (row) => {
+    // process row
+  });
+```
+
+## Logging
+
+`logger` works identically whether you call the builder directly or through `defineServe`:
+
+```ts
+import { logger } from '@hypequery/clickhouse';
+
+logger.configure({
+  level: 'debug',
+  enabled: true,
+  onQueryLog: (log) => {
+    console.log(`[${log.status}]`, log.query, log.duration);
+  },
+});
+
+await db
+  .table('users')
+  .where('age', 'gt', 18)
+  .execute({ queryId: 'script:users' });
+```
+
+Logs include SQL, parameters, duration, row counts, cache metadata, and errors.
+
+## Limitations
+
+Standalone usage skips the higher-level runtime:
+
+- No automatic cache key scoping per query name
+- No generated HTTP API / docs / OpenAPI
+- No auth or tenant auto-injection
+- No dev server UI
+- No typed React hooks
+
+If you need those features, migrate the query into `defineServe`.
+
+## Migrating to `defineServe`
+
+```ts
+// Before (standalone)
+const getActiveUsers = async () =>
+  db.table('users').where('status', 'eq', 'active').execute();
+
+// After (defineServe)
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: {
+    activeUsers: {
+      query: ({ ctx }) =>
+        ctx.db.table('users').where('status', 'eq', 'active'),
+    },
+  },
+});
+```
+
+Now you get caching, analytics, logging, HTTP, and UI for free.
+
+## Need defineServe instead?
+
+Head back to the [Quickstart](/docs/getting-started/quickstart) to stay on the recommended path.

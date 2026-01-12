@@ -1,4 +1,4 @@
-export type HypeQueryCacheMode =
+export type hypequeryCacheMode =
   | 'no-store'
   | 'cache-first'
   | 'network-first'
@@ -15,7 +15,7 @@ export type CacheDeserializeFn<T = unknown> = (raw: string | Uint8Array) => T | 
 export type CacheStatus = 'hit' | 'miss' | 'stale-hit' | 'revalidate' | 'bypass';
 
 export interface CacheOptions {
-  mode?: HypeQueryCacheMode;
+  mode?: hypequeryCacheMode;
   ttlMs?: number;
   staleTtlMs?: number;
   cacheTimeMs?: number;

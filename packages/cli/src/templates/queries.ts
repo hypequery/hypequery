@@ -9,7 +9,7 @@ export function generateQueriesTemplate(options: {
 
   let template = `import { defineServe } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './client.js';
+import { db } from './client';
 
 export const api = defineServe({
   context: () => ({ db }),

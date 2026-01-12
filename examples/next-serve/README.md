@@ -1,6 +1,6 @@
 # Next.js + @hypequery/serve example
 
-This example shows how to expose HypeQuery routes inside a Next.js App Router project.
+This example shows how to expose hypequery routes inside a Next.js App Router project.
 
 ## Commands
 

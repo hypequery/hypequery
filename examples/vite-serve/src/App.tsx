@@ -33,7 +33,7 @@ export default function App() {
 
   return (
     <main>
-      <h1>Vite + HypeQuery Serve</h1>
+      <h1>Vite + hypequery Serve</h1>
       <p>
         The API server runs on <code>localhost:4000</code> using <code>defineServe</code> while Vite proxies
         <code>/api</code> requests during development.

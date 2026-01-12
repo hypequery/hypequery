@@ -34,20 +34,12 @@ Or specify a custom module path:
 npx hypequery dev --module ./lib/api.js --port 4000
 ```
 
-### 3. Generate SDK client
-
-```bash
-npx hypequery sdk --input ./openapi.json --output ./sdk/client.ts --clientName MyApiClient
-```
-
 ## Testing Workflow
 
 1. Run `npx hypequery init` to create the API file
 2. Build the TypeScript: From the project root, rebuild the serve package if you made changes
 3. Run `npx hypequery dev` to test the dev server
 4. Visit `http://localhost:4000/docs` to see the API docs
-5. Test SDK generation with an OpenAPI spec
-
 ## Notes
 
 - The package is installed from the local workspace: `file:../../packages/serve`

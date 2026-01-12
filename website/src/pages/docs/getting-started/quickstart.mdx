@@ -1,120 +1,95 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: Quickstart
-description: Ship your first hypequery-powered endpoint in four commands
+description: Ship your first hypequery-powered endpoint in two CLI commands
 ---
 
 # Quickstart
 
-Follow this flow to go from zero to a working hypequery dev server: install the packages, generate TypeScript types, scaffold your API file with `hypequery init`, preview it locally via `hypequery dev`, then build a real query.
+Shipping your first hypequery API now only takes two CLI commands. Install the packages, run `hypequery init` to scaffold everything (env, client, schema, queries), fire up `hypequery dev`, then add a real metric.
 
 ### Prereqs
 
 - Node.js 18+
-- Access to a ClickHouse instance
+- Access to a ClickHouse instance with credentials saved in `.env`
+- Install the runtime packages:
 
-## 1. Install hypequery packages
+  ```bash
+  npm install @hypequery/clickhouse @hypequery/serve
+  ```
 
-Install both the ClickHouse client and the dev server helper:
+- Install the CLI + TypeScript runner (local dev dependency):
 
-```bash
-npm install @hypequery/clickhouse @hypequery/serve
-# or
-pnpm add @hypequery/clickhouse @hypequery/serve
-# or
-yarn add @hypequery/clickhouse @hypequery/serve
-```
+  ```bash
+  npm install -D @hypequery/cli tsx
+  ```
 
+## 1. Scaffold analytics files with `hypequery init`
 
-## 2. Generate types from ClickHouse
-
-Create a `.env` file with your ClickHouse credentials (or reuse the one you already have):
-
-```
-CLICKHOUSE_HOST=https://your-clickhouse-host
-CLICKHOUSE_DATABASE=analytics
-CLICKHOUSE_USERNAME=default
-CLICKHOUSE_PASSWORD=super-secret
-```
-
-With those variables in place, run the generator from your project root (it automatically reads standard `.env` files):
+From your project root run:
 
 ```bash
-npx hypequery-generate-types
+npx hypequery init
 ```
 
-Need to target a different file or table subset? See the full [Type Generation](/docs/define/type-generation) guide for every flag and example.
+Pick ClickHouse, supply your connection settings, and choose a destination folder (`analytics/` by default). The CLI will:
 
-This writes ```src/generated/schema.ts``` (or the path you configured) with strongly typed tables you can import anywhere.
+- Validate the ClickHouse connection
+- Generate `analytics/schema.ts`, `analytics/client.ts`, and `analytics/queries.ts`
+- Write/append `.env` with your credentials
+- Populate an example query (optional) and register it in the queries file
 
-## 3. Scaffold `hypequery.ts` with `hypequery init`
+Open `analytics/queries.ts` to see the scaffolded `defineServe` export. You can start editing immediately.
 
-Next, spin up a baseline API entrypoint using the CLI. It creates a `defineServe()` stub that wires your generated types + connection settings together:
+## 2. Preview with `hypequery dev`
+
+Launch the dev server to get interactive docs, a playground, and an OpenAPI schema:
 
 ```bash
-npx hypequery init --file src/hypequery.ts
+npx hypequery dev
 ```
 
-Inside the generated file you’ll see:
-
-```typescript
-import { defineServe } from '@hypequery/clickhouse/serve';
-import { schema } from './generated/schema';
-
-export default defineServe({
-  schema,
-  metrics: {}, // add queries here
-});
-```
-
-Tweak the connection block or env variables once the file exists.
-
-## 4. Preview with `hypequery dev`
-
-Run the dev server to get typed docs, in-browser query runners, and an OpenAPI schema:
-
-```bash
-npx hypequery dev src/hypequery.ts --port 4000
-```
-
-The command watches your source files, regenerates SDK types, and exposes:
+The command watches your analytics files, refreshes docs, and exposes:
 
 - http://localhost:4000 – interactive docs + playground
-- http://localhost:4000/openapi.json – OpenAPI description for SDK generation
+- http://localhost:4000/openapi.json – OpenAPI description for any downstream tooling
 
-Keep the process running while you iterate on queries/metrics.
+Leave this running while you iterate.
 
-## 5. Build your first query
+## 3. Build your first query
 
-Add a simple metric to `src/hypequery.ts` (or split it into modules) using the fluent builder plus your generated types:
+Replace the placeholder query in `analytics/queries.ts` with something real. For example:
 
 ```typescript
-import { defineServe } from '@hypequery/clickhouse/serve';
-import { schema } from './generated/schema';
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client.js';
 
-export default defineServe({
-  schema,
-  metrics: {
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: {
     activeUsers: {
-      query: ({ db }) =>
-        db
+      description: 'Most recent active users',
+      inputSchema: z.object({ limit: z.number().min(1).max(500).default(50) }),
+      query: ({ ctx, input }) =>
+        ctx.db
           .table('users')
           .select(['id', 'email', 'created_at'])
           .where('status', 'eq', 'active')
           .orderBy('created_at', 'DESC')
-          .limit(100),
+          .limit(input.limit),
     },
   },
 });
 ```
 
-Refresh the dev UI—your metric appears instantly with typed inputs/outputs. Hit “Run” in the browser or call `await api.run('activeUsers')` from an app/agent.
+Save the file and the dev UI immediately shows the new metric with typed inputs/outputs. Use the browser playground or call `await api.execute('activeUsers')` from your app/agent code.
 
 ## Next steps
 
-- Wire metrics into real code with [Metric Modules](/docs/define/metric-modules)
-- Learn how the builder works in depth via [Query Building](/docs/define/query-building)
-- Use [Type Generation](/docs/define/type-generation) to automate schema refreshes
-- Share the API by following [HTTP + OpenAPI](/docs/ship/http-openapi)
+- Wire metrics into production code with [Metric Modules](/docs/define/metric-modules)
+- Explore the fluent builder in [Query Building](/docs/define/query-building)
+- Regenerate schema types on demand with [`hypequery generate`](/docs/define/type-generation)
+- Share the API via [HTTP + OpenAPI](/docs/ship/http-openapi)
 
-Set up CI (run `npx hypequery type --sync` + tests) once you’re happy with the dev flow.
+Once the flow feels solid, add CI checks (`npx hypequery generate` + tests) so schema drift is caught automatically.

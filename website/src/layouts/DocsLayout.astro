@@ -30,6 +30,7 @@ const sidebar = [
         href: "/docs/getting-started/architecture",
       },
       { title: "Quickstart", href: "/docs/getting-started/quickstart" },
+      { title: "Manual Installation", href: "/docs/quickstart/installation" },
     ],
   },
   {
@@ -38,7 +39,6 @@ const sidebar = [
       { title: "Type generation", href: "/docs/define/type-generation" },
       { title: "Query builder", href: "/docs/define/query-building" },
       { title: "SQL expressions", href: "/docs/define/sql-expressions" },
-      { title: "Advanced features", href: "/docs/define/advanced-features" },
     ],
   },
   {
@@ -46,20 +46,18 @@ const sidebar = [
     items: [
       { title: "Query definitions", href: "/docs/define/metric-modules" },
       { title: "Input/output schemas", href: "/docs/endpoints/schemas" },
-      { title: "Metadata & documentation", href: "/docs/ship/custom-metadata" },
     ],
   },
   {
     title: "Execute & ship",
     items: [
       { title: "Embedded runtime", href: "/docs/ship/embedded-runtime" },
+      { title: "Authentication", href: "/docs/ship/authentication" },
       { title: "Dev workflow", href: "/docs/ship/serve-dev" },
       { title: "HTTP + OpenAPI", href: "/docs/ship/http-openapi" },
-      { title: "SDK generation", href: "/docs/ship/sdk-generation" },
+      { title: "Metadata & documentation", href: "/docs/ship/custom-metadata" },
       { title: "Multi-tenant isolation", href: "/docs/ship/multi-tenancy" },
       { title: "Query caching", href: "/docs/define/caching" },
-      { title: "Custom metadata", href: "/docs/ship/custom-metadata" },
-      { title: "Caching & scheduling", href: "/docs/ship/caching-scheduling" },
     ],
   },
   {
@@ -90,6 +88,7 @@ const sidebar = [
   {
     title: "Reference",
     items: [
+      { title: "Serve reference", href: "/docs/reference/serve" },
       { title: "CLI reference", href: "/docs/reference/cli" },
       { title: "Configuration", href: "/docs/reference/config" },
       {
@@ -195,6 +194,12 @@ const sidebar = [
           },
         ],
       },
+    ],
+  },
+  {
+    title: "Advanced",
+    items: [
+      { title: "Standalone Query Builder", href: "/docs/advanced/standalone-query-builder" },
     ],
   },
 ];

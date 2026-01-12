@@ -1,7 +1,7 @@
 {
   "name": "@hypequery/serve",
   "version": "0.0.1",
-  "description": "Declarative HTTP server for exposing HypeQuery analytics endpoints",
+  "description": "Declarative HTTP server for exposing hypequery analytics endpoints",
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",

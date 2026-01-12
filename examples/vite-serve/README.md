@@ -1,6 +1,6 @@
 # Vite + @hypequery/serve example
 
-This example runs a standalone HypeQuery Serve instance alongside a Vite React app. During
+This example runs a standalone hypequery Serve instance alongside a Vite React app. During
 development, Vite proxies `/api`, `/docs`, and `/openapi.json` to the Node server.
 
 ## Commands

@@ -8,14 +8,79 @@ description: Command cheatsheet for the hypequery CLI
 
 # CLI reference
 
-List each CLI command (`init`, `serve`, `type`, etc.) with arguments, environment variables, and exit codes. Consider tables for clarity.
+The `hypequery` binary ships with the `@hypequery/cli` package. Every command expects access to your ClickHouse credentials via the prompts presented during `init` or via the `CLICKHOUSE_*` environment variables listed below.
 
-## Common commands
+## Commands at a glance
 
-Add a placeholder table describing what each command does and when to run it.
+| Command | Purpose |
+| --- | --- |
+| `hypequery init` | Scaffold the `analytics/` folder, collect ClickHouse credentials, and optionally create an example query |
+| `hypequery dev [queries-file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
+| `hypequery generate` | Rebuild `analytics/schema.ts` (optionally watching for remote schema changes) |
 
-## Examples
+The sections below expand on the supported options and expected behavior for each command.
 
-Reserve sections for copy-pastable snippets once content is ready.
+## `hypequery init`
+
+```bash
+hypequery init [--database clickhouse] [--path analytics] [--no-example] [--no-interactive] [--force]
+```
+
+- **Supported databases** – Only ClickHouse is currently supported. Passing `--database clickhouse` skips the picker. (A disabled BigQuery option exists for future support.)
+- **`--path <dir>`** – Target directory for `client.ts`, `schema.ts`, and `queries.ts`. Defaults to `analytics/`.
+- **`--no-example`** – Skip generating the sample query.
+- **`--no-interactive`** – Skip prompts and read the ClickHouse host/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing.
+- **`--force`** – Overwrite existing files without asking.
+
+During the flow the CLI tests your ClickHouse connection immediately using the credentials you provide. On success it writes `.env`, generates the files in the selected directory, and prints follow-up instructions for `hypequery dev`.
+
+## `hypequery dev [file]`
+
+```bash
+hypequery dev [path/to/queries.ts] [options]
+```
+
+- **`[file]`** – Optional path to your `queries.ts`. Defaults to `analytics/queries.ts`, `src/analytics/queries.ts`, or the nearest `hypequery.ts`.
+- **`-p, --port <port>`** – Desired port. Falls back to whatever `@hypequery/serve` chooses (4000 by default).
+- **`-h, --hostname <host>`** – Bind address (default `localhost`).
+- **`--no-watch`** – Run once without watching for file changes.
+- **`--no-cache` / `--cache <provider>`** – Disable caching entirely or select a cache provider (`memory` or `redis`).
+- **`--redis-url <url>`** – Connection string when using the Redis cache provider.
+- **`--open`** – Open the generated Docs URL in your default browser after the server starts.
+- **`--cors`** – Enable CORS support in the dev server.
+- **`-q, --quiet`** – Reduce startup noise.
+
+`dev` loads the ClickHouse schema to display table counts, registers your queries, then prints the Docs and OpenAPI URLs for the running server. When `--open` is set the CLI only attempts to open the browser if it can determine the full base URL.
+
+## `hypequery generate`
+
+```bash
+hypequery generate [--output analytics/schema.ts] [--tables users,orders] [--watch]
+```
+
+- **`--output <file>`** – Where to write the generated types. Defaults to your existing `analytics/schema.ts` or `analytics/schema.ts` if not found.
+- **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected.
+- **`--watch`** – Poll ClickHouse every 30 seconds and regenerate types when the schema changes.
+
+The generator shares the `CLICKHOUSE_*` configuration with the rest of the CLI, so ensure those env vars are set (or run `hypequery init` first).
+
+## Environment variables
+
+These variables are read whenever the CLI talks to ClickHouse (either during `init` in non-interactive mode or during later commands):
+
+| Variable | Description |
+| --- | --- |
+| `CLICKHOUSE_HOST` | Fully-qualified host URL, e.g. `https://example.clickhouse.cloud:8443` |
+| `CLICKHOUSE_DATABASE` | Database to target (defaults to `default`) |
+| `CLICKHOUSE_USERNAME` | Username used for CLI connections |
+| `CLICKHOUSE_PASSWORD` | Password or token |
+| `CLICKHOUSE_URL` / `CLICKHOUSE_USER` / `CLICKHOUSE_PASS` | Legacy aliases also detected by the CLI |
+
+Set these in your `.env` (the `init` command will scaffold this file for you) or export them in CI/CD before running CLI commands.
+
+## Troubleshooting
+
+- **Connection errors** – Verify the env vars above and ensure network access to ClickHouse. The CLI reports `ECONNREFUSED`, `Authentication failed`, and TLS errors with actionable hints.
+- **Missing files** – Run `hypequery init --force` to regenerate the `analytics/` folder if it was removed.
 
 </div>

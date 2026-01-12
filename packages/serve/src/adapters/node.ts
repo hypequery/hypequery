@@ -170,7 +170,7 @@ export const startNodeServer = async (
       typeof address === "object" && address
         ? `${address.address}:${address.port}`
         : `${hostname}:${port}`;
-    console.log(`HypeQuery serve listening on ${display}`);
+    console.log(`hypequery serve listening on ${display}`);
   }
 
   const stop = () =>

@@ -1,10 +1,11 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
+import type { ClickHouseConfig } from '@hypequery/clickhouse';
 
 /**
  * Database type detection result
  */
-export type DatabaseType = 'clickhouse' | 'bigquery' | 'postgres' | 'unknown';
+export type DatabaseType = 'clickhouse' | 'bigquery' | 'unknown';
 
 /**
  * Auto-detect database type from environment or config files
@@ -21,10 +22,6 @@ export async function detectDatabase(): Promise<DatabaseType> {
 
   if (process.env.BIGQUERY_PROJECT_ID || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     return 'bigquery';
-  }
-
-  if (process.env.POSTGRES_URL || process.env.DATABASE_URL?.includes('postgres')) {
-    return 'postgres';
   }
 
   // Check for .env file and parse it
@@ -49,9 +46,6 @@ export async function detectDatabase(): Promise<DatabaseType> {
       return 'bigquery';
     }
 
-    if (envContent.includes('POSTGRES_') || envContent.includes('DATABASE_URL')) {
-      return 'postgres';
-    }
   } catch {
     // .env doesn't exist, continue
   }
@@ -68,8 +62,6 @@ export async function validateConnection(dbType: DatabaseType): Promise<boolean>
       return validateClickHouse();
     case 'bigquery':
       return validateBigQuery();
-    case 'postgres':
-      return validatePostgres();
     default:
       return false;
   }
@@ -77,8 +69,7 @@ export async function validateConnection(dbType: DatabaseType): Promise<boolean>
 
 async function validateClickHouse(): Promise<boolean> {
   try {
-    const { ClickHouseConnection } = await import('@hypequery/clickhouse');
-    const client = ClickHouseConnection.getClient();
+    const client = await getClickHouseClient();
 
     // Simple ping query
     const result = await client.query({
@@ -98,11 +89,6 @@ async function validateBigQuery(): Promise<boolean> {
   return false;
 }
 
-async function validatePostgres(): Promise<boolean> {
-  // TODO: Implement when Postgres support is added
-  return false;
-}
-
 /**
  * Get table count from database
  */
@@ -117,8 +103,7 @@ export async function getTableCount(dbType: DatabaseType): Promise<number> {
 
 async function getClickHouseTableCount(): Promise<number> {
   try {
-    const { ClickHouseConnection } = await import('@hypequery/clickhouse');
-    const client = ClickHouseConnection.getClient();
+    const client = await getClickHouseClient();
 
     const result = await client.query({
       query: 'SHOW TABLES',
@@ -146,8 +131,7 @@ export async function getTables(dbType: DatabaseType): Promise<string[]> {
 
 async function getClickHouseTables(): Promise<string[]> {
   try {
-    const { ClickHouseConnection } = await import('@hypequery/clickhouse');
-    const client = ClickHouseConnection.getClient();
+    const client = await getClickHouseClient();
 
     const result = await client.query({
       query: 'SHOW TABLES',
@@ -159,4 +143,44 @@ async function getClickHouseTables(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+type ClickHouseHostConfig = Exclude<ClickHouseConfig, { client: unknown }>;
+
+async function getClickHouseClient() {
+  const { ClickHouseConnection } = await import('@hypequery/clickhouse');
+
+  try {
+    return ClickHouseConnection.getClient();
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('ClickHouse connection not initialized')) {
+      const config = getClickHouseEnvConfig();
+
+      if (!config) {
+        throw new Error(
+          'ClickHouse connection details are missing. Set CLICKHOUSE_HOST, CLICKHOUSE_DATABASE, CLICKHOUSE_USERNAME, and CLICKHOUSE_PASSWORD.'
+        );
+      }
+
+      ClickHouseConnection.initialize(config);
+      return ClickHouseConnection.getClient();
+    }
+
+    throw error;
+  }
+}
+
+function getClickHouseEnvConfig(): ClickHouseHostConfig | null {
+  const host = process.env.CLICKHOUSE_HOST || process.env.CLICKHOUSE_URL;
+
+  if (!host) {
+    return null;
+  }
+
+  return {
+    host,
+    database: process.env.CLICKHOUSE_DATABASE || 'default',
+    username: process.env.CLICKHOUSE_USERNAME || process.env.CLICKHOUSE_USER || 'default',
+    password: process.env.CLICKHOUSE_PASSWORD || process.env.CLICKHOUSE_PASS || '',
+  } as ClickHouseHostConfig;
 }

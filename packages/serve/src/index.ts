@@ -3,7 +3,6 @@ export * from "./server.js";
 export * from "./router.js";
 export * from "./endpoint.js";
 export * from "./openapi.js";
-export * from "./sdk-generator.js";
 export * from "./docs-ui.js";
 export * from "./auth.js";
 export * from "./adapters/node.js";

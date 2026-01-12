@@ -8,18 +8,18 @@ description: Automatic tenant-scoped data access for SaaS applications
 
 # Multi-tenant isolation
 
-Build secure multi-tenant SaaS applications with automatic tenant isolation. HypeQuery prevents data leaks by **automatically injecting tenant filters** into your database queries, making it impossible to accidentally access another organization's data.
+Build secure multi-tenant SaaS applications with automatic tenant isolation. hypequery prevents data leaks by **automatically injecting tenant filters** into your database queries, making it impossible to accidentally access another organization's data.
 
 ## Overview
 
-Multi-tenancy in HypeQuery works by:
+Multi-tenancy in hypequery works by:
 1. **Extracting** a tenant ID from the auth context
 2. **Validating** that the tenant ID exists when required
 3. **Auto-injecting** WHERE clauses to filter all queries by tenant
 4. **Wrapping** query builders in your context to enforce tenant boundaries
 5. **Rejecting** unauthorized requests with detailed error messages
 
-**Secure by default**: With `mode: 'auto-inject'` (recommended), HypeQuery automatically adds tenant filters to every query. You can't forget to add WHERE clauses—the framework prevents data leaks at runtime.
+**Secure by default**: With `mode: 'auto-inject'` (recommended), hypequery automatically adds tenant filters to every query. You can't forget to add WHERE clauses—the framework prevents data leaks at runtime.
 
 ## Quick start
 
@@ -183,7 +183,7 @@ Auto-inject mode wraps all query builders in your context to automatically filte
 
 ### How it works
 
-1. HypeQuery detects all query builders in your context (objects with a `.table()` method)
+1. hypequery detects all query builders in your context (objects with a `.table()` method)
 2. Wraps each query builder to auto-inject `WHERE column = tenantId`
 3. Your queries work normally, but tenant filters are automatically applied
 
