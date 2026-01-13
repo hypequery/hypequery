@@ -20,7 +20,8 @@
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --project tsconfig.json --watch",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
     "zod": "^3.23.8",

@@ -16,7 +16,7 @@ You don’t need HTTP to execute hypequery metrics. Every `defineServe` export e
 2. **Context creation** – Whenever you call the runtime, hypequery builds a `ctx` object that includes the request metadata, auth context (if any), tenant helpers, and whatever you return from the `context` factory (e.g., `db`, cache clients, tracing IDs).
 3. **Middleware + hooks** – Global and per-endpoint middleware run around your query, just like they do for HTTP requests. Lifecycle hooks (`onRequestStart`, `onRequestEnd`, etc.) fire as well, so logging and metrics stay consistent.
 4. **Execution** – The query resolver executes against your ClickHouse connection (or any other resources you injected). If the resolver returns a value, hypequery serializes it exactly as it would for HTTP responses.
-5. **Hot reload expectations** – During development the CLI reloads your `queries.ts` file using `tsx`, so edits are picked up automatically. In production you control deployments; keep `defineServe` in a module that is only instantiated once per process to avoid re-registering endpoints.
+5. **Hot reload expectations** – During development the CLI reloads your `queries.ts` file automatically, so edits are picked up immediately. In production you control deployments; keep `defineServe` in a module that is only instantiated once per process to avoid re-registering endpoints.
 
 ## Example flows
 

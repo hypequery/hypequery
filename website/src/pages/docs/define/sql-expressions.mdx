@@ -15,7 +15,7 @@ You can execute raw SQL statements directly inside `defineServe` by calling `ctx
 ```ts
 import { defineServe } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './client.js';
+import { db } from './client';
 
 export const api = defineServe({
   context: () => ({ db }),
@@ -48,7 +48,7 @@ When the builder handles most of the query but you need a one-off expression, us
 ```ts
 import { defineServe } from '@hypequery/serve';
 import { raw } from '@hypequery/clickhouse';
-import { db } from './client.js';
+import { db } from './client';
 
 export const api = defineServe({
   context: () => ({ db }),

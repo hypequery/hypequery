@@ -1,8 +1,14 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import aiContextRaw from "../data/ai-context.txt?raw";
+import Prism from "prismjs";
+import "prismjs/components/prism-typescript";
+import "prismjs/components/prism-json";
+import "prismjs/components/prism-http";
 const aiContext = aiContextRaw.trim();
-const heroCode = `import { defineServe } from '@hypequery/serve';
+
+const heroCode = `
+import { defineServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './analytics/client';
 
@@ -16,14 +22,207 @@ export const api = defineServe({
           .table('orders')
           .where('created_at', 'gte', input.startDate)
           .groupBy(['week'])
-          .sum('total', 'revenue')
+          .sum('total', 'revenue'),
+    },
+  },
+});
+`;
+const heroHighlighted = Prism.highlight(
+  heroCode,
+  Prism.languages.typescript,
+  "typescript",
+);
+
+const runAnywhereEmbeddedCode =
+  "const revenue = await api.execute('weeklyRevenue');";
+const runAnywhereEmbeddedHighlighted = Prism.highlight(
+  runAnywhereEmbeddedCode,
+  Prism.languages.typescript,
+  "typescript",
+);
+
+const runAnywhereApiCode = `POST /api/weeklyRevenue`;
+const runAnywhereApiHighlighted = Prism.highlight(
+  runAnywhereApiCode,
+  Prism.languages.http,
+  "http",
+);
+
+const runAnywhereReactCode = "const { data } = useQuery('weeklyRevenue');";
+const runAnywhereReactHighlighted = Prism.highlight(
+  runAnywhereReactCode,
+  Prism.languages.typescript,
+  "typescript",
+);
+
+const runAnywhereAgentCode = `{ "tool": "weeklyRevenue", "arguments": {} }`;
+const runAnywhereAgentHighlighted = Prism.highlight(
+  runAnywhereAgentCode,
+  Prism.languages.json,
+  "json",
+);
+
+const highlightUseCaseCode = (code: string, language: string = "typescript") =>
+  Prism.highlight(
+    code.trim(),
+    Prism.languages[language] ?? Prism.languages.typescript,
+    language,
+  );
+
+const useCaseExamples = [
+  {
+    id: "backend",
+    title: "Backend & platform",
+    summary:
+      "Stop copying SQL between services. Define analytics once and reuse them across jobs, APIs, and internal tools.",
+    body: "Backend and platform engineers pull the same hypequery definition into cron jobs, queues, and HTTP handlers so every service agrees on revenue math.",
+    codeLanguage: "typescript",
+    code: `
+// jobs/renewal-digest.ts
+import { api } from '../analytics/api';
+import { notifyOps } from '../lib/notifications';
+
+export async function sendRenewalDigest() {
+  const digest = await api.run('renewalHealth', {
+    windowEnd: new Date().toISOString(),
+  });
+
+  await notifyOps('renewals', digest.rows);
+}
+`,
+  },
+  {
+    id: "dashboards",
+    title: "Dashboards",
+    summary:
+      "Expose a small, trusted set of metrics instead of letting every dashboard redefine business logic.",
+    body: "Product analytics, ops, and GTM dashboards call hypequery via typed hooks. A single definition feeds embeds, SSR routes, and TanStack Query caches.",
+    codeLanguage: "typescript",
+    code: `    
+// app/analytics-hooks.ts
+import { createHooks } from '@hypequery/react';
+
+export const { useQuery, } = createHooks<DashboardApi>({
+  baseUrl: '/api/analytics',
+});
+
+// app/routes/dashboard.tsx
+export function Dashboard() {
+  const { data, isLoading } = useQuery('kpiSnapshot', {
+    startDate: '2024-05-01',
+    endDate: '2024-05-31',
+  });
+
+  if (isLoading) return <SkeletonTiles />;
+  return <KpiTiles rows={data} />;
+}
+`,
+  },
+  {
+    id: "agents",
+    title: "AI agents & automation",
+    summary:
+      "Give agents structured, discoverable analytics with typed inputs and outputs — not raw SQL strings.",
+    body: "Agents enumerate `api.list()`, inspect schemas, then call `api.run()` through LangChain tools so LLMs stay inside guardrails.",
+    codeLanguage: "typescript",
+    code: `
+// agents/tools.ts
+import { DynamicStructuredTool } from 'langchain/tools';
+import { z } from 'zod';
+import { api } from '../analytics/api';
+
+export async function createAnalyticsTool() {
+  const metrics = await api.list();
+
+  return new DynamicStructuredTool({
+    name: 'analytics_metric',
+    description: 'List metrics with api.list(), inspect schemas, and execute them safely.',
+    schema: z.object({
+      metric: z.string(),
+      params: z.record(z.any()).default({}),
+    }),
+    func: async ({ metric, params }) => {
+      if (!metrics.includes(metric)) {
+        throw new Error('Unknown metric: ' + metric);
+      }
+
+      await api.schema(metric); // keeps prompts honest
+      return api.run(metric, params);
+    },
+  });
+}
+
+// agents/executor.ts
+import { initializeAgentExecutorWithOptions } from 'langchain/agents';
+import { ChatOpenAI } from '@langchain/openai';
+
+const analyticsTool = await createAnalyticsTool();
+const agent = await initializeAgentExecutorWithOptions([
+  analyticsTool,
+], new ChatOpenAI({ modelName: 'gpt-4o' }), {
+  agentType: 'structured-chat-zero-shot-react-description',
+});
+
+const response = await agent.invoke({
+  input: 'Alert me if enterprise churn grew week over week.',
+});
+`,
+  },
+  {
+    id: "clickhouse",
+    title: "Data teams",
+    summary:
+      "Keep ClickHouse fast and flexible without pushing business logic into dashboards or BI tools.",
+    body: "Data teams wrap ClickHouse in hypequery to add tenant isolation, governance, and OpenAPI docs so BI, ops, and product all share one metric catalog.",
+    codeLanguage: "typescript",
+    code: `
+// analytics/api.ts
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { verifyKey } from '../lib/auth';
+import { db } from './client';
+
+export const api = defineServe({
+  basePath: '/analytics',
+  context: ({ request }) => ({
+    db,
+    auth: verifyKey(request),
+  }),
+  tenant: {
+    column: 'account_id',
+    extract: (auth) => auth?.accountId,
+    mode: 'auto-inject',
+  },
+  queries: {
+    revenueByPlan: {
+      inputSchema: z.object({ plan: z.string().optional() }),
+      query: ({ ctx, input }) => {
+        let query = ctx.db
+          .table('orders')
+          .select(['plan'])
+          .where('account_id', 'eq', ctx.tenantId)
+          .groupBy(['plan'])
+          .sum('amount', 'revenue');
+
+        if (input.plan) {
+          query = query.where('plan', 'eq', input.plan);
+        }
+
+        return query;
+      },
     },
   },
 });
 
-const revenue = await api.execute('weeklyRevenue', {
-  input: { startDate: '2025-01-01' }
-});`;
+await api.start(); // exposes routes + OpenAPI for BI consumers
+`,
+  },
+].map((useCase) => ({
+  ...useCase,
+  highlighted: highlightUseCaseCode(useCase.code, useCase.codeLanguage),
+}));
+
+const defaultUseCase = useCaseExamples[0] ?? null;
 ---
 
 <Layout title="hypequery - TypeScript SDK for ClickHouse with Type Safety">
@@ -39,22 +238,23 @@ const revenue = await api.execute('weeklyRevenue', {
               <h1
                 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl animate-on-scroll"
               >
-                The code-first analytics layer for ClickHouse
+                Build analytics APIs in minutes, not weeks
               </h1>
               <div>
-                <p
+                <h2
                   class="mt-6 text-lg leading-8 text-gray-600 animate-on-scroll"
                 >
-                  Define type safe queries and metrics in TypeScript.
-                </p>
+                  Define analytics queries once in TypeScript. Reuse them once
+                  across APIs, dashboards and Agents.
+                </h2>
                 <p class="text-lg leading-8 text-gray-600 animate-on-scroll">
-                  Reuse them across services, dashboards, and AI agents.
+                  Built for ClickHouse. Type-safe by default.
                 </p>
               </div>
               <div class="mt-8 space-y-3 animate-on-scroll">
                 <div class="flex flex-wrap items-center gap-4">
                   <a
-                    href="/docs"
+                    href="/docs/getting-started/quickstart"
                     class="rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                   >
                     Quickstart &rarr;
@@ -208,21 +408,46 @@ const revenue = await api.execute('weeklyRevenue', {
             </h2>
             <div class="mt-6 space-y-4 text-base leading-7 text-gray-600">
               <p>
-                You define named queries and metrics in TypeScript, give them
-                schemas and metadata, and execute them wherever you need —
-                embedded in your app, exposed via APIs, or consumed by agents.
+                You define type safe queries in TypeScript, give them schemas
+                and metadata, and execute them wherever you need: embedded in
+                your app, exposed via APIs, or consumed by agents.
               </p>
             </div>
-            <div class="mt-8 rounded-xl bg-gray-950 p-1 text-sm">
-              <div class="flex gap-2 p-2">
-                <span class="size-3 rounded-full bg-white/20"></span>
-                <span class="size-3 rounded-full bg-white/20"></span>
-                <span class="size-3 rounded-full bg-white/20"></span>
+            <div class="mt-8 grid gap-6 lg:grid-cols-2">
+              <div class="rounded-xl bg-gray-950 p-1 text-sm">
+                <div class="flex gap-2 p-2">
+                  <span class="size-3 rounded-full bg-white/20"></span>
+                  <span class="size-3 rounded-full bg-white/20"></span>
+                  <span class="size-3 rounded-full bg-white/20"></span>
+                </div>
+                <pre
+                  class="rounded-lg border border-white/10 bg-white/5 text-left text-sm leading-6 text-emerald-100"><code class="language-typescript" set:html={heroHighlighted} /></pre>
               </div>
-              <pre
-                class="rounded-lg border border-white/10 bg-white/5 text-left text-sm leading-6 text-emerald-100">
-                <code class="language-typescript">{heroCode}</code>
-              </pre>
+              <div class="rounded-xl p-1 text-sm space-y-8">
+                <div class="text-lg font-bold uppercase tracking-wide">
+                  Define Once. Run anywhere.
+                </div>
+                <div>
+                  <p class="mb-4 font-semibold text-md">Embedded</p>
+                  <pre
+                    class="bg-gray-950 p-2 rounded-lg border border-white/10 text-left leading-6 text-emerald-100"><code class="language-typescript" set:html={runAnywhereEmbeddedHighlighted} /></pre>
+                </div>
+                <div>
+                  <p class="mb-4 font-semibold text-md">API</p>
+                  <pre
+                    class="bg-gray-950 p-2 rounded-lg border border-white/10 text-left text-xs leading-6 text-emerald-100"><code class="language-http" set:html={runAnywhereApiHighlighted} /></pre>
+                </div>
+                <div>
+                  <p class="mb-4 font-semibold text-md">React</p>
+                  <pre
+                    class="bg-gray-950 p-2 rounded-lg border border-white/10 text-left text-xs leading-6 text-emerald-100"><code class="language-typescript" set:html={runAnywhereReactHighlighted} /></pre>
+                </div>
+                <div>
+                  <p class="mb-4 font-semibold text-md">AI agent</p>
+                  <pre
+                    class="bg-gray-950 p-2 rounded-lg border border-white/10 text-left text-xs leading-6 text-emerald-100"><code class="language-json" set:html={runAnywhereAgentHighlighted} /></pre>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -236,100 +461,77 @@ const revenue = await api.execute('weeklyRevenue', {
               class="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-on-scroll"
               data-use-case-grid
             >
-              <button
-                type="button"
-                class="use-case-card border border-gray-200 rounded-2xl p-6 bg-white text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 transition"
-                data-use-case-card
-                data-title="Backend & platform teams"
-                data-body="Keep analytics definitions next to application logic. Import the same metric into cron jobs, background workers, or API handlers without rewriting SQL."
-              >
-                <h3 class="text-lg font-semibold text-gray-900">
-                  Backend & platform teams
-                </h3>
-                <p class="mt-4 text-sm text-gray-600">
-                  Stop copying SQL between services. Define analytics once and
-                  reuse them across jobs, APIs, and internal tools.
-                </p>
-              </button>
-              <button
-                type="button"
-                class="use-case-card border border-gray-200 rounded-2xl p-6 bg-white text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 transition"
-                data-use-case-card
-                data-title="Internal dashboards"
-                data-body="Expose a curated API backed by hypequery definitions. Each dashboard call hits a named query so changes propagate everywhere instantly."
-              >
-                <h3 class="text-lg font-semibold text-gray-900">
-                  Internal dashboards
-                </h3>
-                <p class="mt-4 text-sm text-gray-600">
-                  Expose a small, trusted set of metrics instead of letting
-                  every dashboard redefine business logic.
-                </p>
-              </button>
-              <button
-                type="button"
-                class="use-case-card border border-gray-200 rounded-2xl p-6 bg-white text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 transition"
-                data-use-case-card
-                data-title="AI agents & automation"
-                data-body="Agents list available queries, inspect the schema, and execute them safely. Typed input/output keeps LLM prompts honest."
-              >
-                <h3 class="text-lg font-semibold text-gray-900">
-                  AI agents & automation
-                </h3>
-                <p class="mt-4 text-sm text-gray-600">
-                  Give agents structured, discoverable analytics with typed
-                  inputs and outputs — not raw SQL strings.
-                </p>
-              </button>
-              <button
-                type="button"
-                class="use-case-card border border-gray-200 rounded-2xl p-6 bg-white text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 transition"
-                data-use-case-card
-                data-title="Data teams on ClickHouse"
-                data-body="Layer governance on top of ClickHouse without slowing it down. Define the metric once, let BI, ops, and product share the exact same logic."
-              >
-                <h3 class="text-lg font-semibold text-gray-900">
-                  Data teams on ClickHouse
-                </h3>
-                <p class="mt-4 text-sm text-gray-600">
-                  Keep ClickHouse fast and flexible without pushing business
-                  logic into dashboards or BI tools.
-                </p>
-              </button>
-            </div>
-            <div
-              class="mt-10 rounded-3xl bg-white p-4 shadow-lg ring-2 ring-indigo-100 animate-on-scroll"
-              data-use-case-example
-            >
-              <div class="rounded-2xl bg-gray-950 p-1 text-sm">
-                <div class="flex gap-2 p-2">
-                  <span class="size-3 rounded-full bg-white/20"></span>
-                  <span class="size-3 rounded-full bg-white/20"></span>
-                  <span class="size-3 rounded-full bg-white/20"></span>
-                </div>
-                <div
-                  class="rounded-xl bg-white p-6 text-gray-900 dark:bg-gray-900 dark:text-gray-100"
-                >
-                  <span
-                    class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200"
-                    data-use-case-pill
+              {
+                useCaseExamples.map((useCase) => (
+                  <button
+                    type="button"
+                    class="use-case-card border border-gray-200 rounded-2xl p-6 bg-white text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 transition"
+                    data-use-case-card
+                    data-title={useCase.title}
+                    data-body={useCase.body}
+                    data-code-language={useCase.codeLanguage}
+                    data-code-html={encodeURIComponent(useCase.highlighted)}
                   >
-                  </span>
+                    <h3 class="text-lg font-semibold text-gray-900">
+                      {useCase.title}
+                    </h3>
+                    <p class="mt-4 text-sm text-gray-600">{useCase.summary}</p>
+                  </button>
+                ))
+              }
+            </div>
+            <div class="mt-10 animate-on-scroll" data-use-case-example>
+              <div
+                class="rounded-3xl bg-white p-6 text-gray-900 shadow-lg ring-2 ring-indigo-100 dark:bg-slate-900/60 dark:text-gray-100"
+              >
+                <span
+                  class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200"
+                  data-use-case-pill
+                >
+                  {defaultUseCase
+                    ? `Now showing • ${defaultUseCase.title}`
+                    : ""}
+                </span>
+                <p
+                  class="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300"
+                >
+                  Example
+                </p>
+                <h3
+                  class="mt-3 text-2xl font-bold tracking-tight"
+                  data-use-case-title
+                >
+                  {defaultUseCase?.title}
+                </h3>
+                <p
+                  class="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300"
+                  data-use-case-body
+                >
+                  {defaultUseCase?.body}
+                </p>
+                <div class="mt-6">
                   <p
                     class="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300"
                   >
-                    Example
+                    Code sample
                   </p>
-                  <h3
-                    class="mt-3 text-2xl font-bold tracking-tight"
-                    data-use-case-title
-                  >
-                  </h3>
-                  <p
-                    class="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300"
-                    data-use-case-body
-                  >
-                  </p>
+                  <div class="mt-3 rounded-2xl bg-gray-950 p-1 text-sm">
+                    <div class="flex gap-2 p-2">
+                      <span class="size-3 rounded-full bg-white/20"></span>
+                      <span class="size-3 rounded-full bg-white/20"></span>
+                      <span class="size-3 rounded-full bg-white/20"></span>
+                    </div>
+                    <pre
+                      class="rounded-xl border border-white/10 bg-white/5 text-left text-xs leading-5 text-emerald-100"
+                      data-use-case-pre
+                    >
+                      <code
+                        class={`language-${defaultUseCase?.codeLanguage ?? "typescript"}`}
+                        data-use-case-code
+                        set:html={defaultUseCase?.highlighted ?? ""}
+                      ></code>
+                    </pre>
+                  </div>
                 </div>
               </div>
             </div>
@@ -355,6 +557,7 @@ const revenue = await api.execute('weeklyRevenue', {
                     >
                       <p>Then metrics drift.</p>
                       <p>Logic gets copied.</p>
+                      <p>Agents hallucinate.</p>
                       <p>And “the correct query” becomes a debate.</p>
                     </div>
                     <div
@@ -456,219 +659,393 @@ const revenue = await api.execute('weeklyRevenue', {
             </div>
           </section>
 
-          <section
-            class="mt-20 rounded-3xl bg-gray-900 p-10 text-gray-100 animate-on-scroll"
-          >
-            <h2 class="text-3xl font-bold tracking-tight">
-              Humans first. Agents included. Hyenas? Not so much.
-            </h2>
-            <p class="mt-6 text-lg text-gray-200">
-              Your analytics aren’t blobs of SQL. They’re:
-            </p>
-            <div class="mt-6 grid gap-8 md:grid-cols-2">
-              <div>
-                <ul class="space-y-1 text-base text-gray-100">
-                  <li>Named</li>
-                  <li>Typed</li>
-                  <li>Documented</li>
-                  <li>Discoverable</li>
-                </ul>
+          <section class="mt-20 animate-on-scroll">
+            <div
+              class="relative left-1/2 right-1/2 w-screen -translate-x-1/2 bg-gray-900 py-14 text-gray-100"
+            >
+              <div class="mx-auto max-w-7xl px-4 lg:px-6">
+                <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <h2 class="text-3xl font-bold tracking-tight">
+                      Humans first. Agents included. Hyenas? Not so much.
+                    </h2>
+                    <p class="mt-4 text-lg text-gray-200">
+                      Your analytics aren’t blobs of SQL. They’re:
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm tracking-wide text-indigo-200">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke-width="1.5"
+                      stroke="currentColor"
+                      class="h-5 w-5"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Keep context, ditch chaos.
+                  </div>
+                </div>
+                <div class="mt-8 grid gap-8 md:grid-cols-2">
+                  <div class="space-y-3">
+                    {[
+                      {
+                        label: "Named",
+                        description: "Versioned keys with intent baked in.",
+                        icon: "bookmark",
+                  },
+                  {
+                    label: "Typed",
+                    description: "Zod schemas guard every input/output.",
+                    icon: "code",
+                  },
+                  {
+                    label: "Documented",
+                    description: "Metadata + OpenAPI ship alongside code.",
+                    icon: "note",
+                  },
+                  {
+                    label: "Discoverable",
+                    description: "List + inspect definitions instead of spelunking SQL.",
+                    icon: "radar",
+                  },
+                ].map(({ label, description, icon }) => (
+                  <div class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3">
+                    <span
+                      class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
+                      aria-hidden="true"
+                    >
+                      {icon === "bookmark" && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="h-5 w-5"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M6.75 3v17.25L12 17.25l5.25 3V3z"
+                          />
+                        </svg>
+                      )}
+                      {icon === "code" && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="h-5 w-5"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M8.25 9.75L5.25 12l3 2.25m7.5-4.5L18.75 12l-3 2.25m-2.25-7.5l-3 9"
+                          />
+                        </svg>
+                      )}
+                      {icon === "note" && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="h-5 w-5"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M3.75 4.5h10.5m-10.5 6h6m-6 6h10.5m2.25-14.25h2.25v15a1.5 1.5 0 01-1.5 1.5H6"
+                          />
+                        </svg>
+                      )}
+                      {icon === "radar" && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke-width="1.5"
+                          stroke="currentColor"
+                          class="h-5 w-5"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 6v6l3 1.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <div>
+                      <p class="text-base font-semibold">{label}</p>
+                      <p class="text-sm text-gray-300">{description}</p>
+                    </div>
+                  </div>
+                ))}
+                  </div>
+                  <div>
+                    <p
+                      class="text-sm font-semibold uppercase tracking-wide text-indigo-300"
+                    >
+                      Which means they work for:
+                    </p>
+                    <div class="mt-6 space-y-4">
+                      {[
+                        {
+                          label: "Humans reading code",
+                          body: "Drop into any repo and understand the metric instantly.",
+                        },
+                        {
+                          label: "Frontends calling APIs",
+                          body: "Typed hooks + OpenAPI keep dashboards in sync.",
+                        },
+                        {
+                          label: "AI agents doing real work",
+                          body: "Agents list, inspect, and execute definitions safely.",
+                        },
+                      ].map(({ label, body }) => (
+                        <div class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                          <span class="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-400 text-gray-900 shadow-lg shadow-emerald-500/40">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke-width="2"
+                              stroke="currentColor"
+                              class="h-4 w-4"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M4.5 12.75l6 6 9-13.5"
+                              />
+                            </svg>
+                          </span>
+                          <div>
+                            <p class="font-semibold">{label}</p>
+                            <p class="text-sm text-gray-300">{body}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-10 grid gap-3 text-sm text-gray-300 md:grid-cols-3">
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4">
+                    <p class="text-white">No prompt hacks.</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4">
+                    <p class="text-white">No agent-specific APIs.</p>
+                  </div>
+                  <div class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4">
+                    <p class="text-base font-semibold text-white">Just structure.</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p
-                  class="text-sm font-semibold uppercase tracking-wide text-indigo-300"
-                >
-                  Which means they work for:
-                </p>
-                <ul class="mt-4 space-y-2 text-base text-gray-100">
-                  <li>Humans reading code</li>
-                  <li>Frontends calling APIs</li>
-                  <li>AI agents doing real work</li>
-                </ul>
-              </div>
-            </div>
-            <div class="mt-8 space-y-2 text-sm text-gray-300">
-              <p>No prompt hacks.</p>
-              <p>No agent-specific APIs.</p>
-              <p class="text-base font-semibold text-white">Just structure.</p>
             </div>
           </section>
         </div>
       </div>
     </div>
   </main>
-</Layout>
 
-<script is:inline>
-  const initUseCaseSwitcher = () => {
-    const cards = Array.from(document.querySelectorAll("[data-use-case-card]"));
-    const titleEl = document.querySelector("[data-use-case-title]");
-    const bodyEl = document.querySelector("[data-use-case-body]");
-    const pillEl = document.querySelector("[data-use-case-pill]");
-    if (!cards.length || !titleEl || !bodyEl) return;
+  <script is:inline>
+    const initUseCaseSwitcher = () => {
+      const cards = Array.from(
+        document.querySelectorAll("[data-use-case-card]"),
+      );
+      const titleEl = document.querySelector("[data-use-case-title]");
+      const bodyEl = document.querySelector("[data-use-case-body]");
+      const pillEl = document.querySelector("[data-use-case-pill]");
+      const codeEl = document.querySelector("[data-use-case-code]");
+      if (!cards.length || !titleEl || !bodyEl) return;
 
-    let activeCard = null;
+      let activeCard = null;
 
-    const selectCard = (card) => {
-      if (!card) return;
-      activeCard = card;
-      cards.forEach((btn) => {
-        const isActive = btn === card;
-        btn.classList.toggle("bg-indigo-50", isActive);
-        btn.classList.toggle("border-indigo-300", isActive);
-        btn.classList.toggle("border-gray-200", !isActive);
-        btn.classList.toggle("ring-2", isActive);
-        btn.classList.toggle("ring-indigo-200", isActive);
-        btn.classList.toggle("ring-offset-2", isActive);
-        btn.classList.toggle("ring-offset-white", isActive);
-        btn.classList.toggle("shadow-lg", isActive);
-        btn.classList.toggle("shadow-sm", !isActive);
-        btn.classList.toggle("opacity-60", !isActive);
-        btn.classList.toggle("opacity-100", isActive);
-        btn.setAttribute("aria-pressed", isActive ? "true" : "false");
-      });
-      const title = card.dataset.title || "";
-      titleEl.textContent = title;
-      bodyEl.textContent = card.dataset.body || "";
-      if (pillEl) {
-        pillEl.textContent = title ? `Now showing • ${title}` : "";
-      }
-    };
+      const decodeCode = (value) => {
+        try {
+          return decodeURIComponent(value);
+        } catch (error) {
+          console.warn("Failed to decode code snippet", error);
+          return value;
+        }
+      };
 
-    cards.forEach((card) => {
-      card.addEventListener("click", () => selectCard(card));
-    });
+      const selectCard = (card) => {
+        if (!card) return;
+        activeCard = card;
+        cards.forEach((btn) => {
+          const isActive = btn === card;
+          btn.classList.toggle("bg-indigo-50", isActive);
+          btn.classList.toggle("border-indigo-300", isActive);
+          btn.classList.toggle("border-gray-200", !isActive);
+          btn.classList.toggle("ring-2", isActive);
+          btn.classList.toggle("ring-indigo-200", isActive);
+          btn.classList.toggle("ring-offset-2", isActive);
+          btn.classList.toggle("ring-offset-white", isActive);
+          btn.classList.toggle("shadow-lg", isActive);
+          btn.classList.toggle("shadow-sm", !isActive);
+          btn.classList.toggle("opacity-60", !isActive);
+          btn.classList.toggle("opacity-100", isActive);
+          btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+        const title = card.dataset.title || "";
+        titleEl.textContent = title;
+        bodyEl.textContent = card.dataset.body || "";
+        if (codeEl) {
+          const language = card.dataset.codeLanguage || "typescript";
+          const codeHtml = card.dataset.codeHtml
+            ? decodeCode(card.dataset.codeHtml)
+            : "";
+          codeEl.innerHTML = codeHtml;
+          codeEl.className = `language-${language}`;
+        }
+      };
 
-    selectCard(cards[0]);
-  };
-
-  const initHeroTerminal = () => {
-    const area = document.querySelector("[data-hero-terminal]");
-    if (!area) return;
-    const shell = area.querySelector("[data-hero-terminal-shell]");
-    const commandEl = area.querySelector("[data-terminal-command]");
-    const logEl = area.querySelector("[data-terminal-log]");
-    if (!shell || !commandEl || !logEl) return;
-
-    const sequences = [
-      {
-        command: "npx hypequery init",
-        lines: [
-          "Scaffolding project...",
-          "Creating ClickHouse types...",
-          "Linking metrics to code...",
-          "Done in 1.8s",
-        ],
-      },
-      {
-        command: "npx hypequery generate",
-        lines: [
-          "Reading ClickHouse schema...",
-          "Mapping columns → TypeScript...",
-          "Writing analytics/schema.ts",
-          "Types refreshed.",
-        ],
-      },
-      {
-        command: "npx hypequery dev",
-        lines: [
-          "Booting local runner...",
-          "Watching metrics for edits...",
-          "Exposing API on http://localhost:8787",
-          "Ready for requests.",
-        ],
-      },
-    ];
-
-    let timers = [];
-    let sequenceIndex = 0;
-    let running = false;
-
-    const clearTimers = () => {
-      timers.forEach((id) => clearTimeout(id));
-      timers = [];
-    };
-
-    const resetLog = () => {
-      logEl.innerHTML =
-        '<p class="text-xs font-mono text-emerald-200/70">Waiting for command...</p>';
-      commandEl.textContent = "npx hypequery init";
-    };
-
-    const playSequence = () => {
-      const current = sequences[sequenceIndex % sequences.length];
-      sequenceIndex += 1;
-      commandEl.textContent = current.command;
-      logEl.innerHTML = "";
-      current.lines.forEach((line, idx) => {
-        const timer = window.setTimeout(() => {
-          const lineEl = document.createElement("p");
-          lineEl.textContent = line;
-          lineEl.className = "text-xs font-mono text-emerald-100/90";
-          logEl.appendChild(lineEl);
-        }, idx * 700);
-        timers.push(timer);
+      cards.forEach((card) => {
+        card.addEventListener("click", () => selectCard(card));
       });
 
-      const total = current.lines.length * 700 + 800;
-      const loopTimer = window.setTimeout(() => {
-        if (!running) return;
+      selectCard(cards[0]);
+    };
+
+    const initHeroTerminal = () => {
+      const area = document.querySelector("[data-hero-terminal]");
+      if (!area) return;
+      const shell = area.querySelector("[data-hero-terminal-shell]");
+      const commandEl = area.querySelector("[data-terminal-command]");
+      const logEl = area.querySelector("[data-terminal-log]");
+      if (!shell || !commandEl || !logEl) return;
+
+      const sequences = [
+        {
+          command: "npx hypequery init",
+          lines: [
+            "Scaffolding project...",
+            "Creating ClickHouse types...",
+            "Linking metrics to code...",
+            "Done in 1.8s",
+          ],
+        },
+        {
+          command: "npx hypequery generate",
+          lines: [
+            "Reading ClickHouse schema...",
+            "Mapping columns → TypeScript...",
+            "Writing analytics/schema.ts",
+            "Types refreshed.",
+          ],
+        },
+        {
+          command: "npx hypequery dev",
+          lines: [
+            "Booting local runner...",
+            "Watching metrics for edits...",
+            "Exposing API on http://localhost:8787",
+            "Ready for requests.",
+          ],
+        },
+      ];
+
+      let timers = [];
+      let sequenceIndex = 0;
+      let running = false;
+
+      const clearTimers = () => {
+        timers.forEach((id) => clearTimeout(id));
+        timers = [];
+      };
+
+      const resetLog = () => {
+        logEl.innerHTML =
+          '<p class="text-xs font-mono text-emerald-200/70">Waiting for command...</p>';
+        commandEl.textContent = "npx hypequery init";
+      };
+
+      const playSequence = () => {
+        const current = sequences[sequenceIndex % sequences.length];
+        sequenceIndex += 1;
+        commandEl.textContent = current.command;
+        logEl.innerHTML = "";
+        current.lines.forEach((line, idx) => {
+          const timer = window.setTimeout(() => {
+            const lineEl = document.createElement("p");
+            lineEl.textContent = line;
+            lineEl.className = "text-xs font-mono text-emerald-100/90";
+            logEl.appendChild(lineEl);
+          }, idx * 700);
+          timers.push(timer);
+        });
+
+        const total = current.lines.length * 700 + 800;
+        const loopTimer = window.setTimeout(() => {
+          if (!running) return;
+          playSequence();
+        }, total);
+        timers.push(loopTimer);
+      };
+
+      const start = () => {
+        if (running) return;
+        running = true;
+        area.classList.add("terminal-active");
         playSequence();
-      }, total);
-      timers.push(loopTimer);
-    };
+      };
 
-    const start = () => {
-      if (running) return;
-      running = true;
-      area.classList.add("terminal-active");
-      playSequence();
-    };
+      const stop = () => {
+        running = false;
+        area.classList.remove("terminal-active");
+        clearTimers();
+        resetLog();
+      };
 
-    const stop = () => {
-      running = false;
-      area.classList.remove("terminal-active");
-      clearTimers();
       resetLog();
+      area.addEventListener("mouseenter", start);
+      area.addEventListener("mouseleave", stop);
+      area.addEventListener("focusin", start);
+      area.addEventListener("focusout", stop);
+      area.addEventListener("touchstart", start, { passive: true });
+      area.addEventListener("touchend", stop);
     };
 
-    resetLog();
-    area.addEventListener("mouseenter", start);
-    area.addEventListener("mouseleave", stop);
-    area.addEventListener("focusin", start);
-    area.addEventListener("focusout", stop);
-    area.addEventListener("touchstart", start, { passive: true });
-    area.addEventListener("touchend", stop);
-  };
+    const initPageInteractions = () => {
+      initUseCaseSwitcher();
+      initHeroTerminal();
+    };
 
-  const initPageInteractions = () => {
-    initUseCaseSwitcher();
-    initHeroTerminal();
-  };
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initPageInteractions);
-  } else {
-    initPageInteractions();
-  }
-</script>
-
-<style>
-  @keyframes blink {
-    0%,
-    100% {
-      opacity: 1;
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initPageInteractions);
+    } else {
+      initPageInteractions();
     }
-    50% {
-      opacity: 0;
+  </script>
+
+  <style>
+    @keyframes blink {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0;
+      }
     }
-  }
 
-  .animate-blink {
-    animation: blink 1s step-end infinite;
-  }
+    .animate-blink {
+      animation: blink 1s step-end infinite;
+    }
 
-  [data-hero-terminal] {
-    transition: none;
-  }
-</style>
+    [data-hero-terminal] {
+      transition: none;
+    }
+  </style>
+</Layout>

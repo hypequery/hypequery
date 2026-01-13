@@ -33,6 +33,10 @@
       "dependsOn": [
         "build"
       ]
+    },
+    "types": {
+      "dependsOn": [],
+      "outputs": []
     }
   }
 }

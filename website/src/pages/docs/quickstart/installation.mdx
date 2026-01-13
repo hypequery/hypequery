@@ -15,7 +15,7 @@ Use this page as the “zero-to-installed” checklist before you run the CLI or
 - **Node.js 18+** (local dev relies on native `fetch` and top-level await)
 - **Package manager** – npm, pnpm, or Yarn
 - **ClickHouse instance** – self-hosted or ClickHouse Cloud
-- **Env loader** – `dotenv`, `tsx`, or any framework mechanism that hydrates `process.env`
+- **Env loader** – `dotenv` or any framework mechanism that hydrates `process.env`
 
 ## 1. Install core packages
 
@@ -23,22 +23,21 @@ These packages cover query building, the CLI, and the dev server:
 
 ```bash
 # npm
-npm install -D @hypequery/cli tsx
+npm install -D @hypequery/cli
 npm install @hypequery/clickhouse @hypequery/serve
 
 # pnpm
-pnpm add -D @hypequery/cli tsx
+pnpm add -D @hypequery/cli
 pnpm add @hypequery/clickhouse @hypequery/serve
 
 # yarn
-yarn add -D @hypequery/cli tsx
+yarn add -D @hypequery/cli
 yarn add @hypequery/clickhouse @hypequery/serve
 ```
 
 Notes:
 
 - Install the CLI locally so your team pins a version in `package.json`. Run via `npx hypequery <command>` or `npm run hypequery -- <command>`.
-- `tsx` is optional but recommended if you run TypeScript directly (the CLI will use it for `hypequery dev` against `.ts` modules).
 - You can still install the CLI globally for convenience, but keep the project-local dependency for CI and teammates.
 
 ## 2. Configure environment variables
@@ -52,7 +51,7 @@ CLICKHOUSE_USERNAME=cli_user
 CLICKHOUSE_PASSWORD=super-secret
 ```
 
-Load this file before importing `analytics/client.ts`. For plain Node projects add `dotenv/config` to the top of your entrypoint or use `tsx --env-file=.env` during development.
+Load this file before importing `analytics/client.ts`. For plain Node projects add `dotenv/config` to the top of your entrypoint or run scripts with `node -r dotenv/config ./your-script.ts` during development.
 
 ## 3. Manual project setup (optional)
 
@@ -67,7 +66,7 @@ If you’d rather not run `hypequery init` yet:
    ```ts
    import 'dotenv/config';
    import { createQueryBuilder } from '@hypequery/clickhouse';
-   import type { IntrospectedSchema } from './schema.js';
+   import type { IntrospectedSchema } from './schema';
 
    export const db = createQueryBuilder<IntrospectedSchema>({
      host: process.env.CLICKHOUSE_HOST!,
@@ -79,7 +78,7 @@ If you’d rather not run `hypequery init` yet:
 4. `queries.ts` exports a placeholder `defineServe` instance:
    ```ts
    import { defineServe } from '@hypequery/serve';
-   import { db } from './client.js';
+   import { db } from './client';
 
    export const api = defineServe({
      context: () => ({ db }),

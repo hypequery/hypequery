@@ -5,6 +5,7 @@
     "packages/cli",
     "packages/clickhouse",
     "packages/create-app",
+    "packages/react",
     "packages/serve",
     "packages/tsconfig",
     "examples/*"
@@ -14,6 +15,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
+    "types": "turbo run types",
     "test:integration": "cd packages/clickhouse && npm run test:integration",
     "lint": "turbo run lint",
     "start": "turbo run dev",

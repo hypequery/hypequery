@@ -18,10 +18,10 @@ Shipping your first hypequery API now only takes two CLI commands. Install the p
   npm install @hypequery/clickhouse @hypequery/serve
   ```
 
-- Install the CLI + TypeScript runner (local dev dependency):
+- Install the CLI locally so teammates share the same version:
 
   ```bash
-  npm install -D @hypequery/cli tsx
+  npm install -D @hypequery/cli
   ```
 
 ## 1. Scaffold analytics files with `hypequery init`
@@ -63,7 +63,7 @@ Replace the placeholder query in `analytics/queries.ts` with something real. For
 ```typescript
 import { defineServe } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './client.js';
+import { db } from './client';
 
 export const api = defineServe({
   context: () => ({ db }),

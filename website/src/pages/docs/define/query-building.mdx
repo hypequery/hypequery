@@ -11,7 +11,7 @@ Every hypequery project starts with a `defineServe` export that exposes a fluent
 ```ts
 import { defineServe } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './client.js';
+import { db } from './client';
 
 export const api = defineServe({
   context: () => ({ db }),

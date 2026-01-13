@@ -20,7 +20,7 @@ You can run the query builder on its own if all you need is type safety and SQL 
 
 ```ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './analytics/schema.js';
+import type { IntrospectedSchema } from './analytics/schema';
 
 const db = createQueryBuilder<IntrospectedSchema>({
   host: process.env.CLICKHOUSE_HOST!,
