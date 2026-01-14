@@ -8,22 +8,49 @@ Type-safe analytics layer for ClickHouse. Define metrics once with `defineServe`
 npx hypequery init
 ```
 
+Need to reuse the output/input types elsewhere (React components, API handlers, SDKs)? The helper types make that painless:
+
+```ts
+import type { InferQueryInput, InferQueryOutput, InferQueryResult } from '@hypequery/serve';
+import type { api } from './analytics/api';
+
+type ActiveUsersInput = InferQueryInput<typeof api, 'activeUsers'>;      // input schema
+type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;    // query return type (from ctx.db)
+type ActiveUsersResponse = InferQueryOutput<typeof api, 'activeUsers'>;  // Zod schema output if provided
+```
+
+- `InferQueryResult` mirrors the actual return type from your query implementation—perfect when you rely on the builder’s static typing.
+- `InferQueryOutput` reads the optional `outputSchema` if you need runtime validation to drive typing.
+- Both accept either the `serve.define` instance or a raw `ServeQueriesMap`, so you can point them at any slice of your analytics surface.
+
 ### Define analytics
 
 ```typescript
-import { defineServe } from '@hypequery/serve';
+import { initServe, type InferQueryResult } from '@hypequery/serve';
+import { z } from 'zod';
 import { db } from './analytics/client.js';
 
-export const api = defineServe({
+const serve = initServe({
   context: () => ({ db }),
-  queries: {
-    activeUsers: {
-      query: async ({ ctx }) =>
-        ctx.db.table('users')
-          .where('status', 'eq', 'active'),
-    },
-  },
 });
+const { query } = serve;
+
+export const api = serve.define({
+  queries: serve.queries({
+    activeUsers: query
+      .describe('List active users')
+      .input(z.object({ region: z.string().optional() }).default({}))
+      .query(async ({ ctx, input }) =>
+        ctx.db
+          .table('users')
+          .where('status', 'eq', 'active')
+          .where('region', 'eq', input.region ?? 'us')
+      ),
+  }),
+});
+
+// Export typed helpers for downstream usage
+export type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;
 ```
 
 ### Execute everywhere
@@ -61,6 +88,9 @@ npx hypequery init
 
 # Regenerate schema types
 npx hypequery generate
+
+# Emit typed client helpers for API routes
+npx hypequery create-api-types
 
 # Dev server with docs & OpenAPI
 npx hypequery dev

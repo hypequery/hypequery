@@ -4,17 +4,28 @@ import { z } from 'zod';
 
 import { api } from './api';
 
+type MetricKey = keyof typeof api.queries;
+const availableMetrics = Object.keys(api.queries) as MetricKey[];
+
+const hypequeryToolParams = z.object({
+  metric: z.string().describe('Exact query key, e.g. weeklyRevenue or regionalBreakdown'),
+  params: z
+    .record(z.unknown())
+    .optional()
+    .describe("Object matching the metric's input schema (omit if none)."),
+});
+
 const hypequeryTool = tool({
-  description: 'Call typed hypequery metrics (weeklyRevenue, regionalBreakdown, growthNotes).',
-  parameters: z.object({
-    metric: z.enum(['weeklyRevenue', 'regionalBreakdown', 'growthNotes']),
-    plan: z.string().optional().describe('Only used for weeklyRevenue'),
-  }),
-  execute: async ({ metric, plan }) => {
-    if (metric === 'weeklyRevenue') {
-      return api.run('weeklyRevenue', { plan });
+  description:
+    'Execute any hypequery metric by key. Inspect api.describe() to decide which query + params to send.',
+  parameters: hypequeryToolParams,
+  execute: async ({ metric, params }: z.infer<typeof hypequeryToolParams>) => {
+    if (!availableMetrics.includes(metric as MetricKey)) {
+      throw new Error(`Unknown metric: ${metric}. Known metrics: ${availableMetrics.join(', ')}`);
     }
-    return api.run(metric as 'regionalBreakdown' | 'growthNotes');
+
+    const key = metric as MetricKey;
+    return params ? api.execute(key, { input: params }) : api.execute(key);
   },
 });
 

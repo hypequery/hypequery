@@ -39,7 +39,7 @@ Pick ClickHouse, supply your connection settings, and choose a destination folde
 - Write/append `.env` with your credentials
 - Populate an example query (optional) and register it in the queries file
 
-Open `analytics/queries.ts` to see the scaffolded `defineServe` export. You can start editing immediately.
+Open `analytics/queries.ts` to see the scaffolded `initServe` export with the fluent builder. You can start editing immediately.
 
 ## 2. Preview with `hypequery dev`
 
@@ -61,25 +61,29 @@ Leave this running while you iterate.
 Replace the placeholder query in `analytics/queries.ts` with something real. For example:
 
 ```typescript
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
 
-export const api = defineServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
-  queries: {
-    activeUsers: {
-      description: 'Most recent active users',
-      inputSchema: z.object({ limit: z.number().min(1).max(500).default(50) }),
-      query: ({ ctx, input }) =>
+});
+
+export const api = define({
+  queries: queries({
+    activeUsers: query
+      .describe('Most recent active users')
+      .input(z.object({ limit: z.number().min(1).max(500).default(50) }))
+      .query(({ ctx, input }) =>
         ctx.db
           .table('users')
           .select(['id', 'email', 'created_at'])
           .where('status', 'eq', 'active')
           .orderBy('created_at', 'DESC')
-          .limit(input.limit),
-    },
-  },
+          .limit(input.limit)
+          .execute()
+      ),
+  }),
 });
 ```
 

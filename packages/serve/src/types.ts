@@ -123,8 +123,11 @@ export type AuthStrategy<TAuth extends AuthContext = AuthContext> = (
   context: AuthStrategyContext
 ) => Promise<TAuth | null>;
 
-export type EndpointContext<TInput = unknown, TAuth extends AuthContext = AuthContext> =
-  QueryRuntimeContext<TAuth> & {
+export type EndpointContext<
+  TInput = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> = QueryRuntimeContext<TContext, TAuth> & {
     input: TInput;
     metadata: EndpointMetadata;
     /** Extracted tenant ID if tenant config is enabled */
@@ -134,15 +137,17 @@ export type EndpointContext<TInput = unknown, TAuth extends AuthContext = AuthCo
 export type EndpointHandler<
   TInput = unknown,
   TResult = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext
-> = (ctx: EndpointContext<TInput, TAuth>) => Promise<TResult>;
+> = (ctx: EndpointContext<TInput, TContext, TAuth>) => Promise<TResult>;
 
 export type ServeMiddleware<
   TInput = unknown,
   TResult = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext
 > = (
-  ctx: EndpointContext<TInput, TAuth>,
+  ctx: EndpointContext<TInput, TContext, TAuth>,
   next: () => Promise<TResult>
 ) => Promise<TResult>;
 
@@ -153,59 +158,109 @@ export type SchemaOutput<T extends ZodTypeAny | undefined> = T extends ZodTypeAn
   ? T["_output"]
   : unknown;
 
-export type QueryRuntimeContext<TAuth extends AuthContext = AuthContext> = {
+type ExtractServeQueries<
+  TTarget,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> = TTarget extends ServeBuilder<infer TQueries, any, any>
+  ? TQueries
+  : TTarget extends ServeQueriesMap<TContext, TAuth>
+    ? TTarget
+    : never;
+
+type ServeQueryEntry<TTarget, TKey extends keyof ExtractServeQueries<TTarget, any, any>> =
+  ExtractServeQueries<TTarget, any, any>[TKey];
+
+export type InferExecutableQueryResult<TExecutable> = TExecutable extends QueryResolver<
+  any,
+  infer TResult,
+  any,
+  any
+>
+  ? Awaited<TResult>
+  : TExecutable extends { run: QueryResolver<any, infer TResult, any, any> }
+    ? Awaited<TResult>
+    : never;
+
+export type InferQueryInput<
+  TTarget,
+  TKey extends keyof ExtractServeQueries<TTarget, any, any>
+> = SchemaInput<ServeQueryEntry<TTarget, TKey>["inputSchema"]>;
+
+export type InferQueryOutput<
+  TTarget,
+  TKey extends keyof ExtractServeQueries<TTarget, any, any>
+> = SchemaOutput<ServeQueryEntry<TTarget, TKey>["outputSchema"]>;
+
+export type InferQueryResult<
+  TTarget,
+  TKey extends keyof ExtractServeQueries<TTarget, any, any>
+> = InferExecutableQueryResult<ServeQueryEntry<TTarget, TKey>["query"]>;
+
+export type QueryRuntimeContext<
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> = {
   request: ServeRequest;
   auth: TAuth | null;
   locals: Record<string, unknown>;
   setCacheTtl: (ttlMs: number | null) => void;
-} & Record<string, unknown>;
+} & TContext;
 
 export interface QueryResolverArgs<
   TInput = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext
 > {
   input: TInput;
-  ctx: QueryRuntimeContext<TAuth>;
+  ctx: QueryRuntimeContext<TContext, TAuth>;
 }
 
 export type QueryResolver<
   TInput = unknown,
   TResult = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext
-> = (args: QueryResolverArgs<TInput, TAuth>) => Promise<TResult>;
+> = (args: QueryResolverArgs<TInput, TContext, TAuth>) => Promise<TResult>;
 
-export type LegacyQueryResolver<
-  TInput = unknown,
-  TResult = unknown,
-  TAuth extends AuthContext = AuthContext
-> = (params: TInput, ctx: QueryRuntimeContext<TAuth>) => Promise<TResult>;
+type QueryWrapper<TInput, TResult, TContext extends Record<string, unknown>, TAuth extends AuthContext> =
+  | QueryResolver<TInput, TResult, TContext, TAuth>
+  | {
+      run: QueryResolver<TInput, TResult, TContext, TAuth>;
+      describe?: () => string;
+    };
 
 export type ExecutableQuery<
   TInput = unknown,
   TResult = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext
-> =
-  | QueryResolver<TInput, TResult, TAuth>
-  | LegacyQueryResolver<TInput, TResult, TAuth>
-  | {
-      run:
-        | QueryResolver<TInput, TResult, TAuth>
-        | LegacyQueryResolver<TInput, TResult, TAuth>;
-      describe?: () => string;
-    };
+> = QueryWrapper<TInput, TResult, TContext, TAuth>;
 
 export interface ServeEndpoint<
   TInputSchema extends ZodTypeAny | undefined = undefined,
   TOutputSchema extends ZodTypeAny = ZodTypeAny,
-  TAuth extends AuthContext = AuthContext
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+  TResult = SchemaOutput<TOutputSchema>
 > {
   key: string;
   method: HttpMethod;
   inputSchema?: TInputSchema;
   outputSchema: TOutputSchema;
-  handler: EndpointHandler<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>;
-  query?: ExecutableQuery<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>;
-  middlewares: ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>[];
+  handler: EndpointHandler<
+    SchemaInput<TInputSchema>,
+    TResult,
+    TContext,
+    TAuth
+  >;
+  query?: ExecutableQuery<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
+  middlewares: ServeMiddleware<
+    SchemaInput<TInputSchema>,
+    SchemaOutput<TOutputSchema>,
+    TContext,
+    TAuth
+  >[];
   auth?: AuthStrategy<TAuth> | null;
   tenant?: TenantConfig<TAuth>;
   metadata: EndpointMetadata;
@@ -213,20 +268,32 @@ export interface ServeEndpoint<
   defaultHeaders?: Record<string, string>;
 }
 
+
+export type ServeEndpointResult<
+  TEndpoint extends ServeEndpoint<any, any, any, any>
+> = TEndpoint extends ServeEndpoint<any, any, any, any, infer TResult> ? TResult : never;
+
 export interface ServeQueryConfig<
   TInputSchema extends ZodTypeAny | undefined = undefined,
   TOutputSchema extends ZodTypeAny = ZodTypeAny,
-  TAuth extends AuthContext = AuthContext
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+  TResult = SchemaOutput<TOutputSchema>
 > {
   key?: string;
-  query: ExecutableQuery<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>;
+  query: ExecutableQuery<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
   method?: HttpMethod;
   summary?: string;
   description?: string;
   tags?: string[];
   inputSchema?: TInputSchema;
   outputSchema?: TOutputSchema;
-  middlewares?: ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TAuth>[];
+  middlewares?: ServeMiddleware<
+    SchemaInput<TInputSchema>,
+    SchemaOutput<TOutputSchema>,
+    TContext,
+    TAuth
+  >[];
   auth?: AuthStrategy<TAuth> | null;
   tenant?: TenantConfig<TAuth>;
   cacheTtlMs?: number | null;
@@ -234,10 +301,26 @@ export interface ServeQueryConfig<
   custom?: Record<string, unknown>;
 }
 
-export type ServeQueriesMap = Record<
-  string,
-  ServeQueryConfig<any, any, any> | ExecutableQuery<any, any, any>
->;
+export type ServeQueriesMap<
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> = Record<string, ServeQueryConfig<any, any, TContext, TAuth>>;
+
+export type ServeEndpointMap<
+  TQueries extends ServeQueriesMap<TContext, TAuth>,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+> = {
+  [TKey in keyof TQueries]: TQueries[TKey] extends ServeQueryConfig<
+    infer TInputSchema,
+    infer TOutputSchema,
+    TContext,
+    TAuth,
+    infer TResult
+  >
+    ? ServeEndpoint<TInputSchema, TOutputSchema, TContext, TAuth, TResult>
+    : ServeEndpoint<any, any, TContext, TAuth>;
+};
 
 export interface DocsOptions {
   enabled?: boolean;
@@ -299,27 +382,31 @@ export interface OpenApiDocument {
 }
 
 export interface ServeConfig<
-  TQueries extends ServeQueriesMap = ServeQueriesMap,
-  TAuth extends AuthContext = AuthContext
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+  TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
 > {
   queries: TQueries;
   basePath?: string;
-  middlewares?: ServeMiddleware<any, any, TAuth>[];
+  middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
   /** Global tenant configuration applied to all queries (can be overridden per-query) */
   tenant?: TenantConfig<TAuth>;
   docs?: DocsOptions;
   openapi?: OpenApiOptions;
-  context?: ServeContextFactory<TAuth>;
+  context?: ServeContextFactory<TContext, TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
 }
 
-export interface RouteRegistrationOptions {
+export interface RouteRegistrationOptions<
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> {
   method?: HttpMethod;
   summary?: string;
   description?: string;
   tags?: string[];
-  middlewares?: ServeMiddleware<any, any, any>[];
+  middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   requiresAuth?: boolean;
   visibility?: EndpointVisibility;
 }
@@ -333,31 +420,79 @@ export interface StartServerOptions {
 }
 
 export interface ServeBuilder<
-  TQueries extends Record<string, ServeEndpoint<any, any, any>> = Record<
+  TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
     string,
-    ServeEndpoint<any, any, any>
+    ServeEndpoint<any, any, any, any>
   >,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext
 > {
   readonly queries: TQueries;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],
-    options?: Partial<RouteRegistrationOptions>
+    options?: Partial<RouteRegistrationOptions<TContext, TAuth>>
   ): this;
-  use(middleware: ServeMiddleware<any, any, TAuth>): this;
+  use(middleware: ServeMiddleware<any, any, TContext, TAuth>): this;
   useAuth(strategy: AuthStrategy<TAuth>): this;
   execute<TKey extends keyof TQueries>(
     key: TKey,
     options?: {
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-      context?: Record<string, unknown>;
+      context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
     }
-  ): Promise<SchemaOutput<TQueries[TKey]["outputSchema"]>>;
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;
   handler: ServeHandler;
   start(options?: StartServerOptions): Promise<ServeStartResult>;
+}
+
+export interface ServeInitializer<
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> {
+  readonly procedure: QueryProcedureBuilder<TContext, TAuth>;
+  readonly query: QueryProcedureBuilder<TContext, TAuth>;
+  queries<TQueries extends ServeQueriesMap<TContext, TAuth>>(queries: TQueries): TQueries;
+  define<TQueries extends ServeQueriesMap<TContext, TAuth>>(
+    config: Omit<ServeConfig<TContext, TAuth, TQueries>, "context">
+  ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
+}
+
+export interface QueryProcedureBuilder<
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext,
+  TInputSchema extends ZodTypeAny | undefined = undefined,
+  TOutputSchema extends ZodTypeAny = ZodTypeAny
+> {
+  input<TNewInputSchema extends ZodTypeAny>(
+    schema: TNewInputSchema
+  ): QueryProcedureBuilder<TContext, TAuth, TNewInputSchema, TOutputSchema>;
+  output<TNewOutputSchema extends ZodTypeAny>(
+    schema: TNewOutputSchema
+  ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TNewOutputSchema>;
+  describe(description: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  summary(summary: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  tag(tag: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  tags(tags: string[]): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  method(method: HttpMethod): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  cache(ttlMs: number | null): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  auth(strategy: AuthStrategy<TAuth> | null): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  tenant(config: TenantConfig<TAuth>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  custom(custom: Record<string, unknown>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  use(
+    ...middlewares: ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TContext, TAuth>[]
+  ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  query<TExecutable extends ExecutableQuery<SchemaInput<TInputSchema>, any, TContext, TAuth>>(
+    executable: TExecutable
+  ): ServeQueryConfig<
+    TInputSchema,
+    TOutputSchema,
+    TContext,
+    TAuth,
+    InferExecutableQueryResult<TExecutable>
+  >;
 }
 
 export interface RequestLifecycleBase<TAuth extends AuthContext = AuthContext> {
@@ -416,9 +551,9 @@ export interface ToolkitQueryDescription {
 }
 
 export interface EndpointRegistry {
-  list(): ServeEndpoint<any, any, any>[];
-  register(endpoint: ServeEndpoint<any, any, any>): void;
-  match(method: HttpMethod, path: string): ServeEndpoint<any, any, any> | null;
+  list(): ServeEndpoint<any, any, any, any>[];
+  register(endpoint: ServeEndpoint<any, any, any, any>): void;
+  match(method: HttpMethod, path: string): ServeEndpoint<any, any, any, any> | null;
 }
 
 export interface ServeStartResult {
@@ -429,6 +564,9 @@ export type FetchHandler = (request: Request) => Promise<Response>;
 
 export type MaybePromise<T> = Promise<T> | T;
 
-export type ServeContextFactory<TAuth extends AuthContext> =
-  | Record<string, unknown>
-  | ((options: { request: ServeRequest; auth: TAuth | null }) => MaybePromise<Record<string, unknown>>);
+export type ServeContextFactory<
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+> =
+  | TContext
+  | ((options: { request: ServeRequest; auth: TAuth | null }) => MaybePromise<TContext>);

@@ -1,21 +1,34 @@
-import { defineServe } from '@hypequery/serve';
-import { z } from 'zod';
+import { initServe, type InferQueryResult } from '@hypequery/serve';
 import { db } from './client';
+import z from 'zod';
 
-export const api = defineServe({
+
+const { define, queries, query } = initServe({
   context: () => ({ db }),
-  queries: {
-    tripsQuery: {
-      description: 'Example query using the trips table',
-      query: async ({ ctx }) =>
+})
+
+export const api = define({
+  queries: queries({
+    tripsQuery: query
+      .describe('Example query using the trips table')
+      .input(z.object({ plan: z.string().optional() }))
+      .query(async ({ ctx, input }) =>
         ctx.db
-          .from('trips')
+          .table('trips')
           .select('*')
-          .limit(10),
-      outputSchema: z.array(z.any()),
-    },
-  },
-});
+          .limit(10)
+          .where('pickup_ntaname', 'like', input?.plan ?? '')
+          .execute()
+      ),
+  }),
+})
+
+
+export type TripsQueryResult = InferQueryResult<typeof api, 'tripsQuery'>;
+
+export const data = api.execute('tripsQuery')
+export const queryTest = db.table('trips').select('*').execute()
+
 
 /**
  * Inline usage example:

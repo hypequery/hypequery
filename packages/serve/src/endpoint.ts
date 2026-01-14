@@ -1,28 +1,43 @@
 import { z } from "zod";
 
 import type {
+  AuthContext,
   EndpointHandler,
   EndpointMetadata,
   ExecutableQuery,
   HttpMethod,
-  LegacyQueryResolver,
   QueryRuntimeContext,
   QueryResolver,
   QueryResolverArgs,
+  SchemaInput,
+  SchemaOutput,
   ServeEndpoint,
   ServeQueryConfig,
 } from "./types.js";
 
-type QueryDefinition = ServeQueryConfig<any, any, any> | ExecutableQuery<any, any, any>;
-
 const fallbackSchema = z.any();
 
-const isServeQueryConfig = (value: QueryDefinition): value is ServeQueryConfig<any, any, any> => {
-  return typeof value === "object" && value !== null && "query" in value;
-};
+type EndpointFromDefinition<
+  TDefinition extends ServeQueryConfig<any, any, TContext, TAuth, any>,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+> = TDefinition extends ServeQueryConfig<
+  infer TInputSchema,
+  infer TOutputSchema,
+  TContext,
+  TAuth,
+  infer TResult
+>
+  ? ServeEndpoint<TInputSchema, TOutputSchema, TContext, TAuth, TResult>
+  : ServeEndpoint<any, any, TContext, TAuth>;
 
-const resolveQueryRunner = <TInput, TResult>(
-  query: ExecutableQuery<TInput, TResult, any> | undefined
+const resolveQueryRunner = <
+  TInput,
+  TResult,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+>(
+  query: ExecutableQuery<TInput, TResult, TContext, TAuth> | undefined
 ) => {
   if (!query) {
     return null;
@@ -39,59 +54,69 @@ const resolveQueryRunner = <TInput, TResult>(
     return null;
   }
 
-  return async (args: QueryResolverArgs<TInput, any>) => {
-    if (fn.length >= 2) {
-      return (fn as LegacyQueryResolver<TInput, TResult, any>)(args.input, args.ctx);
-    }
-    return (fn as QueryResolver<TInput, TResult, any>)(args);
+  return async (args: QueryResolverArgs<TInput, TContext, TAuth>) => {
+    return (fn as QueryResolver<TInput, TResult, TContext, TAuth>)(args);
   };
 };
 
-export const createEndpoint = (
+export const createEndpoint = <
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext,
+  TDefinition extends ServeQueryConfig<any, any, TContext, TAuth, any>
+>(
   key: string,
-  definition: QueryDefinition
-): ServeEndpoint<any, any, any> => {
-  const normalized = isServeQueryConfig(definition)
-    ? definition
-    : ({ query: definition } satisfies ServeQueryConfig<any, any, any>);
+  definition: TDefinition
+): EndpointFromDefinition<TDefinition, TContext, TAuth> => {
+  type InputSchema = TDefinition extends ServeQueryConfig<infer TInput, any, TContext, TAuth, any>
+    ? TInput
+    : undefined;
+  type OutputSchema = TDefinition extends ServeQueryConfig<any, infer TOutput, TContext, TAuth, any>
+    ? TOutput
+    : typeof fallbackSchema;
+  type TResult = TDefinition extends ServeQueryConfig<any, any, TContext, TAuth, infer TResolved>
+    ? TResolved
+    : SchemaOutput<OutputSchema>;
 
-  const method = normalized.method ?? "GET";
+  const method = definition.method ?? "GET";
   const metadata: EndpointMetadata = {
     path: "",
     method: method as HttpMethod,
-    summary: normalized.summary,
-    description: normalized.description,
-    tags: normalized.tags ?? [],
-    requiresAuth: normalized.auth ? true : undefined,
+    summary: definition.summary,
+    description: definition.description,
+    tags: definition.tags ?? [],
+    requiresAuth: definition.auth ? true : undefined,
     deprecated: undefined,
     visibility: "public",
-    custom: normalized.custom,
+    custom: definition.custom,
   };
-  const runner = resolveQueryRunner(normalized.query);
+  const runner = resolveQueryRunner(definition.query);
 
-  const handler: EndpointHandler = async (ctx) => {
+  const handler: EndpointHandler<SchemaInput<InputSchema>, TResult, TContext, TAuth> = async (ctx) => {
     if (!runner) {
-      throw new Error(`Endpoint \\"${key}\\" is missing an executable query`);
+      throw new Error(`Endpoint "${key}" is missing an executable query`);
     }
 
     return runner({
       input: ctx.input,
-      ctx: ctx as QueryRuntimeContext,
+      ctx: ctx as QueryRuntimeContext<TContext, TAuth>,
     });
   };
+
+  const outputSchema = (definition.outputSchema ?? fallbackSchema) as OutputSchema;
+  const inputSchema = definition.inputSchema as InputSchema;
 
   return {
     key,
     method,
-    inputSchema: normalized.inputSchema,
-    outputSchema: (normalized.outputSchema ?? fallbackSchema) as ServeEndpoint["outputSchema"],
+    inputSchema,
+    outputSchema,
     handler,
-    query: normalized.query,
-    middlewares: normalized.middlewares ?? [],
-    auth: normalized.auth ?? null,
-    tenant: normalized.tenant,
+    query: definition.query,
+    middlewares: definition.middlewares ?? [],
+    auth: definition.auth ?? null,
+    tenant: definition.tenant,
     metadata,
-    cacheTtlMs: normalized.cacheTtlMs ?? null,
+    cacheTtlMs: definition.cacheTtlMs ?? null,
     defaultHeaders: undefined,
-  } satisfies ServeEndpoint<any, any, any>;
+  } as EndpointFromDefinition<TDefinition, TContext, TAuth>;
 };

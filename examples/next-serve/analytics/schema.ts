@@ -62,7 +62,7 @@ export interface TripsRecord {
  * 
  * // Now you have full type safety and autocomplete
  * const results = await db
- *   .from('trips')
+ *   .table('trips')
  *   .select(['column1', 'column2'])
  *   .where('column1', 'eq', 'value')
  *   .execute();

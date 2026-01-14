@@ -69,7 +69,7 @@ const queryBuilder = createQueryBuilder();
 
 // Build and execute a query
 const results = await queryBuilder
-  .from('my_table')
+  .table('my_table')
   .select(['id', 'name', 'value'])
   .where('value > ?', [100])
   .orderBy('name', 'asc')

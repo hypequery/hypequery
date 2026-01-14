@@ -16,7 +16,7 @@ export const applyBasePath = (basePath: string, path: string) => {
 };
 
 export class ServeRouter implements EndpointRegistry {
-  private routes: ServeEndpoint<any, any, any>[] = [];
+  private routes: ServeEndpoint<any, any, any, any>[] = [];
 
   constructor(private readonly basePath = "") {}
 
@@ -24,7 +24,7 @@ export class ServeRouter implements EndpointRegistry {
     return [...this.routes];
   }
 
-  register(endpoint: ServeEndpoint<any, any, any>) {
+  register(endpoint: ServeEndpoint<any, any, any, any>) {
     const path = endpoint.metadata.path || "/";
     const normalizedPath = applyBasePath(this.basePath, path);
     const method = endpoint.method;

@@ -88,7 +88,7 @@ export interface TripsRecord {
  * 
  * // Now you have full type safety and autocomplete
  * const results = await db
- *   .from('driver_info')
+ *   .table('driver_info')
  *   .select(['column1', 'column2'])
  *   .where('column1', 'eq', 'value')
  *   .execute();

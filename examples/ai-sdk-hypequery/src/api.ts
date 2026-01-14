@@ -1,4 +1,4 @@
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 
 const mockOrders = [
@@ -13,30 +13,32 @@ const growthNotes = [
   { week: '2024-01-22', summary: 'Launched APAC partnerships.' },
 ];
 
-export const api = defineServe({
-  queries: {
-    weeklyRevenue: {
-      description: 'Return weekly revenue totals grouped by plan.',
-      inputSchema: z.object({ plan: z.string().optional() }).default({}),
-      outputSchema: z.array(z.object({ week: z.string(), plan: z.string(), total: z.number() })),
-      query: async ({ input }) =>
-        mockOrders.filter((row) => (input.plan ? row.plan === input.plan : true)),
-    },
-    regionalBreakdown: {
-      description: 'Aggregate by geographic region.',
-      outputSchema: z.array(z.object({ region: z.string(), total: z.number() })),
-      query: async () => {
+const { define, queries, query } = initServe({
+  context: () => ({}),
+});
+
+export const api = define({
+  queries: queries({
+    weeklyRevenue: query
+      .describe('Return weekly revenue totals grouped by plan.')
+      .input(z.object({ plan: z.string().optional() }))
+      .output(z.array(z.object({ week: z.string(), plan: z.string(), total: z.number() })))
+      .query(async ({ input }) =>
+        mockOrders.filter((row) => (input.plan ? row.plan === input.plan : true))
+      ),
+    regionalBreakdown: query
+      .describe('Aggregate by geographic region.')
+      .output(z.array(z.object({ region: z.string(), total: z.number() })))
+      .query(async () => {
         const results: Record<string, number> = {};
         for (const row of mockOrders) {
           results[row.region] = (results[row.region] ?? 0) + row.total;
         }
         return Object.entries(results).map(([region, total]) => ({ region, total }));
-      },
-    },
-    growthNotes: {
-      description: 'Annotated insights that explain spikes/dips.',
-      outputSchema: z.array(z.object({ week: z.string(), summary: z.string() })),
-      query: async () => growthNotes,
-    },
-  },
+      }),
+    growthNotes: query
+      .describe('Annotated insights that explain spikes/dips.')
+      .output(z.array(z.object({ week: z.string(), summary: z.string() })))
+      .query(async () => growthNotes),
+  }),
 });

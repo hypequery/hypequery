@@ -56,7 +56,7 @@ const removeDefinitions = (schema: any): any => {
   }
 
   // Remove definitions property if it exists
-  const { definitions, $ref, ...rest } = schema;
+  const { definitions: _definitions, $ref: _ref, ...rest } = schema;
 
   // Recursively clean nested objects and arrays
   const result: any = {};
@@ -119,7 +119,7 @@ const toQueryParameters = (schema: ZodTypeAny | undefined, name: string) => {
   }));
 };
 
-const toOperation = (endpoint: ServeEndpoint, nameSuffix: string) => {
+const toOperation = (endpoint: ServeEndpoint<any, any, any, any>, nameSuffix: string) => {
   const operation: Record<string, unknown> = {
     operationId: endpoint.key,
     summary: endpoint.metadata.summary,
@@ -183,7 +183,7 @@ const normalizeInfo = (options?: OpenApiOptions) => {
 };
 
 export const buildOpenApiDocument = (
-  endpoints: ServeEndpoint[],
+  endpoints: ServeEndpoint<any, any, any, any>[],
   options?: OpenApiOptions
 ): OpenApiDocument => {
   const document: OpenApiDocument = {

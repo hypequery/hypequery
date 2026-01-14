@@ -7,36 +7,39 @@ export function generateQueriesTemplate(options: {
 }): string {
   const { hasExample, tableName } = options;
 
-  let template = `import { defineServe } from '@hypequery/serve';
+  let template = `import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
 
-export const api = defineServe({
+const serve = initServe({
   context: () => ({ db }),
-  queries: {`;
+});
+const { query } = serve;
+
+export const api = serve.define({
+  queries: serve.queries({`;
 
   if (hasExample && tableName) {
     template += `
-    ${camelCase(tableName)}Query: {
-      description: 'Example query using the ${tableName} table',
-      query: async ({ ctx }) =>
+    ${camelCase(tableName)}Query: query
+      .describe('Example query using the ${tableName} table')
+      .query(async ({ ctx }) =>
         ctx.db
-          .from('${tableName}')
+          .table('${tableName}')
           .select('*')
-          .limit(10),
-      outputSchema: z.array(z.any()),
-    },`;
+          .limit(10)
+          .execute()
+      ),`;
   } else {
     template += `
-    exampleMetric: {
-      description: 'Example metric that returns a simple value',
-      query: async () => ({ ok: true }),
-      outputSchema: z.object({ ok: z.boolean() }),
-    },`;
+    exampleMetric: query
+      .describe('Example metric that returns a simple value')
+      .output(z.object({ ok: z.boolean() }))
+      .query(async () => ({ ok: true })),`;
   }
 
   template += `
-  },
+  }),
 });
 
 /**

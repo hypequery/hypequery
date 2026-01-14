@@ -17,6 +17,7 @@ The `hypequery` binary ships with the `@hypequery/cli` package. Every command ex
 | `hypequery init` | Scaffold the `analytics/` folder, collect ClickHouse credentials, and optionally create an example query |
 | `hypequery dev [queries-file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
 | `hypequery generate` | Rebuild `analytics/schema.ts` (optionally watching for remote schema changes) |
+| `hypequery create-api-types [queries-file]` | Emit a typed client map (e.g., for `@hypequery/react`) referencing your serve API |
 
 The sections below expand on the supported options and expected behavior for each command.
 
@@ -63,6 +64,18 @@ hypequery generate [--output analytics/schema.ts] [--tables users,orders] [--wat
 - **`--watch`** – Poll ClickHouse every 30 seconds and regenerate types when the schema changes.
 
 The generator shares the `CLICKHOUSE_*` configuration with the rest of the CLI, so ensure those env vars are set (or run `hypequery init` first).
+
+## `hypequery create-api-types`
+
+```bash
+hypequery create-api-types [path/to/queries.ts] [--output analytics/client.ts] [--name HypequeryApi]
+```
+
+- **`[file]`** – Optional path to your `queries.ts`. Falls back to the same search paths as `hypequery dev` (`analytics/queries.ts`, `src/analytics/queries.ts`, `hypequery.ts`, etc.).
+- **`--output <file>`** – Destination for the generated type helper. Defaults to `client.ts` next to your queries file.
+- **`--name <type>`** – Custom name for the exported type alias (default `HypequeryApi`).
+
+`create-api-types` loads your serve definition, enumerates every query key, and writes a thin TypeScript module that maps `InferQueryInput/InferQueryResult` for each entry. Import the resulting type wherever you need an HTTP client—`@hypequery/react`, serverless functions, or SDKs that talk to the deployed API route—without bundling the original `queries.ts` into the client build.
 
 ## Environment variables
 

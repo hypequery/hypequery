@@ -1,4 +1,4 @@
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { toStartOfInterval } from '@hypequery/clickhouse';
 import { z } from 'zod';
 
@@ -113,13 +113,17 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-export const api = defineServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
-  queries: {
-    averageAmounts: {
-      inputSchema: filtersSchema,
-      outputSchema: amountsSchema,
-      query: async ({ ctx, input }) => {
+});
+
+export const api = define({
+  queries: queries({
+    averageAmounts: query
+      .describe('Average revenue components')
+      .input(filtersSchema)
+      .output(amountsSchema)
+      .query(async ({ ctx, input }) => {
         const filter = buildCrossFilter(input as FiltersInput);
         const rows = await ctx.db
           .table('trips')
@@ -137,12 +141,12 @@ export const api = defineServe({
           tolls: toNumber((result as any).tolls_amount_avg),
           fare: toNumber((result as any).fare_amount_avg),
         } satisfies AverageAmounts;
-      },
-    },
-    tripStats: {
-      inputSchema: filtersSchema,
-      outputSchema: tripStatsSchema,
-      query: async ({ ctx, input }) => {
+      }),
+    tripStats: query
+      .describe('Trip distance / passenger averages')
+      .input(filtersSchema)
+      .output(tripStatsSchema)
+      .query(async ({ ctx, input }) => {
         const filter = buildCrossFilter(input as FiltersInput);
         const rows = await ctx.db
           .table('trips')
@@ -156,12 +160,12 @@ export const api = defineServe({
           avgDistance: toNumber((result as any).trip_distance_avg),
           avgPassengers: toNumber((result as any).passenger_count_avg),
         } satisfies TripStats;
-      },
-    },
-    weeklyTripCounts: {
-      inputSchema: filtersSchema,
-      outputSchema: z.array(weeklyPointSchema),
-      query: async ({ ctx, input }) => {
+      }),
+    weeklyTripCounts: query
+      .describe('Weekly trip volume')
+      .input(filtersSchema)
+      .output(z.array(weeklyPointSchema))
+      .query(async ({ ctx, input }) => {
         const filter = buildCrossFilter(input as FiltersInput);
         const rows = await ctx.db
           .table('trips')
@@ -174,12 +178,12 @@ export const api = defineServe({
           name: new Date((row as any).week).toISOString(),
           value: toNumber((row as any).trip_count),
         } satisfies WeeklyPoint));
-      },
-    },
-    trips: {
-      inputSchema: tripsInputSchema,
-      outputSchema: tripsOutputSchema,
-      query: async ({ ctx, input }) => {
+      }),
+    trips: query
+      .describe('Paginated trip listing')
+      .input(tripsInputSchema)
+      .output(tripsOutputSchema)
+      .query(async ({ ctx, input }) => {
         const { pageSize = 10, after, before, ...filters } = input ?? {};
         const filter = buildCrossFilter(filters as FiltersInput);
         const result = await ctx.db
@@ -214,11 +218,11 @@ export const api = defineServe({
             total_amount: toNumber((row as any).total_amount),
           })),
         } satisfies TripsResult;
-      },
-    },
-    cachedSummary: {
-      outputSchema: cachedSummarySchema,
-      query: async ({ ctx }) => {
+      }),
+    cachedSummary: query
+      .describe('Cached revenue summary')
+      .output(cachedSummarySchema)
+      .query(async ({ ctx }) => {
         const cache = ctx.db.cache;
         const before = cache?.getStats?.();
         const rows = await ctx.db
@@ -248,19 +252,19 @@ export const api = defineServe({
           cacheStatus,
           cacheStats: after,
         } satisfies CachedSummary;
-      },
-    },
-    invalidateCache: {
-      outputSchema: z.object({ success: z.literal(true) }),
-      query: async ({ ctx }) => {
+      }),
+    invalidateCache: query
+      .describe('Invalidate cached summary')
+      .output(z.object({ success: z.literal(true) }))
+      .query(async ({ ctx }) => {
         await ctx.db.cache?.invalidateTags(['trips']);
         return { success: true } as const;
-      },
-    },
-    nodeDashboard: {
-      inputSchema: nodeDashboardInputSchema,
-      outputSchema: nodeDashboardOutputSchema,
-      query: async ({ ctx, input }) => {
+      }),
+    nodeDashboard: query
+      .describe('Node dashboard demo payload')
+      .input(nodeDashboardInputSchema)
+      .output(nodeDashboardOutputSchema)
+      .query(async ({ ctx, input }) => {
         const page = input?.page ?? 1;
         const limit = input?.limit ?? 10;
         const offset = (page - 1) * limit;
@@ -321,10 +325,10 @@ export const api = defineServe({
             tip_amount: toNumber((row as any).tip_amount),
             total_amount: toNumber((row as any).total_amount),
           })),
-          pagination: {
-            page,
-            limit,
-            total,
+         pagination: {
+           page,
+           limit,
+           total,
             totalPages: Math.max(1, Math.ceil(total / limit)),
             hasNext: page * limit < total,
             hasPrev: page > 1,
@@ -337,9 +341,8 @@ export const api = defineServe({
           },
           weeklyData,
         } satisfies NodeDashboard;
-      },
-    },
-  },
+      }),
+  }),
 });
 
 export type DashboardApi = {

@@ -193,7 +193,7 @@ export interface IntrospectedSchema {`;
  * 
  * // Now you have full type safety and autocomplete
  * const results = await db
- *   .from('${tables.length > 0 ? tables[0].name : 'table_name'}')
+ *   .table('${tables.length > 0 ? tables[0].name : 'table_name'}')
  *   .select(['column1', 'column2'])
  *   .where('column1', 'eq', 'value')
  *   .execute();

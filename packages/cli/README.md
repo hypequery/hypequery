@@ -55,6 +55,19 @@ npx hypequery generate
 - `--tables <names>` - Only generate for specific tables (comma-separated)
 - `--watch` - Watch for schema changes
 
+### `hypequery create-api-types`
+
+Generate a typed client map (perfect for `@hypequery/react`) from your serve export.
+
+```bash
+npx hypequery create-api-types
+```
+
+**Options:**
+- `[file]` - Optional path to your queries module (default: analytics/queries.ts, etc.)
+- `-o, --output <path>` - Output file (default: <queries-dir>/client.ts)
+- `-n, --name <type>` - Exported type alias (default: HypequeryApi)
+
 ## Documentation
 
 Visit [hypequery.com/docs](https://hypequery.com/docs) for full documentation.

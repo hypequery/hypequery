@@ -15,14 +15,23 @@ import type {
   EndpointMetadata,
   ErrorEnvelope,
   OpenApiOptions,
+  ExecutableQuery,
+  HttpMethod,
+  InferExecutableQueryResult,
+  QueryProcedureBuilder,
+  SchemaInput,
   SchemaOutput,
   ServeBuilder,
   ServeConfig,
   ServeContextFactory,
   ServeEndpoint,
+  ServeEndpointMap,
+  ServeEndpointResult,
+  ServeInitializer,
   ServeHandler,
   ServeMiddleware,
   ServeQueriesMap,
+  ServeQueryConfig,
   ServeRequest,
   ServeResponse,
   ServeLifecycleHooks,
@@ -42,6 +51,97 @@ const ensureArray = <T>(value: T | T[] | undefined | null): T[] => {
 
 const generateRequestId = (): string => {
   return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+};
+
+type ProcedureBuilderState<
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+> = {
+  inputSchema?: ZodTypeAny;
+  outputSchema?: ZodTypeAny;
+  description?: string;
+  summary?: string;
+  tags: string[];
+  method?: HttpMethod;
+  cacheTtlMs?: number | null;
+  auth?: AuthStrategy<TAuth> | null;
+  tenant?: TenantConfig<TAuth>;
+  custom?: Record<string, unknown>;
+  middlewares: ServeMiddleware<any, any, TContext, TAuth>[];
+};
+
+const createProcedureBuilder = <
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+>(): QueryProcedureBuilder<TContext, TAuth> => {
+  const build = <
+    TInputSchema extends ZodTypeAny | undefined = undefined,
+    TOutputSchema extends ZodTypeAny = ZodTypeAny
+  >(
+    state: ProcedureBuilderState<TContext, TAuth>
+  ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema> => {
+    return {
+      input: <TNewInputSchema extends ZodTypeAny>(schema: TNewInputSchema) =>
+        build<TNewInputSchema, TOutputSchema>({ ...state, inputSchema: schema }),
+      output: <TNewOutputSchema extends ZodTypeAny>(schema: TNewOutputSchema) =>
+        build<TInputSchema, TNewOutputSchema>({ ...state, outputSchema: schema }),
+      describe: (description) => build<TInputSchema, TOutputSchema>({ ...state, description }),
+      summary: (summary) => build<TInputSchema, TOutputSchema>({ ...state, summary }),
+      tag: (tag) =>
+        build<TInputSchema, TOutputSchema>({
+          ...state,
+          tags: Array.from(new Set([...state.tags, tag])),
+        }),
+      tags: (tags) =>
+        build<TInputSchema, TOutputSchema>({
+          ...state,
+          tags: Array.from(new Set([...state.tags, ...(tags ?? [])])),
+        }),
+      method: (method) => build<TInputSchema, TOutputSchema>({ ...state, method }),
+      cache: (ttlMs) => build<TInputSchema, TOutputSchema>({ ...state, cacheTtlMs: ttlMs }),
+      auth: (strategy) => build<TInputSchema, TOutputSchema>({ ...state, auth: strategy }),
+      tenant: (config) => build<TInputSchema, TOutputSchema>({ ...state, tenant: config }),
+      custom: (custom) =>
+        build<TInputSchema, TOutputSchema>({
+          ...state,
+          custom: { ...(state.custom ?? {}), ...custom },
+        }),
+      use: (...middlewares) =>
+        build<TInputSchema, TOutputSchema>({
+          ...state,
+          middlewares: [...state.middlewares, ...middlewares],
+        }),
+      query: <
+        TExecutable extends ExecutableQuery<SchemaInput<TInputSchema>, any, TContext, TAuth>
+      >(
+        executable: TExecutable
+      ) => {
+        type TResult = InferExecutableQueryResult<TExecutable>;
+        const base: ServeQueryConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult> = {
+          description: state.description,
+          summary: state.summary,
+          tags: state.tags,
+          method: state.method,
+          inputSchema: state.inputSchema as TInputSchema,
+          outputSchema: state.outputSchema as TOutputSchema,
+          cacheTtlMs: state.cacheTtlMs,
+          auth: typeof state.auth === "undefined" ? null : state.auth,
+          tenant: state.tenant,
+          custom: state.custom,
+          middlewares: state.middlewares as ServeMiddleware<
+            SchemaInput<TInputSchema>,
+            SchemaOutput<TOutputSchema>,
+            TContext,
+            TAuth
+          >[],
+          query: executable as ExecutableQuery<SchemaInput<TInputSchema>, TResult, TContext, TAuth>,
+        };
+        return base;
+      },
+    };
+  };
+
+  return build({ tags: [], middlewares: [] });
 };
 
 const getRequestId = (request: ServeRequest): string => {
@@ -103,9 +203,12 @@ const buildContextInput = (request: ServeRequest) => {
   return {};
 };
 
-const runMiddlewares = async <TAuth extends AuthContext>(
-  middlewares: ServeMiddleware<any, any, TAuth>[],
-  ctx: EndpointContext<any, TAuth>,
+const runMiddlewares = async <
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+>(
+  middlewares: ServeMiddleware<any, any, TContext, TAuth>[],
+  ctx: EndpointContext<any, TContext, TAuth>,
   handler: () => Promise<unknown>
 ) => {
   let index = middlewares.length - 1;
@@ -182,9 +285,9 @@ const validateInput = (schema: ZodTypeAny | undefined, payload: unknown) => {
 
 const createOpenApiEndpoint = (
   path: string,
-  getEndpoints: () => ServeEndpoint<any, any, any>[],
+  getEndpoints: () => ServeEndpoint<any, any, any, any>[],
   openapiOptions?: OpenApiOptions
-): ServeEndpoint<any, any, any> => {
+): ServeEndpoint<any, any, Record<string, unknown>, AuthContext> => {
   // Cache the OpenAPI document to avoid rebuilding on every request
   let cachedDocument: any = null;
 
@@ -220,7 +323,7 @@ const createDocsEndpoint = (
   path: string,
   openapiPath: string,
   options?: DocsOptions
-): ServeEndpoint<any, any, any> => ({
+): ServeEndpoint<any, any, Record<string, unknown>, AuthContext> => ({
   key: "__hypequery_docs__",
   method: "GET",
   inputSchema: undefined,
@@ -245,15 +348,19 @@ const createDocsEndpoint = (
   },
 });
 
-const cloneContext = (ctx: Record<string, unknown> | null | undefined) => (ctx ? { ...ctx } : {});
+const cloneContext = <TContext extends Record<string, unknown>>(ctx: TContext | null | undefined) =>
+  (ctx ? { ...ctx } : ({} as TContext));
 
-const resolveContext = async <TAuth extends AuthContext>(
-  factory: ServeContextFactory<TAuth> | undefined,
+const resolveContext = async <
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+>(
+  factory: ServeContextFactory<TContext, TAuth> | undefined,
   request: ServeRequest,
   auth: TAuth | null
-) => {
+): Promise<TContext> => {
   if (!factory) {
-    return {} as Record<string, unknown>;
+    return {} as TContext;
   }
 
   if (typeof factory === "function") {
@@ -264,20 +371,26 @@ const resolveContext = async <TAuth extends AuthContext>(
   return cloneContext(factory);
 };
 
-type ExecuteEndpointOptions<TAuth extends AuthContext> = {
-  endpoint: ServeEndpoint<any, any, any>;
+type ExecuteEndpointOptions<
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+> = {
+  endpoint: ServeEndpoint<any, any, TContext, TAuth>;
   request: ServeRequest;
   requestId: string;
   authStrategies: AuthStrategy<TAuth>[];
-  contextFactory: ServeContextFactory<TAuth> | undefined;
-  globalMiddlewares: ServeMiddleware<any, any, TAuth>[];
+  contextFactory: ServeContextFactory<TContext, TAuth> | undefined;
+  globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[];
   globalTenantConfig: TenantConfig<TAuth> | undefined;
   hooks: ServeLifecycleHooks<TAuth>;
-  additionalContext?: Record<string, unknown>;
+  additionalContext?: Partial<TContext>;
 };
 
-const executeEndpoint = async <TAuth extends AuthContext>(
-  options: ExecuteEndpointOptions<TAuth>
+const executeEndpoint = async <
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+>(
+  options: ExecuteEndpointOptions<TContext, TAuth>
 ): Promise<ServeResponse> => {
   const {
     endpoint,
@@ -304,7 +417,7 @@ const executeEndpoint = async <TAuth extends AuthContext>(
     metadata: endpoint.metadata,
     locals,
     setCacheTtl,
-  } as EndpointContext<any, TAuth>;
+  } as EndpointContext<any, TContext, TAuth>;
   const startedAt = Date.now();
   await safeInvokeHook("onRequestStart", hooks.onRequestStart, {
     requestId,
@@ -386,11 +499,12 @@ const executeEndpoint = async <TAuth extends AuthContext>(
 
         if (mode === 'auto-inject' && column) {
           // Wrap all query builders in the context to auto-inject tenant filters
-          for (const key of Object.keys(context)) {
-            const value = context[key];
+          const contextValues = context as Record<string, unknown>;
+          for (const key of Object.keys(contextValues)) {
+            const value = contextValues[key];
             // Check if it looks like a query builder (has a table method)
             if (value && typeof value === 'object' && 'table' in value && typeof value.table === 'function') {
-              context[key] = createTenantScope(value as { table: (name: string) => any }, { tenantId, column });
+              contextValues[key] = createTenantScope(value as { table: (name: string) => any }, { tenantId, column });
             }
           }
         } else if (mode === 'manual') {
@@ -434,9 +548,9 @@ const executeEndpoint = async <TAuth extends AuthContext>(
 
     const pipeline = [
       ...globalMiddlewares,
-      ...(endpoint.middlewares as ServeMiddleware<any, any, TAuth>[]),
+      ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
     ];
-    const result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+    const result = await runMiddlewares<TContext, TAuth>(pipeline, context, () => endpoint.handler(context));
     const headers: Record<string, string> = { ...(endpoint.defaultHeaders ?? {}) };
 
     if (typeof cacheTtlMs === "number") {
@@ -475,17 +589,20 @@ const executeEndpoint = async <TAuth extends AuthContext>(
 };
 
 export const defineServe = <
-  TQueries extends ServeQueriesMap = ServeQueriesMap,
-  TAuth extends AuthContext = AuthContext
->(config: ServeConfig<TQueries, TAuth>): ServeBuilder<Record<keyof TQueries, ServeEndpoint<any, any, any>>, TAuth> => {
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+  const TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
+>(
+  config: ServeConfig<TContext, TAuth, TQueries>
+): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const basePath = config.basePath ?? "";
   const router = new ServeRouter(basePath);
-  const globalMiddlewares: ServeMiddleware<any, any, TAuth>[] = [
-    ...((config.middlewares ?? []) as ServeMiddleware<any, any, TAuth>[]),
+  const globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[] = [
+    ...((config.middlewares ?? []) as ServeMiddleware<any, any, TContext, TAuth>[]),
   ];
   const authStrategies = ensureArray<AuthStrategy<TAuth>>(config.auth);
   const globalTenantConfig = config.tenant;
-  const contextFactory = config.context as ServeContextFactory<TAuth> | undefined;
+  const contextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
   const hooks = (config.hooks ?? {}) as ServeLifecycleHooks<TAuth>;
   const openapiConfig = {
     enabled: config.openapi?.enabled ?? true,
@@ -497,16 +614,14 @@ export const defineServe = <
   };
   const openapiPublicPath = applyBasePath(basePath, openapiConfig.path);
 
-  const queryEntries = Object.entries(config.queries ?? ({} as TQueries)).reduce(
-    (acc, [key, definition]) => {
-      acc[key as keyof TQueries] = createEndpoint(
-        key,
-        definition as TQueries[keyof TQueries]
-      );
-      return acc;
-    },
-    {} as Record<keyof TQueries, ServeEndpoint<any, any, any>>
-  );
+  const configuredQueries = config.queries ?? ({} as TQueries);
+  const queryEntries = {} as ServeEndpointMap<TQueries, TContext, TAuth>;
+  const registerQuery = (key: keyof TQueries, definition: TQueries[keyof TQueries]) => {
+    queryEntries[key as keyof TQueries] = createEndpoint(String(key), definition);
+  };
+  for (const key of Object.keys(configuredQueries) as Array<keyof TQueries>) {
+    registerQuery(key, configuredQueries[key]);
+  }
 
   const handler: ServeHandler = async (request) => {
     const requestId = getRequestId(request);
@@ -520,7 +635,7 @@ export const defineServe = <
       );
     }
 
-    return executeEndpoint({
+    return executeEndpoint<TContext, TAuth>({
       endpoint,
       request,
       requestId,
@@ -532,7 +647,7 @@ export const defineServe = <
     });
   };
 
-  const builder: ServeBuilder<typeof queryEntries, TAuth> = {
+  const builder: ServeBuilder<typeof queryEntries, TContext, TAuth> = {
     queries: queryEntries,
     route: (path, endpoint, options) => {
       if (!endpoint) {
@@ -562,7 +677,7 @@ export const defineServe = <
 
       const middlewares = [...endpoint.middlewares, ...(options?.middlewares ?? [])];
 
-      const registeredEndpoint: ServeEndpoint<any, any, any> = {
+      const registeredEndpoint: ServeEndpoint<any, any, TContext, TAuth> = {
         ...endpoint,
         method,
         metadata,
@@ -582,7 +697,7 @@ export const defineServe = <
       return builder;
     },
     execute: async (key, options) => {
-      const endpoint = queryEntries[key as keyof TQueries];
+      const endpoint = queryEntries[key];
       if (!endpoint) {
         throw new Error(`No query registered for key ${String(key)}`);
       }
@@ -600,7 +715,7 @@ export const defineServe = <
       const requestId = getRequestId(request);
 
       // Execute the endpoint directly using the shared helper
-      const response = await executeEndpoint({
+      const response = await executeEndpoint<TContext, TAuth>({
         endpoint,
         request,
         requestId,
@@ -624,7 +739,7 @@ export const defineServe = <
       }
 
       // Return the successful response body
-      return response.body as SchemaOutput<typeof endpoint.outputSchema>;
+      return response.body as ServeEndpointResult<typeof endpoint>;
     },
     describe: () => {
       const description: ToolkitDescription = {
@@ -659,7 +774,7 @@ export const defineServe = <
 };
 
 const mapEndpointToToolkit = (
-  endpoint: ServeEndpoint<any, any, any>
+  endpoint: ServeEndpoint<any, any, any, any>
 ): ToolkitQueryDescription => {
   // Use type assertion to avoid deep type instantiation issues with zodToJsonSchema
   const inputSchema: unknown = endpoint.inputSchema
@@ -683,4 +798,56 @@ const mapEndpointToToolkit = (
     outputSchema,
     custom: endpoint.metadata.custom,
   };
+};
+
+type InferInitializerContext<
+  TFactory,
+  TAuth extends AuthContext
+> = TFactory extends ServeContextFactory<infer TContext, TAuth> ? TContext : never;
+
+type ServeInitializerOptions<
+  TFactory extends ServeContextFactory<any, TAuth>,
+  TAuth extends AuthContext
+> = Omit<
+  ServeConfig<
+    InferInitializerContext<TFactory, TAuth>,
+    TAuth,
+    ServeQueriesMap<InferInitializerContext<TFactory, TAuth>, TAuth>
+  >,
+  "queries" | "context"
+> & { context: TFactory };
+
+type ServeInitializerDefinition<
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext,
+  TQueries extends ServeQueriesMap<TContext, TAuth>
+> = Omit<ServeConfig<TContext, TAuth, TQueries>, "context">;
+
+export const initServe = <
+  TFactory extends ServeContextFactory<any, TAuth>,
+  TAuth extends AuthContext = AuthContext
+>(options: ServeInitializerOptions<TFactory, TAuth>): ServeInitializer<
+  InferInitializerContext<TFactory, TAuth>,
+  TAuth
+> => {
+  type TContext = InferInitializerContext<TFactory, TAuth>;
+  const { context, ...staticOptions } = options;
+  const procedure = createProcedureBuilder<TContext, TAuth>();
+
+  return {
+    procedure,
+    query: procedure,
+    queries: <TQueries extends ServeQueriesMap<TContext, TAuth>>(
+      definitions: TQueries
+    ) => definitions,
+    define: <const TQueries extends ServeQueriesMap<TContext, TAuth>>(
+      config: ServeInitializerDefinition<TContext, TAuth, TQueries>
+    ) => {
+      return defineServe<TContext, TAuth, TQueries>({
+        ...staticOptions,
+        ...config,
+        context: (context ?? {}) as ServeContextFactory<TContext, TAuth>,
+      });
+    },
+  } satisfies ServeInitializer<TContext, TAuth>;
 };

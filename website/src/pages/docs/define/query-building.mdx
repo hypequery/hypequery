@@ -6,20 +6,59 @@ description: Learn how to build powerful queries with hypequery's fluent API
 
 # Query Building
 
-Every hypequery project starts with a `defineServe` export that exposes a fluent ClickHouse builder through `ctx.db`. This page shows the most common clauses—`select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and `toSQL`—using the exact syntax you’ll drop into `analytics/queries.ts`.
+Every hypequery project starts with an `initServe` export that exposes a fluent ClickHouse builder through `ctx.db`. This page shows the most common clauses—`select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and `toSQL`—using the exact syntax you’ll drop into `analytics/queries.ts`.
 
 ```ts
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
 
-export const api = defineServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
-  queries: {
-    // examples below
-  },
+});
+
+export const api = define({
+  queries: queries({
+    // examples below look like:
+    // tripsQuery: query.describe('...').input(...).query(({ ctx }) => ctx.db ...),
+  }),
 });
 ```
+
+> Tip: `serve.queries(...)` keeps contextual typing intact. If you destructure `const { define, queries, query } = initServe(...)`, the rest of the examples work the same way.
+
+## Reusing query types
+
+Need fully typed inputs/outputs elsewhere (React hooks, API routes, SDKs)? Use the helper types exported from `@hypequery/serve`:
+
+```ts
+import type { InferQueryInput, InferQueryOutput, InferQueryResult } from '@hypequery/serve';
+import type { api } from './analytics/api';
+
+type TripsInput = InferQueryInput<typeof api, 'tripsQuery'>;        // input schema
+type TripsResult = InferQueryResult<typeof api, 'tripsQuery'>;     // builder return type
+type TripsResponse = InferQueryOutput<typeof api, 'tripsQuery'>;   // zod-derived type if provided
+```
+
+Use `InferQueryResult` when you trust the builder’s static typing (no schema required). `InferQueryOutput` reads the optional `outputSchema`, which is handy when runtime validation is the source of truth. Both helpers accept either the `serve.define` instance or a raw `ServeQueriesMap`, so you can infer types from any subset of queries.
+
+### Inline execution helpers
+
+Calling `await api.execute('tripsQuery')` now returns the same type as `InferQueryResult<typeof api, 'tripsQuery'>`. For inline scripts or devtools, you can lean on the helper to annotate external call sites:
+
+```ts
+import { api } from './analytics/api';
+import type { InferQueryResult } from '@hypequery/serve';
+
+type Trips = InferQueryResult<typeof api, 'tripsQuery'>;
+
+export async function listTrips(): Promise<Trips> {
+  return api.execute('tripsQuery');
+}
+```
+
+If your query returns a builder directly, make sure to `.execute()` before returning so the type collapses to the parsed result instead of the intermediate `QueryBuilder`.
+
 
 ---
 
