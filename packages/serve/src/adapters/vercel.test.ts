@@ -25,9 +25,10 @@ describe("vercel adapters", () => {
       statusCode: 0,
       headers: {} as Record<string, string>,
       setHeader: vi.fn((key: string, value: string) => {
-        mockRes.headers[key] = value;
+        mockRes.headers[key.toLowerCase()] = value;
       }),
-      hasHeader: vi.fn((key: string) => key in mockRes.headers),
+      hasHeader: vi.fn((key: string) => key.toLowerCase() in mockRes.headers),
+      getHeader: vi.fn((key: string) => mockRes.headers[key.toLowerCase()]),
       end: vi.fn(),
     };
 

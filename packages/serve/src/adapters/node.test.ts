@@ -48,6 +48,10 @@ class MockResponse {
     return key.toLowerCase() in this.headers;
   }
 
+  getHeader(key: string) {
+    return this.headers[key.toLowerCase()];
+  }
+
   end(payload?: string) {
     this.body = payload ?? "";
   }
