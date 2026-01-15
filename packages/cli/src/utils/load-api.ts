@@ -20,7 +20,8 @@ export async function loadApiModule(modulePath: string) {
   }
 
   // If it's a TypeScript file and tsx isn't already loaded, re-exec with tsx
-  if (resolved.endsWith('.ts') && !process.execArgv.some((arg) => arg.includes('tsx') || arg.includes('--import'))) {
+  const isTypeScript = resolved.endsWith('.ts') || resolved.endsWith('.mts') || resolved.endsWith('.cts');
+  if (isTypeScript && !process.env.TSX_LOADED) {
     // Check if tsx is available
     try {
       // @ts-ignore - tsx module might not have types
@@ -34,12 +35,17 @@ export async function loadApiModule(modulePath: string) {
     // Re-exec the current command with tsx
     console.error('\n⚠️  TypeScript detected. Restarting with tsx...\n');
 
+    // Use npx tsx to run the CLI binary directly
+    // This is more reliable than using --import tsx/esm
     const child = spawn(
-      process.execPath,
-      ['--import', 'tsx/esm', ...process.argv.slice(1)],
+      'npx',
+      ['tsx', ...process.argv.slice(1)],
       {
         stdio: 'inherit',
-        env: process.env,
+        env: {
+          ...process.env,
+          TSX_LOADED: 'true', // Prevent infinite restart loop
+        },
       }
     );
 
