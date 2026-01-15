@@ -1,10 +1,10 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Query Result Caching
+title: Caching
 description: Configure hypequery's cache layer, override per-query behavior, and push events to your own store
 ---
 
-# Query Result Caching (Preview)
+# Caching
 
 hypequery can cache `execute()` results at the builder level. It fingerprints the generated SQL + parameters, dedupes in-flight requests, and optionally serves stale responses while refreshing in the background. Use this page whenever you miss the original caching doc.
 
@@ -14,6 +14,7 @@ Enable caching when you create the builder:
 
 ```typescript
 import { createQueryBuilder, MemoryCacheProvider } from '@hypequery/clickhouse';
+import { initServe } from '@hypequery/serve';
 
 const db = createQueryBuilder({
   host: process.env.CLICKHOUSE_HOST!,
@@ -25,20 +26,33 @@ const db = createQueryBuilder({
     provider: new MemoryCacheProvider({ maxEntries: 1_000 })
   }
 });
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    leaderboard: query
+      .describe('Top revenue by customer')
+      .cache({ tags: ['orders'], ttlMs: 5_000 })
+      .query(async ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .sum('total', 'revenue')
+          .groupBy(['customer_id'])
+          .orderBy('revenue', 'DESC')
+          .limit(10)
+          .execute()
+      ),
+  }),
+});
+
+// Per-call overrides
+await api.execute('leaderboard', { cache: { mode: 'network-first' } });
+
+// Disable caching entirely for this call
+await api.execute('leaderboard', { cache: false });
 ```
-
-Override behaviour per query using `.cache()` or at execution time with `execute({ cache })`:
-
-```typescript
-const leaderboard = db
-  .table('orders')
-  .sum('total', 'revenue')
-  .cache({ tags: ['orders'], ttlMs: 5_000 });
-
-await leaderboard.execute({ cache: { mode: 'network-first' } });
-```
-
-Pass `cache: false` (or `.cache(false)`) to bypass the cache altogether.
 
 ## Modes + knobs
 
@@ -67,8 +81,9 @@ await db.cache.invalidateTags(['orders', 'dashboards']);
 await db.cache.clear();
 
 await db.cache.warm([
-  () => leaderboard.execute(),
-  () => db.table('users').count().cache({ tags: ['users'] }).execute(),
+  () => api.execute('leaderboard'),
+  () =>
+    db.table('users').count().cache({ tags: ['users'] }).execute(),
 ]);
 
 const stats = db.cache.getStats();
@@ -109,14 +124,5 @@ class RedisCacheProvider implements CacheProvider<string> {
   }
 }
 ```
-
-Use the provider in your builder or via `.cache({ provider })`. If your store supports namespaces or tag eviction, implement `deleteByTag` / `clearNamespace` so `db.cache.invalidateTags()` can work without brute-force scans.
-
-## Best practices
-
-- **Start with SWR** for dashboards and read-heavy workloads; it gives instant responses with background refresh.
-- **Tag everything** so mutations can invalidate related queries via `db.cache.invalidateTags([...])`.
-- **Watch stats** (`db.cache.getStats()`) and log spikes in misses or stale hits.
-- **Document overrides**—`cache: false` sprinkled throughout app code becomes technical debt quickly.
 
 Caching is optional, but once you dial in TTLs + invalidation it dramatically reduces ClickHouse load while keeping APIs snappy.

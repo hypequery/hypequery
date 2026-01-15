@@ -57,22 +57,46 @@ logger.configure({
 You can subscribe to logs for specific queries using a unique query ID:
 
 ```typescript
+import { initServe } from '@hypequery/serve';
+import { db } from './analytics/client';
+
+const { define, queries, query } = initServe({ context: () => ({ db }) });
+
+const api = define({
+  queries: queries({
+    builderSource: query.query(async ({ ctx }) =>
+      ctx.db.table('users').select(['id']).limit(1).execute()
+    ),
+  }),
+});
+
+// In the snippets below, `builder` refers to `ctx.db` inside these query definitions.
+```
+
+```typescript
 import { logger } from '@hypequery/clickhouse';
+import { initServe } from '@hypequery/serve';
+import { db } from './analytics/client';
+
+const { define, queries, query } = initServe({ context: () => ({ db }) });
+
+export const api = define({
+  queries: queries({
+    users: query
+      .describe('Latest active users')
+      .query(async ({ ctx }) =>
+        ctx.db.table('users').where('status', 'eq', 'active').limit(25).execute()
+      ),
+  }),
+});
 
 // Subscribe to logs for a specific query
-const queryId = 'user-query-123';
-const unsubscribe = logger.subscribeToQuery(queryId, (log) => {
+const unsubscribe = logger.subscribeToQuery('users-demo', (log) => {
   console.log('Query log:', log);
 });
 
-// Execute the query with the ID
-await builder
-  .table('users')
-  .select(['id', 'name'])
-  .where('age', 'gt', 18)
-  .execute({ queryId }); // Pass the queryId in options
+await api.execute('users', { request: { queryId: 'users-demo' } });
 
-// Unsubscribe when done
 unsubscribe();
 ```
 
@@ -137,31 +161,11 @@ logger.configure({
 ## Example Log Output
 
 ```typescript
-// When executing a query
-const results = await builder
-  .table('users')
-  .select(['id', 'name'])
-  .where('age', 'gt', 18)
-  .execute();
+await api.execute('builderSource');
 
 // You'll see logs like:
 // [hypequery Debug] Query started: SELECT id, name FROM users WHERE age > ?
 // [hypequery Info] Query completed: SELECT id, name FROM users WHERE age > ? (duration: 45ms, rows: 100)
-```
-
-## Logging with Streaming
-
-When using streaming, the logger will track the total number of rows processed:
-
-```typescript
-const stream = builder
-  .table('events')
-  .select(['timestamp', 'event_type'])
-  .stream();
-
-// The logger will show:
-// [hypequery Debug] Query started: SELECT timestamp, event_type FROM events
-// [hypequery Info] Query completed: SELECT timestamp, event_type FROM events (duration: 120ms, rows: 1000)
 ```
 
 ## Viewing Logs

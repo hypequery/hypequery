@@ -34,31 +34,30 @@ const sidebar = [
     ],
   },
   {
-    title: "Building Queries",
+    title: "Define Queries & Metrics",
     items: [
       { title: "Type generation", href: "/docs/define/type-generation" },
       { title: "Query builder", href: "/docs/define/query-building" },
       { title: "SQL expressions", href: "/docs/define/sql-expressions" },
-    ],
-  },
-  {
-    title: "Defining Endpoints",
-    items: [
       { title: "Query definitions", href: "/docs/define/metric-modules" },
-      { title: "Input/output schemas", href: "/docs/endpoints/schemas" },
+      { title: "Schemas", href: "/docs/endpoints/schemas" },
     ],
   },
   {
-    title: "Execute & ship",
+    title: "Execute & Integrate",
     items: [
       { title: "Embedded runtime", href: "/docs/ship/embedded-runtime" },
-      { title: "Authentication", href: "/docs/ship/authentication" },
-      { title: "Dev workflow", href: "/docs/ship/serve-dev" },
       { title: "HTTP + OpenAPI", href: "/docs/ship/http-openapi" },
       { title: "React hooks", href: "/docs/reference/react" },
-      { title: "Metadata & documentation", href: "/docs/ship/custom-metadata" },
+      { title: "Caching", href: "/docs/define/caching" },
+      { title: "Logging", href: "/docs/operate/observability" },
+    ],
+  },
+  {
+    title: "Security & tenancy",
+    items: [
+      { title: "Authentication", href: "/docs/ship/authentication" },
       { title: "Multi-tenant isolation", href: "/docs/ship/multi-tenancy" },
-      { title: "Query caching", href: "/docs/define/caching" },
     ],
   },
   {
@@ -72,135 +71,12 @@ const sidebar = [
     ],
   },
   {
-    title: "Operate",
-    items: [
-      { title: "Observability & logging", href: "/docs/operate/observability" },
-      { title: "Access & governance", href: "/docs/operate/governance" },
-      {
-        title: "Performance & tuning",
-        href: "/docs/operate/performance-tuning",
-      },
-      {
-        title: "Versioning & stability",
-        href: "/docs/operate/versioning-stability",
-      },
-    ],
-  },
-  {
     title: "Reference",
     items: [
       { title: "Serve reference", href: "/docs/reference/serve" },
       { title: "CLI reference", href: "/docs/reference/cli" },
-      { title: "Configuration", href: "/docs/reference/config" },
-      {
-        title: "API reference",
-        href: "/docs/reference/api/globals",
-        items: [
-          { title: "Globals", href: "/docs/reference/api/globals" },
-          {
-            title: "Classes",
-            href: "/docs/reference/api/classes/ClickHouseConnection",
-            items: [
-              {
-                title: "ClickHouseConnection",
-                href: "/docs/reference/api/classes/ClickHouseConnection",
-              },
-              {
-                title: "CrossFilter",
-                href: "/docs/reference/api/classes/CrossFilter",
-              },
-              {
-                title: "JoinRelationships",
-                href: "/docs/reference/api/classes/JoinRelationships",
-              },
-            ],
-          },
-          {
-            title: "Functions",
-            href: "/docs/reference/api/functions/createQueryBuilder",
-            items: [
-              {
-                title: "createQueryBuilder",
-                href: "/docs/reference/api/functions/createQueryBuilder",
-              },
-              {
-                title: "datePart",
-                href: "/docs/reference/api/functions/datePart",
-              },
-              {
-                title: "formatDateTime",
-                href: "/docs/reference/api/functions/formatDateTime",
-              },
-              {
-                title: "generateTypes",
-                href: "/docs/reference/api/functions/generateTypes",
-              },
-              { title: "raw", href: "/docs/reference/api/functions/raw" },
-              { title: "rawAs", href: "/docs/reference/api/functions/rawAs" },
-              {
-                title: "selectExpr",
-                href: "/docs/reference/api/functions/selectExpr",
-              },
-              {
-                title: "toDateTime",
-                href: "/docs/reference/api/functions/toDateTime",
-              },
-              {
-                title: "toStartOfInterval",
-                href: "/docs/reference/api/functions/toStartOfInterval",
-              },
-            ],
-          },
-          {
-            title: "Interfaces",
-            href: "/docs/reference/api/interfaces/AliasedExpression",
-            items: [
-              {
-                title: "AliasedExpression",
-                href: "/docs/reference/api/interfaces/AliasedExpression",
-              },
-              {
-                title: "ClickHouseClientConfig",
-                href: "/docs/reference/api/interfaces/ClickHouseClientConfig",
-              },
-              {
-                title: "ClickHouseHostConfig",
-                href: "/docs/reference/api/interfaces/ClickHouseHostConfig",
-              },
-              {
-                title: "JoinPath",
-                href: "/docs/reference/api/interfaces/JoinPath",
-              },
-              {
-                title: "JoinPathOptions",
-                href: "/docs/reference/api/interfaces/JoinPathOptions",
-              },
-              {
-                title: "PageInfo",
-                href: "/docs/reference/api/interfaces/PageInfo",
-              },
-              {
-                title: "QueryConfig",
-                href: "/docs/reference/api/interfaces/QueryConfig",
-              },
-              {
-                title: "SqlExpression",
-                href: "/docs/reference/api/interfaces/SqlExpression",
-              },
-              {
-                title: "TableSchema",
-                href: "/docs/reference/api/interfaces/TableSchema",
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    title: "Advanced",
-    items: [
-      { title: "Standalone Query Builder", href: "/docs/advanced/standalone-query-builder" },
+      { title: "Package overview", href: "/docs/reference/packages" },
+      { title: "Standalone Query Builder", href: "/docs/reference/standalone-query-builder" },
     ],
   },
 ];
