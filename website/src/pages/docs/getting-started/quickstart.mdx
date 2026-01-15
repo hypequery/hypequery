@@ -6,29 +6,37 @@ description: Ship your first hypequery-powered endpoint in two CLI commands
 
 # Quickstart
 
-Shipping your first hypequery API now only takes two CLI commands. Install the packages, run `hypequery init` to scaffold everything (env, client, schema, queries), fire up `hypequery dev`, then add a real metric.
+Shipping your first hypequery API now only takes two CLI commands. No CLI installation needed—just use `npx @hypequery/cli init` to scaffold everything (env, client, schema, queries), fire up the dev server, then add a real metric.
 
 ### Prereqs
 
 - Node.js 18+
-- Access to a ClickHouse instance with credentials saved in `.env`
+- Access to a ClickHouse instance with credentials
 - Install the runtime packages:
 
   ```bash
   npm install @hypequery/clickhouse @hypequery/serve
   ```
 
-- Install the CLI locally so teammates share the same version:
+**CLI installation is optional.** You can run all commands with `npx @hypequery/cli` without installing anything. Or install locally so teammates share the same version:
 
-  ```bash
-  npm install -D @hypequery/cli
-  ```
+```bash
+# Optional - install CLI locally
+npm install -D @hypequery/cli
+
+# Then use shorter commands
+npx hypequery init
+```
 
 ## 1. Scaffold analytics files with `hypequery init`
 
 From your project root run:
 
 ```bash
+# Without CLI installed
+npx @hypequery/cli init
+
+# Or if CLI is installed
 npx hypequery init
 ```
 
@@ -46,6 +54,10 @@ Open `analytics/queries.ts` to see the scaffolded `initServe` export with the fl
 Launch the dev server to get interactive docs, a playground, and an OpenAPI schema:
 
 ```bash
+# Without CLI installed
+npx @hypequery/cli dev
+
+# Or if CLI is installed
 npx hypequery dev
 ```
 
@@ -93,7 +105,7 @@ Save the file and the dev UI immediately shows the new metric with typed inputs/
 
 - Wire metrics into production code with [Metric Modules](/docs/define/metric-modules)
 - Explore the fluent builder in [Query Building](/docs/define/query-building)
-- Regenerate schema types on demand with [`hypequery generate`](/docs/define/type-generation)
+- Regenerate schema types on demand with [`hypequery generate`](/docs/reference/cli#hypequery-generate)
 - Share the API via [HTTP + OpenAPI](/docs/ship/http-openapi)
 
-Once the flow feels solid, add CI checks (`npx hypequery generate` + tests) so schema drift is caught automatically.
+Once the flow feels solid, add CI checks (`npx @hypequery/cli generate` + tests) so schema drift is caught automatically.

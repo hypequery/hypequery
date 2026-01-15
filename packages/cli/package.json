@@ -37,6 +37,8 @@
     }
   },
   "devDependencies": {
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/serve": "workspace:*",
     "@types/node": "^20.11.30",
     "@types/prompts": "^2.4.9",
     "tsx": "^4.19.2",

@@ -7,14 +7,14 @@ export const dateRangeSchema = z.object({
   to: z.string().optional(),
 });
 
-export const filtersSchema = z
-  .object({
-    pickupDateRange: dateRangeSchema.optional(),
-    dropoffDateRange: dateRangeSchema.optional(),
-  })
-  .default({});
+export const baseFiltersSchema = z.object({
+  pickupDateRange: dateRangeSchema.optional(),
+  dropoffDateRange: dateRangeSchema.optional(),
+});
 
-export type FiltersInput = z.infer<typeof filtersSchema>;
+export const filtersSchema = baseFiltersSchema.default({});
+
+export type FiltersInput = z.infer<typeof baseFiltersSchema>;
 
 const formatDate = (value: string | undefined, start: boolean) => {
   if (!value) return undefined;

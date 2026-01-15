@@ -1,6 +1,6 @@
 import { createHooks } from '@hypequery/react';
 
-import type { DashboardApi } from '@/analytics/api';
+import type { DashboardApi } from '@/analytics/queries';
 
 export const {
   useQuery: useHypequeryQuery,

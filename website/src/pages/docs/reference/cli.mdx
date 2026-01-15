@@ -8,7 +8,41 @@ description: Command cheatsheet for the hypequery CLI
 
 # CLI reference
 
-The `hypequery` binary ships with the `@hypequery/cli` package. Every command expects access to your ClickHouse credentials via the prompts presented during `init` or via the `CLICKHOUSE_*` environment variables listed below.
+The `hypequery` CLI provides commands for scaffolding, generating types, and running development servers. Every command expects access to your ClickHouse credentials via the prompts presented during `init` or via the `CLICKHOUSE_*` environment variables listed below.
+
+## Installation
+
+**No installation required!** Run commands directly with `npx`:
+
+```bash
+npx @hypequery/cli init
+npx @hypequery/cli dev
+```
+
+For frequent use, install as a dev dependency:
+
+```bash
+npm install -D @hypequery/cli
+# or
+pnpm add -D @hypequery/cli
+```
+
+Then use the shorter `hypequery` command:
+
+```bash
+npx hypequery init
+npx hypequery dev
+```
+
+### TypeScript support
+
+If your queries file is TypeScript (`.ts`), the CLI will automatically detect and restart with TypeScript support. Make sure `tsx` is installed:
+
+```bash
+npm install -D tsx
+```
+
+The CLI will guide you if `tsx` is needed but not installed.
 
 ## Commands at a glance
 
@@ -24,58 +58,163 @@ The sections below expand on the supported options and expected behavior for eac
 ## `hypequery init`
 
 ```bash
-hypequery init [--database clickhouse] [--path analytics] [--no-example] [--no-interactive] [--force]
+# Without installation
+npx @hypequery/cli init [options]
+
+# With installation
+npx hypequery init [options]
 ```
 
-- **Supported databases** – Only ClickHouse is currently supported. Passing `--database clickhouse` skips the picker. (A disabled BigQuery option exists for future support.)
-- **`--path <dir>`** – Target directory for `client.ts`, `schema.ts`, and `queries.ts`. Defaults to `analytics/`.
-- **`--no-example`** – Skip generating the sample query.
-- **`--no-interactive`** – Skip prompts and read the ClickHouse host/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing.
-- **`--force`** – Overwrite existing files without asking.
+**Options:**
+- **`--database <type>`** – Database type (currently only `clickhouse`)
+- **`--path <dir>`** – Target directory for `client.ts`, `schema.ts`, and `queries.ts`. Defaults to `analytics/`
+- **`--no-example`** – Skip generating the sample query
+- **`--no-interactive`** – Skip prompts and read the ClickHouse host/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing
+- **`--force`** – Overwrite existing files without asking
 
-During the flow the CLI tests your ClickHouse connection immediately using the credentials you provide. On success it writes `.env`, generates the files in the selected directory, and prints follow-up instructions for `hypequery dev`.
+**What it does:**
+
+During the flow the CLI tests your ClickHouse connection immediately using the credentials you provide. On success it:
+- Writes `.env` with your connection details
+- Generates `client.ts`, `schema.ts`, and `queries.ts` in the selected directory
+- Creates or updates `.gitignore` to protect secrets
+- Prints follow-up instructions for `hypequery dev`
+
+**Example:**
+
+```bash
+# Interactive mode (recommended)
+npx @hypequery/cli init
+
+# Non-interactive with custom path
+npx @hypequery/cli init --path src/analytics --no-interactive
+```
 
 ## `hypequery dev [file]`
 
 ```bash
-hypequery dev [path/to/queries.ts] [options]
+# Without installation
+npx @hypequery/cli dev [path/to/queries.ts] [options]
+
+# With installation
+npx hypequery dev [path/to/queries.ts] [options]
 ```
 
-- **`[file]`** – Optional path to your `queries.ts`. Defaults to `analytics/queries.ts`, `src/analytics/queries.ts`, or the nearest `hypequery.ts`.
-- **`-p, --port <port>`** – Desired port. Falls back to whatever `@hypequery/serve` chooses (4000 by default).
-- **`-h, --hostname <host>`** – Bind address (default `localhost`).
-- **`--no-watch`** – Run once without watching for file changes.
-- **`--no-cache` / `--cache <provider>`** – Disable caching entirely or select a cache provider (`memory` or `redis`).
-- **`--redis-url <url>`** – Connection string when using the Redis cache provider.
-- **`--open`** – Open the generated Docs URL in your default browser after the server starts.
-- **`--cors`** – Enable CORS support in the dev server.
-- **`-q, --quiet`** – Reduce startup noise.
+**Options:**
+- **`[file]`** – Optional path to your `queries.ts`. Defaults to `analytics/queries.ts`, `src/analytics/queries.ts`, or the nearest `hypequery.ts`
+- **`-p, --port <port>`** – Desired port (default: `4000`)
+- **`-h, --hostname <host>`** – Bind address (default: `localhost`)
+- **`--no-watch`** – Run once without watching for file changes
+- **`--cache <provider>`** – Cache provider (`memory` | `redis` | `none`)
+- **`--redis-url <url>`** – Connection string when using the Redis cache provider
+- **`--open`** – Open the generated Docs URL in your default browser after the server starts
+- **`--cors`** – Enable CORS support in the dev server
+- **`-q, --quiet`** – Reduce startup noise
 
-`dev` loads the ClickHouse schema to display table counts, registers your queries, then prints the Docs and OpenAPI URLs for the running server. When `--open` is set the CLI only attempts to open the browser if it can determine the full base URL.
+**What it does:**
+
+The dev server:
+- Loads your ClickHouse schema to display table counts
+- Registers all queries from your queries file
+- Starts a local HTTP server for your queries
+- Provides interactive API documentation at `/docs`
+- Auto-reloads on file changes (unless `--no-watch`)
+- Displays query execution stats
+
+When `--open` is set, the CLI opens your browser to the docs page.
+
+**Example:**
+
+```bash
+# Basic usage
+npx @hypequery/cli dev
+
+# Custom port with browser auto-open
+npx @hypequery/cli dev --port 3000 --open
+
+# Disable caching for debugging
+npx @hypequery/cli dev --cache none
+```
+
+**TypeScript files:**
+
+If your queries file is TypeScript, the CLI automatically detects and restarts with TypeScript support. Make sure `tsx` is installed (`npm install -D tsx`).
 
 ## `hypequery generate`
 
 ```bash
-hypequery generate [--output analytics/schema.ts] [--tables users,orders] [--watch]
+# Without installation
+npx @hypequery/cli generate [options]
+
+# With installation
+npx hypequery generate [options]
 ```
 
-- **`--output <file>`** – Where to write the generated types. Defaults to your existing `analytics/schema.ts` or `analytics/schema.ts` if not found.
-- **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected.
-- **`--watch`** – Poll ClickHouse every 30 seconds and regenerate types when the schema changes.
+**Options:**
+- **`--output <file>`** – Where to write the generated types. Defaults to your existing `analytics/schema.ts` or `analytics/schema.ts` if not found
+- **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected
+- **`--watch`** – Poll ClickHouse every 30 seconds and regenerate types when the schema changes
+
+**What it does:**
+
+The generator:
+- Connects to ClickHouse using your `CLICKHOUSE_*` env variables
+- Introspects your database schema
+- Generates TypeScript interfaces for all tables
+- Updates your schema file with type-safe definitions
 
 The generator shares the `CLICKHOUSE_*` configuration with the rest of the CLI, so ensure those env vars are set (or run `hypequery init` first).
+
+**Example:**
+
+```bash
+# Generate all tables
+npx @hypequery/cli generate
+
+# Generate specific tables only
+npx @hypequery/cli generate --tables users,events
+
+# Watch mode for development
+npx @hypequery/cli generate --watch --output src/schema.ts
+```
 
 ## `hypequery create-api-types`
 
 ```bash
-hypequery create-api-types [path/to/queries.ts] [--output analytics/client.ts] [--name HypequeryApi]
+# Without installation
+npx @hypequery/cli create-api-types [path/to/queries.ts] [options]
+
+# With installation
+npx hypequery create-api-types [path/to/queries.ts] [options]
 ```
 
-- **`[file]`** – Optional path to your `queries.ts`. Falls back to the same search paths as `hypequery dev` (`analytics/queries.ts`, `src/analytics/queries.ts`, `hypequery.ts`, etc.).
-- **`--output <file>`** – Destination for the generated type helper. Defaults to `client.ts` next to your queries file.
-- **`--name <type>`** – Custom name for the exported type alias (default `HypequeryApi`).
+**Options:**
+- **`[file]`** – Optional path to your `queries.ts`. Falls back to the same search paths as `hypequery dev` (`analytics/queries.ts`, `src/analytics/queries.ts`, `hypequery.ts`, etc.)
+- **`--output <file>`** – Destination for the generated type helper. Defaults to `client.ts` next to your queries file
+- **`--name <type>`** – Custom name for the exported type alias (default: `HypequeryApi`)
 
-`create-api-types` loads your serve definition, enumerates every query key, and writes a thin TypeScript module that maps `InferQueryInput/InferQueryResult` for each entry. Import the resulting type wherever you need an HTTP client—`@hypequery/react`, serverless functions, or SDKs that talk to the deployed API route—without bundling the original `queries.ts` into the client build.
+**What it does:**
+
+The command:
+- Loads your serve definition from the queries file
+- Enumerates every query key
+- Generates a TypeScript type map with `InferQueryInput/InferQueryResult` for each query
+- Perfect for frontend React hooks with `@hypequery/react`
+
+Import the resulting type wherever you need an HTTP client—`@hypequery/react`, serverless functions, or SDKs that talk to the deployed API route—without bundling the original `queries.ts` into the client build.
+
+**Example:**
+
+```bash
+# Auto-detect queries file
+npx @hypequery/cli create-api-types
+
+# Specify custom queries file and output
+npx @hypequery/cli create-api-types src/queries.ts -o src/api-types.ts
+
+# Custom type name
+npx @hypequery/cli create-api-types --name MyApi
+```
 
 ## Environment variables
 
@@ -93,7 +232,57 @@ Set these in your `.env` (the `init` command will scaffold this file for you) or
 
 ## Troubleshooting
 
-- **Connection errors** – Verify the env vars above and ensure network access to ClickHouse. The CLI reports `ECONNREFUSED`, `Authentication failed`, and TLS errors with actionable hints.
-- **Missing files** – Run `hypequery init --force` to regenerate the `analytics/` folder if it was removed.
+### Connection errors
+
+Verify the environment variables above and ensure network access to ClickHouse. The CLI reports detailed errors with actionable hints:
+- `ECONNREFUSED` – ClickHouse is not running or wrong host/port
+- `Authentication failed` – Check username and password
+- TLS errors – Verify SSL configuration
+
+### Missing files
+
+Run `hypequery init --force` to regenerate the `analytics/` folder if it was removed.
+
+### TypeScript errors
+
+If you see "Unexpected token" or syntax errors when running `hypequery dev`:
+
+1. Make sure `tsx` is installed:
+   ```bash
+   npm install -D tsx
+   ```
+
+2. The CLI will automatically restart with TypeScript support
+
+Alternatively, compile your TypeScript first:
+```bash
+tsc src/analytics/queries.ts
+npx @hypequery/cli dev src/analytics/queries.js
+```
+
+### Wrong file or export
+
+If the CLI reports that your file doesn't export an API properly:
+
+1. Ensure your queries file exports an `api` variable from `initServe` or `defineServe`
+2. Check the error message for the list of exports found
+3. See the expected format in the error message
+
+Example of correct format:
+```typescript
+import { initServe } from '@hypequery/serve';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    myQuery: query.query(async ({ ctx }) => {
+      // ...
+    }),
+  }),
+});
+```
 
 </div>

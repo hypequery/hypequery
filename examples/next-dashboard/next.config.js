@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@hypequery/clickhouse"],
+  transpilePackages: ["@hypequery/clickhouse", "@hypequery/react", "@hypequery/serve"],
   async rewrites() {
     return [
       {

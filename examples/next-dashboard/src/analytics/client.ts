@@ -1,7 +1,7 @@
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { createClient } from '@clickhouse/client';
-import type { IntrospectedSchema } from '@/generated/generated-schema';
-import { createMemoryCache } from '@/lib/cache';
+import type { IntrospectedSchema } from '../generated/generated-schema';
+import { createMemoryCache } from '../lib/cache';
 
 const host =
   process.env.CLICKHOUSE_HOST ??

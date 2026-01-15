@@ -3,7 +3,8 @@ import { toStartOfInterval } from '@hypequery/clickhouse';
 import { z } from 'zod';
 
 import { db } from './client';
-import { buildCrossFilter, filtersSchema, type FiltersInput } from './filters';
+import { buildCrossFilter, filtersSchema, baseFiltersSchema } from './filters';
+import type { FiltersInput } from './filters';
 
 const amountsSchema = z.object({
   total: z.number(),
@@ -43,7 +44,7 @@ const pageInfoSchema = z.object({
   totalPages: z.number().optional(),
 });
 
-const tripsInputSchema = filtersSchema.extend({
+const tripsInputSchema = baseFiltersSchema.extend({
   pageSize: z.number().min(1).max(100).optional(),
   after: z.string().optional(),
   before: z.string().optional(),
@@ -58,8 +59,8 @@ const cacheStatsSchema = z.object({
   hits: z.number(),
   misses: z.number(),
   staleHits: z.number(),
-  sizeBytes: z.number(),
-  items: z.number().optional(),
+  revalidations: z.number(),
+  hitRate: z.number(),
 });
 
 const cachedSummarySchema = z.object({
@@ -210,12 +211,14 @@ export const api = define({
         return {
           ...result,
           data: result.data.map((row) => ({
-            ...row,
+            pickup_datetime: String((row as any).pickup_datetime),
+            dropoff_datetime: String((row as any).dropoff_datetime),
             trip_distance: toNumber((row as any).trip_distance),
             passenger_count: toNumber((row as any).passenger_count),
             fare_amount: toNumber((row as any).fare_amount),
             tip_amount: toNumber((row as any).tip_amount),
             total_amount: toNumber((row as any).total_amount),
+            payment_type: String((row as any).payment_type),
           })),
         } satisfies TripsResult;
       }),
@@ -317,13 +320,15 @@ export const api = define({
 
         return {
           trips: tripRows.map((row) => ({
-            ...row,
             trip_id: String((row as any).trip_id),
+            pickup_datetime: String((row as any).pickup_datetime),
+            dropoff_datetime: String((row as any).dropoff_datetime),
             trip_distance: toNumber((row as any).trip_distance),
             passenger_count: toNumber((row as any).passenger_count),
             fare_amount: toNumber((row as any).fare_amount),
             tip_amount: toNumber((row as any).tip_amount),
             total_amount: toNumber((row as any).total_amount),
+            payment_type: String((row as any).payment_type),
           })),
          pagination: {
            page,

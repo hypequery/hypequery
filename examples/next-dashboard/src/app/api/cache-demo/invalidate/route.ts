@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { api } from '@/analytics/api';
+import { api } from '@/analytics/queries';
 
 export async function POST() {
-  await api.run('invalidateCache');
+  await api.execute('invalidateCache');
   return NextResponse.json({ success: true });
 }

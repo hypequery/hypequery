@@ -1,0 +1,8 @@
+packages:
+  - 'packages/cli'
+  - 'packages/clickhouse'
+  - 'packages/create-app'
+  - 'packages/react'
+  - 'packages/serve'
+  - 'packages/tsconfig'
+  - 'examples/*'

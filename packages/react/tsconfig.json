@@ -8,8 +8,10 @@
     "declaration": true,
     "declarationMap": true,
     "emitDeclarationOnly": false,
+    "moduleResolution": "bundler",
     "types": ["react"]
   },
   "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.tsx", "src/**/*.test.ts"],
   "references": []
 }

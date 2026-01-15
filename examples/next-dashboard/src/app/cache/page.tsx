@@ -1,12 +1,12 @@
 import RefreshButton from '@/components/cache-demo/refresh-button';
 import InvalidateButton from '@/components/cache-demo/invalidate-button';
 import { Card } from '@/components/ui/card';
-import { api } from '@/analytics/api';
+import { api } from '@/analytics/queries';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CacheDemoPage() {
-  const { summary, cacheStatus } = await api.run('cachedSummary');
+  const { summary, cacheStatus } = await api.execute('cachedSummary');
 
   return (
     <div className="container mx-auto py-8 space-y-6">

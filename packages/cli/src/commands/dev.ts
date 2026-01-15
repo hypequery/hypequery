@@ -138,6 +138,11 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.newline();
       if (error instanceof Error) {
         logger.info(error.message);
+        if (error.stack) {
+          logger.newline();
+          logger.info('Stack trace:');
+          logger.info(error.stack);
+        }
       } else {
         logger.info(String(error));
       }

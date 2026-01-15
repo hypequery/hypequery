@@ -40,8 +40,7 @@
     "@types/node": "^20.11.30",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
-    "vitest": "^2.1.6",
-    "@hypequery/cli": "*"
+    "vitest": "^2.1.6"
   },
   "publishConfig": {
     "access": "public"

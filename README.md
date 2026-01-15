@@ -5,6 +5,13 @@ Type-safe analytics layer for ClickHouse. Define metrics once with `defineServe`
 ## Quick Start
 
 ```bash
+# No installation needed
+npx @hypequery/cli init
+```
+
+Or if you have the CLI installed:
+
+```bash
 npx hypequery init
 ```
 
@@ -82,19 +89,39 @@ One definition. Every consumer.
 
 ## CLI
 
+**No installation required** – run commands directly with `npx`:
+
 ```bash
 # Scaffold analytics folder + env vars
-npx hypequery init
-
-# Regenerate schema types
-npx hypequery generate
-
-# Emit typed client helpers for API routes
-npx hypequery create-api-types
+npx @hypequery/cli init
 
 # Dev server with docs & OpenAPI
+npx @hypequery/cli dev
+
+# Regenerate schema types
+npx @hypequery/cli generate
+
+# Emit typed client helpers for API routes
+npx @hypequery/cli create-api-types
+```
+
+Or install for shorter commands:
+
+```bash
+npm install -D @hypequery/cli
+
+# Then use:
+npx hypequery init
 npx hypequery dev
 ```
+
+**TypeScript support**: The CLI auto-detects `.ts` files. Just make sure `tsx` is installed:
+
+```bash
+npm install -D tsx
+```
+
+See the [CLI documentation](https://github.com/hypequery/hypequery/tree/main/packages/cli#readme) for all options.
 
 ## Features
 
