@@ -1,18 +1,17 @@
 import { createVercelEdgeHandler } from '@hypequery/serve';
-
-import { api } from '@/analytics/queries';
+import { api } from '@/queries';
 
 export const runtime = 'nodejs';
 
 const baseHandler = createVercelEdgeHandler(api.handler);
 
-// Wrapper to extract the catch-all route params and construct the path
-const handler = async (request: Request, context: { params: Promise<{ hq: string[] }> }) => {
-  // Get the catch-all params
+const handler = async (
+  request: Request,
+  context: { params: Promise<{ hq: string[] }> }
+) => {
   const params = await context.params;
   const path = `/${params.hq.join('/')}`;
 
-  // Create a new request with the modified path
   const url = new URL(request.url);
   url.pathname = path;
 

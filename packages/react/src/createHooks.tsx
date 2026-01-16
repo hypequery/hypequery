@@ -1,5 +1,3 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import type { PropsWithChildren } from 'react';
 import {
   useQuery as useTanstackQuery,
   useMutation as useTanstackMutation,
@@ -8,32 +6,89 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { createHttpClient, type HttpClientOptions } from './client.js';
-import {
-  type HypequeryApiRecord,
-  type ExtractNames,
-  type QueryInput,
-  type QueryOutput,
+import type {
+
+  ExtractNames,
+  QueryInput,
+  QueryOutput,
 } from './types.js';
 
-interface CreateHooksConfig extends HttpClientOptions { }
+export interface QueryMethodConfig {
+  method?: string;
+}
 
-type ProviderProps = PropsWithChildren<{ children?: ReactNode }>;
+export interface CreateHooksConfig {
+  baseUrl: string;
+  fetchFn?: typeof fetch;
+  headers?: Record<string, string>;
+  config?: Record<string, QueryMethodConfig>;
+}
 
-export function createHooks<Api extends HypequeryApiRecord>(config: CreateHooksConfig) {
-  const HypequeryContext = createContext<ReturnType<typeof createHttpClient> | null>(null);
-
-  function HypequeryProvider({ children }: ProviderProps) {
-    const client = useMemo(() => createHttpClient(config), []);
-    return <HypequeryContext.Provider value={client}>{children}</HypequeryContext.Provider>;
+function buildUrl(baseUrl: string, name: string) {
+  if (!baseUrl) {
+    throw new Error('baseUrl is required');
   }
+  return baseUrl.endsWith('/') ? `${baseUrl}${name}` : `${baseUrl}/${name}`;
+}
 
-  const useClient = () => {
-    const client = useContext(HypequeryContext);
-    if (!client) {
-      throw new Error('HypequeryProvider is missing. Wrap your app in <HypequeryProvider />');
+async function parseResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+export function createHooks<Api extends {
+  [K in keyof Api]: {
+    input: unknown;
+    output: unknown;
+  };
+}>(config: CreateHooksConfig) {
+  const { baseUrl, fetchFn = fetch, headers = {}, config: methodConfig = {} } = config;
+
+  const fetchQuery = async (name: string, input: unknown) => {
+    const url = buildUrl(baseUrl, name);
+    const method = methodConfig[name]?.method ?? 'POST';
+
+    // For GET requests, encode input as query params; for others, use JSON body
+    let finalUrl = url;
+    let body: string | undefined;
+
+    if (method === 'GET' && input !== undefined && input !== null) {
+      const params = new URLSearchParams();
+      if (typeof input === 'object') {
+        for (const [key, value] of Object.entries(input)) {
+          if (value !== undefined && value !== null) {
+            params.append(key, String(value));
+          }
+        }
+      }
+      const queryString = params.toString();
+      finalUrl = queryString ? `${url}?${queryString}` : url;
+    } else if (input !== undefined) {
+      body = JSON.stringify(input);
     }
-    return client;
+
+    const res = await fetchFn(finalUrl, {
+      method,
+      headers: {
+        ...headers,
+        ...(body ? { 'content-type': 'application/json' } : {}),
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      const errorBody = await parseResponse(res);
+      const error = new Error('Request failed');
+      (error as any).status = res.status;
+      (error as any).body = errorBody;
+      throw error;
+    }
+
+    return res.json();
   };
 
   type QueryOptions<Name extends ExtractNames<Api>> = Omit<
@@ -46,17 +101,53 @@ export function createHooks<Api extends HypequeryApiRecord>(config: CreateHooksC
     'queryKey' | 'queryFn'
   >;
 
+  // Conditional type to make input optional when it's unknown (no input schema)
+  type UseQueryParams<Name extends ExtractNames<Api>> = QueryInput<Api, Name> extends unknown
+    ? unknown extends QueryInput<Api, Name>
+    ? [name: Name, options?: QueryOptions<Name>]
+    : [name: Name, input: QueryInput<Api, Name>, options?: QueryOptions<Name>]
+    : [name: Name, input: QueryInput<Api, Name>, options?: QueryOptions<Name>];
+
   function useQuery<Name extends ExtractNames<Api>>(
-    name: Name,
-    input: QueryInput<Api, Name>,
-    options?: QueryOptions<Name>
+    ...args: UseQueryParams<Name>
   ): UseQueryResult<QueryOutput<Api, Name>, Error> {
-    const client = useClient();
+    const [name, inputOrOptions, maybeOptions] = args;
+
+    // Parse arguments based on count and type
+    let input: QueryInput<Api, Name> | undefined;
+    let options: QueryOptions<Name> | undefined;
+
+    if (args.length === 1) {
+      // useQuery('queryName')
+      input = undefined;
+      options = undefined;
+    } else if (args.length === 2) {
+      // useQuery('queryName', input) or useQuery('queryName', options)
+      if (isQueryOptions(inputOrOptions)) {
+        input = undefined;
+        options = inputOrOptions as QueryOptions<Name>;
+      } else {
+        input = inputOrOptions as QueryInput<Api, Name>;
+        options = undefined;
+      }
+    } else {
+      // useQuery('queryName', input, options)
+      input = inputOrOptions as QueryInput<Api, Name>;
+      options = maybeOptions;
+    }
+
     return useTanstackQuery({
-      queryKey: ['hypequery', name, input],
-      queryFn: () => client.runQuery(name as string, input),
-      ...options,
+      queryKey: ['hypequery', name, input] as ['hypequery', Name, QueryInput<Api, Name>],
+      queryFn: () => fetchQuery(name as string, input) as Promise<QueryOutput<Api, Name>>,
+      ...(options ?? {}),
     });
+  }
+
+  function isQueryOptions(value: unknown): boolean {
+    if (typeof value !== 'object' || value === null) return false;
+    // Check for known TanStack Query option keys
+    const optionKeys = ['enabled', 'staleTime', 'gcTime', 'refetchInterval', 'refetchOnWindowFocus'];
+    return optionKeys.some(key => key in value);
   }
 
   type MutationOptions<Name extends ExtractNames<Api>> = Omit<
@@ -68,9 +159,8 @@ export function createHooks<Api extends HypequeryApiRecord>(config: CreateHooksC
     name: Name,
     options?: MutationOptions<Name>
   ): UseMutationResult<QueryOutput<Api, Name>, Error, QueryInput<Api, Name>> {
-    const client = useClient();
     return useTanstackMutation({
-      mutationFn: (input) => client.runMutation(name as string, input),
+      mutationFn: (input) => fetchQuery(name as string, input) as Promise<QueryOutput<Api, Name>>,
       ...options,
     });
   }
@@ -78,6 +168,5 @@ export function createHooks<Api extends HypequeryApiRecord>(config: CreateHooksC
   return {
     useQuery,
     useMutation,
-    HypequeryProvider,
   } as const;
 }

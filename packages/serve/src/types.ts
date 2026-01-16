@@ -197,6 +197,31 @@ export type InferQueryResult<
   TKey extends keyof ExtractServeQueries<TTarget, any, any>
 > = InferExecutableQueryResult<ServeQueryEntry<TTarget, TKey>["query"]>;
 
+/**
+ * Infer the API type from a ServeBuilder for use with @hypequery/react.
+ *
+ * @example
+ * const api = define({ queries: { hello: ... } });
+ * type Api = InferApiType<typeof api>;
+ * createHooks<Api>({ baseUrl: '/api' });
+ */
+export type InferApiType<TTarget> = TTarget extends ServeBuilder<infer TQueries, any, any>
+  ? {
+      [K in keyof TQueries]: TQueries[K] extends ServeEndpoint<
+        infer TInputSchema,
+        infer TOutputSchema,
+        any,
+        any,
+        any
+      >
+        ? {
+            input: SchemaInput<TInputSchema>;
+            output: SchemaOutput<TOutputSchema>;
+          }
+        : never;
+    }
+  : never;
+
 export type QueryRuntimeContext<
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext

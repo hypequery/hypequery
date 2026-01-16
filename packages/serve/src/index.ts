@@ -5,6 +5,7 @@ export * from "./endpoint.js";
 export * from "./openapi.js";
 export * from "./docs-ui.js";
 export * from "./auth.js";
+export * from "./client-config.js";
 export * from "./adapters/node.js";
 export * from "./adapters/fetch.js";
 export * from "./adapters/vercel.js";

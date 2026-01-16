@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import React, { PropsWithChildren } from 'react';
+import { PropsWithChildren } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createHooks } from './createHooks.js';
@@ -17,20 +17,13 @@ interface TestApi {
 
 describe('createHooks', () => {
   const fetchMock = vi.fn();
-  const { useQuery, useMutation, HypequeryProvider } = createHooks<TestApi>({
+  const { useQuery, useMutation, } = createHooks<TestApi>({
     baseUrl: 'https://example.com/api',
     fetchFn: fetchMock as unknown as typeof fetch,
   });
 
   beforeEach(() => {
     fetchMock.mockReset();
-  });
-
-  it('throws if provider is missing', () => {
-    const { result } = renderHook(() => useQuery('weeklyRevenue', { startDate: '2025-01-01' }), {
-      wrapper: ({ children }) => children,
-    });
-    expect(result.error?.message).toContain('HypequeryProvider is missing');
   });
 
   it('executes queries via fetch', async () => {
@@ -43,7 +36,7 @@ describe('createHooks', () => {
 
     const wrapper = ({ children }: PropsWithChildren) => (
       <QueryClientProvider client={queryClient}>
-        <HypequeryProvider>{children}</HypequeryProvider>
+        {children}
       </QueryClientProvider>
     );
 
@@ -68,7 +61,7 @@ describe('createHooks', () => {
 
     const wrapper = ({ children }: PropsWithChildren) => (
       <QueryClientProvider client={queryClient}>
-        <HypequeryProvider>{children}</HypequeryProvider>
+        {children}
       </QueryClientProvider>
     );
 

@@ -70,7 +70,7 @@ HTTP is an option, not a requirement.
 
 ## Schema-driven design
 
-hypequery models your data using TypeScript schemas.
+hypequery models your data using TypeScript schemas, generated from your ClickHouse instance.
 
 Schemas describe:
 
@@ -99,20 +99,11 @@ This gives you:
 - No string-concatenated SQL
 - Native support for ClickHouse features
 
-```ts
-const activeUsers = await createQueryBuilder(users)
-  .select(['id', 'email', 'created_at'])
-  .where({ status: 'active' })
-  .orderBy('created_at', 'DESC')
-  .limit(100)
-  .execute();
-```
-
 SQL is still the execution model — but you don't manually assemble it.
 
 ## Optional HTTP & APIs
 
-When you need to expose analytics outside your process, hypequery can generate an HTTP layer.
+When you need to expose analytics outside your process, hypequery can generate a HTTP layer.
 
 This includes:
 
@@ -120,7 +111,7 @@ This includes:
 - Input/output validation
 - Authentication and middleware hooks
 
-The same metric definition is reused — HTTP is just a delivery mechanism.
+The same metric definition is reused, HTTP is just a delivery mechanism.
 
 ## Composable primitives
 
@@ -142,7 +133,7 @@ You adopt only the pieces you need.
 - Execution is embedded by default
 - HTTP is optional
 - Definitions are reusable everywhere
-- ClickHouse is the execution engine, not the abstraction
+- ClickHouse is the execution engine
 
 ---
 

@@ -96,28 +96,8 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.success(`Ready in ${process.uptime().toFixed(0)}ms`);
       logger.newline();
 
-      // Query execution stats table
-      logger.header('Query Execution Stats');
-      logger.newline();
-
-      const queryKeys = Object.keys(api.queries || {});
-      if (queryKeys.length > 0) {
-        const rows = queryKeys.map(key => [
-          key,
-          '0',
-          '—',
-          '—',
-          '—',
-        ]);
-
-        logger.table(
-          ['QUERY', 'CALLS', 'AVG', 'CACHE', 'LAST'],
-          rows
-        );
-      } else {
-        logger.info('No queries defined yet');
-      }
-
+      // Query execution stats - coming soon
+      logger.info('💡 Query execution stats: Coming soon!');
       logger.newline();
 
       if (shouldWatch) {

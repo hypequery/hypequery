@@ -173,6 +173,7 @@ export const api = define({
           .applyCrossFilters(filter)
           .select([toStartOfInterval('pickup_datetime', '1 week', 'week')])
           .count('trip_id', 'trip_count')
+          .groupBy('week')
           .execute();
 
         return rows.map((row) => ({
@@ -330,10 +331,10 @@ export const api = define({
             total_amount: toNumber((row as any).total_amount),
             payment_type: String((row as any).payment_type),
           })),
-         pagination: {
-           page,
-           limit,
-           total,
+          pagination: {
+            page,
+            limit,
+            total,
             totalPages: Math.max(1, Math.ceil(total / limit)),
             hasNext: page * limit < total,
             hasPrev: page > 1,
@@ -350,9 +351,13 @@ export const api = define({
   }),
 });
 
-export type DashboardApi = {
-  averageAmounts: { input: FiltersInput; output: AverageAmounts };
-  tripStats: { input: FiltersInput; output: TripStats };
-  weeklyTripCounts: { input: FiltersInput; output: WeeklyPoint[] };
-  trips: { input: z.infer<typeof tripsInputSchema>; output: TripsResult };
-};
+// Register routes for each query
+api
+  .route('/averageAmounts', api.queries.averageAmounts, { method: 'POST' })
+  .route('/tripStats', api.queries.tripStats, { method: 'POST' })
+  .route('/weeklyTripCounts', api.queries.weeklyTripCounts, { method: 'POST' })
+  .route('/trips', api.queries.trips, { method: 'POST' })
+  .route('/cachedSummary', api.queries.cachedSummary, { method: 'POST' })
+  .route('/invalidateCache', api.queries.invalidateCache, { method: 'POST' })
+  .route('/nodeDashboard', api.queries.nodeDashboard, { method: 'POST' });
+

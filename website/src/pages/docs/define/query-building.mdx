@@ -6,7 +6,9 @@ description: Learn how to build powerful queries with hypequery's fluent API
 
 # Query Building
 
-Every hypequery project starts with an `initServe` export that exposes a fluent ClickHouse builder through `ctx.db`. This page shows the most common clauses—`select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and `toSQL`—using the exact syntax you’ll drop into `analytics/queries.ts`.
+hypequery ships with a fluent type-safe query builder exposed from the  `@hypequery/clickhouse` package. This can be used in isolation, see the reference guide [here](/docs/reference/standalone-query-builder) or more commonly, when you define queries inside the `defineServe` function.
+
+This page shows the most common clauses: `select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and `toSQL`.
 
 ```ts
 import { initServe } from '@hypequery/serve';
