@@ -453,6 +453,8 @@ export interface ServeBuilder<
   TAuth extends AuthContext = AuthContext
 > {
   readonly queries: TQueries;
+  /** Internal route configuration mapping query names to their HTTP methods */
+  readonly _routeConfig?: Record<string, { method: HttpMethod }>;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],

@@ -8,7 +8,6 @@ type ViteApi = InferApiType<typeof api>;
 export const {
   useQuery,
   useMutation,
-  HypequeryProvider,
 } = createHooks<ViteApi>({
   baseUrl: '/api',
   config: {

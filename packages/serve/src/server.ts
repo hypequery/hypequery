@@ -647,14 +647,24 @@ export const defineServe = <
     });
   };
 
+  // Track route configuration for client config extraction
+  const routeConfig: Record<string, { method: HttpMethod }> = {};
+
   const builder: ServeBuilder<typeof queryEntries, TContext, TAuth> = {
     queries: queryEntries,
+    _routeConfig: routeConfig,
     route: (path, endpoint, options) => {
       if (!endpoint) {
         throw new Error("Endpoint definition is required when registering a route");
       }
 
       const method = options?.method ?? endpoint.method;
+
+      // Find the query key for this endpoint
+      const queryKey = Object.entries(queryEntries).find(([_, e]) => e === endpoint)?.[0];
+      if (queryKey) {
+        routeConfig[queryKey] = { method };
+      }
       const normalizedPath = normalizeRoutePath(path);
       const fallbackRequiresAuth = endpoint.auth
         ? true

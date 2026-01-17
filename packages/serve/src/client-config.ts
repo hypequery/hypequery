@@ -17,6 +17,8 @@ export type ApiClientConfig = Record<string, QueryClientConfig>;
  * This generates a runtime object that can be used client-side to configure
  * HTTP methods and paths for each query.
  *
+ * Prioritizes route-level method configuration over endpoint defaults.
+ *
  * @example
  * // Server-side (e.g., in api/config/route.ts)
  * import { api } from '@/analytics/queries';
@@ -37,10 +39,20 @@ export function extractClientConfig<
 >(api: ServeBuilder<TQueries, TContext, TAuth>): ApiClientConfig {
   const config: ApiClientConfig = {};
 
-  for (const [key, endpoint] of Object.entries(api.queries)) {
-    config[key] = {
-      method: endpoint.method,
-    };
+  // Prefer route-level config if available
+  if (api._routeConfig) {
+    for (const [key, routeConfig] of Object.entries(api._routeConfig)) {
+      config[key] = {
+        method: routeConfig.method,
+      };
+    }
+  } else {
+    // Fallback to endpoint method
+    for (const [key, endpoint] of Object.entries(api.queries)) {
+      config[key] = {
+        method: endpoint.method,
+      };
+    }
   }
 
   return config;

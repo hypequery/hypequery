@@ -7,7 +7,6 @@ export default function Home() {
 
   const { data: helloData, isLoading: isLoadingHello } = useQuery('hello');
   const { data: statsData, isLoading: isLoadingStats } = useQuery('stats');
-  const { data: statsData1, isLoading: isLoadingStats1 } = useQuery('postTest', { message: 'hello', timestamp: '100' });
 
   return (
     <main style={{ padding: '2rem', fontFamily: 'system-ui' }}>

@@ -185,18 +185,50 @@ export const api = define({
 // The query exists but is not accessible via HTTP
 
 // ✅ Correct - explicitly register route
-api.route('/revenue', api.queries.revenue, { method: 'POST' });
+api.route('/revenue', api.queries.revenue);
 ```
 
-**HTTP method configuration:**
+### HTTP Method Configuration
 
-By default, routes use `GET` method. For complex inputs or to follow REST conventions, use `POST`:
+Routes default to **GET** method. Specify `POST` or other methods in the route options:
 
 ```typescript
 api
-  .route('/revenue', api.queries.revenue, { method: 'POST' })
-  .route('/users', api.queries.users, { method: 'GET' });
+  .route('/hello', api.queries.hello)                          // GET by default
+  .route('/stats', api.queries.stats)                          // GET by default
+  .route('/create-user', api.queries.createUser, { method: 'POST' })  // Explicit POST
+  .route('/update-user', api.queries.updateUser, { method: 'PUT' })   // Explicit PUT
+  .route('/delete-user', api.queries.deleteUser, { method: 'DELETE' }); // Explicit DELETE
 ```
+
+**When to use GET vs POST:**
+- **GET**: No input, or simple query parameters (filters, pagination)
+- **POST**: Complex inputs, mutations, or REST conventions
+
+**Client auto-configuration:**
+
+When using `@hypequery/react`, HTTP methods are automatically extracted from your route configuration:
+
+```typescript
+// queries.ts - Server-side route definition
+api
+  .route('/hello', api.queries.hello)                    // GET
+  .route('/revenue', api.queries.revenue, { method: 'POST' });  // POST
+
+// client.ts - Client automatically uses correct methods
+import { createHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import { api } from './queries';
+
+type MyApi = InferApiType<typeof api>;
+
+export const { useQuery } = createHooks<MyApi>({
+  baseUrl: '/api/hypequery',
+  api,  // Auto-extracts: hello → GET, revenue → POST
+});
+```
+
+No manual method configuration needed on the client!
 
 ## OpenAPI Documentation
 
