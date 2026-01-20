@@ -23,190 +23,135 @@ const sidebar = [
   {
     title: "Getting Started",
     items: [
-      { title: "Introduction", href: "/docs/introduction" },
-      { title: "Installation", href: "/docs/installation" },
-      { title: "Connecting to ClickHouse", href: "/docs/reference/connection" },
-      { title: "Type Generation", href: "/docs/type-generation" },
-    ],
-  },
-  {
-    title: "Core Features",
-    items: [
-      { title: "Query Building", href: "/docs/guides/query-building" },
-      { title: "Join Relationships", href: "/docs/guides/joins" },
-      { title: "Cross Filtering", href: "/docs/guides/filtering" },
+      { title: "Overview", href: "/docs/getting-started/overview" },
+      { title: "Core concepts", href: "/docs/getting-started/core-concepts" },
       {
-        title: "Time-Based Functions",
-        href: "/docs/guides/time-based-functions",
+        title: "Architecture tour",
+        href: "/docs/getting-started/architecture",
+      },
+      { title: "Quickstart", href: "/docs/getting-started/quickstart" },
+      {
+        title: "Manual Installation",
+        href: "/docs/getting-started/manual-installation",
       },
     ],
   },
   {
-    title: "Query Builder",
+    title: "Define Queries & Metrics",
     items: [
-      { title: "Select", href: "/docs/functions/query-builder/select" },
-      { title: "Where", href: "/docs/functions/query-builder/where" },
-      { title: "Joins", href: "/docs/functions/query-builder/joins" },
-      { title: "Group By", href: "/docs/functions/query-builder/group-by" },
-      { title: "Having", href: "/docs/functions/query-builder/having" },
-      { title: "Order By", href: "/docs/functions/query-builder/order-by" },
-      { title: "Limit", href: "/docs/functions/query-builder/limit" },
-      { title: "Offset", href: "/docs/functions/query-builder/offset" },
-      { title: "Distinct", href: "/docs/functions/query-builder/distinct" },
-      { title: "CTEs", href: "/docs/functions/query-builder/ctes" },
-      {
-        title: "Execute & toSQL",
-        href: "/docs/functions/query-builder/execute",
-      },
+      { title: "Type generation", href: "/docs/define/type-generation" },
+      { title: "Query builder", href: "/docs/define/query-building" },
+      { title: "SQL expressions", href: "/docs/define/sql-expressions" },
+      { title: "Query definitions", href: "/docs/define/metric-modules" },
+      { title: "Schemas", href: "/docs/endpoints/schemas" },
     ],
   },
   {
-    title: "SQL Functions",
+    title: "Execute & Integrate",
     items: [
-      { title: "Raw", href: "/docs/functions/sql-functions/raw" },
-      { title: "Raw As", href: "/docs/functions/sql-functions/rawAs" },
-      { title: "selectExpr", href: "/docs/functions/sql-functions/selectExpr" },
+      { title: "Embedded runtime", href: "/docs/ship/embedded-runtime" },
+      { title: "HTTP + OpenAPI", href: "/docs/ship/http-openapi" },
+      { title: "React hooks", href: "/docs/reference/react" },
+      { title: "Caching", href: "/docs/define/caching" },
+      { title: "Logging", href: "/docs/operate/observability" },
     ],
   },
   {
-    title: "Advanced Features",
+    title: "Security & tenancy",
     items: [
-      // { title: "Cross Filtering", href: "/docs/features/cross-filtering" },
-      // { title: "Pagination", href: "/docs/features/pagination" },
-      { title: "Subqueries", href: "/docs/features/subqueries" },
-      { title: "Helper methods", href: "/docs/guides/helper-methods" },
-      // { title: "Debugging", href: "/docs/features/debugging" },
-      { title: "Caching", href: "/docs/features/caching" },
-      { title: "Streaming", href: "/docs/guides/streaming" },
-      { title: "Logging", href: "/docs/logging" },
+      { title: "Authentication", href: "/docs/ship/authentication" },
+      { title: "Multi-tenancy isolation", href: "/docs/ship/multi-tenancy" },
     ],
   },
-  // {
-  //   title: "Reference",
-  //   items: [
-  //     { title: "API Reference", href: "/docs/reference/api" },
-  //     { title: "Best Practices", href: "/docs/reference/best-practices" },
-  //   ],
-  // },
   {
-    title: "API Documentation",
+    title: "Recipes",
     items: [
-      // { title: "Overview", href: "/docs/reference/api" },
-      // { title: "Documentation", href: "/docs/reference/api/README" },
-      { title: "Globals", href: "/docs/reference/api/globals" },
+      { title: "Backend jobs", href: "/docs/recipes/backend-jobs" },
+      { title: "Dashboards", href: "/docs/recipes/dashboards" },
+      { title: "Next.js Integration", href: "/docs/recipes/nextjs" },
+      { title: "Vite Integration", href: "/docs/recipes/vite" },
+      { title: "AI agents", href: "/docs/recipes/ai-agents" },
+      { title: "Cron & automation", href: "/docs/recipes/cron-automation" },
+      { title: "Multi-tenancy", href: "/docs/recipes/multi-tenant" },
+    ],
+  },
+  {
+    title: "Reference",
+    items: [
+      { title: "Serve reference", href: "/docs/reference/serve" },
+      { title: "CLI reference", href: "/docs/reference/cli" },
+      { title: "Package overview", href: "/docs/reference/packages" },
       {
-        title: "Classes",
-        href: "/docs/reference/api/classes/ClickHouseConnection",
-        items: [
-          {
-            title: "ClickHouseConnection",
-            href: "/docs/reference/api/classes/ClickHouseConnection",
-          },
-          {
-            title: "CrossFilter",
-            href: "/docs/reference/api/classes/CrossFilter",
-          },
-          {
-            title: "JoinRelationships",
-            href: "/docs/reference/api/classes/JoinRelationships",
-          },
-        ],
-      },
-      {
-        title: "Functions",
-        href: "/docs/reference/api/functions/createQueryBuilder",
-        items: [
-          {
-            title: "createQueryBuilder",
-            href: "/docs/reference/api/functions/createQueryBuilder",
-          },
-          { title: "datePart", href: "/docs/reference/api/functions/datePart" },
-          {
-            title: "formatDateTime",
-            href: "/docs/reference/api/functions/formatDateTime",
-          },
-          {
-            title: "generateTypes",
-            href: "/docs/reference/api/functions/generateTypes",
-          },
-          { title: "raw", href: "/docs/reference/api/functions/raw" },
-          { title: "rawAs", href: "/docs/reference/api/functions/rawAs" },
-          { title: "selectExpr", href: "/docs/reference/api/functions/selectExpr" },
-          {
-            title: "toDateTime",
-            href: "/docs/reference/api/functions/toDateTime",
-          },
-          {
-            title: "toStartOfInterval",
-            href: "/docs/reference/api/functions/toStartOfInterval",
-          },
-        ],
-      },
-      {
-        title: "Interfaces",
-        href: "/docs/reference/api/interfaces/AliasedExpression",
-        items: [
-          {
-            title: "AliasedExpression",
-            href: "/docs/reference/api/interfaces/AliasedExpression",
-          },
-          {
-            title: "ClickHouseClientConfig",
-            href: "/docs/reference/api/interfaces/ClickHouseClientConfig",
-          },
-          {
-            title: "ClickHouseHostConfig",
-            href: "/docs/reference/api/interfaces/ClickHouseHostConfig",
-          },
-          {
-            title: "JoinPath",
-            href: "/docs/reference/api/interfaces/JoinPath",
-          },
-          {
-            title: "JoinPathOptions",
-            href: "/docs/reference/api/interfaces/JoinPathOptions",
-          },
-          {
-            title: "PageInfo",
-            href: "/docs/reference/api/interfaces/PageInfo",
-          },
-          {
-            title: "QueryConfig",
-            href: "/docs/reference/api/interfaces/QueryConfig",
-          },
-          {
-            title: "SqlExpression",
-            href: "/docs/reference/api/interfaces/SqlExpression",
-          },
-          {
-            title: "TableSchema",
-            href: "/docs/reference/api/interfaces/TableSchema",
-          },
-        ],
+        title: "Standalone Query Builder",
+        href: "/docs/reference/standalone-query-builder",
       },
     ],
   },
 ];
 
-// Helper function to check if a section should be expanded by default
-function shouldExpandSection(section: any, currentPath: string): boolean {
-  // Check if current page is in this section
-  return section.items.some((item: any) => {
-    if (item.href === currentPath) return true;
-    if (item.items) {
-      return item.items.some((subItem: any) => subItem.href === currentPath);
+// Helper function to get the current section title
+function getCurrentSectionTitle(currentPath: string): string | null {
+  for (const section of sidebar) {
+    const isInSection = section.items.some((item: any) => {
+      if (item.href === currentPath) return true;
+      if (item.items) {
+        return item.items.some((subItem: any) => subItem.href === currentPath);
+      }
+      return false;
+    });
+    if (isInSection) {
+      return section.title;
     }
-    return false;
-  });
+  }
+  return null;
 }
+
+const currentSectionTitle = getCurrentSectionTitle(currentPath);
 ---
 
 <!doctype html>
 <html lang="en" class="h-full">
   <head>
+    <script is:inline>
+      (() => {
+        const STORAGE_KEY = "hypequery-theme";
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        const root = document.documentElement;
+        const resolve = (mode) => {
+          if (mode === "system") {
+            return mediaQuery.matches ? "dark" : "light";
+          }
+          return mode;
+        };
+        const apply = (mode) => {
+          const theme = resolve(mode);
+          root.dataset.theme = theme;
+          root.style.colorScheme = theme === "dark" ? "dark" : "light";
+        };
+        const stored = localStorage.getItem(STORAGE_KEY) || "system";
+        apply(stored);
+        window.__hypequeryGetTheme = () =>
+          localStorage.getItem(STORAGE_KEY) || "system";
+        window.__hypequerySetTheme = (mode) => {
+          localStorage.setItem(STORAGE_KEY, mode);
+          apply(mode);
+          window.dispatchEvent(
+            new CustomEvent("hypequery-theme-change", { detail: mode }),
+          );
+        };
+        mediaQuery.addEventListener("change", () => {
+          if ((localStorage.getItem(STORAGE_KEY) || "system") === "system") {
+            apply("system");
+            window.dispatchEvent(
+              new CustomEvent("hypequery-theme-change", { detail: "system" }),
+            );
+          }
+        });
+      })();
+    </script>
     <Head title={title} description={description} favicon="/favicon.svg" />
   </head>
-  <body class="h-full bg-white">
+  <body class="h-full">
     <Navigation />
 
     <div
@@ -215,56 +160,30 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
       <div class="relative flex flex-col md:flex-row min-h-[calc(100vh-4rem)]">
         <!-- Sidebar -->
         <div
-          class="relative block flex-none md:w-56 border-b md:border-b-0 md:border-r border-gray-200 mb-4 md:mb-0"
+          class="relative block flex-none md:w-64 border-b md:border-b-0 md:border-r border-gray-200 mb-4 md:mb-0"
         >
           <div
             class="md:sticky md:top-10 h-auto md:h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden -py-4 md:py-16 pl-0.5"
           >
-            <nav class="w-full pr-4 md:pr-8 text-sm">
-              <div class="space-y-4">
+            <nav class="w-full pr-4 md:pr-8 text-sm text-[var(--theme-text)]">
+              <div class="space-y-8">
                 {
                   sidebar.map((section) => {
-                    const isExpanded = shouldExpandSection(
-                      section,
-                      currentPath,
-                    );
                     return (
                       <div class="mt-4">
-                        <button
-                          class="flex items-center justify-between w-full mb-2 py-1 font-medium text-gray-900 hover:text-indigo-600 transition-colors"
-                          data-section-id={section.title
-                            .replace(/\s+/g, "-")
-                            .toLowerCase()}
-                        >
-                          <span>{section.title}</span>
-                          <svg
-                            id={`chevron-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
-                            class={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </button>
-                        <ul
-                          id={`section-${section.title.replace(/\s+/g, "-").toLowerCase()}`}
-                          class={`mt-1 space-y-1 transition-all duration-200 ${isExpanded ? "block" : "hidden"}`}
-                        >
+                        <div class="mb-1 text-[14px] font-semibold tracking-wide text-slate-600 dark:text-slate-200">
+                          {section.title}
+                        </div>
+                        <ul class="mt-1 space-y-1">
                           {section.items.map((item) => (
                             <li>
                               <a
                                 href={item.href}
                                 class:list={[
-                                  "block px-3 py-2 md:py-2 text-sm rounded-md transition-colors",
+                                  "block px-3 py-1.5 text-sm rounded-md transition-colors text-[var(--theme-text)] hover:text-indigo-600 hover:bg-gray-50 dark:hover:text-white dark:hover:bg-white/10",
                                   currentPath === item.href
-                                    ? "bg-indigo-50 text-indigo-600 font-medium"
-                                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+                                    ? "bg-indigo-50 text-indigo-600 font-medium dark:bg-indigo-500/20 dark:text-indigo-200"
+                                    : "",
                                 ]}
                               >
                                 {item.title}
@@ -276,10 +195,10 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
                                       <a
                                         href={subItem.href}
                                         class:list={[
-                                          "block px-3 py-1 text-sm rounded-md transition-colors",
+                                          "block px-3 py-1 text-sm rounded-md transition-colors text-[var(--theme-text)] hover:text-indigo-600 hover:bg-gray-50 dark:hover:text-white dark:hover:bg-white/10",
                                           currentPath === subItem.href
-                                            ? "text-indigo-600 font-medium"
-                                            : "text-gray-500 hover:text-gray-700 hover:bg-gray-50",
+                                            ? "text-indigo-600 font-medium dark:text-indigo-200"
+                                            : "",
                                         ]}
                                       >
                                         {subItem.title}
@@ -304,6 +223,15 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         <div class="min-w-0 flex-auto px-4 md:pl-8 py-8 md:py-16">
           <div class="flex flex-col lg:flex-row">
             <article class="prose max-w-none lg:max-w-3xl flex-grow">
+              {
+                currentSectionTitle && (
+                  <div class="not-prose mb-4">
+                    <span class="inline-block px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-50 rounded-full">
+                      {currentSectionTitle}
+                    </span>
+                  </div>
+                )
+              }
               <slot />
             </article>
           </div>
@@ -322,140 +250,6 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
     <div class="bg-gray-50">
       <Footer />
     </div>
-
-    <script>
-      const SIDEBAR_STATE_KEY = "hypequery-docs-sidebar-state";
-      let sidebarState = {};
-
-      function loadSidebarState() {
-        if (typeof window === "undefined" || !window.sessionStorage) {
-          return {};
-        }
-
-        try {
-          const value = window.sessionStorage.getItem(SIDEBAR_STATE_KEY);
-          return value ? JSON.parse(value) : {};
-        } catch (error) {
-          console.warn("Unable to read sidebar state", error);
-          return {};
-        }
-      }
-
-      function saveSidebarState() {
-        if (typeof window === "undefined" || !window.sessionStorage) {
-          return;
-        }
-
-        try {
-          window.sessionStorage.setItem(
-            SIDEBAR_STATE_KEY,
-            JSON.stringify(sidebarState),
-          );
-        } catch (error) {
-          console.warn("Unable to persist sidebar state", error);
-        }
-      }
-
-      function setSectionExpanded(sectionId, expanded) {
-        const section = document.getElementById(`section-${sectionId}`);
-        const chevron = document.getElementById(`chevron-${sectionId}`);
-
-        if (!section || !chevron) {
-          return;
-        }
-
-        if (expanded) {
-          section.classList.remove("hidden");
-          chevron.classList.add("rotate-180");
-        } else {
-          section.classList.add("hidden");
-          chevron.classList.remove("rotate-180");
-        }
-      }
-
-      // Collapsible sidebar functionality
-      function toggleSection(sectionId) {
-        const section = document.getElementById(`section-${sectionId}`);
-
-        if (!section) {
-          return;
-        }
-
-        const willExpand = section.classList.contains("hidden");
-        setSectionExpanded(sectionId, willExpand);
-        sidebarState[sectionId] = willExpand;
-        saveSidebarState();
-      }
-
-      function applyStoredSidebarState() {
-        Object.entries(sidebarState).forEach(([sectionId, expanded]) => {
-          setSectionExpanded(sectionId, Boolean(expanded));
-        });
-      }
-
-      // Add event listeners to sidebar buttons
-      function initializeSidebar() {
-        const sidebarButtons = document.querySelectorAll("[data-section-id]");
-
-        sidebarButtons.forEach((button) => {
-          if (!(button instanceof HTMLElement)) {
-            return;
-          }
-
-          if (button.dataset.listenerAttached === "true") {
-            return;
-          }
-
-          button.dataset.listenerAttached = "true";
-          button.addEventListener("click", () => {
-            const sectionId = button.getAttribute("data-section-id");
-            if (sectionId) {
-              toggleSection(sectionId);
-            }
-          });
-        });
-      }
-
-      // Expand sections that contain the current page on page load
-      function expandCurrentSection() {
-        const currentPath = window.location.pathname;
-        const sections = document.querySelectorAll('[id^="section-"]');
-
-        sections.forEach((section) => {
-          const sectionId = section.id.replace("section-", "");
-
-          if (typeof sidebarState[sectionId] === "boolean") {
-            return;
-          }
-
-          const links = section.querySelectorAll("a");
-          let shouldExpand = false;
-
-          links.forEach((link) => {
-            if (link.getAttribute("href") === currentPath) {
-              shouldExpand = true;
-            }
-          });
-
-          if (shouldExpand) {
-            setSectionExpanded(sectionId, true);
-          }
-        });
-      }
-
-      function bootstrapSidebar() {
-        sidebarState = loadSidebarState();
-        applyStoredSidebarState();
-        initializeSidebar();
-        expandCurrentSection();
-      }
-
-      // Initialize everything when DOM is ready
-      document.addEventListener("DOMContentLoaded", bootstrapSidebar);
-
-      // Also initialize on Astro page loads (for SPA-like behavior)
-      document.addEventListener("astro:page-load", bootstrapSidebar);
-    </script>
 
     <script is:inline>
       // Simple copy button implementation
@@ -552,7 +346,6 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
           // Make block relative and add button
           block.style.position = "relative";
           block.appendChild(button);
-
         });
       }
 
@@ -571,15 +364,28 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
     </script>
 
     <style is:global>
-      /* Root variable definitions */
       :root {
-        --font-fallback: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica,
-          Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji;
+        --font-fallback:
+          -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial,
+          sans-serif, Apple Color Emoji, Segoe UI Emoji;
         --font-body: "Poppins", var(--font-fallback);
-        --theme-text: #1f2937;
+        --theme-text: #0f172a;
+        --theme-muted: #4b5563;
         --theme-bg: #ffffff;
+        --theme-surface: #ffffff;
+        --theme-border: #e5e7eb;
         --theme-primary: #4f46e5;
         --theme-primary-hover: #4338ca;
+      }
+
+      :root[data-theme="dark"] {
+        --theme-text: #e2e8f0;
+        --theme-muted: #cbd5f5;
+        --theme-bg: #0b1120;
+        --theme-surface: #131c2f;
+        --theme-border: #25334d;
+        --theme-primary: #818cf8;
+        --theme-primary-hover: #6366f1;
       }
 
       html {
@@ -592,6 +398,151 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         padding: 0;
         color: var(--theme-text);
         background: var(--theme-bg);
+        transition:
+          background-color 0.3s ease,
+          color 0.3s ease;
+      }
+
+      header {
+        background-color: var(--theme-surface);
+        border-color: var(--theme-border);
+        transition:
+          background-color 0.3s ease,
+          border-color 0.3s ease;
+      }
+
+      .nav-link {
+        color: var(--theme-text);
+        transition: color 0.2s ease;
+      }
+
+      .nav-link:hover {
+        color: var(--theme-primary);
+      }
+
+      .theme-select-wrapper {
+        position: absolute;
+        top: calc(100% + 0.75rem);
+        right: 0;
+        display: none;
+        background-color: var(--theme-surface);
+        border: 1px solid var(--theme-border);
+        border-radius: 0.75rem;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+        padding: 0.5rem;
+        z-index: 50;
+        min-width: 10rem;
+      }
+
+      .theme-select-wrapper.open {
+        display: block;
+      }
+
+      .theme-options {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .theme-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        border: 1px solid transparent;
+        background-color: transparent;
+        color: var(--theme-text);
+        padding: 0.4rem 0.65rem;
+        border-radius: 0.4rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          background-color 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      .theme-option:hover {
+        background-color: rgba(99, 102, 241, 0.1);
+        border-color: var(--theme-border);
+      }
+
+      .theme-option.active {
+        border-color: var(--theme-primary);
+        background-color: rgba(99, 102, 241, 0.12);
+      }
+
+      .theme-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 9999px;
+        border: 1px solid var(--theme-border);
+        background-color: var(--theme-surface);
+        color: var(--theme-text);
+        transition:
+          background-color 0.2s,
+          border-color 0.2s,
+          color 0.2s;
+      }
+
+      .theme-button:hover {
+        border-color: var(--theme-primary);
+        color: var(--theme-primary);
+      }
+
+      .theme-button svg {
+        display: none;
+        width: 1.1rem;
+        height: 1.1rem;
+      }
+
+      [data-mode="light"] .theme-button .icon-sun,
+      [data-mode="dark"] .theme-button .icon-moon,
+      [data-mode="system"] .theme-button .icon-system {
+        display: block;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      [data-theme="dark"] .bg-white,
+      [data-theme="dark"] .bg-gray-50,
+      [data-theme="dark"] .bg-slate-50,
+      [data-theme="dark"] .bg-indigo-50 {
+        background-color: var(--theme-surface) !important;
+      }
+
+      [data-theme="dark"] .text-gray-900,
+      [data-theme="dark"] .text-gray-800 {
+        color: var(--theme-text) !important;
+      }
+
+      [data-theme="dark"] .text-gray-700,
+      [data-theme="dark"] .text-gray-600 {
+        color: var(--theme-muted) !important;
+      }
+
+      [data-theme="dark"] .border-gray-200,
+      [data-theme="dark"] .border-gray-100 {
+        border-color: var(--theme-border) !important;
+      }
+
+      [data-theme="dark"] .shadow-sm,
+      [data-theme="dark"] .shadow,
+      [data-theme="dark"] .shadow-inner {
+        box-shadow: 0 10px 25px rgba(2, 6, 23, 0.7) !important;
       }
 
       code {
@@ -618,6 +569,7 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         line-height: 1.1111111;
         font-weight: 600;
         scroll-margin-top: 5rem;
+        color: var(--theme-text);
       }
 
       .prose h2 {
@@ -627,6 +579,7 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         line-height: 1.3333333;
         font-weight: 600;
         scroll-margin-top: 5rem;
+        color: var(--theme-text);
       }
 
       .prose h3 {
@@ -636,6 +589,7 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         line-height: 1.6;
         font-weight: 600;
         scroll-margin-top: 5rem;
+        color: var(--theme-text);
       }
 
       .prose h4 {
@@ -673,9 +627,18 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         font-size: 0.8em;
       }
 
+      [data-theme="dark"] .prose code:not(pre code) {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #e2e8f0 !important;
+      }
+
+      [data-theme="dark"] .prose pre code {
+        background-color: transparent !important;
+      }
+
       .prose pre {
-        color: #e5e7eb;
-        background-color: #1f2937;
+        color: #1f2937;
+        background-color: #f9fafb;
         overflow-x: auto;
         font-size: 0.8em;
         line-height: 1.7142857;
@@ -683,6 +646,13 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         margin-bottom: 1.7142857em;
         border-radius: 0.375rem;
         padding: 0.8571429em 1.1428571em;
+        border: 1px solid #e5e7eb;
+      }
+
+      [data-theme="dark"] .prose pre {
+        color: #e5e7eb;
+        background-color: #1f2937;
+        border-color: #374151;
       }
 
       .prose pre code {
@@ -697,6 +667,20 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         line-height: inherit;
       }
 
+      .prose pre .line,
+      .prose pre code .line,
+      .prose pre span.line {
+        background-color: transparent !important;
+        background: none !important;
+      }
+
+      [data-theme="dark"] .prose pre .line,
+      [data-theme="dark"] .prose pre code .line,
+      [data-theme="dark"] .prose pre span.line {
+        background-color: transparent !important;
+        background: none !important;
+      }
+
       /* Add styles for documentation lists */
       .prose ul {
         list-style-type: disc;
@@ -708,6 +692,7 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
       .prose ul li {
         margin-top: 0.5em;
         margin-bottom: 0.5em;
+        color: var(--theme-text);
       }
 
       /* For nested lists */
@@ -717,6 +702,15 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
         margin-bottom: 0.5em;
       }
 
+      .prose :where(p):not(:where(.not-prose *)) {
+        color: var(--theme-text);
+      }
+
+      .prose :where(strong):not(:where(.not-prose *)) {
+        color: var(--theme-text);
+        font-weight: 600;
+      }
+
       /* Table of contents font sizes */
       .toc {
         font-size: 0.8rem;
@@ -724,6 +718,92 @@ function shouldExpandSection(section: any, currentPath: string): boolean {
 
       .toc a {
         font-size: 0.8rem;
+      }
+
+      /* Section label dark mode support */
+      [data-theme="dark"] .text-indigo-600 {
+        color: #818cf8 !important;
+      }
+
+      [data-theme="dark"] .bg-indigo-50 {
+        background-color: rgba(129, 140, 248, 0.1) !important;
+      }
+
+      /* Dark mode support for feature cards and visual elements */
+      [data-theme="dark"] .text-gray-500 {
+        color: #9ca3af !important;
+      }
+
+      [data-theme="dark"] .border-indigo-200 {
+        border-color: rgba(129, 140, 248, 0.3) !important;
+      }
+
+      [data-theme="dark"] .border-purple-200 {
+        border-color: rgba(192, 132, 252, 0.3) !important;
+      }
+
+      [data-theme="dark"] .border-blue-200 {
+        border-color: rgba(96, 165, 250, 0.3) !important;
+      }
+
+      [data-theme="dark"] .border-green-200 {
+        border-color: rgba(74, 222, 128, 0.3) !important;
+      }
+
+      [data-theme="dark"] .border-orange-200 {
+        border-color: rgba(251, 146, 60, 0.3) !important;
+      }
+
+      [data-theme="dark"] .border-pink-200 {
+        border-color: rgba(244, 114, 182, 0.3) !important;
+      }
+
+      [data-theme="dark"] .bg-gradient-to-br {
+        background: linear-gradient(
+          to bottom right,
+          rgba(79, 70, 229, 0.15),
+          rgba(168, 85, 247, 0.15)
+        ) !important;
+      }
+
+      [data-theme="dark"] .text-purple-600 {
+        color: #c084fc !important;
+      }
+
+      [data-theme="dark"] .text-blue-600 {
+        color: #60a5fa !important;
+      }
+
+      [data-theme="dark"] .text-green-600 {
+        color: #4ade80 !important;
+      }
+
+      [data-theme="dark"] .text-orange-600 {
+        color: #fb923c !important;
+      }
+
+      [data-theme="dark"] .text-pink-600 {
+        color: #f472b6 !important;
+      }
+
+      [data-theme="dark"] .bg-purple-50 {
+        background-color: rgba(192, 132, 252, 0.1) !important;
+      }
+
+      [data-theme="dark"] .bg-blue-50 {
+        background-color: rgba(96, 165, 250, 0.1) !important;
+      }
+
+      [data-theme="dark"] .bg-green-50 {
+        background-color: rgba(74, 222, 128, 0.1) !important;
+      }
+
+      [data-theme="dark"] .bg-orange-50 {
+        background-color: rgba(251, 146, 60, 0.1) !important;
+      }
+
+      [data-theme="dark"] .bg-pink-50 {
+        background-color: rgba(244, 114, 182, 0.1) !important;
       }
     </style>
   </body>

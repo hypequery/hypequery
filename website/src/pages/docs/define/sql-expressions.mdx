@@ -1,0 +1,180 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: SQL Expressions
+description: Use raw helpers or inline SQL inside defineServe when the fluent API isn't enough
+---
+
+# SQL Expressions
+
+The fluent query builder covers most workflows, but you can always run SQL directly. Drop a `sql` string into your `defineServe` query, or use expression helpers for one-off columns. This page shows both approaches so you can mix and match as needed.
+
+## Inline SQL
+
+You can execute raw SQL statements directly inside `defineServe` by calling `ctx.db.rawQuery(sql, params)`.
+
+```ts
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: {
+    sqlDashboard: {
+      inputSchema: z.object({ accountId: z.string() }),
+      query: async ({ ctx, input }) => {
+        const sql = `
+          SELECT toStartOfDay(created_at) AS day, count(*) AS signups
+          FROM signups
+          WHERE account_id = {account:String}
+          GROUP BY day
+          ORDER BY day
+        `;
+        return ctx.db.rawQuery(sql, { account: input.accountId });
+      },
+    },
+  },
+});
+```
+
+> **Tip**: Mixing raw SQL in `defineServe` doesn’t disable any runtime features; middleware, auth, tenant enforcement, etc., still run.
+
+## Expression helpers inside the builder
+
+When the builder handles most of the query but you need a one-off expression, use `raw`, `rawAs`, or `selectExpr`. These helpers keep aliases wired into TypeScript.
+
+### `raw()` – inject SQL fragments
+
+```ts
+import { defineServe } from '@hypequery/serve';
+import { raw } from '@hypequery/clickhouse';
+import { db } from './client';
+
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: {
+    tempsInRange: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('sensors')
+          .select(['id', 'reading'])
+          .where(raw('reading BETWEEN ? AND ?', [-10, 50])),
+    },
+  },
+});
+```
+
+- `raw(expression, params?)` accepts any SQL fragment plus optional bindings (`?` placeholders or named params).
+- Treat `raw` as an escape hatch; TypeScript cannot validate the expression.
+
+### `rawAs()` – expression + alias
+
+```ts
+import { rawAs } from '@hypequery/clickhouse';
+
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: {
+    revenueStats: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .select([
+            'account_id',
+            rawAs('SUM(total)', 'total_revenue'),
+            rawAs('COUNT(*)', 'order_count'),
+          ])
+          .groupBy(['account_id'])
+          .having(rawAs('SUM(total)', 'total_revenue')).where('total_revenue', 'gt', 1000),
+    },
+  },
+});
+```
+
+Common patterns:
+
+| Pattern | Example |
+| --- | --- |
+| Aggregations | `rawAs('AVG(duration)', 'avg_duration')` |
+| CASE statements | `rawAs('CASE WHEN age < 18 THEN 1 ELSE 0 END', 'is_minor')` |
+| JSON extraction | `rawAs("JSONExtractString(metadata, 'country')", 'country')` |
+
+### `selectExpr()` – shorthand for select + alias
+
+```ts
+import { selectExpr } from '@hypequery/clickhouse';
+
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: {
+    weeklyTrips: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('rides')
+          .select([
+            selectExpr('toStartOfWeek(start_time)', 'week'),
+            selectExpr('count()', 'ride_count'),
+          ])
+          .groupBy(['week'])
+          .orderBy('week', 'ASC'),
+    },
+  },
+});
+```
+
+- Behaves like `raw` when no alias is supplied and like `rawAs` when you provide one.
+- Ideal when your entire projection is expressions.
+
+### Built-in function helpers
+
+Helpers like `toDateTime`, `formatDateTime`, `toStartOfInterval`, and `datePart` wrap common expressions with types:
+
+```ts
+import { toDateTime, formatDateTime } from '@hypequery/clickhouse';
+
+recentEvents: {
+  query: ({ ctx }) =>
+    ctx.db
+      .table('events')
+      .select([
+        'id',
+        toDateTime('occurred_at', 'event_ts'),
+        formatDateTime('occurred_at', 'Y-MM-dd', 'event_date'),
+      ])
+      .where('event_type', 'eq', 'purchase'),
+}
+```
+
+## Typing & best practices
+
+- Expression helpers accept generics so you can describe the result type:
+
+  ```ts
+  revenueSummary: {
+    query: ({ ctx }) =>
+      ctx.db
+        .table('orders')
+        .select([
+          rawAs<number, 'total_revenue'>('SUM(total)', 'total_revenue'),
+          rawAs<number, 'avg_order'>('AVG(total)', 'avg_order'),
+        ]),
+  }
+  ```
+
+  The alias (`'total_revenue'`) shows up on the result type with the generic (`number`). Without an alias the builder can’t add a strongly typed key, so prefer aliasing any computed column you plan to read later.
+
+- `rawQuery` returns `unknown[]` by default; pass a type argument when you call it:
+
+  ```ts
+  const rows = await ctx.db.rawQuery<{ day: string; signups: number }>(sql, [input.accountId]);
+  ```
+
+- For full-query SQL, you’re responsible for marshaling the result shape; wrap the call in your own TypeScript types if needed.
+- Always parameterize user input when using `raw`/`rawAs`.
+- Prefer fluent methods whenever possible so you keep TypeScript safety throughout the chain.
+
+## See also
+
+- [Query Building](/docs/define/query-building)
+- [Advanced Features](/docs/define/advanced-features)
+- [Type Generation](/docs/define/type-generation)

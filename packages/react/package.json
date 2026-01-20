@@ -1,0 +1,39 @@
+{
+  "name": "@hypequery/react",
+  "version": "0.0.1",
+  "description": "React hooks for consuming hypequery APIs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -b",
+    "types": "tsc -b --noEmit",
+    "test:types": "tsc --project tsconfig.type-tests.json",
+    "test": "npm run test:types && vitest run"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "@testing-library/react": "^14.2.1",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.18",
+    "@vitest/coverage-v8": "^2.1.6",
+    "jsdom": "^27.4.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.6"
+  }
+}

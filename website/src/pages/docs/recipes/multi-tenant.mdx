@@ -1,0 +1,184 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Multi-tenancy
+description: Build analytics for SaaS applications with tenant isolation
+---
+
+# Multi-tenancy
+
+Implement tenant-scoped analytics for SaaS applications with proper data isolation.
+
+## Use Case
+
+You're building a SaaS product and need:
+- Per-tenant analytics dashboards
+- Tenant data isolation
+- Efficient queries across tenants
+- White-labeled reports
+
+## Pattern: Tenant-Scoped Queries
+
+### Option 1: Tenant ID in WHERE Clause
+
+Most common approach for shared tables:
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { events } from '../schema';
+
+export const tenantMetrics = (tenantId: string) =>
+  createQueryBuilder(events)
+    .where({ tenant_id: tenantId })
+    .select(['date', 'count(*) as event_count'])
+    .groupBy('date');
+
+// Usage
+const metrics = await tenantMetrics('tenant-123').execute();
+```
+
+### Option 2: Dedicated Tenant Connections
+
+For complete isolation:
+
+```typescript
+import { ClickHouseConnection } from '@hypequery/clickhouse';
+
+const tenantConnections = new Map<string, ClickHouseConnection>();
+
+function getTenantConnection(tenantId: string) {
+  if (!tenantConnections.has(tenantId)) {
+    tenantConnections.set(
+      tenantId,
+      new ClickHouseConnection({
+        host: process.env.CLICKHOUSE_HOST,
+        database: `tenant_${tenantId}`,
+      })
+    );
+  }
+  return tenantConnections.get(tenantId);
+}
+
+export const tenantMetrics = (tenantId: string) => {
+  const conn = getTenantConnection(tenantId);
+  return createQueryBuilder(events, { connection: conn });
+};
+```
+
+## With HTTP API
+
+Expose tenant-scoped metrics via API:
+
+```typescript
+// Define tenant-aware metrics
+export const tenantAnalytics = defineServe({
+  auth: async (req) => {
+    const token = req.headers.authorization;
+    const user = await verifyToken(token);
+    return { tenantId: user.tenantId };
+  },
+  metrics: {
+    usage: {
+      handler: async ({ startDate, endDate }, { tenantId }) => {
+        return await createQueryBuilder(usage)
+          .where({
+            tenant_id: tenantId,
+            date: { gte: startDate, lte: endDate },
+          })
+          .select(['date', 'sum(requests) as total'])
+          .execute();
+      },
+      input: z.object({
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+    },
+  },
+});
+```
+
+## Tenant Context Middleware
+
+Automatically inject tenant context:
+
+```typescript
+import { defineMiddleware } from '@hypequery/serve';
+
+export const tenantMiddleware = defineMiddleware({
+  before: async (req, ctx) => {
+    const tenantId = await extractTenantId(req);
+
+    // Add to context
+    ctx.tenantId = tenantId;
+
+    // Optional: Validate tenant
+    if (!await tenantExists(tenantId)) {
+      throw new Error('Invalid tenant');
+    }
+  },
+});
+```
+
+## Aggregations Across Tenants
+
+For admin dashboards showing all tenants:
+
+```typescript
+export const allTenantsMetrics = createQueryBuilder(events)
+  .select([
+    'tenant_id',
+    'count(*) as event_count',
+    'sum(revenue) as total_revenue',
+  ])
+  .groupBy('tenant_id')
+  .orderBy('total_revenue', 'DESC');
+```
+
+## Caching Strategies
+
+Cache per tenant with cache keys:
+
+```typescript
+import { withCache } from '@hypequery/cache';
+
+export const cachedTenantMetrics = withCache(
+  (tenantId: string) => tenantMetrics(tenantId),
+  {
+    keyPrefix: (tenantId) => `tenant:${tenantId}:metrics`,
+    ttl: 300, // 5 minutes
+  }
+);
+```
+
+## Best Practices
+
+- **Always filter by tenant**: Never expose cross-tenant data
+- **Test isolation**: Verify tenant A can't access tenant B's data
+- **Index tenant_id**: Ensure ClickHouse tables have proper indexes
+- **Rate limiting**: Apply per-tenant rate limits
+- **Audit logging**: Log all tenant data access
+
+## ClickHouse Schema Design
+
+```sql
+CREATE TABLE events (
+  id UUID,
+  tenant_id String,
+  event_name String,
+  timestamp DateTime,
+  properties String
+)
+ENGINE = MergeTree()
+ORDER BY (tenant_id, timestamp);
+
+-- Partition by tenant for large datasets
+CREATE TABLE events_partitioned (
+  -- columns...
+)
+ENGINE = MergeTree()
+PARTITION BY tenant_id
+ORDER BY timestamp;
+```
+
+---
+
+**Related**: [Governance](/docs/operate/governance) | [Dashboards](/docs/recipes/dashboards)

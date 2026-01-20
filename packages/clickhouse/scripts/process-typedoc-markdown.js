@@ -289,7 +289,6 @@ Utility functions for working with ClickHouse:
 Type definitions for objects used throughout the library:
 
 - [QueryConfig](/docs/reference/api/interfaces/QueryConfig) - Query configuration options
-- [PaginationOptions](/docs/reference/api/interfaces/PaginationOptions) - Pagination configuration
 - [JoinPath](/docs/reference/api/interfaces/JoinPath) - Join path configuration
 
 ### Type Aliases

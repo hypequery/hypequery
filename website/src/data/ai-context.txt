@@ -1,0 +1,6 @@
+You are assisting with hypequery, the TypeScript-first analytics layer for ClickHouse.
+Use TypeScript to model queries and metrics with defineServe() and expose them via api.run().
+Keep everything strictly type-safe and colocated with application code—avoid YAML, duplicated SQL strings, or ambiguous schemas.
+Prioritize developer experience: intuitive APIs, copy-friendly docs, and automation that unblocks backend, platform, and AI teams quickly.
+Favor pragmatic examples that highlight reusable metrics, caching, pagination, and OpenAPI workflows.
+Whenever you write code samples, target modern TS/Node runtimes, annotate inputs/outputs, and show how hypequery stitches analytics into services.

@@ -1,0 +1,180 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: React hooks
+description: Use @hypequery/react to generate typed hooks from your hypequery API
+---
+
+<div class="prose">
+
+# React hooks
+
+Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your existing `defineServe` API types and wire them into your React app without duplicating schemas.
+
+## Installation
+
+```bash
+npm install @hypequery/react @tanstack/react-query
+```
+
+Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
+
+## Setup
+
+### Option 1: Automatic Type Inference (Recommended)
+
+Use `InferApiType` to automatically extract types from your API definition:
+
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+// Automatic type inference - no manual type definition needed!
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+  baseUrl: '/api', // where your hypequery routes live
+});
+```
+
+This eliminates the need to manually define and maintain a separate type for your API.
+
+### Option 2: Manual Type Definition
+
+If you prefer to manually define your API types:
+
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+
+type Api = {
+  weeklyRevenue: {
+    input: { startDate: string };
+    output: { total: number };
+  };
+  // ... other queries
+};
+
+export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+  baseUrl: '/api',
+});
+```
+
+Wrap your app:
+
+```tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { HypequeryProvider } from '@/lib/analytics';
+
+const queryClient = new QueryClient();
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <HypequeryProvider>{children}</HypequeryProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+## `useQuery`
+
+```tsx
+const { data, error, isLoading } = useQuery('weeklyRevenue', {
+  startDate: '2025-01-01',
+});
+```
+
+- `name` is one of your API keys
+- `input` matches the endpoint’s `inputSchema`
+- Options mirror TanStack Query (`staleTime`, `enabled`, etc.)
+
+## `useMutation`
+
+```tsx
+const rebuild = useMutation('rebuildMetrics');
+rebuild.mutate({ force: true });
+```
+
+Mutations share the same typed `input`/`output` data.
+
+## HTTP Method Configuration
+
+By default, all hooks use `POST` requests. You can configure HTTP methods per query:
+
+```ts
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+  baseUrl: '/api',
+  config: {
+    weeklyRevenue: { method: 'GET' },    // Read-only queries
+    tripStats: { method: 'GET' },
+    rebuildMetrics: { method: 'POST' },  // Write operations
+  },
+});
+```
+
+**GET requests:**
+- Input is serialized as query parameters
+- Enable browser caching
+- Ideal for read-only queries
+
+**POST requests:**
+- Input is sent as JSON body
+- Better for complex inputs or mutations
+- Default behavior
+
+### Advanced: Auto-config from Server
+
+For larger APIs, you can extract configuration from your API definition:
+
+```ts
+// app/api/config/route.ts (server-side)
+import { extractClientConfig } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+export async function GET() {
+  return Response.json(extractClientConfig(api));
+}
+```
+
+```ts
+// lib/analytics.ts (client-side)
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+// Fetch config at initialization
+const config = await fetch('/api/config').then(r => r.json());
+
+export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+  baseUrl: '/api/hypequery',
+  config, // Automatically uses correct methods from server
+});
+```
+
+## Advanced options
+
+Both hooks accept the underlying TanStack options, so you can control `staleTime`, retries, invalidation, manual `queryClient` access, etc.
+
+## Error handling
+
+Errors bubble through TanStack Query’s `error` state. Validation errors from hypequery endpoints arrive as structured JSON (status code + body). Network failures throw standard `fetch` errors.
+
+## When to use it
+
+- SPA dashboards needing cached queries
+- Next.js / Remix apps already using TanStack Query
+- Agents or components calling hypequery APIs inline
+
+If you don’t need React hooks, you can call `api.execute` directly on the server or use the HTTP API as-is.
+
+</div>

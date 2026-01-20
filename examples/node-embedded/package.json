@@ -1,0 +1,20 @@
+{
+  "name": "node-embedded",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.11.2",
+    "@hypequery/clickhouse": "*",
+    "@hypequery/serve": "*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.15.1",
+    "typescript": "^5.8.3"
+  }
+}

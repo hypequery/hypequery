@@ -1,0 +1,52 @@
+{
+  "name": "@hypequery/cli",
+  "version": "0.0.1",
+  "description": "Command-line interface for Hypequery",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "hypequery": "./dist/bin/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "open": "^10.0.0",
+    "ora": "^8.0.1",
+    "prompts": "^2.4.2"
+  },
+  "peerDependencies": {
+    "@hypequery/clickhouse": "*",
+    "@hypequery/serve": "*",
+    "tsx": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@hypequery/clickhouse": {
+      "optional": true
+    },
+    "tsx": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/serve": "workspace:*",
+    "@types/node": "^20.11.30",
+    "@types/prompts": "^2.4.9",
+    "@vitest/coverage-v8": "^2.1.6",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.6"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

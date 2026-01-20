@@ -1,5 +1,4 @@
 ---
-layout: blog
 title: "Seven Companies, One Pattern: Why Every Scaled ClickHouse Deployment Looks the Same"
 description: "Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft, and Contentsquare independently built near identical abstraction layers on top of ClickHouse. The shared architecture isn't coincidence, it is forced by the economics of making high performance schemas accessible at organisational scale."
 pubDate: 2026-01-01T17:08:36.000Z

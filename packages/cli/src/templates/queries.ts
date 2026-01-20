@@ -1,0 +1,65 @@
+/**
+ * Generate queries.ts file
+ */
+export function generateQueriesTemplate(options: {
+  hasExample: boolean;
+  tableName?: string;
+}): string {
+  const { hasExample, tableName } = options;
+
+  let template = `import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const serve = initServe({
+  context: () => ({ db }),
+});
+const { query } = serve;
+
+export const api = serve.define({
+  queries: serve.queries({`;
+
+  if (hasExample && tableName) {
+    template += `
+    ${camelCase(tableName)}Query: query
+      .describe('Example query using the ${tableName} table')
+      .query(async ({ ctx }) =>
+        ctx.db
+          .table('${tableName}')
+          .select('*')
+          .limit(10)
+          .execute()
+      ),`;
+  } else {
+    template += `
+    exampleMetric: query
+      .describe('Example metric that returns a simple value')
+      .output(z.object({ ok: z.boolean() }))
+      .query(async () => ({ ok: true })),`;
+  }
+
+  template += `
+  }),
+});
+
+/**
+ * Inline usage example:
+ *
+ * const result = await api.execute('${hasExample && tableName ? camelCase(tableName) + 'Query' : 'exampleMetric'}');
+ * console.log(result);
+ *
+ * Dev server:
+ *
+ * npx hypequery dev
+ */
+`;
+
+  return template;
+}
+
+/**
+ * Convert table name to camelCase
+ */
+function camelCase(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}

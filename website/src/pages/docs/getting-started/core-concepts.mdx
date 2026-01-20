@@ -1,0 +1,140 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Core Concepts
+description: Understand the foundational concepts behind hypequery
+---
+
+# Core Concepts
+
+This page explains the core ideas behind hypequery and how they fit together.
+
+If you understand this page, everything else in the docs will feel obvious.
+
+## Analytics as code
+
+In hypequery, analytics are defined in TypeScript, not YAML, UI forms, or ad-hoc SQL strings.
+
+A metric or query is just a named function with:
+
+- Typed inputs
+- Typed outputs
+- Optional metadata (description, tags, ownership)
+
+Because analytics live in code, they behave like the rest of your system:
+
+- **Type-safe** — errors are caught at build time
+- **Reusable** — import the same metric anywhere
+- **Versioned** — changes go through normal code review
+- **Testable** — analytics logic can be unit tested
+
+This is the foundation everything else builds on.
+
+## Metrics are named, reusable units
+
+A hypequery "metric" is not a chart or a dashboard.
+
+It is a named, reusable analytics definition that answers a specific question:
+
+**"What does this metric represent, and how is it calculated?"**
+
+Once defined, the same metric can be:
+
+- Executed in backend code
+- Exposed via an API
+- Consumed by a dashboard
+- Invoked by an AI agent
+
+The definition does not change — only how it's consumed does.
+
+## Embedded-first execution
+
+By default, hypequery runs in-process.
+
+There is no required server, no HTTP hop, and no runtime dependency beyond your application.
+
+```ts
+const revenue = await api.run("weeklyRevenue", {
+  startDate: "2024-01-01",
+});
+```
+
+This makes hypequery suitable for:
+
+- Backend services
+- Cron jobs
+- Scripts
+- SSR environments
+- AI agents
+
+HTTP is an option, not a requirement.
+
+## Schema-driven design
+
+hypequery models your data using TypeScript schemas, generated from your ClickHouse instance.
+
+Schemas describe:
+
+- Tables and columns
+- Data types
+- Relationships
+- Optional metadata and documentation
+
+Schemas power:
+
+- Type-safe query building
+- Auto-completion in editors
+- Safer refactors
+- Discoverability for humans and agents
+
+Your schema becomes a shared contract between data, application code, and analytics.
+
+## Type-safe query building
+
+Queries are built programmatically using a fluent, type-safe API.
+
+This gives you:
+
+- Auto-completion for columns and tables
+- Compile-time validation
+- No string-concatenated SQL
+- Native support for ClickHouse features
+
+SQL is still the execution model — but you don't manually assemble it.
+
+## Optional HTTP & APIs
+
+When you need to expose analytics outside your process, hypequery can generate a HTTP layer.
+
+This includes:
+
+- OpenAPI specifications
+- Input/output validation
+- Authentication and middleware hooks
+
+The same metric definition is reused, HTTP is just a delivery mechanism.
+
+## Composable primitives
+
+hypequery is built from small, opt-in primitives.
+
+You can:
+
+- Run everything embedded
+- Expose only selected metrics over HTTP
+- Add caching selectively
+- Introduce observability when needed
+
+There is no required architecture.
+You adopt only the pieces you need.
+
+## Mental model summary
+
+- Metrics live in code
+- Execution is embedded by default
+- HTTP is optional
+- Definitions are reusable everywhere
+- ClickHouse is the execution engine
+
+---
+
+**Next**: Learn about the [architecture](/docs/getting-started/architecture)

@@ -1,0 +1,261 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Next.js Integration
+description: Build type-safe analytics APIs in Next.js with hypequery
+---
+
+# Next.js Integration
+
+Learn how to integrate hypequery into your Next.js application using the Vercel adapter for seamless API routes.
+
+## Use Case
+
+You want to:
+- Build analytics dashboards in Next.js
+- Create type-safe API endpoints for your queries
+- Use React Query or other data-fetching libraries
+- Deploy to Vercel or other platforms
+
+## Quick Start
+
+Initialize hypequery in your Next.js project:
+
+```bash
+# Navigate to your Next.js project
+cd my-nextjs-app
+
+# Initialize hypequery
+npx hypequery init
+
+# Install dependencies
+npm install @hypequery/serve @hypequery/clickhouse
+npm install -D tsx
+```
+
+## Define Your Queries
+
+Create your analytics queries (e.g., `src/analytics/queries.ts`):
+
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    averageRevenue: query
+      .describe('Average revenue metrics')
+      .input(z.object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      }))
+      .output(z.object({
+        total: z.number(),
+        average: z.number(),
+      }))
+      .query(async ({ ctx, input }) => {
+        const rows = await ctx.db
+          .table('orders')
+          .where(/* your filters */)
+          .avg('amount')
+          .execute();
+
+        return {
+          total: rows[0].total,
+          average: rows[0].avg,
+        };
+      }),
+
+    topProducts: query
+      .describe('Top selling products')
+      .output(z.array(z.object({
+        name: z.string(),
+        sales: z.number(),
+      })))
+      .query(async ({ ctx }) => {
+        return await ctx.db
+          .table('products')
+          .groupBy('name')
+          .orderBy('sales', 'desc')
+          .limit(10)
+          .execute();
+      }),
+  }),
+});
+
+// Register routes for each query
+api
+  .route('/averageRevenue', api.queries.averageRevenue, { method: 'POST' })
+  .route('/topProducts', api.queries.topProducts, { method: 'POST' });
+```
+
+## Create the API Route
+
+Set up the catch-all API route at `app/api/hypequery/[...hq]/route.ts`:
+
+```typescript
+import { createVercelEdgeHandler } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+export const runtime = 'nodejs';
+
+const baseHandler = createVercelEdgeHandler(api.handler);
+
+// Wrapper to extract catch-all params and construct the path
+const handler = async (
+  request: Request,
+  context: { params: Promise<{ hq: string[] }> }
+) => {
+  const params = await context.params;
+  const path = `/${params.hq.join('/')}`;
+
+  // Create a new request with the modified path
+  const url = new URL(request.url);
+  url.pathname = path;
+
+  const modifiedRequest = new Request(url, request);
+  return baseHandler(modifiedRequest);
+};
+
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;
+```
+
+## Frontend Integration
+
+Create a type-safe client using automatic type inference:
+
+```typescript
+// lib/hypequery-client.ts
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+// Automatic type inference - no manual type definition needed!
+type DashboardApi = InferApiType<typeof api>;
+
+export const {
+  useQuery: useHypequeryQuery,
+  useMutation: useHypequeryMutation,
+  HypequeryProvider,
+} = createHooks<DashboardApi>({
+  baseUrl: '/api/hypequery',
+  config: {
+    averageRevenue: { method: 'POST' },
+    topProducts: { method: 'POST' },
+  },
+});
+```
+
+This eliminates the need to manually define and maintain a separate type for your API.
+
+```typescript
+// app/dashboard/page.tsx
+'use client';
+
+import { useHypequeryQuery } from '@/lib/hypequery-client';
+
+export default function Dashboard() {
+  const { data: revenue, isLoading } = useHypequeryQuery('averageRevenue', {
+    startDate: '2024-01-01',
+    endDate: '2024-12-31',
+  });
+
+  const { data: products } = useHypequeryQuery('topProducts');
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <div>
+      <h1>Revenue: ${revenue?.total}</h1>
+      <ul>
+        {products?.map(p => (
+          <li key={p.name}>{p.name}: {p.sales}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+## Development Workflow
+
+During development, you can use the hypequery CLI to test your queries:
+
+```bash
+# Start the development server
+npx hypequery dev src/analytics/queries.ts
+
+# Your queries are now available at:
+# http://localhost:4000/docs - Interactive documentation
+# http://localhost:4000/openapi.json - OpenAPI specification
+```
+
+## Important Notes
+
+### Route Registration
+
+**Queries must be explicitly registered to routes**. Simply defining queries in `define()` is not enough:
+
+```typescript
+// ❌ Won't work - queries not registered
+export const api = define({
+  queries: queries({
+    myQuery: query.query(async () => ({ data: 'test' })),
+  }),
+});
+
+// ✅ Correct - explicitly register routes
+export const api = define({
+  queries: queries({
+    myQuery: query.query(async () => ({ data: 'test' })),
+  }),
+});
+
+api.route('/myQuery', api.queries.myQuery, { method: 'POST' });
+```
+
+### HTTP Methods
+
+By default, queries use GET method. If your React client makes POST requests (recommended for complex inputs), specify the method:
+
+```typescript
+api.route('/queryName', api.queries.queryName, { method: 'POST' });
+```
+
+### TypeScript Support
+
+All query files (`.ts`, `.mts`, `.cts`) are supported. The CLI automatically uses `tsx` to handle TypeScript files during development.
+
+## Benefits
+
+- **Type Safety**: End-to-end TypeScript types from database to frontend
+- **Serverless Ready**: Works perfectly with Vercel, Netlify, and other platforms
+- **Development DX**: Test queries independently with the CLI
+- **Auto Documentation**: OpenAPI spec generated automatically
+- **React Integration**: First-class React Query support
+
+## Deployment
+
+When deploying to Vercel:
+
+1. Ensure `tsx` is in `devDependencies`
+2. Your API routes will automatically work in production
+3. No additional configuration needed
+
+```json
+{
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}
+```
+
+---
+
+**Related**: [HTTP & OpenAPI](/docs/ship/http-openapi) | [Internal Dashboards](/docs/recipes/dashboards) | [Multi-tenancy](/docs/recipes/multi-tenant)

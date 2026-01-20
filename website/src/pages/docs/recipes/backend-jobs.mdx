@@ -1,0 +1,81 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Backend Jobs & Workers
+description: Use hypequery in background jobs, cron tasks, and worker processes
+---
+
+# Backend Jobs & Workers
+
+Learn how to use hypequery metrics in background jobs, scheduled tasks, and worker processes.
+
+## Use Case
+
+You need to:
+- Run analytics in background jobs
+- Execute metrics on a schedule
+- Process data in worker queues
+- Generate reports asynchronously
+
+## Pattern: Import and Execute
+
+Since hypequery runs embedded, your metrics work anywhere your code runs:
+
+```typescript
+// worker.ts
+import { weeklyRevenue } from './metrics/revenue';
+
+async function generateWeeklyReport() {
+  const data = await weeklyRevenue.execute();
+
+  // Process and send report
+  await sendReport(data);
+}
+```
+
+## With Job Queues
+
+Integrate with popular job queue libraries:
+
+```typescript
+// Using BullMQ
+import { Queue, Worker } from 'bullmq';
+import { userEngagement } from './metrics/engagement';
+
+const analyticsQueue = new Queue('analytics');
+
+const worker = new Worker('analytics', async (job) => {
+  const { metricName, params } = job.data;
+
+  // Run the metric
+  const results = await userEngagement(params).execute();
+
+  return results;
+});
+```
+
+## Scheduled Cron Jobs
+
+Run metrics on a schedule:
+
+```typescript
+// Using node-cron
+import cron from 'node-cron';
+import { dailyActiveUsers } from './metrics/users';
+
+// Run every day at midnight
+cron.schedule('0 0 * * *', async () => {
+  const dau = await dailyActiveUsers.execute();
+  await saveSnapshot(dau);
+});
+```
+
+## Best Practices
+
+- **Reuse connections**: Create a ClickHouse connection pool
+- **Error handling**: Wrap execution in try-catch
+- **Timeouts**: Set query timeouts for long-running jobs
+- **Monitoring**: Log execution times and errors
+
+---
+
+**Related**: [Cron & Automation](/docs/recipes/cron-automation) | [Observability](/docs/operate/observability)

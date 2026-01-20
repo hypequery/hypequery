@@ -1,0 +1,43 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: "@hypequery/react"
+description: "Type-safe React hooks for hypequery APIs"
+---
+
+# `@hypequery/react`
+
+Use this package when you want to call hypequery endpoints from React with full type safety and TanStack Query caching. It turns your `serve.define` API into `useQuery`/`useMutation` hooks in a few lines of code.
+
+## Install
+
+```bash
+npm install @hypequery/react @tanstack/react-query
+```
+
+Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
+
+## Quick start
+
+```ts
+import { createHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+const { useQuery, useMutation, HypequeryProvider } = createHooks<InferApiType<typeof api>>({
+  baseUrl: '/api/hypequery'
+});
+```
+
+Wrap your app with `QueryClientProvider` + `HypequeryProvider`, then use the hooks:
+
+```tsx
+const { data } = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
+const rebuild = useMutation('rebuildMetrics');
+rebuild.mutate({ force: true });
+```
+
+## References
+
+- [API reference](./react)
+- [Serve API typing helpers](./serve)
+- [Packages overview](./packages)

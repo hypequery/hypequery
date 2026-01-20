@@ -1,0 +1,169 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Time Based Functions - hypequery
+description: Learn about time-based query features
+---
+
+
+# Time-Based Functions
+
+### toDateTime
+
+Converts a value to DateTime format:
+
+```typescript
+toDateTime('timestamp', 'formatted_time')
+// Results in: toDateTime(timestamp) AS formatted_time
+```
+
+### formatDateTime
+
+Formats a DateTime value using the specified format:
+
+```typescript
+formatDateTime('timestamp', 'Y-m-d H:i:s', { alias: 'formatted_date' })
+// Results in: formatDateTime(timestamp, 'Y-m-d H:i:s') AS formatted_date
+
+// With timezone
+formatDateTime('timestamp', 'Y-m-d H:i:s', { timezone: 'UTC', alias: 'formatted_date' })
+// Results in: formatDateTime(timestamp, 'Y-m-d H:i:s', 'UTC') AS formatted_date
+```
+
+### toStartOfInterval
+
+Truncates a date/time value to the start of the specified interval:
+
+```typescript
+toStartOfInterval('timestamp', '1 day', 'day')
+// Results in: toStartOfInterval(timestamp, INTERVAL 1 day) AS day
+```
+
+### datePart
+
+Extracts a specific part (year, month, day, etc.) from a date/time value:
+
+```typescript
+datePart('year', 'timestamp', 'year')
+// Results in: toYear(timestamp) AS year
+
+datePart('month', 'timestamp', 'month')
+// Results in: toMonth(timestamp) AS month
+```
+
+
+## Time-Based Functions
+
+### Time Intervals
+
+Group data by various time intervals:
+
+```typescript
+const results = await db
+  .table('events')
+  .select(['date'])
+  .sum('value')
+  .groupByTimeInterval('date', '1 hour')
+  .execute();
+```
+
+### Predefined Time Functions
+
+Use built-in time functions:
+
+```typescript
+// Group by minute
+db.groupByTimeInterval('timestamp', null, 'toStartOfMinute')
+
+// Group by hour
+db.groupByTimeInterval('timestamp', null, 'toStartOfHour')
+
+// Group by day
+db.groupByTimeInterval('timestamp', null, 'toStartOfDay')
+
+// Group by week
+db.groupByTimeInterval('timestamp', null, 'toStartOfWeek')
+
+// Group by month
+db.groupByTimeInterval('timestamp', null, 'toStartOfMonth')
+
+// Group by quarter
+db.groupByTimeInterval('timestamp', null, 'toStartOfQuarter')
+
+// Group by year
+db.groupByTimeInterval('timestamp', null, 'toStartOfYear')
+```
+
+### Custom Intervals
+
+Specify custom time intervals:
+
+```typescript
+// 5-minute intervals
+db.groupByTimeInterval('timestamp', '5 minute')
+
+// 2-hour intervals
+db.groupByTimeInterval('timestamp', '2 hour')
+
+// 7-day intervals
+db.groupByTimeInterval('timestamp', '7 day')
+```
+
+## Query Settings
+
+Customize ClickHouse query settings:
+
+```typescript
+const results = await db
+  .table('large_table')
+  .settings({
+    max_execution_time: 60,
+    max_threads: 4,
+    max_memory_usage: '10000000000'
+  })
+  .execute();
+```
+
+## Combining Advanced Features
+
+Here's an example combining multiple advanced features:
+
+```typescript
+const activeUsers = db
+  .table('sessions')
+  .select(['user_id'])
+  .where('last_active', 'gt', 'NOW() - INTERVAL 1 DAY')
+  .distinct();
+
+const results = await db
+  .table('events')
+  .withCTE('active_users', activeUsers)
+  .select(['date'])
+  .sum('value', 'total_value')
+  .groupByTimeInterval('date', '1 hour')
+  .settings({ max_execution_time: 30 })
+  .execute();
+```
+
+## Type Safety
+
+All advanced functions maintain full type safety:
+
+```typescript
+interface Schema {
+  events: {
+    date: 'DateTime';
+    value: 'Float64';
+  }
+}
+
+const db = createQueryBuilder<Schema>();
+
+// TypeScript will catch these errors:
+db.groupByTimeInterval('invalid_column', '1 hour'); // Error: invalid column
+db.groupByTimeInterval('value', '1 hour'); // Error: value is not a date/time column
+```
+
+## Next Steps
+
+- Explore [Helper Methods](/docs/guides/helper-methods) for additional functionality
+- Check out the [Standalone Query Builder reference](/docs/reference/standalone-query-builder) for detailed method documentation 

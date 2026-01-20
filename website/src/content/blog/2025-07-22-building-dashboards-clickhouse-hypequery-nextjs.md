@@ -1,5 +1,4 @@
 ---
-layout: blog
 title: "Building Dashboards on ClickHouse with hypequery and Next.js"
 description: "Learn how to build type-safe, real-time analytics dashboards using hypequery, ClickHouse, and Next.js. Get complete type safety, autocomplete, and developer productivity for your analytics applications."
 pubDate: 2025-07-22
@@ -17,7 +16,7 @@ ClickHouse is an industry-leading analytical database, purpose-built for high-pe
 **hypequery bridges this gap by providing:**
 - A fully type-safe query builder tailored for ClickHouse
 - Autocomplete and type validation for every part of your query
-- Features designed for dashboard development: cross-filtering, streaming, pagination, and more
+- Features designed for dashboard development: cross-filtering, streaming, and more
 
 ### The Challenge
 
@@ -166,7 +165,7 @@ export default function TripsTable() {
 
 - **Type safety at every step**: No more runtime surprises or mismatched columns
 - **Developer productivity**: Autocomplete, instant error checking, and less boilerplate
-- **Built for analytics**: Features like cross-filtering, streaming, and pagination are designed for dashboard use cases
+- **Built for analytics**: Features like cross-filtering and streaming are designed for dashboard use cases
 - **Works everywhere**: Node.js and browser support for flexible deployments
 
 ## Conclusion

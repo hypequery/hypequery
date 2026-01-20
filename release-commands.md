@@ -1,20 +1,22 @@
 # hypequery Release Commands
 
-## Stable Release Command
-To publish a stable release from the main branch:
+## Upcoming Changesets Workflow
+We're migrating to [Changesets](https://github.com/changesets/changesets) for release automation. Until the new workflow is finalized, releases should be coordinated manually.
 
-```bash
-npx semantic-release --extends ./.releaserc.cjs --no-ci --branches main
-```
-
-## Beta Release Command
-The beta release happens automatically on push to main, but if you need to run it manually:
-
-```bash
-npx semantic-release --extends ./.releaserc.cjs --no-ci --prerelease beta
-```
+### Temporary manual steps
+1. Ensure `main` is green (tests/lint/build).
+2. Generate a Changeset once the tooling lands:
+   ```bash
+   pnpm changeset
+   ```
+3. Version and publish when ready:
+   ```bash
+   pnpm changeset version
+   pnpm install --no-frozen-lockfile
+   pnpm changeset publish
+   ```
 
 ## Important Notes
-- The stable release command should only be used when you're ready to promote beta features to a stable release
-- Always ensure your tests pass before running a stable release
-- After a stable release, a new beta cycle will start with the next push to main 
+- Coordinate with the team before tagging a release while the tooling is in flux.
+- Always ensure tests pass before cutting a release.
+- Update this document again once the Changesets automation is fully wired up.
