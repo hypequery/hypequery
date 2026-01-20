@@ -142,7 +142,6 @@ type DashboardApi = InferApiType<typeof api>;
 export const {
   useQuery: useHypequeryQuery,
   useMutation: useHypequeryMutation,
-  HypequeryProvider,
 } = createHooks<DashboardApi>({
   baseUrl: '/api/hypequery',
   config: {

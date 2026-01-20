@@ -83,7 +83,7 @@ export type StarterApi = {
 import { createHooks } from '@hypequery/react';
 import type { StarterApi } from '@/queries';
 
-export const { useQuery, HypequeryProvider } = createHooks<StarterApi>({
+export const { useQuery } = createHooks<StarterApi>({
   baseUrl: '/api/hypequery',
 });
 ```

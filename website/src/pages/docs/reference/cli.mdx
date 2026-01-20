@@ -36,13 +36,7 @@ npx hypequery dev
 
 ### TypeScript support
 
-If your queries file is TypeScript (`.ts`), the CLI will automatically detect and restart with TypeScript support. Make sure `tsx` is installed:
-
-```bash
-npm install -D tsx
-```
-
-The CLI will guide you if `tsx` is needed but not installed.
+`hypequery dev` ships with an embedded TypeScript runtime (powered by `tsx`). Point it at your `.ts` or `.tsx` queries file and the CLI transpiles it in-process—no extra dependencies, watchers, or custom launch commands required. If you already compile to JavaScript, you can still target the generated `.js` file instead.
 
 ## Commands at a glance
 
@@ -138,7 +132,7 @@ npx @hypequery/cli dev --cache none
 
 **TypeScript files:**
 
-If your queries file is TypeScript, the CLI automatically detects and restarts with TypeScript support. Make sure `tsx` is installed (`npm install -D tsx`).
+Point the command at your TypeScript entry point (for example `analytics/queries.ts`) and the CLI loads it via the embedded runtime. No separate `tsx` install is necessary.
 
 ## `hypequery generate`
 

@@ -49,13 +49,7 @@ Or add to your `package.json` scripts:
 
 ## TypeScript Support
 
-If your queries file is TypeScript (`.ts`), the CLI will automatically detect and restart with TypeScript support. Make sure you have `tsx` installed:
-
-```bash
-npm install -D tsx
-```
-
-The CLI will guide you if `tsx` is needed but not installed.
+`hypequery dev` bundles a TypeScript runtime (powered by `tsx`), so pointing it at `analytics/queries.ts` or any `.ts/.tsx` file just works—no extra install or custom runner required. If your project already compiles to JavaScript you can keep targeting the generated `.js` file instead.
 
 ## Commands
 
@@ -138,14 +132,7 @@ npx @hypequery/cli dev --cache none
 
 **Common Issues:**
 
-If you see "Unexpected token" errors with TypeScript files:
-```bash
-# Make sure tsx is installed
-npm install -D tsx
-
-# The CLI will automatically restart with TypeScript support
-npx @hypequery/cli dev
-```
+If you see "Unexpected token" errors while loading your queries, double-check that you're pointing the CLI at the TypeScript source file (e.g. `analytics/queries.ts`). The CLI bundles the loader and should not require additional dependencies.
 
 ### `hypequery generate`
 

@@ -33,7 +33,7 @@ import type { api } from '@/analytics/queries';
 // Automatic type inference - no manual type definition needed!
 type Api = InferApiType<typeof api>;
 
-export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api', // where your hypequery routes live
 });
 ```
@@ -56,7 +56,7 @@ type Api = {
   // ... other queries
 };
 
-export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
 });
 ```
@@ -65,14 +65,13 @@ Wrap your app:
 
 ```tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { HypequeryProvider } from '@/lib/analytics';
 
 const queryClient = new QueryClient();
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <HypequeryProvider>{children}</HypequeryProvider>
+      {children}
     </QueryClientProvider>
   );
 }
@@ -110,7 +109,7 @@ import type { api } from '@/analytics/queries';
 
 type Api = InferApiType<typeof api>;
 
-export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
   config: {
     weeklyRevenue: { method: 'GET' },    // Read-only queries
@@ -155,7 +154,7 @@ type Api = InferApiType<typeof api>;
 // Fetch config at initialization
 const config = await fetch('/api/config').then(r => r.json());
 
-export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api/hypequery',
   config, // Automatically uses correct methods from server
 });

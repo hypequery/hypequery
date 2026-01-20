@@ -23,12 +23,12 @@ import { createHooks } from '@hypequery/react';
 import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/queries';
 
-const { useQuery, useMutation, HypequeryProvider } = createHooks<InferApiType<typeof api>>({
+const { useQuery, useMutation } = createHooks<InferApiType<typeof api>>({
   baseUrl: '/api/hypequery'
 });
 ```
 
-Wrap your app with `QueryClientProvider` + `HypequeryProvider`, then use the hooks:
+Wrap your app with `QueryClientProvider`, then use the hooks:
 
 ```tsx
 const { data } = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
