@@ -34,17 +34,16 @@ jobs:
         with:
           node-version: '20'
           cache: 'pnpm'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
       - name: Install dependencies
-        run: npm install
-      - name: Sync package-lock.json
-        run: |
-          echo "Ensuring package-lock.json is in sync..."
-          npm install --package-lock-only
-          git diff --exit-code || echo "Warning: package-lock.json was updated but changes will be ignored in CI"
+        run: pnpm install --frozen-lockfile
       - name: Clean existing build artifacts
         run: rm -rf packages/clickhouse/dist
       - name: Build packages with CI script
-        run: cd packages/clickhouse && npm run build:ci
+        run: pnpm --filter @hypequery/clickhouse build:ci
       - name: Verify bin.js file exists
         run: |
           if [ -f "packages/clickhouse/dist/cli/bin.js" ]; then
@@ -57,9 +56,9 @@ jobs:
             exit 1
           fi
       - name: Run unit tests
-        run: npm test
+        run: pnpm test
       - name: Run integration tests
-        run: npm run test:integration
+        run: pnpm --filter @hypequery/clickhouse test:integration
         env:
           CLICKHOUSE_TEST_HOST: http://localhost:8123
           CLICKHOUSE_TEST_USER: default
