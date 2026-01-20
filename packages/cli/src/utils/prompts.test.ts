@@ -126,7 +126,7 @@ describe('prompts', () => {
       process.env = originalEnv;
     });
 
-    it('should use defaults when env vars not set', async () => {
+    it('should leave initial prompts empty when env vars not set', async () => {
       const originalEnv = process.env;
       process.env = { ...originalEnv };
       delete process.env.CLICKHOUSE_HOST;
@@ -145,8 +145,8 @@ describe('prompts', () => {
 
       expect(prompts).toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ initial: 'http://localhost:8123' }),
-          expect.objectContaining({ initial: 'default' }),
+          expect.objectContaining({ initial: '' }),
+          expect.objectContaining({ initial: '' }),
         ])
       );
 

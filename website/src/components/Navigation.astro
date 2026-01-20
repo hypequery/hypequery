@@ -42,15 +42,15 @@ type NavigationItem = NavigationLink & { children?: NavigationLink[] };
     <div class="flex lg:flex-1">
       <a
         href="/"
-        class="logo-charge font-mono text-xl font-bold text-indigo-600 flex items-center"
+        class="font-mono text-xl font-bold text-indigo-600 flex items-center"
       >
-        <img src="/logo.svg" width="180" />
+        &gt; hypequery
       </a>
     </div>
     <div class="flex items-center gap-x-6 justify-end flex-1">
       <div class="flex gap-x-8 items-center">
         {
-          navigation.map((item: NavigationItem) => (
+          navigation.map((item: NavigationItem) =>
             item.children ? (
               <div class="relative group">
                 <button
@@ -65,12 +65,14 @@ type NavigationItem = NavigationLink & { children?: NavigationLink[] };
                     stroke="currentColor"
                     stroke-width="2"
                   >
-                    <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
+                    <path
+                      d="M6 9l6 6 6-6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
                   </svg>
                 </button>
-                <div
-                  class="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-150 absolute right-0 mt-3 w-48 rounded-xl border border-gray-100 bg-white shadow-xl ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-800"
-                >
+                <div class="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-150 absolute right-0 mt-3 w-48 rounded-xl border border-gray-100 bg-white shadow-xl ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-800">
                   <div class="py-3">
                     {item.children.map((child) => (
                       <a
@@ -118,8 +120,8 @@ type NavigationItem = NavigationLink & { children?: NavigationLink[] };
                   </span>
                 )}
               </a>
-            )
-          ))
+            ),
+          )
         }
       </div>
       <ThemeToggle />

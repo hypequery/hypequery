@@ -1,5 +1,4 @@
 ---
-layout: blog
 title: "Building Dashboards on ClickHouse with hypequery and Next.js"
 description: "Learn how to build type-safe, real-time analytics dashboards using hypequery, ClickHouse, and Next.js. Get complete type safety, autocomplete, and developer productivity for your analytics applications."
 pubDate: 2025-07-22
