@@ -146,6 +146,8 @@ npx @hypequery/cli generate
 npx hypequery generate
 ```
 
+The CLI bundles the ClickHouse driver directly, so you can run this command without installing `@hypequery/clickhouse`. Specify `--database <type>` once additional drivers become available.
+
 **What it does:**
 - Connects to ClickHouse
 - Introspects your database schema
@@ -155,6 +157,7 @@ npx hypequery generate
 **Options:**
 - `-o, --output <path>` - Output file (default: `analytics/schema.ts`)
 - `--tables <names>` - Only generate for specific tables (comma-separated)
+- `--database <type>` - Override detected database (currently only `clickhouse`)
 - `--watch` - Watch for schema changes and regenerate automatically
 
 **Example:**
@@ -169,41 +172,6 @@ npx @hypequery/cli generate --tables users,events
 npx @hypequery/cli generate --watch --output src/schema.ts
 ```
 
-### `hypequery create-api-types`
-
-Generate a typed client map (perfect for `@hypequery/react`) from your serve export.
-
-```bash
-# Without installation
-npx @hypequery/cli create-api-types
-
-# With installation
-npx hypequery create-api-types
-```
-
-**What it does:**
-- Reads your queries file
-- Extracts all query definitions
-- Generates a TypeScript type map for type-safe client usage
-- Perfect for frontend React hooks with `@hypequery/react`
-
-**Options:**
-- `[file]` - Path to your queries module (default: auto-detected from `analytics/queries.ts`, `src/analytics/queries.ts`, or `hypequery.ts`)
-- `-o, --output <path>` - Output file (default: `<queries-dir>/client.ts`)
-- `-n, --name <type>` - Exported type alias name (default: `HypequeryApi`)
-
-**Example:**
-```bash
-# Auto-detect queries file
-npx @hypequery/cli create-api-types
-
-# Specify custom queries file and output
-npx @hypequery/cli create-api-types src/queries.ts -o src/api-types.ts
-
-# Custom type name
-npx @hypequery/cli create-api-types --name MyApi
-```
-
 ## Package Scripts
 
 Add these to your `package.json` for easy access:
@@ -213,8 +181,7 @@ Add these to your `package.json` for easy access:
   "scripts": {
     "db:init": "hypequery init",
     "db:dev": "hypequery dev",
-    "db:generate": "hypequery generate",
-    "db:types": "hypequery create-api-types"
+    "db:generate": "hypequery generate"
   }
 }
 ```

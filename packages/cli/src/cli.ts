@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { devCommand } from './commands/dev.js';
 import { generateCommand } from './commands/generate.js';
-import { createApiTypesCommand } from './commands/create-api-types.js';
 
 const program = new Command();
 
@@ -57,25 +56,11 @@ program
   .description('Regenerate types from ClickHouse')
   .option('-o, --output <path>', 'Output file (default: analytics/schema.ts)')
   .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
+  .option('--database <type>', 'Database driver to use (default: auto-detect)')
   .option('--watch', 'Watch for schema changes')
   .action(async (options) => {
     try {
       await generateCommand(options);
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-// create-api-types command
-program
-  .command('create-api-types [file]')
-  .description('Generate a typed client map for serve APIs')
-  .option('-o, --output <path>', 'Output file (default: <queries-dir>/client.ts)')
-  .option('-n, --name <typeName>', 'Exported type name (default: HypequeryApi)')
-  .action(async (file, options) => {
-    try {
-      await createApiTypesCommand(file, options);
     } catch (error) {
       console.error(error instanceof Error ? error.message : error);
       process.exit(1);
@@ -108,7 +93,6 @@ program.on('--help', () => {
   console.log('  hypequery dev');
   console.log('  hypequery dev --port 3000');
   console.log('  hypequery generate --watch');
-  console.log('  hypequery create-api-types');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

@@ -2,12 +2,14 @@ import path from 'node:path';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { findSchemaFile } from '../utils/find-files.js';
-import { getTableCount } from '../utils/detect-database.js';
+import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detect-database.js';
+import { getTypeGenerator } from '../generators/index.js';
 
 export interface GenerateOptions {
   output?: string;
   tables?: string;
   watch?: boolean;
+  database?: DatabaseType;
 }
 
 export async function generateCommand(options: GenerateOptions = {}) {
@@ -27,24 +29,37 @@ export async function generateCommand(options: GenerateOptions = {}) {
     }
   }
 
+  const parsedTables = options.tables
+    ? options.tables
+        .split(',')
+        .map((table) => table.trim())
+        .filter(Boolean)
+    : undefined;
+
+  const requestedDbType = options.database as DatabaseType | undefined;
+  const dbType = requestedDbType ?? (await detectDatabase());
+
   logger.newline();
   logger.header('hypequery generate');
 
-  const spinner = ora('Connecting to ClickHouse...').start();
+  const spinner = ora(`Connecting to ${dbType}...`).start();
 
   try {
+    const generator = getTypeGenerator(dbType);
+
     // Get table count
-    const tableCount = await getTableCount('clickhouse');
-    spinner.succeed(`Connected to ClickHouse`);
+    const tableCount = await getTableCount(dbType);
+    spinner.succeed(`Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType}`);
 
     logger.success(`Found ${tableCount} tables`);
 
     // Generate types
     const typeSpinner = ora('Generating types...').start();
 
-    const { generateTypes } = await import('@hypequery/clickhouse/cli');
-
-    await generateTypes(outputPath);
+    await generator({
+      outputPath,
+      includeTables: parsedTables,
+    });
 
     typeSpinner.succeed(`Generated types for ${tableCount} tables`);
 
@@ -63,7 +78,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
       let lastTableCount = tableCount;
 
       setInterval(async () => {
-        const currentTableCount = await getTableCount('clickhouse');
+        const currentTableCount = await getTableCount(dbType);
 
         if (currentTableCount !== lastTableCount) {
           logger.newline();
@@ -71,7 +86,10 @@ export async function generateCommand(options: GenerateOptions = {}) {
 
           const regenerateSpinner = ora('Regenerating types...').start();
 
-          await generateTypes(outputPath);
+          await generator({
+            outputPath,
+            includeTables: parsedTables,
+          });
 
           regenerateSpinner.succeed('Regenerated types');
           logger.success(`Updated ${path.relative(process.cwd(), outputPath)}`);

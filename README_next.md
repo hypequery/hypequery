@@ -93,9 +93,6 @@ npx @hypequery/cli dev
 
 # Regenerate schema types
 npx @hypequery/cli generate
-
-# Emit typed client helpers for API routes
-npx @hypequery/cli create-api-types
 ```
 
 Or install for shorter commands:

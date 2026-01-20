@@ -159,16 +159,10 @@ describe('dev command', () => {
       expect(mockOpen).toHaveBeenCalledWith('http://localhost:4000');
     });
 
-    it('should display cache status for redis', async () => {
+    it('should not log caching messages', async () => {
       await devCommand(undefined, { watch: false, cache: 'redis' });
 
-      expect(logger.success).toHaveBeenCalledWith('Caching enabled (redis)');
-    });
-
-    it('should display cache status for memory (default)', async () => {
-      await devCommand(undefined, { watch: false });
-
-      expect(logger.success).toHaveBeenCalledWith('Caching enabled (memory)');
+      expect(logger.success).not.toHaveBeenCalledWith(expect.stringContaining('Caching enabled'));
     });
 
     it('should not display cache status when cache=none', async () => {

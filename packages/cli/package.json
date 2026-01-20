@@ -17,8 +17,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@clickhouse/client": "^1.16.0",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
+    "dotenv": "^16.4.7",
     "open": "^10.0.0",
     "ora": "^8.0.1",
     "prompts": "^2.4.2",
