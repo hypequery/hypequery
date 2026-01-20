@@ -1,12 +1,12 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Multi-tenant isolation
+title: Multi-tenancy isolation
 description: Automatic tenant-scoped data access for SaaS applications
 ---
 
 <div class="prose">
 
-# Multi-tenant isolation
+# Multi-tenancy isolation
 
 Build secure multi-tenant SaaS applications with automatic tenant isolation. hypequery prevents data leaks by **automatically injecting tenant filters** into your database queries, making it impossible to accidentally access another organization's data.
 
@@ -470,7 +470,7 @@ Write tests to verify isolation:
 ```typescript
 import { describe, it, expect } from 'vitest';
 
-describe('Multi-tenant isolation', () => {
+describe('Multi-tenancy isolation', () => {
   it('rejects requests without tenant context', async () => {
     const response = await api.handler({
       method: 'GET',

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PropsWithChildren } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createHooks } from './createHooks.js';
+import { createHooks, queryOptions } from './createHooks.js';
+import { HttpError } from './errors.js';
 
 interface TestApi {
   weeklyRevenue: {
@@ -373,10 +374,11 @@ describe('createHooks', () => {
 
       await waitFor(() => expect(result.current.isError).toBe(true));
 
+      expect(result.current.error).toBeInstanceOf(HttpError);
       expect(result.current.error?.message).toContain('GET request to');
       expect(result.current.error?.message).toContain('failed with status 404');
-      expect((result.current.error as any)?.status).toBe(404);
-      expect((result.current.error as any)?.body).toEqual({ message: 'Not found' });
+      expect(result.current.error?.status).toBe(404);
+      expect(result.current.error?.body).toEqual({ message: 'Not found' });
     });
 
     it('parses JSON error responses', async () => {
@@ -393,7 +395,8 @@ describe('createHooks', () => {
 
       await waitFor(() => expect(result.current.isError).toBe(true));
 
-      expect((result.current.error as any)?.body).toEqual({ error: 'Bad request' });
+      expect(result.current.error).toBeInstanceOf(HttpError);
+      expect(result.current.error?.body).toEqual({ error: 'Bad request' });
     });
 
     it('parses text error responses', async () => {
@@ -414,7 +417,8 @@ describe('createHooks', () => {
 
       await waitFor(() => expect(result.current.isError).toBe(true));
 
-      expect((result.current.error as any)?.body).toBe('Internal server error');
+      expect(result.current.error).toBeInstanceOf(HttpError);
+      expect(result.current.error?.body).toBe('Internal server error');
     });
 
     it('handles network errors', async () => {
@@ -531,6 +535,23 @@ describe('createHooks', () => {
         { wrapper: createWrapper() }
       );
 
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('uses queryOptions() helper for explicit option marking', async () => {
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://example.com/api',
+        fetchFn: fetchMock as unknown as typeof fetch,
+      });
+
+      // Using queryOptions() helper ensures options are recognized
+      const { result } = renderHook(
+        () => useQuery('noInput', queryOptions({ enabled: false })),
+        { wrapper: createWrapper() }
+      );
+
+      // Query should be disabled
+      expect(result.current.isLoading).toBe(false);
       expect(fetchMock).not.toHaveBeenCalled();
     });
   });

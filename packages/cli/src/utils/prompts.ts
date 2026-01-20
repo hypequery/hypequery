@@ -1,5 +1,6 @@
 import prompts from 'prompts';
 import type { DatabaseType } from './detect-database.js';
+import { logger } from './logger.js';
 
 // Configure prompts to not exit on cancel
 prompts.override({ onCancel: () => {} });
@@ -120,6 +121,13 @@ export async function promptGenerateExample(): Promise<boolean> {
 export async function promptTableSelection(tables: string[]): Promise<string | null> {
   if (tables.length === 0) {
     return null;
+  }
+
+  // Warn if showing truncated list
+  if (tables.length > 10) {
+    logger.warn(`Showing first 10 of ${tables.length} tables`);
+    logger.indent('You can select a different table by editing the generated file');
+    logger.newline();
   }
 
   const choices = [

@@ -34,9 +34,6 @@ export type {
 export type {
   OrderDirection,
   QueryConfig,
-  PaginationOptions,
-  PaginatedResult,
-  PageInfo,
   AggregationType
 } from './types/base.js';
 

@@ -4,8 +4,6 @@ import {
   FilterOperator,
   OperatorValueMap,
   OrderDirection,
-  PaginatedResult,
-  PaginationOptions,
   QueryConfig,
   JoinType
 } from '../types/index.js';
@@ -18,7 +16,6 @@ import { AnalyticsFeature } from './features/analytics.js';
 import { ExecutorFeature } from './features/executor.js';
 import { QueryModifiersFeature } from './features/query-modifiers.js';
 import { FilterValidator } from './validators/filter-validator.js';
-import { PaginationFeature } from './features/pagination.js';
 import { JoinRelationships, JoinPathOptions, type JoinPath } from './join-relationships.js';
 import { SqlExpression } from './utils/sql-expressions.js';
 import {
@@ -111,7 +108,6 @@ export class QueryBuilder<
   private analytics: AnalyticsFeature<Schema, State>;
   private executor: ExecutorFeature<Schema, State>;
   private modifiers: QueryModifiersFeature<Schema, State>;
-  private pagination: PaginationFeature<Schema, State>;
   private crossFiltering: CrossFilteringFeature<Schema, State>;
   private runtime: QueryRuntimeContext;
   private cacheOptions?: CacheOptions;
@@ -130,7 +126,6 @@ export class QueryBuilder<
     this.analytics = new AnalyticsFeature(this);
     this.executor = new ExecutorFeature(this);
     this.modifiers = new QueryModifiersFeature(this);
-    this.pagination = new PaginationFeature(this);
     this.crossFiltering = new CrossFilteringFeature(this);
   }
 
@@ -753,27 +748,6 @@ export class QueryBuilder<
   // Make config accessible to features
   getConfig() {
     return this.config;
-  }
-
-  /**
-   * Paginates the query results using cursor-based pagination
-   */
-  async paginate(options: PaginationOptions<State['output']>): Promise<PaginatedResult<State['output']>> {
-    return this.pagination.paginate(options);
-  }
-
-  /**
-   * Gets the first page of results
-   */
-  async firstPage(pageSize: number): Promise<PaginatedResult<State['output']>> {
-    return this.pagination.firstPage(pageSize);
-  }
-
-  /**
-   * Returns an async iterator that yields all pages
-   */
-  iteratePages(pageSize: number): AsyncGenerator<PaginatedResult<State['output']>> {
-    return this.pagination.iteratePages(pageSize);
   }
 
   static setJoinRelationships<S extends SchemaDefinition<S>>(

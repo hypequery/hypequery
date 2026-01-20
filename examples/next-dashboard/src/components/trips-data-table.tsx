@@ -64,14 +64,13 @@ const columns: ColumnDef<Trip>[] = [
 
 export function TripsDataTable() {
   const { pickupDateRange, dropoffDateRange } = useFilters()
-  const [cursor, setCursor] = useState<{ after?: string; before?: string }>({})
+  const [page, setPage] = useState(1)
   const filters = buildFilterInput(pickupDateRange, dropoffDateRange)
 
   const { data, isLoading } = useHypequeryQuery('trips', {
     ...filters,
     pageSize: 10,
-    after: cursor.after,
-    before: cursor.before,
+    page,
   })
 
   if (isLoading) {
@@ -83,26 +82,20 @@ export function TripsDataTable() {
       <DataTable columns={columns} data={data?.data || []} />
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          {data?.pageInfo.totalCount ? (
-            <>
-              Showing {data.data.length} of {data.pageInfo.totalCount} trips
-              {' • '}
-              Page {Math.floor(data.data.length / data.pageInfo.pageSize) + 1} of {data.pageInfo.totalPages}
-            </>
-          ) : null}
+          Showing {data?.data.length ?? 0} trips • Page {data?.page ?? page}
         </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => setCursor({ before: data?.pageInfo.startCursor ?? undefined })}
-            disabled={!data?.pageInfo.hasPreviousPage}
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={!data?.hasPreviousPage}
           >
             Previous
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCursor({ after: data?.pageInfo.endCursor ?? undefined })}
-            disabled={!data?.pageInfo.hasNextPage}
+            onClick={() => setPage((prev) => prev + 1)}
+            disabled={!data?.hasNextPage}
           >
             Next
           </Button>

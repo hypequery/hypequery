@@ -12,13 +12,13 @@
   "dependencies": {
     "@hypequery/clickhouse": "*",
     "@hypequery/serve": "*",
-    "@hypequery/cli": "*",
     "next": "14.2.15",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@hypequery/cli": "*",
     "tsx": "^4.19.2"
   }
 }

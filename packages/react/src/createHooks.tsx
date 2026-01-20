@@ -12,6 +12,7 @@ import type {
   QueryInput,
   QueryOutput,
 } from './types.js';
+import { HttpError } from './errors.js';
 
 export interface QueryMethodConfig {
   method?: string;
@@ -31,6 +32,29 @@ export interface CreateHooksConfig<TApi = any> {
   api?: TApi;
 }
 
+/**
+ * Symbol used to mark objects as query options (not input)
+ * @internal
+ */
+const OPTIONS_SYMBOL = Symbol.for('hypequery-options');
+
+/**
+ * Helper to explicitly mark an object as query options
+ * Prevents ambiguity when query input and options have overlapping properties
+ *
+ * @example
+ * ```ts
+ * // Without helper - ambiguous (could be input or options)
+ * useQuery('getData', { enabled: true, staleTime: 5000 })
+ *
+ * // With helper - explicit
+ * useQuery('getData', queryOptions({ enabled: true, staleTime: 5000 }))
+ * ```
+ */
+export function queryOptions<T extends object>(opts: T): T & { [OPTIONS_SYMBOL]: true } {
+  return { ...opts, [OPTIONS_SYMBOL]: true as const };
+}
+
 function buildUrl(baseUrl: string, name: string) {
   if (!baseUrl) {
     throw new Error('baseUrl is required');
@@ -47,6 +71,48 @@ async function parseResponse(res: Response) {
   }
 }
 
+/**
+ * Type guard to check if API object has route-level config
+ */
+function hasRouteConfig(api: unknown): api is { _routeConfig: Record<string, { method?: string }> } {
+  return (
+    typeof api === 'object' &&
+    api !== null &&
+    '_routeConfig' in api &&
+    typeof (api as any)._routeConfig === 'object' &&
+    (api as any)._routeConfig !== null
+  );
+}
+
+/**
+ * Type guard to check if API object has queries property
+ */
+function hasQueries(api: unknown): api is { queries: Record<string, { method?: string }> } {
+  return (
+    typeof api === 'object' &&
+    api !== null &&
+    'queries' in api &&
+    typeof (api as any).queries === 'object' &&
+    (api as any).queries !== null
+  );
+}
+
+/**
+ * Extract method configuration from a source object
+ * Transforms { key: { method: 'POST' } } into { key: { method: 'POST' } }
+ * with GET as default
+ */
+function extractMethodConfig<T extends { method?: string }>(
+  source: Record<string, T>
+): Record<string, QueryMethodConfig> {
+  return Object.fromEntries(
+    Object.entries(source).map(([key, value]) => [
+      key,
+      { method: value.method || 'GET' },
+    ])
+  );
+}
+
 export function createHooks<Api extends {
   [K in keyof Api]: {
     input: unknown;
@@ -57,21 +123,11 @@ export function createHooks<Api extends {
 
   // Auto-extract method config from api object if provided
   const extractedConfig: Record<string, QueryMethodConfig> = api
-    ? (api as MaybeServeBuilder)._routeConfig
-      ? // Prefer route-level config if available
-        Object.fromEntries(
-          Object.entries((api as MaybeServeBuilder)._routeConfig!).map(([key, routeConfig]) => [
-            key,
-            { method: (routeConfig.method as string) || 'GET' },
-          ])
-        )
-      : // Fallback to endpoint method
-        Object.fromEntries(
-          Object.entries((api as MaybeServeBuilder).queries).map(([key, endpoint]) => [
-            key,
-            { method: (endpoint.method as string) || 'GET' },
-          ])
-        )
+    ? hasRouteConfig(api)
+      ? extractMethodConfig(api._routeConfig)  // Prefer route-level config if available
+      : hasQueries(api)
+        ? extractMethodConfig(api.queries)     // Fallback to endpoint method
+        : {}
     : {};
 
   // Merge extracted config with explicit config (explicit takes precedence)
@@ -116,10 +172,11 @@ export function createHooks<Api extends {
 
     if (!res.ok) {
       const errorBody = await parseResponse(res);
-      const error = new Error(`${method} request to ${finalUrl} failed with status ${res.status}`);
-      (error as any).status = res.status;
-      (error as any).body = errorBody;
-      throw error;
+      throw new HttpError(
+        `${method} request to ${finalUrl} failed with status ${res.status}`,
+        res.status,
+        errorBody
+      );
     }
 
     return res.json();
@@ -128,7 +185,7 @@ export function createHooks<Api extends {
   type QueryOptions<Name extends ExtractNames<Api>> = Omit<
     TanstackUseQueryOptions<
       QueryOutput<Api, Name>,
-      Error,
+      HttpError,
       QueryOutput<Api, Name>,
       ['hypequery', Name, QueryInput<Api, Name>]
     >,
@@ -144,7 +201,7 @@ export function createHooks<Api extends {
 
   function useQuery<Name extends ExtractNames<Api>>(
     ...args: UseQueryParams<Name>
-  ): UseQueryResult<QueryOutput<Api, Name>, Error> {
+  ): UseQueryResult<QueryOutput<Api, Name>, HttpError> {
     const [name, inputOrOptions, maybeOptions] = args;
 
     // Parse arguments based on count and type
@@ -179,22 +236,27 @@ export function createHooks<Api extends {
 
   function isQueryOptions(value: unknown): boolean {
     if (typeof value !== 'object' || value === null) return false;
+
+    // Check for explicit symbol marker first (most reliable)
+    if (OPTIONS_SYMBOL in value) return true;
+
+    // Fallback to heuristic for backward compatibility
     // Check for known TanStack Query option keys
-    // Must have at least 2 matches to avoid false positives with user input that has 'enabled' field
+    // Must have at least 2 matches to avoid false positives with user input
     const optionKeys = ['enabled', 'staleTime', 'gcTime', 'refetchInterval', 'refetchOnWindowFocus', 'retry', 'retryDelay'];
     const matches = optionKeys.filter(key => key in value).length;
     return matches >= 2;
   }
 
   type MutationOptions<Name extends ExtractNames<Api>> = Omit<
-    TanstackUseMutationOptions<QueryOutput<Api, Name>, Error, QueryInput<Api, Name>>,
+    TanstackUseMutationOptions<QueryOutput<Api, Name>, HttpError, QueryInput<Api, Name>>,
     'mutationFn'
   >;
 
   function useMutation<Name extends ExtractNames<Api>>(
     name: Name,
     options?: MutationOptions<Name>
-  ): UseMutationResult<QueryOutput<Api, Name>, Error, QueryInput<Api, Name>> {
+  ): UseMutationResult<QueryOutput<Api, Name>, HttpError, QueryInput<Api, Name>> {
     return useTanstackMutation({
       mutationFn: (input) => fetchQuery(name as string, input, 'POST') as Promise<QueryOutput<Api, Name>>,
       ...options,

@@ -101,20 +101,30 @@ export async function getTableCount(dbType: DatabaseType): Promise<number> {
   }
 }
 
-async function getClickHouseTableCount(): Promise<number> {
+/**
+ * Generic helper to execute ClickHouse queries with consistent error handling
+ */
+async function executeClickHouseQuery<T>(
+  query: string,
+  defaultValue: T
+): Promise<T> {
   try {
     const client = await getClickHouseClient();
 
     const result = await client.query({
-      query: 'SHOW TABLES',
+      query,
       format: 'JSONEachRow',
     });
 
-    const tables = await result.json();
-    return Array.isArray(tables) ? tables.length : 0;
+    return (await result.json()) as T;
   } catch {
-    return 0;
+    return defaultValue;
   }
+}
+
+async function getClickHouseTableCount(): Promise<number> {
+  const tables = await executeClickHouseQuery<unknown[]>('SHOW TABLES', []);
+  return Array.isArray(tables) ? tables.length : 0;
 }
 
 /**
@@ -130,19 +140,11 @@ export async function getTables(dbType: DatabaseType): Promise<string[]> {
 }
 
 async function getClickHouseTables(): Promise<string[]> {
-  try {
-    const client = await getClickHouseClient();
-
-    const result = await client.query({
-      query: 'SHOW TABLES',
-      format: 'JSONEachRow',
-    });
-
-    const tables = (await result.json()) as Array<{ name: string }>;
-    return tables.map(t => t.name);
-  } catch {
-    return [];
-  }
+  const tables = await executeClickHouseQuery<Array<{ name: string }>>(
+    'SHOW TABLES',
+    []
+  );
+  return tables.map(t => t.name);
 }
 
 type ClickHouseHostConfig = Exclude<ClickHouseConfig, { client: unknown }>;

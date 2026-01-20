@@ -121,16 +121,12 @@ export async function parseRequestBody(
  */
 export function serializeResponseBody(
   body: unknown,
-  contentType?: string
 ): string {
-  const isJson = contentType && contentType.includes("application/json");
-
-  if (isJson) {
-    return JSON.stringify(body ?? null);
-  } else if (typeof body === "string") {
+  // If already a string, pass through as-is
+  if (typeof body === "string") {
     return body;
-  } else {
-    // Default to JSON for non-string, non-JSON content types
-    return JSON.stringify(body ?? null);
   }
+
+  // Otherwise, JSON stringify for JSON content-type or default
+  return JSON.stringify(body ?? null);
 }

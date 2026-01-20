@@ -14,7 +14,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "test": "turbo run test",
+    "test": "turbo run test --filter='@hypequery/*'",
     "types": "turbo run types",
     "test:integration": "cd packages/clickhouse && npm run test:integration",
     "lint": "turbo run lint",
@@ -24,7 +24,10 @@
     "fix:mdx": "node packages/clickhouse/scripts/fix-mdx-frontmatter.js",
     "build:website": "npm run docs:mdx && npm run fix:mdx && cd website && npm run build",
     "deploy:website": "npm run build:website && cd website && npx netlify deploy --prod",
-    "dev:example": "npm run build --workspace=@hypequery/clickhouse && npm run dev --workspace=next-dashboard"
+    "dev:example": "npm run build --workspace=@hypequery/clickhouse && npm run dev --workspace=next-dashboard",
+    "changeset": "pnpm dlx changeset",
+    "release:version": "pnpm dlx changeset version",
+    "release:publish": "pnpm dlx changeset publish"
   },
   "devDependencies": {
     "@type-challenges/utils": "^0.1.1",

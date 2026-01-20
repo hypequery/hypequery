@@ -7,7 +7,7 @@ describe('queries template', () => {
       hasExample: false,
     });
 
-    expect(result).toContain('import { defineServe }');
+    expect(result).toContain('import { initServe }');
     expect(result).toContain('import { db } from \'./client\'');
     expect(result).toContain('exampleMetric');
     expect(result).toContain('ok: true');
@@ -20,7 +20,7 @@ describe('queries template', () => {
     });
 
     expect(result).toContain('ordersQuery');
-    expect(result).toContain('from(\'orders\')');
+    expect(result).toContain('.table(\'orders\')');
     expect(result).toContain('Example query using the orders table');
   });
 

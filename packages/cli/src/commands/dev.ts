@@ -5,6 +5,7 @@ import { logger } from '../utils/logger.js';
 import { findQueriesFile } from '../utils/find-files.js';
 import { getTableCount } from '../utils/detect-database.js';
 import { loadApiModule } from '../utils/load-api.js';
+import { displayQueriesFileNotFoundError } from '../utils/error-messages.js';
 
 export interface DevOptions {
   port?: number;
@@ -22,18 +23,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   const queriesFile = await findQueriesFile(file);
 
   if (!queriesFile) {
-    logger.error('Could not find queries file');
-    logger.newline();
-    logger.info('Expected one of:');
-    logger.indent('• analytics/queries.ts');
-    logger.indent('• src/analytics/queries.ts');
-    logger.indent('• hypequery.ts');
-    logger.newline();
-    logger.info("Did you run 'hypequery init'?");
-    logger.newline();
-    logger.info('Or specify the file explicitly:');
-    logger.indent('hypequery dev ./path/to/queries.ts');
-    logger.newline();
+    displayQueriesFileNotFoundError('dev');
     process.exit(1);
   }
 
@@ -52,8 +42,12 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       let tableCount = 0;
       try {
         tableCount = await getTableCount('clickhouse');
-      } catch {
-        // Ignore errors
+      } catch (error) {
+        // Log but don't fail - table count is optional
+        logger.warn('Could not retrieve table count from database');
+        if (error instanceof Error) {
+          logger.indent(`Reason: ${error.message}`);
+        }
       }
 
       // Count queries
@@ -109,8 +103,11 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         try {
           const open = (await import('open')).default;
           await open(baseUrl);
+          logger.success(`Opened ${baseUrl} in browser`);
         } catch {
-          // open package not available, skip
+          // Log but don't fail - browser open is optional
+          logger.warn('Could not open browser automatically');
+          logger.indent(`Visit: ${baseUrl}`);
         }
       }
     } catch (error) {

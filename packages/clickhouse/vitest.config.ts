@@ -58,7 +58,19 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'lcov']
+      reporter: ['text', 'lcov'],
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/cli/**',
+        'src/types/**',
+        'src/core/types/**',
+        'src/formatters/**',
+        'src/index.ts',
+        'src/core/tests/**',
+        'src/core/env/**',
+        '**/*.d.ts',
+        'scripts/**'
+      ]
     }
   }
 });

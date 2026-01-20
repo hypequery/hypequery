@@ -4,6 +4,7 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { findQueriesFile } from '../utils/find-files.js';
 import { loadApiModule } from '../utils/load-api.js';
+import { displayQueriesFileNotFoundError } from '../utils/error-messages.js';
 
 export interface CreateApiTypesOptions {
   output?: string;
@@ -75,18 +76,7 @@ export async function createApiTypesCommand(
   const queriesFile = await findQueriesFile(file);
 
   if (!queriesFile) {
-    logger.error('Could not find queries file');
-    logger.newline();
-    logger.info('Expected one of:');
-    logger.indent('• analytics/queries.ts');
-    logger.indent('• src/analytics/queries.ts');
-    logger.indent('• hypequery.ts');
-    logger.newline();
-    logger.info("Did you run 'hypequery init'?");
-    logger.newline();
-    logger.info('Or specify the file explicitly:');
-    logger.indent('hypequery create-api-types ./path/to/queries.ts');
-    logger.newline();
+    displayQueriesFileNotFoundError('create-api-types');
     process.exit(1);
   }
 

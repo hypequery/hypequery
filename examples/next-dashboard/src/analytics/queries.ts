@@ -34,25 +34,17 @@ const tripsRowSchema = z.object({
   payment_type: z.string(),
 });
 
-const pageInfoSchema = z.object({
-  startCursor: z.string().nullable().optional(),
-  endCursor: z.string().nullable().optional(),
-  hasNextPage: z.boolean(),
-  hasPreviousPage: z.boolean(),
-  pageSize: z.number(),
-  totalCount: z.number().optional(),
-  totalPages: z.number().optional(),
-});
-
 const tripsInputSchema = baseFiltersSchema.extend({
   pageSize: z.number().min(1).max(100).optional(),
-  after: z.string().optional(),
-  before: z.string().optional(),
+  page: z.number().int().min(1).optional(),
 });
 
 const tripsOutputSchema = z.object({
   data: z.array(tripsRowSchema),
-  pageInfo: pageInfoSchema,
+  page: z.number(),
+  pageSize: z.number(),
+  hasNextPage: z.boolean(),
+  hasPreviousPage: z.boolean(),
 });
 
 const cacheStatsSchema = z.object({
@@ -186,9 +178,11 @@ export const api = define({
       .input(tripsInputSchema)
       .output(tripsOutputSchema)
       .query(async ({ ctx, input }) => {
-        const { pageSize = 10, after, before, ...filters } = input ?? {};
+        const { pageSize = 10, page = 1, ...filters } = input ?? {};
+        const offset = Math.max(0, (page - 1) * pageSize);
+        const requestSize = pageSize + 1;
         const filter = buildCrossFilter(filters as FiltersInput);
-        const result = await ctx.db
+        const rows = await ctx.db
           .table('trips')
           .applyCrossFilters(filter)
           .select([
@@ -202,25 +196,27 @@ export const api = define({
             'payment_type',
           ])
           .orderBy('pickup_datetime', 'DESC')
-          .paginate({
-            pageSize,
-            after,
-            before,
-            orderBy: [{ column: 'pickup_datetime', direction: 'DESC' }],
-          });
+          .limit(requestSize)
+          .offset(offset)
+          .execute();
+
+        const mappedRows = rows.slice(0, pageSize).map((row) => ({
+          pickup_datetime: String((row as any).pickup_datetime),
+          dropoff_datetime: String((row as any).dropoff_datetime),
+          trip_distance: toNumber((row as any).trip_distance),
+          passenger_count: toNumber((row as any).passenger_count),
+          fare_amount: toNumber((row as any).fare_amount),
+          tip_amount: toNumber((row as any).tip_amount),
+          total_amount: toNumber((row as any).total_amount),
+          payment_type: String((row as any).payment_type),
+        }));
 
         return {
-          ...result,
-          data: result.data.map((row) => ({
-            pickup_datetime: String((row as any).pickup_datetime),
-            dropoff_datetime: String((row as any).dropoff_datetime),
-            trip_distance: toNumber((row as any).trip_distance),
-            passenger_count: toNumber((row as any).passenger_count),
-            fare_amount: toNumber((row as any).fare_amount),
-            tip_amount: toNumber((row as any).tip_amount),
-            total_amount: toNumber((row as any).total_amount),
-            payment_type: String((row as any).payment_type),
-          })),
+          data: mappedRows,
+          page,
+          pageSize,
+          hasNextPage: rows.length > pageSize,
+          hasPreviousPage: page > 1,
         } satisfies TripsResult;
       }),
     cachedSummary: query
@@ -360,4 +356,3 @@ api
   .route('/cachedSummary', api.queries.cachedSummary, { method: 'POST' })
   .route('/invalidateCache', api.queries.invalidateCache, { method: 'POST' })
   .route('/nodeDashboard', api.queries.nodeDashboard, { method: 'POST' });
-

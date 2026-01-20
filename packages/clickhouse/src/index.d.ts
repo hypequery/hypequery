@@ -14,9 +14,8 @@ export type {
   QueryConfig,
   WhereExpression,
   GroupByExpression,
-  PaginatedResult,
-  PageInfo,
-  PaginationOptions
+  OrderDirection,
+  AggregationType
 } from './types/base';
 export type { JoinPath, JoinPathOptions } from './core/join-relationships';
 export { CrossFilter } from './core/cross-filter';

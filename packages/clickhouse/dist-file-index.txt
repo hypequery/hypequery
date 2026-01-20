@@ -60,9 +60,6 @@ core/features/filtering.js
 core/features/joins.d.ts
 core/features/joins.d.ts.map
 core/features/joins.js
-core/features/pagination.d.ts
-core/features/pagination.d.ts.map
-core/features/pagination.js
 core/features/query-modifiers.d.ts
 core/features/query-modifiers.d.ts.map
 core/features/query-modifiers.js
@@ -78,9 +75,6 @@ core/query-builder.js
 core/tests/index.d.ts
 core/tests/index.d.ts.map
 core/tests/index.js
-core/tests/integration/pagination-test-tbc.d.ts
-core/tests/integration/pagination-test-tbc.d.ts.map
-core/tests/integration/pagination-test-tbc.js
 core/tests/integration/setup.d.ts
 core/tests/integration/setup.d.ts.map
 core/tests/integration/setup.js

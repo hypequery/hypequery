@@ -24,7 +24,7 @@ hypequery is a typescript-first query builder for ClickHouse designed specifical
 - 🎯 **Type-Safe**: Full TypeScript support with inferred types from your ClickHouse schema
 - 🚀 **Performant**: Built for real-time analytics with optimized query generation
 - 🔍 **Cross Filtering**: Powerful cross-filtering capabilities for interactive dashboards
-- 📊 **Dashboard Ready**: Built-in support for pagination, sorting, and filtering
+- 📊 **Dashboard Ready**: Built-in support for sorting and filtering
 - 🛠️ **Developer Friendly**: Fluent API design for an intuitive development experience
 - 📱 **Platform Agnostic**: Works in both Node.js and browser environments
 - 🔄 **Schema Generation**: CLI tool to generate TypeScript types from your ClickHouse schema
@@ -136,38 +136,6 @@ const query2 = db.table('drivers')
   .execute();
 ```
 
-### Pagination
-
-Built-in cursor-based pagination for efficient data loading:
-
-```typescript
-// First page
-const firstPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10
-  });
-
-// Next page
-const nextPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10,
-    after: firstPage.pageInfo.endCursor
-  });
-
-// Previous page
-const prevPage = await db.table('trips')
-  .select(['pickup_datetime', 'total_amount'])
-  .orderBy('pickup_datetime', 'DESC')
-  .paginate({
-    pageSize: 10,
-    before: nextPage.pageInfo.startCursor
-  });
-```
-
 ### Advanced Queries
 
 hypequery supports complex queries including joins, aggregations, and subqueries:
@@ -239,7 +207,6 @@ For detailed documentation and examples, visit our [documentation site](https://
 - [Getting Started](https://hypequery.dev/docs/installation)
 - [Query Building](https://hypequery.dev/docs/guides/query-building)
 - [Filtering](https://hypequery.dev/docs/guides/filtering)
-- [Pagination](https://hypequery.dev/docs/features/pagination)
 - [API Reference](https://hypequery.dev/docs/reference/api)
 
 ## Examples

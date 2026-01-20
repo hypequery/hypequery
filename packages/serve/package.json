@@ -20,13 +20,14 @@
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --project tsconfig.json --watch",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
-    "test": "vitest run",
+    "test:types": "tsc --project tsconfig.type-tests.json",
+    "test": "npm run test:types && vitest run",
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "openapi-typescript": "^7.4.2",
     "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.23.5",
-    "openapi-typescript": "^7.4.2"
+    "zod-to-json-schema": "^3.23.5"
   },
   "peerDependencies": {
     "tsx": "^4.0.0"
@@ -38,6 +39,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
+    "@vitest/coverage-v8": "^2.1.9",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^2.1.6"

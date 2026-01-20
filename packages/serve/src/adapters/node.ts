@@ -8,6 +8,12 @@ import type {
   ServeResponse,
   StartServerOptions,
 } from "../types.js";
+import {
+  normalizeHeaders,
+  parseQueryParams,
+  parseRequestBody,
+  serializeResponseBody,
+} from "./utils.js";
 
 const readRequestBody = async (req: IncomingMessage): Promise<Buffer> => {
   const chunks: Buffer[] = [];
@@ -19,66 +25,19 @@ const readRequestBody = async (req: IncomingMessage): Promise<Buffer> => {
   return Buffer.concat(chunks);
 };
 
-const parseJsonBody = (raw: Buffer): unknown => {
-  if (!raw.length) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(raw.toString("utf8"));
-  } catch {
-    return raw.toString("utf8");
-  }
-};
-
-const toServeHeaders = (req: IncomingMessage) => {
-  const headers: Record<string, string | undefined> = {};
-
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (Array.isArray(value)) {
-      headers[key] = value.join(", ");
-    } else if (typeof value === "string") {
-      headers[key] = value;
-    }
-  }
-
-  return headers;
-};
-
-const toQueryParams = (url: URL) => {
-  const params: Record<string, string | string[] | undefined> = {};
-
-  for (const [key, value] of url.searchParams.entries()) {
-    if (params[key] === undefined) {
-      params[key] = value;
-    } else if (Array.isArray(params[key])) {
-      (params[key] as string[]).push(value);
-    } else {
-      params[key] = [params[key] as string, value];
-    }
-  }
-
-  return params;
-};
 
 const buildServeRequest = async (req: IncomingMessage): Promise<ServeRequest> => {
   const method = (req.method ?? "GET").toUpperCase() as HttpMethod;
   const url = new URL(req.url ?? "/", "http://localhost");
   const bodyBuffer = await readRequestBody(req);
-  const headers = toServeHeaders(req);
+  const headers = normalizeHeaders(req.headers);
   const contentType = headers["content-type"] ?? headers["Content-Type"];
-  let body: unknown;
-
-  if (contentType && contentType.includes("application/json")) {
-    body = parseJsonBody(bodyBuffer);
-  } else if (bodyBuffer.length) {
-    body = bodyBuffer.toString("utf8");
-  }
+  const body = await parseRequestBody(bodyBuffer, contentType);
 
   return {
     method,
     path: url.pathname,
-    query: toQueryParams(url),
+    query: parseQueryParams(url.searchParams),
     headers,
     body,
     raw: req,
@@ -99,16 +58,9 @@ const sendResponse = (res: ServerResponse, response: ServeResponse) => {
     res.setHeader("content-type", "application/json; charset=utf-8");
   }
 
-  const contentType = res.getHeader("content-type");
-  const isJson = typeof contentType === "string" && contentType.includes("application/json");
+  const serialized = serializeResponseBody(response.body);
 
-  if (isJson) {
-    res.end(JSON.stringify(response.body ?? null));
-  } else if (typeof response.body === "string") {
-    res.end(response.body);
-  } else {
-    res.end(JSON.stringify(response.body ?? null));
-  }
+  res.end(serialized);
 };
 
 const sendError = (res: ServerResponse, error: unknown) => {

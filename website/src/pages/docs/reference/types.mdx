@@ -131,41 +131,6 @@ interface JoinPath<Schema> {
 type JoinRelationships<Schema>;
 ```
 
-### Pagination Types
-
-```typescript
-import {
-  PaginationOptions,
-  PageInfo,
-  PaginatedResult
-} from '@hypequery/clickhouse';
-
-// Pagination options
-interface PaginationOptions<T> {
-  pageSize: number;
-  after?: string;
-  before?: string;
-  orderBy?: Array<{
-    column: keyof T;
-    direction: 'ASC' | 'DESC';
-  }>;
-}
-
-// Page information
-interface PageInfo {
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  startCursor: string;
-  endCursor: string;
-}
-
-// Paginated result
-interface PaginatedResult<T> {
-  data: T[];
-  pageInfo: PageInfo;
-}
-```
-
 ### Query Configuration Types
 
 ```typescript
@@ -230,8 +195,7 @@ Here's how to use these types in your application:
 import {
   QueryBuilder,
   ColumnType,
-  FilterCondition,
-  PaginationOptions
+  FilterCondition
 } from '@hypequery/clickhouse';
 
 // Define your schema
@@ -254,10 +218,9 @@ const query = db
   .table('users')
   .select(['id', 'name'])
   .where('created_at', 'gt', new Date())
-  .paginate({
-    pageSize: 10,
-    orderBy: [{ column: 'created_at', direction: 'DESC' }]
-  });
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
 ```
 
 ## Next Steps
