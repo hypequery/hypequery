@@ -69,22 +69,9 @@ pnpm --filter @hypequery/clickhouse test:integration
 
 ### Recording releases (Changesets)
 
-We use [Changesets](https://github.com/changesets/changesets) to manage package versions. Whenever you change anything that ships to npm, add a changeset:
+We use [Changesets](https://github.com/changesets/changesets) to manage package versions. A GitHub Action comments on every PR that touches publishable packages, reminding you to run `pnpm run changeset` if one isn’t detected. Most contributors can wait for that bot prompt, run the command locally, and commit the generated file.
 
-```bash
-pnpm run changeset
-```
-
-Pick the packages you touched and select the appropriate bump (usually `patch`). This creates a file under `.changeset/`. Commit it along with your code.
-
-When it’s time to release:
-
-```bash
-pnpm run release:version
-pnpm install --no-frozen-lockfile   # updates lockfile with new versions
-pnpm run release:publish            # publishes tagged packages
-```
-
+When a PR is merged, Changesets handles the versioning flow automatically in the main release pipeline.
 > For the initial publish of `@hypequery/cli`, `@hypequery/react`, or `@hypequery/serve` at `0.0.1`, you can run `pnpm run release:publish -- --filter @hypequery/cli --filter @hypequery/react --filter @hypequery/serve` without creating a changeset. Changesets will skip bumping and just push the existing versions.
 
 ## Pull request checklist

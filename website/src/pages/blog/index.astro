@@ -23,7 +23,7 @@ const formatDate = (date: Date) =>
   description="Latest updates, tutorials, and insights about hypequery"
 >
   <main class="max-w-6xl mx-auto px-4 py-12 mt-16">
-    <header class="mb-10 text-center">
+    <header class="mb-10 text-center p-6 rounded-3xl">
       <p class="text-sm uppercase tracking-[0.2em] text-indigo-500 mb-3">
         Insights
       </p>
@@ -36,13 +36,14 @@ const formatDate = (date: Date) =>
       </p>
       <div class="mt-10 flex justify-center">
         <div
-          class="w-full max-w-3xl bg-white border border-gray-200 rounded-3xl shadow-sm p-6"
+          class="w-full max-w-3xl border border-gray-200 rounded-3xl shadow-sm p-6 text-gray-900"
+          style={{ backgroundColor: "white" }}
         >
           <div class="text-left mb-4">
-            <p class="text-xs uppercase tracking-[0.3em] text-indigo-500 mb-2">
+            <p class="text-xs uppercase tracking-[0.3em] text-indigo-800 mb-2">
               Join our newsletter
             </p>
-            <p class="text-gray-600">
+            <p class="text-indigo-800">
               Steal the exact query patterns, cache plays, and architecture
               shortcuts behind sub‑second analytics. 5 minute read, every
               Friday.
@@ -64,79 +65,124 @@ const formatDate = (date: Date) =>
       </div>
     </header>
 
-    {featuredPosts.length > 0 && (
-      <section class="grid gap-6 md:grid-cols-2 mb-12">
-        {featuredPosts.map((post) => (
-          <article class="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-            {post.data.heroImage && (
-              <div class="h-36 overflow-hidden">
-                <img
-                  src={post.data.heroImage}
-                  alt={post.data.title}
-                  class="w-full h-full object-cover"
-                  loading="lazy"
-                />
+    {
+      featuredPosts.length > 0 && (
+        <section class="grid gap-6 md:grid-cols-2 mb-12">
+          {featuredPosts.map((post) => (
+            <article class="relative overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+              {post.data.heroImage && (
+                <div class="h-36 overflow-hidden">
+                  <img
+                    src={post.data.heroImage}
+                    alt={post.data.title}
+                    class="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              )}
+              <div class="p-6 flex flex-col gap-4">
+                <div>
+                  <time class="text-sm text-gray-500">
+                    {formatDate(post.data.pubDate)}
+                  </time>
+                  <h2 class="text-2xl font-semibold text-gray-900 mt-2 mb-3">
+                    <a
+                      href={`/blog/${post.slug}`}
+                      class="hover:text-indigo-600 transition-colors"
+                    >
+                      {post.data.title}
+                    </a>
+                  </h2>
+                  {post.data.description && (
+                    <p class="text-gray-600 leading-relaxed">
+                      {post.data.description}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <a
+                    href={`/blog/${post.slug}`}
+                    class="inline-flex items-center font-semibold text-indigo-600"
+                  >
+                    Read article
+                    <svg
+                      class="ml-2 w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </a>
+                </div>
               </div>
-            )}
-            <div class="p-6 flex flex-col gap-4">
-              <div>
-                <time class="text-sm text-gray-500">{formatDate(post.data.pubDate)}</time>
-                <h2 class="text-2xl font-semibold text-gray-900 mt-2 mb-3">
-                  <a href={`/blog/${post.slug}`} class="hover:text-indigo-600 transition-colors">
+            </article>
+          ))}
+        </section>
+      )
+    }
+
+    {
+      remainingPosts.length > 0 && (
+        <section class="space-y-6">
+          {remainingPosts.map((post) => (
+            <article class="border border-gray-200 rounded-2xl p-6 hover:border-gray-300 transition-colors">
+              <div class="flex flex-col gap-3">
+                <time class="text-sm text-gray-500">
+                  {formatDate(post.data.pubDate)}
+                </time>
+                <h3 class="text-xl font-semibold text-gray-900">
+                  <a
+                    href={`/blog/${post.slug}`}
+                    class="hover:text-indigo-600 transition-colors"
+                  >
                     {post.data.title}
                   </a>
-                </h2>
+                </h3>
                 {post.data.description && (
-                  <p class="text-gray-600 leading-relaxed">{post.data.description}</p>
+                  <p class="text-gray-600 leading-relaxed">
+                    {post.data.description}
+                  </p>
                 )}
-              </div>
-              <div>
                 <a
                   href={`/blog/${post.slug}`}
-                  class="inline-flex items-center font-semibold text-indigo-600"
+                  class="inline-flex items-center text-indigo-600 font-medium"
                 >
-                  Read article
-                  <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  Read more
+                  <svg
+                    class="ml-2 w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 5l7 7-7 7"
+                    />
                   </svg>
                 </a>
               </div>
-            </div>
-          </article>
-        ))}
-      </section>
-    )}
+            </article>
+          ))}
+        </section>
+      )
+    }
 
-    {remainingPosts.length > 0 && (
-      <section class="space-y-6">
-        {remainingPosts.map((post) => (
-          <article class="border border-gray-200 rounded-2xl p-6 hover:border-gray-300 transition-colors">
-            <div class="flex flex-col gap-3">
-              <time class="text-sm text-gray-500">{formatDate(post.data.pubDate)}</time>
-              <h3 class="text-xl font-semibold text-gray-900">
-                <a href={`/blog/${post.slug}`} class="hover:text-indigo-600 transition-colors">
-                  {post.data.title}
-                </a>
-              </h3>
-              {post.data.description && (
-                <p class="text-gray-600 leading-relaxed">{post.data.description}</p>
-              )}
-              <a href={`/blog/${post.slug}`} class="inline-flex items-center text-indigo-600 font-medium">
-                Read more
-                <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
-            </div>
-          </article>
-        ))}
-      </section>
-    )}
-
-    {posts.length === 0 && (
-      <div class="text-center py-16 border border-dashed border-gray-200 rounded-2xl">
-        <p class="text-lg text-gray-700 mb-2">No posts yet. Check back soon!</p>
-      </div>
-    )}
+    {
+      posts.length === 0 && (
+        <div class="text-center py-16 border border-dashed border-gray-200 rounded-2xl">
+          <p class="text-lg text-gray-700 mb-2">
+            No posts yet. Check back soon!
+          </p>
+        </div>
+      )
+    }
   </main>
 </Layout>

@@ -3,8 +3,6 @@ const navigation = {
   primary: [
     { name: "Docs", href: "/docs" },
     { name: "Changelog", href: "/changelog" },
-    { name: "Core Features", href: "/docs/guides/query-building" },
-    { name: "Advanced Features", href: "/docs/features/cross-filtering" },
     { name: "GitHub", href: "https://github.com/hypequery/hypequery" },
   ],
   social: [
@@ -40,16 +38,30 @@ const navigation = {
           The code-first analytics layer for ClickHouse
         </p>
       </div>
-      <div
-        class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-600"
-      >
-        {
-          navigation.primary.map((item) => (
-            <a href={item.href} class="hover:text-indigo-600">
-              {item.name}
-            </a>
-          ))
-        }
+      <div class="flex flex-col gap-6 text-sm text-gray-600 md:items-end">
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+          {
+            navigation.primary.map((item) => (
+              <a href={item.href} class="hover:text-indigo-600">
+                {item.name}
+              </a>
+            ))
+          }
+        </div>
+        <div class="text-gray-600 font-medium">
+          Feedback? <a
+            class="font-medium text-indigo-600 hover:underline"
+            href="https://github.com/hypequery/hypequery/issues"
+            target="_blank"
+            rel="noopener">Open an issue</a
+          >
+          or DM <a
+            class="font-medium text-indigo-600 hover:underline"
+            href="https://x.com/lureilly_"
+            target="_blank"
+            rel="noopener">@lureilly_</a
+          > on X.
+        </div>
       </div>
     </div>
     <div
