@@ -263,7 +263,7 @@ Run the fast feedback loop with:
 npm run test
 ```
 
-This command runs type checks + unit tests only. To exercise the ClickHouse-backed integration suite, ensure a test ClickHouse instance is available (or set the required env vars) and run:
+This command runs type checks + unit tests only. To exercise the ClickHouse-backed integration suite, copy `.env.test.example` to `.env.test`, point it at a ClickHouse instance, and run:
 
 ```bash
 npm run test:integration

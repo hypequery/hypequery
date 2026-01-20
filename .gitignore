@@ -19,6 +19,7 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+packages/clickhouse/.env.test
 
 # Testing
 coverage

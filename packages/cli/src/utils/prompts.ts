@@ -37,25 +37,25 @@ export async function promptClickHouseConnection(): Promise<{
       type: 'text',
       name: 'host',
       message: 'ClickHouse host (or skip to configure later):',
-      initial: process.env.CLICKHOUSE_HOST || 'http://localhost:8123',
+      initial: process.env.CLICKHOUSE_HOST ?? '',
     },
     {
       type: 'text',
       name: 'database',
       message: 'Database:',
-      initial: process.env.CLICKHOUSE_DATABASE || 'default',
+      initial: process.env.CLICKHOUSE_DATABASE ?? '',
     },
     {
       type: 'text',
       name: 'username',
       message: 'Username:',
-      initial: process.env.CLICKHOUSE_USERNAME || 'default',
+      initial: process.env.CLICKHOUSE_USERNAME ?? '',
     },
     {
       type: 'password',
       name: 'password',
       message: 'Password:',
-      initial: process.env.CLICKHOUSE_PASSWORD || '',
+      initial: process.env.CLICKHOUSE_PASSWORD ?? '',
     },
   ]);
 

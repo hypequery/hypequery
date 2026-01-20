@@ -5,8 +5,9 @@ This example shows how to expose hypequery routes inside a Next.js App Router pr
 ## Commands
 
 ```bash
-npm install
-npm run dev
+pnpm install
+cp .env.example .env   # fill in ClickHouse credentials
+pnpm run dev
 ```
 
 The `app/api/hypequery/[...hq]/route.ts` route handler forwards every request to the shared

@@ -8,12 +8,9 @@ need analytics (cron jobs, CLI tools, workers, etc.).
 
 ```bash
 cd examples/node-embedded
-npm install
-export CLICKHOUSE_URL=http://localhost:8123
-export CLICKHOUSE_USERNAME=default
-export CLICKHOUSE_PASSWORD=secret
-export CLICKHOUSE_DATABASE=default
-npm run dev
+pnpm install
+cp .env.example .env   # update values for your ClickHouse instance
+pnpm run dev
 ```
 
 `src/analytics/api.ts` defines a small serve catalog backed by ClickHouse. The

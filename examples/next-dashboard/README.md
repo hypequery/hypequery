@@ -17,13 +17,9 @@ agents, etc.).
 
 ```bash
 cd examples/next-dashboard
-npm install
-# Point the analytics client at ClickHouse (or swap the mock client)
-export CLICKHOUSE_URL=http://localhost:8123
-export CLICKHOUSE_USERNAME=default
-export CLICKHOUSE_PASSWORD=secret
-export CLICKHOUSE_DATABASE=default
-npm run dev
+pnpm install
+cp .env.example .env   # update values for your ClickHouse instance
+pnpm run dev
 ```
 
 When the dev server is running you can also explore `/api/hypequery` to see the

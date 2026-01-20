@@ -64,12 +64,21 @@ export async function initCommand(options: InitOptions = {}) {
   let tableCount = 0;
 
   if (options.noInteractive) {
-    // Use environment variables
+    const required = (key: string): string => {
+      const value = process.env[key];
+      if (!value) {
+        throw new Error(
+          `Missing ${key}. Provide ClickHouse connection info via environment variables when using --no-interactive.`,
+        );
+      }
+      return value;
+    };
+
     connectionConfig = {
-      host: process.env.CLICKHOUSE_HOST || 'http://localhost:8123',
-      database: process.env.CLICKHOUSE_DATABASE || 'default',
-      username: process.env.CLICKHOUSE_USERNAME || 'default',
-      password: process.env.CLICKHOUSE_PASSWORD || '',
+      host: required('CLICKHOUSE_HOST'),
+      database: required('CLICKHOUSE_DATABASE'),
+      username: required('CLICKHOUSE_USERNAME'),
+      password: process.env.CLICKHOUSE_PASSWORD ?? '',
     };
   } else {
     connectionConfig = await promptClickHouseConnection();
