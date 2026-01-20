@@ -1,164 +1,260 @@
-# hypequery
+<div align="center">
+  <h1>@hypequery/clickhouse</h1>
+  <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
+  
+  [![GitHub license](https://img.shields.io/github/license/hypequery/hypequery)](https://github.com/hypequery/hypequery/blob/main/LICENSE)
+  [![npm version](https://badge.fury.io/js/@hypequery%2Fclickhouse.svg)](https://badge.fury.io/js/@hypequery%2Fclickhouse)
+  [![GitHub stars](https://img.shields.io/github/stars/hypequery/hypequery)](https://github.com/hypequery/hypequery/stargazers)
+</div>
 
-[![@hypequery/react Coverage](https://img.shields.io/badge/coverage%20%40hypequery%2Freact-98.72%25-brightgreen)](packages/react)
-[![@hypequery/serve Coverage](https://img.shields.io/badge/coverage%20%40hypequery%2Fserve-81.83%25-green)](packages/serve)
-[![@hypequery/cli Coverage](https://img.shields.io/badge/coverage%20%40hypequery%2Fcli-77.92%25-yellowgreen)](packages/cli)
-[![@hypequery/clickhouse Coverage](https://img.shields.io/badge/coverage%20%40hypequery%2Fclickhouse-30.05%25-orange)](packages/clickhouse)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-Type-safe analytics layer for ClickHouse. Define metrics once with `defineServe`, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.
+## Overview
 
-## Quick Start
-
-```bash
-# No installation needed
-npx @hypequery/cli init
-```
-
-Or if you have the CLI installed:
-
-```bash
-npx hypequery init
-```
-
-Need to reuse the output/input types elsewhere (React components, API handlers, SDKs)? The helper types make that painless:
-
-```ts
-import type { InferQueryInput, InferQueryOutput, InferQueryResult } from '@hypequery/serve';
-import type { api } from './analytics/api';
-
-type ActiveUsersInput = InferQueryInput<typeof api, 'activeUsers'>;      // input schema
-type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;    // query return type (from ctx.db)
-type ActiveUsersResponse = InferQueryOutput<typeof api, 'activeUsers'>;  // Zod schema output if provided
-```
-
-- `InferQueryResult` mirrors the actual return type from your query implementation—perfect when you rely on the builder’s static typing.
-- `InferQueryOutput` reads the optional `outputSchema` if you need runtime validation to drive typing.
-- Both accept either the `serve.define` instance or a raw `ServeQueriesMap`, so you can point them at any slice of your analytics surface.
-
-### Define analytics
-
-```typescript
-import { initServe, type InferQueryResult } from '@hypequery/serve';
-import { z } from 'zod';
-import { db } from './analytics/client.js';
-
-const serve = initServe({
-  context: () => ({ db }),
-});
-const { query } = serve;
-
-export const api = serve.define({
-  queries: serve.queries({
-    activeUsers: query
-      .describe('List active users')
-      .input(z.object({ region: z.string().optional() }).default({}))
-      .query(async ({ ctx, input }) =>
-        ctx.db
-          .table('users')
-          .where('status', 'eq', 'active')
-          .where('region', 'eq', input.region ?? 'us')
-      ),
-  }),
-});
-
-// Export typed helpers for downstream usage
-export type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;
-```
-
-### Execute everywhere
-
-**Inline**
-```typescript
-const users = await api.execute('activeUsers');
-```
-
-**HTTP API**
-```bash
-GET /api/activeUsers
-```
-
-**React**
-```typescript
-const { data } = useQuery('activeUsers');
-```
-
-One definition. Every consumer.
-
-## Why `defineServe`
-
-- 🔁 Reuse metrics across SSR routes, background jobs, cron tasks, and agents
-- 🧩 Built-in HTTP server with docs + OpenAPI (`hypequery dev`)
-- 🔐 Auth, multi-tenant helpers, and lifecycle hooks
-- ⚡ Query-level caching, logging, streaming, and analytics
-- 🧪 Type-safe execution + schema-aware validation
-
-## CLI
-
-**No installation required** – run commands directly with `npx`:
-
-```bash
-# Scaffold analytics folder + env vars
-npx @hypequery/cli init
-
-# Dev server with docs & OpenAPI
-npx @hypequery/cli dev
-
-# Regenerate schema types
-npx @hypequery/cli generate
-
-# Emit typed client helpers for API routes
-npx @hypequery/cli create-api-types
-```
-
-Or install for shorter commands:
-
-```bash
-npm install -D @hypequery/cli
-
-# Then use:
-npx hypequery init
-npx hypequery dev
-```
-
-**TypeScript support**: The CLI auto-detects `.ts` files. Just make sure `tsx` is installed:
-
-```bash
-npm install -D tsx
-```
-
-See the [CLI documentation](https://github.com/hypequery/hypequery/tree/main/packages/cli#readme) for all options.
+hypequery is a typescript-first query builder for ClickHouse designed specifically for building type-safe analytics dashboards. Unlike generic SQL query builders, hypequery understands your ClickHouse schema and provides full type checking, making it ideal for data-intensive applications.
 
 ## Features
 
-- **Type-safe definitions** – strong typing for inputs, outputs, joins, filters
-- **SQL expression helpers** – `raw`, `rawAs`, `selectExpr`, `toDateTime`, etc.
-- **Advanced filtering** – predicate builders, nested `whereGroup`, custom operators
-- **Caching & observability** – SWR cache modes, deduplication, query logging
-- **Streaming** – Web Streams for large datasets
+- 🎯 **Type-Safe**: Full TypeScript support with types from your ClickHouse schema
+- 🚀 **Performant**: Built for real-time analytics with optimized query generation
+- 🔍 **Cross Filtering**: Powerful cross-filtering capabilities for interactive dashboards
+- 🛠️ **Developer Friendly**: Fluent API design for an intuitive development experience
+- 📱 **Platform Agnostic**: Works in both Node.js and browser environments
+- 🔄 **Schema Generation**: CLI tool to generate TypeScript types from your ClickHouse schema
 
-## Manual Installation
+## Installation
 
-Need to wire things up by hand? See the [Manual Installation guide](https://hypequery.com/docs/quickstart/installation).
+This library requires one of the following ClickHouse clients as a peer dependency:
 
-## Advanced (Standalone Query Builder)
+### For Node.js environments
+```bash
+npm install @hypequery/clickhouse
+```
 
-Most teams never touch the low-level query builder. If you truly need it outside `defineServe` (scripts, custom runtimes, migrations), read the [Standalone Query Builder](https://hypequery.com/docs/advanced/standalone-query-builder) guide.
+### For browser/universal environments
+```bash
+npm install @hypequery/clickhouse @clickhouse/client-web
+```
+
+**Note**: The library supports multiple client selection strategies:
+- **Manual injection**: Explicitly provide a client instance (required for browser environments)
+- **Auto-detection**: Automatically selects the client for Node.js environments
+
+## Quick Start
+
+### Node.js Environments
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+// Initialize the query builder
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'your-clickhouse-host',
+  username: 'default',
+  password: 'your-password',
+  database: 'default'
+});
+
+// Build and execute a query
+const results = await db
+  .table('trips')
+  .select(['pickup_datetime', 'dropoff_datetime', 'total_amount'])
+  .where('total_amount', '>', 50)
+  .orderBy('pickup_datetime', 'DESC')
+  .limit(10)
+  .execute();
+```
+
+### Browser Environments
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client-web';
+import type { IntrospectedSchema } from './generated-schema';
+
+// Create the ClickHouse client explicitly
+const client = createClient({
+  host: 'your-clickhouse-host',
+  username: 'default',
+  password: '',
+  database: 'default'
+});
+
+// Initialize the query builder with the client
+const db = createQueryBuilder<IntrospectedSchema>({
+  client // Explicitly provide the client
+});
+
+// Build and execute a query
+const results = await db
+  .table('trips')
+  .select(['pickup_datetime', 'dropoff_datetime', 'total_amount'])
+  .where('total_amount', '>', 50)
+  .orderBy('pickup_datetime', 'DESC')
+  .limit(10)
+  .execute();
+```
+
+## Schema Generation
+
+hypequery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
+
+```bash
+# Install globally (optional)
+npm install -g @hypequery/clickhouse
+
+# Generate schema types
+npx hypequery-generate-types --host your-clickhouse-host --database your-database
+```
+
+This creates a `generated-schema.ts` file that you can import in your application:
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  // connection details
+});
+```
+
+## Core Features
+
+### Type-Safe Queries
+
+hypequery provides full TypeScript support, ensuring your queries are type-safe:
+
+```typescript
+// Column names are type-checked
+const query = db.table('trips')
+  .select(['pickup_datetime', 'total_amount']) 
+  .where('total_amount', 'gt', 50)
+  .execute();
+
+// Type error if column doesn't exist
+db.table('trips').select(['non_existent_column']); // TypeScript error
+```
+
+### Cross Filtering
+
+Implement interactive dashboards with cross-filtering support:
+
+```typescript
+import { CrossFilter } from '@hypequery/clickhouse';
+
+// Create a filter
+const filter = new CrossFilter()
+  .add({
+    column: 'pickup_datetime',
+    operator: 'gte',
+    value: '2024-01-01'
+  })
+  .add({
+    column: 'total_amount',
+    operator: 'gt',
+    value: 20
+  });
+
+// Apply to multiple queries
+const query1 = db.table('trips')
+  .applyCrossFilters(filter)
+  .execute();
+
+const query2 = db.table('drivers')
+  .applyCrossFilters(filter)
+  .execute();
+```
+
+### Advanced Queries
+
+hypequery supports complex queries including joins, aggregations, and subqueries:
+
+```typescript
+// Aggregations
+const stats = await db.table('trips')
+  .avg('total_amount')
+  .max('trip_distance')
+  .count('trip_id')
+  .where('pickup_datetime', 'gte', '2024-01-01')
+  .execute();
+
+// Joins
+const tripsWithDrivers = await db.table('trips')
+  .select(['trips.trip_id', 'trips.total_amount', 'drivers.name'])
+  .join('drivers', 'trips.driver_id', 'drivers.id')
+  .execute();
+
+// Function predicates via builder callback
+const taggedProducts = await db.table('products')
+  .where(expr => expr.and([
+    expr.fn('hasAny', 'tags', ['launch', 'beta']),
+    expr.fn('endsWith', 'status', expr.literal('active'))
+  ]))
+  .orWhere(expr => expr.fn('notEmpty', 'tags'))
+  .toSQL();
+```
+
+**Benefits:**
+- ✅ Works in all environments (Node.js, browser, bundlers)
+- ✅ Explicit control over client configuration
+- ✅ Required for browser environments (require() doesn't work in browsers)
+- ✅ Synchronous API throughout
+
+#### 2. Auto-Detection with Fallback (Node.js Environments Only)
+
+```typescript
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'your-clickhouse-host',
+  username: 'default',
+  password: '',
+  database: 'default'
+});
+```
+
+
+## Versioning and Release Channels
+
+hypequery follows semantic versioning and provides multiple release channels:
+
+- **Latest**: Stable releases (`npm install @hypequery/clickhouse`)
+- **Beta**: Pre-release versions (`npm install @hypequery/clickhouse@beta`)
+
+## Documentation
+
+For detailed documentation and examples, visit our [documentation site](https://hypequery.com/docs).
+
+- [Getting Started](https://hypequery.com/docs/installation)
+- [Query Building](https://hypequery.com/docs/guides/query-building)
+- [Filtering](https://hypequery.com/docs/guides/filtering)
+- [Pagination](https://hypequery.com/docs/features/pagination)
+- [API Reference](https://hypequery.com/docs/reference/api)
+
+
+## Troubleshooting
+
+### Common Issues
+
+- **Connection Errors**: Ensure your ClickHouse server is running and accessible
+- **CORS Issues**: Use a proxy server for browser environments
+- **Type Errors**: Make sure to regenerate your schema types after schema changes
+- **Client Not Found**: Make sure you have installed at least one of the required peer dependencies:
+  - `@clickhouse/client` (for Node.js environments)
+  - `@clickhouse/client-web` (for browser/universal environments)
+- **Browser Auto-Detection**: Auto-detection doesn't work in browsers because `require()` calls don't work. Use manual injection instead.
+
 
 ## License
 
-Copyright 2024 hypequery
+This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+## Support
 
-    http://www.apache.org/licenses/LICENSE-2.0
+- 📚 [Documentation](https://hypequery.com/docs)
+- 🐛 [Issue Tracker](https://github.com/hypequery/hypequery/issues)
+- 💬 [Discussions](https://github.com/hypequery/hypequery/discussions)
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+---
 
-See [LICENSE](LICENSE) for the full license text.
+<div align="center">
+  <sub>Built with ❤️ by the hypequery team</sub>
+</div> 
