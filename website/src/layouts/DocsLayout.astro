@@ -78,11 +78,12 @@ const sidebar = [
   {
     title: "Reference",
     items: [
-      { title: "Serve reference", href: "/docs/reference/serve" },
-      { title: "CLI reference", href: "/docs/reference/cli" },
       { title: "Package overview", href: "/docs/reference/packages" },
+      { title: "Serve", href: "/docs/reference/serve" },
+      { title: "CLI", href: "/docs/reference/cli" },
+      { title: "React", href: "/docs/reference/react-package" },
       {
-        title: "Standalone Query Builder",
+        title: "ClickHouse Query Builder",
         href: "/docs/reference/standalone-query-builder",
       },
     ],
@@ -149,6 +150,36 @@ const currentSectionTitle = getCurrentSectionTitle(currentPath);
         });
       })();
     </script>
+    <script is:inline>
+      (() => {
+        const STORAGE_KEY = 'hypequery-docs-sidebar-scroll';
+        const SELECTOR = '[data-docs-sidebar-scroll]';
+        const restore = () => {
+          const el = document.querySelector(SELECTOR);
+          if (!el) return;
+          const saved = sessionStorage.getItem(STORAGE_KEY);
+          if (saved !== null) {
+            el.scrollTop = Number(saved);
+          }
+          let ticking = false;
+          const save = () => {
+            sessionStorage.setItem(STORAGE_KEY, String(el.scrollTop));
+            ticking = false;
+          };
+          el.addEventListener('scroll', () => {
+            if (!ticking) {
+              ticking = true;
+              requestAnimationFrame(save);
+            }
+          });
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', restore);
+        } else {
+          restore();
+        }
+      })();
+    </script>
     <Head title={title} description={description} favicon="/favicon.svg" />
   </head>
   <body class="h-full">
@@ -164,6 +195,7 @@ const currentSectionTitle = getCurrentSectionTitle(currentPath);
         >
           <div
             class="md:sticky md:top-10 h-auto md:h-[calc(100vh-4rem)] overflow-y-auto overflow-x-hidden -py-4 md:py-16 pl-0.5"
+            data-docs-sidebar-scroll
           >
             <nav class="w-full pr-4 md:pr-8 text-sm text-[var(--theme-text)]">
               <div class="space-y-8">
