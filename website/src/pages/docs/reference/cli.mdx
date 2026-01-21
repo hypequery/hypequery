@@ -36,13 +36,7 @@ npx hypequery dev
 
 ### TypeScript support
 
-If your queries file is TypeScript (`.ts`), the CLI will automatically detect and restart with TypeScript support. Make sure `tsx` is installed:
-
-```bash
-npm install -D tsx
-```
-
-The CLI will guide you if `tsx` is needed but not installed.
+`hypequery dev` ships with an embedded TypeScript runtime (powered by `tsx`). Point it at your `.ts` or `.tsx` queries file and the CLI transpiles it in-process—no extra dependencies, watchers, or custom launch commands required. If you already compile to JavaScript, you can still target the generated `.js` file instead.
 
 ## Commands at a glance
 
@@ -51,7 +45,6 @@ The CLI will guide you if `tsx` is needed but not installed.
 | `hypequery init` | Scaffold the `analytics/` folder, collect ClickHouse credentials, and optionally create an example query |
 | `hypequery dev [queries-file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
 | `hypequery generate` | Rebuild `analytics/schema.ts` (optionally watching for remote schema changes) |
-| `hypequery create-api-types [queries-file]` | Emit a typed client map (e.g., for `@hypequery/react`) referencing your serve API |
 
 The sections below expand on the supported options and expected behavior for each command.
 
@@ -138,7 +131,7 @@ npx @hypequery/cli dev --cache none
 
 **TypeScript files:**
 
-If your queries file is TypeScript, the CLI automatically detects and restarts with TypeScript support. Make sure `tsx` is installed (`npm install -D tsx`).
+Point the command at your TypeScript entry point (for example `analytics/queries.ts`) and the CLI loads it via the embedded runtime. No separate `tsx` install is necessary.
 
 ## `hypequery generate`
 
@@ -150,9 +143,12 @@ npx @hypequery/cli generate [options]
 npx hypequery generate [options]
 ```
 
+`hypequery generate` auto-detects your database configuration (currently ClickHouse) and ships with the necessary driver, so there’s no extra package to install. Use `--database <type>` once additional drivers become available or you want to override detection.
+
 **Options:**
 - **`--output <file>`** – Where to write the generated types. Defaults to your existing `analytics/schema.ts` or `analytics/schema.ts` if not found
 - **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected
+- **`--database <type>`** – Override the detected database driver (currently only `clickhouse`)
 - **`--watch`** – Poll ClickHouse every 30 seconds and regenerate types when the schema changes
 
 **What it does:**
@@ -176,44 +172,6 @@ npx @hypequery/cli generate --tables users,events
 
 # Watch mode for development
 npx @hypequery/cli generate --watch --output src/schema.ts
-```
-
-## `hypequery create-api-types`
-
-```bash
-# Without installation
-npx @hypequery/cli create-api-types [path/to/queries.ts] [options]
-
-# With installation
-npx hypequery create-api-types [path/to/queries.ts] [options]
-```
-
-**Options:**
-- **`[file]`** – Optional path to your `queries.ts`. Falls back to the same search paths as `hypequery dev` (`analytics/queries.ts`, `src/analytics/queries.ts`, `hypequery.ts`, etc.)
-- **`--output <file>`** – Destination for the generated type helper. Defaults to `client.ts` next to your queries file
-- **`--name <type>`** – Custom name for the exported type alias (default: `HypequeryApi`)
-
-**What it does:**
-
-The command:
-- Loads your serve definition from the queries file
-- Enumerates every query key
-- Generates a TypeScript type map with `InferQueryInput/InferQueryResult` for each query
-- Perfect for frontend React hooks with `@hypequery/react`
-
-Import the resulting type wherever you need an HTTP client—`@hypequery/react`, serverless functions, or SDKs that talk to the deployed API route—without bundling the original `queries.ts` into the client build.
-
-**Example:**
-
-```bash
-# Auto-detect queries file
-npx @hypequery/cli create-api-types
-
-# Specify custom queries file and output
-npx @hypequery/cli create-api-types src/queries.ts -o src/api-types.ts
-
-# Custom type name
-npx @hypequery/cli create-api-types --name MyApi
 ```
 
 ## Environment variables

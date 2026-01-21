@@ -49,13 +49,7 @@ Or add to your `package.json` scripts:
 
 ## TypeScript Support
 
-If your queries file is TypeScript (`.ts`), the CLI will automatically detect and restart with TypeScript support. Make sure you have `tsx` installed:
-
-```bash
-npm install -D tsx
-```
-
-The CLI will guide you if `tsx` is needed but not installed.
+`hypequery dev` bundles a TypeScript runtime (powered by `tsx`), so pointing it at `analytics/queries.ts` or any `.ts/.tsx` file just works—no extra install or custom runner required. If your project already compiles to JavaScript you can keep targeting the generated `.js` file instead.
 
 ## Commands
 
@@ -138,14 +132,7 @@ npx @hypequery/cli dev --cache none
 
 **Common Issues:**
 
-If you see "Unexpected token" errors with TypeScript files:
-```bash
-# Make sure tsx is installed
-npm install -D tsx
-
-# The CLI will automatically restart with TypeScript support
-npx @hypequery/cli dev
-```
+If you see "Unexpected token" errors while loading your queries, double-check that you're pointing the CLI at the TypeScript source file (e.g. `analytics/queries.ts`). The CLI bundles the loader and should not require additional dependencies.
 
 ### `hypequery generate`
 
@@ -159,6 +146,8 @@ npx @hypequery/cli generate
 npx hypequery generate
 ```
 
+The CLI bundles the ClickHouse driver directly, so you can run this command without installing `@hypequery/clickhouse`. Specify `--database <type>` once additional drivers become available.
+
 **What it does:**
 - Connects to ClickHouse
 - Introspects your database schema
@@ -168,7 +157,7 @@ npx hypequery generate
 **Options:**
 - `-o, --output <path>` - Output file (default: `analytics/schema.ts`)
 - `--tables <names>` - Only generate for specific tables (comma-separated)
-- `--watch` - Watch for schema changes and regenerate automatically
+- `--database <type>` - Override detected database (currently only `clickhouse`)
 
 **Example:**
 ```bash
@@ -178,43 +167,8 @@ npx @hypequery/cli generate
 # Generate specific tables
 npx @hypequery/cli generate --tables users,events
 
-# Watch mode for development
-npx @hypequery/cli generate --watch --output src/schema.ts
-```
-
-### `hypequery create-api-types`
-
-Generate a typed client map (perfect for `@hypequery/react`) from your serve export.
-
-```bash
-# Without installation
-npx @hypequery/cli create-api-types
-
-# With installation
-npx hypequery create-api-types
-```
-
-**What it does:**
-- Reads your queries file
-- Extracts all query definitions
-- Generates a TypeScript type map for type-safe client usage
-- Perfect for frontend React hooks with `@hypequery/react`
-
-**Options:**
-- `[file]` - Path to your queries module (default: auto-detected from `analytics/queries.ts`, `src/analytics/queries.ts`, or `hypequery.ts`)
-- `-o, --output <path>` - Output file (default: `<queries-dir>/client.ts`)
-- `-n, --name <type>` - Exported type alias name (default: `HypequeryApi`)
-
-**Example:**
-```bash
-# Auto-detect queries file
-npx @hypequery/cli create-api-types
-
-# Specify custom queries file and output
-npx @hypequery/cli create-api-types src/queries.ts -o src/api-types.ts
-
-# Custom type name
-npx @hypequery/cli create-api-types --name MyApi
+# Custom output path
+npx @hypequery/cli generate --output src/schema.ts
 ```
 
 ## Package Scripts
@@ -226,8 +180,7 @@ Add these to your `package.json` for easy access:
   "scripts": {
     "db:init": "hypequery init",
     "db:dev": "hypequery dev",
-    "db:generate": "hypequery generate",
-    "db:types": "hypequery create-api-types"
+    "db:generate": "hypequery generate"
   }
 }
 ```

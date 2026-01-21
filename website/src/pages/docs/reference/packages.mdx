@@ -12,7 +12,7 @@ hypequery ships a small set of focused packages. Use this page as a quick refere
 | --- | --- |
 | `@hypequery/serve` | Core runtime for authoring queries/metrics with `initServe`, exposing them via HTTP, and executing them in-process (cron, SSR, agents). Includes middleware, auth, OpenAPI/docs, and adapters. |
 | `@hypequery/clickhouse` | Fluent, type-safe ClickHouse client used inside `ctx.db`. Exposes the query builder, expression helpers, caching utilities, and logging APIs you can also use standalone. |
-| `@hypequery/cli` | Developer tooling (`hypequery init`, `hypequery dev`, `hypequery generate`, `hypequery create-api-types`). Handles scaffolding, schema introspection, and local docs. |
+| `@hypequery/cli` | Developer tooling (`hypequery init`, `hypequery dev`, `hypequery generate`). Handles scaffolding, schema introspection, and local docs. |
 | [`@hypequery/react`](./react-package) | TanStack Query-powered hooks (`useQuery`, `useMutation`) generated from your `serve.define` catalog so React apps can call metrics with full typing. |
 
 ## Typical project setup
@@ -25,8 +25,3 @@ Most apps depend on just three packages:
 
 Reach for `@hypequery/react` when you need hooks in UI code.
 
-## Related docs
-
-- [Serve reference](/docs/reference/serve)
-- [CLI reference](/docs/reference/cli)
-- [Standalone Query Builder](/docs/reference/standalone-query-builder)

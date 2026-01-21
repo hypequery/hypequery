@@ -1,7 +1,9 @@
 import { pathToFileURL } from 'node:url';
-import { spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
+import { ensureTypeScriptRuntime } from './ensure-ts-runtime.js';
+
+const TYPESCRIPT_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts']);
 
 export async function loadApiModule(modulePath: string) {
   const resolved = path.resolve(process.cwd(), modulePath);
@@ -19,47 +21,18 @@ export async function loadApiModule(modulePath: string) {
     );
   }
 
-  // If it's a TypeScript file and tsx isn't already loaded, re-exec with tsx
-  const isTypeScript = resolved.endsWith('.ts') || resolved.endsWith('.mts') || resolved.endsWith('.cts');
-  if (isTypeScript && !process.env.TSX_LOADED) {
-    // Check if tsx is available
+  // Load the embedded tsx runtime on demand for any TypeScript entrypoint
+  const extension = path.extname(resolved).toLowerCase();
+  const isTypeScript = TYPESCRIPT_EXTENSIONS.has(extension);
+  if (isTypeScript) {
     try {
-      // @ts-ignore - tsx module might not have types
-      await import('tsx/esm');
-    } catch {
+      await ensureTypeScriptRuntime();
+    } catch (error: any) {
       throw new Error(
-        `To run TypeScript files directly, install tsx:\n  npm install -D tsx\n\nOr compile your TypeScript first and use the .js file instead.`
+        `Failed to load TypeScript support. This should never happen because the CLI bundles tsx.\n` +
+        `Original error: ${error?.message ?? error}`
       );
     }
-
-    // Re-exec the current command with tsx
-    console.error('\n⚠️  TypeScript detected. Restarting with tsx...\n');
-
-    // Use npx tsx to run the CLI binary directly
-    // This is more reliable than using --import tsx/esm
-    const child = spawn(
-      'npx',
-      ['tsx', ...process.argv.slice(1)],
-      {
-        stdio: 'inherit',
-        env: {
-          ...process.env,
-          TSX_LOADED: 'true', // Prevent infinite restart loop
-        },
-      }
-    );
-
-    child.on('exit', (code) => {
-      process.exit(code || 0);
-    });
-
-    child.on('error', (error) => {
-      console.error('Failed to restart with tsx:', error);
-      process.exit(1);
-    });
-
-    // Return a never-resolving promise since we're exiting
-    return new Promise(() => {});
   }
 
   // Load the module (works for both .js and .ts if tsx is loaded)

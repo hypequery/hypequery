@@ -264,7 +264,7 @@ import type { api } from '../../api/queries';
 // Automatic type inference - no manual type definition needed!
 type Api = InferApiType<typeof api>;
 
-export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
+export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
   config: {
     hello: { method: 'GET' },
@@ -278,13 +278,10 @@ export const { useQuery, useMutation, HypequeryProvider } = createHooks<Api>({
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { HypequeryProvider } from './lib/hypequery-client';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <HypequeryProvider>
-      <App />
-    </HypequeryProvider>
+    <App />
   </StrictMode>
 );
 ```

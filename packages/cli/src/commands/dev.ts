@@ -60,11 +60,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       }
       logger.success(`Registered ${queryCount} ${queryCount === 1 ? 'query' : 'queries'}`);
 
-      if (options.cache !== 'none') {
-        const cacheType = options.cache || 'memory';
-        logger.success(`Caching enabled (${cacheType})`);
-      }
-
       logger.newline();
 
       // Start the server

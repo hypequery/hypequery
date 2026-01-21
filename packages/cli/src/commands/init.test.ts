@@ -21,9 +21,10 @@ vi.mock('ora', () => ({
   })),
 }));
 
-// Mock the clickhouse import
-vi.mock('@hypequery/clickhouse/cli', () => ({
-  generateTypes: vi.fn().mockResolvedValue(undefined),
+const mockGenerateTypes = vi.fn().mockResolvedValue(undefined);
+const mockGetTypeGenerator = vi.fn(() => mockGenerateTypes);
+vi.mock('../generators/index.js', () => ({
+  getTypeGenerator: mockGetTypeGenerator,
 }));
 
 // Import after mocks
@@ -159,8 +160,6 @@ describe('init command - graceful failure handling', () => {
 
   describe('Successful connection scenarios', () => {
     it('should generate real types when connection succeeds', async () => {
-      const { generateTypes } = await import('@hypequery/clickhouse/cli');
-
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
@@ -175,7 +174,7 @@ describe('init command - graceful failure handling', () => {
 
       await initCommand({});
 
-      expect(generateTypes).toHaveBeenCalled();
+      expect(mockGenerateTypes).toHaveBeenCalled();
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('.env'),
         expect.not.stringContaining('YOUR_CLICKHOUSE_HOST')
