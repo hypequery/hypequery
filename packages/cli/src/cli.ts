@@ -57,7 +57,6 @@ program
   .option('-o, --output <path>', 'Output file (default: analytics/schema.ts)')
   .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
   .option('--database <type>', 'Database driver to use (default: auto-detect)')
-  .option('--watch', 'Watch for schema changes')
   .action(async (options) => {
     try {
       await generateCommand(options);

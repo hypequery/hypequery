@@ -6,6 +6,8 @@ export function generateQueriesTemplate(options: {
   tableName?: string;
 }): string {
   const { hasExample, tableName } = options;
+  const metricKey = hasExample && tableName ? `${camelCase(tableName)}Query` : 'exampleMetric';
+  const typeAlias = `${pascalCase(metricKey)}Result`;
 
   let template = `import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
@@ -45,8 +47,11 @@ export const api = serve.define({
 /**
  * Inline usage example:
  *
- * const result = await api.execute('${hasExample && tableName ? camelCase(tableName) + 'Query' : 'exampleMetric'}');
+ * const result = await api.execute('${metricKey}');
  * console.log(result);
+ *
+ * // import type { InferQueryResult } from '@hypequery/serve';
+ * type ${typeAlias} = InferQueryResult<typeof api, '${metricKey}'>;
  *
  * Dev server:
  *
@@ -62,4 +67,9 @@ export const api = serve.define({
  */
 function camelCase(str: string): string {
   return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function pascalCase(str: string): string {
+  const camel = camelCase(str);
+  return camel.charAt(0).toUpperCase() + camel.slice(1);
 }

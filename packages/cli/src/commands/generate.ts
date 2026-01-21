@@ -8,7 +8,6 @@ import { getTypeGenerator } from '../generators/index.js';
 export interface GenerateOptions {
   output?: string;
   tables?: string;
-  watch?: boolean;
   database?: DatabaseType;
 }
 
@@ -69,43 +68,6 @@ export async function generateCommand(options: GenerateOptions = {}) {
     logger.header('Types regenerated successfully!');
     logger.newline();
 
-    // Watch mode
-    if (options.watch) {
-      logger.info('Watching ClickHouse schema for changes...');
-      logger.newline();
-
-      // Poll for schema changes every 30 seconds
-      let lastTableCount = tableCount;
-
-      setInterval(async () => {
-        const currentTableCount = await getTableCount(dbType);
-
-        if (currentTableCount !== lastTableCount) {
-          logger.newline();
-          logger.reload(`Schema changed (${Math.abs(currentTableCount - lastTableCount)} ${currentTableCount > lastTableCount ? 'new' : 'removed'} tables)`);
-
-          const regenerateSpinner = ora('Regenerating types...').start();
-
-          await generator({
-            outputPath,
-            includeTables: parsedTables,
-          });
-
-          regenerateSpinner.succeed('Regenerated types');
-          logger.success(`Updated ${path.relative(process.cwd(), outputPath)}`);
-          logger.newline();
-
-          lastTableCount = currentTableCount;
-        }
-      }, 30000); // Check every 30 seconds
-
-      // Keep process alive
-      process.on('SIGINT', () => {
-        logger.newline();
-        logger.info('Stopping watch mode...');
-        process.exit(0);
-      });
-    }
   } catch (error) {
     spinner.fail('Failed to generate types');
     logger.newline();

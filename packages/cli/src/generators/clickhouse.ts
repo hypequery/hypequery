@@ -169,23 +169,6 @@ export async function generateClickHouseTypes(options: ClickHouseGeneratorOption
 
     typeDefinitions += '\n}\n\n';
   }
-
-  typeDefinitions += `
-/**
- * Usage example:
- *
- * import { createQueryBuilder } from '@hypequery/clickhouse';
- * import { IntrospectedSchema } from './path-to-this-file';
- *
- * const db = createQueryBuilder<IntrospectedSchema>();
- * const results = await db
- *   .table('${tables.length > 0 ? tables[0].name : 'table_name'}')
- *   .select(['column1', 'column2'])
- *   .where('column1', 'eq', 'value')
- *   .execute();
- */
-`;
-
   const outputDir = path.dirname(path.resolve(outputPath));
   await fs.mkdir(outputDir, { recursive: true });
   await fs.writeFile(path.resolve(outputPath), typeDefinitions);

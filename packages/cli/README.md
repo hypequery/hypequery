@@ -158,7 +158,6 @@ The CLI bundles the ClickHouse driver directly, so you can run this command with
 - `-o, --output <path>` - Output file (default: `analytics/schema.ts`)
 - `--tables <names>` - Only generate for specific tables (comma-separated)
 - `--database <type>` - Override detected database (currently only `clickhouse`)
-- `--watch` - Watch for schema changes and regenerate automatically
 
 **Example:**
 ```bash
@@ -168,8 +167,8 @@ npx @hypequery/cli generate
 # Generate specific tables
 npx @hypequery/cli generate --tables users,events
 
-# Watch mode for development
-npx @hypequery/cli generate --watch --output src/schema.ts
+# Custom output path
+npx @hypequery/cli generate --output src/schema.ts
 ```
 
 ## Package Scripts
