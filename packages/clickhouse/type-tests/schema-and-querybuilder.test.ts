@@ -27,8 +27,8 @@ type EventsRecord = TableRecord<AppSchema['events']>;
 
 // Validate column inference from ClickHouse primitives
 type _UsersIdIsNumber = Expect<Equal<UsersRecord['id'], number>>;
-type _UsersCreatedAtIsDate = Expect<Equal<UsersRecord['created_at'], Date>>;
-type _EventsTimestampIsDate = Expect<Equal<EventsRecord['ts'], Date>>;
+type _UsersCreatedAtIsString = Expect<Equal<UsersRecord['created_at'], string>>;
+type _EventsTimestampIsString = Expect<Equal<EventsRecord['ts'], string>>;
 
 // Validate TableColumn helper emits both qualified + bare column unions
 type ExpectedColumns =

@@ -68,7 +68,7 @@ export type InferClickHouseType<T extends ClickHouseType, Depth extends number =
   : T extends ClickHouseInteger ? number
   : T extends ClickHouseFloat ? number
   : T extends ClickHouseDecimal ? number
-  : T extends ClickHouseDateTime ? Date
+  : T extends ClickHouseDateTime ? string
   : T extends ClickHouseString ? string
   : T extends ClickHouseEnum ? string
   : T extends ClickHouseBoolean ? boolean
