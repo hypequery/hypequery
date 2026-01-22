@@ -26,11 +26,11 @@ export const api = defineServe({
         const sql = `
           SELECT toStartOfDay(created_at) AS day, count(*) AS signups
           FROM signups
-          WHERE account_id = {account:String}
+          WHERE account_id = :accountId
           GROUP BY day
           ORDER BY day
         `;
-        return ctx.db.rawQuery(sql, { account: input.accountId });
+        return ctx.db.rawQuery(sql, { accountId: input.accountId });
       },
     },
   },
@@ -166,7 +166,7 @@ recentEvents: {
 - `rawQuery` returns `unknown[]` by default; pass a type argument when you call it:
 
   ```ts
-  const rows = await ctx.db.rawQuery<{ day: string; signups: number }>(sql, [input.accountId]);
+  const rows = await ctx.db.rawQuery<{ day: string; signups: number }>(sql, { accountId: input.accountId });
   ```
 
 - For full-query SQL, you’re responsible for marshaling the result shape; wrap the call in your own TypeScript types if needed.

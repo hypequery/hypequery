@@ -11,7 +11,11 @@ Generating TypeScript types from your ClickHouse database is fundamental to buil
 ## Usage
 
 ```bash
-npx hypequery-generate-types [options]
+# Without installing the CLI locally
+npx @hypequery/cli generate [options]
+
+# With @hypequery/cli installed in devDependencies
+npx hypequery generate [options]
 ```
 
 ## Command Line Options
@@ -22,46 +26,26 @@ npx hypequery-generate-types [options]
     <th>Description</th>
   </tr>
   <tr>
-    <td><code>--output=&lt;path&gt;</code></td>
-    <td>Path where TypeScript definitions will be saved (default: "./generated-schema.ts")</td>
+    <td><code>--output &lt;file&gt;</code></td>
+    <td>Path to write the generated schema. Defaults to <code>analytics/schema.ts</code> (or updates the existing file).</td>
   </tr>
   <tr>
-    <td><code>--host=&lt;url&gt;</code></td>
-    <td>ClickHouse server URL (default: http://localhost:8123)</td>
+    <td><code>--tables &lt;names&gt;</code></td>
+    <td>Comma-separated list of tables to include. By default, every table in the database is introspected.</td>
   </tr>
   <tr>
-    <td><code>--username=&lt;user&gt;</code></td>
-    <td>ClickHouse username (default: default)</td>
-  </tr>
-  <tr>
-    <td><code>--password=&lt;password&gt;</code></td>
-    <td>ClickHouse password</td>
-  </tr>
-  <tr>
-    <td><code>--database=&lt;db&gt;</code></td>
-    <td>ClickHouse database name (default: default)</td>
-  </tr>
-  <tr>
-    <td><code>--include-tables=&lt;tables&gt;</code></td>
-    <td>Comma-separated list of tables to include (default: all)</td>
-  </tr>
-  <tr>
-    <td><code>--exclude-tables=&lt;tables&gt;</code></td>
-    <td>Comma-separated list of tables to exclude (default: none)</td>
-  </tr>
-  <tr>
-    <td><code>--secure</code></td>
-    <td>Use HTTPS/TLS for secure connection (required for ClickHouse Cloud)</td>
+    <td><code>--database &lt;type&gt;</code></td>
+    <td>Force a specific database driver. Currently only <code>clickhouse</code> is supported.</td>
   </tr>
   <tr>
     <td><code>--help</code>, <code>-h</code></td>
-    <td>Show help text</td>
+    <td>Show usage info.</td>
   </tr>
 </table>
 
 ## Environment Variables
 
-The CLI will automatically read connection details from environment variables if not specified via command-line options:
+The CLI automatically reads connection details from environment variables, so you rarely need to pass credentials as flags:
 
 <table style="width: 100%;">
   <tr>
@@ -70,64 +54,47 @@ The CLI will automatically read connection details from environment variables if
   </tr>
   <tr>
     <td>CLICKHOUSE_HOST</td>
-    <td>ClickHouse server URL (default: http://localhost:8123)</td>
-  </tr>
-  <tr>
-    <td>CLICKHOUSE_USER</td>
-    <td>ClickHouse username (default: default)</td>
-  </tr>
-  <tr>
-    <td>CLICKHOUSE_PASSWORD</td>
-    <td>ClickHouse password</td>
+    <td>Fully-qualified ClickHouse host URL (e.g., https://example.clickhouse.cloud:8443)</td>
   </tr>
   <tr>
     <td>CLICKHOUSE_DATABASE</td>
-    <td>ClickHouse database name (default: default)</td>
+    <td>Database name to introspect (defaults to <code>default</code>)</td>
+  </tr>
+  <tr>
+    <td>CLICKHOUSE_USERNAME</td>
+    <td>Username used for CLI connections</td>
+  </tr>
+  <tr>
+    <td>CLICKHOUSE_PASSWORD</td>
+    <td>Password or token for the user</td>
   </tr>
 </table>
 
-> **Note for Framework Users:** The CLI also supports framework-specific environment variable prefixes. For Vite applications, you can use `VITE_CLICKHOUSE_*` variables (e.g., `VITE_CLICKHOUSE_HOST`). For Next.js applications, you can use `NEXT_PUBLIC_CLICKHOUSE_*` variables (e.g., `NEXT_PUBLIC_CLICKHOUSE_HOST`). These alternatives are checked if the standard variables are not found.
+Legacy aliases such as `CLICKHOUSE_URL`, `CLICKHOUSE_USER`, and `CLICKHOUSE_PASS` are also picked up automatically.
 
 ## Examples
 
 ### Basic Usage
 
 ```bash
-# Generate schema with default settings
-npx hypequery-generate-types
+# Generate schema with default settings (writes to analytics/schema.ts)
+npx hypequery generate
 
 # Specify an output path
-npx hypequery-generate-types --output=./src/types/db-schema.ts
+npx hypequery generate --output=./src/types/db-schema.ts
 
-# Connect to a local ClickHouse instance
-npx hypequery-generate-types --host=http://localhost:8123 --username=default --password=password --database=my_db
+# Rerun anytime your ClickHouse schema changes
 ```
 
-### ClickHouse Cloud
+### ClickHouse Cloud or custom hosts
 
 ```bash
-# Connect to ClickHouse Cloud with secure connection
-npx hypequery-generate-types --host=https://your-instance.clickhouse.cloud:8443 --username=default --password=your-password --database=your_db --secure
-```
-
-### Filtering Tables
-
-```bash
-# Only include specific tables
-npx hypequery-generate-types --include-tables=users,orders,products
-
-# Exclude specific tables
-npx hypequery-generate-types --exclude-tables=temp_tables,log_tables
-```
-
-### Using Environment Variables
-
-```bash
-# Using standard environment variables
-CLICKHOUSE_HOST=http://localhost:8123 CLICKHOUSE_PASSWORD=password npx hypequery-generate-types
-
-# For Next.js projects
-NEXT_PUBLIC_CLICKHOUSE_HOST=https://your-instance.clickhouse.cloud:8443 NEXT_PUBLIC_CLICKHOUSE_PASSWORD=your-password npx hypequery-generate-types --secure
+# Inline env vars (or store them in .env)
+CLICKHOUSE_HOST=https://your-instance.clickhouse.cloud:8443 \
+CLICKHOUSE_DATABASE=default \
+CLICKHOUSE_USERNAME=default \
+CLICKHOUSE_PASSWORD=your-password \
+  npx hypequery generate
 ```
 
 ## Generated Types
@@ -178,7 +145,7 @@ import { IntrospectedSchema } from './types/db-schema';
 // Create a type-safe query builder
 const db = createQueryBuilder<IntrospectedSchema>({
   host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
+  username: process.env.CLICKHOUSE_USERNAME,
   password: process.env.CLICKHOUSE_PASSWORD,
   database: process.env.CLICKHOUSE_DATABASE
 });
@@ -193,174 +160,17 @@ async function getUsers() {
 }
 ```
 
-### In React Applications
-
-#### With useState Hook
-
-```tsx
-import { useState, useEffect } from 'react';
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { IntrospectedSchema, UsersRecord } from './types/db-schema';
-
-function UsersList() {
-  // Type is inferred from the query result
-  const [users, setUsers] = useState<Pick<UsersRecord, 'id' | 'name'>[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const db = createQueryBuilder<IntrospectedSchema>({
-      host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST!,
-      username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,
-      password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
-      database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE
-    });
-
-    async function fetchUsers() {
-      setLoading(true);
-      try {
-        const result = await db.table('users')
-          .select(['id', 'name'])
-          .execute();
-        setUsers(result);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchUsers();
-  }, []);
-
-  if (loading) return <div>Loading...</div>;
-
-  return (
-    <ul>
-      {users.map(user => (
-        <li key={user.id}>{user.name}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
-### With React Query
-
-React Query (TanStack Query) provides excellent TypeScript support and can infer types from your query functions:
-
-```tsx
-import { useQuery } from '@tanstack/react-query';
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { IntrospectedSchema } from './types/db-schema';
-
-// Create db instance outside component to avoid recreating on each render
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.NEXT_PUBLIC_CLICKHOUSE_HOST!,
-  username: process.env.NEXT_PUBLIC_CLICKHOUSE_USER,
-  password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD,
-  database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE
-});
-
-function UsersList() {
-  // Types are automatically inferred from the query function
-  const { data: users, isLoading, error } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => db.table('users')
-      .select(['id', 'name'])
-      .execute()
-  });
-
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>Error: {String(error)}</div>;
-
-  return (
-    <ul>
-      {users?.map(user => (
-        <li key={user.id}>{user.name}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
 ## Troubleshooting
 
 ### Common Issues
 
 - **Connection Refused**: Ensure your ClickHouse server is running and accessible from your current environment.
 - **Authentication Failed**: Check your username and password.
-- **SSL/Certificate Issues**: For secure connections (especially with ClickHouse Cloud), use the `--secure` flag.
+- **SSL/Certificate Issues**: Ensure your `CLICKHOUSE_HOST` uses `https://` for ClickHouse Cloud and that local certificates are trusted.
 - **Database Not Found**: Verify the database name is correct.
 
 For detailed error messages and troubleshooting, run the CLI with the help flag:
 
 ```bash
-npx hypequery-generate-types --help
+npx hypequery generate --help
 ```
-
-## Security Best Practices
-
-### Frontend Security Concerns
-
-When building client-side applications like React, Next.js, or Vue apps, storing database credentials in frontend environment variables (like `NEXT_PUBLIC_*` variables) can pose security risks. These credentials are:
-
-- Exposed to the client's browser
-- Potentially visible in your JavaScript bundle
-- Accessible to any user of your application
-
-### Recommended Approaches
-
-#### 1. Backend API Layer (Recommended)
-
-Create a backend API that handles database communication:
-
-```
-Client App → Backend API → ClickHouse Database
-```
-
-```typescript
-// Frontend code
-import { useQuery } from '@tanstack/react-query';
-
-function DataComponent() {
-  const { data, isLoading } = useQuery({
-    queryKey: ['data'],
-    queryFn: () => fetch('/api/data').then(res => res.json())
-  });
-  
-  // Render component with data...
-}
-
-// Backend API (e.g., Next.js API route, Express endpoint)
-// Keep credentials in server-side environment variables
-const db = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST, // Not exposed to client
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE
-});
-
-// API endpoint handles database queries
-app.get('/api/data', async (req, res) => {
-  const results = await db.table('your_table').execute();
-  res.json(results);
-});
-```
-
-#### 2. Read-Only Access
-
-If you must connect directly from the frontend:
-
-1. Create a dedicated read-only database user with minimal permissions
-2. Implement row-level security in ClickHouse where possible
-3. Use HTTPS and ensure proper CORS configuration
-
-#### 3. Authentication Proxy
-
-Deploy a service that sits between your frontend and ClickHouse:
-
-1. Frontend authenticates with the proxy using tokens or API keys
-2. Proxy validates requests and forwards them to ClickHouse
-3. Proxy handles credentials securely server-side
-
-For more information on secure application architectures, watch for the upcoming security guide (coming soon).

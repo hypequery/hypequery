@@ -1,81 +1,94 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Vite Integration
-description: Build type-safe APIs with hypequery in Vite applications
+title: Vite + hypequery
+description: Run hypequery as a standalone API next to a Vite/React frontend.
 ---
 
-# Vite Integration
+# Vite + hypequery
 
-Learn how to integrate hypequery into your Vite application using a standalone API server.
+Expose analytics through a dedicated hypequery server and call it from your Vite frontend via a proxy.
 
-## Use Case
+## Use case
 
-You want to:
-- Build data APIs for your Vite/React app
-- Create type-safe endpoints for your queries
-- Run hypequery as a separate microservice
-- Develop frontend and backend independently
+You want separate frontend/backend processes so you can:
+- Keep the analytics API in its own Node process (or container)
+- Proxy `/api/*` requests during development to avoid CORS
+- Deploy the API independently (Render, Railway, Fly.io, etc.)
 
-## Quick Start
+## Prerequisites
 
-Initialize hypequery in your Vite project:
+- Node.js 18+
+- Vite + React project (`npm create vite@latest my-app -- --template react`)
+- ClickHouse credentials (`CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`)
+- Packages: `@hypequery/serve`, `@hypequery/clickhouse`, `zod`, `@tanstack/react-query`
 
 ```bash
-# Navigate to your Vite project
-cd my-vite-app
-
-# Install hypequery
-npm install @hypequery/serve @hypequery/cli zod
-npm install -D concurrently
+npm install @hypequery/serve @hypequery/clickhouse zod
+npm install @tanstack/react-query
 ```
 
-## Define Your Queries
+## 1. Define the API (standalone Node entry)
 
-Create your API queries (e.g., `api/queries.ts`):
+`api/queries.ts`
 
 ```typescript
+import 'dotenv/config';
 import { initServe } from '@hypequery/serve';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 import { z } from 'zod';
 
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD,
+});
+
 const { define, queries, query } = initServe({
-  context: () => ({}),
+  context: () => ({ db }),
 });
 
 export const api = define({
   queries: queries({
     hello: query
-      .describe('Simple hello query')
-      .output(z.object({
-        message: z.string(),
-        timestamp: z.string(),
-      }))
+      .describe('Simple greeting')
+      .output(z.object({ message: z.string(), at: z.string() }))
       .query(async () => ({
-        message: 'Hello from hypequery!',
-        timestamp: new Date().toISOString(),
+        message: 'Hello from hypequery! ',
+        at: new Date().toISOString(),
       })),
 
-    stats: query
-      .describe('Get application stats')
-      .output(z.object({
-        users: z.number(),
-        revenue: z.number(),
-      }))
-      .query(async () => ({
-        users: 1337,
-        revenue: 98765,
-      })),
+    weeklyRevenue: query
+      .describe('Revenue by ISO week')
+      .input(z.object({ startDate: z.string(), endDate: z.string() }))
+      .output(z.array(z.object({ week: z.string(), revenue: z.number() })))
+      .query(async ({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .where('created_at', 'gte', input.startDate)
+          .where('created_at', 'lte', input.endDate)
+          .groupBy(['toISOWeek(created_at) AS week'])
+          .sum('amount', 'revenue')
+          .orderBy('week', 'ASC')
+          .execute()
+      ),
   }),
 });
 
-// Register routes
 api
   .route('/hello', api.queries.hello, { method: 'GET' })
-  .route('/stats', api.queries.stats, { method: 'GET' });
+  .route('/weeklyRevenue', api.queries.weeklyRevenue, { method: 'POST' });
 ```
 
-## Configure Vite Proxy
+### Run the API locally
 
-Add proxy configuration to `vite.config.ts`:
+```bash
+npx hypequery dev api/queries.ts --port 4000
+# Docs → http://localhost:4000/docs
+```
+
+## 2. Proxy `/api/*` requests in Vite
+
+`vite.config.ts`
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -95,238 +108,80 @@ export default defineConfig({
 });
 ```
 
-This proxies requests from `/api/*` to your hypequery server running on port 4000.
+During development `fetch('/api/hello')` hits the hypequery server without CORS hassles.
 
-## Update Package Scripts
+## 3. Build a tiny client helper
 
-Add scripts to run both servers in `package.json`:
+`src/lib/hypequery.ts`
+
+```typescript
+export async function callMetric<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    headers: { 'content-type': 'application/json', ...(options?.headers ?? {}) },
+    ...options,
+  });
+  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+  return res.json();
+}
+```
+
+## 4. Use metrics in React components
+
+`src/App.tsx`
+
+```tsx
+import { useState } from 'react';
+import { callMetric } from './lib/hypequery';
+
+export default function App() {
+  const [hello, setHello] = useState<any>(null);
+  const [revenue, setRevenue] = useState<any>(null);
+
+  return (
+    <main>
+      <button onClick={() => callMetric('/hello').then(setHello)}>Greet</button>
+      <button
+        onClick={() =>
+          callMetric('/weeklyRevenue', {
+            method: 'POST',
+            body: JSON.stringify({ startDate: '2024-01-01', endDate: '2024-01-31' }),
+          }).then(setRevenue)
+        }
+      >
+        Load Revenue
+      </button>
+
+      {hello && <pre>{JSON.stringify(hello, null, 2)}</pre>}
+      {revenue && <pre>{JSON.stringify(revenue, null, 2)}</pre>}
+    </main>
+  );
+}
+```
+
+## 5. Develop both servers together
+
+`package.json`
 
 ```json
 {
   "scripts": {
     "dev": "vite",
-    "api": "hypequery dev api/queries.ts",
-    "dev:all": "concurrently \"npm run dev\" \"npm run api\"",
-    "build": "tsc && vite build"
+    "api": "hypequery dev api/queries.ts --port 4000",
+    "dev:all": "concurrently \"npm run dev\" \"npm run api\""
   }
 }
 ```
 
-## Start Development Servers
+Run `npm run dev:all` to start Vite (port 5173) and hypequery (port 4000) simultaneously.
 
-Run both Vite and hypequery:
+## Deployment tips
 
-```bash
-# Run both servers simultaneously
-npm run dev:all
+- Ship the hypequery API as its own service (`npx hypequery serve api/queries.ts --port 4000` or Docker).
+- Point `baseUrl` to the hosted API (e.g., `https://analytics.myapp.com`).
+- In production builds, update `callMetric` to hit the real URL instead of the Vite proxy.
 
-# Or run in separate terminals:
-# Terminal 1
-npm run dev
+## Next steps
 
-# Terminal 2
-npm run api
-```
-
-Your setup:
-- **Vite dev server**: `http://localhost:5173`
-- **hypequery API**: `http://localhost:4000`
-- **Proxied API**: `http://localhost:5173/api/*`
-
-## Frontend Integration
-
-Call your API from React components:
-
-```typescript
-// src/App.tsx
-import { useState } from 'react';
-
-function App() {
-  const [data, setData] = useState<any>(null);
-
-  const fetchHello = async () => {
-    const res = await fetch('/api/hello');
-    const json = await res.json();
-    setData(json);
-  };
-
-  return (
-    <div>
-      <h1>hypequery + Vite</h1>
-      <button onClick={fetchHello}>Fetch Hello</button>
-      {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
-    </div>
-  );
-}
-
-export default App;
-```
-
-## How It Works
-
-1. **Two Servers**: Vite (port 5173) and hypequery (port 4000) run separately
-2. **Proxy**: Vite forwards `/api/*` requests to hypequery server
-3. **No CORS**: Proxy avoids cross-origin issues during development
-4. **Hot Reload**: Both servers support hot reload on file changes
-
-```
-Frontend Request: /api/hello
-         ↓
-Vite Proxy: http://localhost:5173/api/hello
-         ↓
-Rewrite & Forward: http://localhost:4000/hello
-         ↓
-hypequery Server: Returns response
-```
-
-## Production Deployment
-
-### Option 1: Separate Services
-
-Deploy frontend and API as separate services:
-
-**Frontend (Vite)**:
-```bash
-npm run build
-# Deploy dist/ to Netlify, Vercel, etc.
-# Update API base URL to production API
-```
-
-**Backend (hypequery)**:
-```bash
-# Deploy as standalone service
-npx hypequery serve api/queries.ts --port 4000
-# Or use Docker, Railway, Render, etc.
-```
-
-Update your fetch calls to use production API URL:
-
-```typescript
-const API_URL = import.meta.env.PROD
-  ? 'https://api.myapp.com'
-  : '/api';
-
-fetch(`${API_URL}/hello`);
-```
-
-### Option 2: Unified Deployment
-
-Serve both from a single domain using a reverse proxy (nginx, Caddy):
-
-```nginx
-# nginx config
-location /api/ {
-  proxy_pass http://hypequery:4000/;
-}
-
-location / {
-  root /var/www/html;
-  try_files $uri /index.html;
-}
-```
-
-## Environment Variables
-
-Configure different URLs for dev/prod:
-
-```typescript
-// src/config.ts
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
-```
-
-```bash
-# .env.production
-VITE_API_URL=https://api.production.com
-```
-
-## Benefits
-
-- **Separation of Concerns**: Frontend and API are independent
-- **Microservice Ready**: Easy to scale API separately
-- **Framework Agnostic**: Works with Vue, Svelte, vanilla JS
-- **Development DX**: Hot reload on both frontend and API
-- **No CORS Issues**: Proxy handles cross-origin in dev
-
-## Advanced: Type-Safe Client
-
-For full type safety, use the hypequery React hooks with automatic type inference:
-
-```bash
-npm install @hypequery/react @tanstack/react-query
-```
-
-```typescript
-// src/lib/hypequery-client.ts
-import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
-import type { api } from '../../api/queries';
-
-// Automatic type inference - no manual type definition needed!
-type Api = InferApiType<typeof api>;
-
-export const { useQuery, useMutation } = createHooks<Api>({
-  baseUrl: '/api',
-  config: {
-    hello: { method: 'GET' },
-    stats: { method: 'GET' },
-  },
-});
-```
-
-```typescript
-// src/main.tsx
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
-```
-
-```typescript
-// src/App.tsx
-import { useQuery } from './lib/hypequery-client';
-
-function App() {
-  const { data, isLoading } = useQuery('hello');
-
-  if (isLoading) return <div>Loading...</div>;
-
-  return (
-    <div>
-      <h1>{data?.message}</h1>
-      <p>{data?.timestamp}</p>
-    </div>
-  );
-}
-```
-
-## Troubleshooting
-
-### Proxy Not Working
-
-Ensure:
-1. hypequery server is running on port 4000
-2. Proxy config in `vite.config.ts` is correct
-3. You're using `/api/` prefix in fetch calls
-
-### Port Conflicts
-
-Change the hypequery port:
-
-```json
-{
-  "scripts": {
-    "api": "hypequery dev api/queries.ts --port 3001"
-  }
-}
-```
-
-Update proxy target accordingly.
-
----
-
-**Related**: [HTTP & OpenAPI](/docs/ship/http-openapi) | [Next.js Integration](/docs/recipes/nextjs) | [React Hooks](/docs/reference/react)
+- Protect the API with `auth: async () => ({ userId, roles, tenantId })` and `tenant: { extract }`
+- Use `@hypequery/react` to generate React Query hooks instead of `callMetric`
+- Add caching to the ClickHouse builder (`cache: { mode: 'stale-while-revalidate', ttlMs: ... }`)

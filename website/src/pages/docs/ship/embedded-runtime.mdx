@@ -26,7 +26,7 @@ You don’t need HTTP to execute hypequery metrics. Every `defineServe` export e
 import { api } from '../analytics/queries';
 
 export async function syncDailyRevenue() {
-  const result = await api.execute('dailyRevenue', {
+  const result = await api.run('dailyRevenue', {
     input: { start: '2024-01-01', end: '2024-01-31' },
     context: { jobId: crypto.randomUUID() },
   });
@@ -35,7 +35,7 @@ export async function syncDailyRevenue() {
 }
 ```
 
-- `api.execute(key, options)` runs the endpoint in-process with the same validation, middleware, and hooks as HTTP.
+- `api.run(key, options)` runs the endpoint in-process with the same validation, middleware, and hooks as HTTP.
 - `input` must match the endpoint’s `inputSchema`. If validation fails, the method throws an error containing the validation issues.
 - `context` lets you inject per-call data (job IDs, loggers, cache handles) that your middleware or resolver can read.
 
@@ -45,12 +45,12 @@ export async function syncDailyRevenue() {
 import { api } from '../../analytics/queries';
 
 export async function GET() {
-  const result = await api.execute('activeUsers');
+  const result = await api.run('activeUsers');
   return Response.json(result);
 }
 ```
 
-This pattern keeps HTTP thin: the server component just forwards inputs to `api.execute` and returns the result. You still benefit from Zod validation, middleware, and hooks.
+This pattern keeps HTTP thin: the server component just forwards inputs to `api.run` and returns the result. You still benefit from Zod validation, middleware, and hooks.
 
 ### Test or staging harness
 
@@ -60,7 +60,7 @@ import { describe, it, expect } from 'vitest';
 
 describe('activeUsers metric', () => {
   it('returns the most recent rows', async () => {
-    const result = await api.execute('activeUsers', {
+    const result = await api.run('activeUsers', {
       input: { limit: 10 },
     });
 
@@ -74,10 +74,10 @@ Embedding metrics directly makes automated tests trivial: no HTTP servers to spi
 ## Safety checklist
 
 - **Environment variables** – Load creds before importing `analytics/queries.ts`. In ESM/TS projects the easiest option is `import 'dotenv/config'` in your entrypoint.
-- **Auth context** – If you rely on `auth` strategies, pass a `request` shape to `api.execute` via `options.request`. That ensures the strategy receives headers/tokens.
+- **Auth context** – If you rely on `auth` strategies, pass a `request` shape to `api.run` via `options.request`. That ensures the strategy receives headers/tokens.
 - **Tenant enforcement** – Global/per-endpoint `tenant` configs still apply. For background jobs that legitimately bypass tenant checks, disable the tenant config on that endpoint.
-- **Error handling** – `api.execute` throws when the endpoint would have returned an error response. Wrap calls in try/catch to handle validation failures or ClickHouse errors gracefully.
+- **Error handling** – `api.run` throws when the endpoint would have returned an error response. Wrap calls in try/catch to handle validation failures or ClickHouse errors gracefully.
 
-With these patterns you can run hypequery definitions anywhere in your runtime—no HTTP server required.
+With these patterns you can run hypequery definitions anywhere in your runtime.
 
 </div>

@@ -64,6 +64,7 @@ You can describe endpoints declaratively or pass executable functions directly. 
 | --- | --- | --- | --- |
 | `query` | `ExecutableQuery` | required | Resolver (`({ input, ctx }) => result`) or legacy `(input, ctx)` function/object with `run`. |
 | `method` | `HttpMethod` | `"GET"` | HTTP verb for the endpoint. |
+| `name` | `string` | query key | Human-readable label shown in docs, OpenAPI, and `api.describe()`. |
 | `inputSchema` / `outputSchema` | `Zod` schemas | `z.any()` | Validation + OpenAPI shape for request/response payloads. |
 | `middlewares` | `ServeMiddleware[]` | `[]` | Endpoint-specific middleware stack (runs after global middlewares). |
 | `auth` | `AuthStrategy | null` | inherits global | Per-endpoint auth override; returning `null` rejects the request. |
@@ -84,6 +85,7 @@ Executable functions can be passed directly in `queries` when you just need a ha
 | `builder.use(middleware)` | Push a global middleware executed before every handler. Useful for logging, tracing, or mutating context. |
 | `builder.useAuth(strategy)` | Append an `AuthStrategy`. If at least one strategy exists the docs/OpenAPI metadata reflect `requiresAuth`. |
 | `builder.execute(key, { input, context, request })` | Run a query in-process without HTTP. Perfect for SSR, cron jobs, or tests. Throws when the endpoint returns an error response. |
+| `builder.run(key, options?)` | Alias of `builder.execute` (same signature) for in-process execution. |
 | `builder.describe()` | Returns a structured description (key, path, method, metadata) for downstream tooling. |
 | `builder.handler` | Low-level `ServeHandler` function you can pass into any adapter (Node, Fetch, Edge). |
 | `builder.start(options?)` | Convenience helper that starts the default Node server (internally uses `startNodeServer`). Resolves to `{ stop() }`. |
@@ -106,6 +108,24 @@ Executable functions can be passed directly in `queries` when you just need a ha
 - **`AuthStrategy`** – `({ request, endpoint }) => auth | null`. Compose multiple strategies to support API keys, JWTs, and tenant lookups.
 - **`TenantConfig`** – Enforce tenant isolation by extracting IDs, requiring presence, and optionally auto-injecting filters.
 - **`ServeLifecycleHooks`** – Observe every request for logging/metrics/tracing.
+- **`ErrorEnvelope`** – Shape of errors returned from hypequery endpoints:
+
+  ```json
+  {
+    "error": {
+      "type": "VALIDATION_ERROR" | "UNAUTHORIZED" | "QUERY_FAILURE" | "CLICKHOUSE_UNREACHABLE" | "RATE_LIMITED" | "NOT_FOUND" | "INTERNAL_SERVER_ERROR",
+      "message": "Human-friendly summary",
+      "details": {
+        "issues": [ /* zod validation errors */ ],
+        "reason": "missing_credentials",
+        "queryId": "...",
+        // ... provider-specific metadata
+      }
+    }
+  }
+  ```
+
+  Use this structure when surfacing errors to clients or agents so they can branch on the `type` field.
 
 With these pieces you can embed analytics directly in your app, expose an HTTP API, or plug the same definitions into edge runtimes without rewriting handlers.
 

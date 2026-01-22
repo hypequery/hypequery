@@ -95,7 +95,7 @@ const unsubscribe = logger.subscribeToQuery('users-demo', (log) => {
   console.log('Query log:', log);
 });
 
-await api.execute('users', { request: { queryId: 'users-demo' } });
+await api.run('users', { request: { queryId: 'users-demo' } });
 
 unsubscribe();
 ```
@@ -161,7 +161,7 @@ logger.configure({
 ## Example Log Output
 
 ```typescript
-await api.execute('builderSource');
+await api.run('builderSource');
 
 // You'll see logs like:
 // [hypequery Debug] Query started: SELECT id, name FROM users WHERE age > ?

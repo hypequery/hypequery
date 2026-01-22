@@ -225,6 +225,23 @@ describe("defineServe", () => {
     expect(result).toEqual([{ value: 0, ctx: "execute" }, { value: 1, ctx: "execute" }]);
   });
 
+  it('exposes api.run as an alias for api.execute', async () => {
+    const api = defineServe({
+      queries: {
+        hello: {
+          inputSchema: z.object({ name: z.string() }),
+          query: async ({ input }) => ({ message: `hi ${input.name}` }),
+        },
+      },
+    });
+
+    const viaRun = await api.run('hello', { input: { name: 'Ada' } });
+    expect(viaRun).toEqual({ message: 'hi Ada' });
+
+    const viaExecute = await api.execute('hello', { input: { name: 'Ada' } });
+    expect(viaExecute).toEqual(viaRun);
+  });
+
   it("invokes lifecycle hooks for HTTP and execute flows", async () => {
     const hooks = {
       onRequestStart: vi.fn(),
@@ -386,14 +403,14 @@ describe("defineServe", () => {
 
   it("auto-injects tenant filters when mode is auto-inject", async () => {
     // Create a mock query builder to verify tenant filtering is applied
-    const queryLog: Array<{ table: string; filters: Array<{ column: string; value: string }> }> = [];
+    const queryLog: Array<{ table: string; filters: Array<{ column: string; operator: string; value: string }> }> = [];
 
     const mockDb = {
       table: (name: string) => {
-        const filters: Array<{ column: string; value: string }> = [];
+        const filters: Array<{ column: string; operator: string; value: string }> = [];
         const chainable: any = {
           where: (column: string, operator: string, value: string) => {
-            filters.push({ column, value });
+            filters.push({ column, operator, value });
             return chainable; // Return self for chaining
           },
           select: () => {
@@ -445,10 +462,12 @@ describe("defineServe", () => {
     expect(queryLog[0].table).toBe("users");
     expect(queryLog[0].filters).toContainEqual({
       column: "organization_id",
+      operator: "eq",
       value: "org-456",
     });
     expect(queryLog[0].filters).toContainEqual({
       column: "status",
+      operator: "=",
       value: "active",
     });
   });

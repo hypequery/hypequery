@@ -4,6 +4,8 @@ title: Manual Installation
 description: Install @hypequery packages, configure env vars, and prep your project for the CLI
 ---
 
+import Callout from '../../../components/Callout.astro';
+
 <div class="prose">
 
 # Manual Installation
@@ -15,7 +17,6 @@ Use this page as the “zero-to-installed” checklist before you run the CLI or
 - **Node.js 18+** (local dev relies on native `fetch` and top-level await)
 - **Package manager** – npm, pnpm, or Yarn
 - **ClickHouse instance** – self-hosted or ClickHouse Cloud
-- **Env loader** – `dotenv` or any framework mechanism that hydrates `process.env`
 
 ## 1. Install core packages
 
@@ -35,11 +36,6 @@ yarn add -D @hypequery/cli
 yarn add @hypequery/clickhouse @hypequery/serve
 ```
 
-Notes:
-
-- Install the CLI locally so your team pins a version in `package.json`. Run via `npx hypequery <command>` or `npm run hypequery -- <command>`.
-- You can still install the CLI globally for convenience, but keep the project-local dependency for CI and teammates.
-
 ## 2. Configure environment variables
 
 Create an `.env` file (the CLI will generate one later, but manual setup works too):
@@ -51,17 +47,18 @@ CLICKHOUSE_USERNAME=cli_user
 CLICKHOUSE_PASSWORD=super-secret
 ```
 
-Load this file before importing `analytics/client.ts`. For plain Node projects add `dotenv/config` to the top of your entrypoint or run scripts with `node -r dotenv/config ./your-script.ts` during development.
+## 3. Manual project setup
 
-## 3. Manual project setup (optional)
-
-If you’d rather not run `hypequery init` yet:
+If you’d rather not run `hypequery init` but want to install manually:
 
 1. Create `analytics/schema.ts`, `analytics/client.ts`, and `analytics/queries.ts`.
-2. `schema.ts` can begin as an empty interface:
-   ```ts
-   export interface IntrospectedSchema {}
+
+2. Generate schema types from your ClickHouse instance:
+   ```bash
+   npx hypequery generate --output analytics/schema.ts
    ```
+   The CLI reads the `CLICKHOUSE_*` vars you set earlier, introspects tables, and writes type-safe definitions to `schema.ts`. Re-run this anytime your ClickHouse schema changes.
+
 3. `client.ts` wires the ClickHouse connection:
    ```ts
    import 'dotenv/config';
@@ -75,29 +72,29 @@ If you’d rather not run `hypequery init` yet:
      password: process.env.CLICKHOUSE_PASSWORD,
    });
    ```
-4. `queries.ts` exports a placeholder `defineServe` instance:
+
+4. `queries.ts` exports a placeholder Serve instance:
    ```ts
-   import { defineServe } from '@hypequery/serve';
+   import { initServe } from '@hypequery/serve';
    import { db } from './client';
 
-   export const api = defineServe({
+   const { define, queries, query } = initServe({
      context: () => ({ db }),
-     queries: {
-       healthcheck: {
-         query: async () => ({ ok: true }),
-       },
-     },
+   });
+
+   export const api = define({
+     queries: queries({
+       healthcheck: query
+         .describe('Health check placeholder')
+         .query(async () => ({ ok: true })),
+     }),
    });
    ```
-
-You can rerun `npx hypequery init --force` later to regenerate these files with richer scaffolding and type generation.
 
 ## 4. Framework notes
 
 **Next.js / Remix / other SSR frameworks**
 
-- Keep the `analytics/` directory at the project root so the CLI and server runtimes resolve files consistently.
-- Add a script like `"hq": "hypequery"` to `package.json`, then run `npm run hq dev` during development.
 - Ensure env vars are available wherever you import `api`. When deploying to edge platforms, swap the handler with the fetch adapter:
 
   ```ts
@@ -113,28 +110,10 @@ You can rerun `npx hypequery init --force` later to regenerate these files with 
 
 **Vite / SPA frameworks**
 
-- Store hypequery files server-side—browsers should call the generated HTTP endpoints, not ClickHouse directly.
-- Proxy `/docs` and `/openapi.json` from the dev server if you want UI parity with your frontend preview.
-
-## 5. Verify the install
-
-Run a couple of quick checks:
-
-```bash
-npx hypequery --help
-npx hypequery init --no-interactive --database clickhouse --path analytics --no-example
-```
-
-The second command exits early if required env vars are missing—ideal for CI smoke tests.
+- Store hypequery files server-side, browsers should call the generated HTTP endpoints, not ClickHouse directly.
 
 ## Next steps
 
-- [Project setup](/docs/quickstart/project-setup) – guided CLI walkthrough
-- [First metric](/docs/quickstart/first-metric) – define and run your first query
-- [Serve reference](/docs/reference/serve) – deep dive into `defineServe`, middleware, and adapters
-+
-+:::info
-+Looking for framework or use-case specific examples? Check out the [recipes section](/docs/recipes).
-+:::
- 
+- Explore the fluent builder in [Query Building](/docs/define/query-building)
+
  </div>

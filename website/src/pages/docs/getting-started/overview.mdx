@@ -10,7 +10,7 @@ description: Learn what hypequery is and why you should use it for ClickHouse de
 
 hypequery is a code-first analytics layer for ClickHouse.
 
-It lets you define analytics logic, queries and metrics in TypeScript, give them names, types, and schemas, and execute them anywhere they're needed: inside backend services, background jobs, APIs, dashboards, or AI agents.
+It lets you define queries in TypeScript, give them names, types, and schemas, and execute them anywhere they're needed: inside backend services, background jobs, APIs, dashboards, or AI agents.
 
 Instead of scattering SQL across applications, dashboards, and scripts, hypequery gives you a single, versioned place where analytics logic lives. In code.
 
@@ -53,9 +53,9 @@ hypequery provides a small set of opt-in building blocks:
 
 - **Optional HTTP & OpenAPI exposure** — Expose the same definitions as APIs when needed, with generated OpenAPI specs.
 
-- **Schemas, documentation, and discovery** — Metrics are typed, named, and introspectable, usable by both humans and machines.
+- **React hooks — Generate TanStack Query hooks (`useQuery`, `useMutation`) straight from your `serve.define` catalog for type-safe UI consumption.
 
-- **ClickHouse-native by design** — Built specifically for ClickHouse performance characteristics and deployment models.
+- **Inference for clients & agents** — Extract the same schema metadata to power API clients, agents, or cron jobs without copy/pasting types.
 
 
 Each primitive can be used independently. There is no required runtime, server, or hosted service.
@@ -65,7 +65,7 @@ Each primitive can be used independently. There is no required runtime, server, 
 
 ### Backend & platform teams
 
-Define analytics once and reuse them across services, cron jobs, background workers, and internal tools — without copying SQL or re-implementing logic.
+Define analytics once and reuse them across services, cron jobs, background workers, and internal tools, without copying SQL or re-implementing logic.
 
 ### Internal dashboards
 
@@ -73,7 +73,7 @@ Expose a small, trusted set of metrics to dashboards instead of letting each cha
 
 ### AI agents & automation
 
-Give agents structured, discoverable analytics with typed inputs and outputs — not raw SQL strings or brittle prompts.
+Give agents structured, discoverable analytics with typed inputs and outputs. Not raw SQL strings or brittle prompts.
 
 ### Data teams on ClickHouse
 

@@ -820,7 +820,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
 
   return {
     cache: cacheController,
-    async rawQuery<TResult = any>(sql: string, params: unknown[] = []) {
+    async rawQuery<TResult = any>(sql: string, params: Record<string, unknown> = {}) {
       const client = ClickHouseConnection.getClient();
       const finalSQL = substituteParameters(sql, params);
       const result = await client.query({

@@ -133,6 +133,15 @@ npx @hypequery/cli dev --cache none
 
 Point the command at your TypeScript entry point (for example `analytics/queries.ts`) and the CLI loads it via the embedded runtime. No separate `tsx` install is necessary.
 
+
+## `hypequery serve [file]`
+
+```bash
+npx @hypequery/cli serve src/analytics/queries.ts --port 4000
+```
+
+Starts a production-ready HTTP server without file watching (ideal for Docker/PM2). Accepts the same flags as `dev` (port, hostname, cache options). Use this command in containers or long-running processes when you don’t need auto-reload.
+
 ## `hypequery generate`
 
 ```bash
@@ -149,7 +158,6 @@ npx hypequery generate [options]
 - **`--output <file>`** – Where to write the generated types. Defaults to your existing `analytics/schema.ts` or `analytics/schema.ts` if not found
 - **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected
 - **`--database <type>`** – Override the detected database driver (currently only `clickhouse`)
-- **`--watch`** – Poll ClickHouse every 30 seconds and regenerate types when the schema changes
 
 **What it does:**
 
@@ -170,8 +178,6 @@ npx @hypequery/cli generate
 # Generate specific tables only
 npx @hypequery/cli generate --tables users,events
 
-# Watch mode for development
-npx @hypequery/cli generate --watch --output src/schema.ts
 ```
 
 ## Environment variables

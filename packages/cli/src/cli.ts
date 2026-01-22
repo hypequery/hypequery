@@ -91,7 +91,7 @@ program.on('--help', () => {
   console.log('  hypequery init');
   console.log('  hypequery dev');
   console.log('  hypequery dev --port 3000');
-  console.log('  hypequery generate --watch');
+  console.log('  hypequery generate --output analytics/schema.ts');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

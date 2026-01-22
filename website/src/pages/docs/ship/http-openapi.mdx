@@ -62,7 +62,7 @@ curl -X POST http://localhost:4000/revenue
 # {"total": 125000, "count": 450}
 ```
 
-That's it! Your query is now available as an HTTP endpoint with auto-generated OpenAPI docs at `http://localhost:4000/docs`.
+That's it! Your query is now available as an HTTP endpoint with auto-generated OpenAPI docs at `http://localhost:4000/docs`. In production you can call `await api.start({ port: 3000 })` or reuse `api.handler` inside your framework (Next.js, Express, etc.) to serve the same routes—`npx hypequery dev` is just the quickest way to preview locally.
 
 ## Deployment Models
 
@@ -80,22 +80,53 @@ Integrate hypequery directly into your web framework. Routes run on the **same p
 
 ```typescript
 // app/api/hypequery/[...hq]/route.ts
-import { createVercelEdgeHandler } from '@hypequery/serve';
 import { api } from '@/analytics/queries';
 
 export const runtime = 'nodejs';
-const baseHandler = createVercelEdgeHandler(api.handler);
 
-const handler = async (request: Request, context: { params: Promise<{ hq: string[] }> }) => {
-  const params = await context.params;
-  const path = `/${params.hq.join('/')}`;
-  const url = new URL(request.url);
-  url.pathname = path;
-  return baseHandler(new Request(url, request));
-};
+export const GET = api.handler;
+export const POST = api.handler;
+```
 
-export const GET = handler;
-export const POST = handler;
+**Example: Express**
+
+Use the Node adapter to mount hypequery alongside your existing routes:
+
+```typescript
+// server.ts
+import express from 'express';
+import { createNodeHandler } from '@hypequery/serve/adapters/node';
+import { api } from './analytics/queries';
+
+const app = express();
+
+app.use('/api/hypequery', createNodeHandler(api.handler));
+
+app.listen(3000, () => {
+  console.log('App + hypequery running on http://localhost:3000');
+});
+```
+
+**Example: Hono / Fetch runtimes**
+
+When you need an Edge-style handler (Cloudflare Workers, Deno, Bun), wrap `api.handler` with the fetch adapter:
+
+```typescript
+// hono-app.ts
+import { Hono } from 'hono';
+import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+import { api } from './analytics/queries';
+
+const app = new Hono();
+const hypequeryHandler = createFetchHandler(api.handler);
+
+app.all('/api/hypequery/*', async (c) => {
+  const url = new URL(c.req.url);
+  url.pathname = url.pathname.replace(/^\/api\/hypequery/, '') || '/';
+  return hypequeryHandler(new Request(url, c.req.raw));
+});
+
+export default app;
 ```
 
 **Port configuration:**

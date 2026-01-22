@@ -1,0 +1,42 @@
+---
+export interface Props {
+  tone?: 'info' | 'warning' | 'success';
+  title?: string;
+}
+
+const { tone = 'info', title }: Props = Astro.props;
+
+const variants = {
+  info: {
+    border: 'border-blue-100/60 dark:border-blue-400/40',
+    background: 'bg-blue-50/80 dark:bg-slate-900/90',
+    text: 'text-blue-900 dark:text-slate-100',
+    icon: 'text-blue-500',
+  },
+  warning: {
+    border: 'border-amber-100/60 dark:border-amber-500/40',
+    background: 'bg-amber-50/80 dark:bg-slate-900/90',
+    text: 'text-amber-900 dark:text-slate-100',
+    icon: 'text-amber-500',
+  },
+  success: {
+    border: 'border-emerald-100/60 dark:border-emerald-500/40',
+    background: 'bg-emerald-50/80 dark:bg-slate-900/90',
+    text: 'text-emerald-900 dark:text-slate-100',
+    icon: 'text-emerald-500',
+  },
+} as const;
+
+const variant = variants[tone] ?? variants.info;
+---
+<div class={`not-prose my-6 rounded-xl border ${variant.border} ${variant.background} p-4 text-sm ${variant.text}`}>
+  <div class="flex items-start gap-3">
+    <svg class={`h-5 w-5 flex-shrink-0 ${variant.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 1010 10A10 10 0 0012 2z" />
+    </svg>
+    <div class="space-y-2">
+      {title && <p class="font-semibold leading-5">{title}</p>}
+      <slot />
+    </div>
+  </div>
+</div>

@@ -4,9 +4,11 @@ title: Query Building - hypequery
 description: Learn how to build powerful queries with hypequery's fluent API
 ---
 
+import Callout from '../../../components/Callout.astro';
+
 # Query Building
 
-hypequery ships with a fluent type-safe query builder exposed from the  `@hypequery/clickhouse` package. This can be used in isolation, see the reference guide [here](/docs/reference/standalone-query-builder) or more commonly, when you define queries inside the `defineServe` function.
+hypequery ships with a fluent type-safe query builder exposed from the `@hypequery/clickhouse` package. This can be used in isolation, see the reference guide [here](/docs/reference/standalone-query-builder) or when you define queries inside the `defineServe` function.
 
 This page shows the most common clauses: `select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and `toSQL`.
 
@@ -26,43 +28,6 @@ export const api = define({
   }),
 });
 ```
-
-> Tip: `serve.queries(...)` keeps contextual typing intact. If you destructure `const { define, queries, query } = initServe(...)`, the rest of the examples work the same way.
-
-## Reusing query types
-
-Need fully typed inputs/outputs elsewhere (React hooks, API routes, SDKs)? Use the helper types exported from `@hypequery/serve`:
-
-```ts
-import type { InferQueryInput, InferQueryOutput, InferQueryResult } from '@hypequery/serve';
-import type { api } from './analytics/api';
-
-type TripsInput = InferQueryInput<typeof api, 'tripsQuery'>;        // input schema
-type TripsResult = InferQueryResult<typeof api, 'tripsQuery'>;     // builder return type
-type TripsResponse = InferQueryOutput<typeof api, 'tripsQuery'>;   // zod-derived type if provided
-```
-
-Use `InferQueryResult` when you trust the builder’s static typing (no schema required). `InferQueryOutput` reads the optional `outputSchema`, which is handy when runtime validation is the source of truth. Both helpers accept either the `serve.define` instance or a raw `ServeQueriesMap`, so you can infer types from any subset of queries.
-
-### Inline execution helpers
-
-Calling `await api.execute('tripsQuery')` now returns the same type as `InferQueryResult<typeof api, 'tripsQuery'>`. For inline scripts or devtools, you can lean on the helper to annotate external call sites:
-
-```ts
-import { api } from './analytics/api';
-import type { InferQueryResult } from '@hypequery/serve';
-
-type Trips = InferQueryResult<typeof api, 'tripsQuery'>;
-
-export async function listTrips(): Promise<Trips> {
-  return api.execute('tripsQuery');
-}
-```
-
-If your query returns a builder directly, make sure to `.execute()` before returning so the type collapses to the parsed result instead of the intermediate `QueryBuilder`.
-
-
----
 
 ## Selecting columns
 
@@ -195,18 +160,11 @@ tupleJoin: {
 
 ## Joins
 
-<div class="not-prose my-6 rounded-xl border border-blue-100/60 bg-blue-50/80 dark:bg-slate-900/90 dark:border-blue-400/40 p-4 text-sm text-blue-900 dark:text-slate-100">
-  <div class="flex items-start gap-3">
-    <svg class="h-5 w-5 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 1010 10A10 10 0 0012 2z" />
-    </svg>
-    <p class="text-sm leading-5 text-blue-900">
-      TypeScript only exposes columns from a joined table after you register the join. Call
-      <code>leftJoin('users', ...)</code> before referencing <code>users.email</code> in <code>select</code>,
-      <code>where</code>, etc., so those fields exist on the builder type.
-    </p>
-  </div>
-</div>
+<Callout>
+    TypeScript only exposes columns from a joined table after you register the join. Call
+    <code>leftJoin('users', ...)</code> before referencing <code>users.email</code> in <code>select</code>,
+    <code>where</code>, etc., so those fields exist on the builder type.
+</Callout>
 
 ```ts
 ordersWithUsers: {
@@ -240,25 +198,6 @@ revenueByCountry: {
 ```
 
 Call aggregation helpers (`sum`, `avg`, `count`, `distinctCount`, etc.) before `groupBy`.
-
----
-
-## Having
-
-```ts
-powerUsers: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .select(['user_id'])
-      .sum('total', 'total_spent')
-      .groupBy(['user_id'])
-      .having((expr) => expr.fn('sum', 'total').gt(5000))
-      .having((expr) => expr.fn('count').gte(3)),
-}
-```
-
-`having` accepts raw strings or predicate callbacks. Each call is AND-ed.
 
 ---
 

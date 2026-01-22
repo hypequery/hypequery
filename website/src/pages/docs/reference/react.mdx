@@ -100,7 +100,7 @@ Mutations share the same typed `input`/`output` data.
 
 ## HTTP Method Configuration
 
-By default, all hooks use `POST` requests. You can configure HTTP methods per query:
+By default, hooks issue `GET` requests (matching the default route method). Override them per query when you need `POST`, `PUT`, etc.:
 
 ```ts
 import { createHooks } from '@hypequery/react';
@@ -119,46 +119,64 @@ export const { useQuery, useMutation } = createHooks<Api>({
 });
 ```
 
-**GET requests:**
-- Input is serialized as query parameters
-- Enable browser caching
-- Ideal for read-only queries
-
-**POST requests:**
-- Input is sent as JSON body
-- Better for complex inputs or mutations
-- Default behavior
-
 ### Advanced: Auto-config from Server
 
-For larger APIs, you can extract configuration from your API definition:
+You don’t have to maintain the verbs manually—`@hypequery/serve` can tell the client which HTTP method each route uses.
+
+**Option A – share the server module (Next.js / Remix):**
+
+When your React code can import the server bundle (e.g., Next.js App Router), just pass `api` directly:
 
 ```ts
-// app/api/config/route.ts (server-side)
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api/hypequery',
+  api, // method metadata is extracted automatically
+});
+```
+
+**Option B – expose a config endpoint (SPAs / Vite):**
+
+If your frontend can’t import the server module, publish the config once and hydrate `createHooks` with it:
+
+```ts
+// app/api/hypequery-config/route.ts
 import { extractClientConfig } from '@hypequery/serve';
 import { api } from '@/analytics/queries';
 
-export async function GET() {
+export function GET() {
   return Response.json(extractClientConfig(api));
 }
 ```
 
 ```ts
-// lib/analytics.ts (client-side)
+// lib/analytics.ts
 import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/queries';
 
 type Api = InferApiType<typeof api>;
 
-// Fetch config at initialization
-const config = await fetch('/api/config').then(r => r.json());
+let hooksPromise: Promise<ReturnType<typeof createHooks<Api>>> | null = null;
 
-export const { useQuery, useMutation } = createHooks<Api>({
-  baseUrl: '/api/hypequery',
-  config, // Automatically uses correct methods from server
-});
+export function getHypequeryHooks() {
+  if (!hooksPromise) {
+    hooksPromise = fetch('/api/hypequery-config')
+      .then((res) => res.json())
+      .then((config) =>
+        createHooks<Api>({ baseUrl: '/api/hypequery', config })
+      );
+  }
+  return hooksPromise;
+}
 ```
+
+Call `await getHypequeryHooks()` once during app bootstrap (e.g., inside a top-level provider) and reuse the returned `useQuery`/`useMutation` instances throughout your app.
 
 ## Advanced options
 
