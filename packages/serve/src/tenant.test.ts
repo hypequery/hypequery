@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createTenantScope, warnTenantMisconfiguration } from "./tenant.js";
 
+const createTableMock = <TReturn>(value: TReturn) => {
+  const table = vi.fn<(name: string) => TReturn>();
+  table.mockReturnValue(value);
+  return table;
+};
+
 describe("Multi-Tenant Isolation", () => {
   describe("createTenantScope", () => {
     // Mock query builder
@@ -29,7 +35,7 @@ describe("Multi-Tenant Isolation", () => {
     describe("Returns original db when tenantId is absent", () => {
       it("returns original db when tenantId is null", () => {
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
           someOtherMethod: vi.fn(),
         };
 
@@ -43,7 +49,7 @@ describe("Multi-Tenant Isolation", () => {
 
       it("returns original db when tenantId is undefined", () => {
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
           someOtherMethod: vi.fn(),
         };
 
@@ -57,7 +63,7 @@ describe("Multi-Tenant Isolation", () => {
 
       it("returns original db when tenantId is empty string", () => {
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
           someOtherMethod: vi.fn(),
         };
 
@@ -73,7 +79,7 @@ describe("Multi-Tenant Isolation", () => {
     describe("Applies WHERE clause when tenantId is valid", () => {
       it("applies WHERE clause with correct column and tenantId", () => {
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -81,18 +87,18 @@ describe("Multi-Tenant Isolation", () => {
           column: "organization_id",
         });
 
-        const result = scoped.table("users");
+        scoped.table("users");
 
         expect(mockDb.table).toHaveBeenCalledWith("users");
-        expect(mockQuery.where).toHaveBeenCalledWith("organization_id", "=", "org-123");
+        expect(mockQuery.where).toHaveBeenCalledWith("organization_id", "eq", "org-123");
         expect(mockQuery._filters).toEqual([
-          { column: "organization_id", op: "=", value: "org-123" },
+          { column: "organization_id", op: "eq", value: "org-123" },
         ]);
       });
 
       it("uses specified column name", () => {
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -102,12 +108,12 @@ describe("Multi-Tenant Isolation", () => {
 
         scoped.table("products");
 
-        expect(mockQuery.where).toHaveBeenCalledWith("custom_tenant_column", "=", "tenant-456");
+        expect(mockQuery.where).toHaveBeenCalledWith("custom_tenant_column", "eq", "tenant-456");
       });
 
       it("preserves query builder methods after applying filter", () => {
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -133,7 +139,7 @@ describe("Multi-Tenant Isolation", () => {
         };
 
         const mockDb = {
-          table: vi.fn(() => chainableMockQuery),
+          table: createTableMock(chainableMockQuery),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -141,13 +147,13 @@ describe("Multi-Tenant Isolation", () => {
           column: "tenant_id",
         });
 
-        const query = scoped
+        scoped
           .table("posts")
           .select("*")
           .orderBy("created_at")
           .limit(10);
 
-        expect(chainableMockQuery.where).toHaveBeenCalledWith("tenant_id", "=", "org-999");
+        expect(chainableMockQuery.where).toHaveBeenCalledWith("tenant_id", "eq", "org-999");
         expect(chainableMockQuery.select).toHaveBeenCalledWith("*");
         expect(chainableMockQuery.orderBy).toHaveBeenCalledWith("created_at");
         expect(chainableMockQuery.limit).toHaveBeenCalledWith(10);
@@ -163,7 +169,7 @@ describe("Multi-Tenant Isolation", () => {
         };
 
         const mockDb = {
-          table: vi.fn(() => queryWithoutWhere),
+          table: createTableMock(queryWithoutWhere),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -179,7 +185,7 @@ describe("Multi-Tenant Isolation", () => {
 
       it("returns query as-is when query is null", () => {
         const mockDb = {
-          table: vi.fn(() => null),
+          table: createTableMock<null>(null),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -195,7 +201,7 @@ describe("Multi-Tenant Isolation", () => {
 
       it("returns query as-is when query is undefined", () => {
         const mockDb = {
-          table: vi.fn(() => undefined),
+          table: createTableMock<undefined>(undefined),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -216,7 +222,7 @@ describe("Multi-Tenant Isolation", () => {
         };
 
         const mockDb = {
-          table: vi.fn(() => queryWithInvalidWhere),
+          table: createTableMock(queryWithInvalidWhere),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -233,7 +239,7 @@ describe("Multi-Tenant Isolation", () => {
     describe("Preserves other db methods", () => {
       it("preserves all other db properties and methods", () => {
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
           raw: vi.fn(),
           transaction: vi.fn(),
           close: vi.fn(),
@@ -258,12 +264,12 @@ describe("Multi-Tenant Isolation", () => {
         const mockQuery1 = createMockQueryBuilder();
         const mockQuery2 = createMockQueryBuilder();
 
-        let callCount = 0;
+        const table = vi.fn<(name: string) => ReturnType<typeof createMockQueryBuilder>>();
+        table.mockReturnValueOnce(mockQuery1);
+        table.mockReturnValueOnce(mockQuery2);
+
         const mockDb = {
-          table: vi.fn(() => {
-            callCount++;
-            return callCount === 1 ? mockQuery1 : mockQuery2;
-          }),
+          table,
         };
 
         const scope1 = createTenantScope(mockDb, {
@@ -280,14 +286,14 @@ describe("Multi-Tenant Isolation", () => {
         scope2.table("users");
 
         // Both should call where, but with different tenant IDs
-        expect(mockQuery1.where).toHaveBeenCalledWith("tenant_id", "=", "tenant-1");
-        expect(mockQuery2.where).toHaveBeenCalledWith("tenant_id", "=", "tenant-2");
+        expect(mockQuery1.where).toHaveBeenCalledWith("tenant_id", "eq", "tenant-1");
+        expect(mockQuery2.where).toHaveBeenCalledWith("tenant_id", "eq", "tenant-2");
       });
 
       it("isolates queries to specific tenant", () => {
         const mockQuery = createMockQueryBuilder();
         const mockDb = {
-          table: vi.fn(() => mockQuery),
+          table: createTableMock(mockQuery),
         };
 
         const scoped = createTenantScope(mockDb, {
@@ -298,9 +304,9 @@ describe("Multi-Tenant Isolation", () => {
         scoped.table("sensitive_data");
 
         // Verify the filter was applied with exact tenant ID
-        expect(mockQuery.where).toHaveBeenCalledWith("tenant_id", "=", "secure-tenant");
+        expect(mockQuery.where).toHaveBeenCalledWith("tenant_id", "eq", "secure-tenant");
         expect(mockQuery._filters).toEqual([
-          { column: "tenant_id", op: "=", value: "secure-tenant" },
+          { column: "tenant_id", op: "eq", value: "secure-tenant" },
         ]);
       });
     });
@@ -310,7 +316,7 @@ describe("Multi-Tenant Isolation", () => {
     let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
-      consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => { });
     });
 
     afterEach(() => {
