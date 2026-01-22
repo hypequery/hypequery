@@ -37,47 +37,12 @@ describe('rawQuery helper', () => {
     });
 
     const db = createQueryBuilder<TestSchema>(baseConfig);
-    const result = await db.rawQuery(
-      'SELECT * FROM users WHERE id = :id AND status = :status',
-      { id: 42, status: 'active' }
-    );
+    const result = await db.rawQuery('SELECT * FROM users WHERE id = ? AND status = ?', [42, 'active']);
 
     expect(result).toEqual(rows);
     expect(queryMock).toHaveBeenCalledWith({
       query: "SELECT * FROM users WHERE id = 42 AND status = 'active'",
       format: 'JSONEachRow',
     });
-  });
-
-  it('replaces repeated parameters consistently', async () => {
-    queryMock.mockResolvedValue({ json: vi.fn().mockResolvedValue([]) });
-    const db = createQueryBuilder<TestSchema>(baseConfig);
-
-    await db.rawQuery('SELECT :value + :value AS doubled', { value: 10 });
-
-    expect(queryMock).toHaveBeenCalledWith({
-      query: 'SELECT 10 + 10 AS doubled',
-      format: 'JSONEachRow',
-    });
-  });
-
-  it('throws when a named parameter is missing', async () => {
-    const db = createQueryBuilder<TestSchema>(baseConfig);
-
-    await expect(
-      db.rawQuery('SELECT * FROM users WHERE id = :id AND status = :status', { id: 1 })
-    ).rejects.toThrow('Missing value for parameter :status');
-
-    expect(queryMock).not.toHaveBeenCalled();
-  });
-
-  it('throws when unused parameters are provided', async () => {
-    const db = createQueryBuilder<TestSchema>(baseConfig);
-
-    await expect(
-      db.rawQuery('SELECT * FROM users WHERE id = :id', { id: 1, extra: 'nope' })
-    ).rejects.toThrow('Unused parameter(s): extra');
-
-    expect(queryMock).not.toHaveBeenCalled();
   });
 });
