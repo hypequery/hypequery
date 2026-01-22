@@ -1,5 +1,26 @@
 # @hypequery/clickhouse Changelog
 
+## [1.5.0]
+
+### Breaking Changes
+
+* **DateTime type mapping correction**: `DateTime`, `DateTime64`, `Date`, and `Date32` columns are now correctly typed as `string` instead of `Date`. This matches the actual runtime behavior of `@clickhouse/client` when using JSON output formats (like `JSONEachRow`), which return DateTime values as strings to preserve sub-millisecond precision that JavaScript `Date` objects cannot represent.
+
+  **Migration guide:**
+  ```typescript
+  // Before (would fail at runtime):
+  const results = await db.table('products').select(['created_at']).execute();
+  results[0].created_at.toISOString(); // TypeError: toISOString is not a function
+
+  // After (correctly typed):
+  const results = await db.table('products').select(['created_at']).execute();
+  // TypeScript now correctly knows created_at is a string
+  const date = new Date(results[0].created_at); // Convert to Date when needed
+  date.toISOString(); // Works!
+  ```
+
+  **Why this change:** Previously, TypeScript indicated these fields were `Date` objects, but at runtime they were actually strings. This caused type mismatches and runtime errors. The fix surfaces this at compile time, preventing bugs.
+
 ## [1.4.0]
 
 ### Features

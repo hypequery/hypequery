@@ -19,7 +19,7 @@ builder.applyCrossFilters(inferredCrossFilter);
 
 const simpleSelect = builder.select(['created_at', 'price']);
 type SimpleResult = Awaited<ReturnType<typeof simpleSelect.execute>>;
-type SimpleExpected = { created_at: Date; price: number }[];
+type SimpleExpected = { created_at: string; price: number }[];
 type AssertSimpleSelect = Expect<Equal<SimpleResult, SimpleExpected>>;
 
 const aggregationQuery = builder.sum('price', 'total_price').count('price', 'total_count');
@@ -82,7 +82,7 @@ type AssertNestedSelect = Expect<Equal<NestedResult, NestedExpected>>;
 
 const dateQuery = builder.select(['created_timestamp', 'created_at']);
 type DateResult = Awaited<ReturnType<typeof dateQuery.execute>>;
-type DateExpected = { created_timestamp: Date; created_at: Date }[];
+type DateExpected = { created_timestamp: string; created_at: string }[];
 type AssertDateSelect = Expect<Equal<DateResult, DateExpected>>;
 
 const arrayQuery = builder.select(['tags', 'categories']);
