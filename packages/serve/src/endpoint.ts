@@ -81,6 +81,7 @@ export const createEndpoint = <
   const metadata: EndpointMetadata = {
     path: "",
     method: method as HttpMethod,
+    name: definition.name ?? definition.summary ?? key,
     summary: definition.summary,
     description: definition.description,
     tags: definition.tags ?? [],

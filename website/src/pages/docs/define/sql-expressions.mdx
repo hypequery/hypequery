@@ -26,11 +26,11 @@ export const api = defineServe({
         const sql = `
           SELECT toStartOfDay(created_at) AS day, count(*) AS signups
           FROM signups
-          WHERE account_id = {account:String}
+          WHERE account_id = ?
           GROUP BY day
           ORDER BY day
         `;
-        return ctx.db.rawQuery(sql, { account: input.accountId });
+        return ctx.db.rawQuery(sql, [input.accountId]);
       },
     },
   },
@@ -48,23 +48,25 @@ When the builder handles most of the query but you need a one-off expression, us
 ```ts
 import { defineServe } from '@hypequery/serve';
 import { raw } from '@hypequery/clickhouse';
+import { z } from 'zod';
 import { db } from './client';
 
 export const api = defineServe({
   context: () => ({ db }),
   queries: {
     tempsInRange: {
-      query: ({ ctx }) =>
+      inputSchema: z.object({ min: z.number(), max: z.number() }),
+      query: ({ ctx, input }) =>
         ctx.db
           .table('sensors')
           .select(['id', 'reading'])
-          .where(raw('reading BETWEEN ? AND ?', [-10, 50])),
+          .where(raw('reading BETWEEN ? AND ?', [input.min, input.max])),
     },
   },
 });
 ```
 
-- `raw(expression, params?)` accepts any SQL fragment plus optional bindings (`?` placeholders or named params).
+- `raw(expression, params?)` accepts any SQL fragment plus optional bindings (positional `?` placeholders).
 - Treat `raw` as an escape hatch; TypeScript cannot validate the expression.
 
 ### `rawAs()` – expression + alias

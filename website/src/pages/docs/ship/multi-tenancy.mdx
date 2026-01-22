@@ -32,45 +32,27 @@ const api = defineServe({
   context: () => ({
     db: myDatabaseConnection,
   }),
+  auth: async ({ request }) => {
+    const token = request.headers['authorization'];
+    if (!token) return null;
+    const decoded = await verifyToken(token);
+    return { userId: decoded.sub, tenantId: decoded.organization_id };
+  },
   tenant: {
     extract: (auth) => auth.tenantId,
     required: true,
-    column: 'organization_id', // Column name for filtering
-    mode: 'auto-inject', // Automatic tenant filtering
+    column: 'organization_id',
+    mode: 'auto-inject',
   },
   queries: {
     getOrders: {
-      query: async ({ ctx }) => {
-        // Tenant filter automatically applied!
-        // No manual WHERE clause needed
-        return ctx.db
-          .table('orders')
-          .where('status', 'completed')
-          .select('*');
-        // ↑ Automatically becomes:
-        // WHERE organization_id = 'tenant-123' AND status = 'completed'
-      },
+      query: async ({ ctx }) =>
+        ctx.db.table('orders').where('status', 'eq', 'completed').select('*'),
     },
     getRevenue: {
-      query: async ({ ctx }) => {
-        // Same automatic filtering here
-        return ctx.db
-          .table('transactions')
-          .sum('amount');
-        // ↑ Automatically filtered by organization_id
-      },
+      query: async ({ ctx }) => ctx.db.table('transactions').sum('amount'),
     },
   },
-});
-
-api.useAuth(async ({ request }) => {
-  const token = request.headers['authorization'];
-  const decoded = await verifyToken(token);
-
-  return {
-    userId: decoded.sub,
-    tenantId: decoded.organization_id,
-  };
 });
 ```
 
@@ -193,6 +175,12 @@ const api = defineServe({
     db: myDb,
     analyticsDb: myAnalyticsDb,
   }),
+  auth: async ({ request }) => {
+    const token = request.headers['authorization'];
+    if (!token) return null;
+    const decoded = await verifyToken(token);
+    return { userId: decoded.sub, tenantId: decoded.org_id };
+  },
   tenant: {
     extract: (auth) => auth.tenantId,
     column: 'org_id',
@@ -200,15 +188,10 @@ const api = defineServe({
   },
   queries: {
     getUsers: {
-      query: async ({ ctx }) => {
-        // Auto-filtered by org_id
-        return ctx.db.table('users').select('*');
-        // Becomes: SELECT * FROM users WHERE org_id = 'tenant-123'
-      },
+      query: async ({ ctx }) => ctx.db.table('users').select('*'),
     },
     getEvents: {
       query: async ({ ctx }) => {
-        // Both query builders are auto-filtered
         const users = await ctx.db.table('users').select('*');
         const events = await ctx.analyticsDb.table('events').select('*');
         return { users, events };
@@ -238,6 +221,12 @@ const api = defineServe({
     },
     revenue: {
       query: async ({ ctx }) => ctx.db.table('transactions').sum('amount'),
+    },
+    // Optional public metrics
+    botTraffic: {
+      auth: null,
+      tenant: { extract: () => undefined, required: false },
+      query: async () => botService.getStats(),
     },
   },
 });
@@ -484,7 +473,7 @@ describe('Multi-tenancy isolation', () => {
   });
 
   it('only returns data for authenticated tenant', async () => {
-    const response = await api.execute('getOrders', {
+    const response = await api.run('getOrders', {
       input: { status: 'completed' },
       request: {
         headers: { 'authorization': 'Bearer tenant-123-token' },
@@ -502,7 +491,7 @@ describe('Multi-tenancy isolation', () => {
     await createOrder({ org: 'tenant-123', id: 'order-1' });
 
     // Try to access as tenant-456
-    const response = await api.execute('getOrders', {
+    const response = await api.run('getOrders', {
       input: { status: 'completed' },
       request: {
         headers: { 'authorization': 'Bearer tenant-456-token' },
@@ -668,7 +657,7 @@ Yes! Tenant validation and filtering work for both HTTP requests and direct `exe
 
 ```typescript
 await api.handler(request); // Auto-filtered
-await api.execute('getOrders', { input: { status: 'pending' } }); // Auto-filtered
+await api.run('getOrders', { input: { status: 'pending' } }); // Auto-filtered
 ```
 
 ### Can I combine auto-inject with role-based access?

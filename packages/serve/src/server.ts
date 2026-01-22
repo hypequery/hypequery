@@ -60,6 +60,7 @@ type ProcedureBuilderState<
   inputSchema?: ZodTypeAny;
   outputSchema?: ZodTypeAny;
   description?: string;
+  name?: string;
   summary?: string;
   tags: string[];
   method?: HttpMethod;
@@ -86,6 +87,7 @@ const createProcedureBuilder = <
       output: <TNewOutputSchema extends ZodTypeAny>(schema: TNewOutputSchema) =>
         build<TInputSchema, TNewOutputSchema>({ ...state, outputSchema: schema }),
       describe: (description) => build<TInputSchema, TOutputSchema>({ ...state, description }),
+      name: (name) => build<TInputSchema, TOutputSchema>({ ...state, name }),
       summary: (summary) => build<TInputSchema, TOutputSchema>({ ...state, summary }),
       tag: (tag) =>
         build<TInputSchema, TOutputSchema>({
@@ -119,6 +121,7 @@ const createProcedureBuilder = <
         type TResult = InferExecutableQueryResult<TExecutable>;
         const base: ServeQueryConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult> = {
           description: state.description,
+          name: state.name,
           summary: state.summary,
           tags: state.tags,
           method: state.method,
@@ -308,6 +311,7 @@ const createOpenApiEndpoint = (
     metadata: {
       path,
       method: "GET",
+      name: "OpenAPI schema",
       summary: "OpenAPI schema",
       description: "Generated OpenAPI specification for the registered endpoints",
       tags: ["docs"],
@@ -335,6 +339,7 @@ const createDocsEndpoint = (
   metadata: {
     path,
     method: "GET",
+    name: "Docs",
     summary: "API documentation",
     description: "Auto-generated documentation for your hypequery endpoints",
     tags: ["docs"],
@@ -650,6 +655,55 @@ export const defineServe = <
   // Track route configuration for client config extraction
   const routeConfig: Record<string, { method: HttpMethod }> = {};
 
+  const executeQuery = async <TKey extends keyof typeof queryEntries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<(typeof queryEntries)[TKey]['inputSchema']>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<(typeof queryEntries)[TKey]>> => {
+    const endpoint = queryEntries[key];
+    if (!endpoint) {
+      throw new Error(`No query registered for key ${String(key)}`);
+    }
+
+    const request: ServeRequest = {
+      method: endpoint.method,
+      path: options?.request?.path ?? endpoint.metadata.path ?? `/__execute/${String(key)}`,
+      query: options?.request?.query ?? {},
+      headers: options?.request?.headers ?? {},
+      body: options?.input ?? options?.request?.body,
+      raw: options?.request?.raw,
+    };
+
+    const requestId = getRequestId(request);
+
+    const response = await executeEndpoint<TContext, TAuth>({
+      endpoint,
+      request,
+      requestId,
+      authStrategies,
+      contextFactory,
+      globalMiddlewares,
+      globalTenantConfig,
+      hooks,
+      additionalContext: options?.context,
+    });
+
+    if (response.status !== 200) {
+      const errorBody = response.body as ErrorEnvelope;
+      const error = new Error(errorBody.error.message);
+      (error as any).type = errorBody.error.type;
+      if (errorBody.error.details) {
+        (error as any).details = errorBody.error.details;
+      }
+      throw error;
+    }
+
+    return response.body as ServeEndpointResult<(typeof queryEntries)[TKey]>;
+  };
+
   const builder: ServeBuilder<typeof queryEntries, TContext, TAuth> = {
     queries: queryEntries,
     _routeConfig: routeConfig,
@@ -678,6 +732,7 @@ export const defineServe = <
         ...endpoint.metadata,
         path: normalizedPath,
         method,
+        name: options?.name ?? endpoint.metadata.name ?? endpoint.key,
         summary: options?.summary ?? endpoint.metadata.summary,
         description: options?.description ?? endpoint.metadata.description,
         tags: mergeTags(endpoint.metadata.tags, options?.tags),
@@ -706,51 +761,8 @@ export const defineServe = <
       router.markRoutesRequireAuth();
       return builder;
     },
-    execute: async (key, options) => {
-      const endpoint = queryEntries[key];
-      if (!endpoint) {
-        throw new Error(`No query registered for key ${String(key)}`);
-      }
-
-      // Build a synthetic request for direct execution
-      const request: ServeRequest = {
-        method: endpoint.method,
-        path: options?.request?.path ?? endpoint.metadata.path ?? `/__execute/${String(key)}`,
-        query: options?.request?.query ?? {},
-        headers: options?.request?.headers ?? {},
-        body: options?.input ?? options?.request?.body,
-        raw: options?.request?.raw,
-      };
-
-      const requestId = getRequestId(request);
-
-      // Execute the endpoint directly using the shared helper
-      const response = await executeEndpoint<TContext, TAuth>({
-        endpoint,
-        request,
-        requestId,
-        authStrategies,
-        contextFactory,
-        globalMiddlewares,
-        globalTenantConfig,
-        hooks,
-        additionalContext: options?.context,
-      });
-
-      // If the response indicates an error, throw it
-      if (response.status !== 200) {
-        const errorBody = response.body as ErrorEnvelope;
-        const error = new Error(errorBody.error.message);
-        (error as any).type = errorBody.error.type;
-        if (errorBody.error.details) {
-          (error as any).details = errorBody.error.details;
-        }
-        throw error;
-      }
-
-      // Return the successful response body
-      return response.body as ServeEndpointResult<typeof endpoint>;
-    },
+    execute: executeQuery,
+    run: executeQuery,
     describe: () => {
       const description: ToolkitDescription = {
         basePath: basePath || undefined,
@@ -798,6 +810,7 @@ const mapEndpointToToolkit = (
     key: endpoint.key,
     path: endpoint.metadata.path,
     method: endpoint.method,
+    name: endpoint.metadata.name ?? endpoint.key,
     summary: endpoint.metadata.summary,
     description: endpoint.metadata.description,
     tags: endpoint.metadata.tags,

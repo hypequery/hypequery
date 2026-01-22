@@ -52,6 +52,7 @@ export type EndpointVisibility = "public" | "internal" | "private";
 export interface EndpointMetadata<TCustom = Record<string, unknown>> {
   path: string;
   method: HttpMethod;
+  name?: string;
   summary?: string;
   description?: string;
   tags: string[];
@@ -308,6 +309,7 @@ export interface ServeQueryConfig<
   key?: string;
   query: ExecutableQuery<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
   method?: HttpMethod;
+  name?: string;
   summary?: string;
   description?: string;
   tags?: string[];
@@ -428,6 +430,7 @@ export interface RouteRegistrationOptions<
   TAuth extends AuthContext = AuthContext
 > {
   method?: HttpMethod;
+  name?: string;
   summary?: string;
   description?: string;
   tags?: string[];
@@ -470,6 +473,14 @@ export interface ServeBuilder<
       request?: Partial<ServeRequest>;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  run<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;
   handler: ServeHandler;
   start(options?: StartServerOptions): Promise<ServeStartResult>;
@@ -500,6 +511,7 @@ export interface QueryProcedureBuilder<
     schema: TNewOutputSchema
   ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TNewOutputSchema>;
   describe(description: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  name(name: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   summary(summary: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   tag(tag: string): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   tags(tags: string[]): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
@@ -566,6 +578,7 @@ export interface ToolkitQueryDescription {
   key: string;
   path: string;
   method: HttpMethod;
+  name?: string;
   summary?: string;
   description?: string;
   tags: string[];

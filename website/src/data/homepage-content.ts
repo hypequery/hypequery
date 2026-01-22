@@ -106,7 +106,7 @@ export function Dashboard() {
     title: 'AI agents & automation',
     summary:
       'Give agents structured, discoverable analytics with typed inputs and outputs — not raw SQL strings.',
-    body: 'Agents enumerate `api.list()`, inspect schemas, then call `api.run()` through LangChain tools so LLMs stay inside guardrails.',
+    body: 'Agents call `api.describe()` to enumerate metrics, inspect schemas, then execute them through LangChain tools so LLMs stay inside guardrails.',
     codeLanguage: 'typescript',
     code: `
 // agents/tools.ts
@@ -115,22 +115,28 @@ import { z } from 'zod';
 import { api } from '../analytics/api';
 
 export async function createAnalyticsTool() {
-  const metrics = await api.list();
+  const catalog = api.describe();
+  const metrics = new Set(catalog.queries.map((query) => query.key));
 
   return new DynamicStructuredTool({
     name: 'analytics_metric',
-    description: 'List metrics with api.list(), inspect schemas, and execute them safely.',
+    description: 'List metrics with api.describe(), inspect schemas, and execute them safely.',
     schema: z.object({
       metric: z.string(),
       params: z.record(z.any()).default({}),
     }),
     func: async ({ metric, params }) => {
-      if (!metrics.includes(metric)) {
+      if (!metrics.has(metric)) {
         throw new Error('Unknown metric: ' + metric);
       }
 
-      await api.schema(metric); // keeps prompts honest
-      return api.run(metric, params);
+      const definition = catalog.queries.find((query) => query.key === metric);
+      console.log('Executing metric', definition?.name ?? metric);
+      console.log('Input schema for agent prompt', definition?.inputSchema);
+
+      return api.execute(metric as Parameters<typeof api.execute>[0], {
+        input: params,
+      });
     },
   });
 }

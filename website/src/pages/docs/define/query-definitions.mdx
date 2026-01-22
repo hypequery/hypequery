@@ -1,28 +1,43 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: Query definitions
-description: Define API endpoints with defineServe for type-safe query execution
+description: Define API endpoints with initServe for type-safe query execution
 ---
+
+import Callout from '../../../components/Callout.astro';
 
 <div class="prose">
 
 # Query definitions
 
-Transform your hypequery metrics into HTTP endpoints using `defineServe`. This creates a type-safe, self-documenting API layer that can be consumed via HTTP, executed directly, or called from AI agents.
+Transform your hypequery metrics into HTTP endpoints using `initServe`. This creates a type-safe, self-documenting API layer that can be consumed via HTTP, executed directly, or called from AI agents.
+
+<Callout>
+  Looking for the full API surface (global middlewares, auth, hooks, etc.)? See the
+  <a class="font-semibold text-indigo-600 hover:text-indigo-500" href="/docs/reference/serve">Serve reference</a>
+  for detailed options.
+</Callout>
 
 ## Basic structure
 
 A query definition wraps your metric logic with metadata, validation, and routing:
 
 ```typescript
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
+import { db } from './client';
 
-const api = defineServe({
-  queries: {
+const { define, queries } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
     weeklyRevenue: {
-      query: async ({ input }) => {
-        return db.table('transactions')
+      name: 'Weekly revenue',
+      query: async ({ ctx, input }) => {
+        return ctx.db
+          .table('transactions')
           .where('date', '>=', input.startDate)
           .where('date', '<=', input.endDate)
           .sum('amount');
@@ -38,7 +53,7 @@ const api = defineServe({
       description: 'Returns sum of all transactions for a date range',
       tags: ['revenue', 'analytics'],
     },
-  },
+  }),
 });
 
 // Register HTTP route
@@ -58,13 +73,14 @@ query: async ({ input, ctx }) => {
   // input: validated request payload
   // ctx: request context (auth, tenantId, locals, etc.)
 
-  return db.table('orders')
+  return ctx.db.table('orders')
     .where('created_at', '>=', input.startDate)
-    .select('*');
+    .select('*')
+    .execute();
 }
 ```
 
-### `inputSchema` (optional)
+### `inputSchema`
 
 Zod schema for request validation:
 
@@ -76,7 +92,7 @@ inputSchema: z.object({
 })
 ```
 
-### `outputSchema` (optional)
+### `outputSchema`
 
 Zod schema for response typing and documentation:
 
@@ -91,15 +107,29 @@ outputSchema: z.object({
 })
 ```
 
-### `method` (optional)
+### `method`
 
-HTTP method for this query. Defaults to `GET`:
+HTTP method for this query. Defaults to `GET`. You can set it on the definition **or** override it when registering the route:
 
 ```typescript
-method: 'POST' // or 'GET', 'PUT', 'PATCH', 'DELETE'
+// Inline on the query
+method: 'POST'
+
+// Or override later if exposing the route
+api.route('/revenue', api.queries.revenue, { method: 'POST' });
 ```
 
-### `summary` (optional)
+Pick one style per endpoint—if you specify both, the value passed to `api.route` takes priority.
+
+### `name`
+
+Human-friendly display name for docs, OpenAPI, and `api.describe()` consumers. Defaults to the query key. Use this when the key is terse but you want richer presentation:
+
+```typescript
+name: 'Weekly revenue (USD)'
+```
+
+### `summary`
 
 Short description for OpenAPI documentation:
 
@@ -107,7 +137,7 @@ Short description for OpenAPI documentation:
 summary: 'Get weekly revenue totals'
 ```
 
-### `description` (optional)
+### `description`
 
 Detailed description for documentation:
 
@@ -115,7 +145,7 @@ Detailed description for documentation:
 description: 'Returns the sum of all transactions within a given date range, grouped by day'
 ```
 
-### `tags` (optional)
+### `tags`
 
 Tags for grouping in OpenAPI/documentation:
 
@@ -123,7 +153,7 @@ Tags for grouping in OpenAPI/documentation:
 tags: ['revenue', 'analytics', 'financial']
 ```
 
-### `middlewares` (optional)
+### `middlewares`
 
 Endpoint-specific middleware:
 
@@ -138,7 +168,7 @@ middlewares: [
 ]
 ```
 
-### `auth` (optional)
+### `auth`
 
 Endpoint-specific authentication:
 
@@ -152,7 +182,7 @@ auth: async ({ request }) => {
 }
 ```
 
-### `tenant` (optional)
+### `tenant`
 
 Tenant isolation configuration (see [Multi-tenancy isolation](/docs/ship/multi-tenancy)):
 
@@ -163,15 +193,17 @@ tenant: {
 }
 ```
 
-### `cacheTtlMs` (optional)
+### `cacheTtlMs`
 
-Cache duration in milliseconds:
+Sets the HTTP `Cache-Control` header that will be applied once you register this query as an HTTP route. This does **not** cache ClickHouse queries—it only tells downstream clients/CDNs how long they may reuse the HTTP response. Use the query builder's cache helpers if you want to memoize database results server-side.
 
 ```typescript
 cacheTtlMs: 60_000 // Cache for 1 minute
 ```
 
-### `custom` (optional)
+Need to override it dynamically? Call `ctx.setCacheTtl(ms)` inside the handler to adjust the header per request (or pass `null` to force `Cache-Control: no-store`).
+
+### `custom`
 
 Custom metadata (see [Custom metadata](/docs/ship/custom-metadata)):
 
@@ -183,6 +215,38 @@ custom: {
 }
 ```
 
+## Reusing query types
+
+Need fully typed inputs/outputs elsewhere (React hooks, API routes, SDKs)? Use the helper types exported from `@hypequery/serve`:
+
+```ts
+import type { InferQueryInput, InferQueryOutput, InferQueryResult } from '@hypequery/serve';
+import type { api } from './analytics/api';
+
+type TripsInput = InferQueryInput<typeof api, 'tripsQuery'>;        // input schema
+type TripsResult = InferQueryResult<typeof api, 'tripsQuery'>;     // builder return type
+type TripsResponse = InferQueryOutput<typeof api, 'tripsQuery'>;   // zod-derived type if provided
+```
+
+Use `InferQueryResult` when you trust the builder’s static typing (no schema required). `InferQueryOutput` reads the optional `outputSchema`, which is handy when runtime validation is the source of truth. Both helpers accept either the `serve.define` instance or a raw `ServeQueriesMap`, so you can infer types from any subset of queries.
+
+### Inline execution helpers
+
+Calling `await api.run('tripsQuery')` (alias of `api.execute`) now returns the same type as `InferQueryResult<typeof api, 'tripsQuery'>`. For inline scripts or devtools, you can lean on the helper to annotate external call sites:
+
+```ts
+import { api } from './analytics/api';
+import type { InferQueryResult } from '@hypequery/serve';
+
+type Trips = InferQueryResult<typeof api, 'tripsQuery'>;
+
+export async function listTrips(): Promise<Trips> {
+  return api.run('tripsQuery');
+}
+```
+
+If your query returns a builder directly, make sure to `.execute()` before returning so the type collapses to the parsed result instead of the intermediate `QueryBuilder`.
+
 ## Organizing queries
 
 ### Single file approach
@@ -191,21 +255,24 @@ For small projects, define all queries in one file:
 
 ```typescript
 // api/index.ts
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
+import { db } from '../analytics/client';
 
-const api = defineServe({
-  queries: {
+const { define, queries } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
     revenue: { /* ... */ },
     users: { /* ... */ },
     orders: { /* ... */ },
-  },
+  }),
 });
 
 api.route('/metrics/revenue', api.queries.revenue);
 api.route('/metrics/users', api.queries.users);
 api.route('/metrics/orders', api.queries.orders);
-
-export default api;
 ```
 
 ### Module-based approach
@@ -232,15 +299,20 @@ export const userQueries = {
 };
 
 // api/index.ts
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
+import { db } from '../analytics/client';
 import { revenueQueries } from './metrics/revenue';
 import { userQueries } from './metrics/users';
 
-const api = defineServe({
-  queries: {
+const { define, queries } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
     ...revenueQueries,
     ...userQueries,
-  },
+  }),
 });
 
 // Auto-register all routes
@@ -248,8 +320,6 @@ Object.entries(api.queries).forEach(([key, query]) => {
   const path = `/metrics/${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
   api.route(path, query);
 });
-
-export default api;
 ```
 
 ### Factory pattern
@@ -261,8 +331,9 @@ For queries with shared logic:
 import { z } from 'zod';
 
 export const createDateRangeQuery = (table: string, sumColumn: string) => ({
-  query: async ({ input }) => {
-    return db.table(table)
+  query: async ({ ctx, input }) => {
+    return ctx.db
+      .table(table)
       .where('date', '>=', input.startDate)
       .where('date', '<=', input.endDate)
       .sum(sumColumn);
@@ -277,11 +348,18 @@ export const createDateRangeQuery = (table: string, sumColumn: string) => ({
 });
 
 // Use the factory
-const api = defineServe({
-  queries: {
+import { initServe } from '@hypequery/serve';
+import { db } from '../analytics/client';
+
+const { define, queries } = initServe({
+  context: () => ({ db }),
+});
+
+const api = define({
+  queries: queries({
     revenue: createDateRangeQuery('transactions', 'amount'),
     refunds: createDateRangeQuery('refunds', 'amount'),
-  },
+  }),
 });
 ```
 
@@ -301,7 +379,7 @@ export default api.handler;
 
 ```typescript
 // Execute without HTTP layer
-const result = await api.execute('weeklyRevenue', {
+const result = await api.run('weeklyRevenue', {
   input: {
     startDate: '2025-01-01',
     endDate: '2025-01-07',
@@ -330,7 +408,9 @@ description.queries.forEach(query => {
 Apply settings to all queries:
 
 ```typescript
-const api = defineServe({
+import { initServe } from '@hypequery/serve';
+
+const { define, queries } = initServe({
   basePath: '/api/v1',
 
   // Global auth
@@ -372,10 +452,12 @@ const api = defineServe({
       console.error(`Error in ${event.queryKey}:`, event.error);
     },
   },
+});
 
-  queries: {
+const api = define({
+  queries: queries({
     // Your queries inherit all global config
-  },
+  }),
 });
 ```
 
@@ -420,11 +502,12 @@ queries: {
 }
 ```
 
-### 3. Include summary and tags
+### 3. Include name, summary, and tags
 
 ```typescript
 queries: {
   revenue: {
+    name: 'Revenue (date range)',
     query: async ({ input }) => { /* ... */ },
     summary: 'Get revenue totals for date range',
     description: 'Calculates sum of all completed transactions',
@@ -437,12 +520,14 @@ queries: {
 
 ```typescript
 // Don't repeat yourself - use global config
-const api = defineServe({
+const { define, queries } = initServe({
   auth: myGlobalAuth,
   tenant: myGlobalTenant,
   middlewares: [loggingMiddleware],
+});
 
-  queries: {
+const api = define({
+  queries: queries({
     // All inherit global config
     query1: { /* ... */ },
     query2: { /* ... */ },
@@ -452,7 +537,7 @@ const api = defineServe({
       query: { /* ... */ },
       auth: adminOnlyAuth, // Override
     },
-  },
+  }),
 });
 ```
 

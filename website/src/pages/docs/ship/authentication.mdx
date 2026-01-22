@@ -107,10 +107,10 @@ You can enrich the context by returning additional fields from the strategy (rol
 
 ## Embedded execution
 
-When calling `api.execute` directly (cron jobs, SSR handlers), pass a synthetic request so your strategies still run:
+When calling `api.run` directly (cron jobs, SSR handlers), pass a synthetic request so your strategies still run:
 
 ```ts
-await api.execute('revenue', {
+await api.run('revenue', {
   request: {
     method: 'POST',
     path: '/revenue',

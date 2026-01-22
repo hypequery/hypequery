@@ -38,7 +38,7 @@ export function createTenantScope<TDb extends { table: (name: string) => any }>(
 
       // Auto-inject tenant filter
       if (query && typeof query.where === 'function') {
-        return query.where(options.column, '=', options.tenantId);
+        return query.where(options.column, 'eq', options.tenantId);
       }
 
       return query;

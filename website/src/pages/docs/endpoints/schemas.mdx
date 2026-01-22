@@ -79,7 +79,7 @@ Invalid requests return detailed error messages:
 
 Document what your endpoint returns:
 
-Output schemas are optional. If you omit them, TypeScript infers the return type directly from your resolver, and the HTTP response still carries that fully typed payload.
+Output schemas are optional for in-process usage. If you omit them, TypeScript infers the return type directly from your resolver and `api.run()` remains fully typed. However, without an `outputSchema`, OpenAPI docs, `api.describe()`, and external agents won't see structured response metadata. Add one whenever the query is exposed outside your codebase.
 
 ```typescript
 queries: {

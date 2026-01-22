@@ -10,6 +10,34 @@
   --inline-code-bg: rgba(15, 23, 42, 0.75);
   --inline-code-border: rgba(148, 163, 184, 0.35);
   --inline-code-text: #22c55e;
+  --link-color: #4338ca;
+  --link-color-hover: #3730a3;
+}
+
+:global(a) {
+  color: var(--link-color);
+  transition: color 0.15s ease;
+}
+
+:global(a:hover) {
+  color: var(--link-color-hover);
+}
+
+.prose a {
+  color: var(--link-color);
+  transition: color 0.15s ease;
+}
+
+.prose a:hover {
+  color: var(--link-color-hover);
+}
+
+[data-theme="dark"] .prose a {
+  color: #c7d2fe;
+}
+
+[data-theme="dark"] .prose a:hover {
+  color: #eef2ff;
 }
 
 .prose :where(code):not(:where([class~="not-prose"] *)) {

@@ -48,10 +48,10 @@ export const api = define({
 });
 
 // Per-call overrides
-await api.execute('leaderboard', { cache: { mode: 'network-first' } });
+await api.run('leaderboard', { cache: { mode: 'network-first' } });
 
 // Disable caching entirely for this call
-await api.execute('leaderboard', { cache: false });
+await api.run('leaderboard', { cache: false });
 ```
 
 ## Modes + knobs
@@ -81,7 +81,7 @@ await db.cache.invalidateTags(['orders', 'dashboards']);
 await db.cache.clear();
 
 await db.cache.warm([
-  () => api.execute('leaderboard'),
+  () => api.run('leaderboard'),
   () =>
     db.table('users').count().cache({ tags: ['users'] }).execute(),
 ]);
