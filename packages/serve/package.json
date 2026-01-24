@@ -25,19 +25,26 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "better-sqlite3": "^11.7.0",
     "openapi-typescript": "^7.4.2",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.23.5"
   },
   "peerDependencies": {
+    "@hypequery/clickhouse": "*",
     "tsx": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@hypequery/clickhouse": {
+      "optional": true
+    },
     "tsx": {
       "optional": true
     }
   },
   "devDependencies": {
+    "@hypequery/clickhouse": "workspace:*",
+    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^20.11.30",
     "@vitest/coverage-v8": "^2.1.9",
     "tsx": "^4.19.2",
