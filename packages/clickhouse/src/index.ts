@@ -73,3 +73,97 @@ export type {
   PredicateBuilder,
   PredicateArg
 } from './core/utils/predicate-builder.js';
+
+// =============================================================================
+// DATASET API (Phase 1)
+// =============================================================================
+
+// SQL tagged template
+export { sql, isSQLExpression, toSQLString } from './dataset/sql-tag.js';
+export type { SQLExpression } from './dataset/sql-tag.js';
+
+// Dimension and metric helpers
+export { dimension, metric } from './dataset/helpers.js';
+export type { DimensionOptions, MetricOptions } from './dataset/helpers.js';
+
+// Dataset types
+export type {
+  // Dimension types
+  DimensionType,
+  SimpleDimension,
+  DimensionDefinition,
+  Dimension,
+  DimensionsMap,
+
+  // Metric types
+  MetricAggregationType,
+  MetricFormat,
+  MetricDefinition,
+  MetricsMap,
+
+  // Dataset types
+  DatasetDefinition,
+  DatasetsMap,
+  TenantConfig,
+  DatasetLimits,
+
+  // Filter types
+  DateRangeValue,
+  FilterValue,
+  FilterDefinition,
+  Filters,
+
+  // Order types
+  SortDirection,
+  OrderByDimension,
+  OrderByMetric,
+  OrderBy,
+
+  // Query types
+  DatasetQuery,
+  QueryContext,
+  QueryResultMetadata,
+  QueryResult,
+
+  // Type inference
+  InferDimensionType,
+  InferMetricType,
+  InferQueryRowType,
+  InferQueryResult,
+
+  // Introspection types
+  IntrospectedDimension,
+  IntrospectedMetric,
+  IntrospectedDataset,
+} from './dataset/types.js';
+
+// Dataset definition utilities
+export {
+  validateDatasetDefinition,
+  validateDatasets,
+  normalizeDimension,
+  normalizeDimensions,
+  inferDimensionType,
+  getDimensionSQL,
+  getMetricSQL,
+  getDataset,
+  listDatasets,
+  hasDataset,
+  getDimensionNames,
+  getMetricNames,
+  hasDimension,
+  hasMetric,
+  getDimension,
+  getMetric,
+} from './dataset/definition.js';
+
+// Dataset introspection
+export {
+  introspectDimension,
+  introspectMetric,
+  getDatasetSchema,
+  getAllDatasetSchemas,
+  summarizeDataset,
+  datasetsToJSON,
+  summarizeAllDatasets,
+} from './dataset/introspection.js';
