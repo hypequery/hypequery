@@ -47,6 +47,7 @@ export type {
 export type { JoinPath, JoinPathOptions } from './core/join-relationships.js';
 export { CrossFilter } from './core/cross-filter.js';
 export { logger } from './core/utils/logger.js';
+export type { QueryLog, LogLevel, LoggerOptions } from './core/utils/logger.js';
 
 // Re-export SQL expression utilities
 export {

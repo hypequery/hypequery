@@ -6,3 +6,5 @@ packages:
   - 'packages/serve'
   - 'packages/tsconfig'
   - 'examples/*'
+onlyBuiltDependencies:
+  - better-sqlite3
