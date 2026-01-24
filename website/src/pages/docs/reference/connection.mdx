@@ -4,15 +4,17 @@ title: Connecting to ClickHouse
 description: Learn how to connect to ClickHouse databases with hypequery
 ---
 
+import Callout from '../../../components/Callout.astro';
+
 # Connecting to ClickHouse
 
-hypequery provides a robust and type-safe way to connect to ClickHouse databases. The library supports both Node.js and browser environments with intelligent client selection and comprehensive type safety.
+hypequery provides a robust and type-safe way to connect to ClickHouse databases from Node.js runtimes, with intelligent client selection and comprehensive type safety.
 
-## Connection Modes
+<Callout title="Tip: skip manual setup">
+  Run `npx hypequery init` to scaffold your ClickHouse connection, env variables, and schema generation so you can skip the manual setup steps below.
+</Callout>
 
-hypequery supports two connection modes, each designed for specific environments:
-
-### 1. Host-Based Connection (Auto-Detection) - For Node.js Environments
+## Connection Setup
 
 For Node.js environments, hypequery automatically uses the Node.js ClickHouse client:
 
@@ -33,32 +35,6 @@ const db = createQueryBuilder({
 **Requirements:**
 - Must be running in a Node.js environment
 - Requires `@clickhouse/client` to be installed
-- Cannot be used in browser environments
-
-### 2. Manual Client Injection - For Browser Environments
-
-For browser environments, you must explicitly provide a ClickHouse client instance:
-
-```typescript
-import { createClient } from '@clickhouse/client-web';
-import { createQueryBuilder } from '@hypequery/clickhouse';
-
-const client = createClient({
-  host: 'http://localhost:8123',
-  username: 'default',
-  password: 'password'
-});
-
-const db = createQueryBuilder({
-  client // Explicitly provide the client
-});
-```
-
-**Requirements:**
-- Must be running in a browser environment
-- Requires `@clickhouse/client-web` to be installed
-- Client instance must be manually created and injected
-- Cannot use auto-detection due to browser limitations
 
 
 ## Connection Options
