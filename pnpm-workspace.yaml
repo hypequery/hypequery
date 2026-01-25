@@ -4,6 +4,7 @@ packages:
   - 'packages/create-app'
   - 'packages/react'
   - 'packages/serve'
+  - 'packages/serve-ui'
   - 'packages/tsconfig'
   - 'examples/*'
 onlyBuiltDependencies:
