@@ -1,0 +1,594 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: AI Agents Integration
+description: Use hypequery with AI agents for structured, type-safe analytics access
+---
+
+# AI Agents + hypequery
+
+Give AI agents structured, discoverable analytics with typed inputs and outputs instead of raw SQL strings or brittle prompts.
+
+## Use Case
+
+You're building an AI agent (chatbot, automation, data analyst) that needs to:
+
+- Discover available analytics queries without hardcoded knowledge
+- Execute queries with validated inputs
+- Get structured, typed results
+- Work with a trusted catalog instead of generating arbitrary SQL
+
+## Why hypequery for Agents?
+
+**Without hypequery:**
+```ts
+// Agent generates SQL directly (risky, hard to validate)
+const sql = `SELECT country, SUM(amount) as revenue
+             FROM orders
+             WHERE created_at > '${userInput}'
+             GROUP BY country`;
+
+// No validation, no type safety, injection risks
+const results = await db.query(sql);
+```
+
+**With hypequery:**
+```ts
+// Agent selects from a curated catalog
+const queries = api.list(); // { weeklyRevenue: { input: {...}, output: {...} } }
+
+// Validated execution
+const results = await api.run('weeklyRevenue', {
+  startDate: '2025-01-01',
+  endDate: '2025-01-31'
+});
+```
+
+## Prerequisites
+
+```bash
+npm install @hypequery/serve @hypequery/clickhouse zod
+```
+
+## 1. Define Your Analytics Catalog
+
+Create a focused set of queries your agent can use:
+
+```typescript
+// analytics/queries.ts
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    weeklyRevenue: query
+      .describe('Get weekly revenue totals for a date range')
+      .input(z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+      }))
+      .output(z.array(z.object({
+        week: z.string(),
+        revenue: z.number(),
+        order_count: z.number(),
+      })))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .where('created_at', 'gte', input.startDate)
+          .where('created_at', 'lte', input.endDate)
+          .groupByTimeInterval('created_at', '1 week')
+          .sum('amount', 'revenue')
+          .count('id', 'order_count')
+          .execute()
+      ),
+
+    topCustomers: query
+      .describe('Get top customers by total spend')
+      .input(z.object({
+        limit: z.number().min(1).max(100).default(10),
+      }))
+      .output(z.array(z.object({
+        customer_id: z.string(),
+        total_spent: z.number(),
+        order_count: z.number(),
+      })))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .select(['customer_id'])
+          .sum('amount', 'total_spent')
+          .count('id', 'order_count')
+          .groupBy(['customer_id'])
+          .orderBy('total_spent', 'DESC')
+          .limit(input.limit)
+          .execute()
+      ),
+
+    productRevenue: query
+      .describe('Revenue breakdown by product category')
+      .input(z.object({
+        category: z.string().optional(),
+      }))
+      .output(z.array(z.object({
+        product: z.string(),
+        revenue: z.number(),
+      })))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .select(['product_name AS product'])
+          .sum('amount', 'revenue')
+          .where(input.category ? ['category', 'eq', input.category] : null)
+          .groupBy(['product'])
+          .orderBy('revenue', 'DESC')
+          .execute()
+      ),
+  }),
+});
+```
+
+## 2. Expose Query Catalog to Agent
+
+### Option A: In-Process Execution (Recommended)
+
+For agents running in the same process (Node.js services, edge functions):
+
+```typescript
+// agent/tools.ts
+import { api } from '@/analytics/queries';
+
+// Provide catalog to agent
+export function getAvailableQueries() {
+  return api.list();
+}
+
+// Execute query by name
+export async function executeQuery(name: string, input: any) {
+  return api.run(name, input);
+}
+```
+
+**Agent prompt example:**
+```txt
+You have access to these analytics queries:
+
+${JSON.stringify(getAvailableQueries(), null, 2)}
+
+To execute a query, call executeQuery(name, input).
+Always validate inputs match the schema before calling.
+```
+
+### Option B: HTTP API
+
+For agents that need HTTP access:
+
+```typescript
+// app/api/analytics/[...path]/route.ts
+import { serveHTTP } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+const handler = serveHTTP(api, {
+  path: '/api/analytics',
+});
+
+export { handler as GET, handler as POST };
+```
+
+**Agent can now:**
+1. Fetch catalog: `GET /api/analytics/openapi.json`
+2. Execute queries: `GET /api/analytics/weeklyRevenue?startDate=2025-01-01&endDate=2025-01-31`
+
+## 3. Agent Integration Example
+
+### LangChain Tool Integration
+
+```typescript
+import { DynamicStructuredTool } from 'langchain/tools';
+import { api } from '@/analytics/queries';
+import { z } from 'zod';
+
+// Convert hypequery queries to LangChain tools
+function createAnalyticsTools() {
+  const catalog = api.list();
+
+  return Object.entries(catalog).map(([name, spec]) => {
+    return new DynamicStructuredTool({
+      name: `analytics_${name}`,
+      description: spec.description || `Execute ${name} query`,
+      schema: spec.input as any, // Zod schema from hypequery
+      func: async (input) => {
+        const result = await api.run(name, input);
+        return JSON.stringify(result);
+      },
+    });
+  });
+}
+
+// Use in agent
+import { ChatOpenAI } from 'langchain/chat_models/openai';
+import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents';
+
+const tools = createAnalyticsTools();
+const llm = new ChatOpenAI({ modelName: 'gpt-4' });
+
+const agent = await createOpenAIFunctionsAgent({
+  llm,
+  tools,
+  prompt: /* your agent prompt */,
+});
+
+const executor = new AgentExecutor({
+  agent,
+  tools,
+});
+
+// Agent can now discover and execute queries
+await executor.invoke({
+  input: 'Show me the top 5 customers by revenue'
+});
+```
+
+### Custom Agent Implementation
+
+```typescript
+import { api } from '@/analytics/queries';
+
+class AnalyticsAgent {
+  private catalog = api.list();
+
+  async handleUserQuery(userMessage: string): Promise<string> {
+    // 1. Use LLM to select appropriate query
+    const queryName = await this.selectQuery(userMessage);
+
+    // 2. Extract parameters from user message
+    const params = await this.extractParams(userMessage, queryName);
+
+    // 3. Execute with validation
+    try {
+      const results = await api.run(queryName, params);
+      return this.formatResults(results);
+    } catch (error) {
+      return `Query failed: ${error.message}`;
+    }
+  }
+
+  private async selectQuery(message: string): Promise<string> {
+    // Use LLM to map message to query name
+    const prompt = `
+      Available queries:
+      ${Object.entries(this.catalog)
+        .map(([name, spec]) => `- ${name}: ${spec.description}`)
+        .join('\n')}
+
+      User message: "${message}"
+
+      Which query should I use? Return just the query name.
+    `;
+
+    // Call your LLM here
+    // ...
+  }
+
+  private async extractParams(message: string, queryName: string) {
+    const schema = this.catalog[queryName].input;
+
+    const prompt = `
+      Extract parameters for query "${queryName}".
+
+      Required schema:
+      ${JSON.stringify(schema, null, 2)}
+
+      User message: "${message}"
+
+      Return JSON matching the schema.
+    `;
+
+    // Call your LLM to extract params
+    // ...
+  }
+
+  private formatResults(results: any): string {
+    return `Found ${results.length} results:\n${JSON.stringify(results, null, 2)}`;
+  }
+}
+```
+
+## 4. Streaming Results to Agent
+
+For large result sets, stream data incrementally:
+
+```typescript
+async function streamQueryToAgent(queryName: string, input: any) {
+  const stream = await api.stream(queryName, input);
+  const reader = stream.getReader();
+
+  try {
+    while (true) {
+      const { done, value: rows } = await reader.read();
+      if (done) break;
+
+      // Send each batch to agent
+      await sendToAgent({
+        type: 'data',
+        query: queryName,
+        rows,
+      });
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+```
+
+## 5. Security Considerations
+
+**Limit query catalog:**
+```typescript
+// Only expose specific queries to agents
+export const agentApi = define({
+  queries: queries({
+    // Safe, read-only queries
+    weeklyRevenue: query.describe('...').query(/* ... */),
+    topProducts: query.describe('...').query(/* ... */),
+    // Don't include admin or dangerous queries
+  }),
+});
+```
+
+**Add rate limiting:**
+```typescript
+import { rateLimit } from '@/lib/rate-limit';
+
+export async function executeQueryForAgent(name: string, input: any) {
+  await rateLimit.check('agent-queries', { limit: 100, window: '1m' });
+  return api.run(name, input);
+}
+```
+
+**Validate all inputs:**
+```typescript
+// hypequery validates automatically via Zod schemas
+// But you can add extra checks:
+export async function executeQuerySafely(name: string, input: any) {
+  // Check query exists
+  if (!api.list()[name]) {
+    throw new Error(`Unknown query: ${name}`);
+  }
+
+  // Execute with built-in validation
+  try {
+    return await api.run(name, input);
+  } catch (error) {
+    // Log for audit
+    console.error('Agent query failed:', { name, input, error });
+    throw error;
+  }
+}
+```
+
+## Common Patterns
+
+### Agent with Context
+
+Give agents context about what queries do:
+
+```typescript
+function buildAgentContext() {
+  const catalog = api.list();
+
+  return Object.entries(catalog).map(([name, spec]) => ({
+    name,
+    description: spec.description,
+    inputs: spec.input?._def || {},
+    outputs: spec.output?._def || {},
+    example: spec.example,
+  }));
+}
+
+// Include in agent system prompt
+const systemPrompt = `
+You are a data analyst agent with access to these queries:
+
+${JSON.stringify(buildAgentContext(), null, 2)}
+
+When users ask for data:
+1. Select the most relevant query
+2. Extract required parameters from the user message
+3. Execute using executeQuery(name, params)
+4. Format results in a user-friendly way
+`;
+```
+
+### Caching for Agents
+
+Agents often ask similar questions. Cache results:
+
+```typescript
+const api = define({
+  queries: queries({
+    weeklyRevenue: query
+      .cache({
+        mode: 'cache-first',
+        ttlMs: 5 * 60 * 1000, // 5 minutes
+      })
+      .query(/* ... */),
+  }),
+});
+```
+
+### Multi-Tenant Agent Access
+
+Different agents see different data:
+
+```typescript
+const { define, queries, query } = initServe({
+  context: ({ tenantId }: { tenantId: string }) => ({
+    db,
+    tenantId,
+  }),
+});
+
+export const api = define({
+  queries: queries({
+    revenue: query
+      .input(z.object({ startDate: z.string() }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .where('tenant_id', 'eq', ctx.tenantId) // Auto-scoped
+          .where('created_at', 'gte', input.startDate)
+          .sum('amount', 'total')
+          .execute()
+      ),
+  }),
+});
+
+// Execute with tenant context
+await api.run('revenue',
+  { startDate: '2025-01-01' },
+  { tenantId: 'acme-corp' }
+);
+```
+
+## Example: Data Analyst Agent
+
+Complete example of an agent that answers data questions:
+
+```typescript
+import { ChatOpenAI } from 'langchain/chat_models/openai';
+import { api } from '@/analytics/queries';
+
+class DataAnalystAgent {
+  private llm = new ChatOpenAI({ modelName: 'gpt-4' });
+  private catalog = api.list();
+
+  async answer(question: string): Promise<string> {
+    // 1. Select query
+    const { queryName, params } = await this.planQuery(question);
+
+    // 2. Execute
+    const results = await api.run(queryName, params);
+
+    // 3. Format response
+    return this.formatAnswer(question, results);
+  }
+
+  private async planQuery(question: string) {
+    const catalogDesc = Object.entries(this.catalog)
+      .map(([name, spec]) => `${name}: ${spec.description}`)
+      .join('\n');
+
+    const response = await this.llm.invoke(`
+      Available queries:
+      ${catalogDesc}
+
+      User question: "${question}"
+
+      Return JSON: { "queryName": "...", "params": {...} }
+    `);
+
+    return JSON.parse(response.content);
+  }
+
+  private formatAnswer(question: string, results: any): string {
+    // Use LLM to format results naturally
+    return `Based on the data:\n${JSON.stringify(results, null, 2)}`;
+  }
+}
+
+// Usage
+const agent = new DataAnalystAgent();
+await agent.answer('What were our top products last week?');
+```
+
+## OpenAPI for External Agents
+
+Expose your analytics as OpenAPI for third-party agent platforms:
+
+```typescript
+// app/api/analytics/[...path]/route.ts
+import { serveHTTP } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+const handler = serveHTTP(api, {
+  path: '/api/analytics',
+  docs: true, // Enable OpenAPI docs
+});
+
+export { handler as GET, handler as POST };
+```
+
+Your agent can now:
+1. Fetch schema: `GET /api/analytics/openapi.json`
+2. Execute queries: `GET /api/analytics/weeklyRevenue?startDate=2025-01-01&endDate=2025-01-31`
+
+Use with GPT Actions, Claude MCP, or any OpenAPI-compatible agent framework.
+
+## Best Practices
+
+1. **Curate your catalog**: Only expose queries agents should use
+   ```ts
+   // Don't expose everything - create agent-specific API
+   export const agentApi = define({
+     queries: queries({
+       // Safe, focused queries for agents
+       revenue: query.describe('...').query(/* ... */),
+       topProducts: query.describe('...').query(/* ... */),
+     }),
+   });
+   ```
+
+2. **Add descriptions**: Help agents select the right query
+   ```ts
+   query
+     .describe('Get weekly revenue totals for a specific date range. Use for revenue trending over time.')
+     .query(/* ... */)
+   ```
+
+3. **Set reasonable limits**: Prevent agents from requesting too much data
+   ```ts
+   .input(z.object({
+     limit: z.number().min(1).max(100).default(10),
+   }))
+   ```
+
+4. **Log agent usage**: Track what queries agents execute
+   ```ts
+   const api = define({
+     middleware: async ({ next, queryName, input }) => {
+       console.log('[Agent]', queryName, input);
+       return next();
+     },
+     queries: queries({
+       // ...
+     }),
+   });
+   ```
+
+5. **Handle errors gracefully**: Provide helpful feedback
+   ```ts
+   try {
+     const results = await api.run(queryName, params);
+     return results;
+   } catch (error) {
+     if (error.code === 'VALIDATION_ERROR') {
+       return { error: 'Invalid parameters', details: error.message };
+     }
+     return { error: 'Query failed', details: error.message };
+   }
+   ```
+
+---
+
+## Next Steps
+
+**Continue:** [Next.js Integration](/docs/recipes/nextjs) - Full-stack React + hypequery
+
+**Or explore:**
+- [Query Definitions](/docs/serve/query-definitions) - Build your query catalog
+- [HTTP + OpenAPI](/docs/deploy/http-openapi) - Expose as HTTP API

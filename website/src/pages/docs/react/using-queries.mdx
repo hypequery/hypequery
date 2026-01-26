@@ -1,0 +1,208 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Using Queries
+description: Learn how to use useQuery and useMutation in your React components
+---
+
+# Using Queries
+
+Once you've set up `@hypequery/react`, you can use `useQuery` and `useMutation` in your components with full type safety.
+
+## `useQuery`
+
+Fetch data from your hypequery API with automatic caching and refetching:
+
+```tsx
+import { useQuery } from '@/lib/analytics';
+
+function RevenueChart() {
+  const { data, error, isLoading } = useQuery('weeklyRevenue', {
+    startDate: '2025-01-01',
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return <div>Total: ${data.total}</div>;
+}
+```
+
+### Type Safety
+
+The query name and input are fully typed:
+
+```tsx
+// ✅ Type-safe
+const { data } = useQuery('weeklyRevenue', {
+  startDate: '2025-01-01',
+});
+
+// ❌ TypeScript error - invalid query name
+const { data } = useQuery('invalidQuery', { ... });
+
+// ❌ TypeScript error - invalid input
+const { data } = useQuery('weeklyRevenue', {
+  invalidField: 'value',
+});
+```
+
+### TanStack Query Options
+
+All TanStack Query options are supported:
+
+```tsx
+const { data } = useQuery('weeklyRevenue',
+  { startDate: '2025-01-01' },
+  {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+    enabled: isAuthenticated, // Conditional fetching
+  }
+);
+```
+
+## `useMutation`
+
+Execute write operations or actions:
+
+```tsx
+import { useMutation } from '@/lib/analytics';
+
+function RebuildButton() {
+  const rebuild = useMutation('rebuildMetrics');
+
+  return (
+    <button
+      onClick={() => rebuild.mutate({ force: true })}
+      disabled={rebuild.isPending}
+    >
+      {rebuild.isPending ? 'Rebuilding...' : 'Rebuild Metrics'}
+    </button>
+  );
+}
+```
+
+### Handling Success and Errors
+
+```tsx
+const rebuild = useMutation('rebuildMetrics', {
+  onSuccess: (data) => {
+    console.log('Rebuild complete:', data);
+    // Invalidate related queries
+    queryClient.invalidateQueries({ queryKey: ['weeklyRevenue'] });
+  },
+  onError: (error) => {
+    console.error('Rebuild failed:', error);
+  },
+});
+```
+
+### Optimistic Updates
+
+```tsx
+const updateMetric = useMutation('updateMetric', {
+  onMutate: async (newData) => {
+    // Cancel outgoing refetches
+    await queryClient.cancelQueries({ queryKey: ['metrics'] });
+
+    // Snapshot current value
+    const previous = queryClient.getQueryData(['metrics']);
+
+    // Optimistically update
+    queryClient.setQueryData(['metrics'], (old) => ({
+      ...old,
+      ...newData,
+    }));
+
+    return { previous };
+  },
+  onError: (err, variables, context) => {
+    // Rollback on error
+    queryClient.setQueryData(['metrics'], context.previous);
+  },
+  onSettled: () => {
+    // Refetch after success or error
+    queryClient.invalidateQueries({ queryKey: ['metrics'] });
+  },
+});
+```
+
+## Error Handling
+
+Errors from your hypequery API are structured:
+
+```tsx
+const { data, error } = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
+
+if (error) {
+  // Validation errors from hypequery
+  if (error.status === 400) {
+    return <div>Invalid input: {error.message}</div>;
+  }
+
+  // Network errors
+  if (error.name === 'TypeError') {
+    return <div>Network error. Please check your connection.</div>;
+  }
+
+  // Generic error
+  return <div>Something went wrong: {error.message}</div>;
+}
+```
+
+## Common Patterns
+
+### Dependent Queries
+
+Execute queries in sequence:
+
+```tsx
+function UserRevenue({ userId }: { userId: string }) {
+  const { data: user } = useQuery('getUser', { userId });
+
+  const { data: revenue } = useQuery(
+    'userRevenue',
+    { userId },
+    { enabled: !!user } // Only run after user is loaded
+  );
+
+  return <div>{revenue?.total}</div>;
+}
+```
+
+### Polling
+
+Automatically refetch data at intervals:
+
+```tsx
+const { data } = useQuery(
+  'liveMetrics',
+  {},
+  { refetchInterval: 5000 } // Poll every 5 seconds
+);
+```
+
+### Manual Refetch
+
+Trigger refetch on demand:
+
+```tsx
+function MetricsPanel() {
+  const { data, refetch } = useQuery('metrics', {});
+
+  return (
+    <div>
+      <div>{data?.total}</div>
+      <button onClick={() => refetch()}>Refresh</button>
+    </div>
+  );
+}
+```
+
+---
+
+## Next Steps
+
+**Continue:** [Advanced Patterns](/docs/react/advanced-patterns) - HTTP methods and advanced configuration
+
+**Or explore:** [Query Building](/docs/queries/query-building) - Learn the query builder API

@@ -100,4 +100,12 @@ const innerJoinResults = await db
   .withRelation('userOrders', { type: 'INNER', alias: 'user_orders' })
   .select(['name', 'user_orders.user_name'])
   .execute();
-``` 
+```
+
+---
+
+## Next Steps
+
+**Continue:** [Time Functions](/docs/queries/time-functions) - Work with dates and time
+
+**Or explore:** [Join Relationships](/docs/queries/join-relationships) - Reusable join definitions 

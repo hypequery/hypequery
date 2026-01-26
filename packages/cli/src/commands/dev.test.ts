@@ -6,6 +6,16 @@ import { logger } from '../utils/logger.js';
 import { mockProcessExit, ProcessExitError } from '../test-utils.js';
 
 // Mock dependencies
+vi.mock('esbuild', () => ({
+  build: vi.fn(async () => ({
+    outputFiles: [
+      {
+        path: 'out.js',
+        text: 'export const api = { handler: () => {} };',
+      },
+    ],
+  })),
+}));
 vi.mock('../utils/find-files.js');
 vi.mock('../utils/load-api.js');
 vi.mock('../utils/detect-database.js');

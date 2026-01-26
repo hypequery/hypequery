@@ -25,44 +25,66 @@ const sidebar = [
     items: [
       { title: "Overview", href: "/docs/getting-started/overview" },
       { title: "Why hypequery", href: "/docs/getting-started/why-hypequery" },
+      {
+        title: "Installation options",
+        href: "/docs/getting-started/installation-options",
+      },
+      { title: "Quickstart", href: "/docs/getting-started/quickstart" },
       { title: "Core concepts", href: "/docs/getting-started/core-concepts" },
       {
         title: "Architecture tour",
         href: "/docs/getting-started/architecture",
       },
-      { title: "Quickstart", href: "/docs/getting-started/quickstart" },
-      {
-        title: "Manual Installation",
-        href: "/docs/getting-started/manual-installation",
-      },
     ],
   },
   {
-    title: "Define Queries & Metrics",
+    title: "Building Queries",
     items: [
-      { title: "Connecting to ClickHouse", href: "/docs/reference/connection" },
-      { title: "Type generation", href: "/docs/define/type-generation" },
-      { title: "Query builder", href: "/docs/define/query-building" },
-      { title: "SQL expressions", href: "/docs/define/sql-expressions" },
-      { title: "Query definitions", href: "/docs/define/query-definitions" },
-      { title: "Schemas", href: "/docs/endpoints/schemas" },
+      { title: "Type generation", href: "/docs/queries/type-generation" },
+      { title: "Query basics", href: "/docs/queries/query-building" },
+      { title: "Filtering", href: "/docs/queries/filtering" },
+      { title: "Joins", href: "/docs/queries/joins" },
+      { title: "Aggregations", href: "/docs/queries/aggregations" },
+      { title: "Time functions", href: "/docs/queries/time-functions" },
+      { title: "SQL expressions", href: "/docs/queries/sql-expressions" },
+      { title: "Subqueries & CTEs", href: "/docs/queries/subqueries-ctes" },
+      { title: "Advanced filtering", href: "/docs/queries/advanced-filtering" },
+      { title: "Join relationships", href: "/docs/queries/join-relationships" },
     ],
   },
   {
-    title: "Execute & Integrate",
+    title: "Serve Framework",
     items: [
-      { title: "Embedded runtime", href: "/docs/ship/embedded-runtime" },
-      { title: "HTTP + OpenAPI", href: "/docs/ship/http-openapi" },
-      { title: "React hooks", href: "/docs/reference/react" },
-      { title: "Caching", href: "/docs/define/caching" },
-      { title: "Logging", href: "/docs/operate/observability" },
+      { title: "Query definitions", href: "/docs/serve/query-definitions" },
+      { title: "Schemas", href: "/docs/serve/schemas" },
+      { title: "Caching", href: "/docs/serve/caching" },
+      { title: "Authentication", href: "/docs/serve/authentication" },
+      { title: "Multi-tenancy", href: "/docs/serve/multi-tenancy" },
     ],
   },
   {
-    title: "Security & tenancy",
+    title: "Deploying",
     items: [
-      { title: "Authentication", href: "/docs/ship/authentication" },
-      { title: "Multi-tenancy isolation", href: "/docs/ship/multi-tenancy" },
+      { title: "Embedded runtime", href: "/docs/deploy/embedded-runtime" },
+      { title: "HTTP + OpenAPI", href: "/docs/deploy/http-openapi" },
+      { title: "Logging & observability", href: "/docs/deploy/observability" },
+    ],
+  },
+  {
+    title: "React Hooks",
+    items: [
+      { title: "Getting started", href: "/docs/react/getting-started" },
+      { title: "Using queries", href: "/docs/react/using-queries" },
+      { title: "Advanced patterns", href: "/docs/react/advanced-patterns" },
+    ],
+  },
+  {
+    title: "Standalone Usage",
+    items: [
+      { title: "When to use", href: "/docs/standalone/when-to-use" },
+      { title: "Setup & connection", href: "/docs/standalone/setup" },
+      { title: "Direct execution", href: "/docs/standalone/execution" },
+      { title: "Integration examples", href: "/docs/standalone/examples" },
     ],
   },
   {
@@ -74,25 +96,14 @@ const sidebar = [
     ],
   },
   {
-    title: "Advanced Query Building",
-    items: [
-      { title: "Advanced filtering", href: "/docs/advanced/advanced-filtering" },
-      { title: "Join relationships", href: "/docs/advanced/join-relationships" },
-      { title: "Subqueries & CTEs", href: "/docs/advanced/subqueries-ctes" },
-    ],
-  },
-  {
     title: "Reference",
     items: [
+      { title: "Connecting to ClickHouse", href: "/docs/reference/connection" },
       { title: "Package overview", href: "/docs/reference/packages" },
-      { title: "Serve", href: "/docs/reference/serve" },
       { title: "CLI", href: "/docs/reference/cli" },
-      { title: "React", href: "/docs/reference/react" },
-      {
-        title: "ClickHouse Query Builder",
-        href: "/docs/reference/standalone-query-builder",
-      },
-      { title: "FAQ", href: "/docs/reference/faq" },
+      { title: "Serve API", href: "/docs/reference/serve" },
+      { title: "React API", href: "/docs/reference/react" },
+      { title: "Query Builder API", href: "/docs/reference/query-builder" },
     ],
   },
 ];

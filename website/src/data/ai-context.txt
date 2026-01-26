@@ -1,6 +1,268 @@
-You are assisting with hypequery, the TypeScript-first analytics layer for ClickHouse.
-Use TypeScript to model queries and metrics with defineServe() and expose them via api.run().
-Keep everything strictly type-safe and colocated with application code—avoid YAML, duplicated SQL strings, or ambiguous schemas.
-Prioritize developer experience: intuitive APIs, copy-friendly docs, and automation that unblocks backend, platform, and AI teams quickly.
-Favor pragmatic examples that highlight reusable metrics, caching, pagination, and OpenAPI workflows.
-Whenever you write code samples, target modern TS/Node runtimes, annotate inputs/outputs, and show how hypequery stitches analytics into services.
+You are assisting with hypequery, a TypeScript-first analytics layer for ClickHouse.
+
+## What is hypequery?
+- Code-first analytics: Define queries in TypeScript with types, schemas, and metadata
+- Serve framework: Define once, execute everywhere (APIs, cron jobs, React hooks, agents)
+- Type-safe query builder for ClickHouse (OLAP/analytics focused, not OLTP)
+- Library, not a platform - integrates with existing ClickHouse, runs in your app
+- Three packages: @hypequery/serve (framework), @hypequery/clickhouse (query builder), @hypequery/react (React hooks)
+
+## Core API Pattern (Serve Framework)
+
+```ts
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+// 1. Initialize with context factory
+const { define, queries, query } = initServe({
+  context: () => ({ db }), // Can be async, can access request context
+});
+
+// 2. Define queries with fluent builder
+export const api = define({
+  queries: queries({
+    weeklyRevenue: query
+      .describe('Weekly revenue totals')
+      .input(z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+      }))
+      .output(z.array(z.object({
+        week: z.string(),
+        revenue: z.number(),
+      })))
+      .query(({ ctx, input }) =>
+        ctx.db                            // Use ctx.db (not db)
+          .table('orders')
+          .where('created_at', 'gte', input.startDate)
+          .where('created_at', 'lte', input.endDate)
+          .groupByTimeInterval('created_at', '1 week')
+          .sum('amount', 'revenue')
+          .execute()                      // REQUIRED - never omit
+      ),
+  }),
+});
+
+// 3. Execute in-process
+const results = await api.run('weeklyRevenue', {
+  startDate: '2025-01-01',
+  endDate: '2025-01-31'
+});
+
+// 4. Or expose via HTTP (optional)
+api.route('/revenue', api.queries.weeklyRevenue, { method: 'POST' });
+```
+
+## Query Builder API (Works in Both Serve and Standalone)
+
+All queries use the same fluent API:
+
+```ts
+db.table('orders')
+  .where('status', 'eq', 'completed')           // Operators: eq, neq, gt, gte, lt, lte, like, in, isNull
+  .where('amount', 'gte', 100)
+  .where(input.country ? ['country', 'eq', input.country] : null)  // Conditional filters
+  .select(['id', 'customer_id', 'amount'])      // Or select('*')
+  .innerJoin('customers', 'customer_id', 'customers.id')  // Also: leftJoin, rightJoin, fullJoin
+  .sum('amount', 'total_revenue')               // Aggregations: sum, count, avg, min, max
+  .count('id', 'order_count')
+  .groupBy(['customer_id'])                     // Group by columns
+  .having('total_revenue > 1000')               // Filter aggregated results
+  .orderBy('total_revenue', 'DESC')             // Sort: ASC or DESC
+  .limit(10)                                    // Limit results
+  .offset(0)                                    // Pagination offset
+  .execute()                                    // REQUIRED - executes and returns typed results
+```
+
+Time functions:
+```ts
+.groupByTimeInterval('created_at', '1 hour')  // Custom: '5 minute', '1 day', '1 week'
+.groupByTimeInterval('created_at', null, 'toStartOfDay')  // Built-in: toStartOfHour, toStartOfDay, toStartOfWeek
+```
+
+Streaming:
+```ts
+const stream = await db.table('events').select(['id']).stream();
+// Or helper:
+await db.table('events').streamForEach((rows) => console.log(rows));
+```
+
+## Execution Modes
+
+**In-process (cron jobs, background workers, server actions):**
+```ts
+const results = await api.run('queryName', { input: 'value' });
+```
+
+**HTTP endpoints:**
+```ts
+// Express
+import { createNodeHandler } from '@hypequery/serve/adapters/node';
+app.use('/api/analytics', createNodeHandler(api.handler));
+
+// Next.js App Router
+export const GET = api.handler;
+export const POST = api.handler;
+
+// Hono/Edge
+import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+const handler = createFetchHandler(api.handler);
+```
+
+**React hooks:**
+```ts
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import type { api } from './queries';
+
+type Api = InferApiType<typeof api>;
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api/analytics',
+  api, // Auto-extracts HTTP methods from route definitions
+});
+
+// Usage in components:
+const { data, error, isLoading } = useQuery('weeklyRevenue', {
+  startDate: '2025-01-01',
+  endDate: '2025-01-31'
+});
+```
+
+## CLI Commands
+
+```bash
+npx hypequery init              # Scaffold analytics files, validate connection
+npx hypequery generate          # Generate TypeScript types from ClickHouse schema
+npx hypequery dev              # Start dev server with docs (http://localhost:4000)
+npx hypequery serve --port 4000 # Production server
+```
+
+## Critical Differences: Serve vs Standalone
+
+**Serve framework:**
+- Use `ctx.db` inside query definitions (provided by context factory)
+- Return the promise (don't await inside query function)
+- Get validation, HTTP routes, OpenAPI, React hooks, reusability
+- Queries must be registered to HTTP routes: `api.route('/path', api.queries.name)`
+
+**Standalone:**
+- Use `db` directly (import from client file)
+- Await the promise directly
+- Just the query builder, no framework features
+- Good for existing API routes, scripts, one-off queries
+
+**Both use `.execute()` - this is REQUIRED, never omit it**
+
+## Type Patterns
+
+```ts
+// Type generation from ClickHouse
+npx hypequery generate  // Creates schema.ts
+
+// Import schema
+import type { IntrospectedSchema } from './schema';
+const db = createQueryBuilder<IntrospectedSchema>({ ... });
+
+// Type inference from API
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from './queries';
+type Api = InferApiType<typeof api>;
+```
+
+## Context Factory Patterns
+
+```ts
+// Basic context
+const { define } = initServe({
+  context: () => ({ db }),
+});
+
+// With authentication
+const { define } = initServe({
+  context: async ({ req }) => {
+    const user = await authenticateRequest(req);
+    return { db, user };
+  },
+});
+
+// With multi-tenancy
+const { define } = initServe({
+  context: async ({ req }) => {
+    const tenantId = extractTenantId(req);
+    return { db, tenantId };
+  },
+});
+
+// Access in queries via ctx:
+query(({ ctx, input }) => {
+  // ctx.db, ctx.user, ctx.tenantId available here
+})
+```
+
+## Middleware Patterns
+
+```ts
+const api = define({
+  // Global middleware (runs for all queries)
+  middleware: async ({ next, queryName, input, ctx }) => {
+    console.log(`[${queryName}]`, input);
+    const result = await next();
+    return result;
+  },
+  queries: queries({
+    revenue: query
+      // Per-query middleware
+      .middleware(async ({ next }) => {
+        const start = Date.now();
+        const result = await next();
+        console.log(`Took ${Date.now() - start}ms`);
+        return result;
+      })
+      .query(({ ctx }) => ctx.db.table('orders').execute()),
+  }),
+});
+```
+
+## Caching
+
+```ts
+query
+  .cache({
+    mode: 'cache-first',        // Options: cache-first, network-first, stale-while-revalidate
+    ttlMs: 60000,               // 1 minute
+    tags: ['revenue'],          // For invalidation
+  })
+  .query(({ ctx }) => ...)
+```
+
+## Common Mistakes
+
+1. **Forgetting .execute()** - All queries need `.execute()` at the end
+2. **Using db instead of ctx.db in serve** - Inside query definitions, use `ctx.db`
+3. **Awaiting inside query function** - Return the promise, don't await: `query: ({ ctx }) => ctx.db.table(...).execute()`
+4. **Not registering routes** - Queries need `api.route('/path', api.queries.name)` for HTTP access
+5. **Wrong HTTP method** - Specify method in route registration: `api.route('/path', query, { method: 'POST' })`
+
+## Best Practices
+
+- Define queries once in a central file (e.g., `analytics/queries.ts`)
+- Use Zod schemas for validation and documentation
+- Add descriptions to queries for OpenAPI and discoverability
+- Use middleware for logging, auth, and tenant enforcement
+- Cache read-only queries, avoid caching mutations
+- Use streaming for large result sets
+- Test queries with `api.run()` before exposing via HTTP
+- Mount on existing Express/Fastify backends - no need to create new servers
+- Use `InferApiType` for automatic type extraction in React hooks
+
+## When Building Solutions
+
+- Always use `.execute()` on all queries
+- Show complete, runnable examples
+- Use `ctx.db` in serve framework queries
+- Use proper TypeScript types (never `any`)
+- Follow the query builder fluent API pattern
+- Include error handling for production code
+- Add input validation via Zod schemas
+- Reference actual hypequery APIs, don't invent methods

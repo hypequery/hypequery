@@ -9,16 +9,22 @@ import Callout from '../../../components/Callout.astro';
 
 # Quickstart
 
-Shipping your first hypequery API only takes two CLI commands. No CLI installation needed—just use `npx @hypequery/cli init` to scaffold everything (env, client, schema, queries), fire up the dev server, then add a real metric.
+Get started with hypequery serve in minutes. This guide walks you through installing, configuring, and building your first type-safe analytics queries.
 
-### Prereqs
+> **Note:** This quickstart uses the serve framework. If you chose standalone, see the [Standalone Setup Guide](/docs/standalone/setup).
+
+### Prerequisites
 
 - Node.js 18+
 - Access to a ClickHouse instance with credentials
 - Install the runtime packages:
 
   ```bash
+  # Core packages (required)
   npm install @hypequery/clickhouse @hypequery/serve
+
+  # React hooks (optional - add later if needed)
+  npm install @hypequery/react
   ```
 
 **CLI installation is optional.** You can run all commands with `npx @hypequery/cli` without installing anything. Or install locally so teammates share the same version:
@@ -106,9 +112,11 @@ The command watches your analytics files, refreshes docs, and exposes:
 Leave this running while you iterate or while teammates need to hit the HTTP preview locally.
 
 
-## Next steps
+## Next Steps
 
-- Explore the fluent builder in [Query Building](/docs/define/query-building)
-- Regenerate schema types on demand with [`hypequery generate`](/docs/reference/cli#hypequery-generate)
+**Continue learning:** [Installation Options](/docs/getting-started/installation-options) - Choose your path (serve vs standalone)
 
-<b>Looking for framework- or use case-specific examples? Check the <a class="font-semibold text-indigo-600 hover:text-indigo-500" href="/docs/recipes">recipes section</a>.</b>
+**Or dive into:**
+- [Building Queries](/docs/queries/query-building) - Master the query builder API
+- [Query Definitions](/docs/serve/query-definitions) - Advanced serve patterns
+- [Core Concepts](/docs/getting-started/core-concepts) - Understand the architecture

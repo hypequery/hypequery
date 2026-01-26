@@ -8,47 +8,53 @@ import Callout from '../../../components/Callout.astro';
 
 # Query Building
 
-hypequery ships with a fluent type-safe query builder exposed from the `@hypequery/clickhouse` package. This can be used in isolation, see the reference guide [here](/docs/reference/standalone-query-builder) or when you define queries inside the `defineServe` function.
+hypequery's query builder provides a fluent, type-safe API for building ClickHouse queries. The same API works in both standalone and serve contexts.
 
-This page shows the most common clauses: `select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and `toSQL`.
+This page covers the core query builder API: `select`, `where`, `join`, `groupBy`, `having`, `orderBy`, `limit`/`offset`, and more.
 
+## Using the Query Builder
+
+The query builder API is identical in both contexts. **All queries use `.execute()`**.
+
+**In serve framework:**
 ```ts
-import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
-import { db } from './client';
-
-const { define, queries, query } = initServe({
-  context: () => ({ db }),
-});
-
-export const api = define({
-  queries: queries({
-    // examples below look like:
-    // tripsQuery: query.describe('...').input(...).query(({ ctx }) => ctx.db ...),
-  }),
-});
+// Inside query definitions - return the query with .execute()
+query: ({ ctx }) =>
+  ctx.db.table('users')
+    .where('status', 'eq', 'active')
+    .select(['id', 'name'])
+    .execute()
 ```
+
+**Standalone:**
+```ts
+// Direct execution - await the query
+const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name'])
+  .execute();
+```
+
+**The only difference:** Use `ctx.db` in serve, `db` in standalone. The query builder API is the same.
+
+**Examples below show the query builder without `.execute()` for brevity.** Remember to add `.execute()` in your actual code.
 
 ## Selecting columns
 
 ```ts
-activeUsers: {
-  query: ({ ctx }) =>
-    ctx.db.table('users').select([
-      'id',
-      'email AS user_email',
-      ctx.db.rawAs('status', 'account_status'),
-    ]),
-}
+db.table('users').select([
+  'id',
+  'email AS user_email',
+  rawAs('status', 'account_status'),
+])
 ```
 
-- Write aliases inline (`'email AS user_email'`) or use helpers like `rawAs`, `selectExpr`, `toDateTime` when you’re building expressions.
-- Use `select('*')` when you truly need every column:
+- Write aliases inline (`'email AS user_email'`)
+- Use helpers like `rawAs`, `selectExpr`, `toDateTime` for expressions
+- Use `select('*')` when you need every column:
 
   ```ts
-  allUsers: {
-    query: ({ ctx }) => ctx.db.table('users').select('*'),
-  }
+  db.table('users').select('*')
   ```
 
 ---
@@ -58,15 +64,10 @@ activeUsers: {
 `where` is the most flexible clause in the builder: pass column/operator/value triples, raw predicates, or predicate-builder callbacks, and chain them in any combination.
 
 ```ts
-monthlyTrials: {
-  inputSchema: z.object({ month: z.string() }),
-  query: ({ ctx, input }) =>
-    ctx.db
-      .table('trials')
-      .where('started_at', 'gte', `${input.month}-01`)
-      .where('started_at', 'lt', `${input.month}-31`)
-      .where('status', 'eq', 'active'),
-}
+db.table('trials')
+  .where('started_at', 'gte', '2024-01-01')
+  .where('started_at', 'lt', '2024-01-31')
+  .where('status', 'eq', 'active')
 ```
 
 **Type definitions**
@@ -104,17 +105,13 @@ orWhereGroup(callback: (builder) => void): this
 ### Function Predicates
 
   ```ts
-  taggedProducts: {
-    query: ({ ctx }) =>
-      ctx.db
-        .table('products')
-        .where((expr) =>
-          expr.and([
-            expr.fn('hasAny', 'tags', ['launch', 'beta']),
-            expr.fn('endsWith', 'status', expr.literal('active')),
-          ])
-        ),
-  }
+  db.table('products')
+    .where((expr) =>
+      expr.and([
+        expr.fn('hasAny', 'tags', ['launch', 'beta']),
+        expr.fn('endsWith', 'status', expr.literal('active')),
+      ])
+    )
   ```
 
   The callback receives a `PredicateBuilder` with helpers like `expr.fn`, `expr.literal`, `expr.array`, `expr.raw`, `expr.and`, and `expr.or` so you can model ClickHouse functions safely.
@@ -137,15 +134,11 @@ The where method supports advanced IN operators for ClickHouse, including distri
 All IN operator variants are supported:
 
 ```ts
-tupleJoin: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('events')
-      .where(['counter_id', 'user_id'], 'inTuple', [
-        [34, 123],
-        [101500, 456],
-      ]),
-}
+db.table('events')
+  .where(['counter_id', 'user_id'], 'inTuple', [
+    [34, 123],
+    [101500, 456],
+  ])
 ```
 
 | Operator | Description | Example |
@@ -167,17 +160,13 @@ tupleJoin: {
 </Callout>
 
 ```ts
-ordersWithUsers: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .leftJoin('users', 'orders.user_id', 'users.id')
-      .select([
-        'orders.id',
-        'orders.total',
-        'users.email AS customer_email',
-      ]),
-}
+db.table('orders')
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'orders.total',
+    'users.email AS customer_email',
+  ])
 ```
 
 Available helpers: `innerJoin`, `leftJoin`, `rightJoin`, `fullJoin`.
@@ -187,14 +176,10 @@ Available helpers: `innerJoin`, `leftJoin`, `rightJoin`, `fullJoin`.
 ## Group By
 
 ```ts
-revenueByCountry: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .select(['country'])
-      .sum('total', 'total_revenue')
-      .groupBy(['country']),
-}
+db.table('orders')
+  .select(['country'])
+  .sum('total', 'total_revenue')
+  .groupBy(['country'])
 ```
 
 Call aggregation helpers (`sum`, `avg`, `count`, `distinctCount`, etc.) before `groupBy`.
@@ -204,14 +189,10 @@ Call aggregation helpers (`sum`, `avg`, `count`, `distinctCount`, etc.) before `
 ## Order by
 
 ```ts
-mostRecentSessions: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('sessions')
-      .select(['id', 'user_id', 'started_at'])
-      .orderBy('started_at', 'DESC')
-      .orderBy('id', 'ASC'),
-}
+db.table('sessions')
+  .select(['id', 'user_id', 'started_at'])
+  .orderBy('started_at', 'DESC')
+  .orderBy('id', 'ASC')
 ```
 
 - Signature: `orderBy(column, direction = 'ASC')`
@@ -223,16 +204,11 @@ mostRecentSessions: {
 ## Limit & Offset
 
 ```ts
-paginatedEvents: {
-  inputSchema: z.object({ limit: z.number().default(50), offset: z.number().default(0) }),
-  query: ({ ctx, input }) =>
-    ctx.db
-      .table('events')
-      .select(['id', 'name'])
-      .orderBy('occurred_at', 'DESC')
-      .limit(input.limit)
-      .offset(input.offset),
-}
+db.table('events')
+  .select(['id', 'name'])
+  .orderBy('occurred_at', 'DESC')
+  .limit(50)
+  .offset(0)
 ```
 
 Both helpers validate non-negative numbers.
@@ -242,13 +218,12 @@ Both helpers validate non-negative numbers.
 ## toSQL
 
 ```ts
-const preview = ctx.db
-  .table('orders')
+const query = db.table('orders')
   .select(['user_id'])
   .sum('total', 'total_spent')
   .groupBy(['user_id']);
 
-const sql = preview.toSQL();
+const sql = query.toSQL();
 // SELECT user_id, sum(total) AS total_spent FROM orders GROUP BY user_id
 ```
 
@@ -259,10 +234,9 @@ const sql = preview.toSQL();
 ## Distinct
 
 ```ts
-countries: {
-  query: ({ ctx }) =>
-    ctx.db.table('users').select(['country']).distinct(),
-}
+db.table('users')
+  .select(['country'])
+  .distinct()
 ```
 
 - Signature: `distinct(): this`
@@ -273,19 +247,15 @@ countries: {
 ## Time-based functions
 
 ```ts
-timeBuckets: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('events')
-      .select([
-        toDateTime('occurred_at', 'event_ts'),
-        formatDateTime('occurred_at', 'Y-MM-dd HH:00', { alias: 'hour_bucket' }),
-        toStartOfInterval('occurred_at', '1 hour', 'hour_start'),
-        datePart('week', 'occurred_at', 'week_no'),
-      ])
-      .groupBy(['hour_bucket', 'hour_start', 'week_no'])
-      .orderBy('hour_bucket', 'ASC'),
-}
+db.table('events')
+  .select([
+    toDateTime('occurred_at', 'event_ts'),
+    formatDateTime('occurred_at', 'Y-MM-dd HH:00', { alias: 'hour_bucket' }),
+    toStartOfInterval('occurred_at', '1 hour', 'hour_start'),
+    datePart('week', 'occurred_at', 'week_no'),
+  ])
+  .groupBy(['hour_bucket', 'hour_start', 'week_no'])
+  .orderBy('hour_bucket', 'ASC')
 ```
 
 - `toDateTime(field, alias?)` converts values into ClickHouse `DateTime` objects.
@@ -296,13 +266,9 @@ timeBuckets: {
 ### Grouping by time intervals
 
 ```ts
-hourlySpend: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .sum('total', 'total_spend')
-      .groupByTimeInterval('created_at', '1 hour'),
-}
+db.table('orders')
+  .sum('total', 'total_spend')
+  .groupByTimeInterval('created_at', '1 hour')
 ```
 
 - Built-in helpers: `groupByTimeInterval('timestamp', null, 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear')`.
@@ -311,18 +277,14 @@ hourlySpend: {
 ### Query settings
 
 ```ts
-constrainedQuery: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('large_table')
-      .settings({
-        max_execution_time: 60,
-        max_threads: 4,
-        max_memory_usage: '10000000000',
-      })
-      .select(['id'])
-      .limit(1000),
-}
+db.table('large_table')
+  .settings({
+    max_execution_time: 60,
+    max_threads: 4,
+    max_memory_usage: '10000000000',
+  })
+  .select(['id'])
+  .limit(1000)
 ```
 
 - Settings map directly to ClickHouse query settings.
@@ -333,45 +295,43 @@ constrainedQuery: {
 ## Common Table Expressions (CTEs)
 
 ```ts
-const activeUsers = ctx.db
-  .table('users')
+const activeUsers = db.table('users')
   .select(['id', 'name'])
   .where('status', 'eq', 'active');
 
-cteExample: {
-  query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .withCTE('active_users', activeUsers)
-      .leftJoin('active_users', 'orders.user_id', 'active_users.id')
-      .select(['orders.id', 'active_users.name']),
-}
+db.table('orders')
+  .withCTE('active_users', activeUsers)
+  .leftJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select(['orders.id', 'active_users.name'])
 ```
 
 - Signature: `withCTE(alias, subquery | rawSql)`.
 - Chain multiple CTEs:
 
 ```ts
-complexReport: {
-  query: ({ ctx }) => {
-    const activeUsers = ctx.db
-      .table('users')
-      .select(['id', 'name'])
-      .where('status', 'eq', 'active');
+const activeUsers = db.table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
 
-    const highValueOrders = ctx.db
-      .table('orders')
-      .select(['user_id', 'total'])
-      .where('total', 'gte', 1000);
+const highValueOrders = db.table('orders')
+  .select(['user_id', 'total'])
+  .where('total', 'gte', 1000);
 
-    return ctx.db
-      .table('users')
-      .withCTE('active_users', activeUsers)
-      .withCTE('high_value_orders', highValueOrders)
-      .leftJoin('high_value_orders', 'users.id', 'high_value_orders.user_id')
-      .select(['users.name', 'high_value_orders.total']);
-  },
-}
+db.table('users')
+  .withCTE('active_users', activeUsers)
+  .withCTE('high_value_orders', highValueOrders)
+  .leftJoin('high_value_orders', 'users.id', 'high_value_orders.user_id')
+  .select(['users.name', 'high_value_orders.total'])
 ```
 
 Use raw SQL strings when needed: `.withCTE('recent', 'SELECT ...')`.
+
+---
+
+## Next Steps
+
+**Continue:** [Filtering](/docs/queries/filtering) - Master where clauses and operators
+
+**Or explore:**
+- [Joins](/docs/queries/joins) - Join tables together
+- [Time Functions](/docs/queries/time-functions) - Work with dates and time intervals

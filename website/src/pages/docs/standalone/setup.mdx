@@ -1,0 +1,265 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Setup & Connection
+description: Set up the standalone query builder and connect to ClickHouse
+---
+
+# Setup & Connection
+
+Get started with the standalone `@hypequery/clickhouse` query builder in minutes.
+
+## Installation
+
+```bash
+npm install @hypequery/clickhouse
+```
+
+### Peer Dependencies
+
+hypequery requires a ClickHouse client. Install one based on your environment:
+
+**Node.js:**
+```bash
+npm install @clickhouse/client
+```
+
+**Browser/Universal:**
+```bash
+npm install @clickhouse/client-web
+```
+
+---
+
+## Generate Types
+
+Generate TypeScript types from your ClickHouse schema:
+
+```bash
+npx hypequery generate-types \
+  --host http://localhost:8123 \
+  --database default \
+  --username default \
+  --password your-password
+```
+
+This creates a `generated-schema.ts` file with your database structure.
+
+**Options:**
+- `--output <path>` - Output file path (default: `./generated-schema.ts`)
+- `--tables <names>` - Generate types for specific tables only
+- `--exclude <pattern>` - Exclude tables matching pattern
+
+---
+
+## Create Query Builder
+
+### Node.js (Auto-detection)
+
+The simplest approach for Node.js environments:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'your-password',
+  database: 'default'
+});
+```
+
+hypequery automatically detects and uses `@clickhouse/client` in Node.js.
+
+### Browser/Universal (Manual Client)
+
+For browser or bundled environments, explicitly provide the client:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client-web';
+import type { IntrospectedSchema } from './generated-schema';
+
+const client = createClient({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: '',
+  database: 'default'
+});
+
+const db = createQueryBuilder<IntrospectedSchema>({ client });
+```
+
+### Environment Variables
+
+Use environment variables for configuration:
+
+```ts
+// .env
+CLICKHOUSE_HOST=http://localhost:8123
+CLICKHOUSE_DATABASE=analytics
+CLICKHOUSE_USERNAME=default
+CLICKHOUSE_PASSWORD=secret
+
+// db.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST,
+  database: process.env.CLICKHOUSE_DATABASE,
+  username: process.env.CLICKHOUSE_USERNAME,
+  password: process.env.CLICKHOUSE_PASSWORD
+});
+
+export { db };
+```
+
+---
+
+## Configuration Options
+
+```ts
+interface ClickHouseConfig {
+  // Connection (choose one approach)
+  client?: ClickHouseClient;           // Pre-configured client (browser)
+  host?: string;                        // Auto-detection (Node.js)
+  database?: string;
+  username?: string;
+  password?: string;
+
+  // Optional settings
+  request_timeout?: number;             // Query timeout in ms
+  max_open_connections?: number;        // Connection pool size
+  compression?: {
+    request?: boolean;
+    response?: boolean;
+  };
+  clickhouse_settings?: ClickHouseSettings;  // ClickHouse-specific settings
+}
+```
+
+### ClickHouse Settings
+
+Pass ClickHouse-specific settings:
+
+```ts
+const db = createQueryBuilder<Schema>({
+  host: 'http://localhost:8123',
+  database: 'default',
+  clickhouse_settings: {
+    max_execution_time: 60,              // Seconds
+    max_memory_usage: '10000000000',     // Bytes
+    readonly: 1                          // Read-only mode
+  }
+});
+```
+
+---
+
+## Verify Connection
+
+Test your connection:
+
+```ts
+const result = await db.table('users')
+  .select(['id'])
+  .limit(1)
+  .execute();
+
+console.log('Connected!', result);
+```
+
+---
+
+## Common Patterns
+
+### Singleton Instance
+
+Export a shared instance:
+
+```ts
+// lib/db.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+export const db = createQueryBuilder<Schema>({
+  host: process.env.CLICKHOUSE_HOST,
+  database: process.env.CLICKHOUSE_DATABASE
+});
+```
+
+```ts
+// Anywhere in your app
+import { db } from '@/lib/db';
+
+const users = await db.table('users').execute();
+```
+
+### Multiple Databases
+
+Connect to different databases:
+
+```ts
+const analytics = createQueryBuilder<AnalyticsSchema>({
+  host: 'http://analytics.example.com:8123',
+  database: 'analytics'
+});
+
+const events = createQueryBuilder<EventsSchema>({
+  host: 'http://events.example.com:8123',
+  database: 'events'
+});
+```
+
+### Connection Pooling
+
+The underlying ClickHouse client handles connection pooling:
+
+```ts
+const db = createQueryBuilder<Schema>({
+  host: 'http://localhost:8123',
+  database: 'default',
+  max_open_connections: 10  // Pool size
+});
+```
+
+---
+
+## Troubleshooting
+
+### Cannot find module '@clickhouse/client'
+
+Install the peer dependency:
+```bash
+npm install @clickhouse/client
+```
+
+### Connection refused / ECONNREFUSED
+
+- Verify ClickHouse is running: `curl http://localhost:8123/ping`
+- Check host/port configuration
+- Ensure firewall allows connections
+
+### Authentication failed
+
+- Verify username/password
+- Check ClickHouse user permissions
+- Ensure user has access to the specified database
+
+### Types not found
+
+Run the type generator:
+```bash
+npx hypequery generate-types
+```
+
+---
+
+## Next Steps
+
+**Continue:** [Direct Execution](/docs/standalone/execution) - Learn how to execute queries
+
+**Or explore:**
+- [Integration Examples](/docs/standalone/examples) - See real-world usage
+- [Building Queries](/docs/queries/query-building) - Master the query builder API

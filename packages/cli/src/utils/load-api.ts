@@ -1,9 +1,10 @@
 import { pathToFileURL } from 'node:url';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
-import { ensureTypeScriptRuntime } from './ensure-ts-runtime.js';
+import { build } from 'esbuild';
 
 const TYPESCRIPT_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts']);
+const tsconfigCache = new Map<string, string | null>();
 
 export async function loadApiModule(modulePath: string) {
   const resolved = path.resolve(process.cwd(), modulePath);
@@ -21,22 +22,13 @@ export async function loadApiModule(modulePath: string) {
     );
   }
 
-  // Load the embedded tsx runtime on demand for any TypeScript entrypoint
   const extension = path.extname(resolved).toLowerCase();
   const isTypeScript = TYPESCRIPT_EXTENSIONS.has(extension);
-  if (isTypeScript) {
-    try {
-      await ensureTypeScriptRuntime();
-    } catch (error: any) {
-      throw new Error(
-        `Failed to load TypeScript support. This should never happen because the CLI bundles tsx.\n` +
-        `Original error: ${error?.message ?? error}`
-      );
-    }
-  }
 
-  // Load the module (works for both .js and .ts if tsx is loaded)
-  const moduleUrl = `${pathToFileURL(resolved).href}?t=${Date.now()}`;
+  // Load module content. TypeScript entries are bundled with esbuild so we can import them as ESM.
+  const moduleUrl = isTypeScript
+    ? await bundleTypeScriptModule(resolved)
+    : `${pathToFileURL(resolved).href}?t=${Date.now()}`;
   let mod: any;
 
   try {
@@ -85,4 +77,76 @@ export async function loadApiModule(modulePath: string) {
   }
 
   return api;
+}
+
+async function bundleTypeScriptModule(entryPath: string) {
+  const relativePath = path.relative(process.cwd(), entryPath);
+  const tsconfigPath = await findNearestTsconfig(entryPath);
+
+  try {
+    const result = await build({
+      entryPoints: [entryPath],
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      target: ['node18'],
+      sourcemap: 'inline',
+      write: false,
+      logLevel: 'silent',
+      absWorkingDir: process.cwd(),
+      packages: 'external',
+      tsconfig: tsconfigPath ?? undefined,
+      loader: {
+        '.ts': 'ts',
+        '.tsx': 'tsx',
+        '.mts': 'ts',
+        '.cts': 'ts',
+      },
+    });
+
+    const output = result.outputFiles?.find(file => file.path.endsWith('.js')) ?? result.outputFiles?.[0];
+
+    if (!output) {
+      throw new Error('esbuild produced no output');
+    }
+
+    const contents = `${output.text}\n//# sourceURL=${pathToFileURL(entryPath).href}`;
+    const base64 = Buffer.from(contents, 'utf8').toString('base64');
+    return `data:text/javascript;base64,${base64}#ts=${Date.now()}`;
+  } catch (error: any) {
+    throw new Error(
+      `Failed to compile ${relativePath} with esbuild.\n` +
+      `Original error: ${error?.message ?? error}`
+    );
+  }
+}
+
+async function findNearestTsconfig(filePath: string) {
+  let dir = path.dirname(filePath);
+  const visited: string[] = [];
+
+  while (true) {
+    if (tsconfigCache.has(dir)) {
+      const cached = tsconfigCache.get(dir) ?? null;
+      visited.forEach(pathname => tsconfigCache.set(pathname, cached));
+      return cached;
+    }
+
+    visited.push(dir);
+    const candidate = path.join(dir, 'tsconfig.json');
+
+    try {
+      await access(candidate);
+      tsconfigCache.set(dir, candidate);
+      visited.forEach(pathname => tsconfigCache.set(pathname, candidate));
+      return candidate;
+    } catch {
+      const parent = path.dirname(dir);
+      if (parent === dir) {
+        visited.forEach(pathname => tsconfigCache.set(pathname, null));
+        return null;
+      }
+      dir = parent;
+    }
+  }
 }
