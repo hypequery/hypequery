@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { access, mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { build } from 'esbuild';
@@ -101,7 +101,15 @@ if (!globalState.__hypequeryCliTempFiles) {
 function ensureTempDir() {
   installCleanupHooks();
   if (!tempDirPromise) {
-    tempDirPromise = mkdtemp(path.join(os.tmpdir(), 'hypequery-cli-'));
+    tempDirPromise = (async () => {
+      const projectTempRoot = path.join(process.cwd(), '.hypequery', 'tmp');
+      try {
+        await mkdir(projectTempRoot, { recursive: true });
+        return mkdtemp(path.join(projectTempRoot, 'bundle-'));
+      } catch {
+        return mkdtemp(path.join(os.tmpdir(), 'hypequery-cli-'));
+      }
+    })();
     globalState.__hypequeryCliTempDirPromise = tempDirPromise;
   }
   return tempDirPromise;
