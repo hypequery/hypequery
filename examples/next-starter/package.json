@@ -9,8 +9,9 @@
     "start": "next start"
   },
   "dependencies": {
-    "@hypequery/react": "*",
-    "@hypequery/serve": "*",
+    "@hypequery/react": "workspace:*",
+    "@hypequery/serve": "workspace:*",
+    "@hypequery/clickhouse": "workspace:*",
     "@tanstack/react-query": "^5.62.11",
     "next": "14.2.35",
     "react": "^18.2.0",
@@ -18,6 +19,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@hypequery/cli": "workspace:*",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

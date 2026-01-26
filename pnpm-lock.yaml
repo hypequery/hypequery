@@ -182,11 +182,14 @@ importers:
 
   examples/next-starter:
     dependencies:
+      '@hypequery/clickhouse':
+        specifier: workspace:*
+        version: link:../../packages/clickhouse
       '@hypequery/react':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/react
       '@hypequery/serve':
-        specifier: '*'
+        specifier: workspace:*
         version: link:../../packages/serve
       '@tanstack/react-query':
         specifier: ^5.62.11
@@ -204,6 +207,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@hypequery/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
       '@types/node':
         specifier: ^20
         version: 20.19.29
