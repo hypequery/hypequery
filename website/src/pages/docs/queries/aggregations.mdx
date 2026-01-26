@@ -1,0 +1,312 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Aggregations
+description: Use aggregation functions to compute metrics and analytics in ClickHouse
+---
+
+# Aggregations
+
+hypequery provides type-safe aggregation methods for computing metrics like sums, averages, and counts. Combine them with `groupBy` to create analytics queries.
+
+## Basic Aggregations
+
+### sum()
+
+Calculate the sum of a numeric column:
+
+```ts
+db.table('orders')
+  .sum('amount', 'total_revenue')
+```
+
+Generates:
+```sql
+SELECT SUM(amount) AS total_revenue FROM orders
+```
+
+### count()
+
+Count rows or non-null values:
+
+```ts
+db.table('users')
+  .count('id', 'user_count')
+```
+
+Generates:
+```sql
+SELECT COUNT(id) AS user_count FROM users
+```
+
+### avg()
+
+Calculate the average of a numeric column:
+
+```ts
+db.table('orders')
+  .avg('amount', 'avg_order_value')
+```
+
+Generates:
+```sql
+SELECT AVG(amount) AS avg_order_value FROM orders
+```
+
+### min() and max()
+
+Find minimum and maximum values:
+
+```ts
+db.table('orders')
+  .min('amount', 'min_order')
+  .max('amount', 'max_order')
+```
+
+Generates:
+```sql
+SELECT MIN(amount) AS min_order, MAX(amount) AS max_order FROM orders
+```
+
+## Grouping
+
+### groupBy()
+
+Group results by one or more columns:
+
+```ts
+db.table('orders')
+  .select(['country'])
+  .sum('amount', 'total_revenue')
+  .groupBy(['country'])
+```
+
+Generates:
+```sql
+SELECT country, SUM(amount) AS total_revenue
+FROM orders
+GROUP BY country
+```
+
+**Important:** Call aggregation methods (`sum`, `avg`, `count`, etc.) **before** `groupBy()`.
+
+### Multiple Aggregations
+
+Combine multiple aggregation functions:
+
+```ts
+db.table('orders')
+  .select(['country', 'product'])
+  .sum('amount', 'revenue')
+  .count('id', 'order_count')
+  .avg('amount', 'avg_order')
+  .groupBy(['country', 'product'])
+```
+
+Generates:
+```sql
+SELECT
+  country,
+  product,
+  SUM(amount) AS revenue,
+  COUNT(id) AS order_count,
+  AVG(amount) AS avg_order
+FROM orders
+GROUP BY country, product
+```
+
+## Filtering Aggregated Results
+
+### having()
+
+Filter results after aggregation:
+
+```ts
+db.table('orders')
+  .select(['country'])
+  .sum('amount', 'total_revenue')
+  .groupBy(['country'])
+  .having('total_revenue > 100000')
+```
+
+Generates:
+```sql
+SELECT country, SUM(amount) AS total_revenue
+FROM orders
+GROUP BY country
+HAVING total_revenue > 100000
+```
+
+### Multiple HAVING Conditions
+
+Chain multiple `having()` calls (combined with AND):
+
+```ts
+db.table('orders')
+  .select(['country'])
+  .sum('amount', 'revenue')
+  .count('id', 'order_count')
+  .groupBy(['country'])
+  .having('revenue > 100000')
+  .having('order_count > 50')
+```
+
+Generates:
+```sql
+SELECT country, SUM(amount) AS revenue, COUNT(id) AS order_count
+FROM orders
+GROUP BY country
+HAVING revenue > 100000 AND order_count > 50
+```
+
+## Time-Based Aggregations
+
+### groupByTimeInterval()
+
+Group data by time intervals:
+
+```ts
+db.table('events')
+  .count('id', 'event_count')
+  .groupByTimeInterval('created_at', '1 hour')
+```
+
+**Built-in intervals:**
+```ts
+.groupByTimeInterval('timestamp', null, 'toStartOfMinute')
+.groupByTimeInterval('timestamp', null, 'toStartOfHour')
+.groupByTimeInterval('timestamp', null, 'toStartOfDay')
+.groupByTimeInterval('timestamp', null, 'toStartOfWeek')
+.groupByTimeInterval('timestamp', null, 'toStartOfMonth')
+```
+
+**Custom intervals:**
+```ts
+.groupByTimeInterval('timestamp', '5 minute')
+.groupByTimeInterval('timestamp', '2 hour')
+.groupByTimeInterval('timestamp', '7 day')
+```
+
+See [Time Functions](/docs/queries/time-functions) for more time-based patterns.
+
+## Common Patterns
+
+### Revenue by Country
+
+```ts
+db.table('orders')
+  .select(['country'])
+  .sum('amount', 'total_revenue')
+  .count('id', 'num_orders')
+  .avg('amount', 'avg_order_value')
+  .groupBy(['country'])
+  .orderBy('total_revenue', 'DESC')
+  .limit(10)
+```
+
+### Active Users Per Day
+
+```ts
+db.table('events')
+  .select(['user_id'])
+  .groupByTimeInterval('created_at', '1 day')
+  .count('id', 'event_count')
+  .orderBy('created_at', 'DESC')
+```
+
+### Top Products by Category
+
+```ts
+db.table('order_items')
+  .select(['category', 'product_name'])
+  .sum('quantity', 'units_sold')
+  .sum('price', 'revenue')
+  .groupBy(['category', 'product_name'])
+  .having('revenue > 10000')
+  .orderBy('revenue', 'DESC')
+```
+
+### Conversion Funnel
+
+```ts
+db.table('events')
+  .select([
+    'countIf(event_type = "page_view") as views',
+    'countIf(event_type = "add_to_cart") as adds',
+    'countIf(event_type = "purchase") as purchases'
+  ])
+```
+
+Use raw SQL expressions for conditional aggregations with ClickHouse functions like `countIf`, `sumIf`, etc.
+
+## Type Safety
+
+Aggregations maintain type safety:
+
+```ts
+interface Schema {
+  orders: {
+    id: 'Int32';
+    amount: 'Decimal64(2)';
+    country: 'String';
+    created_at: 'DateTime';
+  }
+}
+
+const db = createQueryBuilder<Schema>();
+
+// ✅ TypeScript knows amount is numeric
+db.table('orders').sum('amount', 'total')
+
+// ❌ Error: can't sum a string column
+db.table('orders').sum('country', 'total')
+```
+
+## Best Practices
+
+1. **Order matters**: Call aggregations before `groupBy()`
+   ```ts
+   // ✅ Good
+   db.table('orders')
+     .sum('amount', 'revenue')
+     .groupBy(['country'])
+
+   // ❌ Won't work as expected
+   db.table('orders')
+     .groupBy(['country'])
+     .sum('amount', 'revenue')
+   ```
+
+2. **Use aliases**: Always provide meaningful aliases
+   ```ts
+   // ✅ Good - clear alias
+   .sum('amount', 'total_revenue')
+
+   // ❌ Less clear - auto-generated
+   .sum('amount') // generates 'amount_sum'
+   ```
+
+3. **Combine with WHERE**: Filter before aggregating
+   ```ts
+   db.table('orders')
+     .where('status', 'eq', 'completed')
+     .sum('amount', 'revenue')
+     .groupBy(['country'])
+   ```
+
+4. **Use HAVING for post-aggregation filters**: Filter aggregated results with `having()`
+   ```ts
+   db.table('orders')
+     .sum('amount', 'revenue')
+     .groupBy(['country'])
+     .having('revenue > 100000') // Filter after aggregation
+   ```
+
+---
+
+## Next Steps
+
+**Continue:** [Time Functions](/docs/queries/time-functions) - Work with dates and time intervals
+
+**Or explore:**
+- [Subqueries & CTEs](/docs/queries/subqueries-ctes) - Complex analytical queries
+- [Advanced Filtering](/docs/queries/advanced-filtering) - Complex conditions

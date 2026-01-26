@@ -600,7 +600,7 @@ export const defineServe = <
 >(
   config: ServeConfig<TContext, TAuth, TQueries>
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
-  const basePath = config.basePath ?? "";
+  const basePath = config.basePath ?? "/api/analytics";
   const router = new ServeRouter(basePath);
   const globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[] = [
     ...((config.middlewares ?? []) as ServeMiddleware<any, any, TContext, TAuth>[]),

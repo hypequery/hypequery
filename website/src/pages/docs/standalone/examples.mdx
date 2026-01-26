@@ -1,0 +1,449 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Integration Examples
+description: Real-world examples of using hypequery standalone in different contexts
+---
+
+# Integration Examples
+
+Real-world patterns for using the standalone query builder in various environments.
+
+## Next.js App Router
+
+### API Routes
+
+```ts
+// app/api/users/route.ts
+import { db } from '@/lib/db';
+import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status') ?? 'active';
+
+  try {
+    const users = await db.table('users')
+      .where('status', 'eq', status)
+      .select(['id', 'name', 'email', 'created_at'])
+      .orderBy('created_at', 'DESC')
+      .limit(100)
+      .execute();
+
+    return NextResponse.json({ users });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Failed to fetch users' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### Server Components
+
+```tsx
+// app/dashboard/page.tsx
+import { db } from '@/lib/db';
+
+async function getMetrics() {
+  return db.table('events')
+    .where('date', 'eq', new Date().toISOString().split('T')[0])
+    .count('*', 'total_events')
+    .execute();
+}
+
+export default async function DashboardPage() {
+  const metrics = await getMetrics();
+
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <p>Events today: {metrics[0].total_events}</p>
+    </div>
+  );
+}
+```
+
+---
+
+## Next.js Pages Router
+
+```ts
+// pages/api/stats.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { db } from '@/lib/db';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const stats = await db.table('orders')
+    .select(['status'])
+    .count('*', 'count')
+    .groupBy(['status'])
+    .execute();
+
+  res.status(200).json({ stats });
+}
+```
+
+---
+
+## Express.js
+
+```ts
+// routes/users.ts
+import express from 'express';
+import { db } from '../lib/db';
+
+const router = express.Router();
+
+router.get('/users', async (req, res) => {
+  try {
+    const { status = 'active', limit = 50 } = req.query;
+
+    const users = await db.table('users')
+      .where('status', 'eq', status as string)
+      .select(['id', 'name', 'email'])
+      .limit(Number(limit))
+      .execute();
+
+    res.json({ users });
+  } catch (error) {
+    console.error('Query failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/users/:id', async (req, res) => {
+  const results = await db.table('users')
+    .where('id', 'eq', parseInt(req.params.id))
+    .select(['id', 'name', 'email', 'created_at'])
+    .limit(1)
+    .execute();
+
+  const user = results[0];
+  if (!user) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  res.json({ user });
+});
+
+export default router;
+```
+
+---
+
+## Fastify
+
+```ts
+// routes/analytics.ts
+import { FastifyInstance } from 'fastify';
+import { db } from '../lib/db';
+
+export async function analyticsRoutes(fastify: FastifyInstance) {
+  fastify.get('/analytics/daily', async (request, reply) => {
+    const stats = await db.table('events')
+      .select(['date'])
+      .count('*', 'total_events')
+      .groupBy(['date'])
+      .orderBy('date', 'DESC')
+      .limit(30)
+      .execute();
+
+    return { stats };
+  });
+
+  fastify.get<{ Querystring: { metric: string } }>(
+    '/analytics/metric',
+    async (request, reply) => {
+      const { metric } = request.query;
+
+      const results = await db.table('metrics')
+        .where('metric_name', 'eq', metric)
+        .select(['timestamp', 'value'])
+        .orderBy('timestamp', 'DESC')
+        .limit(100)
+        .execute();
+
+      return { results };
+    }
+  );
+}
+```
+
+---
+
+## Background Jobs (Node Cron)
+
+```ts
+// jobs/daily-report.ts
+import cron from 'node-cron';
+import { db } from '../lib/db';
+import { sendSlackNotification } from '../lib/slack';
+
+// Run every day at 9 AM
+cron.schedule('0 9 * * *', async () => {
+  console.log('Running daily report...');
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const dateStr = yesterday.toISOString().split('T')[0];
+
+  try {
+    // Get user signups
+    const signups = await db.table('users')
+      .where('created_at', 'gte', dateStr)
+      .count('*', 'total')
+      .execute();
+
+    // Get order revenue
+    const revenue = await db.table('orders')
+      .where('created_at', 'gte', dateStr)
+      .where('status', 'eq', 'completed')
+      .sum('total', 'revenue')
+      .execute();
+
+    // Get top products
+    const products = await db.table('order_items')
+      .select(['product_id', 'product_name'])
+      .count('*', 'orders')
+      .sum('quantity', 'total_sold')
+      .groupBy(['product_id', 'product_name'])
+      .orderBy('total_sold', 'DESC')
+      .limit(5)
+      .execute();
+
+    await sendSlackNotification({
+      title: `Daily Report - ${dateStr}`,
+      signups: signups[0].total,
+      revenue: revenue[0].revenue,
+      topProducts: products
+    });
+
+    console.log('Daily report sent successfully');
+  } catch (error) {
+    console.error('Daily report failed:', error);
+  }
+});
+```
+
+---
+
+## AWS Lambda
+
+```ts
+// functions/metrics.ts
+import { Handler } from 'aws-lambda';
+import { db } from './lib/db';
+
+export const handler: Handler = async (event) => {
+  const { startDate, endDate } = event.queryStringParameters ?? {};
+
+  if (!startDate || !endDate) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'startDate and endDate required' })
+    };
+  }
+
+  try {
+    const metrics = await db.table('events')
+      .where('timestamp', 'gte', startDate)
+      .where('timestamp', 'lte', endDate)
+      .select(['event_type'])
+      .count('*', 'count')
+      .groupBy(['event_type'])
+      .execute();
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ metrics })
+    };
+  } catch (error) {
+    console.error('Query failed:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  }
+};
+```
+
+---
+
+## Cloudflare Workers
+
+```ts
+// worker.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client-web';
+
+const client = createClient({
+  host: 'https://your-clickhouse.com:8443',
+  username: 'default',
+  password: 'password'
+});
+
+const db = createQueryBuilder({ client });
+
+export default {
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/api/metrics') {
+      const metrics = await db.table('page_views')
+        .where('date', 'eq', new Date().toISOString().split('T')[0])
+        .select(['page', 'count'])
+        .orderBy('count', 'DESC')
+        .limit(10)
+        .execute();
+
+      return new Response(JSON.stringify({ metrics }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response('Not found', { status: 404 });
+  }
+};
+```
+
+---
+
+## Data Migration Script
+
+```ts
+// scripts/migrate-data.ts
+import { db } from './lib/db';
+
+async function migrateUsers() {
+  console.log('Starting user migration...');
+
+  // Get users from old table
+  const oldUsers = await db.table('users_old')
+    .select(['id', 'email', 'name', 'created_at'])
+    .execute();
+
+  console.log(`Found ${oldUsers.length} users to migrate`);
+
+  // Insert in batches
+  const batchSize = 1000;
+  for (let i = 0; i < oldUsers.length; i += batchSize) {
+    const batch = oldUsers.slice(i, i + batchSize);
+
+    await db.rawQuery(`
+      INSERT INTO users (id, email, name, created_at)
+      VALUES ${batch.map(u => `(${u.id}, '${u.email}', '${u.name}', '${u.created_at}')`).join(',')}
+    `);
+
+    console.log(`Migrated ${Math.min(i + batchSize, oldUsers.length)} / ${oldUsers.length}`);
+  }
+
+  console.log('Migration complete!');
+}
+
+migrateUsers().catch(console.error);
+```
+
+---
+
+## CLI Tool
+
+```ts
+// cli.ts
+#!/usr/bin/env node
+import { Command } from 'commander';
+import { db } from './lib/db';
+
+const program = new Command();
+
+program
+  .name('analytics-cli')
+  .description('CLI for analytics queries');
+
+program
+  .command('users')
+  .option('-s, --status <status>', 'Filter by status', 'active')
+  .option('-l, --limit <limit>', 'Limit results', '10')
+  .action(async (options) => {
+    const users = await db.table('users')
+      .where('status', 'eq', options.status)
+      .select(['id', 'name', 'email'])
+      .limit(parseInt(options.limit))
+      .execute();
+
+    console.table(users);
+  });
+
+program
+  .command('stats')
+  .action(async () => {
+    const stats = await db.table('events')
+      .select(['event_type'])
+      .count('*', 'count')
+      .groupBy(['event_type'])
+      .orderBy('count', 'DESC')
+      .execute();
+
+    console.table(stats);
+  });
+
+program.parse();
+```
+
+---
+
+## Testing
+
+```ts
+// __tests__/queries.test.ts
+import { describe, it, expect, beforeAll } from 'vitest';
+import { db } from '../lib/db';
+
+describe('User Queries', () => {
+  beforeAll(async () => {
+    // Setup test data
+    await db.rawQuery(`
+      INSERT INTO users (id, name, status)
+      VALUES (1, 'Alice', 'active'), (2, 'Bob', 'inactive')
+    `);
+  });
+
+  it('fetches active users', async () => {
+    const users = await db.table('users')
+      .where('status', 'eq', 'active')
+      .select(['id', 'name'])
+      .execute();
+
+    expect(users).toHaveLength(1);
+    expect(users[0].name).toBe('Alice');
+  });
+
+  it('counts users by status', async () => {
+    const stats = await db.table('users')
+      .select(['status'])
+      .count('*', 'total')
+      .groupBy(['status'])
+      .execute();
+
+    expect(stats).toHaveLength(2);
+  });
+});
+```
+
+---
+
+## Next Steps
+
+**Continue learning:**
+- [Building Queries](/docs/queries/query-building) - Master the query builder API
+- [Filtering](/docs/queries/filtering) - Advanced filtering techniques
+
+**Ready for more?** [Query Definitions](/docs/serve/query-definitions) - Explore the serve framework

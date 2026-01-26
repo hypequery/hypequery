@@ -26,13 +26,13 @@ hypequery is a library, not a hosted platform. It integrates directly with your 
     <div class="flex-1 space-y-1">
       <p class="text-xl font-bold text-gray-900 mb-2 not-prose">Ready to get started?</p>
       <p class="text-gray-700 mb-4">
-        Install hypequery, connect to ClickHouse, and write your first type-safe query in under 5 minutes.
+        Choose your path (serve or standalone) and start building type-safe analytics in minutes.
       </p>
       <a
-        href="/docs/getting-started/quickstart"
+        href="/docs/getting-started/installation-options"
         class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-colors"
       >
-        <p class="text-white">Jump to Quickstart</p>
+        <p class="text-white">Get Started</p>
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
         </svg>
@@ -53,7 +53,7 @@ hypequery provides a small set of opt-in building blocks:
 
 - **Optional HTTP & OpenAPI exposure** — Expose the same definitions as APIs when needed, with generated OpenAPI specs.
 
-- **React hooks — Generate TanStack Query hooks (`useQuery`, `useMutation`) straight from your `serve.define` catalog for type-safe UI consumption.
+- **React hooks** — Generate TanStack Query hooks (`useQuery`, `useMutation`) straight from your `serve.define` catalog for type-safe UI consumption.
 
 - **Inference for clients & agents** — Extract the same schema metadata to power API clients, agents, or cron jobs without copy/pasting types.
 
@@ -67,7 +67,7 @@ Each primitive can be used independently. There is no required runtime, server, 
 
 Define analytics once and reuse them across services, cron jobs, background workers, and internal tools, without copying SQL or re-implementing logic.
 
-### Internal dashboards
+### Dashboards
 
 Expose a small, trusted set of metrics to dashboards instead of letting each chart redefine business logic.
 
@@ -81,4 +81,8 @@ Keep ClickHouse fast and flexible while managing analytics logic in code, under 
 
 ---
 
-**Next**: Learn about the [Core Concepts](/docs/getting-started/core-concepts) behind hypequery's architecture.
+## Next Steps
+
+**Continue:** [Why hypequery?](/docs/getting-started/why-hypequery) - Understand the problems hypequery solves
+
+**Or jump to:** [Installation Options](/docs/getting-started/installation-options) - Choose your path and get started

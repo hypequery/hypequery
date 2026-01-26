@@ -11,6 +11,7 @@ import {
   useCaseExamples as useCaseExamplesRaw,
 } from "../data/homepage-content";
 import homepageScript from "../scripts/homepage.ts?url";
+import { Bookmark, Code, FileText, Radar } from "@lucide/astro";
 
 const aiContext = aiContextRaw.trim();
 
@@ -38,7 +39,7 @@ const useCaseExamples = useCaseExamplesRaw.map((example) => ({
 const defaultUseCase = useCaseExamples[0] ?? null;
 ---
 
-<Layout title="hypequery - TypeScript SDK for ClickHouse with Type Safety">
+<Layout title="hypequery - The Missing TypeScript Layer for ClickHouse">
   <main>
     <!-- Hero section -->
     <div class="relative isolate pt-14">
@@ -47,23 +48,24 @@ const defaultUseCase = useCaseExamples[0] ?? null;
           <div
             class="flex flex-col items-start md:flex-row md:items-end relative"
           >
-            <div class="max-w-3xl pb-12">
+            <div class="max-w-3xl pb-12 relative z-10">
               <h1
                 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl animate-on-scroll"
               >
-                Analytics as code for TypeScript backends
+                Analytics as code for TypeScript teams
               </h1>
               <div>
-                <h2
-                  class="mt-6 text-lg leading-8 text-gray-600 animate-on-scroll"
-                >
-                  Define analytics queries once. Reuse them across APIs, jobs,
-                  dashboards, and AI agents.
-                </h2>
                 <p
-                  class="text-lg leading-8 text-gray-600 animate-on-scroll font-medium"
+                  class="mt-4 text-lg leading-8 text-gray-600 animate-on-scroll"
                 >
-                  Built on a ClickHouse-native, type-safe query engine.
+                  Define your ClickHouse metrics once in TypeScript. Reuse them
+                  across APIs, jobs, dashboards, and agents. With full type
+                  safety.
+                </p>
+                <p
+                  class="mt-2 text-lg leading-8 text-gray-600 animate-on-scroll font-medium"
+                >
+                  One definition. Every context. Always consistent.
                 </p>
               </div>
               <div class="mt-8 space-y-3 animate-on-scroll">
@@ -72,7 +74,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                     href="/docs/getting-started/quickstart"
                     class="rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                   >
-                    Quickstart &rarr;
+                    Get Started in 2 Minutes &rarr;
                   </a>
                 </div>
                 <div class="flex flex-wrap items-center gap-4">
@@ -100,7 +102,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                     data-copy-target="ai-context-snippet"
                   >
                     <span data-copy-default class="flex items-center gap-2">
-                      Copy AI context
+                      Copy for Claude/Cursor
                     </span>
                     <span
                       data-copy-success
@@ -351,10 +353,22 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                     <div
                       class="mt-6 space-y-3 text-base leading-7 text-gray-700"
                     >
-                      <p>Then metrics drift.</p>
-                      <p>Logic gets copied.</p>
-                      <p>Agents hallucinate.</p>
-                      <p>And “the correct query” becomes a debate.</p>
+                      <p>Then your API endpoint says revenue is $1.2M.</p>
+                      <p>Your dashboard says $1.3M.</p>
+                      <p>The Slack bot reports $1.1M.</p>
+                    </div>
+                    <div
+                      class="mt-6 space-y-3 text-base leading-7 text-gray-700"
+                    >
+                      <p>
+                        Someone changed the date filter. Someone else updated
+                        the exclusion logic. The agent hallucinated a JOIN.
+                      </p>
+                      <p>
+                        Now "what's our revenue?" requires a Slack thread, a
+                        meeting, and three engineers arguing about which SQL is
+                        "correct."
+                      </p>
                     </div>
                     <div
                       class="mt-8 space-y-3 text-base leading-7 text-gray-700"
@@ -394,8 +408,9 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                   Type-safe query building
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Define analytics logic in TypeScript with schemas, metadata,
-                  and ownership — not string SQL.
+                  Define analytics in TypeScript with schemas, metadata, and
+                  ownership. Type errors surface during build, not in production
+                  dashboards.
                 </p>
               </div>
               <div
@@ -405,8 +420,9 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                   Embedded-first execution
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Run queries directly in-process (api.run) for SSR, background
-                  jobs, and AI agents — no server required.
+                  Execute queries directly in your API routes, cron jobs, or
+                  scripts using api.run(). No HTTP latency. HTTP exposure is
+                  optional.
                 </p>
               </div>
               <div
@@ -416,8 +432,8 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                   Reusable metrics & queries
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Define once. Reuse across services, dashboards, and automation
-                  without duplication.
+                  Define once, import anywhere. Your API, dashboard, and Slack
+                  bot all use the same metric definition—no drift, no debates.
                 </p>
               </div>
               <div
@@ -427,19 +443,20 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                   Optional HTTP & APIs
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Expose metrics via HTTP when needed and ship OpenAPI specs
-                  automatically.
+                  Auto-generate OpenAPI specs, input validation, and TypeScript
+                  clients. Use HTTP only where it makes sense.
                 </p>
               </div>
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 class="text-lg font-semibold text-gray-900">
-                  Multi-tenancy ready
+                  Multi-tenancy isolation
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Auto-inject tenant filters, enforce isolation, and reuse the
-                  same metric definitions across every customer safely.
+                  Auto-inject tenant filters at the query level. It's impossible
+                  to accidentally query another customer's data—the framework
+                  prevents it.
                 </p>
               </div>
               <div
@@ -449,7 +466,9 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                   Optional caching
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Cache at the query level, where it actually belongs.
+                  Cache at the query level with TTL, invalidation, and custom
+                  cache keys. Not everywhere by default—only where it makes
+                  sense.
                 </p>
               </div>
             </div>
@@ -478,108 +497,70 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                 </div>
                 <div class="mt-8 grid gap-8 md:grid-cols-2">
                   <div class="space-y-3">
-                    {
-                      [
-                        {
-                          label: "Named",
-                          description: "Versioned keys with intent baked in.",
-                          icon: "bookmark",
-                        },
-                        {
-                          label: "Typed",
-                          description: "Zod schemas guard every input/output.",
-                          icon: "code",
-                        },
-                        {
-                          label: "Documented",
-                          description:
-                            "Metadata + OpenAPI ship alongside code.",
-                          icon: "note",
-                        },
-                        {
-                          label: "Discoverable",
-                          description:
-                            "List + inspect definitions instead of spelunking SQL.",
-                          icon: "radar",
-                        },
-                      ].map(({ label, description, icon }) => (
-                        <div class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3">
-                          <span
-                            class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
-                            aria-hidden="true"
-                          >
-                            {icon === "bookmark" && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="1.5"
-                                stroke="currentColor"
-                                class="h-5 w-5"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  d="M6.75 3v17.25L12 17.25l5.25 3V3z"
-                                />
-                              </svg>
-                            )}
-                            {icon === "code" && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="1.5"
-                                stroke="currentColor"
-                                class="h-5 w-5"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  d="M8.25 9.75L5.25 12l3 2.25m7.5-4.5L18.75 12l-3 2.25m-2.25-7.5l-3 9"
-                                />
-                              </svg>
-                            )}
-                            {icon === "note" && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="1.5"
-                                stroke="currentColor"
-                                class="h-5 w-5"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  d="M3.75 4.5h10.5m-10.5 6h6m-6 6h10.5m2.25-14.25h2.25v15a1.5 1.5 0 01-1.5 1.5H6"
-                                />
-                              </svg>
-                            )}
-                            {icon === "radar" && (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="1.5"
-                                stroke="currentColor"
-                                class="h-5 w-5"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  d="M12 6v6l3 1.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                            )}
-                          </span>
-                          <div>
-                            <p class="text-base font-semibold">{label}</p>
-                            <p class="text-sm text-gray-300">{description}</p>
-                          </div>
-                        </div>
-                      ))
-                    }
+                    <div
+                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
+                    >
+                      <span
+                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
+                        aria-hidden="true"
+                      >
+                        <Bookmark class="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p class="text-base font-semibold">Named</p>
+                        <p class="text-sm text-gray-300">
+                          Versioned keys with intent baked in.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
+                    >
+                      <span
+                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
+                        aria-hidden="true"
+                      >
+                        <Code class="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p class="text-base font-semibold">Typed</p>
+                        <p class="text-sm text-gray-300">
+                          Zod schemas guard every input/output.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
+                    >
+                      <span
+                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
+                        aria-hidden="true"
+                      >
+                        <FileText class="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p class="text-base font-semibold">Documented</p>
+                        <p class="text-sm text-gray-300">
+                          Metadata + OpenAPI ship alongside code.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
+                    >
+                      <span
+                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
+                        aria-hidden="true"
+                      >
+                        <Radar class="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p class="text-base font-semibold">Discoverable</p>
+                        <p class="text-sm text-gray-300">
+                          List + inspect definitions instead of spelunking SQL.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <p
@@ -665,14 +646,14 @@ const defaultUseCase = useCaseExamples[0] ?? null;
               Ship faster
             </p>
             <h2 class="mt-4 text-3xl font-bold sm:text-4xl">
-              Ready to build with type safety?
+              Ready to stop rewriting SQL?
             </h2>
             <p
               class="mt-4 text-base text-slate-600 sm:text-lg dark:text-white/80"
             >
               Point hypequery at your ClickHouse cluster and get a typed
-              analytics layer, API, and docs in minutes. Don’t let your next
-              release ship without guardrails.
+              analytics layer in minutes. Your API, jobs, and dashboards will
+              finally agree on the numbers.
             </p>
             <div
               class="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row"
@@ -696,7 +677,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
     </div>
   </main>
 
-  <script type="module" src={homepageScript}></script>
+  <script is:inline type="module" src={homepageScript}></script>
 
   <style>
     @keyframes blink {

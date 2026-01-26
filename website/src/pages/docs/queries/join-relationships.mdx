@@ -1,0 +1,162 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Join Relationships - hypequery
+description: Model reusable joins and relationship metadata inside defineServe
+---
+
+# Join Relationships
+
+`defineServe` queries can join any table on the fly, but bigger projects benefit from pre-declaring relationship paths. This page shows both approaches so you can balance velocity with consistency.
+
+## Basic joins
+
+Inline joins look just like SQL but stay type-safe.
+
+```ts
+import { defineServe } from '@hypequery/clickhouse';
+
+export const api = defineServe({
+  queries: {
+    ordersWithUsers: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .innerJoin('users', 'user_id', 'users.id')
+          .select(['orders.id', 'users.name', 'orders.amount'])
+          .orderBy({ column: 'orders.created_at', direction: 'DESC' }),
+    },
+  },
+});
+```
+
+## Join types
+
+The fluent builder surfaces every ClickHouse join primitive:
+
+```ts
+ctx.db.table('orders')
+  .innerJoin('users', 'user_id', 'users.id')
+  .leftJoin('regions', 'region_id', 'regions.id')
+  .rightJoin('returns', 'id', 'returns.order_id')
+  .fullJoin('invoices', 'id', 'invoices.order_id');
+```
+
+Use the shorthand methods (`innerJoin`, `leftJoin`, `rightJoin`, `fullJoin`) whenever the default semantics match what you need.
+
+## Defining reusable relationships
+
+When multiple queries share the same join graph, define it once with `JoinRelationships` and reference it by name.
+
+```ts
+import { defineServe, JoinRelationships, QueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from '../../analytics/schema';
+
+type Schema = IntrospectedSchema;
+
+const relationships = new JoinRelationships<Schema>();
+
+relationships.define('userOrders', {
+  from: 'orders',
+  to: 'users',
+  leftColumn: 'user_id',
+  rightColumn: 'id',
+  type: 'LEFT',
+});
+
+relationships.define('orderItems', {
+  from: 'orders',
+  to: 'order_items',
+  leftColumn: 'id',
+  rightColumn: 'order_id',
+  type: 'INNER',
+});
+
+QueryBuilder.setJoinRelationships(relationships);
+
+export const api = defineServe({
+  queries: {
+    ordersWithRelations: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .withRelation('userOrders')
+          .withRelation('orderItems')
+          .select(['orders.id', 'users.name', 'order_items.sku']),
+    },
+  },
+});
+```
+
+### Filtering with relations
+
+Once the relationship is attached you can filter and aggregate across the joined columns.
+
+```ts
+export const api = defineServe({
+  queries: {
+    activeAdmins: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('accounts')
+          .withRelation('ownerUser')
+          .where('accounts.active', 'eq', 1)
+          .where('users.user_name', 'like', '%admin%')
+          .select(['accounts.id', 'accounts.name', 'users.user_name']),
+    },
+  },
+});
+```
+
+### Aggregations with relations
+
+`withRelation` plays nicely with aggregations, groupings, and aliases.
+
+```ts
+export const api = defineServe({
+  queries: {
+    revenueByUser: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .withRelation('userOrders')
+          .select(['users.user_name'])
+          .sum('orders.total', 'total_spent')
+          .count('orders.id', 'order_count')
+          .groupBy(['users.user_name'])
+          .orderBy({ column: 'total_spent', direction: 'DESC' }),
+    },
+  },
+});
+```
+
+### Overriding relationship options
+
+You can override the join type or alias per query while still reusing the base definition.
+
+```ts
+export const api = defineServe({
+  queries: {
+    innerJoinedOrders: {
+      query: ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .withRelation('userOrders', { type: 'INNER', alias: 'user_orders' })
+          .select(['orders.id', 'user_orders.user_name']),
+    },
+  },
+});
+```
+
+## Tips
+
+- Call `QueryBuilder.setJoinRelationships()` exactly once during startup before you invoke `defineServe`.
+- Keep relationship names semantic (`userOrders`, `ordersWithItems`) so `.withRelation()` calls read like feature requirements.
+- Mix and match inline joins with relationships when prototyping; promote them to named relationships once they stabilize.
+
+---
+
+## Next Steps
+
+**Continue:** [Query Definitions](/docs/serve/query-definitions) - Build type-safe APIs with serve
+
+**Or explore:** [Caching](/docs/serve/caching) - Optimize query performance

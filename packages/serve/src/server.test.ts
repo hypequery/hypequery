@@ -4,12 +4,24 @@ import { z } from "zod";
 import { defineServe } from "./server";
 import type { ServeRequest } from "./types";
 
+const BASE_PATH = "/api/analytics";
+const withBasePath = (path = "/") => {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  if (normalized === BASE_PATH || normalized.startsWith(`${BASE_PATH}/`)) {
+    return normalized;
+  }
+  if (normalized === "/") {
+    return BASE_PATH;
+  }
+  return `${BASE_PATH}${normalized}`;
+};
+
 const createRequest = (overrides: Partial<ServeRequest> = {}): ServeRequest => ({
   method: "GET",
-  path: "/",
   headers: {},
   query: {},
   ...overrides,
+  path: withBasePath(overrides.path),
 });
 
 describe("defineServe", () => {
@@ -144,9 +156,10 @@ describe("defineServe", () => {
 
     const spec = response.body as any;
     expect(spec.info.title).toBe("Metrics API");
-    expect(spec.paths["/metrics/total"]).toBeDefined();
-    expect(spec.paths["/metrics/total"].get.parameters).toBeDefined();
-    expect(spec.paths["/metrics/total"].get.requestBody).toBeUndefined();
+    const registeredPath = `${BASE_PATH}/metrics/total`;
+    expect(spec.paths[registeredPath]).toBeDefined();
+    expect(spec.paths[registeredPath].get.parameters).toBeDefined();
+    expect(spec.paths[registeredPath].get.requestBody).toBeUndefined();
   });
 
   it("keeps the OpenAPI route public even when auth is required", async () => {

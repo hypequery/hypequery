@@ -27,7 +27,7 @@ export const api = defineServe({
       auth: async ({ request }) => verifySession(request),
     },
   },
-  basePath: '/analytics',
+  basePath: '/api/analytics',
   tenant: { extract: (auth) => auth?.accountId, column: 'account_id', mode: 'auto-inject' },
   auth: async ({ request }) => getAuthContext(request),
   middlewares: [logRequests],
@@ -47,7 +47,7 @@ export const api = defineServe({
 | Property | Type | Default | Description |
 | --- | --- | --- | --- |
 | `queries` | `ServeQueriesMap` | required | Map of query definitions (either `ServeQueryConfig` objects or executable functions). |
-| `basePath` | `string` | `""` | Prefix applied to every generated route (e.g. `/analytics`). |
+| `basePath` | `string` | `"/api/analytics"` | Prefix applied to every generated route. Override to change where APIs mount. |
 | `middlewares` | `ServeMiddleware[]` | `[]` | Global middleware stack executed before every endpoint. |
 | `auth` | `AuthStrategy | AuthStrategy[]` | `[]` | One or more strategies that produce the `auth` context. Missing/failed strategies trigger `onAuthFailure`. |
 | `tenant` | `TenantConfig` | `undefined` | Global tenant isolation config; individual queries can override or opt out. |

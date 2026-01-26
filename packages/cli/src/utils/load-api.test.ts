@@ -9,6 +9,10 @@ vi.mock('node:fs/promises', () => ({
   access: vi.fn(),
 }));
 
+vi.mock('esbuild', () => ({
+  build: vi.fn(),
+}));
+
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(dirname, '__fixtures__');
 const validApiFixture = path.join(fixturesDir, 'valid-api.js');
@@ -18,22 +22,24 @@ describe('load-api', () => {
   const originalEnv = process.env;
   let loadApiModule: LoadApiModule;
   let cwdSpy: ReturnType<typeof vi.spyOn> | undefined;
-  let runtimeState: { loadCount: number; shouldThrow: boolean; errorMessage: string };
-  let ensureRuntimeModule: typeof import('./ensure-ts-runtime.js');
+  let mockBuild: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     vi.resetModules();
-    loadApiModule = (await import('./load-api.js')).loadApiModule;
-    ensureRuntimeModule = await import('./ensure-ts-runtime.js');
+    const esbuild = await import('esbuild');
+    mockBuild = vi.mocked(esbuild.build);
     vi.clearAllMocks();
-    runtimeState = { loadCount: 0, shouldThrow: false, errorMessage: 'tsx exploded' };
-    ensureRuntimeModule.resetTypeScriptRuntimeForTesting();
-    ensureRuntimeModule.setTypeScriptRuntimeImporter(async () => {
-      runtimeState.loadCount += 1;
-      if (runtimeState.shouldThrow) {
-        throw new Error(runtimeState.errorMessage);
-      }
+    mockBuild.mockResolvedValue({
+      outputFiles: [
+        {
+          path: 'out.js',
+          text: 'export const api = { handler: () => {} };',
+        },
+      ],
     });
+
+    loadApiModule = (await import('./load-api.js')).loadApiModule;
+    vi.mocked(access).mockResolvedValue(undefined);
     process.env = { ...originalEnv };
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/test/project');
   });
@@ -41,7 +47,6 @@ describe('load-api', () => {
   afterEach(() => {
     process.env = originalEnv;
     cwdSpy?.mockRestore();
-    ensureRuntimeModule.resetTypeScriptRuntimeForTesting();
   });
 
   describe('file existence check', () => {
@@ -62,46 +67,42 @@ describe('load-api', () => {
     });
   });
 
-  describe('TypeScript runtime loading', () => {
+  describe('TypeScript bundling', () => {
     it.each(['queries.ts', 'queries.mts', 'queries.cts', 'queries.tsx'])(
-      'loads the embedded tsx runtime for %s files',
+      'bundles %s before importing',
       async (file) => {
-        vi.mocked(access).mockResolvedValue(undefined);
+        const api = await loadApiModule(file);
 
-        await expect(loadApiModule(file)).rejects.toThrow('Failed to load module');
-        expect(runtimeState.loadCount).toBe(1);
+        expect(api.handler).toBeTypeOf('function');
+        expect(mockBuild).toHaveBeenCalledTimes(1);
+        expect(mockBuild.mock.calls[0][0]).toMatchObject({
+          entryPoints: [`/test/project/${file}`],
+        });
       }
     );
 
-    it('skips tsx runtime when the entry file is JavaScript', async () => {
-      vi.mocked(access).mockResolvedValue(undefined);
+    it('skips bundling for JavaScript files', async () => {
+      await loadApiModule(validApiFixture);
 
-      await expect(loadApiModule('queries.js')).rejects.toThrow('Failed to load module');
-      expect(runtimeState.loadCount).toBe(0);
+      expect(mockBuild).not.toHaveBeenCalled();
     });
 
-    it('surfaces the original error when tsx fails to load', async () => {
-      vi.mocked(access).mockResolvedValue(undefined);
-      runtimeState.shouldThrow = true;
+    it('surfaces esbuild errors clearly', async () => {
+      mockBuild.mockRejectedValue(new Error('syntax error'));
 
       await expect(loadApiModule('queries.ts')).rejects.toThrow(
-        /Failed to load TypeScript support[\s\S]*tsx exploded/
+        /Failed to compile queries\.ts with esbuild[\s\S]*syntax error/
       );
     });
   });
 
   describe('module loading', () => {
     it('returns the api export when the module is valid', async () => {
-      vi.mocked(access).mockResolvedValue(undefined);
-
       const api = await loadApiModule(validApiFixture);
       expect(api.handler).toBeTypeOf('function');
-      expect(runtimeState.loadCount).toBe(0);
     });
 
     it('throws when the module does not export an api', async () => {
-      vi.mocked(access).mockResolvedValue(undefined);
-
       await expect(loadApiModule(invalidApiFixture)).rejects.toThrow(
         /Invalid API module:[\s\S]*Found exports: notApi/
       );
@@ -109,21 +110,26 @@ describe('load-api', () => {
   });
 
   describe('error handling', () => {
-    it('throws a helpful error when dynamic import fails', async () => {
-      vi.mocked(access).mockResolvedValue(undefined);
+    it('throws a helpful error when dynamic import fails for JavaScript', async () => {
+      await expect(loadApiModule('nonexistent-module-xyz.js')).rejects.toThrow(
+        /Failed to load module: nonexistent-module-xyz\.js/
+      );
+    });
+
+    it('throws a helpful error when esbuild cannot compile TypeScript', async () => {
+      mockBuild.mockRejectedValue(new Error('missing file'));
 
       await expect(loadApiModule('nonexistent-module-xyz.ts')).rejects.toThrow(
-        /Failed to load module: nonexistent-module-xyz\.ts/
+        /Failed to compile nonexistent-module-xyz\.ts with esbuild/
       );
     });
   });
 
   describe('cache busting', () => {
     it('adds a timestamp to the module URL every time', async () => {
-      vi.mocked(access).mockResolvedValue(undefined);
       const dateSpy = vi.spyOn(Date, 'now').mockReturnValue(1234567890);
 
-      await expect(loadApiModule('queries.ts')).rejects.toThrow();
+      await loadApiModule('queries.ts');
 
       expect(dateSpy).toHaveBeenCalled();
       dateSpy.mockRestore();
