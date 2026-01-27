@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createHooks, queryOptions } from './createHooks.js';
 import { HttpError } from './errors.js';
 
-interface TestApi {
+interface TestApi extends Record<string, { input: unknown; output: unknown }> {
   weeklyRevenue: {
     input: { startDate: string };
     output: { total: number };
@@ -23,7 +23,7 @@ interface TestApi {
     output: { items: string[] };
   };
   noInput: {
-    input: unknown;
+    input: never;
     output: { status: string };
   };
   updateUser: {
@@ -109,6 +109,21 @@ describe('createHooks', () => {
         })
       );
     });
+
+    it('allows queries with no input parameters', async () => {
+      fetchMock.mockResolvedValue(mockSuccessResponse({ status: 'ok' }));
+
+      const { result } = renderHook(() => useQuery('noInput'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.data).toEqual({ status: 'ok' }));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/api/noInput',
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
   });
 
   describe('HTTP Method Handling', () => {
@@ -167,7 +182,7 @@ describe('createHooks', () => {
           getUser: { method: 'GET' },
           updateUser: { method: 'PATCH' },
         },
-      };
+      } as unknown as TestApi;
 
       const { useQuery } = createHooks<TestApi>({
         baseUrl: 'https://example.com/api',
@@ -195,7 +210,7 @@ describe('createHooks', () => {
         _routeConfig: {
           getUser: { method: 'GET' },
         },
-      };
+      } as unknown as TestApi;
 
       const { useQuery } = createHooks<TestApi>({
         baseUrl: 'https://example.com/api',
@@ -220,7 +235,7 @@ describe('createHooks', () => {
         queries: {
           getUser: { method: 'GET' },
         },
-      };
+      } as unknown as TestApi;
 
       const { useQuery } = createHooks<TestApi>({
         baseUrl: 'https://example.com/api',
