@@ -55,6 +55,8 @@ npx hypequery dev src/analytics/queries.ts
 # Server running at http://localhost:4000
 ```
 
+> `hypequery dev` spins up the same HTTP server your `api.handler` uses, so once you register routes (step 1) every endpoint is reachable without any extra wiring. In production you can do the equivalent by calling `await api.start({ port })`, or by embedding `api.handler` inside your own framework/server if you don’t want to rely on the CLI entry point.
+
 **3. Call your API:**
 
 ```bash
@@ -62,7 +64,7 @@ curl -X POST http://localhost:4000/revenue
 # {"total": 125000, "count": 450}
 ```
 
-That's it! Your query is now available as an HTTP endpoint with auto-generated OpenAPI docs at `http://localhost:4000/docs`. In production you can call `await api.start({ port: 3000 })` or reuse `api.handler` inside your framework (Next.js, Express, etc.) to serve the same routes—`npx hypequery dev` is just the quickest way to preview locally.
+That's it! Your query is now available as an HTTP endpoint with auto-generated OpenAPI docs at `http://localhost:4000/docs`. In production you can call `await api.start({ port: 3000 })` or reuse `api.handler` inside your framework (Next.js, Express, etc.) to serve the same routes—`npx hypequery dev` is simply the quickest way to preview that exact server locally.
 
 ## Deployment Models
 

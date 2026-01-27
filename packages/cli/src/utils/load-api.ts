@@ -87,15 +87,20 @@ export async function loadApiModule(modulePath: string) {
 const globalState = globalThis as typeof globalThis & {
   __hypequeryCliTempDirPromise?: Promise<string> | null;
   __hypequeryCliTempFiles?: Set<string>;
+  __hypequeryCliTempDirs?: Set<string>;
   __hypequeryCliCleanupInstalled?: boolean;
 };
 
 let tempDirPromise: Promise<string> | null = globalState.__hypequeryCliTempDirPromise ?? null;
 const tempFiles = globalState.__hypequeryCliTempFiles ?? new Set<string>();
+const tempDirs = globalState.__hypequeryCliTempDirs ?? new Set<string>();
 let cleanupHooksInstalled = globalState.__hypequeryCliCleanupInstalled ?? false;
 
 if (!globalState.__hypequeryCliTempFiles) {
   globalState.__hypequeryCliTempFiles = tempFiles;
+}
+if (!globalState.__hypequeryCliTempDirs) {
+  globalState.__hypequeryCliTempDirs = tempDirs;
 }
 
 function ensureTempDir() {
@@ -105,9 +110,13 @@ function ensureTempDir() {
       const projectTempRoot = path.join(process.cwd(), '.hypequery', 'tmp');
       try {
         await mkdir(projectTempRoot, { recursive: true });
-        return mkdtemp(path.join(projectTempRoot, 'bundle-'));
+        const dir = await mkdtemp(path.join(projectTempRoot, 'bundle-'));
+        tempDirs.add(dir);
+        return dir;
       } catch {
-        return mkdtemp(path.join(os.tmpdir(), 'hypequery-cli-'));
+        const fallbackDir = await mkdtemp(path.join(os.tmpdir(), 'hypequery-cli-'));
+        tempDirs.add(fallbackDir);
+        return fallbackDir;
       }
     })();
     globalState.__hypequeryCliTempDirPromise = tempDirPromise;
@@ -129,18 +138,44 @@ async function cleanupTempFiles() {
   tempFiles.clear();
 }
 
+async function cleanupTempDirs() {
+  if (tempDirs.size === 0) return;
+  await Promise.all(
+    Array.from(tempDirs).map(async dir => {
+      try {
+        await rm(dir, { recursive: true, force: true });
+      } catch {
+        // ignore cleanup failures
+      }
+    }),
+  );
+  tempDirs.clear();
+
+  const projectTempRoot = path.join(process.cwd(), '.hypequery', 'tmp');
+  try {
+    await rm(projectTempRoot, { recursive: true, force: true });
+  } catch {
+    // ignore cleanup failures
+  }
+}
+
+async function cleanupTempArtifacts() {
+  await cleanupTempFiles();
+  await cleanupTempDirs();
+}
+
 function installCleanupHooks() {
   if (cleanupHooksInstalled) return;
   cleanupHooksInstalled = true;
   globalState.__hypequeryCliCleanupInstalled = true;
 
   process.once('exit', () => {
-    cleanupTempFiles().catch(() => undefined);
+    cleanupTempArtifacts().catch(() => undefined);
   });
 
   (['SIGINT', 'SIGTERM'] as const).forEach(signal => {
     process.once(signal, () => {
-      cleanupTempFiles().catch(() => undefined);
+      cleanupTempArtifacts().catch(() => undefined);
       process.exit();
     });
   });

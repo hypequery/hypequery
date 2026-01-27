@@ -24,6 +24,7 @@ import { generateClientTemplate } from '../templates/client.js';
 import { generateQueriesTemplate } from '../templates/queries.js';
 import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
+import { installServeDependencies } from '../utils/dependency-installer.js';
 
 export interface InitOptions {
   database?: string;
@@ -305,7 +306,10 @@ export interface IntrospectedSchema {
     logger.success('Created .gitignore');
   }
 
-  // Step 13: Success message
+  // Step 13: Ensure required hypequery packages are installed
+  await installServeDependencies();
+
+  // Step 14: Success message
   logger.newline();
   logger.header('Setup complete!');
 

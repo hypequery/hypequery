@@ -10,6 +10,7 @@ export function generateQueriesTemplate(options: {
   const typeAlias = `${pascalCase(metricKey)}Result`;
 
   let template = `import { initServe } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
 
@@ -44,6 +45,8 @@ export const api = serve.define({
   }),
 });
 
+export type ApiDefinition = InferApiType<typeof api>;
+
 /**
  * Inline usage example:
  *
@@ -53,8 +56,10 @@ export const api = serve.define({
  * // import type { InferQueryResult } from '@hypequery/serve';
  * type ${typeAlias} = InferQueryResult<typeof api, '${metricKey}'>;
  *
- * Dev server:
+ * // Register HTTP route:
+ * api.route('/metrics/${metricKey}', api.queries.${metricKey});
  *
+ * Dev server:
  * npx hypequery dev
  */
 `;

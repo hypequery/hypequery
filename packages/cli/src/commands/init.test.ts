@@ -5,6 +5,11 @@ import * as detectDb from '../utils/detect-database.js';
 import * as findFiles from '../utils/find-files.js';
 import { logger } from '../utils/logger.js';
 import { mockProcessExit, ProcessExitError } from '../test-utils.js';
+const installServeDependencies = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../utils/dependency-installer.js', () => ({
+  installServeDependencies,
+}));
 
 // Mock all dependencies
 vi.mock('node:fs/promises');
@@ -295,6 +300,26 @@ describe('init command - graceful failure handling', () => {
         expect.stringContaining('.env'),
         expect.stringContaining('http://test:8123')
       );
+    });
+  });
+
+  describe('Dependency installation', () => {
+    it('installs serve dependencies when setup completes', async () => {
+      vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
+        host: 'http://localhost:8123',
+        database: 'default',
+        username: 'default',
+        password: 'secret',
+      });
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(5);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptGenerateExample).mockResolvedValue(false);
+
+      await initCommand({});
+
+      expect(installServeDependencies).toHaveBeenCalled();
     });
   });
 });
