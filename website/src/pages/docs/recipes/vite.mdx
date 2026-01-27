@@ -21,10 +21,11 @@ You want separate frontend/backend processes so you can:
 - Vite + React project (`npm create vite@latest my-app -- --template react`)
 - ClickHouse credentials (`CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`)
 - Packages: `@hypequery/serve`, `@hypequery/clickhouse`, `zod`, `@tanstack/react-query`
+- Dev packages: `@hypequery/cli`, `concurrently`
 
 ```bash
-npm install @hypequery/serve @hypequery/clickhouse zod
-npm install @tanstack/react-query
+npm install @hypequery/serve @hypequery/clickhouse zod @tanstack/react-query
+npm install --save-dev @hypequery/cli concurrently
 ```
 
 ## 1. Define the API (standalone Node entry)
@@ -37,10 +38,15 @@ import { initServe } from '@hypequery/serve';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { z } from 'zod';
 
+const clickhouseHost = process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST;
+const clickhouseUsername = process.env.CLICKHOUSE_USER || process.env.CLICKHOUSE_USERNAME;
+const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE;
+
 const db = createQueryBuilder({
-  url: process.env.CLICKHOUSE_URL!,
-  username: process.env.CLICKHOUSE_USER!,
+  host: clickhouseHost!,
+  username: clickhouseUsername!,
   password: process.env.CLICKHOUSE_PASSWORD,
+  database: clickhouseDatabase,
 });
 
 const { define, queries, query } = initServe({
@@ -82,7 +88,8 @@ api
 ### Run the API locally
 
 ```bash
-npx hypequery dev api/queries.ts --port 4000
+npm run api
+# or manually: npx hypequery dev api/queries.ts --port 4000
 # Docs → http://localhost:4000/docs
 ```
 
@@ -120,7 +127,11 @@ export async function callMetric<T>(path: string, options?: RequestInit): Promis
     headers: { 'content-type': 'application/json', ...(options?.headers ?? {}) },
     ...options,
   });
-  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+
+  if (!res.ok) {
+    throw new Error(`API ${path} failed: ${res.status}`);
+  }
+
   return res.json();
 }
 ```
@@ -133,25 +144,59 @@ export async function callMetric<T>(path: string, options?: RequestInit): Promis
 import { useState } from 'react';
 import { callMetric } from './lib/hypequery';
 
+type LoadState = 'idle' | 'loading' | 'error';
+
 export default function App() {
   const [hello, setHello] = useState<any>(null);
+  const [helloState, setHelloState] = useState<LoadState>('idle');
+  const [helloError, setHelloError] = useState<string | null>(null);
+
   const [revenue, setRevenue] = useState<any>(null);
+  const [revenueState, setRevenueState] = useState<LoadState>('idle');
+  const [revenueError, setRevenueError] = useState<string | null>(null);
+
+  async function fetchHello() {
+    setHelloState('loading');
+    setHelloError(null);
+    try {
+      const data = await callMetric('/hello');
+      setHello(data);
+      setHelloState('idle');
+    } catch (err) {
+      setHelloError((err as Error).message);
+      setHelloState('error');
+    }
+  }
+
+  async function fetchRevenue() {
+    setRevenueState('loading');
+    setRevenueError(null);
+    try {
+      const data = await callMetric('/weeklyRevenue', {
+        method: 'POST',
+        body: JSON.stringify({ startDate: '2024-01-01', endDate: '2024-01-31' }),
+      });
+      setRevenue(data);
+      setRevenueState('idle');
+    } catch (err) {
+      setRevenueError((err as Error).message);
+      setRevenueState('error');
+    }
+  }
 
   return (
     <main>
-      <button onClick={() => callMetric('/hello').then(setHello)}>Greet</button>
-      <button
-        onClick={() =>
-          callMetric('/weeklyRevenue', {
-            method: 'POST',
-            body: JSON.stringify({ startDate: '2024-01-01', endDate: '2024-01-31' }),
-          }).then(setRevenue)
-        }
-      >
-        Load Revenue
+      <button onClick={fetchHello} disabled={helloState === 'loading'}>
+        {helloState === 'loading' ? 'Loading...' : 'Greet'}
+      </button>
+      <button onClick={fetchRevenue} disabled={revenueState === 'loading'}>
+        {revenueState === 'loading' ? 'Loading...' : 'Load Revenue'}
       </button>
 
+      {helloError && <p role="alert">{helloError}</p>}
       {hello && <pre>{JSON.stringify(hello, null, 2)}</pre>}
+
+      {revenueError && <p role="alert">{revenueError}</p>}
       {revenue && <pre>{JSON.stringify(revenue, null, 2)}</pre>}
     </main>
   );
@@ -168,6 +213,10 @@ export default function App() {
     "dev": "vite",
     "api": "hypequery dev api/queries.ts --port 4000",
     "dev:all": "concurrently \"npm run dev\" \"npm run api\""
+  },
+  "devDependencies": {
+    "@hypequery/cli": "latest",
+    "concurrently": "latest"
   }
 }
 ```

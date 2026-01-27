@@ -12,7 +12,7 @@ Most teams scatter SQL across API endpoints, dashboards and background jobs. Eve
 
 **The core issues:**
 
-- Changes require updating SQL in multiple places
+- Changes require updating raw SQL in multiple places
 - No single source of truth
 - Type safety doesn't extend to analytics
 - No version control for metric definitions
@@ -45,28 +45,16 @@ export const api = defineServe({
 **Now use it everywhere:**
 
 ```typescript
-// In your API
-const revenue = await api.run('weeklyRevenue', { startDate: '2024-01-01' });
-
-// In a cron job
+// In a cron job, background job or called by an AI agent
 const digest = await api.run('weeklyRevenue', { startDate: lastWeek });
 
 // In React
 const { data } = useQuery('weeklyRevenue', { startDate: '2024-01-01' });
 
-// In an AI agent
-const result = await api.execute('weeklyRevenue', { input: params });
+// via HTTP
+// POST /analytics/api/weeklyRevenue
+
 ```
-
-**One definition, reused everywhere:**
-
-- Changes propagate automatically through imports
-- Type errors caught at compile time
-- Metadata, validation, and docs live alongside code
-- Version control tracks every change
-- No debates about "the correct query"
-
----
 
 ## When to Use hypequery
 
@@ -74,7 +62,7 @@ const result = await api.execute('weeklyRevenue', { input: params });
 
 **Build TypeScript applications with ClickHouse**
 - You're using ClickHouse as your analytics database
-- Your backend is written in TypeScript or JavaScript
+- Your backend is written in TypeScript
 - You want to leverage existing TypeScript tooling
 
 **Need analytics in multiple places**

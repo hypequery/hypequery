@@ -9,35 +9,29 @@ import Callout from '../../../components/Callout.astro';
 
 # Quickstart
 
-Get started with hypequery serve in minutes. This guide walks you through installing, configuring, and building your first type-safe analytics queries.
+Launch a type-safe analytics API in minutes. You only need four steps:
 
-> **Note:** This quickstart uses the serve framework. If you chose standalone, see the [Standalone Setup Guide](/docs/standalone/setup).
+1. Install the runtime packages
+2. Run `hypequery init` to scaffold analytics files
+3. Define a real query
+4. Preview docs with `hypequery dev` (optional)
 
 ### Prerequisites
 
 - Node.js 18+
 - Access to a ClickHouse instance with credentials
-- Install the runtime packages:
 
-  ```bash
-  # Core packages (required)
-  npm install @hypequery/clickhouse @hypequery/serve
-
-  # React hooks (optional - add later if needed)
-  npm install @hypequery/react
-  ```
-
-**CLI installation is optional.** You can run all commands with `npx @hypequery/cli` without installing anything. Or install locally so teammates share the same version:
+### Step 1 – Install the runtime
 
 ```bash
-# Optional - install CLI locally
-npm install -D @hypequery/cli
+# Core packages (required)
+npm install @hypequery/clickhouse @hypequery/serve
 
-# Then use shorter commands
-npx hypequery init
+# Optional: install the CLI locally (otherwise keep using npx @hypequery/cli)
+npm install -D @hypequery/cli
 ```
 
-## Scaffold analytics files with `hypequery init`
+### Step 2 – Scaffold analytics with `hypequery init`
 
 From your project root run:
 
@@ -58,12 +52,11 @@ Pick ClickHouse, supply your connection settings, and choose a destination folde
 
 Open `analytics/queries.ts` to see the scaffolded `initServe` export with the fluent builder. You can start editing immediately.
 
-## Build your first query
+### Step 3 – Define your first query
 
 Replace the placeholder query in `analytics/queries.ts` with something real. For example:
 
 ```typescript
-import 'dotenv/config';
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
@@ -88,11 +81,23 @@ export const api = define({
       ),
   }),
 });
+
+// Run embedded (jobs, SSR, scripts)
+const latest = await api.run('activeUsers', { limit: 25 });
+
+// Or expose over HTTP
+api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
 ```
 
-Save the file and, if you're running `hypequery dev`, the docs immediately show the new metric with typed inputs/outputs. You can also call `await api.run('activeUsers')` (alias of `api.execute`) from your app/agent code without the docs.
+<Callout title="Remember">
+  - Use `ctx.db` inside serve queries (it carries per-request context)
+  - Return the promise; hypequery awaits it for you
+  - Always finish query builder chains with `.execute()`
+</Callout>
 
-## Preview with `hypequery dev` (Optional) 
+Save the file and, if you're running `hypequery dev`, the docs immediately show the new metric with typed inputs/outputs.
+
+### Step 4 – Preview docs with `hypequery dev` (optional)
 
 Run the dev server whenever you want docs plus an OpenAPI description for the HTTP surface area of your queries:
 
