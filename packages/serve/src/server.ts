@@ -1,21 +1,13 @@
-import { z, type ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { startNodeServer } from "./adapters/node.js";
 import { createEndpoint } from "./endpoint.js";
-import { buildOpenApiDocument } from "./openapi.js";
 import { applyBasePath, normalizeRoutePath, ServeRouter } from "./router.js";
-import { buildDocsHtml } from "./docs-ui.js";
-import { createTenantScope, warnTenantMisconfiguration } from "./tenant.js";
 import type {
   AuthContext,
   AuthStrategy,
-  DocsOptions,
-  EndpointContext,
-  EndpointMetadata,
   ErrorEnvelope,
   HttpMethod,
-  OpenApiOptions,
   ServeBuilder,
   ServeConfig,
   ServeContextFactory,
@@ -28,457 +20,20 @@ import type {
   ServeMiddleware,
   ServeQueriesMap,
   ServeRequest,
-  ServeResponse,
   SchemaInput,
   ToolkitDescription,
   ToolkitQueryDescription,
-  MaybePromise,
   TenantConfig,
 } from "./types.js";
 import { createProcedureBuilder } from "./builder.js";
-import { ensureArray, generateRequestId, mergeTags } from "./utils.js";
+import { ensureArray, mergeTags } from "./utils.js";
+import {
+  createDocsEndpoint,
+  createOpenApiEndpoint,
+  createServeHandler,
+  executeEndpoint,
+} from "./pipeline.js";
 
-
-const getRequestId = (request: ServeRequest): string => {
-  return (
-    request.headers["x-request-id"] ??
-    request.headers["x-trace-id"] ??
-    generateRequestId()
-  );
-};
-
-const safeInvokeHook = async <T>(
-  name: string,
-  hook: ((event: T) => MaybePromise<void>) | undefined,
-  payload: T
-) => {
-  if (!hook) {
-    return;
-  }
-
-  try {
-    await hook(payload);
-  } catch (error) {
-    console.error(`[hypequery/serve] ${name} hook failed`, error);
-  }
-};
-
-const createErrorResponse = (
-  status: number,
-  type: ErrorEnvelope["error"]["type"],
-  message: string,
-  details?: Record<string, unknown>
-) => {
-  return {
-    status,
-    body: {
-      error: {
-        type,
-        message,
-        ...(details ? { details } : {}),
-      },
-    },
-  } satisfies ServeResponse<ErrorEnvelope>;
-};
-
-const buildContextInput = (request: ServeRequest) => {
-  if (request.body !== undefined && request.body !== null) {
-    return request.body;
-  }
-
-  if (request.query && Object.keys(request.query).length > 0) {
-    return request.query;
-  }
-
-  return {};
-};
-
-const runMiddlewares = async <
-  TContext extends Record<string, unknown>,
-  TAuth extends AuthContext
->(
-  middlewares: ServeMiddleware<any, any, TContext, TAuth>[],
-  ctx: EndpointContext<any, TContext, TAuth>,
-  handler: () => Promise<unknown>
-) => {
-  let index = middlewares.length - 1;
-  let next = handler;
-
-  while (index >= 0) {
-    const middleware = middlewares[index];
-    const downstream = next;
-    next = () => middleware(ctx, downstream);
-    index -= 1;
-  }
-
-  return next();
-};
-
-const authenticateRequest = async <TAuth extends AuthContext>(
-  strategies: AuthStrategy<TAuth>[],
-  request: ServeRequest,
-  metadata: EndpointMetadata
-): Promise<TAuth | null> => {
-  for (const strategy of strategies) {
-    const result = await strategy({
-      request,
-      endpoint: metadata,
-    });
-
-    if (result) {
-      return result;
-    }
-  }
-
-  return null;
-};
-
-const gatherAuthStrategies = <TAuth extends AuthContext>(
-  endpointStrategy: AuthStrategy<TAuth> | null,
-  globalStrategies: AuthStrategy<TAuth>[]
-) => {
-  const strategies: AuthStrategy<TAuth>[] = [];
-
-  if (endpointStrategy) {
-    strategies.push(endpointStrategy);
-  }
-
-  return [...strategies, ...globalStrategies];
-};
-
-const computeRequiresAuth = <TAuth extends AuthContext>(
-  metadata: EndpointMetadata,
-  endpointStrategy: AuthStrategy<TAuth> | null,
-  globalStrategies: AuthStrategy<TAuth>[]
-) => {
-  if (typeof metadata.requiresAuth === "boolean") {
-    return metadata.requiresAuth;
-  }
-
-  if (endpointStrategy) {
-    return true;
-  }
-
-  return globalStrategies.length > 0;
-};
-
-const validateInput = (schema: ZodTypeAny | undefined, payload: unknown) => {
-  if (!schema) {
-    return { success: true as const, data: payload };
-  }
-
-  const result = schema.safeParse(payload);
-  return result.success
-    ? { success: true as const, data: result.data }
-    : { success: false as const, error: result.error };
-};
-
-const createOpenApiEndpoint = (
-  path: string,
-  getEndpoints: () => ServeEndpoint<any, any, any, any>[],
-  openapiOptions?: OpenApiOptions
-): ServeEndpoint<any, any, Record<string, unknown>, AuthContext> => {
-  // Cache the OpenAPI document to avoid rebuilding on every request
-  let cachedDocument: any = null;
-
-  return {
-    key: "__hypequery_openapi__",
-    method: "GET",
-    inputSchema: undefined,
-    outputSchema: z.any(),
-    handler: async () => {
-      if (!cachedDocument) {
-        cachedDocument = buildOpenApiDocument(getEndpoints(), openapiOptions);
-      }
-      return cachedDocument;
-    },
-    query: undefined,
-    middlewares: [],
-    auth: null,
-    metadata: {
-      path,
-      method: "GET",
-      name: "OpenAPI schema",
-      summary: "OpenAPI schema",
-      description: "Generated OpenAPI specification for the registered endpoints",
-      tags: ["docs"],
-      requiresAuth: false,
-      deprecated: false,
-      visibility: "internal",
-    },
-    cacheTtlMs: null,
-  };
-};
-
-const createDocsEndpoint = (
-  path: string,
-  openapiPath: string,
-  options?: DocsOptions
-): ServeEndpoint<any, any, Record<string, unknown>, AuthContext> => ({
-  key: "__hypequery_docs__",
-  method: "GET",
-  inputSchema: undefined,
-  outputSchema: z.string(),
-  handler: async () => buildDocsHtml(openapiPath, options),
-  query: undefined,
-  middlewares: [],
-  auth: null,
-  metadata: {
-    path,
-    method: "GET",
-    name: "Docs",
-    summary: "API documentation",
-    description: "Auto-generated documentation for your hypequery endpoints",
-    tags: ["docs"],
-    requiresAuth: false,
-    deprecated: false,
-    visibility: "internal",
-  },
-  cacheTtlMs: null,
-  defaultHeaders: {
-    "content-type": "text/html; charset=utf-8",
-  },
-});
-
-const cloneContext = <TContext extends Record<string, unknown>>(ctx: TContext | null | undefined) =>
-  (ctx ? { ...ctx } : ({} as TContext));
-
-const resolveContext = async <
-  TContext extends Record<string, unknown>,
-  TAuth extends AuthContext
->(
-  factory: ServeContextFactory<TContext, TAuth> | undefined,
-  request: ServeRequest,
-  auth: TAuth | null
-): Promise<TContext> => {
-  if (!factory) {
-    return {} as TContext;
-  }
-
-  if (typeof factory === "function") {
-    const value = await factory({ request, auth });
-    return cloneContext(value);
-  }
-
-  return cloneContext(factory);
-};
-
-type ExecuteEndpointOptions<
-  TContext extends Record<string, unknown>,
-  TAuth extends AuthContext
-> = {
-  endpoint: ServeEndpoint<any, any, TContext, TAuth>;
-  request: ServeRequest;
-  requestId: string;
-  authStrategies: AuthStrategy<TAuth>[];
-  contextFactory: ServeContextFactory<TContext, TAuth> | undefined;
-  globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[];
-  globalTenantConfig: TenantConfig<TAuth> | undefined;
-  hooks: ServeLifecycleHooks<TAuth>;
-  additionalContext?: Partial<TContext>;
-};
-
-const executeEndpoint = async <
-  TContext extends Record<string, unknown>,
-  TAuth extends AuthContext
->(
-  options: ExecuteEndpointOptions<TContext, TAuth>
-): Promise<ServeResponse> => {
-  const {
-    endpoint,
-    request,
-    requestId,
-    authStrategies,
-    contextFactory,
-    globalMiddlewares,
-    globalTenantConfig,
-    hooks,
-    additionalContext,
-  } = options;
-
-  const locals: Record<string, unknown> = {};
-  let cacheTtlMs: number | null | undefined = endpoint.cacheTtlMs ?? null;
-  const setCacheTtl = (ttl: number | null) => {
-    cacheTtlMs = ttl;
-  };
-
-  const context = {
-    request,
-    input: buildContextInput(request),
-    auth: null,
-    metadata: endpoint.metadata,
-    locals,
-    setCacheTtl,
-  } as EndpointContext<any, TContext, TAuth>;
-  const startedAt = Date.now();
-  await safeInvokeHook("onRequestStart", hooks.onRequestStart, {
-    requestId,
-    queryKey: endpoint.key,
-    metadata: endpoint.metadata,
-    request,
-    auth: context.auth,
-  });
-
-  try {
-    const endpointAuth = (endpoint.auth as AuthStrategy<TAuth> | null) ?? null;
-    const strategies = gatherAuthStrategies(endpointAuth, authStrategies);
-    const requiresAuth = computeRequiresAuth(endpoint.metadata, endpointAuth, authStrategies);
-    const metadataWithAuth: EndpointMetadata = {
-      ...endpoint.metadata,
-      requiresAuth,
-    };
-
-    context.metadata = metadataWithAuth;
-
-    const authContext = await authenticateRequest(strategies, request, metadataWithAuth);
-
-    if (!authContext && requiresAuth) {
-      await safeInvokeHook("onAuthFailure", hooks.onAuthFailure, {
-        requestId,
-        queryKey: endpoint.key,
-        metadata: metadataWithAuth,
-        request,
-        auth: context.auth,
-        reason: "MISSING",
-      });
-      return createErrorResponse(401, "UNAUTHORIZED", "Authentication required", {
-        reason: "missing_credentials",
-        strategies_attempted: strategies.length,
-        endpoint: endpoint.metadata.path,
-      });
-    }
-
-    // After the auth check above, if requiresAuth is true, authContext is guaranteed to be non-null
-    context.auth = authContext;
-    const hydratedContext = await resolveContext(contextFactory, request, authContext);
-    Object.assign(context, hydratedContext, additionalContext);
-
-    // Tenant isolation: Extract and validate tenant ID if configured
-    // Use endpoint-specific config, or fall back to global config
-    const tenantConfig = endpoint.tenant ?? globalTenantConfig;
-
-    if (tenantConfig) {
-      const tenantRequired = tenantConfig.required !== false; // Default to true
-      const tenantId = authContext ? tenantConfig.extract(authContext) : null;
-
-      if (!tenantId && tenantRequired) {
-        const errorMessage =
-          tenantConfig.errorMessage ??
-          "Tenant context is required but could not be determined from authentication";
-
-        await safeInvokeHook("onError", hooks.onError, {
-          requestId,
-          queryKey: endpoint.key,
-          metadata: metadataWithAuth,
-          request,
-          auth: context.auth,
-          durationMs: Date.now() - startedAt,
-          error: new Error(errorMessage),
-        });
-
-        return createErrorResponse(403, "UNAUTHORIZED", errorMessage, {
-          reason: "missing_tenant_context",
-          tenant_required: true,
-        });
-      }
-
-      if (tenantId) {
-        context.tenantId = tenantId;
-
-        // Auto-inject tenant filtering if configured
-        const mode = tenantConfig.mode ?? 'manual'; // Default to manual for backward compatibility
-        const column = tenantConfig.column;
-
-        if (mode === 'auto-inject' && column) {
-          // Wrap all query builders in the context to auto-inject tenant filters
-          const contextValues = context as Record<string, unknown>;
-          for (const key of Object.keys(contextValues)) {
-            const value = contextValues[key];
-            // Check if it looks like a query builder (has a table method)
-            if (value && typeof value === 'object' && 'table' in value && typeof value.table === 'function') {
-              contextValues[key] = createTenantScope(value as { table: (name: string) => any }, { tenantId, column });
-            }
-          }
-        } else if (mode === 'manual') {
-          // Warn developers in manual mode to ensure they manually filter
-          warnTenantMisconfiguration({
-            queryKey: endpoint.key,
-            hasTenantConfig: true,
-            hasTenantId: true,
-            mode: 'manual',
-          });
-        }
-      } else if (tenantConfig && !tenantRequired) {
-        // Optional tenant mode - warn if no tenant config when accessing user data
-        warnTenantMisconfiguration({
-          queryKey: endpoint.key,
-          hasTenantConfig: true,
-          hasTenantId: false,
-          mode: tenantConfig.mode,
-        });
-      }
-    }
-
-    const validationResult = validateInput(endpoint.inputSchema, context.input);
-
-    if (!validationResult.success) {
-      await safeInvokeHook("onError", hooks.onError, {
-        requestId,
-        queryKey: endpoint.key,
-        metadata: metadataWithAuth,
-        request,
-        auth: context.auth,
-        durationMs: Date.now() - startedAt,
-        error: validationResult.error,
-      });
-      return createErrorResponse(400, "VALIDATION_ERROR", "Request validation failed", {
-        issues: validationResult.error.issues,
-      });
-    }
-
-    context.input = validationResult.data;
-
-    const pipeline = [
-      ...globalMiddlewares,
-      ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
-    ];
-    const result = await runMiddlewares<TContext, TAuth>(pipeline, context, () => endpoint.handler(context));
-    const headers: Record<string, string> = { ...(endpoint.defaultHeaders ?? {}) };
-
-    if (typeof cacheTtlMs === "number") {
-      headers["cache-control"] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : "no-store";
-    }
-
-    const durationMs = Date.now() - startedAt;
-    await safeInvokeHook("onRequestEnd", hooks.onRequestEnd, {
-      requestId,
-      queryKey: endpoint.key,
-      metadata: metadataWithAuth,
-      request,
-      auth: context.auth,
-      durationMs,
-      result,
-    });
-
-    return {
-      status: 200,
-      headers,
-      body: result,
-    } satisfies ServeResponse;
-  } catch (error) {
-    await safeInvokeHook("onError", hooks.onError, {
-      requestId,
-      queryKey: endpoint.key,
-      metadata: context.metadata,
-      request,
-      auth: context.auth,
-      durationMs: Date.now() - startedAt,
-      error,
-    });
-    const message = error instanceof Error ? error.message : "Unexpected error";
-    return createErrorResponse(500, "INTERNAL_SERVER_ERROR", message);
-  }
-};
 
 export const defineServe = <
   TContext extends Record<string, unknown> = Record<string, unknown>,
@@ -515,29 +70,14 @@ export const defineServe = <
     registerQuery(key, configuredQueries[key]);
   }
 
-  const handler: ServeHandler = async (request) => {
-    const requestId = getRequestId(request);
-    const endpoint = router.match(request.method, request.path);
-
-    if (!endpoint) {
-      return createErrorResponse(
-        404,
-        "NOT_FOUND",
-        `No endpoint registered for ${request.method} ${request.path}`
-      );
-    }
-
-    return executeEndpoint<TContext, TAuth>({
-      endpoint,
-      request,
-      requestId,
-      authStrategies,
-      contextFactory,
-      globalMiddlewares,
-      globalTenantConfig,
-      hooks,
-    });
-  };
+  const handler: ServeHandler = createServeHandler<TContext, TAuth>({
+    router,
+    globalMiddlewares,
+    authStrategies,
+    tenantConfig: globalTenantConfig,
+    contextFactory,
+    hooks,
+  });
 
   // Track route configuration for client config extraction
   const routeConfig: Record<string, { method: HttpMethod }> = {};
@@ -564,16 +104,13 @@ export const defineServe = <
       raw: options?.request?.raw,
     };
 
-    const requestId = getRequestId(request);
-
     const response = await executeEndpoint<TContext, TAuth>({
       endpoint,
       request,
-      requestId,
       authStrategies,
       contextFactory,
       globalMiddlewares,
-      globalTenantConfig,
+      tenantConfig: globalTenantConfig,
       hooks,
       additionalContext: options?.context,
     });
