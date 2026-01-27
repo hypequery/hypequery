@@ -12,7 +12,7 @@ interface Props {
 
 const {
   title,
-  description = "hypequery documentation - Learn how to build type-safe dashboards with ClickHouse",
+  description = "Type-Safe Analytics Runtime for ClickHouse Teams",
 } = Astro.props;
 
 // Get the current URL path
@@ -55,6 +55,7 @@ const sidebar = [
   {
     title: "Serve Framework",
     items: [
+      { title: "Overview", href: "/docs/serve/overview" },
       { title: "Query definitions", href: "/docs/serve/query-definitions" },
       { title: "Schemas", href: "/docs/serve/schemas" },
       { title: "Caching", href: "/docs/serve/caching" },
@@ -84,7 +85,6 @@ const sidebar = [
       { title: "When to use", href: "/docs/standalone/when-to-use" },
       { title: "Setup & connection", href: "/docs/standalone/setup" },
       { title: "Direct execution", href: "/docs/standalone/execution" },
-      { title: "Integration examples", href: "/docs/standalone/examples" },
     ],
   },
   {
@@ -92,7 +92,6 @@ const sidebar = [
     items: [
       { title: "Next.js", href: "/docs/recipes/nextjs" },
       { title: "Vite", href: "/docs/recipes/vite" },
-      { title: "AI agents", href: "/docs/recipes/ai-agents" },
     ],
   },
   {

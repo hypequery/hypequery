@@ -76,9 +76,12 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       const hostname = options.hostname || 'localhost';
       const baseUrl = `http://${hostname}:${port}`;
 
+      const docsPath = api.docs?.path ?? '/docs';
+      const openapiPath = api.openapi?.path ?? '/openapi.json';
+
       logger.box([
-        `Docs:     ${baseUrl}/docs`,
-        `OpenAPI:  ${baseUrl}/openapi.json`,
+        `Docs:     ${baseUrl}${api.basePath ?? ''}${docsPath}`,
+        `OpenAPI:  ${baseUrl}${api.basePath ?? ''}${openapiPath}`,
       ]);
 
       logger.newline();

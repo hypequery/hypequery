@@ -6,21 +6,21 @@ description: Choose how you want to use hypequery based on your needs
 
 # Installation Options
 
-Choose how you want to use hypequery based on your needs.
-
----
-
 ## 🚀 Serve Framework (Recommended)
 
-**Best for:** Teams that need to reuse the same analytics across multiple contexts (APIs, cron jobs, internal tools, agents)
+**Best for:** Teams that need:
+
+- To reuse the same analytics across multiple contexts (APIs, cron jobs, internal tools, agents)
+- To easily integrate authenticatation / multi-tenancy permissions to queries
+- To expose queries via HTTP or React
+- Auto-generated HTTP docs and OpenAPI schemas
+
 
 ```bash
 npm install @hypequery/clickhouse @hypequery/serve
 ```
 
-**Why serve over standalone?**
-
-**Define once, use everywhere:**
+**Define you queries inside the `definseServe` function:**
 ```ts
 // Define your analytics once
 export const api = defineServe({
@@ -39,7 +39,7 @@ export const api = defineServe({
 });
 ```
 
-**Then execute anywhere - same query, zero duplication:**
+**Then execute where you need it:**
 ```ts
 // In-process (cron jobs, background workers)
 const users = await api.run('activeUsers', { role: 'admin' });
@@ -65,14 +65,13 @@ const { data } = useQuery('activeUsers', { role: 'admin' });
 
 ## 🔧 Standalone Query Builder
 
-**Best for:** Integrating into existing apps or when you don't need named, reusable query definitions
+**Best for:** Building ad hoc queries with type safety
 
 ```bash
 npm install @hypequery/clickhouse
 ```
 
 **When to choose standalone:**
-- You already have Express/Fastify/Next.js API routes
 - You're building simple scripts or one-off queries
 - You want maximum control without any framework
 - You don't need to reuse the same query across multiple contexts
@@ -86,6 +85,8 @@ import type { Schema } from './generated-schema';
 const db = createQueryBuilder<Schema>({
   host: 'http://localhost:8123',
   database: 'default'
+  user: 'default',
+  password: 'your-password'
 });
 
 // Execute queries directly - no query definitions

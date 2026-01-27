@@ -39,7 +39,7 @@ const useCaseExamples = useCaseExamplesRaw.map((example) => ({
 const defaultUseCase = useCaseExamples[0] ?? null;
 ---
 
-<Layout title="hypequery - The Missing TypeScript Layer for ClickHouse">
+<Layout title="hypequery – Type-Safe Analytics Runtime for ClickHouse Teams">
   <main>
     <!-- Hero section -->
     <div class="relative isolate pt-14">
@@ -49,23 +49,28 @@ const defaultUseCase = useCaseExamples[0] ?? null;
             class="flex flex-col items-start md:flex-row md:items-end relative"
           >
             <div class="max-w-3xl pb-12 relative z-10">
+              <div
+                class="inline-flex items-center mb-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 animate-on-scroll dark:bg-indigo-500/10 dark:text-indigo-200"
+              >
+                Analytics Runtime for ClickHouse Teams
+              </div>
               <h1
                 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl animate-on-scroll"
               >
-                Analytics as code for TypeScript teams
+                Ship Type-Safe Analytics APIs Fast
               </h1>
               <div>
                 <p
                   class="mt-4 text-lg leading-8 text-gray-600 animate-on-scroll"
                 >
-                  Define your ClickHouse metrics once in TypeScript. Reuse them
-                  across APIs, jobs, dashboards, and agents. With full type
-                  safety.
+                  Define ClickHouse metrics once in TypeScript, then reuse them
+                  across APIs, background jobs, dashboards, and AI agents with
+                  full type safety.
                 </p>
                 <p
                   class="mt-2 text-lg leading-8 text-gray-600 animate-on-scroll font-medium"
                 >
-                  One definition. Every context. Always consistent.
+                  One definition. Any context. Zero drift.
                 </p>
               </div>
               <div class="mt-8 space-y-3 animate-on-scroll">
@@ -74,7 +79,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                     href="/docs/getting-started/quickstart"
                     class="rounded-md bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                   >
-                    Get Started in 2 Minutes &rarr;
+                    Start in 2 Minutes &rarr;
                   </a>
                 </div>
                 <div class="flex flex-wrap items-center gap-4">
@@ -102,7 +107,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                     data-copy-target="ai-context-snippet"
                   >
                     <span data-copy-default class="flex items-center gap-2">
-                      Copy for Claude/Cursor
+                      Copy AI Context
                     </span>
                     <span
                       data-copy-success
@@ -111,13 +116,6 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                       Copied
                     </span>
                   </button>
-                  <a
-                    href="/cursor-rules.md"
-                    download
-                    class="rounded-md border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-white/10"
-                  >
-                    Download cursor-rules.md
-                  </a>
                 </div>
               </div>
               <textarea
@@ -129,7 +127,8 @@ const defaultUseCase = useCaseExamples[0] ?? null;
               <p
                 class="mt-3 text-sm font-medium uppercase tracking-wide text-gray-500 animate-on-scroll"
               >
-                No YAML &middot; No SQL strings &middot; No duplicated metrics
+                No YAML &middot; No string-concatenated SQL &middot; No
+                duplicated metrics
               </p>
             </div>
             <div class="hero-mascot-wrapper">
@@ -235,14 +234,14 @@ const defaultUseCase = useCaseExamples[0] ?? null;
               </p>
             </div>
             <div class="mt-8 grid gap-6 lg:grid-cols-2">
-              <div class="rounded-xl bg-gray-950 p-1 text-sm">
-                <div class="flex gap-2 p-2">
-                  <span class="size-3 rounded-full bg-white/20"></span>
-                  <span class="size-3 rounded-full bg-white/20"></span>
-                  <span class="size-3 rounded-full bg-white/20"></span>
+              <div class="code-panel">
+                <div class="code-panel__chrome">
+                  <span></span>
+                  <span></span>
+                  <span></span>
                 </div>
                 <pre
-                  class="rounded-lg border border-white/10 bg-white/5 text-left text-sm leading-6 text-emerald-100"><code class="language-typescript" set:html={heroHighlighted} /></pre>
+                  class="code-panel__code"><code class="language-typescript" set:html={heroHighlighted} /></pre>
               </div>
               <div class="rounded-xl p-1 text-sm space-y-8">
                 <div class="text-lg font-bold uppercase tracking-wide">
@@ -318,14 +317,14 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                   {defaultUseCase?.body}
                 </p>
                 <div class="mt-6">
-                  <div class="mt-3 rounded-2xl bg-gray-950 p-1 text-sm">
-                    <div class="flex gap-2 p-2">
-                      <span class="size-3 rounded-full bg-white/20"></span>
-                      <span class="size-3 rounded-full bg-white/20"></span>
-                      <span class="size-3 rounded-full bg-white/20"></span>
+                  <div class="code-panel" data-use-case-panel>
+                    <div class="code-panel__chrome">
+                      <span></span>
+                      <span></span>
+                      <span></span>
                     </div>
                     <pre
-                      class="rounded-xl border border-white/10 bg-white/5 text-left text-xs leading-5 text-emerald-100"
+                      class="code-panel__code text-xs leading-5"
                       data-use-case-pre>
                       <code class={`language-${defaultUseCase?.codeLanguage ?? "typescript"}`} data-use-case-code set:html={defaultUseCase?.highlighted ?? ""} />
                     </pre>
@@ -348,39 +347,33 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                       Why not just write SQL everywhere?
                     </h2>
                     <p class="mt-6 text-lg leading-7 text-gray-700">
-                      That works — at first.
+                      Because it only works until it doesn’t.
                     </p>
                     <div
                       class="mt-6 space-y-3 text-base leading-7 text-gray-700"
                     >
-                      <p>Then your API endpoint says revenue is $1.2M.</p>
-                      <p>Your dashboard says $1.3M.</p>
-                      <p>The Slack bot reports $1.1M.</p>
+                      <p>Your API reports $1.2M in revenue.</p>
+                      <p>The dashboard shows $1.3M.</p>
+                      <p>The Slack bot says $1.1M.</p>
+                    </div>
+                    <div
+                      class="mt-6 space-y-3 text-base leading-7 text-gray-700"
+                    >
+                      <p>Someone tweaked a date filter.</p>
+                      <p>Someone else “fixed” the exclusion logic.</p>
+                      <p>An agent hallucinated a JOIN.</p>
                     </div>
                     <div
                       class="mt-6 space-y-3 text-base leading-7 text-gray-700"
                     >
                       <p>
-                        Someone changed the date filter. Someone else updated
-                        the exclusion logic. The agent hallucinated a JOIN.
+                        Suddenly “what’s our revenue?” needs a Slack thread, a
+                        meeting, and three engineers debating whose SQL is
+                        right.
                       </p>
-                      <p>
-                        Now "what's our revenue?" requires a Slack thread, a
-                        meeting, and three engineers arguing about which SQL is
-                        "correct."
-                      </p>
-                    </div>
-                    <div
-                      class="mt-8 space-y-3 text-base leading-7 text-gray-700"
-                    >
-                      <p>
-                        hypequery exists to make one thing unambiguous:
-                        <strong class="text-gray-900"
-                          >where metrics live.</strong
-                        >
-                      </p>
+                      <p>hypequery removes that ambiguity.</p>
                       <p class="text-xl font-bold text-gray-900">
-                        In code. Once.
+                        Metrics live in code. Defined once, enforced everywhere.
                       </p>
                     </div>
                   </div>
@@ -706,6 +699,42 @@ const defaultUseCase = useCaseExamples[0] ?? null;
       .hero-mascot-wrapper {
         display: block;
       }
+    }
+
+    .code-panel {
+      border-radius: 1.25rem;
+      background: #020617;
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.55);
+    }
+
+    .code-panel__chrome {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.85rem 1rem 0.65rem;
+    }
+
+    .code-panel__chrome span {
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .code-panel__code {
+      border-radius: 0 0 1.25rem 1.25rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.15);
+      background: rgba(2, 6, 23, 0.95);
+      padding: 0.5rem 1rem;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      overflow-x: auto;
+    }
+
+    .code-panel__code code {
+      font-family:
+        "JetBrains Mono", "Fira Code", Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
     }
   </style>
 </Layout>

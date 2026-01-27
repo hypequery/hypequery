@@ -253,57 +253,6 @@ async function searchUsers(filters: {
 const users = await searchUsers({ status: 'active', role: 'admin' });
 ```
 
-### Transactions (Not Supported)
-
-ClickHouse doesn't support traditional transactions. For data consistency:
-
-```ts
-// ❌ No transactions
-// Use ClickHouse's atomic inserts and idempotent queries instead
-
-// ✅ Atomic insert
-await db.rawQuery(`
-  INSERT INTO events
-  SELECT * FROM staging_events
-  WHERE processed = false
-`);
-
-// ✅ Idempotent operations
-await db.rawQuery(`
-  ALTER TABLE events
-  UPDATE processed = true
-  WHERE id IN (SELECT id FROM staging_events)
-`);
-```
-
----
-
-## Performance Tips
-
-1. **Select only needed columns**: Don't use `select('*')` unless necessary
-2. **Use indexes**: Filter on indexed columns when possible
-3. **Limit results**: Always use `.limit()` for exploratory queries
-4. **Stream large results**: Use `.stream()` for millions of rows
-5. **Cache when appropriate**: Store results for frequently accessed data
-
-```ts
-// ❌ Bad - selects everything
-const data = await db.table('events').select('*').execute();
-
-// ✅ Good - selects specific columns with limit
-const data = await db.table('events')
-  .select(['id', 'timestamp', 'event_type'])
-  .where('date', 'eq', today)
-  .limit(1000)
-  .execute();
-```
-
----
-
 ## Next Steps
 
-**Continue:** [Integration Examples](/docs/standalone/examples) - Real-world usage patterns
-
-**Or explore:**
 - [Building Queries](/docs/queries/query-building) - Master the query builder
-- [Advanced Filtering](/docs/queries/advanced-filtering) - Complex where conditions

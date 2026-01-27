@@ -1,0 +1,107 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Serve overview
+description: Understand how hypequery's Serve runtime runs standalone, inside frameworks, or entirely in-process.
+---
+
+# Serve overview
+
+Serve turns query definitions into reusable HTTP handlers, docs, and tooling. This page explains how the runtime is structured so you can choose the right delivery mode for your app.
+
+## One definition, many runtimes
+
+When you call `initServe` (or `defineServe`) you get back an `api` object. That object is environment-agnostic:
+
+- `api.route('/hello', api.queries.hello)` registers an endpoint description
+- `api.handler` exposes a Fetch-style request handler
+- `api.start()` (and the CLI) boot a Node HTTP server
+- `api.run('hello')` executes the same logic in-process
+
+Because all of those methods share the same metadata and resolvers, you can move between deployment models without rewriting queries.
+
+## Delivery modes
+
+| Mode | How it works | When to choose |
+| --- | --- | --- |
+| **Standalone server** | `npx hypequery dev api/queries.ts` (or `serve`) wraps `api.start()` to run a Node HTTP server, host docs, and emit OpenAPI. | Quick local previews, dedicated analytics services (Render, Fly, Railway, Docker). |
+| **Embedded framework handler** | Import the same `api` into Next.js, Remix, Express, Fastify, SST, etc. and wire up the provided handler/route helpers. | You already have an HTTP server and want the analytics endpoints to live beside existing routes. |
+| **Edge/Fetch runtimes** | Use `api.handler` (Fetch interface) or `createFetchHandler(api)` to deploy on Vercel Edge, Cloudflare Workers, or Service Workers. | Need low-latency, edge-hosted analytics or want to avoid Node entirely. |
+| **In-process execution** | Call `api.run(key)` / `api.execute` directly—no HTTP involved. | Cron jobs, SSR, background workers, or AI agents that just need the data. |
+
+## Standalone server (CLI & Node helper)
+
+```
+# Dev mode: watches files, hot reloads docs
+npx hypequery dev analytics/queries.ts --port 4000
+
+# Production mode: no watcher, same server
+npx hypequery serve analytics/queries.ts --port 8080
+```
+
+Both commands internally call `api.start({ port })` and add niceties (file watching, pretty logs, docs hosting). You can do the same in code:
+
+```ts
+import { api } from './analytics/queries';
+
+const server = await api.start({ port: 4000 });
+// later: await server.stop();
+```
+
+## Embedding in frameworks
+
+Because every query is already a handler, you can mount the runtime anywhere:
+
+```ts
+// Next.js App Router example (app/api/weekly-revenue/route.ts)
+import { api } from '@/analytics/queries';
+
+export const POST = api.route('/weeklyRevenue', api.queries.weeklyRevenue).handler;
+```
+
+Need more control? Use the adapters directly:
+
+```ts
+import { createNodeHandler } from '@hypequery/serve/node';
+import { api } from './analytics/queries';
+import express from 'express';
+
+const app = express();
+app.use('/api/analytics', createNodeHandler(api.handler));
+```
+
+Edge runtimes can reuse the Fetch handler:
+
+```ts
+// Cloudflare Worker
+import { api } from './analytics/queries';
+
+export default {
+  fetch(request: Request) {
+    return api.handler(request);
+  },
+};
+```
+
+## Docs and OpenAPI everywhere
+
+Whether you run the CLI server or embed handlers yourself, you can still render docs/OpenAPI:
+
+- `api.docsHtml()` / `buildDocsHtml()` to serve the Redoc UI wherever you want
+- `api.openapi()` / `buildOpenApiDocument()` to emit specs for schema registries
+
+The CLI defaults to `/docs` and `/openapi.json`, but you can host the same assets under any route.
+
+## Choosing a path
+
+1. **Need a quick API** → run `hypequery dev` and deploy that server directly.
+2. **Have an existing server** → import `api` and mount the provided handlers.
+3. **Doing serverless/edge** → use the Fetch adapter for your platform.
+4. **No HTTP required** → call `api.run()` from the environments you already control.
+
+Whichever path you choose, keep your query definitions in one place and reuse them via the adapters that fit your architecture.
+
+## Next steps
+
+- Learn the fluent builder in [Query definitions](/docs/serve/query-definitions)
+- Dive into the runtime hooks in the [Serve reference](/docs/reference/serve)
+- See real deployments in the [recipes](/docs/recipes)

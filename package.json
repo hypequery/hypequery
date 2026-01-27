@@ -8,7 +8,8 @@
     "packages/react",
     "packages/serve",
     "packages/tsconfig",
-    "examples/*"
+    "examples/*",
+    "website"
   ],
   "license": "Apache-2.0",
   "scripts": {

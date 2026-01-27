@@ -75,6 +75,55 @@ export async function sendRenewalDigest() {
 `,
   },
   {
+    id: 'saas-multi-tenant',
+    title: 'SaaS analytics APIs',
+    summary:
+      'Ship customer-facing analytics once, enforce tenant isolation automatically, and reuse the same definitions across regions.',
+    body: 'Serve’s tenant config injects `WHERE account_id = $tenantId` and rejects unauthenticated requests, so every SaaS customer sees only their own metrics while you keep a single analytics codebase.',
+    codeLanguage: 'typescript',
+    code: `
+// analytics/api.ts
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { verifySession } from '../lib/auth';
+import { db } from './client';
+
+export const api = defineServe({
+  basePath: '/analytics',
+  context: ({ request }) => ({
+    db,
+    auth: verifySession(request),
+  }),
+  tenant: {
+    column: 'account_id',
+    extract: (auth) => auth?.accountId,
+    mode: 'auto-inject',
+  },
+  queries: {
+    revenueByPlan: {
+      inputSchema: z.object({ plan: z.string().optional() }),
+      query: ({ ctx, input }) => {
+        let base = ctx.db
+          .table('orders')
+          .where('account_id', 'eq', ctx.tenantId)
+          .groupBy(['plan'])
+          .sum('amount', 'revenue');
+
+        if (input.plan) {
+          base = base.where('plan', 'eq', input.plan);
+        }
+
+        return base;
+      },
+    },
+  },
+});
+
+api.route('/revenue/by-plan', api.queries.revenueByPlan, { method: 'POST' });
+await api.start();
+`,
+  },
+  {
     id: 'dashboards',
     title: 'Dashboards',
     summary:
@@ -155,55 +204,6 @@ const agent = await initializeAgentExecutorWithOptions([
 const response = await agent.invoke({
   input: 'Alert me if enterprise churn grew week over week.',
 });
-`,
-  },
-  {
-    id: 'clickhouse',
-    title: 'Data teams',
-    summary:
-      'Keep ClickHouse fast and flexible without pushing business logic into dashboards or BI tools.',
-    body: 'Data teams wrap ClickHouse in hypequery to add tenant isolation, governance, and OpenAPI docs so BI, ops, and product all share one metric catalog.',
-    codeLanguage: 'typescript',
-    code: `
-// analytics/api.ts
-import { defineServe } from '@hypequery/serve';
-import { z } from 'zod';
-import { verifyKey } from '../lib/auth';
-import { db } from './client';
-
-export const api = defineServe({
-  basePath: '/analytics',
-  context: ({ request }) => ({
-    db,
-    auth: verifyKey(request),
-  }),
-  tenant: {
-    column: 'account_id',
-    extract: (auth) => auth?.accountId,
-    mode: 'auto-inject',
-  },
-  queries: {
-    revenueByPlan: {
-      inputSchema: z.object({ plan: z.string().optional() }),
-      query: ({ ctx, input }) => {
-        let query = ctx.db
-          .table('orders')
-          .select(['plan'])
-          .where('account_id', 'eq', ctx.tenantId)
-          .groupBy(['plan'])
-          .sum('amount', 'revenue');
-
-        if (input.plan) {
-          query = query.where('plan', 'eq', input.plan);
-        }
-
-        return query;
-      },
-    },
-  },
-});
-
-await api.start(); // exposes routes + OpenAPI for BI consumers
 `,
   },
 ];
