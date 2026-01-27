@@ -14,13 +14,8 @@ import type {
   EndpointContext,
   EndpointMetadata,
   ErrorEnvelope,
-  OpenApiOptions,
-  ExecutableQuery,
   HttpMethod,
-  InferExecutableQueryResult,
-  QueryProcedureBuilder,
-  SchemaInput,
-  SchemaOutput,
+  OpenApiOptions,
   ServeBuilder,
   ServeConfig,
   ServeContextFactory,
@@ -29,123 +24,20 @@ import type {
   ServeEndpointResult,
   ServeInitializer,
   ServeHandler,
+  ServeLifecycleHooks,
   ServeMiddleware,
   ServeQueriesMap,
-  ServeQueryConfig,
   ServeRequest,
   ServeResponse,
-  ServeLifecycleHooks,
-  MaybePromise,
-  TenantConfig,
+  SchemaInput,
   ToolkitDescription,
   ToolkitQueryDescription,
+  MaybePromise,
+  TenantConfig,
 } from "./types.js";
+import { createProcedureBuilder } from "./builder.js";
+import { ensureArray, generateRequestId, mergeTags } from "./utils.js";
 
-const ensureArray = <T>(value: T | T[] | undefined | null): T[] => {
-  if (!value) {
-    return [];
-  }
-
-  return Array.isArray(value) ? value : [value];
-};
-
-const generateRequestId = (): string => {
-  return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-};
-
-type ProcedureBuilderState<
-  TContext extends Record<string, unknown>,
-  TAuth extends AuthContext
-> = {
-  inputSchema?: ZodTypeAny;
-  outputSchema?: ZodTypeAny;
-  description?: string;
-  name?: string;
-  summary?: string;
-  tags: string[];
-  method?: HttpMethod;
-  cacheTtlMs?: number | null;
-  auth?: AuthStrategy<TAuth> | null;
-  tenant?: TenantConfig<TAuth>;
-  custom?: Record<string, unknown>;
-  middlewares: ServeMiddleware<any, any, TContext, TAuth>[];
-};
-
-const createProcedureBuilder = <
-  TContext extends Record<string, unknown>,
-  TAuth extends AuthContext
->(): QueryProcedureBuilder<TContext, TAuth> => {
-  const build = <
-    TInputSchema extends ZodTypeAny | undefined = undefined,
-    TOutputSchema extends ZodTypeAny = ZodTypeAny
-  >(
-    state: ProcedureBuilderState<TContext, TAuth>
-  ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema> => {
-    return {
-      input: <TNewInputSchema extends ZodTypeAny>(schema: TNewInputSchema) =>
-        build<TNewInputSchema, TOutputSchema>({ ...state, inputSchema: schema }),
-      output: <TNewOutputSchema extends ZodTypeAny>(schema: TNewOutputSchema) =>
-        build<TInputSchema, TNewOutputSchema>({ ...state, outputSchema: schema }),
-      describe: (description) => build<TInputSchema, TOutputSchema>({ ...state, description }),
-      name: (name) => build<TInputSchema, TOutputSchema>({ ...state, name }),
-      summary: (summary) => build<TInputSchema, TOutputSchema>({ ...state, summary }),
-      tag: (tag) =>
-        build<TInputSchema, TOutputSchema>({
-          ...state,
-          tags: Array.from(new Set([...state.tags, tag])),
-        }),
-      tags: (tags) =>
-        build<TInputSchema, TOutputSchema>({
-          ...state,
-          tags: Array.from(new Set([...state.tags, ...(tags ?? [])])),
-        }),
-      method: (method) => build<TInputSchema, TOutputSchema>({ ...state, method }),
-      cache: (ttlMs) => build<TInputSchema, TOutputSchema>({ ...state, cacheTtlMs: ttlMs }),
-      auth: (strategy) => build<TInputSchema, TOutputSchema>({ ...state, auth: strategy }),
-      tenant: (config) => build<TInputSchema, TOutputSchema>({ ...state, tenant: config }),
-      custom: (custom) =>
-        build<TInputSchema, TOutputSchema>({
-          ...state,
-          custom: { ...(state.custom ?? {}), ...custom },
-        }),
-      use: (...middlewares) =>
-        build<TInputSchema, TOutputSchema>({
-          ...state,
-          middlewares: [...state.middlewares, ...middlewares],
-        }),
-      query: <
-        TExecutable extends ExecutableQuery<SchemaInput<TInputSchema>, any, TContext, TAuth>
-      >(
-        executable: TExecutable
-      ) => {
-        type TResult = InferExecutableQueryResult<TExecutable>;
-        const base: ServeQueryConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult> = {
-          description: state.description,
-          name: state.name,
-          summary: state.summary,
-          tags: state.tags,
-          method: state.method,
-          inputSchema: state.inputSchema as TInputSchema,
-          outputSchema: state.outputSchema as TOutputSchema,
-          cacheTtlMs: state.cacheTtlMs,
-          auth: typeof state.auth === "undefined" ? null : state.auth,
-          tenant: state.tenant,
-          custom: state.custom,
-          middlewares: state.middlewares as ServeMiddleware<
-            SchemaInput<TInputSchema>,
-            SchemaOutput<TOutputSchema>,
-            TContext,
-            TAuth
-          >[],
-          query: executable as ExecutableQuery<SchemaInput<TInputSchema>, TResult, TContext, TAuth>,
-        };
-        return base;
-      },
-    };
-  };
-
-  return build({ tags: [], middlewares: [] });
-};
 
 const getRequestId = (request: ServeRequest): string => {
   return (
@@ -169,11 +61,6 @@ const safeInvokeHook = async <T>(
   } catch (error) {
     console.error(`[hypequery/serve] ${name} hook failed`, error);
   }
-};
-
-const mergeTags = (existing: string[], next?: string[]) => {
-  const merged = [...existing, ...(next ?? [])];
-  return Array.from(new Set(merged.filter(Boolean)));
 };
 
 const createErrorResponse = (
