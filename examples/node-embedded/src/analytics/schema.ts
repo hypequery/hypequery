@@ -6,5 +6,10 @@ export interface TripsRow {
 }
 
 export interface AnalyticsSchema {
-  trips: TripsRow;
+  trips: {
+    trip_id: 'String';
+    pickup_datetime: 'DateTime';
+    total_amount: 'Float64';
+    passenger_count: 'UInt8';
+  };
 }

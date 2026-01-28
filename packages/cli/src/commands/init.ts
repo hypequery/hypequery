@@ -32,6 +32,7 @@ export interface InitOptions {
   noExample?: boolean;
   noInteractive?: boolean;
   force?: boolean;
+  skipConnection?: boolean;
 }
 
 type ConnectionConfig = {
@@ -128,6 +129,9 @@ export async function initCommand(options: InitOptions = {}) {
   // Handle user skipping connection details
   if (!connectionConfig) {
     logger.info('Skipping database connection for now.');
+    logger.newline();
+  } else if (options.skipConnection) {
+    logger.info('Skipping database connection test (requested).');
     logger.newline();
   } else {
     const { hasValidConnection: valid, tableCount: count } = await testConnection(connectionConfig, dbType);

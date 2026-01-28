@@ -163,6 +163,24 @@ describe('init command - graceful failure handling', () => {
     });
   });
 
+  describe('skipConnection option', () => {
+    it('bypasses connection test when requested', async () => {
+      vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
+        host: 'http://localhost:8123',
+        database: 'default',
+        username: 'default',
+        password: 'secret',
+      });
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+
+      await initCommand({ skipConnection: true });
+
+      expect(detectDb.validateConnection).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith('Skipping database connection test (requested).');
+    });
+  });
+
   describe('Successful connection scenarios', () => {
     it('should generate real types when connection succeeds', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
