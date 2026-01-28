@@ -65,6 +65,8 @@ jobs:
           CLICKHOUSE_TEST_PASSWORD: hypequery_test
           CLICKHOUSE_TEST_DB: test_db
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
+      - name: Run smoke tests
+        run: pnpm smoke:examples
   release:
     needs: build
     runs-on: ubuntu-latest

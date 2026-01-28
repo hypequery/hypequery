@@ -1,4 +1,5 @@
 import { initServe } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import { toStartOfInterval } from '@hypequery/clickhouse';
 import { z } from 'zod';
 
@@ -110,7 +111,7 @@ const { define, queries, query } = initServe({
   context: () => ({ db }),
 });
 
-export const api = define({
+const apiDefinition = define({
   queries: queries({
     averageAmounts: query
       .describe('Average revenue components')
@@ -346,6 +347,10 @@ export const api = define({
       }),
   }),
 });
+
+export type ApiDefinition = InferApiType<typeof apiDefinition>;
+export const api = apiDefinition;
+export default apiDefinition;
 
 // Register routes for each query
 api

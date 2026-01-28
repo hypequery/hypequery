@@ -72,6 +72,10 @@ function formatManualCommand(manager: PackageManager, packages: string[]) {
 }
 
 export async function installServeDependencies() {
+  if (process.env.HYPEQUERY_SKIP_INSTALL === '1') {
+    return;
+  }
+
   const pkgJson = await readProjectPackageJson();
   if (!pkgJson) {
     logger.warn('package.json not found. Install @hypequery/clickhouse and @hypequery/serve manually.');

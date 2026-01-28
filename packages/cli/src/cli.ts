@@ -19,6 +19,7 @@ program
   .option('--no-example', 'Skip example query generation')
   .option('--no-interactive', 'Non-interactive mode (use env vars)')
   .option('--force', 'Overwrite existing files')
+  .option('--skip-connection', 'Skip database connectivity test')
   .action(async (options) => {
     try {
       await initCommand(options);
