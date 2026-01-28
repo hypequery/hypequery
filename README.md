@@ -30,7 +30,7 @@ hypequery is a TypeScript-first runtime for ClickHouse. Define analytics once, t
 ## Quickstart (Serve runtime)
 
 ```bash
-# Install runtime packages
+# Install packages
 npm install @hypequery/clickhouse @hypequery/serve
 npm install -D @hypequery/cli
 
