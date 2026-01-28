@@ -17,15 +17,18 @@ export interface RouterOptions {
   };
   /** Optional query logger for stats */
   logger?: DevQueryLogger;
-  /** Optional API instance for available queries */
+  /** Optional API instance for available queries and execution */
   api?: {
     endpoints?: Record<string, {
+      key?: string;
       path?: string;
       method?: string;
       description?: string;
       tags?: string[];
       inputSchema?: unknown;
+      outputSchema?: unknown;
     }>;
+    execute?: (key: string, options: { input?: unknown }) => Promise<unknown>;
   };
 }
 
@@ -43,7 +46,9 @@ const AVAILABLE_ROUTES = [
   'POST /__dev/cache/clear - Clear all cache',
   'GET /__dev/logger/stats - Get logger statistics',
   'GET /__dev/export - Export query history',
-  'POST /__dev/import - Import query history'
+  'POST /__dev/import - Import query history',
+  'GET /__dev/playground/queries - List queries with schemas for playground',
+  'POST /__dev/playground/execute - Execute a query from playground'
 ];
 
 /**
@@ -197,6 +202,18 @@ export class DevAPIRouter {
     // Route: Import history
     if (path === '/__dev/import' && method === 'POST') {
       await endpoints.importHistory(ctx);
+      return true;
+    }
+
+    // Route: Playground queries (with schemas)
+    if (path === '/__dev/playground/queries' && method === 'GET') {
+      await endpoints.getPlaygroundQueries(ctx);
+      return true;
+    }
+
+    // Route: Playground execute
+    if (path === '/__dev/playground/execute' && method === 'POST') {
+      await endpoints.executePlaygroundQuery(ctx);
       return true;
     }
 

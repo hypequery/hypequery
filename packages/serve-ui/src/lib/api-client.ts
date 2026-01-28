@@ -159,6 +159,59 @@ export const apiClient = {
       body: JSON.stringify(data),
     });
   },
+
+  /**
+   * Get available queries for the playground with schemas.
+   */
+  async getPlaygroundQueries(): Promise<PlaygroundQueriesResult> {
+    return request<PlaygroundQueriesResult>('/playground/queries');
+  },
+
+  /**
+   * Execute a query from the playground.
+   */
+  async executePlaygroundQuery(
+    queryKey: string,
+    input?: unknown
+  ): Promise<PlaygroundExecuteResult> {
+    return request<PlaygroundExecuteResult>('/playground/execute', {
+      method: 'POST',
+      body: JSON.stringify({ queryKey, input }),
+    });
+  },
 };
+
+/**
+ * Playground query definition.
+ */
+export interface PlaygroundQuery {
+  key: string;
+  path: string;
+  method: string;
+  description?: string;
+  tags: string[];
+  inputSchema: unknown | null;
+  outputSchema: unknown | null;
+}
+
+/**
+ * Playground queries list result.
+ */
+export interface PlaygroundQueriesResult {
+  queries: PlaygroundQuery[];
+  total: number;
+}
+
+/**
+ * Playground execution result.
+ */
+export interface PlaygroundExecuteResult {
+  success: boolean;
+  queryKey: string;
+  result?: unknown;
+  error?: string;
+  duration: number;
+  timestamp: number;
+}
 
 export default apiClient;

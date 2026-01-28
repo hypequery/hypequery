@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { History, BarChart3, Database, Settings, Zap } from 'lucide-react';
+import { History, BarChart3, Play, Settings, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QueryHistory } from '@/components/QueryHistory';
 import { CacheStats } from '@/components/CacheStats';
+import { Playground } from '@/components/Playground';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import {
   SidebarProvider,
@@ -19,12 +20,12 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 
-type View = 'queries' | 'cache' | 'endpoints' | 'settings';
+type View = 'queries' | 'cache' | 'playground' | 'settings';
 
 const NAV_ITEMS: Array<{ id: View; label: string; icon: typeof History }> = [
   { id: 'queries', label: 'Query History', icon: History },
   { id: 'cache', label: 'Cache Stats', icon: BarChart3 },
-  { id: 'endpoints', label: 'Endpoints', icon: Database },
+  { id: 'playground', label: 'Playground', icon: Play },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -106,34 +107,10 @@ function AppContent() {
         <main className="flex-1 overflow-hidden">
           {activeView === 'queries' && <QueryHistory className="h-full" />}
           {activeView === 'cache' && <CacheStats className="h-full overflow-auto" />}
-          {activeView === 'endpoints' && <EndpointsView />}
+          {activeView === 'playground' && <Playground className="h-full" />}
           {activeView === 'settings' && <SettingsView />}
         </main>
       </div>
-    </div>
-  );
-}
-
-/**
- * Endpoints view placeholder.
- */
-function EndpointsView() {
-  return (
-    <div className="p-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Endpoints</CardTitle>
-          <CardDescription>
-            View and test your API endpoints here.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-muted rounded-md p-8 text-center text-muted-foreground">
-            <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Endpoint explorer coming soon...</p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
