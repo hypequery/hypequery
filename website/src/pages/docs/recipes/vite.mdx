@@ -19,7 +19,6 @@ You want separate frontend/backend processes so you can:
 
 - Node.js 18+
 - Vite + React project (`npm create vite@latest my-app -- --template react`)
-- ClickHouse credentials (`CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD`)
 - Packages: `@hypequery/serve`, `@hypequery/clickhouse`, `zod`, `@tanstack/react-query`
 - Dev packages: `@hypequery/cli`, `concurrently`
 
@@ -38,51 +37,26 @@ import { initServe } from '@hypequery/serve';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { z } from 'zod';
 
-const clickhouseHost = process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST;
-const clickhouseUsername = process.env.CLICKHOUSE_USER || process.env.CLICKHOUSE_USERNAME;
-const clickhouseDatabase = process.env.CLICKHOUSE_DATABASE;
-
-const db = createQueryBuilder({
-  host: clickhouseHost!,
-  username: clickhouseUsername!,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: clickhouseDatabase,
-});
-
 const { define, queries, query } = initServe({
-  context: () => ({ db }),
+  context: () => ({}),
 });
 
-export const api = define({
+const apiDefinition = define({
   queries: queries({
     hello: query
       .describe('Simple greeting')
       .output(z.object({ message: z.string(), at: z.string() }))
       .query(async () => ({
-        message: 'Hello from hypequery! ',
+        message: 'Hello from hypequery!',
         at: new Date().toISOString(),
       })),
-
-    weeklyRevenue: query
-      .describe('Revenue by ISO week')
-      .input(z.object({ startDate: z.string(), endDate: z.string() }))
-      .output(z.array(z.object({ week: z.string(), revenue: z.number() })))
-      .query(async ({ ctx, input }) =>
-        ctx.db
-          .table('orders')
-          .where('created_at', 'gte', input.startDate)
-          .where('created_at', 'lte', input.endDate)
-          .groupBy(['toISOWeek(created_at) AS week'])
-          .sum('amount', 'revenue')
-          .orderBy('week', 'ASC')
-          .execute()
-      ),
   }),
 });
 
-api
-  .route('/hello', api.queries.hello, { method: 'GET' })
-  .route('/weeklyRevenue', api.queries.weeklyRevenue, { method: 'POST' });
+export type ApiDefinition = InferApiType<typeof apiDefinition>;
+export const api = apiDefinition;
+
+api.route('/hello', api.queries.hello, { method: 'GET' });
 ```
 
 ### Run the API locally
@@ -117,23 +91,17 @@ export default defineConfig({
 
 During development `fetch('/api/hello')` hits the hypequery server without CORS hassles.
 
-## 3. Build a tiny client helper
+## 3. Generate React Query hooks
 
 `src/lib/hypequery.ts`
 
 ```typescript
-export async function callMetric<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    headers: { 'content-type': 'application/json', ...(options?.headers ?? {}) },
-    ...options,
-  });
+import { createHooks } from '@hypequery/react';
+import type { ApiDefinition } from '../../api/queries';
 
-  if (!res.ok) {
-    throw new Error(`API ${path} failed: ${res.status}`);
-  }
-
-  return res.json();
-}
+export const { useQuery, useMutation } = createHooks<ApiDefinition>({
+  baseUrl: '/api',
+});
 ```
 
 ## 4. Use metrics in React components
@@ -141,69 +109,67 @@ export async function callMetric<T>(path: string, options?: RequestInit): Promis
 `src/App.tsx`
 
 ```tsx
-import { useState } from 'react';
-import { callMetric } from './lib/hypequery';
-
-type LoadState = 'idle' | 'loading' | 'error';
+import './App.css';
+import { useMutation } from './lib/hypequery';
 
 export default function App() {
-  const [hello, setHello] = useState<any>(null);
-  const [helloState, setHelloState] = useState<LoadState>('idle');
-  const [helloError, setHelloError] = useState<string | null>(null);
-
-  const [revenue, setRevenue] = useState<any>(null);
-  const [revenueState, setRevenueState] = useState<LoadState>('idle');
-  const [revenueError, setRevenueError] = useState<string | null>(null);
-
-  async function fetchHello() {
-    setHelloState('loading');
-    setHelloError(null);
-    try {
-      const data = await callMetric('/hello');
-      setHello(data);
-      setHelloState('idle');
-    } catch (err) {
-      setHelloError((err as Error).message);
-      setHelloState('error');
-    }
-  }
-
-  async function fetchRevenue() {
-    setRevenueState('loading');
-    setRevenueError(null);
-    try {
-      const data = await callMetric('/weeklyRevenue', {
-        method: 'POST',
-        body: JSON.stringify({ startDate: '2024-01-01', endDate: '2024-01-31' }),
-      });
-      setRevenue(data);
-      setRevenueState('idle');
-    } catch (err) {
-      setRevenueError((err as Error).message);
-      setRevenueState('error');
-    }
-  }
+  const helloQuery = useMutation('hello');
 
   return (
-    <main>
-      <button onClick={fetchHello} disabled={helloState === 'loading'}>
-        {helloState === 'loading' ? 'Loading...' : 'Greet'}
-      </button>
-      <button onClick={fetchRevenue} disabled={revenueState === 'loading'}>
-        {revenueState === 'loading' ? 'Loading...' : 'Load Revenue'}
-      </button>
+    <main className="app">
+      <h1>hypequery + Vite</h1>
+      <div className="actions">
+        <button
+          disabled={helloQuery.isPending}
+          onClick={() => helloQuery.mutate({})}
+        >
+          {helloQuery.isPending ? 'Loading…' : 'Greet'}
+        </button>
+      </div>
 
-      {helloError && <p role="alert">{helloError}</p>}
-      {hello && <pre>{JSON.stringify(hello, null, 2)}</pre>}
+      {helloQuery.error && (
+        <p className="error">{helloQuery.error.message}</p>
+      )}
 
-      {revenueError && <p role="alert">{revenueError}</p>}
-      {revenue && <pre>{JSON.stringify(revenue, null, 2)}</pre>}
+      {helloQuery.data && (
+        <section>
+          <h2>Hello metric</h2>
+          <pre>{JSON.stringify(helloQuery.data, null, 2)}</pre>
+        </section>
+      )}
     </main>
   );
 }
 ```
 
-## 5. Develop both servers together
+`src/App.css`
+
+```css
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.error {
+  color: #dc2626;
+}
+```
+
+## 5. Run both servers together
 
 `package.json`
 
@@ -223,14 +189,40 @@ export default function App() {
 
 Run `npm run dev:all` to start Vite (port 5173) and hypequery (port 4000) simultaneously.
 
+## 5. Wrap Vite with QueryClientProvider
+
+`src/main.tsx`
+
+```tsx
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import App from './App';
+import './index.css';
+
+const queryClient = new QueryClient();
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Root element not found');
+
+createRoot(rootElement).render(
+  <StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <App />
+    </QueryClientProvider>
+  </StrictMode>
+);
+```
+
+## 6. Develop both servers together
+
 ## Deployment tips
 
 - Ship the hypequery API as its own service (`npx hypequery serve api/queries.ts --port 4000` or Docker).
 - Point `baseUrl` to the hosted API (e.g., `https://analytics.myapp.com`).
-- In production builds, update `callMetric` to hit the real URL instead of the Vite proxy.
+- In production builds, point `baseUrl` to your hosted API (e.g., `https://analytics.myapp.com`).
 
 ## Next steps
 
 - Protect the API with `auth: async () => ({ userId, roles, tenantId })` and `tenant: { extract }`
-- Use `@hypequery/react` to generate React Query hooks instead of `callMetric`
+- Generate more hooks (e.g., `useMutation`) via `createHooks<ApiDefinition>`
 - Add caching to the ClickHouse builder (`cache: { mode: 'stale-while-revalidate', ttlMs: ... }`)

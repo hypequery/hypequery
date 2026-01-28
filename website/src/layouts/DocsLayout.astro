@@ -12,7 +12,7 @@ interface Props {
 
 const {
   title,
-  description = "Type-Safe Analytics Runtime for ClickHouse Teams",
+  description = "Type-Safe Analytics Engine for ClickHouse Teams",
 } = Astro.props;
 
 // Get the current URL path
@@ -40,7 +40,10 @@ const sidebar = [
         title: "Connecting to ClickHouse",
         href: "/docs/getting-started/connecting-to-clickhouse",
       },
-      { title: "Type generation", href: "/docs/getting-started/type-generation" },
+      {
+        title: "Type generation",
+        href: "/docs/getting-started/type-generation",
+      },
     ],
   },
   {
@@ -97,6 +100,7 @@ const sidebar = [
     items: [
       { title: "Next.js", href: "/docs/recipes/nextjs" },
       { title: "Vite", href: "/docs/recipes/vite" },
+      { title: "Fetch runtimes", href: "/docs/recipes/fetch" },
     ],
   },
   {

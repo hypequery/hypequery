@@ -7,7 +7,7 @@ interface Props {
 
 const {
   title,
-  description = "Type-Safe Analytics Runtime for ClickHouse Teams",
+  description = "Type-Safe Analytics Engine for ClickHouse Teams",
   favicon = "/favicon.png",
 } = Astro.props;
 
@@ -56,7 +56,12 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
         cs.async = 1;
         fs.parentNode.insertBefore(cs, fs);
       }
-      ce("https://sc.lfeeder.com/lftracker_v1_" + ss + (ex ? "_" + ex : "") + ".js");
+      ce(
+        "https://sc.lfeeder.com/lftracker_v1_" +
+          ss +
+          (ex ? "_" + ex : "") +
+          ".js",
+      );
     })(document, "script");
   })("DzLR5a5lx1Z4BoQ2");
 </script>
