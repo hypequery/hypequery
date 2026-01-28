@@ -5,6 +5,7 @@ export { QueryHistory } from './QueryHistory';
 export { QueryDetail } from './QueryDetail';
 export { CacheStats } from './CacheStats';
 export { ConnectionStatus } from './ConnectionStatus';
+export { Playground } from './Playground';
 
 // UI Components (shadcn-style)
 export * from './ui';

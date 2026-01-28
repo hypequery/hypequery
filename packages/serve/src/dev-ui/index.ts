@@ -17,3 +17,11 @@ export type {
 
 // API
 export * from './api/index.js';
+
+// Dev Handler
+export { DevHandler, createDevHandler } from './dev-handler.js';
+export type { DevHandlerOptions } from './dev-handler.js';
+
+// Assets
+export { getDevUIAssets, clearAssetCache, isDevUIAvailable } from './assets.js';
+export type { DevUIAssets } from './assets.js';
