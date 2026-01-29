@@ -1,8 +1,26 @@
-import type { QueryLog } from '@hypequery/clickhouse';
+/**
+ * Query log entry compatible with @hypequery/clickhouse QueryLog.
+ * Defined locally so @hypequery/serve has no hard dependency on clickhouse.
+ */
+export interface QueryLog {
+  query: string;
+  parameters?: any[];
+  startTime: number;
+  endTime?: number;
+  duration?: number;
+  status: 'started' | 'completed' | 'error';
+  error?: Error;
+  rowCount?: number;
+  queryId?: string;
+  cacheStatus?: string;
+  cacheKey?: string;
+  cacheMode?: string;
+  cacheAgeMs?: number;
+  cacheRowCount?: number;
+}
 
 /**
  * Extended query log entry with additional metadata for storage and display.
- * Extends the base QueryLog with persistence-specific fields.
  */
 export interface QueryHistoryEntry extends QueryLog {
   /** Auto-incrementing database ID */

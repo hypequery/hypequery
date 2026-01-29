@@ -1,5 +1,5 @@
-import { logger as clickhouseLogger, type QueryLog } from '@hypequery/clickhouse';
-import type { QueryHistoryStore } from './storage/index.js';
+import { logger as clickhouseLogger } from '@hypequery/clickhouse';
+import type { QueryHistoryStore, QueryLog } from './storage/index.js';
 
 /**
  * Statistics for the query logger.

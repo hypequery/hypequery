@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
-import type { QueryLog } from '@hypequery/clickhouse';
 import type {
+  QueryLog,
   QueryHistoryStore,
   QueryHistoryEntry,
   CacheStatsSnapshot,
