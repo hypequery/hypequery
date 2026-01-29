@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "dev:server": "tsx src/dev-server.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },
