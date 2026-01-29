@@ -39,7 +39,7 @@ const useCaseExamples = useCaseExamplesRaw.map((example) => ({
 const defaultUseCase = useCaseExamples[0] ?? null;
 ---
 
-<Layout title="hypequery – Type-Safe Analytics Runtime for ClickHouse Teams">
+<Layout title="hypequery – Type-Safe Analytics Backend for ClickHouse Teams">
   <main>
     <!-- Hero section -->
     <div class="relative isolate pt-14">
@@ -52,12 +52,12 @@ const defaultUseCase = useCaseExamples[0] ?? null;
               <div
                 class="inline-flex items-center mb-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 animate-on-scroll dark:bg-indigo-500/10 dark:text-indigo-200"
               >
-                Analytics Runtime for ClickHouse Teams
+                Analytics Backend for ClickHouse Teams
               </div>
               <h1
                 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl animate-on-scroll"
               >
-                Ship Type-Safe Analytics Everywhere
+                Stop breaking analytics as your product scales
               </h1>
               <div>
                 <p
@@ -412,19 +412,18 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
                   Execute queries directly in your API routes, cron jobs, or
-                  scripts using api.run(). No HTTP latency. HTTP exposure is
-                  optional.
+                  scripts. HTTP exposure is optional.
                 </p>
               </div>
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 class="text-lg font-semibold text-gray-900">
-                  Reusable metrics & queries
+                  Reusable queries
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Define once, import anywhere. Your API, dashboard, and Slack
-                  bot all use the same metric definition—no drift, no debates.
+                  Define once, import anywhere. Your API, dashboard, and agent
+                  all use the same metric definition. No drift, no debates.
                 </p>
               </div>
               <div
@@ -446,8 +445,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
                   Auto-inject tenant filters at the query level. It's impossible
-                  to accidentally query another customer's data—the framework
-                  prevents it.
+                  to accidentally query another customer's data.
                 </p>
               </div>
               <div
@@ -456,179 +454,14 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                 <h3 class="text-lg font-semibold text-gray-900">Caching</h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
                   Cache at the query level with TTL, invalidation, and custom
-                  cache keys. Not everywhere by default—only where it makes
-                  sense.
+                  cache keys.
                 </p>
-              </div>
-            </div>
-          </section>
-
-          <section class="mt-20 animate-on-scroll">
-            <div
-              class="relative left-1/2 right-1/2 w-screen -translate-x-1/2 bg-gray-900 py-14 text-gray-100"
-            >
-              <div class="mx-auto max-w-7xl px-4 lg:px-6">
-                <div
-                  class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
-                >
-                  <div>
-                    <h2 class="text-3xl font-bold tracking-tight">
-                      Humans first. Agents included. Hyenas? Not so much.
-                    </h2>
-                    <p class="mt-4 text-lg text-gray-200">
-                      Your analytics aren’t blobs of SQL. They’re:
-                    </p>
-                  </div>
-                  <div
-                    class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm tracking-wide text-indigo-200"
-                  >
-                  </div>
-                </div>
-                <div class="mt-8 grid gap-8 md:grid-cols-2">
-                  <div class="space-y-3">
-                    <div
-                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
-                    >
-                      <span
-                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
-                        aria-hidden="true"
-                      >
-                        <Bookmark class="h-5 w-5" />
-                      </span>
-                      <div>
-                        <p class="text-base font-semibold">Named</p>
-                        <p class="text-sm text-gray-300">
-                          Versioned keys with intent baked in.
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
-                    >
-                      <span
-                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
-                        aria-hidden="true"
-                      >
-                        <Code class="h-5 w-5" />
-                      </span>
-                      <div>
-                        <p class="text-base font-semibold">Typed</p>
-                        <p class="text-sm text-gray-300">
-                          Zod schemas guard every input/output.
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
-                    >
-                      <span
-                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
-                        aria-hidden="true"
-                      >
-                        <FileText class="h-5 w-5" />
-                      </span>
-                      <div>
-                        <p class="text-base font-semibold">Documented</p>
-                        <p class="text-sm text-gray-300">
-                          Metadata + OpenAPI ship alongside code.
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      class="flex items-center gap-3 rounded-2xl bg-white/5 px-4 py-3"
-                    >
-                      <span
-                        class="inline-flex size-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200"
-                        aria-hidden="true"
-                      >
-                        <Radar class="h-5 w-5" />
-                      </span>
-                      <div>
-                        <p class="text-base font-semibold">Discoverable</p>
-                        <p class="text-sm text-gray-300">
-                          List + inspect definitions instead of spelunking SQL.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <p
-                      class="text-sm font-semibold uppercase tracking-wide text-indigo-300"
-                    >
-                      Which means they work for:
-                    </p>
-                    <div class="mt-6 space-y-4">
-                      {
-                        [
-                          {
-                            label: "Humans reading code",
-                            body: "Drop into any repo and understand the metric instantly.",
-                          },
-                          {
-                            label: "Frontends calling APIs",
-                            body: "Typed hooks + OpenAPI keep dashboards in sync.",
-                          },
-                          {
-                            label: "AI agents doing real work",
-                            body: "Agents list, inspect, and execute definitions safely.",
-                          },
-                        ].map(({ label, body }) => (
-                          <div class="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                            <span class="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-emerald-400 text-gray-900 shadow-lg shadow-emerald-500/40">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke-width="2"
-                                stroke="currentColor"
-                                class="h-4 w-4"
-                              >
-                                <path
-                                  stroke-linecap="round"
-                                  stroke-linejoin="round"
-                                  d="M4.5 12.75l6 6 9-13.5"
-                                />
-                              </svg>
-                            </span>
-                            <div>
-                              <p class="font-semibold">{label}</p>
-                              <p class="text-sm text-gray-300">{body}</p>
-                            </div>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  </div>
-                </div>
-                <div
-                  class="mt-10 grid gap-3 text-sm text-gray-300 md:grid-cols-3"
-                >
-                  <div
-                    class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4"
-                  >
-                    <p class="text-white text-center">No prompt hacks.</p>
-                  </div>
-                  <div
-                    class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4"
-                  >
-                    <p class="text-white text-center">
-                      No agent-specific APIs.
-                    </p>
-                  </div>
-                  <div
-                    class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4"
-                  >
-                    <p class="text-base font-semibold text-white text-center">
-                      Just structure.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           </section>
         </div>
         <section
-          class="relative isolate overflow-hidden bg-white px-6 py-16 text-center sm:px-12 lg:px-16 dark:bg-slate-900"
+          class="my-16 relative isolate overflow-hidden bg-white px-6 py-16 text-center sm:px-12 lg:px-16 dark:bg-slate-900"
         >
           <div class="mx-auto max-w-3xl text-slate-900 dark:text-white">
             <p
@@ -662,6 +495,13 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                 Explore docs
               </a>
             </div>
+            <p class="mt-6 text-slate-600 dark:text-slate-400 font-medium">
+              Early adopter? DM us <a
+                href="https://twitter.com/hypequery"
+                class="text-indigo-600 hover:text-indigo-700 font-medium"
+                >@hypequery</a
+              > — let's build this together.
+            </p>
           </div>
         </section>
       </div>
