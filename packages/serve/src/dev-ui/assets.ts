@@ -1,6 +1,4 @@
-import { readFileSync, readdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { EMBEDDED_HTML, EMBEDDED_JS, EMBEDDED_CSS } from './embedded-assets.js';
 
 /**
  * Assets for the dev UI.
@@ -9,42 +7,44 @@ export interface DevUIAssets {
   html: string;
   js: Record<string, string>;
   css: Record<string, string>;
-  maps?: Record<string, string>;
 }
 
-// Cache for assets
-let cachedAssets: DevUIAssets | null = null;
-
 /**
- * Find the serve-ui dist directory.
+ * Get the dev UI assets.
+ * Uses embedded assets that are baked in at build time.
  */
-function findServeUIDistDir(): string | null {
-  // Try relative paths from this file's location
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-
-  const possiblePaths = [
-    // From compiled serve/dist/dev-ui/
-    join(__dirname, '../../../../serve-ui/dist'),
-    // From serve/src/dev-ui/
-    join(__dirname, '../../../serve-ui/dist'),
-    // From monorepo root
-    join(__dirname, '../../../../../../packages/serve-ui/dist'),
-    // Fallback: look for serve-ui in node_modules
-    join(__dirname, '../../../node_modules/@hypequery/serve-ui/dist')
-  ];
-
-  for (const p of possiblePaths) {
-    if (existsSync(p)) {
-      return p;
-    }
+export function getDevUIAssets(): DevUIAssets {
+  if (EMBEDDED_HTML) {
+    return {
+      html: EMBEDDED_HTML,
+      js: EMBEDDED_JS,
+      css: EMBEDDED_CSS,
+    };
   }
 
-  return null;
+  return {
+    html: getFallbackHTML(),
+    js: {},
+    css: {},
+  };
 }
 
 /**
- * Generate fallback HTML when serve-ui is not built.
+ * Check if the dev UI is available (embedded).
+ */
+export function isDevUIAvailable(): boolean {
+  return EMBEDDED_HTML !== null;
+}
+
+/**
+ * Clear the asset cache (no-op, kept for API compatibility).
+ */
+export function clearAssetCache(): void {
+  // Assets are embedded at build time, no cache to clear
+}
+
+/**
+ * Fallback HTML when UI assets are not embedded.
  */
 function getFallbackHTML(): string {
   return `<!DOCTYPE html>
@@ -94,99 +94,12 @@ function getFallbackHTML(): string {
 </head>
 <body>
   <div class="container">
-    <h1>Dev Tools Not Built</h1>
+    <h1>Dev Tools UI Not Available</h1>
     <p>
-      The dev tools UI needs to be built first. Run the following command:
-    </p>
-    <pre><code>pnpm --filter @hypequery/serve-ui build</code></pre>
-    <p style="margin-top: 1.5rem; font-size: 0.875rem;">
-      Then restart the dev server.
+      The dev tools UI assets were not embedded during the build.
+      Please rebuild the <code>@hypequery/serve</code> package.
     </p>
   </div>
 </body>
 </html>`;
-}
-
-/**
- * Load assets from the serve-ui dist directory.
- */
-function loadAssets(): DevUIAssets {
-  const distDir = findServeUIDistDir();
-
-  if (!distDir) {
-    return {
-      html: getFallbackHTML(),
-      js: {},
-      css: {}
-    };
-  }
-
-  try {
-    // Read index.html
-    const htmlPath = join(distDir, 'index.html');
-    let html = existsSync(htmlPath)
-      ? readFileSync(htmlPath, 'utf-8')
-      : getFallbackHTML();
-
-    // Rewrite asset paths to use /__dev/assets/
-    html = html.replace(/\/assets\//g, '/__dev/assets/');
-
-    // Read JS and CSS files from assets directory
-    const assetsDir = join(distDir, 'assets');
-    const js: Record<string, string> = {};
-    const css: Record<string, string> = {};
-    const maps: Record<string, string> = {};
-
-    if (existsSync(assetsDir)) {
-      const files = readdirSync(assetsDir);
-
-      for (const file of files) {
-        const filePath = join(assetsDir, file);
-
-        if (file.endsWith('.js')) {
-          js[file] = readFileSync(filePath, 'utf-8');
-        } else if (file.endsWith('.css')) {
-          css[file] = readFileSync(filePath, 'utf-8');
-        } else if (file.endsWith('.js.map')) {
-          maps[file] = readFileSync(filePath, 'utf-8');
-        }
-      }
-    }
-
-    return { html, js, css, maps };
-  } catch (error) {
-    console.error('[DevUI] Failed to load assets:', error);
-    return {
-      html: getFallbackHTML(),
-      js: {},
-      css: {}
-    };
-  }
-}
-
-/**
- * Get the dev UI assets.
- * Assets are cached after first load.
- */
-export function getDevUIAssets(): DevUIAssets {
-  if (!cachedAssets) {
-    cachedAssets = loadAssets();
-  }
-  return cachedAssets;
-}
-
-/**
- * Clear the asset cache.
- * Useful for development when rebuilding the UI.
- */
-export function clearAssetCache(): void {
-  cachedAssets = null;
-}
-
-/**
- * Check if the dev UI is available (built).
- */
-export function isDevUIAvailable(): boolean {
-  const distDir = findServeUIDistDir();
-  return distDir !== null && existsSync(join(distDir, 'index.html'));
 }
