@@ -45,6 +45,7 @@
   },
   "devDependencies": {
     "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/serve-ui": "workspace:*",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^20.11.30",
     "@vitest/coverage-v8": "^2.1.9",

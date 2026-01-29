@@ -1,5 +1,5 @@
-import type { QueryLog } from '@hypequery/clickhouse';
 import type {
+  QueryLog,
   QueryHistoryStore,
   QueryHistoryEntry,
   CacheStatsSnapshot,

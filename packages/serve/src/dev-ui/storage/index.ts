@@ -12,6 +12,7 @@ import { MemoryStore } from './memory-store.js';
 
 // Type exports
 export type {
+  QueryLog,
   QueryHistoryEntry,
   CacheStatsSnapshot,
   RetentionPolicy,

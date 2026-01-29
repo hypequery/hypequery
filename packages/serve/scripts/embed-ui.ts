@@ -5,13 +5,15 @@
  * without requiring users to build serve-ui separately.
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const serveUIDistDir = join(__dirname, '../../serve-ui/dist');
+const serveUIDir = join(__dirname, '../../serve-ui');
+const serveUIDistDir = join(serveUIDir, 'dist');
 const outputFile = join(__dirname, '../src/dev-ui/embedded-assets.ts');
 
 function escapeString(str: string): string {
@@ -21,30 +23,40 @@ function escapeString(str: string): string {
     .replace(/\$/g, '\\$');
 }
 
-function generate(): void {
-  if (!existsSync(serveUIDistDir)) {
-    console.warn('[embed-ui] serve-ui dist not found, generating empty assets');
-    writeFileSync(outputFile, `// Auto-generated - no UI assets available
-export const EMBEDDED_HTML: string | null = null;
-export const EMBEDDED_JS: Record<string, string> = {};
-export const EMBEDDED_CSS: Record<string, string> = {};
-`);
-    return;
+function buildServeUI(): boolean {
+  if (!existsSync(join(serveUIDir, 'package.json'))) {
+    return false;
   }
+  try {
+    console.log('[embed-ui] Building serve-ui...');
+    execSync('npm run build', { cwd: serveUIDir, stdio: 'inherit' });
+    return existsSync(join(serveUIDistDir, 'index.html'));
+  } catch {
+    console.warn('[embed-ui] Failed to build serve-ui');
+    return false;
+  }
+}
 
-  const htmlPath = join(serveUIDistDir, 'index.html');
-  if (!existsSync(htmlPath)) {
-    console.warn('[embed-ui] index.html not found in serve-ui dist');
-    writeFileSync(outputFile, `// Auto-generated - no UI assets available
+function generateEmpty(): void {
+  writeFileSync(outputFile, `// Auto-generated - no UI assets available
 export const EMBEDDED_HTML: string | null = null;
 export const EMBEDDED_JS: Record<string, string> = {};
 export const EMBEDDED_CSS: Record<string, string> = {};
 `);
-    return;
+}
+
+function generate(): void {
+  if (!existsSync(serveUIDistDir) || !existsSync(join(serveUIDistDir, 'index.html'))) {
+    // Try to build serve-ui automatically
+    if (!buildServeUI()) {
+      console.warn('[embed-ui] serve-ui dist not available, generating empty assets');
+      generateEmpty();
+      return;
+    }
   }
 
   // Read and rewrite HTML paths
-  let html = readFileSync(htmlPath, 'utf-8');
+  let html = readFileSync(join(serveUIDistDir, 'index.html'), 'utf-8');
   html = html.replace(/\/assets\//g, '/__dev/assets/');
 
   // Read assets
