@@ -33,11 +33,12 @@
     "smoke:node-embedded": "bash scripts/smoke-node-embedded.sh",
     "smoke:serve-adapters": "bash scripts/smoke-serve-adapters.sh",
     "smoke:examples": "pnpm smoke:cli && pnpm smoke:next-starter && pnpm smoke:vite-starter && pnpm smoke:node-embedded && pnpm smoke:next-dashboard && pnpm smoke:serve-adapters",
-    "changeset": "pnpm dlx changeset",
-    "release:version": "pnpm dlx changeset version",
-    "release:publish": "pnpm dlx changeset publish"
+    "changeset": "changeset",
+    "release:version": "changeset version",
+    "release:publish": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@type-challenges/utils": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",
