@@ -61,7 +61,6 @@ export const useCaseExamples: UseCaseExample[] = [
     body: 'Backend and platform engineers pull the same hypequery definition into cron jobs, queues, and HTTP handlers so every service agrees on revenue math.',
     codeLanguage: 'typescript',
     code: `
-// jobs/renewal-digest.ts
 import { api } from '../analytics/api';
 import { notifyOps } from '../lib/notifications';
 
@@ -82,7 +81,6 @@ export async function sendRenewalDigest() {
     body: 'Serve’s tenant config injects `WHERE account_id = $tenantId` and rejects unauthenticated requests, so every SaaS customer sees only their own metrics while you keep a single analytics codebase.',
     codeLanguage: 'typescript',
     code: `
-// analytics/api.ts
 import { defineServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { verifySession } from '../lib/auth';
@@ -120,7 +118,6 @@ export const api = defineServe({
 });
 
 api.route('/revenue/by-plan', api.queries.revenueByPlan, { method: 'POST' });
-await api.start();
 `,
   },
   {
@@ -131,14 +128,12 @@ await api.start();
     body: 'Product analytics, ops, and GTM dashboards call hypequery via typed hooks. A single definition feeds embeds, SSR routes, and TanStack Query caches.',
     codeLanguage: 'typescript',
     code: `
-// app/analytics-hooks.ts
 import { createHooks } from '@hypequery/react';
 
 export const { useQuery, } = createHooks<DashboardApi>({
   baseUrl: '/api/analytics',
 });
 
-// app/routes/dashboard.tsx
 export function Dashboard() {
   const { data, isLoading } = useQuery('kpiSnapshot', {
     startDate: '2024-05-01',
@@ -158,7 +153,6 @@ export function Dashboard() {
     body: 'Agents call `api.describe()` to enumerate metrics, inspect schemas, then execute them through LangChain tools so LLMs stay inside guardrails.',
     codeLanguage: 'typescript',
     code: `
-// agents/tools.ts
 import { DynamicStructuredTool } from 'langchain/tools';
 import { z } from 'zod';
 import { api } from '../analytics/api';
@@ -180,9 +174,6 @@ export async function createAnalyticsTool() {
       }
 
       const definition = catalog.queries.find((query) => query.key === metric);
-      console.log('Executing metric', definition?.name ?? metric);
-      console.log('Input schema for agent prompt', definition?.inputSchema);
-
       return api.execute(metric as Parameters<typeof api.execute>[0], {
         input: params,
       });

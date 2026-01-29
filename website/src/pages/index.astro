@@ -39,7 +39,7 @@ const useCaseExamples = useCaseExamplesRaw.map((example) => ({
 const defaultUseCase = useCaseExamples[0] ?? null;
 ---
 
-<Layout title="hypequery – Type-Safe Analytics Engine for ClickHouse Teams">
+<Layout title="hypequery – Type-Safe Analytics Runtime for ClickHouse Teams">
   <main>
     <!-- Hero section -->
     <div class="relative isolate pt-14">
@@ -145,7 +145,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                 />
               </div>
               <div
-                class="absolute right-0 top-0 -translate-y-1/4 animate-on-scroll"
+                class="absolute right-0 top-10 -translate-y-1/4 animate-on-scroll"
                 data-hero-terminal
               >
                 <div
@@ -324,10 +324,8 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                       <span></span>
                     </div>
                     <pre
-                      class="code-panel__code text-xs leading-5"
-                      data-use-case-pre>
-                      <code class={`language-${defaultUseCase?.codeLanguage ?? "typescript"}`} data-use-case-code set:html={defaultUseCase?.highlighted ?? ""} />
-                    </pre>
+                      class="code-panel__code"
+                      data-use-case-pre><code class="language-typescript" data-use-case-code set:html={defaultUseCase?.highlighted ?? ''} /></pre>
                   </div>
                 </div>
               </div>
@@ -455,9 +453,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
-                <h3 class="text-lg font-semibold text-gray-900">
-                  Optional caching
-                </h3>
+                <h3 class="text-lg font-semibold text-gray-900">Caching</h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
                   Cache at the query level with TTL, invalidation, and custom
                   cache keys. Not everywhere by default—only where it makes
@@ -610,17 +606,19 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                   <div
                     class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4"
                   >
-                    <p class="text-white">No prompt hacks.</p>
+                    <p class="text-white text-center">No prompt hacks.</p>
                   </div>
                   <div
                     class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4"
                   >
-                    <p class="text-white">No agent-specific APIs.</p>
+                    <p class="text-white text-center">
+                      No agent-specific APIs.
+                    </p>
                   </div>
                   <div
                     class="rounded-2xl border border-white/10 bg-white/5 px-6 py-4"
                   >
-                    <p class="text-base font-semibold text-white">
+                    <p class="text-base font-semibold text-white text-center">
                       Just structure.
                     </p>
                   </div>
