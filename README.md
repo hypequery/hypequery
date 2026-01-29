@@ -1,168 +1,140 @@
-<div align="center">
-  <h1>hypequery</h1>
-  <p>Type-Safe Analytics Runtime for ClickHouse Teams</p>
+<p align="center">
+  <img src="logo.svg" alt="hypequery logo" width="200" />
+</p>
 
-  [![GitHub license](https://img.shields.io/github/license/hypequery/hypequery)](https://github.com/hypequery/hypequery/blob/main/LICENSE)
-  [![npm version](https://badge.fury.io/js/@hypequery%2Fclickhouse.svg)](https://badge.fury.io/js/@hypequery%2Fclickhouse)
-  [![GitHub stars](https://img.shields.io/github/stars/hypequery/hypequery)](https://github.com/hypequery/hypequery/stargazers)
-</div>
+## The type-safe analytics runtime for ClickHouse. Define metrics once, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.
 
-## What is hypequery?
+<p align="center">
+  <a href="https://hypequery.com/docs">Docs</a> •
+  <a href="https://hypequery.featurebase.app/roadmap">Roadmap</a> •
+  <a href="https://github.com/hypequery/hypequery-examples">Examples</a>
+</p>
 
-hypequery is a TypeScript-first runtime for ClickHouse. Define analytics once, then reuse them everywhere—embedded in jobs, exposed via HTTP, or consumed as React hooks—with full type safety and generated docs/OpenAPI.
+<p align="center">
+[![GitHub stars](https://img.shields.io/github/stars/hypequery/hypequery)](https://github.com/hypequery/hypequery/stargazers)
+[![Twitter Follow](https://img.shields.io/twitter/follow/hypequery?style=social)](https://twitter.com/hypequery)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+</p>
 
-- 🧠 **Code-first analytics** – Queries live in TypeScript with typed inputs/outputs and metadata.
-- 🔄 **Serve runtime** – `@hypequery/serve` turns definitions into HTTP handlers, docs, and adapters for Node, Fetch/edge, or in-process execution.
-- 🧱 **ClickHouse query builder** – `@hypequery/clickhouse` understands your schema and compiles fluent, typed queries.
-- ⚛️ **React hooks** – `@hypequery/react` creates `useQuery`/`useMutation` bindings straight from your serve definitions.
-- 🛠️ **CLI workflow** – `npx hypequery init` scaffolds schema/client/query files, keeps `.env` synced, and runs the dev server.
-
-
-## Packages
-
-| Package | Description |
-| --- | --- |
-| `@hypequery/serve` | Serve runtime with Middlewares, auth, multi-tenancy, docs, OpenAPI, and adapters (`api.run`, `api.route`, `api.handler`, `api.start`). |
-| `@hypequery/clickhouse` | Type-safe query builder, streaming helpers, schema-driven column inference. Works standalone or inside Serve. |
-| `@hypequery/react` | React Query integration that generates hooks directly from your serve definitions. |
-| `@hypequery/cli` | Scaffolding (`init`, `generate`), dev server, and release helpers. |
-
-## Quickstart (Serve runtime)
+## Quick Start
 
 ```bash
-# Install packages
-npm install @hypequery/clickhouse @hypequery/serve
-npm install -D @hypequery/cli
-
-# Scaffold analytics (schema.ts, client.ts, queries.ts)
-npx hypequery init
-
-# Run the dev server with docs + OpenAPI
-npx hypequery dev --port 4000
+# No installation needed
+npx @hypequery/cli init
 ```
 
-Edit `analytics/queries.ts`:
+Or if you have the CLI installed:
 
-```ts
-import { initServe } from '@hypequery/serve';
+```bash
+npx hypequery init
+```
+
+### Define your type safe queries in TypeScript
+
+```typescript
+import { initServe, type InferQueryResult } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './client';
+import { db } from './analytics/client.js';
 
-const { define, queries, query } = initServe({ context: () => ({ db }) });
+const serve = initServe({
+  context: () => ({ db }),
+});
+const { query } = serve;
 
-export const api = define({
-  queries: queries({
+export const api = serve.define({
+  queries: serve.queries({
     activeUsers: query
-      .describe('Most recent active users')
-      .input(z.object({ limit: z.number().min(1).max(500).default(50) }))
-      .query(({ ctx, input }) =>
+      .describe('List active users')
+      .input(z.object({ region: z.string() }))
+      .query(async ({ ctx, input }) =>
         ctx.db
           .table('users')
           .where('status', 'eq', 'active')
-          .orderBy('created_at', 'DESC')
-          .limit(input.limit)
-          .select(['id', 'email', 'created_at'])
-          .execute()
+          .where('region', 'eq', input.region)
       ),
   }),
 });
 
-// Run in-process (cron, SSR, background jobs)
-const latest = await api.run('activeUsers', { limit: 25 });
-
-// Or expose via HTTP
-api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
+// Export typed helpers for downstream usage
+export type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;
 ```
 
-`npx hypequery dev` watches the file, reloads docs at http://localhost:4000/docs, and emits an OpenAPI spec at http://localhost:4000/openapi.json.
+### Execute everywhere
 
-## Query builder quickstart
-
-`@hypequery/clickhouse` works inside Serve or standalone scripts.
-
-```ts
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './generated-schema';
-
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: 'https://example.clickhouse.cloud:8443',
-  username: 'default',
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: 'default',
-});
-
-const results = await db
-  .table('trips')
-  .select(['pickup_datetime', 'dropoff_datetime', 'total_amount'])
-  .where('total_amount', '>', 50)
-  .orderBy('pickup_datetime', 'DESC')
-  .limit(10)
-  .execute();
+**Inline**
+```typescript
+const users = await api.execute('activeUsers');
 ```
 
-### Browser / universal environments
-
-```ts
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createClient } from '@clickhouse/client-web';
-import type { IntrospectedSchema } from './generated-schema';
-
-const client = createClient({
-  host: 'https://example.clickhouse.cloud:8443',
-  username: 'default',
-  password: '',
-  database: 'default',
-});
-
-const db = createQueryBuilder<IntrospectedSchema>({ client });
+**HTTP API**
+```bash
+GET /api/activeUsers
 ```
 
-## Schema generation
+**React**
+```typescript
+const { data } = useQuery('activeUsers');
+```
 
-Generate TypeScript types from ClickHouse via the CLI:
+One definition. Every consumer.
+
+## Why hypequery
+
+- 🔁 Reuse metrics across SSR routes, background jobs, cron tasks, and agents
+- 🧩 Built-in HTTP server with docs + OpenAPI (`hypequery dev`)
+- 🔐 Auth, multi-tenant helpers, and lifecycle hooks
+- ⚡ Query-level caching, logging, streaming, and analytics
+- 🧪 Type-safe execution + schema-aware validation
+
+## CLI
+
+**No installation required** – run commands directly with `npx`:
 
 ```bash
-# Outputs analytics/schema.ts
-npx hypequery generate --host https://example.clickhouse.cloud:8443 --database default
+# Scaffold analytics folder + env vars
+npx @hypequery/cli init
+
+# Dev server with docs & OpenAPI
+npx @hypequery/cli dev
+
+# Regenerate schema types
+npx @hypequery/cli generate
 ```
 
-Then import the schema wherever you initialize the builder:
+Or install for shorter commands:
 
-```ts
-import type { IntrospectedSchema } from './analytics/schema';
-const db = createQueryBuilder<IntrospectedSchema>({ host: '...', username: '...' });
+```bash
+npm install -D @hypequery/cli
+
+# Then use:
+npx hypequery init
+npx hypequery dev
 ```
 
-## Advanced builder features
+See the [CLI documentation](https://github.com/hypequery/hypequery/tree/main/packages/cli#readme) for all options.
 
-The fluent API supports joins, aggregations, function predicates, streaming, and cross-filtering:
+## Features
 
-```ts
-const stats = await db.table('trips')
-  .avg('total_amount')
-  .max('trip_distance')
-  .count('trip_id')
-  .where('pickup_datetime', 'gte', '2024-01-01')
-  .execute();
+- **Type-safe definitions** – strong typing for inputs, outputs, joins, filters
+- **SQL expression helpers** – `raw`, `rawAs`, `selectExpr`, `toDateTime`, etc.
+- **Advanced filtering** – predicate builders, nested `whereGroup`, custom operators
+- **Caching & observability** – SWR cache modes, deduplication, query logging
+- **Streaming** – Web Streams for large datasets
 
-const tripsWithDrivers = await db.table('trips')
-  .select(['trips.trip_id', 'trips.total_amount', 'drivers.name'])
-  .join('drivers', 'trips.driver_id', 'drivers.id')
-  .orderBy('trips.trip_id', 'DESC')
-  .execute();
+## License
 
-const taggedProducts = await db.table('products')
-  .where((expr) => expr.and([
-    expr.fn('hasAny', 'tags', ['launch', 'beta']),
-    expr.fn('endsWith', 'status', expr.literal('active')),
-  ]))
-  .orWhere((expr) => expr.fn('notEmpty', 'tags'))
-  .execute();
-```
+Copyright 2026 hypequery
 
-## Next steps
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-- [Docs](https://hypequery.com/docs)
-- [Getting Started Guide](https://hypequery.com/docs/getting-started/quickstart)
-- [Recipes](https://hypequery.com/docs/recipes)
-- [Open an issue](https://github.com/hypequery/hypequery/issues)
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+See [LICENSE](LICENSE) for the full license text.
