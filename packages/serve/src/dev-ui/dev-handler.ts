@@ -111,19 +111,6 @@ export class DevHandler {
       }
     }
 
-    // Serve source maps (for development)
-    if (assetPath.endsWith('.js.map')) {
-      const map = this.assets.maps?.[assetPath];
-      if (map) {
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=31536000, immutable'
-        });
-        res.end(map);
-        return true;
-      }
-    }
-
     // Asset not found
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');
