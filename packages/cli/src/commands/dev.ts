@@ -34,17 +34,23 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   const shouldWatch = options.watch !== false; // Default to true
 
   const startServer = async () => {
+    // Loading spinners for slow operations
+    const compileSpinner = ora('Compiling queries...').start();
+    const dbSpinner = ora('Connecting to ClickHouse...').start();
+
     try {
       // Load the API module
       const api = await loadApiModule(queriesFile);
+      compileSpinner.succeed('Compiled queries');
 
       // Get table count for display
       let tableCount = 0;
       try {
         tableCount = await getTableCount('clickhouse');
+        dbSpinner.succeed(`Connected to ClickHouse (${tableCount} tables)`);
       } catch (error) {
         // Log but don't fail - table count is optional
-        logger.warn('Could not retrieve table count from database');
+        dbSpinner.warn('Could not connect to ClickHouse');
         if (error instanceof Error) {
           logger.indent(`Reason: ${error.message}`);
         }
@@ -55,9 +61,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
       logger.header('hypequery dev');
 
-      if (tableCount > 0) {
-        logger.success(`Schema loaded from ClickHouse (${tableCount} tables)`);
-      }
       logger.success(`Registered ${queryCount} ${queryCount === 1 ? 'query' : 'queries'}`);
 
       logger.newline();
@@ -109,6 +112,14 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         }
       }
     } catch (error) {
+      // Stop spinners if they're still running
+      if (compileSpinner.isSpinning) {
+        compileSpinner.fail('Failed to compile queries');
+      }
+      if (dbSpinner.isSpinning) {
+        dbSpinner.stop();
+      }
+
       logger.error('Failed to start server');
       logger.newline();
       if (error instanceof Error) {
@@ -156,7 +167,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     const watchDir = path.dirname(queriesFile);
     let debounceTimer: NodeJS.Timeout | null = null;
 
-    const watcher = watch(watchDir, { recursive: true }, (eventType, filename) => {
+    const watcher = watch(watchDir, { recursive: true }, (_eventType, filename) => {
       if (!filename) return;
 
       // Only watch .ts and .js files
