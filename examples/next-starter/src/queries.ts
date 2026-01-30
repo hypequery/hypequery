@@ -20,6 +20,7 @@ const apiDefinition = define({
       })),
     hello: query
       .describe('Simple hello world query')
+      .input(z.void())
       .output(z.object({
         message: z.string(),
         timestamp: z.string(),
@@ -30,6 +31,7 @@ const apiDefinition = define({
       })),
     stats: query
       .describe('Get some example stats')
+      .input(z.void())
       .output(z.object({
         users: z.number(),
         revenue: z.number(),

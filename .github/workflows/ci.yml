@@ -42,8 +42,8 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Clean existing build artifacts
         run: rm -rf packages/clickhouse/dist
-      - name: Build all packages
-        run: pnpm build
+      - name: Build all hypequery packages
+        run: pnpm --filter @hypequery/* build
       - name: Verify bin.js file exists
         run: |
           if [ -f "packages/clickhouse/dist/cli/bin.js" ]; then
