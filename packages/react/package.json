@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "React hooks for consuming hypequery APIs",
   "type": "module",
+  "main": "./dist/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
