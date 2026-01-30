@@ -10,7 +10,6 @@ import {
   runAnywhereSnippets,
   useCaseExamples as useCaseExamplesRaw,
 } from "../data/homepage-content";
-import homepageScript from "../scripts/homepage.ts?url";
 import { Bookmark, Code, FileText, Radar } from "@lucide/astro";
 
 const aiContext = aiContextRaw.trim();
@@ -508,7 +507,9 @@ const defaultUseCase = useCaseExamples[0] ?? null;
     </div>
   </main>
 
-  <script is:inline type="module" src={homepageScript}></script>
+  <script type="module">
+    import '../scripts/homepage.ts';
+  </script>
 
   <style>
     @keyframes blink {
