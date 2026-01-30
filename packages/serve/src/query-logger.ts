@@ -76,3 +76,21 @@ export class ServeQueryLogger {
     this.listeners.clear();
   }
 }
+
+/**
+ * Format a query event as a human-readable log line.
+ * Returns null for 'started' events (only logs completions).
+ */
+export function formatQueryEvent(event: ServeQueryEvent): string | null {
+  if (event.status === 'started') return null;
+
+  const status = event.status === 'completed' ? '✓' : '✗';
+  const duration = event.durationMs != null ? `${event.durationMs}ms` : '?';
+  const code = event.responseStatus ?? (event.status === 'error' ? 500 : 200);
+
+  let line = `  ${status} ${event.method} ${event.path} → ${code} (${duration})`;
+  if (event.status === 'error' && event.error) {
+    line += ` — ${event.error.message}`;
+  }
+  return line;
+}

@@ -1,5 +1,5 @@
 import type { ZodTypeAny } from "zod";
-import type { ServeQueryLogger } from "./query-logger.js";
+import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -424,6 +424,15 @@ export interface ServeConfig<
   openapi?: OpenApiOptions;
   context?: ServeContextFactory<TContext, TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
+  /**
+   * Enable query logging in production.
+   * - `true` — logs to console with a default format
+   * - `(event) => void` — custom callback (e.g. send to Datadog)
+   * - `false` / omitted — disabled (zero overhead)
+   *
+   * In development (`serveDev`), logging is always enabled regardless of this setting.
+   */
+  queryLogging?: boolean | ServeQueryEventCallback;
 }
 
 export interface RouteRegistrationOptions<
