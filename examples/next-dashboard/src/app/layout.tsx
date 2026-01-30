@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Layout } from "@/components/layout/layout";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { FiltersProvider } from "@/lib/filters-context";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "hypequery Dashboard",
@@ -19,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.className} h-full`}>
+      <body className="h-full font-sans">
         <QueryProvider>
           <FiltersProvider>
             <Layout>{children}</Layout>

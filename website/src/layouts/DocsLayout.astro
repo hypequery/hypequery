@@ -12,7 +12,7 @@ interface Props {
 
 const {
   title,
-  description = "hypequery documentation - Learn how to build type-safe dashboards with ClickHouse",
+  description = "Type-Safe Analytics Backend for ClickHouse Teams",
 } = Astro.props;
 
 // Get the current URL path
@@ -21,26 +21,34 @@ const currentPath = Astro.url.pathname;
 // Define the navigation structure directly since we're using pages-based routing
 const sidebar = [
   {
-    title: "Getting Started",
+    title: "Introduction",
     items: [
       { title: "Overview", href: "/docs/getting-started/overview" },
       { title: "Why hypequery", href: "/docs/getting-started/why-hypequery" },
+      { title: "Core concepts", href: "/docs/getting-started/core-concepts" },
+    ],
+  },
+  {
+    title: "Getting Started",
+    items: [
+      { title: "Quickstart", href: "/docs/getting-started/quickstart" },
       {
         title: "Installation options",
         href: "/docs/getting-started/installation-options",
       },
-      { title: "Quickstart", href: "/docs/getting-started/quickstart" },
-      { title: "Core concepts", href: "/docs/getting-started/core-concepts" },
       {
-        title: "Architecture tour",
-        href: "/docs/getting-started/architecture",
+        title: "Connecting to ClickHouse",
+        href: "/docs/getting-started/connecting-to-clickhouse",
+      },
+      {
+        title: "Type generation",
+        href: "/docs/getting-started/type-generation",
       },
     ],
   },
   {
     title: "Building Queries",
     items: [
-      { title: "Type generation", href: "/docs/queries/type-generation" },
       { title: "Query basics", href: "/docs/queries/query-building" },
       { title: "Filtering", href: "/docs/queries/filtering" },
       { title: "Joins", href: "/docs/queries/joins" },
@@ -55,6 +63,7 @@ const sidebar = [
   {
     title: "Serve Framework",
     items: [
+      { title: "Overview", href: "/docs/serve/overview" },
       { title: "Query definitions", href: "/docs/serve/query-definitions" },
       { title: "Schemas", href: "/docs/serve/schemas" },
       { title: "Caching", href: "/docs/serve/caching" },
@@ -84,7 +93,6 @@ const sidebar = [
       { title: "When to use", href: "/docs/standalone/when-to-use" },
       { title: "Setup & connection", href: "/docs/standalone/setup" },
       { title: "Direct execution", href: "/docs/standalone/execution" },
-      { title: "Integration examples", href: "/docs/standalone/examples" },
     ],
   },
   {
@@ -92,7 +100,7 @@ const sidebar = [
     items: [
       { title: "Next.js", href: "/docs/recipes/nextjs" },
       { title: "Vite", href: "/docs/recipes/vite" },
-      { title: "AI agents", href: "/docs/recipes/ai-agents" },
+      { title: "Fetch runtimes", href: "/docs/recipes/fetch" },
     ],
   },
   {

@@ -41,9 +41,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Clean existing build artifacts
-        run: rm -rf packages/clickhouse/dist
-      - name: Build packages with CI script
-        run: pnpm --filter @hypequery/clickhouse build:ci
+        run: |
+          rm -rf packages/clickhouse/dist
+          find packages -name '*.tsbuildinfo' -delete
+      - name: Build all hypequery packages
+        run: pnpm turbo run build --filter='@hypequery/*'
       - name: Verify bin.js file exists
         run: |
           if [ -f "packages/clickhouse/dist/cli/bin.js" ]; then
@@ -65,5 +67,36 @@ jobs:
           CLICKHOUSE_TEST_PASSWORD: hypequery_test
           CLICKHOUSE_TEST_DB: test_db
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
-  
-  # release job intentionally disabled until after the website rebrand
+      - name: Run smoke tests
+        run: pnpm smoke:examples
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Create release PR or publish packages
+        uses: changesets/action@v1
+        with:
+          version: pnpm release:version
+          publish: pnpm release:publish
+          commit: "chore: release"
+          title: "chore: release"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

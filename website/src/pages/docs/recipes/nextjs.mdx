@@ -139,7 +139,7 @@ export const api = define({
           .avg('fare_amount', 'avg_fare')
           .avg('trip_distance', 'avg_distance')
           .orderBy('day', 'ASC')
-          .execute()  // REQUIRED
+          .execute()
       ),
   }),
 });
@@ -154,7 +154,6 @@ api.route('/daily-stats', api.queries.dailyStats, { method: 'POST' });
 - Return the promise (don't await inside query function)
 - Register routes with `api.route()` to expose via HTTP
 - Set `basePath` once if you want all routes under a common prefix (e.g., `/api/analytics`).
-- Alias the formatted date (via `formatDateTime(..., { alias: 'day' })`) before grouping/ordering so TypeScript knows `day` exists.
 
 ## Step 6: Create Next.js API Route
 
@@ -399,41 +398,6 @@ your-nextjs-app/
 ├── .env.local             # You create this
 └── tsconfig.json          # Configure path aliases
 ```
-
-## Next Steps
-
-**Add authentication:**
-```typescript
-const { define } = initServe({
-  context: async ({ req }) => {
-    const user = await authenticateRequest(req);
-    return { db, user };
-  },
-});
-```
-
-**Add caching:**
-```typescript
-query
-  .cache({
-    mode: 'cache-first',
-    ttlMs: 60000, // 1 minute
-  })
-  .query(({ ctx }) => ...)
-```
-
-**Add middleware for logging:**
-```typescript
-const api = define({
-  middleware: async ({ next, queryName }) => {
-    console.log(`[Analytics] ${queryName}`);
-    return next();
-  },
-  queries: queries({ ... }),
-});
-```
-
----
 
 ## Related
 

@@ -1,6 +1,7 @@
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import ora from 'ora';
+import type { DatabaseType } from '../utils/detect-database.js';
 import { logger } from '../utils/logger.js';
 import {
   promptDatabaseType,
@@ -17,15 +18,13 @@ import {
   getTableCount,
   getTables,
 } from '../utils/detect-database.js';
-import {
-  hasEnvFile,
-  hasGitignore,
-} from '../utils/find-files.js';
+import { hasEnvFile, hasGitignore } from '../utils/find-files.js';
 import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
 import { generateQueriesTemplate } from '../templates/queries.js';
 import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
+import { installServeDependencies } from '../utils/dependency-installer.js';
 
 export interface InitOptions {
   database?: string;
@@ -33,37 +32,33 @@ export interface InitOptions {
   noExample?: boolean;
   noInteractive?: boolean;
   force?: boolean;
+  skipConnection?: boolean;
 }
 
-export async function initCommand(options: InitOptions = {}) {
-  logger.newline();
-  logger.header('Welcome to hypequery!');
-  logger.info("Let's set up your analytics layer.");
-  logger.newline();
+type ConnectionConfig = {
+  host: string;
+  database: string;
+  username: string;
+  password: string;
+};
 
-  // Step 1: Determine database type
-  let dbType = options.database as any;
-  if (!dbType || dbType === 'unknown') {
-    dbType = await promptDatabaseType();
-  }
+async function determineDatabase(options: InitOptions): Promise<DatabaseType> {
+  const dbType = (options.database as DatabaseType | undefined) ?? (await promptDatabaseType());
 
-  // Handle user cancellation
   if (!dbType) {
     logger.info('Setup cancelled');
     process.exit(0);
   }
 
-  // Only ClickHouse is supported for now
   if (dbType !== 'clickhouse') {
     logger.error(`${dbType} is not yet supported. Only ClickHouse is available.`);
     process.exit(1);
   }
 
-  // Step 2: Get connection details
-  let connectionConfig: { host: string; database: string; username: string; password: string } | null = null;
-  let hasValidConnection = false;
-  let tableCount = 0;
+  return dbType;
+}
 
+async function resolveConnectionConfig(options: InitOptions): Promise<ConnectionConfig | null> {
   if (options.noInteractive) {
     const required = (key: string): string => {
       const value = process.env[key];
@@ -75,50 +70,80 @@ export async function initCommand(options: InitOptions = {}) {
       return value;
     };
 
-    connectionConfig = {
+    return {
       host: required('CLICKHOUSE_HOST'),
       database: required('CLICKHOUSE_DATABASE'),
       username: required('CLICKHOUSE_USERNAME'),
       password: process.env.CLICKHOUSE_PASSWORD ?? '',
     };
-  } else {
-    connectionConfig = await promptClickHouseConnection();
   }
+
+  return promptClickHouseConnection();
+}
+
+async function testConnection(
+  connectionConfig: ConnectionConfig,
+  dbType: DatabaseType,
+): Promise<{ hasValidConnection: boolean; tableCount: number }> {
+  const spinner = ora('Testing connection...').start();
+  process.env.CLICKHOUSE_HOST = connectionConfig.host;
+  process.env.CLICKHOUSE_DATABASE = connectionConfig.database;
+  process.env.CLICKHOUSE_USERNAME = connectionConfig.username;
+  process.env.CLICKHOUSE_PASSWORD = connectionConfig.password;
+
+  const isValid = await validateConnection(dbType);
+
+  if (!isValid) {
+    spinner.fail('Connection failed');
+    logger.newline();
+    logger.error(`Could not connect to ClickHouse at ${connectionConfig.host}`);
+    logger.newline();
+    logger.info('Common issues:');
+    logger.indent('• Check your host URL includes http:// or https://');
+    logger.indent('• Verify username and password');
+    logger.indent('• Ensure database exists');
+    logger.indent('• Check firewall/network access');
+    logger.newline();
+    return { hasValidConnection: false, tableCount: 0 };
+  }
+
+  const tableCount = await getTableCount(dbType);
+  spinner.succeed(`Connected successfully (${tableCount} tables found)`);
+  logger.newline();
+  return { hasValidConnection: true, tableCount };
+}
+
+export async function initCommand(options: InitOptions = {}) {
+  logger.newline();
+  logger.header('Welcome to hypequery!');
+  logger.info("Let's set up your analytics layer.");
+  logger.newline();
+
+  const dbType = await determineDatabase(options);
+
+  // Step 2: Get connection details
+  let connectionConfig = await resolveConnectionConfig(options);
+  let hasValidConnection = false;
+  let tableCount = 0;
 
   // Handle user skipping connection details
   if (!connectionConfig) {
     logger.info('Skipping database connection for now.');
     logger.newline();
+  } else if (options.skipConnection) {
+    logger.info('Skipping database connection test (requested).');
+    logger.newline();
   } else {
-    // Step 3: Test connection
-    const spinner = ora('Testing connection...').start();
+    const { hasValidConnection: valid, tableCount: count } = await testConnection(connectionConfig, dbType);
+    hasValidConnection = valid;
+    tableCount = count;
 
-    // Set env vars temporarily for connection test
-    process.env.CLICKHOUSE_HOST = connectionConfig.host;
-    process.env.CLICKHOUSE_DATABASE = connectionConfig.database;
-    process.env.CLICKHOUSE_USERNAME = connectionConfig.username;
-    process.env.CLICKHOUSE_PASSWORD = connectionConfig.password;
-
-    const isValid = await validateConnection(dbType);
-
-    if (!isValid) {
-      spinner.fail('Connection failed');
-      logger.newline();
-      logger.error(`Could not connect to ClickHouse at ${connectionConfig.host}`);
-      logger.newline();
-      logger.info('Common issues:');
-      logger.indent('• Check your host URL includes http:// or https://');
-      logger.indent('• Verify username and password');
-      logger.indent('• Ensure database exists');
-      logger.indent('• Check firewall/network access');
-      logger.newline();
-
+    if (!hasValidConnection) {
       const retry = await promptRetry('Try again?');
       if (retry) {
         return initCommand(options);
       }
 
-      // Ask if they want to continue without connection
       const continueWithout = await promptContinueWithoutDb();
       if (!continueWithout) {
         logger.info('Setup cancelled');
@@ -129,12 +154,7 @@ export async function initCommand(options: InitOptions = {}) {
       logger.info('Continuing without database connection.');
       logger.info('You can configure the connection later in .env');
       logger.newline();
-      connectionConfig = null; // Clear invalid config
-    } else {
-      tableCount = await getTableCount(dbType);
-      spinner.succeed(`Connected successfully (${tableCount} tables found)`);
-      logger.newline();
-      hasValidConnection = true;
+      connectionConfig = null;
     }
   }
 
@@ -290,7 +310,10 @@ export interface IntrospectedSchema {
     logger.success('Created .gitignore');
   }
 
-  // Step 13: Success message
+  // Step 13: Ensure required hypequery packages are installed
+  await installServeDependencies();
+
+  // Step 14: Success message
   logger.newline();
   logger.header('Setup complete!');
 

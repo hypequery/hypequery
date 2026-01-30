@@ -25,6 +25,7 @@ vi.mock('ora', () => ({
     start: vi.fn().mockReturnThis(),
     succeed: vi.fn().mockReturnThis(),
     fail: vi.fn().mockReturnThis(),
+    warn: vi.fn().mockReturnThis(),
     stop: vi.fn().mockReturnThis(),
   })),
 }));
@@ -118,7 +119,7 @@ describe('dev command', () => {
       await devCommand(undefined, { watch: false });
 
       expect(detectDb.getTableCount).toHaveBeenCalledWith('clickhouse');
-      expect(logger.success).toHaveBeenCalledWith('Schema loaded from ClickHouse (10 tables)');
+      expect(logger.success).toHaveBeenCalledWith('Registered 2 queries');
     });
 
     it('should not display table count when zero', async () => {
@@ -126,7 +127,7 @@ describe('dev command', () => {
 
       await devCommand(undefined, { watch: false });
 
-      expect(logger.success).not.toHaveBeenCalledWith(expect.stringContaining('Schema loaded'));
+      expect(logger.success).not.toHaveBeenCalledWith(expect.stringContaining('Connected to ClickHouse'));
     });
 
     it('should handle custom port and hostname', async () => {
@@ -206,7 +207,7 @@ describe('dev command', () => {
 
       // Should not throw - error is caught and ignored
       expect(mockServeDev).toHaveBeenCalled();
-      expect(logger.success).not.toHaveBeenCalledWith(expect.stringContaining('Schema loaded'));
+      expect(logger.success).not.toHaveBeenCalledWith(expect.stringContaining('Connected to ClickHouse'));
     });
 
     it('should handle module loading errors', async () => {

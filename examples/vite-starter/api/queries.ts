@@ -9,6 +9,7 @@ export const api = define({
   queries: queries({
     hello: query
       .describe('Simple hello world query')
+      .input(z.void())
       .output(z.object({
         message: z.string(),
         timestamp: z.string(),
@@ -20,6 +21,7 @@ export const api = define({
 
     stats: query
       .describe('Get some example stats')
+      .input(z.void())
       .output(z.object({
         users: z.number(),
         revenue: z.number(),

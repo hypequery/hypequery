@@ -1,11 +1,12 @@
 import { initServe } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 
 const { define, queries, query } = initServe({
   context: () => ({}),
 });
 
-export const api = define({
+const apiDefinition = define({
   queries: queries({
     postTest: query
       .describe('Simple hello world query')
@@ -19,6 +20,7 @@ export const api = define({
       })),
     hello: query
       .describe('Simple hello world query')
+      .input(z.void())
       .output(z.object({
         message: z.string(),
         timestamp: z.string(),
@@ -29,6 +31,7 @@ export const api = define({
       })),
     stats: query
       .describe('Get some example stats')
+      .input(z.void())
       .output(z.object({
         users: z.number(),
         revenue: z.number(),
@@ -41,6 +44,10 @@ export const api = define({
       })),
   }),
 });
+
+export type ApiDefinition = InferApiType<typeof apiDefinition>;
+export const api = apiDefinition;
+export default apiDefinition;
 
 // Register routes for GET requests
 api

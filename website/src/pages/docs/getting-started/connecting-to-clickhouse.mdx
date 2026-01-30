@@ -1,0 +1,60 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Connecting to ClickHouse
+description: Configure the ClickHouse connection hypequery uses for query building and type generation
+---
+
+import Callout from '../../../components/Callout.astro';
+
+# Connecting to ClickHouse
+
+Before you can run queries or generate types, hypequery needs credentials for your ClickHouse cluster. There are two ways to get up and running quickly.
+
+## Option 1: Use `hypequery init`
+
+The fastest route is to let the CLI scaffold everything for you:
+
+```bash
+npx hypequery init
+```
+
+The init command will:
+
+- Detect or prompt for your ClickHouse host, database, username, and password/token
+- Create a `.env` file with the `CLICKHOUSE_*` variables hypequery expects
+- Generate starter query files plus the `analytics/schema.ts` type definitions so you can start coding immediately
+
+If you skipped this during onboarding, you can rerun the command anytime—existing files won’t be overwritten unless you confirm.
+
+## Option 2: Wire up the connection manually
+
+When you want to control the setup yourself, create a ClickHouse client in Node.js using the `@hypequery/clickhouse` package. hypequery automatically selects the Node driver and keeps everything type-safe:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+export const db = createQueryBuilder({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME ?? 'default',
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE ?? 'default',
+});
+```
+
+Add the corresponding environment variables (or inline values) for your ClickHouse deployment:
+
+```
+CLICKHOUSE_HOST=https://example.clickhouse.cloud:8443
+CLICKHOUSE_DATABASE=default
+CLICKHOUSE_USERNAME=default
+CLICKHOUSE_PASSWORD=super-secret
+```
+
+<Callout title="Need every connection option?">
+  See the full list of supported settings in the [reference connection guide](/docs/reference/connection).
+</Callout>
+
+## Next steps
+
+- [Generate types](/docs/getting-started/type-generation) so your query builder knows about your schema
+- [Run the quickstart](/docs/getting-started/quickstart) to build and serve your first analytics endpoint

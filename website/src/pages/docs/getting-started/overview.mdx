@@ -8,7 +8,7 @@ description: Learn what hypequery is and why you should use it for ClickHouse de
 
 ## What is hypequery?
 
-hypequery is a code-first analytics layer for ClickHouse.
+hypequery is a code-first analytics backend for ClickHouse, built for TypeScript teams who want scalable, type-safe analytics.
 
 It lets you define queries in TypeScript, give them names, types, and schemas, and execute them anywhere they're needed: inside backend services, background jobs, APIs, dashboards, or AI agents.
 
@@ -26,7 +26,7 @@ hypequery is a library, not a hosted platform. It integrates directly with your 
     <div class="flex-1 space-y-1">
       <p class="text-xl font-bold text-gray-900 mb-2 not-prose">Ready to get started?</p>
       <p class="text-gray-700 mb-4">
-        Choose your path (serve or standalone) and start building type-safe analytics in minutes.
+        Start building type-safe analytics in minutes.
       </p>
       <a
         href="/docs/getting-started/installation-options"
@@ -55,9 +55,6 @@ hypequery provides a small set of opt-in building blocks:
 
 - **React hooks** — Generate TanStack Query hooks (`useQuery`, `useMutation`) straight from your `serve.define` catalog for type-safe UI consumption.
 
-- **Inference for clients & agents** — Extract the same schema metadata to power API clients, agents, or cron jobs without copy/pasting types.
-
-
 Each primitive can be used independently. There is no required runtime, server, or hosted service.
 
 
@@ -79,10 +76,14 @@ Give agents structured, discoverable analytics with typed inputs and outputs. No
 
 Keep ClickHouse fast and flexible while managing analytics logic in code, under version control, with clear ownership.
 
+### Multi-tenancy SAAS apps
+
+Query endpoints automatically generated with tenant context for analytical SAAS apps with data level security
+
 ---
 
 ## Next Steps
 
 **Continue:** [Why hypequery?](/docs/getting-started/why-hypequery) - Understand the problems hypequery solves
 
-**Or jump to:** [Installation Options](/docs/getting-started/installation-options) - Choose your path and get started
+**Or jump to:** [Installation Options](/docs/getting-started/installation-options)

@@ -8,7 +8,7 @@ async function run() {
   const start = startDate.toISOString().split('T')[0];
 
   const [revenue, passengers] = await Promise.all([
-    api.run('weeklyRevenue', { start, end }),
+    api.run('weeklyRevenue', { input: { start, end } }),
     api.run('passengerStats'),
   ]);
 

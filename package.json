@@ -8,7 +8,8 @@
     "packages/react",
     "packages/serve",
     "packages/tsconfig",
-    "examples/*"
+    "examples/*",
+    "website"
   ],
   "license": "Apache-2.0",
   "scripts": {
@@ -25,11 +26,19 @@
     "build:website": "npm run docs:mdx && npm run fix:mdx && cd website && npm run build",
     "deploy:website": "npm run build:website && cd website && npx netlify deploy --prod",
     "dev:example": "npm run build --workspace=@hypequery/clickhouse && npm run dev --workspace=next-dashboard",
-    "changeset": "pnpm dlx changeset",
-    "release:version": "pnpm dlx changeset version",
-    "release:publish": "pnpm dlx changeset publish"
+    "smoke:cli": "bash scripts/smoke-cli.sh",
+    "smoke:next-starter": "bash scripts/smoke-next-starter.sh",
+    "smoke:next-dashboard": "bash scripts/smoke-next-dashboard.sh",
+    "smoke:vite-starter": "bash scripts/smoke-vite-starter.sh",
+    "smoke:node-embedded": "bash scripts/smoke-node-embedded.sh",
+    "smoke:serve-adapters": "bash scripts/smoke-serve-adapters.sh",
+    "smoke:examples": "pnpm smoke:cli && pnpm smoke:next-starter && pnpm smoke:vite-starter && pnpm smoke:node-embedded && pnpm smoke:next-dashboard && pnpm smoke:serve-adapters",
+    "changeset": "changeset",
+    "release:version": "changeset version",
+    "release:publish": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@type-challenges/utils": "^0.1.1",
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",

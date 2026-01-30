@@ -61,7 +61,6 @@ export const useCaseExamples: UseCaseExample[] = [
     body: 'Backend and platform engineers pull the same hypequery definition into cron jobs, queues, and HTTP handlers so every service agrees on revenue math.',
     codeLanguage: 'typescript',
     code: `
-// jobs/renewal-digest.ts
 import { api } from '../analytics/api';
 import { notifyOps } from '../lib/notifications';
 
@@ -75,6 +74,53 @@ export async function sendRenewalDigest() {
 `,
   },
   {
+    id: 'saas-multi-tenant',
+    title: 'SaaS analytics APIs',
+    summary:
+      'Ship customer-facing analytics once, enforce tenant isolation automatically, and reuse the same definitions across regions.',
+    body: 'Serve’s tenant config injects `WHERE account_id = $tenantId` and rejects unauthenticated requests, so every SaaS customer sees only their own metrics while you keep a single analytics codebase.',
+    codeLanguage: 'typescript',
+    code: `
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { verifySession } from '../lib/auth';
+import { db } from './client';
+
+export const api = defineServe({
+  basePath: '/analytics',
+  context: ({ request }) => ({
+    db,
+    auth: verifySession(request),
+  }),
+  tenant: {
+    column: 'account_id',
+    extract: (auth) => auth?.accountId,
+    mode: 'auto-inject',
+  },
+  queries: {
+    revenueByPlan: {
+      inputSchema: z.object({ plan: z.string().optional() }),
+      query: ({ ctx, input }) => {
+        let base = ctx.db
+          .table('orders')
+          .where('account_id', 'eq', ctx.tenantId)
+          .groupBy(['plan'])
+          .sum('amount', 'revenue');
+
+        if (input.plan) {
+          base = base.where('plan', 'eq', input.plan);
+        }
+
+        return base;
+      },
+    },
+  },
+});
+
+api.route('/revenue/by-plan', api.queries.revenueByPlan, { method: 'POST' });
+`,
+  },
+  {
     id: 'dashboards',
     title: 'Dashboards',
     summary:
@@ -82,14 +128,12 @@ export async function sendRenewalDigest() {
     body: 'Product analytics, ops, and GTM dashboards call hypequery via typed hooks. A single definition feeds embeds, SSR routes, and TanStack Query caches.',
     codeLanguage: 'typescript',
     code: `
-// app/analytics-hooks.ts
 import { createHooks } from '@hypequery/react';
 
 export const { useQuery, } = createHooks<DashboardApi>({
   baseUrl: '/api/analytics',
 });
 
-// app/routes/dashboard.tsx
 export function Dashboard() {
   const { data, isLoading } = useQuery('kpiSnapshot', {
     startDate: '2024-05-01',
@@ -109,7 +153,6 @@ export function Dashboard() {
     body: 'Agents call `api.describe()` to enumerate metrics, inspect schemas, then execute them through LangChain tools so LLMs stay inside guardrails.',
     codeLanguage: 'typescript',
     code: `
-// agents/tools.ts
 import { DynamicStructuredTool } from 'langchain/tools';
 import { z } from 'zod';
 import { api } from '../analytics/api';
@@ -131,9 +174,6 @@ export async function createAnalyticsTool() {
       }
 
       const definition = catalog.queries.find((query) => query.key === metric);
-      console.log('Executing metric', definition?.name ?? metric);
-      console.log('Input schema for agent prompt', definition?.inputSchema);
-
       return api.execute(metric as Parameters<typeof api.execute>[0], {
         input: params,
       });
@@ -155,55 +195,6 @@ const agent = await initializeAgentExecutorWithOptions([
 const response = await agent.invoke({
   input: 'Alert me if enterprise churn grew week over week.',
 });
-`,
-  },
-  {
-    id: 'clickhouse',
-    title: 'Data teams',
-    summary:
-      'Keep ClickHouse fast and flexible without pushing business logic into dashboards or BI tools.',
-    body: 'Data teams wrap ClickHouse in hypequery to add tenant isolation, governance, and OpenAPI docs so BI, ops, and product all share one metric catalog.',
-    codeLanguage: 'typescript',
-    code: `
-// analytics/api.ts
-import { defineServe } from '@hypequery/serve';
-import { z } from 'zod';
-import { verifyKey } from '../lib/auth';
-import { db } from './client';
-
-export const api = defineServe({
-  basePath: '/analytics',
-  context: ({ request }) => ({
-    db,
-    auth: verifyKey(request),
-  }),
-  tenant: {
-    column: 'account_id',
-    extract: (auth) => auth?.accountId,
-    mode: 'auto-inject',
-  },
-  queries: {
-    revenueByPlan: {
-      inputSchema: z.object({ plan: z.string().optional() }),
-      query: ({ ctx, input }) => {
-        let query = ctx.db
-          .table('orders')
-          .select(['plan'])
-          .where('account_id', 'eq', ctx.tenantId)
-          .groupBy(['plan'])
-          .sum('amount', 'revenue');
-
-        if (input.plan) {
-          query = query.where('plan', 'eq', input.plan);
-        }
-
-        return query;
-      },
-    },
-  },
-});
-
-await api.start(); // exposes routes + OpenAPI for BI consumers
 `,
   },
 ];

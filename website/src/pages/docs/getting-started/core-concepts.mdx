@@ -113,6 +113,16 @@ This includes:
 
 The same metric definition is reused, HTTP is just a delivery mechanism.
 
+### Delivery models
+
+There are three ways to consume the HTTP layer:
+
+- **Standalone server** – running `hypequery dev`/`serve` starts a built-in Node server (plus docs + OpenAPI) powered by the same `api` object. Great for demos or deploying the API as its own service.
+- **Embedded handlers** – import `api` and call `api.route()`/`api.handler` inside frameworks like Next.js, Remix, Express, Fastify, SST, or Workers. You control the server; hypequery just gives you request handlers.
+- **In-process execution** – skip HTTP entirely and call `api.run()`/`api.execute()` from cron jobs, SSR, CLI tools, or background workers.
+
+All three modes reuse the identical query definitions, you choose the transport.
+
 ## Composable primitives
 
 hypequery is built from small, opt-in primitives.
@@ -139,6 +149,6 @@ You adopt only the pieces you need.
 
 ## Next Steps
 
-**Continue:** [Architecture Tour](/docs/getting-started/architecture) - See how the pieces fit together
+**Continue:** [Quickstart](/docs/getting-started/quickstart) - Build your first analytics endpoint
 
-**Or jump to:** [Type Generation](/docs/queries/type-generation) - Start building queries
+**Or jump to:** [Type Generation](/docs/getting-started/type-generation) - Start building queries

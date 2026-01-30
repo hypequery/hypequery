@@ -5,9 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 type LoadApiModule = typeof import('./load-api.js')['loadApiModule'];
 
-vi.mock('node:fs/promises', () => ({
-  access: vi.fn(),
-}));
+vi.mock('node:fs/promises', async () => {
+  const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  return {
+    ...actual,
+    access: vi.fn(),
+  };
+});
 
 vi.mock('esbuild', () => ({
   build: vi.fn(),
@@ -37,7 +41,6 @@ describe('load-api', () => {
         },
       ],
     });
-
     loadApiModule = (await import('./load-api.js')).loadApiModule;
     vi.mocked(access).mockResolvedValue(undefined);
     process.env = { ...originalEnv };
