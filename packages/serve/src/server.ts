@@ -435,15 +435,17 @@ const executeEndpoint = async <
     auth: context.auth,
   });
 
-  queryLogger?.emit({
-    requestId,
-    endpointKey: endpoint.key,
-    path: endpoint.metadata.path ?? `/${endpoint.key}`,
-    method: request.method,
-    status: 'started',
-    startTime: startedAt,
-    input: request.body ?? request.query,
-  });
+  if (queryLogger && queryLogger.listenerCount > 0) {
+    queryLogger.emit({
+      requestId,
+      endpointKey: endpoint.key,
+      path: endpoint.metadata.path ?? `/${endpoint.key}`,
+      method: request.method,
+      status: 'started',
+      startTime: startedAt,
+      input: request.body ?? request.query,
+    });
+  }
 
   try {
     const endpointAuth = (endpoint.auth as AuthStrategy<TAuth> | null) ?? null;
@@ -586,19 +588,21 @@ const executeEndpoint = async <
       result,
     });
 
-    queryLogger?.emit({
-      requestId,
-      endpointKey: endpoint.key,
-      path: endpoint.metadata.path ?? `/${endpoint.key}`,
-      method: request.method,
-      status: 'completed',
-      startTime: startedAt,
-      endTime: startedAt + durationMs,
-      durationMs,
-      input: context.input,
-      responseStatus: 200,
-      result,
-    });
+    if (queryLogger && queryLogger.listenerCount > 0) {
+      queryLogger.emit({
+        requestId,
+        endpointKey: endpoint.key,
+        path: endpoint.metadata.path ?? `/${endpoint.key}`,
+        method: request.method,
+        status: 'completed',
+        startTime: startedAt,
+        endTime: startedAt + durationMs,
+        durationMs,
+        input: context.input,
+        responseStatus: 200,
+        result,
+      });
+    }
 
     return {
       status: 200,
@@ -617,19 +621,21 @@ const executeEndpoint = async <
       error,
     });
 
-    queryLogger?.emit({
-      requestId,
-      endpointKey: endpoint.key,
-      path: endpoint.metadata.path ?? `/${endpoint.key}`,
-      method: request.method,
-      status: 'error',
-      startTime: startedAt,
-      endTime: startedAt + errorDurationMs,
-      durationMs: errorDurationMs,
-      input: context.input,
-      responseStatus: 500,
-      error: error instanceof Error ? error : new Error(String(error)),
-    });
+    if (queryLogger && queryLogger.listenerCount > 0) {
+      queryLogger.emit({
+        requestId,
+        endpointKey: endpoint.key,
+        path: endpoint.metadata.path ?? `/${endpoint.key}`,
+        method: request.method,
+        status: 'error',
+        startTime: startedAt,
+        endTime: startedAt + errorDurationMs,
+        durationMs: errorDurationMs,
+        input: context.input,
+        responseStatus: 500,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+    }
 
     const message = error instanceof Error ? error.message : "Unexpected error";
     return createErrorResponse(500, "INTERNAL_SERVER_ERROR", message);
