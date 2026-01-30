@@ -1,7 +1,7 @@
 {
   "name": "@hypequery/cli",
   "version": "0.0.6",
-  "description": "Command-line interface for Hypequery",
+  "description": "Command-line interface for hypequery",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
