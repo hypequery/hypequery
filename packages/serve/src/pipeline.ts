@@ -2,6 +2,7 @@ import { z, type ZodTypeAny } from 'zod';
 
 import type {
   AuthContext,
+  AuthorizationFailureEvent,
   AuthStrategy,
   DocsOptions,
   EndpointContext,
@@ -106,14 +107,45 @@ const computeRequiresAuth = <TAuth extends AuthContext>(
   metadata: EndpointMetadata,
   endpointStrategy: AuthStrategy<TAuth> | null,
   globalStrategies: AuthStrategy<TAuth>[],
+  endpoint: ServeEndpoint<any, any, any, TAuth>,
 ) => {
-  if (typeof metadata.requiresAuth === 'boolean') {
-    return metadata.requiresAuth;
+  // Explicit .public() overrides everything
+  if (metadata.requiresAuth === false) {
+    return false;
+  }
+  // Explicit .requireAuth() or roles/scopes imply auth
+  if (metadata.requiresAuth === true) {
+    return true;
+  }
+  if ((endpoint.requiredRoles?.length ?? 0) > 0 || (endpoint.requiredScopes?.length ?? 0) > 0) {
+    return true;
   }
   if (endpointStrategy) {
     return true;
   }
   return globalStrategies.length > 0;
+};
+
+const checkAuthorization = <TAuth extends AuthContext>(
+  auth: TAuth | null,
+  requiredRoles?: string[],
+  requiredScopes?: string[],
+): { ok: true } | { ok: false; reason: 'MISSING_ROLE' | 'MISSING_SCOPE'; required: string[]; actual: string[] } => {
+  if (requiredRoles && requiredRoles.length > 0) {
+    const userRoles = auth?.roles ?? [];
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+    if (!hasRole) {
+      return { ok: false, reason: 'MISSING_ROLE', required: requiredRoles, actual: userRoles };
+    }
+  }
+  if (requiredScopes && requiredScopes.length > 0) {
+    const userScopes = auth?.scopes ?? [];
+    const hasAllScopes = requiredScopes.every((scope) => userScopes.includes(scope));
+    if (!hasAllScopes) {
+      return { ok: false, reason: 'MISSING_SCOPE', required: requiredScopes, actual: userScopes };
+    }
+  }
+  return { ok: true };
 };
 
 const validateInput = (schema: ZodTypeAny | undefined, payload: unknown) => {
@@ -226,7 +258,7 @@ export const executeEndpoint = async <
   try {
     const endpointAuth = (endpoint.auth as AuthStrategy<TAuth> | null) ?? null;
     const strategies = gatherAuthStrategies(endpointAuth, authStrategies ?? []);
-    const requiresAuth = computeRequiresAuth(endpoint.metadata, endpointAuth, authStrategies ?? []);
+    const requiresAuth = computeRequiresAuth(endpoint.metadata, endpointAuth, authStrategies ?? [], endpoint);
     const metadataWithAuth: EndpointMetadata = {
       ...endpoint.metadata,
       requiresAuth,
@@ -251,6 +283,28 @@ export const executeEndpoint = async <
     }
 
     context.auth = authContext;
+
+    // Check role/scope authorization after successful authentication
+    const authzResult = checkAuthorization(authContext, endpoint.requiredRoles, endpoint.requiredScopes);
+    if (!authzResult.ok) {
+      const label = authzResult.reason === 'MISSING_ROLE' ? 'role' : 'scope';
+      await safeInvokeHook('onAuthorizationFailure', hooks.onAuthorizationFailure, {
+        requestId,
+        queryKey: endpoint.key,
+        metadata: metadataWithAuth,
+        request,
+        auth: authContext,
+        reason: authzResult.reason,
+        required: authzResult.required,
+        actual: authzResult.actual,
+      });
+      return createErrorResponse(403, 'FORBIDDEN', `Missing required ${label}`, {
+        reason: authzResult.reason.toLowerCase(),
+        required: authzResult.required,
+        actual: authzResult.actual,
+        endpoint: endpoint.metadata.path,
+      });
+    }
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
     Object.assign(context, resolvedContext, additionalContext);
 
