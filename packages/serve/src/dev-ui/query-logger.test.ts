@@ -1,15 +1,35 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { DevQueryLogger, type QueryLogEvent } from './query-logger.js';
 import { MemoryStore } from './storage/index.js';
-import { logger as clickhouseLogger } from '@hypequery/clickhouse';
+import { ServeQueryLogger } from '../query-logger.js';
+
+/**
+ * Helper to emit a serve-layer query event through the ServeQueryLogger.
+ */
+function emitQuery(
+  serveLogger: ServeQueryLogger,
+  overrides: Partial<import('../query-logger.js').ServeQueryEvent> = {}
+) {
+  serveLogger.emit({
+    requestId: `req-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    endpointKey: 'testQuery',
+    path: '/test',
+    method: 'GET',
+    status: 'completed',
+    startTime: Date.now(),
+    ...overrides,
+  });
+}
 
 describe('DevQueryLogger', () => {
   let store: MemoryStore;
   let queryLogger: DevQueryLogger;
+  let serveLogger: ServeQueryLogger;
 
   beforeEach(async () => {
     store = new MemoryStore(1000);
     await store.initialize();
+    serveLogger = new ServeQueryLogger();
     queryLogger = new DevQueryLogger(store, {
       batchSize: 5,
       flushInterval: 100
@@ -22,43 +42,38 @@ describe('DevQueryLogger', () => {
   });
 
   describe('initialize', () => {
-    it('configures clickhouse logger with onQueryLog handler', () => {
-      const configureSpy = vi.spyOn(clickhouseLogger, 'configure');
-
-      queryLogger.initialize();
-
-      expect(configureSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          onQueryLog: expect.any(Function)
-        })
-      );
-      configureSpy.mockRestore();
+    it('subscribes to the serve query logger', () => {
+      expect(serveLogger.listenerCount).toBe(0);
+      queryLogger.initialize(serveLogger);
+      expect(serveLogger.listenerCount).toBe(1);
     });
 
     it('only initializes once', () => {
-      const configureSpy = vi.spyOn(clickhouseLogger, 'configure');
+      queryLogger.initialize(serveLogger);
+      queryLogger.initialize(serveLogger); // Second call should be ignored
+      expect(serveLogger.listenerCount).toBe(1);
+    });
 
-      queryLogger.initialize();
-      queryLogger.initialize(); // Second call should be ignored
-
-      expect(configureSpy).toHaveBeenCalledTimes(1);
-      configureSpy.mockRestore();
+    it('works without a serve logger (manual log only)', () => {
+      queryLogger.initialize(); // No serve logger
+      queryLogger.log({
+        query: 'SELECT 1',
+        startTime: Date.now(),
+        status: 'completed',
+      });
+      expect(queryLogger.getStats().totalLogged).toBe(1);
     });
   });
 
-  describe('enqueue', () => {
+  describe('enqueue via serve events', () => {
     it('adds logs synchronously without blocking', () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       const start = performance.now();
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed'
-      });
+      emitQuery(serveLogger);
       const duration = performance.now() - start;
 
-      // Should return almost immediately (< 1ms for just enqueue)
+      // Should return almost immediately (< 5ms for just enqueue)
       expect(duration).toBeLessThan(5);
 
       const stats = queryLogger.getStats();
@@ -66,51 +81,52 @@ describe('DevQueryLogger', () => {
       expect(stats.queueSize).toBe(1);
     });
 
-    it('generates queryId if not provided', async () => {
-      queryLogger.initialize();
+    it('maps serve events to query log entries', async () => {
+      queryLogger.initialize(serveLogger);
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed'
+      emitQuery(serveLogger, {
+        requestId: 'test-123',
+        endpointKey: 'listUsers',
+        path: '/users',
+        method: 'GET',
+        status: 'completed',
+        startTime: 1000,
+        endTime: 1050,
+        durationMs: 50,
       });
 
       // Wait for flush
       await new Promise(resolve => setTimeout(resolve, 150));
 
       const result = await store.getQueries({});
-      expect(result.queries[0].queryId).toMatch(/^q-\d+-[a-z0-9]+$/);
+      expect(result.total).toBe(1);
+      expect(result.queries[0].queryId).toBe('test-123');
+      expect(result.queries[0].query).toBe('GET /users');
+      expect(result.queries[0].endpointKey).toBe('listUsers');
+      expect(result.queries[0].endpointPath).toBe('/users');
+      expect(result.queries[0].duration).toBe(50);
     });
 
-    it('preserves provided queryId', async () => {
-      queryLogger.initialize();
+    it('preserves requestId as queryId', async () => {
+      queryLogger.initialize(serveLogger);
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed',
-        queryId: 'custom-id'
-      });
+      emitQuery(serveLogger, { requestId: 'custom-request-id' });
 
       // Wait for flush
       await new Promise(resolve => setTimeout(resolve, 150));
 
-      const result = await store.getQuery('custom-id');
+      const result = await store.getQuery('custom-request-id');
       expect(result).not.toBeNull();
     });
   });
 
   describe('batch processing', () => {
     it('flushes when batch size is reached', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       // Add exactly batchSize logs
       for (let i = 0; i < 5; i++) {
-        clickhouseLogger.logQuery({
-          query: `SELECT ${i}`,
-          startTime: Date.now(),
-          status: 'completed'
-        });
+        emitQuery(serveLogger, { requestId: `batch-${i}` });
       }
 
       // Wait a moment for async flush
@@ -122,13 +138,9 @@ describe('DevQueryLogger', () => {
     });
 
     it('flushes on interval even below batch size', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed'
-      });
+      emitQuery(serveLogger);
 
       const statsBefore = queryLogger.getStats();
       expect(statsBefore.queueSize).toBe(1);
@@ -142,141 +154,63 @@ describe('DevQueryLogger', () => {
     });
   });
 
-  describe('endpoint context', () => {
-    it('associates queries with endpoint context', async () => {
-      queryLogger.initialize();
-
-      queryLogger.setEndpointContext('getUsers', '/api/users');
-
-      clickhouseLogger.logQuery({
-        query: 'SELECT * FROM users',
-        startTime: Date.now(),
-        status: 'completed',
-        queryId: 'endpoint-test'
-      });
-
-      queryLogger.clearEndpointContext();
-
-      // Wait for flush
-      await new Promise(resolve => setTimeout(resolve, 150));
-
-      const result = await store.getQuery('endpoint-test');
-      expect(result?.endpointKey).toBe('getUsers');
-      expect(result?.endpointPath).toBe('/api/users');
-    });
-
-    it('does not track endpoints when disabled', async () => {
-      // First shutdown the default logger
-      await queryLogger.shutdown();
-
-      const noEndpointLogger = new DevQueryLogger(store, {
-        trackEndpoints: false,
-        batchSize: 1,
-        flushInterval: 50
-      });
-      noEndpointLogger.initialize();
-
-      noEndpointLogger.setEndpointContext('getUsers', '/api/users');
-
-      clickhouseLogger.logQuery({
-        query: 'SELECT * FROM users',
-        startTime: Date.now(),
-        status: 'completed',
-        queryId: 'no-endpoint-test'
-      });
-
-      // Wait for flush
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const result = await store.getQuery('no-endpoint-test');
-      expect(result?.endpointKey).toBeUndefined();
-      expect(result?.endpointPath).toBeUndefined();
-
-      await noEndpointLogger.shutdown();
-
-      // Re-initialize queryLogger for afterEach cleanup
-      queryLogger = new DevQueryLogger(store, { batchSize: 5, flushInterval: 100 });
-    });
-  });
-
   describe('event emission', () => {
-    it('emits query:started event', async () => {
-      queryLogger.initialize();
+    it('emits query:started event', () => {
+      queryLogger.initialize(serveLogger);
 
       const events: QueryLogEvent[] = [];
       queryLogger.onEvent(event => events.push(event));
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'started'
-      });
+      emitQuery(serveLogger, { status: 'started' });
 
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('query:started');
     });
 
-    it('emits query:completed event', async () => {
-      queryLogger.initialize();
+    it('emits query:completed event', () => {
+      queryLogger.initialize(serveLogger);
 
       const events: QueryLogEvent[] = [];
       queryLogger.onEvent(event => events.push(event));
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed',
-        duration: 100
-      });
+      emitQuery(serveLogger, { status: 'completed', durationMs: 100 });
 
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('query:completed');
     });
 
-    it('emits query:error event', async () => {
-      queryLogger.initialize();
+    it('emits query:error event', () => {
+      queryLogger.initialize(serveLogger);
 
       const events: QueryLogEvent[] = [];
       queryLogger.onEvent(event => events.push(event));
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
+      emitQuery(serveLogger, {
         status: 'error',
-        error: new Error('Connection failed')
+        error: new Error('Connection failed'),
       });
 
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('query:error');
     });
 
-    it('allows unsubscribing from events', async () => {
-      queryLogger.initialize();
+    it('allows unsubscribing from events', () => {
+      queryLogger.initialize(serveLogger);
 
       const events: QueryLogEvent[] = [];
       const unsubscribe = queryLogger.onEvent(event => events.push(event));
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed'
-      });
-
+      emitQuery(serveLogger);
       expect(events).toHaveLength(1);
 
       unsubscribe();
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 2',
-        startTime: Date.now(),
-        status: 'completed'
-      });
-
+      emitQuery(serveLogger);
       expect(events).toHaveLength(1); // No new events
     });
 
-    it('handles listener errors gracefully', async () => {
-      queryLogger.initialize();
+    it('handles listener errors gracefully', () => {
+      queryLogger.initialize(serveLogger);
 
       queryLogger.onEvent(() => {
         throw new Error('Listener error');
@@ -284,25 +218,17 @@ describe('DevQueryLogger', () => {
 
       // Should not throw
       expect(() => {
-        clickhouseLogger.logQuery({
-          query: 'SELECT 1',
-          startTime: Date.now(),
-          status: 'completed'
-        });
+        emitQuery(serveLogger);
       }).not.toThrow();
     });
   });
 
   describe('stats tracking', () => {
-    it('tracks total logged', async () => {
-      queryLogger.initialize();
+    it('tracks total logged', () => {
+      queryLogger.initialize(serveLogger);
 
       for (let i = 0; i < 3; i++) {
-        clickhouseLogger.logQuery({
-          query: `SELECT ${i}`,
-          startTime: Date.now(),
-          status: 'completed'
-        });
+        emitQuery(serveLogger, { requestId: `stat-${i}` });
       }
 
       const stats = queryLogger.getStats();
@@ -310,14 +236,10 @@ describe('DevQueryLogger', () => {
     });
 
     it('tracks persisted count', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       for (let i = 0; i < 5; i++) {
-        clickhouseLogger.logQuery({
-          query: `SELECT ${i}`,
-          startTime: Date.now(),
-          status: 'completed'
-        });
+        emitQuery(serveLogger, { requestId: `persist-${i}` });
       }
 
       // Wait for flush
@@ -328,26 +250,18 @@ describe('DevQueryLogger', () => {
     });
 
     it('tracks flush count and average batch size', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       // First batch of 5
       for (let i = 0; i < 5; i++) {
-        clickhouseLogger.logQuery({
-          query: `SELECT ${i}`,
-          startTime: Date.now(),
-          status: 'completed'
-        });
+        emitQuery(serveLogger, { requestId: `batch1-${i}` });
       }
 
       await new Promise(resolve => setTimeout(resolve, 50));
 
       // Second batch of 5
-      for (let i = 5; i < 10; i++) {
-        clickhouseLogger.logQuery({
-          query: `SELECT ${i}`,
-          startTime: Date.now(),
-          status: 'completed'
-        });
+      for (let i = 0; i < 5; i++) {
+        emitQuery(serveLogger, { requestId: `batch2-${i}` });
       }
 
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -360,15 +274,11 @@ describe('DevQueryLogger', () => {
 
   describe('shutdown', () => {
     it('flushes remaining queue', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       // Add some logs (below batch size)
       for (let i = 0; i < 3; i++) {
-        clickhouseLogger.logQuery({
-          query: `SELECT ${i}`,
-          startTime: Date.now(),
-          status: 'completed'
-        });
+        emitQuery(serveLogger, { requestId: `shutdown-${i}` });
       }
 
       const statsBefore = queryLogger.getStats();
@@ -381,11 +291,11 @@ describe('DevQueryLogger', () => {
     });
 
     it('stops accepting new logs after shutdown', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       await queryLogger.shutdown();
 
-      // Manually call log since clickhouse logger handler was removed
+      // Manually call log since serve logger was unsubscribed
       queryLogger.log({
         query: 'SELECT 1',
         startTime: Date.now(),
@@ -399,31 +309,34 @@ describe('DevQueryLogger', () => {
       expect(result.total).toBe(0);
     });
 
+    it('unsubscribes from serve logger', async () => {
+      queryLogger.initialize(serveLogger);
+      expect(serveLogger.listenerCount).toBe(1);
+
+      await queryLogger.shutdown();
+      expect(serveLogger.listenerCount).toBe(0);
+
+      // Re-create for afterEach cleanup
+      queryLogger = new DevQueryLogger(store, { batchSize: 5, flushInterval: 100 });
+    });
+
     it('clears event listeners', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       const events: QueryLogEvent[] = [];
       queryLogger.onEvent(event => events.push(event));
 
-      // Trigger one event before shutdown
-      clickhouseLogger.logQuery({
-        query: 'SELECT 0',
-        startTime: Date.now(),
-        status: 'completed'
-      });
+      emitQuery(serveLogger);
       expect(events).toHaveLength(1);
 
       await queryLogger.shutdown();
 
-      // Create new logger
+      // Create new logger with fresh serve logger
+      const newServeLogger = new ServeQueryLogger();
       queryLogger = new DevQueryLogger(store, { batchSize: 5, flushInterval: 100 });
-      queryLogger.initialize();
+      queryLogger.initialize(newServeLogger);
 
-      clickhouseLogger.logQuery({
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed'
-      });
+      emitQuery(newServeLogger);
 
       // Original listener should not receive new events
       expect(events).toHaveLength(1);
@@ -469,17 +382,13 @@ describe('DevQueryLogger', () => {
 
   describe('performance', () => {
     it('query logger overhead < 0.5ms average', async () => {
-      queryLogger.initialize();
+      queryLogger.initialize(serveLogger);
 
       const iterations = 1000;
       const start = performance.now();
 
       for (let i = 0; i < iterations; i++) {
-        clickhouseLogger.logQuery({
-          query: 'SELECT * FROM test',
-          startTime: Date.now(),
-          status: 'completed'
-        });
+        emitQuery(serveLogger);
       }
 
       const end = performance.now();

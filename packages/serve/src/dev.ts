@@ -100,12 +100,13 @@ export const serveDev = async <
       // Initialize storage
       store = await createStore({ dbPath });
 
-      // Initialize query logger
+      // Initialize query logger — subscribes to the serve-layer query logger
+      // so all endpoint executions are captured (regardless of backend)
       queryLogger = new DevQueryLogger(store, {
         batchSize: 10,
         flushInterval: 1000
       });
-      queryLogger.initialize();
+      queryLogger.initialize(api.queryLogger);
 
       // Create dev handler with API integration
       devHandler = createDevHandler({

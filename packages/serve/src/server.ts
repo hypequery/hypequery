@@ -7,6 +7,7 @@ import { buildOpenApiDocument } from "./openapi.js";
 import { applyBasePath, normalizeRoutePath, ServeRouter } from "./router.js";
 import { buildDocsHtml } from "./docs-ui.js";
 import { createTenantScope, warnTenantMisconfiguration } from "./tenant.js";
+import { ServeQueryLogger } from "./query-logger.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -388,6 +389,7 @@ type ExecuteEndpointOptions<
   globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[];
   globalTenantConfig: TenantConfig<TAuth> | undefined;
   hooks: ServeLifecycleHooks<TAuth>;
+  queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
 };
 
@@ -406,6 +408,7 @@ const executeEndpoint = async <
     globalMiddlewares,
     globalTenantConfig,
     hooks,
+    queryLogger,
     additionalContext,
   } = options;
 
@@ -430,6 +433,16 @@ const executeEndpoint = async <
     metadata: endpoint.metadata,
     request,
     auth: context.auth,
+  });
+
+  queryLogger?.emit({
+    requestId,
+    endpointKey: endpoint.key,
+    path: endpoint.metadata.path ?? `/${endpoint.key}`,
+    method: request.method,
+    status: 'started',
+    startTime: startedAt,
+    input: request.body ?? request.query,
   });
 
   try {
@@ -573,21 +586,51 @@ const executeEndpoint = async <
       result,
     });
 
+    queryLogger?.emit({
+      requestId,
+      endpointKey: endpoint.key,
+      path: endpoint.metadata.path ?? `/${endpoint.key}`,
+      method: request.method,
+      status: 'completed',
+      startTime: startedAt,
+      endTime: startedAt + durationMs,
+      durationMs,
+      input: context.input,
+      responseStatus: 200,
+      result,
+    });
+
     return {
       status: 200,
       headers,
       body: result,
     } satisfies ServeResponse;
   } catch (error) {
+    const errorDurationMs = Date.now() - startedAt;
     await safeInvokeHook("onError", hooks.onError, {
       requestId,
       queryKey: endpoint.key,
       metadata: context.metadata,
       request,
       auth: context.auth,
-      durationMs: Date.now() - startedAt,
+      durationMs: errorDurationMs,
       error,
     });
+
+    queryLogger?.emit({
+      requestId,
+      endpointKey: endpoint.key,
+      path: endpoint.metadata.path ?? `/${endpoint.key}`,
+      method: request.method,
+      status: 'error',
+      startTime: startedAt,
+      endTime: startedAt + errorDurationMs,
+      durationMs: errorDurationMs,
+      input: context.input,
+      responseStatus: 500,
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
+
     const message = error instanceof Error ? error.message : "Unexpected error";
     return createErrorResponse(500, "INTERNAL_SERVER_ERROR", message);
   }
@@ -609,6 +652,7 @@ export const defineServe = <
   const globalTenantConfig = config.tenant;
   const contextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
   const hooks = (config.hooks ?? {}) as ServeLifecycleHooks<TAuth>;
+  const queryLogger = new ServeQueryLogger();
   const openapiConfig = {
     enabled: config.openapi?.enabled ?? true,
     path: config.openapi?.path ?? "/openapi.json",
@@ -649,6 +693,7 @@ export const defineServe = <
       globalMiddlewares,
       globalTenantConfig,
       hooks,
+      queryLogger,
     });
   };
 
@@ -688,6 +733,7 @@ export const defineServe = <
       globalMiddlewares,
       globalTenantConfig,
       hooks,
+      queryLogger,
       additionalContext: options?.context,
     });
 
@@ -706,6 +752,7 @@ export const defineServe = <
 
   const builder: ServeBuilder<typeof queryEntries, TContext, TAuth> = {
     queries: queryEntries,
+    queryLogger,
     _routeConfig: routeConfig,
     route: (path, endpoint, options) => {
       if (!endpoint) {
