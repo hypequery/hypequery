@@ -1,5 +1,5 @@
 import type { ZodTypeAny } from "zod";
-import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
+import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -426,13 +426,20 @@ export interface ServeConfig<
   hooks?: ServeLifecycleHooks<TAuth>;
   /**
    * Enable query logging in production.
-   * - `true` — logs to console with a default format
-   * - `(event) => void` — custom callback (e.g. send to Datadog)
+   * - `true` — logs to console in human-readable text format
+   * - `'json'` — logs to console in structured JSON (for Datadog, CloudWatch, etc.)
+   * - `(event) => void` — custom callback
    * - `false` / omitted — disabled (zero overhead)
    *
    * In development (`serveDev`), logging is always enabled regardless of this setting.
    */
-  queryLogging?: boolean | ServeQueryEventCallback;
+  queryLogging?: boolean | 'json' | ServeQueryEventCallback;
+  /**
+   * Warn when a query takes longer than this many milliseconds.
+   * Emits a console.warn with the endpoint key and duration.
+   * Only applies when `queryLogging` is enabled.
+   */
+  slowQueryThreshold?: number;
 }
 
 export interface RouteRegistrationOptions<

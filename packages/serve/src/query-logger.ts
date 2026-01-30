@@ -94,3 +94,26 @@ export function formatQueryEvent(event: ServeQueryEvent): string | null {
   }
   return line;
 }
+
+/**
+ * Format a query event as a structured JSON string for log aggregators.
+ * Returns null for 'started' events (only logs completions).
+ */
+export function formatQueryEventJSON(event: ServeQueryEvent): string | null {
+  if (event.status === 'started') return null;
+
+  return JSON.stringify({
+    level: event.status === 'error' ? 'error' : 'info',
+    msg: `${event.method} ${event.path}`,
+    requestId: event.requestId,
+    endpoint: event.endpointKey,
+    path: event.path,
+    method: event.method,
+    status: event.responseStatus ?? (event.status === 'error' ? 500 : 200),
+    durationMs: event.durationMs,
+    ...(event.status === 'error' && event.error
+      ? { error: event.error.message }
+      : {}),
+    timestamp: new Date(event.endTime ?? event.startTime).toISOString(),
+  });
+}
