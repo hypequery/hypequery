@@ -6,7 +6,6 @@
 
 [build.environment]
   NODE_VERSION = "20.8.1"
-  NPM_FLAGS = "--version"
   NETLIFY_USE_PNPM = "true"
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.
@@ -24,10 +23,6 @@
   #  publish = "dist" # Folder with the static content for _redirect file
 
   ## more info on configuring this file: https://ntl.fyi/file-based-build-config
-
-[build.environment]
-  NODE_VERSION = "20.8.1"
-  COREPACK_ENABLE_AUTO_PIN = "true"
 
 # This makes sure all routes are handled by the SSR function
 [[redirects]]
