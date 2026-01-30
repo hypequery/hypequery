@@ -1,8 +1,13 @@
 [build]
   base = "website"
-  command = "npm run build"
+  command = "pnpm build"
   publish = "dist"
   functions = "website/.netlify/v1/functions"
+
+[build.environment]
+  NODE_VERSION = "20.8.1"
+  NPM_FLAGS = "--version"
+  NETLIFY_USE_PNPM = "true"
 
   ## Uncomment to use this redirect for Single Page Applications like create-react-app.
   ## Not needed for static site generators.
@@ -22,6 +27,7 @@
 
 [build.environment]
   NODE_VERSION = "20.8.1"
+  COREPACK_ENABLE_AUTO_PIN = "true"
 
 # This makes sure all routes are handled by the SSR function
 [[redirects]]
