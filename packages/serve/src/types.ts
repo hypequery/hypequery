@@ -1,4 +1,5 @@
 import type { ZodTypeAny } from "zod";
+import type { ServeQueryLogger } from "./query-logger.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -456,6 +457,8 @@ export interface ServeBuilder<
   TAuth extends AuthContext = AuthContext
 > {
   readonly queries: TQueries;
+  /** Serve-layer query logger for subscribing to endpoint execution events */
+  readonly queryLogger: ServeQueryLogger;
   /** Internal route configuration mapping query names to their HTTP methods */
   readonly _routeConfig?: Record<string, { method: HttpMethod }>;
   route<Path extends string, TKey extends keyof TQueries>(

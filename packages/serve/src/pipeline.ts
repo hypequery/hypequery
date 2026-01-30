@@ -23,6 +23,7 @@ import { createTenantScope, warnTenantMisconfiguration } from './tenant.js';
 import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
+import { ServeQueryLogger } from './query-logger.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -159,6 +160,7 @@ export interface ExecuteEndpointOptions<
   globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[];
   tenantConfig?: TenantConfig<TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
+  queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
 }
 
@@ -177,6 +179,7 @@ export const executeEndpoint = async <
     globalMiddlewares,
     tenantConfig,
     hooks = {},
+    queryLogger,
     additionalContext,
   } = options;
 
@@ -203,6 +206,16 @@ export const executeEndpoint = async <
     metadata: endpoint.metadata,
     request,
     auth: context.auth,
+  });
+
+  queryLogger?.emit({
+    requestId,
+    endpointKey: endpoint.key,
+    path: endpoint.metadata.path ?? `/${endpoint.key}`,
+    method: request.method,
+    status: 'started',
+    startTime: startedAt,
+    input: request.body ?? request.query,
   });
 
   try {
@@ -335,21 +348,51 @@ export const executeEndpoint = async <
       result,
     });
 
+    queryLogger?.emit({
+      requestId,
+      endpointKey: endpoint.key,
+      path: endpoint.metadata.path ?? `/${endpoint.key}`,
+      method: request.method,
+      status: 'completed',
+      startTime: startedAt,
+      endTime: startedAt + durationMs,
+      durationMs,
+      input: context.input,
+      responseStatus: 200,
+      result,
+    });
+
     return {
       status: 200,
       headers,
       body: result,
     } satisfies ServeResponse;
   } catch (error) {
+    const errorDurationMs = Date.now() - startedAt;
     await safeInvokeHook('onError', hooks.onError, {
       requestId,
       queryKey: endpoint.key,
       metadata: context.metadata,
       request,
       auth: context.auth,
-      durationMs: Date.now() - startedAt,
+      durationMs: errorDurationMs,
       error,
     });
+
+    queryLogger?.emit({
+      requestId,
+      endpointKey: endpoint.key,
+      path: endpoint.metadata.path ?? `/${endpoint.key}`,
+      method: request.method,
+      status: 'error',
+      startTime: startedAt,
+      endTime: startedAt + errorDurationMs,
+      durationMs: errorDurationMs,
+      input: context.input,
+      responseStatus: 500,
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
+
     const message = error instanceof Error ? error.message : 'Unexpected error';
     return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', message);
   }
@@ -365,6 +408,7 @@ interface HandlerOptions<
   tenantConfig?: TenantConfig<TAuth>;
   contextFactory?: ServeContextFactory<TContext, TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
+  queryLogger?: ServeQueryLogger;
 }
 
 export const createServeHandler = <
@@ -377,6 +421,7 @@ export const createServeHandler = <
   tenantConfig,
   contextFactory,
   hooks,
+  queryLogger,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
     const endpoint = router.match(request.method as HttpMethod, request.path);
@@ -396,6 +441,7 @@ export const createServeHandler = <
       globalMiddlewares,
       tenantConfig,
       hooks,
+      queryLogger,
     });
   };
 };

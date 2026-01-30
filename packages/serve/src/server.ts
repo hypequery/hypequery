@@ -3,6 +3,9 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { startNodeServer } from "./adapters/node.js";
 import { createEndpoint } from "./endpoint.js";
 import { applyBasePath, normalizeRoutePath, ServeRouter } from "./router.js";
+import { buildDocsHtml } from "./docs-ui.js";
+import { createTenantScope, warnTenantMisconfiguration } from "./tenant.js";
+import { ServeQueryLogger } from "./query-logger.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -34,7 +37,6 @@ import {
   executeEndpoint,
 } from "./pipeline.js";
 
-
 export const defineServe = <
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
@@ -51,6 +53,7 @@ export const defineServe = <
   const globalTenantConfig = config.tenant;
   const contextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
   const hooks = (config.hooks ?? {}) as ServeLifecycleHooks<TAuth>;
+  const queryLogger = new ServeQueryLogger();
   const openapiConfig = {
     enabled: config.openapi?.enabled ?? true,
     path: config.openapi?.path ?? "/openapi.json",
@@ -77,6 +80,7 @@ export const defineServe = <
     tenantConfig: globalTenantConfig,
     contextFactory,
     hooks,
+    queryLogger,
   });
 
   // Track route configuration for client config extraction
@@ -112,6 +116,7 @@ export const defineServe = <
       globalMiddlewares,
       tenantConfig: globalTenantConfig,
       hooks,
+      queryLogger,
       additionalContext: options?.context,
     });
 
@@ -130,6 +135,7 @@ export const defineServe = <
 
   const builder: ServeBuilder<typeof queryEntries, TContext, TAuth> = {
     queries: queryEntries,
+    queryLogger,
     _routeConfig: routeConfig,
     route: (path, endpoint, options) => {
       if (!endpoint) {
