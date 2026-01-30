@@ -1,4 +1,5 @@
 export * from "./types.js";
+export * from "./query-logger.js";
 export * from "./server.js";
 export * from "./router.js";
 export * from "./endpoint.js";
