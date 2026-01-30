@@ -7,7 +7,7 @@ import { buildOpenApiDocument } from "./openapi.js";
 import { applyBasePath, normalizeRoutePath, ServeRouter } from "./router.js";
 import { buildDocsHtml } from "./docs-ui.js";
 import { createTenantScope, warnTenantMisconfiguration } from "./tenant.js";
-import { ServeQueryLogger, formatQueryEvent } from "./query-logger.js";
+import { ServeQueryLogger, formatQueryEvent, formatQueryEventJSON } from "./query-logger.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -181,10 +181,12 @@ const createErrorResponse = (
   status: number,
   type: ErrorEnvelope["error"]["type"],
   message: string,
-  details?: Record<string, unknown>
+  details?: Record<string, unknown>,
+  headers?: Record<string, string>
 ) => {
   return {
     status,
+    ...(headers ? { headers } : {}),
     body: {
       error: {
         type,
@@ -427,6 +429,7 @@ const executeEndpoint = async <
     setCacheTtl,
   } as EndpointContext<any, TContext, TAuth>;
   const startedAt = Date.now();
+  const requestHeaders = { "x-request-id": requestId };
   await safeInvokeHook("onRequestStart", hooks.onRequestStart, {
     requestId,
     queryKey: endpoint.key,
@@ -473,7 +476,7 @@ const executeEndpoint = async <
         reason: "missing_credentials",
         strategies_attempted: strategies.length,
         endpoint: endpoint.metadata.path,
-      });
+      }, requestHeaders);
     }
 
     // After the auth check above, if requiresAuth is true, authContext is guaranteed to be non-null
@@ -507,7 +510,7 @@ const executeEndpoint = async <
         return createErrorResponse(403, "UNAUTHORIZED", errorMessage, {
           reason: "missing_tenant_context",
           tenant_required: true,
-        });
+        }, requestHeaders);
       }
 
       if (tenantId) {
@@ -561,7 +564,7 @@ const executeEndpoint = async <
       });
       return createErrorResponse(400, "VALIDATION_ERROR", "Request validation failed", {
         issues: validationResult.error.issues,
-      });
+      }, requestHeaders);
     }
 
     context.input = validationResult.data;
@@ -571,7 +574,10 @@ const executeEndpoint = async <
       ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
     ];
     const result = await runMiddlewares<TContext, TAuth>(pipeline, context, () => endpoint.handler(context));
-    const headers: Record<string, string> = { ...(endpoint.defaultHeaders ?? {}) };
+    const headers: Record<string, string> = {
+      ...(endpoint.defaultHeaders ?? {}),
+      "x-request-id": requestId,
+    };
 
     if (typeof cacheTtlMs === "number") {
       headers["cache-control"] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : "no-store";
@@ -638,7 +644,7 @@ const executeEndpoint = async <
     }
 
     const message = error instanceof Error ? error.message : "Unexpected error";
-    return createErrorResponse(500, "INTERNAL_SERVER_ERROR", message);
+    return createErrorResponse(500, "INTERNAL_SERVER_ERROR", message, undefined, requestHeaders);
   }
 };
 
@@ -664,12 +670,29 @@ export const defineServe = <
   if (config.queryLogging) {
     if (typeof config.queryLogging === 'function') {
       queryLogger.on(config.queryLogging);
+    } else if (config.queryLogging === 'json') {
+      queryLogger.on((event) => {
+        const line = formatQueryEventJSON(event);
+        if (line) console.log(line);
+      });
     } else {
       queryLogger.on((event) => {
         const line = formatQueryEvent(event);
         if (line) console.log(line);
       });
     }
+  }
+
+  // Wire up slow query warnings if configured
+  const slowQueryThreshold = config.slowQueryThreshold;
+  if (typeof slowQueryThreshold === 'number' && slowQueryThreshold > 0) {
+    queryLogger.on((event) => {
+      if (event.status === 'completed' && event.durationMs != null && event.durationMs > slowQueryThreshold) {
+        console.warn(
+          `[hypequery/slow-query] ${event.method} ${event.path} (${event.endpointKey}) took ${event.durationMs}ms (threshold: ${slowQueryThreshold}ms)`
+        );
+      }
+    });
   }
 
   const openapiConfig = {
@@ -699,7 +722,9 @@ export const defineServe = <
       return createErrorResponse(
         404,
         "NOT_FOUND",
-        `No endpoint registered for ${request.method} ${request.path}`
+        `No endpoint registered for ${request.method} ${request.path}`,
+        undefined,
+        { "x-request-id": requestId }
       );
     }
 
