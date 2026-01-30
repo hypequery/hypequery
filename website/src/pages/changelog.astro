@@ -16,28 +16,28 @@ const latestEntries = entries.slice(0, 6);
 ---
 
 <Layout title="hypequery Changelog" description="Release notes">
-  <main class="bg-white pt-32 pb-16">
+  <main class="bg-white dark:bg-gray-950 pt-32 pb-16">
     <section class="mx-auto max-w-4xl px-6 lg:px-8">
       <div class="text-center mb-12">
         <p
-          class="text-sm font-semibold text-indigo-600 uppercase tracking-wide"
+          class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide"
         >
           Release notes
         </p>
-        <h1 class="mt-2 text-4xl font-bold tracking-tight text-gray-900">
-          Changelog
+        <h1 class="mt-2 text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+          @hypequery/clickhouse Changelog
         </h1>
       </div>
       <div class="space-y-8">
         {
           latestEntries.map((entry) => (
-            <article class="rounded-2xl border border-gray-200/80 bg-gray-50/60 p-6 shadow-sm">
+            <article class="rounded-2xl border border-gray-200/80 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/60 p-6 shadow-sm">
               <div class="flex items-center justify-between flex-wrap gap-3">
-                <h2 class="text-xl font-semibold text-gray-900">
-                  Version {entry.version}
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  @hypequery/clickhouse v{entry.version}
                 </h2>
               </div>
-              <div class="prose prose-indigo max-w-none mt-4">
+              <div class="prose prose-indigo dark:prose-invert max-w-none mt-4">
                 <MarkdownPreview content={entry.body as string} />
               </div>
             </article>

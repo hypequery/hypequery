@@ -49,63 +49,90 @@ const formatDate = (date: Date) =>
         href="/blog"
         class="inline-flex items-center text-sm text-gray-600 hover:text-indigo-600 transition-colors"
       >
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+        <svg
+          class="w-4 h-4 mr-2"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 19l-7-7 7-7"></path>
         </svg>
         Back to Blog
       </a>
     </div>
 
-    <div class={`flex flex-col gap-10 ${
-      hasTableOfContents ? 'lg:flex-row lg:items-start' : ''
-    }`}>
-      <article class={`blog-article ${hasTableOfContents ? 'lg:flex-1' : ''}`}>
+    <div
+      class={`flex flex-col gap-10 ${
+        hasTableOfContents ? "lg:flex-row lg:items-start" : ""
+      }`}
+    >
+      <article class={`blog-article ${hasTableOfContents ? "lg:flex-1" : ""}`}>
         {
           hasTableOfContents && (
-            <details class="lg:hidden mb-6 rounded-2xl border border-gray-200 p-4" open>
+            <details
+              class="lg:hidden mb-6 rounded-2xl border border-gray-200 p-4"
+              open
+            >
               <summary class="text-sm font-semibold text-gray-700 cursor-pointer">
                 Jump to section
               </summary>
               <nav class="mt-4 space-y-2 text-sm">
-                {
-                  tableOfContents.map((heading) => (
-                    <a
-                      href={`#${heading.slug}`}
-                      class={`block rounded-lg px-3 py-2 text-gray-600 hover:text-indigo-600 transition-colors ${
-                        heading.depth === 3 ? "pl-6" : ""
-                      }`}
-                    >
-                      {heading.text}
-                    </a>
-                  ))
-                }
+                {tableOfContents.map((heading) => (
+                  <a
+                    href={`#${heading.slug}`}
+                    class={`block rounded-lg px-3 py-2 text-gray-600 hover:text-indigo-600 transition-colors ${
+                      heading.depth === 3 ? "pl-6" : ""
+                    }`}
+                  >
+                    {heading.text}
+                  </a>
+                ))}
               </nav>
             </details>
           )
         }
 
-        <header class="mb-10">
-          <p class="text-sm uppercase tracking-[0.3em] text-indigo-500 mb-3">
+        <header class="mb-12">
+          <p class="text-sm uppercase tracking-[0.3em] text-indigo-500 mb-8">
             {formatDate(pubDate)}
           </p>
-          <h1 class="text-4xl md:text-5xl font-semibold text-gray-900 mb-4">{title}</h1>
-          {description && (
-            <p class="text-xl text-gray-700 leading-relaxed">{description}</p>
-          )}
+          <h1 class="text-4xl md:text-5xl font-semibold text-gray-900 mb-8">
+            {title}
+          </h1>
+          {
+            description && (
+              <p class="text-xl text-gray-700 leading-relaxed">{description}</p>
+            )
+          }
         </header>
 
-        {heroImage && (
-          <div class="mb-10">
-            <img src={heroImage} alt={title} class="w-full h-72 object-cover rounded-3xl" />
-          </div>
-        )}
+        {
+          heroImage && (
+            <div class="mb-10">
+              <img
+                src={heroImage}
+                alt={title}
+                class="w-full h-72 object-cover rounded-3xl"
+              />
+            </div>
+          )
+        }
 
         <div class="prose prose-lg prose-slate max-w-none">
           <slot />
         </div>
 
-        <footer class="mt-16 pt-8 border-t border-gray-200 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <a href="/blog" class="text-sm text-gray-600 hover:text-indigo-600 transition-colors">
+        <footer
+          class="mt-16 pt-8 border-t border-gray-200 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+        >
+          <a
+            href="/blog"
+            class="text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+          >
             ← Back to Blog
           </a>
           <div class="text-sm text-gray-600">
@@ -127,18 +154,16 @@ const formatDate = (date: Date) =>
               On this page
             </div>
             <nav class="space-y-2 text-sm">
-              {
-                tableOfContents.map((heading) => (
-                  <a
-                    href={`#${heading.slug}`}
-                    class={`block rounded-lg px-3 py-2 text-gray-600 hover:text-indigo-600 transition-colors ${
-                      heading.depth === 3 ? "pl-6 text-gray-500" : ""
-                    }`}
-                  >
-                    {heading.text}
-                  </a>
-                ))
-              }
+              {tableOfContents.map((heading) => (
+                <a
+                  href={`#${heading.slug}`}
+                  class={`block rounded-lg px-3 py-2 text-gray-600 hover:text-indigo-600 transition-colors ${
+                    heading.depth === 3 ? "pl-6 text-gray-500" : ""
+                  }`}
+                >
+                  {heading.text}
+                </a>
+              ))}
             </nav>
           </aside>
         )
@@ -170,5 +195,14 @@ const formatDate = (date: Date) =>
   :global(.blog-article .prose h3:hover .heading-anchor),
   :global(.blog-article .prose h3 .heading-anchor:focus) {
     opacity: 1;
+  }
+
+  /* Ensure no background color differences in dark mode */
+  :global([data-theme="dark"] .blog-article header) {
+    background: transparent;
+  }
+
+  :global([data-theme="dark"] .blog-article) {
+    background: transparent;
   }
 </style>
