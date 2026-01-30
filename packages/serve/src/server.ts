@@ -5,7 +5,7 @@ import { createEndpoint } from "./endpoint.js";
 import { applyBasePath, normalizeRoutePath, ServeRouter } from "./router.js";
 import { buildDocsHtml } from "./docs-ui.js";
 import { createTenantScope, warnTenantMisconfiguration } from "./tenant.js";
-import { ServeQueryLogger } from "./query-logger.js";
+import { ServeQueryLogger, formatQueryEvent } from "./query-logger.js";
 import type {
   AuthContext,
   AuthStrategy,
@@ -54,6 +54,19 @@ export const defineServe = <
   const contextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
   const hooks = (config.hooks ?? {}) as ServeLifecycleHooks<TAuth>;
   const queryLogger = new ServeQueryLogger();
+
+  // Wire up production query logging if configured
+  if (config.queryLogging) {
+    if (typeof config.queryLogging === 'function') {
+      queryLogger.on(config.queryLogging);
+    } else {
+      queryLogger.on((event) => {
+        const line = formatQueryEvent(event);
+        if (line) console.log(line);
+      });
+    }
+  }
+
   const openapiConfig = {
     enabled: config.openapi?.enabled ?? true,
     path: config.openapi?.path ?? "/openapi.json",
