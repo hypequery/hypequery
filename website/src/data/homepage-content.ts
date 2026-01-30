@@ -3,13 +3,12 @@ import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './analytics/client';
 
-const serve = initServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
 });
-const { query } = serve;
 
-export const api = serve.define({
-  queries: serve.queries({
+export const api = define({
+  queries: queries({
     weeklyRevenue: query
       .input(z.object({ startDate: z.string() }))
       .query(async ({ ctx, input }) =>

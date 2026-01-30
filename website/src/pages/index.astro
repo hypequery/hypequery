@@ -38,7 +38,7 @@ const useCaseExamples = useCaseExamplesRaw.map((example) => ({
 const defaultUseCase = useCaseExamples[0] ?? null;
 ---
 
-<Layout title="hypequery – Type-Safe Analytics Backend for ClickHouse Teams">
+<Layout title="hypequery – The Analytics Backend for ClickHouse">
   <main>
     <!-- Hero section -->
     <div class="relative isolate pt-14">
@@ -51,20 +51,20 @@ const defaultUseCase = useCaseExamples[0] ?? null;
               <div
                 class="inline-flex items-center mb-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 animate-on-scroll dark:bg-indigo-500/10 dark:text-indigo-200"
               >
-                Analytics Backend for ClickHouse Teams
+                The Analytics Backend for ClickHouse Teams
               </div>
               <h1
                 class="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl animate-on-scroll"
               >
-                Stop breaking analytics as your product scales
+                Ship analytics across your entire stack
               </h1>
               <div>
                 <p
                   class="mt-4 text-lg leading-8 text-gray-600 animate-on-scroll"
                 >
-                  Define ClickHouse metrics once in TypeScript, then reuse them
-                  across APIs, background jobs, dashboards, and AI agents with
-                  full type safety.
+                  Define metrics once in TypeScript. Reuse across APIs, jobs,
+                  dashboards, and AI agents. Type-safe everywhere. No drift, no
+                  debates.
                 </p>
                 <p
                   class="mt-2 text-lg leading-8 text-gray-600 animate-on-scroll font-medium"
@@ -220,16 +220,17 @@ const defaultUseCase = useCaseExamples[0] ?? null;
             <p
               class="text-sm font-semibold uppercase tracking-wide text-indigo-500"
             >
-              Analytics that behaves like code
+              Everything is code
             </p>
             <h2 class="mt-2 text-3xl font-bold tracking-tight">
-              Metrics defined like software, not config
+              From schema to serving: analytics as a proper development platform
             </h2>
             <div class="mt-6 space-y-4 text-base leading-7 text-gray-600">
               <p>
-                You define type safe queries in TypeScript, give them schemas
-                and metadata, and execute them wherever you need: embedded in
-                your app, exposed via APIs, or consumed by agents.
+                Schema introspection &rarr; type generation &rarr; query
+                definitions &rarr; HTTP APIs. All wired together with end-to-end
+                type safety. No config files, no string interpolation, no
+                runtime surprises. Just code that scales with your team.
               </p>
             </div>
             <div class="mt-8 grid gap-6 lg:grid-cols-2">
@@ -274,7 +275,7 @@ const defaultUseCase = useCaseExamples[0] ?? null;
             <h2
               class="text-3xl font-bold tracking-tight text-gray-900 animate-on-scroll"
             >
-              What teams use hypequery for
+              The single source of truth for your data
             </h2>
             <div
               class="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-on-scroll"
@@ -341,10 +342,13 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                 >
                   <div>
                     <h2 class="text-3xl font-bold tracking-tight text-gray-900">
-                      Why not just write SQL everywhere?
+                      Why your org keeps rebuilding this layer
                     </h2>
                     <p class="mt-6 text-lg leading-7 text-gray-700">
-                      Because it only works until it doesn’t.
+                      Every scaled ClickHouse team eventually builds the same
+                      thing: a type-safe semantic layer that hides schema
+                      complexity and exposes governed, reusable metrics. You
+                      just get to start there.
                     </p>
                     <div
                       class="mt-6 space-y-3 text-base leading-7 text-gray-700"
@@ -364,13 +368,16 @@ const defaultUseCase = useCaseExamples[0] ?? null;
                       class="mt-6 space-y-3 text-base leading-7 text-gray-700"
                     >
                       <p>
-                        Suddenly “what’s our revenue?” needs a Slack thread, a
+                        Suddenly "what's our revenue?" needs a Slack thread, a
                         meeting, and three engineers debating whose SQL is
                         right.
                       </p>
-                      <p>hypequery removes that ambiguity.</p>
+                      <p>
+                        This is what happens when analytics doesn't have a
+                        platform.
+                      </p>
                       <p class="text-xl font-bold text-gray-900">
-                        Metrics live in code. Defined once, enforced everywhere.
+                        One definition. Every consumer. Zero ambiguity.
                       </p>
                     </div>
                   </div>
@@ -388,72 +395,78 @@ const defaultUseCase = useCaseExamples[0] ?? null;
 
           <section class="mt-24 animate-on-scroll">
             <h2 class="text-3xl font-bold tracking-tight text-gray-900">
-              A set of opt-in primitives for modern analytics
+              An end-to-end platform for analytics development
             </h2>
             <div class="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 class="text-lg font-semibold text-gray-900">
-                  Type-safe query building
+                  Schema-aware, type-safe foundation
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Define analytics in TypeScript with schemas, metadata, and
-                  ownership. Type errors surface during build, not in production
-                  dashboards.
+                  Your ClickHouse schema becomes a TypeScript SDK. Columns
+                  become types, tables become interfaces. Refactor with
+                  confidence, catch errors at build time.
                 </p>
               </div>
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 class="text-lg font-semibold text-gray-900">
-                  Embedded-first execution
+                  Execute anywhere, not just via HTTP
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Execute queries directly in your API routes, cron jobs, or
-                  scripts. HTTP exposure is optional.
+                  Run queries directly in jobs, APIs, scripts, or agents. HTTP
+                  is optional, not required. Your metrics travel to where
+                  they're needed.
                 </p>
               </div>
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 class="text-lg font-semibold text-gray-900">
-                  Reusable queries
+                  Metrics as first-class code citizens
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Define once, import anywhere. Your API, dashboard, and agent
-                  all use the same metric definition. No drift, no debates.
+                  Import definitions like any other module. Same query in your
+                  API, dashboard, cron job, and AI agent. One source of truth.
                 </p>
               </div>
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 class="text-lg font-semibold text-gray-900">
-                  Optional HTTP & APIs
+                  Auto-generated APIs with zero boilerplate
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Auto-generate OpenAPI specs, input validation, and TypeScript
-                  clients. Use HTTP only where it makes sense.
+                  Every query becomes an HTTP endpoint with OpenAPI, input
+                  validation, and TypeScript clients. No controllers, no routing
+                  code, no YAML.
                 </p>
               </div>
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
                 <h3 class="text-lg font-semibold text-gray-900">
-                  Multi-tenancy isolation
+                  Tenant isolation at the platform level
                 </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Auto-inject tenant filters at the query level. It's impossible
-                  to accidentally query another customer's data.
+                  Declare tenant patterns once. The platform auto-injects
+                  filters, validates auth, and guarantees isolation. Impossible
+                  to leak data between tenants.
                 </p>
               </div>
               <div
                 class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
               >
-                <h3 class="text-lg font-semibold text-gray-900">Caching</h3>
+                <h3 class="text-lg font-semibold text-gray-900">
+                  Auth, observability & caching built in
+                </h3>
                 <p class="mt-4 text-sm leading-6 text-gray-600">
-                  Cache at the query level with TTL, invalidation, and custom
-                  cache keys.
+                  Verify sessions, inject user context, control access, and
+                  cache at the query level. Security primitives and
+                  observability included, not bolted on.
                 </p>
               </div>
             </div>
@@ -469,14 +482,14 @@ const defaultUseCase = useCaseExamples[0] ?? null;
               Ship faster
             </p>
             <h2 class="mt-4 text-3xl font-bold sm:text-4xl">
-              Ready to stop rewriting SQL?
+              Ready for a proper analytics platform?
             </h2>
             <p
               class="mt-4 text-base text-slate-600 sm:text-lg dark:text-white/80"
             >
-              Point hypequery at your ClickHouse cluster and get a typed
-              analytics layer in minutes. Your API, jobs, and dashboards will
-              finally agree on the numbers.
+              Point hypequery at your ClickHouse cluster and get the full stack:
+              schema-aware SDK, type-safe metrics, HTTP APIs, and observability.
+              Everything wired together with end-to-end type safety.
             </p>
             <div
               class="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row"
