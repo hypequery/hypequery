@@ -1,6 +1,6 @@
 export * from "./types.js";
 export * from "./query-logger.js";
-export * from "./server.js";
+export * from "./server/index.js";
 export * from "./router.js";
 export * from "./endpoint.js";
 export * from "./openapi.js";
