@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { defineServe } from "./server";
 import type { ServeRequest } from "./types";
+import type { ServeQueryEvent } from "./query-logger";
 
 const BASE_PATH = "/api/analytics";
 const withBasePath = (path = "/") => {
@@ -694,5 +695,242 @@ describe("defineServe", () => {
     // Both query builders should have tenant filters
     expect(primaryLog).toContain("events:tenant_id=tenant-abc");
     expect(replicaLog).toContain("users:tenant_id=tenant-abc");
+  });
+
+  it("returns X-Request-Id header on success responses", async () => {
+    const api = defineServe({
+      queries: {
+        ping: { query: async () => ({ ok: true }) },
+      },
+    });
+
+    api.route("/ping", api.queries.ping);
+
+    const response = await api.handler(createRequest({ path: "/ping" }));
+    expect(response.status).toBe(200);
+    expect(response.headers?.["x-request-id"]).toBeDefined();
+    expect(typeof response.headers?.["x-request-id"]).toBe("string");
+  });
+
+  it("echoes incoming X-Request-Id header in the response", async () => {
+    const api = defineServe({
+      queries: {
+        ping: { query: async () => ({ ok: true }) },
+      },
+    });
+
+    api.route("/ping", api.queries.ping);
+
+    const response = await api.handler(
+      createRequest({
+        path: "/ping",
+        headers: { "x-request-id": "req-abc-123" },
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers?.["x-request-id"]).toBe("req-abc-123");
+  });
+
+  it("returns X-Request-Id header on error responses", async () => {
+    const api = defineServe({
+      queries: {
+        fail: {
+          query: async () => { throw new Error("boom"); },
+        },
+      },
+    });
+
+    api.route("/fail", api.queries.fail);
+
+    const response = await api.handler(createRequest({ path: "/fail" }));
+    expect(response.status).toBe(500);
+    expect(response.headers?.["x-request-id"]).toBeDefined();
+
+    // 404 also gets request id
+    const notFound = await api.handler(createRequest({ path: "/nope" }));
+    expect(notFound.status).toBe(404);
+    expect(notFound.headers?.["x-request-id"]).toBeDefined();
+  });
+
+  it("emits query events to queryLogger subscribers", async () => {
+    const events: ServeQueryEvent[] = [];
+    const api = defineServe({
+      queries: {
+        metric: { query: async () => ({ value: 42 }) },
+      },
+    });
+
+    api.route("/metric", api.queries.metric);
+    api.queryLogger.on((event) => events.push(event));
+
+    await api.handler(createRequest({ path: "/metric" }));
+
+    expect(events).toHaveLength(2);
+    expect(events[0].status).toBe("started");
+    expect(events[0].endpointKey).toBe("metric");
+    expect(events[1].status).toBe("completed");
+    expect(events[1].durationMs).toBeTypeOf("number");
+    expect(events[1].responseStatus).toBe(200);
+  });
+
+  it("emits error events when a query throws", async () => {
+    const events: ServeQueryEvent[] = [];
+    const api = defineServe({
+      queries: {
+        broken: {
+          query: async () => { throw new Error("db down"); },
+        },
+      },
+    });
+
+    api.route("/broken", api.queries.broken);
+    api.queryLogger.on((event) => events.push(event));
+
+    await api.handler(createRequest({ path: "/broken" }));
+
+    const errorEvent = events.find((e) => e.status === "error");
+    expect(errorEvent).toBeDefined();
+    expect(errorEvent!.responseStatus).toBe(500);
+    expect(errorEvent!.error?.message).toBe("db down");
+  });
+
+  it("does not emit events when no listeners are subscribed", async () => {
+    const api = defineServe({
+      queries: {
+        metric: { query: async () => ({ value: 1 }) },
+      },
+    });
+
+    api.route("/metric", api.queries.metric);
+
+    // No listener — just verify it doesn't throw
+    const response = await api.handler(createRequest({ path: "/metric" }));
+    expect(response.status).toBe(200);
+    expect(api.queryLogger.listenerCount).toBe(0);
+  });
+
+  it("logs to console when queryLogging is true", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const api = defineServe({
+      queryLogging: true,
+      queries: {
+        metric: { query: async () => ({ value: 1 }) },
+      },
+    });
+
+    api.route("/metric", api.queries.metric);
+    await api.handler(createRequest({ path: "/metric" }));
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining("GET")
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringContaining("200")
+    );
+
+    logSpy.mockRestore();
+  });
+
+  it("logs structured JSON when queryLogging is 'json'", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const api = defineServe({
+      queryLogging: "json",
+      queries: {
+        metric: { query: async () => ({ value: 1 }) },
+      },
+    });
+
+    api.route("/metric", api.queries.metric);
+    await api.handler(createRequest({ path: "/metric" }));
+
+    expect(logSpy).toHaveBeenCalled();
+    const jsonArg = logSpy.mock.calls.find(([arg]) => {
+      try { JSON.parse(arg); return true; } catch { return false; }
+    });
+    expect(jsonArg).toBeDefined();
+
+    const parsed = JSON.parse(jsonArg![0]);
+    expect(parsed.level).toBe("info");
+    expect(parsed.method).toBe("GET");
+    expect(parsed.status).toBe(200);
+    expect(parsed.requestId).toBeDefined();
+    expect(parsed.endpoint).toBe("metric");
+    expect(parsed.timestamp).toBeDefined();
+
+    logSpy.mockRestore();
+  });
+
+  it("invokes custom callback when queryLogging is a function", async () => {
+    const captured: ServeQueryEvent[] = [];
+
+    const api = defineServe({
+      queryLogging: (event) => captured.push(event),
+      queries: {
+        metric: { query: async () => ({ value: 1 }) },
+      },
+    });
+
+    api.route("/metric", api.queries.metric);
+    await api.handler(createRequest({ path: "/metric" }));
+
+    // Started events are passed to custom callbacks (unlike built-in formatters)
+    expect(captured.length).toBeGreaterThanOrEqual(2);
+    expect(captured.some((e) => e.status === "completed")).toBe(true);
+  });
+
+  it("warns on slow queries when slowQueryThreshold is set", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const api = defineServe({
+      queryLogging: true,
+      slowQueryThreshold: 1, // 1ms threshold
+      queries: {
+        slow: {
+          query: async () => {
+            await new Promise((r) => setTimeout(r, 10)); // ensure > 1ms
+            return { ok: true };
+          },
+        },
+      },
+    });
+
+    api.route("/slow", api.queries.slow);
+    await api.handler(createRequest({ path: "/slow" }));
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("[hypequery/slow-query]")
+    );
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("slow")
+    );
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  it("does not warn when query is under slowQueryThreshold", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const api = defineServe({
+      queryLogging: true,
+      slowQueryThreshold: 60_000, // 60 seconds — nothing will be slow
+      queries: {
+        fast: { query: async () => ({ ok: true }) },
+      },
+    });
+
+    api.route("/fast", api.queries.fast);
+    await api.handler(createRequest({ path: "/fast" }));
+
+    // Filter to only slow-query warnings (ignore tenant warnings etc.)
+    const slowQueryWarns = warnSpy.mock.calls.filter(
+      ([msg]) => typeof msg === "string" && msg.includes("[hypequery/slow-query]")
+    );
+    expect(slowQueryWarns).toHaveLength(0);
+
+    warnSpy.mockRestore();
   });
 });
