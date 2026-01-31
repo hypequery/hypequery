@@ -54,7 +54,7 @@ const buildContextInput = (request: ServeRequest) => {
   if (request.query && Object.keys(request.query).length > 0) {
     return request.query;
   }
-  return {};
+  return undefined;
 };
 
 const runMiddlewares = async <
