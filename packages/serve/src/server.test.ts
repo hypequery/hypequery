@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { defineServe } from "./server";
-import type { ServeRequest } from "./types";
+import type { HttpMethod, ServeRequest } from "./types";
 
 const BASE_PATH = "/api/analytics";
 const withBasePath = (path = "/") => {
@@ -694,5 +694,351 @@ describe("defineServe", () => {
     // Both query builders should have tenant filters
     expect(primaryLog).toContain("events:tenant_id=tenant-abc");
     expect(replicaLog).toContain("users:tenant_id=tenant-abc");
+  });
+});
+
+describe("auto-routing", () => {
+  it("auto-registers routes using query key as path with POST method by default", async () => {
+    const api = defineServe({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+        passengerStats: {
+          query: async () => ({ avg: 1.5 }),
+        },
+      },
+    });
+
+    // Should be reachable at POST /weeklyRevenue without calling .route()
+    const revenue = await api.handler(
+      createRequest({ method: "POST", path: "/weeklyRevenue" })
+    );
+    expect(revenue.status).toBe(200);
+    expect(revenue.body).toEqual({ total: 4200 });
+
+    const stats = await api.handler(
+      createRequest({ method: "POST", path: "/passengerStats" })
+    );
+    expect(stats.status).toBe(200);
+    expect(stats.body).toEqual({ avg: 1.5 });
+  });
+
+  it("uses the query-defined method when explicitly set", async () => {
+    const api = defineServe({
+      queries: {
+        getMetrics: {
+          method: "GET",
+          query: async () => ({ data: [] }),
+        },
+        createReport: {
+          method: "PUT",
+          query: async () => ({ created: true }),
+        },
+      },
+    });
+
+    const getResponse = await api.handler(
+      createRequest({ method: "GET", path: "/getMetrics" })
+    );
+    expect(getResponse.status).toBe(200);
+
+    const putResponse = await api.handler(
+      createRequest({ method: "PUT", path: "/createReport" })
+    );
+    expect(putResponse.status).toBe(200);
+
+    // POST should not match since method was explicitly set
+    const wrongMethod = await api.handler(
+      createRequest({ method: "POST", path: "/getMetrics" })
+    );
+    expect(wrongMethod.status).toBe(404);
+  });
+
+  it("manual .route() replaces the auto-generated route", async () => {
+    const api = defineServe({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+      },
+    });
+
+    // Override auto-route with custom path
+    api.route("/metrics/weekly", api.queries.weeklyRevenue);
+
+    // Auto-route should no longer exist
+    const autoRoute = await api.handler(
+      createRequest({ method: "POST", path: "/weeklyRevenue" })
+    );
+    expect(autoRoute.status).toBe(404);
+
+    // Manual route should work (uses endpoint.method which defaults to GET from createEndpoint)
+    const manualRoute = await api.handler(
+      createRequest({ method: "GET", path: "/metrics/weekly" })
+    );
+    expect(manualRoute.status).toBe(200);
+    expect(manualRoute.body).toEqual({ total: 4200 });
+  });
+
+  it("manual .route() with method override replaces auto-route", async () => {
+    const api = defineServe({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+      },
+    });
+
+    api.route("/revenue", api.queries.weeklyRevenue, { method: "PUT" });
+
+    // Auto-route gone
+    const autoRoute = await api.handler(
+      createRequest({ method: "POST", path: "/weeklyRevenue" })
+    );
+    expect(autoRoute.status).toBe(404);
+
+    // Manual route at new path with overridden method
+    const manualRoute = await api.handler(
+      createRequest({ method: "PUT", path: "/revenue" })
+    );
+    expect(manualRoute.status).toBe(200);
+    expect(manualRoute.body).toEqual({ total: 4200 });
+  });
+
+  it("can disable auto-routing with autoRouting: false", async () => {
+    const api = defineServe({
+      autoRouting: false,
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+      },
+    });
+
+    // No auto-route registered
+    const response = await api.handler(
+      createRequest({ method: "POST", path: "/weeklyRevenue" })
+    );
+    expect(response.status).toBe(404);
+
+    // Must register manually
+    api.route("/revenue", api.queries.weeklyRevenue);
+    const manual = await api.handler(
+      createRequest({ method: "GET", path: "/revenue" })
+    );
+    expect(manual.status).toBe(200);
+  });
+
+  it("populates _routeConfig for auto-routed queries", async () => {
+    const api = defineServe({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+        dailyStats: {
+          method: "GET",
+          query: async () => ({ count: 10 }),
+        },
+      },
+    });
+
+    // _routeConfig should be populated by auto-routing
+    expect(api._routeConfig).toEqual({
+      weeklyRevenue: { method: "POST" },
+      dailyStats: { method: "GET" },
+    });
+  });
+
+  it("updates _routeConfig when manual .route() overrides auto-route", async () => {
+    const api = defineServe({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+        dailyStats: {
+          query: async () => ({ count: 10 }),
+        },
+      },
+    });
+
+    // Override one query
+    api.route("/custom-revenue", api.queries.weeklyRevenue, { method: "GET" });
+
+    expect(api._routeConfig).toEqual({
+      weeklyRevenue: { method: "GET" },   // Updated by manual .route()
+      dailyStats: { method: "POST" },      // Still auto-routed
+    });
+  });
+
+  it("auto-routes appear in OpenAPI spec", async () => {
+    const api = defineServe({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+          description: "Weekly revenue totals",
+          outputSchema: z.object({ total: z.number() }),
+        },
+      },
+    });
+
+    const response = await api.handler(createRequest({ path: "/openapi.json" }));
+    expect(response.status).toBe(200);
+
+    const spec = response.body as any;
+    const autoRoutePath = `${BASE_PATH}/weeklyRevenue`;
+    expect(spec.paths[autoRoutePath]).toBeDefined();
+    expect(spec.paths[autoRoutePath].post).toBeDefined();
+  });
+
+  it("auto-routes appear in describe() output", async () => {
+    const api = defineServe({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+      },
+    });
+
+    const description = api.describe();
+    const revenueQuery = description.queries.find((q) => q.key === "weeklyRevenue");
+    expect(revenueQuery).toBeDefined();
+    expect(revenueQuery?.path).toBe(`${BASE_PATH}/weeklyRevenue`);
+    expect(revenueQuery?.method).toBe("POST");
+  });
+
+  it("auto-routing works with input validation", async () => {
+    const api = defineServe({
+      queries: {
+        report: {
+          query: async ({ input }) => ({ from: input.from }),
+          inputSchema: z.object({ from: z.string() }),
+        },
+      },
+    });
+
+    // Invalid input
+    const invalid = await api.handler(
+      createRequest({ method: "POST", path: "/report" })
+    );
+    expect(invalid.status).toBe(400);
+
+    // Valid input
+    const valid = await api.handler(
+      createRequest({
+        method: "POST",
+        path: "/report",
+        body: { from: "2024-01-01" },
+      })
+    );
+    expect(valid.status).toBe(200);
+    expect(valid.body).toEqual({ from: "2024-01-01" });
+  });
+
+  it("auto-routing works with auth", async () => {
+    const api = defineServe({
+      queries: {
+        secureMetric: {
+          query: async () => ({ ok: true }),
+        },
+      },
+    });
+
+    api.useAuth(async ({ request }) => {
+      const key = request.headers["x-api-key"];
+      return key === "secret" ? { apiKey: key } : null;
+    });
+
+    const unauthorized = await api.handler(
+      createRequest({ method: "POST", path: "/secureMetric" })
+    );
+    expect(unauthorized.status).toBe(401);
+
+    const authorized = await api.handler(
+      createRequest({
+        method: "POST",
+        path: "/secureMetric",
+        headers: { "x-api-key": "secret" },
+      })
+    );
+    expect(authorized.status).toBe(200);
+    expect(authorized.body).toEqual({ ok: true });
+  });
+
+  it("auto-routing works with context", async () => {
+    const api = defineServe({
+      context: () => ({ env: "test" }),
+      queries: {
+        info: {
+          query: async ({ ctx }) => ({ env: ctx.env }),
+        },
+      },
+    });
+
+    const response = await api.handler(
+      createRequest({ method: "POST", path: "/info" })
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ env: "test" });
+  });
+
+  it("only the overridden query loses its auto-route; others remain", async () => {
+    const api = defineServe({
+      queries: {
+        alpha: {
+          query: async () => ({ id: "alpha" }),
+        },
+        beta: {
+          query: async () => ({ id: "beta" }),
+        },
+        gamma: {
+          query: async () => ({ id: "gamma" }),
+        },
+      },
+    });
+
+    // Override only beta
+    api.route("/custom-beta", api.queries.beta);
+
+    // alpha and gamma auto-routes still work
+    const alpha = await api.handler(
+      createRequest({ method: "POST", path: "/alpha" })
+    );
+    expect(alpha.status).toBe(200);
+    expect(alpha.body).toEqual({ id: "alpha" });
+
+    const gamma = await api.handler(
+      createRequest({ method: "POST", path: "/gamma" })
+    );
+    expect(gamma.status).toBe(200);
+    expect(gamma.body).toEqual({ id: "gamma" });
+
+    // beta auto-route is gone
+    const betaAuto = await api.handler(
+      createRequest({ method: "POST", path: "/beta" })
+    );
+    expect(betaAuto.status).toBe(404);
+
+    // beta manual route works
+    const betaManual = await api.handler(
+      createRequest({ method: "GET", path: "/custom-beta" })
+    );
+    expect(betaManual.status).toBe(200);
+    expect(betaManual.body).toEqual({ id: "beta" });
+  });
+
+  it("execute() still works with auto-routing enabled", async () => {
+    const api = defineServe({
+      queries: {
+        metric: {
+          inputSchema: z.object({ limit: z.number().default(5) }),
+          query: async ({ input }) =>
+            Array.from({ length: input.limit }).map((_, i) => ({ value: i })),
+        },
+      },
+    });
+
+    const result = await api.execute("metric", { input: { limit: 2 } });
+    expect(result).toEqual([{ value: 0 }, { value: 1 }]);
   });
 });

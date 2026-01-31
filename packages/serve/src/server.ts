@@ -70,6 +70,36 @@ export const defineServe = <
     registerQuery(key, configuredQueries[key]);
   }
 
+  // Auto-routing: register all queries as routes using query key as path
+  const autoRouting = config.autoRouting !== false;
+  const autoRoutedKeys = new Set<string>();
+
+  if (autoRouting) {
+    for (const key of Object.keys(queryEntries)) {
+      const endpoint = queryEntries[key as keyof typeof queryEntries] as ServeEndpoint<any, any, TContext, TAuth>;
+      const queryConfig = configuredQueries[key as keyof TQueries];
+      // Use the method from the query config if explicitly set, otherwise default to POST for auto-routing
+      const method = queryConfig?.method ?? "POST";
+      const path = normalizeRoutePath(`/${key}`);
+
+      const metadata = {
+        ...endpoint.metadata,
+        path,
+        method,
+        name: endpoint.metadata.name ?? endpoint.key,
+      } satisfies ServeEndpoint["metadata"];
+
+      const registeredEndpoint: ServeEndpoint<any, any, TContext, TAuth> = {
+        ...endpoint,
+        method,
+        metadata,
+      };
+
+      router.register(registeredEndpoint);
+      autoRoutedKeys.add(key);
+    }
+  }
+
   const handler: ServeHandler = createServeHandler<TContext, TAuth>({
     router,
     globalMiddlewares,
@@ -81,6 +111,18 @@ export const defineServe = <
 
   // Track route configuration for client config extraction
   const routeConfig: Record<string, { method: HttpMethod }> = {};
+
+  // Populate routeConfig for auto-routed queries
+  // Also track the actual registered method for each auto-routed key (needed for unregister)
+  const autoRoutedMethods: Record<string, HttpMethod> = {};
+  if (autoRouting) {
+    for (const key of autoRoutedKeys) {
+      const queryConfig = configuredQueries[key as keyof TQueries];
+      const method: HttpMethod = queryConfig?.method ?? "POST";
+      routeConfig[key] = { method };
+      autoRoutedMethods[key] = method;
+    }
+  }
 
   const executeQuery = async <TKey extends keyof typeof queryEntries>(
     key: TKey,
@@ -140,6 +182,15 @@ export const defineServe = <
 
       // Find the query key for this endpoint
       const queryKey = Object.entries(queryEntries).find(([_, e]) => e === endpoint)?.[0];
+
+      // If this query was auto-routed, remove the auto-generated route first
+      if (queryKey && autoRoutedKeys.has(queryKey)) {
+        const autoPath = normalizeRoutePath(`/${queryKey}`);
+        const autoMethod = autoRoutedMethods[queryKey];
+        router.unregister(autoMethod, autoPath);
+        autoRoutedKeys.delete(queryKey);
+      }
+
       if (queryKey) {
         routeConfig[queryKey] = { method };
       }

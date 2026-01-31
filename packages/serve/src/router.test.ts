@@ -308,6 +308,37 @@ describe("Router Utilities", () => {
       });
     });
 
+    describe("Unregistration", () => {
+      it("removes a registered route by method and path", () => {
+        router.register(createEndpoint("GET", "/users"));
+        router.register(createEndpoint("POST", "/users"));
+
+        router.unregister("GET", "/users");
+
+        const routes = router.list();
+        expect(routes).toHaveLength(1);
+        expect(routes[0].method).toBe("POST");
+      });
+
+      it("does nothing when route does not exist", () => {
+        router.register(createEndpoint("GET", "/users"));
+
+        router.unregister("DELETE", "/users");
+
+        const routes = router.list();
+        expect(routes).toHaveLength(1);
+      });
+
+      it("allows re-registration after unregister", () => {
+        router.register(createEndpoint("GET", "/users"));
+        router.unregister("GET", "/users");
+        router.register(createEndpoint("GET", "/users"));
+
+        const routes = router.list();
+        expect(routes).toHaveLength(1);
+      });
+    });
+
     describe("markRoutesRequireAuth", () => {
       it("marks all routes as requiring auth", () => {
         router.register(createEndpoint("GET", "/users"));

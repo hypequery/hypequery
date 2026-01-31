@@ -56,6 +56,13 @@ export class ServeRouter implements EndpointRegistry {
     );
   }
 
+  unregister(method: HttpMethod, path: string) {
+    const normalizedPath = applyBasePath(this.basePath, path);
+    this.routes = this.routes.filter(
+      (route) => !(route.method === method && route.metadata.path === normalizedPath)
+    );
+  }
+
   markRoutesRequireAuth() {
     this.routes = this.routes.map((route) => {
       if (route.metadata.requiresAuth === false) {

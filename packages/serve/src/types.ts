@@ -414,6 +414,13 @@ export interface ServeConfig<
   TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
 > {
   queries: TQueries;
+  /**
+   * Automatically register routes for all queries using the query key as the path.
+   * For example, a query key `weeklyRevenue` creates a `POST /weeklyRevenue` route.
+   * Manual `.route()` calls override auto-generated routes for the same query.
+   * @default true
+   */
+  autoRouting?: boolean;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
