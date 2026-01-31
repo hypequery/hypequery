@@ -7,7 +7,10 @@ import type {
 export const mapEndpointToToolkit = (
   endpoint: ServeEndpoint<any, any, any, any>
 ): ToolkitQueryDescription => {
-  // Use type assertion to avoid deep type instantiation issues with zodToJsonSchema
+  // Type assertions (as any) are necessary below for external library compatibility:
+  // - zod-to-json-schema doesn't export types that properly constrain Zod schema inputs
+  // - Using 'unknown' for the result type is safer than 'any' for the output
+  // - This is a known limitation of the zod-to-json-schema library
   const inputSchema: unknown = endpoint.inputSchema
     ? zodToJsonSchema(endpoint.inputSchema as any, { target: "openApi3" })
     : undefined;

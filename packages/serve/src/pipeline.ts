@@ -43,8 +43,10 @@ const createErrorResponse = (
   type: ErrorEnvelope['error']['type'],
   message: string,
   details?: Record<string, unknown>,
+  headers?: Record<string, string>,
 ) => ({
   status,
+  headers,
   body: { error: { type, message, ...(details ? { details } : {}) } },
 }) satisfies ServeResponse<ErrorEnvelope>;
 
@@ -245,7 +247,7 @@ export const executeEndpoint = async <
         reason: 'missing_credentials',
         strategies_attempted: strategies.length,
         endpoint: endpoint.metadata.path,
-      });
+      }, { 'x-request-id': requestId });
     }
 
     context.auth = authContext;
@@ -275,7 +277,7 @@ export const executeEndpoint = async <
         return createErrorResponse(403, 'UNAUTHORIZED', errorMessage, {
           reason: 'missing_tenant_context',
           tenant_required: true,
-        });
+        }, { 'x-request-id': requestId });
       }
 
       if (tenantId) {
@@ -325,7 +327,7 @@ export const executeEndpoint = async <
       });
       return createErrorResponse(400, 'VALIDATION_ERROR', 'Request validation failed', {
         issues: validationResult.error.issues,
-      });
+      }, { 'x-request-id': requestId });
     }
     context.input = validationResult.data;
 
@@ -335,7 +337,10 @@ export const executeEndpoint = async <
     ];
 
     const result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
-    const headers: Record<string, string> = { ...(endpoint.defaultHeaders ?? {}) };
+    const headers: Record<string, string> = {
+      ...(endpoint.defaultHeaders ?? {}),
+      'x-request-id': requestId,
+    };
     if (typeof cacheTtlMs === 'number') {
       headers['cache-control'] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : 'no-store';
     }
@@ -403,7 +408,7 @@ export const executeEndpoint = async <
     }
 
     const message = error instanceof Error ? error.message : 'Unexpected error';
-    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', message);
+    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', message, undefined, { 'x-request-id': requestId });
   }
 };
 
@@ -433,18 +438,22 @@ export const createServeHandler = <
   queryLogger,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
+    const requestId = resolveRequestId(request);
     const endpoint = router.match(request.method as HttpMethod, request.path);
     if (!endpoint) {
       return createErrorResponse(
         404,
         'NOT_FOUND',
         `No endpoint registered for ${request.method} ${request.path}`,
+        undefined,
+        { 'x-request-id': requestId },
       );
     }
 
     return executeEndpoint<TContext, TAuth>({
       endpoint,
       request,
+      requestId,
       authStrategies,
       contextFactory,
       globalMiddlewares,

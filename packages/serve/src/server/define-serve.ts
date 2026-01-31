@@ -1,6 +1,7 @@
 import type {
   AuthContext,
   AuthStrategy,
+  HttpMethod,
   ServeBuilder,
   ServeConfig,
   ServeContextFactory,
@@ -14,7 +15,7 @@ import type {
 import { createEndpoint } from "../endpoint.js";
 import { ServeRouter, applyBasePath } from "../router.js";
 import { ensureArray } from "../utils.js";
-import { ServeQueryLogger, formatQueryEvent } from "../query-logger.js";
+import { ServeQueryLogger, formatQueryEvent, formatQueryEventJSON } from "../query-logger.js";
 import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
@@ -42,12 +43,26 @@ export const defineServe = <
   if (config.queryLogging) {
     if (typeof config.queryLogging === 'function') {
       queryLogger.on(config.queryLogging);
+    } else if (config.queryLogging === 'json') {
+      queryLogger.on((event) => {
+        const line = formatQueryEventJSON(event);
+        if (line) console.log(line);
+      });
     } else {
       queryLogger.on((event) => {
         const line = formatQueryEvent(event);
         if (line) console.log(line);
       });
     }
+  }
+
+  // Slow query warning
+  if (config.slowQueryThreshold != null) {
+    queryLogger.on((event) => {
+      if (event.status === 'completed' && event.durationMs && event.durationMs > config.slowQueryThreshold!) {
+        console.warn(`[hypequery/slow-query] ${event.method} ${event.path} took ${event.durationMs}ms (threshold: ${config.slowQueryThreshold}ms)`);
+      }
+    });
   }
 
   const openapiConfig = {
@@ -80,7 +95,7 @@ export const defineServe = <
   });
 
   // Track route configuration for client config extraction
-  const routeConfig: Record<string, { method: any }> = {};
+  const routeConfig: Record<string, { method: HttpMethod }> = {};
 
   const executeQuery = createExecuteQuery<TContext, TAuth>(
     queryEntries,
@@ -92,7 +107,7 @@ export const defineServe = <
     queryLogger,
   );
 
-  const builder = createBuilderMethods<TContext, TAuth>(
+  const builder = createBuilderMethods<TQueries, TContext, TAuth>(
     queryEntries,
     queryLogger,
     routeConfig,

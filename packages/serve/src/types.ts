@@ -464,6 +464,23 @@ export interface StartServerOptions {
   quiet?: boolean;
 }
 
+/**
+ * Type-safe function signature for executing queries programmatically.
+ * Used internally by the serve builder for direct query execution.
+ */
+export type ExecuteQueryFunction<
+  TQueries extends Record<string, ServeEndpoint<any, any, any, any>>,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+> = <TKey extends keyof TQueries>(
+  key: TKey,
+  options?: {
+    input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+    context?: Partial<TContext>;
+    request?: Partial<ServeRequest>;
+  }
+) => Promise<ServeEndpointResult<TQueries[TKey]>>;
+
 export interface ServeBuilder<
   TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
     string,
