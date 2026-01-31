@@ -46,6 +46,31 @@ describe("defineServe", () => {
     expect(response.body).toEqual({ total: 4200 });
   });
 
+  it("validates void input schemas correctly for queries with no input", async () => {
+    const api = defineServe({
+      queries: {
+        noInputQuery: {
+          inputSchema: z.void(),
+          query: async () => ({ success: true }),
+        },
+      },
+    });
+
+    api.route("/no-input", api.queries.noInputQuery);
+
+    // Request with truly no input (no body, no query params) should succeed
+    const response = await api.handler(
+      createRequest({
+        path: "/no-input",
+        query: undefined,
+        body: undefined,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ success: true });
+  });
+
   it("enforces auth strategies and populates auth context", async () => {
     const authContexts: Array<Record<string, unknown> | null> = [];
     const api = defineServe({
