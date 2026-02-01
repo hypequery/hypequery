@@ -55,6 +55,8 @@ export const api = defineServe({
 | `openapi` | `OpenApiOptions` | `{ enabled: true, path: "/openapi.json" }` | OpenAPI JSON served at `${basePath}${path}`; point custom UIs/clients here. |
 | `context` | `ServeContextFactory` | `undefined` | Object or factory merged into `ctx` for handlers/middlewares. |
 | `hooks` | `ServeLifecycleHooks` | `{}` | Lifecycle callbacks (`onRequestStart`, `onRequestEnd`, `onError`, `onAuthFailure`). |
+| `queryLogging` | `boolean \| 'json' \| ServeQueryEventCallback` | `undefined` | Opt-in query logging. `true` logs human-readable text, `'json'` logs structured JSON for aggregators (Datadog, CloudWatch), or pass a custom `(event) => void`. Disabled (zero overhead) when omitted. |
+| `slowQueryThreshold` | `number` | `undefined` | Warn via `console.warn` when a completed query exceeds this many milliseconds. Works independently of `queryLogging`. |
 
 ## Query definitions (`ServeQueryConfig`)
 
@@ -87,12 +89,13 @@ Executable functions can be passed directly in `queries` when you just need a ha
 | `builder.execute(key, { input, context, request })` | Run a query in-process without HTTP. Perfect for SSR, cron jobs, or tests. Throws when the endpoint returns an error response. |
 | `builder.run(key, options?)` | Alias of `builder.execute` (same signature) for in-process execution. |
 | `builder.describe()` | Returns a structured description (key, path, method, metadata) for downstream tooling. |
+| `builder.queryLogger` | `ServeQueryLogger` instance for subscribing to endpoint execution events. See [Observability](#observability) below. |
 | `builder.handler` | Low-level `ServeHandler` function you can pass into any adapter (Node, Fetch, Edge). |
 | `builder.start(options?)` | Convenience helper that starts the default Node server (internally uses `startNodeServer`). Resolves to `{ stop() }`. |
 
 ## Runtime helpers
 
-- **`serveDev(api, options?)`** – Launches a quiet Node server (defaults to `localhost:4000`) with a handy logger. Accepts `port`, `hostname`, `signal`, `logger`, and `quiet`.
+- **`serveDev(api, options?)`** – Launches a Node server (defaults to `localhost:4000`) with query logging always enabled (logs completed/errored requests to the terminal). Accepts `port`, `hostname`, `signal`, `logger`, and `quiet`.
 - **Node adapter** – `createNodeHandler` converts a `ServeHandler` into a Node `(req, res)` listener, and `startNodeServer` boots an HTTP server with graceful shutdown helpers.
 - **Fetch/edge adapter** – `createFetchHandler` produces a `(request: Request) => Response` for edge runtimes, Cloudflare Workers, Remix loaders, etc.
 - **Vercel adapters** – `createVercelEdgeHandler` wraps the fetch adapter for Edge Functions, while `createVercelNodeHandler` reuses the Node adapter for the Node runtime.
@@ -102,12 +105,117 @@ Executable functions can be passed directly in `queries` when you just need a ha
 - **`buildOpenApiDocument(endpoints, options?)`** – Generates an OpenAPI 3.1 document from any list of `ServeEndpoint`s. Use it to persist specs or feed schema registries.
 - **`buildDocsHtml(openapiUrl, docsOptions?)`** – Produces the Redoc-powered HTML served at `/docs`. You can host the markup yourself by calling this helper directly.
 
+## Observability
+
+Every response includes an `X-Request-Id` header (generated or echoed from the incoming `x-request-id` / `x-trace-id`). Use it to correlate HTTP responses with logs.
+
+### Query logging
+
+Enable query logging to observe endpoint execution in production or during development.
+
+```ts
+// Human-readable text to stdout
+const api = defineServe({ queries, queryLogging: true });
+//   ✓ GET /api/analytics/revenue → 200 (12ms)
+//   ✗ POST /api/analytics/report → 500 (3ms) — Connection refused
+
+// Structured JSON for log aggregators
+const api = defineServe({ queries, queryLogging: 'json' });
+// {"level":"info","msg":"GET /api/analytics/revenue","requestId":"...","endpoint":"revenue","status":200,"durationMs":12,"timestamp":"..."}
+
+// Custom callback (ship to Datadog, Sentry, etc.)
+const api = defineServe({
+  queries,
+  queryLogging: (event) => {
+    datadogLogs.logger.info(event.endpointKey, {
+      duration: event.durationMs,
+      status: event.responseStatus,
+    });
+  },
+});
+```
+
+When `queryLogging` is omitted (the default), no listeners are registered and the emit path is skipped entirely — zero runtime overhead.
+
+In development, `serveDev()` always subscribes its own terminal logger regardless of this setting.
+
+### Slow query warnings
+
+Flag queries that exceed a duration threshold:
+
+```ts
+const api = defineServe({
+  queries,
+  queryLogging: 'json',
+  slowQueryThreshold: 2000, // ms
+});
+// console.warn: [hypequery/slow-query] GET /api/analytics/report (report) took 3400ms (threshold: 2000ms)
+```
+
+`slowQueryThreshold` registers an independent listener that calls `console.warn`, so it works alongside any `queryLogging` mode (or even without it — set `slowQueryThreshold` alone if you only want warnings).
+
+### Programmatic access
+
+Use `api.queryLogger` to subscribe manually:
+
+```ts
+const api = defineServe({ queries });
+
+// Subscribe to all events
+const unsubscribe = api.queryLogger.on((event) => {
+  if (event.status === 'completed') {
+    histogram.record(event.durationMs);
+  }
+});
+
+// Check listener count (for diagnostics)
+api.queryLogger.listenerCount; // 1
+
+// Clean up
+unsubscribe();
+```
+
+### `ServeQueryEvent`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `requestId` | `string` | Unique request identifier (matches `X-Request-Id` header). |
+| `endpointKey` | `string` | The query key from `defineServe({ queries: { ... } })`. |
+| `path` | `string` | HTTP path of the endpoint. |
+| `method` | `string` | HTTP method (`GET`, `POST`, etc.). |
+| `status` | `'started' \| 'completed' \| 'error'` | Lifecycle phase. |
+| `startTime` | `number` | `Date.now()` when the request began. |
+| `endTime` | `number?` | `Date.now()` when the request finished (completed/error only). |
+| `durationMs` | `number?` | Wall-clock duration in milliseconds (completed/error only). |
+| `input` | `unknown?` | Parsed input payload. |
+| `responseStatus` | `number?` | HTTP status code of the response. |
+| `error` | `Error?` | Error instance (error events only). |
+| `result` | `unknown?` | Query result (completed events only). |
+
+### Formatting utilities
+
+Two built-in formatters are exported for use in custom logging setups:
+
+```ts
+import { formatQueryEvent, formatQueryEventJSON } from '@hypequery/serve';
+
+// Human-readable:  "  ✓ GET /api/analytics/revenue → 200 (12ms)"
+formatQueryEvent(event);
+
+// Structured JSON:  '{"level":"info","msg":"GET /api/analytics/revenue",...}'
+formatQueryEventJSON(event);
+```
+
+Both return `null` for `started` events (only format completions and errors).
+
 ## Types worth knowing
 
 - **`ServeMiddleware`** – `(ctx, next) => result`. Mutate context, emit logs, wrap cache, etc.
 - **`AuthStrategy`** – `({ request, endpoint }) => auth | null`. Compose multiple strategies to support API keys, JWTs, and tenant lookups.
 - **`TenantConfig`** – Enforce tenant isolation by extracting IDs, requiring presence, and optionally auto-injecting filters.
 - **`ServeLifecycleHooks`** – Observe every request for logging/metrics/tracing.
+- **`ServeQueryLogger`** – Event emitter for endpoint executions. Exposes `.on(callback)`, `.listenerCount`, and `.removeAll()`.
+- **`ServeQueryEvent`** – Event payload emitted during each endpoint lifecycle (started, completed, error). See [Observability](#observability) for the full field list.
 - **`ErrorEnvelope`** – Shape of errors returned from hypequery endpoints:
 
   ```json

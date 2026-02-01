@@ -1,4 +1,5 @@
 import type { ZodTypeAny } from "zod";
+import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -423,6 +424,22 @@ export interface ServeConfig<
   openapi?: OpenApiOptions;
   context?: ServeContextFactory<TContext, TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
+  /**
+   * Enable query logging in production.
+   * - `true` — logs to console in human-readable text format
+   * - `'json'` — logs to console in structured JSON (for Datadog, CloudWatch, etc.)
+   * - `(event) => void` — custom callback
+   * - `false` / omitted — disabled (zero overhead)
+   *
+   * In development (`serveDev`), logging is always enabled regardless of this setting.
+   */
+  queryLogging?: boolean | 'json' | ServeQueryEventCallback;
+  /**
+   * Warn when a query takes longer than this many milliseconds.
+   * Emits a console.warn with the endpoint key and duration.
+   * Only applies when `queryLogging` is enabled.
+   */
+  slowQueryThreshold?: number;
 }
 
 export interface RouteRegistrationOptions<
@@ -447,6 +464,23 @@ export interface StartServerOptions {
   quiet?: boolean;
 }
 
+/**
+ * Type-safe function signature for executing queries programmatically.
+ * Used internally by the serve builder for direct query execution.
+ */
+export type ExecuteQueryFunction<
+  TQueries extends Record<string, ServeEndpoint<any, any, any, any>>,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext
+> = <TKey extends keyof TQueries>(
+  key: TKey,
+  options?: {
+    input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+    context?: Partial<TContext>;
+    request?: Partial<ServeRequest>;
+  }
+) => Promise<ServeEndpointResult<TQueries[TKey]>>;
+
 export interface ServeBuilder<
   TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
     string,
@@ -456,6 +490,8 @@ export interface ServeBuilder<
   TAuth extends AuthContext = AuthContext
 > {
   readonly queries: TQueries;
+  /** Serve-layer query logger for subscribing to endpoint execution events */
+  readonly queryLogger: ServeQueryLogger;
   /** Internal route configuration mapping query names to their HTTP methods */
   readonly _routeConfig?: Record<string, { method: HttpMethod }>;
   route<Path extends string, TKey extends keyof TQueries>(

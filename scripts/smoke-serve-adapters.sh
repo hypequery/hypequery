@@ -6,7 +6,7 @@ pnpm --filter @hypequery/serve build >/dev/null
 ROOT_DIR=$(pwd)
 ROOT_DIR="$ROOT_DIR" node --input-type=module <<'NODE'
 const root = process.env.ROOT_DIR;
-const { initServe } = await import(`${root}/packages/serve/dist/server.js`);
+const { initServe } = await import(`${root}/packages/serve/dist/index.js`);
 const { startNodeServer } = await import(`${root}/packages/serve/dist/adapters/node.js`);
 const { createFetchHandler } = await import(`${root}/packages/serve/dist/adapters/fetch.js`);
 

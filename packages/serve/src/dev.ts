@@ -2,6 +2,7 @@ import type { AddressInfo } from "net";
 
 import { startNodeServer } from "./adapters/node.js";
 import type { ServeBuilder, StartServerOptions } from "./types.js";
+import { formatQueryEvent } from "./query-logger.js";
 
 export interface ServeDevOptions extends StartServerOptions {
   logger?: (message: string) => void;
@@ -21,6 +22,11 @@ export const serveDev = async <
   const port = options.port ?? Number(process.env.PORT ?? 4000);
   const hostname = options.hostname ?? "localhost";
   const logger = options.logger ?? defaultLogger;
+
+  const unsubscribe = api.queryLogger.on((event) => {
+    const line = formatQueryEvent(event);
+    if (line) logger(line);
+  });
 
   const server = await startNodeServer(api.handler, {
     ...options,
