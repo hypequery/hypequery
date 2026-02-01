@@ -24,12 +24,12 @@ type AssertSimpleSelect = Expect<Equal<SimpleResult, SimpleExpected>>;
 
 const aggregationQuery = builder.sum('price', 'total_price').count('price', 'total_count');
 type AggResult = Awaited<ReturnType<typeof aggregationQuery.execute>>;
-type AggExpected = { total_price: string; total_count: string }[];
+type AggExpected = { total_price: number; total_count: number }[];
 type AssertAggregations = Expect<Equal<AggResult, AggExpected>>;
 
 const selectWithAgg = builder.select(['category']).sum('price');
 type SelectAggResult = Awaited<ReturnType<typeof selectWithAgg.execute>>;
-type SelectAggExpected = { category: string; price_sum: string }[];
+type SelectAggExpected = { category: string; price_sum: number }[];
 type AssertSelectAggregations = Expect<Equal<SelectAggResult, SelectAggExpected>>;
 
 type JoinTables = Parameters<typeof builder.innerJoin>[0];

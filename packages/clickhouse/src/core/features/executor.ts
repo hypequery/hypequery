@@ -4,6 +4,7 @@ import { ClickHouseConnection } from '../connection.js';
 import { substituteParameters } from '../utils.js';
 import { logger, type QueryLog } from '../utils/logger.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
+import { coerceRows } from '../utils/coerce-row.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
@@ -50,6 +51,8 @@ export class ExecutorFeature<
       });
 
       const rows = await result.json<State['output']>();
+      const config = this.builder.getConfig();
+      coerceRows(rows, config.outputColumns);
       const endTime = Date.now();
 
       logger.logQuery({

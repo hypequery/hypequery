@@ -1,6 +1,12 @@
 import { FilterOperator } from "./filters.js";
 import type { TableColumn } from './schema.js';
 
+/**
+ * Coercion hint for output columns.
+ * Used at runtime to convert ClickHouse JSON string values to the correct JS type.
+ */
+export type OutputColumnType = 'number' | 'boolean' | 'string';
+
 export interface QueryConfig<T, Schema> {
   select?: Array<keyof T | string>;
   where?: WhereCondition[];
@@ -18,6 +24,13 @@ export interface QueryConfig<T, Schema> {
   ctes?: string[];
   unionQueries?: string[];
   settings?: string;
+  /**
+   * Runtime type hints for output columns.
+   * Populated automatically by the query builder (e.g. aggregations, select).
+   * Used by the executor to coerce ClickHouse JSON string values to the
+   * correct JavaScript type after `result.json()`.
+   */
+  outputColumns?: Record<string, OutputColumnType>;
 }
 
 export type { ColumnType, TableSchema, DatabaseSchema, TableRecord, InferColumnType, TableColumn } from './schema.js';

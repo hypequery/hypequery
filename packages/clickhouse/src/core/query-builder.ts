@@ -5,7 +5,8 @@ import {
   OperatorValueMap,
   OrderDirection,
   QueryConfig,
-  JoinType
+  JoinType,
+  OutputColumnType
 } from '../types/index.js';
 import { AnySchema, ColumnType } from '../types/schema.js';
 import { SQLFormatter } from './formatters/sql-formatter.js';
@@ -24,6 +25,7 @@ import {
   createPredicateBuilder,
 } from './utils/predicate-builder.js';
 import { CrossFilteringFeature } from './features/cross-filtering.js';
+import { clickHouseTypeToCoercion } from './utils/coerce-row.js';
 import type { ClickHouseSettings, BaseClickHouseClientConfigOptions } from '@clickhouse/client-common';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
@@ -147,6 +149,47 @@ export class QueryBuilder<
     return builder;
   }
 
+  /**
+   * Derive outputColumns coercion hints from the schema for a set of column names.
+   * Only adds hints for columns that need coercion (numeric, boolean).
+   */
+  private deriveOutputColumns(columnNames: string[]): Record<string, OutputColumnType> | undefined {
+    const base = this.state.base as Record<string, ColumnType>;
+    const schema = this.state.schema as Record<string, Record<string, ColumnType>>;
+    const hints: Record<string, OutputColumnType> = { ...(this.config.outputColumns || {}) };
+    let hasNew = false;
+
+    for (const col of columnNames) {
+      // Skip SQL expressions (contain spaces, parens, AS, etc.)
+      if (col.includes('(') || col.includes(' ')) continue;
+
+      let chType: ColumnType | undefined;
+      let outputKey = col;
+
+      if (col.includes('.')) {
+        // Qualified column: "table.column"
+        const [tablePart, colPart] = col.split('.', 2);
+        outputKey = colPart;
+        const tableSchema = schema[tablePart];
+        if (tableSchema) {
+          chType = tableSchema[colPart];
+        }
+      } else {
+        chType = base[col];
+      }
+
+      if (chType) {
+        const coercion = clickHouseTypeToCoercion(chType);
+        if (coercion) {
+          hints[outputKey] = coercion;
+          hasNew = true;
+        }
+      }
+    }
+
+    return hasNew || Object.keys(this.config.outputColumns || {}).length > 0 ? hints : undefined;
+  }
+
   debug() {
     console.log('Current Type:', {
       state: this.state,
@@ -249,9 +292,14 @@ export class QueryBuilder<
         output: {}
       } as NextState;
 
+      // Derive coercion hints for all columns in the base table
+      const allColumns = Object.keys(this.state.base as Record<string, unknown>);
+      const outputColumns = this.deriveOutputColumns(allColumns);
+
       const nextConfig = {
         ...this.config,
         select: ['*'],
+        outputColumns,
         orderBy: this.config.orderBy?.map(({ column, direction }) => ({
           column: String(column),
           direction
@@ -270,6 +318,9 @@ export class QueryBuilder<
       return String(col);
     });
 
+    // Derive coercion hints for selected columns
+    const outputColumns = this.deriveOutputColumns(processedColumns);
+
     type NextState = UpdateOutput<State, SelectionResult<State, Selections[number]>>;
     const nextState = {
       ...this.state,
@@ -279,6 +330,7 @@ export class QueryBuilder<
     const nextConfig = {
       ...this.config,
       select: processedColumns,
+      outputColumns,
       orderBy: this.config.orderBy?.map(({ column, direction }) => ({
         column: String(column),
         direction
@@ -297,8 +349,8 @@ export class QueryBuilder<
   sum<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_sum`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'sum', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, number>>> {
+    return this.applyAggregation(column, alias, 'sum', 'number', (col, finalAlias) =>
       this.aggregations.sum(col, finalAlias)
     );
   }
@@ -306,8 +358,8 @@ export class QueryBuilder<
   count<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_count`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'count', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, number>>> {
+    return this.applyAggregation(column, alias, 'count', 'number', (col, finalAlias) =>
       this.aggregations.count(col, finalAlias)
     );
   }
@@ -315,8 +367,8 @@ export class QueryBuilder<
   avg<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_avg`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'avg', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, number>>> {
+    return this.applyAggregation(column, alias, 'avg', 'number', (col, finalAlias) =>
       this.aggregations.avg(col, finalAlias)
     );
   }
@@ -324,8 +376,8 @@ export class QueryBuilder<
   min<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_min`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'min', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, number>>> {
+    return this.applyAggregation(column, alias, 'min', 'number', (col, finalAlias) =>
       this.aggregations.min(col, finalAlias)
     );
   }
@@ -333,8 +385,8 @@ export class QueryBuilder<
   max<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_max`>(
     column: Column,
     alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'max', (col, finalAlias) =>
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, number>>> {
+    return this.applyAggregation(column, alias, 'max', 'number', (col, finalAlias) =>
       this.aggregations.max(col, finalAlias)
     );
   }
@@ -343,18 +395,23 @@ export class QueryBuilder<
     column: Column,
     alias: Alias | undefined,
     suffix: string,
+    coerceType: OutputColumnType,
     updater: (column: string, alias: Alias) => QueryConfig<any, Schema>
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, number>>> {
     const columnName = String(column);
     const finalAlias = (alias || `${columnName}_${suffix}`) as Alias;
 
-    type NextState = AppendToOutput<State, Record<Alias, string>>;
+    type NextState = AppendToOutput<State, Record<Alias, number>>;
     const nextState = {
       ...this.state,
       output: {} as NextState['output']
     } as NextState;
 
     const nextConfig = updater(columnName, finalAlias) as QueryConfig<NextState['output'], Schema>;
+    nextConfig.outputColumns = {
+      ...(this.config.outputColumns || {}),
+      [finalAlias]: coerceType,
+    };
     return this.fork(nextState, nextConfig);
   }
 
