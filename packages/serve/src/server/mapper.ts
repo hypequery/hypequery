@@ -29,6 +29,8 @@ export const mapEndpointToToolkit = (
     visibility: endpoint.metadata.visibility,
     requiresAuth: Boolean(endpoint.metadata.requiresAuth),
     requiresTenant: endpoint.tenant ? (endpoint.tenant.required !== false) : undefined,
+    requiredRoles: endpoint.requiredRoles,
+    requiredScopes: endpoint.requiredScopes,
     inputSchema,
     outputSchema,
     custom: endpoint.metadata.custom,
