@@ -1,0 +1,5 @@
+{
+  "title": "Standalone Usage",
+  "description": "Use the ClickHouse client directly",
+  "root": true
+}

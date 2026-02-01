@@ -1,0 +1,334 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: FAQ
+description: Frequently asked questions about hypequery
+---
+
+# Frequently Asked Questions
+
+## General
+
+### What is hypequery?
+
+hypequery is a code-first analytics layer for ClickHouse. It provides type-safe query building, named query definitions, and optional HTTP/React integration. It's a library, not a hosted platform.
+
+### Is hypequery production-ready?
+
+Yes. hypequery is used in production environments. It's designed for teams that need type-safe, reusable analytics queries.
+
+### What databases does hypequery support?
+
+Currently ClickHouse only. hypequery is purpose-built for ClickHouse's analytical workloads (OLAP).
+
+### Is hypequery open source?
+
+Yes. hypequery is open source and available on GitHub.
+
+## Serve vs Standalone
+
+### When should I use serve framework?
+
+Use serve when you need to:
+- Reuse the same analytics across multiple contexts (APIs, cron jobs, agents, dashboards)
+- Auto-generate HTTP endpoints with OpenAPI
+- Get built-in input validation with Zod schemas
+- Access authentication and multi-tenancy features
+
+See [Installation Options](/docs/getting-started/installation-options) for the full comparison.
+
+### When should I use standalone?
+
+Use standalone when you:
+- Are integrating into existing API frameworks (Express, Fastify, Next.js routes)
+- Building one-off scripts or background jobs
+- Want maximum control without any framework layer
+- Don't need to reuse queries across contexts
+
+See [When to Use Standalone](/docs/standalone/when-to-use) for more details.
+
+### Can I switch from standalone to serve later?
+
+Yes! The query builder API is identical. Just wrap your queries in `defineServe()`:
+
+```ts
+// Before (standalone)
+const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .execute();
+
+// After (serve - same query builder)
+export const api = define({
+  queries: queries({
+    activeUsers: query.query(({ ctx }) =>
+      ctx.db.table('users')
+        .where('status', 'eq', 'active')
+        .execute()
+    ),
+  }),
+});
+```
+
+## Usage
+
+### Do I need to use .execute() with serve?
+
+Yes! Both serve and standalone use `.execute()`:
+
+```ts
+// Serve framework
+query: ({ ctx }) =>
+  ctx.db.table('users')
+    .where('status', 'eq', 'active')
+    .execute() // ✅ Required
+
+// Standalone
+const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .execute(); // ✅ Required
+```
+
+The difference: serve uses `ctx.db` and you return the promise; standalone uses `db` and you await it.
+
+### Can I use raw SQL?
+
+Yes, but use it sparingly. hypequery provides a `raw()` method for SQL fragments:
+
+```ts
+db.table('events')
+  .raw('WHERE date BETWEEN toStartOfMonth(now()) AND now()')
+  .execute();
+```
+
+For full raw SQL queries, use the `rawQuery()` method on the database client.
+
+### How do I handle mutations (INSERT/UPDATE/DELETE)?
+
+hypequery is optimized for analytics (OLAP), not transactions (OLTP). For mutations, use `rawQuery()`:
+
+```ts
+await db.rawQuery(`
+  INSERT INTO users (id, name, email)
+  VALUES (1, 'Alice', 'alice@example.com')
+`);
+```
+
+See the [GitHub discussion](https://github.com/hypequeryio/hypequery/discussions) for the design rationale.
+
+### Does hypequery support ClickHouse materialized views?
+
+Yes. Treat materialized views as regular tables in your schema:
+
+```ts
+db.table('user_stats_mv') // Materialized view
+  .where('active', 'eq', true)
+  .select(['user_id', 'total_orders'])
+  .execute();
+```
+
+### How do I handle NULL values?
+
+Use `isNull` and `isNotNull` operators:
+
+```ts
+db.table('users')
+  .where('deleted_at', 'isNull', null)
+  .select(['id', 'name'])
+```
+
+## React Hooks
+
+### Do I need React hooks?
+
+No. React hooks (`@hypequery/react`) are optional and only needed if you're building React applications. You can use serve framework without React.
+
+### Can I use React hooks without serve?
+
+No. React hooks require the serve framework to work. If you're using standalone, you'll need to create your own HTTP endpoints and use TanStack Query directly.
+
+### Do React hooks work with Next.js?
+
+Yes! React hooks work great with Next.js (both Pages Router and App Router). See the [Next.js recipe](/docs/recipes/nextjs) for setup instructions.
+
+## Performance & Caching
+
+### Does hypequery support caching?
+
+Yes. Both serve and standalone support caching with multiple strategies:
+- `cache-first`: Return cached data when fresh
+- `network-first`: Always fetch, fallback to cache on error
+- `stale-while-revalidate`: Serve stale data while refreshing
+
+See [Caching](/docs/serve/caching) for details.
+
+### How do I optimize slow queries?
+
+1. **Use ClickHouse query settings:**
+   ```ts
+   db.table('large_table')
+     .settings({ max_threads: 8 })
+     .execute();
+   ```
+
+2. **Add appropriate WHERE clauses** to reduce data scanned
+
+3. **Use streaming** for large result sets:
+   ```ts
+   await db.table('events').streamForEach((rows) => {
+     // Process in batches
+   });
+   ```
+
+4. **Check ClickHouse indexes** on filtered columns
+
+5. **Use materialized views** for common aggregations
+
+### Can I stream large result sets?
+
+Yes. Use `stream()` or `streamForEach()`:
+
+```ts
+const stream = await db.table('events').stream();
+// Or
+await db.table('events').streamForEach((rows) => {
+  console.log(rows);
+});
+```
+
+## Deployment
+
+### Where can I deploy hypequery?
+
+hypequery runs anywhere Node.js runs:
+- Vercel, Netlify, AWS Lambda (serverless)
+- Docker containers
+- Traditional Node.js servers
+- Edge runtimes (Cloudflare Workers with compatible ClickHouse client)
+
+See [Embedded Runtime](/docs/deploy/embedded-runtime) for deployment patterns.
+
+### Do I need to run the hypequery dev server in production?
+
+No. The `hypequery dev` command is for local development only. In production:
+- Use `api.run()` for in-process execution
+- Use `serveHTTP()` to expose via your existing web server
+
+See [HTTP + OpenAPI](/docs/deploy/http-openapi) for production setup.
+
+### How do I handle authentication?
+
+Use serve framework middleware:
+
+```ts
+const { define } = initServe({
+  context: async ({ req }) => {
+    const user = await authenticateRequest(req);
+    return { db, user };
+  },
+});
+```
+
+See [Authentication](/docs/serve/authentication) for patterns.
+
+## Troubleshooting
+
+### TypeScript errors with schema types
+
+Ensure you've generated types from your ClickHouse schema:
+
+```bash
+npx hypequery generate
+```
+
+This creates `schema.ts` with types matching your database.
+
+### "Module not found" errors
+
+Check peer dependencies are installed:
+
+```bash
+npm install @hypequery/clickhouse @hypequery/serve zod
+npm install @hypequery/react @tanstack/react-query  # If using React
+```
+
+### Query returns empty results
+
+Common causes:
+1. **WHERE conditions too restrictive** - Check your filters
+2. **Wrong table name** - Verify table exists in schema
+3. **ClickHouse permissions** - Ensure user can read the table
+4. **No data** - Verify table has data matching your conditions
+
+Use `debug()` to inspect the generated SQL:
+
+```ts
+db.table('users')
+  .where('status', 'eq', 'active')
+  .debug() // Logs SQL
+  .execute();
+```
+
+### Connection timeout errors
+
+Increase timeout in connection config:
+
+```ts
+const db = createQueryBuilder<Schema>({
+  url: process.env.CLICKHOUSE_URL,
+  request_timeout: 60000, // 60 seconds
+});
+```
+
+## Migration & Integration
+
+### Can I use hypequery with Prisma?
+
+Yes, but they serve different purposes:
+- Use Prisma for transactional data (OLTP)
+- Use hypequery for analytics (OLAP)
+
+Both can coexist in the same application.
+
+### Can I use hypequery with existing ClickHouse tables?
+
+Yes! Generate types from your existing schema:
+
+```bash
+npx hypequery generate
+```
+
+Then use the query builder with your tables.
+
+### How do I migrate from raw SQL queries?
+
+Convert incrementally:
+
+```ts
+// Before: Raw SQL
+const results = await clickhouse.query(`
+  SELECT country, SUM(amount) as revenue
+  FROM orders
+  WHERE status = 'completed'
+  GROUP BY country
+  ORDER BY revenue DESC
+  LIMIT 10
+`);
+
+// After: hypequery
+const results = await db
+  .table('orders')
+  .where('status', 'eq', 'completed')
+  .select(['country'])
+  .sum('amount', 'revenue')
+  .groupBy(['country'])
+  .orderBy('revenue', 'DESC')
+  .limit(10)
+  .execute();
+```
+
+Benefits: Type safety, reusability, validation.
+
+---
+
+## Still have questions?
+
+Check the [GitHub Discussions](https://github.com/hypequeryio/hypequery/discussions) or open an issue.
