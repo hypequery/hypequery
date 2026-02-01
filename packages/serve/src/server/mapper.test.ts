@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { mapEndpointToToolkit } from "./mapper";
+import type { HttpMethod, ServeEndpoint } from "../types";
 
 describe("mapEndpointToToolkit", () => {
   it("maps endpoint to toolkit description", () => {
@@ -15,14 +16,14 @@ describe("mapEndpointToToolkit", () => {
       auth: null,
       metadata: {
         path: "/api/test",
-        method: "GET",
+        method: "GET" as HttpMethod,
         name: "Test Query",
         summary: "Test summary",
         description: "Test description",
         tags: ["test", "demo"],
         requiresAuth: false,
         deprecated: false,
-        visibility: "public",
+        visibility: "public" as const,
       },
       cacheTtlMs: null,
       tenant: undefined,
@@ -64,14 +65,14 @@ describe("mapEndpointToToolkit", () => {
       auth: null,
       metadata: {
         path: "/api/schemaTest",
-        method: "POST",
+        method: "POST" as HttpMethod,
         name: "Schema Test",
         summary: "",
         description: "",
         tags: [],
         requiresAuth: false,
         deprecated: false,
-        visibility: "public",
+        visibility: "public" as const,
       },
       cacheTtlMs: null,
     };
@@ -99,14 +100,14 @@ describe("mapEndpointToToolkit", () => {
       auth: null,
       metadata: {
         path: "/api/noSchema",
-        method: "GET",
+        method: "GET" as HttpMethod,
         name: "No Schema",
         summary: "",
         description: "",
         tags: [],
         requiresAuth: false,
         deprecated: false,
-        visibility: "public",
+        visibility: "public" as const,
       },
       cacheTtlMs: null,
     };
@@ -129,7 +130,7 @@ describe("mapEndpointToToolkit", () => {
       auth: null,
       metadata: {
         path: "/api/tenant",
-        method: "GET",
+        method: "GET" as HttpMethod,
         name: "Tenant Query",
         summary: "",
         description: "",
@@ -142,7 +143,7 @@ describe("mapEndpointToToolkit", () => {
       tenant: {
         required: true,
         extract: (auth: any) => auth.tenantId,
-        mode: "auto-inject",
+        mode: "auto-inject" as const,
         column: "tenant_id",
       },
     };
@@ -164,20 +165,20 @@ describe("mapEndpointToToolkit", () => {
       auth: null,
       metadata: {
         path: "/api/optionalTenant",
-        method: "GET",
+        method: "GET" as HttpMethod,
         name: "Optional Tenant",
         summary: "",
         description: "",
         tags: [],
         requiresAuth: false,
         deprecated: false,
-        visibility: "public",
+        visibility: "public" as const,
       },
       cacheTtlMs: null,
       tenant: {
         required: false,
         extract: (auth: any) => auth.tenantId,
-        mode: "manual",
+        mode: "manual" as const,
         column: "tenant_id",
       },
     };
@@ -199,14 +200,14 @@ describe("mapEndpointToToolkit", () => {
       auth: null,
       metadata: {
         path: "/api/custom",
-        method: "GET",
+        method: "GET" as HttpMethod,
         name: "Custom",
         summary: "",
         description: "",
         tags: [],
         requiresAuth: false,
         deprecated: false,
-        visibility: "public",
+        visibility: "public" as const,
         custom: {
           category: "analytics",
           cacheTtl: 3600,
