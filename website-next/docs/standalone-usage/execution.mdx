@@ -1,0 +1,245 @@
+---
+title: Direct Execution
+description: Learn how to execute queries with the standalone query builder
+---
+
+# Direct Execution
+
+The standalone query builder executes queries with `.execute()`. This page covers execution patterns, error handling, and advanced options.
+
+## Basic Execution
+
+Call `.execute()` to run your query and get typed results:
+
+```ts
+const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name', 'email'])
+  .execute();
+
+// users is fully typed: Array<{ id: number; name: string; email: string }>
+users.forEach(user => {
+  console.log(user.name); // ✅ Type-safe
+});
+```
+
+## Raw Queries
+
+Execute raw SQL when needed:
+
+```ts
+const results = await db.rawQuery<{ count: number }>(
+  'SELECT count(*) as count FROM users WHERE status = {status:String}',
+  { status: 'active' }
+);
+
+console.log(results[0].count);
+```
+
+**Parameter substitution:**
+- Use ClickHouse parameter syntax: `{name:Type}`
+- Pass values as object in second argument
+- hypequery handles escaping automatically
+
+## Query Inspection
+
+Preview the SQL before executing:
+
+```ts
+const query = db.table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name']);
+
+// Get SQL string
+const sql = query.toSQL();
+console.log(sql);
+// SELECT id, name FROM users WHERE status = 'active'
+
+// Get SQL with parameters
+const { sql: sqlWithParams, params } = query.toSQLWithParams();
+console.log(sqlWithParams, params);
+```
+
+Useful for:
+- Debugging query generation
+- Logging queries
+- Testing query construction
+
+## Error Handling
+
+Handle query errors gracefully:
+
+```ts
+try {
+  const users = await db.table('users')
+    .where('status', 'eq', 'active')
+    .execute();
+
+  console.log(`Found ${users.length} users`);
+} catch (error) {
+  if (error.message.includes('Table does not exist')) {
+    console.error('Table not found');
+  } else if (error.message.includes('Unknown column')) {
+    console.error('Invalid column reference');
+  } else {
+    console.error('Query failed:', error);
+  }
+}
+```
+
+Common errors:
+- **Table does not exist** - Check table name and database
+- **Unknown column** - Verify column exists in generated types
+- **Timeout** - Query exceeded execution time limit
+- **Connection** - ClickHouse unavailable or network issue
+
+## Execution Options
+
+### Query Timeout
+
+Set per-query timeouts:
+
+```ts
+const users = await db.table('large_table')
+  .settings({ max_execution_time: 30 })  // 30 seconds
+  .execute();
+```
+
+### ClickHouse Settings
+
+Pass ClickHouse-specific settings per query:
+
+```ts
+const results = await db.table('events')
+  .settings({
+    max_memory_usage: '5000000000',      // 5GB
+    max_threads: 4,
+    readonly: 1
+  })
+  .execute();
+```
+
+### Query ID
+
+Track queries with custom IDs:
+
+```ts
+const users = await db.table('users')
+  .execute({ query_id: 'dashboard-active-users' });
+
+// Find in ClickHouse system.query_log
+```
+
+## Streaming Results
+
+For large result sets, use streaming:
+
+```ts
+const stream = await db.table('large_table')
+  .select(['id', 'data'])
+  .stream();
+
+for await (const batch of stream) {
+  // Process batch
+  console.log(`Batch of ${batch.length} rows`);
+  batch.forEach(row => processRow(row));
+}
+```
+
+Benefits:
+- Lower memory usage
+- Process results as they arrive
+- Handle millions of rows efficiently
+
+## Result Formats
+
+### JSON (Default)
+
+Results as JavaScript objects:
+
+```ts
+const users = await db.table('users').execute();
+// Array<{ id: number; name: string; ... }>
+```
+
+### Raw Query Formats
+
+Use specific formats with `rawQuery`:
+
+```ts
+// CSV
+const csv = await db.rawQuery('SELECT * FROM users FORMAT CSV');
+
+// TSV
+const tsv = await db.rawQuery('SELECT * FROM users FORMAT TSV');
+
+// JSONEachRow
+const json = await db.rawQuery('SELECT * FROM users FORMAT JSONEachRow');
+```
+
+## Common Patterns
+
+### Reusable Query Functions
+
+Create helper functions for common queries:
+
+```ts
+// lib/queries.ts
+import { db } from './db';
+
+export async function getActiveUsers() {
+  return db.table('users')
+    .where('status', 'eq', 'active')
+    .select(['id', 'name', 'email'])
+    .execute();
+}
+
+export async function getUserById(id: number) {
+  const results = await db.table('users')
+    .where('id', 'eq', id)
+    .select(['id', 'name', 'email'])
+    .limit(1)
+    .execute();
+
+  return results[0] ?? null;
+}
+
+// Usage
+const users = await getActiveUsers();
+const user = await getUserById(123);
+```
+
+### Conditional Queries
+
+Build queries dynamically:
+
+```ts
+async function searchUsers(filters: {
+  status?: string;
+  role?: string;
+  createdAfter?: string;
+}) {
+  let query = db.table('users').select(['id', 'name', 'email']);
+
+  if (filters.status) {
+    query = query.where('status', 'eq', filters.status);
+  }
+
+  if (filters.role) {
+    query = query.where('role', 'eq', filters.role);
+  }
+
+  if (filters.createdAfter) {
+    query = query.where('created_at', 'gte', filters.createdAfter);
+  }
+
+  return query.execute();
+}
+
+// Usage
+const users = await searchUsers({ status: 'active', role: 'admin' });
+```
+
+## Next Steps
+
+- [Query Building](/docs/query-building) - Master the query builder

@@ -1,0 +1,410 @@
+---
+title: Time Functions
+description: Work with dates, timestamps, and time intervals
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+
+# Time Functions
+
+hypequery provides powerful time-based functions for working with dates, timestamps, and time intervals. These are essential for analytics, reporting, and time-series data.
+
+## Overview
+
+Use time functions to:
+- Convert and format timestamps
+- Extract date components (year, month, day, etc.)
+- Group data by time intervals
+- Build time-series analytics
+
+## Time Conversion Functions
+
+### toDateTime
+
+Convert values to ClickHouse DateTime objects:
+
+{`const events = await db.table('events')
+  .select([
+    'id',
+    toDateTime('created_at', 'event_ts'),
+  ])
+  .execute();`}
+
+<Callout type="info" title="DateTime vs DateTime64">
+  Use `toDateTime()` for standard timestamps (second precision). For microsecond precision, use DateTime64 columns directly in your schema.
+</Callout>
+
+### formatDateTime
+
+Format timestamps with custom format strings:
+
+{`const events = await db.table('events')
+  .select([
+    'id',
+    formatDateTime('created_at', 'Y-MM-dd HH:00', {
+      alias: 'hour_bucket',
+    }),
+  ])
+  .groupBy(['hour_bucket'])
+  .execute();`}
+
+#### Format Codes
+
+| Code | Description | Example |
+| --- | --- | --- |
+| `Y` | 4-digit year | 2024 |
+| `y` | 2-digit year | 24 |
+| `M` | Month number | 01-12 |
+| `MM` | Month number with zero | 01, 12 |
+| `d` | Day of month | 1-31 |
+| `dd` | Day of month with zero | 01, 31 |
+| `H` | Hour (24-hour) | 0-23 |
+| `HH` | Hour with zero | 00, 23 |
+| `m` | Minute | 0-59 |
+| `mm` | Minute with zero | 00, 59 |
+| `s` | Second | 0-59 |
+| `ss` | Second with zero | 00, 59 |
+
+#### Format Examples
+
+{`// ISO date format
+formatDateTime('created_at', 'Y-MM-dd', { alias: 'date' })
+
+// Hour of day
+formatDateTime('created_at', 'Y-MM-dd HH:00', { alias: 'hour' })
+
+// Custom readable format
+formatDateTime('created_at', 'Y-MM-dd HH:mm:ss', { alias: 'formatted' })
+
+// Month
+formatDateTime('created_at', 'Y-MM', { alias: 'month' })`}
+
+## Date Component Extraction
+
+### datePart
+
+Extract specific components from a timestamp:
+
+{`const events = await db.table('events')
+  .select([
+    datePart('year', 'created_at', 'year'),
+    datePart('month', 'created_at', 'month'),
+    datePart('day', 'created_at', 'day'),
+    datePart('hour', 'created_at', 'hour'),
+    datePart('minute', 'created_at', 'minute'),
+  ])
+  .execute();`}
+
+### DatePart Options
+
+| Part | Description | Range |
+| --- | --- | --- |
+| `year` | Year | 0000-9999 |
+| `quarter` | Quarter of year | 1-4 |
+| `month` | Month number | 1-12 |
+| `week` | Week number | 1-53 |
+| `day` | Day of month | 1-31 |
+| `hour` | Hour of day | 0-23 |
+| `minute` | Minute of hour | 0-59 |
+| `second` | Second of minute | 0-59 |
+
+### DatePart Examples
+
+{`// Year-over-year comparison
+const yearlyStats = await db.table('orders')
+  .select([
+    datePart('year', 'created_at', 'year'),
+  ])
+  .sum('total', 'revenue')
+  .groupBy(['year'])
+  .orderBy('year', 'ASC')
+  .execute();
+
+// Day of week analysis
+const dailyStats = await db.table('events')
+  .select([
+    datePart('day', 'created_at', 'day_of_month'),
+  ])
+  .count('id', 'event_count')
+  .groupBy(['day_of_month'])
+  .orderBy('day_of_month', 'ASC')
+  .execute();`}
+
+## Time Interval Functions
+
+### toStartOfInterval
+
+Truncate timestamps to specific intervals:
+
+{`const events = await db.table('events')
+  .select([
+    'id',
+    toStartOfInterval('created_at', '1 hour', 'hour_bucket'),
+    toStartOfInterval('created_at', '15 minute', 'fifteen_min_bucket'),
+  ])
+  .groupBy(['hour_bucket', 'fifteen_min_bucket'])
+  .execute();`}
+
+#### Interval Formats
+
+| Interval | Description |
+| --- | --- |
+| `1 minute` | Truncate to minute |
+| `5 minute` | Truncate to 5-minute window |
+| `15 minute` | Truncate to 15-minute window |
+| `1 hour` | Truncate to hour |
+| `6 hour` | Truncate to 6-hour window |
+| `1 day` | Truncate to day |
+| `1 week` | Truncate to week |
+| `1 month` | Truncate to month |
+| `1 quarter` | Truncate to quarter |
+| `1 year` | Truncate to year |
+
+## Group By Time Intervals
+
+### Built-in Intervals
+
+hypequery provides predefined interval functions:
+
+{`const events = await db.table('events')
+  .count('id', 'event_count')
+  .groupByTimeInterval('created_at', null, 'toStartOfMinute')
+  .execute();`}
+
+#### Built-in Interval Options
+
+| Function | Description |
+| --- | --- |
+| `toStartOfMinute` | Truncate to minute |
+| `toStartOfFiveMinutes` | Truncate to 5-minute intervals |
+| `toStartOfHour` | Truncate to hour |
+| `toStartOfDay` | Truncate to day |
+| `toStartOfWeek` | Truncate to week (Monday) |
+| `toStartOfMonth` | Truncate to month |
+| `toStartOfQuarter` | Truncate to quarter |
+| `toStartOfYear` | Truncate to year |
+
+### Custom Intervals
+
+{`const events = await db.table('events')
+  .count('id', 'event_count')
+  .groupByTimeInterval('created_at', '5 minute')
+  .execute();`}
+
+## Common Patterns
+
+### Daily Active Users
+
+{`const dailyActive = await db.table('events')
+  .select([
+    toStartOfDay('created_at', 'date'),
+  ])
+  .distinctCount('user_id', 'daily_active_users')
+  .groupBy(['date'])
+  .orderBy('date', 'ASC')
+  .execute();`}
+
+### Hourly Event Counts
+
+{`const hourlyEvents = await db.table('events')
+  .select([
+    toStartOfInterval('created_at', '1 hour', 'hour'),
+  ])
+  .count('id', 'event_count')
+  .groupBy(['hour'])
+  .orderBy('hour', 'ASC')
+  .execute();`}
+
+### Monthly Revenue
+
+{`const monthlyRevenue = await db.table('orders')
+  .select([
+    toStartOfMonth('created_at', 'month'),
+  ])
+  .sum('total', 'revenue')
+  .groupBy(['month'])
+  .orderBy('month', 'ASC')
+  .execute();`}
+
+### Weekly Cohort Analysis
+
+{`const cohorts = await db.table('users')
+  .select([
+    toStartOfWeek('created_at', 'cohort_week'),
+  ])
+  .count('id', 'new_users')
+  .groupBy(['cohort_week'])
+  .orderBy('cohort_week', 'ASC')
+  .execute();`}
+
+### Events per 15-Minute Bucket
+
+{`const buckets = await db.table('events')
+  .select([
+    toStartOfInterval('created_at', '15 minute', 'time_bucket'),
+  ])
+  .count('id', 'event_count')
+  .groupBy(['time_bucket'])
+  .orderBy('time_bucket', 'ASC')
+  .execute();`}
+
+## Time-Based Filtering
+
+### Date Range
+
+{`const recentEvents = await db.table('events')
+  .where('created_at', 'gte', '2024-01-01')
+  .where('created_at', 'lt', '2024-02-01')
+  .select(['id', 'type'])
+  .execute();`}
+
+### Last N Days
+
+{`const last7Days = await db.table('events')
+  .where('created_at', 'gte', selectExpr('today() - 7'))
+  .select(['id', 'type', 'created_at'])
+  .execute();`}
+
+### Time of Day Filtering
+
+{`const businessHours = await db.table('events')
+  .where(datePart('hour', 'created_at'), 'gte', 9)
+  .where(datePart('hour', 'created_at'), 'lt', 17)
+  .select(['id', 'created_at'])
+  .execute();`}
+
+## Time Zone Support
+
+### formatDateTime with Timezone
+
+{`const events = await db.table('events')
+  .select([
+    formatDateTime('created_at', 'Y-MM-dd HH:mm:ss', {
+      timezone: 'America/New_York',
+      alias: 'est_time',
+    }),
+  ])
+  .execute();`}
+
+### Convert Timezone
+
+{`const events = await db.table('events')
+  .select([
+    'id',
+    toDateTime('created_at', 'utc_time'),
+    formatDateTime('created_at', 'Y-MM-dd HH:mm:ss', {
+      timezone: 'Europe/London',
+      alias: 'local_time',
+    }),
+  ])
+  .execute();`}
+
+## Time-Series Analytics
+
+### Funnel by Time Period
+
+{`const funnel = await db.table('events')
+  .select([
+    toStartOfDay('created_at', 'date'),
+    'event_type',
+  ])
+  .distinctCount('user_id', 'unique_users')
+  .groupBy(['date', 'event_type'])
+  .orderBy(['date', 'event_type'], 'ASC')
+  .execute();`}
+
+### Moving Average
+
+{`const movingAvg = await db.table('events')
+  .select([
+    toStartOfDay('created_at', 'date'),
+    selectExpr('avg(count) OVER (ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)', 'moving_avg'),
+  ])
+  .count('id', 'count')
+  .groupBy(['date'])
+  .orderBy('date', 'ASC')
+  .execute();`}
+
+### Year-over-Year Comparison
+
+{`const yoy = await db.table('orders')
+  .select([
+    datePart('year', 'created_at', 'year'),
+    datePart('month', 'created_at', 'month'),
+  ])
+  .sum('total', 'revenue')
+  .groupBy(['year', 'month'])
+  .orderBy(['year', 'month'], 'ASC')
+  .execute();`}
+
+## Performance Tips
+
+<Callout type="tip" title="Time Query Performance">
+  - Use `toStartOf*` functions for pre-calculated buckets
+  - Consider materialized views for common time-based aggregations
+  - Filter by time ranges before grouping when possible
+  - Use appropriate partitioning by time for large tables
+</Callout>
+
+### Filter Before Grouping
+
+{`// ✅ Better - filter first
+const stats = await db.table('events')
+  .where('created_at', 'gte', '2024-01-01')
+  .select([
+    toStartOfDay('created_at', 'date'),
+  ])
+  .count('id', 'event_count')
+  .groupBy(['date'])
+  .execute();
+
+// ❌ Slower - group everything
+const stats = await db.table('events')
+  .select([
+    toStartOfDay('created_at', 'date'),
+  ])
+  .count('id', 'event_count')
+  .groupBy(['date'])
+  .having('date >= toDateTime(\'2024-01-01\')')
+  .execute();`}
+
+## Examples
+
+### Website Traffic by Hour
+
+{`const hourlyTraffic = await db.table('page_views')
+  .select([
+    toStartOfInterval('created_at', '1 hour', 'hour'),
+  ])
+  .count('id', 'page_views')
+  .distinctCount('user_id', 'unique_visitors')
+  .groupBy(['hour'])
+  .orderBy('hour', 'ASC')
+  .execute();`}
+
+### Signup Trends
+
+{`const signups = await db.table('users')
+  .select([
+    toStartOfWeek('created_at', 'week'),
+  ])
+  .count('id', 'new_signups')
+  .groupBy(['week'])
+  .orderBy('week', 'ASC')
+  .execute();`}
+
+### Custom Reporting Period
+
+{`const reportPeriod = await db.table('orders')
+  .select([
+    formatDateTime('created_at', 'Y-MM', { alias: 'period' }),
+  ])
+  .sum('total', 'revenue')
+  .count('id', 'order_count')
+  .groupBy(['period'])
+  .orderBy('period', 'ASC')
+  .execute();`}

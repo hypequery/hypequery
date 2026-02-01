@@ -1,0 +1,219 @@
+---
+title: Select
+description: Choose and transform columns in your queries
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+
+# Select
+
+The `select()` method specifies which columns to return from your query. hypequery provides type-safe column selection with support for aliases, expressions, and helper functions.
+
+## Overview
+
+Select is typically the first method you chain after `table()`. It determines:
+- Which columns are returned
+- How columns are named (aliases)
+- What expressions are calculated
+- The TypeScript type of the result
+
+## Basic Column Selection
+
+### Select Specific Columns
+
+{`const users = await db.table('users')
+  .select(['id', 'name', 'email'])
+  .execute();
+// Returns: Array<{ id: number; name: string; email: string }>`}
+
+### Select All Columns
+
+{`const users = await db.table('users')
+  .select('*')
+  .execute();
+// Returns all columns from the users table`}
+
+<Callout type="warning" title="Performance Tip">
+  Avoid `select('*')` in production. Explicitly list only the columns you need for better performance and clarity.
+</Callout>
+
+### Select from Joined Tables
+
+{`const orders = await db.table('orders')
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'orders.total',
+    'users.email AS customer_email',
+  ])
+  .execute();`}
+
+<Callout type="info" title="Joined Tables">
+  You can only select from joined tables after registering the join. TypeScript ensures the join exists before you can reference its columns.
+</Callout>
+
+## Column Aliases
+
+Rename columns using the `AS` keyword:
+
+{`const users = await db.table('users')
+  .select([
+    'id',
+    'name AS full_name',
+    'email AS contact_email',
+  ])
+  .execute();`}
+
+This is useful for:
+- Disambiguating columns with the same name
+- Making column names more descriptive
+- Following naming conventions
+
+## Select Expressions
+
+### Using Helper Functions
+
+hypequery provides helper functions for common ClickHouse expressions:
+
+{`import { rawAs, selectExpr } from '@hypequery/clickhouse';
+
+
+const users = await db.table('users')
+  .select([
+    'id',
+    'name',
+    rawAs('status', 'account_status'),
+    selectExpr('length(email)', 'email_length'),
+  ])
+  .execute();`}
+
+### Built-in Select Helpers
+
+| Helper | Description | Example |
+| --- | --- | --- |
+| `rawAs(column, alias)` | Raw column reference with alias | `rawAs('status', 'account_status')` |
+| `selectExpr(expression, alias)` | SQL expression with alias | `selectExpr('col1 + col2', 'total')` |
+
+### Select with Expressions
+
+{`const events = await db.table('events')
+  .select([
+    'id',
+    selectExpr('arrayJoin(tags)', 'tag'),
+    selectExpr('count()', 'occurrences'),
+  ])
+  .execute();`}
+
+## Common Patterns
+
+### Conditional Selection
+
+{`const columns = includeEmail
+  ? ['id', 'name', 'email']
+  : ['id', 'name'];
+
+const users = await db.table('users')
+  .select(columns)
+  .execute();`}
+
+### Dynamic Column Building
+
+{`const selectedColumns = [
+  'id',
+  'name',
+  ...additionalColumns,
+];
+
+const users = await db.table('users')
+  .select(selectedColumns)
+  .execute();`}
+
+### Select with Calculations
+
+{`const orders = await db.table('orders')
+  .select([
+    'id',
+    selectExpr('quantity * price', 'total'),
+    selectExpr('quantity * price * 0.1', 'tax'),
+  ])
+  .execute();`}
+
+## Type Safety
+
+TypeScript ensures that selected columns exist in your schema:
+
+{`// ✅ Valid - columns exist
+db.table('users')
+  .select(['id', 'name', 'email'])
+  .execute();
+
+// ❌ Error - 'invalid_column' doesn't exist
+db.table('users')
+  .select(['id', 'invalid_column'])
+  .execute();
+
+// ❌ Error - can't select from unjoined table
+db.table('orders')
+  .select(['orders.id', 'users.name']) // Error: users not joined
+  .execute();`}
+
+## Result Type Inference
+
+The TypeScript return type is automatically inferred based on your select:
+
+{`// Type is inferred as:
+// Promise<Array<{
+//   id: number;
+//   name: string;
+//   email: string;
+// }>>
+const users = await db.table('users')
+  .select(['id', 'name', 'email'])
+  .execute();`}
+
+When using aliases, the result type uses the alias name:
+
+{`const users = await db.table('users')
+  .select([
+    'id',
+    'name AS full_name',
+  ])
+  .execute();
+// Result has 'full_name' not 'name'`}
+
+## Examples
+
+### Select Specific Columns
+
+{`const users = await db.table('users')
+  .select(['id', 'name', 'email'])
+  .where('status', 'eq', 'active')
+  .execute();`}
+
+### Select with Aliases
+
+{`const results = await db.table('events')
+  .select([
+    'user_id',
+    selectExpr('count()', 'event_count'),
+    'event_type AS type',
+  ])
+  .groupBy(['user_id', 'type'])
+  .execute();`}
+
+### Select from Multiple Tables
+
+{`const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('products', 'orders.product_id', 'products.id')
+  .select([
+    'orders.id AS order_id',
+    'users.name AS customer_name',
+    'products.name AS product_name',
+    'orders.total',
+  ])
+  .execute();`}

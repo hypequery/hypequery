@@ -1,0 +1,14 @@
+{
+  "title": "Query Building",
+  "pages": [
+    "basics",
+    "select",
+    "where",
+    "joins",
+    "join-relationships",
+    "aggregation",
+    "ordering",
+    "time-functions",
+    "advanced"
+  ]
+}

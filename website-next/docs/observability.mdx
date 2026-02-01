@@ -1,0 +1,314 @@
+---
+title: Observability
+description: Track and monitor your ClickHouse queries with hypequery's logging system
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+# Logging & Observability
+
+hypequery includes built-in logging support to help you track query execution, timing, and status. The logger provides detailed information about your queries, including:
+
+- Query SQL and parameters
+- Execution start and end times
+- Query duration
+- Number of rows processed
+- Error details (if any)
+- Query-specific logging with unique IDs
+
+## Log Levels
+
+The logger supports different log levels to control the verbosity of output:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+// Available log levels:
+// - 'debug': Detailed information for debugging
+// - 'info': General information about query execution
+// - 'warn': Warning messages
+// - 'error': Error messages
+
+logger.configure({
+  level: 'debug', // Set the desired log level
+  enabled: true
+});
+```
+</Pre>
+</CodeBlock>
+
+## Configuring the Logger
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+// Configure logging options
+logger.configure({
+  level: 'debug',
+  enabled: true,
+  onQueryLog: (log) => {
+    // Custom logging handler
+    console.log('Query:', log.query);
+    console.log('Duration:', log.duration);
+    console.log('Status:', log.status);
+  }
+});
+```
+</Pre>
+</CodeBlock>
+
+## Query-Specific Logging
+
+You can subscribe to logs for specific queries using a unique query ID:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+import { initServe } from '@hypequery/serve';
+import { db } from './analytics/client';
+
+const { define, queries, query } = initServe({ context: () => ({ db }) });
+
+export const api = define({
+  queries: queries({
+    users: query
+      .describe('Latest active users')
+      .query(async ({ ctx }) =>
+        ctx.db.table('users').where('status', 'eq', 'active').limit(25).execute()
+      ),
+  }),
+});
+
+// Subscribe to logs for a specific query
+const unsubscribe = logger.subscribeToQuery('users-demo', (log) => {
+  console.log('Query log:', log);
+});
+
+await api.run('users', { request: { queryId: 'users-demo' } });
+
+unsubscribe();
+```
+</Pre>
+</CodeBlock>
+
+## Global Query Logging
+
+Log all queries executed through the query builder:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+// Subscribe to all query logs
+const unsubscribe = logger.onQueryLog((log) => {
+  // Send to your logging service
+  logToDatadog({
+    query: log.query,
+    duration: log.duration,
+    rows: log.rowCount,
+    error: log.error,
+  });
+});
+
+// Later: unsubscribe()
+```
+</Pre>
+</CodeBlock>
+
+## Integration with Logging Services
+
+### Datadog
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+logger.configure({
+  onQueryLog: (log) => {
+    const stats = {
+      query: log.query,
+      duration: log.duration,
+      success: log.status === 'success',
+      timestamp: new Date().toISOString(),
+    };
+
+    // Send to Datadog
+    fetch('https://http-intake.logs.datadoghq.com/v1/input/', {
+      method: 'POST',
+      headers: {
+        'DD-API-KEY': process.env.DATADOG_API_KEY,
+      },
+      body: JSON.stringify(stats),
+    });
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+### Custom Logger
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+class CustomLogger {
+  log(level: string, message: string, meta?: any) {
+    // Your custom logging implementation
+    console.log(`[${level.toUpperCase()}] ${message}`, meta);
+  }
+}
+
+logger.configure({
+  onQueryLog: (log) => {
+    const customLogger = new CustomLogger();
+
+    if (log.error) {
+      customLogger.log('error', 'Query failed', {
+        query: log.query,
+        error: log.error.message,
+        duration: log.duration,
+      });
+    } else {
+      customLogger.log('info', 'Query executed', {
+        query: log.query,
+        duration: log.duration,
+        rows: log.rowCount,
+      });
+    }
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+## Performance Monitoring
+
+Track slow queries:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+const SLOW_QUERY_THRESHOLD = 1000; // 1 second
+
+logger.configure({
+  onQueryLog: (log) => {
+    if (log.duration > SLOW_QUERY_THRESHOLD) {
+      console.warn('Slow query detected:', {
+        query: log.query,
+        duration: `${log.duration}ms`,
+        threshold: `${SLOW_QUERY_THRESHOLD}ms`,
+      });
+    }
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+## Error Tracking
+
+Capture and analyze query errors:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+logger.configure({
+  onQueryLog: (log) => {
+    if (log.error) {
+      // Send to error tracking service
+      trackError({
+        type: 'QueryError',
+        message: log.error.message,
+        query: log.query,
+        stack: log.error.stack,
+        context: {
+          duration: log.duration,
+          params: log.params,
+        },
+      });
+    }
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+## Structured Logging
+
+Use structured logging for better analysis:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { logger } from '@hypequery/clickhouse';
+
+interface QueryLog {
+  timestamp: string;
+  query: string;
+  duration_ms: number;
+  rows: number;
+  status: 'success' | 'error';
+  error?: string;
+}
+
+logger.configure({
+  onQueryLog: (log) => {
+    const structuredLog: QueryLog = {
+      timestamp: new Date().toISOString(),
+      query: log.query,
+      duration_ms: log.duration,
+      rows: log.rowCount,
+      status: log.status,
+      error: log.error?.message,
+    };
+
+    // Log as JSON for parsing by logging tools
+    console.log(JSON.stringify(structuredLog));
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+## Lifecycle Hooks with Serve
+
+Combine logging with Serve lifecycle hooks:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { initServe } from '@hypequery/serve';
+
+const { define, queries } = initServe({
+  hooks: {
+    onRequestStart: async (event) => {
+      console.log(`[START] ${event.queryKey} at ${new Date().toISOString()}`);
+    },
+    onRequestEnd: async (event) => {
+      console.log(`[END] ${event.queryKey} took ${event.durationMs}ms`);
+    },
+    onError: async (event) => {
+      console.error(`[ERROR] ${event.queryKey}:`, event.error);
+    },
+  },
+  queries: {
+    // Your queries here
+  },
+});
+```
+</Pre>
+</CodeBlock>

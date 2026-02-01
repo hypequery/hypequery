@@ -1,0 +1,216 @@
+---
+title: Quick Start
+description: Ship your first hypequery-powered endpoint in minutes
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js 18+** installed
+- **Access to a ClickHouse instance** with connection credentials
+- A **TypeScript project** to integrate hypequery into
+
+---
+
+<Steps>
+<Step>
+
+### Install the runtime packages
+
+Install the core packages required to run hypequery:
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultValue='npm'>
+  <Tab value='npm' label='npm'>
+    {`npm install @hypequery/clickhouse @hypequery/serve
+
+# Optional: install the CLI locally
+npm install -D @hypequery/cli`}
+  </Tab>
+  <Tab value='pnpm' label='pnpm'>
+    {`pnpm add @hypequery/clickhouse @hypequery/serve
+
+# Optional: install the CLI locally
+pnpm add -D @hypequery/cli`}
+  </Tab>
+  <Tab value='yarn' label='yarn'>
+    {`yarn add @hypequery/clickhouse @hypequery/serve
+
+# Optional: install the CLI locally
+yarn add -D @hypequery/cli`}
+  </Tab>
+  <Tab value='bun' label='bun'>
+    {`bun add @hypequery/clickhouse @hypequery/serve
+
+# Optional: install the CLI locally
+bun add -D @hypequery/cli`}
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+### Scaffold analytics with `hypequery init`
+
+From your project root, run the init command:
+
+<Tabs items={['Without CLI installed', 'With CLI installed']} defaultValue='Without CLI installed'>
+  <Tab value='Without CLI installed' label='Without CLI installed'>
+    ```bash
+    npx @hypequery/cli init
+    ```
+  </Tab>
+
+  <Tab value='With CLI installed' label='With CLI installed'>
+    ```bash
+    npx hypequery init
+    ```
+  </Tab>
+</Tabs>
+
+The CLI will prompt you to:
+
+1. **Choose ClickHouse** as your database
+2. **Enter connection settings** (host, port, username, password, database)
+3. **Select a destination folder** (defaults to `analytics/`)
+
+### What the CLI Generates
+
+The init command creates:
+
+```typescript
+analytics/
+├── schema.ts        # Your database schema definitions
+├── client.ts        # ClickHouse client instance
+├── queries.ts       # Your query definitions
+└── .env             # Your ClickHouse credentials
+```
+
+It also scaffolds an example query to get you started.
+
+</Step>
+
+<Step>
+
+### Define your first query
+
+Open `analytics/queries.ts` and replace the placeholder with a real query:
+
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    activeUsers: query
+      .describe('Most recent active users')
+      .input(z.object({
+        limit: z.number().min(1).max(500).default(50)
+      }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('users')
+          .select(['id', 'email', 'created_at'])
+          .where('status', 'eq', 'active')
+          .orderBy('created_at', 'DESC')
+          .limit(input.limit)
+          .execute()
+      ),
+  }),
+});
+```
+
+### Running Your Query
+
+You can run your query in two ways:
+
+<Tabs items={['Embedded', 'Over HTTP']} defaultValue='Embedded'>
+  <Tab value='Embedded' label='Embedded'>
+    ```typescript
+    // Run directly in your code (jobs, SSR, scripts)
+    const latest = await api.run('activeUsers', { limit: 25 });
+    console.log(latest);
+    ```
+  </Tab>
+
+  <Tab value='Over HTTP' label='Over HTTP'>
+    ```typescript
+    // Expose as an HTTP endpoint
+    api.route('/active-users', api.queries.activeUsers, {
+      method: 'POST'
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Remember">
+  - Use `ctx.db` inside serve queries (it carries per-request context)
+  - Return the promise; hypequery awaits it for you
+  - Always finish query builder chains with `.execute()`
+</Callout>
+
+</Step>
+
+<Step>
+
+### Preview docs with `hypequery dev` (Optional)
+
+Start the dev server to view interactive docs and test your queries:
+
+<Tabs items={['Without CLI installed', 'With CLI installed']} defaultValue='Without CLI installed'>
+  <Tab value='Without CLI installed' label='Without CLI installed'>
+    ```bash
+    npx @hypequery/cli dev
+    ```
+  </Tab>
+
+  <Tab value='With CLI installed' label='With CLI installed'>
+    ```bash
+    npx hypequery dev
+    ```
+  </Tab>
+</Tabs>
+
+The dev server provides:
+
+- **Interactive docs** at `http://localhost:4000` - test your queries with live validation
+- **OpenAPI spec** at `http://localhost:4000/openapi.json` - for downstream tooling
+- **Hot reload** - changes to your queries are reflected immediately
+
+Keep this running while you develop or when teammates need to test the HTTP API locally.
+
+</Step>
+
+</Steps>
+
+---
+
+## What's Next?
+
+### Continue Learning
+
+<Callout type="tip" title="Choose Your Path">
+  - **[Manual Setup](/docs/manual-installation)** - For custom or production setups
+  - **[Framework Setup](/docs/vite)** - Vite, Next.js, or Node.js specific guides
+</Callout>
+
+### Dive Deeper
+
+- **[Query Building](/docs/query-building)** - Master the fluent query builder API
+- **[Query Definition](/docs/query-definition)** - Advanced patterns and type safety
+- **[Query Execution](/docs/query-execution)** - Running queries efficiently in different contexts
+
+### Explore
+
+- **[Standalone Usage](/docs/standalone-usage/introduction)** - Use the ClickHouse client directly without the framework
+- **[React Integration](/docs/react/overview)** - React hooks for frontend analytics

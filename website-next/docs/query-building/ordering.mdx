@@ -1,0 +1,360 @@
+---
+title: Ordering
+description: Sort results and paginate with orderBy, limit, and offset
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+# Ordering
+
+Control the order and quantity of results with sorting, limiting, and pagination tools.
+
+## Overview
+
+Use ordering to:
+- Sort results by one or more columns
+- Limit the number of returned rows
+- Paginate through large datasets
+- Remove duplicates with distinct
+
+## Order By
+
+Sort results by column values in ascending or descending order.
+
+### Single Column Sort
+
+{`const users = await db.table('users')
+  .select(['id', 'name', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .execute();`}
+
+### Ascending Order
+
+{`const products = await db.table('products')
+  .select(['id', 'name', 'price'])
+  .orderBy('price', 'ASC')
+  .execute();`}
+
+<Callout type="info" title="Default Direction">
+  If you don't specify a direction, `orderBy` defaults to ascending (`'ASC'`).
+</Callout>
+
+### Multiple Column Sort
+
+Chain multiple `orderBy()` calls for secondary sorting:
+
+{`const users = await db.table('users')
+  .select(['id', 'name', 'country', 'created_at'])
+  .orderBy('country', 'ASC')
+  .orderBy('created_at', 'DESC')
+  .execute();
+// Sorts by country first, then by created_at within each country`}
+
+### Sort by Joined Columns
+
+{`const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'users.name',
+    'orders.total',
+  ])
+  .orderBy('users.name', 'ASC')
+  .orderBy('orders.total', 'DESC')
+  .execute();`}
+
+### Sort Direction Options
+
+| Direction | Description | Example |
+| --- | --- | --- |
+| `'ASC'` | Ascending (lowest to highest) | `orderBy('price', 'ASC')` |
+| `'DESC'` | Descending (highest to lowest) | `orderBy('created_at', 'DESC')` |
+
+## Limit
+
+Restrict the number of rows returned:
+
+{`const latestUsers = await db.table('users')
+  .select(['id', 'name', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();`}
+
+<Callout type="tip" title="Performance">
+  Always use `limit()` with `orderBy()` for predictable results. Without `orderBy()`, the rows returned may vary.
+</Callout>
+
+### Limit with Aggregations
+
+{`const topCategories = await db.table('orders')
+  .innerJoin('products', 'orders.product_id', 'products.id')
+  .select(['products.category'])
+  .sum('orders.total', 'revenue')
+  .groupBy(['products.category'])
+  .orderBy('revenue', 'DESC')
+  .limit(10)
+  .execute();`}
+
+## Offset
+
+Skip a specified number of rows before returning results:
+
+{`const page2 = await db.table('users')
+  .select(['id', 'name'])
+  .orderBy('id', 'ASC')
+  .limit(20)
+  .offset(20)  // Skip first 20 rows
+  .execute();`}
+
+<Callout type="warning" title="Offset Performance">
+  Large offsets can be slow on big datasets. Consider keyset pagination for better performance.
+</Callout>
+
+## Pagination
+
+Combine `limit()` and `offset()` for pagination:
+
+### Basic Pagination
+
+{`async function getUsers(page: number, pageSize: number) {
+  const offset = (page - 1) * pageSize;
+
+  return await db.table('users')
+    .select(['id', 'name', 'email'])
+    .orderBy('id', 'ASC')
+    .limit(pageSize)
+    .offset(offset)
+    .execute();
+}
+
+// Page 1
+const page1 = await getUsers(1, 20);
+
+// Page 2
+const page2 = await getUsers(2, 20);`}
+
+### Keyset Pagination (More Efficient)
+
+Instead of offset, use the last seen value for better performance:
+
+{`async function getUsersAfter(lastId: number, limit: number) {
+  return await db.table('users')
+    .select(['id', 'name', 'email'])
+    .where('id', 'gt', lastId)
+    .orderBy('id', 'ASC')
+    .limit(limit)
+    .execute();
+}
+
+// First page
+const page1 = await getUsersAfter(0, 20);
+const lastId = page1[page1.length - 1].id;
+
+// Next page
+const page2 = await getUsersAfter(lastId, 20);`}
+
+<Callout type="tip" title="Pagination Strategy">
+  - **Small datasets**: Use offset/limit (simple)
+  - **Large datasets**: Use keyset pagination (faster)
+  - **Real-time**: Use cursor-based pagination with time-based columns
+</Callout>
+
+## Distinct
+
+Remove duplicate rows from results:
+
+{`const countries = await db.table('users')
+  .select(['country'])
+  .distinct()
+  .orderBy('country', 'ASC')
+  .execute();`}
+
+### Distinct with Multiple Columns
+
+{`const uniqueCombinations = await db.table('orders')
+  .select(['country', 'status'])
+  .distinct()
+  .execute();`}
+
+### Distinct with Aggregations
+
+{`const stats = await db.table('events')
+  .select(['user_id'])
+  .distinctCount('event_type', 'unique_events')
+  .groupBy(['user_id'])
+  .orderBy('unique_events', 'DESC')
+  .limit(10)
+  .execute();`}
+
+## Common Patterns
+
+### Latest Records
+
+{`const latestOrders = await db.table('orders')
+  .select(['id', 'user_id', 'total', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .limit(50)
+  .execute();`}
+
+### Top N by Value
+
+{`const topSpenders = await db.table('orders')
+  .select(['user_id'])
+  .sum('total', 'lifetime_value')
+  .groupBy(['user_id'])
+  .orderBy('lifetime_value', 'DESC')
+  .limit(100)
+  .execute();`}
+
+### Most Recent Items Per User
+
+{`const latestEvents = await db.table('events')
+  .select(['user_id'])
+  .max('created_at', 'last_event')
+  .groupBy(['user_id'])
+  .orderBy('last_event', 'DESC')
+  .limit(50)
+  .execute();`}
+
+### Random Sample
+
+{`const sample = await db.table('users')
+  .select(['id', 'name'])
+  .orderBy('rand()', 'ASC')
+  .limit(100)
+  .execute();`}
+
+### Unique Values in Column
+
+{`const countries = await db.table('users')
+  .select(['country'])
+  .where('country', 'isNotNull')
+  .distinct()
+  .orderBy('country', 'ASC')
+  .execute();`}
+
+## Sort by Expression
+
+{`const results = await db.table('products')
+  .select(['id', 'name', 'price', 'discount'])
+  .orderBy(selectExpr('price * (1 - discount)'), 'ASC')
+  .execute();`}
+
+## Multiple Sorting Strategies
+
+### Primary and Secondary Sort
+
+{`const results = await db.table('orders')
+  .select(['id', 'status', 'total', 'created_at'])
+  .orderBy('status', 'ASC')
+  .orderBy('total', 'DESC')
+  .orderBy('created_at', 'ASC')
+  .execute();
+// Sorts by status first, then by total within each status,
+// then by created_at within same total`}
+
+### Conditional Sorting
+
+{`const results = await db.table('products')
+  .select(['id', 'name', 'price', 'stock'])
+  .orderBy(selectExpr('if(stock > 0, 0, 1)'), 'ASC')  // In stock first
+  .orderBy('price', 'ASC')
+  .execute();`}
+
+## Type Safety
+
+TypeScript ensures you sort by valid columns:
+
+{`// ✅ Valid - column exists
+await db.table('users')
+  .orderBy('created_at', 'DESC')
+  .execute();
+
+// ❌ Error - column doesn't exist
+await db.table('users')
+  .orderBy('invalid_column', 'ASC')  // TypeScript error
+  .execute();
+
+// ✅ Valid - can sort by joined columns after joining
+await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .orderBy('users.name', 'ASC')
+  .execute();
+
+// ❌ Error - can't sort by unjoined table
+await db.table('orders')
+  .orderBy('users.name', 'ASC')  // TypeScript error
+  .execute();`}
+
+## Performance Considerations
+
+<Callout type="tip" title="Sort Performance">
+  - Sorting requires reading all matching rows
+  - Use `limit()` to reduce work after sorting
+  - Create indexes on frequently-sorted columns
+  - Consider `final()` for ClickHouse-specific optimizations
+</Callout>
+
+### Efficient Large Dataset Pagination
+
+{`// ❌ Slow with large offsets
+const page1000 = await db.table('events')
+  .orderBy('created_at', 'DESC')
+  .limit(20)
+  .offset(20000)  // Skips 20,000 rows
+  .execute();
+
+// ✅ Faster - use keyset pagination
+const lastTimestamp = '2024-01-15 10:00:00';
+const page1000 = await db.table('events')
+  .where('created_at', 'lt', lastTimestamp)
+  .orderBy('created_at', 'DESC')
+  .limit(20)
+  .execute();`}
+
+## Examples
+
+### Leaderboard
+
+{`const leaderboard = await db.table('game_scores')
+  .select(['user_id'])
+  .sum('score', 'total_score')
+  .count('id', 'games_played')
+  .groupBy(['user_id'])
+  .orderBy('total_score', 'DESC')
+  .limit(100)
+  .execute();`}
+
+### Recent Activity Feed
+
+{`const activityFeed = await db.table('events')
+  .select(['id', 'type', 'user_id', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .limit(50)
+  .execute();`}
+
+### Browse Products with Pagination
+
+{`async function browseProducts(category: string, page: number) {
+  const pageSize = 24;
+  const offset = (page - 1) * pageSize;
+
+  return await db.table('products')
+    .select(['id', 'name', 'price', 'image_url'])
+    .where('category', 'eq', category)
+    .where('in_stock', 'eq', true)
+    .orderBy('price', 'ASC')
+    .limit(pageSize)
+    .offset(offset)
+    .execute();
+}`}
+
+### Unique Email Domains
+
+{`const domains = await db.table('users')
+  .select([selectExpr('splitByChar(\\'@\\', email)[2]', 'domain')])
+  .distinct()
+  .orderBy('domain', 'ASC')
+  .execute();`}

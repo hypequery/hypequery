@@ -1,0 +1,151 @@
+---
+title: Authentication
+description: Secure hypequery endpoints with AuthStrategy functions, middleware, and runtime context
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+# Authentication
+
+`@hypequery/serve` keeps authentication explicit: you provide `AuthStrategy` functions that accept the incoming request (or embedded call) and return your auth context. This page shows how to register strategies globally, override them per-endpoint, and propagate auth data through middleware or embedded calls.
+
+## Core Concepts
+
+- **Auth strategies** run before middleware/handlers. They receive `{ request, endpoint }` and return an `AuthContext` object or `null`.
+- **Global vs per-endpoint** – pass `auth` in `defineServe` to enforce auth across every query. Individual queries can provide their own `auth` to override or disable auth.
+- **Auth context** is injected into `ctx.auth` and forwarded to tenant helpers, middlewares, and hooks.
+- **Failures** – returning `null` triggers an `UNAUTHORIZED` error and fires `onAuthFailure` hooks.
+
+## Basic Usage
+
+<CodeBlock>
+<Pre>
+```typescript
+import { defineServe } from '@hypequery/serve';
+import { z } from 'zod';
+
+const apiKeyStrategy = async ({ request }) => {
+  const key = request.headers['x-api-key'];
+  if (!key || key !== process.env.HQ_API_KEY) {
+    return null;
+  }
+  return { userId: 'service:dashboard', roles: ['internal'] };
+};
+
+export const api = defineServe({
+  auth: apiKeyStrategy,
+  queries: {
+    revenue: {
+      inputSchema: z.object({ range: z.string() }),
+      query: ({ ctx, input }) => ctx.db.table('revenue').where('range', 'eq', input.range).select('*'),
+    },
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+Every HTTP request must include `x-api-key`; otherwise, the runtime returns `401 UNAUTHORIZED`.
+
+## Multiple Strategies
+
+Need to support API keys and bearer tokens simultaneously? Provide an array:
+
+<CodeBlock>
+<Pre>
+```typescript
+const bearerStrategy = async ({ request }) => {
+  const header = request.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return null;
+  const token = header.slice(7);
+  const payload = await verifyJwt(token);
+  return { userId: payload.sub, scopes: payload.scopes };
+};
+
+export const api = defineServe({
+  auth: [apiKeyStrategy, bearerStrategy],
+  queries: { /* ... */ },
+});
+```
+</Pre>
+</CodeBlock>
+
+Strategies run sequentially until one returns an auth context. If all return `null`, the request is rejected.
+
+## Per-Endpoint Overrides
+
+Some endpoints might need different auth rules (or none at all). Set `auth` inside the query definition:
+
+<CodeBlock>
+<Pre>
+```typescript
+queries: {
+  healthcheck: {
+    query: async () => ({ ok: true }),
+    auth: null, // public endpoint
+  },
+  adminOnly: {
+    auth: async ({ request }) => {
+      const token = request.headers['x-admin-token'];
+      return token === process.env.ADMIN_TOKEN ? { roles: ['admin'] } : null;
+    },
+    query: async ({ ctx }) => ctx.db.table('secrets').select('*'),
+  },
+}
+```
+</Pre>
+</CodeBlock>
+
+When `auth: null`, the endpoint bypasses global strategies entirely.
+
+## Accessing Auth in Middleware/Handlers
+
+`ctx.auth` contains whichever object your strategy returned:
+
+<CodeBlock>
+<Pre>
+```typescript
+const logUserMiddleware = async (ctx, next) => {
+  console.log('request', ctx.metadata.path, 'user', ctx.auth?.userId ?? 'anonymous');
+  return next();
+};
+
+export const api = defineServe({
+  middlewares: [logUserMiddleware],
+  /* ... */
+});
+```
+</Pre>
+</CodeBlock>
+
+You can enrich the context by returning additional fields from the strategy (roles, tenant IDs, plan tier, etc.).
+
+## Embedded Execution
+
+When calling `api.run` directly (cron jobs, SSR handlers), pass a synthetic request so your strategies still run:
+
+<CodeBlock>
+<Pre>
+```typescript
+await api.run('revenue', {
+  request: {
+    method: 'POST',
+    path: '/revenue',
+    headers: { 'x-api-key': process.env.HQ_API_KEY },
+    query: {},
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+If you already trust the caller (e.g., an internal job), you can skip strategies by calling the underlying query manually or providing a custom `context` with `auth`.
+
+## Troubleshooting
+
+- **Missing headers** – ensure your framework forwards headers to the dev server. For example, when proxying through Next.js, copy `Authorization`/`X-API-Key` into the request.
+- **Edge runtimes** – use `createFetchHandler` or `createVercelEdgeHandler` so headers/requests stay compatible with the strategies.
+- **Logging failures** – implement `hooks.onAuthFailure` to capture repeated failures and alert your team.
+
+With these patterns you can safely protect hypequery endpoints without tying yourself to a specific auth provider. Strategies are just functions—swap tokens, cookies, mTLS metadata, or anything your stack supports.

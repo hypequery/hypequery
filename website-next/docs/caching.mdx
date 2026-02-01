@@ -1,0 +1,142 @@
+---
+title: Caching
+description: Configure hypequery's cache layer, override per-query behavior, and push events to your own store
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+# Caching
+
+hypequery can cache `execute()` results at the builder level. It fingerprints the generated SQL + parameters, dedupes in-flight requests, and optionally serves stale responses while refreshing in the background.
+
+## Turn It On
+
+Enable caching when you create the builder:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { createQueryBuilder, MemoryCacheProvider } from '@hypequery/clickhouse';
+import { initServe } from '@hypequery/serve';
+
+const db = createQueryBuilder({
+  host: process.env.CLICKHOUSE_HOST!,
+  cache: {
+    mode: 'stale-while-revalidate',
+    ttlMs: 2_000,
+    staleTtlMs: 30_000,
+    staleIfError: true,
+    provider: new MemoryCacheProvider({ maxEntries: 1_000 })
+  }
+});
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    leaderboard: query
+      .describe('Top revenue by customer')
+      .cache({ tags: ['orders'], ttlMs: 5_000 })
+      .query(async ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .sum('total', 'revenue')
+          .groupBy(['customer_id'])
+          .orderBy('revenue', 'DESC')
+          .limit(10)
+          .execute()
+      ),
+  }),
+});
+
+// Per-call overrides
+await api.run('leaderboard', { cache: { mode: 'network-first' } });
+
+// Disable caching entirely for this call
+await api.run('leaderboard', { cache: false });
+```
+</Pre>
+</CodeBlock>
+
+## Modes + Options
+
+| Mode | Description |
+| --- | --- |
+| `cache-first` | Serve hot entries, otherwise fetch + store. |
+| `network-first` | Always hit ClickHouse; fall back to stale data when `staleIfError` is enabled. |
+| `stale-while-revalidate` | Serve stale-but-fresh-enough results immediately and trigger a background refresh. |
+| `no-store` | Skip caching entirely. |
+
+Other options:
+
+- `ttlMs` + `staleTtlMs` – freshness + max staleness windows.
+- `cacheTimeMs` – GC window for inactive entries.
+- `dedupe` – disable in-flight request deduplication if you genuinely need double hits.
+- `serialize` / `deserialize` – override JSON serialization (e.g., superjson, msgpack).
+- `tags` – attach manual invalidation labels (automatically merged with table-derived tags).
+
+## Observability + Invalidation
+
+Hook into the cache controller for stats and cache busting:
+
+<CodeBlock>
+<Pre>
+```typescript
+await db.cache.invalidateKey('hq:v1:analytics:orders:abc123');
+await db.cache.invalidateTags(['orders', 'dashboards']);
+await db.cache.clear();
+
+await db.cache.warm([
+  () => api.run('leaderboard'),
+  () =>
+    db.table('users').count().cache({ tags: ['users'] }).execute(),
+]);
+
+const stats = db.cache.getStats();
+console.log(stats.hitRate, stats.staleHits);
+```
+</Pre>
+</CodeBlock>
+
+Every execution sends cache metadata to the logger (`cacheStatus`, `cacheMode`, `cacheAgeMs`). Combine this with `logger.configure({ onQueryLog })` for dashboards.
+
+## BYO Cache Provider
+
+Implement the `CacheProvider` interface to back the cache with Redis, Upstash, KV, etc.:
+
+<CodeBlock>
+<Pre>
+```typescript
+import type { CacheEntry, CacheProvider } from '@hypequery/clickhouse';
+import { Redis } from 'ioredis';
+
+class RedisCacheProvider implements CacheProvider<string> {
+  constructor(private readonly client = new Redis(process.env.REDIS_URL!)) {}
+
+  async get(key: string) {
+    const raw = await this.client.get(key);
+    return raw ? (JSON.parse(raw) as CacheEntry) : null;
+  }
+
+  async set(key: string, entry: CacheEntry) {
+    await this.client.set(key, JSON.stringify(entry), 'PX', entry.cacheTimeMs ?? entry.ttlMs);
+  }
+
+  async delete(key: string) {
+    await this.client.del(key);
+  }
+
+  async deleteByTag(namespace: string, tag: string) {
+    const tagKey = `hq:tag:${namespace}:${tag}`;
+    const keys = await this.client.smembers(tagKey);
+    if (keys.length) await this.client.del(...keys);
+    await this.client.del(tagKey);
+  }
+}
+```
+</Pre>
+</CodeBlock>
+
+Caching is optional, but once you dial in TTLs + invalidation it dramatically reduces ClickHouse load while keeping APIs snappy.

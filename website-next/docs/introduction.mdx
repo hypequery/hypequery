@@ -1,0 +1,108 @@
+---
+title: Introduction
+description: Get started with hypequery
+---
+
+import { Book, Triangle, FileCode, Code2, Braces, Play, Zap } from 'lucide-react';
+
+## What is hypequery?
+
+hypequery is a **code-first analytics backend for ClickHouse**, built for TypeScript teams who want scalable, type-safe analytics.
+
+You define queries in TypeScript, give them names, types, and schemas, and execute them anywhere they're needed: inside backend services, background jobs, APIs, dashboards, or AI agents.
+
+Instead of scattering SQL across applications, dashboards, and scripts, hypequery gives you a single, versioned place where analytics logic lives. **In code.**
+
+hypequery is a library, not a hosted platform. It integrates directly with your existing ClickHouse setup and runs wherever your application runs.
+
+---
+
+<div className="my-12">
+
+## Get Started
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+
+<div className="group flex flex-col gap-0 p-6 rounded-xl border border-gray-700 hover:border-indigo-500 transition-all bg-gradient-to-br from-gray-900 to-gray-900/50 hover:from-indigo-950/30 hover:to-gray-900/50">
+  <Zap className="w-8 h-8 text-indigo-500 group-hover:scale-110 transition-transform" />
+  <h3 className="text-xl font-semibold text-white">Quick Start</h3>
+  <p className="text-sm text-gray-400">Get up and running with hypequery in minutes</p>
+</div>
+
+<div className="group flex flex-col p-6 rounded-xl border border-gray-700 hover:border-purple-500 transition-all bg-gradient-to-br from-gray-900 to-gray-900/50 hover:from-purple-950/30 hover:to-gray-900/50">
+  <Book className="w-8 h-8 text-purple-500 group-hover:scale-110 transition-transform" />
+  <h3 className="text-xl font-semibold text-white">Manual Setup</h3>
+  <p className="text-sm text-gray-400">Step-by-step installation guide for custom setups</p>
+</div>
+
+</div>
+
+## Framework-Specific Quick Start
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
+
+<div className="flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors bg-gray-900/50">
+  <Triangle className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <a href="/docs/vite" className="font-semibold text-white mb-1 hover:text-purple-400 transition-colors">Vite</a>
+    <p className="text-sm text-gray-400">Setup guide for Vite applications</p>
+  </div>
+</div>
+
+<div className="flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-gray-400 transition-colors bg-gray-900/50">
+  <FileCode className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+  <div>
+    <a href="/docs/nextjs" className="font-semibold text-white mb-1 hover:text-gray-300 transition-colors">Next.js</a>
+    <p className="text-sm text-gray-400">Setup guide for Next.js applications</p>
+  </div>
+</div>
+
+<div className="flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-green-500 transition-colors bg-gray-900/50">
+  <FileCode className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <a href="/docs/nodejs" className="font-semibold text-white mb-1 hover:text-green-400 transition-colors">Node.js</a>
+    <p className="text-sm text-gray-400">Setup guide for Node.js applications</p>
+  </div>
+</div>
+
+</div>
+
+## Explore More
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
+
+<div className="flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-orange-500 transition-colors bg-gray-900/50">
+  <Braces className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <a href="/docs/query-building" className="font-semibold text-white mb-1 hover:text-orange-400 transition-colors">Query Building</a>
+    <p className="text-sm text-gray-400">Build and compose queries with the fluent API</p>
+  </div>
+</div>
+
+<div className="flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-green-500 transition-colors bg-gray-900/50">
+  <Play className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <a href="/docs/query-execution" className="font-semibold text-white mb-1 hover:text-green-400 transition-colors">Query Execution</a>
+    <p className="text-sm text-gray-400">Execute queries against ClickHouse efficiently</p>
+  </div>
+</div>
+
+<div className="flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-yellow-500 transition-colors bg-gray-900/50">
+  <Code2 className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <a href="/docs/core-concepts" className="font-semibold text-white mb-1 hover:text-yellow-400 transition-colors">Core Concepts</a>
+    <p className="text-sm text-gray-400">Understand schemas, query definitions, and execution modes</p>
+  </div>
+</div>
+
+<div className="flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-cyan-500 transition-colors bg-gray-900/50">
+  <FileCode className="w-5 h-5 text-cyan-500 mt-0.5 flex-shrink-0" />
+  <div>
+    <a href="/docs/standalone-usage/introduction" className="font-semibold text-white mb-1 hover:text-cyan-400 transition-colors">Standalone Usage</a>
+    <p className="text-sm text-gray-400">Use the ClickHouse client directly without the framework</p>
+  </div>
+</div>
+
+</div>
+
+</div>

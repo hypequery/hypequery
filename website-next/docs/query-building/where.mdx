@@ -1,0 +1,344 @@
+---
+title: Where
+description: Filter queries using conditions, operators, and predicates
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+
+# Where
+
+The `where()` method filters rows based on conditions. It's the most flexible clause in the query builder, supporting simple comparisons, complex predicates, and ClickHouse-specific operators.
+
+## Overview
+
+Use `where()` to:
+- Filter rows by column values
+- Chain multiple conditions (AND logic)
+- Build complex expressions with OR logic
+- Use ClickHouse functions and operators
+- Work with arrays, tuples, and subqueries
+
+## Basic Where Clauses
+
+### Simple Conditions
+
+{`const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name', 'email'])
+  .execute();`}
+
+### Multiple Conditions (AND)
+
+{`const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .where('age', 'gte', 18)
+  .where('country', 'eq', 'US')
+  .select(['id', 'name'])
+  .execute();`}
+
+## Comparison Operators
+
+| Operator | Description | Example |
+| --- | --- | --- |
+| `eq` | Equal | `where('status', 'eq', 'active')` |
+| `neq` | Not equal | `where('status', 'neq', 'deleted')` |
+| `gt` | Greater than | `where('age', 'gt', 18)` |
+| `gte` | Greater than or equal | `where('age', 'gte', 18)` |
+| `lt` | Less than | `where('price', 'lt', 100)` |
+| `lte` | Less than or equal | `where('price', 'lte', 100)` |
+| `like` | Pattern matching | `where('email', 'like', '%@company.com')` |
+| `notLike` | Not like pattern | `where('email', 'notLike', '%@spam.com')` |
+| `in` | In array | `where('status', 'in', ['active', 'pending'])` |
+| `notIn` | Not in array | `where('status', 'notIn', ['deleted', 'banned'])` |
+| `between` | Inclusive range | `where('age', 'between', [18, 65])` |
+
+### Comparison Examples
+
+{`// Equal
+await db.table('users')
+  .where('status', 'eq', 'active')
+  .execute();
+
+// Not equal
+await db.table('users')
+  .where('status', 'neq', 'deleted')
+  .execute();
+
+// Greater than
+await db.table('products')
+  .where('price', 'gt', 100)
+  .execute();
+
+// Range
+await db.table('users')
+  .where('age', 'between', [18, 65])
+  .execute();
+
+// Pattern matching
+await db.table('users')
+  .where('email', 'like', '%@gmail.com')
+  .execute();
+
+// Array membership
+await db.table('orders')
+  .where('status', 'in', ['pending', 'processing', 'shipped'])
+  .execute();`}
+
+## Null Checks
+
+{`// Is null
+await db.table('users')
+  .where('deleted_at', 'isNull')
+  .execute();
+
+// Is not null
+await db.table('users')
+  .where('email', 'isNotNull')
+  .execute();`}
+
+## OR Conditions
+
+### orWhere()
+
+{`const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .orWhere('status', 'eq', 'pending')
+  .select(['id', 'name', 'status'])
+  .execute();`}
+
+### orWhere with Callback
+
+{`const users = await db.table('users')
+  .where('country', 'eq', 'US')
+  .orWhere((expr) =>
+    expr.and([
+      expr.fn('hasAny', 'tags', ['vip', 'premium']),
+      expr.fn('endsWith', 'email', expr.literal('@company.com')),
+    ])
+  )
+  .execute();`}
+
+## Function Predicates
+
+For complex conditions, use predicate builder callbacks:
+
+{`const events = await db.table('events')
+  .where((expr) =>
+    expr.and([
+      expr.fn('hasAny', 'tags', ['launch', 'beta']),
+      expr.fn('endsWith', 'status', expr.literal('active')),
+    ])
+  )
+  .execute();`}
+
+### Predicate Helpers
+
+| Helper | Purpose | Example |
+| --- | --- | --- |
+| `expr.fn(name, ...args)` | Call ClickHouse function | `expr.fn('hasAny', 'tags', ['a', 'b'])` |
+| `expr.col(column)` | Explicit column reference | `expr.col('created_at')` |
+| `expr.array(values)` | ClickHouse array literal | `expr.array([1, 2, 3])` |
+| `expr.literal(value)` / `expr.value(value)` | Force literal value | `expr.literal('active')` |
+| `expr.raw(sql)` | Inline raw SQL fragment | `expr.raw('date > now() - INTERVAL 1 DAY')` |
+| `expr.and([...])` | Combine with AND | `expr.and([cond1, cond2])` |
+| `expr.or([...])` | Combine with OR | `expr.or([cond1, cond2])` |
+
+### Predicate Examples
+
+{`// Using ClickHouse functions
+await db.table('products')
+  .where((expr) =>
+    expr.fn('hasAny', 'categories', ['electronics', 'gadgets'])
+  )
+  .execute();
+
+// Complex AND/OR
+await db.table('events')
+  .where((expr) =>
+    expr.or([
+      expr.fn('startsWith', 'event_type', expr.literal('user_')),
+      expr.fn('startsWith', 'event_type', expr.literal('admin_')),
+    ])
+  )
+  .execute();
+
+// Combining multiple conditions
+await db.table('orders')
+  .where((expr) =>
+    expr.and([
+      expr.fn('greater', expr.col('total'), expr.literal(1000)),
+      expr.fn('notEquals', expr.col('status'), expr.literal('cancelled')),
+    ])
+  )
+  .execute();`}
+
+## Where Groups
+
+Group conditions with parentheses:
+
+{`const users = await db.table('users')
+  .where('status', 'eq', 'active')
+  .whereGroup((builder) => {
+    builder
+      .where('country', 'eq', 'US')
+      .orWhere('country', 'eq', 'CA');
+  })
+  .execute();
+// Generates: WHERE status = 'active' AND (country = 'US' OR country = 'CA')`}
+
+{`const results = await db.table('orders')
+  .whereGroup((builder) => {
+    builder
+      .where('status', 'eq', 'pending')
+      .orWhere('status', 'eq', 'processing');
+  })
+  .whereGroup((builder) => {
+    builder
+      .where('total', 'gte', 100)
+      .orWhere('priority', 'eq', 'high');
+  })
+  .execute();
+// Generates: WHERE (status = 'pending' OR status = 'processing')
+//          AND (total >= 100 OR priority = 'high')`}
+
+## Advanced IN Operators
+
+ClickHouse supports advanced IN operators for distributed queries, tuples, and subqueries.
+
+### IN Operators Reference
+
+| Operator | Description | Example |
+| --- | --- | --- |
+| `in` / `notIn` | Standard array membership | `where('id', 'in', [1, 2, 3])` |
+| `globalIn` / `globalNotIn` | GLOBAL IN for distributed tables | `where('user_id', 'globalIn', [1, 2, 3])` |
+| `inSubquery` / `globalInSubquery` | Subquery string | `where('id', 'inSubquery', 'SELECT id FROM users')` |
+| `inTable` / `globalInTable` | Table reference | `where('user_id', 'inTable', 'active_users')` |
+| `inTuple` / `globalInTuple` | Multi-column tuple membership | `where(['c1', 'c2'], 'inTuple', [[1, 2], [3, 4]])` |
+
+### Standard IN
+
+{`await db.table('users')
+  .where('id', 'in', [1, 2, 3, 4, 5])
+  .execute();
+
+await db.table('orders')
+  .where('status', 'in', ['pending', 'processing', 'shipped'])
+  .execute();`}
+
+### Tuple IN (Multi-column)
+
+{`await db.table('events')
+  .where(['counter_id', 'user_id'], 'inTuple', [
+    [34, 123],
+    [101500, 456],
+  ])
+  .execute();`}
+
+### Subquery IN
+
+{`await db.table('orders')
+  .where('user_id', 'inSubquery', 'SELECT id FROM users WHERE status = "active"')
+  .execute();`}
+
+### Table Reference IN
+
+{`await db.table('events')
+  .where('user_id', 'inTable', 'active_users')
+  .execute();`}
+
+### Global IN (Distributed Tables)
+
+{`await db.table('distributed_events')
+  .where('user_id', 'globalIn', [1, 2, 3])
+  .execute();`}
+
+## Conditional Where
+
+Skip where clauses when values are null or undefined:
+
+{`function findUsers(filters: { status?: string; minAge?: number }) {
+  return db.table('users')
+    .where(filters.status ? ['status', 'eq', filters.status] : null)
+    .where(filters.minAge ? ['age', 'gte', filters.minAge] : null)
+    .select(['id', 'name', 'email'])
+    .execute();
+}
+
+// Only applies status filter
+findUsers({ status: 'active' });
+
+// Only applies age filter
+findUsers({ minAge: 18 });
+
+// Applies both filters
+findUsers({ status: 'active', minAge: 18 });`}
+
+## Type Safety
+
+TypeScript ensures operators match column types:
+
+{`// ✅ Valid - number column with number comparison
+await db.table('users')
+  .where('age', 'gte', 18)
+  .execute();
+
+// ✅ Valid - string column with string comparison
+await db.table('users')
+  .where('status', 'eq', 'active')
+  .execute();
+
+// ✅ Valid - array membership
+await db.table('users')
+  .where('status', 'in', ['active', 'pending'])
+  .execute();
+
+// ❌ Error - type mismatch (TypeScript may catch this)
+await db.table('users')
+  .where('age', 'eq', 'not_a_number')
+  .execute();`}
+
+## Examples
+
+### Date Range Filter
+
+{`const events = await db.table('events')
+  .where('created_at', 'gte', '2024-01-01')
+  .where('created_at', 'lt', '2024-02-01')
+  .select(['id', 'type', 'created_at'])
+  .execute();`}
+
+### Complex Filter with OR
+
+{`const products = await db.table('products')
+  .where('category', 'eq', 'electronics')
+  .orWhere((expr) =>
+    expr.and([
+      expr.fn('hasAny', 'tags', ['featured', 'new']),
+      expr.fn('greater', expr.col('stock'), expr.literal(10)),
+    ])
+  )
+  .execute();`}
+
+### Conditional Filtering
+
+{`function searchUsers(query: string, filters: UserFilters) {
+  return db.table('users')
+    .where('name', 'like', \`%\${query}%\`)
+    .where(filters.status ? ['status', 'eq', filters.status] : null)
+    .where(filters.country ? ['country', 'eq', filters.country] : null)
+    .where(filters.minAge ? ['age', 'gte', filters.minAge] : null)
+    .execute();
+}`}
+
+### Advanced Tuple IN
+
+{`const results = await db.table('events')
+  .where(['event_type', 'user_id'], 'inTuple', [
+    ['page_view', 123],
+    ['page_view', 456],
+    ['click', 123],
+  ])
+  .execute();`}
