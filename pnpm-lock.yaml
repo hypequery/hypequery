@@ -30,6 +30,22 @@ importers:
         specifier: ^4.9.0
         version: 4.9.5
 
+  examples/auth-playground:
+    dependencies:
+      '@hypequery/serve':
+        specifier: workspace:*
+        version: link:../../packages/serve
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^20.10.0
+        version: 20.19.29
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   examples/next-dashboard:
     dependencies:
       '@clickhouse/client':

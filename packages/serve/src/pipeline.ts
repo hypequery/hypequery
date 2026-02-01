@@ -2,6 +2,7 @@ import { z, type ZodTypeAny } from 'zod';
 
 import type {
   AuthContext,
+  AuthorizationFailureEvent,
   AuthStrategy,
   DocsOptions,
   EndpointContext,
@@ -24,6 +25,10 @@ import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
+import {
+  checkRoleAuthorization,
+  checkScopeAuthorization,
+} from './auth.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -106,14 +111,49 @@ const computeRequiresAuth = <TAuth extends AuthContext>(
   metadata: EndpointMetadata,
   endpointStrategy: AuthStrategy<TAuth> | null,
   globalStrategies: AuthStrategy<TAuth>[],
+  endpoint: ServeEndpoint<any, any, any, TAuth>,
 ) => {
-  if (typeof metadata.requiresAuth === 'boolean') {
-    return metadata.requiresAuth;
+  // Explicit .public() overrides everything
+  if (metadata.requiresAuth === false) {
+    return false;
+  }
+  // Explicit .requireAuth() or roles/scopes imply auth
+  if (metadata.requiresAuth === true) {
+    return true;
+  }
+  if ((endpoint.requiredRoles?.length ?? 0) > 0 || (endpoint.requiredScopes?.length ?? 0) > 0) {
+    return true;
   }
   if (endpointStrategy) {
     return true;
   }
   return globalStrategies.length > 0;
+};
+
+const checkAuthorization = <TAuth extends AuthContext>(
+  auth: TAuth | null,
+  requiredRoles?: string[],
+  requiredScopes?: string[],
+): { ok: true } | { ok: false; reason: 'MISSING_ROLE' | 'MISSING_SCOPE'; required: string[]; actual: string[] } => {
+  // Check roles first
+  if (requiredRoles && requiredRoles.length > 0) {
+    const roleResult = checkRoleAuthorization(auth, requiredRoles);
+    if (!roleResult.ok) {
+      const userRoles = auth?.roles ?? [];
+      return { ok: false, reason: roleResult.reason, required: roleResult.missing, actual: userRoles };
+    }
+  }
+
+  // Check scopes
+  if (requiredScopes && requiredScopes.length > 0) {
+    const scopeResult = checkScopeAuthorization(auth, requiredScopes);
+    if (!scopeResult.ok) {
+      const userScopes = auth?.scopes ?? [];
+      return { ok: false, reason: scopeResult.reason, required: scopeResult.missing, actual: userScopes };
+    }
+  }
+
+  return { ok: true };
 };
 
 const validateInput = (schema: ZodTypeAny | undefined, payload: unknown) => {
@@ -164,6 +204,7 @@ export interface ExecuteEndpointOptions<
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
+  verboseAuthErrors?: boolean;
 }
 
 export const executeEndpoint = async <
@@ -183,6 +224,7 @@ export const executeEndpoint = async <
     hooks = {},
     queryLogger,
     additionalContext,
+    verboseAuthErrors = false, // Default to secure mode for production safety
   } = options;
 
   const requestId = resolveRequestId(request, explicitRequestId);
@@ -226,7 +268,7 @@ export const executeEndpoint = async <
   try {
     const endpointAuth = (endpoint.auth as AuthStrategy<TAuth> | null) ?? null;
     const strategies = gatherAuthStrategies(endpointAuth, authStrategies ?? []);
-    const requiresAuth = computeRequiresAuth(endpoint.metadata, endpointAuth, authStrategies ?? []);
+    const requiresAuth = computeRequiresAuth(endpoint.metadata, endpointAuth, authStrategies ?? [], endpoint);
     const metadataWithAuth: EndpointMetadata = {
       ...endpoint.metadata,
       requiresAuth,
@@ -243,14 +285,51 @@ export const executeEndpoint = async <
         auth: context.auth,
         reason: 'MISSING',
       });
-      return createErrorResponse(401, 'UNAUTHORIZED', 'Authentication required', {
-        reason: 'missing_credentials',
-        strategies_attempted: strategies.length,
-        endpoint: endpoint.metadata.path,
-      }, { 'x-request-id': requestId });
+      return createErrorResponse(
+        401,
+        'UNAUTHORIZED',
+        verboseAuthErrors ? 'Authentication required' : 'Access denied',
+        {
+          reason: 'missing_credentials',
+          ...(verboseAuthErrors && { strategies_attempted: strategies.length }),
+          endpoint: endpoint.metadata.path,
+        },
+        { 'x-request-id': requestId }
+      );
     }
 
     context.auth = authContext;
+
+    // Check role/scope authorization after successful authentication
+    const authzResult = checkAuthorization(authContext, endpoint.requiredRoles, endpoint.requiredScopes);
+    if (!authzResult.ok) {
+      const label = authzResult.reason === 'MISSING_ROLE' ? 'role' : 'scope';
+      await safeInvokeHook('onAuthorizationFailure', hooks.onAuthorizationFailure, {
+        requestId,
+        queryKey: endpoint.key,
+        metadata: metadataWithAuth,
+        request,
+        auth: authContext,
+        reason: authzResult.reason,
+        required: authzResult.required,
+        actual: authzResult.actual,
+      });
+      return createErrorResponse(
+        403,
+        'FORBIDDEN',
+        verboseAuthErrors
+          ? `Missing required ${label}: ${authzResult.required.join(', ')}`
+          : 'Insufficient permissions',
+        {
+          reason: authzResult.reason.toLowerCase(),
+          ...(verboseAuthErrors && {
+            required: authzResult.required,
+            actual: authzResult.actual,
+          }),
+          endpoint: endpoint.metadata.path,
+        }
+      );
+    }
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
     Object.assign(context, resolvedContext, additionalContext);
 
@@ -423,6 +502,7 @@ interface HandlerOptions<
   contextFactory?: ServeContextFactory<TContext, TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
+  verboseAuthErrors?: boolean;
 }
 
 export const createServeHandler = <
@@ -436,6 +516,7 @@ export const createServeHandler = <
   contextFactory,
   hooks,
   queryLogger,
+  verboseAuthErrors = false,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
     const requestId = resolveRequestId(request);
@@ -460,6 +541,7 @@ export const createServeHandler = <
       tenantConfig,
       hooks,
       queryLogger,
+      verboseAuthErrors,
     });
   };
 };

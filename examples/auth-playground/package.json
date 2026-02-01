@@ -1,0 +1,19 @@
+{
+  "name": "auth-playground",
+  "version": "1.0.0",
+  "description": "Playground to test hypequery auth guards",
+  "type": "module",
+  "scripts": {
+    "dev": "tsc && node dist/index.js",
+    "test": "tsc && node dist/test.js",
+    "embedded": "tsc && node dist/embedded.js"
+  },
+  "dependencies": {
+    "@hypequery/serve": "workspace:*",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3"
+  }
+}

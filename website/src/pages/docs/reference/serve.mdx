@@ -69,9 +69,12 @@ You can describe endpoints declaratively or pass executable functions directly. 
 | `name` | `string` | query key | Human-readable label shown in docs, OpenAPI, and `api.describe()`. |
 | `inputSchema` / `outputSchema` | `Zod` schemas | `z.any()` | Validation + OpenAPI shape for request/response payloads. |
 | `middlewares` | `ServeMiddleware[]` | `[]` | Endpoint-specific middleware stack (runs after global middlewares). |
-| `auth` | `AuthStrategy | null` | inherits global | Per-endpoint auth override; returning `null` rejects the request. |
+| `auth` | `AuthStrategy \| null` | inherits global | Per-endpoint auth override; returning `null` rejects the request. |
+| `requiresAuth` | `boolean` | `undefined` | Explicitly require or skip authentication. Set by `.requireAuth()` or `.public()`. |
+| `requiredRoles` | `string[]` | `undefined` | Roles the user must have (OR semantics). Checked after auth. Returns `403`. |
+| `requiredScopes` | `string[]` | `undefined` | Scopes the user must have (AND semantics). Checked after auth. Returns `403`. |
 | `tenant` | `TenantConfig` | inherits global | Per-endpoint tenant config to opt out or override the global config. |
-| `cacheTtlMs` | `number | null` | `null` | Sets `cache-control` headers / exposes cache helpers. |
+| `cacheTtlMs` | `number \| null` | `null` | Sets `cache-control` headers / exposes cache helpers. |
 | `summary` / `description` / `tags` | `string`, `string[]` | `undefined` | Metadata surfaced in OpenAPI and docs. |
 | `custom` | `Record<string, unknown>` | `undefined` | Arbitrary metadata also emitted via `api.describe()`. |
 
@@ -92,6 +95,59 @@ Executable functions can be passed directly in `queries` when you just need a ha
 | `builder.queryLogger` | `ServeQueryLogger` instance for subscribing to endpoint execution events. See [Observability](#observability) below. |
 | `builder.handler` | Low-level `ServeHandler` function you can pass into any adapter (Node, Fetch, Edge). |
 | `builder.start(options?)` | Convenience helper that starts the default Node server (internally uses `startNodeServer`). Resolves to `{ stop() }`. |
+
+## Procedure builder (`query.*`)
+
+When using `initServe`, the returned `query` object is a fluent builder for defining endpoints with chained configuration. All methods return a new builder instance (immutable chaining):
+
+| Method | Description |
+| --- | --- |
+| `.input(schema)` | Set the Zod input schema. |
+| `.output(schema)` | Set the Zod output schema. |
+| `.describe(text)` | Set the description. |
+| `.name(text)` | Set the human-readable name. |
+| `.summary(text)` | Set the OpenAPI summary. |
+| `.tag(tag)` / `.tags(tags)` | Append tag(s) for OpenAPI grouping. |
+| `.method(verb)` | Set the HTTP method (`GET`, `POST`, etc.). |
+| `.cache(ttlMs)` | Set cache TTL for `Cache-Control` headers. |
+| `.auth(strategy)` | Set a per-endpoint auth strategy (or `null` to disable). |
+| `.requireAuth()` | Require authentication. Rejects with `401` when no credentials. |
+| `.requireRole(...roles)` | Require at least one role (OR). Rejects with `403`. Implies `.requireAuth()`. |
+| `.requireScope(...scopes)` | Require all scopes (AND). Rejects with `403`. Implies `.requireAuth()`. |
+| `.public()` | Explicitly skip auth, even when global strategies are configured. |
+| `.tenant(config)` | Set per-endpoint tenant isolation config. |
+| `.custom(metadata)` | Merge custom metadata for `api.describe()` consumers. |
+| `.use(...middlewares)` | Append endpoint-specific middleware. |
+| `.query(executable)` | Terminal method—returns the finalized `ServeQueryConfig`. |
+
+### Auth guard semantics
+
+| Guard | Check | HTTP status | Error type |
+| --- | --- | --- | --- |
+| `.requireAuth()` | `ctx.auth` must be non-null | `401` | `UNAUTHORIZED` |
+| `.requireRole('admin', 'editor')` | `ctx.auth.roles` must contain at least one | `403` | `FORBIDDEN` |
+| `.requireScope('read:x', 'write:x')` | `ctx.auth.scopes` must contain all | `403` | `FORBIDDEN` |
+| `.public()` | Skip auth enforcement | — | — |
+
+Guards are enforced in the pipeline **after** authentication and **before** tenant isolation, input validation, and middleware execution.
+
+### Auth guard middleware exports
+
+For use with `.use()` or `api.use()` when you prefer middleware composition over the builder chain:
+
+```ts
+import {
+  requireAuthMiddleware,
+  requireRoleMiddleware,
+  requireScopeMiddleware,
+} from '@hypequery/serve';
+```
+
+| Helper | Signature | Behavior |
+| --- | --- | --- |
+| `requireAuthMiddleware()` | `() => ServeMiddleware` | Throws `401` if `ctx.auth` is null. |
+| `requireRoleMiddleware(...roles)` | `(...string[]) => ServeMiddleware` | Throws `403` if no role matches (OR). |
+| `requireScopeMiddleware(...scopes)` | `(...string[]) => ServeMiddleware` | Throws `403` if any scope is missing (AND). |
 
 ## Runtime helpers
 
@@ -221,7 +277,7 @@ Both return `null` for `started` events (only format completions and errors).
   ```json
   {
     "error": {
-      "type": "VALIDATION_ERROR" | "UNAUTHORIZED" | "QUERY_FAILURE" | "CLICKHOUSE_UNREACHABLE" | "RATE_LIMITED" | "NOT_FOUND" | "INTERNAL_SERVER_ERROR",
+      "type": "VALIDATION_ERROR" | "UNAUTHORIZED" | "FORBIDDEN" | "QUERY_FAILURE" | "CLICKHOUSE_UNREACHABLE" | "RATE_LIMITED" | "NOT_FOUND" | "INTERNAL_SERVER_ERROR",
       "message": "Human-friendly summary",
       "details": {
         "issues": [ /* zod validation errors */ ],

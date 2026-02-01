@@ -28,6 +28,7 @@ export type ServeHandler = (request: ServeRequest) => Promise<ServeResponse<unkn
 export type ServeErrorType =
   | "VALIDATION_ERROR"
   | "UNAUTHORIZED"
+  | "FORBIDDEN"
   | "QUERY_FAILURE"
   | "CLICKHOUSE_UNREACHABLE"
   | "RATE_LIMITED"
@@ -59,6 +60,10 @@ export interface EndpointMetadata<TCustom = Record<string, unknown>> {
   tags: string[];
   deprecated?: boolean;
   requiresAuth?: boolean;
+  /** Roles required to access this endpoint. Implies requiresAuth. */
+  requiredRoles?: string[];
+  /** Scopes required to access this endpoint. Implies requiresAuth. */
+  requiredScopes?: string[];
   cacheTtlMs?: number | null;
   visibility: EndpointVisibility;
   /** Custom metadata fields for application-specific use cases */
@@ -73,6 +78,54 @@ export interface AuthContext {
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
+
+/**
+ * Type-safe auth context with constrained roles.
+ * Use this to enforce compile-time checking of role values.
+ *
+ * @example
+ * ```ts
+ * type AppRole = 'admin' | 'editor' | 'viewer';
+ * type AppAuth = AuthContextWithRoles<AppRole>;
+ *
+ * const api = defineServe<AppAuth>({
+ *   auth: jwtStrategy,
+ *   queries: {
+ *     adminOnly: query.requireRole('admin').query(async ({ ctx }) => {
+ *       // ✅ TypeScript autocomplete for 'admin' role
+ *       // ❌ Compile error if you use typo like 'admn'
+ *     }),
+ *   },
+ * });
+ * ```
+ */
+export type AuthContextWithRoles<TRoles extends string> = Omit<AuthContext, 'roles'> & {
+  roles?: TRoles[];
+};
+
+/**
+ * Type-safe auth context with constrained scopes.
+ * Use this to enforce compile-time checking of scope values.
+ *
+ * @example
+ * ```ts
+ * type AppScope = 'read:metrics' | 'write:metrics' | 'delete:metrics';
+ * type AppAuth = AuthContextWithScopes<AppScope>;
+ *
+ * const api = defineServe<AppAuth>({
+ *   auth: jwtStrategy,
+ *   queries: {
+ *     writeData: query.requireScope('write:metrics').query(async ({ ctx }) => {
+ *       // ✅ TypeScript autocomplete for scopes
+ *       // ❌ Compile error if you use typo like 'writ:metrics'
+ *     }),
+ *   },
+ * });
+ * ```
+ */
+export type AuthContextWithScopes<TScopes extends string> = Omit<AuthContext, 'scopes'> & {
+  scopes?: TScopes[];
+};
 
 /**
  * Configuration for multi-tenant query isolation.
@@ -293,6 +346,10 @@ export interface ServeEndpoint<
   metadata: EndpointMetadata;
   cacheTtlMs?: number | null;
   defaultHeaders?: Record<string, string>;
+  /** Roles required to access this endpoint. Checked after authentication. */
+  requiredRoles?: string[];
+  /** Scopes required to access this endpoint. Checked after authentication. */
+  requiredScopes?: string[];
 }
 
 
@@ -323,8 +380,14 @@ export interface ServeQueryConfig<
     TAuth
   >[];
   auth?: AuthStrategy<TAuth> | null;
+  /** Explicitly set whether authentication is required. Set by .requireAuth() or .public(). */
+  requiresAuth?: boolean;
   tenant?: TenantConfig<TAuth>;
   cacheTtlMs?: number | null;
+  /** Roles required to access this endpoint. Checked after authentication. */
+  requiredRoles?: string[];
+  /** Scopes required to access this endpoint. Checked after authentication. */
+  requiredScopes?: string[];
   /** Custom metadata for application-specific use cases */
   custom?: Record<string, unknown>;
 }
@@ -440,6 +503,29 @@ export interface ServeConfig<
    * Only applies when `queryLogging` is enabled.
    */
   slowQueryThreshold?: number;
+  /**
+   * Control verbosity of authentication/authorization error messages.
+   *
+   * - `true` — Detailed error messages that specify missing roles/scopes.
+   *   Better developer experience during debugging, but leaks your authorization structure.
+   *
+   * - `false` (default) — Generic error messages ("Access denied", "Insufficient permissions").
+   *   Recommended for all environments to prevent information leakage.
+   *
+   * @default false
+   *
+   * @example
+   * // Enable verbose errors for development
+   * const api = defineServe({
+   *   queries,
+   *   security: {
+   *     verboseAuthErrors: true
+   *   }
+   * });
+   */
+  security?: {
+    verboseAuthErrors?: boolean;
+  };
 }
 
 export interface RouteRegistrationOptions<
@@ -554,6 +640,28 @@ export interface QueryProcedureBuilder<
   method(method: HttpMethod): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   cache(ttlMs: number | null): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   auth(strategy: AuthStrategy<TAuth> | null): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  /**
+   * Require authentication for this endpoint.
+   * Equivalent to setting requiresAuth: true, but more explicit in the builder chain.
+   */
+  requireAuth(): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  /**
+   * Require the authenticated user to have at least one of the specified roles.
+   * Implies requireAuth(). Returns 403 if the user lacks the required role.
+   * @example query.requireRole('admin', 'editor').query(...)
+   */
+  requireRole(...roles: string[]): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  /**
+   * Require the authenticated user to have all of the specified scopes.
+   * Implies requireAuth(). Returns 403 if the user lacks a required scope.
+   * @example query.requireScope('read:metrics', 'read:users').query(...)
+   */
+  requireScope(...scopes: string[]): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  /**
+   * Explicitly mark this endpoint as public (no auth required).
+   * Overrides global auth strategies for this endpoint.
+   */
+  public(): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   tenant(config: TenantConfig<TAuth>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   custom(custom: Record<string, unknown>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   use(
@@ -598,11 +706,19 @@ export interface AuthFailureEvent<TAuth extends AuthContext = AuthContext>
   reason: "MISSING" | "INVALID";
 }
 
+export interface AuthorizationFailureEvent<TAuth extends AuthContext = AuthContext>
+  extends RequestLifecycleBase<TAuth> {
+  reason: "MISSING_ROLE" | "MISSING_SCOPE";
+  required: string[];
+  actual: string[];
+}
+
 export interface ServeLifecycleHooks<TAuth extends AuthContext = AuthContext> {
   onRequestStart?: (event: RequestStartEvent<TAuth>) => MaybePromise<void>;
   onRequestEnd?: (event: RequestEndEvent<TAuth>) => MaybePromise<void>;
   onError?: (event: RequestErrorEvent<TAuth>) => MaybePromise<void>;
   onAuthFailure?: (event: AuthFailureEvent<TAuth>) => MaybePromise<void>;
+  onAuthorizationFailure?: (event: AuthorizationFailureEvent<TAuth>) => MaybePromise<void>;
 }
 
 export interface ToolkitDescription {
@@ -621,6 +737,8 @@ export interface ToolkitQueryDescription {
   visibility: EndpointVisibility;
   requiresAuth: boolean;
   requiresTenant?: boolean;
+  requiredRoles?: string[];
+  requiredScopes?: string[];
   inputSchema?: unknown;
   outputSchema?: unknown;
   custom?: Record<string, unknown>;
