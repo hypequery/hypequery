@@ -24,6 +24,24 @@ export async function promptDatabaseType(): Promise<DatabaseType | null> {
 }
 
 /**
+ * Prompt for connection mode: connect to ClickHouse or start with an example
+ */
+export async function promptConnectionMode(): Promise<'connect' | 'example'> {
+  const response = await prompts({
+    type: 'select',
+    name: 'mode',
+    message: 'How would you like to get started?',
+    choices: [
+      { title: 'Connect to ClickHouse', description: 'Generate types from your existing database', value: 'connect' },
+      { title: 'Start with an example project', description: 'Explore hypequery with sample data — no database needed', value: 'example' },
+    ],
+    initial: 0,
+  });
+
+  return response.mode ?? 'example';
+}
+
+/**
  * Prompt for ClickHouse connection details
  */
 export async function promptClickHouseConnection(): Promise<{

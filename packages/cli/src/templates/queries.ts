@@ -4,8 +4,14 @@
 export function generateQueriesTemplate(options: {
   hasExample: boolean;
   tableName?: string;
+  exampleMode?: boolean;
 }): string {
-  const { hasExample, tableName } = options;
+  const { hasExample, tableName, exampleMode } = options;
+
+  if (exampleMode) {
+    return generateExampleQueriesTemplate();
+  }
+
   const metricKey = hasExample && tableName ? `${camelCase(tableName)}Query` : 'exampleMetric';
   const typeAlias = `${pascalCase(metricKey)}Result`;
 
@@ -65,6 +71,78 @@ export type ApiDefinition = InferApiType<typeof api>;
 `;
 
   return template;
+}
+
+/**
+ * Generate rich example queries that showcase hypequery's API
+ * without requiring a real ClickHouse connection.
+ */
+function generateExampleQueriesTemplate(): string {
+  return `import { initServe } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
+import { db } from './client';
+
+const serve = initServe({
+  context: () => ({ db }),
+});
+const { query } = serve;
+
+export const api = serve.define({
+  queries: serve.queries({
+    // Fetch the 10 most recent users
+    recentUsers: query
+      .describe('Fetch the 10 most recent users')
+      .query(async ({ ctx }) =>
+        ctx.db
+          .table('users')
+          .select('id', 'name', 'email', 'plan', 'created_at')
+          .orderBy('created_at', 'DESC')
+          .limit(10)
+          .execute()
+      ),
+
+    // Summarise orders by status
+    ordersByStatus: query
+      .describe('Count orders grouped by status')
+      .query(async ({ ctx }) =>
+        ctx.db
+          .table('orders')
+          .select('status')
+          .count('id', 'total')
+          .sum('amount', 'revenue')
+          .groupBy('status')
+          .execute()
+      ),
+
+    // Top pages by event count
+    topPages: query
+      .describe('Top 10 pages by number of events')
+      .query(async ({ ctx }) =>
+        ctx.db
+          .table('page_events')
+          .select('page')
+          .count('event_id', 'views')
+          .groupBy('page')
+          .orderBy('views', 'DESC')
+          .limit(10)
+          .execute()
+      ),
+  }),
+});
+
+export type ApiDefinition = InferApiType<typeof api>;
+
+/**
+ * Try it out:
+ *
+ *   const users  = await api.execute('recentUsers');
+ *   const orders = await api.execute('ordersByStatus');
+ *   const pages  = await api.execute('topPages');
+ *
+ * Start the dev server:
+ *   npx hypequery dev
+ */
+`;
 }
 
 /**

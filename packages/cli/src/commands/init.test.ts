@@ -78,28 +78,64 @@ describe('init command - graceful failure handling', () => {
       expect(writeFile).not.toHaveBeenCalled();
     });
 
-    it('should continue when user skips connection details', async () => {
+    it('should generate example project when user chooses example mode', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('example');
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+
+      await initCommand({});
+
+      // Should create example schema with sample tables
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('schema.ts'),
+        expect.stringContaining('users')
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('schema.ts'),
+        expect.stringContaining('orders')
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('schema.ts'),
+        expect.stringContaining('page_events')
+      );
+      // Should create example queries
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('queries.ts'),
+        expect.stringContaining('recentUsers')
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('queries.ts'),
+        expect.stringContaining('ordersByStatus')
+      );
+      // Should create placeholder .env
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('.env'),
+        expect.stringContaining('YOUR_CLICKHOUSE_HOST')
+      );
+    });
+
+    it('should generate example project when user skips connection details', async () => {
+      vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
       vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
 
       await initCommand({});
 
-      // Should create placeholder files
-      expect(writeFile).toHaveBeenCalledWith(
-        expect.stringContaining('.env'),
-        expect.stringContaining('YOUR_CLICKHOUSE_HOST')
-      );
+      // Should create example schema (not empty placeholder)
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('schema.ts'),
-        expect.stringContaining('Run \'npx hypequery generate\'')
+        expect.stringContaining('users')
       );
-      expect(logger.info).toHaveBeenCalledWith('Skipping database connection for now.');
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('queries.ts'),
+        expect.stringContaining('recentUsers')
+      );
     });
 
     it('should use default directory when user cancels path selection', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
-      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('example');
       vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
 
       await initCommand({});
@@ -117,8 +153,9 @@ describe('init command - graceful failure handling', () => {
       // The retry flow is validated manually
     });
 
-    it('should continue without DB when user declines retry but accepts continue', async () => {
+    it('should continue with example project when user declines retry but accepts continue', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -133,7 +170,12 @@ describe('init command - graceful failure handling', () => {
       await initCommand({});
 
       expect(prompts.promptContinueWithoutDb).toHaveBeenCalled();
-      expect(logger.info).toHaveBeenCalledWith('Continuing without database connection.');
+      expect(logger.info).toHaveBeenCalledWith('Continuing with example project instead.');
+      // Should create example schema, not empty placeholder
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('schema.ts'),
+        expect.stringContaining('users')
+      );
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('.env'),
         expect.stringContaining('YOUR_CLICKHOUSE_HOST')
@@ -142,6 +184,7 @@ describe('init command - graceful failure handling', () => {
 
     it('should exit when user declines both retry and continue', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -184,6 +227,7 @@ describe('init command - graceful failure handling', () => {
   describe('Successful connection scenarios', () => {
     it('should generate real types when connection succeeds', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -206,6 +250,7 @@ describe('init command - graceful failure handling', () => {
 
     it('should generate example query when user selects table', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -231,6 +276,7 @@ describe('init command - graceful failure handling', () => {
   describe('File handling', () => {
     it('should append to existing .env file', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -254,6 +300,7 @@ describe('init command - graceful failure handling', () => {
 
     it('should prompt for overwrite when files exist', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -273,6 +320,7 @@ describe('init command - graceful failure handling', () => {
 
     it('should skip setup when user declines overwrite', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -324,6 +372,7 @@ describe('init command - graceful failure handling', () => {
   describe('Dependency installation', () => {
     it('installs serve dependencies when setup completes', async () => {
       vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('connect');
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
         host: 'http://localhost:8123',
         database: 'default',
@@ -334,6 +383,16 @@ describe('init command - graceful failure handling', () => {
       vi.mocked(detectDb.getTableCount).mockResolvedValue(5);
       vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
       vi.mocked(prompts.promptGenerateExample).mockResolvedValue(false);
+
+      await initCommand({});
+
+      expect(installServeDependencies).toHaveBeenCalled();
+    });
+
+    it('installs serve dependencies in example mode too', async () => {
+      vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('example');
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
 
       await initCommand({});
 
