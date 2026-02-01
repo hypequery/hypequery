@@ -80,6 +80,54 @@ export interface AuthContext {
 }
 
 /**
+ * Type-safe auth context with constrained roles.
+ * Use this to enforce compile-time checking of role values.
+ *
+ * @example
+ * ```ts
+ * type AppRole = 'admin' | 'editor' | 'viewer';
+ * type AppAuth = AuthContextWithRoles<AppRole>;
+ *
+ * const api = defineServe<AppAuth>({
+ *   auth: jwtStrategy,
+ *   queries: {
+ *     adminOnly: query.requireRole('admin').query(async ({ ctx }) => {
+ *       // ✅ TypeScript autocomplete for 'admin' role
+ *       // ❌ Compile error if you use typo like 'admn'
+ *     }),
+ *   },
+ * });
+ * ```
+ */
+export type AuthContextWithRoles<TRoles extends string> = Omit<AuthContext, 'roles'> & {
+  roles?: TRoles[];
+};
+
+/**
+ * Type-safe auth context with constrained scopes.
+ * Use this to enforce compile-time checking of scope values.
+ *
+ * @example
+ * ```ts
+ * type AppScope = 'read:metrics' | 'write:metrics' | 'delete:metrics';
+ * type AppAuth = AuthContextWithScopes<AppScope>;
+ *
+ * const api = defineServe<AppAuth>({
+ *   auth: jwtStrategy,
+ *   queries: {
+ *     writeData: query.requireScope('write:metrics').query(async ({ ctx }) => {
+ *       // ✅ TypeScript autocomplete for scopes
+ *       // ❌ Compile error if you use typo like 'writ:metrics'
+ *     }),
+ *   },
+ * });
+ * ```
+ */
+export type AuthContextWithScopes<TScopes extends string> = Omit<AuthContext, 'scopes'> & {
+  scopes?: TScopes[];
+};
+
+/**
  * Configuration for multi-tenant query isolation.
  * Automatically enforces tenant-scoped data access.
  */
@@ -666,6 +714,8 @@ export interface ToolkitQueryDescription {
   visibility: EndpointVisibility;
   requiresAuth: boolean;
   requiresTenant?: boolean;
+  requiredRoles?: string[];
+  requiredScopes?: string[];
   inputSchema?: unknown;
   outputSchema?: unknown;
   custom?: Record<string, unknown>;

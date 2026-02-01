@@ -207,29 +207,6 @@ Guards return structured errors that clients can branch on:
 | `.requireRole()` | `403` | `FORBIDDEN` | Wrong role (OR) |
 | `.requireScope()` | `403` | `FORBIDDEN` | Missing scope (AND) |
 
-### Middleware helpers
-
-If you prefer to apply guards via `.use()` instead of the builder chain (e.g. shared middleware across queries), use the exported helpers:
-
-```ts
-import {
-  requireAuthMiddleware,
-  requireRoleMiddleware,
-  requireScopeMiddleware,
-} from '@hypequery/serve';
-
-// Global: require auth on all endpoints
-api.use(requireAuthMiddleware());
-
-// Per-query: require admin role
-adminQuery: {
-  middlewares: [requireRoleMiddleware('admin')],
-  query: async ({ ctx }) => { /* ... */ },
-}
-```
-
-These throw errors with `status` and `type` properties that the pipeline maps to the correct HTTP responses.
-
 ### `onAuthorizationFailure` hook
 
 Track authorization failures separately from authentication failures:
@@ -289,7 +266,113 @@ await api.run('revenue', {
 });
 ```
 
-If you already trust the caller (e.g., an internal job), you can skip strategies by calling the underlying query manually or providing a custom `context` with `auth`. Just be explicit so you don’t accidentally bypass tenant enforcement.
+If you already trust the caller (e.g., an internal job), you can skip strategies by calling the underlying query manually or providing a custom `context` with `auth`. Just be explicit so you don't accidentally bypass tenant enforcement.
+
+## Type-Safe Authentication
+
+For better type safety and developer experience, you can constrain which roles and scopes are valid in your application using `createAuthSystem`. This enables TypeScript autocomplete and compile-time checking for role/scope values.
+
+### Basic usage
+
+```ts
+import { createAuthSystem, defineServe, query } from '@hypequery/serve';
+
+// Define your valid roles and scopes up front
+const { useAuth, TypedAuth } = createAuthSystem({
+  roles: ['admin', 'editor', 'viewer'] as const,
+  scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,
+});
+
+// Extract the combined auth type
+type AppAuth = typeof TypedAuth;
+
+const jwtStrategy: AuthStrategy<AppAuth> = async ({ request }) => {
+  const token = request.headers.authorization?.slice(7);
+  const payload = await verifyJwt(token);
+
+  return {
+    userId: payload.sub,
+    roles: payload.roles,  // ✅ Type-checked: must be from the defined list
+    scopes: payload.scopes,  // ✅ Type-checked: must be from the defined list
+  };
+};
+
+export const api = defineServe<AppAuth>({
+  auth: useAuth(jwtStrategy),
+  queries: {
+    adminOnly: query.requireRole('admin').query(async ({ ctx }) => {
+      // ✅ TypeScript autocomplete for 'admin'
+      // ❌ Compile error if you type 'admn' or 'superadmin'
+      return { secret: true };
+    }),
+
+    writeData: query.requireScope('write:metrics').query(async ({ ctx }) => {
+      // ✅ TypeScript autocomplete for 'write:metrics'
+      // ❌ Compile error if you type 'writ:metrics'
+      return { success: true };
+    }),
+  },
+});
+```
+
+### Benefits
+
+**Compile-time safety:** Catch typos and invalid role/scope names at build time instead of runtime.
+
+**Better DX:** IDE autocomplete suggests valid roles and scopes as you type.
+
+**Refactoring:** If you rename a role (e.g., `admin` → `superadmin`), TypeScript will show you all places that need updating.
+
+### Without typed auth (for comparison)
+
+```ts
+// ❌ No autocomplete, easy to typo
+query.requireRole('admn')  // Oops! Runs without error, fails at runtime
+query.requireScope('writ:metrics')  // Another typo
+```
+
+### With typed auth
+
+```ts
+// ✅ Autocomplete, typos caught at compile time
+query.requireRole('admin')  // ✅ Suggested by IDE
+query.requireScope('write:metrics')  // ✅ Suggested by IDE
+```
+
+### Using the typed auth context
+
+When you use `createAuthSystem`, you get a combined `TypedAuth` type that enforces both role and scope constraints:
+
+```ts
+const { TypedAuth } = createAuthSystem({
+  roles: ['admin', 'editor'] as const,
+  scopes: ['read:metrics', 'write:metrics'] as const,
+});
+
+type AppAuth = typeof TypedAuth;
+
+// Now you can use this type throughout your app
+const middleware: ServeMiddleware<any, any, AppAuth, any> = async (ctx, next) => {
+  // ctx.auth.roles is typed as ('admin' | 'editor')[] | undefined
+  // ctx.auth.scopes is typed as ('read:metrics' | 'write:metrics')[] | undefined
+  return next();
+};
+```
+
+### Combining constraints
+
+The `TypedAuth` type combines both role and scope constraints using TypeScript's utility types:
+
+```ts
+import type { AuthContextWithRoles, AuthContextWithScopes } from '@hypequery/serve';
+
+type AppRole = 'admin' | 'editor' | 'viewer';
+type AppScope = 'read:metrics' | 'write:metrics' | 'delete:metrics';
+
+type AppAuth = AuthContextWithRoles<AppRole> & AuthContextWithScopes<AppScope>;
+
+// This is equivalent to using typeof TypedAuth from createAuthSystem
+```
 
 ## Troubleshooting
 

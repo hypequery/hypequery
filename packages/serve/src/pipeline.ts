@@ -25,6 +25,10 @@ import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
+import {
+  checkRoleAuthorization,
+  checkScopeAuthorization,
+} from './auth.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -131,20 +135,24 @@ const checkAuthorization = <TAuth extends AuthContext>(
   requiredRoles?: string[],
   requiredScopes?: string[],
 ): { ok: true } | { ok: false; reason: 'MISSING_ROLE' | 'MISSING_SCOPE'; required: string[]; actual: string[] } => {
+  // Check roles first
   if (requiredRoles && requiredRoles.length > 0) {
-    const userRoles = auth?.roles ?? [];
-    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
-    if (!hasRole) {
-      return { ok: false, reason: 'MISSING_ROLE', required: requiredRoles, actual: userRoles };
+    const roleResult = checkRoleAuthorization(auth, requiredRoles);
+    if (!roleResult.ok) {
+      const userRoles = auth?.roles ?? [];
+      return { ok: false, reason: roleResult.reason, required: roleResult.missing, actual: userRoles };
     }
   }
+
+  // Check scopes
   if (requiredScopes && requiredScopes.length > 0) {
-    const userScopes = auth?.scopes ?? [];
-    const hasAllScopes = requiredScopes.every((scope) => userScopes.includes(scope));
-    if (!hasAllScopes) {
-      return { ok: false, reason: 'MISSING_SCOPE', required: requiredScopes, actual: userScopes };
+    const scopeResult = checkScopeAuthorization(auth, requiredScopes);
+    if (!scopeResult.ok) {
+      const userScopes = auth?.scopes ?? [];
+      return { ok: false, reason: scopeResult.reason, required: scopeResult.missing, actual: userScopes };
     }
   }
+
   return { ok: true };
 };
 

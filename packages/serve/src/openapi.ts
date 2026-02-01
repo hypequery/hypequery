@@ -165,6 +165,24 @@ const toOperation = (endpoint: ServeEndpoint<any, any, any, any>, nameSuffix: st
 
   if (endpoint.metadata.requiresAuth) {
     operation.security = [{ ApiKeyAuth: [] }];
+
+    // Add auth guard information to description
+    const authDetails: string[] = [];
+    if (endpoint.requiredRoles && endpoint.requiredRoles.length > 0) {
+      authDetails.push(`**Required roles:** ${endpoint.requiredRoles.join(", ")}`);
+    }
+    if (endpoint.requiredScopes && endpoint.requiredScopes.length > 0) {
+      authDetails.push(`**Required scopes:** ${endpoint.requiredScopes.join(", ")}`);
+    }
+
+    if (authDetails.length > 0) {
+      operation.description = [
+        endpoint.metadata.description || "",
+        ...authDetails,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
   }
 
   return operation;
