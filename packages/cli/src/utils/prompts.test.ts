@@ -120,7 +120,8 @@ describe('prompts', () => {
             name: 'password',
             initial: 'test_pass',
           }),
-        ])
+        ]),
+        expect.objectContaining({ onCancel: expect.any(Function) })
       );
 
       process.env = originalEnv;
@@ -147,7 +148,8 @@ describe('prompts', () => {
         expect.arrayContaining([
           expect.objectContaining({ initial: '' }),
           expect.objectContaining({ initial: '' }),
-        ])
+        ]),
+        expect.objectContaining({ onCancel: expect.any(Function) })
       );
 
       process.env = originalEnv;

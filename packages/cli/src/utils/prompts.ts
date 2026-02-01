@@ -50,6 +50,8 @@ export async function promptClickHouseConnection(): Promise<{
   username: string;
   password: string;
 } | null> {
+  let cancelled = false;
+
   const response = await prompts([
     {
       type: 'text',
@@ -75,14 +77,24 @@ export async function promptClickHouseConnection(): Promise<{
       message: 'Password:',
       initial: process.env.CLICKHOUSE_PASSWORD ?? '',
     },
-  ]);
+  ], {
+    onCancel: () => {
+      cancelled = true;
+      return false; // stop the prompt chain
+    },
+  });
 
-  // If user cancelled or skipped
-  if (!response.host) {
+  // If user cancelled, skipped, or abandoned mid-way through the prompts
+  if (cancelled || !response.host || !response.database || !response.username) {
     return null;
   }
 
-  return response;
+  return {
+    host: response.host,
+    database: response.database,
+    username: response.username,
+    password: response.password ?? '',
+  };
 }
 
 /**
