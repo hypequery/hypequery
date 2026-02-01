@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { mapEndpointToToolkit } from "./mapper";
-import type { HttpMethod, ServeEndpoint } from "../types";
+import type { HttpMethod } from "../types";
 
 describe("mapEndpointToToolkit", () => {
   it("maps endpoint to toolkit description", () => {
@@ -137,7 +137,7 @@ describe("mapEndpointToToolkit", () => {
         tags: [],
         requiresAuth: false,
         deprecated: false,
-        visibility: "public",
+        visibility: "public" as const,
       },
       cacheTtlMs: null,
       tenant: {
