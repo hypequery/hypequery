@@ -205,13 +205,13 @@ export async function promptRetry(message: string): Promise<boolean> {
 }
 
 /**
- * Ask if user wants to continue without DB connection
+ * Ask if user wants to continue with an example project instead
  */
 export async function promptContinueWithoutDb(): Promise<boolean> {
   const response = await prompts({
     type: 'confirm',
     name: 'continue',
-    message: 'Continue setup without database connection?',
+    message: 'Continue with an example project instead? (no database required)',
     initial: true,
   });
 
