@@ -1,5 +1,11 @@
 # @hypequery/serve
 
+## 0.0.7
+
+### Patch Changes
+
+- 4bbab53: Enable query execution stats logging in dev server. Removed "Coming soon!" placeholder as the feature is already implemented via `serveDev`.
+
 ## 0.0.6
 
 ### Patch Changes
