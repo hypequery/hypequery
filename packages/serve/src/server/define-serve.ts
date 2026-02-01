@@ -18,6 +18,7 @@ import { ensureArray } from "../utils.js";
 import { ServeQueryLogger, formatQueryEvent, formatQueryEventJSON } from "../query-logger.js";
 import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
+import { resolveCorsConfig } from "../cors.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createBuilderMethods } from "./builder.js";
 
@@ -84,6 +85,8 @@ export const defineServe = <
     registerQuery(key, configuredQueries[key]);
   }
 
+  const corsConfig = resolveCorsConfig(config.cors);
+
   const handler: ServeHandler = createServeHandler<TContext, TAuth>({
     router,
     globalMiddlewares,
@@ -93,6 +96,7 @@ export const defineServe = <
     hooks,
     queryLogger,
     verboseAuthErrors: config.security?.verboseAuthErrors ?? false,
+    corsConfig,
   });
 
   // Track route configuration for client config extraction

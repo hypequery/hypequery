@@ -33,6 +33,9 @@ export type ServeErrorType =
   | "CLICKHOUSE_UNREACHABLE"
   | "RATE_LIMITED"
   | "NOT_FOUND"
+  | "PAYLOAD_TOO_LARGE"
+  | "GATEWAY_TIMEOUT"
+  | "SERVICE_UNAVAILABLE"
   | "INTERNAL_SERVER_ERROR";
 
 export interface ErrorEnvelope {
@@ -483,6 +486,11 @@ export interface ServeConfig<
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
   /** Global tenant configuration applied to all queries (can be overridden per-query) */
   tenant?: TenantConfig<TAuth>;
+  /**
+   * CORS configuration. Pass `true` for permissive defaults (allow all origins),
+   * `false` / omit to disable, or an object for fine-grained control.
+   */
+  cors?: boolean | CorsConfig;
   docs?: DocsOptions;
   openapi?: OpenApiOptions;
   context?: ServeContextFactory<TContext, TAuth>;
@@ -542,12 +550,74 @@ export interface RouteRegistrationOptions<
   visibility?: EndpointVisibility;
 }
 
+/**
+ * CORS (Cross-Origin Resource Sharing) configuration.
+ * Controls which origins, methods, and headers are permitted for cross-origin requests.
+ *
+ * Pass `true` for permissive defaults (allow all origins), or an object for fine-grained control.
+ */
+export interface CorsConfig {
+  /**
+   * Allowed origin(s).
+   * - `"*"` allows any origin (not recommended with credentials).
+   * - A string matches that exact origin.
+   * - An array matches any origin in the list.
+   * - A function receives the request origin and returns true/false.
+   * @default "*"
+   */
+  origin?: string | string[] | ((origin: string) => boolean);
+  /**
+   * HTTP methods allowed for cross-origin requests.
+   * @default ["GET","POST","PUT","PATCH","DELETE","OPTIONS"]
+   */
+  methods?: string[];
+  /**
+   * Headers the client is allowed to send.
+   * @default ["Content-Type","Authorization","X-Request-ID"]
+   */
+  allowedHeaders?: string[];
+  /**
+   * Headers the client is allowed to read from the response.
+   */
+  exposedHeaders?: string[];
+  /**
+   * Whether to include `Access-Control-Allow-Credentials: true`.
+   * @default false
+   */
+  credentials?: boolean;
+  /**
+   * How long (in seconds) browsers should cache the preflight response.
+   * @default 86400 (24 hours)
+   */
+  maxAge?: number;
+}
+
 export interface StartServerOptions {
   port?: number;
   hostname?: string;
   signal?: AbortSignal;
   /** Whether to suppress internal logging. */
   quiet?: boolean;
+  /**
+   * Maximum time in milliseconds a request handler is allowed to run
+   * before the server responds with 504 Gateway Timeout.
+   * Set to `0` to disable.
+   * @default 30000 (30 seconds)
+   */
+  requestTimeout?: number;
+  /**
+   * Maximum request body size in bytes.
+   * Requests exceeding this limit receive 413 Payload Too Large.
+   * Set to `0` to disable.
+   * @default 1048576 (1 MB)
+   */
+  bodyLimit?: number;
+  /**
+   * Maximum time in milliseconds to wait for in-flight requests
+   * to complete during graceful shutdown before force-closing.
+   * @default 10000 (10 seconds)
+   */
+  gracefulShutdownTimeout?: number;
 }
 
 /**
