@@ -1,5 +1,12 @@
 # @hypequery/cli
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [3a2aaea]
+  - @hypequery/serve@0.1.0
+
 ## 0.0.8
 
 ### Patch Changes

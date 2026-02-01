@@ -10,5 +10,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": []
+  "ignore": ["ai-sdk-hypequery", "auth-playground", "next-dashboard", "next-serve", "next-starter", "node-embedded", "node-test", "vite-starter"]
 }
