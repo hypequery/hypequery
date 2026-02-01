@@ -139,6 +139,87 @@ export const checkScopeAuthorization = (
 };
 
 /**
+ * Middleware that requires the user to be authenticated.
+ * Returns 401 if no auth context is present.
+ *
+ * @deprecated Use `query.requireAuth()` instead for per-endpoint authentication.
+ *             This middleware is kept for complex use cases where guards aren't suitable.
+ *             See: https://hypequery.com/docs/serve/authentication#middleware-helpers
+ *
+ * Use this as a global middleware via `api.use(requireAuthMiddleware())`.
+ * For per-query guards, prefer `query.requireAuth()`.
+ */
+export const requireAuthMiddleware = <
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+>(): ServeMiddleware<any, any, TContext, TAuth> =>
+  async (ctx, next) => {
+    if (!ctx.auth) {
+      throw Object.assign(new Error("Authentication required"), {
+        status: 401,
+        type: "UNAUTHORIZED",
+      });
+    }
+    return next();
+  };
+
+/**
+ * Middleware that requires the user to have at least one of the specified roles.
+ * Returns 403 if the user lacks the required role.
+ *
+ * @deprecated Use `query.requireRole(...)` instead for per-endpoint authorization.
+ *             This middleware is kept for complex use cases where guards aren't suitable.
+ *             See: https://hypequery.com/docs/serve/authentication#middleware-helpers
+ *
+ * Use this as a global or per-query middleware via `api.use(requireRoleMiddleware('admin'))`.
+ * For per-query guards, prefer `query.requireRole('admin')`.
+ */
+export const requireRoleMiddleware = <
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+>(
+  ...roles: string[]
+): ServeMiddleware<any, any, TContext, TAuth> =>
+  async (ctx, next) => {
+    const result = checkRoleAuthorization(ctx.auth, roles);
+    if (!result.ok) {
+      throw Object.assign(
+        new Error(`Missing required role. Required one of: ${roles.join(", ")}`),
+        { status: 403, type: "FORBIDDEN" },
+      );
+    }
+    return next();
+  };
+
+/**
+ * Middleware that requires the user to have all of the specified scopes.
+ * Returns 403 if the user lacks a required scope.
+ *
+ * @deprecated Use `query.requireScope(...)` instead for per-endpoint authorization.
+ *             This middleware is kept for complex use cases where guards aren't suitable.
+ *             See: https://hypequery.com/docs/serve/authentication#middleware-helpers
+ *
+ * Use this as a global or per-query middleware via `api.use(requireScopeMiddleware('read:metrics'))`.
+ * For per-query guards, prefer `query.requireScope('read:metrics')`.
+ */
+export const requireScopeMiddleware = <
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+>(
+  ...scopes: string[]
+): ServeMiddleware<any, any, TContext, TAuth> =>
+  async (ctx, next) => {
+    const result = checkScopeAuthorization(ctx.auth, scopes);
+    if (!result.ok) {
+      throw Object.assign(
+        new Error(`Missing required scopes: ${result.missing.join(", ")}`),
+        { status: 403, type: "FORBIDDEN" },
+      );
+    }
+    return next();
+  };
+
+/**
  * Configuration options for creating a typed auth system.
  * Enables compile-time safety for roles and scopes.
  */

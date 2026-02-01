@@ -204,6 +204,7 @@ export interface ExecuteEndpointOptions<
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
+  verboseAuthErrors?: boolean;
 }
 
 export const executeEndpoint = async <
@@ -223,6 +224,7 @@ export const executeEndpoint = async <
     hooks = {},
     queryLogger,
     additionalContext,
+    verboseAuthErrors = false, // Default to secure mode for production safety
   } = options;
 
   const requestId = resolveRequestId(request, explicitRequestId);
@@ -283,11 +285,17 @@ export const executeEndpoint = async <
         auth: context.auth,
         reason: 'MISSING',
       });
-      return createErrorResponse(401, 'UNAUTHORIZED', 'Authentication required', {
-        reason: 'missing_credentials',
-        strategies_attempted: strategies.length,
-        endpoint: endpoint.metadata.path,
-      }, { 'x-request-id': requestId });
+      return createErrorResponse(
+        401,
+        'UNAUTHORIZED',
+        verboseAuthErrors ? 'Authentication required' : 'Access denied',
+        {
+          reason: 'missing_credentials',
+          ...(verboseAuthErrors && { strategies_attempted: strategies.length }),
+          endpoint: endpoint.metadata.path,
+        },
+        { 'x-request-id': requestId }
+      );
     }
 
     context.auth = authContext;
@@ -306,12 +314,21 @@ export const executeEndpoint = async <
         required: authzResult.required,
         actual: authzResult.actual,
       });
-      return createErrorResponse(403, 'FORBIDDEN', `Missing required ${label}`, {
-        reason: authzResult.reason.toLowerCase(),
-        required: authzResult.required,
-        actual: authzResult.actual,
-        endpoint: endpoint.metadata.path,
-      });
+      return createErrorResponse(
+        403,
+        'FORBIDDEN',
+        verboseAuthErrors
+          ? `Missing required ${label}: ${authzResult.required.join(', ')}`
+          : 'Insufficient permissions',
+        {
+          reason: authzResult.reason.toLowerCase(),
+          ...(verboseAuthErrors && {
+            required: authzResult.required,
+            actual: authzResult.actual,
+          }),
+          endpoint: endpoint.metadata.path,
+        }
+      );
     }
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
     Object.assign(context, resolvedContext, additionalContext);
@@ -485,6 +502,7 @@ interface HandlerOptions<
   contextFactory?: ServeContextFactory<TContext, TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
+  verboseAuthErrors?: boolean;
 }
 
 export const createServeHandler = <
@@ -498,6 +516,7 @@ export const createServeHandler = <
   contextFactory,
   hooks,
   queryLogger,
+  verboseAuthErrors = false,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
     const requestId = resolveRequestId(request);
@@ -522,6 +541,7 @@ export const createServeHandler = <
       tenantConfig,
       hooks,
       queryLogger,
+      verboseAuthErrors,
     });
   };
 };

@@ -503,6 +503,29 @@ export interface ServeConfig<
    * Only applies when `queryLogging` is enabled.
    */
   slowQueryThreshold?: number;
+  /**
+   * Control verbosity of authentication/authorization error messages.
+   *
+   * - `true` — Detailed error messages that specify missing roles/scopes.
+   *   Better developer experience during debugging, but leaks your authorization structure.
+   *
+   * - `false` (default) — Generic error messages ("Access denied", "Insufficient permissions").
+   *   Recommended for all environments to prevent information leakage.
+   *
+   * @default false
+   *
+   * @example
+   * // Enable verbose errors for development
+   * const api = defineServe({
+   *   queries,
+   *   security: {
+   *     verboseAuthErrors: true
+   *   }
+   * });
+   */
+  security?: {
+    verboseAuthErrors?: boolean;
+  };
 }
 
 export interface RouteRegistrationOptions<

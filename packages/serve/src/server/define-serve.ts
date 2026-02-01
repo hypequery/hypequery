@@ -92,6 +92,7 @@ export const defineServe = <
     contextFactory,
     hooks,
     queryLogger,
+    verboseAuthErrors: config.security?.verboseAuthErrors ?? false,
   });
 
   // Track route configuration for client config extraction
@@ -105,6 +106,7 @@ export const defineServe = <
     globalTenantConfig,
     hooks,
     queryLogger,
+    config.security?.verboseAuthErrors ?? false, // Default to false for security
   );
 
   const builder = createBuilderMethods<TQueries, TContext, TAuth>(

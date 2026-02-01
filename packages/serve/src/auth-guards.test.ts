@@ -3,6 +3,9 @@ import { z } from "zod";
 
 import { defineServe, initServe } from "./server";
 import {
+  requireAuthMiddleware,
+  requireRoleMiddleware,
+  requireScopeMiddleware,
   createAuthSystem,
   checkRoleAuthorization,
   checkScopeAuthorization,
@@ -88,6 +91,7 @@ describe("Auth Guards", () => {
     it("rejects users without the required role with 403", async () => {
       const { define, query } = initServe({
         context: () => ({}),
+        security: { verboseAuthErrors: true },
       });
 
       const api = define({
@@ -211,6 +215,7 @@ describe("Auth Guards", () => {
     it("rejects users without all required scopes with 403", async () => {
       const { define, query } = initServe({
         context: () => ({}),
+        security: { verboseAuthErrors: true },
       });
 
       const api = define({
@@ -413,6 +418,78 @@ describe("Auth Guards", () => {
           actual: [],
         }),
       );
+    });
+  });
+
+  describe("middleware helpers", () => {
+    describe("requireAuthMiddleware", () => {
+      it("throws for unauthenticated context", async () => {
+        const middleware = requireAuthMiddleware();
+        const ctx = { auth: null } as any;
+        const next = vi.fn();
+
+        await expect(middleware(ctx, next)).rejects.toThrow("Authentication required");
+        expect(next).not.toHaveBeenCalled();
+      });
+
+      it("passes for authenticated context", async () => {
+        const middleware = requireAuthMiddleware();
+        const ctx = { auth: { userId: "u1" } } as any;
+        const next = vi.fn().mockResolvedValue("result");
+
+        const result = await middleware(ctx, next);
+        expect(next).toHaveBeenCalled();
+        expect(result).toBe("result");
+      });
+    });
+
+    describe("requireRoleMiddleware", () => {
+      it("throws for missing role", async () => {
+        const middleware = requireRoleMiddleware("admin");
+        const ctx = { auth: { roles: ["viewer"] } } as any;
+        const next = vi.fn();
+
+        await expect(middleware(ctx, next)).rejects.toThrow(
+          "Missing required role",
+        );
+        expect(next).not.toHaveBeenCalled();
+      });
+
+      it("passes for matching role", async () => {
+        const middleware = requireRoleMiddleware("admin");
+        const ctx = { auth: { roles: ["admin"] } } as any;
+        const next = vi.fn().mockResolvedValue("ok");
+
+        const result = await middleware(ctx, next);
+        expect(next).toHaveBeenCalled();
+        expect(result).toBe("ok");
+      });
+    });
+
+    describe("requireScopeMiddleware", () => {
+      it("throws for missing scope", async () => {
+        const middleware = requireScopeMiddleware("read:metrics", "write:metrics");
+        const ctx = { auth: { scopes: ["read:metrics"] } } as any;
+        const next = vi.fn();
+
+        // Error message includes ALL required scopes, not just missing ones
+        await expect(middleware(ctx, next)).rejects.toThrow(
+          "Missing required scopes: read:metrics, write:metrics",
+        );
+        expect(next).not.toHaveBeenCalled();
+      });
+
+      it("passes when all scopes present", async () => {
+        const middleware = requireScopeMiddleware("read:metrics", "write:metrics");
+        const ctx = {
+          auth: { scopes: ["read:metrics", "write:metrics"] },
+        } as any;
+        const next = vi.fn().mockResolvedValue("ok");
+
+        const result = await middleware(ctx, next);
+        expect(next).toHaveBeenCalled();
+        expect(result).toBe("ok");
+      });
     });
   });
 

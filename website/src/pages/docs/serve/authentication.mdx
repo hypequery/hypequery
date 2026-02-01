@@ -207,6 +207,52 @@ Guards return structured errors that clients can branch on:
 | `.requireRole()` | `403` | `FORBIDDEN` | Wrong role (OR) |
 | `.requireScope()` | `403` | `FORBIDDEN` | Missing scope (AND) |
 
+### Security: Controlling error verbosity
+
+By default, auth guards return generic error messages to prevent information leakage about your authorization structure. During development, you can enable verbose mode to see exactly which roles or scopes are missing.
+
+**Default (secure mode)** - Hides the `required` and `actual` arrays:
+```json
+{
+  "error": {
+    "type": "FORBIDDEN",
+    "message": "Insufficient permissions",
+    "details": {
+      "reason": "missing_role",
+      "endpoint": "/admin-dashboard"
+    }
+  }
+}
+```
+
+
+To enable verbose error messages during development, set `security.verboseAuthErrors` to `true`:
+
+```ts
+import { defineServe } from '@hypequery/serve';
+
+export const api = defineServe({
+  queries,
+  security: {
+    verboseAuthErrors: true // Show missing roles/scopes (for development)
+  }
+});
+```
+
+**When to use verbose mode:**
+
+- **Development**: Enable for faster debugging and iteration
+- **Internal/private APIs**: Enable if you trust all consumers and want better error messages
+- **Staging environments**: Enable for troubleshooting before production deployment
+
+**When to use secure mode (default):**
+
+- **Production APIs**: Prevents information leakage about your authorization structure
+- **Public-facing services**: Default recommendation for most applications
+- **Multi-tenant SaaS**: Prevents tenants from discovering each other's roles/permissions
+
+The `reason` field (e.g., `"missing_role"`, `"missing_scope"`) is always included for logging and monitoring purposes, regardless of the verbosity setting. Only the `required` and `actual` arrays are hidden in non-verbose mode.
+
 ### `onAuthorizationFailure` hook
 
 Track authorization failures separately from authentication failures:

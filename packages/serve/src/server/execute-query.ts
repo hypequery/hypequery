@@ -27,6 +27,7 @@ export const createExecuteQuery = <
   tenantConfig: TenantConfig<TAuth> | undefined,
   hooks: ServeLifecycleHooks<TAuth>,
   queryLogger: ServeQueryLogger,
+  verboseAuthErrors: boolean,
 ) => {
   return async <TKey extends keyof typeof queryEntries>(
     key: TKey,
@@ -60,6 +61,7 @@ export const createExecuteQuery = <
       hooks,
       queryLogger,
       additionalContext: options?.context,
+      verboseAuthErrors,
     });
 
     if (response.status !== 200) {

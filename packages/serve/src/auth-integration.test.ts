@@ -60,6 +60,7 @@ describe("Auth Guards - Integration Tests", () => {
     it("handles complete request flow with invalid role", async () => {
       const { define, query } = initServe({
         context: () => ({ db: {} }),
+        security: { verboseAuthErrors: true },
       });
 
       const api = define({
@@ -93,6 +94,7 @@ describe("Auth Guards - Integration Tests", () => {
     it("handles complete request flow with all required scopes", async () => {
       const { define, query } = initServe({
         context: () => ({ db: {} }),
+        security: { verboseAuthErrors: true },
       });
 
       const api = define({
@@ -120,6 +122,7 @@ describe("Auth Guards - Integration Tests", () => {
     it("handles complete request flow with missing scope", async () => {
       const { define, query } = initServe({
         context: () => ({ db: {} }),
+        security: { verboseAuthErrors: true },
       });
 
       const api = define({
@@ -450,6 +453,97 @@ describe("Auth Guards - Integration Tests", () => {
 
       expect(response.status).toBe(403); // Auth failure, not validation error
       expect(response.body.error.type).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("verboseAuthErrors security option", () => {
+    it("returns detailed auth errors when verboseAuthErrors is true", async () => {
+      const { define, query } = initServe({
+        context: () => ({ db: {} }),
+        security: {
+          verboseAuthErrors: true,
+        },
+      });
+
+      const api = define({
+        queries: {
+          adminOnly: query.requireRole("admin").query(async () => ({ data: "secret" })),
+        },
+      });
+
+      api.route("/admin", api.queries.adminOnly);
+      api.useAuth(alwaysAuth({ userId: "user1", roles: ["viewer"] }));
+
+      const response = await api.handler(createRequest({ path: "/admin" }));
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.message).toBe("Missing required role: admin");
+      expect(response.body.error.details.required).toEqual(["admin"]);
+      expect(response.body.error.details.actual).toEqual(["viewer"]);
+    });
+
+    it("returns generic auth errors when verboseAuthErrors is false (default)", async () => {
+      const { define, query } = initServe({
+        context: () => ({ db: {} }),
+      });
+
+      const api = define({
+        queries: {
+          adminOnly: query.requireRole("admin").query(async () => ({ data: "secret" })),
+        },
+      });
+
+      api.route("/admin", api.queries.adminOnly);
+      api.useAuth(alwaysAuth({ userId: "user1", roles: ["viewer"] }));
+
+      const response = await api.handler(createRequest({ path: "/admin" }));
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.message).toBe("Insufficient permissions");
+      expect(response.body.error.details.reason).toBe("missing_role");
+      expect(response.body.error.details.required).toBeUndefined();
+      expect(response.body.error.details.actual).toBeUndefined();
+    });
+
+    it("returns generic auth errors for missing scopes by default", async () => {
+      const { define, query } = initServe({
+        context: () => ({ db: {} }),
+      });
+
+      const api = define({
+        queries: {
+          writeOnly: query.requireScope("write:data").query(async () => ({ success: true })),
+        },
+      });
+
+      api.route("/write", api.queries.writeOnly);
+      api.useAuth(alwaysAuth({ userId: "user1", scopes: ["read:data"] }));
+
+      const response = await api.handler(createRequest({ path: "/write" }));
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.message).toBe("Insufficient permissions");
+      expect(response.body.error.details.reason).toBe("missing_scope");
+    });
+
+    it("returns generic auth errors for missing authentication by default", async () => {
+      const { define, query } = initServe({
+        context: () => ({ db: {} }),
+      });
+
+      const api = define({
+        queries: {
+          protected: query.requireAuth().query(async () => ({ data: "secret" })),
+        },
+      });
+
+      api.route("/protected", api.queries.protected);
+      api.useAuth(async () => null); // No auth
+
+      const response = await api.handler(createRequest({ path: "/protected" }));
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.message).toBe("Access denied");
     });
   });
 });
