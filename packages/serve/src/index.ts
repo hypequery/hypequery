@@ -7,6 +7,8 @@ export * from "./openapi.js";
 export * from "./docs-ui.js";
 export * from "./auth.js";
 export * from "./cors.js";
+export * from "./errors.js";
+export * from "./rate-limit.js";
 export * from "./client-config.js";
 export * from "./adapters/node.js";
 export * from "./adapters/fetch.js";
