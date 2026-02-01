@@ -363,10 +363,10 @@ describe('dev command', () => {
       expect(logger.success).toHaveBeenCalledWith(expect.stringMatching(/^Ready in \d+ms$/));
     });
 
-    it('should display "Query execution stats: Coming soon!" message', async () => {
+    it('should display query execution stats message', async () => {
       await devCommand(undefined, { watch: false });
 
-      expect(logger.info).toHaveBeenCalledWith('💡 Query execution stats: Coming soon!');
+      expect(logger.info).toHaveBeenCalledWith('Query execution stats will appear below as requests are made');
     });
   });
 });

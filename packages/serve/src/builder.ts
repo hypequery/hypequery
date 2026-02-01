@@ -25,6 +25,9 @@ interface BuilderState<TContext extends Record<string, unknown>, TAuth extends A
   method?: HttpMethod;
   cacheTtlMs?: number | null;
   auth?: AuthStrategy<TAuth> | null;
+  requiresAuth?: boolean;
+  requiredRoles?: string[];
+  requiredScopes?: string[];
   tenant?: TenantConfig<TAuth>;
   custom?: Record<string, unknown>;
   middlewares: ServeMiddleware<any, any, TContext, TAuth>[];
@@ -57,6 +60,18 @@ export const createProcedureBuilder = <
     method: (method) => build<TInputSchema, TOutputSchema>({ ...state, method }),
     cache: (ttlMs) => build<TInputSchema, TOutputSchema>({ ...state, cacheTtlMs: ttlMs }),
     auth: (strategy) => build<TInputSchema, TOutputSchema>({ ...state, auth: strategy }),
+    requireAuth: () => build<TInputSchema, TOutputSchema>({ ...state, requiresAuth: true }),
+    requireRole: (...roles) => build<TInputSchema, TOutputSchema>({
+      ...state,
+      requiresAuth: true,
+      requiredRoles: [...(state.requiredRoles ?? []), ...roles],
+    }),
+    requireScope: (...scopes) => build<TInputSchema, TOutputSchema>({
+      ...state,
+      requiresAuth: true,
+      requiredScopes: [...(state.requiredScopes ?? []), ...scopes],
+    }),
+    public: () => build<TInputSchema, TOutputSchema>({ ...state, requiresAuth: false }),
     tenant: (config) => build<TInputSchema, TOutputSchema>({ ...state, tenant: config }),
     custom: (custom) => build<TInputSchema, TOutputSchema>({ ...state, custom: { ...(state.custom ?? {}), ...custom } }),
     use: (...middlewares) =>
@@ -73,7 +88,10 @@ export const createProcedureBuilder = <
         outputSchema: state.outputSchema as TOutputSchema,
         cacheTtlMs: state.cacheTtlMs,
         auth: typeof state.auth === 'undefined' ? null : state.auth,
+        requiresAuth: state.requiresAuth,
         tenant: state.tenant,
+        requiredRoles: state.requiredRoles,
+        requiredScopes: state.requiredScopes,
         custom: state.custom,
         middlewares: state.middlewares as ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TContext, TAuth>[],
         query: executable,

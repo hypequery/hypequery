@@ -91,9 +91,11 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.success(`Ready in ${process.uptime().toFixed(0)}ms`);
       logger.newline();
 
-      // Query execution stats - coming soon
-      logger.info('💡 Query execution stats: Coming soon!');
-      logger.newline();
+      // Query execution stats are logged automatically
+      if (!options.quiet) {
+        logger.info('Query execution stats will appear below as requests are made');
+        logger.newline();
+      }
 
       if (shouldWatch) {
         logger.info('Watching for changes...');

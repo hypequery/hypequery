@@ -214,6 +214,55 @@ custom: {
 }
 ```
 
+## Builder pattern
+
+`initServe` also returns a `query` builder that creates endpoint definitions via a fluent chain. This is useful when you want to compose auth guards, middleware, and metadata without nesting config objects:
+
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, query } = initServe({
+  context: () => ({ db }),
+});
+
+const api = define({
+  queries: {
+    // Public endpoint — no auth even when global auth is configured
+    healthcheck: query
+      .public()
+      .query(async () => ({ status: 'ok' })),
+
+    // Requires authentication
+    metrics: query
+      .requireAuth()
+      .describe('General metrics overview')
+      .input(z.object({ range: z.string() }))
+      .query(async ({ ctx, input }) =>
+        ctx.db.table('metrics').where('range', 'eq', input.range).select('*'),
+      ),
+
+    // Requires admin role
+    adminDashboard: query
+      .requireRole('admin')
+      .tag('admin')
+      .query(async ({ ctx }) =>
+        ctx.db.table('admin_metrics').select('*'),
+      ),
+
+    // Requires specific scopes
+    exportData: query
+      .requireScope('read:metrics', 'export:data')
+      .method('POST')
+      .input(z.object({ format: z.enum(['csv', 'json']) }))
+      .query(async ({ ctx, input }) => { /* ... */ }),
+  },
+});
+```
+
+The builder and config-object styles produce identical `ServeQueryConfig` values—pick whichever reads better for your team. See [Authentication](/docs/serve/authentication#auth-guards) for the full auth guards reference.
+
 ## Reusing query types
 
 Need fully typed inputs/outputs elsewhere (React hooks, API routes, SDKs)? Use the helper types exported from `@hypequery/serve`:

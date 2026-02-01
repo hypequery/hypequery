@@ -87,6 +87,175 @@ queries: {
 
 When `auth: null`, the endpoint bypasses global strategies entirely.
 
+## Auth guards
+
+The builder API exposes declarative guards that control **who** can access each endpoint. These are checked after authentication succeeds, so the distinction is: authentication proves identity, guards enforce authorization.
+
+### `.requireAuth()`
+
+Explicitly mark an endpoint as requiring authentication. When no auth context is present, the request is rejected with `401 UNAUTHORIZED`:
+
+```ts
+const { define, query } = initServe({ context: () => ({ db }) });
+
+const api = define({
+  queries: {
+    metrics: query
+      .requireAuth()
+      .query(async ({ ctx }) => ctx.db.table('metrics').select('*')),
+  },
+});
+```
+
+### `.requireRole()`
+
+Require the user to have at least one of the listed roles. Uses OR semantics—any matching role grants access. Returns `403 FORBIDDEN` with details when no role matches:
+
+```ts
+const api = define({
+  queries: {
+    adminDashboard: query
+      .requireRole('admin', 'super-admin')
+      .query(async ({ ctx }) => ctx.db.table('admin_metrics').select('*')),
+
+    editorView: query
+      .requireRole('editor')
+      .query(async ({ ctx }) => ctx.db.table('content_metrics').select('*')),
+  },
+});
+```
+
+Roles are checked against `ctx.auth.roles`. Your auth strategy must populate this field:
+
+```ts
+const authStrategy = async ({ request }) => {
+  const token = request.headers.authorization?.slice(7);
+  const payload = await verifyJwt(token);
+  return {
+    userId: payload.sub,
+    roles: payload.roles,   // e.g. ['admin', 'viewer']
+    scopes: payload.scopes, // e.g. ['read:metrics']
+  };
+};
+```
+
+### `.requireScope()`
+
+Require the user to have **all** listed scopes. Uses AND semantics—every scope must be present. Returns `403 FORBIDDEN` when any scope is missing:
+
+```ts
+const api = define({
+  queries: {
+    sensitiveExport: query
+      .requireScope('read:metrics', 'export:data')
+      .query(async ({ ctx }) => ctx.db.table('exports').select('*')),
+  },
+});
+```
+
+Scopes are checked against `ctx.auth.scopes`. Combine with `.requireRole()` when you need both:
+
+```ts
+adminExport: query
+  .requireRole('admin')
+  .requireScope('export:data')
+  .query(async ({ ctx }) => { /* ... */ }),
+```
+
+### `.public()`
+
+Explicitly opt an endpoint out of authentication, even when global auth strategies are configured. The endpoint still _attempts_ auth (so `ctx.auth` is populated if credentials happen to be present) but never rejects:
+
+```ts
+const api = define({
+  queries: {
+    healthcheck: query
+      .public()
+      .query(async () => ({ status: 'ok' })),
+
+    protectedMetric: query
+      .requireAuth()
+      .query(async ({ ctx }) => { /* ... */ }),
+  },
+});
+
+api.useAuth(myGlobalStrategy); // healthcheck still accessible without credentials
+```
+
+### Error responses
+
+Guards return structured errors that clients can branch on:
+
+```json
+{
+  "error": {
+    "type": "FORBIDDEN",
+    "message": "Missing required role",
+    "details": {
+      "reason": "missing_role",
+      "required": ["admin"],
+      "actual": ["viewer"],
+      "endpoint": "/admin-dashboard"
+    }
+  }
+}
+```
+
+| Guard | HTTP status | Error type | Semantics |
+| --- | --- | --- | --- |
+| `.requireAuth()` | `401` | `UNAUTHORIZED` | No credentials |
+| `.requireRole()` | `403` | `FORBIDDEN` | Wrong role (OR) |
+| `.requireScope()` | `403` | `FORBIDDEN` | Missing scope (AND) |
+
+### Middleware helpers
+
+If you prefer to apply guards via `.use()` instead of the builder chain (e.g. shared middleware across queries), use the exported helpers:
+
+```ts
+import {
+  requireAuthMiddleware,
+  requireRoleMiddleware,
+  requireScopeMiddleware,
+} from '@hypequery/serve';
+
+// Global: require auth on all endpoints
+api.use(requireAuthMiddleware());
+
+// Per-query: require admin role
+adminQuery: {
+  middlewares: [requireRoleMiddleware('admin')],
+  query: async ({ ctx }) => { /* ... */ },
+}
+```
+
+These throw errors with `status` and `type` properties that the pipeline maps to the correct HTTP responses.
+
+### `onAuthorizationFailure` hook
+
+Track authorization failures separately from authentication failures:
+
+```ts
+const api = defineServe({
+  hooks: {
+    onAuthFailure: (event) => {
+      // 401 - no credentials or invalid credentials
+      logger.warn('auth_failure', { reason: event.reason, path: event.metadata.path });
+    },
+    onAuthorizationFailure: (event) => {
+      // 403 - authenticated but wrong role/scope
+      logger.warn('authz_failure', {
+        reason: event.reason,
+        required: event.required,
+        actual: event.actual,
+        userId: event.auth?.userId,
+        path: event.metadata.path,
+      });
+    },
+  },
+  queries: { /* ... */ },
+});
+```
+
 ## Accessing auth in middleware/handlers
 
 `ctx.auth` contains whichever object your strategy returned:

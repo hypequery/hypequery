@@ -2,6 +2,7 @@ import { z, type ZodTypeAny } from 'zod';
 
 import type {
   AuthContext,
+  AuthorizationFailureEvent,
   AuthStrategy,
   DocsOptions,
   EndpointContext,
@@ -23,6 +24,7 @@ import { createTenantScope, warnTenantMisconfiguration } from './tenant.js';
 import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
+import { ServeQueryLogger } from './query-logger.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -42,8 +44,10 @@ const createErrorResponse = (
   type: ErrorEnvelope['error']['type'],
   message: string,
   details?: Record<string, unknown>,
+  headers?: Record<string, string>,
 ) => ({
   status,
+  headers,
   body: { error: { type, message, ...(details ? { details } : {}) } },
 }) satisfies ServeResponse<ErrorEnvelope>;
 
@@ -103,14 +107,45 @@ const computeRequiresAuth = <TAuth extends AuthContext>(
   metadata: EndpointMetadata,
   endpointStrategy: AuthStrategy<TAuth> | null,
   globalStrategies: AuthStrategy<TAuth>[],
+  endpoint: ServeEndpoint<any, any, any, TAuth>,
 ) => {
-  if (typeof metadata.requiresAuth === 'boolean') {
-    return metadata.requiresAuth;
+  // Explicit .public() overrides everything
+  if (metadata.requiresAuth === false) {
+    return false;
+  }
+  // Explicit .requireAuth() or roles/scopes imply auth
+  if (metadata.requiresAuth === true) {
+    return true;
+  }
+  if ((endpoint.requiredRoles?.length ?? 0) > 0 || (endpoint.requiredScopes?.length ?? 0) > 0) {
+    return true;
   }
   if (endpointStrategy) {
     return true;
   }
   return globalStrategies.length > 0;
+};
+
+const checkAuthorization = <TAuth extends AuthContext>(
+  auth: TAuth | null,
+  requiredRoles?: string[],
+  requiredScopes?: string[],
+): { ok: true } | { ok: false; reason: 'MISSING_ROLE' | 'MISSING_SCOPE'; required: string[]; actual: string[] } => {
+  if (requiredRoles && requiredRoles.length > 0) {
+    const userRoles = auth?.roles ?? [];
+    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+    if (!hasRole) {
+      return { ok: false, reason: 'MISSING_ROLE', required: requiredRoles, actual: userRoles };
+    }
+  }
+  if (requiredScopes && requiredScopes.length > 0) {
+    const userScopes = auth?.scopes ?? [];
+    const hasAllScopes = requiredScopes.every((scope) => userScopes.includes(scope));
+    if (!hasAllScopes) {
+      return { ok: false, reason: 'MISSING_SCOPE', required: requiredScopes, actual: userScopes };
+    }
+  }
+  return { ok: true };
 };
 
 const validateInput = (schema: ZodTypeAny | undefined, payload: unknown) => {
@@ -159,6 +194,7 @@ export interface ExecuteEndpointOptions<
   globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[];
   tenantConfig?: TenantConfig<TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
+  queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
 }
 
@@ -177,6 +213,7 @@ export const executeEndpoint = async <
     globalMiddlewares,
     tenantConfig,
     hooks = {},
+    queryLogger,
     additionalContext,
   } = options;
 
@@ -205,10 +242,23 @@ export const executeEndpoint = async <
     auth: context.auth,
   });
 
+  // Skip query logging if no listeners are subscribed
+  if (queryLogger?.listenerCount ?? 0 > 0) {
+    queryLogger?.emit({
+      requestId,
+      endpointKey: endpoint.key,
+      path: endpoint.metadata.path ?? `/${endpoint.key}`,
+      method: request.method,
+      status: 'started',
+      startTime: startedAt,
+      input: request.body ?? request.query,
+    });
+  }
+
   try {
     const endpointAuth = (endpoint.auth as AuthStrategy<TAuth> | null) ?? null;
     const strategies = gatherAuthStrategies(endpointAuth, authStrategies ?? []);
-    const requiresAuth = computeRequiresAuth(endpoint.metadata, endpointAuth, authStrategies ?? []);
+    const requiresAuth = computeRequiresAuth(endpoint.metadata, endpointAuth, authStrategies ?? [], endpoint);
     const metadataWithAuth: EndpointMetadata = {
       ...endpoint.metadata,
       requiresAuth,
@@ -229,10 +279,32 @@ export const executeEndpoint = async <
         reason: 'missing_credentials',
         strategies_attempted: strategies.length,
         endpoint: endpoint.metadata.path,
-      });
+      }, { 'x-request-id': requestId });
     }
 
     context.auth = authContext;
+
+    // Check role/scope authorization after successful authentication
+    const authzResult = checkAuthorization(authContext, endpoint.requiredRoles, endpoint.requiredScopes);
+    if (!authzResult.ok) {
+      const label = authzResult.reason === 'MISSING_ROLE' ? 'role' : 'scope';
+      await safeInvokeHook('onAuthorizationFailure', hooks.onAuthorizationFailure, {
+        requestId,
+        queryKey: endpoint.key,
+        metadata: metadataWithAuth,
+        request,
+        auth: authContext,
+        reason: authzResult.reason,
+        required: authzResult.required,
+        actual: authzResult.actual,
+      });
+      return createErrorResponse(403, 'FORBIDDEN', `Missing required ${label}`, {
+        reason: authzResult.reason.toLowerCase(),
+        required: authzResult.required,
+        actual: authzResult.actual,
+        endpoint: endpoint.metadata.path,
+      });
+    }
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
     Object.assign(context, resolvedContext, additionalContext);
 
@@ -259,7 +331,7 @@ export const executeEndpoint = async <
         return createErrorResponse(403, 'UNAUTHORIZED', errorMessage, {
           reason: 'missing_tenant_context',
           tenant_required: true,
-        });
+        }, { 'x-request-id': requestId });
       }
 
       if (tenantId) {
@@ -309,7 +381,7 @@ export const executeEndpoint = async <
       });
       return createErrorResponse(400, 'VALIDATION_ERROR', 'Request validation failed', {
         issues: validationResult.error.issues,
-      });
+      }, { 'x-request-id': requestId });
     }
     context.input = validationResult.data;
 
@@ -319,7 +391,10 @@ export const executeEndpoint = async <
     ];
 
     const result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
-    const headers: Record<string, string> = { ...(endpoint.defaultHeaders ?? {}) };
+    const headers: Record<string, string> = {
+      ...(endpoint.defaultHeaders ?? {}),
+      'x-request-id': requestId,
+    };
     if (typeof cacheTtlMs === 'number') {
       headers['cache-control'] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : 'no-store';
     }
@@ -335,23 +410,59 @@ export const executeEndpoint = async <
       result,
     });
 
+    // Skip query logging if no listeners are subscribed
+    if (queryLogger?.listenerCount ?? 0 > 0) {
+      queryLogger?.emit({
+        requestId,
+        endpointKey: endpoint.key,
+        path: endpoint.metadata.path ?? `/${endpoint.key}`,
+        method: request.method,
+        status: 'completed',
+        startTime: startedAt,
+        endTime: startedAt + durationMs,
+        durationMs,
+        input: context.input,
+        responseStatus: 200,
+        result,
+      });
+    }
+
     return {
       status: 200,
       headers,
       body: result,
     } satisfies ServeResponse;
   } catch (error) {
+    const errorDurationMs = Date.now() - startedAt;
     await safeInvokeHook('onError', hooks.onError, {
       requestId,
       queryKey: endpoint.key,
       metadata: context.metadata,
       request,
       auth: context.auth,
-      durationMs: Date.now() - startedAt,
+      durationMs: errorDurationMs,
       error,
     });
+
+    // Skip query logging if no listeners are subscribed
+    if (queryLogger?.listenerCount ?? 0 > 0) {
+      queryLogger?.emit({
+        requestId,
+        endpointKey: endpoint.key,
+        path: endpoint.metadata.path ?? `/${endpoint.key}`,
+        method: request.method,
+        status: 'error',
+        startTime: startedAt,
+        endTime: startedAt + errorDurationMs,
+        durationMs: errorDurationMs,
+        input: context.input,
+        responseStatus: 500,
+        error: error instanceof Error ? error : new Error(String(error)),
+      });
+    }
+
     const message = error instanceof Error ? error.message : 'Unexpected error';
-    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', message);
+    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', message, undefined, { 'x-request-id': requestId });
   }
 };
 
@@ -365,6 +476,7 @@ interface HandlerOptions<
   tenantConfig?: TenantConfig<TAuth>;
   contextFactory?: ServeContextFactory<TContext, TAuth>;
   hooks?: ServeLifecycleHooks<TAuth>;
+  queryLogger?: ServeQueryLogger;
 }
 
 export const createServeHandler = <
@@ -377,25 +489,31 @@ export const createServeHandler = <
   tenantConfig,
   contextFactory,
   hooks,
+  queryLogger,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
+    const requestId = resolveRequestId(request);
     const endpoint = router.match(request.method as HttpMethod, request.path);
     if (!endpoint) {
       return createErrorResponse(
         404,
         'NOT_FOUND',
         `No endpoint registered for ${request.method} ${request.path}`,
+        undefined,
+        { 'x-request-id': requestId },
       );
     }
 
     return executeEndpoint<TContext, TAuth>({
       endpoint,
       request,
+      requestId,
       authStrategies,
       contextFactory,
       globalMiddlewares,
       tenantConfig,
       hooks,
+      queryLogger,
     });
   };
 };
