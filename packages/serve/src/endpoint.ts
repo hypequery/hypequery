@@ -78,6 +78,8 @@ export const createEndpoint = <
     : SchemaOutput<OutputSchema>;
 
   const method = definition.method ?? "GET";
+  const hasRolesOrScopes = (definition.requiredRoles?.length ?? 0) > 0
+    || (definition.requiredScopes?.length ?? 0) > 0;
   const metadata: EndpointMetadata = {
     path: "",
     method: method as HttpMethod,
@@ -85,7 +87,9 @@ export const createEndpoint = <
     summary: definition.summary,
     description: definition.description,
     tags: definition.tags ?? [],
-    requiresAuth: definition.auth ? true : undefined,
+    requiresAuth: definition.requiresAuth ?? (definition.auth ? true : hasRolesOrScopes ? true : undefined),
+    requiredRoles: definition.requiredRoles,
+    requiredScopes: definition.requiredScopes,
     deprecated: undefined,
     visibility: "public",
     custom: definition.custom,
@@ -119,5 +123,7 @@ export const createEndpoint = <
     metadata,
     cacheTtlMs: definition.cacheTtlMs ?? null,
     defaultHeaders: undefined,
+    requiredRoles: definition.requiredRoles,
+    requiredScopes: definition.requiredScopes,
   } as EndpointFromDefinition<TDefinition, TContext, TAuth>;
 };
