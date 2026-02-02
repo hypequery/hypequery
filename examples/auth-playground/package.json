@@ -1,6 +1,7 @@
 {
   "name": "auth-playground",
   "version": "1.0.0",
+  "private": true,
   "description": "Playground to test hypequery auth guards",
   "type": "module",
   "scripts": {
