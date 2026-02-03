@@ -42,7 +42,7 @@ export default function Navigation() {
             href="/"
             className="font-mono text-xl font-bold text-indigo-300 flex items-center"
           >
-            &gt; hypequery
+            <img src="/logo.svg" alt="Hypequery" className="w-[180px]" />
           </Link>
         </div>
         <div className="flex items-center gap-x-6 justify-end flex-1">
