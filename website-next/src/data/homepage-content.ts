@@ -3,16 +3,16 @@ import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './analytics/client';
 
-const serve = initServe({
+const { define, query } = initServe({
   context: () => ({ db }),
 });
-const { query } = serve;
 
-export const api = serve.define({
-  queries: serve.queries({
+export const api = define({
+  queries: {
     weeklyRevenue: query
+      .describe('Weekly revenue totals')
       .input(z.object({ startDate: z.string() }))
-      .query(async ({ ctx, input }) =>
+      .query(({ ctx, input }) =>
         ctx.db
           .table('orders')
           .where('created_at', 'gte', input.startDate)
@@ -20,7 +20,7 @@ export const api = serve.define({
           .sum('total', 'revenue')
           .execute()
       ),
-  }),
+  },
 });
 `;
 
@@ -78,15 +78,15 @@ export async function sendRenewalDigest() {
     title: 'SaaS analytics APIs',
     summary:
       'Ship customer-facing analytics once, enforce tenant isolation automatically, and reuse the same definitions across regions.',
-    body: 'Serve’s tenant config injects `WHERE account_id = $tenantId` and rejects unauthenticated requests, so every SaaS customer sees only their own metrics while you keep a single analytics codebase.',
+    body: 'The tenant config injects `WHERE account_id = $tenantId` and rejects unauthenticated requests, so every SaaS customer sees only their own metrics while you keep a single analytics codebase.',
     codeLanguage: 'typescript',
     code: `
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { verifySession } from '../lib/auth';
 import { db } from './client';
 
-export const api = defineServe({
+const { define, query } = initServe({
   basePath: '/analytics',
   context: ({ request }) => ({
     db,
@@ -97,27 +97,28 @@ export const api = defineServe({
     extract: (auth) => auth?.accountId,
     mode: 'auto-inject',
   },
+});
+
+export const api = define({
   queries: {
-    revenueByPlan: {
-      inputSchema: z.object({ plan: z.string().optional() }),
-      query: ({ ctx, input }) => {
-        let base = ctx.db
+    revenueByPlan: query
+      .describe('Get revenue by plan')
+      .input(z.object({ plan: z.string().optional() }))
+      .query(({ ctx, input }) =>
+        ctx.db
           .table('orders')
           .where('account_id', 'eq', ctx.tenantId)
+          .when(input.plan, (qb) =>
+            qb.where('plan', 'eq', input.plan)
+          )
           .groupBy(['plan'])
-          .sum('amount', 'revenue');
-
-        if (input.plan) {
-          base = base.where('plan', 'eq', input.plan);
-        }
-
-        return base;
-      },
-    },
+          .sum('amount', 'revenue')
+          .execute()
+      ),
   },
 });
 
-api.route('/revenue/by-plan', api.queries.revenueByPlan, { method: 'POST' });
+api.route('/revenue/by-plan', api.queries.revenueByPlan);
 `,
   },
   {

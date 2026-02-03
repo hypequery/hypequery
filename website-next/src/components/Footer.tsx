@@ -1,7 +1,3 @@
-'use client';
-
-import Link from 'next/link';
-
 const navigation = {
   primary: [
     { name: 'Docs', href: '/docs' },
@@ -43,16 +39,16 @@ export default function Footer() {
           <div className="flex flex-col gap-6 text-sm text-gray-600 md:items-end dark:text-gray-400">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
               {navigation.primary.map((item) => (
-                <Link
+                <a
                   key={item.name}
                   href={item.href}
                   className="hover:text-indigo-600 dark:hover:text-indigo-400"
                 >
                   {item.name}
-                </Link>
+                </a>
               ))}
             </div>
-            <div className="font-medium">
+            <div className="text-gray-600 dark:text-gray-400 font-medium">
               Feedback?{' '}
               <a
                 className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"

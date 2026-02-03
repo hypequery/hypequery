@@ -26,38 +26,57 @@ Multi-tenancy in hypequery works by:
 Configure tenant isolation once for all queries:
 
 <CodeBlock>
-<Pre>
 ```typescript
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
 
-const api = defineServe({
-  context: () => ({
-    db: myDatabaseConnection,
-  }),
-  auth: async ({ request }) => {
-    const token = request.headers['authorization'];
-    if (!token) return null;
-    const decoded = await verifyToken(token);
-    return { userId: decoded.sub, tenantId: decoded.organization_id };
-  },
+type AppAuth = { userId: string; tenantId: string };
+type AppContext = { db: any };
+
+const authStrategy = async ({ request }): Promise<AppAuth | null> => {
+  const token = request.headers['authorization'];
+  if (!token) return null;
+  const decoded = await verifyToken(token);
+  return { userId: decoded.sub, tenantId: decoded.organization_id };
+};
+
+const { define, query } = initServe<AppContext, AppAuth>({
+  auth: authStrategy,
   tenant: {
     extract: (auth) => auth.tenantId,
     required: true,
     column: 'organization_id',
     mode: 'auto-inject',
   },
+  context: () => ({
+    db: myDatabaseConnection,
+  }),
+});
+
+export const api = define({
   queries: {
-    getOrders: {
-      query: async ({ ctx }) =>
-        ctx.db.table('orders').where('status', 'eq', 'completed').select('*'),
-    },
-    getRevenue: {
-      query: async ({ ctx }) => ctx.db.table('transactions').sum('amount'),
-    },
+    getOrders: query
+      .describe('Get orders for current tenant')
+      .input(z.object({ status: z.string().optional() }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .where('status', 'eq', input.status ?? 'completed')
+          .select('*')
+          .execute()
+      ),
+
+    getRevenue: query
+      .describe('Get revenue for current tenant')
+      .query(({ ctx }) =>
+        ctx.db
+          .table('transactions')
+          .sum('amount')
+          .execute()
+      ),
   },
 });
 ```
-</Pre>
 </CodeBlock>
 
 With auto-injection enabled, **every** query builder in your context is automatically scoped to the authenticated tenant.
@@ -71,7 +90,6 @@ With auto-injection enabled, **every** query builder in your context is automati
 Function that extracts the tenant ID from the authenticated user's context.
 
 <CodeBlock>
-<Pre>
 ```typescript
 tenant: {
   extract: (auth) => auth.tenantId,
@@ -87,7 +105,6 @@ tenant: {
   extract: (auth) => auth.metadata?.orgId,
 }
 ```
-</Pre>
 </CodeBlock>
 
 ### `column` (required for auto-inject)
@@ -99,7 +116,7 @@ The database column name used for tenant filtering (e.g., `'organization_id'`, `
 Required when using `mode: 'auto-inject'`.
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 tenant: {
   extract: (auth) => auth.tenantId,
@@ -107,7 +124,7 @@ tenant: {
   mode: 'auto-inject',
 }
 ```
-</Pre>
+
 </CodeBlock>
 
 ### `mode` (optional)
@@ -122,7 +139,6 @@ Controls how tenant filtering is applied:
 - **`'manual'`**: You must manually add tenant filters to queries.
 
 <CodeBlock>
-<Pre>
 ```typescript
 // Recommended: Auto-inject mode
 tenant: {
@@ -137,7 +153,6 @@ tenant: {
   mode: 'manual', // You must manually filter
 }
 ```
-</Pre>
 </CodeBlock>
 
 ### `required` (optional)
@@ -148,7 +163,6 @@ tenant: {
 Whether tenant context is required for this query. When `true`, requests without a valid tenant ID will be rejected with a `403` error.
 
 <CodeBlock>
-<Pre>
 ```typescript
 // Tenant required (default)
 tenant: {
@@ -162,7 +176,6 @@ tenant: {
   required: false,
 }
 ```
-</Pre>
 </CodeBlock>
 
 ## Auto-Inject Mode (Recommended)
@@ -176,9 +189,8 @@ Auto-inject mode wraps all query builders in your context to automatically filte
 3. Your queries work normally, but tenant filters are automatically applied
 
 <CodeBlock>
-<Pre>
 ```typescript
-const api = defineServe({
+const { define, query } = initServe({
   context: () => ({
     db: myDb,
     analyticsDb: myAnalyticsDb,
@@ -194,21 +206,26 @@ const api = defineServe({
     column: 'org_id',
     mode: 'auto-inject',
   },
+});
+
+export const api = define({
   queries: {
-    getUsers: {
-      query: async ({ ctx }) => ctx.db.table('users').select('*'),
-    },
-    getEvents: {
-      query: async ({ ctx }) => {
-        const users = await ctx.db.table('users').select('*');
-        const events = await ctx.analyticsDb.table('events').select('*');
+    getUsers: query
+      .describe('Get users for current tenant')
+      .query(({ ctx }) =>
+        ctx.db.table('users').select('*').execute()
+      ),
+
+    getEvents: query
+      .describe('Get events for current tenant')
+      .query(({ ctx }) => {
+        const users = ctx.db.table('users').select('*').execute();
+        const events = ctx.analyticsDb.table('events').select('*').execute();
         return { users, events };
-      },
-    },
+      }),
   },
 });
 ```
-</Pre>
 </CodeBlock>
 
 ### Global Configuration
@@ -216,9 +233,8 @@ const api = defineServe({
 Set once for all queries:
 
 <CodeBlock>
-<Pre>
 ```typescript
-const api = defineServe({
+const { define, query } = initServe({
   context: () => ({ db }),
   tenant: {
     extract: (auth) => auth.organizationId,
@@ -226,24 +242,32 @@ const api = defineServe({
     mode: 'auto-inject',
     required: true,
   },
+});
+
+export const api = define({
   queries: {
     // All queries automatically tenant-scoped
-    orders: {
-      query: async ({ ctx }) => ctx.db.table('orders').select('*'),
-    },
-    revenue: {
-      query: async ({ ctx }) => ctx.db.table('transactions').sum('amount'),
-    },
+    orders: query
+      .describe('Get orders')
+      .query(({ ctx }) =>
+        ctx.db.table('orders').select('*').execute()
+      ),
+
+    revenue: query
+      .describe('Get revenue')
+      .query(({ ctx }) =>
+        ctx.db.table('transactions').sum('amount').execute()
+      ),
+
     // Optional public metrics
-    botTraffic: {
-      auth: null,
-      tenant: { extract: () => undefined, required: false },
-      query: async () => botService.getStats(),
-    },
+    botTraffic: query
+      .public()
+      .tenant({ extract: () => undefined, required: false })
+      .describe('Get bot traffic stats')
+      .query(async () => botService.getStats()),
   },
 });
 ```
-</Pre>
 </CodeBlock>
 
 ### Per-Query Override
@@ -251,7 +275,7 @@ const api = defineServe({
 Override global config for specific queries:
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 const api = defineServe({
   tenant: {
@@ -282,7 +306,7 @@ const api = defineServe({
   },
 });
 ```
-</Pre>
+
 </CodeBlock>
 
 ## Manual Mode (Advanced)
@@ -295,7 +319,7 @@ Manual mode gives you full control but requires discipline—you must remember t
 - You're migrating from an existing system with custom patterns
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 const api = defineServe({
   tenant: {
@@ -314,7 +338,7 @@ const api = defineServe({
   },
 });
 ```
-</Pre>
+
 </CodeBlock>
 
 **Warning**: Manual mode shows console warnings to remind you to filter queries. In production, consider using auto-inject mode or implementing ESLint rules to catch missing tenant filters.
@@ -341,7 +365,7 @@ When tenant validation fails, the API returns a `403 UNAUTHORIZED` response:
 Complete multi-tenant SaaS setup with auto-injection:
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 import { defineServe } from '@hypequery/serve';
 import { z } from 'zod';
@@ -441,7 +465,7 @@ api.route('/api/admin/stats', api.queries.globalStats);
 
 export default api;
 ```
-</Pre>
+
 </CodeBlock>
 
 ## Best Practices
@@ -449,7 +473,7 @@ export default api;
 ### 1. Use Auto-Inject Mode by Default
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 // ✅ Good—secure by default
 tenant: {
@@ -464,7 +488,7 @@ tenant: {
   mode: 'manual',
 }
 ```
-</Pre>
+
 </CodeBlock>
 
 ### 2. Set Column Consistently
@@ -476,7 +500,7 @@ Use the same column name across your database schema for consistency.
 Write tests to verify isolation:
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 
@@ -524,20 +548,20 @@ describe('Multi-tenancy isolation', () => {
   });
 });
 ```
-</Pre>
+
 </CodeBlock>
 
 ### 4. Use Descriptive Error Messages
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 tenant: {
   extract: (auth) => auth.organizationId,
   errorMessage: 'This endpoint requires organization context. Ensure your API key includes an organization ID.',
 }
 ```
-</Pre>
+
 </CodeBlock>
 
 ## FAQ
@@ -554,12 +578,12 @@ No. Auto-inject mode requires a single consistent column name. If you have diffe
 Yes! Tenant validation and filtering work for both HTTP requests and direct `execute()` calls:
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 await api.handler(request); // Auto-filtered
 await api.run('getOrders', { input: { status: 'pending' } }); // Auto-filtered
 ```
-</Pre>
+
 </CodeBlock>
 
 ### Can I combine auto-inject with role-based access?
@@ -567,7 +591,7 @@ await api.run('getOrders', { input: { status: 'pending' } }); // Auto-filtered
 Absolutely! Tenant isolation happens after authentication:
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 queries: {
   sensitiveData: {
@@ -589,7 +613,7 @@ queries: {
   },
 }
 ```
-</Pre>
+
 </CodeBlock>
 
 ### What about joins across tables?
@@ -597,7 +621,7 @@ queries: {
 Auto-inject applies the tenant filter to the initial table call. For joins:
 
 <CodeBlock>
-<Pre>
+
 ```typescript
 query: async ({ ctx }) => {
   // Tenant filter applied to 'orders' table
@@ -610,7 +634,7 @@ query: async ({ ctx }) => {
   //          JOIN customers ON ...
 }
 ```
-</Pre>
+
 </CodeBlock>
 
 If the joined table also needs filtering, ensure it has the same tenant column, or use manual mode for complex multi-table scenarios.

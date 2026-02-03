@@ -11,15 +11,18 @@
   "dependencies": {
     "@radix-ui/react-popover": "^1.0.7",
     "class-variance-authority": "^0.7.0",
+    "framer-motion": "^12.31.0",
     "fumadocs-core": "^16.4.11",
     "fumadocs-ui": "^16.4.11",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.563.0",
+    "motion": "^12.31.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
+    "shiki": "^3.22.0",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

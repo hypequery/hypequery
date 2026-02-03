@@ -5,19 +5,62 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import HypequeryArchitecture from '@/components/HypequeryArchitecture';
+import CodeHighlight from '@/components/CodeHighlight';
 import { heroCode, runAnywhereSnippets, useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
 import { aiContext } from '@/data/ai-context';
 import { CopyButton } from '@/components/CopyButton';
 
 export default function Home() {
   const [selectedUseCase, setSelectedUseCase] = useState(useCaseExamplesRaw[0]);
-  const [terminalText, setTerminalText] = useState('Waiting for command...');
+  const [terminalText, setTerminalText] = useState('');
+  const [showPrompt, setShowPrompt] = useState(true);
+
+  const terminalLines = [
+    'Connecting to ClickHouse...',
+    'Found 47 tables',
+    'Generating TypeScript types from your schema...',
+    'Created analytics/schema.ts',
+    'Created analytics/client.ts',
+    'Created analytics/queries.ts',
+    '',
+    '🎉 Done! Your analytics backend is ready.',
+    '',
+    'Run: npm run dev'
+  ];
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setTerminalText('✓ Connecting to ClickHouse...\n✓ Found 47 tables\n✓ Generating TypeScript types from your schema...\n✓ Created analytics/schema.ts\n✓ Created analytics/client.ts\n✓ Created analytics/queries.ts\n\n🎉 Done! Your analytics backend is ready.\n\nRun: npm run dev');
-    }, 500);
-    return () => clearTimeout(timer);
+    let lineIndex = 0;
+    let charIndex = 0;
+    let currentText = '';
+
+    const typeNextChar = () => {
+      if (lineIndex < terminalLines.length) {
+        const currentLine = terminalLines[lineIndex];
+
+        if (charIndex < currentLine.length) {
+          // Still typing the current line
+          currentText += currentLine[charIndex];
+          charIndex++;
+          setTerminalText(currentText);
+          setTimeout(typeNextChar, 15 + Math.random() * 30); // Random typing speed
+        } else {
+          // Line finished, add newline and move to next line
+          currentText += '\n';
+          lineIndex++;
+          charIndex = 0;
+          setTerminalText(currentText);
+          setTimeout(typeNextChar, 100); // Pause between lines
+        }
+      }
+    };
+
+    const startDelay = setTimeout(() => {
+      setShowPrompt(false);
+      typeNextChar();
+    }, 800);
+
+    return () => clearTimeout(startDelay);
   }, []);
 
   return (
@@ -93,11 +136,17 @@ export default function Home() {
                       </div>
                       <div className="mt-3 min-h-[110px] space-y-1 font-mono text-xs text-emerald-200/80 whitespace-pre-wrap">
                         {terminalText}
+                        {terminalText && (
+                          <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse" />
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Architecture explainer */}
+              {/* <HypequeryArchitecture /> */}
 
               {/* Everything is code section */}
               <section className="mt-12 rounded-2xl py-8 text-gray-900 dark:text-gray-100">
@@ -122,9 +171,9 @@ export default function Home() {
                       <div className="w-3 h-3 rounded-full bg-white/18"></div>
                       <div className="w-3 h-3 rounded-full bg-white/18"></div>
                     </div>
-                    <pre className="px-4 pb-4 text-sm leading-7 overflow-x-auto text-emerald-100">
-                      <code>{heroCode.trim()}</code>
-                    </pre>
+                    <div className="px-4 pb-4">
+                      <CodeHighlight code={heroCode} language="ts" />
+                    </div>
                   </div>
                   <div className="rounded-xl p-1 text-sm space-y-8">
                     <div className="text-lg font-bold uppercase tracking-wide">
@@ -132,27 +181,19 @@ export default function Home() {
                     </div>
                     <div>
                       <p className="mb-4 font-semibold text-md">Embedded</p>
-                      <pre className="bg-gray-950 p-3 rounded-lg border border-white/10 text-left leading-6 text-emerald-100 text-xs overflow-x-auto">
-                        <code>{runAnywhereSnippets.embedded.code}</code>
-                      </pre>
+                      <CodeHighlight code={runAnywhereSnippets.embedded.code} language="ts" />
                     </div>
                     <div>
                       <p className="mb-4 font-semibold text-md">API</p>
-                      <pre className="bg-gray-950 p-3 rounded-lg border border-white/10 text-left text-xs leading-6 text-emerald-100 overflow-x-auto">
-                        <code>{runAnywhereSnippets.api.code}</code>
-                      </pre>
+                      <CodeHighlight code={runAnywhereSnippets.api.code} language="http" />
                     </div>
                     <div>
                       <p className="mb-4 font-semibold text-md">React</p>
-                      <pre className="bg-gray-950 p-3 rounded-lg border border-white/10 text-left text-xs leading-6 text-emerald-100 overflow-x-auto">
-                        <code>{runAnywhereSnippets.react.code}</code>
-                      </pre>
+                      <CodeHighlight code={runAnywhereSnippets.react.code} language="ts" />
                     </div>
                     <div>
                       <p className="mb-4 font-semibold text-md">AI agent</p>
-                      <pre className="bg-gray-950 p-3 rounded-lg border border-white/10 text-left text-xs leading-6 text-emerald-100 overflow-x-auto">
-                        <code>{runAnywhereSnippets.agent.code}</code>
-                      </pre>
+                      <CodeHighlight code={runAnywhereSnippets.agent.code} language="json" />
                     </div>
                   </div>
                 </div>
@@ -198,9 +239,9 @@ export default function Home() {
                           <div className="w-3 h-3 rounded-full bg-white/18"></div>
                           <div className="w-3 h-3 rounded-full bg-white/18"></div>
                         </div>
-                        <pre className="px-4 pb-4 text-sm leading-7 overflow-x-auto text-emerald-100">
-                          <code>{selectedUseCase.code.trim()}</code>
-                        </pre>
+                        <div className="px-4 pb-4">
+                          <CodeHighlight code={selectedUseCase.code} language={selectedUseCase.codeLanguage} />
+                        </div>
                       </div>
                     </div>
                   </div>
