@@ -3,6 +3,356 @@ title: Node.js
 description: Setup guide for Node.js applications
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Files, Folder, File } from 'fumadocs-ui/components/files';
+
 # Node.js Setup
 
-Setup guide for Node.js applications.
+This guide shows you how to add hypequery to a Node.js application and expose analytics via an HTTP API.
+
+<Callout type="info" title="Runnable Example">
+You can find a runnable Node.js example in our [examples repo](https://github.com/hypequery/hypequery-examples)
+</Callout>
+
+## What You'll Build
+
+A standalone Node.js HTTP API serving analytics queries. By the end of this guide:
+- ✅ Type-safe ClickHouse queries
+- ✅ HTTP API with automatic OpenAPI documentation
+- ✅ Production-ready server with `hypequery serve`
+
+## Prerequisites
+
+- Node.js 18+
+- ClickHouse instance (local or hosted)
+- Sample data or your own ClickHouse tables
+
+<Steps>
+<Step>
+
+### Install dependencies
+
+<CodeBlock>
+```bash
+# Core packages
+npm install @hypequery/clickhouse @hypequery/serve zod
+
+# CLI (required for type generation)
+npm install -D @hypequery/cli
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Configure environment variables
+
+Create a `.env` file:
+
+<CodeBlock>
+```bash
+# .env
+CLICKHOUSE_HOST=http://localhost:8123
+CLICKHOUSE_USERNAME=default
+CLICKHOUSE_PASSWORD=your_password
+CLICKHOUSE_DATABASE=default
+```
+</CodeBlock>
+
+**Important:** Add `.env` to `.gitignore` if not already there.
+
+</Step>
+
+<Step>
+
+### Generate TypeScript types
+
+Generate types from your ClickHouse schema:
+
+<CodeBlock>
+```bash
+npx hypequery generate
+```
+</CodeBlock>
+
+**What this does:**
+- Connects to your ClickHouse instance
+- Introspects your table schemas
+- Generates `analytics/schema.ts` with TypeScript types
+
+**This file is auto-generated.** Don't edit it manually - regenerate when your schema changes.
+
+</Step>
+
+<Step>
+
+### Create ClickHouse client
+
+Create `analytics/client.ts`:
+
+<CodeBlock>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+export const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Define analytics queries
+
+Create `analytics/queries.ts`:
+
+<CodeBlock>
+```typescript
+import 'dotenv/config';
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    healthcheck: query
+      .describe('Health check endpoint')
+      .query(async () => ({ ok: true })),
+
+    dailyStats: query
+      .describe('Daily statistics')
+      .input(z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+      }))
+      .output(z.array(z.object({
+        day: z.string(),
+        count: z.number(),
+      })))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('your_table')
+          .select(['day'])
+          .where('created_at', 'gte', input.startDate)
+          .where('created_at', 'lte', input.endDate)
+          .groupBy(['day'])
+          .count('id', 'count')
+          .execute()
+      ),
+  }),
+});
+
+// Register HTTP routes
+api.route('/healthcheck', api.queries.healthcheck, { method: 'GET' });
+api.route('/daily-stats', api.queries.dailyStats, { method: 'POST' });
+```
+</CodeBlock>
+
+**Key points:**
+- Use `ctx.db` (not `db`) inside query functions
+- Always call `.execute()` at the end
+- Register routes with `api.route()` to expose via HTTP
+
+</Step>
+
+<Step>
+
+### Create server entry point
+
+Create `server.ts`:
+
+<CodeBlock>
+```typescript
+import { createServer } from '@hypequery/serve';
+import { api } from './analytics/queries';
+
+const server = createServer(api, {
+  port: parseInt(process.env.PORT || '4000'),
+  host: process.env.HOST || '0.0.0.0',
+});
+
+server.start().then(() => {
+  console.log(`🚀 Server running at http://localhost:${process.env.PORT || 4000}`);
+  console.log(`📚 Docs available at http://localhost:${process.env.PORT || 4000}/docs`);
+});
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Run the development server
+
+<CodeBlock>
+```bash
+# Using the dev server (with hot reload and docs)
+npx hypequery dev analytics/queries.ts --port 4000
+```
+</CodeBlock>
+
+Visit `http://localhost:4000/docs` to see interactive API documentation.
+
+</Step>
+
+<Step>
+
+### Run in production
+
+<CodeBlock>
+```bash
+# Start the production server
+node server.ts
+# or use ts-node/tsx for TypeScript
+npx tsx server.ts
+```
+</CodeBlock>
+
+</Step>
+
+</Steps>
+
+## Project Structure
+
+After following this guide, your structure should look like:
+
+<Files>
+  <Folder name="your-nodejs-app" defaultOpen>
+    <Folder name="analytics" defaultOpen>
+      <File name="schema.ts (Auto-generated by `hypequery generate`)" />
+      <File name="client.ts (ClickHouse client)" />
+      <File name="queries.ts (Query definitions)" />
+    </Folder>
+    <File name="server.ts (Server entry point)" />
+    <File name=".env (Environment variables)" />
+    <File name="package.json" />
+  </Folder>
+</Files>
+
+## Using the CLI
+
+<CodeBlock>
+```bash
+# Generate types from ClickHouse
+npx hypequery generate
+
+# Run development server
+npx hypequery dev analytics/queries.ts --port 4000
+
+# Run production server
+npx hypequery serve analytics/queries.ts --port 4000
+```
+</CodeBlock>
+
+## Testing Your API
+
+<CodeBlock>
+```bash
+# Test healthcheck endpoint
+curl http://localhost:4000/healthcheck
+
+# Test daily stats endpoint
+curl -X POST http://localhost:4000/daily-stats \
+  -H "Content-Type: application/json" \
+  -d '{"startDate":"2024-01-01T00:00:00Z","endDate":"2024-01-31T23:59:59Z"}'
+
+# View OpenAPI spec
+curl http://localhost:4000/openapi.json
+```
+</CodeBlock>
+
+## Deployment
+
+### Docker
+
+Create a `Dockerfile`:
+
+<CodeBlock>
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+ENV PORT=4000
+ENV HOST=0.0.0.0
+
+EXPOSE 4000
+
+CMD ["node", "server.ts"]
+```
+</CodeBlock>
+
+### Environment Variables
+
+Set these in your production environment:
+
+<CodeBlock>
+```bash
+CLICKHOUSE_HOST=your-clickhouse-host
+CLICKHOUSE_USERNAME=your-username
+CLICKHOUSE_PASSWORD=your-password
+CLICKHOUSE_DATABASE=your-database
+PORT=4000
+HOST=0.0.0.0
+```
+</CodeBlock>
+
+### Process Managers
+
+**PM2:**
+
+<CodeBlock>
+```bash
+npm install -g pm2
+pm2 start server.ts --name hypequery-api
+pm2 startup
+pm2 save
+```
+</CodeBlock>
+
+**Systemd:**
+
+Create `/etc/systemd/system/hypequery.service`:
+
+<CodeBlock>
+```ini
+[Unit]
+Description=Hypequery Analytics API
+After=network.target
+
+[Service]
+Type=simple
+User=nodejs
+WorkingDirectory=/var/www/hypequery
+Environment="PORT=4000"
+ExecStart=/usr/bin/node /var/www/hypequery/server.ts
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+</CodeBlock>
+
+## Related
+
+- [Serve API Reference](/docs/reference/serve) - Full serve framework API
+- [HTTP & OpenAPI Guide](/docs/http-openapi) - Production deployment patterns
+- [Observability](/docs/observability) - Logging and monitoring

@@ -23,7 +23,7 @@ export default function Home() {
   return (
     <>
       <Navigation />
-      <main>
+      <main className="bg-[#0b1120]">
         {/* Hero section */}
         <div className="relative isolate pt-14">
           <div className="pt-24">

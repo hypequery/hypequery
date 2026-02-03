@@ -4,9 +4,19 @@ title: Vite
 description: Run hypequery as a standalone API next to a Vite/React frontend.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Files, Folder, File } from 'fumadocs-ui/components/files';
+
+
 # Vite
 
 Expose analytics through a dedicated hypequery server and call it from your Vite frontend via a proxy.
+
+<Callout type="info" title="Runable Example">
+You can find a runnable vite example in our [examples repo](https://github.com/hypequery/hypequery-examples)
+</Callout>
 
 ## Use case
 
@@ -22,15 +32,34 @@ You want separate frontend/backend processes so you can:
 - Packages: `@hypequery/serve`, `@hypequery/clickhouse`, `zod`, `@tanstack/react-query`
 - Dev packages: `@hypequery/cli`, `concurrently`
 
+<CodeBlock>
 ```bash
 npm install @hypequery/serve @hypequery/clickhouse zod @tanstack/react-query
 npm install --save-dev @hypequery/cli concurrently
 ```
+</CodeBlock>
 
-## 1. Define the API (standalone Node entry)
+<Steps>
+<Step>
 
-`api/queries.ts`
+### Install dependencies
 
+<CodeBlock>
+```bash
+npm install @hypequery/serve @hypequery/clickhouse zod @tanstack/react-query
+npm install --save-dev @hypequery/cli concurrently
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Define the API (standalone Node entry)
+
+Create `api/queries.ts`:
+
+<CodeBlock>
 ```typescript
 import 'dotenv/config';
 import { initServe } from '@hypequery/serve';
@@ -39,6 +68,7 @@ import { z } from 'zod';
 
 const { define, queries, query } = initServe({
   context: () => ({}),
+  basePath: '/api'
 });
 
 const apiDefinition = define({
@@ -58,19 +88,27 @@ export const api = apiDefinition;
 
 api.route('/hello', api.queries.hello, { method: 'GET' });
 ```
+</CodeBlock>
 
-### Run the API locally
+Run the API locally:
 
+<CodeBlock>
 ```bash
 npm run api
 # or manually: npx hypequery dev api/queries.ts --port 4000
 # Docs → http://localhost:4000/docs
 ```
+</CodeBlock>
 
-## 2. Proxy `/api/*` requests in Vite
+</Step>
 
-`vite.config.ts`
+<Step>
 
+### Proxy `/api/*` requests in Vite
+
+Update `vite.config.ts`:
+
+<CodeBlock>
 ```typescript
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -88,13 +126,19 @@ export default defineConfig({
   },
 });
 ```
+</CodeBlock>
 
 During development `fetch('/api/hello')` hits the hypequery server without CORS hassles.
 
-## 3. Generate React Query hooks
+</Step>
 
-`src/lib/hypequery.ts`
+<Step>
 
+### Generate React Query hooks
+
+Create `src/lib/hypequery.ts`:
+
+<CodeBlock>
 ```typescript
 import { createHooks } from '@hypequery/react';
 import type { ApiDefinition } from '../../api/queries';
@@ -103,11 +147,17 @@ export const { useQuery, useMutation } = createHooks<ApiDefinition>({
   baseUrl: '/api',
 });
 ```
+</CodeBlock>
 
-## 4. Use metrics in React components
+</Step>
 
-`src/App.tsx`
+<Step>
 
+### Use metrics in React components
+
+Create `src/App.tsx`:
+
+<CodeBlock>
 ```tsx
 import './App.css';
 import { useMutation } from './lib/hypequery';
@@ -141,9 +191,11 @@ export default function App() {
   );
 }
 ```
+</CodeBlock>
 
-`src/App.css`
+Add styles in `src/App.css`:
 
+<CodeBlock>
 ```css
 #root {
   max-width: 1280px;
@@ -168,31 +220,17 @@ export default function App() {
   color: #dc2626;
 }
 ```
+</CodeBlock>
 
-## 5. Run both servers together
+</Step>
 
-`package.json`
+<Step>
 
-```json
-{
-  "scripts": {
-    "dev": "vite",
-    "api": "hypequery dev api/queries.ts --port 4000",
-    "dev:all": "concurrently \"npm run dev\" \"npm run api\""
-  },
-  "devDependencies": {
-    "@hypequery/cli": "latest",
-    "concurrently": "latest"
-  }
-}
-```
+### Wrap Vite with QueryClientProvider
 
-Run `npm run dev:all` to start Vite (port 5173) and hypequery (port 4000) simultaneously.
+Update `src/main.tsx`:
 
-## 5. Wrap Vite with QueryClientProvider
-
-`src/main.tsx`
-
+<CodeBlock>
 ```tsx
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -212,8 +250,59 @@ createRoot(rootElement).render(
   </StrictMode>
 );
 ```
+</CodeBlock>
 
-## 6. Develop both servers together
+</Step>
+
+<Step>
+
+### Run both servers together
+
+Update scripts in `package.json`:
+
+<CodeBlock>
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "api": "hypequery dev api/queries.ts --port 4000",
+    "dev:all": "concurrently \"npm run dev\" \"npm run api\""
+  },
+  "devDependencies": {
+    "@hypequery/cli": "latest",
+    "concurrently": "latest"
+  }
+}
+```
+</CodeBlock>
+
+Run `npm run dev:all` to start Vite (port 5173) and hypequery (port 4000) simultaneously.
+
+</Step>
+
+</Steps>
+
+## Project Structure
+
+After following this guide, your structure should look like:
+
+<Files>
+  <Folder name="your-vite-app" defaultOpen>
+    <Folder name="api" defaultOpen>
+      <File name="queries.ts (API definition)" />
+    </Folder>
+    <Folder name="src">
+      <Folder name="lib">
+        <File name="hypequery.ts (React hooks)" />
+      </Folder>
+      <File name="App.tsx (Main component)" />
+      <File name="App.css (Styles)" />
+      <File name="main.tsx (Entry point with QueryClientProvider)" />
+    </Folder>
+    <File name="vite.config.ts (Proxy configuration)" />
+    <File name="package.json (Scripts for dev/api)" />
+  </Folder>
+</Files>
 
 ## Deployment tips
 

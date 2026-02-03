@@ -7,7 +7,6 @@ description: hypequery's query builder provides a fluent, type-safe API for buil
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-import { Pre } from 'fumadocs-ui/components/codeblock';
 
 ## Core Concepts
 
@@ -75,12 +74,16 @@ async function getActiveUsers() {
 
 All queries follow this pattern:
 
-{`db.table('table_name')
+<CodeBlock>
+```typescript
+db.table('table_name')
   .where('column', 'operator', 'value')
   .select(['col1', 'col2'])
   .orderBy('created_at', 'DESC')
   .limit(10)
-  .execute();`}
+  .execute();
+```
+</CodeBlock>
 
 <Callout type="tip" title="Remember">
   Always finish your query chains with `.execute()` to run the query.
@@ -111,7 +114,9 @@ The query builder is organized into logical concepts. Each concept has detailed 
 
 hypequery ensures type safety throughout the query building process:
 
-{`// TypeScript knows the exact columns in your schema
+<CodeBlock>
+```typescript
+// TypeScript knows the exact columns in your schema
 db.table('users')
   .select(['id', 'name', 'email'])
   .execute();
@@ -126,7 +131,9 @@ db.table('users')
 db.table('users')
   .where('created_at', 'eq', '2024-01-01') // ✅ Valid
   .where('age', 'gte', 18) // ✅ Valid
-  .execute();`}
+  .execute();
+```
+</CodeBlock>
 
 ## Execution Methods
 
@@ -134,17 +141,23 @@ db.table('users')
 
 Run the query and get all results:
 
-{`const users = await db
+<CodeBlock>
+```typescript
+const users = await db
   .table('users')
   .where('status', 'eq', 'active')
   .select(['id', 'name'])
-  .execute();`}
+  .execute();
+```
+</CodeBlock>
 
 ### stream()
 
 Stream results for large datasets:
 
-{`const stream = await db
+<CodeBlock>
+```typescript
+const stream = await db
   .table('events')
   .select(['id', 'data'])
   .stream();
@@ -154,7 +167,9 @@ while (true) {
   const { done, value: rows } = await reader.read();
   if (done) break;
   // Process rows in batches
-}`}
+}
+```
+</CodeBlock>
 
 ### streamForEach()
 

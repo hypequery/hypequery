@@ -32,7 +32,7 @@ function isBetaBadge(item: NavigationLink): boolean {
 
 export default function Navigation() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-800 dark:bg-gray-950/95">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-800 dark:bg-[#0b1120]">
       <nav
         className="flex h-20 items-center justify-between px-6 lg:px-8"
         aria-label="Global"
@@ -42,7 +42,7 @@ export default function Navigation() {
             href="/"
             className="font-mono text-xl font-bold text-indigo-600 flex items-center"
           >
-            &gt; hypequery
+            <img src="/logo.svg" alt="Hypequery" className="w-[180px]" />
           </Link>
         </div>
         <div className="flex items-center gap-x-6 justify-end flex-1">

@@ -4,7 +4,17 @@ title: Next.js
 description: Complete guide to integrating hypequery into a Next.js App Router project
 ---
 
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Files, Folder, File } from 'fumadocs-ui/components/files';
+
 # Next.js Integration
+
+<Callout type="info" title="Runable Example">
+You can find a runnable Next.js example in our [examples repo](https://github.com/hypequery/hypequery-examples)
+</Callout>
 
 This guide shows you how to add hypequery to an existing Next.js App Router project, expose analytics via API routes, and consume them with type-safe React hooks.
 
@@ -25,8 +35,12 @@ A taxi analytics dashboard using NYC taxi trip data. By the end of this guide:
 - Node.js 18+
 - Sample data: This guide uses the [NYC Taxi dataset](https://clickhouse.com/docs/en/getting-started/example-datasets/nyc-taxi) - adapt the queries for your own data
 
-## Step 1: Install Dependencies
+<Steps>
+<Step>
 
+### Install dependencies
+
+<CodeBlock>
 ```bash
 # Core packages
 npm install @hypequery/clickhouse @hypequery/serve zod
@@ -34,14 +48,20 @@ npm install @hypequery/clickhouse @hypequery/serve zod
 # React hooks (for client components)
 npm install @hypequery/react @tanstack/react-query
 
-# CLI (required for type generation in Step 3)
+# CLI (required for type generation)
 npm install -D @hypequery/cli
 ```
+</CodeBlock>
 
-## Step 2: Configure Environment Variables
+</Step>
+
+<Step>
+
+### Configure environment variables
 
 Create or update `.env.local`:
 
+<CodeBlock>
 ```bash
 # .env.local
 CLICKHOUSE_HOST=http://localhost:8123
@@ -49,6 +69,7 @@ CLICKHOUSE_USERNAME=default
 CLICKHOUSE_PASSWORD=your_password
 CLICKHOUSE_DATABASE=default
 ```
+</CodeBlock>
 
 **Username env var:** We standardize on `CLICKHOUSE_USERNAME` (the name used in the ClickHouse samples). If your deployment exposes `CLICKHOUSE_USER`, set both variables or update `analytics/client.ts` to read the name your host provides.
 
@@ -56,27 +77,38 @@ CLICKHOUSE_DATABASE=default
 
 **Important:** Add `.env.local` to `.gitignore` if not already there.
 
-## Step 3: Generate TypeScript Types
+</Step>
+
+<Step>
+
+### Generate TypeScript types
 
 Generate types from your ClickHouse schema:
 
+<CodeBlock>
 ```bash
 npx hypequery generate
 ```
+</CodeBlock>
 
 **What this does:**
 - Connects to your ClickHouse instance
 - Introspects your table schemas
 - Generates `analytics/schema.ts` with TypeScript types
 
-**Requires the CLI from Step 1.** If `@hypequery/cli` isn't installed, `npx hypequery generate` will fail.
+**Requires the CLI.** If `@hypequery/cli` isn't installed, `npx hypequery generate` will fail.
 
 **This file is auto-generated.** Don't edit it manually - regenerate when your schema changes.
 
-## Step 4: Create ClickHouse Client
+</Step>
+
+<Step>
+
+### Create ClickHouse client
 
 Create `analytics/client.ts` (you write this manually):
 
+<CodeBlock>
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
@@ -88,15 +120,21 @@ export const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 ```
+</CodeBlock>
 
 **Note:** Place this in `analytics/` directory at project root (not `src/`).
 
 **Using the NYC taxi dataset?** This example assumes you have the NYC taxi trips data loaded in ClickHouse. You can also adapt this to any other dataset by changing the table name and columns.
 
-## Step 5: Define Analytics Queries
+</Step>
+
+<Step>
+
+### Define analytics queries
 
 Create `analytics/queries.ts` (you write this manually). We set `basePath: '/api/analytics'` so every registered query lands under the same prefix your Next.js route serves:
 
+<CodeBlock>
 ```typescript
 import { formatDateTime } from '@hypequery/clickhouse';
 import { initServe } from '@hypequery/serve';
@@ -147,6 +185,7 @@ export const api = define({
 // Register HTTP routes (REQUIRED for HTTP access)
 api.route('/daily-stats', api.queries.dailyStats, { method: 'POST' });
 ```
+</CodeBlock>
 
 **Key points:**
 - Use `ctx.db` (not `db`) inside query functions
@@ -155,10 +194,15 @@ api.route('/daily-stats', api.queries.dailyStats, { method: 'POST' });
 - Register routes with `api.route()` to expose via HTTP
 - Set `basePath` once if you want all routes under a common prefix (e.g., `/api/analytics`).
 
-## Step 6: Create Next.js API Route
+</Step>
+
+<Step>
+
+### Create Next.js API route
 
 Create `app/api/analytics/[...path]/route.ts` (you write this manually):
 
+<CodeBlock>
 ```typescript
 import { api } from '@/analytics/queries';
 import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
@@ -174,6 +218,7 @@ export const GET = handler;
 export const POST = handler;
 export const OPTIONS = handler;
 ```
+</CodeBlock>
 
 **What this does:**
 - Catch-all route handles `/api/analytics/*`
@@ -182,6 +227,8 @@ export const OPTIONS = handler;
 
 **Path alias setup:**
 If `@/analytics/queries` doesn't work, configure in `tsconfig.json`:
+
+<CodeBlock>
 ```json
 {
   "compilerOptions": {
@@ -191,11 +238,17 @@ If `@/analytics/queries` doesn't work, configure in `tsconfig.json`:
   }
 }
 ```
+</CodeBlock>
 
-## Step 7: Set Up React Query Provider
+</Step>
+
+<Step>
+
+### Set up React Query provider
 
 Create `app/providers.tsx` (you write this manually):
 
+<CodeBlock>
 ```tsx
 'use client';
 
@@ -212,9 +265,11 @@ export function Providers({ children }: { children: ReactNode }) {
   );
 }
 ```
+</CodeBlock>
 
 Wrap your app in `app/layout.tsx`:
 
+<CodeBlock>
 ```tsx
 import { Providers } from './providers';
 
@@ -230,13 +285,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   );
 }
 ```
+</CodeBlock>
 
 **This step is REQUIRED** - React Query hooks won't work without the provider.
 
-## Step 8: Create Typed Hooks
+</Step>
+
+<Step>
+
+### Create typed hooks
 
 Create `lib/analytics.ts` (you write this manually). Because this file exports client hooks, mark it as a client module and only import the server API for types:
 
+<CodeBlock>
 ```typescript
 'use client';
 
@@ -254,16 +315,22 @@ export const { useQuery, useMutation } = createHooks<AnalyticsApi>({
   },
 });
 ```
+</CodeBlock>
 
 **What this does:**
 - `'use client';` ensures the module can use React Query on the client while `import type` keeps the `api` reference type-only.
 - `InferApiType` extracts types from your query definitions for end-to-end safety.
 - `config` supplies the HTTP method map that `createHooks` needs (client modules can't import the runtime `api` object, so we declare the methods manually).
 
-## Step 9: Use in Client Components
+</Step>
+
+<Step>
+
+### Use in client components
 
 Create `app/dashboard/page.tsx`:
 
+<CodeBlock>
 ```tsx
 'use client';
 
@@ -296,16 +363,22 @@ export default function DashboardPage() {
   );
 }
 ```
+</CodeBlock>
 
 **Type safety:**
 - Query names are autocompleted (try `'dailyStats'` and see TS guide you)
 - Input types are enforced (TypeScript error if you pass wrong shape)
 - Output types are inferred (no need to manually type `data`)
 
-## Step 10: Use in Server Components (Optional)
+</Step>
+
+<Step>
+
+### Use in server components (optional)
 
 For Server Components or API routes, use `api.run()` directly:
 
+<CodeBlock>
 ```tsx
 // app/report/page.tsx
 import { api } from '@/analytics/queries';
@@ -333,6 +406,7 @@ export default async function ReportPage() {
   );
 }
 ```
+</CodeBlock>
 
 **Type inference caveat:** `api.run()` executes the query directly against ClickHouse and returns raw client values (numbers often come back as strings). Zod output schemas are enforced in the HTTP handler + React hooks path, but server-side `api.run()` currently doesn't narrow those types—cast or coerce as needed (see `Number(...)` above).
 
@@ -342,8 +416,13 @@ export default async function ReportPage() {
 - Client Components: Use `useQuery` hooks
 - API Routes: Use `api.run()` or return `api.handler`
 
+</Step>
+
+</Steps>
+
 ## Testing Locally
 
+<CodeBlock>
 ```bash
 # Start Next.js dev server
 npm run dev
@@ -353,9 +432,11 @@ npm run dev
 npx hypequery dev analytics/queries.ts
 # Docs at: http://localhost:4000/docs
 ```
+</CodeBlock>
 
 ## Testing Your API
 
+<CodeBlock>
 ```bash
 # Test daily stats endpoint
 curl -X POST http://localhost:3000/api/analytics/daily-stats \
@@ -365,39 +446,50 @@ curl -X POST http://localhost:3000/api/analytics/daily-stats \
 # View OpenAPI spec
 curl http://localhost:3000/api/analytics/openapi.json
 ```
+</CodeBlock>
 
 ## Deployment (Vercel)
 
 No special configuration needed! Deploy as usual:
 
+<CodeBlock>
 ```bash
 vercel deploy
 ```
+</CodeBlock>
 
 ## Project Structure
 
 After following this guide, your structure should look like:
 
-```
-your-nextjs-app/
-├── analytics/              # Analytics layer (project root)
-│   ├── schema.ts          # Auto-generated by `hypequery generate`
-│   ├── client.ts          # You write this
-│   └── queries.ts         # You write this
-├── app/
-│   ├── api/
-│   │   └── analytics/
-│   │       └── [...path]/
-│   │           └── route.ts  # You write this
-│   ├── dashboard/
-│   │   └── page.tsx       # You write this (client component)
-│   ├── providers.tsx      # You write this
-│   └── layout.tsx         # You update this
-├── lib/
-│   └── analytics.ts       # You write this (React hooks)
-├── .env.local             # You create this
-└── tsconfig.json          # Configure path aliases
-```
+<Files>
+  <Folder name="your-nextjs-app" defaultOpen>
+    <Folder name="analytics" defaultOpen>
+      <File name="schema.ts (Auto-generated by `hypequery generate`)" />
+      <File name="client.ts (You write this)" />
+      <File name="queries.ts (You write this)" />
+    </Folder>
+    <Folder name="app">
+      <Folder name="api">
+        <Folder name="analytics">
+          <Folder name="[...path]">
+            <File name="route.ts (You write this)" />
+          </Folder>
+        </Folder>
+      </Folder>
+      <Folder name="dashboard">
+        <File name="page.tsx (You write this - client component)" />
+      </Folder>
+      <File name="providers.tsx (You write this)" />
+      <File name="layout.tsx (You update this)" />
+    </Folder>
+    <Folder name="lib">
+      <File name="analytics.ts (You write this - React hooks)" />
+    </Folder>
+    <File name=".env.local (You create this)" />
+    <File name="tsconfig.json (Configure path aliases)" />
+  </Folder>
+</Files>
 
 ## Related
 
