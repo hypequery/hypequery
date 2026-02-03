@@ -1,0 +1,154 @@
+---
+title: SQL Expressions
+description: Use raw SQL and expression helpers when the fluent query builder isn't enough
+---
+
+# SQL Expressions
+
+The fluent query builder covers most workflows, but you can always run raw SQL or use expression helpers for complex cases. This page shows when and how to use them.
+
+## Raw SQL Queries
+
+Execute raw SQL when you need complete control:
+
+```ts
+const results = await db.rawQuery<{ day: string; signups: number }>(
+  `SELECT toStartOfDay(created_at) AS day, count(*) AS signups
+   FROM signups
+   WHERE account_id = ?
+   GROUP BY day
+   ORDER BY day`,
+  [accountId]
+);
+```
+
+**In serve context:**
+```ts
+query: async ({ ctx, input }) => {
+  return ctx.db.rawQuery(sql, [input.accountId]);
+}
+```
+
+**Standalone:**
+```ts
+const results = await db.rawQuery(sql, [accountId]);
+```
+
+## Expression Helpers
+
+When the builder handles most of the query but you need a custom expression, use `raw`, `rawAs`, or `selectExpr`. These helpers keep your queries type-safe.
+
+### `raw()` – inject SQL fragments
+
+Use `raw()` to inject SQL fragments into where clauses or other parts of your query:
+
+```ts
+import { raw } from '@hypequery/clickhouse';
+
+db.table('sensors')
+  .select(['id', 'reading'])
+  .where(raw('reading BETWEEN ? AND ?', [min, max]))
+```
+
+- Accepts any SQL fragment plus optional bindings (positional `?` placeholders)
+- Treat as an escape hatch; TypeScript cannot validate the expression
+- Use for complex predicates the fluent API doesn't support
+
+### `rawAs()` – expression + alias
+
+Use `rawAs()` when you need a SQL expression with a typed alias:
+
+```ts
+import { rawAs } from '@hypequery/clickhouse';
+
+db.table('orders')
+  .select([
+    'account_id',
+    rawAs('SUM(total)', 'total_revenue'),
+    rawAs('COUNT(*)', 'order_count'),
+  ])
+  .groupBy(['account_id'])
+  .having(rawAs('SUM(total)', 'total_revenue'), 'gt', 1000)
+```
+
+Common patterns:
+
+| Pattern | Example |
+| --- | --- |
+| Aggregations | `rawAs('AVG(duration)', 'avg_duration')` |
+| CASE statements | `rawAs('CASE WHEN age < 18 THEN 1 ELSE 0 END', 'is_minor')` |
+| JSON extraction | `rawAs("JSONExtractString(metadata, 'country')", 'country')` |
+
+### `selectExpr()` – shorthand for select + alias
+
+Use `selectExpr()` for computed columns in your SELECT clause:
+
+```ts
+import { selectExpr } from '@hypequery/clickhouse';
+
+db.table('rides')
+  .select([
+    selectExpr('toStartOfWeek(start_time)', 'week'),
+    selectExpr('count()', 'ride_count'),
+  ])
+  .groupBy(['week'])
+  .orderBy('week', 'ASC')
+```
+
+- Behaves like `raw` when no alias is supplied and like `rawAs` when you provide one
+- Ideal when your entire projection consists of expressions
+
+### Built-in function helpers
+
+Helpers like `toDateTime`, `formatDateTime`, `toStartOfInterval`, and `datePart` wrap common ClickHouse functions with type safety:
+
+```ts
+import { toDateTime, formatDateTime } from '@hypequery/clickhouse';
+
+db.table('events')
+  .select([
+    'id',
+    toDateTime('occurred_at', 'event_ts'),
+    formatDateTime('occurred_at', 'Y-MM-dd', 'event_date'),
+  ])
+  .where('event_type', 'eq', 'purchase')
+```
+
+## Typing & Best Practices
+
+### Type generics for expressions
+
+Expression helpers accept generics to describe the result type:
+
+```ts
+db.table('orders')
+  .select([
+    rawAs<number, 'total_revenue'>('SUM(total)', 'total_revenue'),
+    rawAs<number, 'avg_order'>('AVG(total)', 'avg_order'),
+  ])
+```
+
+The alias (`'total_revenue'`) shows up on the result type with the specified generic (`number`). Without an alias, the builder can't add a strongly typed key, so always alias computed columns.
+
+### Type raw queries
+
+`rawQuery` returns `unknown[]` by default. Pass a type argument for type safety:
+
+```ts
+const rows = await db.rawQuery<{ day: string; signups: number }>(sql, [accountId]);
+```
+
+### Best practices
+
+- **Parameterize user input**: Always use `?` placeholders with `raw()` and `rawAs()` to prevent SQL injection
+- **Prefer fluent API**: Use expression helpers only when the fluent API doesn't support your use case
+- **Alias all expressions**: Computed columns need aliases for type safety
+- **Type raw queries**: Always provide type arguments to `rawQuery()`
+
+---
+
+## Next Steps
+
+**Continue:** [Subqueries & CTEs](/docs/query-building/subqueries-ctes) - Advanced query composition
+
+**Or explore:** [Query Building](/docs/query-building/basics) - Review the core API

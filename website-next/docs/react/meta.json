@@ -1,5 +1,9 @@
 {
-  "title": "React",
-  "description": "React hooks for analytics",
-  "root": true
+  "title": "React Integration",
+  "pages": [
+    "overview",
+    "getting-started",
+    "using-queries",
+    "advanced-patterns"
+  ]
 }

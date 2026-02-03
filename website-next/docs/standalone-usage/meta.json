@@ -1,5 +1,10 @@
 {
-  "title": "Standalone Usage",
+  "title": "Standalone Query Builder",
   "description": "Use the ClickHouse client directly",
-  "root": true
+  "root": true,
+  "pages": [
+    "standalone-usage/when-to-use",
+    "standalone-usage/setup",
+    "standalone-usage/execution"
+  ]
 }

@@ -1,15 +1,9 @@
 import Link from 'next/link';
-import { Github, ChevronDown, ExternalLink } from 'lucide-react';
-import ThemeToggle from './ThemeToggle';
+import { Github, ExternalLink } from 'lucide-react';
 
 const navigation = [
   { name: 'Docs', href: '/docs' },
   { name: 'Blog', href: '/blog' },
-  {
-    name: 'Roadmap',
-    href: 'https://hypequery.featurebase.app/roadmap',
-    external: true,
-  },
   {
     name: 'GitHub',
     href: 'https://github.com/hypequery/hypequery',
@@ -86,7 +80,6 @@ export default function Navigation() {
               ),
             )}
           </div>
-          <ThemeToggle />
         </div>
       </nav>
     </header>

@@ -1,0 +1,98 @@
+---
+title: React Hooks - Getting Started
+description: Install and set up @hypequery/react for type-safe hooks
+---
+
+# React Hooks - Getting Started
+
+Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your existing `defineServe` API types and wire them into your React app without duplicating schemas.
+
+## Installation
+
+```bash
+npm install @hypequery/react @tanstack/react-query
+```
+
+Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
+
+## Setup
+
+### Option 1: Automatic Type Inference (Recommended)
+
+Use `InferApiType` to automatically extract types from your API definition:
+
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+
+// Automatic type inference - no manual type definition needed!
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api', // where your hypequery routes live
+});
+```
+
+This eliminates the need to manually define and maintain a separate type for your API.
+
+### Option 2: Manual Type Definition
+
+If you prefer to manually define your API types:
+
+```ts
+// lib/analytics.ts
+import { createHooks } from '@hypequery/react';
+
+type Api = {
+  weeklyRevenue: {
+    input: { startDate: string };
+    output: { total: number };
+  };
+  // ... other queries
+};
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api',
+});
+```
+
+## Provider Setup
+
+Wrap your app with TanStack Query's provider:
+
+```tsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+    </QueryClientProvider>
+  );
+}
+```
+
+```tsx
+// app.tsx or _app.tsx
+import { AppProviders } from './providers';
+
+function App() {
+  return (
+    <AppProviders>
+      <YourApp />
+    </AppProviders>
+  );
+}
+```
+
+---
+
+## Next Steps
+
+**Continue:** [Using Queries](/docs/react/using-queries) - Learn useQuery and useMutation
+
+**Or explore:** [Advanced Patterns](/docs/react/advanced-patterns) - HTTP methods and configuration

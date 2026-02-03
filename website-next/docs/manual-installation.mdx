@@ -1,8 +1,226 @@
 ---
 title: Manual Installation
-description: Step-by-step installation guide
+description: Install @hypequery packages, configure env vars, and prep your project for the CLI
 ---
 
-# Manual Installation
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { File, Folder, Files } from 'fumadocs-ui/components/files';
 
-Step-by-step installation guide for custom setups.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js 18+** installed
+- **Access to a ClickHouse instance** with connection credentials
+
+---
+
+<Steps>
+<Step>
+
+### Install the runtime packages
+
+Install the core packages required to run hypequery:
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
+  <Tab value='npm' label='npm'>
+  <CodeBlock>
+    ```bash
+    npm install @hypequery/clickhouse @hypequery/serve
+
+    # Optional: install the CLI locally
+    npm install -D @hypequery/cli
+    ```
+     </CodeBlock>
+  </Tab>
+  <Tab value='pnpm' label='pnpm'>
+   <CodeBlock>
+    ```bash
+    pnpm add @hypequery/clickhouse @hypequery/serve
+
+    # Optional: install the CLI locally
+    pnpm add -D @hypequery/cli
+    ```
+     </CodeBlock>
+  </Tab>
+  <Tab value='yarn' label='yarn'>
+   <CodeBlock>
+    ```bash
+    yarn add @hypequery/clickhouse @hypequery/serve
+
+    # Optional: install the CLI locally
+    yarn add -D @hypequery/cli
+    ```
+    </CodeBlock>
+  </Tab>
+  <Tab value='bun' label='bun'>
+   <CodeBlock>
+    ```bash
+    bun add @hypequery/clickhouse @hypequery/serve
+
+    # Optional: install the CLI locally
+    bun add -D @hypequery/cli
+    ```
+    </CodeBlock>
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+### Configure environment variables
+
+Create a `.env` file in your project root with your ClickHouse credentials:
+
+ <CodeBlock>
+```
+CLICKHOUSE_HOST=https://example.clickhouse.cloud:8443
+CLICKHOUSE_DATABASE=default
+CLICKHOUSE_USERNAME=cli_user
+CLICKHOUSE_PASSWORD=super-secret
+```
+ </CodeBlock>
+
+The CLI will read these variables when connecting to your database.
+
+</Step>
+
+<Step>
+
+### Generate schema types
+
+Run the generate command to introspect your ClickHouse tables and create type-safe schema definitions:
+
+<Tabs items={['without CLI installed', 'with CLI installed']} defaultIndex={0}>
+  <Tab value='without CLI installed' label='without CLI installed'>
+   <CodeBlock> 
+    ```bash
+    npx @hypequery/cli generate --output analytics/schema.ts
+    ```
+    </CodeBlock>
+  </Tab>
+  <Tab value='with CLI installed' label='with CLI installed'>
+   <CodeBlock> 
+    ```bash
+    npx hypequery generate --output analytics/schema.ts
+    ```
+    </CodeBlock> 
+  </Tab>
+</Tabs>
+
+This command:
+- Reads your `CLICKHOUSE_*` environment variables
+- Connects to your ClickHouse instance
+- Introspects all tables and columns
+- Writes TypeScript type definitions to `analytics/schema.ts`
+
+Re-run this command anytime your database schema changes to keep types in sync.
+
+</Step>
+
+<Step>
+
+### Create the database client
+
+Create `analytics/client.ts` to wire up the ClickHouse connection:
+
+<CodeBlock>
+```typescript
+import 'dotenv/config';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+export const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD,
+});
+```
+</CodeBlock>
+
+This `db` instance is typed and ready to query your ClickHouse tables with full autocomplete and type safety.
+
+</Step>
+
+<Step>
+
+### Set up the query definitions
+
+Create `analytics/queries.ts` with a placeholder Serve instance:
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    healthcheck: query
+      .describe('Health check placeholder')
+      .query(async () => ({ ok: true })),
+  }),
+});
+```
+</CodeBlock>
+
+You now have a fully typed API ready for queries. Replace the placeholder with your actual analytics endpoints.
+
+</Step>
+
+<Step>
+
+### (Optional) Configure framework integration
+
+**Next.js App Router**
+
+For Next.js projects, use the fetch adapter:
+
+<CodeBlock>
+```typescript
+// app/api/analytics/route.ts
+import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+import { api } from '../../../analytics/queries';
+
+const handler = createFetchHandler(api.handler);
+
+export const GET = handler;
+export const POST = handler;
+```
+</CodeBlock>
+
+**Vite / SPA frameworks**
+
+Store hypequery files server-side. Browsers should call the generated HTTP endpoints, not ClickHouse directly. Use a proxy in your Vite config to forward `/api/*` requests to your hypequery server.
+
+**Other frameworks**
+
+See framework-specific setup guides:
+- [Vite setup guide](/docs/vite)
+- [Next.js setup guide](/docs/nextjs)
+- [Node.js setup guide](/docs/nodejs)
+
+</Step>
+
+</Steps>
+
+Your final analytics folder should look like this:
+
+<Files>
+  <Folder name="analytics" defaultOpen>
+    <File name="schema.ts (Your database schema definitions)" />
+    <File name="client.ts (ClickHouse client instance)" />
+    <File name="queries.ts (Your query definitions)" />
+    <File name=".env (Your ClickHouse credentials)" />
+    </Folder>
+ </Files>
+ 
