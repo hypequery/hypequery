@@ -8,7 +8,7 @@ export function baseOptions() {
     nav: {
       title: (
         <div className="flex items-center">
-          <img src="/logo.svg" width={175} />
+          <img src="/logo.svg" width={175} alt="HypeQuery" />
         </div>
       ),
     },
@@ -22,12 +22,13 @@ export function baseOptions() {
           icon: <Book className="w-4 h-4 text-indigo-400" />,
         },
         {
-          title: 'Standalone Usage',
-          description: 'Use the ClickHouse client directly',
-          url: '/docs/standalone-usage/introduction',
+          title: 'Standalone Query Builder',
+          description: 'Build type safe queries with the ClickHouse client directly',
+          url: '/docs/standalone-query-builder/introduction',
           icon: <Braces className="w-4 h-4 text-purple-500" />,
         },
       ],
     },
+    theme: false,
   };
 }

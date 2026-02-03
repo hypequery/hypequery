@@ -16,32 +16,29 @@ import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
 
-const { define, queries } = initServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
 });
 
 export const api = define({
   queries: queries({
-    weeklyRevenue: {
-      name: 'Weekly revenue',
-      query: async ({ ctx, input }) => {
-        return ctx.db
-          .table('transactions')
-          .where('date', '>=', input.startDate)
-          .where('date', '<=', input.endDate)
-          .sum('amount');
-      },
-      inputSchema: z.object({
-        startDate: z.string(),
-        endDate: z.string(),
-      }),
-      outputSchema: z.object({
+    weeklyRevenue: query
+      .describe('Get weekly revenue totals')
+      .input(z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+      }))
+      .output(z.object({
         total: z.number(),
-      }),
-      summary: 'Get weekly revenue totals',
-      description: 'Returns sum of all transactions for a date range',
-      tags: ['revenue', 'analytics'],
-    },
+      }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('transactions')
+          .where('date', 'gte', input.startDate)
+          .where('date', 'lte', input.endDate)
+          .sum('amount')
+          .execute()
+      ),
   }),
 });
 
@@ -65,7 +62,7 @@ query: async ({ input, ctx }) => {
   // ctx: request context (auth, tenantId, locals, etc.)
 
   return ctx.db.table('orders')
-    .where('created_at', '>=', input.startDate)
+    .where('created_at', 'gte', input.startDate)
     .select('*')
     .execute();
 }
@@ -359,9 +356,10 @@ export const createDateRangeQuery = (table: string, sumColumn: string) => ({
   query: async ({ ctx, input }) => {
     return ctx.db
       .table(table)
-      .where('date', '>=', input.startDate)
-      .where('date', '<=', input.endDate)
-      .sum(sumColumn);
+      .where('date', 'gte', input.startDate)
+      .where('date', 'lte', input.endDate)
+      .sum(sumColumn)
+      .execute();
   },
   inputSchema: z.object({
     startDate: z.string(),

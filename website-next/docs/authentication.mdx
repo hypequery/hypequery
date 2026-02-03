@@ -1,29 +1,29 @@
 ---
 title: Authentication
-description: Secure hypequery endpoints with AuthStrategy functions, middleware, and runtime context
+description: Secure hypequery endpoints with auth strategies, middleware, and runtime context
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-import { Pre } from 'fumadocs-ui/components/codeblock';
 
 # Authentication
 
-`@hypequery/serve` keeps authentication explicit: you provide `AuthStrategy` functions that accept the incoming request (or embedded call) and return your auth context. This page shows how to register strategies globally, override them per-endpoint, and propagate auth data through middleware or embedded calls.
+`@hypequery/serve` keeps authentication explicit: you provide auth strategy functions that accept the incoming request (or embedded call) and return your auth context. This page shows how to register strategies globally, override them per-endpoint, and propagate auth data through middleware or embedded calls.
 
 ## Core Concepts
 
 - **Auth strategies** run before middleware/handlers. They receive `{ request, endpoint }` and return an `AuthContext` object or `null`.
-- **Global vs per-endpoint** – pass `auth` in `defineServe` to enforce auth across every query. Individual queries can provide their own `auth` to override or disable auth.
+- **Global vs per-endpoint** – pass `auth` in `initServe` to enforce auth across every query. Individual queries can override or disable auth.
 - **Auth context** is injected into `ctx.auth` and forwarded to tenant helpers, middlewares, and hooks.
 - **Failures** – returning `null` triggers an `UNAUTHORIZED` error and fires `onAuthFailure` hooks.
 
 ## Basic Usage
 
 <CodeBlock>
-<Pre>
 ```typescript
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
+import { db } from './client';
 
 const apiKeyStrategy = async ({ request }) => {
   const key = request.headers['x-api-key'];
@@ -33,17 +33,26 @@ const apiKeyStrategy = async ({ request }) => {
   return { userId: 'service:dashboard', roles: ['internal'] };
 };
 
-export const api = defineServe({
+const { define, queries, query } = initServe({
   auth: apiKeyStrategy,
-  queries: {
-    revenue: {
-      inputSchema: z.object({ range: z.string() }),
-      query: ({ ctx, input }) => ctx.db.table('revenue').where('range', 'eq', input.range).select('*'),
-    },
-  },
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    revenue: query
+      .describe('Get revenue metrics')
+      .input(z.object({ range: z.string() }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('revenue')
+          .where('range', 'eq', input.range)
+          .select('*')
+          .execute()
+      ),
+  }),
 });
 ```
-</Pre>
 </CodeBlock>
 
 Every HTTP request must include `x-api-key`; otherwise, the runtime returns `401 UNAUTHORIZED`.
@@ -53,7 +62,6 @@ Every HTTP request must include `x-api-key`; otherwise, the runtime returns `401
 Need to support API keys and bearer tokens simultaneously? Provide an array:
 
 <CodeBlock>
-<Pre>
 ```typescript
 const bearerStrategy = async ({ request }) => {
   const header = request.headers.authorization;
@@ -63,60 +71,66 @@ const bearerStrategy = async ({ request }) => {
   return { userId: payload.sub, scopes: payload.scopes };
 };
 
-export const api = defineServe({
+const { define, queries } = initServe({
   auth: [apiKeyStrategy, bearerStrategy],
-  queries: { /* ... */ },
+  context: () => ({ db }),
 });
 ```
-</Pre>
 </CodeBlock>
 
 Strategies run sequentially until one returns an auth context. If all return `null`, the request is rejected.
 
 ## Per-Endpoint Overrides
 
-Some endpoints might need different auth rules (or none at all). Set `auth` inside the query definition:
+Some endpoints might need different auth rules (or none at all). Use `.auth()` on the query builder:
 
 <CodeBlock>
-<Pre>
 ```typescript
-queries: {
-  healthcheck: {
-    query: async () => ({ ok: true }),
-    auth: null, // public endpoint
-  },
-  adminOnly: {
-    auth: async ({ request }) => {
-      const token = request.headers['x-admin-token'];
-      return token === process.env.ADMIN_TOKEN ? { roles: ['admin'] } : null;
-    },
-    query: async ({ ctx }) => ctx.db.table('secrets').select('*'),
-  },
-}
+export const api = define({
+  queries: queries({
+    healthcheck: query
+      .describe('Health check endpoint')
+      .auth(null) // public endpoint
+      .query(async () => ({ ok: true })),
+
+    adminOnly: query
+      .describe('Admin-only endpoint')
+      .auth(async ({ request }) => {
+        const token = request.headers['x-admin-token'];
+        return token === process.env.ADMIN_TOKEN
+          ? { roles: ['admin'] }
+          : null;
+      })
+      .query(({ ctx }) =>
+        ctx.db
+          .table('secrets')
+          .select('*')
+          .execute()
+      ),
+  }),
+});
 ```
-</Pre>
 </CodeBlock>
 
-When `auth: null`, the endpoint bypasses global strategies entirely.
+When `.auth(null)` is used, the endpoint bypasses global strategies entirely.
 
 ## Accessing Auth in Middleware/Handlers
 
 `ctx.auth` contains whichever object your strategy returned:
 
 <CodeBlock>
-<Pre>
 ```typescript
 const logUserMiddleware = async (ctx, next) => {
   console.log('request', ctx.metadata.path, 'user', ctx.auth?.userId ?? 'anonymous');
   return next();
 };
 
-export const api = defineServe({
+const { define } = initServe({
   middlewares: [logUserMiddleware],
-  /* ... */
+  auth: apiKeyStrategy,
+  context: () => ({ db }),
 });
 ```
-</Pre>
 </CodeBlock>
 
 You can enrich the context by returning additional fields from the strategy (roles, tenant IDs, plan tier, etc.).
@@ -126,9 +140,9 @@ You can enrich the context by returning additional fields from the strategy (rol
 When calling `api.run` directly (cron jobs, SSR handlers), pass a synthetic request so your strategies still run:
 
 <CodeBlock>
-<Pre>
 ```typescript
 await api.run('revenue', {
+  input: { range: '30d' },
   request: {
     method: 'POST',
     path: '/revenue',
@@ -137,15 +151,86 @@ await api.run('revenue', {
   },
 });
 ```
-</Pre>
 </CodeBlock>
 
-If you already trust the caller (e.g., an internal job), you can skip strategies by calling the underlying query manually or providing a custom `context` with `auth`.
+<Callout type="info" title="Bypassing auth for internal calls">
+If you already trust the caller (e.g., an internal job), you can skip strategies by providing a custom context:
+</Callout>
+
+<CodeBlock>
+```typescript
+// Direct execution without auth
+const result = await api.run('revenue', {
+  context: { db: yourDbConnection, auth: { userId: 'system' } },
+  input: { range: '30d' },
+});
+```
+</CodeBlock>
+
+## Framework Integration
+
+### Next.js App Router
+
+<CodeBlock>
+```typescript
+// app/api/analytics/[...path]/route.ts
+import { api } from '@/analytics/queries';
+import { createFetchHandler } from '@hypequery/serve';
+
+const handler = createFetchHandler(api.handler);
+
+export const runtime = 'nodejs';
+export const GET = handler;
+export const POST = handler;
+```
+</CodeBlock>
+
+### Hono
+
+<CodeBlock>
+```typescript
+// src/app.ts
+import { api } from './analytics/queries';
+import { createFetchHandler } from '@hypequery/serve';
+import { Hono } from 'hono';
+
+const app = new Hono();
+const hypequery = createFetchHandler(api.handler);
+
+app.all('/api/*', (c) => hypequery(c.req.raw));
+```
+</CodeBlock>
 
 ## Troubleshooting
 
-- **Missing headers** – ensure your framework forwards headers to the dev server. For example, when proxying through Next.js, copy `Authorization`/`X-API-Key` into the request.
-- **Edge runtimes** – use `createFetchHandler` or `createVercelEdgeHandler` so headers/requests stay compatible with the strategies.
-- **Logging failures** – implement `hooks.onAuthFailure` to capture repeated failures and alert your team.
+### Missing headers
+
+Ensure your framework forwards headers to the hypequery handler. For example, when proxying through Next.js or Vercel, copy `Authorization`/`X-API-Key` into the request.
+
+### Edge runtimes
+
+Use `createFetchHandler` or `createVercelEdgeHandler` so headers/requests stay compatible with the strategies.
+
+### Logging failures
+
+Implement hooks to capture repeated failures and alert your team:
+
+<CodeBlock>
+```typescript
+const { define } = initServe({
+  auth: apiKeyStrategy,
+  hooks: {
+    onAuthFailure: async ({ request, endpoint }) => {
+      // Log to your monitoring system
+      console.warn('Auth failed', {
+        ip: request.headers['x-forwarded-for'],
+        endpoint: endpoint.key,
+      });
+    },
+  },
+  context: () => ({ db }),
+});
+```
+</CodeBlock>
 
 With these patterns you can safely protect hypequery endpoints without tying yourself to a specific auth provider. Strategies are just functions—swap tokens, cookies, mTLS metadata, or anything your stack supports.

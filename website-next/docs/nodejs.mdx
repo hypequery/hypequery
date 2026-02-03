@@ -1,6 +1,7 @@
 ---
+layout: ../../../layouts/DocsLayout.astro
 title: Node.js
-description: Setup guide for Node.js applications
+description: Run hypequery as a standalone HTTP API using Hono
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -8,20 +9,21 @@ import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Files, Folder, File } from 'fumadocs-ui/components/files';
 
-# Node.js Setup
+# Node.js
 
-This guide shows you how to add hypequery to a Node.js application and expose analytics via an HTTP API.
+Expose analytics through a standalone HTTP API using Hono. This guide shows you how to set up a production-ready Node.js server with type-safe ClickHouse queries.
 
 <Callout type="info" title="Runnable Example">
 You can find a runnable Node.js example in our [examples repo](https://github.com/hypequery/hypequery-examples)
 </Callout>
 
-## What You'll Build
+## Use case
 
-A standalone Node.js HTTP API serving analytics queries. By the end of this guide:
-- ✅ Type-safe ClickHouse queries
-- ✅ HTTP API with automatic OpenAPI documentation
-- ✅ Production-ready server with `hypequery serve`
+You want a standalone Node.js API that:
+- Serves analytics queries over HTTP
+- Works with any frontend framework (React, Vue, Svelte, etc.)
+- Can be deployed independently (Docker, Railway, Fly.io, etc.)
+- Uses modern, lightweight framework (Hono) with great TypeScript support
 
 ## Prerequisites
 
@@ -39,10 +41,18 @@ A standalone Node.js HTTP API serving analytics queries. By the end of this guid
 # Core packages
 npm install @hypequery/clickhouse @hypequery/serve zod
 
+# Hono framework
+npm install hono @hono/node-server dotenv
+
 # CLI (required for type generation)
 npm install -D @hypequery/cli
+
+# TypeScript + dev tools
+npm install -D typescript tsx
 ```
 </CodeBlock>
+
+**Why Hono?** Hono is a modern, lightweight web framework with excellent TypeScript support. It's similar to Express but faster, more type-safe, and works great with edge runtimes. If you prefer Express or Fastify, hypequery works with those too - just adapt the server setup.
 
 </Step>
 
@@ -50,7 +60,7 @@ npm install -D @hypequery/cli
 
 ### Configure environment variables
 
-Create a `.env` file:
+Create `.env`:
 
 <CodeBlock>
 ```bash
@@ -59,10 +69,52 @@ CLICKHOUSE_HOST=http://localhost:8123
 CLICKHOUSE_USERNAME=default
 CLICKHOUSE_PASSWORD=your_password
 CLICKHOUSE_DATABASE=default
+
+# Server configuration
+PORT=3000
 ```
 </CodeBlock>
 
-**Important:** Add `.env` to `.gitignore` if not already there.
+**Important:** Add `.env` to `.gitignore`.
+
+</Step>
+
+<Step>
+
+### Configure TypeScript
+
+Create `tsconfig.json`:
+
+<CodeBlock>
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "skipLibCheck": true
+  }
+}
+```
+</CodeBlock>
+
+Update `package.json` to add scripts:
+
+<CodeBlock>
+```json
+{
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  }
+}
+```
+</CodeBlock>
 
 </Step>
 
@@ -100,12 +152,14 @@ import type { IntrospectedSchema } from './schema';
 
 export const db = createQueryBuilder<IntrospectedSchema>({
   host: process.env.CLICKHOUSE_HOST!,
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
   database: process.env.CLICKHOUSE_DATABASE!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD,
 });
 ```
 </CodeBlock>
+
+**Note:** Place this in `analytics/` directory at project root (not `src/`).
 
 </Step>
 
@@ -117,47 +171,31 @@ Create `analytics/queries.ts`:
 
 <CodeBlock>
 ```typescript
-import 'dotenv/config';
 import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
 import { db } from './client';
 
-const { define, queries, query } = initServe({
+const serve = initServe({
+  basePath: '',
   context: () => ({ db }),
 });
+const { query } = serve;
 
-export const api = define({
-  queries: queries({
-    healthcheck: query
-      .describe('Health check endpoint')
-      .query(async () => ({ ok: true })),
-
-    dailyStats: query
-      .describe('Daily statistics')
-      .input(z.object({
-        startDate: z.string().datetime(),
-        endDate: z.string().datetime(),
-      }))
-      .output(z.array(z.object({
-        day: z.string(),
-        count: z.number(),
-      })))
-      .query(({ ctx, input }) =>
+export const api = serve.define({
+  queries: serve.queries({
+    tripsQuery: query
+      .describe('Example query using the trips table')
+      .query(async ({ ctx }) =>
         ctx.db
-          .table('your_table')
-          .select(['day'])
-          .where('created_at', 'gte', input.startDate)
-          .where('created_at', 'lte', input.endDate)
-          .groupBy(['day'])
-          .count('id', 'count')
+          .table('trips')
+          .select('*')
+          .limit(10)
           .execute()
       ),
   }),
 });
 
 // Register HTTP routes
-api.route('/healthcheck', api.queries.healthcheck, { method: 'GET' });
-api.route('/daily-stats', api.queries.dailyStats, { method: 'POST' });
+api.route('/tripsQuery', api.queries.tripsQuery);
 ```
 </CodeBlock>
 
@@ -165,6 +203,49 @@ api.route('/daily-stats', api.queries.dailyStats, { method: 'POST' });
 - Use `ctx.db` (not `db`) inside query functions
 - Always call `.execute()` at the end
 - Register routes with `api.route()` to expose via HTTP
+- Set `basePath: ''` to serve routes from root path
+
+</Step>
+
+<Step>
+
+### Create Hono app
+
+Create `src/app.ts`:
+
+<CodeBlock>
+```typescript
+import { Hono } from "hono";
+import { api } from "../analytics/queries.js";
+import { createFetchHandler } from "@hypequery/serve";
+
+// Create Hono app
+export const app = new Hono();
+
+// Health check endpoint
+app.get("/", (c) => {
+  return c.json({
+    status: "ok",
+    runtime: "node",
+  });
+});
+
+// Example: Direct query execution (server-side)
+app.get("/trips", async (c) => {
+  const result = await api.run('tripsQuery');
+  return c.json(result);
+});
+
+// Wire hypequery handler into Hono's router
+const hypequery = createFetchHandler(api.handler);
+app.all('/tripsQuery', (c) => hypequery(c.req.raw));
+```
+</CodeBlock>
+
+**What's happening:**
+- Regular Hono routes like `/` and `/trips` work normally
+- The `/tripsQuery` route uses hypequery's HTTP handler
+- `createFetchHandler` adapts hypequery to Hono's Request/Response API
 
 </Step>
 
@@ -172,22 +253,24 @@ api.route('/daily-stats', api.queries.dailyStats, { method: 'POST' });
 
 ### Create server entry point
 
-Create `server.ts`:
+Create `src/index.ts`:
 
 <CodeBlock>
 ```typescript
-import { createServer } from '@hypequery/serve';
-import { api } from './analytics/queries';
+import "dotenv/config";
+import { serve } from "@hono/node-server";
+import { app } from "./app.js";
 
-const server = createServer(api, {
-  port: parseInt(process.env.PORT || '4000'),
-  host: process.env.HOST || '0.0.0.0',
+const port = process.env.PORT
+  ? Number(process.env.PORT)
+  : 3000;
+
+serve({
+  fetch: app.fetch,
+  port,
 });
 
-server.start().then(() => {
-  console.log(`🚀 Server running at http://localhost:${process.env.PORT || 4000}`);
-  console.log(`📚 Docs available at http://localhost:${process.env.PORT || 4000}/docs`);
-});
+console.log(`🚀 Server running on http://localhost:${port}`);
 ```
 </CodeBlock>
 
@@ -199,25 +282,33 @@ server.start().then(() => {
 
 <CodeBlock>
 ```bash
-# Using the dev server (with hot reload and docs)
-npx hypequery dev analytics/queries.ts --port 4000
+npm run dev
 ```
 </CodeBlock>
 
-Visit `http://localhost:4000/docs` to see interactive API documentation.
+Your API is now available at `http://localhost:3000`.
 
-</Step>
-
-<Step>
-
-### Run in production
+Test the endpoints:
 
 <CodeBlock>
 ```bash
-# Start the production server
-node server.ts
-# or use ts-node/tsx for TypeScript
-npx tsx server.ts
+# Health check
+curl http://localhost:3000/
+
+# Direct query execution (server-side)
+curl http://localhost:3000/trips
+
+# HTTP query endpoint
+curl http://localhost:3000/tripsQuery
+```
+</CodeBlock>
+
+**Optional: Run hypequery dev server for interactive docs**
+
+<CodeBlock>
+```bash
+npx hypequery dev analytics/queries.ts
+# Docs at: http://localhost:4000/docs
 ```
 </CodeBlock>
 
@@ -233,126 +324,50 @@ After following this guide, your structure should look like:
   <Folder name="your-nodejs-app" defaultOpen>
     <Folder name="analytics" defaultOpen>
       <File name="schema.ts (Auto-generated by `hypequery generate`)" />
-      <File name="client.ts (ClickHouse client)" />
-      <File name="queries.ts (Query definitions)" />
+      <File name="client.ts (You write this)" />
+      <File name="queries.ts (You write this)" />
     </Folder>
-    <File name="server.ts (Server entry point)" />
-    <File name=".env (Environment variables)" />
+    <Folder name="src">
+      <File name="index.ts (Server entry point)" />
+      <File name="app.ts (Hono app with routes)" />
+    </Folder>
+    <File name=".env (You create this)" />
     <File name="package.json" />
+    <File name="tsconfig.json" />
   </Folder>
 </Files>
-
-## Using the CLI
-
-<CodeBlock>
-```bash
-# Generate types from ClickHouse
-npx hypequery generate
-
-# Run development server
-npx hypequery dev analytics/queries.ts --port 4000
-
-# Run production server
-npx hypequery serve analytics/queries.ts --port 4000
-```
-</CodeBlock>
 
 ## Testing Your API
 
 <CodeBlock>
 ```bash
-# Test healthcheck endpoint
-curl http://localhost:4000/healthcheck
+# Test health check
+curl http://localhost:3000/
 
-# Test daily stats endpoint
-curl -X POST http://localhost:4000/daily-stats \
-  -H "Content-Type: application/json" \
-  -d '{"startDate":"2024-01-01T00:00:00Z","endDate":"2024-01-31T23:59:59Z"}'
+# Test trips endpoint (direct execution)
+curl http://localhost:3000/trips
 
-# View OpenAPI spec
+# Test hypequery HTTP endpoint
+curl http://localhost:3000/tripsQuery
+
+# View OpenAPI spec (if using hypequery dev)
 curl http://localhost:4000/openapi.json
 ```
 </CodeBlock>
 
-## Deployment
+## When to use which approach
 
-### Docker
+You have two options for serving queries:
 
-Create a `Dockerfile`:
+**1. Direct execution with `api.run()`** (like `/trips` endpoint):
+- Executes queries in-process
+- Returns raw results without HTTP overhead
+- Great for server-side rendering or internal APIs
 
-<CodeBlock>
-```dockerfile
-FROM node:18-alpine
+**2. HTTP handler with `createFetchHandler()`** (like `/tripsQuery` endpoint):
+- Exposes queries via HTTP with automatic validation
+- Generates OpenAPI documentation
+- Great for external APIs and frontend consumption
 
-WORKDIR /app
+Both approaches use the same query definitions, choose based on your use case.
 
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-
-ENV PORT=4000
-ENV HOST=0.0.0.0
-
-EXPOSE 4000
-
-CMD ["node", "server.ts"]
-```
-</CodeBlock>
-
-### Environment Variables
-
-Set these in your production environment:
-
-<CodeBlock>
-```bash
-CLICKHOUSE_HOST=your-clickhouse-host
-CLICKHOUSE_USERNAME=your-username
-CLICKHOUSE_PASSWORD=your-password
-CLICKHOUSE_DATABASE=your-database
-PORT=4000
-HOST=0.0.0.0
-```
-</CodeBlock>
-
-### Process Managers
-
-**PM2:**
-
-<CodeBlock>
-```bash
-npm install -g pm2
-pm2 start server.ts --name hypequery-api
-pm2 startup
-pm2 save
-```
-</CodeBlock>
-
-**Systemd:**
-
-Create `/etc/systemd/system/hypequery.service`:
-
-<CodeBlock>
-```ini
-[Unit]
-Description=Hypequery Analytics API
-After=network.target
-
-[Service]
-Type=simple
-User=nodejs
-WorkingDirectory=/var/www/hypequery
-Environment="PORT=4000"
-ExecStart=/usr/bin/node /var/www/hypequery/server.ts
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-</CodeBlock>
-
-## Related
-
-- [Serve API Reference](/docs/reference/serve) - Full serve framework API
-- [HTTP & OpenAPI Guide](/docs/http-openapi) - Production deployment patterns
-- [Observability](/docs/observability) - Logging and monitoring
