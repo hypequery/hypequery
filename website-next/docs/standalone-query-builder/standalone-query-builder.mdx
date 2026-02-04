@@ -4,6 +4,8 @@ title: Standalone Query Builder
 description: Use createQueryBuilder directly only when defineServe doesn't fit
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # Standalone Query Builder
 
 You can run the query builder on its own if all you need is type safety and SQL fluency, just remember you’re skipping the extra benefits `defineServe` layers on top.
@@ -17,6 +19,8 @@ You can run the query builder on its own if all you need is type safety and SQL 
 - ❌ Anything that benefits from auth, caching, docs, or multi-tenancy — use `defineServe` instead.
 
 ## Basic usage
+
+<CodeBlock>
 
 ```ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -37,11 +41,15 @@ const users = await db
   .execute();
 ```
 
+</CodeBlock>
+
 Everything from the fluent API works the same as inside `defineServe` (joins, aggregations, CTEs, predicates, etc.).
 
 ## Caching
 
 Global cache config mirrors what `defineServe` wires up automatically:
+
+<CodeBlock>
 
 ```ts
 import { MemoryCacheProvider } from '@hypequery/clickhouse';
@@ -65,6 +73,8 @@ const activeUsers = db
 const rows = await activeUsers.execute({ cache: { mode: 'network-first' } });
 ```
 
+</CodeBlock>
+
 > ℹ️ Cache precedence: global config → `.cache()` on the builder → `execute({ cache })`. Use `cache: false` to bypass caching temporarily.
 
 ### Cache modes
@@ -81,6 +91,8 @@ Additional knobs: `ttlMs`, `staleTtlMs`, `cacheTimeMs`, `dedupe`, custom `serial
 ## Streaming
 
 The standalone builder exposes the same streaming primitives:
+
+<CodeBlock>
 
 ```ts
 const stream = await db
@@ -101,7 +113,11 @@ try {
 }
 ```
 
+</CodeBlock>
+
 Or use the helper:
+
+<CodeBlock>
 
 ```ts
 await db
@@ -112,9 +128,13 @@ await db
   });
 ```
 
+</CodeBlock>
+
 ## Logging
 
 `logger` works identically whether you call the builder directly or through `defineServe`:
+
+<CodeBlock>
 
 ```ts
 import { logger } from '@hypequery/clickhouse';
@@ -133,6 +153,8 @@ await db
   .execute({ queryId: 'script:users' });
 ```
 
+</CodeBlock>
+
 Logs include SQL, parameters, duration, row counts, cache metadata, and errors.
 
 ## Limitations
@@ -148,6 +170,8 @@ Standalone usage skips the higher-level runtime:
 If you need those features, migrate the query into `defineServe`.
 
 ## Migrating to `defineServe`
+
+<CodeBlock>
 
 ```ts
 // Before (standalone)
@@ -165,6 +189,8 @@ export const api = defineServe({
   },
 });
 ```
+
+</CodeBlock>
 
 Now you get caching, analytics, logging, HTTP, and UI for free.
 

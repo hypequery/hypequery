@@ -5,10 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import HypequeryArchitecture from '@/components/HypequeryArchitecture';
 import CodeHighlight from '@/components/CodeHighlight';
 import { heroCode, runAnywhereSnippets, useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
-import { aiContext } from '@/data/ai-context';
 import { CopyButton } from '@/components/CopyButton';
 
 export default function Home() {
@@ -115,8 +113,8 @@ export default function Home() {
                 </div>
 
                 {/* Hero mascot and terminal - only show on large screens */}
-                <div className="block hidden:sm hero-mascot-wrapper">
-                  <div className="-ml-40">
+                <div className="block hidden:md hero-mascot-wrapper">
+                  <div className="absolute right-95 top-45">
                     <Image
                       src="/mascot_dark.jpeg"
                       alt="hypequery mascot"
@@ -126,19 +124,17 @@ export default function Home() {
                     />
                   </div>
                   <div className="absolute right-0 top-10 -translate-y-1/4">
-                    <div className="relative w-[410px] min-h-[220px] rounded-2xl border border-gray-800 bg-gray-950 px-5 py-4 text-sm text-green-300 shadow-2xl">
+                    <div className="relative w-[410px] min-h-[250px] rounded-2xl border border-gray-800 bg-gray-950 px-5 py-4 text-sm text-green-300 shadow-2xl">
                       <div className="flex items-center justify-between gap-3 font-mono">
                         <span>
-                          <span className="text-gray-500">$</span>
+                          <span className="text-gray-500">$ </span>
                           <span>npx hypequery init</span>
                         </span>
                         <CopyButton text="npx hypequery init" className="min-w-[96px] px-2 py-1" />
                       </div>
-                      <div className="mt-3 min-h-[110px] space-y-1 font-mono text-xs text-emerald-200/80 whitespace-pre-wrap">
+                      <div className="mt-3 min-h-[110px] space-y-2 font-mono text-xs text-emerald-200/80 whitespace-pre-wrap">
                         {terminalText}
-                        {terminalText && (
-                          <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse" />
-                        )}
+
                       </div>
                     </div>
                   </div>
@@ -171,7 +167,7 @@ export default function Home() {
                       <div className="w-3 h-3 rounded-full bg-white/18"></div>
                       <div className="w-3 h-3 rounded-full bg-white/18"></div>
                     </div>
-                    <div className="px-4 pb-4">
+                    <div>
                       <CodeHighlight code={heroCode} language="ts" />
                     </div>
                   </div>
@@ -180,6 +176,7 @@ export default function Home() {
                       Define Once. Run anywhere.
                     </div>
                     <div>
+
                       <p className="mb-4 font-semibold text-md">Embedded</p>
                       <CodeHighlight code={runAnywhereSnippets.embedded.code} language="ts" />
                     </div>
@@ -255,7 +252,7 @@ export default function Home() {
                     <div className="grid gap-10 lg:grid-cols-[1.1fr_auto] lg:items-center">
                       <div>
                         <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                          Why your org keeps rebuilding this layer
+                          Why orgs keeps rebuilding this layer
                         </h2>
                         <p className="mt-6 text-lg leading-7 text-gray-700 dark:text-gray-300">
                           Every scaled ClickHouse team eventually builds the same

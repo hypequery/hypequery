@@ -3,6 +3,8 @@ title: When to Use Standalone
 description: Learn when to use the standalone query builder vs the full serve framework
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # When to Use Standalone
 
 Most users should start with the [serve framework](/docs/quick-start). Use standalone `@hypequery/clickhouse` when you need maximum flexibility or are integrating with existing infrastructure.
@@ -12,6 +14,8 @@ Most users should start with the [serve framework](/docs/quick-start). Use stand
 ### Integration with Existing APIs
 
 You already have Express, Fastify, Next.js API routes, or another framework:
+
+<CodeBlock>
 
 ```ts
 // app/api/users/route.ts (Next.js)
@@ -35,9 +39,13 @@ export async function GET() {
 }
 ```
 
+</CodeBlock>
+
 ### Background Jobs & Scripts
 
 Cron jobs, data processing, migrations, ETL workflows:
+
+<CodeBlock>
 
 ```ts
 // jobs/daily-report.ts
@@ -54,9 +62,13 @@ const stats = await db.table('events')
 await sendSlackNotification(`Processed ${stats[0].total} events`);
 ```
 
+</CodeBlock>
+
 ### Serverless Functions
 
 Lambda, Cloudflare Workers, Vercel Functions, edge computing:
+
+<CodeBlock>
 
 ```ts
 // functions/metrics.ts
@@ -75,9 +87,13 @@ export default async function handler(req, res) {
 }
 ```
 
+</CodeBlock>
+
 ### Internal Tools & Admin Panels
 
 Quick scripts, one-off queries, data exploration:
+
+<CodeBlock>
 
 ```ts
 // scripts/check-duplicates.ts
@@ -94,6 +110,8 @@ const duplicates = await db.table('users')
 
 console.log('Duplicate emails:', duplicates);
 ```
+
+</CodeBlock>
 
 ### Maximum Control
 
@@ -141,6 +159,8 @@ npm install @hypequery/serve @hypequery/react
 
 **Use both**: Use serve for APIs and standalone for background jobs:
 
+<CodeBlock>
+
 ```ts
 // Shared query builder instance
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -159,6 +179,8 @@ export const api = defineServe({
 // Use in jobs
 await db.table('events').where(...).execute();
 ```
+
+</CodeBlock>
 
 ## Next Steps
 

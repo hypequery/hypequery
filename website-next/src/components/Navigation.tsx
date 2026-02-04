@@ -40,9 +40,9 @@ export default function Navigation() {
         <div className="flex lg:flex-1">
           <Link
             href="/"
-            className="font-mono text-xl font-bold text-indigo-600 flex items-center"
+            className="font-mono text-xl font-bold text-indigo-300 flex items-center"
           >
-            <img src="/logo.svg" alt="Hypequery" className="w-[180px]" />
+            &gt; hypequery
           </Link>
         </div>
         <div className="flex items-center gap-x-6 justify-end flex-1">
@@ -64,13 +64,8 @@ export default function Navigation() {
                   key={item.name}
                   href={item.href}
                   className="nav-link text-sm font-semibold leading-6 flex items-center gap-1 text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                  target={item.external ? '_blank' : undefined}
-                  rel={item.external ? 'noopener' : undefined}
                 >
                   {item.name}
-                  {item.external && (
-                    <ExternalLink className="h-3 w-3 text-gray-400" />
-                  )}
                   {isNewBadge(item) && (
                     <span className="ml-2 inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/20">
                       {isBetaBadge(item) ? 'Coming soon' : 'New'}
@@ -82,6 +77,6 @@ export default function Navigation() {
           </div>
         </div>
       </nav>
-    </header>
+    </header >
   );
 }

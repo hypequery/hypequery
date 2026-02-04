@@ -31,3 +31,14 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Hide hero mascot and terminal on smaller screens */
+.hero-mascot-wrapper {
+  display: none;
+}
+
+@media (min-width: 1240px) {
+  .hero-mascot-wrapper {
+    display: block;
+  }
+}

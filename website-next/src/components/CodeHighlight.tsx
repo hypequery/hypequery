@@ -13,30 +13,22 @@ export default function CodeHighlight({ code, language = 'ts' }: CodeHighlightPr
 
   useEffect(() => {
     createHighlighter({
-      themes: ['github-dark'],
+      themes: ['aurora-x'],
       langs: [language],
     }).then((highlighter) => {
       const lang = language === 'http' ? 'javascript' : language;
       const result = highlighter.codeToHtml(code.trim(), {
-        lang: lang as any,
-        theme: 'github-dark',
+        lang: lang,
+        theme: 'aurora-x',
+
       });
       setHtml(result);
     });
   }, [code, language]);
 
-  if (!html) {
-    return (
-      <pre className="overflow-x-auto">
-        <code className="text-xs text-emerald-100">{code.trim()}</code>
-      </pre>
-    );
-  }
-
   return (
     <div
-      className="overflow-x-auto shiki text-xs"
-      style={{ background: 'transparent' }}
+      className="overflow-x-auto text-sm [&_pre]:py-2"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

@@ -3,6 +3,8 @@ title: Direct Execution
 description: Learn how to execute queries with the standalone query builder
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # Direct Execution
 
 The standalone query builder executes queries with `.execute()`. This page covers execution patterns, error handling, and advanced options.
@@ -10,6 +12,8 @@ The standalone query builder executes queries with `.execute()`. This page cover
 ## Basic Execution
 
 Call `.execute()` to run your query and get typed results:
+
+<CodeBlock>
 
 ```ts
 const users = await db.table('users')
@@ -23,9 +27,13 @@ users.forEach(user => {
 });
 ```
 
+</CodeBlock>
+
 ## Raw Queries
 
 Execute raw SQL when needed:
+
+<CodeBlock>
 
 ```ts
 const results = await db.rawQuery<{ count: number }>(
@@ -36,6 +44,8 @@ const results = await db.rawQuery<{ count: number }>(
 console.log(results[0].count);
 ```
 
+</CodeBlock>
+
 **Parameter substitution:**
 - Use ClickHouse parameter syntax: `{name:Type}`
 - Pass values as object in second argument
@@ -44,6 +54,8 @@ console.log(results[0].count);
 ## Query Inspection
 
 Preview the SQL before executing:
+
+<CodeBlock>
 
 ```ts
 const query = db.table('users')
@@ -60,6 +72,8 @@ const { sql: sqlWithParams, params } = query.toSQLWithParams();
 console.log(sqlWithParams, params);
 ```
 
+</CodeBlock>
+
 Useful for:
 - Debugging query generation
 - Logging queries
@@ -68,6 +82,8 @@ Useful for:
 ## Error Handling
 
 Handle query errors gracefully:
+
+<CodeBlock>
 
 ```ts
 try {
@@ -87,6 +103,8 @@ try {
 }
 ```
 
+</CodeBlock>
+
 Common errors:
 - **Table does not exist** - Check table name and database
 - **Unknown column** - Verify column exists in generated types
@@ -99,15 +117,21 @@ Common errors:
 
 Set per-query timeouts:
 
+<CodeBlock>
+
 ```ts
 const users = await db.table('large_table')
   .settings({ max_execution_time: 30 })  // 30 seconds
   .execute();
 ```
 
+</CodeBlock>
+
 ### ClickHouse Settings
 
 Pass ClickHouse-specific settings per query:
+
+<CodeBlock>
 
 ```ts
 const results = await db.table('events')
@@ -119,9 +143,13 @@ const results = await db.table('events')
   .execute();
 ```
 
+</CodeBlock>
+
 ### Query ID
 
 Track queries with custom IDs:
+
+<CodeBlock>
 
 ```ts
 const users = await db.table('users')
@@ -130,9 +158,13 @@ const users = await db.table('users')
 // Find in ClickHouse system.query_log
 ```
 
+</CodeBlock>
+
 ## Streaming Results
 
 For large result sets, use streaming:
+
+<CodeBlock>
 
 ```ts
 const stream = await db.table('large_table')
@@ -146,6 +178,8 @@ for await (const batch of stream) {
 }
 ```
 
+</CodeBlock>
+
 Benefits:
 - Lower memory usage
 - Process results as they arrive
@@ -157,14 +191,20 @@ Benefits:
 
 Results as JavaScript objects:
 
+<CodeBlock>
+
 ```ts
 const users = await db.table('users').execute();
 // Array<{ id: number; name: string; ... }>
 ```
 
+</CodeBlock>
+
 ### Raw Query Formats
 
 Use specific formats with `rawQuery`:
+
+<CodeBlock>
 
 ```ts
 // CSV
@@ -177,11 +217,15 @@ const tsv = await db.rawQuery('SELECT * FROM users FORMAT TSV');
 const json = await db.rawQuery('SELECT * FROM users FORMAT JSONEachRow');
 ```
 
+</CodeBlock>
+
 ## Common Patterns
 
 ### Reusable Query Functions
 
 Create helper functions for common queries:
+
+<CodeBlock>
 
 ```ts
 // lib/queries.ts
@@ -209,9 +253,13 @@ const users = await getActiveUsers();
 const user = await getUserById(123);
 ```
 
+</CodeBlock>
+
 ### Conditional Queries
 
 Build queries dynamically:
+
+<CodeBlock>
 
 ```ts
 async function searchUsers(filters: {
@@ -239,6 +287,8 @@ async function searchUsers(filters: {
 // Usage
 const users = await searchUsers({ status: 'active', role: 'admin' });
 ```
+
+</CodeBlock>
 
 ## Next Steps
 

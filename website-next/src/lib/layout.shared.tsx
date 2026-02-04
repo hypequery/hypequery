@@ -2,13 +2,14 @@ import {
   Book,
   Braces,
 } from 'lucide-react';
+import { SearchToggle } from 'fumadocs-ui/components/dialog/search';
 
 export function baseOptions() {
   return {
     nav: {
       title: (
-        <div className="flex items-center">
-          <img src="/logo.svg" width={175} alt="HypeQuery" />
+        <div className="px-3 font-mono text-lg font-bold text-indigo-300 flex items-center">
+          &gt; hypequery
         </div>
       ),
     },
@@ -28,6 +29,9 @@ export function baseOptions() {
           icon: <Braces className="w-4 h-4 text-purple-500" />,
         },
       ],
+      search: {
+        component: <SearchToggle />,
+      },
     },
     theme: false,
   };
