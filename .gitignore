@@ -3,7 +3,10 @@ node_modules
 .pnpm-store
 
 # Build outputs
-dist
+# Ignore dist for examples and website, but NOT for workspace packages
+examples/*/dist
+website/dist
+
 build
 
 # IDE

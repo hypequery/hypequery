@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     services:
       clickhouse:
         image: clickhouse/clickhouse-server:latest
@@ -26,7 +26,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - uses: actions/checkout@v3
       - name: Setup pnpm
@@ -37,13 +37,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-          cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Clean existing build artifacts
-        run: |
-          rm -rf packages/clickhouse/dist
-          find packages -name '*.tsbuildinfo' -delete
       - name: Build all hypequery packages
         run: pnpm turbo run build --filter='@hypequery/*'
       - name: Verify bin.js file exists

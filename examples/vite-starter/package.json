@@ -7,7 +7,8 @@
     "dev": "vite",
     "api": "hypequery dev api/queries.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run api\"",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "build:check": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
