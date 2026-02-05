@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "@clickhouse/client": "^1.11.2",
-    "@hypequery/clickhouse": "*",
-    "@hypequery/serve": "*",
+    "@hypequery/clickhouse": "workspace:*",
+    "@hypequery/serve": "workspace:*",
     "zod": "^3.23.8"
   },
   "devDependencies": {
