@@ -1,0 +1,129 @@
+---
+title: Setup & Connection
+description: Set up the standalone query builder and connect to ClickHouse
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Setup & Connection
+
+Get started with the standalone `@hypequery/clickhouse` query builder in minutes.
+
+## Installation
+
+<CodeBlock>
+
+```bash
+npm install @hypequery/clickhouse
+```
+
+</CodeBlock>
+
+**For browser environments:**
+
+<CodeBlock>
+
+```bash
+npm install @hypequery/clickhouse @clickhouse/client-web
+```
+
+</CodeBlock>
+
+## Create a `.env` file in the project root
+
+<CodeBlock>
+
+```bash
+CLICKHOUSE_HOST=your-instance.clickhouse.cloud
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=your-password
+CLICKHOUSE_DATABASE=default
+```
+
+</CodeBlock>
+
+## Generate Types
+
+Generate TypeScript types from your ClickHouse schema:
+
+<CodeBlock>
+
+```bash
+npx hypequery generate-types
+```
+
+</CodeBlock>
+
+This creates a `generated-schema.ts` file with your database structure.
+
+**Options:**
+- `--output <path>` - Output file path (default: `./generated-schema.ts`)
+- `--tables <names>` - Generate types for specific tables only
+- `--exclude <pattern>` - Exclude tables matching pattern
+
+## Create Query Builder
+
+The simplest approach for Node.js environments:
+
+<CodeBlock>
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: 'your-password',
+  database: 'default'
+});
+```
+
+</CodeBlock>
+
+### Browser/Universal (Manual Client)
+
+To use hypequery in a browser environment, you need to explicitly provide the client:
+
+<CodeBlock>
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client-web';
+import type { IntrospectedSchema } from './generated-schema';
+
+const client = createClient({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: '',
+  database: 'default'
+});
+
+const db = createQueryBuilder<IntrospectedSchema>({ client });
+```
+
+</CodeBlock>
+
+## Verify Connection
+
+Start building queries with full type safety!
+
+<CodeBlock>
+
+```ts
+const result = await db.table('users')
+  .select(['id'])
+  .limit(1)
+  .execute();
+
+console.log('Connected!', result);
+```
+
+</CodeBlock>
+
+## Next Steps
+
+**Continue:** [Direct Execution](/docs/standalone-usage/execution) - Learn how to execute queries
+
+**Or explore:**
+- [Query Building](/docs/query-building) - Master the query builder API

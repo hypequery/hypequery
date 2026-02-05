@@ -1,0 +1,344 @@
+---
+title: Joins
+description: Combine data from multiple tables
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+
+
+# Joins
+
+Joins combine data from multiple tables based on related columns. hypequery provides type-safe joins with full TypeScript support for joined columns.
+
+## Overview
+
+Use joins to:
+- Combine related data from multiple tables
+- Enrich queries with additional context
+- Avoid N+1 query problems
+- Maintain type safety across tables
+
+## Join Types
+
+| Join Type | Method | Description |
+| --- | --- | --- |
+| **INNER JOIN** | `innerJoin()` | Returns rows when both tables have matches |
+| **LEFT JOIN** | `leftJoin()` | Returns all rows from left table, matched rows from right |
+| **RIGHT JOIN** | `rightJoin()` | Returns all rows from right table, matched rows from left |
+| **FULL JOIN** | `fullJoin()` | Returns all rows when there's a match in either table |
+
+## Inner Join
+
+Returns only rows where both tables have matching values:
+
+<CodeBlock>
+<Pre>
+```ts
+const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'orders.total',
+    'users.name AS customer_name',
+    'users.email AS customer_email',
+  ])
+  .execute();
+ ``` 
+  </Pre>
+ </CodeBlock>
+
+<Callout type="info" title="Use Inner Join when">
+  - You only want records with matches in both tables
+  - The relationship is required
+  - You want to filter out unmatched records
+</Callout>
+
+## Left Join
+
+Returns all rows from the left table, and matched rows from the right table (NULL if no match):
+
+<CodeBlock>
+const results = await db.table('users')
+  .leftJoin('orders', 'users.id', 'orders.user_id')
+  .select([
+    'users.id',
+    'users.name',
+    'orders.id AS last_order_id',
+    'orders.total AS last_order_total',
+  ])
+  .execute();
+  </CodeBlock>
+
+<Callout type="info" title="Use Left Join when">
+  - You want all records from the primary table
+  - The relationship is optional
+  - You need to preserve unmatched records
+</Callout>
+
+## Right Join
+
+Returns all rows from the right table, and matched rows from the left table:
+
+{`const results = await db.table('orders')
+  .rightJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'users.name',
+    'users.email',
+  ])
+  .execute();`}
+
+## Full Join
+
+Returns all rows when there's a match in either table:
+
+{`const results = await db.table('employees')
+  .fullJoin('departments', 'employees.dept_id', 'departments.id')
+  .select([
+    'employees.name AS employee',
+    'departments.name AS department',
+  ])
+  .execute();`}
+
+## Join Syntax
+
+### Basic Join
+
+{`db.table('table_name')
+  .joinType('other_table', 'left_column', 'right_table.right_column')`}
+
+- `joinType`: One of `innerJoin`, `leftJoin`, `rightJoin`, `fullJoin`
+- `other_table`: Name of the table to join
+- `left_column`: Column from the current table
+- `right_column`: Column from the joined table (format: `'table.column'`)
+
+### With Table Alias
+
+{`await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id', 'u')
+  .select([
+    'orders.id',
+    'u.name AS customer_name',
+  ])
+  .execute();`}
+
+## Type Safety with Joins
+
+<Callout type="warning" title="Important">
+  TypeScript only exposes columns from a joined table after you register the join. Call `leftJoin('users', ...)` before referencing `users.email` in `select`, `where`, etc.
+</Callout>
+
+### Incorrect Order
+
+{`// ❌ Error - users table not joined yet
+await db.table('orders')
+  .select(['orders.id', 'users.name']) // TypeScript error
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .execute();`}
+
+### Correct Order
+
+{`// ✅ Correct - join first, then select
+await db.table('orders')
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .select(['orders.id', 'users.name']) // TypeScript OK
+  .execute();`}
+
+### TypeScript Knows Joined Columns
+
+{`const results = await db.table('orders')
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'orders.total',
+    'users.name',
+    'users.email',
+  ])
+  .execute();
+
+// TypeScript knows result type includes:
+// - orders.id (number)
+// - orders.total (number)
+// - users.name (string)
+// - users.email (string)`}
+
+## Multiple Joins
+
+Chain multiple joins to combine data from several tables:
+
+{`const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('products', 'orders.product_id', 'products.id')
+  .leftJoin('categories', 'products.category_id', 'categories.id')
+  .select([
+    'orders.id AS order_id',
+    'users.name AS customer_name',
+    'products.name AS product_name',
+    'categories.name AS category_name',
+  ])
+  .execute();`}
+
+## Filtering with Joins
+
+### Where on Joined Columns
+
+{`const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .where('users.country', 'eq', 'US')
+  .where('orders.total', 'gte', 100)
+  .select([
+    'orders.id',
+    'users.name',
+    'orders.total',
+  ])
+  .execute();`}
+
+### Where Groups with Joins
+
+{`const results = await db.table('orders')
+  .leftJoin('users', 'orders.user_id', 'users.id')
+  .whereGroup((builder) => {
+    builder
+      .where('users.country', 'eq', 'US')
+      .orWhere('users.country', 'eq', 'CA');
+  })
+  .where('orders.status', 'eq', 'completed')
+  .select([
+    'orders.id',
+    'users.name',
+    'users.country',
+  ])
+  .execute();`}
+
+## Joining on Multiple Conditions
+
+ClickHouse doesn't natively support multiple join conditions in the same join. Use `where` clauses to add additional conditions:
+
+{`const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .where('users.status', 'eq', 'active')
+  .where('orders.created_at', 'gte', '2024-01-01')
+  .select([
+    'orders.id',
+    'users.name',
+  ])
+  .execute();`}
+
+## Common Patterns
+
+### Orders with User Details
+
+{`const orders = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .select([
+    'orders.id',
+    'orders.total',
+    'orders.created_at',
+    'users.name AS customer_name',
+    'users.email AS customer_email',
+  ])
+  .orderBy('orders.created_at', 'DESC')
+  .limit(50)
+  .execute();`}
+
+### Products with Categories
+
+{`const products = await db.table('products')
+  .leftJoin('categories', 'products.category_id', 'categories.id')
+  .select([
+    'products.id',
+    'products.name',
+    'products.price',
+    'categories.name AS category_name',
+  ])
+  .where('products.in_stock', 'eq', true)
+  .execute();`}
+
+### Events with Session Data
+
+{`const events = await db.table('events')
+  .innerJoin('sessions', 'events.session_id', 'sessions.id')
+  .innerJoin('users', 'sessions.user_id', 'users.id')
+  .select([
+    'events.id',
+    'events.type',
+    'events.data',
+    'sessions.started_at AS session_start',
+    'users.name AS user_name',
+  ])
+  .where('events.created_at', 'gte', '2024-01-01')
+  .execute();`}
+
+### All Users with Their Orders (or NULL)
+
+{`const results = await db.table('users')
+  .leftJoin('orders', 'users.id', 'orders.user_id')
+  .select([
+    'users.id',
+    'users.name',
+    'orders.id AS last_order_id',
+    'orders.total AS last_order_total',
+  ])
+  .orderBy('users.id', 'ASC')
+  .execute();`}
+
+## Performance Considerations
+
+<Callout type="tip" title="Join Performance">
+  - Inner joins are typically faster than left joins
+  - Join on indexed columns when possible
+  - Filter before joining when you can
+  - Consider denormalizing for frequently-joined data
+</Callout>
+
+### Filter Before Joining
+
+{`// ✅ Better - filter first
+const results = await db.table('orders')
+  .where('orders.status', 'eq', 'completed')
+  .where('orders.total', 'gte', 100)
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .select(['orders.*', 'users.name'])
+  .execute();
+
+// ❌ Worse - join all then filter
+const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .where('orders.status', 'eq', 'completed')
+  .where('orders.total', 'gte', 100)
+  .select(['orders.*', 'users.name'])
+  .execute();`}
+
+## Examples
+
+### E-commerce Order Details
+
+{`const orderDetails = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('products', 'orders.product_id', 'products.id')
+  .select([
+    'orders.id AS order_id',
+    'orders.quantity',
+    'orders.total',
+    'users.name AS customer_name',
+    'users.email AS customer_email',
+    'products.name AS product_name',
+    'products.price AS unit_price',
+  ])
+  .where('orders.created_at', 'gte', '2024-01-01')
+  .orderBy('orders.created_at', 'DESC')
+  .execute();`}
+
+### Analytics with User Segments
+
+{`const analytics = await db.table('events')
+  .leftJoin('users', 'events.user_id', 'users.id')
+  .leftJoin('segments', 'users.segment_id', 'segments.id')
+  .select([
+    'events.type',
+    'segments.name AS user_segment',
+    selectExpr('count()', 'event_count'),
+  ])
+  .groupBy(['events.type', 'user_segment'])
+  .execute();`}

@@ -1,0 +1,373 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Node.js
+description: Run hypequery as a standalone HTTP API using Hono
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Files, Folder, File } from 'fumadocs-ui/components/files';
+
+# Node.js
+
+Expose analytics through a standalone HTTP API using Hono. This guide shows you how to set up a production-ready Node.js server with type-safe ClickHouse queries.
+
+<Callout type="info" title="Runnable Example">
+You can find a runnable Node.js example in our [examples repo](https://github.com/hypequery/hypequery-examples)
+</Callout>
+
+## Use case
+
+You want a standalone Node.js API that:
+- Serves analytics queries over HTTP
+- Works with any frontend framework (React, Vue, Svelte, etc.)
+- Can be deployed independently (Docker, Railway, Fly.io, etc.)
+- Uses modern, lightweight framework (Hono) with great TypeScript support
+
+## Prerequisites
+
+- Node.js 18+
+- ClickHouse instance (local or hosted)
+- Sample data or your own ClickHouse tables
+
+<Steps>
+<Step>
+
+### Install dependencies
+
+<CodeBlock>
+```bash
+# Core packages
+npm install @hypequery/clickhouse @hypequery/serve zod
+
+# Hono framework
+npm install hono @hono/node-server dotenv
+
+# CLI (required for type generation)
+npm install -D @hypequery/cli
+
+# TypeScript + dev tools
+npm install -D typescript tsx
+```
+</CodeBlock>
+
+**Why Hono?** Hono is a modern, lightweight web framework with excellent TypeScript support. It's similar to Express but faster, more type-safe, and works great with edge runtimes. If you prefer Express or Fastify, hypequery works with those too - just adapt the server setup.
+
+</Step>
+
+<Step>
+
+### Configure environment variables
+
+Create `.env`:
+
+<CodeBlock>
+```bash
+# .env
+CLICKHOUSE_HOST=http://localhost:8123
+CLICKHOUSE_USERNAME=default
+CLICKHOUSE_PASSWORD=your_password
+CLICKHOUSE_DATABASE=default
+
+# Server configuration
+PORT=3000
+```
+</CodeBlock>
+
+**Important:** Add `.env` to `.gitignore`.
+
+</Step>
+
+<Step>
+
+### Configure TypeScript
+
+Create `tsconfig.json`:
+
+<CodeBlock>
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "skipLibCheck": true
+  }
+}
+```
+</CodeBlock>
+
+Update `package.json` to add scripts:
+
+<CodeBlock>
+```json
+{
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  }
+}
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Generate TypeScript types
+
+Generate types from your ClickHouse schema:
+
+<CodeBlock>
+```bash
+npx hypequery generate
+```
+</CodeBlock>
+
+**What this does:**
+- Connects to your ClickHouse instance
+- Introspects your table schemas
+- Generates `analytics/schema.ts` with TypeScript types
+
+**This file is auto-generated.** Don't edit it manually - regenerate when your schema changes.
+
+</Step>
+
+<Step>
+
+### Create ClickHouse client
+
+Create `analytics/client.ts`:
+
+<CodeBlock>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+export const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD,
+});
+```
+</CodeBlock>
+
+**Note:** Place this in `analytics/` directory at project root (not `src/`).
+
+</Step>
+
+<Step>
+
+### Define analytics queries
+
+Create `analytics/queries.ts`:
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+
+const serve = initServe({
+  basePath: '',
+  context: () => ({ db }),
+});
+const { query } = serve;
+
+export const api = serve.define({
+  queries: serve.queries({
+    tripsQuery: query
+      .describe('Example query using the trips table')
+      .query(async ({ ctx }) =>
+        ctx.db
+          .table('trips')
+          .select('*')
+          .limit(10)
+          .execute()
+      ),
+  }),
+});
+
+// Register HTTP routes
+api.route('/tripsQuery', api.queries.tripsQuery);
+```
+</CodeBlock>
+
+**Key points:**
+- Use `ctx.db` (not `db`) inside query functions
+- Always call `.execute()` at the end
+- Register routes with `api.route()` to expose via HTTP
+- Set `basePath: ''` to serve routes from root path
+
+</Step>
+
+<Step>
+
+### Create Hono app
+
+Create `src/app.ts`:
+
+<CodeBlock>
+```typescript
+import { Hono } from "hono";
+import { api } from "../analytics/queries.js";
+import { createFetchHandler } from "@hypequery/serve";
+
+// Create Hono app
+export const app = new Hono();
+
+// Health check endpoint
+app.get("/", (c) => {
+  return c.json({
+    status: "ok",
+    runtime: "node",
+  });
+});
+
+// Example: Direct query execution (server-side)
+app.get("/trips", async (c) => {
+  const result = await api.run('tripsQuery');
+  return c.json(result);
+});
+
+// Wire hypequery handler into Hono's router
+const hypequery = createFetchHandler(api.handler);
+app.all('/tripsQuery', (c) => hypequery(c.req.raw));
+```
+</CodeBlock>
+
+**What's happening:**
+- Regular Hono routes like `/` and `/trips` work normally
+- The `/tripsQuery` route uses hypequery's HTTP handler
+- `createFetchHandler` adapts hypequery to Hono's Request/Response API
+
+</Step>
+
+<Step>
+
+### Create server entry point
+
+Create `src/index.ts`:
+
+<CodeBlock>
+```typescript
+import "dotenv/config";
+import { serve } from "@hono/node-server";
+import { app } from "./app.js";
+
+const port = process.env.PORT
+  ? Number(process.env.PORT)
+  : 3000;
+
+serve({
+  fetch: app.fetch,
+  port,
+});
+
+console.log(`🚀 Server running on http://localhost:${port}`);
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Run the development server
+
+<CodeBlock>
+```bash
+npm run dev
+```
+</CodeBlock>
+
+Your API is now available at `http://localhost:3000`.
+
+Test the endpoints:
+
+<CodeBlock>
+```bash
+# Health check
+curl http://localhost:3000/
+
+# Direct query execution (server-side)
+curl http://localhost:3000/trips
+
+# HTTP query endpoint
+curl http://localhost:3000/tripsQuery
+```
+</CodeBlock>
+
+**Optional: Run hypequery dev server for interactive docs**
+
+<CodeBlock>
+```bash
+npx hypequery dev analytics/queries.ts
+# Docs at: http://localhost:4000/docs
+```
+</CodeBlock>
+
+</Step>
+
+</Steps>
+
+## Project Structure
+
+After following this guide, your structure should look like:
+
+<Files>
+  <Folder name="your-nodejs-app" defaultOpen>
+    <Folder name="analytics" defaultOpen>
+      <File name="schema.ts (Auto-generated by `hypequery generate`)" />
+      <File name="client.ts (You write this)" />
+      <File name="queries.ts (You write this)" />
+    </Folder>
+    <Folder name="src">
+      <File name="index.ts (Server entry point)" />
+      <File name="app.ts (Hono app with routes)" />
+    </Folder>
+    <File name=".env (You create this)" />
+    <File name="package.json" />
+    <File name="tsconfig.json" />
+  </Folder>
+</Files>
+
+## Testing Your API
+
+<CodeBlock>
+```bash
+# Test health check
+curl http://localhost:3000/
+
+# Test trips endpoint (direct execution)
+curl http://localhost:3000/trips
+
+# Test hypequery HTTP endpoint
+curl http://localhost:3000/tripsQuery
+
+# View OpenAPI spec (if using hypequery dev)
+curl http://localhost:4000/openapi.json
+```
+</CodeBlock>
+
+## When to use which approach
+
+You have two options for serving queries:
+
+**1. Direct execution with `api.run()`** (like `/trips` endpoint):
+- Executes queries in-process
+- Returns raw results without HTTP overhead
+- Great for server-side rendering or internal APIs
+
+**2. HTTP handler with `createFetchHandler()`** (like `/tripsQuery` endpoint):
+- Exposes queries via HTTP with automatic validation
+- Generates OpenAPI documentation
+- Great for external APIs and frontend consumption
+
+Both approaches use the same query definitions, choose based on your use case.
+

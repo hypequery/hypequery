@@ -1,0 +1,392 @@
+---
+title: Join Relationships
+description: Define reusable join relationships with JoinRelationships and withRelation
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+# Join Relationships
+
+While basic joins work well for simple queries, larger applications benefit from defining reusable relationships. This page shows how to use `JoinRelationships` to create consistent, maintainable join patterns across your queries.
+
+## Overview
+
+Use join relationships to:
+- Define reusable join paths once
+- Maintain consistency across multiple queries
+- Simplify complex multi-table joins
+- Make queries more readable and semantic
+
+## Basic Joins vs Relationships
+
+Basic inline joins are perfect for simple cases:
+
+<CodeBlock>
+<Pre>
+```typescript
+const results = await ctx.db
+  .table('orders')
+  .innerJoin('users', 'user_id', 'users.id')
+  .select(['orders.id', 'users.name', 'orders.amount'])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+But when multiple queries use the same join pattern, defining it once as a relationship is cleaner:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { JoinRelationships } from '@hypequery/clickhouse';
+
+const relationships = new JoinRelationships<Schema>();
+
+relationships.define('userOrders', {
+  from: 'orders',
+  to: 'users',
+  leftColumn: 'user_id',
+  rightColumn: 'id',
+  type: 'LEFT',
+});
+
+// Now reuse in any query
+const results = await ctx.db
+  .table('orders')
+  .withRelation('userOrders')
+  .select(['orders.id', 'users.name', 'orders.amount'])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+## Defining Relationships
+
+### Single Relationship
+
+Define a relationship with a name, tables, columns, and join type:
+
+<CodeBlock>
+<Pre>
+```typescript
+const relationships = new JoinRelationships<Schema>();
+
+relationships.define('userOrders', {
+  from: 'orders',        // Source table
+  to: 'users',          // Target table
+  leftColumn: 'user_id', // Column in 'from' table
+  rightColumn: 'id',     // Column in 'to' table
+  type: 'LEFT',         // Join type: INNER, LEFT, RIGHT, or FULL
+});
+```
+</Pre>
+</CodeBlock>
+
+### Multiple Relationships
+
+Define all your relationships at startup:
+
+<CodeBlock>
+<Pre>
+```typescript
+const relationships = new JoinRelationships<Schema>();
+
+// User relationships
+relationships.define('userOrders', {
+  from: 'orders',
+  to: 'users',
+  leftColumn: 'user_id',
+  rightColumn: 'id',
+  type: 'LEFT',
+});
+
+relationships.define('userProfile', {
+  from: 'profiles',
+  to: 'users',
+  leftColumn: 'user_id',
+  rightColumn: 'id',
+  type: 'INNER',
+});
+
+// Order relationships
+relationships.define('orderItems', {
+  from: 'orders',
+  to: 'order_items',
+  leftColumn: 'id',
+  rightColumn: 'order_id',
+  type: 'INNER',
+});
+
+relationships.define('orderInvoice', {
+  from: 'orders',
+  to: 'invoices',
+  leftColumn: 'id',
+  rightColumn: 'order_id',
+  type: 'LEFT',
+});
+```
+</Pre>
+</CodeBlock>
+
+## Registering Relationships
+
+Before using relationships in queries, register them globally:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { createQueryBuilder, JoinRelationships } from '@hypequery/clickhouse';
+
+const relationships = new JoinRelationships<Schema>();
+
+// ... define relationships ...
+
+// Register ONCE during app initialization
+createQueryBuilder.setJoinRelationships(relationships);
+
+// Now all query builders can use withRelation()
+export const db = createQueryBuilder<Schema>({ ... });
+```
+</Pre>
+</CodeBlock>
+
+<Callout type="warning" title="Important">
+Call `QueryBuilder.setJoinRelationships()` exactly once during startup, before you initialize any query definitions or execute queries.
+</Callout>
+
+## Using Relationships
+
+### Basic Usage
+
+Use `withRelation()` to apply a predefined relationship:
+
+<CodeBlock>
+<Pre>
+```typescript
+const results = await ctx.db
+  .table('orders')
+  .withRelation('userOrders')
+  .select(['orders.id', 'users.name', 'orders.total'])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+### Multiple Relationships
+
+Chain multiple `withRelation()` calls for complex joins:
+
+<CodeBlock>
+<Pre>
+```typescript
+const results = await ctx.db
+  .table('orders')
+  .withRelation('userOrders')      // Join users
+  .withRelation('orderItems')      // Join order_items
+  .withRelation('orderInvoice')    // Join invoices
+  .select([
+    'orders.id',
+    'users.name',
+    'order_items.sku',
+    'invoices.invoice_number'
+  ])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+### Filtering with Relationships
+
+Once a relationship is applied, you can filter on any joined table:
+
+<CodeBlock>
+<Pre>
+```typescript
+const results = await ctx.db
+  .table('accounts')
+  .withRelation('ownerUser')
+  .where('accounts.active', 'eq', 1)
+  .where('users.role', 'eq', 'admin')  // Filter on joined table
+  .select(['accounts.id', 'accounts.name', 'users.role'])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+### Aggregations with Relationships
+
+Relationships work seamlessly with grouping and aggregations:
+
+<CodeBlock>
+<Pre>
+```typescript
+const results = await ctx.db
+  .table('orders')
+  .withRelation('userOrders')
+  .select(['users.user_name'])
+  .sum('orders.total', 'total_spent')
+  .count('orders.id', 'order_count')
+  .avg('orders.total', 'avg_order_value')
+  .groupBy(['users.user_name'])
+  .orderBy('total_spent', 'DESC')
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+## Overriding Relationship Options
+
+Override relationship options per-query while reusing the base definition:
+
+<CodeBlock>
+<Pre>
+```typescript
+// Default relationship is LEFT
+const results = await ctx.db
+  .table('orders')
+  .withRelation('userOrders', { type: 'INNER' })  // Override to INNER
+  .select(['orders.id', 'users.name'])
+  .execute();
+
+// Override the alias
+const results = await ctx.db
+  .table('orders')
+  .withRelation('userOrders', { alias: 'customers' })
+  .select(['orders.id', 'customers.name'])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+## Mixing Inline Joins and Relationships
+
+You can mix both approaches. Use relationships for stable, reused patterns and inline joins for one-off cases:
+
+<CodeBlock>
+<Pre>
+```typescript
+const results = await ctx.db
+  .table('orders')
+  .withRelation('userOrders')        // Predefined relationship
+  .leftJoin('regions', 'region_id', 'regions.id')  // Inline join for this query only
+  .select([
+    'orders.id',
+    'users.name',
+    'regions.region_name'
+  ])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+## Best Practices
+
+### 1. Use Semantic Names
+
+Name relationships based on their business meaning, not just table names:
+
+<CodeBlock>
+<Pre>
+```typescript
+// Good - semantic and descriptive
+relationships.define('userOrders', { ... });
+relationships.define('orderItems', { ... });
+relationships.define('productInventory', { ... });
+
+// Avoid - too generic
+relationships.define('usersJoin', { ... });
+relationships.define('itemsJoin', { ... });
+```
+</Pre>
+</CodeBlock>
+
+### 2. Organize by Domain
+
+Group relationships by domain or feature:
+
+<CodeBlock>
+<Pre>
+```typescript
+// User domain
+relationships.define('userProfile', { ... });
+relationships.define('userOrders', { ... });
+relationships.define('userSubscriptions', { ... });
+
+// Order domain
+relationships.define('orderItems', { ... });
+relationships.define('orderShipping', { ... });
+relationships.define('orderPayments', { ... });
+```
+</Pre>
+</CodeBlock>
+
+### 3. Define Relationships Early
+
+Set up relationships during app initialization, not ad-hoc in query files:
+
+<CodeBlock>
+<Pre>
+```typescript
+// lib/relationships.ts
+import { JoinRelationships } from '@hypequery/clickhouse';
+import type { Schema } from './schema';
+
+export const relationships = new JoinRelationships<Schema>();
+
+export function initRelationships() {
+  relationships.define('userOrders', {
+    from: 'orders',
+    to: 'users',
+    leftColumn: 'user_id',
+    rightColumn: 'id',
+    type: 'LEFT',
+  });
+
+  // ... more relationships
+}
+
+// app.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { relationships, initRelationships } from './lib/relationships';
+
+initRelationships();
+createQueryBuilder.setJoinRelationships(relationships);
+```
+</Pre>
+</CodeBlock>
+
+### 4. Test Relationships Individually
+
+When debugging complex multi-join queries, test each relationship separately:
+
+<CodeBlock>
+<Pre>
+```typescript
+// Test each relationship works
+const test1 = await db.table('orders')
+  .withRelation('userOrders')
+  .select(['orders.id', 'users.name'])
+  .execute();
+
+const test2 = await db.table('orders')
+  .withRelation('orderItems')
+  .select(['orders.id', 'order_items.sku'])
+  .execute();
+
+// Now combine them
+const combined = await db.table('orders')
+  .withRelation('userOrders')
+  .withRelation('orderItems')
+  .select(['orders.id', 'users.name', 'order_items.sku'])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+<Callout type="tip" title="Next Steps">
+- **[Joins](/docs/joins)** - Learn basic join syntax and types
+- **[Advanced](/docs/advanced)** - Explore CTEs and raw SQL
+- **[Where](/docs/where)** - Filter query results with conditions
+</Callout>

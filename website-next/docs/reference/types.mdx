@@ -1,0 +1,230 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Types Reference
+description: Complete reference for all TypeScript types exported by hypequery
+---
+
+# Types Reference
+
+hypequery exports several TypeScript types and interfaces that you can use in your application. This page provides a complete reference for all available types.
+
+## Core Types
+
+### QueryBuilder Types
+
+```typescript
+import { 
+  QueryBuilder,
+  ColumnType,
+  TableSchema,
+  DatabaseSchema
+} from '@hypequery/clickhouse';
+
+// Core query builder type
+type QueryBuilder<
+  Schema,        // Your database schema
+  T,             // Current table type
+  HasSelect,     // Whether select has been called
+  Aggregations,  // Current aggregations
+  OriginalT      // Original table type
+>;
+
+// Column type definitions
+type ColumnType = 
+  | 'String'
+  | 'Int32'
+  | 'Int64'
+  | 'Float64'
+  | 'Date'
+  | 'DateTime'
+  | 'UInt8'
+  | `Array(${ColumnType})`;
+
+// Table schema definition
+interface TableSchema<T> {
+  name: string;
+  columns: T;
+}
+
+// Full database schema
+type DatabaseSchema = Record<string, Record<string, ColumnType>>;
+```
+
+### Filter Types
+
+```typescript
+import {
+  FilterOperator,
+  FilterCondition,
+  FilterGroup,
+  CrossFilter
+} from '@hypequery/clickhouse';
+
+// Available filter operators
+type FilterOperator =
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'notIn'
+  | 'between'
+  | 'like'
+  | 'notLike';
+
+// Filter condition structure
+interface FilterCondition<T> {
+  column: string;
+  operator: FilterOperator;
+  value: T;
+  conjunction?: 'AND' | 'OR';
+}
+
+// Group of filter conditions
+interface FilterGroup {
+  operator: 'AND' | 'OR';
+  conditions: Array<FilterCondition | FilterGroup>;
+}
+
+// Cross filter instance type
+type CrossFilter<
+  Schema,      // Your database schema
+  TableName    // Current table name
+>;
+```
+
+### Join Types
+
+```typescript
+import {
+  JoinType,
+  JoinClause,
+  JoinPath,
+  JoinRelationships
+} from '@hypequery/clickhouse';
+
+// Available join types
+type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
+
+// Join clause structure
+interface JoinClause {
+  type: JoinType;
+  table: string;
+  leftColumn: string;
+  rightColumn: string;
+  alias?: string;
+}
+
+// Join path definition
+interface JoinPath<Schema> {
+  from: keyof Schema;
+  to: keyof Schema;
+  leftColumn: string;
+  rightColumn: string;
+  type?: JoinType;
+  alias?: string;
+}
+
+// Join relationships manager type
+type JoinRelationships<Schema>;
+```
+
+### Query Configuration Types
+
+```typescript
+import {
+  QueryConfig,
+  OrderDirection,
+  WhereCondition
+} from '@hypequery/clickhouse';
+
+// Full query configuration
+interface QueryConfig<T, Schema> {
+  select?: Array<keyof T | string>;
+  where?: WhereCondition[];
+  groupBy?: string[];
+  having?: string[];
+  limit?: number;
+  offset?: number;
+  distinct?: boolean;
+  orderBy?: Array<{
+    column: keyof T;
+    direction: OrderDirection;
+  }>;
+  joins?: JoinClause[];
+  parameters?: any[];
+  ctes?: string[];
+  settings?: string;
+}
+
+// Order direction
+type OrderDirection = 'ASC' | 'DESC';
+
+// Where condition
+interface WhereCondition {
+  column: string;
+  operator: FilterOperator;
+  value: any;
+  conjunction: 'AND' | 'OR';
+}
+```
+
+## Type Inference
+
+hypequery provides utility types for inferring column types:
+
+```typescript
+import { InferColumnType } from '@hypequery/clickhouse';
+
+// Infer TypeScript type from ColumnType
+type InferredType = InferColumnType<ColumnType>;
+// Examples:
+type StringType = InferColumnType<'String'>;     // string
+type NumberType = InferColumnType<'Int32'>;      // number
+type DateType = InferColumnType<'Date'>;         // Date
+type ArrayType = InferColumnType<'Array(Int32)'>;// number[]
+```
+
+## Usage Example
+
+Here's how to use these types in your application:
+
+```typescript
+import {
+  QueryBuilder,
+  ColumnType,
+  FilterCondition
+} from '@hypequery/clickhouse';
+
+// Define your schema
+interface UserSchema {
+  id: 'Int32';
+  name: 'String';
+  email: 'String';
+  created_at: 'Date';
+}
+
+interface Schema {
+  users: UserSchema;
+}
+
+// Create typed query builder
+const db = createQueryBuilder<Schema>();
+
+// Types are automatically inferred
+const query = db
+  .table('users')
+  .select(['id', 'name'])
+  .where('created_at', 'gt', new Date())
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+```
+
+## Next Steps
+
+- Check out the [Standalone Query Builder reference](/docs/reference/standalone-query-builder) for method documentation
+- Learn about [Query Building](/docs/define/query-building)
+- Explore [Advanced Functions](/docs/define/sql-expressions)

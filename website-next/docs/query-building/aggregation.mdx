@@ -1,0 +1,367 @@
+---
+title: Aggregation
+description: Group data and calculate summaries with aggregations
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+
+# Aggregation
+
+Aggregation functions calculate summaries across groups of rows. Combine them with `groupBy()` to analyze data patterns and generate insights.
+
+## Overview
+
+Use aggregations to:
+- Calculate totals, averages, and counts
+- Group data by one or more columns
+- Filter grouped results with `having()`
+- Build analytics and reporting queries
+
+## Aggregation Functions
+
+| Function | Description | Example |
+| --- | --- | --- |
+| `sum(column, alias)` | Sum of values | `sum('total', 'revenue')` |
+| `count(column, alias)` | Count rows or non-null values | `count('id', 'user_count')` |
+| `avg(column, alias)` | Average value | `avg('price', 'avg_price')` |
+| `min(column, alias)` | Minimum value | `min('created_at', 'first_seen')` |
+| `max(column, alias)` | Maximum value | `max('created_at', 'last_seen')` |
+| `distinctCount(column, alias)` | Count of distinct values | `distinctCount('user_id', 'unique_users')` |
+
+## Sum
+
+Calculate the total of a column:
+
+{`const revenue = await db.table('orders')
+  .sum('total', 'total_revenue')
+  .execute();`}
+
+### Sum by Group
+
+{`const revenueByCountry = await db.table('orders')
+  .select(['country'])
+  .sum('total', 'total_revenue')
+  .groupBy(['country'])
+  .execute();`}
+
+## Count
+
+Count rows or non-null values:
+
+{`const userCount = await db.table('users')
+  .count('id', 'total_users')
+  .execute();`}
+
+### Count by Group
+
+{`const usersByCountry = await db.table('users')
+  .select(['country'])
+  .count('id', 'user_count')
+  .groupBy(['country'])
+  .execute();`}
+
+<Callout type="info" title="Count All Rows">
+  Use `count('*')` or `count('some_column')` to count all rows. The column parameter is required by ClickHouse but the value doesn't matter when counting all rows.
+</Callout>
+
+## Avg
+
+Calculate the average value:
+
+{`const avgOrder = await db.table('orders')
+  .avg('total', 'average_order_value')
+  .execute();`}
+
+### Average by Group
+
+{`const avgPriceByCategory = await db.table('products')
+  .select(['category'])
+  .avg('price', 'avg_price')
+  .groupBy(['category'])
+  .execute();`}
+
+## Min / Max
+
+Find minimum or maximum values:
+
+{`const priceRange = await db.table('products')
+  .min('price', 'min_price')
+  .max('price', 'max_price')
+  .execute();`}
+
+### Min/Max by Group
+
+{`const dateRanges = await db.table('events')
+  .select(['user_id'])
+  .min('created_at', 'first_event')
+  .max('created_at', 'last_event')
+  .groupBy(['user_id'])
+  .execute();`}
+
+## Distinct Count
+
+Count unique values:
+
+{`const uniqueUsers = await db.table('events')
+  .distinctCount('user_id', 'unique_users')
+  .execute();`}
+
+### Distinct Count by Group
+
+{`const dailyActiveUsers = await db.table('events')
+  .select([datePart('day', 'created_at', 'date')])
+  .distinctCount('user_id', 'daily_active_users')
+  .groupBy(['date'])
+  .execute();`}
+
+## Group By
+
+Group results by one or more columns:
+
+### Single Column Group By
+
+{`const results = await db.table('orders')
+  .select(['country'])
+  .sum('total', 'total_revenue')
+  .count('id', 'order_count')
+  .groupBy(['country'])
+  .execute();`}
+
+### Multiple Columns Group By
+
+{`const results = await db.table('orders')
+  .select(['country', 'status'])
+  .sum('total', 'total_revenue')
+  .groupBy(['country', 'status'])
+  .execute();`}
+
+<Callout type="tip" title="Group By Syntax">
+  All columns in `select()` must either be:
+  - Listed in `groupBy()`
+  - Wrapped in an aggregation function (sum, count, avg, etc.)
+</Callout>
+
+## Having
+
+Filter grouped results using `having()`:
+
+{`const results = await db.table('orders')
+  .select(['country'])
+  .sum('total', 'total_revenue')
+  .groupBy(['country'])
+  .having('total_revenue > 10000')
+  .execute();`}
+
+<Callout type="info" title="Where vs Having">
+  - **WHERE**: Filters rows **before** grouping
+  - **HAVING**: Filters groups **after** aggregation
+</Callout>
+
+### Having with Multiple Conditions
+
+{`const results = await db.table('orders')
+  .select(['country'])
+  .sum('total', 'total_revenue')
+  .count('id', 'order_count')
+  .groupBy(['country'])
+  .having('total_revenue > 10000 AND order_count > 50')
+  .execute();`}
+
+### Having with Parameters
+
+{`const results = await db.table('orders')
+  .select(['country'])
+  .sum('total', 'total_revenue')
+  .groupBy(['country'])
+  .having('total_revenue > ?', [10000])
+  .execute();`}
+
+## Common Patterns
+
+### Sales by Category
+
+{`const salesByCategory = await db.table('orders')
+  .innerJoin('products', 'orders.product_id', 'products.id')
+  .select(['products.category'])
+  .sum('orders.total', 'revenue')
+  .count('orders.id', 'order_count')
+  .avg('orders.total', 'avg_order_value')
+  .groupBy(['products.category'])
+  .orderBy('revenue', 'DESC')
+  .execute();`}
+
+### Daily Active Users
+
+{`const dailyActive = await db.table('events')
+  .select([
+    toStartOfDay('created_at', 'date'),
+  ])
+  .distinctCount('user_id', 'active_users')
+  .groupBy(['date'])
+  .orderBy('date', 'ASC')
+  .execute();`}
+
+### User Activity Summary
+
+{`const userStats = await db.table('events')
+  .select(['user_id'])
+  .count('id', 'total_events')
+  .min('created_at', 'first_event')
+  .max('created_at', 'last_event')
+  .groupBy(['user_id'])
+  .having('total_events > 10')
+  .orderBy('total_events', 'DESC')
+  .execute();`}
+
+### Revenue by Time Period
+
+{`const monthlyRevenue = await db.table('orders')
+  .select([
+    toStartOfMonth('created_at', 'month'),
+  ])
+  .sum('total', 'revenue')
+  .count('id', 'order_count')
+  .groupBy(['month'])
+  .orderBy('month', 'ASC')
+  .execute();`}
+
+### Funnel Analysis
+
+{`const funnel = await db.table('events')
+  .select(['event_type'])
+  .distinctCount('user_id', 'unique_users')
+  .groupBy(['event_type'])
+  .orderBy('unique_users', 'DESC')
+  .execute();`}
+
+## Grouping with Expressions
+
+You can group by expressions and calculated columns:
+
+{`const results = await db.table('orders')
+  .select([
+    selectExpr('if(total > 100, \'high\', \'low\')', 'value_segment'),
+  ])
+  .sum('total', 'revenue')
+  .count('id', 'order_count')
+  .groupBy(['value_segment'])
+  .execute();`}
+
+## Multiple Aggregations
+
+Combine multiple aggregation functions:
+
+{`const stats = await db.table('orders')
+  .select(['country'])
+  .sum('total', 'total_revenue')
+  .count('id', 'order_count')
+  .avg('total', 'avg_order')
+  .min('total', 'min_order')
+  .max('total', 'max_order')
+  .groupBy(['country'])
+  .execute();`}
+
+## Aggregation with Joins
+
+{`const results = await db.table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .select(['users.country'])
+  .sum('orders.total', 'revenue')
+  .count('orders.id', 'order_count')
+  .groupBy(['users.country'])
+  .execute();`}
+
+## Type Safety
+
+TypeScript ensures aggregations are used correctly:
+
+{`// ✅ Valid - number column aggregation
+await db.table('orders')
+  .sum('total', 'revenue')
+  .execute();
+
+// ❌ Error - can't aggregate string column
+await db.table('users')
+  .sum('name', 'total_name') // TypeScript error
+  .execute();
+
+// ✅ Valid - groupBy columns exist
+await db.table('orders')
+  .select(['country'])
+  .sum('total', 'revenue')
+  .groupBy(['country'])
+  .execute();
+
+// ❌ Error - groupBy column doesn't exist
+await db.table('orders')
+  .select(['country'])
+  .sum('total', 'revenue')
+  .groupBy(['invalid_column']) // TypeScript error
+  .execute();`}
+
+## Performance Tips
+
+<Callout type="tip" title="Aggregation Performance">
+  - Filter with `where()` **before** grouping when possible
+  - Use `distinctCount()` instead of `count(DISTINCT column)`
+  - Consider materialized views for frequently-run aggregations
+  - Use appropriate ClickHouse settings for large aggregations
+</Callout>
+
+### Filter Before Grouping
+
+{`// ✅ Better - filter first
+const results = await db.table('orders')
+  .where('status', 'eq', 'completed')
+  .where('created_at', 'gte', '2024-01-01')
+  .select(['country'])
+  .sum('total', 'revenue')
+  .groupBy(['country'])
+  .execute();
+
+// ❌ Slower - group everything then filter
+const results = await db.table('orders')
+  .select(['country'])
+  .sum('total', 'revenue')
+  .groupBy(['country'])
+  .having('sum(total) > 1000') // Less efficient
+  .execute();`}
+
+## Examples
+
+### Dashboard Metrics
+
+{`const metrics = await db.table('orders')
+  .sum('total', 'total_revenue')
+  .count('id', 'total_orders')
+  .avg('total', 'average_order')
+  .count('user_id', 'unique_customers')
+  .where('created_at', 'gte', '2024-01-01')
+  .execute();`}
+
+### Top Customers
+
+{`const topCustomers = await db.table('orders')
+  .select(['user_id'])
+  .sum('total', 'lifetime_value')
+  .count('id', 'order_count')
+  .groupBy(['user_id'])
+  .having('lifetime_value > 1000')
+  .orderBy('lifetime_value', 'DESC')
+  .limit(100)
+  .execute();`}
+
+### Category Performance
+
+{`const categoryStats = await db.table('orders')
+  .innerJoin('products', 'orders.product_id', 'products.id')
+  .select(['products.category'])
+  .sum('orders.total', 'revenue')
+  .count('orders.id', 'orders_count')
+  .avg('orders.total', 'avg_order')
+  .groupBy(['products.category'])
+  .orderBy('revenue', 'DESC')
+  .execute();`}

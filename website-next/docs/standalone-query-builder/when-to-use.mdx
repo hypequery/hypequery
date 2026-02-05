@@ -1,0 +1,191 @@
+---
+title: When to Use Standalone
+description: Learn when to use the standalone query builder vs the full serve framework
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# When to Use Standalone
+
+Most users should start with the [serve framework](/docs/quick-start). Use standalone `@hypequery/clickhouse` when you need maximum flexibility or are integrating with existing infrastructure.
+
+## Good Use Cases for Standalone
+
+### Integration with Existing APIs
+
+You already have Express, Fastify, Next.js API routes, or another framework:
+
+<CodeBlock>
+
+```ts
+// app/api/users/route.ts (Next.js)
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+const db = createQueryBuilder<Schema>({
+  host: process.env.CLICKHOUSE_HOST,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE
+});
+
+export async function GET() {
+  const users = await db.table('users')
+    .where('status', 'eq', 'active')
+    .select(['id', 'name', 'email'])
+    .execute();
+
+  return Response.json(users);
+}
+```
+
+</CodeBlock>
+
+### Background Jobs & Scripts
+
+Cron jobs, data processing, migrations, ETL workflows:
+
+<CodeBlock>
+
+```ts
+// jobs/daily-report.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+const db = createQueryBuilder<Schema>({ /* config */ });
+
+const stats = await db.table('events')
+  .where('created_at', 'gte', startOfDay)
+  .count('*', 'total')
+  .execute();
+
+await sendSlackNotification(`Processed ${stats[0].total} events`);
+```
+
+</CodeBlock>
+
+### Serverless Functions
+
+Lambda, Cloudflare Workers, Vercel Functions, edge computing:
+
+<CodeBlock>
+
+```ts
+// functions/metrics.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+const db = createQueryBuilder<Schema>({ /* config */ });
+
+export default async function handler(req, res) {
+  const data = await db.table('metrics')
+    .where('date', 'eq', today)
+    .select(['metric_name', 'value'])
+    .execute();
+
+  res.json(data);
+}
+```
+
+</CodeBlock>
+
+### Internal Tools & Admin Panels
+
+Quick scripts, one-off queries, data exploration:
+
+<CodeBlock>
+
+```ts
+// scripts/check-duplicates.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+const db = createQueryBuilder<Schema>({ /* config */ });
+
+const duplicates = await db.table('users')
+  .select(['email'])
+  .groupBy(['email'])
+  .having('count(*)', 'gt', 1)
+  .execute();
+
+console.log('Duplicate emails:', duplicates);
+```
+
+</CodeBlock>
+
+### Maximum Control
+
+You need full control over:
+- Request/response handling
+- Authentication implementation
+- Caching strategy
+- Error handling
+- Logging format
+
+## When NOT to Use Standalone
+
+Consider the **serve framework** instead if you:
+
+- **Starting a new project**: Serve provides authentication, multi-tenancy, OpenAPI out of the box
+- **Building dashboards**: React hooks give you type-safe UI integration
+- **Need API endpoints**: Serve handles routing, validation, and OpenAPI generation
+- **Want consistency**: Define once, use everywhere (APIs, React, jobs)
+- **Multi-tenant apps**: Built-in tenant isolation with enforced filtering
+
+## Comparison
+
+| Feature | Standalone | Serve Framework |
+|---------|-----------|-----------------|
+| Type-safe queries | ✅ | ✅ |
+| Query builder API | ✅ | ✅ |
+| Works anywhere | ✅ | ✅ |
+| Manual setup | Required | Optional |
+| API framework | ❌ Bring your own | ✅ Built-in |
+| React hooks | ❌ | ✅ Auto-generated |
+| Authentication | ❌ DIY | ✅ Built-in |
+| Multi-tenancy | ❌ DIY | ✅ Built-in |
+| OpenAPI | ❌ | ✅ Auto-generated |
+| Learning curve | Lower | Higher |
+
+## Can I switch later?
+
+**Yes!** The query builder API is identical. You can:
+
+**Start standalone** → Add serve later:
+
+```bash
+npm install @hypequery/serve @hypequery/react
+```
+
+**Use both**: Use serve for APIs and standalone for background jobs:
+
+<CodeBlock>
+
+```ts
+// Shared query builder instance
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+export const db = createQueryBuilder<Schema>(config);
+
+// Use in serve
+import { defineServe } from '@hypequery/serve';
+
+export const api = defineServe({
+  context: () => ({ db }),
+  queries: { /* ... */ }
+});
+
+// Use in jobs
+await db.table('events').where(...).execute();
+```
+
+</CodeBlock>
+
+## Next Steps
+
+**Continue:** [Setup & Connection](/docs/standalone-usage/setup) - Configure the query builder
+
+**Or explore:**
+- [Quick Start](/docs/quick-start) - Try the full framework instead
+- [Query Building](/docs/query-building) - Learn the query API

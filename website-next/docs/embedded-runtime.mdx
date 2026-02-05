@@ -1,0 +1,100 @@
+---
+title: Embedded Runtime
+description: Run hypequery definitions directly inside your application runtime
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+# Embedded Runtime
+
+You don't need HTTP to execute hypequery metrics. Every `defineServe` export exposes an embedded runtime so you can call queries directly from SSR routes, cron jobs, queues, or AI agents.
+
+## Lifecycle
+
+1. **Initialization** – Import your `analytics/queries.ts` (or equivalent) so `defineServe` runs. This wires up global middleware, auth strategies, tenant config, docs/OpenAPI, etc. Make sure env vars are loaded before the import (e.g., `import 'dotenv/config'`).
+
+2. **Context creation** – Whenever you call the runtime, hypequery builds a `ctx` object that includes the request metadata, auth context (if any), tenant helpers, and whatever you return from the `context` factory (e.g., `db`, cache clients, tracing IDs).
+
+3. **Middleware + hooks** – Global and per-endpoint middleware run around your query, just like they do for HTTP requests. Lifecycle hooks (`onRequestStart`, `onRequestEnd`, etc.) fire as well, so logging and metrics stay consistent.
+
+4. **Execution** – The query resolver executes against your ClickHouse connection (or any other resources you injected). If the resolver returns a value, hypequery serializes it exactly as it would for HTTP responses.
+
+5. **Hot reload expectations** – During development the CLI reloads your `queries.ts` file automatically, so edits are picked up immediately. In production you control deployments; keep `defineServe` in a module that is only instantiated once per process to avoid re-registering endpoints.
+
+## Example Flows
+
+### Background Job / Cron Task
+
+<CodeBlock>
+<Pre>
+```typescript
+import { api } from '../analytics/queries';
+
+export async function syncDailyRevenue() {
+  const result = await api.run('dailyRevenue', {
+    input: { start: '2024-01-01', end: '2024-01-31' },
+    context: { jobId: crypto.randomUUID() },
+  });
+
+  await warehouse.insert('daily_metrics', result);
+}
+```
+</Pre>
+</CodeBlock>
+
+- `api.run(key, options)` runs the endpoint in-process with the same validation, middleware, and hooks as HTTP.
+- `input` must match the endpoint's `inputSchema`. If validation fails, the method throws an error containing the validation issues.
+- `context` lets you inject per-call data (job IDs, loggers, cache handles) that your middleware or resolver can read.
+
+### API Handler (SSR / Server Action)
+
+<CodeBlock>
+<Pre>
+```typescript
+import { api } from '../../analytics/queries';
+
+export async function GET() {
+  const result = await api.run('activeUsers');
+  return Response.json(result);
+}
+```
+</Pre>
+</CodeBlock>
+
+This pattern keeps HTTP thin: the server component just forwards inputs to `api.run` and returns the result. You still benefit from Zod validation, middleware, and hooks.
+
+### Test or Staging Harness
+
+<CodeBlock>
+<Pre>
+```typescript
+import { api } from '../analytics/queries';
+import { describe, it, expect } from 'vitest';
+
+describe('activeUsers metric', () => {
+  it('returns the most recent rows', async () => {
+    const result = await api.run('activeUsers', {
+      input: { limit: 10 },
+    });
+
+    expect(result).toHaveLength(10);
+  });
+});
+```
+</Pre>
+</CodeBlock>
+
+Embedding metrics directly makes automated tests trivial: no HTTP servers to spin up, yet you still exercise the entire hypequery stack.
+
+## Safety Checklist
+
+- **Environment variables** – Load creds before importing `analytics/queries.ts`. In ESM/TS projects the easiest option is `import 'dotenv/config'` in your entrypoint.
+
+- **Auth context** – If you rely on `auth` strategies, pass a `request` shape to `api.run` via `options.request`. That ensures the strategy receives headers/tokens.
+
+- **Tenant enforcement** – Global/per-endpoint `tenant` configs still apply. For background jobs that legitimately bypass tenant checks, disable the tenant config on that endpoint.
+
+- **Error handling** – `api.run` throws when the endpoint would have returned an error response. Wrap calls in try/catch to handle validation failures or ClickHouse errors gracefully.
+
+With these patterns you can run hypequery definitions anywhere in your runtime.

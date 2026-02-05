@@ -1,0 +1,183 @@
+---
+title: Query Basics
+description: hypequery's query builder provides a fluent, type-safe API for building ClickHouse queries. Whether you're using the serve framework or the standalone client, the query builder API remains consistent.
+
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+## Core Concepts
+
+The query builder is designed to be:
+- **Type-safe** - TypeScript ensures columns and types are correct
+- **Fluent** - Chain methods naturally to build complex queries
+- **Database-agnostic API** - Works with ClickHouse using familiar patterns
+- **Consistent** - The same API whether you're in serve or standalone mode
+
+## Serve vs Standalone
+
+The query builder API is identical in both contexts. The only difference is how you access the database client and execute queries.
+
+<Tabs items={['Serve Framework', 'Standalone']} defaultValue='Serve Framework'>
+  <Tab value='Serve Framework' label='Serve Framework'>
+    {`import { initServe } from '@hypequery/serve';
+import { db } from './client';
+
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    getUsers: query
+      .input(z.object({ status: z.string() }))
+      .query(({ ctx, input }) =>
+        ctx.db.table('users')
+          .where('status', 'eq', input.status)
+          .select(['id', 'name', 'email'])
+          .execute()
+      ),
+  }),
+});`}
+  </Tab>
+
+  <Tab value='Standalone' label='Standalone'>
+    {`import { createClient } from '@hypequery/clickhouse';
+
+
+const db = createClient({
+  host: 'localhost',
+  port: 8123,
+  database: 'analytics',
+});
+
+async function getActiveUsers() {
+  const users = await db.table('users')
+    .where('status', 'eq', 'active')
+    .select(['id', 'name', 'email'])
+    .execute();
+
+  return users;
+}`}
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Key Difference">
+  - **Serve**: Use `ctx.db` inside query definitions and return the promise
+  - **Standalone**: Use `db` directly and `await` the execution
+</Callout>
+
+## Query Builder Pattern
+
+All queries follow this pattern:
+
+<CodeBlock>
+```typescript
+db.table('table_name')
+  .where('column', 'operator', 'value')
+  .select(['col1', 'col2'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+```
+</CodeBlock>
+
+<Callout type="tip" title="Remember">
+  Always finish your query chains with `.execute()` to run the query.
+</Callout>
+
+## Query Building Blocks
+
+The query builder is organized into logical concepts. Each concept has detailed documentation:
+
+### Core Operations
+
+| Concept | Description | Link |
+| --- | --- | --- |
+| **Select** | Choose which columns to return, use aliases, and expressions | [Select →](/docs/query-building/select) |
+| **Where** | Filter rows using conditions, operators, and predicates | [Where →](/docs/query-building/where) |
+| **Joins** | Combine data from multiple tables | [Joins →](/docs/query-building/joins) |
+| **Aggregation** | Group data and calculate summaries (sum, count, avg) | [Aggregation →](/docs/query-building/aggregation) |
+| **Ordering** | Sort results and paginate with limit/offset | [Ordering →](/docs/query-building/ordering) |
+
+### Advanced Operations
+
+| Concept | Description | Link |
+| --- | --- | --- |
+| **Time Functions** | Work with dates, timestamps, and time intervals | [Time Functions →](/docs/query-building/time-functions) |
+| **Advanced** | CTEs, raw SQL, query settings, and utilities | [Advanced →](/docs/query-building/advanced) |
+
+## Type Safety
+
+hypequery ensures type safety throughout the query building process:
+
+<CodeBlock>
+```typescript
+// TypeScript knows the exact columns in your schema
+db.table('users')
+  .select(['id', 'name', 'email'])
+  .execute();
+// Returns: Promise<Array<{ id: number; name: string; email: string }>>
+
+// Invalid columns are caught at compile time
+db.table('users')
+  .select(['id', 'invalid_column']) // ❌ TypeScript error
+  .execute();
+
+// Operators match column types
+db.table('users')
+  .where('created_at', 'eq', '2024-01-01') // ✅ Valid
+  .where('age', 'gte', 18) // ✅ Valid
+  .execute();
+```
+</CodeBlock>
+
+## Execution Methods
+
+### execute()
+
+Run the query and get all results:
+
+<CodeBlock>
+```typescript
+const users = await db
+  .table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name'])
+  .execute();
+```
+</CodeBlock>
+
+### stream()
+
+Stream results for large datasets:
+
+<CodeBlock>
+```typescript
+const stream = await db
+  .table('events')
+  .select(['id', 'data'])
+  .stream();
+
+const reader = stream.getReader();
+while (true) {
+  const { done, value: rows } = await reader.read();
+  if (done) break;
+  // Process rows in batches
+}
+```
+</CodeBlock>
+
+### streamForEach()
+
+Process rows with a callback:
+
+{`await db
+  .table('events')
+  .select(['id', 'data'])
+  .streamForEach(async (row) => {
+    await processEvent(row);
+  });`}

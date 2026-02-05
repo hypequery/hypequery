@@ -1,0 +1,494 @@
+---
+title: Query Definitions
+description: Learn how to define type-safe queries using the hypequery serve framework 
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+## Basic Structure
+
+A query definition wraps your metric logic with metadata, validation, and routing:
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    weeklyRevenue: query
+      .describe('Get weekly revenue totals')
+      .input(z.object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+      }))
+      .output(z.object({
+        total: z.number(),
+      }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('transactions')
+          .where('date', 'gte', input.startDate)
+          .where('date', 'lte', input.endDate)
+          .sum('amount')
+          .execute()
+      ),
+  }),
+});
+
+// Register HTTP route
+api.route('/metrics/weekly-revenue', api.queries.weeklyRevenue);
+```
+</CodeBlock>
+
+## Query Configuration
+
+Each query accepts the following options:
+
+### `query` (required)
+
+The core function that executes your metric logic:
+
+<CodeBlock>
+```typescript
+query: async ({ input, ctx }) => {
+  // input: validated request payload
+  // ctx: request context (auth, tenantId, locals, etc.)
+
+  return ctx.db.table('orders')
+    .where('created_at', 'gte', input.startDate)
+    .select('*')
+    .execute();
+}
+```
+</CodeBlock>
+
+### `inputSchema`
+
+Zod schema for request validation:
+
+<CodeBlock>
+```typescript
+inputSchema: z.object({
+  startDate: z.string().datetime(),
+  endDate: z.string().datetime(),
+  status: z.enum(['pending', 'completed']).optional(),
+})
+```
+</CodeBlock>
+
+### `outputSchema`
+
+Zod schema for response typing and documentation:
+
+<CodeBlock>
+```typescript
+outputSchema: z.object({
+  total: z.number(),
+  currency: z.string(),
+  breakdown: z.array(z.object({
+    date: z.string(),
+    amount: z.number(),
+  })),
+})
+```
+</CodeBlock>
+
+### `method`
+
+HTTP method for this query. Defaults to `GET`. You can set it on the definition **or** override it when registering the route:
+
+<CodeBlock>
+```typescript
+// Inline on the query
+method: 'POST'
+
+// Or override later if exposing the route
+api.route('/revenue', api.queries.revenue, { method: 'POST' });
+```
+</CodeBlock>
+
+Pick one style per endpoint—if you specify both, the value passed to `api.route` takes priority.
+
+### `name`
+
+Human-friendly display name for docs, OpenAPI, and `api.describe()` consumers. Defaults to the query key. Use this when the key is terse but you want richer presentation:
+
+<CodeBlock>
+```typescript
+name: 'Weekly revenue (USD)'
+```
+</CodeBlock>
+
+### `summary`
+
+Short description for OpenAPI documentation:
+
+<CodeBlock>
+```typescript
+summary: 'Get weekly revenue totals'
+```
+</CodeBlock>
+
+### `description`
+
+Detailed description for documentation:
+
+<CodeBlock>
+```typescript
+description: 'Returns the sum of all transactions within a given date range, grouped by day'
+```
+</CodeBlock>
+
+### `tags`
+
+Tags for grouping in OpenAPI/documentation:
+
+<CodeBlock>
+```typescript
+tags: ['revenue', 'analytics', 'financial']
+```
+</CodeBlock>
+
+### `middlewares`
+
+Endpoint-specific middleware:
+
+<CodeBlock>
+```typescript
+middlewares: [
+  async (ctx, next) => {
+    console.log('Before query execution');
+    const result = await next();
+    console.log('After query execution');
+    return result;
+  },
+]
+```
+</CodeBlock>
+
+### `auth`
+
+Endpoint-specific authentication:
+
+<CodeBlock>
+```typescript
+auth: async ({ request }) => {
+  const token = request.headers['x-api-key'];
+  if (token === 'secret') {
+    return { userId: '123', role: 'admin' };
+  }
+  return null;
+}
+```
+</CodeBlock>
+
+### `tenant`
+
+Tenant isolation configuration:
+
+<CodeBlock>
+```typescript
+tenant: {
+  extract: (auth) => auth.organizationId,
+  required: true,
+}
+```
+</CodeBlock>
+
+### `cacheTtlMs`
+
+Sets the HTTP `Cache-Control` header that will be applied once you register this query as an HTTP route. This does **not** cache ClickHouse queries—it only tells downstream clients/CDNs how long they may reuse the HTTP response. Use the query builder's cache helpers if you want to memoize database results server-side.
+
+<CodeBlock>
+```typescript
+cacheTtlMs: 60_000 // Cache for 1 minute
+```
+</CodeBlock>
+
+Need to override it dynamically? Call `ctx.setCacheTtl(ms)` inside the handler to adjust the header per request (or pass `null` to force `Cache-Control: no-store`).
+
+### `custom`
+
+Custom metadata:
+
+<CodeBlock>
+```typescript
+custom: {
+  owner: 'data-team',
+  sla: '100ms',
+  criticality: 'high',
+}
+```
+</CodeBlock>
+
+## Reusing Query Types
+
+Need fully typed inputs/outputs elsewhere (React hooks, API routes, SDKs)? Use the helper types exported from `@hypequery/serve`:
+
+<CodeBlock>
+```typescript
+import type { InferQueryInput, InferQueryOutput, InferQueryResult } from '@hypequery/serve';
+import type { api } from './analytics/api';
+
+type TripsInput = InferQueryInput<typeof api, 'tripsQuery'>;        // input schema
+type TripsResult = InferQueryResult<typeof api, 'tripsQuery'>;     // builder return type
+type TripsResponse = InferQueryOutput<typeof api, 'tripsQuery'>;   // zod-derived type if provided
+```
+</CodeBlock>
+
+Use `InferQueryResult` when you trust the builder's static typing (no schema required). `InferQueryOutput` reads the optional `outputSchema`, which is handy when runtime validation is the source of truth. Both helpers accept either the `serve.define` instance or a raw `ServeQueriesMap`, so you can infer types from any subset of queries.
+
+### Inline Execution Helpers
+
+Calling `await api.run('tripsQuery')` (alias of `api.execute`) now returns the same type as `InferQueryResult<typeof api, 'tripsQuery'>`. For inline scripts or devtools, you can lean on the helper to annotate external call sites:
+
+<CodeBlock>
+```typescript
+import { api } from './analytics/api';
+import type { InferQueryResult } from '@hypequery/serve';
+
+type Trips = InferQueryResult<typeof api, 'tripsQuery'>;
+
+export async function listTrips(): Promise<Trips> {
+  return api.run('tripsQuery');
+}
+```
+</CodeBlock>
+
+If your query returns a builder directly, make sure to `.execute()` before returning so the type collapses to the parsed result instead of the intermediate `QueryBuilder`.
+
+## Organizing Queries
+
+### Single File Approach
+
+For small projects, define all queries in one file:
+
+<CodeBlock>
+```typescript
+// api/index.ts
+import { initServe } from '@hypequery/serve';
+import { db } from '../analytics/client';
+
+const { define, queries } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    revenue: { /* ... */ },
+    users: { /* ... */ },
+    orders: { /* ... */ },
+  }),
+});
+
+api.route('/metrics/revenue', api.queries.revenue);
+api.route('/metrics/users', api.queries.users);
+api.route('/metrics/orders', api.queries.orders);
+```
+</CodeBlock>
+
+### Module-based Approach
+
+For larger projects, split by domain:
+
+<CodeBlock>
+```typescript
+// metrics/revenue.ts
+export const revenueQueries = {
+  weeklyRevenue: {
+    query: async ({ input }) => { /* ... */ },
+    inputSchema: z.object({ /* ... */ }),
+  },
+  monthlyRevenue: {
+    query: async ({ input }) => { /* ... */ },
+  },
+};
+
+// metrics/users.ts
+export const userQueries = {
+  activeUsers: {
+    query: async ({ input }) => { /* ... */ },
+  },
+};
+
+// api/index.ts
+import { initServe } from '@hypequery/serve';
+import { db } from '../analytics/client';
+import { revenueQueries } from './metrics/revenue';
+import { userQueries } from './metrics/users';
+
+const { define, queries } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    ...revenueQueries,
+    ...userQueries,
+  }),
+});
+
+// Auto-register all routes
+Object.entries(api.queries).forEach(([key, query]) => {
+  const path = `/metrics/${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
+  api.route(path, query);
+});
+```
+</CodeBlock>
+
+### Factory Pattern
+
+For queries with shared logic:
+
+<CodeBlock>
+```typescript
+// lib/query-factory.ts
+import { z } from 'zod';
+
+export const createDateRangeQuery = (table: string, sumColumn: string) => ({
+  query: async ({ ctx, input }) => {
+    return ctx.db
+      .table(table)
+      .where('date', 'gte', input.startDate)
+      .where('date', 'lte', input.endDate)
+      .sum(sumColumn)
+      .execute();
+  },
+  inputSchema: z.object({
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  outputSchema: z.object({
+    total: z.number(),
+  }),
+});
+
+// Use the factory
+import { initServe } from '@hypequery/serve';
+import { db } from '../analytics/client';
+
+const { define, queries } = initServe({
+  context: () => ({ db }),
+});
+
+const api = define({
+  queries: queries({
+    revenue: createDateRangeQuery('transactions', 'amount'),
+    refunds: createDateRangeQuery('refunds', 'amount'),
+  }),
+});
+```
+</CodeBlock>
+
+## Execution Modes
+
+### HTTP Execution
+
+<CodeBlock>
+```typescript
+// Deploy as HTTP server
+api.start({ port: 3000 });
+
+// Or use as middleware in Next.js, Express, etc.
+export default api.handler;
+```
+</CodeBlock>
+
+### Direct Execution
+
+<CodeBlock>
+```typescript
+// Execute without HTTP layer
+const result = await api.run('weeklyRevenue', {
+  input: {
+    startDate: '2025-01-01',
+    endDate: '2025-01-07',
+  },
+});
+```
+</CodeBlock>
+
+### AI Agent Integration
+
+<CodeBlock>
+```typescript
+// Expose to AI agents
+const description = api.describe();
+
+description.queries.forEach(query => {
+  console.log({
+    name: query.key,
+    description: query.summary,
+    parameters: query.inputSchema,
+    output: query.outputSchema,
+  });
+});
+```
+</CodeBlock>
+
+## Global Configuration
+
+Apply settings to all queries:
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+
+const { define, queries } = initServe({
+  basePath: '/api/v1',
+
+  // Global auth
+  auth: async ({ request }) => {
+    return verifyToken(request.headers['authorization']);
+  },
+
+  // Global tenant isolation
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    required: true,
+  },
+
+  // Global middleware
+  middlewares: [
+    async (ctx, next) => {
+      const start = Date.now();
+      const result = await next();
+      console.log(`${ctx.metadata.path} took ${Date.now() - start}ms`);
+      return result;
+    },
+  ],
+
+  // Global context factory
+  context: async ({ request, auth }) => ({
+    db: createDbConnection(),
+    logger: createLogger({ userId: auth?.userId }),
+  }),
+
+  // Lifecycle hooks
+  hooks: {
+    onRequestStart: async (event) => {
+      console.log(`Request started: ${event.queryKey}`);
+    },
+    onRequestEnd: async (event) => {
+      console.log(`Request completed in ${event.durationMs}ms`);
+    },
+    onError: async (event) => {
+      console.error(`Error in ${event.queryKey}:`, event.error);
+    },
+  },
+});
+
+const api = define({
+  queries: queries({
+    // Your queries inherit all global config
+  }),
+});
+```
+</CodeBlock>

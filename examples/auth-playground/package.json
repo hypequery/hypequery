@@ -10,7 +10,7 @@
     "embedded": "tsc && node dist/embedded.js"
   },
   "dependencies": {
-    "@hypequery/serve": "workspace:*",
+    "@hypequery/serve": "*",
     "zod": "^3.22.4"
   },
   "devDependencies": {

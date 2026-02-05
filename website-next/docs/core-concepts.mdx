@@ -1,0 +1,183 @@
+---
+title: Core Concepts
+description: hypequery has three core ideas, a typed schema that mirrors your ClickHouse tables, query definitions that wrap your analytics logic in reusable units, and execution modes that let you run those definitions anywhere. This page covers each briefly.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+## Schema & Connection
+
+hypequery generates TypeScript types directly from your ClickHouse database. When you run `npx hypequery generate`, it introspects your tables and produces a schema file:
+
+<CodeBlock>
+<Pre>
+```typescript
+export interface IntrospectedSchema {
+  trips: {
+    trip_id: 'String';
+    pickup_datetime: 'DateTime';
+    total_amount: 'Float64';
+    passenger_count: 'UInt8';
+  };
+}
+```
+</Pre>
+</CodeBlock>
+
+You then pass this schema to `createQueryBuilder`, which gives you a typed query builder bound to your database:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+export const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD,
+});
+```
+</Pre>
+</CodeBlock>
+
+From this point on, every table name, column name, and type is checked at compile time. If you rename a column in ClickHouse and regenerate, TypeScript will surface every broken reference before your code runs.
+
+## Query Definitions
+
+A query definition is a TypeScript function registered with `initServe()`. It receives a context object (with your db instance) and optional validated input, and returns data:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: queries({
+    weeklyRevenue: query
+      .describe('Weekly revenue grouped by pickup week')
+      .input(z.object({ start: z.string(), end: z.string() }))
+      .output(z.array(z.object({ week: z.string(), total: z.number() })))
+      .query(async ({ ctx, input }) => {
+        const rows = await ctx.db
+          .table('trips')
+          .where('pickup_datetime', 'gte', input.start)
+          .where('pickup_datetime', 'lte', input.end)
+          .sum('total_amount', 'total')
+          .groupBy(['week'])
+          .orderBy('week', 'ASC')
+          .execute();
+
+        return rows.map((row) => ({
+          week: row.week,
+          total: Number(row.total ?? 0),
+        }));
+      }),
+  }),
+});
+```
+</Pre>
+</CodeBlock>
+
+A few things to note:
+
+- **context** runs per-request and provides dependencies. Your db instance lives here, along with anything else your queries need (user ID, tenant, etc.).
+- **input** and **output** are optional Zod schemas. When present, inputs are validated before your query runs, and outputs are checked before they're returned. These schemas also drive OpenAPI doc generation.
+- **describe** adds documentation that appears in the auto-generated API docs.
+- **Definitions are portable**. The same api object works in every execution mode below — you write the query once and run it wherever you need it.
+
+## Execution
+
+The api object you get from `define()` supports three ways to run your queries:
+
+### Direct Execution
+
+Call `api.run()` in-process with no HTTP layer. Use this in scripts, cron jobs, background workers, or server-side rendering:
+
+<CodeBlock>
+<Pre>
+```typescript
+const data = await api.run('weeklyRevenue', {
+  start: '2025-01-01',
+  end: '2025-03-31',
+});
+```
+</Pre>
+</CodeBlock>
+
+### HTTP
+
+Mount `api.handler` with an adapter to expose your queries as REST endpoints with auto-generated OpenAPI documentation:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { createFetchHandler } from '@hypequery/serve';
+
+// In a Next.js catch-all route, Cloudflare Worker, or any Fetch-compatible runtime:
+const handler = createFetchHandler(api.handler);
+
+// Or with Node's http module / Express / Fastify:
+import { createNodeHandler } from '@hypequery/serve';
+const handler = createNodeHandler(api.handler);
+```
+</Pre>
+</CodeBlock>
+
+Routes are registered on the api object:
+
+<CodeBlock>
+<Pre>
+```typescript
+api
+  .route('/weekly-revenue', api.queries.weeklyRevenue)
+  .route('/passenger-stats', api.queries.passengerStats);
+```
+</Pre>
+</CodeBlock>
+
+### React Hooks
+
+Generate type-safe hooks from your API definition, powered by TanStack Query:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { createHooks } from '@hypequery/react';
+import type { ApiDefinition } from './queries';
+
+export const { useQuery } = createHooks<ApiDefinition>({
+  baseUrl: '/api/analytics',
+});
+```
+</Pre>
+</CodeBlock>
+
+Then in a component:
+
+<CodeBlock>
+<Pre>
+```typescript
+function RevenueChart() {
+  const { data, isLoading } = useQuery('weeklyRevenue', {
+    start: '2025-01-01',
+    end: '2025-03-31',
+  });
+
+  if (isLoading) return <p>Loading...</p>;
+  return <Chart data={data} />;
+}
+```
+</Pre>
+</CodeBlock>
+
+The query name, input shape, and return type are all inferred from your definitioN, no manual type wiring needed.

@@ -104,12 +104,9 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2024-01-01' });
 
 **Don't use ClickHouse**
 - Currently ClickHouse-only
-- If you need multi-database support, consider Cube.dev
 
 **Only need ad-hoc SQL queries**
-- Use a BI tool like Metabase or Superset
-- hypequery is for *reusable* metrics, not one-off exploration
-- BI tools excel at visual query building and exploration
+- You can consider using hypequery's standalone query builder
 
 **Prefer GUI-based metric builders over code**
 - If your team doesn't write code, hypequery isn't the right fit
@@ -232,11 +229,3 @@ hypequery provides **opt-in building blocks**:
 - **Your data warehouse** (complements, doesn't replace)
 - **Ad-hoc exploration tools** (different use case)
 - **ETL pipelines** (hypequery is for querying, not transformation)
-
----
-
-## Next Steps
-
-**Continue:** [Installation Options](/docs/getting-started/installation-options) - Choose serve or standalone
-
-**Or jump to:** [Quickstart](/docs/getting-started/quickstart) - Start building (uses serve framework)

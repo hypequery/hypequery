@@ -1,0 +1,11 @@
+{
+  "title": "Standalone Query Builder",
+  "description": "Build type safe queries with the ClickHouse client directly",
+  "root": true,
+  "pages": [
+    "introduction",
+    "when-to-use",
+    "setup",
+    "execution"
+  ]
+}

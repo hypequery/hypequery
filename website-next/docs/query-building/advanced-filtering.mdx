@@ -1,0 +1,205 @@
+---
+title: Advanced Filtering
+description: Build complex predicates and CrossFilter trees inside your queries
+---
+
+# Advanced Filtering
+
+hypequery exposes powerful filtering controls. Use fluent `where` clauses for simple logic or the `CrossFilter` helper when you need nested groups, reusable predicates, or top-N shortcuts.
+
+## Basic Filtering
+
+Chain multiple `where` clauses inside any query. Every predicate stays type-safe thanks to the schema you generated:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<Schema>({...});
+
+const activeAdultUsers = await db
+  .table('users')
+  .where('age', 'gt', 18)
+  .where('status', 'eq', 'active')
+  .execute();
+```
+
+## Complex Filtering with `CrossFilter`
+
+`CrossFilter` lets you compose nested AND/OR groups, reuse common predicates, and share filter trees across queries.
+
+### Basic `CrossFilter` usage
+
+```ts
+import { CrossFilter } from '@hypequery/clickhouse';
+
+const ordersFilter = new CrossFilter()
+  .add({
+    column: 'status',
+    operator: 'in',
+    value: ['active', 'pending'],
+  })
+  .addGroup(
+    [
+      {
+        column: 'created_at',
+        operator: 'gte',
+        value: new Date('2023-01-01'),
+      },
+      {
+        column: 'total',
+        operator: 'gt',
+        value: 1000,
+      },
+    ],
+    'OR',
+  );
+
+const filteredOrders = await db.table('orders').applyCrossFilters(ordersFilter).execute();
+```
+
+### `FilterConditionInput` interface
+
+```ts
+interface FilterConditionInput<T = any, Schema = any, OriginalT = any> {
+  column: keyof OriginalT | TableColumn<Schema>;
+  operator: FilterOperator;
+  value: T;
+  conjunction?: 'AND' | 'OR';
+}
+```
+
+- `column`: Column reference (local table or joined tables).
+- `operator`: Comparison operator (see table below).
+- `value`: The literal/array passed to that operator.
+- `conjunction`: Optional logical operator to connect the condition to its siblings.
+
+### Supported operators
+
+| Operator | Description | Value Type | Example |
+| --- | --- | --- | --- |
+| `eq` | Equal to | Any | `{ operator: 'eq', value: 'active' }` |
+| `neq` | Not equal to | Any | `{ operator: 'neq', value: 'inactive' }` |
+| `gt` | Greater than | Number, Date | `{ operator: 'gt', value: 100 }` |
+| `gte` | Greater than or equal | Number, Date | `{ operator: 'gte', value: 100 }` |
+| `lt` | Less than | Number, Date | `{ operator: 'lt', value: 1000 }` |
+| `lte` | Less than or equal | Number, Date | `{ operator: 'lte', value: 1000 }` |
+| `in` | In array | Array | `{ operator: 'in', value: ['A', 'B'] }` |
+| `notIn` | Not in array | Array | `{ operator: 'notIn', value: ['X'] }` |
+| `between` | Between range | Array of 2 values | `{ operator: 'between', value: [100, 200] }` |
+| `like` | Pattern match | String | `{ operator: 'like', value: '%test%' }` |
+| `notLike` | Not pattern match | String | `{ operator: 'notLike', value: '%admin%' }` |
+
+### `FilterGroup` interface
+
+```ts
+interface FilterGroup<Schema = any, OriginalT = any> {
+  operator: 'AND' | 'OR';
+  conditions: Array<FilterConditionInput | FilterGroup>;
+  limit?: number;
+  orderBy?: {
+    column: keyof OriginalT;
+    direction: 'ASC' | 'DESC';
+  };
+}
+```
+
+- `operator`: Controls how nested conditions combine.
+- `conditions`: Array of conditions or deeper groups.
+- `limit`: Optional row cap for the subquery powering the filter.
+- `orderBy`: Sort criteria for that subquery.
+
+## `CrossFilter` methods
+
+### Core helpers
+
+- `add(condition: FilterConditionInput)` – append a single predicate.
+- `addMultiple(conditions: FilterConditionInput[])` – append multiple conditions.
+- `addGroup(conditions, operator)` – create nested AND/OR blocks.
+- `getConditions()` – inspect the current filter tree (useful for tests or logging).
+
+```ts
+const filter = new CrossFilter()
+  .add({ column: 'status', operator: 'eq', value: 'active' })
+  .addMultiple([
+    { column: 'age', operator: 'gte', value: 18 },
+    { column: 'age', operator: 'lte', value: 65 },
+  ])
+  .addGroup([
+    { column: 'price', operator: 'gte', value: 100 },
+    { column: 'price', operator: 'lte', value: 500 },
+  ], 'AND');
+
+const conditions = filter.getConditions();
+```
+
+### Advanced helpers
+
+- `topN(valueColumn, n, orderBy)` – builds a filter targeting the top N by a metric.
+
+```ts
+const filter = new CrossFilter().topN('revenue', 10, 'desc');
+```
+
+## Date filtering patterns
+
+### Using `date-fns`
+
+```ts
+import { CrossFilter } from '@hypequery/clickhouse';
+import { endOfDay, endOfMonth, startOfDay, startOfMonth, subDays } from 'date-fns';
+
+// Today's orders
+const today = new Date();
+const todayFilter = new CrossFilter().add({
+  column: 'created_at',
+  operator: 'between',
+  value: [startOfDay(today).toISOString(), endOfDay(today).toISOString()],
+});
+const todaysOrders = await db.table('orders').applyCrossFilters(todayFilter).execute();
+
+// Last 7 days
+const last7DaysFilter = new CrossFilter().add({
+  column: 'created_at',
+  operator: 'between',
+  value: [subDays(today, 7).toISOString(), today.toISOString()],
+});
+
+// This month
+const thisMonthFilter = new CrossFilter().add({
+  column: 'created_at',
+  operator: 'between',
+  value: [startOfMonth(today).toISOString(), endOfMonth(today).toISOString()],
+});
+```
+
+### Using `dayjs`
+
+```ts
+import dayjs from 'dayjs';
+import { CrossFilter } from '@hypequery/clickhouse';
+
+const today = dayjs();
+
+// Today
+const dayJsTodayFilter = new CrossFilter().add({
+  column: 'created_at',
+  operator: 'between',
+  value: [today.startOf('day').toISOString(), today.endOf('day').toISOString()],
+});
+const todayEvents = await db.table('events').applyCrossFilters(dayJsTodayFilter).execute();
+
+// Last 30 days
+const dayJsLast30Filter = new CrossFilter().add({
+  column: 'created_at',
+  operator: 'between',
+  value: [today.subtract(30, 'day').toISOString(), today.toISOString()],
+});
+```
+
+---
+
+## Next Steps
+
+**Continue:** [Join Relationships](/docs/query-building/join-relationships) - Define reusable table relationships
+
+**Or explore:** [Query Definitions](/docs/query-definitions) - Build APIs with serve

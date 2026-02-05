@@ -1,0 +1,431 @@
+---
+title: Advanced
+description: CTEs, raw SQL, query settings, and utility methods
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+
+# Advanced
+
+Advanced query building techniques including CTEs, raw SQL, query settings, and utility methods.
+
+## Overview
+
+Use advanced features to:
+- Build complex queries with Common Table Expressions (CTEs)
+- Inspect generated SQL
+- Configure ClickHouse query settings
+- Insert raw SQL when needed
+- Debug query execution
+
+## Common Table Expressions (CTEs)
+
+CTEs (Common Table Expressions) create temporary result sets that can be referenced in your query. They're useful for:
+- Breaking complex queries into logical parts
+- Reusing subqueries multiple times
+- Improving query readability
+
+### Basic CTE
+
+{`const activeUsers = db.table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
+
+const results = await db.table('orders')
+  .withCTE('active_users', activeUsers)
+  .leftJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select([
+    'orders.id',
+    'active_users.name',
+  ])
+  .execute();`}
+
+### Multiple CTEs
+
+Chain multiple `withCTE()` calls:
+
+{`const activeUsers = db.table('users')
+  .select(['id', 'name', 'country'])
+  .where('status', 'eq', 'active');
+
+const highValueOrders = db.table('orders')
+  .select(['user_id', 'total'])
+  .where('total', 'gte', 1000);
+
+const results = await db.table('users')
+  .withCTE('active_users', activeUsers)
+  .withCTE('high_value_orders', highValueOrders)
+  .innerJoin('high_value_orders', 'users.id', 'high_value_orders.user_id')
+  .select([
+    'users.name',
+    'high_value_orders.total',
+  ])
+  .execute();`}
+
+### Raw SQL CTEs
+
+Use raw SQL strings for CTEs:
+
+{`const results = await db.table('events')
+  .withCTE('recent', 'SELECT * FROM events WHERE date > now() - INTERVAL 7 DAY')
+  .innerJoin('recent', 'events.user_id', 'recent.user_id')
+  .select([
+    'events.id',
+    'recent.id AS recent_event_id',
+  ])
+  .execute();`}
+
+### CTE with Aggregation
+
+{`const userStats = db.table('orders')
+  .select(['user_id'])
+  .sum('total', 'lifetime_value')
+  .count('id', 'order_count')
+  .groupBy(['user_id']);
+
+const topUsers = await db.table('users')
+  .withCTE('user_stats', userStats)
+  .innerJoin('user_stats', 'users.id', 'user_stats.user_id')
+  .select([
+    'users.name',
+    'user_stats.lifetime_value',
+    'user_stats.order_count',
+  ])
+  .orderBy('lifetime_value', 'DESC')
+  .limit(100)
+  .execute();`}
+
+## Query Inspection
+
+### toSQL
+
+Get the generated SQL string:
+
+{`const query = db.table('orders')
+  .where('status', 'eq', 'completed')
+  .select(['id', 'total']);
+
+const sql = query.toSQL();
+console.log(sql);
+// SELECT id, total FROM orders WHERE status = 'completed'`}
+
+### toSQLWithParams
+
+Get SQL and parameters separately:
+
+{`const query = db.table('orders')
+  .where('total', 'gte', 100)
+  .where('status', 'eq', 'active');
+
+const { sql, params } = query.toSQLWithParams();
+console.log(sql);    // SELECT * FROM orders WHERE total >= ? AND status = ?
+console.log(params); // [100, 'active']`}
+
+<Callout type="info" title="Use Cases">
+  - Debug query generation
+  - Log queries for analysis
+  - Share SQL snippets
+  - Test query construction
+</Callout>
+
+### getConfig
+
+Access the current query configuration:
+
+{`const config = db.table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name'])
+  .getConfig();
+
+console.log(config);
+// {
+//   table: 'users',
+//   select: ['id', 'name'],
+//   where: [...],
+//   ...
+// }`}
+
+## Raw SQL
+
+### raw()
+
+Insert raw SQL fragments when necessary:
+
+{`const results = await db.table('events')
+  .raw('WHERE date BETWEEN toStartOfMonth(now()) AND now()')
+  .select(['id', 'type'])
+  .execute();`}
+
+<Callout type="warning" title="Use Raw SQL Sparingly">
+  Raw SQL bypasses type safety and SQL injection protection. Only use when absolutely necessary.
+</Callout>
+
+### Raw in Select
+
+{`const results = await db.table('products')
+  .select([
+    'id',
+    'name',
+    rawAs('price * 1.1', 'price_with_tax'),
+  ])
+  .execute();`}
+
+## Query Settings
+
+Configure ClickHouse query execution settings:
+
+{`const results = await db.table('large_table')
+  .settings({
+    max_execution_time: 60,
+    max_memory_usage: '10000000000',
+    max_threads: 4,
+  })
+  .select(['id', 'data'])
+  .limit(1000)
+  .execute();`}
+
+### Common Settings
+
+| Setting | Description | Example |
+| --- | --- | --- |
+| `max_execution_time` | Maximum query execution time (seconds) | `max_execution_time: 30` |
+| `max_memory_usage` | Maximum memory usage (bytes) | `max_memory_usage: '10000000000'` |
+| `max_threads` | Maximum number of threads | `max_threads: 4` |
+| `max_block_size` | Maximum block size (rows) | `max_block_size: 65536` |
+| `max_rows_to_read` | Maximum rows to read | `max_rows_to_read: 1000000` |
+
+### Settings for Performance
+
+{`// Large aggregation
+const results = await db.table('events')
+  .settings({
+    max_threads: 8,
+    max_execution_time: 120,
+    max_block_size: 1048576,
+  })
+  .select(['user_id'])
+  .sum('value', 'total')
+  .groupBy(['user_id'])
+  .execute();`}
+
+## Debugging
+
+### debug()
+
+Log query information without executing:
+
+{`await db.table('users')
+  .where('status', 'eq', 'active')
+  .debug()  // Logs SQL, parameters, settings
+  .select(['id', 'name'])
+  .execute();`}
+
+The debug output shows:
+- Generated SQL
+- Parameters
+- Query settings
+- Table references
+
+## Distinct
+
+Remove duplicate rows:
+
+{`const uniqueCountries = await db.table('users')
+  .select(['country'])
+  .distinct()
+  .orderBy('country', 'ASC')
+  .execute();`}
+
+### Distinct with Multiple Columns
+
+{`const uniqueCombos = await db.table('orders')
+  .select(['country', 'status'])
+  .distinct()
+  .execute();`}
+
+## Common Patterns
+
+### Reusable Subquery with CTE
+
+{`// Define CTE once
+const activeUsers = db.table('users')
+  .select(['id', 'name', 'email'])
+  .where('status', 'eq', 'active')
+  .where('last_login', 'gte', '2024-01-01');
+
+// Use in multiple places
+const recentOrders = await db.table('orders')
+  .withCTE('active_users', activeUsers)
+  .innerJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select([
+    'orders.id',
+    'active_users.name',
+    'orders.total',
+  ])
+  .execute();`}
+
+### Inspect Query Before Execution
+
+{`const query = db.table('orders')
+  .where('total', 'gte', 100)
+  .select(['id', 'total']);
+
+// Check SQL
+const sql = query.toSQL();
+console.log('Generated SQL:', sql);
+
+// Execute
+const results = await query.execute();`}
+
+### Complex Query with Settings
+
+{`const results = await db.table('events')
+  .settings({
+    max_execution_time: 30,
+    max_memory_usage: '5000000000',
+    max_threads: 4,
+  })
+  .where('created_at', 'gte', '2024-01-01')
+  .select(['user_id'])
+  .sum('value', 'total_value')
+  .groupBy(['user_id'])
+  .having('total_value > 1000')
+  .orderBy('total_value', 'DESC')
+  .limit(1000)
+  .execute();`}
+
+### CTE for Performance
+
+{`// Pre-filter with CTE
+const recentEvents = db.table('events')
+  .select(['id', 'user_id', 'type'])
+  .where('created_at', 'gte', '2024-01-01');
+
+const funnel = await db.table('recent_events')
+  .withCTE('recent_events', recentEvents)
+  .select(['type'])
+  .distinctCount('user_id', 'unique_users')
+  .groupBy(['type'])
+  .execute();`}
+
+## Type Safety with Advanced Features
+
+TypeScript maintains type safety even with advanced features:
+
+{`// ✅ CTE maintains types
+const activeUsers = db.table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
+
+const results = await db.table('orders')
+  .withCTE('active_users', activeUsers)
+  .innerJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select([
+    'orders.id',      // Type: number
+    'active_users.name', // Type: string
+  ])
+  .execute();
+
+// ✅ toSQL doesn't affect types
+const query = db.table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');
+
+const sql = query.toSQL();
+const results = await query.execute(); // Still typed correctly`}
+
+## Performance Considerations
+
+<Callout type="tip" title="Advanced Feature Performance">
+  - CTEs: ClickHouse materializes CTEs, which can be expensive for large datasets
+  - Settings: Tune based on your query and cluster configuration
+  - Raw SQL: Use sparingly; prefer type-safe query builder methods
+</Callout>
+
+### CTE Performance
+
+{`// ✅ Good - CTE reduces data size
+const activeUsers = db.table('users')
+  .select(['id', 'name'])
+  .where('status', 'eq', 'active');  // Filter early
+
+const results = await db.table('orders')
+  .withCTE('active_users', activeUsers)
+  .innerJoin('active_users', 'orders.user_id', 'active_users.id')
+  .select(['orders.*', 'active_users.name'])
+  .execute();
+
+// ⚠️ Caution - Large CTE
+const allUsers = db.table('users').select(['id', 'name']);  // No filter
+// CTE will materialize entire users table`}
+
+## Examples
+
+### Complex Analytics Query
+
+{`// CTE 1: Active users
+const activeUsers = db.table('users')
+  .select(['id', 'name', 'country'])
+  .where('status', 'eq', 'active');
+
+// CTE 2: Recent high-value orders
+const recentOrders = db.table('orders')
+  .select(['user_id', 'total'])
+  .where('created_at', 'gte', '2024-01-01')
+  .where('total', 'gte', 100);
+
+// Main query: Combine CTEs
+const results = await db.table('users')
+  .withCTE('active_users', activeUsers)
+  .withCTE('recent_orders', recentOrders)
+  .innerJoin('recent_orders', 'users.id', 'recent_orders.user_id')
+  .select([
+    'users.name',
+    'users.country',
+    selectExpr('sum(recent_orders.total)', 'total_spent'),
+  ])
+  .groupBy(['users.name', 'users.country'])
+  .orderBy('total_spent', 'DESC')
+  .limit(100)
+  .execute();`}
+
+### Query Inspection for Debugging
+
+{`async function debugQuery() {
+  const query = db.table('orders')
+    .where('status', 'eq', 'completed')
+    .where('total', 'gte', 100)
+    .select(['id', 'user_id', 'total'])
+    .orderBy('total', 'DESC')
+    .limit(10);
+
+  // Inspect SQL
+  console.log('SQL:', query.toSQL());
+  const { sql, params } = query.toSQLWithParams();
+  console.log('Parameterized SQL:', sql);
+  console.log('Parameters:', params);
+
+  // Inspect config
+  console.log('Config:', query.getConfig());
+
+  // Execute
+  return await query.execute();
+}`}
+
+### Large Query with Settings
+
+{`const results = await db.table('events')
+  .settings({
+    max_execution_time: 120,
+    max_memory_usage: '20000000000',
+    max_threads: 8,
+    max_block_size: 1048576,
+  })
+  .where('created_at', 'gte', '2024-01-01')
+  .select(['user_id', 'type'])
+  .sum('value', 'total_value')
+  .groupBy(['user_id', 'type'])
+  .orderBy('total_value', 'DESC')
+  .execute();`}
