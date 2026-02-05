@@ -1,6 +1,5 @@
 # @hypequery/cli
 
-
 ## 0.0.9
 
 ### Patch Changes
