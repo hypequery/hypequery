@@ -1,7 +1,7 @@
 {
   "name": "hypequery-monorepo",
   "private": true,
-  "packageManager": "pnpm@8.15.9",
+  "packageManager": "pnpm@10.28.2",
   "workspaces": [
     "packages/cli",
     "packages/clickhouse",
