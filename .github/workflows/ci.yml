@@ -40,7 +40,7 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-       - name: Clean existing build artifacts
+      - name: Clean existing build artifacts
         run: |
           rm -rf packages/clickhouse/dist
           find packages -name '*.tsbuildinfo' -delete
