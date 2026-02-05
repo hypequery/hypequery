@@ -3,7 +3,6 @@ import {
   Braces,
   Search,
 } from 'lucide-react';
-import { SearchToggle } from 'fumadocs-ui/components/dialog/search';
 
 export function baseOptions() {
   return {

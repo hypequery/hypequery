@@ -1,8 +1,7 @@
 import defaultMdxComponents from "fumadocs-ui/mdx";
 import * as CodeblockComponents from "fumadocs-ui/components/codeblock";
-import type { MDXComponents } from "mdx/types";
 
-export function getMDXComponents(components?: MDXComponents): MDXComponents {
+export function getMDXComponents(components?: Record<string, unknown>): Record<string, unknown> {
   return {
     ...CodeblockComponents,
     ...defaultMdxComponents,
