@@ -1,5 +1,11 @@
 # @hypequery/react
 
+## 0.0.4
+
+### Patch Changes
+
+- ed06077: Ensure the release workflow builds every package before running the Changesets publish step so the CI release ships with fresh `dist` artifacts.
+
 ## 0.0.3
 
 ### Patch Changes
