@@ -1,11 +1,10 @@
 # @hypequery/cli
 
-## 1.0.0
+## 0.0.9
 
 ### Patch Changes
 
-- Updated dependencies [3a2aaea]
-  - @hypequery/serve@0.1.0
+- Re-release to ensure CI builds `dist` artifacts before publishing so the CLI ships with compiled sources.
 
 ## 0.0.8
 

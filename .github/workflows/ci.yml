@@ -95,6 +95,8 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Build all hypequery packages
+        run: pnpm turbo run build --filter='@hypequery/*'
       - name: Create release PR or publish packages
         uses: changesets/action@v1
         with:

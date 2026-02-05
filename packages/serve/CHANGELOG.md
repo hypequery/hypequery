@@ -1,5 +1,11 @@
 # @hypequery/serve
 
+## 0.0.9
+
+### Patch Changes
+
+- Republish so CI builds `dist` output before publishing and the package ships compiled files.
+
 ## 0.1.0
 
 ### Minor Changes
