@@ -218,7 +218,7 @@ importers:
         version: link:../../packages/react
       '@hypequery/serve':
         specifier: '*'
-        version: 0.0.8(tsx@4.21.0)(typescript@5.9.3)
+        version: link:../../packages/serve
       '@tanstack/react-query':
         specifier: ^5.62.11
         version: 5.90.17(react@18.3.1)
@@ -234,7 +234,7 @@ importers:
     devDependencies:
       '@hypequery/cli':
         specifier: '*'
-        version: 0.0.8(@hypequery/clickhouse@packages+clickhouse)(@hypequery/serve@0.0.8(tsx@4.21.0)(typescript@5.9.3))
+        version: link:../../packages/cli
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.27
