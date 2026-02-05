@@ -3,6 +3,8 @@ title: Helper Methods
 description: Learn about utility methods and additional features in hypequery
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # Helper Methods
 
 hypequery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
@@ -13,6 +15,8 @@ hypequery provides several helper methods and utilities to assist with query bui
 
 Get the raw SQL string for a query:
 
+<CodeBlock>
+
 ```typescript
 const query = db
   .table('users')
@@ -21,11 +25,16 @@ const query = db
 
 const sql = query.toSQL();
 console.log(sql); // SELECT id, name FROM users WHERE active = true
+
 ```
+
+</CodeBlock>
 
 ### toSQLWithParams
 
 Get the SQL string and parameters separately:
+
+<CodeBlock>
 
 ```typescript
 const query = db
@@ -35,7 +44,10 @@ const query = db
 const { sql, parameters } = query.toSQLWithParams();
 console.log(sql); // SELECT * FROM orders WHERE amount > ?
 console.log(parameters); // [1000]
+
 ```
+
+</CodeBlock>
 
 ## Raw SQL
 
@@ -43,16 +55,23 @@ console.log(parameters); // [1000]
 
 Include raw SQL expressions in your queries:
 
+<CodeBlock>
+
 ```typescript
 const results = await db
   .table('users')
   .raw('WHERE age > 18 AND status = "active"')
   .execute();
+
 ```
+
+</CodeBlock>
 
 ### Complex Raw SQL
 
 Use raw SQL for complex conditions:
+
+<CodeBlock>
 
 ```typescript
 const results = await db
@@ -63,13 +82,18 @@ const results = await db
     AND toStartOfMonth(now()) + INTERVAL 1 MONTH
   `)
   .execute();
+
 ```
+
+</CodeBlock>
 
 ## Query Settings
 
 ### Basic Settings
 
 Configure ClickHouse query settings:
+
+<CodeBlock>
 
 ```typescript
 const results = await db
@@ -79,11 +103,16 @@ const results = await db
     max_memory_usage: '10000000000'
   })
   .execute();
+
 ```
+
+</CodeBlock>
 
 ### Common Settings
 
 Frequently used settings:
+
+<CodeBlock>
 
 ```typescript
 // Timeout settings
@@ -101,13 +130,18 @@ Frequently used settings:
   max_threads: 2,
   max_memory_usage: '2000000000'
 })
+
 ```
+
+</CodeBlock>
 
 ## Debugging
 
 ### debug
 
 Print query information for debugging:
+
+<CodeBlock>
 
 ```typescript
 const query = db
@@ -120,13 +154,18 @@ const query = db
 // - SQL query
 // - Parameters
 // - Settings
+
 ```
+
+</CodeBlock>
 
 ## Query Configuration
 
 ### getConfig
 
 Access the current query configuration:
+
+<CodeBlock>
 
 ```typescript
 const query = db
@@ -142,11 +181,16 @@ console.log(config);
 //   parameters: [...],
 //   ...
 // }
+
 ```
+
+</CodeBlock>
 
 ## Type Safety
 
 Helper methods maintain type safety:
+
+<CodeBlock>
 
 ```typescript
 interface Schema {
@@ -163,40 +207,50 @@ const db = createQueryBuilder<Schema>();
 db.table('users')
   .raw('WHERE invalid_column = 1') // No type checking for raw SQL
   .settings({ invalid_setting: true }); // Error: invalid setting
+
 ```
+
+</CodeBlock>
 
 ## Best Practices
 
-1. **Use Raw SQL Sparingly**
-   ```typescript
-   // Prefer builder methods when possible
-   db.table('users').where('age', 'gt', 18) // Good
+### 1. Use Raw SQL Sparingly
 
-   // Use raw SQL only when necessary
-   db.table('users').raw('WHERE age > 18') // Less ideal
-   ```
+<CodeBlock>
 
-2. **Debug in Development**
-   ```typescript
-   if (process.env.NODE_ENV === 'development') {
-     query.debug();
-   }
-   ```
+```typescript
+// Prefer builder methods when possible
+db.table('users').where('age', 'gt', 18) // Good
 
-3. **Handle Settings Carefully**
-   ```typescript
-   // Consider environment when setting limits
-   const maxMemory = process.env.NODE_ENV === 'production'
-     ? '10000000000'  // 10GB in production
-     : '1000000000';  // 1GB in development
+// Use raw SQL only when necessary
+db.table('users').raw('WHERE age > 18') // Less ideal
+```
 
-   query.settings({ max_memory_usage: maxMemory });
-   ```
+</CodeBlock>
 
-## Next Steps
+### 2. Debug in Development
 
-**Continue:** [Aggregations](/docs/query-building/aggregation) - Learn aggregation functions
+<CodeBlock>
 
-**Or explore:**
-- [SQL Expressions](/docs/query-building/sql-expressions) - Raw SQL and expressions
-- [Query Builder API Reference](/docs/reference/query-builder-api) - Complete API documentation
+```typescript
+if (process.env.NODE_ENV === 'development') {
+  query.debug();
+}
+```
+
+</CodeBlock>
+
+### 3. Handle Settings Carefully
+
+<CodeBlock>
+
+```typescript
+// Consider environment when setting limits
+const maxMemory = process.env.NODE_ENV === 'production'
+  ? '10000000000'  // 10GB in production
+  : '1000000000';  // 1GB in development
+
+query.settings({ max_memory_usage: maxMemory });
+```
+
+</CodeBlock>

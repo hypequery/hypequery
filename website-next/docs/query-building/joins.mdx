@@ -80,33 +80,51 @@ const results = await db.table('users')
 
 Returns all rows from the right table, and matched rows from the left table:
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .rightJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
     'users.name',
     'users.email',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Full Join
 
 Returns all rows when there's a match in either table:
 
-{`const results = await db.table('employees')
+<CodeBlock>
+
+```typescript
+const results = await db.table('employees')
   .fullJoin('departments', 'employees.dept_id', 'departments.id')
   .select([
     'employees.name AS employee',
     'departments.name AS department',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Join Syntax
 
 ### Basic Join
 
-{`db.table('table_name')
-  .joinType('other_table', 'left_column', 'right_table.right_column')`}
+<CodeBlock>
+
+```typescript
+db.table('table_name')
+  .joinType('other_table', 'left_column', 'right_table.right_column')
+```
+
+</CodeBlock>
 
 - `joinType`: One of `innerJoin`, `leftJoin`, `rightJoin`, `fullJoin`
 - `other_table`: Name of the table to join
@@ -115,13 +133,19 @@ Returns all rows when there's a match in either table:
 
 ### With Table Alias
 
-{`await db.table('orders')
+<CodeBlock>
+
+```typescript
+await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id', 'u')
   .select([
     'orders.id',
     'u.name AS customer_name',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Type Safety with Joins
 
@@ -131,23 +155,38 @@ Returns all rows when there's a match in either table:
 
 ### Incorrect Order
 
-{`// ❌ Error - users table not joined yet
+<CodeBlock>
+
+```typescript
+// ❌ Error - users table not joined yet
 await db.table('orders')
   .select(['orders.id', 'users.name']) // TypeScript error
   .leftJoin('users', 'orders.user_id', 'users.id')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Correct Order
 
-{`// ✅ Correct - join first, then select
+<CodeBlock>
+
+```typescript
+// ✅ Correct - join first, then select
 await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .select(['orders.id', 'users.name']) // TypeScript OK
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### TypeScript Knows Joined Columns
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -161,13 +200,19 @@ await db.table('orders')
 // - orders.id (number)
 // - orders.total (number)
 // - users.name (string)
-// - users.email (string)`}
+// - users.email (string)
+```
+
+</CodeBlock>
 
 ## Multiple Joins
 
 Chain multiple joins to combine data from several tables:
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .leftJoin('products', 'orders.product_id', 'products.id')
   .leftJoin('categories', 'products.category_id', 'categories.id')
@@ -177,13 +222,19 @@ Chain multiple joins to combine data from several tables:
     'products.name AS product_name',
     'categories.name AS category_name',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Filtering with Joins
 
 ### Where on Joined Columns
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .where('users.country', 'eq', 'US')
   .where('orders.total', 'gte', 100)
@@ -192,11 +243,17 @@ Chain multiple joins to combine data from several tables:
     'users.name',
     'orders.total',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Where Groups with Joins
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .whereGroup((builder) => {
     builder
@@ -209,13 +266,19 @@ Chain multiple joins to combine data from several tables:
     'users.name',
     'users.country',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Joining on Multiple Conditions
 
 ClickHouse doesn't natively support multiple join conditions in the same join. Use `where` clauses to add additional conditions:
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .where('users.status', 'eq', 'active')
   .where('orders.created_at', 'gte', '2024-01-01')
@@ -223,13 +286,19 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
     'orders.id',
     'users.name',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Common Patterns
 
 ### Orders with User Details
 
-{`const orders = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const orders = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -240,11 +309,17 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
   ])
   .orderBy('orders.created_at', 'DESC')
   .limit(50)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Products with Categories
 
-{`const products = await db.table('products')
+<CodeBlock>
+
+```typescript
+const products = await db.table('products')
   .leftJoin('categories', 'products.category_id', 'categories.id')
   .select([
     'products.id',
@@ -253,11 +328,17 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
     'categories.name AS category_name',
   ])
   .where('products.in_stock', 'eq', true)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Events with Session Data
 
-{`const events = await db.table('events')
+<CodeBlock>
+
+```typescript
+const events = await db.table('events')
   .innerJoin('sessions', 'events.session_id', 'sessions.id')
   .innerJoin('users', 'sessions.user_id', 'users.id')
   .select([
@@ -268,11 +349,17 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
     'users.name AS user_name',
   ])
   .where('events.created_at', 'gte', '2024-01-01')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### All Users with Their Orders (or NULL)
 
-{`const results = await db.table('users')
+<CodeBlock>
+
+```typescript
+const results = await db.table('users')
   .leftJoin('orders', 'users.id', 'orders.user_id')
   .select([
     'users.id',
@@ -281,7 +368,10 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
     'orders.total AS last_order_total',
   ])
   .orderBy('users.id', 'ASC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Performance Considerations
 
@@ -294,7 +384,10 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
 
 ### Filter Before Joining
 
-{`// ✅ Better - filter first
+<CodeBlock>
+
+```typescript
+// ✅ Better - filter first
 const results = await db.table('orders')
   .where('orders.status', 'eq', 'completed')
   .where('orders.total', 'gte', 100)
@@ -308,13 +401,19 @@ const results = await db.table('orders')
   .where('orders.status', 'eq', 'completed')
   .where('orders.total', 'gte', 100)
   .select(['orders.*', 'users.name'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Examples
 
 ### E-commerce Order Details
 
-{`const orderDetails = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const orderDetails = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .innerJoin('products', 'orders.product_id', 'products.id')
   .select([
@@ -328,11 +427,17 @@ const results = await db.table('orders')
   ])
   .where('orders.created_at', 'gte', '2024-01-01')
   .orderBy('orders.created_at', 'DESC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Analytics with User Segments
 
-{`const analytics = await db.table('events')
+<CodeBlock>
+
+```typescript
+const analytics = await db.table('events')
   .leftJoin('users', 'events.user_id', 'users.id')
   .leftJoin('segments', 'users.segment_id', 'segments.id')
   .select([
@@ -341,4 +446,7 @@ const results = await db.table('orders')
     selectExpr('count()', 'event_count'),
   ])
   .groupBy(['events.type', 'user_segment'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>

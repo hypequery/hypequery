@@ -25,19 +25,31 @@ Use `where()` to:
 
 ### Simple Conditions
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .where('status', 'eq', 'active')
   .select(['id', 'name', 'email'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Multiple Conditions (AND)
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .where('status', 'eq', 'active')
   .where('age', 'gte', 18)
   .where('country', 'eq', 'US')
   .select(['id', 'name'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Comparison Operators
 
@@ -57,7 +69,10 @@ Use `where()` to:
 
 ### Comparison Examples
 
-{`// Equal
+<CodeBlock>
+
+```typescript
+// Equal
 await db.table('users')
   .where('status', 'eq', 'active')
   .execute();
@@ -85,11 +100,17 @@ await db.table('users')
 // Array membership
 await db.table('orders')
   .where('status', 'in', ['pending', 'processing', 'shipped'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Null Checks
 
-{`// Is null
+<CodeBlock>
+
+```typescript
+// Is null
 await db.table('users')
   .where('deleted_at', 'isNull')
   .execute();
@@ -97,21 +118,33 @@ await db.table('users')
 // Is not null
 await db.table('users')
   .where('email', 'isNotNull')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## OR Conditions
 
 ### orWhere()
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .where('status', 'eq', 'active')
   .orWhere('status', 'eq', 'pending')
   .select(['id', 'name', 'status'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### orWhere with Callback
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .where('country', 'eq', 'US')
   .orWhere((expr) =>
     expr.and([
@@ -119,20 +152,29 @@ await db.table('users')
       expr.fn('endsWith', 'email', expr.literal('@company.com')),
     ])
   )
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Function Predicates
 
 For complex conditions, use predicate builder callbacks:
 
-{`const events = await db.table('events')
+<CodeBlock>
+
+```typescript
+const events = await db.table('events')
   .where((expr) =>
     expr.and([
       expr.fn('hasAny', 'tags', ['launch', 'beta']),
       expr.fn('endsWith', 'status', expr.literal('active')),
     ])
   )
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Predicate Helpers
 
@@ -148,7 +190,10 @@ For complex conditions, use predicate builder callbacks:
 
 ### Predicate Examples
 
-{`// Using ClickHouse functions
+<CodeBlock>
+
+```typescript
+// Using ClickHouse functions
 await db.table('products')
   .where((expr) =>
     expr.fn('hasAny', 'categories', ['electronics', 'gadgets'])
@@ -173,13 +218,19 @@ await db.table('orders')
       expr.fn('notEquals', expr.col('status'), expr.literal('cancelled')),
     ])
   )
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Where Groups
 
 Group conditions with parentheses:
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .where('status', 'eq', 'active')
   .whereGroup((builder) => {
     builder
@@ -187,9 +238,15 @@ Group conditions with parentheses:
       .orWhere('country', 'eq', 'CA');
   })
   .execute();
-// Generates: WHERE status = 'active' AND (country = 'US' OR country = 'CA')`}
+// Generates: WHERE status = 'active' AND (country = 'US' OR country = 'CA')
+```
 
-{`const results = await db.table('orders')
+</CodeBlock>
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .whereGroup((builder) => {
     builder
       .where('status', 'eq', 'pending')
@@ -202,7 +259,10 @@ Group conditions with parentheses:
   })
   .execute();
 // Generates: WHERE (status = 'pending' OR status = 'processing')
-//          AND (total >= 100 OR priority = 'high')`}
+//          AND (total >= 100 OR priority = 'high')
+```
+
+</CodeBlock>
 
 ## Advanced IN Operators
 
@@ -220,46 +280,79 @@ ClickHouse supports advanced IN operators for distributed queries, tuples, and s
 
 ### Standard IN
 
-{`await db.table('users')
+<CodeBlock>
+
+```typescript
+await db.table('users')
   .where('id', 'in', [1, 2, 3, 4, 5])
   .execute();
 
 await db.table('orders')
   .where('status', 'in', ['pending', 'processing', 'shipped'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Tuple IN (Multi-column)
 
-{`await db.table('events')
+<CodeBlock>
+
+```typescript
+await db.table('events')
   .where(['counter_id', 'user_id'], 'inTuple', [
     [34, 123],
     [101500, 456],
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Subquery IN
 
-{`await db.table('orders')
+<CodeBlock>
+
+```typescript
+await db.table('orders')
   .where('user_id', 'inSubquery', 'SELECT id FROM users WHERE status = "active"')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Table Reference IN
 
-{`await db.table('events')
+<CodeBlock>
+
+```typescript
+await db.table('events')
   .where('user_id', 'inTable', 'active_users')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Global IN (Distributed Tables)
 
-{`await db.table('distributed_events')
+<CodeBlock>
+
+```typescript
+await db.table('distributed_events')
   .where('user_id', 'globalIn', [1, 2, 3])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Conditional Where
 
 Skip where clauses when values are null or undefined:
 
-{`function findUsers(filters: { status?: string; minAge?: number }) {
+<CodeBlock>
+
+```typescript
+function findUsers(filters: { status?: string; minAge?: number }) {
   return db.table('users')
     .where(filters.status ? ['status', 'eq', filters.status] : null)
     .where(filters.minAge ? ['age', 'gte', filters.minAge] : null)
@@ -274,13 +367,19 @@ findUsers({ status: 'active' });
 findUsers({ minAge: 18 });
 
 // Applies both filters
-findUsers({ status: 'active', minAge: 18 });`}
+findUsers({ status: 'active', minAge: 18 });
+```
+
+</CodeBlock>
 
 ## Type Safety
 
 TypeScript ensures operators match column types:
 
-{`// ✅ Valid - number column with number comparison
+<CodeBlock>
+
+```typescript
+// ✅ Valid - number column with number comparison
 await db.table('users')
   .where('age', 'gte', 18)
   .execute();
@@ -298,21 +397,33 @@ await db.table('users')
 // ❌ Error - type mismatch (TypeScript may catch this)
 await db.table('users')
   .where('age', 'eq', 'not_a_number')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Examples
 
 ### Date Range Filter
 
-{`const events = await db.table('events')
+<CodeBlock>
+
+```typescript
+const events = await db.table('events')
   .where('created_at', 'gte', '2024-01-01')
   .where('created_at', 'lt', '2024-02-01')
   .select(['id', 'type', 'created_at'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Complex Filter with OR
 
-{`const products = await db.table('products')
+<CodeBlock>
+
+```typescript
+const products = await db.table('products')
   .where('category', 'eq', 'electronics')
   .orWhere((expr) =>
     expr.and([
@@ -320,25 +431,40 @@ await db.table('users')
       expr.fn('greater', expr.col('stock'), expr.literal(10)),
     ])
   )
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Conditional Filtering
 
-{`function searchUsers(query: string, filters: UserFilters) {
+<CodeBlock>
+
+```typescript
+function searchUsers(query: string, filters: UserFilters) {
   return db.table('users')
     .where('name', 'like', \`%\${query}%\`)
     .where(filters.status ? ['status', 'eq', filters.status] : null)
     .where(filters.country ? ['country', 'eq', filters.country] : null)
     .where(filters.minAge ? ['age', 'gte', filters.minAge] : null)
     .execute();
-}`}
+}
+```
+
+</CodeBlock>
 
 ### Advanced Tuple IN
 
-{`const results = await db.table('events')
+<CodeBlock>
+
+```typescript
+const results = await db.table('events')
   .where(['event_type', 'user_id'], 'inTuple', [
     ['page_view', 123],
     ['page_view', 456],
     ['click', 123],
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>

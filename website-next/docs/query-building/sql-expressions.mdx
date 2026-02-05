@@ -3,6 +3,8 @@ title: SQL Expressions
 description: Use raw SQL and expression helpers when the fluent query builder isn't enough
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # SQL Expressions
 
 The fluent query builder covers most workflows, but you can always run raw SQL or use expression helpers for complex cases. This page shows when and how to use them.
@@ -11,7 +13,9 @@ The fluent query builder covers most workflows, but you can always run raw SQL o
 
 Execute raw SQL when you need complete control:
 
-```ts
+<CodeBlock>
+
+```typescript
 const results = await db.rawQuery<{ day: string; signups: number }>(
   `SELECT toStartOfDay(created_at) AS day, count(*) AS signups
    FROM signups
@@ -20,19 +24,32 @@ const results = await db.rawQuery<{ day: string; signups: number }>(
    ORDER BY day`,
   [accountId]
 );
+
 ```
 
+</CodeBlock>
+
 **In serve context:**
-```ts
+<CodeBlock>
+
+```typescript
 query: async ({ ctx, input }) => {
   return ctx.db.rawQuery(sql, [input.accountId]);
 }
+
 ```
 
+</CodeBlock>
+
 **Standalone:**
-```ts
+<CodeBlock>
+
+```typescript
 const results = await db.rawQuery(sql, [accountId]);
+
 ```
+
+</CodeBlock>
 
 ## Expression Helpers
 
@@ -42,13 +59,18 @@ When the builder handles most of the query but you need a custom expression, use
 
 Use `raw()` to inject SQL fragments into where clauses or other parts of your query:
 
-```ts
+<CodeBlock>
+
+```typescript
 import { raw } from '@hypequery/clickhouse';
 
 db.table('sensors')
   .select(['id', 'reading'])
   .where(raw('reading BETWEEN ? AND ?', [min, max]))
+
 ```
+
+</CodeBlock>
 
 - Accepts any SQL fragment plus optional bindings (positional `?` placeholders)
 - Treat as an escape hatch; TypeScript cannot validate the expression
@@ -58,7 +80,9 @@ db.table('sensors')
 
 Use `rawAs()` when you need a SQL expression with a typed alias:
 
-```ts
+<CodeBlock>
+
+```typescript
 import { rawAs } from '@hypequery/clickhouse';
 
 db.table('orders')
@@ -69,7 +93,10 @@ db.table('orders')
   ])
   .groupBy(['account_id'])
   .having(rawAs('SUM(total)', 'total_revenue'), 'gt', 1000)
+
 ```
+
+</CodeBlock>
 
 Common patterns:
 
@@ -83,7 +110,9 @@ Common patterns:
 
 Use `selectExpr()` for computed columns in your SELECT clause:
 
-```ts
+<CodeBlock>
+
+```typescript
 import { selectExpr } from '@hypequery/clickhouse';
 
 db.table('rides')
@@ -93,7 +122,10 @@ db.table('rides')
   ])
   .groupBy(['week'])
   .orderBy('week', 'ASC')
+
 ```
+
+</CodeBlock>
 
 - Behaves like `raw` when no alias is supplied and like `rawAs` when you provide one
 - Ideal when your entire projection consists of expressions
@@ -102,7 +134,9 @@ db.table('rides')
 
 Helpers like `toDateTime`, `formatDateTime`, `toStartOfInterval`, and `datePart` wrap common ClickHouse functions with type safety:
 
-```ts
+<CodeBlock>
+
+```typescript
 import { toDateTime, formatDateTime } from '@hypequery/clickhouse';
 
 db.table('events')
@@ -112,7 +146,10 @@ db.table('events')
     formatDateTime('occurred_at', 'Y-MM-dd', 'event_date'),
   ])
   .where('event_type', 'eq', 'purchase')
+
 ```
+
+</CodeBlock>
 
 ## Typing & Best Practices
 
@@ -120,13 +157,18 @@ db.table('events')
 
 Expression helpers accept generics to describe the result type:
 
-```ts
+<CodeBlock>
+
+```typescript
 db.table('orders')
   .select([
     rawAs<number, 'total_revenue'>('SUM(total)', 'total_revenue'),
     rawAs<number, 'avg_order'>('AVG(total)', 'avg_order'),
   ])
+
 ```
+
+</CodeBlock>
 
 The alias (`'total_revenue'`) shows up on the result type with the specified generic (`number`). Without an alias, the builder can't add a strongly typed key, so always alias computed columns.
 
@@ -134,9 +176,14 @@ The alias (`'total_revenue'`) shows up on the result type with the specified gen
 
 `rawQuery` returns `unknown[]` by default. Pass a type argument for type safety:
 
-```ts
+<CodeBlock>
+
+```typescript
 const rows = await db.rawQuery<{ day: string; signups: number }>(sql, [accountId]);
+
 ```
+
+</CodeBlock>
 
 ### Best practices
 
@@ -144,11 +191,3 @@ const rows = await db.rawQuery<{ day: string; signups: number }>(sql, [accountId
 - **Prefer fluent API**: Use expression helpers only when the fluent API doesn't support your use case
 - **Alias all expressions**: Computed columns need aliases for type safety
 - **Type raw queries**: Always provide type arguments to `rawQuery()`
-
----
-
-## Next Steps
-
-**Continue:** [Subqueries & CTEs](/docs/query-building/subqueries-ctes) - Advanced query composition
-
-**Or explore:** [Query Building](/docs/query-building/basics) - Review the core API

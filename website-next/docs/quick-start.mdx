@@ -157,9 +157,9 @@ export const api = define({
 
 ### Running Your Query
 
-You can run your query in two ways:
+You can run your query in three ways:
 
-<Tabs items={['embedded', 'over HTTP']} defaultIndex={0}>
+<Tabs items={['embedded', 'over HTTP', 'with React hooks']} defaultIndex={0}>
   <Tab value='embedded' label='embedded'>
   <CodeBlock>
     ```typescript
@@ -177,6 +177,36 @@ You can run your query in two ways:
     api.route('/active-users', api.queries.activeUsers, {
       method: 'POST'
     });
+    ```
+    </CodeBlock>
+  </Tab>
+
+  <Tab value='with React hooks' label='with React hooks'>
+  <CodeBlock>
+    ```typescript
+    // In your React component
+    import { createHooks } from '@hypequery/react';
+
+    const { useQuery } = createHooks({
+      baseUrl: '/api/analytics'
+    });
+
+    function ActiveUsers() {
+      const { data, isLoading, error } = useQuery('activeUsers', {
+        limit: 25
+      });
+
+      if (isLoading) return <div>Loading...</div>;
+      if (error) return <div>Error: {error.message}</div>;
+
+      return (
+        <ul>
+          {data?.map(user => (
+            <li key={user.id}>{user.email}</li>
+          ))}
+        </ul>
+      );
+    }
     ```
     </CodeBlock>
   </Tab>

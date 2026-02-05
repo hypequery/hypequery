@@ -175,9 +175,15 @@ while (true) {
 
 Process rows with a callback:
 
-{`await db
+<CodeBlock>
+
+```typescript
+await db
   .table('events')
   .select(['id', 'data'])
   .streamForEach(async (row) => {
     await processEvent(row);
-  });`}
+  });
+```
+
+</CodeBlock>

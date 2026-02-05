@@ -25,17 +25,29 @@ Sort results by column values in ascending or descending order.
 
 ### Single Column Sort
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .select(['id', 'name', 'created_at'])
   .orderBy('created_at', 'DESC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Ascending Order
 
-{`const products = await db.table('products')
+<CodeBlock>
+
+```typescript
+const products = await db.table('products')
   .select(['id', 'name', 'price'])
   .orderBy('price', 'ASC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 <Callout type="info" title="Default Direction">
   If you don't specify a direction, `orderBy` defaults to ascending (`'ASC'`).
@@ -45,16 +57,25 @@ Sort results by column values in ascending or descending order.
 
 Chain multiple `orderBy()` calls for secondary sorting:
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .select(['id', 'name', 'country', 'created_at'])
   .orderBy('country', 'ASC')
   .orderBy('created_at', 'DESC')
   .execute();
-// Sorts by country first, then by created_at within each country`}
+// Sorts by country first, then by created_at within each country
+```
+
+</CodeBlock>
 
 ### Sort by Joined Columns
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -63,7 +84,10 @@ Chain multiple `orderBy()` calls for secondary sorting:
   ])
   .orderBy('users.name', 'ASC')
   .orderBy('orders.total', 'DESC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Sort Direction Options
 
@@ -76,11 +100,17 @@ Chain multiple `orderBy()` calls for secondary sorting:
 
 Restrict the number of rows returned:
 
-{`const latestUsers = await db.table('users')
+<CodeBlock>
+
+```typescript
+const latestUsers = await db.table('users')
   .select(['id', 'name', 'created_at'])
   .orderBy('created_at', 'DESC')
   .limit(10)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 <Callout type="tip" title="Performance">
   Always use `limit()` with `orderBy()` for predictable results. Without `orderBy()`, the rows returned may vary.
@@ -88,25 +118,37 @@ Restrict the number of rows returned:
 
 ### Limit with Aggregations
 
-{`const topCategories = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const topCategories = await db.table('orders')
   .innerJoin('products', 'orders.product_id', 'products.id')
   .select(['products.category'])
   .sum('orders.total', 'revenue')
   .groupBy(['products.category'])
   .orderBy('revenue', 'DESC')
   .limit(10)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Offset
 
 Skip a specified number of rows before returning results:
 
-{`const page2 = await db.table('users')
+<CodeBlock>
+
+```typescript
+const page2 = await db.table('users')
   .select(['id', 'name'])
   .orderBy('id', 'ASC')
   .limit(20)
   .offset(20)  // Skip first 20 rows
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 <Callout type="warning" title="Offset Performance">
   Large offsets can be slow on big datasets. Consider keyset pagination for better performance.
@@ -118,7 +160,10 @@ Combine `limit()` and `offset()` for pagination:
 
 ### Basic Pagination
 
-{`async function getUsers(page: number, pageSize: number) {
+<CodeBlock>
+
+```typescript
+async function getUsers(page: number, pageSize: number) {
   const offset = (page - 1) * pageSize;
 
   return await db.table('users')
@@ -133,13 +178,19 @@ Combine `limit()` and `offset()` for pagination:
 const page1 = await getUsers(1, 20);
 
 // Page 2
-const page2 = await getUsers(2, 20);`}
+const page2 = await getUsers(2, 20);
+```
+
+</CodeBlock>
 
 ### Keyset Pagination (More Efficient)
 
 Instead of offset, use the last seen value for better performance:
 
-{`async function getUsersAfter(lastId: number, limit: number) {
+<CodeBlock>
+
+```typescript
+async function getUsersAfter(lastId: number, limit: number) {
   return await db.table('users')
     .select(['id', 'name', 'email'])
     .where('id', 'gt', lastId)
@@ -153,7 +204,10 @@ const page1 = await getUsersAfter(0, 20);
 const lastId = page1[page1.length - 1].id;
 
 // Next page
-const page2 = await getUsersAfter(lastId, 20);`}
+const page2 = await getUsersAfter(lastId, 20);
+```
+
+</CodeBlock>
 
 <Callout type="tip" title="Pagination Strategy">
   - **Small datasets**: Use offset/limit (simple)
@@ -165,109 +219,178 @@ const page2 = await getUsersAfter(lastId, 20);`}
 
 Remove duplicate rows from results:
 
-{`const countries = await db.table('users')
+<CodeBlock>
+
+```typescript
+const countries = await db.table('users')
   .select(['country'])
   .distinct()
   .orderBy('country', 'ASC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Distinct with Multiple Columns
 
-{`const uniqueCombinations = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const uniqueCombinations = await db.table('orders')
   .select(['country', 'status'])
   .distinct()
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Distinct with Aggregations
 
-{`const stats = await db.table('events')
+<CodeBlock>
+
+```typescript
+const stats = await db.table('events')
   .select(['user_id'])
   .distinctCount('event_type', 'unique_events')
   .groupBy(['user_id'])
   .orderBy('unique_events', 'DESC')
   .limit(10)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Common Patterns
 
 ### Latest Records
 
-{`const latestOrders = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const latestOrders = await db.table('orders')
   .select(['id', 'user_id', 'total', 'created_at'])
   .orderBy('created_at', 'DESC')
   .limit(50)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Top N by Value
 
-{`const topSpenders = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const topSpenders = await db.table('orders')
   .select(['user_id'])
   .sum('total', 'lifetime_value')
   .groupBy(['user_id'])
   .orderBy('lifetime_value', 'DESC')
   .limit(100)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Most Recent Items Per User
 
-{`const latestEvents = await db.table('events')
+<CodeBlock>
+
+```typescript
+const latestEvents = await db.table('events')
   .select(['user_id'])
   .max('created_at', 'last_event')
   .groupBy(['user_id'])
   .orderBy('last_event', 'DESC')
   .limit(50)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Random Sample
 
-{`const sample = await db.table('users')
+<CodeBlock>
+
+```typescript
+const sample = await db.table('users')
   .select(['id', 'name'])
   .orderBy('rand()', 'ASC')
   .limit(100)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Unique Values in Column
 
-{`const countries = await db.table('users')
+<CodeBlock>
+
+```typescript
+const countries = await db.table('users')
   .select(['country'])
   .where('country', 'isNotNull')
   .distinct()
   .orderBy('country', 'ASC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Sort by Expression
 
-{`const results = await db.table('products')
+<CodeBlock>
+
+```typescript
+const results = await db.table('products')
   .select(['id', 'name', 'price', 'discount'])
   .orderBy(selectExpr('price * (1 - discount)'), 'ASC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Multiple Sorting Strategies
 
 ### Primary and Secondary Sort
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .select(['id', 'status', 'total', 'created_at'])
   .orderBy('status', 'ASC')
   .orderBy('total', 'DESC')
   .orderBy('created_at', 'ASC')
   .execute();
 // Sorts by status first, then by total within each status,
-// then by created_at within same total`}
+// then by created_at within same total
+```
+
+</CodeBlock>
 
 ### Conditional Sorting
 
-{`const results = await db.table('products')
+<CodeBlock>
+
+```typescript
+const results = await db.table('products')
   .select(['id', 'name', 'price', 'stock'])
   .orderBy(selectExpr('if(stock > 0, 0, 1)'), 'ASC')  // In stock first
   .orderBy('price', 'ASC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Type Safety
 
 TypeScript ensures you sort by valid columns:
 
-{`// ✅ Valid - column exists
+<CodeBlock>
+
+```typescript
+// ✅ Valid - column exists
 await db.table('users')
   .orderBy('created_at', 'DESC')
   .execute();
@@ -286,7 +409,10 @@ await db.table('orders')
 // ❌ Error - can't sort by unjoined table
 await db.table('orders')
   .orderBy('users.name', 'ASC')  // TypeScript error
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Performance Considerations
 
@@ -299,7 +425,10 @@ await db.table('orders')
 
 ### Efficient Large Dataset Pagination
 
-{`// ❌ Slow with large offsets
+<CodeBlock>
+
+```typescript
+// ❌ Slow with large offsets
 const page1000 = await db.table('events')
   .orderBy('created_at', 'DESC')
   .limit(20)
@@ -312,32 +441,50 @@ const page1000 = await db.table('events')
   .where('created_at', 'lt', lastTimestamp)
   .orderBy('created_at', 'DESC')
   .limit(20)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Examples
 
 ### Leaderboard
 
-{`const leaderboard = await db.table('game_scores')
+<CodeBlock>
+
+```typescript
+const leaderboard = await db.table('game_scores')
   .select(['user_id'])
   .sum('score', 'total_score')
   .count('id', 'games_played')
   .groupBy(['user_id'])
   .orderBy('total_score', 'DESC')
   .limit(100)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Recent Activity Feed
 
-{`const activityFeed = await db.table('events')
+<CodeBlock>
+
+```typescript
+const activityFeed = await db.table('events')
   .select(['id', 'type', 'user_id', 'created_at'])
   .orderBy('created_at', 'DESC')
   .limit(50)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Browse Products with Pagination
 
-{`async function browseProducts(category: string, page: number) {
+<CodeBlock>
+
+```typescript
+async function browseProducts(category: string, page: number) {
   const pageSize = 24;
   const offset = (page - 1) * pageSize;
 
@@ -349,12 +496,21 @@ const page1000 = await db.table('events')
     .limit(pageSize)
     .offset(offset)
     .execute();
-}`}
+}
+```
+
+</CodeBlock>
 
 ### Unique Email Domains
 
-{`const domains = await db.table('users')
+<CodeBlock>
+
+```typescript
+const domains = await db.table('users')
   .select([selectExpr('splitByChar(\\'@\\', email)[2]', 'domain')])
   .distinct()
   .orderBy('domain', 'ASC')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>

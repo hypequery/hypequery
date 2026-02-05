@@ -27,7 +27,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div className="items-start flex flex-row gap-6 flex-col justify-between">
           <div>
             <span className="font-mono text-xl font-bold text-indigo-600 dark:text-indigo-400">
               &gt; hypequery

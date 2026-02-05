@@ -25,17 +25,29 @@ Select is typically the first method you chain after `table()`. It determines:
 
 ### Select Specific Columns
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .select(['id', 'name', 'email'])
   .execute();
-// Returns: Array<{ id: number; name: string; email: string }>`}
+// Returns: Array<{ id: number; name: string; email: string }>
+```
+
+</CodeBlock>
 
 ### Select All Columns
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .select('*')
   .execute();
-// Returns all columns from the users table`}
+// Returns all columns from the users table
+```
+
+</CodeBlock>
 
 <Callout type="warning" title="Performance Tip">
   Avoid `select('*')` in production. Explicitly list only the columns you need for better performance and clarity.
@@ -43,14 +55,20 @@ Select is typically the first method you chain after `table()`. It determines:
 
 ### Select from Joined Tables
 
-{`const orders = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const orders = await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
     'orders.total',
     'users.email AS customer_email',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 <Callout type="info" title="Joined Tables">
   You can only select from joined tables after registering the join. TypeScript ensures the join exists before you can reference its columns.
@@ -60,13 +78,19 @@ Select is typically the first method you chain after `table()`. It determines:
 
 Rename columns using the `AS` keyword:
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .select([
     'id',
     'name AS full_name',
     'email AS contact_email',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 This is useful for:
 - Disambiguating columns with the same name
@@ -79,8 +103,10 @@ This is useful for:
 
 hypequery provides helper functions for common ClickHouse expressions:
 
-{`import { rawAs, selectExpr } from '@hypequery/clickhouse';
+<CodeBlock>
 
+```typescript
+import { rawAs, selectExpr } from '@hypequery/clickhouse';
 
 const users = await db.table('users')
   .select([
@@ -89,7 +115,10 @@ const users = await db.table('users')
     rawAs('status', 'account_status'),
     selectExpr('length(email)', 'email_length'),
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Built-in Select Helpers
 
@@ -100,29 +129,44 @@ const users = await db.table('users')
 
 ### Select with Expressions
 
-{`const events = await db.table('events')
+<CodeBlock>
+
+```typescript
+const events = await db.table('events')
   .select([
     'id',
     selectExpr('arrayJoin(tags)', 'tag'),
     selectExpr('count()', 'occurrences'),
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Common Patterns
 
 ### Conditional Selection
 
-{`const columns = includeEmail
+<CodeBlock>
+
+```typescript
+const columns = includeEmail
   ? ['id', 'name', 'email']
   : ['id', 'name'];
 
 const users = await db.table('users')
   .select(columns)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Dynamic Column Building
 
-{`const selectedColumns = [
+<CodeBlock>
+
+```typescript
+const selectedColumns = [
   'id',
   'name',
   ...additionalColumns,
@@ -130,23 +174,35 @@ const users = await db.table('users')
 
 const users = await db.table('users')
   .select(selectedColumns)
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Select with Calculations
 
-{`const orders = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const orders = await db.table('orders')
   .select([
     'id',
     selectExpr('quantity * price', 'total'),
     selectExpr('quantity * price * 0.1', 'tax'),
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Type Safety
 
 TypeScript ensures that selected columns exist in your schema:
 
-{`// ✅ Valid - columns exist
+<CodeBlock>
+
+```typescript
+// ✅ Valid - columns exist
 db.table('users')
   .select(['id', 'name', 'email'])
   .execute();
@@ -159,13 +215,19 @@ db.table('users')
 // ❌ Error - can't select from unjoined table
 db.table('orders')
   .select(['orders.id', 'users.name']) // Error: users not joined
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ## Result Type Inference
 
 The TypeScript return type is automatically inferred based on your select:
 
-{`// Type is inferred as:
+<CodeBlock>
+
+```typescript
+// Type is inferred as:
 // Promise<Array<{
 //   id: number;
 //   name: string;
@@ -173,41 +235,65 @@ The TypeScript return type is automatically inferred based on your select:
 // }>>
 const users = await db.table('users')
   .select(['id', 'name', 'email'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 When using aliases, the result type uses the alias name:
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .select([
     'id',
     'name AS full_name',
   ])
   .execute();
-// Result has 'full_name' not 'name'`}
+// Result has 'full_name' not 'name'
+```
+
+</CodeBlock>
 
 ## Examples
 
 ### Select Specific Columns
 
-{`const users = await db.table('users')
+<CodeBlock>
+
+```typescript
+const users = await db.table('users')
   .select(['id', 'name', 'email'])
   .where('status', 'eq', 'active')
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Select with Aliases
 
-{`const results = await db.table('events')
+<CodeBlock>
+
+```typescript
+const results = await db.table('events')
   .select([
     'user_id',
     selectExpr('count()', 'event_count'),
     'event_type AS type',
   ])
   .groupBy(['user_id', 'type'])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>
 
 ### Select from Multiple Tables
 
-{`const results = await db.table('orders')
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .leftJoin('products', 'orders.product_id', 'products.id')
   .select([
@@ -216,4 +302,7 @@ When using aliases, the result type uses the alias name:
     'products.name AS product_name',
     'orders.total',
   ])
-  .execute();`}
+  .execute();
+```
+
+</CodeBlock>

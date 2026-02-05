@@ -3,6 +3,8 @@ title: Advanced Filtering
 description: Build complex predicates and CrossFilter trees inside your queries
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # Advanced Filtering
 
 hypequery exposes powerful filtering controls. Use fluent `where` clauses for simple logic or the `CrossFilter` helper when you need nested groups, reusable predicates, or top-N shortcuts.
@@ -11,7 +13,9 @@ hypequery exposes powerful filtering controls. Use fluent `where` clauses for si
 
 Chain multiple `where` clauses inside any query. Every predicate stays type-safe thanks to the schema you generated:
 
-```ts
+<CodeBlock>
+
+```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const db = createQueryBuilder<Schema>({...});
@@ -21,7 +25,10 @@ const activeAdultUsers = await db
   .where('age', 'gt', 18)
   .where('status', 'eq', 'active')
   .execute();
+
 ```
+
+</CodeBlock>
 
 ## Complex Filtering with `CrossFilter`
 
@@ -29,7 +36,9 @@ const activeAdultUsers = await db
 
 ### Basic `CrossFilter` usage
 
-```ts
+<CodeBlock>
+
+```typescript
 import { CrossFilter } from '@hypequery/clickhouse';
 
 const ordersFilter = new CrossFilter()
@@ -55,18 +64,26 @@ const ordersFilter = new CrossFilter()
   );
 
 const filteredOrders = await db.table('orders').applyCrossFilters(ordersFilter).execute();
+
 ```
+
+</CodeBlock>
 
 ### `FilterConditionInput` interface
 
-```ts
+<CodeBlock>
+
+```typescript
 interface FilterConditionInput<T = any, Schema = any, OriginalT = any> {
   column: keyof OriginalT | TableColumn<Schema>;
   operator: FilterOperator;
   value: T;
   conjunction?: 'AND' | 'OR';
 }
+
 ```
+
+</CodeBlock>
 
 - `column`: Column reference (local table or joined tables).
 - `operator`: Comparison operator (see table below).
@@ -91,7 +108,9 @@ interface FilterConditionInput<T = any, Schema = any, OriginalT = any> {
 
 ### `FilterGroup` interface
 
-```ts
+<CodeBlock>
+
+```typescript
 interface FilterGroup<Schema = any, OriginalT = any> {
   operator: 'AND' | 'OR';
   conditions: Array<FilterConditionInput | FilterGroup>;
@@ -101,7 +120,10 @@ interface FilterGroup<Schema = any, OriginalT = any> {
     direction: 'ASC' | 'DESC';
   };
 }
+
 ```
+
+</CodeBlock>
 
 - `operator`: Controls how nested conditions combine.
 - `conditions`: Array of conditions or deeper groups.
@@ -117,7 +139,9 @@ interface FilterGroup<Schema = any, OriginalT = any> {
 - `addGroup(conditions, operator)` – create nested AND/OR blocks.
 - `getConditions()` – inspect the current filter tree (useful for tests or logging).
 
-```ts
+<CodeBlock>
+
+```typescript
 const filter = new CrossFilter()
   .add({ column: 'status', operator: 'eq', value: 'active' })
   .addMultiple([
@@ -130,21 +154,31 @@ const filter = new CrossFilter()
   ], 'AND');
 
 const conditions = filter.getConditions();
+
 ```
+
+</CodeBlock>
 
 ### Advanced helpers
 
 - `topN(valueColumn, n, orderBy)` – builds a filter targeting the top N by a metric.
 
-```ts
+<CodeBlock>
+
+```typescript
 const filter = new CrossFilter().topN('revenue', 10, 'desc');
+
 ```
+
+</CodeBlock>
 
 ## Date filtering patterns
 
 ### Using `date-fns`
 
-```ts
+<CodeBlock>
+
+```typescript
 import { CrossFilter } from '@hypequery/clickhouse';
 import { endOfDay, endOfMonth, startOfDay, startOfMonth, subDays } from 'date-fns';
 
@@ -170,11 +204,16 @@ const thisMonthFilter = new CrossFilter().add({
   operator: 'between',
   value: [startOfMonth(today).toISOString(), endOfMonth(today).toISOString()],
 });
+
 ```
+
+</CodeBlock>
 
 ### Using `dayjs`
 
-```ts
+<CodeBlock>
+
+```typescript
 import dayjs from 'dayjs';
 import { CrossFilter } from '@hypequery/clickhouse';
 
@@ -194,12 +233,7 @@ const dayJsLast30Filter = new CrossFilter().add({
   operator: 'between',
   value: [today.subtract(30, 'day').toISOString(), today.toISOString()],
 });
+
 ```
 
----
-
-## Next Steps
-
-**Continue:** [Join Relationships](/docs/query-building/join-relationships) - Define reusable table relationships
-
-**Or explore:** [Query Definitions](/docs/query-definitions) - Build APIs with serve
+</CodeBlock>
