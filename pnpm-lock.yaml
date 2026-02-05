@@ -485,9 +485,6 @@ importers:
       motion:
         specifier: ^12.31.0
         version: 12.31.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      next:
-        specifier: 16.1.6
-        version: 16.1.6(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -528,6 +525,9 @@ importers:
       fumadocs-mdx:
         specifier: ^14.2.6
         version: 14.2.6(@types/react@19.2.10)(fumadocs-core@16.5.0(@types/react@19.2.10)(lucide-react@0.563.0(react@19.2.3))(next@16.1.6(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@4.3.6))(next@16.1.6(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)(vite@6.4.1(@types/node@20.19.29)(jiti@2.6.1)(lightningcss@1.30.2)(tsx@4.21.0)(yaml@2.8.2))
+      next:
+        specifier: 16.1.6
+        version: 16.1.6(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       rehype-code-titles:
         specifier: ^1.2.1
         version: 1.2.1
