@@ -199,7 +199,7 @@ importers:
         version: 1.4.0(@clickhouse/client-web@1.16.0)
       '@hypequery/serve':
         specifier: '*'
-        version: 0.0.8(tsx@4.21.0)(typescript@5.9.3)
+        version: link:../../packages/serve
       zod:
         specifier: ^3.23.8
         version: 3.25.76
