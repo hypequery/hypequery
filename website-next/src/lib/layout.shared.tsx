@@ -1,8 +1,8 @@
 import {
   Book,
   Braces,
+  Search,
 } from 'lucide-react';
-import { SearchToggle } from 'fumadocs-ui/components/dialog/search';
 
 export function baseOptions() {
   return {
@@ -30,7 +30,7 @@ export function baseOptions() {
         },
       ],
       search: {
-        component: <SearchToggle />,
+        enabled: true,
       },
     },
     theme: false,
