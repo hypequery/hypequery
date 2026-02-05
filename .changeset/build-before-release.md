@@ -1,6 +1,5 @@
 ---
-
-## "@hypequery/cli": patch  
+"@hypequery/cli": patch  
 "@hypequery/react": patch  
 "@hypequery/serve": patch
 
