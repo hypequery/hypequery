@@ -26,7 +26,6 @@ Most teams scatter SQL across API endpoints, dashboards and background jobs. Eve
 
 hypequery turns analytics queries into typed TypeScript functions that you define once and reuse across your entire stack.
 
-<CodeBlock>
 ```typescript
 // analytics/queries.ts
 export const api = defineServe({
@@ -42,11 +41,9 @@ export const api = defineServe({
   },
 });
 ```
-</CodeBlock>
 
 **Now use it everywhere:**
 
-<CodeBlock>
 ```typescript
 // In a cron job, background job or called by an AI agent
 const digest = await api.run('weeklyRevenue', { startDate: lastWeek });
@@ -58,7 +55,6 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2024-01-01' });
 // POST /analytics/api/weeklyRevenue
 
 ```
-</CodeBlock>
 
 ## When to Use hypequery
 
