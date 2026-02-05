@@ -1,0 +1,163 @@
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (this && this.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
+    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+import { Command } from 'commander';
+import { initCommand } from './commands/init.js';
+import { devCommand } from './commands/dev.js';
+import { generateCommand } from './commands/generate.js';
+var program = new Command();
+program
+    .name('hypequery')
+    .description('Type-safe analytics layer for ClickHouse')
+    .version('0.0.1');
+// Init command
+program
+    .command('init')
+    .description('Initialize a new hypequery project')
+    .option('--database <type>', 'Database type (clickhouse|bigquery)')
+    .option('--path <path>', 'Output directory (default: analytics/)')
+    .option('--no-example', 'Skip example query generation')
+    .option('--no-interactive', 'Non-interactive mode (use env vars)')
+    .option('--force', 'Overwrite existing files')
+    .option('--skip-connection', 'Skip database connectivity test')
+    .action(function (options) { return __awaiter(void 0, void 0, void 0, function () {
+    var error_1;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                return [4 /*yield*/, initCommand(options)];
+            case 1:
+                _a.sent();
+                return [3 /*break*/, 3];
+            case 2:
+                error_1 = _a.sent();
+                console.error(error_1 instanceof Error ? error_1.message : error_1);
+                process.exit(1);
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
+// Dev command
+program
+    .command('dev [file]')
+    .description('Start development server')
+    .option('-p, --port <port>', 'Port number', function (val) { return parseInt(val, 10); })
+    .option('-h, --hostname <host>', 'Host to bind (default: localhost)')
+    .option('--no-watch', 'Disable file watching')
+    .option('--no-cache', 'Disable caching')
+    .option('--cache <provider>', 'Cache provider (memory|redis)')
+    .option('--redis-url <url>', 'Redis connection URL')
+    .option('--open', 'Open browser automatically')
+    .option('--cors', 'Enable CORS')
+    .option('-q, --quiet', 'Suppress startup messages')
+    .action(function (file, options) { return __awaiter(void 0, void 0, void 0, function () {
+    var error_2;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                return [4 /*yield*/, devCommand(file, options)];
+            case 1:
+                _a.sent();
+                return [3 /*break*/, 3];
+            case 2:
+                error_2 = _a.sent();
+                console.error(error_2 instanceof Error ? error_2.message : error_2);
+                process.exit(1);
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
+// Generate command
+program
+    .command('generate')
+    .description('Regenerate types from ClickHouse')
+    .option('-o, --output <path>', 'Output file (default: analytics/schema.ts)')
+    .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
+    .option('--database <type>', 'Database driver to use (default: auto-detect)')
+    .action(function (options) { return __awaiter(void 0, void 0, void 0, function () {
+    var error_3;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                return [4 /*yield*/, generateCommand(options)];
+            case 1:
+                _a.sent();
+                return [3 /*break*/, 3];
+            case 2:
+                error_3 = _a.sent();
+                console.error(error_3 instanceof Error ? error_3.message : error_3);
+                process.exit(1);
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); });
+// Help command
+program
+    .command('help [command]')
+    .description('Show help for command')
+    .action(function (command) {
+    if (command) {
+        var cmd = program.commands.find(function (c) { return c.name() === command; });
+        if (cmd) {
+            cmd.help();
+        }
+        else {
+            console.error("Unknown command: ".concat(command));
+            process.exit(1);
+        }
+    }
+    else {
+        program.help();
+    }
+});
+// Custom help
+program.on('--help', function () {
+    console.log('');
+    console.log('Examples:');
+    console.log('  hypequery init');
+    console.log('  hypequery dev');
+    console.log('  hypequery dev --port 3000');
+    console.log('  hypequery generate --output analytics/schema.ts');
+    console.log('');
+    console.log('Docs: https://hypequery.com/docs');
+});
+export { program };

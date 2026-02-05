@@ -1,0 +1,3 @@
+import type { AuthContext, ServeBuilder, ServeConfig, ServeEndpointMap, ServeQueriesMap } from "../types.js";
+export declare const defineServe: <TContext extends Record<string, unknown> = Record<string, unknown>, TAuth extends AuthContext = AuthContext, TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>>(config: ServeConfig<TContext, TAuth, TQueries>) => ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
+//# sourceMappingURL=define-serve.d.ts.map
