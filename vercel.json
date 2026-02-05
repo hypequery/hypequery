@@ -1,0 +1,7 @@
+{
+  "installCommand": "corepack enable && corepack prepare pnpm@10.28.2 --activate && pnpm install --frozen-lockfile",
+  "buildCommand": "cd website-next && pnpm build",
+  "devCommand": "cd website-next && pnpm dev",
+  "framework": "nextjs",
+  "outputDirectory": "website-next/.next"
+}
