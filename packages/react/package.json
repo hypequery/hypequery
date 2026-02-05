@@ -15,7 +15,7 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsc -b && node scripts/verify-dist.js",
+    "build": "tsc -b --force && node scripts/verify-dist.js",
     "types": "tsc -b --noEmit",
     "test:types": "tsc --project tsconfig.type-tests.json",
     "test": "npm run test:types && vitest run",
