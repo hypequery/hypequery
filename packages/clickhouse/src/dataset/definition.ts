@@ -15,12 +15,12 @@ import type {
   Dimension,
   DimensionDefinition,
   DimensionType,
-} from './types';
-import { isSQLExpression, toSQLString, type SQLExpression } from './sql-tag';
+} from './types.js';
+import { isSQLExpression, toSQLString, type SQLExpression } from './sql-tag.js';
 import {
   validateDimensionDefinition,
   validateMetricDefinition,
-} from './helpers';
+} from './helpers.js';
 
 // =============================================================================
 // DATASET VALIDATION

@@ -1,6 +1,8 @@
 export { createQueryBuilder, QueryBuilder } from './core/query-builder.js';
 export { ClickHouseConnection } from './core/connection.js';
 export { JoinRelationships } from './core/join-relationships.js';
+export { createClickHouseAdapter, ClickHouseAdapter } from './core/adapters/clickhouse-adapter.js';
+export type { DatabaseAdapter } from './core/adapters/database-adapter.js';
 
 // Re-export types for convenience
 export type {

@@ -1,7 +1,9 @@
 import { QueryBuilder, SelectQB } from '../query-builder.js';
+import type { DatabaseAdapter } from '../adapters/database-adapter.js';
 import type { BuilderState } from '../types/builder-state.js';
 import type { TableRecord } from '../../types/schema.js';
 import { buildRuntimeContext, resolveCacheConfig } from '../cache/runtime-context.js';
+import { substituteParameters } from '../utils.js';
 
 export type TestTableSchema = {
   id: 'Int32';
@@ -87,6 +89,14 @@ function createTestRuntime() {
   return buildRuntimeContext(resolveCacheConfig(undefined, 'tests'));
 }
 
+const testAdapter: DatabaseAdapter = {
+  name: 'test',
+  query: async () => {
+    throw new Error('Test adapter does not execute queries.');
+  },
+  render: (sql, params = []) => substituteParameters(sql, params)
+};
+
 type UsersState = BuilderState<
   TestSchema,
   'users',
@@ -111,7 +121,7 @@ export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<T
     aliases: {},
     scalars: {}
   };
-  return new QueryBuilder<TestSchema, UsersState>('users', state, createTestRuntime());
+  return new QueryBuilder<TestSchema, UsersState>('users', state, createTestRuntime(), testAdapter);
 }
 
 export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableRecord<TestSchema['test_table']>, 'test_table'> {
@@ -124,5 +134,5 @@ export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableReco
     aliases: {},
     scalars: {}
   };
-  return new QueryBuilder<TestSchema, TestTableState>('test_table', state, createTestRuntime());
+  return new QueryBuilder<TestSchema, TestTableState>('test_table', state, createTestRuntime(), testAdapter);
 }

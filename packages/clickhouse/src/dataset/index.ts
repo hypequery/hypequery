@@ -46,8 +46,8 @@
 // SQL TAGGED TEMPLATE
 // =============================================================================
 
-export { sql, isSQLExpression, toSQLString } from './sql-tag';
-export type { SQLExpression } from './sql-tag';
+export { sql, isSQLExpression, toSQLString } from './sql-tag.js';
+export type { SQLExpression } from './sql-tag.js';
 
 // =============================================================================
 // TYPES
@@ -105,14 +105,14 @@ export type {
   IntrospectedDimension,
   IntrospectedMetric,
   IntrospectedDataset,
-} from './types';
+} from './types.js';
 
 // =============================================================================
 // HELPERS
 // =============================================================================
 
-export { dimension, metric } from './helpers';
-export type { DimensionOptions, MetricOptions } from './helpers';
+export { dimension, metric } from './helpers.js';
+export type { DimensionOptions, MetricOptions } from './helpers.js';
 
 // =============================================================================
 // DEFINITION UTILITIES
@@ -135,7 +135,7 @@ export {
   hasMetric,
   getDimension,
   getMetric,
-} from './definition';
+} from './definition.js';
 
 // =============================================================================
 // INTROSPECTION
@@ -150,4 +150,4 @@ export {
   summarizeDataset,
   datasetsToJSON,
   summarizeAllDatasets,
-} from './introspection';
+} from './introspection.js';

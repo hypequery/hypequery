@@ -9,7 +9,7 @@
  * - Type inference utilities
  */
 
-import type { SQLExpression } from './sql-tag';
+import type { SQLExpression } from './sql-tag.js';
 
 // =============================================================================
 // DIMENSION TYPES

@@ -12,8 +12,8 @@ import type {
   MetricDefinition,
   MetricAggregationType,
   MetricFormat,
-} from './types';
-import { sql, type SQLExpression } from './sql-tag';
+} from './types.js';
+import { sql, type SQLExpression } from './sql-tag.js';
 
 // =============================================================================
 // DIMENSION HELPERS
