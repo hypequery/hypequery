@@ -1,20 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { DatabaseAdapter } from '../adapters/database-adapter.js';
 import { createQueryBuilder } from '../query-builder.js';
 import { MemoryCacheProvider } from '../cache/providers/memory-lru.js';
 import type { CacheEntry, CacheProvider } from '../cache/types.js';
 import { logger } from '../utils/logger.js';
+import { substituteParameters } from '../utils.js';
 
 const queryMock = vi.fn();
 const logSpy = vi.spyOn(logger, 'logQuery');
 
-vi.mock('../connection', () => ({
-  ClickHouseConnection: {
-    initialize: vi.fn(),
-    getClient: vi.fn(() => ({
-      query: (...args: unknown[]) => queryMock(...args)
-    }))
-  }
-}));
+const testAdapter: DatabaseAdapter = {
+  name: 'test',
+  query: (sql, params = []) => queryMock(sql, params),
+  render: (sql, params = []) => substituteParameters(sql, params)
+};
 
 type TestSchema = {
   users: {
@@ -22,13 +21,6 @@ type TestSchema = {
     email: 'String';
     active: 'UInt8';
   };
-};
-
-const baseConfig = {
-  host: 'http://localhost:8123',
-  username: 'default',
-  password: 'password',
-  database: 'tests'
 };
 
 const flushPromises = () => new Promise<void>(resolve => setImmediate(resolve));
@@ -77,12 +69,10 @@ describe('Cache manager integration', () => {
 
   it('returns cached rows on subsequent cache-first calls', async () => {
     let callCount = 0;
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
-    }));
+    queryMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
 
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'cache-first',
         ttlMs: 10_000,
@@ -101,13 +91,11 @@ describe('Cache manager integration', () => {
 
   it('performs stale-while-revalidate fetches in the background', async () => {
     let callCount = 0;
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
-    }));
+    queryMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
 
     const provider = new MemoryCacheProvider({ maxEntries: 10 });
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'stale-while-revalidate',
         ttlMs: 100,
@@ -141,13 +129,11 @@ describe('Cache manager integration', () => {
     const rows = [{ id: 1, email: 'user-1', active: 1 }];
     let resolveQuery: (() => void) | undefined;
     queryMock.mockImplementation(() => new Promise(resolve => {
-      resolveQuery = () => resolve({
-        json: () => Promise.resolve(rows)
-      });
+      resolveQuery = () => resolve(rows);
     }));
 
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'cache-first',
         ttlMs: 5_000,
@@ -169,12 +155,10 @@ describe('Cache manager integration', () => {
   });
 
   it('allows disabling dedupe for independent executions', async () => {
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: Math.random(), email: 'user', active: 1 }])
-    }));
+    queryMock.mockResolvedValue([{ id: Math.random(), email: 'user', active: 1 }]);
 
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'cache-first',
         ttlMs: 5_000,
@@ -191,7 +175,7 @@ describe('Cache manager integration', () => {
   it('respects manual cache keys and tags with invalidation', async () => {
     const provider = new TestCacheProvider();
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'cache-first',
         ttlMs: 10_000,
@@ -199,9 +183,7 @@ describe('Cache manager integration', () => {
       }
     });
 
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: 1, email: 'manual', active: 1 }])
-    }));
+    queryMock.mockResolvedValue([{ id: 1, email: 'manual', active: 1 }]);
 
     const query = db.table('users').select(['id'])
       .cache({ key: 'custom-key', tags: ['users'], ttlMs: 10_000 });
@@ -215,12 +197,10 @@ describe('Cache manager integration', () => {
 
   it('defaults cacheTimeMs to ttl + staleTtl when not explicitly provided', async () => {
     const provider = new TestCacheProvider();
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: 1, email: 'ttl', active: 1 }])
-    }));
+    queryMock.mockResolvedValue([{ id: 1, email: 'ttl', active: 1 }]);
 
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'stale-while-revalidate',
         ttlMs: 0,
@@ -240,14 +220,13 @@ describe('Cache manager integration', () => {
 
   it('invalidates tags for memory cache providers when namespaces include protocol prefixes', async () => {
     let callCount = 0;
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
-    }));
+    queryMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
 
     const provider = new MemoryCacheProvider({ maxEntries: 10 });
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
+        namespace: 'http://localhost:8123',
         mode: 'cache-first',
         ttlMs: 10_000,
         provider
@@ -273,12 +252,10 @@ describe('Cache manager integration', () => {
   // NOTE: network-first fallback is exercised via integration path; add unit coverage once ExecutorFeature is injectable.
 
   it('records cache metadata in logs for hits and stale hits', async () => {
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: 1, email: 'user', active: 1 }])
-    }));
+    queryMock.mockResolvedValue([{ id: 1, email: 'user', active: 1 }]);
 
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'cache-first',
         ttlMs: 10_000,
@@ -300,12 +277,10 @@ describe('Cache manager integration', () => {
 
   it('bypasses caching when execute receives cache: false', async () => {
     const provider = new TestCacheProvider();
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: 1, email: 'no-cache', active: 1 }])
-    }));
+    queryMock.mockResolvedValue([{ id: 1, email: 'no-cache', active: 1 }]);
 
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'cache-first',
         ttlMs: 5_000,
@@ -326,13 +301,11 @@ describe('Cache manager integration', () => {
 
   it('warms queries via db.cache.warm', async () => {
     let callCount = 0;
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
-    }));
+    queryMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
 
     const provider = new MemoryCacheProvider({ maxEntries: 10 });
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'cache-first',
         ttlMs: 10_000,
@@ -356,13 +329,11 @@ describe('Cache manager integration', () => {
 
   it('reports hit rate including stale serves', async () => {
     let callCount = 0;
-    queryMock.mockImplementation(() => Promise.resolve({
-      json: () => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }])
-    }));
+    queryMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
 
     const provider = new MemoryCacheProvider({ maxEntries: 10 });
     const db = createQueryBuilder<TestSchema>({
-      ...baseConfig,
+      adapter: testAdapter,
       cache: {
         mode: 'stale-while-revalidate',
         ttlMs: 100,
