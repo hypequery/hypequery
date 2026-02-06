@@ -3,16 +3,11 @@ title: Subqueries & CTEs
 description: Learn how to use subqueries and Common Table Expressions (CTEs) in hypequery
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # Subqueries & CTEs
 
 hypequery provides support for Common Table Expressions (CTEs) and raw SQL capabilities that allow you to create complex queries with subqueries.
-
-<Callout type="info" title="Serve context">
-  These examples live inside `query(({ ctx }) => …)` resolvers. Alias `const db = ctx.db;` to keep the snippets concise.
-</Callout>
 
 ## Common Table Expressions (CTEs)
 
@@ -25,12 +20,18 @@ You can use another QueryBuilder instance as a CTE:
 <CodeBlock>
 
 ```typescript
-const activeUsersSubquery = ctx.db
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const builder = createQueryBuilder(schema);
+
+// Create a subquery builder
+const activeUsersSubquery = builder
   .table('users')
   .select(['id', 'user_name', 'email'])
   .where('status', 'eq', 'active');
 
-const results = await ctx.db
+// Use it as a CTE in the main query
+const results = await builder
   .table('orders')
   .withCTE('active_users', activeUsersSubquery)
   .select([

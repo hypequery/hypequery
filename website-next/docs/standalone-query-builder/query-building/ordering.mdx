@@ -19,10 +19,6 @@ Use ordering to:
 - Paginate through large datasets
 - Remove duplicates with distinct
 
-<Callout type="info" title="Serve context">
-  Examples assume you're inside `query(({ ctx }) => …)` and start with `const db = ctx.db;` to access the ClickHouse client provided by serve.
-</Callout>
-
 ## Order By
 
 Sort results by column values in ascending or descending order.
@@ -32,7 +28,7 @@ Sort results by column values in ascending or descending order.
 <CodeBlock>
 
 ```typescript
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select(['id', 'name', 'created_at'])
   .orderBy('created_at', 'DESC')
   .execute();
@@ -45,7 +41,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const products = await ctx.db.table('products')
+const products = await db.table('products')
   .select(['id', 'name', 'price'])
   .orderBy('price', 'ASC')
   .execute();
@@ -64,7 +60,7 @@ Chain multiple `orderBy()` calls for secondary sorting:
 <CodeBlock>
 
 ```typescript
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select(['id', 'name', 'country', 'created_at'])
   .orderBy('country', 'ASC')
   .orderBy('created_at', 'DESC')
@@ -79,7 +75,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -107,7 +103,7 @@ Restrict the number of rows returned:
 <CodeBlock>
 
 ```typescript
-const latestUsers = await ctx.db.table('users')
+const latestUsers = await db.table('users')
   .select(['id', 'name', 'created_at'])
   .orderBy('created_at', 'DESC')
   .limit(10)
@@ -125,7 +121,7 @@ const latestUsers = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const topCategories = await ctx.db.table('orders')
+const topCategories = await db.table('orders')
   .innerJoin('products', 'orders.product_id', 'products.id')
   .select(['products.category'])
   .sum('orders.total', 'revenue')
@@ -144,7 +140,7 @@ Skip a specified number of rows before returning results:
 <CodeBlock>
 
 ```typescript
-const page2 = await ctx.db.table('users')
+const page2 = await db.table('users')
   .select(['id', 'name'])
   .orderBy('id', 'ASC')
   .limit(20)
@@ -170,7 +166,7 @@ Combine `limit()` and `offset()` for pagination:
 async function getUsers(page: number, pageSize: number) {
   const offset = (page - 1) * pageSize;
 
-  return await ctx.db.table('users')
+  return await db.table('users')
     .select(['id', 'name', 'email'])
     .orderBy('id', 'ASC')
     .limit(pageSize)
@@ -195,7 +191,7 @@ Instead of offset, use the last seen value for better performance:
 
 ```typescript
 async function getUsersAfter(lastId: number, limit: number) {
-  return await ctx.db.table('users')
+  return await db.table('users')
     .select(['id', 'name', 'email'])
     .where('id', 'gt', lastId)
     .orderBy('id', 'ASC')
@@ -226,7 +222,7 @@ Remove duplicate rows from results:
 <CodeBlock>
 
 ```typescript
-const countries = await ctx.db.table('users')
+const countries = await db.table('users')
   .select(['country'])
   .distinct()
   .orderBy('country', 'ASC')
@@ -240,7 +236,7 @@ const countries = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const uniqueCombinations = await ctx.db.table('orders')
+const uniqueCombinations = await db.table('orders')
   .select(['country', 'status'])
   .distinct()
   .execute();
@@ -253,7 +249,7 @@ const uniqueCombinations = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const stats = await ctx.db.table('events')
+const stats = await db.table('events')
   .select(['user_id'])
   .distinctCount('event_type', 'unique_events')
   .groupBy(['user_id'])
@@ -271,7 +267,7 @@ const stats = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const latestOrders = await ctx.db.table('orders')
+const latestOrders = await db.table('orders')
   .select(['id', 'user_id', 'total', 'created_at'])
   .orderBy('created_at', 'DESC')
   .limit(50)
@@ -285,7 +281,7 @@ const latestOrders = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const topSpenders = await ctx.db.table('orders')
+const topSpenders = await db.table('orders')
   .select(['user_id'])
   .sum('total', 'lifetime_value')
   .groupBy(['user_id'])
@@ -301,7 +297,7 @@ const topSpenders = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const latestEvents = await ctx.db.table('events')
+const latestEvents = await db.table('events')
   .select(['user_id'])
   .max('created_at', 'last_event')
   .groupBy(['user_id'])
@@ -317,7 +313,7 @@ const latestEvents = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const sample = await ctx.db.table('users')
+const sample = await db.table('users')
   .select(['id', 'name'])
   .orderBy('rand()', 'ASC')
   .limit(100)
@@ -331,7 +327,7 @@ const sample = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const countries = await ctx.db.table('users')
+const countries = await db.table('users')
   .select(['country'])
   .where('country', 'isNotNull')
   .distinct()
@@ -346,7 +342,7 @@ const countries = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('products')
+const results = await db.table('products')
   .select(['id', 'name', 'price', 'discount'])
   .orderBy(selectExpr('price * (1 - discount)'), 'ASC')
   .execute();
@@ -361,7 +357,7 @@ const results = await ctx.db.table('products')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select(['id', 'status', 'total', 'created_at'])
   .orderBy('status', 'ASC')
   .orderBy('total', 'DESC')
@@ -378,7 +374,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('products')
+const results = await db.table('products')
   .select(['id', 'name', 'price', 'stock'])
   .orderBy(selectExpr('if(stock > 0, 0, 1)'), 'ASC')  // In stock first
   .orderBy('price', 'ASC')
@@ -395,23 +391,23 @@ TypeScript ensures you sort by valid columns:
 
 ```typescript
 // ✅ Valid - column exists
-await ctx.db.table('users')
+await db.table('users')
   .orderBy('created_at', 'DESC')
   .execute();
 
 // ❌ Error - column doesn't exist
-await ctx.db.table('users')
+await db.table('users')
   .orderBy('invalid_column', 'ASC')  // TypeScript error
   .execute();
 
 // ✅ Valid - can sort by joined columns after joining
-await ctx.db.table('orders')
+await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .orderBy('users.name', 'ASC')
   .execute();
 
 // ❌ Error - can't sort by unjoined table
-await ctx.db.table('orders')
+await db.table('orders')
   .orderBy('users.name', 'ASC')  // TypeScript error
   .execute();
 ```
@@ -433,7 +429,7 @@ await ctx.db.table('orders')
 
 ```typescript
 // ❌ Slow with large offsets
-const page1000 = await ctx.db.table('events')
+const page1000 = await db.table('events')
   .orderBy('created_at', 'DESC')
   .limit(20)
   .offset(20000)  // Skips 20,000 rows
@@ -441,7 +437,7 @@ const page1000 = await ctx.db.table('events')
 
 // ✅ Faster - use keyset pagination
 const lastTimestamp = '2024-01-15 10:00:00';
-const page1000 = await ctx.db.table('events')
+const page1000 = await db.table('events')
   .where('created_at', 'lt', lastTimestamp)
   .orderBy('created_at', 'DESC')
   .limit(20)
@@ -457,7 +453,7 @@ const page1000 = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const leaderboard = await ctx.db.table('game_scores')
+const leaderboard = await db.table('game_scores')
   .select(['user_id'])
   .sum('score', 'total_score')
   .count('id', 'games_played')
@@ -474,7 +470,7 @@ const leaderboard = await ctx.db.table('game_scores')
 <CodeBlock>
 
 ```typescript
-const activityFeed = await ctx.db.table('events')
+const activityFeed = await db.table('events')
   .select(['id', 'type', 'user_id', 'created_at'])
   .orderBy('created_at', 'DESC')
   .limit(50)
@@ -492,7 +488,7 @@ async function browseProducts(category: string, page: number) {
   const pageSize = 24;
   const offset = (page - 1) * pageSize;
 
-  return await ctx.db.table('products')
+  return await db.table('products')
     .select(['id', 'name', 'price', 'image_url'])
     .where('category', 'eq', category)
     .where('in_stock', 'eq', true)
@@ -510,7 +506,7 @@ async function browseProducts(category: string, page: number) {
 <CodeBlock>
 
 ```typescript
-const domains = await ctx.db.table('users')
+const domains = await db.table('users')
   .select([selectExpr('splitByChar(\\'@\\', email)[2]', 'domain')])
   .distinct()
   .orderBy('domain', 'ASC')

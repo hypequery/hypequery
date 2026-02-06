@@ -21,10 +21,6 @@ Use time functions to:
 - Group data by time intervals
 - Build time-series analytics
 
-<Callout type="info" title="Serve context">
-  Each sample runs inside `query(({ ctx }) => …)` and aliases `const db = ctx.db;` so you can return the promise directly from your serve resolver.
-</Callout>
-
 ## Time Conversion Functions
 
 ### toDateTime
@@ -34,7 +30,7 @@ Convert values to ClickHouse DateTime objects:
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .select([
     'id',
     toDateTime('created_at', 'event_ts'),
@@ -55,7 +51,7 @@ Format timestamps with custom format strings:
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .select([
     'id',
     formatDateTime('created_at', 'Y-MM-dd HH:00', {
@@ -114,7 +110,7 @@ Extract specific components from a timestamp:
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .select([
     datePart('year', 'created_at', 'year'),
     datePart('month', 'created_at', 'month'),
@@ -146,7 +142,7 @@ const events = await ctx.db.table('events')
 
 ```typescript
 // Year-over-year comparison
-const yearlyStats = await ctx.db.table('orders')
+const yearlyStats = await db.table('orders')
   .select([
     datePart('year', 'created_at', 'year'),
   ])
@@ -156,7 +152,7 @@ const yearlyStats = await ctx.db.table('orders')
   .execute();
 
 // Day of week analysis
-const dailyStats = await ctx.db.table('events')
+const dailyStats = await db.table('events')
   .select([
     datePart('day', 'created_at', 'day_of_month'),
   ])
@@ -177,7 +173,7 @@ Truncate timestamps to specific intervals:
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .select([
     'id',
     toStartOfInterval('created_at', '1 hour', 'hour_bucket'),
@@ -213,7 +209,7 @@ hypequery provides predefined interval functions:
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .count('id', 'event_count')
   .groupByTimeInterval('created_at', null, 'toStartOfMinute')
   .execute();
@@ -239,7 +235,7 @@ const events = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .count('id', 'event_count')
   .groupByTimeInterval('created_at', '5 minute')
   .execute();
@@ -254,7 +250,7 @@ const events = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const dailyActive = await ctx.db.table('events')
+const dailyActive = await db.table('events')
   .select([
     toStartOfDay('created_at', 'date'),
   ])
@@ -271,7 +267,7 @@ const dailyActive = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const hourlyEvents = await ctx.db.table('events')
+const hourlyEvents = await db.table('events')
   .select([
     toStartOfInterval('created_at', '1 hour', 'hour'),
   ])
@@ -288,7 +284,7 @@ const hourlyEvents = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const monthlyRevenue = await ctx.db.table('orders')
+const monthlyRevenue = await db.table('orders')
   .select([
     toStartOfMonth('created_at', 'month'),
   ])
@@ -305,7 +301,7 @@ const monthlyRevenue = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const cohorts = await ctx.db.table('users')
+const cohorts = await db.table('users')
   .select([
     toStartOfWeek('created_at', 'cohort_week'),
   ])
@@ -322,7 +318,7 @@ const cohorts = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const buckets = await ctx.db.table('events')
+const buckets = await db.table('events')
   .select([
     toStartOfInterval('created_at', '15 minute', 'time_bucket'),
   ])
@@ -341,7 +337,7 @@ const buckets = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const recentEvents = await ctx.db.table('events')
+const recentEvents = await db.table('events')
   .where('created_at', 'gte', '2024-01-01')
   .where('created_at', 'lt', '2024-02-01')
   .select(['id', 'type'])
@@ -355,7 +351,7 @@ const recentEvents = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const last7Days = await ctx.db.table('events')
+const last7Days = await db.table('events')
   .where('created_at', 'gte', selectExpr('today() - 7'))
   .select(['id', 'type', 'created_at'])
   .execute();
@@ -368,7 +364,7 @@ const last7Days = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const businessHours = await ctx.db.table('events')
+const businessHours = await db.table('events')
   .where(datePart('hour', 'created_at'), 'gte', 9)
   .where(datePart('hour', 'created_at'), 'lt', 17)
   .select(['id', 'created_at'])
@@ -384,7 +380,7 @@ const businessHours = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .select([
     formatDateTime('created_at', 'Y-MM-dd HH:mm:ss', {
       timezone: 'America/New_York',
@@ -401,7 +397,7 @@ const events = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .select([
     'id',
     toDateTime('created_at', 'utc_time'),
@@ -422,7 +418,7 @@ const events = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const funnel = await ctx.db.table('events')
+const funnel = await db.table('events')
   .select([
     toStartOfDay('created_at', 'date'),
     'event_type',
@@ -440,7 +436,7 @@ const funnel = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const movingAvg = await ctx.db.table('events')
+const movingAvg = await db.table('events')
   .select([
     toStartOfDay('created_at', 'date'),
     selectExpr('avg(count) OVER (ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)', 'moving_avg'),
@@ -458,7 +454,7 @@ const movingAvg = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const yoy = await ctx.db.table('orders')
+const yoy = await db.table('orders')
   .select([
     datePart('year', 'created_at', 'year'),
     datePart('month', 'created_at', 'month'),
@@ -486,7 +482,7 @@ const yoy = await ctx.db.table('orders')
 
 ```typescript
 // ✅ Better - filter first
-const stats = await ctx.db.table('events')
+const stats = await db.table('events')
   .where('created_at', 'gte', '2024-01-01')
   .select([
     toStartOfDay('created_at', 'date'),
@@ -496,7 +492,7 @@ const stats = await ctx.db.table('events')
   .execute();
 
 // ❌ Slower - group everything
-const stats = await ctx.db.table('events')
+const stats = await db.table('events')
   .select([
     toStartOfDay('created_at', 'date'),
   ])
@@ -515,7 +511,7 @@ const stats = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const hourlyTraffic = await ctx.db.table('page_views')
+const hourlyTraffic = await db.table('page_views')
   .select([
     toStartOfInterval('created_at', '1 hour', 'hour'),
   ])
@@ -533,7 +529,7 @@ const hourlyTraffic = await ctx.db.table('page_views')
 <CodeBlock>
 
 ```typescript
-const signups = await ctx.db.table('users')
+const signups = await db.table('users')
   .select([
     toStartOfWeek('created_at', 'week'),
   ])
@@ -550,7 +546,7 @@ const signups = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const reportPeriod = await ctx.db.table('orders')
+const reportPeriod = await db.table('orders')
   .select([
     formatDateTime('created_at', 'Y-MM', { alias: 'period' }),
   ])

@@ -19,10 +19,6 @@ Use join relationships to:
 - Simplify complex multi-table joins
 - Make queries more readable and semantic
 
-<Callout type="info" title="Serve context">
-  All relationship examples execute inside `query(({ ctx }) => …)` resolvers. Alias `const db = ctx.db;` (or reference `ctx.db` inline) before constructing the query.
-</Callout>
-
 ## Basic Joins vs Relationships
 
 Basic inline joins are perfect for simple cases:
@@ -369,18 +365,18 @@ When debugging complex multi-join queries, test each relationship separately:
 <Pre>
 ```typescript
 // Test each relationship works
-const test1 = await ctx.db.table('orders')
+const test1 = await db.table('orders')
   .withRelation('userOrders')
   .select(['orders.id', 'users.name'])
   .execute();
 
-const test2 = await ctx.db.table('orders')
+const test2 = await db.table('orders')
   .withRelation('orderItems')
   .select(['orders.id', 'order_items.sku'])
   .execute();
 
 // Now combine them
-const combined = await ctx.db.table('orders')
+const combined = await db.table('orders')
   .withRelation('userOrders')
   .withRelation('orderItems')
   .select(['orders.id', 'users.name', 'order_items.sku'])

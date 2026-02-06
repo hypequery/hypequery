@@ -7,120 +7,35 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # When to Use Standalone
 
-Most users should start with the [serve framework](/docs/quick-start). Use standalone `@hypequery/clickhouse` when you need maximum flexibility or are integrating with existing infrastructure.
+Most teams should start with the [serve framework](/docs/quick-start). Reach for standalone `@hypequery/clickhouse` when you only need the type-safe query builder and prefer to keep authentication, routing, multi-tenancy, caching, and API definitions entirely in your codebase.
 
 ## Good Use Cases for Standalone
 
-### Integration with Existing APIs
+### Custom workflows without the serve runtime
 
-You already have Express, Fastify, Next.js API routes, or another framework:
+When you don't want the serve framework's routing/auth layers and only need the fluent query builder inside existing handlers or RPC endpoints.
 
-<CodeBlock>
 
-```ts
-// app/api/users/route.ts (Next.js)
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './generated-schema';
+### Background jobs, scripts, ETL
 
-const db = createQueryBuilder<Schema>({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE
-});
+Use standalone inside cron jobs, ETL workers, or migrations where you already manage retries, authentication, and scheduling.
 
-export async function GET() {
-  const users = await db.table('users')
-    .where('status', 'eq', 'active')
-    .select(['id', 'name', 'email'])
-    .execute();
 
-  return Response.json(users);
-}
-```
 
-</CodeBlock>
+### Internal tools & one-off scripts
 
-### Background Jobs & Scripts
+Ad-hoc admin tools, diagnostics, or scripts wired directly to ClickHouse without building APIs.
 
-Cron jobs, data processing, migrations, ETL workflows:
 
-<CodeBlock>
+### You want to own every concern
 
-```ts
-// jobs/daily-report.ts
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './generated-schema';
+Standalone is perfect when you explicitly **don’t** want the built-in features serve provides:
 
-const db = createQueryBuilder<Schema>({ /* config */ });
-
-const stats = await db.table('events')
-  .where('created_at', 'gte', startOfDay)
-  .count('*', 'total')
-  .execute();
-
-await sendSlackNotification(`Processed ${stats[0].total} events`);
-```
-
-</CodeBlock>
-
-### Serverless Functions
-
-Lambda, Cloudflare Workers, Vercel Functions, edge computing:
-
-<CodeBlock>
-
-```ts
-// functions/metrics.ts
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './generated-schema';
-
-const db = createQueryBuilder<Schema>({ /* config */ });
-
-export default async function handler(req, res) {
-  const data = await db.table('metrics')
-    .where('date', 'eq', today)
-    .select(['metric_name', 'value'])
-    .execute();
-
-  res.json(data);
-}
-```
-
-</CodeBlock>
-
-### Internal Tools & Admin Panels
-
-Quick scripts, one-off queries, data exploration:
-
-<CodeBlock>
-
-```ts
-// scripts/check-duplicates.ts
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './generated-schema';
-
-const db = createQueryBuilder<Schema>({ /* config */ });
-
-const duplicates = await db.table('users')
-  .select(['email'])
-  .groupBy(['email'])
-  .having('count(*)', 'gt', 1)
-  .execute();
-
-console.log('Duplicate emails:', duplicates);
-```
-
-</CodeBlock>
-
-### Maximum Control
-
-You need full control over:
-- Request/response handling
-- Authentication implementation
-- Caching strategy
-- Error handling
-- Logging format
+- You have custom auth/tenant logic and don’t need serve’s auth hooks
+- You want to design the HTTP/GraphQL/RPC surface yourself
+- Caching, rate limits, logging, and observability live elsewhere in your stack
+- You’re happy defining queries inline instead of a central schema
+- Your workload is single-tenant or non-user facing so multi-tenancy, OpenAPI, and generated React hooks would be overkill
 
 ## When NOT to Use Standalone
 

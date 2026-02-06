@@ -18,10 +18,6 @@ Use aggregations to:
 - Calculate totals, averages, and counts
 - Group data by one or more columns
 - Filter grouped results with `having()`
-
-<Callout type="info" title="Serve context">
-  Each snippet runs inside `query(({ ctx }) => …)` with `const db = ctx.db;` declared at the top of the resolver so you can plug the code directly into your serve API.
-</Callout>
 - Build analytics and reporting queries
 
 ## Aggregation Functions
@@ -42,7 +38,7 @@ Calculate the total of a column:
 <CodeBlock>
 
 ```typescript
-const revenue = await ctx.db.table('orders')
+const revenue = await db.table('orders')
   .sum('total', 'total_revenue')
   .execute();
 ```
@@ -54,7 +50,7 @@ const revenue = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const revenueByCountry = await ctx.db.table('orders')
+const revenueByCountry = await db.table('orders')
   .select(['country'])
   .sum('total', 'total_revenue')
   .groupBy(['country'])
@@ -70,7 +66,7 @@ Count rows or non-null values:
 <CodeBlock>
 
 ```typescript
-const userCount = await ctx.db.table('users')
+const userCount = await db.table('users')
   .count('id', 'total_users')
   .execute();
 ```
@@ -82,7 +78,7 @@ const userCount = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const usersByCountry = await ctx.db.table('users')
+const usersByCountry = await db.table('users')
   .select(['country'])
   .count('id', 'user_count')
   .groupBy(['country'])
@@ -102,7 +98,7 @@ Calculate the average value:
 <CodeBlock>
 
 ```typescript
-const avgOrder = await ctx.db.table('orders')
+const avgOrder = await db.table('orders')
   .avg('total', 'average_order_value')
   .execute();
 ```
@@ -114,7 +110,7 @@ const avgOrder = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const avgPriceByCategory = await ctx.db.table('products')
+const avgPriceByCategory = await db.table('products')
   .select(['category'])
   .avg('price', 'avg_price')
   .groupBy(['category'])
@@ -130,7 +126,7 @@ Find minimum or maximum values:
 <CodeBlock>
 
 ```typescript
-const priceRange = await ctx.db.table('products')
+const priceRange = await db.table('products')
   .min('price', 'min_price')
   .max('price', 'max_price')
   .execute();
@@ -143,7 +139,7 @@ const priceRange = await ctx.db.table('products')
 <CodeBlock>
 
 ```typescript
-const dateRanges = await ctx.db.table('events')
+const dateRanges = await db.table('events')
   .select(['user_id'])
   .min('created_at', 'first_event')
   .max('created_at', 'last_event')
@@ -160,7 +156,7 @@ Count unique values:
 <CodeBlock>
 
 ```typescript
-const uniqueUsers = await ctx.db.table('events')
+const uniqueUsers = await db.table('events')
   .distinctCount('user_id', 'unique_users')
   .execute();
 ```
@@ -172,7 +168,7 @@ const uniqueUsers = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const dailyActiveUsers = await ctx.db.table('events')
+const dailyActiveUsers = await db.table('events')
   .select([datePart('day', 'created_at', 'date')])
   .distinctCount('user_id', 'daily_active_users')
   .groupBy(['date'])
@@ -190,7 +186,7 @@ Group results by one or more columns:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select(['country'])
   .sum('total', 'total_revenue')
   .count('id', 'order_count')
@@ -205,7 +201,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select(['country', 'status'])
   .sum('total', 'total_revenue')
   .groupBy(['country', 'status'])
@@ -227,7 +223,7 @@ Filter grouped results using `having()`:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select(['country'])
   .sum('total', 'total_revenue')
   .groupBy(['country'])
@@ -247,7 +243,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select(['country'])
   .sum('total', 'total_revenue')
   .count('id', 'order_count')
@@ -263,7 +259,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select(['country'])
   .sum('total', 'total_revenue')
   .groupBy(['country'])
@@ -280,7 +276,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const salesByCategory = await ctx.db.table('orders')
+const salesByCategory = await db.table('orders')
   .innerJoin('products', 'orders.product_id', 'products.id')
   .select(['products.category'])
   .sum('orders.total', 'revenue')
@@ -298,7 +294,7 @@ const salesByCategory = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const dailyActive = await ctx.db.table('events')
+const dailyActive = await db.table('events')
   .select([
     toStartOfDay('created_at', 'date'),
   ])
@@ -315,7 +311,7 @@ const dailyActive = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const userStats = await ctx.db.table('events')
+const userStats = await db.table('events')
   .select(['user_id'])
   .count('id', 'total_events')
   .min('created_at', 'first_event')
@@ -333,7 +329,7 @@ const userStats = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const monthlyRevenue = await ctx.db.table('orders')
+const monthlyRevenue = await db.table('orders')
   .select([
     toStartOfMonth('created_at', 'month'),
   ])
@@ -351,7 +347,7 @@ const monthlyRevenue = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const funnel = await ctx.db.table('events')
+const funnel = await db.table('events')
   .select(['event_type'])
   .distinctCount('user_id', 'unique_users')
   .groupBy(['event_type'])
@@ -368,7 +364,7 @@ You can group by expressions and calculated columns:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select([
     selectExpr('if(total > 100, \'high\', \'low\')', 'value_segment'),
   ])
@@ -387,7 +383,7 @@ Combine multiple aggregation functions:
 <CodeBlock>
 
 ```typescript
-const stats = await ctx.db.table('orders')
+const stats = await db.table('orders')
   .select(['country'])
   .sum('total', 'total_revenue')
   .count('id', 'order_count')
@@ -405,7 +401,7 @@ const stats = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .select(['users.country'])
   .sum('orders.total', 'revenue')
@@ -424,24 +420,24 @@ TypeScript ensures aggregations are used correctly:
 
 ```typescript
 // ✅ Valid - number column aggregation
-await ctx.db.table('orders')
+await db.table('orders')
   .sum('total', 'revenue')
   .execute();
 
 // ❌ Error - can't aggregate string column
-await ctx.db.table('users')
+await db.table('users')
   .sum('name', 'total_name') // TypeScript error
   .execute();
 
 // ✅ Valid - groupBy columns exist
-await ctx.db.table('orders')
+await db.table('orders')
   .select(['country'])
   .sum('total', 'revenue')
   .groupBy(['country'])
   .execute();
 
 // ❌ Error - groupBy column doesn't exist
-await ctx.db.table('orders')
+await db.table('orders')
   .select(['country'])
   .sum('total', 'revenue')
   .groupBy(['invalid_column']) // TypeScript error
@@ -465,7 +461,7 @@ await ctx.db.table('orders')
 
 ```typescript
 // ✅ Better - filter first
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .where('status', 'eq', 'completed')
   .where('created_at', 'gte', '2024-01-01')
   .select(['country'])
@@ -474,7 +470,7 @@ const results = await ctx.db.table('orders')
   .execute();
 
 // ❌ Slower - group everything then filter
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .select(['country'])
   .sum('total', 'revenue')
   .groupBy(['country'])

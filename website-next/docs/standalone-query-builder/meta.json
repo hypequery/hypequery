@@ -7,6 +7,19 @@
     "when-to-use",
     "setup",
     "execution",
-    "query-building"
+    "---Query Building---",
+    "query-building/basics",
+    "query-building/select",
+    "query-building/where",
+    "query-building/joins",
+    "query-building/join-relationships",
+    "query-building/aggregation",
+    "query-building/ordering",
+    "query-building/time-functions",
+    "query-building/helper-methods",
+    "query-building/sql-expressions",
+    "query-building/subqueries-ctes",
+    "query-building/advanced-filtering",
+    "query-building/advanced"
   ]
 }

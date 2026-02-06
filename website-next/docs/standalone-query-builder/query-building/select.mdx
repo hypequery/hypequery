@@ -21,10 +21,6 @@ Select is typically the first method you chain after `table()`. It determines:
 - What expressions are calculated
 - The TypeScript type of the result
 
-<Callout type="info" title="Serve context">
-  All examples run inside a `query(({ ctx }) => …)` resolver. For brevity we alias `const db = ctx.db;` before building queries.
-</Callout>
-
 ## Basic Column Selection
 
 ### Select Specific Columns
@@ -32,7 +28,7 @@ Select is typically the first method you chain after `table()`. It determines:
 <CodeBlock>
 
 ```typescript
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select(['id', 'name', 'email'])
   .execute();
 // Returns: Array<{ id: number; name: string; email: string }>
@@ -45,7 +41,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select('*')
   .execute();
 // Returns all columns from the users table
@@ -62,7 +58,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const orders = await ctx.db.table('orders')
+const orders = await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -85,7 +81,7 @@ Rename columns using the `AS` keyword:
 <CodeBlock>
 
 ```typescript
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select([
     'id',
     'name AS full_name',
@@ -112,7 +108,7 @@ hypequery provides helper functions for common ClickHouse expressions:
 ```typescript
 import { rawAs, selectExpr } from '@hypequery/clickhouse';
 
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select([
     'id',
     'name',
@@ -136,7 +132,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .select([
     'id',
     selectExpr('arrayJoin(tags)', 'tag'),
@@ -158,7 +154,7 @@ const columns = includeEmail
   ? ['id', 'name', 'email']
   : ['id', 'name'];
 
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select(columns)
   .execute();
 ```
@@ -176,7 +172,7 @@ const selectedColumns = [
   ...additionalColumns,
 ];
 
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select(selectedColumns)
   .execute();
 ```
@@ -188,7 +184,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const orders = await ctx.db.table('orders')
+const orders = await db.table('orders')
   .select([
     'id',
     selectExpr('quantity * price', 'total'),
@@ -207,17 +203,17 @@ TypeScript ensures that selected columns exist in your schema:
 
 ```typescript
 // ✅ Valid - columns exist
-ctx.db.table('users')
+db.table('users')
   .select(['id', 'name', 'email'])
   .execute();
 
 // ❌ Error - 'invalid_column' doesn't exist
-ctx.db.table('users')
+db.table('users')
   .select(['id', 'invalid_column'])
   .execute();
 
 // ❌ Error - can't select from unjoined table
-ctx.db.table('orders')
+db.table('orders')
   .select(['orders.id', 'users.name']) // Error: users not joined
   .execute();
 ```
@@ -237,7 +233,7 @@ The TypeScript return type is automatically inferred based on your select:
 //   name: string;
 //   email: string;
 // }>>
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select(['id', 'name', 'email'])
   .execute();
 ```
@@ -249,7 +245,7 @@ When using aliases, the result type uses the alias name:
 <CodeBlock>
 
 ```typescript
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select([
     'id',
     'name AS full_name',
@@ -267,7 +263,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const users = await ctx.db.table('users')
+const users = await db.table('users')
   .select(['id', 'name', 'email'])
   .where('status', 'eq', 'active')
   .execute();
@@ -280,7 +276,7 @@ const users = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('events')
+const results = await db.table('events')
   .select([
     'user_id',
     selectExpr('count()', 'event_count'),
@@ -297,7 +293,7 @@ const results = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .leftJoin('products', 'orders.product_id', 'products.id')
   .select([

@@ -3,16 +3,11 @@ title: Helper Methods
 description: Learn about utility methods and additional features in hypequery
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # Helper Methods
 
 hypequery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
-
-<Callout type="info" title="Serve context">
-  Assume every snippet runs inside `query(({ ctx }) => …)` and starts with `const db = ctx.db;`. That way you can copy the examples directly into your serve queries.
-</Callout>
 
 ## SQL Generation
 
@@ -209,7 +204,7 @@ interface Schema {
 const db = createQueryBuilder<Schema>();
 
 // TypeScript will catch these errors:
-ctx.db.table('users')
+db.table('users')
   .raw('WHERE invalid_column = 1') // No type checking for raw SQL
   .settings({ invalid_setting: true }); // Error: invalid setting
 
@@ -225,10 +220,10 @@ ctx.db.table('users')
 
 ```typescript
 // Prefer builder methods when possible
-ctx.db.table('users').where('age', 'gt', 18) // Good
+db.table('users').where('age', 'gt', 18) // Good
 
 // Use raw SQL only when necessary
-ctx.db.table('users').raw('WHERE age > 18') // Less ideal
+db.table('users').raw('WHERE age > 18') // Less ideal
 ```
 
 </CodeBlock>
