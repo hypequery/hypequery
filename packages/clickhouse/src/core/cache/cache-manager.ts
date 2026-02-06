@@ -4,7 +4,6 @@ import type { CacheEntry, CacheOptions, CacheStatus } from './types.js';
 import { computeCacheKey } from './key.js';
 import { mergeCacheOptions } from './runtime-context.js';
 import { logger } from '../utils/logger.js';
-import { substituteParameters } from '../utils.js';
 
 function isCacheable(options: CacheOptions): boolean {
   const ttl = options.ttlMs ?? 0;
@@ -21,7 +20,7 @@ function deriveTags<Schema extends SchemaDefinition<Schema>, State extends AnyBu
 }
 
 interface CacheHitLogOptions {
-  sql: string;
+  renderSql: string;
   parameters: unknown[];
   status: CacheStatus;
   cacheKey: string;
@@ -32,7 +31,7 @@ interface CacheHitLogOptions {
 }
 
 async function logCacheHit({
-  sql,
+  renderSql,
   parameters,
   status,
   cacheKey,
@@ -41,10 +40,9 @@ async function logCacheHit({
   ageMs,
   queryId
 }: CacheHitLogOptions): Promise<void> {
-  const finalSQL = substituteParameters(sql, parameters);
   const timestamp = Date.now();
   logger.logQuery({
-    query: finalSQL,
+    query: renderSql,
     parameters,
     startTime: timestamp,
     endTime: timestamp,
@@ -82,6 +80,8 @@ export async function executeWithCache<
   const activeProvider = provider;
 
   const { sql, parameters } = builder.toSQLWithParams();
+  const adapter = builder.getAdapter();
+  const renderSql = adapter.render ? adapter.render(sql, parameters) : sql;
   const tableName = builder.getTableName();
   const namespace = mergedOptions.namespace || runtime.namespace;
   const key = mergedOptions.key || computeCacheKey({
@@ -118,7 +118,7 @@ export async function executeWithCache<
       runtime.stats.staleHits += 1;
     }
     await logCacheHit({
-      sql,
+      renderSql,
       parameters,
       status,
       cacheKey: key,

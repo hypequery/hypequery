@@ -1,8 +1,22 @@
 import type { DatabaseAdapter } from './database-adapter.js';
+import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
+import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import type { ClickHouseConfig } from '../query-builder.js';
-import { ClickHouseConnection } from '../connection.js';
+import { isClientConfig } from '../query-builder.js';
 import { substituteParameters } from '../utils.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
+import { getAutoClientModule } from '../env/auto-client.js';
+import type { AutoClientModule } from '../env/auto-client.js';
+
+type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
+
+function createClickHouseClient(config: ClickHouseConfig): ClickHouseClient {
+  if (isClientConfig(config)) {
+    return config.client;
+  }
+  const clientModule: AutoClientModule = getAutoClientModule();
+  return clientModule.createClient(config);
+}
 
 function deriveNamespace(config: ClickHouseConfig): string {
   if ('client' in config && config.client) {
@@ -17,16 +31,16 @@ function deriveNamespace(config: ClickHouseConfig): string {
 export class ClickHouseAdapter implements DatabaseAdapter {
   readonly name = 'clickhouse';
   readonly namespace?: string;
+  private client: ClickHouseClient;
 
   constructor(private config: ClickHouseConfig) {
     this.namespace = deriveNamespace(config);
-    ClickHouseConnection.initialize(config);
+    this.client = createClickHouseClient(config);
   }
 
   async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
-    const client = ClickHouseConnection.getClient();
     const finalSQL = substituteParameters(sql, params);
-    const result = await client.query({
+    const result = await this.client.query({
       query: finalSQL,
       format: 'JSONEachRow'
     });
@@ -34,9 +48,8 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 
   async stream<T>(sql: string, params: unknown[] = []): Promise<ReadableStream<T[]>> {
-    const client = ClickHouseConnection.getClient();
     const finalSQL = substituteParameters(sql, params);
-    const result = await client.query({
+    const result = await this.client.query({
       query: finalSQL,
       format: 'JSONEachRow'
     });
