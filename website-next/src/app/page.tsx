@@ -201,7 +201,10 @@ export default function Home() {
                 <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                   The single source of truth for your data
                 </h2>
-                <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <p className="mt-3 text-base text-gray-500 dark:text-gray-300">
+                  Pick the workflow you're fighting today—every card is powered by the exact same metric definitions.
+                </p>
+                <div className="mt-10 grid gap-4 md:grid-cols-4 lg:grid-cols-4">
                   {useCaseExamplesRaw.map((useCase) => (
                     <button
                       key={useCase.id}
@@ -252,37 +255,32 @@ export default function Home() {
                     <div className="grid gap-10 lg:grid-cols-[1.1fr_auto] lg:items-center">
                       <div>
                         <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                          Why orgs keeps rebuilding this layer
+                          Why orgs keep rebuilding this layer
                         </h2>
                         <p className="mt-6 text-lg leading-7 text-gray-700 dark:text-gray-300">
-                          Every scaled ClickHouse team eventually builds the same
-                          thing: a type-safe semantic layer that hides schema
-                          complexity and exposes governed, reusable metrics. You
-                          just get to start there.
+                          ClickHouse teams that centralize semantics with hypequery stop firefighting mismatched dashboards because every consumer reuses the same governed module, so velocity goes into shipping metrics instead of reconciling them.
                         </p>
-                        <div className="mt-6 space-y-3 text-base leading-7 text-gray-700 dark:text-gray-300">
-                          <p>Your API reports $1.2M in revenue.</p>
-                          <p>The dashboard shows $1.3M.</p>
-                          <p>The Slack bot says $1.1M.</p>
-                        </div>
-                        <div className="mt-6 space-y-3 text-base leading-7 text-gray-700 dark:text-gray-300">
-                          <p>Someone tweaked a date filter.</p>
-                          <p>Someone else "fixed" the exclusion logic.</p>
-                          <p>An agent hallucinated a JOIN.</p>
-                        </div>
-                        <div className="mt-6 space-y-3 text-base leading-7 text-gray-700 dark:text-gray-300">
-                          <p>
-                            Suddenly "what's our revenue?" needs a Slack thread, a
-                            meeting, and three engineers debating whose SQL is
-                            right.
-                          </p>
-                          <p>
-                            This is what happens when analytics doesn't have a
-                            platform.
-                          </p>
-                          <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                            One definition. Every consumer. Zero ambiguity.
-                          </p>
+                        <div className="mt-8 grid gap-6 md:grid-cols-2">
+                          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-900/40 dark:border-gray-700">
+                            <p className="text-base font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                              Without hypequery
+                            </p>
+                            <ul className="mt-4 list-disc space-y-3 pl-5 text-base leading-7 text-gray-700 dark:text-gray-300">
+                              <li>APIs, dashboards, and bots each reinvent metric logic.</li>
+                              <li>Tenant filters and auth patches drift per team.</li>
+                              <li>Analytics changes go through Slack debates, not code review.</li>
+                            </ul>
+                          </div>
+                          <div className="rounded-2xl border border-indigo-200 bg-white p-6 shadow-sm ring-1 ring-indigo-100 dark:bg-gray-900/60 dark:border-indigo-500/40">
+                            <p className="text-base font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
+                              With hypequery
+                            </p>
+                            <ul className="mt-4 list-disc space-y-3 pl-5 text-base leading-7 text-gray-700 dark:text-gray-200">
+                              <li>One TypeScript definition per metric, versioned and tested.</li>
+                              <li>Governed runtime injects auth, tenancy, caching everywhere.</li>
+                              <li>APIs, jobs, dashboards, and agents call the exact same endpoint.</li>
+                            </ul>
+                          </div>
                         </div>
                       </div>
                       <div className="flex justify-center">
@@ -307,22 +305,18 @@ export default function Home() {
                 <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                   <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Schema-aware, type-safe foundation
+                      Catch breaking schema changes before deploy
                     </h3>
                     <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Your ClickHouse schema becomes a TypeScript SDK. Columns
-                      become types, tables become interfaces. Refactor with
-                      confidence, catch errors at build time.
+                      Your ClickHouse schema becomes a TypeScript SDK. Columns become types, tables become interfaces, so CI tells you when analytics logic drifts.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Execute anywhere, not just via HTTP
+                      Run governed metrics everywhere, not just HTTP
                     </h3>
                     <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Run queries directly in jobs, APIs, scripts, or agents. HTTP
-                      is optional, not required. Your metrics travel to where
-                      they're needed.
+                      Jobs, APIs, scripts, or agents import the exact same definition. HTTP is optional, your metrics travel to whatever surface needs them.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
@@ -330,38 +324,31 @@ export default function Home() {
                       Metrics as first-class code citizens
                     </h3>
                     <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Import definitions like any other module. Same query in your
-                      API, dashboard, cron job, and AI agent. One source of truth.
+                      Import definitions like any other module. The same query powers your API, dashboard, cron job, and agent without reimplementation.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Auto-generated APIs with zero boilerplate
+                      Ship APIs with OpenAPI and authentication out of the box
                     </h3>
                     <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Every query becomes an HTTP endpoint with OpenAPI, input
-                      validation, and TypeScript clients. No controllers, no routing
-                      code, no YAML.
+                      Every query becomes an HTTP endpoint complete with validation and typed SDKs. No controllers, routing glue, or YAML hand wiring.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Tenant isolation at the platform level
+                      Bake tenant isolation into the platform
                     </h3>
                     <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Declare tenant patterns once. The platform auto-injects
-                      filters, validates auth, and guarantees isolation. Impossible
-                      to leak data between tenants.
+                      Declare tenant patterns once. The runtime auto-injects filters, validates auth, and guarantees isolation—making cross-tenant leaks impossible.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      Auth, observability & caching built in
+                      Ship-ready authentication, caching, and observability primitives
                     </h3>
                     <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                      Verify sessions, inject user context, control access, and
-                      cache at the query level. Security primitives and
-                      observability included, not bolted on.
+                      Verify sessions, inject user context, control access, and cache at the query level. You focus on metrics, the platform handles safety and insight.
                     </p>
                   </div>
                 </div>
@@ -380,9 +367,8 @@ export default function Home() {
               Ready for a proper analytics platform?
             </h2>
             <p className="mt-4 text-base text-gray-600 sm:text-lg dark:text-white/80">
-              Point hypequery at your ClickHouse cluster and get the full stack:
-              schema-aware SDK, type-safe metrics, HTTP APIs, and observability.
-              Everything wired together with end-to-end type safety.
+              Point hypequery at your ClickHouse cluster and ship a governed metric in under five minutes.
+              Teams use it to keep product analytics, finance APIs, and AI agents perfectly in sync.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link

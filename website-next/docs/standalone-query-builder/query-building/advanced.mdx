@@ -18,10 +18,6 @@ Use advanced features to:
 - Inspect generated SQL
 - Configure ClickHouse query settings
 - Insert raw SQL when needed
-
-<Callout type="info" title="Serve context">
-  Everything here runs inside `query(({ ctx }) => …)` and assumes you start each resolver with `const db = ctx.db;` so examples translate directly to your serve APIs.
-</Callout>
 - Debug query execution
 
 ## Common Table Expressions (CTEs)
@@ -36,11 +32,11 @@ CTEs (Common Table Expressions) create temporary result sets that can be referen
 <CodeBlock>
 
 ```typescript
-const activeUsers = ctx.db.table('users')
+const activeUsers = db.table('users')
   .select(['id', 'name'])
   .where('status', 'eq', 'active');
 
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .withCTE('active_users', activeUsers)
   .leftJoin('active_users', 'orders.user_id', 'active_users.id')
   .select([
@@ -59,15 +55,15 @@ Chain multiple `withCTE()` calls:
 <CodeBlock>
 
 ```typescript
-const activeUsers = ctx.db.table('users')
+const activeUsers = db.table('users')
   .select(['id', 'name', 'country'])
   .where('status', 'eq', 'active');
 
-const highValueOrders = ctx.db.table('orders')
+const highValueOrders = db.table('orders')
   .select(['user_id', 'total'])
   .where('total', 'gte', 1000);
 
-const results = await ctx.db.table('users')
+const results = await db.table('users')
   .withCTE('active_users', activeUsers)
   .withCTE('high_value_orders', highValueOrders)
   .innerJoin('high_value_orders', 'users.id', 'high_value_orders.user_id')
@@ -87,7 +83,7 @@ Use raw SQL strings for CTEs:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('events')
+const results = await db.table('events')
   .withCTE('recent', 'SELECT * FROM events WHERE date > now() - INTERVAL 7 DAY')
   .innerJoin('recent', 'events.user_id', 'recent.user_id')
   .select([
@@ -104,13 +100,13 @@ const results = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const userStats = ctx.db.table('orders')
+const userStats = db.table('orders')
   .select(['user_id'])
   .sum('total', 'lifetime_value')
   .count('id', 'order_count')
   .groupBy(['user_id']);
 
-const topUsers = await ctx.db.table('users')
+const topUsers = await db.table('users')
   .withCTE('user_stats', userStats)
   .innerJoin('user_stats', 'users.id', 'user_stats.user_id')
   .select([
@@ -134,7 +130,7 @@ Get the generated SQL string:
 <CodeBlock>
 
 ```typescript
-const query = ctx.db.table('orders')
+const query = db.table('orders')
   .where('status', 'eq', 'completed')
   .select(['id', 'total']);
 
@@ -152,7 +148,7 @@ Get SQL and parameters separately:
 <CodeBlock>
 
 ```typescript
-const query = ctx.db.table('orders')
+const query = db.table('orders')
   .where('total', 'gte', 100)
   .where('status', 'eq', 'active');
 
@@ -177,7 +173,7 @@ Access the current query configuration:
 <CodeBlock>
 
 ```typescript
-const config = ctx.db.table('users')
+const config = db.table('users')
   .where('status', 'eq', 'active')
   .select(['id', 'name'])
   .getConfig();
@@ -202,7 +198,7 @@ Insert raw SQL fragments when necessary:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('events')
+const results = await db.table('events')
   .raw('WHERE date BETWEEN toStartOfMonth(now()) AND now()')
   .select(['id', 'type'])
   .execute();
@@ -219,7 +215,7 @@ const results = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('products')
+const results = await db.table('products')
   .select([
     'id',
     'name',
@@ -237,7 +233,7 @@ Configure ClickHouse query execution settings:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('large_table')
+const results = await db.table('large_table')
   .settings({
     max_execution_time: 60,
     max_memory_usage: '10000000000',
@@ -266,7 +262,7 @@ const results = await ctx.db.table('large_table')
 
 ```typescript
 // Large aggregation
-const results = await ctx.db.table('events')
+const results = await db.table('events')
   .settings({
     max_threads: 8,
     max_execution_time: 120,
@@ -289,7 +285,7 @@ Log query information without executing:
 <CodeBlock>
 
 ```typescript
-await ctx.db.table('users')
+await db.table('users')
   .where('status', 'eq', 'active')
   .debug()  // Logs SQL, parameters, settings
   .select(['id', 'name'])
@@ -311,7 +307,7 @@ Remove duplicate rows:
 <CodeBlock>
 
 ```typescript
-const uniqueCountries = await ctx.db.table('users')
+const uniqueCountries = await db.table('users')
   .select(['country'])
   .distinct()
   .orderBy('country', 'ASC')
@@ -325,7 +321,7 @@ const uniqueCountries = await ctx.db.table('users')
 <CodeBlock>
 
 ```typescript
-const uniqueCombos = await ctx.db.table('orders')
+const uniqueCombos = await db.table('orders')
   .select(['country', 'status'])
   .distinct()
   .execute();
@@ -341,13 +337,13 @@ const uniqueCombos = await ctx.db.table('orders')
 
 ```typescript
 // Define CTE once
-const activeUsers = ctx.db.table('users')
+const activeUsers = db.table('users')
   .select(['id', 'name', 'email'])
   .where('status', 'eq', 'active')
   .where('last_login', 'gte', '2024-01-01');
 
 // Use in multiple places
-const recentOrders = await ctx.db.table('orders')
+const recentOrders = await db.table('orders')
   .withCTE('active_users', activeUsers)
   .innerJoin('active_users', 'orders.user_id', 'active_users.id')
   .select([
@@ -365,7 +361,7 @@ const recentOrders = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const query = ctx.db.table('orders')
+const query = db.table('orders')
   .where('total', 'gte', 100)
   .select(['id', 'total']);
 
@@ -384,7 +380,7 @@ const results = await query.execute();
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('events')
+const results = await db.table('events')
   .settings({
     max_execution_time: 30,
     max_memory_usage: '5000000000',
@@ -408,11 +404,11 @@ const results = await ctx.db.table('events')
 
 ```typescript
 // Pre-filter with CTE
-const recentEvents = ctx.db.table('events')
+const recentEvents = db.table('events')
   .select(['id', 'user_id', 'type'])
   .where('created_at', 'gte', '2024-01-01');
 
-const funnel = await ctx.db.table('recent_events')
+const funnel = await db.table('recent_events')
   .withCTE('recent_events', recentEvents)
   .select(['type'])
   .distinctCount('user_id', 'unique_users')
@@ -430,11 +426,11 @@ TypeScript maintains type safety even with advanced features:
 
 ```typescript
 // ✅ CTE maintains types
-const activeUsers = ctx.db.table('users')
+const activeUsers = db.table('users')
   .select(['id', 'name'])
   .where('status', 'eq', 'active');
 
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .withCTE('active_users', activeUsers)
   .innerJoin('active_users', 'orders.user_id', 'active_users.id')
   .select([
@@ -444,7 +440,7 @@ const results = await ctx.db.table('orders')
   .execute();
 
 // ✅ toSQL doesn't affect types
-const query = ctx.db.table('users')
+const query = db.table('users')
   .select(['id', 'name'])
   .where('status', 'eq', 'active');
 
@@ -468,18 +464,18 @@ const results = await query.execute(); // Still typed correctly
 
 ```typescript
 // ✅ Good - CTE reduces data size
-const activeUsers = ctx.db.table('users')
+const activeUsers = db.table('users')
   .select(['id', 'name'])
   .where('status', 'eq', 'active');  // Filter early
 
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .withCTE('active_users', activeUsers)
   .innerJoin('active_users', 'orders.user_id', 'active_users.id')
   .select(['orders.*', 'active_users.name'])
   .execute();
 
 // ⚠️ Caution - Large CTE
-const allUsers = ctx.db.table('users').select(['id', 'name']);  // No filter
+const allUsers = db.table('users').select(['id', 'name']);  // No filter
 // CTE will materialize entire users table
 ```
 
@@ -493,18 +489,18 @@ const allUsers = ctx.db.table('users').select(['id', 'name']);  // No filter
 
 ```typescript
 // CTE 1: Active users
-const activeUsers = ctx.db.table('users')
+const activeUsers = db.table('users')
   .select(['id', 'name', 'country'])
   .where('status', 'eq', 'active');
 
 // CTE 2: Recent high-value orders
-const recentOrders = ctx.db.table('orders')
+const recentOrders = db.table('orders')
   .select(['user_id', 'total'])
   .where('created_at', 'gte', '2024-01-01')
   .where('total', 'gte', 100);
 
 // Main query: Combine CTEs
-const results = await ctx.db.table('users')
+const results = await db.table('users')
   .withCTE('active_users', activeUsers)
   .withCTE('recent_orders', recentOrders)
   .innerJoin('recent_orders', 'users.id', 'recent_orders.user_id')
@@ -527,7 +523,7 @@ const results = await ctx.db.table('users')
 
 ```typescript
 async function debugQuery() {
-  const query = ctx.db.table('orders')
+  const query = db.table('orders')
     .where('status', 'eq', 'completed')
     .where('total', 'gte', 100)
     .select(['id', 'user_id', 'total'])
@@ -555,7 +551,7 @@ async function debugQuery() {
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('events')
+const results = await db.table('events')
   .settings({
     max_execution_time: 120,
     max_memory_usage: '20000000000',

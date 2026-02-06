@@ -4,6 +4,7 @@ description: hypequery's query builder provides a fluent, type-safe API for buil
 
 ---
 
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
@@ -15,39 +16,59 @@ The query builder is designed to be:
 - **Database-agnostic API** - Works with ClickHouse using familiar patterns
 - **Consistent** - The same API whether you're in serve or standalone mode
 
-## Working Inside Serve Queries
+## Serve vs Standalone
 
-The core API is identical everywhere, but these docs focus on the serve framework. Every snippet lives inside a `query(({ ctx }) => …)` resolver and uses `ctx.db`:
+The query builder API is identical in both contexts. The only difference is how you access the database client and execute queries.
 
-<CodeBlock>
-```typescript
-import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
+<Tabs items={['Serve Framework', 'Standalone']} defaultValue='Serve Framework'>
+  <Tab value='Serve Framework' label='Serve Framework'>
+    {`import { initServe } from '@hypequery/serve';
+import { db } from './client';
+
 
 const { define, queries, query } = initServe({
-  context: ({ headers }) => ({
-    db,
-    tenantId: headers.get('x-tenant-id'),
-  }),
+  context: () => ({ db }),
 });
 
 export const api = define({
   queries: queries({
-    getActiveUsers: query
+    getUsers: query
       .input(z.object({ status: z.string() }))
-      .query(async ({ ctx, input }) => {
-        return ctx.db
-          .table('users')
+      .query(({ ctx, input }) =>
+        ctx.db.table('users')
           .where('status', 'eq', input.status)
           .select(['id', 'name', 'email'])
-          .execute();
-      }),
+          .execute()
+      ),
   }),
-});
-```
-</CodeBlock>
+});`}
+  </Tab>
 
-> Want to use the query builder without the serve framework? The [Standalone Query Builder docs](/docs/standalone-query-builder/when-to-use) show the same operators with direct `db` access.
+  <Tab value='Standalone' label='Standalone'>
+    {`import { createClient } from '@hypequery/clickhouse';
+
+
+const db = createClient({
+  host: 'localhost',
+  port: 8123,
+  database: 'analytics',
+});
+
+async function getActiveUsers() {
+  const users = await db.table('users')
+    .where('status', 'eq', 'active')
+    .select(['id', 'name', 'email'])
+    .execute();
+
+  return users;
+}`}
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="Key Difference">
+  - **Serve**: Use `ctx.db` inside query definitions and return the promise
+  - **Standalone**: Use `db` directly and `await` the execution
+</Callout>
 
 ## Query Builder Pattern
 
@@ -55,8 +76,7 @@ All queries follow this pattern:
 
 <CodeBlock>
 ```typescript
-return ctx.db
-  .table('table_name')
+db.table('table_name')
   .where('column', 'operator', 'value')
   .select(['col1', 'col2'])
   .orderBy('created_at', 'DESC')
@@ -97,21 +117,18 @@ hypequery ensures type safety throughout the query building process:
 <CodeBlock>
 ```typescript
 // TypeScript knows the exact columns in your schema
-ctx.db
-  .table('users')
+db.table('users')
   .select(['id', 'name', 'email'])
   .execute();
 // Returns: Promise<Array<{ id: number; name: string; email: string }>>
 
 // Invalid columns are caught at compile time
-ctx.db
-  .table('users')
+db.table('users')
   .select(['id', 'invalid_column']) // ❌ TypeScript error
   .execute();
 
 // Operators match column types
-ctx.db
-  .table('users')
+db.table('users')
   .where('created_at', 'eq', '2024-01-01') // ✅ Valid
   .where('age', 'gte', 18) // ✅ Valid
   .execute();
@@ -126,7 +143,7 @@ Run the query and get all results:
 
 <CodeBlock>
 ```typescript
-const users = await ctx.db
+const users = await db
   .table('users')
   .where('status', 'eq', 'active')
   .select(['id', 'name'])
@@ -140,7 +157,7 @@ Stream results for large datasets:
 
 <CodeBlock>
 ```typescript
-const stream = await ctx.db
+const stream = await db
   .table('events')
   .select(['id', 'data'])
   .stream();
@@ -161,7 +178,7 @@ Process rows with a callback:
 <CodeBlock>
 
 ```typescript
-await ctx.db
+await db
   .table('events')
   .select(['id', 'data'])
   .streamForEach(async (row) => {

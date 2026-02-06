@@ -42,3 +42,7 @@ body {
     display: block;
   }
 }
+
+.behiiv-embed body {
+  background-color: red !important;
+}

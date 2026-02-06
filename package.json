@@ -23,8 +23,6 @@
     "docs:api": "cd packages/clickhouse && npm run docs:api",
     "docs:mdx": "cd packages/clickhouse && npm run docs:mdx",
     "fix:mdx": "node packages/clickhouse/scripts/fix-mdx-frontmatter.js",
-    "build:website": "npm run docs:mdx && npm run fix:mdx && cd website && npm run build",
-    "deploy:website": "npm run build:website && cd website && npx netlify deploy --prod",
     "dev:example": "npm run build --workspace=@hypequery/clickhouse && npm run dev --workspace=next-dashboard",
     "smoke:cli": "bash scripts/smoke-cli.sh",
     "smoke:next-starter": "bash scripts/smoke-next-starter.sh",

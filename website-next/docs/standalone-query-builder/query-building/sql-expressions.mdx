@@ -3,16 +3,11 @@ title: SQL Expressions
 description: Use raw SQL and expression helpers when the fluent query builder isn't enough
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # SQL Expressions
 
 The fluent query builder covers most workflows, but you can always run raw SQL or use expression helpers for complex cases. This page shows when and how to use them.
-
-<Callout type="info" title="Serve context">
-  All examples execute inside `query(({ ctx }) => …)`. Alias `const db = ctx.db;` (or reference `ctx.db` directly) before running the SQL helpers.
-</Callout>
 
 ## Raw SQL Queries
 
@@ -21,7 +16,7 @@ Execute raw SQL when you need complete control:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.rawQuery<{ day: string; signups: number }>(
+const results = await db.rawQuery<{ day: string; signups: number }>(
   `SELECT toStartOfDay(created_at) AS day, count(*) AS signups
    FROM signups
    WHERE account_id = ?
@@ -50,7 +45,7 @@ query: async ({ ctx, input }) => {
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.rawQuery(sql, [accountId]);
+const results = await db.rawQuery(sql, [accountId]);
 
 ```
 
@@ -69,7 +64,7 @@ Use `raw()` to inject SQL fragments into where clauses or other parts of your qu
 ```typescript
 import { raw } from '@hypequery/clickhouse';
 
-ctx.db.table('sensors')
+db.table('sensors')
   .select(['id', 'reading'])
   .where(raw('reading BETWEEN ? AND ?', [min, max]))
 
@@ -90,7 +85,7 @@ Use `rawAs()` when you need a SQL expression with a typed alias:
 ```typescript
 import { rawAs } from '@hypequery/clickhouse';
 
-ctx.db.table('orders')
+db.table('orders')
   .select([
     'account_id',
     rawAs('SUM(total)', 'total_revenue'),
@@ -120,7 +115,7 @@ Use `selectExpr()` for computed columns in your SELECT clause:
 ```typescript
 import { selectExpr } from '@hypequery/clickhouse';
 
-ctx.db.table('rides')
+db.table('rides')
   .select([
     selectExpr('toStartOfWeek(start_time)', 'week'),
     selectExpr('count()', 'ride_count'),
@@ -144,7 +139,7 @@ Helpers like `toDateTime`, `formatDateTime`, `toStartOfInterval`, and `datePart`
 ```typescript
 import { toDateTime, formatDateTime } from '@hypequery/clickhouse';
 
-ctx.db.table('events')
+db.table('events')
   .select([
     'id',
     toDateTime('occurred_at', 'event_ts'),
@@ -165,7 +160,7 @@ Expression helpers accept generics to describe the result type:
 <CodeBlock>
 
 ```typescript
-ctx.db.table('orders')
+db.table('orders')
   .select([
     rawAs<number, 'total_revenue'>('SUM(total)', 'total_revenue'),
     rawAs<number, 'avg_order'>('AVG(total)', 'avg_order'),
@@ -184,7 +179,7 @@ The alias (`'total_revenue'`) shows up on the result type with the specified gen
 <CodeBlock>
 
 ```typescript
-const rows = await ctx.db.rawQuery<{ day: string; signups: number }>(sql, [accountId]);
+const rows = await db.rawQuery<{ day: string; signups: number }>(sql, [accountId]);
 
 ```
 

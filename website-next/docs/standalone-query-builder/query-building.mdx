@@ -1,0 +1,196 @@
+---
+title: Query building
+description: Learn how to build queries with the standalone query builder
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Building Queries
+
+The standalone query builder uses the exact same query building API as the serve framework. All the methods, operators, and patterns are identical.
+
+<CodeBlock>
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+const db = createQueryBuilder<Schema>({ /* config */ });
+
+// The query building API is the same
+const users = await db
+  .table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name', 'email'])
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+```
+
+</CodeBlock>
+
+## Query Building Documentation
+
+All query building concepts are covered in detail in our main documentation:
+
+<Cards>
+  <Card
+    title="Query Basics"
+    href="/docs/query-building/basics"
+    description="Learn the fundamentals of the query builder pattern, execution methods, and type safety"
+  />
+  <Card
+    title="Select"
+    href="/docs/query-building/select"
+    description="Choose and transform columns, use aliases, and work with expressions"
+  />
+  <Card
+    title="Where Clauses"
+    href="/docs/query-building/where"
+    description="Filter rows using conditions, operators, and complex predicates"
+  />
+  <Card
+    title="Joins"
+    href="/docs/query-building/joins"
+    description="Combine data from multiple tables with inner, left, and right joins"
+  />
+  <Card
+    title="Aggregation"
+    href="/docs/query-building/aggregation"
+    description="Group data and calculate summaries with sum, count, avg, and more"
+  />
+  <Card
+    title="Ordering & Pagination"
+    href="/docs/query-building/ordering"
+    description="Sort results and implement pagination with limit and offset"
+  />
+  <Card
+    title="Advanced"
+    href="/docs/query-building/advanced"
+    description="CTEs, raw SQL, query settings, and streaming"
+  />
+  <Card
+    title="Helper Methods"
+    href="/docs/query-building/helper-methods"
+    description="Utility functions for debugging, inspection, and query management"
+  />
+</Cards>
+
+## Key Differences
+
+While the API is the same, there are a few differences when using the standalone builder:
+
+### No `ctx` Prefix
+
+In standalone mode, you use the `db` client directly instead of `ctx.db`:
+
+<CodeBlock>
+
+```typescript
+// Standalone
+const users = await db.table('users').execute();
+
+// Serve framework (for comparison)
+.query(({ ctx }) => ctx.db.table('users').execute())
+```
+
+</CodeBlock>
+
+### Direct Execution
+
+You `await` the execution directly instead of returning a promise:
+
+<CodeBlock>
+
+```typescript
+// Standalone
+const results = await db.table('users').execute();
+
+// Serve framework (for comparison)
+.query(async ({ ctx }) => {
+  return await ctx.db.table('users').execute();
+})
+```
+
+</CodeBlock>
+
+### No Query Names
+
+Standalone queries don't have names or metadata:
+
+<CodeBlock>
+
+```typescript
+// Standalone - anonymous query
+const users = await db.table('users').execute();
+
+// Serve framework - named query with metadata
+queries({
+  getUsers: query
+    .describe('Get all users')
+    .query(({ ctx }) => ctx.db.table('users').execute())
+})
+```
+
+</CodeBlock>
+
+## Common Patterns
+
+All the query building patterns from the main documentation work identically in standalone mode:
+
+### Conditional Filtering
+
+<CodeBlock>
+
+```typescript
+async function searchUsers(filters: { status?: string; role?: string }) {
+  let query = db.table('users');
+
+  if (filters.status) {
+    query = query.where('status', 'eq', filters.status);
+  }
+
+  if (filters.role) {
+    query = query.where('role', 'eq', filters.role);
+  }
+
+  return query.execute();
+}
+```
+
+</CodeBlock>
+
+### Dynamic Column Selection
+
+<CodeBlock>
+
+```typescript
+const columns = includeEmail
+  ? ['id', 'name', 'email']
+  : ['id', 'name'];
+
+const users = await db.table('users').select(columns).execute();
+```
+
+</CodeBlock>
+
+### Complex Joins
+
+<CodeBlock>
+
+```typescript
+const results = await db
+  .table('orders')
+  .innerJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('products', 'orders.product_id', 'products.id')
+  .select([
+    'orders.id AS order_id',
+    'users.name AS customer_name',
+    'products.name AS product_name',
+  ])
+  .where('orders.status', 'eq', 'completed')
+  .execute();
+```
+
+</CodeBlock>

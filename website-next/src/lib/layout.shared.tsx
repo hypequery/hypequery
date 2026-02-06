@@ -1,8 +1,5 @@
-import {
-  Book,
-  Braces,
-  Search,
-} from 'lucide-react';
+import { Book, Braces } from 'lucide-react';
+import { standaloneTabUrls } from '@/lib/standalone-urls';
 
 export function baseOptions() {
   return {
@@ -14,7 +11,7 @@ export function baseOptions() {
       ),
     },
     sidebar: {
-      defaultOpenLevel: 1,
+      defaultOpenLevel: 0,
       tabs: [
         {
           title: 'Documentation',
@@ -25,8 +22,9 @@ export function baseOptions() {
         {
           title: 'Standalone Query Builder',
           description: 'Build type safe queries with the ClickHouse client directly',
-          url: '/docs/standalone-query-builder/introduction',
+          url: '/docs/standalone-query-builder/when-to-use',
           icon: <Braces className="w-4 h-4 text-purple-500" />,
+          urls: standaloneTabUrls,
         },
       ],
       search: {
