@@ -1,7 +1,6 @@
 {
   "name": "hypequery-monorepo",
   "private": true,
-  "packageManager": "pnpm@10.28.2",
   "workspaces": [
     "packages/cli",
     "packages/clickhouse",
@@ -9,7 +8,8 @@
     "packages/react",
     "packages/serve",
     "packages/tsconfig",
-    "examples/*"
+    "examples/*",
+    "website"
   ],
   "license": "Apache-2.0",
   "scripts": {
