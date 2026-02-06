@@ -17,14 +17,14 @@ import type {
   IntrospectedDataset,
   IntrospectedDimension,
   IntrospectedMetric,
-} from './types';
+} from './types.js';
 import {
   getDataset,
   listDatasets as listDatasetNames,
   normalizeDimension,
   getDimensionSQL,
   getMetricSQL,
-} from './definition';
+} from './definition.js';
 
 // =============================================================================
 // DIMENSION INTROSPECTION
@@ -196,7 +196,7 @@ export function summarizeDataset(
 
   // Dimensions
   lines.push('## Dimensions');
-  for (const [name, dimension] of Object.entries(schema.dimensions)) {
+  for (const [name, dimension] of Object.entries(schema.dimensions) as [string, IntrospectedDimension][]) {
     lines.push(
       `- ${name} (${dimension.type})${
         dimension.description ? `: ${dimension.description}` : ''
@@ -210,7 +210,7 @@ export function summarizeDataset(
 
   // Metrics
   lines.push('## Metrics');
-  for (const [name, metric] of Object.entries(schema.metrics)) {
+  for (const [name, metric] of Object.entries(schema.metrics) as [string, IntrospectedMetric][]) {
     lines.push(
       `- ${name} (${metric.aggregationType})${
         metric.description ? `: ${metric.description}` : ''
@@ -290,7 +290,7 @@ export function summarizeAllDatasets(
   dimensionCount: number;
   metricCount: number;
 }> {
-  return listDatasetNames(datasets).map((name) => {
+  return listDatasetNames(datasets).map((name: string) => {
     const schema = getDatasetSchema(datasets, name);
     return {
       name: schema.name,

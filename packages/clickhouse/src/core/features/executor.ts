@@ -1,9 +1,6 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { ClickHouseConnection } from '../connection.js';
-import { substituteParameters } from '../utils.js';
 import { logger, type QueryLog } from '../utils/logger.js';
-import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
@@ -25,17 +22,18 @@ export class ExecutorFeature<
 
   toSQL(): string {
     const { sql, parameters } = this.toSQLWithParams();
-    return substituteParameters(sql, parameters);
+    const adapter = this.builder.getAdapter();
+    return adapter.render ? adapter.render(sql, parameters) : sql;
   }
 
   async execute(options?: ExecutorRunOptions): Promise<State['output'][]> {
-    const client = ClickHouseConnection.getClient();
+    const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
-    const finalSQL = substituteParameters(sql, parameters);
+    const renderSql = adapter.render ? adapter.render(sql, parameters) : sql;
 
     const startTime = Date.now();
     logger.logQuery({
-      query: finalSQL,
+      query: renderSql,
       parameters,
       startTime,
       status: 'started',
@@ -44,16 +42,11 @@ export class ExecutorFeature<
     });
 
     try {
-      const result = await client.query({
-        query: finalSQL,
-        format: 'JSONEachRow'
-      });
-
-      const rows = await result.json<State['output']>();
+      const rows = await adapter.query<State['output']>(sql, parameters);
       const endTime = Date.now();
 
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,
@@ -69,7 +62,7 @@ export class ExecutorFeature<
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,
@@ -84,30 +77,27 @@ export class ExecutorFeature<
   }
 
   async stream(): Promise<ReadableStream<State['output'][]>> {
-    const client = ClickHouseConnection.getClient();
+    const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
-    const finalSQL = substituteParameters(sql, parameters);
+    const renderSql = adapter.render ? adapter.render(sql, parameters) : sql;
 
     const startTime = Date.now();
     logger.logQuery({
-      query: finalSQL,
+      query: renderSql,
       parameters,
       startTime,
       status: 'started'
     });
 
     try {
-      const result = await client.query({
-        query: finalSQL,
-        format: 'JSONEachRow'
-      });
-
-      const stream = result.stream();
-      const webStream = createJsonEachRowStream(stream);
+      if (!adapter.stream) {
+        throw new Error(`Streaming is not supported by adapter "${adapter.name}".`);
+      }
+      const webStream = await adapter.stream<State['output']>(sql, parameters);
 
       const endTime = Date.now();
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,
@@ -119,7 +109,7 @@ export class ExecutorFeature<
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,

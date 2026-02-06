@@ -1,7 +1,9 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
+import type { DatabaseAdapter } from '../src/core/adapters/database-adapter.js';
 import type { BuilderState } from '../src/core/types/builder-state.js';
 import type { TableColumn, TableRecord } from '../src/types/schema.js';
 import { buildRuntimeContext, resolveCacheConfig } from '../src/core/cache/runtime-context.js';
+import { substituteParameters } from '../src/core/utils.js';
 
 // Simple helper utilities for compile-time assertions
 // The compiler will emit errors if any of these constraints fail, giving us type regression coverage.
@@ -47,6 +49,13 @@ type UsersState = BuilderState<
 >;
 
 const runtime = buildRuntimeContext(resolveCacheConfig(undefined, 'type-tests'));
+const adapter: DatabaseAdapter = {
+  name: 'type-tests',
+  query: async () => {
+    throw new Error('Type test adapter should not execute.');
+  },
+  render: (sql, params = []) => substituteParameters(sql, params)
+};
 
 const qb = new QueryBuilder<AppSchema, UsersState>(
   'users',
@@ -58,7 +67,8 @@ const qb = new QueryBuilder<AppSchema, UsersState>(
     base: {} as AppSchema['users'],
     aliases: {}
   },
-  runtime
+  runtime,
+  adapter
 );
 
 const selected = qb.select(['id', 'name']);
