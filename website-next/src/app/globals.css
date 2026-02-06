@@ -32,6 +32,69 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+.font-display {
+  font-family: var(--font-display);
+}
+
+.hero-link {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.hero-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  width: 100%;
+  height: 2px;
+  background-color: #6366f1;
+  opacity: 0.85;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.hero-link:hover {
+  color: #f3f4f6;
+}
+
+.hero-link:hover::after {
+  transform: scaleX(1);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.feature-card {
+  border-bottom: 1px solid #374151;
+}
+
+@media (min-width: 768px) {
+  .feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feature-card {
+    border-bottom: 0;
+    border-right: 1px solid #374151;
+    border-top: 1px solid #374151;
+  }
+
+  .feature-card:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  .feature-card:nth-child(2n) {
+    border-right: 0;
+  }
+}
+
 /* Hide hero mascot and terminal on smaller screens */
 .hero-mascot-wrapper {
   display: none;
