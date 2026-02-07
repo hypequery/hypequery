@@ -66,6 +66,16 @@ body {
   transform: scaleX(1);
 }
 
+.hq-codeblock .line,
+.hq-codeblock pre code > span {
+  display: block;
+}
+
+.hq-highlight .line:nth-child(n + 11):nth-child(-n + 21),
+.hq-highlight pre code > span:nth-child(n + 11):nth-child(-n + 21) {
+  background: rgba(99, 102, 241, 0.18);
+}
+
 .feature-grid {
   display: grid;
   grid-template-columns: 1fr;

@@ -7,11 +7,53 @@ import HeroLinks from '@/components/HeroLinks';
 import HeroLogo from '@/components/HeroLogo';
 import Footer from '@/components/Footer';
 import CodeHighlight from '@/components/CodeHighlight';
+import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock';
+import {
+  CodeBlockTabs,
+  CodeBlockTab,
+  CodeBlockTabsList,
+  CodeBlockTabsTrigger,
+} from 'fumadocs-ui/components/codeblock';
 import { heroCode, useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
 import { CopyButton } from '@/components/CopyButton';
 
 export default function Home() {
   const [selectedUseCase, setSelectedUseCase] = useState(useCaseExamplesRaw[0]);
+  const apiCode = `import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './analytics/client';
+
+const { define, query } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: {
+    weeklyRevenue: query
+      .describe('Weekly revenue totals')
+      .input(z.object({ startDate: z.string() }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .where('created_at', 'gte', input.startDate)
+          .groupBy(['week'])
+          .sum('total', 'revenue')
+          .execute()
+      ),
+  },
+});`;
+
+  const authCode = `import { z } from 'zod';
+
+export const authHeader = z.string().min(1);
+
+export function requireAuth(req: Request) {
+  const token = authHeader.parse(req.headers.get('authorization'));
+  if (!token.startsWith('Bearer ')) {
+    throw new Error('Unauthorized');
+  }
+  return { token: token.replace('Bearer ', '') };
+}`;
 
   return (
     <>
@@ -46,7 +88,7 @@ export default function Home() {
                 <p className="mt-4 text-lg leading-7 text-gray-300">
                   Define metrics once in TypeScript and execute them anywhere.
                 </p>
-              <div className="mt-5 max-w-[400px] border border-gray-800 bg-[#0a0f1d] px-4 py-3 text-sm text-gray-200 shadow-lg">
+                <div className="mt-5 max-w-[400px] border border-gray-800 bg-[#0a0f1d] px-4 py-3 text-sm text-gray-200 shadow-lg">
                   <div className="flex items-center justify-between gap-3 font-mono leading-6">
                     <span className="text-emerald-300">$ npx hypequery init</span>
                     <CopyButton text="npx hypequery init" className="min-w-[96px] px-2 py-1" />
@@ -55,13 +97,13 @@ export default function Home() {
                 <div className="mt-8 flex flex-wrap items-center gap-4">
                   <Link
                     href="/docs/quick-start"
-                  className="bg-indigo-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-indigo-500 font-mono"
+                    className="bg-indigo-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-indigo-500 font-mono"
                   >
                     Start in 2 Minutes
                   </Link>
                   <a
                     href="https://github.com/hypequery/hypequery"
-                  className="border border-gray-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-gray-100 transition hover:bg-white/10 font-mono"
+                    className="border border-gray-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-gray-100 transition hover:bg-white/10 font-mono"
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -125,15 +167,30 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <div className="border border-gray-800 bg-[#0a0f1d] p-6 shadow-xl">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 bg-gray-600"></div>
-                    <div className="h-3 w-3 bg-gray-600"></div>
-                    <div className="h-3 w-3 bg-gray-600"></div>
-                  </div>
-                  <div className="mt-4">
-                    <CodeHighlight code={heroCode} language="ts" />
-                  </div>
+                <div className="">
+                  <CodeBlockTabs className="rounded-none" defaultValue="queries">
+                    <CodeBlockTabsList>
+                      <CodeBlockTabsTrigger value="queries">
+                        analytics/queries.ts
+                      </CodeBlockTabsTrigger>
+                      <CodeBlockTabsTrigger value="auth">auth.ts</CodeBlockTabsTrigger>
+                    </CodeBlockTabsList>
+                    <CodeBlockTab value="queries" title="analytics/queries.ts">
+                      <DynamicCodeBlock
+                        lang="ts"
+                        code={apiCode}
+                        codeblock={{ className: 'h-[500px] text-sm hq-codeblock hq-highlight' }}
+                      />
+                    </CodeBlockTab>
+                    <CodeBlockTab value="auth" title="auth.ts">
+                      <DynamicCodeBlock
+                        lang="ts"
+                        code={authCode}
+                        codeblock={{ className: 'hq-codeblock' }}
+                      />
+                    </CodeBlockTab>
+                  </CodeBlockTabs>
+
                 </div>
               </div>
               <div className="mt-8">
@@ -340,7 +397,7 @@ export default function Home() {
                         reconciling them.
                       </p>
                       <div className="mt-8 grid gap-6 md:grid-cols-2">
-                          <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-900/40 dark:border-gray-700">
+                        <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-900/40 dark:border-gray-700">
                           <p className="text-base font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                             Without hypequery
                           </p>
@@ -350,7 +407,7 @@ export default function Home() {
                             <li>Analytics changes go through Slack debates, not code review.</li>
                           </ul>
                         </div>
-                          <div className="border border-indigo-200 bg-white p-6 shadow-sm ring-1 ring-indigo-100 dark:bg-gray-900/60 dark:border-indigo-500/40">
+                        <div className="border border-indigo-200 bg-white p-6 shadow-sm ring-1 ring-indigo-100 dark:bg-gray-900/60 dark:border-indigo-500/40">
                           <p className="text-base font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
                             With hypequery
                           </p>
@@ -382,7 +439,7 @@ export default function Home() {
                 An end-to-end platform for analytics development
               </h2>
               <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Catch breaking schema changes before deploy
                   </h3>
@@ -391,7 +448,7 @@ export default function Home() {
                     become interfaces, so CI tells you when analytics logic drifts.
                   </p>
                 </div>
-                  <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Run governed metrics everywhere, not just HTTP
                   </h3>
@@ -400,7 +457,7 @@ export default function Home() {
                     optional, your metrics travel to whatever surface needs them.
                   </p>
                 </div>
-                  <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Metrics as first-class code citizens
                   </h3>
@@ -409,7 +466,7 @@ export default function Home() {
                     dashboard, cron job, and agent without reimplementation.
                   </p>
                 </div>
-                  <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Ship APIs with OpenAPI and authentication out of the box
                   </h3>
@@ -418,7 +475,7 @@ export default function Home() {
                     No controllers, routing glue, or YAML hand wiring.
                   </p>
                 </div>
-                  <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Bake tenant isolation into the platform
                   </h3>
@@ -427,7 +484,7 @@ export default function Home() {
                     auth, and guarantees isolation—making cross-tenant leaks impossible.
                   </p>
                 </div>
-                  <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Ship-ready authentication, caching, and observability primitives
                   </h3>
@@ -439,10 +496,10 @@ export default function Home() {
               </div>
             </section>
           </div>
-        </div>
+        </div >
 
         {/* Final CTA section */}
-        <section className="my-16 relative isolate overflow-hidden bg-white px-6 py-16 text-center sm:px-12 lg:px-16 dark:bg-gray-900">
+        < section className="my-16 relative isolate overflow-hidden bg-white px-6 py-16 text-center sm:px-12 lg:px-16 dark:bg-gray-900" >
           <div className="mx-auto max-w-3xl text-gray-900 dark:text-white">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-white/70">
               Ship faster
@@ -482,8 +539,8 @@ export default function Home() {
               — let's build this together.
             </p>
           </div>
-        </section>
-      </main>
+        </section >
+      </main >
       <Footer />
     </>
   );
