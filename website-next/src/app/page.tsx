@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import HeroLinks from '@/components/HeroLinks';
-import HeroLogo from '@/components/HeroLogo';
+import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeHighlight from '@/components/CodeHighlight';
 import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock';
@@ -14,11 +13,14 @@ import {
   CodeBlockTabsList,
   CodeBlockTabsTrigger,
 } from 'fumadocs-ui/components/codeblock';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
 import { heroCode, useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
 import { CopyButton } from '@/components/CopyButton';
+import HypequeryArchitecture from '@/components/HypequeryArchitecture';
 
 export default function Home() {
   const [selectedUseCase, setSelectedUseCase] = useState(useCaseExamplesRaw[0]);
+  const [terminalText, setTerminalText] = useState('');
   const apiCode = `import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './analytics/client';
@@ -55,69 +57,129 @@ export function requireAuth(req: Request) {
   return { token: token.replace('Bearer ', '') };
 }`;
 
+  const terminalLines = [
+    'Connecting to ClickHouse...',
+    'Found 47 tables',
+    'Generating TypeScript types from your schema...',
+    'Created analytics/schema.ts',
+    'Created analytics/client.ts',
+    'Created analytics/queries.ts',
+    '',
+    '🎉 Done! Your analytics backend is ready.',
+    '',
+    'Run: npm run dev',
+  ];
+
+  useEffect(() => {
+    let lineIndex = 0;
+    let charIndex = 0;
+    let currentText = '';
+
+    const typeNextChar = () => {
+      if (lineIndex < terminalLines.length) {
+        const currentLine = terminalLines[lineIndex];
+
+        if (charIndex < currentLine.length) {
+          currentText += currentLine[charIndex];
+          charIndex++;
+          setTerminalText(currentText);
+          setTimeout(typeNextChar, 15 + Math.random() * 30);
+        } else {
+          currentText += '\n';
+          lineIndex++;
+          charIndex = 0;
+          setTerminalText(currentText);
+          setTimeout(typeNextChar, 100);
+        }
+      }
+    };
+
+    const startDelay = setTimeout(() => {
+      typeNextChar();
+    }, 800);
+
+    return () => clearTimeout(startDelay);
+  }, []);
+
   return (
     <>
+      <Navigation />
       <main>
         {/* Hero section */}
-        <div className="relative isolate bg-[#0b1120] pb-30 text-gray-100">
-          <div className="mx-auto max-w-7xl px-4 lg:px-6">
-            <div className="sticky top-0 z-40 lg:-mx-6 lg:px-6 bg-[#0b1120]/90 backdrop-blur">
-              <div className="py-8 flex justify-end">
-                <HeroLinks />
-              </div>
-            </div>
+        <div className="relative isolate bg-[#0b1120] pt-14 text-gray-100">
+          <div className="pt-24 pb-8">
+            <div className="mx-auto max-w-7xl px-4 lg:px-6">
+              <div className="flex flex-col items-start md:flex-row relative">
+                <div className="max-w-3xl pb-12 relative z-10">
+                  <div className="inline-flex items-center mb-2 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
+                    The Analytics Backend for ClickHouse Teams
+                  </div>
+                  <h1 className="font-display text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl dark:text-gray-100">
+                    Ship analytics across your entire stack
+                  </h1>
+                  <div>
+                    <p className="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">
+                      Define metrics once in TypeScript. Reuse across APIs, jobs,
+                      dashboards, and AI agents. Authentication and multi-tenancy baked in.
+                    </p>
+                    <p className="mt-2 text-lg leading-8 text-gray-600 dark:text-gray-300 font-medium">
+                      One definition. Any context. Zero drift.
+                    </p>
+                  </div>
+                  <div className="mt-8 space-y-3">
+                    <div className="flex flex-wrap items-center gap-4">
+                      <Link
+                        href="/docs/quick-start"
+                        className="bg-indigo-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-indigo-500 font-mono"
+                      >
+                        Start in 2 Minutes →
+                      </Link>
+                      <a
+                        href="https://github.com/hypequery/hypequery"
+                        className="border border-gray-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-gray-100 transition hover:bg-white/10 font-mono"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        on GitHub
+                      </a>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm font-medium uppercase tracking-wide text-gray-500">
+                    No YAML · No string-concatenated SQL · No duplicated metrics
+                  </p>
+                </div>
 
-            <div>
-              <HeroLogo className="pl-60 w-full h-auto opacity-95" />
-            </div>
-
-            <div className=" flex flex-col justify-between gap-10 lg:flex-row lg:items-start">
-              <div className="flex items-end mt-14">
-                <Image
-                  src="/mascot_dark.jpeg"
-                  alt="hypequery mascot"
-                  width={320}
-                  height={320}
-                  className="w-auto"
-                />
-              </div>
-              <div className="mt-8 max-w-2xl lg:order-2 lg:flex-1">
-                <h1 className="font-mono text-3xl font-semibold tracking-tight text-gray-100/95">
-                  From ClickHouse schema to APIs in minutes
-                </h1>
-                <p className="mt-4 text-lg leading-7 text-gray-300">
-                  Define metrics once in TypeScript and execute them anywhere.
-                </p>
-                <div className="mt-5 max-w-[400px] border border-gray-800 bg-[#0a0f1d] px-4 py-3 text-sm text-gray-200 shadow-lg">
-                  <div className="flex items-center justify-between gap-3 font-mono leading-6">
-                    <span className="text-emerald-300">$ npx hypequery init</span>
-                    <CopyButton text="npx hypequery init" className="min-w-[96px] px-2 py-1" />
+                {/* Hero mascot and terminal - only show on large screens */}
+                <div className="block hidden:md hero-mascot-wrapper">
+                  <div className="absolute right-95 top-45">
+                    <Image
+                      src="/mascot_dark.jpeg"
+                      alt="hypequery mascot"
+                      width={256}
+                      height={256}
+                      className="hero-mascot-dark h-64 w-auto object-contain block"
+                    />
+                  </div>
+                  <div className="absolute right-0 top-10 -translate-y-1/4">
+                    <div className="relative w-[410px] min-h-[250px] border border-gray-800 bg-gray-950 px-5 py-4 text-sm text-green-300 shadow-2xl">
+                      <div className="flex items-center justify-between gap-3 font-mono">
+                        <span>
+                          <span className="text-gray-500">$ </span>
+                          <span>npx hypequery init</span>
+                        </span>
+                        <CopyButton text="npx hypequery init" className="min-w-[96px] px-2 py-1" />
+                      </div>
+                      <div className="mt-3 min-h-[110px] space-y-2 font-mono text-xs text-emerald-200/80 whitespace-pre-wrap">
+                        {terminalText}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="mt-8 flex flex-wrap items-center gap-4">
-                  <Link
-                    href="/docs/quick-start"
-                    className="bg-indigo-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-indigo-500 font-mono"
-                  >
-                    Start in 2 Minutes
-                  </Link>
-                  <a
-                    href="https://github.com/hypequery/hypequery"
-                    className="border border-gray-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-gray-100 transition hover:bg-white/10 font-mono"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Star on GitHub
-                  </a>
-                </div>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
-                  Drop in authentication · Multi-tenancy ready · Built in caching
-                </p>
               </div>
-            </div>
 
-            {/* Architecture explainer */}
-            {/* <HypequeryArchitecture /> */}
+              {/* Architecture explainer */}
+              {/* <HypequeryArchitecture /> */}
+            </div>
           </div>
         </div>
 
@@ -125,46 +187,44 @@ export function requireAuth(req: Request) {
           <div className="mx-auto max-w-7xl px-4 lg:px-6 text-gray-100">
             {/* Everything is code section */}
             <section className="py-16">
-              <div className="grid gap-12 lg:grid-cols-[1.05fr_1fr] lg:items-start">
+              <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr] lg:items-start">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-400">
-                    Define once. Execute everywhere.
+                    Everything is code
                   </p>
                   <h2 className="mt-4 font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-100">
-                    The same TypeScript definition powers every surface
+                    From ClickHouse schema to governed APIs in minutes
                   </h2>
                   <p className="mt-4 text-base md:text-lg leading-7 text-gray-300">
-                    Schema introspection → type generation → query definitions → HTTP APIs. All wired
-                    together with end-to-end type safety.
+                    A quick path from your ClickHouse schema to a typed, governed API—without YAML,
+                    without SQL strings.
                   </p>
-                  <div className="mt-8 space-y-8 text-sm md:text-base text-gray-300">
-                    <div className="flex gap-4">
-                      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">01</span>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-100">Define once</h3>
-                        <p className="mt-2 text-gray-300">
-                          Write a query in TypeScript with typed inputs and outputs.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">02</span>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-100">Expose anywhere</h3>
-                        <p className="mt-2 text-gray-300">
-                          Serve it as HTTP, call it in jobs, or embed it in your app.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">03</span>
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-100">Governed by default</h3>
-                        <p className="mt-2 text-gray-300">
-                          Auth, multi-tenancy, and caching stay consistent everywhere.
-                        </p>
-                      </div>
-                    </div>
+                  <div className="mt-8">
+                    <Steps>
+                      <Step>
+                        <div className="flex flex-col gap-3 pb-12">
+                          <p className="text-lg font-medium text-gray-100">Scaffold new or drop into your existing codebase.</p>
+                          <div className="flex items-center justify-between gap-3 border border-gray-700 bg-[#0a0f1d] px-4 py-3 font-mono text-base text-gray-200">
+                            <span>$ npx hypequery init</span>
+                            <CopyButton text="npx hypequery init" className="min-w-[96px] px-2 py-1" />
+                          </div>
+                        </div>
+                      </Step>
+                      <Step>
+                        <div className="flex flex-col gap-2 pb-12">
+                          <p className="text-lg font-semibold text-gray-100">Define</p>
+                          <p className="text-base text-gray-300">Define type-safe queries with our ClickHouse-native query builder, or drop in raw SQL.</p>
+                        </div>
+                      </Step>
+                      <Step>
+                        <div className="flex flex-col gap-2">
+                          <p className="text-lg font-semibold text-gray-100">Consume</p>
+                          <p className="text-base text-gray-300">
+                            Run via our built-in server or embed in your backend, then consume across your stack.
+                          </p>
+                        </div>
+                      </Step>
+                    </Steps>
                   </div>
                 </div>
                 <div className="">
@@ -332,6 +392,68 @@ export function requireAuth(req: Request) {
                 <p className="mt-4 text-xs text-gray-400">
                   The tooling changes, but the layers never do.
                 </p>
+              </div>
+
+              <div className="mt-14 border border-gray-700 bg-[#0f172a] p-6 text-gray-200">
+                <div className="flex items-center justify-between gap-6">
+                  <h3 className="text-2xl font-semibold text-gray-100">Performance</h3>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+                    Placeholder metrics
+                  </p>
+                </div>
+                <p className="mt-3 text-sm text-gray-300">
+                  @clickhouse/client raw SQL vs @hypequery/clickhouse. We’ll drop in real numbers once
+                  the benchmark suite is published.
+                </p>
+                <div className="mt-6 border border-gray-700">
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
+                    <div className="p-3">Metric</div>
+                    <div className="p-3 text-center">Raw SQL</div>
+                    <div className="p-3 text-center">Hypequery</div>
+                  </div>
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
+                    <div className="p-3 text-gray-300">P95 latency</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                  </div>
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
+                    <div className="p-3 text-gray-300">Throughput (req/s)</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                  </div>
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
+                    <div className="p-3 text-gray-300">Cold start</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                  </div>
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] text-sm">
+                    <div className="p-3 text-gray-300">Cache hit ratio</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                  </div>
+                </div>
+                <div className="mt-6 border border-gray-700">
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
+                    <div className="p-3">Capability</div>
+                    <div className="p-3 text-center">Raw SQL</div>
+                    <div className="p-3 text-center">Hypequery</div>
+                  </div>
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
+                    <div className="p-3 text-gray-300">Type safety end‑to‑end</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                    <div className="p-3 text-center text-gray-100">Yes</div>
+                  </div>
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
+                    <div className="p-3 text-gray-300">Governed auth & tenancy</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                    <div className="p-3 text-center text-gray-100">Yes</div>
+                  </div>
+                  <div className="grid grid-cols-[1.2fr_1fr_1fr] text-sm">
+                    <div className="p-3 text-gray-300">Reusable query definitions</div>
+                    <div className="p-3 text-center text-gray-400">—</div>
+                    <div className="p-3 text-center text-gray-100">Yes</div>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-10 grid gap-4 md:grid-cols-4 lg:grid-cols-4">

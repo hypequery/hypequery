@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import HeroLogo from '@/components/HeroLogo';
 import { Github, ExternalLink } from 'lucide-react';
 
 const navigation = [
@@ -38,11 +39,8 @@ export default function Navigation() {
         aria-label="Global"
       >
         <div className="flex lg:flex-1">
-          <Link
-            href="/"
-            className="font-mono text-xl font-bold text-indigo-300 flex items-center"
-          >
-            &gt; hypequery
+          <Link href="/" className="flex items-center">
+            <HeroLogo className="h-7 w-auto" />
           </Link>
         </div>
         <div className="flex items-center gap-x-6 justify-end flex-1">
