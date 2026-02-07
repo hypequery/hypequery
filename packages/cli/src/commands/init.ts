@@ -27,6 +27,7 @@ import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { generateExampleSchemaTemplate } from '../templates/example-schema.js';
 import { installServeDependencies } from '../utils/dependency-installer.js';
+import { ensureDockerClickHouse } from '../utils/docker.js';
 
 export interface InitOptions {
   database?: string;
@@ -124,11 +125,12 @@ export async function initCommand(options: InitOptions = {}) {
   const dbType = await determineDatabase(options);
 
   // Step 2: Ask how the user wants to get started
-  let connectionMode: 'connect' | 'example' = 'connect';
+  let connectionMode: 'connect' | 'docker' | 'example' = 'connect';
   let connectionConfig: ConnectionConfig | null = null;
   let hasValidConnection = false;
   let tableCount = 0;
   let isExampleMode = false;
+  let isDockerMode = false;
 
   if (!options.noInteractive && !options.skipConnection) {
     connectionMode = await promptConnectionMode();
@@ -139,6 +141,37 @@ export async function initCommand(options: InitOptions = {}) {
     logger.newline();
     logger.info('Great — we\'ll set up an example project you can explore right away.');
     logger.newline();
+  } else if (connectionMode === 'docker') {
+    // Docker mode: spin up local ClickHouse with sample data
+    isDockerMode = true;
+    logger.newline();
+
+    const dockerConfig = await ensureDockerClickHouse();
+
+    if (!dockerConfig) {
+      // Docker failed, fall back to example mode
+      const continueWithout = await promptContinueWithoutDb();
+      if (!continueWithout) {
+        logger.info('Setup cancelled');
+        process.exit(0);
+      }
+      isExampleMode = true;
+      isDockerMode = false;
+      logger.newline();
+      logger.info('Continuing with example project instead.');
+      logger.newline();
+    } else {
+      connectionConfig = dockerConfig;
+      // Set env vars for type generation
+      process.env.CLICKHOUSE_HOST = dockerConfig.host;
+      process.env.CLICKHOUSE_DATABASE = dockerConfig.database;
+      process.env.CLICKHOUSE_USERNAME = dockerConfig.username;
+      process.env.CLICKHOUSE_PASSWORD = dockerConfig.password;
+      hasValidConnection = true;
+      tableCount = 3; // We seeded 3 tables
+      logger.success('Local ClickHouse is ready with sample data!');
+      logger.newline();
+    }
   } else {
     // Get connection details
     connectionConfig = await resolveConnectionConfig(options);
@@ -343,7 +376,23 @@ export interface IntrospectedSchema {
   logger.newline();
   logger.header('Setup complete!');
 
-  if (hasValidConnection) {
+  if (isDockerMode && hasValidConnection) {
+    logger.info('Your local ClickHouse is running with sample data!');
+    logger.newline();
+    logger.info('Sample data includes:');
+    logger.indent('• 10 users (Alice, Bob, Carol...)');
+    logger.indent('• 15 orders with various statuses');
+    logger.indent('• 16 page view events');
+    logger.newline();
+    logger.info('Try it out:');
+    logger.indent('npx hypequery dev          Start development server');
+    logger.newline();
+    logger.info('Docker container management:');
+    logger.indent('docker stop hypequery-clickhouse     Stop the container');
+    logger.indent('docker start hypequery-clickhouse    Start it again');
+    logger.indent('docker rm hypequery-clickhouse       Remove it completely');
+    logger.newline();
+  } else if (hasValidConnection) {
     logger.info('Try your first query:');
     logger.newline();
     logger.indent(`import { api } from './${path.relative(process.cwd(), queriesPath).replace(/\.ts$/, '.js')}'`);

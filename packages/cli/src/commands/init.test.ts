@@ -11,6 +11,11 @@ vi.mock('../utils/dependency-installer.js', () => ({
   installServeDependencies,
 }));
 
+const mockEnsureDockerClickHouse = vi.fn();
+vi.mock('../utils/docker.js', () => ({
+  ensureDockerClickHouse: mockEnsureDockerClickHouse,
+}));
+
 // Mock all dependencies
 vi.mock('node:fs/promises');
 vi.mock('../utils/prompts.js');
@@ -397,6 +402,68 @@ describe('init command - graceful failure handling', () => {
       await initCommand({});
 
       expect(installServeDependencies).toHaveBeenCalled();
+    });
+  });
+
+  describe('Docker mode', () => {
+    it('should start Docker ClickHouse and generate real types', async () => {
+      vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('docker');
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      mockEnsureDockerClickHouse.mockResolvedValue({
+        host: 'http://localhost:8123',
+        database: 'hypequery_demo',
+        username: 'default',
+        password: '',
+      });
+
+      await initCommand({});
+
+      expect(mockEnsureDockerClickHouse).toHaveBeenCalled();
+      expect(mockGenerateTypes).toHaveBeenCalled();
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('.env'),
+        expect.stringContaining('http://localhost:8123')
+      );
+      expect(logger.success).toHaveBeenCalledWith('Local ClickHouse is ready with sample data!');
+    });
+
+    it('should fall back to example mode when Docker fails', async () => {
+      vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('docker');
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptContinueWithoutDb).mockResolvedValue(true);
+      mockEnsureDockerClickHouse.mockResolvedValue(null);
+
+      await initCommand({});
+
+      expect(mockEnsureDockerClickHouse).toHaveBeenCalled();
+      expect(prompts.promptContinueWithoutDb).toHaveBeenCalled();
+      // Should create example schema, not generate from DB
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('schema.ts'),
+        expect.stringContaining('users')
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('queries.ts'),
+        expect.stringContaining('recentUsers')
+      );
+    });
+
+    it('should exit when Docker fails and user declines example mode', async () => {
+      vi.mocked(prompts.promptDatabaseType).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptConnectionMode).mockResolvedValue('docker');
+      vi.mocked(prompts.promptContinueWithoutDb).mockResolvedValue(false);
+      mockEnsureDockerClickHouse.mockResolvedValue(null);
+
+      try {
+        await initCommand({});
+      } catch (error) {
+        expect(error).toBeInstanceOf(ProcessExitError);
+      }
+
+      expect(exitHandler.exitMock).toHaveBeenCalledWith(0);
+      expect(logger.info).toHaveBeenCalledWith('Setup cancelled');
     });
   });
 });

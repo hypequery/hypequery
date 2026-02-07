@@ -24,16 +24,17 @@ export async function promptDatabaseType(): Promise<DatabaseType | null> {
 }
 
 /**
- * Prompt for connection mode: connect to ClickHouse or start with an example
+ * Prompt for connection mode: connect to ClickHouse, use Docker, or start with an example
  */
-export async function promptConnectionMode(): Promise<'connect' | 'example'> {
+export async function promptConnectionMode(): Promise<'connect' | 'docker' | 'example'> {
   const response = await prompts({
     type: 'select',
     name: 'mode',
     message: 'How would you like to get started?',
     choices: [
-      { title: 'Connect to ClickHouse', description: 'Generate types from your existing database', value: 'connect' },
-      { title: 'Start with an example project', description: 'Explore hypequery with sample data — no database needed', value: 'example' },
+      { title: 'Connect to existing ClickHouse', description: 'Generate types from your existing database', value: 'connect' },
+      { title: 'Start local ClickHouse (Docker)', description: 'Spin up ClickHouse with sample data — great for learning', value: 'docker' },
+      { title: 'Start with example project', description: 'Explore the API with mock data — no database needed', value: 'example' },
     ],
     initial: 0,
   });
