@@ -63,7 +63,7 @@ Factory function that creates type-safe `useQuery` and `useMutation` hooks for y
 interface CreateHooksConfig<TApi> {
   baseUrl: string;                          // Required: API base URL (e.g., '/api' or 'https://api.example.com')
   fetchFn?: typeof fetch;                   // Optional: Custom fetch implementation (defaults to global fetch)
-  headers?: Record<string, string>;         // Optional: Default headers for all requests
+  headers?: Record<string, string> | (() => Record<string, string>); // Optional: Default headers or a resolver function
   config?: Record<string, QueryMethodConfig>; // Optional: Per-route HTTP method overrides
   api?: TApi;                               // Optional: API object to auto-extract HTTP methods
 }

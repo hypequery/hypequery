@@ -44,6 +44,7 @@ type AppContext = { db: any };
 // ============================================================
 
 const authStrategy = async ({ request }): Promise<AppAuth | null> => {
+  // ServeRequest.headers is a plain object, not a Fetch Headers instance.
   const token = request.headers?.['x-auth-token'];
   if (!token) return null;
 
@@ -120,6 +121,14 @@ export const api = define({
 ```
 </CodeBlock>
 
+<Callout type="info" title="ServeRequest headers are plain objects">
+  Auth strategies receive a <code>ServeRequest</code> with <code>headers</code> as a simple
+  object (<code>Record&lt;string, string | undefined&gt;</code>). Use
+  <code>request.headers['x-auth-token']</code> or <code>request.headers.authorization</code> rather than
+  <code>request.headers.get()</code>. If you want case-insensitive lookups, use
+  <code>normalizeHeaderMap</code> from <code>@hypequery/serve</code> before reading headers.
+</Callout>
+
 ## Auth Guards
 
 Guards are declarative methods on the query builder that control authorization. They're checked **after** authentication succeeds.
@@ -139,6 +148,7 @@ healthcheck: query
 ### `.requireAuth()`
 
 Require authentication. Returns `401 UNAUTHORIZED` when no auth context is present.
+`.require()` is an alias if you prefer a shorter chain.
 
 <CodeBlock>
 ```typescript

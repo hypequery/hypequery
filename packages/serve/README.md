@@ -363,7 +363,9 @@ interface QueryProcedureBuilder<TContext, TAuth> {
   auth(strategy: AuthStrategy<TAuth>): QueryProcedureBuilder;
 
   // Multi-tenancy configuration
-  tenant(config: TenantConfig<TAuth>): QueryProcedureBuilder;
+  tenant(config: Partial<TenantConfig<TAuth>>): QueryProcedureBuilder;
+  tenantOptional(config?: Partial<TenantConfig<TAuth>>): QueryProcedureBuilder;
+  require(): QueryProcedureBuilder;
 
   // Custom metadata (for extensions)
   custom(metadata: Record<string, unknown>): QueryProcedureBuilder;
@@ -489,6 +491,23 @@ export const api = define({
           .select(['id', 'name'])
           .execute();
         // Equivalent to: SELECT id, name FROM users WHERE organization_id = <tenant_id>
+      }),
+  }),
+});
+```
+
+**Per-query override (optional tenant, no auto-inject):**
+
+```ts
+export const api = define({
+  queries: queries({
+    adminStats: query
+      .tenantOptional({ mode: 'manual' })
+      .query(async ({ ctx }) => {
+        if (ctx.tenantId) {
+          return ctx.db.table('stats').where('tenant_id', 'eq', ctx.tenantId).execute();
+        }
+        return ctx.db.table('stats').execute();
       }),
   }),
 });
@@ -887,7 +906,7 @@ export const api = define({
   }),
 });
 
-// Execute with type safety
+// Execute with type safety (aliases: api.execute, api.client)
 const result = await api.run('getUser', { id: '123' });
 const user = result[0];
 // user: { name: string; email: string }

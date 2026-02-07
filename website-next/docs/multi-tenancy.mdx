@@ -79,6 +79,46 @@ export const api = define({
 ```
 </CodeBlock>
 
+## Minimal multi-tenant auth (end-to-end)
+
+This example wires `createAuthSystem`, an `authStrategy`, and tenant configuration together with the correct types:
+
+<CodeBlock>
+
+```typescript
+import { initServe, createAuthSystem } from '@hypequery/serve';
+
+const { useAuth, TypedAuth } = createAuthSystem();
+type AppAuth = typeof TypedAuth;
+type AppContext = { db: any };
+
+const authStrategy = async ({ request }): Promise<AppAuth | null> => {
+  const token = request.headers['x-auth-token'];
+  if (!token) return null;
+
+  const decoded = await verifyToken(token);
+  return { userId: decoded.sub, tenantId: decoded.tenantId };
+};
+
+const { define, query } = initServe<AppContext, AppAuth>({
+  context: () => ({ db: createDbConnection() }),
+});
+
+export const api = define({
+  auth: useAuth(authStrategy),
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  queries: {
+    orders: query.query(({ ctx }) => ctx.db.table('orders').select('*')),
+  },
+});
+```
+
+</CodeBlock>
+
 With auto-injection enabled, **every** query builder in your context is automatically scoped to the authenticated tenant.
 
 ## Configuration Options
@@ -262,7 +302,7 @@ export const api = define({
     // Optional public metrics
     botTraffic: query
       .public()
-      .tenant({ extract: () => undefined, required: false })
+      .tenantOptional({ mode: 'manual' })
       .describe('Get bot traffic stats')
       .query(async () => botService.getStats()),
   },
@@ -272,7 +312,7 @@ export const api = define({
 
 ### Per-Query Override
 
-Override global config for specific queries:
+Override global config for specific queries (per-endpoint overrides are merged with the global tenant config):
 
 <CodeBlock>
 
@@ -299,8 +339,7 @@ const api = defineServe({
           .select('*');
       },
       tenant: {
-        extract: (auth) => auth.tenantId,
-        mode: 'manual', // Override
+        mode: 'manual', // Override only what you need
       },
     },
   },
@@ -308,6 +347,8 @@ const api = defineServe({
 ```
 
 </CodeBlock>
+
+Tip: use `query.tenantOptional({ mode: 'manual' })` when you want to opt out of auto-inject for an admin-only query without restating `extract` or `column`.
 
 ## Manual Mode (Advanced)
 
@@ -434,8 +475,8 @@ const api = defineServe<any, MyAuthContext>({
         return auth;
       },
       tenant: {
-        extract: (auth) => auth.organizationId,
-        required: false, // Optional for admins
+        required: false,
+        mode: 'manual', // Optional for admins without auto-inject
       },
     },
   },

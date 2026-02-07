@@ -4,6 +4,8 @@ title: Connecting to ClickHouse
 description: Learn how to connect to ClickHouse databases with hypequery
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 
 # Connecting to ClickHouse
 
@@ -15,6 +17,7 @@ Run `npx hypequery init` to scaffold your ClickHouse connection, env variables, 
 
 For Node.js environments, hypequery automatically uses the Node.js ClickHouse client:
 
+<CodeBlock>
 ```typescript
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
@@ -25,6 +28,7 @@ const db = createQueryBuilder({
   database: 'my_database'
 });
 ```
+</CodeBlock>
 
 **Client Selection:**
 - Automatically uses `@clickhouse/client` (Node.js client)

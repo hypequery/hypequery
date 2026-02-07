@@ -3,6 +3,8 @@ title: Serve API
 description: API guide for defineServe, ServeConfig, and related utilities in @hypequery/serve
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 
 # `@hypequery/serve` reference
@@ -11,6 +13,7 @@ The serve package turns your metrics into HTTP endpoints, docs, and OpenAPI arti
 
 ## `defineServe`
 
+<CodeBlock>
 ```typescript
 import { defineServe } from '@hypequery/serve';
 
@@ -40,6 +43,7 @@ export const api = defineServe({
   },
 });
 ```
+</CodeBlock>
 
 ### `ServeConfig` options
 
@@ -244,6 +248,7 @@ Every response includes an `X-Request-Id` header (generated or echoed from the i
 
 Enable query logging to observe endpoint execution in production or during development.
 
+<CodeBlock>
 ```typescript
 // Human-readable text to stdout
 const api = defineServe({ queries, queryLogging: true });
@@ -265,6 +270,7 @@ const api = defineServe({
   },
 });
 ```
+</CodeBlock>
 
 When `queryLogging` is omitted (the default), no listeners are registered and the emit path is skipped entirely — zero runtime overhead.
 
@@ -274,6 +280,7 @@ In development, `serveDev()` always subscribes its own terminal logger regardles
 
 Flag queries that exceed a duration threshold:
 
+<CodeBlock>
 ```typescript
 const api = defineServe({
   queries,
@@ -282,6 +289,7 @@ const api = defineServe({
 });
 // console.warn: [hypequery/slow-query] GET /api/analytics/report (report) took 3400ms (threshold: 2000ms)
 ```
+</CodeBlock>
 
 `slowQueryThreshold` registers an independent listener that calls `console.warn`, so it works alongside any `queryLogging` mode (or even without it — set `slowQueryThreshold` alone if you only want warnings).
 
@@ -289,6 +297,7 @@ const api = defineServe({
 
 Use `api.queryLogger` to subscribe manually:
 
+<CodeBlock>
 ```typescript
 const api = defineServe({ queries });
 
@@ -305,6 +314,7 @@ api.queryLogger.listenerCount; // 1
 // Clean up
 unsubscribe();
 ```
+</CodeBlock>
 
 ### `ServeQueryEvent`
 
@@ -365,6 +375,7 @@ unsubscribe();
 
 Two built-in formatters are exported for use in custom logging setups:
 
+<CodeBlock>
 ```typescript
 import { formatQueryEvent, formatQueryEventJSON } from '@hypequery/serve';
 
@@ -374,6 +385,7 @@ formatQueryEvent(event);
 // Structured JSON:  '{"level":"info","msg":"GET /api/analytics/revenue",...}'
 formatQueryEventJSON(event);
 ```
+</CodeBlock>
 
 Both return `null` for `started` events (only format completions and errors).
 
@@ -387,6 +399,7 @@ Both return `null` for `started` events (only format completions and errors).
 - **`ServeQueryEvent`** – Event payload emitted during each endpoint lifecycle (started, completed, error). See [Observability](#observability) for the full field list.
 - **`ErrorEnvelope`** – Shape of errors returned from hypequery endpoints:
 
+  <CodeBlock>
   ```json
   {
     "error": {
@@ -401,6 +414,7 @@ Both return `null` for `started` events (only format completions and errors).
     }
   }
   ```
+  </CodeBlock>
 
   Use this structure when surfacing errors to clients or agents so they can branch on the `type` field.
 

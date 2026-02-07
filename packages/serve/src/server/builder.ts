@@ -19,6 +19,13 @@ import { mergeTags } from "../utils.js";
 import { normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
 
+const loadNodeAdapter = async () => {
+  if (typeof require !== "undefined") {
+    return require("../adapters/node.js");
+  }
+  return import("../adapters/node.js");
+};
+
 export const createBuilderMethods = <
   TQueries extends ServeQueriesMap<TContext, TAuth>,
   TContext extends Record<string, unknown>,
@@ -99,6 +106,7 @@ export const createBuilderMethods = <
     },
 
     execute: executeQuery,
+    client: executeQuery,
     run: executeQuery,
 
     describe: () => {
@@ -111,7 +119,7 @@ export const createBuilderMethods = <
 
     handler,
     start: async (options: StartServerOptions = {}) => {
-      const { startNodeServer } = require("../adapters/node.js");
+      const { startNodeServer } = await loadNodeAdapter();
       return startNodeServer(handler, options);
     },
   };

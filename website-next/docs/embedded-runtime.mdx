@@ -43,7 +43,7 @@ export async function syncDailyRevenue() {
 </Pre>
 </CodeBlock>
 
-- `api.run(key, options)` runs the endpoint in-process with the same validation, middleware, and hooks as HTTP.
+- `api.run(key, options)` runs the endpoint in-process with the same validation, middleware, and hooks as HTTP (aliases: `api.execute`, `api.client`).
 - `input` must match the endpoint's `inputSchema`. If validation fails, the method throws an error containing the validation issues.
 - `context` lets you inject per-call data (job IDs, loggers, cache handles) that your middleware or resolver can read.
 

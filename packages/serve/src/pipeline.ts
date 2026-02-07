@@ -18,6 +18,7 @@ import type {
   ServeRequest,
   ServeResponse,
   TenantConfig,
+  TenantConfigOverride,
   MaybePromise,
 } from './types.js';
 import { createTenantScope, warnTenantMisconfiguration } from './tenant.js';
@@ -63,6 +64,30 @@ const buildContextInput = (request: ServeRequest) => {
     return request.query;
   }
   return undefined;
+};
+
+const resolveTenantConfig = <TAuth extends AuthContext>(
+  globalConfig: TenantConfig<TAuth> | undefined,
+  override: TenantConfigOverride<TAuth> | undefined,
+): TenantConfig<TAuth> | undefined => {
+  if (!globalConfig && !override) {
+    return undefined;
+  }
+
+  if (!override) {
+    return globalConfig;
+  }
+
+  const merged = { ...(globalConfig ?? {}), ...(override ?? {}) } as TenantConfig<TAuth>;
+
+  if (!merged.extract) {
+    throw new Error(
+      '[hypequery/serve] Tenant override requires an extract function when no global tenant config is set. ' +
+        'Provide extract in the per-query tenant config or remove the override.'
+    );
+  }
+
+  return merged;
 };
 
 const runMiddlewares = async <
@@ -333,7 +358,7 @@ export const executeEndpoint = async <
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
     Object.assign(context, resolvedContext, additionalContext);
 
-    const activeTenantConfig = endpoint.tenant ?? tenantConfig;
+    const activeTenantConfig = resolveTenantConfig(tenantConfig, endpoint.tenant);
     if (activeTenantConfig) {
       const tenantRequired = activeTenantConfig.required !== false;
       const tenantId = authContext ? activeTenantConfig.extract(authContext) : null;
