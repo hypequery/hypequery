@@ -125,8 +125,8 @@ export const api = define({
   Auth strategies receive a <code>ServeRequest</code> with <code>headers</code> as a simple
   object (<code>Record&lt;string, string | undefined&gt;</code>). Use
   <code>request.headers['x-auth-token']</code> or <code>request.headers.authorization</code> rather than
-  <code>request.headers.get()</code>. If you want case-insensitive lookups, use
-  <code>normalizeHeaderMap</code> from <code>@hypequery/serve</code> before reading headers.
+  <code>request.headers.get()</code>. For case-insensitive + array-safe access, use
+  <code>getHeader</code> from <code>@hypequery/serve</code>.
 </Callout>
 
 ## Type-Safe Auth with `createAuthSystem`
@@ -284,6 +284,29 @@ Guards return structured errors that clients can branch on:
 ## Auth Strategies
 
 Strategies extract auth context from incoming requests. Return `null` for failed authentication.
+
+### Header helpers
+
+For header-based auth, use `getHeader` (case-insensitive, array-safe) or the `apiKeyAuth` adapter for the common API key flow:
+
+<CodeBlock>
+```typescript
+import { apiKeyAuth, getHeader } from '@hypequery/serve';
+
+// 80% case: API key auth with clear missing/invalid errors
+const apiKeyStrategy = apiKeyAuth({
+  header: 'x-tenant-key',
+  validate: (key) => lookupTenant(key),
+});
+
+// If you need custom logic, use getHeader directly
+const customHeaderStrategy = async ({ request }) => {
+  const key = getHeader(request, 'x-tenant-key');
+  if (!key) return null;
+  return lookupTenant(key);
+};
+```
+</CodeBlock>
 
 ### API Key Strategy
 

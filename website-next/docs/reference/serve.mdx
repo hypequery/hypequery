@@ -243,6 +243,33 @@ const token = headers['authorization'];
 ```
 </CodeBlock>
 
+### `getHeader`
+
+Read a header from a `ServeRequest` with case-insensitive and array-safe normalization.
+
+<CodeBlock>
+```typescript
+import { getHeader } from '@hypequery/serve';
+
+const token = getHeader(request, 'x-tenant-key');
+```
+</CodeBlock>
+
+### `apiKeyAuth`
+
+Convenience adapter for header-based API key auth with clear missing/invalid errors.
+
+<CodeBlock>
+```typescript
+import { apiKeyAuth } from '@hypequery/serve';
+
+const apiKeyStrategy = apiKeyAuth({
+  header: 'x-tenant-key',
+  validate: (key) => lookupTenant(key),
+});
+```
+</CodeBlock>
+
 ## Runtime helpers
 
 - **`serveDev(api, options?)`** – Launches a Node server (defaults to `localhost:4000`) with query logging always enabled (logs completed/errored requests to the terminal). Accepts `port`, `hostname`, `signal`, `logger`, and `quiet`.
