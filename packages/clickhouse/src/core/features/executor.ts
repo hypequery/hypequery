@@ -1,6 +1,7 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
 import { logger, type QueryLog } from '../utils/logger.js';
+import { substituteParameters } from '../utils.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
@@ -23,13 +24,13 @@ export class ExecutorFeature<
   toSQL(): string {
     const { sql, parameters } = this.toSQLWithParams();
     const adapter = this.builder.getAdapter();
-    return adapter.render ? adapter.render(sql, parameters) : sql;
+    return adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
   }
 
   async execute(options?: ExecutorRunOptions): Promise<State['output'][]> {
     const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
-    const renderSql = adapter.render ? adapter.render(sql, parameters) : sql;
+    const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
     logger.logQuery({
@@ -79,7 +80,7 @@ export class ExecutorFeature<
   async stream(): Promise<ReadableStream<State['output'][]>> {
     const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
-    const renderSql = adapter.render ? adapter.render(sql, parameters) : sql;
+    const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
     logger.logQuery({

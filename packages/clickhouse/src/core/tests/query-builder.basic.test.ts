@@ -36,6 +36,21 @@ describe('QueryBuilder - Basic Operations', () => {
         .toSQL();
       expect(sql).toBe('SELECT * FROM test_table WHERE id > 1 LIMIT 10');
     });
+
+    it('toSQL renders parameters while toSQLWithParams keeps placeholders', () => {
+      const query = builder
+        .select(['id', 'total'])
+        .where('total', 'gte', 100)
+        .where('status', 'eq', 'active');
+
+      expect(query.toSQL()).toBe(
+        "SELECT id, total FROM test_table WHERE total >= 100 AND status = 'active'"
+      );
+
+      const { sql, parameters } = query.toSQLWithParams();
+      expect(sql).toBe('SELECT id, total FROM test_table WHERE total >= ? AND status = ?');
+      expect(parameters).toEqual([100, 'active']);
+    });
   });
 
   describe('distinct', () => {

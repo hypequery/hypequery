@@ -4,6 +4,7 @@ import type { CacheEntry, CacheOptions, CacheStatus } from './types.js';
 import { computeCacheKey } from './key.js';
 import { mergeCacheOptions } from './runtime-context.js';
 import { logger } from '../utils/logger.js';
+import { substituteParameters } from '../utils.js';
 
 function isCacheable(options: CacheOptions): boolean {
   const ttl = options.ttlMs ?? 0;
@@ -81,7 +82,7 @@ export async function executeWithCache<
 
   const { sql, parameters } = builder.toSQLWithParams();
   const adapter = builder.getAdapter();
-  const renderSql = adapter.render ? adapter.render(sql, parameters) : sql;
+  const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
   const tableName = builder.getTableName();
   const namespace = mergedOptions.namespace || runtime.namespace;
   const key = mergedOptions.key || computeCacheKey({

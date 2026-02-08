@@ -14,6 +14,9 @@ export function escapeValue(value: any): string {
 }
 
 export function substituteParameters(sql: string, params: any[]): string {
+  if (!params.length) {
+    return sql;
+  }
   const parts = sql.split('?');
   if (parts.length - 1 !== params.length) {
     throw new Error(`Mismatch between placeholders and parameters. Found ${parts.length - 1} placeholders but ${params.length} parameters.`);
