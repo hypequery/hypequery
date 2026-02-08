@@ -202,6 +202,14 @@ tenant: {
 ```
 </CodeBlock>
 
+Per-query tenant configs merge with the global `defineServe` tenant config, so you can override just what you need:
+
+<CodeBlock>
+```typescript
+tenant: { required: false } // optional tenant for this query only
+```
+</CodeBlock>
+
 ### `cacheTtlMs`
 
 Sets the HTTP `Cache-Control` header that will be applied once you register this query as an HTTP route. This does **not** cache ClickHouse queries—it only tells downstream clients/CDNs how long they may reuse the HTTP response. Use the query builder's cache helpers if you want to memoize database results server-side.
@@ -247,7 +255,7 @@ Use `InferQueryResult` when you trust the builder's static typing (no schema req
 
 ### Inline Execution Helpers
 
-Calling `await api.run('tripsQuery')` (alias of `api.execute`) now returns the same type as `InferQueryResult<typeof api, 'tripsQuery'>`. For inline scripts or devtools, you can lean on the helper to annotate external call sites:
+Calling `await api.run('tripsQuery')` (alias of `api.execute` and `api.client`) now returns the same type as `InferQueryResult<typeof api, 'tripsQuery'>`. For inline scripts or devtools, you can lean on the helper to annotate external call sites:
 
 <CodeBlock>
 ```typescript

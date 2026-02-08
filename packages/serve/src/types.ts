@@ -169,6 +169,12 @@ export interface TenantConfig<TAuth extends AuthContext = AuthContext> {
   errorMessage?: string;
 }
 
+/**
+ * Per-endpoint tenant override. Merges with the global tenant config.
+ * Use this to flip required/optional or adjust mode without restating extract/column.
+ */
+export type TenantConfigOverride<TAuth extends AuthContext = AuthContext> = Partial<TenantConfig<TAuth>>;
+
 export interface AuthStrategyContext {
   request: ServeRequest;
   endpoint?: EndpointMetadata;
@@ -342,7 +348,7 @@ export interface ServeEndpoint<
     TAuth
   >[];
   auth?: AuthStrategy<TAuth> | null;
-  tenant?: TenantConfig<TAuth>;
+  tenant?: TenantConfigOverride<TAuth>;
   metadata: EndpointMetadata;
   cacheTtlMs?: number | null;
   defaultHeaders?: Record<string, string>;
@@ -382,7 +388,7 @@ export interface ServeQueryConfig<
   auth?: AuthStrategy<TAuth> | null;
   /** Explicitly set whether authentication is required. Set by .requireAuth() or .public(). */
   requiresAuth?: boolean;
-  tenant?: TenantConfig<TAuth>;
+  tenant?: TenantConfigOverride<TAuth>;
   cacheTtlMs?: number | null;
   /** Roles required to access this endpoint. Checked after authentication. */
   requiredRoles?: string[];
@@ -595,6 +601,15 @@ export interface ServeBuilder<
       request?: Partial<ServeRequest>;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  /** Alias of run() for in-process execution. */
+  client<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   run<TKey extends keyof TQueries>(
     key: TKey,
     options?: {
@@ -662,7 +677,13 @@ export interface QueryProcedureBuilder<
    * Overrides global auth strategies for this endpoint.
    */
   public(): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
-  tenant(config: TenantConfig<TAuth>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  tenant(config: TenantConfigOverride<TAuth>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  /** Shorthand to mark tenant context as optional for this query. */
+  tenantOptional(
+    config?: TenantConfigOverride<TAuth>
+  ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
+  /** Alias for requireAuth() to avoid confusion with other guard APIs. */
+  require(): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   custom(custom: Record<string, unknown>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   use(
     ...middlewares: ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TContext, TAuth>[]

@@ -3,6 +3,8 @@ title: Serve API
 description: API guide for defineServe, ServeConfig, and related utilities in @hypequery/serve
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 
 # `@hypequery/serve` reference
@@ -11,13 +13,14 @@ The serve package turns your metrics into HTTP endpoints, docs, and OpenAPI arti
 
 ## `defineServe`
 
+<CodeBlock>
 ```typescript
 import { defineServe } from '@hypequery/serve';
 
 export const api = defineServe({
   queries: {
     activeUsers: {
-      query: async ({ db }) => db.table('users').where('status', 'eq', 'active').count(),
+      query: async ({ ctx }) => ctx.db.table('users').where('status', 'eq', 'active').count(),
       inputSchema: z.object({ region: z.string().optional() }),
       outputSchema: z.object({ total: z.number() }),
       method: 'POST',
@@ -31,8 +34,8 @@ export const api = defineServe({
   auth: async ({ request }) => getAuthContext(request),
   middlewares: [logRequests],
   docs: { enabled: true, path: '/docs', title: 'Analytics API' },
-  openapi: { enabled: true, path: '/openapi.json', info: { title: 'Analytics', version: '1.2.0' } },
-  context: async ({ request, auth }) => ({ requestId: request.headers['x-request-id'], auth }),
+  openapi: { enabled: true, path: '/openapi.json', version: '1.2.0', info: { title: 'Analytics' } },
+  context: async ({ request }) => ({ requestId: request.headers['x-request-id'] }),
   hooks: {
     onRequestStart: ({ queryKey, requestId }) => trace.begin(requestId, queryKey),
     onRequestEnd: ({ durationMs, queryKey }) => metrics.record(queryKey, durationMs),
@@ -40,6 +43,7 @@ export const api = defineServe({
   },
 });
 ```
+</CodeBlock>
 
 ### `ServeConfig` options
 
@@ -145,9 +149,9 @@ You can describe endpoints declaratively or pass executable functions directly. 
       description: 'Per-endpoint auth override; returning `null` rejects the request.',
     },
     tenant: {
-      type: 'TenantConfig',
+      type: 'TenantConfigOverride',
       default: 'inherits global',
-      description: 'Per-endpoint tenant config to opt out or override the global config.',
+      description: 'Per-endpoint tenant overrides merged with the global config. If no global tenant config is set, include extract in the override.',
     },
     cacheTtlMs: {
       type: 'number | null',
@@ -224,6 +228,21 @@ Executable functions can be passed directly in `queries` when you just need a ha
   }}
 />
 
+## Utilities
+
+### `normalizeHeaderMap`
+
+Normalize a plain header object to lower-case keys so you can do case-insensitive header lookups in auth strategies or middleware.
+
+<CodeBlock>
+```typescript
+import { normalizeHeaderMap } from '@hypequery/serve';
+
+const headers = normalizeHeaderMap(request.headers);
+const token = headers['authorization'];
+```
+</CodeBlock>
+
 ## Runtime helpers
 
 - **`serveDev(api, options?)`** – Launches a Node server (defaults to `localhost:4000`) with query logging always enabled (logs completed/errored requests to the terminal). Accepts `port`, `hostname`, `signal`, `logger`, and `quiet`.
@@ -244,6 +263,7 @@ Every response includes an `X-Request-Id` header (generated or echoed from the i
 
 Enable query logging to observe endpoint execution in production or during development.
 
+<CodeBlock>
 ```typescript
 // Human-readable text to stdout
 const api = defineServe({ queries, queryLogging: true });
@@ -265,6 +285,7 @@ const api = defineServe({
   },
 });
 ```
+</CodeBlock>
 
 When `queryLogging` is omitted (the default), no listeners are registered and the emit path is skipped entirely — zero runtime overhead.
 
@@ -274,6 +295,7 @@ In development, `serveDev()` always subscribes its own terminal logger regardles
 
 Flag queries that exceed a duration threshold:
 
+<CodeBlock>
 ```typescript
 const api = defineServe({
   queries,
@@ -282,6 +304,7 @@ const api = defineServe({
 });
 // console.warn: [hypequery/slow-query] GET /api/analytics/report (report) took 3400ms (threshold: 2000ms)
 ```
+</CodeBlock>
 
 `slowQueryThreshold` registers an independent listener that calls `console.warn`, so it works alongside any `queryLogging` mode (or even without it — set `slowQueryThreshold` alone if you only want warnings).
 
@@ -289,6 +312,7 @@ const api = defineServe({
 
 Use `api.queryLogger` to subscribe manually:
 
+<CodeBlock>
 ```typescript
 const api = defineServe({ queries });
 
@@ -305,6 +329,7 @@ api.queryLogger.listenerCount; // 1
 // Clean up
 unsubscribe();
 ```
+</CodeBlock>
 
 ### `ServeQueryEvent`
 
@@ -365,6 +390,7 @@ unsubscribe();
 
 Two built-in formatters are exported for use in custom logging setups:
 
+<CodeBlock>
 ```typescript
 import { formatQueryEvent, formatQueryEventJSON } from '@hypequery/serve';
 
@@ -374,6 +400,7 @@ formatQueryEvent(event);
 // Structured JSON:  '{"level":"info","msg":"GET /api/analytics/revenue",...}'
 formatQueryEventJSON(event);
 ```
+</CodeBlock>
 
 Both return `null` for `started` events (only format completions and errors).
 
@@ -387,6 +414,7 @@ Both return `null` for `started` events (only format completions and errors).
 - **`ServeQueryEvent`** – Event payload emitted during each endpoint lifecycle (started, completed, error). See [Observability](#observability) for the full field list.
 - **`ErrorEnvelope`** – Shape of errors returned from hypequery endpoints:
 
+  <CodeBlock>
   ```json
   {
     "error": {
@@ -401,6 +429,7 @@ Both return `null` for `started` events (only format completions and errors).
     }
   }
   ```
+  </CodeBlock>
 
   Use this structure when surfacing errors to clients or agents so they can branch on the `type` field.
 

@@ -16,3 +16,11 @@ export const generateRequestId = (): string => {
   }
   return `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 };
+
+export const normalizeHeaderMap = (
+  headers: Record<string, string | undefined> = {}
+): Record<string, string | undefined> => {
+  return Object.fromEntries(
+    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value])
+  );
+};

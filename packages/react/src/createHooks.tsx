@@ -16,7 +16,7 @@ export interface QueryMethodConfig {
 export interface CreateHooksConfig<TApi = Record<string, { input: unknown; output: unknown }>> {
   baseUrl: string;
   fetchFn?: typeof fetch;
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
   config?: Record<string, QueryMethodConfig>;
   api?: TApi;
 }
@@ -119,10 +119,11 @@ export function createHooks<Api extends Record<string, { input: any; output: any
       body = JSON.stringify(input);
     }
 
+    const resolvedHeaders = typeof headers === 'function' ? headers() : headers;
     const res = await fetchFn(finalUrl, {
       method,
       headers: {
-        ...headers,
+        ...resolvedHeaders,
         ...(body ? { 'content-type': 'application/json' } : {}),
       },
       body,

@@ -124,6 +124,40 @@ describe('createHooks', () => {
         expect.objectContaining({ method: 'GET' })
       );
     });
+
+    it('invokes header factory per request', async () => {
+      const headerFactory = vi.fn()
+        .mockReturnValueOnce({ 'x-token': 'first' })
+        .mockReturnValueOnce({ 'x-token': 'second' });
+
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://example.com/api',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        headers: headerFactory,
+      });
+
+      fetchMock.mockResolvedValue(mockSuccessResponse({ name: 'User' }));
+
+      const first = renderHook(() => useQuery('getUser', { id: '1' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(first.result.current.data).toEqual({ name: 'User' });
+      });
+
+      const second = renderHook(() => useQuery('getUser', { id: '2' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(second.result.current.data).toEqual({ name: 'User' });
+      });
+
+      expect(headerFactory).toHaveBeenCalledTimes(2);
+      expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ 'x-token': 'first' });
+      expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ 'x-token': 'second' });
+    });
   });
 
   describe('HTTP Method Handling', () => {

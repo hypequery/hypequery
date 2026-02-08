@@ -4,6 +4,8 @@ title: CLI reference
 description: Command cheatsheet for the hypequery CLI
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 <div class="prose">
 
 # CLI reference
@@ -14,25 +16,31 @@ The `hypequery` CLI provides commands for scaffolding, generating types, and run
 
 **No installation required!** Run commands directly with `npx`:
 
+<CodeBlock>
 ```bash
 npx @hypequery/cli init
 npx @hypequery/cli dev
 ```
+</CodeBlock>
 
 For frequent use, install as a dev dependency:
 
+<CodeBlock>
 ```bash
 npm install -D @hypequery/cli
 # or
 pnpm add -D @hypequery/cli
 ```
+</CodeBlock>
 
 Then use the shorter `hypequery` command:
 
+<CodeBlock>
 ```bash
 npx hypequery init
 npx hypequery dev
 ```
+</CodeBlock>
 
 ### TypeScript support
 
@@ -50,6 +58,7 @@ The sections below expand on the supported options and expected behavior for eac
 
 ## `hypequery init`
 
+<CodeBlock>
 ```bash
 # Without installation
 npx @hypequery/cli init [options]
@@ -57,6 +66,7 @@ npx @hypequery/cli init [options]
 # With installation
 npx hypequery init [options]
 ```
+</CodeBlock>
 
 **Options:**
 - **`--database <type>`** – Database type (currently only `clickhouse`)
@@ -75,6 +85,7 @@ During the flow the CLI tests your ClickHouse connection immediately using the c
 
 **Example:**
 
+<CodeBlock>
 ```bash
 # Interactive mode (recommended)
 npx @hypequery/cli init
@@ -82,9 +93,11 @@ npx @hypequery/cli init
 # Non-interactive with custom path
 npx @hypequery/cli init --path src/analytics --no-interactive
 ```
+</CodeBlock>
 
 ## `hypequery dev [file]`
 
+<CodeBlock>
 ```bash
 # Without installation
 npx @hypequery/cli dev [path/to/queries.ts] [options]
@@ -92,6 +105,7 @@ npx @hypequery/cli dev [path/to/queries.ts] [options]
 # With installation
 npx hypequery dev [path/to/queries.ts] [options]
 ```
+</CodeBlock>
 
 **Options:**
 - **`[file]`** – Optional path to your `queries.ts`. Defaults to `analytics/queries.ts`, `src/analytics/queries.ts`, or the nearest `hypequery.ts`
@@ -118,6 +132,7 @@ When `--open` is set, the CLI opens your browser to the docs page.
 
 **Example:**
 
+<CodeBlock>
 ```bash
 # Basic usage
 npx @hypequery/cli dev
@@ -128,6 +143,7 @@ npx @hypequery/cli dev --port 3000 --open
 # Disable caching for debugging
 npx @hypequery/cli dev --cache none
 ```
+</CodeBlock>
 
 **TypeScript files:**
 
@@ -136,14 +152,17 @@ Point the command at your TypeScript entry point (for example `analytics/queries
 
 ## `hypequery serve [file]`
 
+<CodeBlock>
 ```bash
 npx @hypequery/cli serve src/analytics/queries.ts --port 4000
 ```
+</CodeBlock>
 
 Starts a production-ready HTTP server without file watching (ideal for Docker/PM2). Accepts the same flags as `dev` (port, hostname, cache options). Use this command in containers or long-running processes when you don’t need auto-reload.
 
 ## `hypequery generate`
 
+<CodeBlock>
 ```bash
 # Without installation
 npx @hypequery/cli generate [options]
@@ -151,6 +170,7 @@ npx @hypequery/cli generate [options]
 # With installation
 npx hypequery generate [options]
 ```
+</CodeBlock>
 
 `hypequery generate` auto-detects your database configuration (currently ClickHouse) and ships with the necessary driver, so there’s no extra package to install. Use `--database <type>` once additional drivers become available or you want to override detection.
 
@@ -171,6 +191,7 @@ The generator shares the `CLICKHOUSE_*` configuration with the rest of the CLI, 
 
 **Example:**
 
+<CodeBlock>
 ```bash
 # Generate all tables
 npx @hypequery/cli generate
@@ -179,6 +200,7 @@ npx @hypequery/cli generate
 npx @hypequery/cli generate --tables users,events
 
 ```
+</CodeBlock>
 
 ## Environment variables
 
@@ -212,17 +234,21 @@ Run `hypequery init --force` to regenerate the `analytics/` folder if it was rem
 If you see "Unexpected token" or syntax errors when running `hypequery dev`:
 
 1. Make sure `tsx` is installed:
+   <CodeBlock>
    ```bash
    npm install -D tsx
    ```
+   </CodeBlock>
 
 2. The CLI will automatically restart with TypeScript support
 
 Alternatively, compile your TypeScript first:
+<CodeBlock>
 ```bash
 tsc src/analytics/queries.ts
 npx @hypequery/cli dev src/analytics/queries.js
 ```
+</CodeBlock>
 
 ### Wrong file or export
 
@@ -233,6 +259,7 @@ If the CLI reports that your file doesn't export an API properly:
 3. See the expected format in the error message
 
 Example of correct format:
+<CodeBlock>
 ```typescript
 import { initServe } from '@hypequery/serve';
 
@@ -248,5 +275,6 @@ export const api = define({
   }),
 });
 ```
+</CodeBlock>
 
 </div>

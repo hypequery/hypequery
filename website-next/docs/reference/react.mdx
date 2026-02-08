@@ -4,6 +4,8 @@ title: React hooks
 description: Use @hypequery/react to generate typed hooks from your hypequery API
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 <div class="prose">
 
 # React hooks
@@ -12,9 +14,11 @@ Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) b
 
 ## Installation
 
+<CodeBlock>
 ```bash
 npm install @hypequery/react @tanstack/react-query
 ```
+</CodeBlock>
 
 Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
 
@@ -24,6 +28,7 @@ Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
 
 Use `InferApiType` to automatically extract types from your API definition:
 
+<CodeBlock>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
@@ -37,6 +42,7 @@ export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api', // where your hypequery routes live
 });
 ```
+</CodeBlock>
 
 This eliminates the need to manually define and maintain a separate type for your API.
 
@@ -44,6 +50,7 @@ This eliminates the need to manually define and maintain a separate type for you
 
 If you prefer to manually define your API types:
 
+<CodeBlock>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
@@ -60,9 +67,11 @@ export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
 });
 ```
+</CodeBlock>
 
 Wrap your app:
 
+<CodeBlock>
 ```tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -76,14 +85,17 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   );
 }
 ```
+</CodeBlock>
 
 ## `useQuery`
 
+<CodeBlock>
 ```tsx
 const { data, error, isLoading } = useQuery('weeklyRevenue', {
   startDate: '2025-01-01',
 });
 ```
+</CodeBlock>
 
 - `name` is one of your API keys
 - `input` matches the endpoint’s `inputSchema`
@@ -91,17 +103,50 @@ const { data, error, isLoading } = useQuery('weeklyRevenue', {
 
 ## `useMutation`
 
+<CodeBlock>
 ```tsx
 const rebuild = useMutation('rebuildMetrics');
 rebuild.mutate({ force: true });
 ```
+</CodeBlock>
 
 Mutations share the same typed `input`/`output` data.
+
+## `createHooks` API
+
+`createHooks` accepts a config object that controls base URL, HTTP method overrides, and request customization.
+
+<CodeBlock>
+```ts
+interface CreateHooksConfig<TApi> {
+  baseUrl: string;                           // Required: base URL for your serve routes
+  fetchFn?: typeof fetch;                    // Optional: custom fetch (e.g., auth/tenant headers)
+  headers?: Record<string, string> | (() => Record<string, string>); // Optional: default headers or a resolver function
+  config?: Record<string, { method?: string }>; // Optional: per-route HTTP method overrides
+  api?: TApi;                                // Optional: API object to infer HTTP methods automatically
+}
+```
+</CodeBlock>
+
+Use `fetchFn` when you need full control. Use `headers` when values are static, or pass a function when you need per-request headers without rewriting `fetchFn`.
+
+<CodeBlock>
+```ts
+const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api',
+  headers: () => {
+    const tenantKey = getTenantKey();
+    return tenantKey ? { 'x-tenant-key': tenantKey } : {};
+  },
+});
+```
+</CodeBlock>
 
 ## HTTP Method Configuration
 
 By default, hooks issue `GET` requests (matching the default route method). Override them per query when you need `POST`, `PUT`, etc.:
 
+<CodeBlock>
 ```ts
 import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
@@ -118,6 +163,7 @@ export const { useQuery, useMutation } = createHooks<Api>({
   },
 });
 ```
+</CodeBlock>
 
 ### Advanced: Auto-config from Server
 
@@ -127,6 +173,7 @@ You don’t have to maintain the verbs manually—`@hypequery/serve` can tell th
 
 When your React code can import the server bundle (e.g., Next.js App Router), just pass `api` directly:
 
+<CodeBlock>
 ```ts
 import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
@@ -139,11 +186,13 @@ export const { useQuery, useMutation } = createHooks<Api>({
   api, // method metadata is extracted automatically
 });
 ```
+</CodeBlock>
 
 **Option B – expose a config endpoint (SPAs / Vite):**
 
 If your frontend can’t import the server module, publish the config once and hydrate `createHooks` with it:
 
+<CodeBlock>
 ```ts
 // app/api/hypequery-config/route.ts
 import { extractClientConfig } from '@hypequery/serve';
@@ -153,7 +202,9 @@ export function GET() {
   return Response.json(extractClientConfig(api));
 }
 ```
+</CodeBlock>
 
+<CodeBlock>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
@@ -175,6 +226,7 @@ export function getHypequeryHooks() {
   return hooksPromise;
 }
 ```
+</CodeBlock>
 
 Call `await getHypequeryHooks()` once during app bootstrap (e.g., inside a top-level provider) and reuse the returned `useQuery`/`useMutation` instances throughout your app.
 

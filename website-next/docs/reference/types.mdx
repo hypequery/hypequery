@@ -4,6 +4,8 @@ title: Types Reference
 description: Complete reference for all TypeScript types exported by hypequery
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # Types Reference
 
 hypequery exports several TypeScript types and interfaces that you can use in your application. This page provides a complete reference for all available types.
@@ -12,6 +14,7 @@ hypequery exports several TypeScript types and interfaces that you can use in yo
 
 ### QueryBuilder Types
 
+<CodeBlock>
 ```typescript
 import { 
   QueryBuilder,
@@ -49,9 +52,11 @@ interface TableSchema<T> {
 // Full database schema
 type DatabaseSchema = Record<string, Record<string, ColumnType>>;
 ```
+</CodeBlock>
 
 ### Filter Types
 
+<CodeBlock>
 ```typescript
 import {
   FilterOperator,
@@ -94,9 +99,11 @@ type CrossFilter<
   TableName    // Current table name
 >;
 ```
+</CodeBlock>
 
 ### Join Types
 
+<CodeBlock>
 ```typescript
 import {
   JoinType,
@@ -130,9 +137,11 @@ interface JoinPath<Schema> {
 // Join relationships manager type
 type JoinRelationships<Schema>;
 ```
+</CodeBlock>
 
 ### Query Configuration Types
 
+<CodeBlock>
 ```typescript
 import {
   QueryConfig,
@@ -170,11 +179,13 @@ interface WhereCondition {
   conjunction: 'AND' | 'OR';
 }
 ```
+</CodeBlock>
 
 ## Type Inference
 
 hypequery provides utility types for inferring column types:
 
+<CodeBlock>
 ```typescript
 import { InferColumnType } from '@hypequery/clickhouse';
 
@@ -186,11 +197,13 @@ type NumberType = InferColumnType<'Int32'>;      // number
 type DateType = InferColumnType<'Date'>;         // Date
 type ArrayType = InferColumnType<'Array(Int32)'>;// number[]
 ```
+</CodeBlock>
 
 ## Usage Example
 
 Here's how to use these types in your application:
 
+<CodeBlock>
 ```typescript
 import {
   QueryBuilder,
@@ -222,3 +235,4 @@ const query = db
   .limit(10)
   .execute();
 ```
+</CodeBlock>

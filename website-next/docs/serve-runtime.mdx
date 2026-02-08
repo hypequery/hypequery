@@ -17,7 +17,7 @@ When you call `initServe` (or `defineServe`) you get back an `api` object. That 
 - `api.route('/hello', api.queries.hello)` registers an endpoint description
 - `api.handler` exposes a Fetch-style request handler
 - `api.start()` (and the CLI) boot a Node HTTP server
-- `api.run('hello')` executes the same logic in-process
+- `api.run('hello')` executes the same logic in-process (aliases: `api.execute`, `api.client`)
 
 Because all of those methods share the same metadata and resolvers, you can move between deployment models without rewriting queries.
 
@@ -28,7 +28,7 @@ Because all of those methods share the same metadata and resolvers, you can move
 | **Standalone server** | `npx hypequery dev api/queries.ts` (or `serve`) wraps `api.start()` to run a Node HTTP server, host docs, and emit OpenAPI. | Quick local previews, dedicated analytics services (Render, Fly, Railway, Docker). |
 | **Embedded framework handler** | Import the same `api` into Next.js, Remix, Express, Fastify, SST, etc. and wire up the provided handler/route helpers. | You already have an HTTP server and want the analytics endpoints to live beside existing routes. |
 | **Edge/Fetch runtimes** | Use `api.handler` (Fetch interface) or `createFetchHandler(api)` to deploy on Vercel Edge, Cloudflare Workers, or Service Workers. | Need low-latency, edge-hosted analytics or want to avoid Node entirely. |
-| **In-process execution** | Call `api.run(key)` / `api.execute` directly—no HTTP involved. | Cron jobs, SSR, background workers, or AI agents that just need the data. |
+| **In-process execution** | Call `api.run(key)` / `api.execute` / `api.client` directly—no HTTP involved. | Cron jobs, SSR, background workers, or AI agents that just need the data. |
 
 ## Standalone Server (CLI & Node Helper)
 
@@ -44,7 +44,7 @@ npx hypequery serve analytics/queries.ts --port 8080
 </Pre>
 </CodeBlock>
 
-Both commands internally call `api.start({ port })` and add nicities (file watching, pretty logs, docs hosting). You can do the same in code:
+`hypequery dev` uses `serveDev(api, { port })` under the hood (pretty logs + docs URL output) and adds file watching on top. `hypequery serve` uses `api.start({ port })` for a minimal production server. You can do the same in code:
 
 <CodeBlock>
 <Pre>
@@ -52,6 +52,20 @@ Both commands internally call `api.start({ port })` and add nicities (file watch
 import { api } from './analytics/queries';
 
 const server = await api.start({ port: 4000 });
+// later: await server.stop();
+```
+</Pre>
+</CodeBlock>
+
+If you want the same dev server behavior in code (logging + docs URL output), use `serveDev`:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { serveDev } from '@hypequery/serve';
+import { api } from './analytics/queries';
+
+const server = await serveDev(api, { port: 4000 });
 // later: await server.stop();
 ```
 </Pre>

@@ -4,6 +4,8 @@ title: Query Builder API
 description: Complete reference for the hypequery query builder API
 ---
 
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
 # Query Builder API Reference
 
 Complete API reference for all query builder methods. Works identically in both serve framework and standalone usage.
@@ -14,9 +16,11 @@ Complete API reference for all query builder methods. Works identically in both 
 
 Start a query from a table:
 
+<CodeBlock>
 ```ts
 db.table('users')
 ```
+</CodeBlock>
 
 **Parameters:**
 - `tableName`: Name of the table (must exist in schema)
@@ -27,6 +31,7 @@ db.table('users')
 
 Specify which columns to return:
 
+<CodeBlock>
 ```ts
 // Select specific columns
 db.table('users').select(['id', 'name', 'email'])
@@ -42,6 +47,7 @@ db.table('orders')
   .innerJoin('users', 'user_id', 'users.id')
   .select(['orders.id', 'users.name', 'orders.amount'])
 ```
+</CodeBlock>
 
 **Parameters:**
 - `columns`: Array of column names or `'*'` for all columns
@@ -52,6 +58,7 @@ db.table('orders')
 
 Filter rows based on conditions:
 
+<CodeBlock>
 ```ts
 // Simple condition
 db.table('users').where('status', 'eq', 'active')
@@ -65,6 +72,7 @@ db.table('users')
 db.table('users')
   .where(input.status ? ['status', 'eq', input.status] : null)
 ```
+</CodeBlock>
 
 **Operators:**
 - `eq`, `neq`: Equal, not equal
@@ -86,6 +94,7 @@ See [Filtering](/docs/queries/filtering) for more details.
 
 Execute the query and return results:
 
+<CodeBlock>
 ```ts
 const results = await db
   .table('users')
@@ -93,6 +102,7 @@ const results = await db
   .select(['id', 'name'])
   .execute();
 ```
+</CodeBlock>
 
 **Parameters:**
 - `options` (optional): Execution options
@@ -105,6 +115,7 @@ const results = await db
 
 Execute query and stream results:
 
+<CodeBlock>
 ```ts
 const stream = await db
   .table('orders')
@@ -118,6 +129,7 @@ while (true) {
   console.log(rows);
 }
 ```
+</CodeBlock>
 
 **Returns:** Promise of ReadableStream
 
@@ -125,6 +137,7 @@ while (true) {
 
 Stream results with callback:
 
+<CodeBlock>
 ```ts
 await db
   .table('events')
@@ -133,6 +146,7 @@ await db
     await processEvent(row);
   });
 ```
+</CodeBlock>
 
 **Parameters:**
 - `callback`: Function called for each row batch
@@ -145,11 +159,13 @@ await db
 
 Perform an inner join:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .innerJoin('users', 'user_id', 'users.id')
   .select(['orders.id', 'users.name'])
 ```
+</CodeBlock>
 
 **Parameters:**
 - `table`: Table to join
@@ -161,34 +177,41 @@ db.table('orders')
 
 Perform a left join:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .leftJoin('users', 'user_id', 'users.id')
   .select(['orders.id', 'users.name'])
 ```
+</CodeBlock>
 
 ### rightJoin()
 
 Perform a right join:
 
+<CodeBlock>
 ```ts
 db.table('users')
   .rightJoin('orders', 'id', 'orders.user_id')
 ```
+</CodeBlock>
 
 ### fullJoin()
 
 Perform a full outer join:
 
+<CodeBlock>
 ```ts
 db.table('users')
   .fullJoin('orders', 'id', 'orders.user_id')
 ```
+</CodeBlock>
 
 ### withRelation()
 
 Use predefined relationships:
 
+<CodeBlock>
 ```ts
 // First define relationships
 const relationships = new JoinRelationships<Schema>();
@@ -207,6 +230,7 @@ db.table('orders')
   .withRelation('userOrders')
   .select(['orders.id', 'users.name'])
 ```
+</CodeBlock>
 
 See [Joins](/docs/queries/joins) and [Join Relationships](/docs/queries/join-relationships) for more details.
 
@@ -216,10 +240,12 @@ See [Joins](/docs/queries/joins) and [Join Relationships](/docs/queries/join-rel
 
 Calculate sum of a column:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .sum('amount', 'total_revenue')
 ```
+</CodeBlock>
 
 **Parameters:**
 - `column`: Column to sum
@@ -229,37 +255,45 @@ db.table('orders')
 
 Count rows or non-null values:
 
+<CodeBlock>
 ```ts
 db.table('users')
   .count('id', 'user_count')
 ```
+</CodeBlock>
 
 ### avg()
 
 Calculate average:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .avg('amount', 'avg_order_value')
 ```
+</CodeBlock>
 
 ### min()
 
 Find minimum value:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .min('amount', 'min_order')
 ```
+</CodeBlock>
 
 ### max()
 
 Find maximum value:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .max('amount', 'max_order')
 ```
+</CodeBlock>
 
 See [Aggregations](/docs/queries/aggregations) for more details.
 
@@ -269,12 +303,14 @@ See [Aggregations](/docs/queries/aggregations) for more details.
 
 Group results:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .select(['country'])
   .sum('amount', 'revenue')
   .groupBy(['country'])
 ```
+</CodeBlock>
 
 **Parameters:**
 - `columns`: Array of columns to group by
@@ -283,6 +319,7 @@ db.table('orders')
 
 Group by time intervals:
 
+<CodeBlock>
 ```ts
 // Built-in intervals
 db.table('events')
@@ -294,6 +331,7 @@ db.table('events')
   .count('id', 'event_count')
   .groupByTimeInterval('created_at', '5 minute')
 ```
+</CodeBlock>
 
 **Parameters:**
 - `column`: Timestamp column
@@ -306,6 +344,7 @@ See [Time Functions](/docs/queries/time-functions) for more details.
 
 Sort results:
 
+<CodeBlock>
 ```ts
 db.table('users')
   .orderBy('created_at', 'DESC')
@@ -315,6 +354,7 @@ db.table('users')
   .orderBy('country', 'ASC')
   .orderBy('created_at', 'DESC')
 ```
+</CodeBlock>
 
 **Parameters:**
 - `column`: Column to sort by
@@ -324,6 +364,7 @@ db.table('users')
 
 Filter aggregated results:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .select(['country'])
@@ -331,6 +372,7 @@ db.table('orders')
   .groupBy(['country'])
   .having('revenue > 100000')
 ```
+</CodeBlock>
 
 **Parameters:**
 - `condition`: SQL condition string
@@ -342,9 +384,11 @@ db.table('orders')
 
 Limit number of results:
 
+<CodeBlock>
 ```ts
 db.table('users').limit(10)
 ```
+</CodeBlock>
 
 **Parameters:**
 - `count`: Maximum number of rows to return
@@ -353,12 +397,14 @@ db.table('users').limit(10)
 
 Skip rows:
 
+<CodeBlock>
 ```ts
 db.table('users')
   .orderBy('created_at', 'DESC')
   .limit(20)
   .offset(40) // Page 3 (skip first 40)
 ```
+</CodeBlock>
 
 **Parameters:**
 - `count`: Number of rows to skip
@@ -367,11 +413,13 @@ db.table('users')
 
 Return only unique rows:
 
+<CodeBlock>
 ```ts
 db.table('orders')
   .select(['country'])
   .distinct()
 ```
+</CodeBlock>
 
 ## Utility Methods
 
@@ -379,6 +427,7 @@ db.table('orders')
 
 Get generated SQL string:
 
+<CodeBlock>
 ```ts
 const query = db
   .table('users')
@@ -388,6 +437,7 @@ const query = db
 const sql = query.toSQL();
 // SELECT id, name FROM users WHERE status = 'active'
 ```
+</CodeBlock>
 
 **Returns:** SQL string with parameters interpolated
 
@@ -395,6 +445,7 @@ const sql = query.toSQL();
 
 Get SQL and parameters separately:
 
+<CodeBlock>
 ```ts
 const { sql, parameters } = db
   .table('orders')
@@ -404,6 +455,7 @@ const { sql, parameters } = db
 console.log(sql);        // SELECT * FROM orders WHERE amount > ?
 console.log(parameters); // [1000]
 ```
+</CodeBlock>
 
 **Returns:** Object with `sql` string and `parameters` array
 
@@ -411,12 +463,14 @@ console.log(parameters); // [1000]
 
 Print query information:
 
+<CodeBlock>
 ```ts
 db.table('users')
   .where('status', 'eq', 'active')
   .debug() // Logs SQL, parameters, settings
   .execute();
 ```
+</CodeBlock>
 
 **Returns:** QueryBuilder instance (chainable)
 
@@ -424,6 +478,7 @@ db.table('users')
 
 Access current query configuration:
 
+<CodeBlock>
 ```ts
 const config = db
   .table('users')
@@ -433,6 +488,7 @@ const config = db
 console.log(config);
 // { table: 'users', select: ['id'], where: [], ... }
 ```
+</CodeBlock>
 
 **Returns:** Query configuration object
 
@@ -440,11 +496,13 @@ console.log(config);
 
 Insert raw SQL fragments:
 
+<CodeBlock>
 ```ts
 db.table('events')
   .raw('WHERE date BETWEEN toStartOfMonth(now()) AND now()')
   .execute();
 ```
+</CodeBlock>
 
 **Parameters:**
 - `sql`: Raw SQL string
@@ -457,6 +515,7 @@ db.table('events')
 
 Configure ClickHouse query settings:
 
+<CodeBlock>
 ```ts
 db.table('large_table')
   .settings({
@@ -466,6 +525,7 @@ db.table('large_table')
   })
   .execute();
 ```
+</CodeBlock>
 
 **Parameters:**
 - `settings`: ClickHouse settings object
@@ -476,6 +536,7 @@ db.table('large_table')
 
 Configure query caching:
 
+<CodeBlock>
 ```ts
 db.table('users')
   .where('status', 'eq', 'active')
@@ -486,6 +547,7 @@ db.table('users')
   })
   .execute();
 ```
+</CodeBlock>
 
 **Parameters:**
 - `options`: Cache configuration or `false` to disable
@@ -500,6 +562,7 @@ See [Caching](/docs/serve/caching) for more details.
 
 Convert timestamp to interval start:
 
+<CodeBlock>
 ```ts
 db.table('events')
   .select([
@@ -508,6 +571,7 @@ db.table('events')
   ])
   .groupBy(['hour_bucket'])
 ```
+</CodeBlock>
 
 **Parameters:**
 - `column`: Timestamp column
@@ -518,6 +582,7 @@ db.table('events')
 
 Extract date component:
 
+<CodeBlock>
 ```ts
 db.table('events')
   .select([
@@ -526,6 +591,7 @@ db.table('events')
     datePart('day', 'created_at', 'day'),
   ])
 ```
+</CodeBlock>
 
 **Parameters:**
 - `part`: Date component ('year', 'month', 'day', 'hour', etc.)
@@ -538,6 +604,7 @@ See [Time Functions](/docs/queries/time-functions) for complete reference.
 
 All methods maintain full TypeScript type safety:
 
+<CodeBlock>
 ```ts
 interface Schema {
   users: {
@@ -570,3 +637,4 @@ db.table('users')
   .select(['id', 'invalid']) // Error: column doesn't exist
   .sum('name', 'total'); // Error: can't sum string column
 ```
+</CodeBlock>

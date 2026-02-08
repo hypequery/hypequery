@@ -11,7 +11,7 @@ import type {
   HttpMethod,
   ExecutableQuery,
   InferExecutableQueryResult,
-  TenantConfig,
+  TenantConfigOverride,
 } from './types.js';
 import { mergeTags } from './utils.js';
 
@@ -28,7 +28,7 @@ interface BuilderState<TContext extends Record<string, unknown>, TAuth extends A
   requiresAuth?: boolean;
   requiredRoles?: string[];
   requiredScopes?: string[];
-  tenant?: TenantConfig<TAuth>;
+  tenant?: TenantConfigOverride<TAuth>;
   custom?: Record<string, unknown>;
   middlewares: ServeMiddleware<any, any, TContext, TAuth>[];
 }
@@ -61,6 +61,7 @@ export const createProcedureBuilder = <
     cache: (ttlMs) => build<TInputSchema, TOutputSchema>({ ...state, cacheTtlMs: ttlMs }),
     auth: (strategy) => build<TInputSchema, TOutputSchema>({ ...state, auth: strategy }),
     requireAuth: () => build<TInputSchema, TOutputSchema>({ ...state, requiresAuth: true }),
+    require: () => build<TInputSchema, TOutputSchema>({ ...state, requiresAuth: true }),
     requireRole: (...roles) => build<TInputSchema, TOutputSchema>({
       ...state,
       requiresAuth: true,
@@ -73,6 +74,10 @@ export const createProcedureBuilder = <
     }),
     public: () => build<TInputSchema, TOutputSchema>({ ...state, requiresAuth: false }),
     tenant: (config) => build<TInputSchema, TOutputSchema>({ ...state, tenant: config }),
+    tenantOptional: (config) => build<TInputSchema, TOutputSchema>({
+      ...state,
+      tenant: { ...(state.tenant ?? {}), ...(config ?? {}), required: false },
+    }),
     custom: (custom) => build<TInputSchema, TOutputSchema>({ ...state, custom: { ...(state.custom ?? {}), ...custom } }),
     use: (...middlewares) =>
       build<TInputSchema, TOutputSchema>({ ...state, middlewares: [...state.middlewares, ...middlewares] }),
