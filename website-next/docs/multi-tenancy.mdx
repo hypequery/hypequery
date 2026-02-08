@@ -31,7 +31,6 @@ import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 
 type AppAuth = { userId: string; tenantId: string };
-type AppContext = { db: any };
 
 const authStrategy = async ({ request }): Promise<AppAuth | null> => {
   const token = request.headers['authorization'];
@@ -40,7 +39,7 @@ const authStrategy = async ({ request }): Promise<AppAuth | null> => {
   return { userId: decoded.sub, tenantId: decoded.organization_id };
 };
 
-const { define, query } = initServe<AppContext, AppAuth>({
+const { define, query } = initServe({
   auth: authStrategy,
   tenant: {
     extract: (auth) => auth.tenantId,
@@ -90,7 +89,6 @@ import { initServe, createAuthSystem } from '@hypequery/serve';
 
 const { useAuth, TypedAuth } = createAuthSystem();
 type AppAuth = typeof TypedAuth;
-type AppContext = { db: any };
 
 const authStrategy = async ({ request }): Promise<AppAuth | null> => {
   const token = request.headers['x-auth-token'];
@@ -100,7 +98,7 @@ const authStrategy = async ({ request }): Promise<AppAuth | null> => {
   return { userId: decoded.sub, tenantId: decoded.tenantId };
 };
 
-const { define, query } = initServe<AppContext, AppAuth>({
+const { define, query } = initServe({
   context: () => ({ db: createDbConnection() }),
 });
 
@@ -350,11 +348,6 @@ const api = defineServe({
 
 Tip: use `query.tenantOptional({ mode: 'manual' })` when you want to opt out of auto-inject for an admin-only query without restating `extract` or `column`.
 
-<Callout type="info" title="tenantOptional requires extract when no global tenant config exists">
-  If you call <code>tenantOptional()</code> without a global tenant config, you still need to provide
-  <code>extract</code> in the per-query override.
-</Callout>
-
 ## Manual Mode (Advanced)
 
 Manual mode gives you full control but requires discipline—you must remember to add tenant filters to **every** query.
@@ -424,7 +417,7 @@ interface MyAuthContext {
   role: 'admin' | 'member';
 }
 
-const api = defineServe<any, MyAuthContext>({
+const api = defineServe({
   context: () => ({
     db: createDbConnection(),
   }),

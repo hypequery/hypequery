@@ -32,12 +32,11 @@ import { z } from 'zod';
 // ============================================================
 
 const { useAuth, TypedAuth } = createAuthSystem({
-  roles: ['admin', 'editor', 'viewer'] as const,
+  roles: ['admin', 'super-admin', 'editor', 'viewer'] as const,
   scopes: ['read:data', 'write:data', 'delete:data'] as const,
 });
 
 type AppAuth = typeof TypedAuth;
-type AppContext = { db: any };
 
 // ============================================================
 // 2. Create an auth strategy
@@ -63,7 +62,7 @@ const authStrategy = async ({ request }): Promise<AppAuth | null> => {
 // 3. Define your API with auth guards
 // ============================================================
 
-const { define, query } = initServe<AppContext, AppAuth>({
+const { define, query } = initServe({
   context: () => ({ db: createDbConnection() }),
 });
 
@@ -101,11 +100,12 @@ export const api = define({
 
     // Require specific scope (AND semantics - all listed scopes required)
     writeData: query
+      .input(z.object({ data: z.record(z.unknown()) }))
       .requireScope('write:data')
       .describe('Write data endpoint')
       .query(async ({ ctx, input }) => ({
         success: true,
-        data: await ctx.db.table('data').insert(input),
+        data: await ctx.db.table('data').insert(input.data),
       })),
 
     // Combine guards - needs both role AND scope
@@ -128,6 +128,63 @@ export const api = define({
   <code>request.headers.get()</code>. If you want case-insensitive lookups, use
   <code>normalizeHeaderMap</code> from <code>@hypequery/serve</code> before reading headers.
 </Callout>
+
+## Type-Safe Auth with `createAuthSystem`
+
+`createAuthSystem` enables TypeScript autocomplete and compile-time checking for role and scope values.
+
+<CodeBlock>
+```typescript
+import { createAuthSystem } from '@hypequery/serve';
+
+// Define your valid roles and scopes up front
+const { useAuth, TypedAuth } = createAuthSystem({
+  roles: ['admin', 'super-admin', 'editor', 'viewer'] as const,
+  scopes: ['read:data', 'write:data', 'delete:data'] as const,
+});
+
+// Extract the combined auth type
+type AppAuth = typeof TypedAuth;
+```
+</CodeBlock>
+
+<Callout type="info" title="Benefits">
+- **Compile-time safety**: Catch typos like `'admn'` or `'superadmin'` at build time
+- **IDE autocomplete**: Valid roles and scopes are suggested as you type
+- **Refactoring**: Rename roles and TypeScript shows all places that need updating
+</Callout>
+
+### Using the Typed Auth Type
+
+<CodeBlock>
+```typescript
+const jwtStrategy: AuthStrategy<AppAuth> = async ({ request }) => {
+  const token = request.headers.authorization?.slice(7);
+  const payload = await verifyJwt(token);
+
+  return {
+    userId: payload.sub,
+    roles: payload.roles,  // ✅ Type-checked: must be from defined list
+    scopes: payload.scopes, // ✅ Type-checked: must be from defined list
+  };
+};
+
+const { define, query } = initServe({
+  auth: useAuth(jwtStrategy),
+  context: () => ({ db }),
+});
+
+export const api = define({
+  queries: {
+    // ✅ TypeScript autocomplete for 'admin'
+    // ❌ Compile error if you typo 'admn' or 'superadmin'
+    adminOnly: query
+      .requireRole('admin')
+      .query(async ({ ctx }) => ({ secret: true })),
+  },
+});
+```
+</CodeBlock>
 
 ## Auth Guards
 
@@ -224,63 +281,6 @@ Guards return structured errors that clients can branch on:
 | `.requireRole()` | `403` | `FORBIDDEN` | Wrong role (OR) |
 | `.requireScope()` | `403` | `FORBIDDEN` | Missing scope (AND) |
 
-## Type-Safe Auth with `createAuthSystem`
-
-`createAuthSystem` enables TypeScript autocomplete and compile-time checking for role and scope values.
-
-<CodeBlock>
-```typescript
-import { createAuthSystem } from '@hypequery/serve';
-
-// Define your valid roles and scopes up front
-const { useAuth, TypedAuth } = createAuthSystem({
-  roles: ['admin', 'editor', 'viewer'] as const,
-  scopes: ['read:data', 'write:data', 'delete:data'] as const,
-});
-
-// Extract the combined auth type
-type AppAuth = typeof TypedAuth;
-```
-</CodeBlock>
-
-<Callout type="info" title="Benefits">
-- **Compile-time safety**: Catch typos like `'admn'` or `'superadmin'` at build time
-- **IDE autocomplete**: Valid roles and scopes are suggested as you type
-- **Refactoring**: Rename roles and TypeScript shows all places that need updating
-</Callout>
-
-### Using the Typed Auth Type
-
-<CodeBlock>
-```typescript
-const jwtStrategy: AuthStrategy<AppAuth> = async ({ request }) => {
-  const token = request.headers.authorization?.slice(7);
-  const payload = await verifyJwt(token);
-
-  return {
-    userId: payload.sub,
-    roles: payload.roles,  // ✅ Type-checked: must be from defined list
-    scopes: payload.scopes, // ✅ Type-checked: must be from defined list
-  };
-};
-
-const { define, query } = initServe<AppContext, AppAuth>({
-  auth: useAuth(jwtStrategy),
-  context: () => ({ db }),
-});
-
-export const api = define({
-  queries: {
-    // ✅ TypeScript autocomplete for 'admin'
-    // ❌ Compile error if you typo 'admn' or 'superadmin'
-    adminOnly: query
-      .requireRole('admin')
-      .query(async ({ ctx }) => ({ secret: true })),
-  },
-});
-```
-</CodeBlock>
-
 ## Auth Strategies
 
 Strategies extract auth context from incoming requests. Return `null` for failed authentication.
@@ -342,7 +342,7 @@ Set auth globally in `initServe` or `define`:
 
 <CodeBlock>
 ```typescript
-const { define, query } = initServe<AppContext, AppAuth>({
+const { define, query } = initServe({
   auth: useAuth(authStrategy),
   context: () => ({ db }),
 });
@@ -467,9 +467,7 @@ By default, auth guards hide `required` and `actual` arrays to prevent informati
 <CodeBlock>
 ```typescript
 const { define } = initServe({
-  security: {
-    verboseAuthErrors: true, // Show missing roles/scopes (development only!)
-  },
+  verboseAuthErrors: true, // Show missing roles/scopes (development only!)
   auth: authStrategy,
   context: () => ({ db }),
 });
