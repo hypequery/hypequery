@@ -1,17 +1,14 @@
 import { vi } from 'vitest';
 import { CrossFilter, FilterGroup } from '../cross-filter.js';
 import { createQueryBuilder } from '../query-builder.js';
+import type { DatabaseAdapter } from '../adapters/database-adapter.js';
+import { substituteParameters } from '../utils.js';
 
-// Mock connection to avoid actual DB connection
-vi.mock('../connection', () => ({
-  ClickHouseConnection: {
-    initialize: vi.fn(),
-    getClient: vi.fn(() => ({
-      query: vi.fn(),
-      exec: vi.fn()
-    }))
-  }
-}));
+const testAdapter: DatabaseAdapter = {
+  name: 'test',
+  query: vi.fn(),
+  render: (sql, params = []) => substituteParameters(sql, params)
+};
 
 describe('applyCrossFilters Method', () => {
   let db: ReturnType<typeof createQueryBuilder>;
@@ -19,10 +16,7 @@ describe('applyCrossFilters Method', () => {
   beforeEach(() => {
     // Initialize query builder with mock connection
     db = createQueryBuilder({
-      host: 'http://localhost:8123',
-      username: 'default',
-      password: 'password',
-      database: 'test_db'
+      adapter: testAdapter
     });
   });
 
