@@ -1,5 +1,15 @@
 # @hypequery/serve
 
+## 0.1.0
+
+### Minor Changes
+
+- e15ce16: Add per-request header resolvers to React hooks and improve serve multi-tenant ergonomics, ESM-safe startup, and docs alignment.
+
+### Patch Changes
+
+- ed06077: Ensure the release workflow builds every package before running the Changesets publish step so the CI release ships with fresh `dist` artifacts.
+
 ## 0.0.9
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @hypequery/cli
 
+## 1.0.0
+
+### Patch Changes
+
+- ed06077: Ensure the release workflow builds every package before running the Changesets publish step so the CI release ships with fresh `dist` artifacts.
+- Updated dependencies [e15ce16]
+- Updated dependencies [ed06077]
+  - @hypequery/serve@0.1.0
+
 ## 0.0.9
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/react",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "React hooks for consuming hypequery APIs",
   "type": "module",
   "main": "./dist/index.js",
