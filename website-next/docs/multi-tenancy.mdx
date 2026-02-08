@@ -350,6 +350,11 @@ const api = defineServe({
 
 Tip: use `query.tenantOptional({ mode: 'manual' })` when you want to opt out of auto-inject for an admin-only query without restating `extract` or `column`.
 
+<Callout type="info" title="tenantOptional requires extract when no global tenant config exists">
+  If you call <code>tenantOptional()</code> without a global tenant config, you still need to provide
+  <code>extract</code> in the per-query override.
+</Callout>
+
 ## Manual Mode (Advanced)
 
 Manual mode gives you full control but requires discipline—you must remember to add tenant filters to **every** query.

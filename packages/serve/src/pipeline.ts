@@ -83,7 +83,7 @@ const resolveTenantConfig = <TAuth extends AuthContext>(
   if (!merged.extract) {
     throw new Error(
       '[hypequery/serve] Tenant override requires an extract function when no global tenant config is set. ' +
-        'Provide extract in the per-query tenant config or remove the override.'
+        'If you are using tenantOptional(), define a global tenant config with extract or pass extract in the per-query override.'
     );
   }
 

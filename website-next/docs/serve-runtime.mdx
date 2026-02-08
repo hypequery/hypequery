@@ -44,7 +44,7 @@ npx hypequery serve analytics/queries.ts --port 8080
 </Pre>
 </CodeBlock>
 
-Both commands internally call `api.start({ port })` and add nicities (file watching, pretty logs, docs hosting). You can do the same in code:
+`hypequery dev` uses `serveDev(api, { port })` under the hood (pretty logs + docs URL output) and adds file watching on top. `hypequery serve` uses `api.start({ port })` for a minimal production server. You can do the same in code:
 
 <CodeBlock>
 <Pre>
@@ -52,6 +52,20 @@ Both commands internally call `api.start({ port })` and add nicities (file watch
 import { api } from './analytics/queries';
 
 const server = await api.start({ port: 4000 });
+// later: await server.stop();
+```
+</Pre>
+</CodeBlock>
+
+If you want the same dev server behavior in code (logging + docs URL output), use `serveDev`:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { serveDev } from '@hypequery/serve';
+import { api } from './analytics/queries';
+
+const server = await serveDev(api, { port: 4000 });
 // later: await server.stop();
 ```
 </Pre>

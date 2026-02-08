@@ -20,7 +20,7 @@ import { defineServe } from '@hypequery/serve';
 export const api = defineServe({
   queries: {
     activeUsers: {
-      query: async ({ db }) => db.table('users').where('status', 'eq', 'active').count(),
+      query: async ({ ctx }) => ctx.db.table('users').where('status', 'eq', 'active').count(),
       inputSchema: z.object({ region: z.string().optional() }),
       outputSchema: z.object({ total: z.number() }),
       method: 'POST',
@@ -34,8 +34,8 @@ export const api = defineServe({
   auth: async ({ request }) => getAuthContext(request),
   middlewares: [logRequests],
   docs: { enabled: true, path: '/docs', title: 'Analytics API' },
-  openapi: { enabled: true, path: '/openapi.json', info: { title: 'Analytics', version: '1.2.0' } },
-  context: async ({ request, auth }) => ({ requestId: request.headers['x-request-id'], auth }),
+  openapi: { enabled: true, path: '/openapi.json', version: '1.2.0', info: { title: 'Analytics' } },
+  context: async ({ request }) => ({ requestId: request.headers['x-request-id'] }),
   hooks: {
     onRequestStart: ({ queryKey, requestId }) => trace.begin(requestId, queryKey),
     onRequestEnd: ({ durationMs, queryKey }) => metrics.record(queryKey, durationMs),
@@ -149,9 +149,9 @@ You can describe endpoints declaratively or pass executable functions directly. 
       description: 'Per-endpoint auth override; returning `null` rejects the request.',
     },
     tenant: {
-      type: 'TenantConfig',
+      type: 'TenantConfigOverride',
       default: 'inherits global',
-      description: 'Per-endpoint tenant config to opt out or override the global config.',
+      description: 'Per-endpoint tenant overrides merged with the global config. If no global tenant config is set, include extract in the override.',
     },
     cacheTtlMs: {
       type: 'number | null',
@@ -227,6 +227,21 @@ Executable functions can be passed directly in `queries` when you just need a ha
     },
   }}
 />
+
+## Utilities
+
+### `normalizeHeaderMap`
+
+Normalize a plain header object to lower-case keys so you can do case-insensitive header lookups in auth strategies or middleware.
+
+<CodeBlock>
+```typescript
+import { normalizeHeaderMap } from '@hypequery/serve';
+
+const headers = normalizeHeaderMap(request.headers);
+const token = headers['authorization'];
+```
+</CodeBlock>
 
 ## Runtime helpers
 

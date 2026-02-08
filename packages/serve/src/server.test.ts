@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { defineServe } from "./server";
+import { defineServe, initServe } from "./server";
 import type { ServeRequest } from "./types";
 import type { ServeQueryEvent } from "./query-logger";
 
@@ -661,6 +661,57 @@ describe("defineServe", () => {
 
     expect(queryLog[1].table).toBe("users");
     // No tenant filter since it's optional and no tenant was provided
+  });
+
+  it("returns a clear error when tenantOptional is used without a global tenant config", async () => {
+    const { define, query } = initServe({});
+
+    const api = define({
+      queries: {
+        metrics: query
+          .tenantOptional()
+          .query(async () => ({ ok: true })),
+      },
+    });
+
+    api.route("/metrics", api.queries.metrics);
+
+    const response = await api.handler(
+      createRequest({ path: "/metrics" })
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.body).toMatchObject({
+      error: {
+        type: "INTERNAL_SERVER_ERROR",
+        message: expect.stringContaining("tenantOptional()"),
+      },
+    });
+  });
+
+  it("allows tenantOptional when a global tenant config exists", async () => {
+    const { define, query } = initServe({
+      tenant: {
+        extract: (auth) => auth?.tenantId,
+      },
+    });
+
+    const api = define({
+      queries: {
+        metrics: query
+          .tenantOptional()
+          .query(async () => ({ ok: true })),
+      },
+    });
+
+    api.route("/metrics", api.queries.metrics);
+
+    const response = await api.handler(
+      createRequest({ path: "/metrics" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ok: true });
   });
 
   it("wraps multiple query builders in context when using auto-inject", async () => {
