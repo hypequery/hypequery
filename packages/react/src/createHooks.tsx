@@ -13,10 +13,13 @@ export interface QueryMethodConfig {
   method?: string;
 }
 
+type HeaderMap = Record<string, string | undefined>;
+type HeadersInput = HeaderMap | (() => HeaderMap);
+
 export interface CreateHooksConfig<TApi = Record<string, { input: unknown; output: unknown }>> {
   baseUrl: string;
   fetchFn?: typeof fetch;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?: HeadersInput;
   config?: Record<string, QueryMethodConfig>;
   api?: TApi;
 }
@@ -86,6 +89,14 @@ const looksLikeQueryOptions = (value: unknown) => {
   return matches >= 2;
 };
 
+const resolveHeaders = (headers?: HeadersInput): Record<string, string> => {
+  if (!headers) return {};
+  const raw = typeof headers === 'function' ? headers() : headers;
+  return Object.fromEntries(
+    Object.entries(raw).filter(([, value]) => value !== undefined)
+  ) as Record<string, string>;
+};
+
 export function createHooks<Api extends Record<string, { input: any; output: any }>>(
   config: CreateHooksConfig<Api>
 ) {
@@ -119,7 +130,7 @@ export function createHooks<Api extends Record<string, { input: any; output: any
       body = JSON.stringify(input);
     }
 
-    const resolvedHeaders = typeof headers === 'function' ? headers() : headers;
+    const resolvedHeaders = resolveHeaders(headers);
     const res = await fetchFn(finalUrl, {
       method,
       headers: {

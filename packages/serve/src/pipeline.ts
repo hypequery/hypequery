@@ -29,6 +29,7 @@ import { ServeQueryLogger } from './query-logger.js';
 import {
   checkRoleAuthorization,
   checkScopeAuthorization,
+  AuthError,
 } from './auth.js';
 
 const safeInvokeHook = async <T>(
@@ -113,13 +114,29 @@ const authenticateRequest = async <TAuth extends AuthContext>(
   request: ServeRequest,
   metadata: EndpointMetadata,
 ) => {
+  let missingError: AuthError | undefined;
+  let invalidError: AuthError | undefined;
+
   for (const strategy of strategies) {
-    const result = await strategy({ request, endpoint: metadata });
-    if (result) {
-      return result;
+    try {
+      const result = await strategy({ request, endpoint: metadata });
+      if (result) {
+        return { auth: result as TAuth };
+      }
+    } catch (error) {
+      if (error instanceof AuthError) {
+        if (error.reason === 'INVALID') {
+          invalidError = invalidError ?? error;
+        } else {
+          missingError = missingError ?? error;
+        }
+        continue;
+      }
+      throw error;
     }
   }
-  return null;
+
+  return { auth: null, error: invalidError ?? missingError };
 };
 
 const gatherAuthStrategies = <TAuth extends AuthContext>(
@@ -300,23 +317,33 @@ export const executeEndpoint = async <
     };
     context.metadata = metadataWithAuth;
 
-    const authContext = await authenticateRequest(strategies, request, metadataWithAuth);
+    const authResult = await authenticateRequest(strategies, request, metadataWithAuth);
+    const authContext = authResult.auth;
     if (!authContext && requiresAuth) {
+      const authErrorInfo = authResult.error
+        ? {
+            reason: authResult.error.reason,
+            message: authResult.error.message,
+            details: authResult.error.details,
+          }
+        : undefined;
       await safeInvokeHook('onAuthFailure', hooks.onAuthFailure, {
         requestId,
         queryKey: endpoint.key,
         metadata: metadataWithAuth,
         request,
         auth: context.auth,
-        reason: 'MISSING',
+        reason: authErrorInfo?.reason ?? 'MISSING',
+        error: authErrorInfo,
       });
       return createErrorResponse(
         401,
         'UNAUTHORIZED',
-        verboseAuthErrors ? 'Authentication required' : 'Access denied',
+        verboseAuthErrors ? authErrorInfo?.message ?? 'Authentication required' : 'Access denied',
         {
-          reason: 'missing_credentials',
+          reason: authErrorInfo?.reason === 'INVALID' ? 'invalid_credentials' : 'missing_credentials',
           ...(verboseAuthErrors && { strategies_attempted: strategies.length }),
+          ...(verboseAuthErrors && authErrorInfo?.details ? { auth_error: authErrorInfo.details } : {}),
           endpoint: endpoint.metadata.path,
         },
         { 'x-request-id': requestId }

@@ -725,6 +725,13 @@ export interface RequestErrorEvent<TAuth extends AuthContext = AuthContext>
 export interface AuthFailureEvent<TAuth extends AuthContext = AuthContext>
   extends RequestLifecycleBase<TAuth> {
   reason: "MISSING" | "INVALID";
+  error?: AuthErrorInfo;
+}
+
+export interface AuthErrorInfo {
+  reason: "MISSING" | "INVALID";
+  message: string;
+  details?: Record<string, unknown>;
 }
 
 export interface AuthorizationFailureEvent<TAuth extends AuthContext = AuthContext>

@@ -63,7 +63,7 @@ Factory function that creates type-safe `useQuery` and `useMutation` hooks for y
 interface CreateHooksConfig<TApi> {
   baseUrl: string;                          // Required: API base URL (e.g., '/api' or 'https://api.example.com')
   fetchFn?: typeof fetch;                   // Optional: Custom fetch implementation (defaults to global fetch)
-  headers?: Record<string, string> | (() => Record<string, string>); // Optional: Default headers or a resolver function
+  headers?: Record<string, string | undefined> | (() => Record<string, string | undefined>); // Optional: Default headers or a resolver function
   config?: Record<string, QueryMethodConfig>; // Optional: Per-route HTTP method overrides
   api?: TApi;                               // Optional: API object to auto-extract HTTP methods
 }
@@ -297,6 +297,18 @@ const { useQuery } = createHooks<Api>({
   headers: {
     'X-API-Key': process.env.API_KEY,
     'X-Client-Version': '1.0.0',
+  },
+});
+```
+
+### Dynamic headers
+
+```ts
+const { useQuery } = createHooks<Api>({
+  baseUrl: '/api',
+  headers: () => {
+    const key = getTenantKey();
+    return key ? { 'x-tenant-key': key } : {};
   },
 });
 ```

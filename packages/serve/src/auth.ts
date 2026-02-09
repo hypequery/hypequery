@@ -3,9 +3,82 @@ import type {
   AuthContextWithRoles,
   AuthContextWithScopes,
   AuthStrategy,
+  AuthErrorInfo,
   ServeMiddleware,
   ServeRequest,
 } from "./types.js";
+
+const resolveHeaderValue = (value: unknown): string | undefined => {
+  if (Array.isArray(value)) {
+    const first = value.find((item) => typeof item === "string");
+    return typeof first === "string" ? first : undefined;
+  }
+  if (typeof value === "string") return value;
+  return undefined;
+};
+
+/**
+ * Safely read a header from a ServeRequest with case-insensitive
+ * and array-safe normalization.
+ */
+export const getHeader = (request: ServeRequest, name: string): string | undefined => {
+  const target = name.toLowerCase();
+  const headers = request.headers as Record<string, string | string[] | undefined>;
+  const direct = headers[target] ?? headers[name] ?? headers[name.toLowerCase()];
+  const resolvedDirect = resolveHeaderValue(direct);
+  if (resolvedDirect !== undefined) {
+    const trimmed = resolvedDirect.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  const match = Object.entries(headers).find(([key]) => key.toLowerCase() === target);
+  const resolvedMatch = resolveHeaderValue(match?.[1]);
+  if (resolvedMatch === undefined) return undefined;
+  const trimmed = resolvedMatch.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
+export class AuthError extends Error implements AuthErrorInfo {
+  reason: AuthErrorInfo["reason"];
+  details?: Record<string, unknown>;
+
+  constructor(reason: AuthErrorInfo["reason"], message: string, details?: Record<string, unknown>) {
+    super(message);
+    this.name = "AuthError";
+    this.reason = reason;
+    this.details = details;
+  }
+}
+
+export interface ApiKeyAuthOptions<TAuth extends AuthContext = AuthContext> {
+  header?: string;
+  allowMissing?: boolean;
+  validate: (key: string, request: ServeRequest) => Promise<TAuth | null> | TAuth | null;
+}
+
+/**
+ * Simple API key auth adapter with clear missing/invalid errors.
+ */
+export const apiKeyAuth = <TAuth extends AuthContext = AuthContext>(
+  options: ApiKeyAuthOptions<TAuth>
+): AuthStrategy<TAuth> => {
+  const headerName = options.header ?? "x-api-key";
+  const allowMissing = options.allowMissing ?? false;
+
+  return async ({ request }) => {
+    const key = getHeader(request, headerName);
+    if (!key) {
+      if (allowMissing) return null;
+      throw new AuthError("MISSING", `Missing API key in "${headerName}" header`, { header: headerName });
+    }
+
+    const auth = await options.validate(key, request);
+    if (!auth) {
+      throw new AuthError("INVALID", `Invalid API key in "${headerName}" header`, { header: headerName });
+    }
+    return auth;
+  };
+};
 
 export interface ApiKeyStrategyOptions<TAuth extends AuthContext = AuthContext> {
   header?: string;
@@ -27,8 +100,8 @@ export const createApiKeyStrategy = <TAuth extends AuthContext = AuthContext>(
     }
 
     if (!key) {
-      const headerValue = request.headers[headerName] ?? request.headers[headerName.toLowerCase()];
-      if (typeof headerValue === "string") {
+      const headerValue = getHeader(request, headerName);
+      if (headerValue) {
         key = headerValue.startsWith("Bearer ")
           ? headerValue.slice("Bearer ".length)
           : headerValue;
@@ -56,7 +129,7 @@ export const createBearerTokenStrategy = <TAuth extends AuthContext = AuthContex
   const prefix = options.prefix ?? "Bearer ";
 
   return async ({ request }) => {
-    const raw = request.headers[headerName] ?? request.headers[headerName.toLowerCase()];
+    const raw = getHeader(request, headerName);
     if (typeof raw !== "string" || !raw.startsWith(prefix)) {
       return null;
     }
