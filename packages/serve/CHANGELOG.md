@@ -1,5 +1,11 @@
 # @hypequery/serve
 
+## 0.1.1
+
+### Patch Changes
+
+- 5c60f20: Add getHeader and apiKeyAuth helpers for header-based auth, plus structured auth errors for missing/invalid credentials.
+
 ## 0.1.0
 
 ### Minor Changes
