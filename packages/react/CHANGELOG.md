@@ -1,5 +1,11 @@
 # @hypequery/react
 
+## 0.1.1
+
+### Patch Changes
+
+- 5c60f20: Allow headers to return an empty object and ignore undefined values.
+
 ## 0.1.0
 
 ### Minor Changes
