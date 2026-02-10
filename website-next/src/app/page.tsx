@@ -56,6 +56,28 @@ export function requireAuth(req: Request) {
   }
   return { token: token.replace('Bearer ', '') };
 }`;
+  const aiAgentCardCode = `const catalog = api.describe();
+const tools = new Set(catalog.queries.map((q) => q.key));
+
+const result = await api.run('weeklyRevenue', {
+  request: { headers: { authorization: 'Bearer token' } },
+});`;
+  const httpCardCode = `import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+
+api.route('/weekly-revenue', api.queries.weeklyRevenue, { method: 'POST' });
+
+const handler = createFetchHandler(api.handler);`;
+  const reactCardCode = `import { createHooks } from '@hypequery/react';
+
+export const { useQuery } = createHooks<ApiDefinition>({
+  baseUrl: '/api/hypequery',
+});
+
+const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
+  const inProcessCardCode = `const latest = await api.run('activeUsers', {
+  input: { limit: 25 },
+  request: { headers: { authorization: 'Bearer token' } },
+});`;
 
   const terminalLines = [
     'Connecting to ClickHouse...',
@@ -196,7 +218,7 @@ export function requireAuth(req: Request) {
                     From ClickHouse schema to governed APIs in minutes
                   </h2>
                   <p className="mt-4 text-base md:text-lg leading-7 text-gray-300">
-                    A quick path from your ClickHouse schema to a typed, governed API—without YAML,
+                    A quick path from your ClickHouse schema to a typed, governed API without YAML,
                     without SQL strings.
                   </p>
                   <div className="mt-8">
@@ -265,7 +287,13 @@ export function requireAuth(req: Request) {
                     <p className="mt-3 text-sm text-gray-300">
                       Give agents governed, typed access to metrics without raw SQL.
                     </p>
-                    <div className="mt-5 h-28 border border-dashed border-gray-600/70"></div>
+                    <div className="mt-5 bg-[#1f2937]">
+                      <DynamicCodeBlock
+                        lang="ts"
+                        code={aiAgentCardCode}
+                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                      />
+                    </div>
                   </div>
                   <div className="feature-card p-6 text-gray-200">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
@@ -275,7 +303,13 @@ export function requireAuth(req: Request) {
                     <p className="mt-3 text-sm text-gray-300">
                       Auto-generated endpoints with auth and OpenAPI baked in.
                     </p>
-                    <div className="mt-5 h-28 border border-dashed border-gray-600/70"></div>
+                    <div className="mt-5 bg-[#1f2937]">
+                      <DynamicCodeBlock
+                        lang="ts"
+                        code={httpCardCode}
+                        codeblock={{ className: 'radius-none hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                      />
+                    </div>
                   </div>
                   <div className="feature-card p-6 text-gray-200">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
@@ -285,7 +319,13 @@ export function requireAuth(req: Request) {
                     <p className="mt-3 text-sm text-gray-300">
                       Typed hooks and SDKs keep UI and metrics in sync.
                     </p>
-                    <div className="mt-5 h-28 border border-dashed border-gray-600/70"></div>
+                    <div className="mt-5 bg-[#1f2937]">
+                      <DynamicCodeBlock
+                        lang="ts"
+                        code={reactCardCode}
+                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                      />
+                    </div>
                   </div>
                   <div className="feature-card p-6 text-gray-200">
                     <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
@@ -295,7 +335,13 @@ export function requireAuth(req: Request) {
                     <p className="mt-3 text-sm text-gray-300">
                       Call metrics directly inside jobs, scripts, or services.
                     </p>
-                    <div className="mt-5 h-28 border border-dashed border-gray-600/70"></div>
+                    <div className="mt-5 bg-[#1f2937]">
+                      <DynamicCodeBlock
+                        lang="ts"
+                        code={inProcessCardCode}
+                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
