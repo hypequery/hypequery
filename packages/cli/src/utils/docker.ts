@@ -1,4 +1,4 @@
-import { exec, spawn } from 'node:child_process';
+import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { logger } from './logger.js';
 
@@ -116,13 +116,25 @@ async function executeSQL(sql: string, database?: string): Promise<string> {
 }
 
 /**
+ * Check if sample data already exists
+ */
+async function hasExistingData(): Promise<boolean> {
+  try {
+    const result = await executeSQL('SELECT count() FROM users', CLICKHOUSE_DATABASE);
+    return parseInt(result.trim(), 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Create the demo database and seed it with sample data
  */
 export async function seedDatabase(): Promise<void> {
   // Create database
   await executeSQL(`CREATE DATABASE IF NOT EXISTS ${CLICKHOUSE_DATABASE}`);
 
-  // Create tables
+  // Create tables (idempotent via IF NOT EXISTS)
   await executeSQL(
     `
     CREATE TABLE IF NOT EXISTS users (
@@ -166,7 +178,11 @@ export async function seedDatabase(): Promise<void> {
     CLICKHOUSE_DATABASE
   );
 
-  // Seed sample data
+  // Seed sample data (skip if already seeded)
+  if (await hasExistingData()) {
+    return;
+  }
+
   await executeSQL(
     `
     INSERT INTO users (id, name, email, plan, created_at) VALUES
