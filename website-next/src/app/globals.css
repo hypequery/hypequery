@@ -76,6 +76,13 @@ body {
   background: rgba(99, 102, 241, 0.18);
 }
 
+.mini-card-code,
+.mini-card-code pre,
+.mini-card-code [data-theme],
+.mini-card-code code {
+  background: #1f2937 !important;
+}
+
 .feature-grid {
   display: grid;
   grid-template-columns: 1fr;

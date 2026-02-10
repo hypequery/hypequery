@@ -62,8 +62,8 @@ import * as __fd_glob_6 from "../docs/changelog.mdx?collection=docs"
 import * as __fd_glob_5 from "../docs/caching.mdx?collection=docs"
 import * as __fd_glob_4 from "../docs/authentication.mdx?collection=docs"
 import { default as __fd_glob_3 } from "../docs/standalone-query-builder/query-building/meta.json?collection=docs"
-import { default as __fd_glob_2 } from "../docs/query-building/meta.json?collection=docs"
-import { default as __fd_glob_1 } from "../docs/standalone-query-builder/meta.json?collection=docs"
+import { default as __fd_glob_2 } from "../docs/standalone-query-builder/meta.json?collection=docs"
+import { default as __fd_glob_1 } from "../docs/query-building/meta.json?collection=docs"
 import { default as __fd_glob_0 } from "../docs/meta.json?collection=docs"
 import { server } from 'fumadocs-mdx/runtime/server';
 import type * as Config from '../source.config';
