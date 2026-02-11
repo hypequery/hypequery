@@ -1,10 +1,14 @@
 
-
 <p align="center">
-  <img src="./website-next/public/logo.png" alt="hypequery logo" width=400" />  
+  <img src="./website-next/public/logo.png" alt="hypequery logo" width="400" />
 </p>
 
-### The type-safe analytics backend for ClickHouse.
+<p align="center">
+  <strong><span style="font-size: 1.2rem;">The type-safe analytics backend for ClickHouse</span></strong>
+</p>
+
+<h4 align="center">Define metrics once, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.</h4>
+
 
 <p align="center">
   <a href="https://github.com/hypequery/hypequery/blob/main/LICENSE">
@@ -24,7 +28,6 @@
   </a>
 </p>
 
- #### Define metrics once, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.
 
 <p align="center">
   <a href="https://hypequery.com/docs">Docs</a> •
