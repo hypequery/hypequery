@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Star } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeHighlight from '@/components/CodeHighlight';
@@ -157,11 +158,11 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       </Link>
                       <a
                         href="https://github.com/hypequery/hypequery"
-                        className="border border-gray-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-gray-100 transition hover:bg-white/10 font-mono"
+                        className="inline-flex items-center gap-2 border border-gray-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-gray-100 transition hover:bg-white/10 font-mono"
                         target="_blank"
                         rel="noreferrer"
                       >
-                        on GitHub
+                        Star on GitHub
                       </a>
                     </div>
                   </div>
