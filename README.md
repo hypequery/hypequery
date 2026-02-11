@@ -4,7 +4,7 @@
 </p>
 
 <p align="center">
-  <strong><h3>The type-safe analytics backend for ClickHouse</h3></strong>
+ <h3 align="center">The type-safe analytics backend for ClickHouse</h3>
 </p>
 
 <h4 align="center">Define metrics once, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.</h4>
