@@ -1,12 +1,12 @@
 
 
 <p align="center">
-  <img src="website-next/public/logo.png" alt="hypequery logo" width="140" />
+  <img src="./website-next/public/logo.png" alt="hypequery logo" width="140" />
 </p>
 
 <p align="center">
   <a href="https://github.com/hypequery/hypequery/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/github/license/hypequery/hypequery?style=for-the-badge" />
+    <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=for-the-badge" />
   </a>
   <a href="https://www.npmjs.com/package/@hypequery/cli">
     <img alt="npm @hypequery/cli" src="https://img.shields.io/npm/v/%40hypequery%2Fcli?style=for-the-badge" />
