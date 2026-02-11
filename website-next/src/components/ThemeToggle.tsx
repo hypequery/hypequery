@@ -11,23 +11,41 @@ const options = [
 
 const THEME_STORAGE_KEY = 'hypequery-theme';
 
+function applyTheme(mode: 'light' | 'dark' | 'system') {
+  const root = document.documentElement;
+  const resolvedTheme: 'light' | 'dark' = mode === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : mode;
+
+  root.classList.toggle('dark', resolvedTheme === 'dark');
+  root.setAttribute('data-theme', resolvedTheme);
+  root.style.colorScheme = resolvedTheme;
+}
+
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
+    if (typeof window === 'undefined') {
+      return 'system';
+    }
+
+    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+  });
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    // Get stored theme on mount
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) || 'system';
-    setTheme(stored as 'light' | 'dark' | 'system');
-    applyTheme(stored as 'light' | 'dark' | 'system');
+    applyTheme(theme);
+  }, [theme]);
 
-    // Listen for system theme changes when in system mode
+  useEffect(() => {
+    if (theme !== 'system') {
+      return;
+    }
+
+    // Listen for system theme changes only when in system mode
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleSystemThemeChange = () => {
-      const currentTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'system';
-      if (currentTheme === 'system') {
-        applyTheme('system');
-      }
+      applyTheme('system');
     };
 
     mediaQuery.addEventListener('change', handleSystemThemeChange);
@@ -35,7 +53,7 @@ export default function ThemeToggle() {
     return () => {
       mediaQuery.removeEventListener('change', handleSystemThemeChange);
     };
-  }, []);
+  }, [theme]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -61,16 +79,6 @@ export default function ThemeToggle() {
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen]);
-
-  const applyTheme = (mode: 'light' | 'dark' | 'system') => {
-    const root = document.documentElement;
-    let resolvedTheme: 'light' | 'dark' = mode === 'system'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : mode;
-
-    root.setAttribute('data-theme', resolvedTheme);
-    root.style.colorScheme = resolvedTheme;
-  };
 
   const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
     setTheme(newTheme);

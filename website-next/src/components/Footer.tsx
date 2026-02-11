@@ -1,6 +1,7 @@
 const navigation = {
   primary: [
     { name: 'Docs', href: '/docs' },
+    { name: 'Use Cases', href: '/use-cases' },
     { name: 'Changelog', href: '/docs/changelog' },
     { name: 'GitHub', href: 'https://github.com/hypequery/hypequery' },
   ],

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
@@ -12,6 +12,11 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const displayFont = Space_Grotesk({
+  variable: "--font-display",
   subsets: ["latin"],
 });
 
@@ -85,9 +90,14 @@ gtag('config', '${gaMeasurementId}');`,
         ) : null}
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${displayFont.variable} antialiased`}
       >
         <RootProvider
+          theme={{
+            forcedTheme: "dark",
+            defaultTheme: "dark",
+            enableSystem: false,
+          }}
           search={{
             SearchDialog: DefaultSearchDialog,
           }}
