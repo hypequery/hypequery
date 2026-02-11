@@ -1,10 +1,10 @@
 
 <p align="center">
-  <img src="./website-next/public/logo.png" alt="hypequery logo" width="400" />
+  <img src="./website-next/public/logo.png" alt="hypequery logo" width="450" />
 </p>
 
 <p align="center">
-  <strong><span style="font-size: 1.2rem;">The type-safe analytics backend for ClickHouse</span></strong>
+  <strong><span style="font-size: 2rem;">The type-safe analytics backend for ClickHouse</span></strong>
 </p>
 
 <h4 align="center">Define metrics once, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.</h4>
