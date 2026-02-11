@@ -161,7 +161,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                         target="_blank"
                         rel="noreferrer"
                       >
-                        on GitHub
+                        Star on GitHub
                       </a>
                     </div>
                   </div>
