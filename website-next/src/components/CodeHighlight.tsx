@@ -20,7 +20,6 @@ export default function CodeHighlight({ code, language = 'ts' }: CodeHighlightPr
       const result = highlighter.codeToHtml(code.trim(), {
         lang: lang,
         theme: 'aurora-x',
-
       });
       setHtml(result);
     });
@@ -28,7 +27,7 @@ export default function CodeHighlight({ code, language = 'ts' }: CodeHighlightPr
 
   return (
     <div
-      className="overflow-x-auto text-sm [&_pre]:py-2"
+      className="overflow-x-auto text-sm"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

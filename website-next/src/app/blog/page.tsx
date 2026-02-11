@@ -22,7 +22,7 @@ export default async function BlogPage({
         <p className="text-sm uppercase tracking-[0.2em] text-indigo-500 mb-3">
           Insights
         </p>
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl mb-4">
+        <h1 className="font-display text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl mb-4">
           Ideas for shipping faster with ClickHouse
         </h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
@@ -47,7 +47,7 @@ export default async function BlogPage({
                 })}
               </time>
             </div>
-            <h2 className="mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <h2 className="font-display mt-3 text-2xl font-bold text-gray-900 dark:text-gray-100">
               <Link
                 href={`/blog/${post.slug}`}
                 className="hover:text-indigo-600 dark:hover:text-indigo-400"

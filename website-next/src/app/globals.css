@@ -1,12 +1,19 @@
 @import "tailwindcss";
 @import 'fumadocs-ui/style.css';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
 :root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+:root.dark {
   --background: #0a0a0a;
   --foreground: #ededed;
 }
@@ -74,6 +81,25 @@ body {
 .hq-highlight .line:nth-child(n + 11):nth-child(-n + 21),
 .hq-highlight pre code > span:nth-child(n + 11):nth-child(-n + 21) {
   background: rgba(99, 102, 241, 0.18);
+}
+
+/* Shiki code block styling */
+.shiki,
+.shiki code {
+  background: transparent !important;
+  font-family: var(--font-geist-mono), 'Monaco', 'Courier New', monospace !important;
+}
+
+.shiki {
+  padding: 1rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+}
+
+/* Ensure code blocks in dark mode have proper styling */
+.dark .shiki,
+.dark .shiki code {
+  color: inherit;
 }
 
 .mini-card-code,

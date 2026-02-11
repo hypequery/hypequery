@@ -37,7 +37,7 @@ export default function HypequeryArchitecture() {
         <p className="text-sm font-semibold uppercase tracking-wide text-indigo-500">
           Architecture
         </p>
-        <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+        <h2 className="font-display mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
           The complete analytics layer
         </h2>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
@@ -61,7 +61,7 @@ export default function HypequeryArchitecture() {
                 <Database className="size-10 text-amber-500" />
               </div>
               <div className="text-center">
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">ClickHouse</h3>
+                <h3 className="font-display font-semibold text-gray-900 dark:text-gray-100 mb-1">ClickHouse</h3>
                 <p className="text-gray-500 dark:text-gray-400 text-xs">OLAP database</p>
               </div>
             </div>
@@ -96,7 +96,7 @@ export default function HypequeryArchitecture() {
                 height={32}
                 className="dark:invert"
               />
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">hypequery</h3>
+              <h3 className="font-display text-xl font-semibold text-gray-900 dark:text-gray-100">hypequery</h3>
             </div>
 
             {/* Core Features */}
@@ -171,7 +171,7 @@ export default function HypequeryArchitecture() {
           className="w-full lg:w-80 flex-shrink-0"
         >
           <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-white dark:bg-gray-800 shadow-lg h-full">
-            <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-5 text-center uppercase tracking-wider">
+            <h3 className="font-display text-sm font-semibold text-gray-500 dark:text-gray-400 mb-5 text-center uppercase tracking-wider">
               Consumers
             </h3>
             <div className="grid grid-cols-2 gap-4">

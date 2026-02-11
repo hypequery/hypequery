@@ -64,7 +64,7 @@ const result = await api.run('weeklyRevenue', {
 });`;
   const httpCardCode = `import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
 
-api.route('/weekly-revenue', api.queries.weeklyRevenue, { method: 'POST' });
+api.route('/weekly-revenue', api.queries.weeklyRevenue);
 
 const handler = createFetchHandler(api.handler);`;
   const reactCardCode = `import { createHooks } from '@hypequery/react';
@@ -278,7 +278,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
               <div className="mt-8">
                 <div className="mt-6 feature-grid overflow-hidden border border-gray-700">
                   <div className="feature-card p-6 text-gray-200">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
+                    <h3 className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
                       AI Agent
                     </h3>
                     <p className="mt-3 text-base font-semibold text-gray-100">
@@ -287,59 +287,59 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                     <p className="mt-3 text-sm text-gray-300">
                       Give agents governed, typed access to metrics without raw SQL.
                     </p>
-                    <div className="mt-5 bg-[#1f2937]">
+                    <div className="mt-5 -mx-4 md:-mx-6 bg-[#1f2937]">
                       <DynamicCodeBlock
                         lang="ts"
                         code={aiAgentCardCode}
-                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-sm max-h-44 overflow-auto' }}
                       />
                     </div>
                   </div>
                   <div className="feature-card p-6 text-gray-200">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
+                    <h3 className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
                       HTTP
                     </h3>
                     <p className="mt-3 text-base font-semibold text-gray-100">Expose via HTTP</p>
                     <p className="mt-3 text-sm text-gray-300">
                       Auto-generated endpoints with auth and OpenAPI baked in.
                     </p>
-                    <div className="mt-5 bg-[#1f2937]">
+                    <div className="mt-5 -mx-4 md:-mx-6 bg-[#1f2937]">
                       <DynamicCodeBlock
                         lang="ts"
                         code={httpCardCode}
-                        codeblock={{ className: 'radius-none hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                        codeblock={{ className: 'radius-none hq-codeblock mini-card-code hq-highlight text-sm max-h-44 overflow-auto' }}
                       />
                     </div>
                   </div>
                   <div className="feature-card p-6 text-gray-200">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
+                    <h3 className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
                       React
                     </h3>
                     <p className="mt-3 text-base font-semibold text-gray-100">Consume in React</p>
                     <p className="mt-3 text-sm text-gray-300">
                       Typed hooks and SDKs keep UI and metrics in sync.
                     </p>
-                    <div className="mt-5 bg-[#1f2937]">
+                    <div className="mt-5 -mx-4 md:-mx-6 bg-[#1f2937]">
                       <DynamicCodeBlock
                         lang="ts"
                         code={reactCardCode}
-                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-sm max-h-44 overflow-auto' }}
                       />
                     </div>
                   </div>
                   <div className="feature-card p-6 text-gray-200">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
+                    <h3 className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
                       In-Process
                     </h3>
                     <p className="mt-3 text-base font-semibold text-gray-100">Run in process</p>
                     <p className="mt-3 text-sm text-gray-300">
                       Call metrics directly inside jobs, scripts, or services.
                     </p>
-                    <div className="mt-5 bg-[#1f2937]">
+                    <div className="mt-5 -mx-4 md:-mx-6 bg-[#1f2937]">
                       <DynamicCodeBlock
                         lang="ts"
                         code={inProcessCardCode}
-                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-xs max-h-28 overflow-auto' }}
+                        codeblock={{ className: 'hq-codeblock mini-card-code hq-highlight text-sm max-h-44 overflow-auto' }}
                       />
                     </div>
                   </div>
@@ -348,8 +348,8 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </section>
 
             {/* The cost of raw SQL */}
-            <section className="mt-24" id="solutions">
-              <h2 className="text-3xl font-bold tracking-tight text-gray-100">
+            <section className="mt-20" id="solutions">
+              <h2 className="font-display text-3xl font-bold tracking-tight text-gray-100">
                 Raw SQL breaks teams at scale
               </h2>
               <p className="mt-3 text-base text-gray-300">
@@ -358,10 +358,10 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
               </p>
               <div className="mt-10 grid gap-6 lg:grid-cols-2">
                 <div className="border border-gray-700 bg-[#0f172a] p-6 text-gray-200">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+                  <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
                     The old way
                   </p>
-                  <h3 className="mt-4 text-2xl font-semibold text-gray-100">No YAML. No SQL strings.</h3>
+                  <h3 className="font-display mt-4 text-2xl font-semibold text-gray-100">YAML. SQL strings.</h3>
                   <ul className="mt-4 space-y-3 text-sm text-gray-300">
                     <li>Query logic scattered across dashboards, scripts, and services.</li>
                     <li>String‑concatenated SQL that drifts as schemas evolve.</li>
@@ -369,10 +369,10 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   </ul>
                 </div>
                 <div className="border border-indigo-500/40 bg-[#0a0f1d] p-6 text-gray-200">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
+                  <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
                     The hypequery way
                   </p>
-                  <h3 className="mt-4 text-2xl font-semibold text-gray-100">Everything is code.</h3>
+                  <h3 className="font-display mt-4 text-2xl font-semibold text-gray-100">Everything is code.</h3>
                   <ul className="mt-4 space-y-3 text-sm text-gray-300">
                     <li>Type‑safe metrics defined once in TypeScript.</li>
                     <li>Reusable definitions power APIs, jobs, dashboards, and agents.</li>
@@ -381,125 +381,13 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                 </div>
               </div>
 
-              <div className="mt-14 border border-gray-700 bg-[#0f172a] p-6 text-gray-200">
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-400">
-                  You're in good company
-                </p>
-                <h3 className="mt-4 text-2xl font-semibold text-gray-100">
-                  Hypequery is the abstraction layer every scaled ClickHouse team builds
+              <div className="mt-14">
+                <h3 className="font-display text-2xl font-semibold tracking-tight text-gray-100">
+                  See it in action
                 </h3>
-                <p className="mt-3 text-sm text-gray-300">
-                  Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft, and Contentsquare all built
-                  the same stack to make fast ClickHouse schemas usable across teams. Hypequery
-                  ships that stack as a library.
+                <p className="mt-3 text-base text-gray-300">
+                  Click through these examples to see how hypequery works across different use cases.
                 </p>
-                <div className="mt-6 flex flex-wrap gap-3 text-xs font-semibold uppercase tracking-[0.2em] text-gray-300">
-                  <span>Uber</span>
-                  <span>Cloudflare</span>
-                  <span>Instacart</span>
-                  <span>GitLab</span>
-                  <span>Lyft</span>
-                  <span>Microsoft</span>
-                  <span>Contentsquare</span>
-                </div>
-                <div className="mt-8 border border-gray-600 bg-[#0b1220] text-gray-200">
-                  <div className="border-b border-gray-600 p-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
-                    Self‑service layer → dashboards, apps, AI agents
-                  </div>
-                  <div className="border-b border-gray-600 p-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
-                    Semantic layer → type‑safe metric definitions in TypeScript
-                  </div>
-                  <div className="border-b border-gray-600 p-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
-                    Query translation → compile definitions to ClickHouse SQL
-                  </div>
-                  <div className="p-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
-                    ClickHouse → optimized schemas and materialized views
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-4 text-sm text-gray-300 sm:grid-cols-2">
-                  <div className="border border-gray-700 bg-[#0a0f1d] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
-                      With hypequery
-                    </p>
-                    <p className="mt-2">
-                      The platform team defines metrics once; every surface consumes the same
-                      governed API.
-                    </p>
-                  </div>
-                  <div className="border border-gray-700 bg-[#0a0f1d] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
-                      Without hypequery
-                    </p>
-                    <p className="mt-2">
-                      Each team rebuilds the stack and re‑implements the same logic repeatedly.
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-4 text-xs text-gray-400">
-                  The tooling changes, but the layers never do.
-                </p>
-              </div>
-
-              <div className="mt-14 border border-gray-700 bg-[#0f172a] p-6 text-gray-200">
-                <div className="flex items-center justify-between gap-6">
-                  <h3 className="text-2xl font-semibold text-gray-100">Performance</h3>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-                    Placeholder metrics
-                  </p>
-                </div>
-                <p className="mt-3 text-sm text-gray-300">
-                  @clickhouse/client raw SQL vs @hypequery/clickhouse. We’ll drop in real numbers once
-                  the benchmark suite is published.
-                </p>
-                <div className="mt-6 border border-gray-700">
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
-                    <div className="p-3">Metric</div>
-                    <div className="p-3 text-center">Raw SQL</div>
-                    <div className="p-3 text-center">Hypequery</div>
-                  </div>
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
-                    <div className="p-3 text-gray-300">P95 latency</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                  </div>
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
-                    <div className="p-3 text-gray-300">Throughput (req/s)</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                  </div>
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
-                    <div className="p-3 text-gray-300">Cold start</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                  </div>
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] text-sm">
-                    <div className="p-3 text-gray-300">Cache hit ratio</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                  </div>
-                </div>
-                <div className="mt-6 border border-gray-700">
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-xs font-semibold uppercase tracking-[0.25em] text-gray-400">
-                    <div className="p-3">Capability</div>
-                    <div className="p-3 text-center">Raw SQL</div>
-                    <div className="p-3 text-center">Hypequery</div>
-                  </div>
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
-                    <div className="p-3 text-gray-300">Type safety end‑to‑end</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                    <div className="p-3 text-center text-gray-100">Yes</div>
-                  </div>
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] border-b border-gray-700 text-sm">
-                    <div className="p-3 text-gray-300">Governed auth & tenancy</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                    <div className="p-3 text-center text-gray-100">Yes</div>
-                  </div>
-                  <div className="grid grid-cols-[1.2fr_1fr_1fr] text-sm">
-                    <div className="p-3 text-gray-300">Reusable query definitions</div>
-                    <div className="p-3 text-center text-gray-400">—</div>
-                    <div className="p-3 text-center text-gray-100">Yes</div>
-                  </div>
-                </div>
               </div>
 
               <div className="mt-10 grid gap-4 md:grid-cols-4 lg:grid-cols-4">
@@ -524,7 +412,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
               </div>
               <div className="mt-10">
                 <div className="bg-white p-6 text-gray-900 shadow-lg ring-2 ring-indigo-100 dark:bg-gray-800 dark:text-gray-100">
-                  <h3 className="mt-3 text-2xl font-bold tracking-tight">
+                  <h3 className="font-display mt-3 text-2xl font-bold tracking-tight">
                     {selectedUseCase.title}
                   </h3>
                   <p className="mt-4 text-base leading-7 text-gray-600 dark:text-gray-300">
@@ -550,12 +438,12 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </section>
 
             {/* Why your org keeps rebuilding this layer */}
-            <section className="mt-24">
+            <section className="mt-20">
               <div className="relative left-1/2 right-1/2 w-screen -translate-x-1/2 bg-gray-100 py-16 dark:bg-gray-800">
                 <div className="mx-auto max-w-7xl px-4 lg:px-6">
                   <div className="grid gap-10 lg:grid-cols-[1.1fr_auto] lg:items-center">
                     <div>
-                      <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                      <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                         Why orgs keep rebuilding this layer
                       </h2>
                       <p className="mt-6 text-lg leading-7 text-gray-700 dark:text-gray-300">
@@ -566,7 +454,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       </p>
                       <div className="mt-8 grid gap-6 md:grid-cols-2">
                         <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-900/40 dark:border-gray-700">
-                          <p className="text-base font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                          <p className="font-display text-base font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
                             Without hypequery
                           </p>
                           <ul className="mt-4 list-disc space-y-3 pl-5 text-base leading-7 text-gray-700 dark:text-gray-300">
@@ -576,7 +464,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                           </ul>
                         </div>
                         <div className="border border-indigo-200 bg-white p-6 shadow-sm ring-1 ring-indigo-100 dark:bg-gray-900/60 dark:border-indigo-500/40">
-                          <p className="text-base font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
+                          <p className="font-display text-base font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
                             With hypequery
                           </p>
                           <ul className="mt-4 list-disc space-y-3 pl-5 text-base leading-7 text-gray-700 dark:text-gray-200">
@@ -602,13 +490,13 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </section>
 
             {/* An end-to-end platform for analytics development */}
-            <section className="mt-24">
-              <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+            <section className="mt-20">
+              <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                 An end-to-end platform for analytics development
               </h2>
               <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Catch breaking schema changes before deploy
                   </h3>
                   <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -617,7 +505,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   </p>
                 </div>
                 <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Run governed metrics everywhere, not just HTTP
                   </h3>
                   <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -626,7 +514,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   </p>
                 </div>
                 <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Metrics as first-class code citizens
                   </h3>
                   <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -635,7 +523,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   </p>
                 </div>
                 <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Ship APIs with OpenAPI and authentication out of the box
                   </h3>
                   <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -644,7 +532,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   </p>
                 </div>
                 <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Bake tenant isolation into the platform
                   </h3>
                   <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -653,7 +541,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   </p>
                 </div>
                 <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Ship-ready authentication, caching, and observability primitives
                   </h3>
                   <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -667,13 +555,13 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
         </div >
 
         {/* Final CTA section */}
-        < section className="my-16 relative isolate overflow-hidden bg-white px-6 py-16 text-center sm:px-12 lg:px-16 dark:bg-gray-900" >
+        < section className="my-14 relative isolate overflow-hidden bg-white px-6 py-14 text-center sm:px-12 lg:px-16 dark:bg-gray-900" >
           <div className="mx-auto max-w-3xl text-gray-900 dark:text-white">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-white/70">
               Ship faster
             </p>
-            <h2 className="mt-4 text-3xl font-bold sm:text-4xl">
-              Ready for a proper analytics platform?
+            <h2 className="font-display mt-4 text-3xl font-bold sm:text-4xl">
+              Ship your first governed metric in 5 minutes
             </h2>
             <p className="mt-4 text-base text-gray-600 sm:text-lg dark:text-white/80">
               Point hypequery at your ClickHouse cluster and ship a governed metric in under five minutes.

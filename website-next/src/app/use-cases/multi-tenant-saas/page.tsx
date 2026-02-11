@@ -108,19 +108,19 @@ export default function MultiTenantSaasUseCasePage() {
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="grid gap-6 md:grid-cols-3">
             <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="text-lg font-semibold text-slate-100">Map auth once</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-100">Map auth once</h2>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Convert API keys or sessions into typed auth context with tenant and role metadata.
               </p>
             </div>
             <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="text-lg font-semibold text-slate-100">Inject tenant filters</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-100">Inject tenant filters</h2>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Configure extraction once and let query execution scope data automatically.
               </p>
             </div>
             <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="text-lg font-semibold text-slate-100">Enforce roles inline</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-100">Enforce roles inline</h2>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Require admin or tenant-specific roles directly in sensitive query definitions.
               </p>
@@ -157,7 +157,7 @@ export default function MultiTenantSaasUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-gray-100">Tenant auth without glue code</h2>
+          <h2 className="font-display text-2xl font-semibold text-gray-100">Tenant auth without glue code</h2>
           <p className="mt-3 text-lg leading-8 text-gray-300">
             Use API key auth and map tenant and admin identities directly into typed auth context.
           </p>
@@ -176,7 +176,7 @@ export default function MultiTenantSaasUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-gray-100">Automatic tenant scoping</h2>
+          <h2 className="font-display text-2xl font-semibold text-gray-100">Automatic tenant scoping</h2>
           <p className="mt-3 text-lg leading-8 text-gray-300">
             Set tenant extraction once and let HypeQuery inject filters automatically.
           </p>
@@ -195,7 +195,7 @@ export default function MultiTenantSaasUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-gray-100">Role-based access for sensitive queries</h2>
+          <h2 className="font-display text-2xl font-semibold text-gray-100">Role-based access for sensitive queries</h2>
           <p className="mt-3 text-lg leading-8 text-gray-300">
             Apply access control directly in query definitions.
           </p>
@@ -219,7 +219,7 @@ export default function MultiTenantSaasUseCasePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Governance outcome
               </p>
-              <h2 className="mt-3 text-2xl font-semibold text-white">
+              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
                 Clear tenant boundaries with a single shared query layer
               </h2>
               <ul className="mt-4 space-y-2 text-sm leading-7 text-slate-300">

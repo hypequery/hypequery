@@ -31,6 +31,5 @@ export function baseOptions() {
         enabled: true,
       },
     },
-    theme: false,
   };
 }

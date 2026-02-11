@@ -4,20 +4,20 @@ import { ChevronDown, Github } from 'lucide-react';
 const navigation: NavigationItem[] = [
   { name: 'Docs', href: '/docs' },
   { name: 'Blog', href: '/blog' },
-  {
-    name: 'Use Cases',
-    href: '/use-cases',
-    children: [
-      {
-        name: 'Internal Product APIs',
-        href: '/use-cases/internal-product-apis',
-      },
-      {
-        name: 'Multi-tenant SaaS',
-        href: '/use-cases/multi-tenant-saas',
-      },
-    ],
-  },
+  // {
+  //   name: 'Use Cases',
+  //   href: '/use-cases',
+  //   children: [
+  //     {
+  //       name: 'Internal Product APIs',
+  //       href: '/use-cases/internal-product-apis',
+  //     },
+  //     {
+  //       name: 'Multi-tenant SaaS',
+  //       href: '/use-cases/multi-tenant-saas',
+  //     },
+  //   ],
+  // },
   {
     name: 'GitHub',
     href: 'https://github.com/hypequery/hypequery',

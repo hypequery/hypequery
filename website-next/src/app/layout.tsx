@@ -93,6 +93,11 @@ gtag('config', '${gaMeasurementId}');`,
         className={`${geistSans.variable} ${geistMono.variable} ${displayFont.variable} antialiased`}
       >
         <RootProvider
+          theme={{
+            forcedTheme: "dark",
+            defaultTheme: "dark",
+            enableSystem: false,
+          }}
           search={{
             SearchDialog: DefaultSearchDialog,
           }}

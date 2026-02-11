@@ -43,7 +43,7 @@ export default async function BlogPostPage({
               day: 'numeric',
             })}
           </time>
-          <h1 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
+          <h1 className="font-display mt-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
             {data.title}
           </h1>
           {data.description && (

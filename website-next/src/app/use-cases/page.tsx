@@ -81,7 +81,7 @@ export default function UseCasesPage() {
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">
                   {item.label}
                 </p>
-                <h3 className="mt-3 text-2xl font-semibold text-slate-100">{item.title}</h3>
+                <h3 className="font-display mt-3 text-2xl font-semibold text-slate-100">{item.title}</h3>
                 <p className="mt-4 text-base leading-7 text-slate-300">{item.description}</p>
                 <ul className="mt-6 space-y-2 text-sm text-slate-200">
                   {item.points.map((point) => (
@@ -103,21 +103,21 @@ export default function UseCasesPage() {
           <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 lg:grid-cols-3 lg:px-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 01</p>
-              <h3 className="mt-3 text-xl font-semibold text-white">Model metrics once</h3>
+              <h3 className="font-display mt-3 text-xl font-semibold text-white">Model metrics once</h3>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Define analytics in TypeScript with explicit inputs, outputs, and auth expectations.
               </p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 02</p>
-              <h3 className="mt-3 text-xl font-semibold text-white">Integrate into your backend</h3>
+              <h3 className="font-display mt-3 text-xl font-semibold text-white">Integrate into your backend</h3>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Mount generated routes where needed or call queries in-process from existing handlers.
               </p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 03</p>
-              <h3 className="mt-3 text-xl font-semibold text-white">Expand usage safely</h3>
+              <h3 className="font-display mt-3 text-xl font-semibold text-white">Expand usage safely</h3>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Reuse the same definitions across dashboards, services, and internal tools without drift.
               </p>

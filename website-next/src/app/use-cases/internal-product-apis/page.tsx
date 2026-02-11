@@ -100,19 +100,19 @@ export default function InternalProductApisUseCasePage() {
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="grid gap-6 md:grid-cols-3">
             <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="text-lg font-semibold text-slate-100">Keep route contracts stable</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-100">Keep route contracts stable</h2>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Existing API consumers keep working while analytics ships behind internal paths.
               </p>
             </div>
             <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="text-lg font-semibold text-slate-100">Use one query definition</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-100">Use one query definition</h2>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Call analytics from handlers with <code>api.run(...)</code> and expose the same logic via HTTP.
               </p>
             </div>
             <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="text-lg font-semibold text-slate-100">Scale rollout safely</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-100">Scale rollout safely</h2>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 Start with one endpoint, validate outcomes, then expand into a broader internal API surface.
               </p>
@@ -126,21 +126,21 @@ export default function InternalProductApisUseCasePage() {
             <div className="mt-8 grid gap-6 md:grid-cols-3">
               <div className="border border-slate-700 bg-slate-900/70 p-6">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 1</p>
-                <h3 className="mt-3 text-lg font-semibold text-slate-100">Mount internal routes</h3>
+                <h3 className="font-display mt-3 text-lg font-semibold text-slate-100">Mount internal routes</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
                   Add HypeQuery under a dedicated internal namespace beside current handlers.
                 </p>
               </div>
               <div className="border border-slate-700 bg-slate-900/70 p-6">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 2</p>
-                <h3 className="mt-3 text-lg font-semibold text-slate-100">Compose in endpoints</h3>
+                <h3 className="font-display mt-3 text-lg font-semibold text-slate-100">Compose in endpoints</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
                   Pull analytics into product responses directly from business endpoints.
                 </p>
               </div>
               <div className="border border-slate-700 bg-slate-900/70 p-6">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 3</p>
-                <h3 className="mt-3 text-lg font-semibold text-slate-100">Reuse query logic</h3>
+                <h3 className="font-display mt-3 text-lg font-semibold text-slate-100">Reuse query logic</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
                   Keep one typed source of truth for both in-process and routed analytics execution.
                 </p>
@@ -150,7 +150,7 @@ export default function InternalProductApisUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-gray-100">Works with your existing routes</h2>
+          <h2 className="font-display text-2xl font-semibold text-gray-100">Works with your existing routes</h2>
           <p className="mt-3 text-lg leading-8 text-gray-300">
             Your backend stays in control. Mount HypeQuery routes where you want
             them.
@@ -170,7 +170,7 @@ export default function InternalProductApisUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-gray-100">
+          <h2 className="font-display text-2xl font-semibold text-gray-100">
             Compose analytics directly in business endpoints
           </h2>
           <p className="mt-3 text-lg leading-8 text-gray-300">
@@ -192,7 +192,7 @@ export default function InternalProductApisUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="text-2xl font-semibold text-gray-100">
+          <h2 className="font-display text-2xl font-semibold text-gray-100">
             Define once, reuse everywhere
           </h2>
           <p className="mt-3 text-lg leading-8 text-gray-300">
@@ -219,7 +219,7 @@ export default function InternalProductApisUseCasePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Ready to implement
               </p>
-              <h2 className="mt-3 text-2xl font-semibold text-white">
+              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
                 Use this as your first production migration path
               </h2>
               <ul className="mt-4 space-y-2 text-sm leading-7 text-slate-300">
