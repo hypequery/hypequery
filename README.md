@@ -1,5 +1,26 @@
 
-## hypequery
+
+<p align="center">
+  <img src="website-next/public/logo.png" alt="hypequery logo" width="140" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/hypequery/hypequery/blob/main/LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/hypequery/hypequery?style=for-the-badge" />
+  </a>
+  <a href="https://www.npmjs.com/package/@hypequery/cli">
+    <img alt="npm @hypequery/cli" src="https://img.shields.io/npm/v/%40hypequery%2Fcli?style=for-the-badge" />
+  </a>
+  <a href="https://www.npmjs.com/package/@hypequery/clickhouse">
+    <img alt="npm @hypequery/clickhouse" src="https://img.shields.io/npm/v/%40hypequery%2Fclickhouse?style=for-the-badge" />
+  </a>
+  <a href="https://www.npmjs.com/package/@hypequery/serve">
+    <img alt="npm @hypequery/serve" src="https://img.shields.io/npm/v/%40hypequery%2Fserve?style=for-the-badge" />
+  </a>
+  <a href="https://www.npmjs.com/package/@hypequery/react">
+    <img alt="npm @hypequery/react" src="https://img.shields.io/npm/v/%40hypequery%2Freact?style=for-the-badge" />
+  </a>
+</p>
 
 ### The type-safe analytics backend for ClickHouse. Define metrics once, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.
 
@@ -15,13 +36,11 @@
 ```bash
 # No installation needed
 npx @hypequery/cli init
-```
 
-Or if you have the CLI installed:
-
-```bash
+# Or if you have the CLI installed:
 npx hypequery init
 ```
+
 
 ### Define your type safe queries in TypeScript
 
