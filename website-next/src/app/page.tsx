@@ -14,9 +14,8 @@ import {
   CodeBlockTabsTrigger,
 } from 'fumadocs-ui/components/codeblock';
 import { Steps, Step } from 'fumadocs-ui/components/steps';
-import { heroCode, useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
+import { useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
 import { CopyButton } from '@/components/CopyButton';
-import HypequeryArchitecture from '@/components/HypequeryArchitecture';
 
 export default function Home() {
   const [selectedUseCase, setSelectedUseCase] = useState(useCaseExamplesRaw[0]);
@@ -126,7 +125,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
   return (
     <>
       <Navigation />
-      <main>
+      <main className="home-page">
         {/* Hero section */}
         <div className="relative isolate bg-[#0b1120] pt-14 text-gray-100">
           <div className="pt-24 pb-8">
@@ -235,7 +234,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       <Step>
                         <div className="flex flex-col gap-2 pb-12">
                           <p className="text-lg font-semibold text-gray-100">Define</p>
-                          <p className="text-base text-gray-300">Define type-safe queries with our ClickHouse-native query builder, or drop in raw SQL.</p>
+                          <p className="text-base text-gray-300">Define type-safe queries with our ClickHouse-native query builder.</p>
                         </div>
                       </Step>
                       <Step>
@@ -276,7 +275,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                 </div>
               </div>
               <div className="mt-8">
-                <div className="mt-6 feature-grid overflow-hidden border border-gray-700">
+                <div className="mt-6 feature-grid feature-grid-runtime overflow-hidden border border-gray-700">
                   <div className="feature-card p-6 text-gray-200">
                     <h3 className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-gray-400">
                       AI Agent
