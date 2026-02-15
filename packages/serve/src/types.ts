@@ -1,5 +1,6 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
+import type { ModelRegistry, SemanticSchema } from "./semantic/types.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -484,6 +485,20 @@ export interface ServeConfig<
   TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
 > {
   queries: TQueries;
+  /**
+   * Semantic models — named business-logic abstractions over physical tables.
+   * Models define dimensions (groupable columns), measures (aggregations),
+   * and relationships to other models.
+   *
+   * @example
+   * ```ts
+   * const api = defineServe({
+   *   models: { orders: OrderModel, customers: CustomerModel },
+   *   queries: { ... },
+   * });
+   * ```
+   */
+  models?: ModelRegistry<SemanticSchema>;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
