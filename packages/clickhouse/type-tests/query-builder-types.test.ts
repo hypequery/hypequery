@@ -111,6 +111,9 @@ type AssertChainSelect = Expect<Equal<ChainResult, ChainExpected>>;
 
 const predicateBuilder = createPredicateBuilder<BuilderStateType>();
 predicateBuilder.fn('hasAny', 'tags', ['foo']);
+predicateBuilder.ch.dictGet('users_dict', 'name', predicateBuilder.col('created_by'));
+// @ts-expect-error - helper name typo should be rejected
+predicateBuilder.ch.getdict('users_dict', 'name', predicateBuilder.col('created_by'));
 // @ts-expect-error - invalid column should be rejected
 predicateBuilder.fn('hasAny', 'unknown_column', ['foo']);
 
@@ -156,6 +159,14 @@ const cteQuery = builder.withCTE('recent_orders', cteSource).select(['id'] as co
 type CteResult = Awaited<ReturnType<typeof cteQuery.execute>>;
 type CteExpected = { id: number }[];
 type AssertCteState = Expect<Equal<CteResult, CteExpected>>;
+
+builder.withScalar('user_name', expr =>
+  expr.ch.dictGet('users_dict', 'name', expr.col('created_by'))
+);
+// @ts-expect-error - scalar alias cannot contain whitespace
+builder.withScalar('user name', expr =>
+  expr.ch.dictGet('users_dict', 'name', expr.col('created_by'))
+);
 
 const aliasJoin = builder
   .innerJoin('users', 'created_by', 'users.id', 'creator')

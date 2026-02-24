@@ -141,4 +141,59 @@ describe('QueryBuilder Analytics Features', () => {
 
     })
   })
+
+  describe('withScalar', () => {
+    it('should add scalar WITH aliases without wrapping the expression in parentheses', () => {
+      const sql = queryBuilder
+        .withScalar('user_name', expr =>
+          expr.ch.dictGet('users_dict', 'name', expr.col('user_id'))
+        )
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toBe(
+        "WITH dictGet('users_dict', 'name', user_id) AS user_name " +
+        'SELECT id FROM test_table'
+      );
+    });
+
+    it('should support mixing scalar aliases and CTEs in insertion order', () => {
+      const sql = queryBuilder
+        .withScalar('user_name', expr =>
+          expr.ch.dictGet('users_dict', 'name', expr.col('user_id'))
+        )
+        .withCTE('recent_ids', 'SELECT id FROM test_table WHERE price > 10')
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toBe(
+        "WITH dictGet('users_dict', 'name', user_id) AS user_name, " +
+        'recent_ids AS (SELECT id FROM test_table WHERE price > 10) ' +
+        'SELECT id FROM test_table'
+      );
+    });
+
+    it('should substitute scalar expression parameters independently of query parameter order', () => {
+      const sql = queryBuilder
+        .where('id', 'gt', 10)
+        .withScalar('user_name', expr =>
+          expr.ch.dictGet('users_dict', 'name', expr.col('user_id'))
+        )
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toContain("WITH dictGet('users_dict', 'name', user_id) AS user_name");
+      expect(sql).toContain('WHERE id > 10');
+    });
+
+    it('should reject invalid scalar aliases at runtime', () => {
+      expect(() =>
+        queryBuilder.withScalar('user name', expr =>
+          expr.ch.dictGet('users_dict', 'name', expr.col('user_id'))
+        )
+      ).toThrow(
+        'Invalid scalar alias "user name". Use an unquoted SQL identifier (letters, numbers, underscore; cannot start with a number).'
+      );
+    });
+  });
 });

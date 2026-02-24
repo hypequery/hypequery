@@ -61,6 +61,7 @@ type ColumnOperatorValue<
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
+type ScalarAlias<Alias extends string> = Alias extends `${string} ${string}` ? never : Alias;
 
 export interface ExecuteOptions {
   queryId?: string;
@@ -170,6 +171,21 @@ export class QueryBuilder<
     subquery: QueryBuilder<any, AnyBuilderState> | string
   ): this {
     this.config = this.analytics.addCTE(alias, subquery);
+    return this;
+  }
+
+  // --- Analytics Helper: Add a scalar WITH alias.
+  withScalar<Alias extends string>(
+    alias: ScalarAlias<Alias>,
+    expressionBuilder: (expr: PredicateBuilder<State>) => PredicateExpression
+  ): this {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(alias)) {
+      throw new Error(
+        `Invalid scalar alias "${alias}". Use an unquoted SQL identifier (letters, numbers, underscore; cannot start with a number).`
+      );
+    }
+    const expression = expressionBuilder(createPredicateBuilder<State>());
+    this.config = this.analytics.addScalar(alias, expression);
     return this;
   }
 
