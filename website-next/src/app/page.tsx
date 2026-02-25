@@ -166,11 +166,27 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                         Star on GitHub
                       </a>
                     </div>
-                    <div className="mt-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Image
-                        src="https://img.shields.io/npm/dm/@hypequery/clickhouse?color=white&label=monthly%20downloads&logo=npm&style=flat-square"
+                        src="https://img.shields.io/npm/dm/@hypequery/clickhouse?color=white&label=downloads&logo=npm&style=flat-square"
                         alt="npm downloads"
-                        width={160}
+                        width={140}
+                        height={20}
+                        className="h-5 w-auto"
+                        unoptimized
+                      />
+                      <Image
+                        src="https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white&style=flat-square"
+                        alt="TypeScript"
+                        width={100}
+                        height={20}
+                        className="h-5 w-auto"
+                        unoptimized
+                      />
+                      <Image
+                        src="https://img.shields.io/badge/ClickHouse-DB3321?logo=clickhouse&logoColor=white&style=flat-square"
+                        alt="ClickHouse"
+                        width={110}
                         height={20}
                         className="h-5 w-auto"
                         unoptimized
