@@ -214,54 +214,6 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
           </div>
         </div>
 
-        {/* Before/After comparison section */}
-        <div className="bg-gray-50 py-16 dark:bg-gray-900">
-          <div className="mx-auto max-w-7xl px-4 lg:px-6">
-            <div className="text-center">
-              <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                Raw SQL breaks teams at scale
-              </h2>
-              <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                When every dashboard, service, and script ships its own SQL, metrics drift and trust disappears. The same definition should power every surface.
-              </p>
-            </div>
-
-            <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              {/* The old way */}
-              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500">
-                  The old way
-                </p>
-                <h3 className="font-display mt-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">YAML. SQL strings.</h3>
-                <ul className="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                  <li>Query logic scattered across dashboards, scripts, and services.</li>
-                  <li>String‑concatenated SQL that drifts as schemas evolve.</li>
-                  <li>Metrics definitions duplicated and re‑implemented per team.</li>
-                </ul>
-              </div>
-
-              {/* The hypequery way */}
-              <div className="border border-indigo-500/40 bg-white p-6 shadow-sm ring-1 ring-indigo-100 dark:bg-gray-800 dark:border-indigo-500/40">
-                <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-indigo-600 dark:text-indigo-400">
-                  The hypequery way
-                </p>
-                <h3 className="font-display mt-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">Everything is code.</h3>
-                <ul className="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                  <li>Type‑safe metrics defined once in TypeScript.</li>
-                  <li>Reusable definitions power APIs, jobs, dashboards, and agents.</li>
-                  <li>Auth, multi‑tenancy, and caching stay consistent everywhere.</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="mt-8 text-center">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                One definition. Any context. Zero drift.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Progression section */}
         <div className="bg-gray-50 py-16 dark:bg-gray-900">
           <div className="mx-auto max-w-7xl px-4 lg:px-6">
@@ -341,19 +293,19 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
           </div>
         </div>
 
-        <div className="bg-[#1f2937]">
-          <div className="mx-auto max-w-7xl px-4 lg:px-6 text-gray-100">
+        <div className="bg-white py-20 dark:bg-gray-900">
+          <div className="mx-auto max-w-7xl px-4 lg:px-6 text-gray-900 dark:text-gray-100">
             {/* Everything is code section */}
-            <section className="py-16">
+            <section className="mb-20">
               <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr] lg:items-start">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-400">
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-600 dark:text-indigo-400">
                     Everything is code
                   </p>
-                  <h2 className="mt-4 font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-100">
+                  <h2 className="mt-4 font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
                     From ClickHouse schema to governed APIs in minutes
                   </h2>
-                  <p className="mt-4 text-base md:text-lg leading-7 text-gray-300">
+                  <p className="mt-4 text-base md:text-lg leading-7 text-gray-600 dark:text-gray-300">
                     A quick path from your ClickHouse schema to a typed, governed API without YAML,
                     without SQL strings.
                   </p>
@@ -626,7 +578,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </section>
 
             {/* An end-to-end platform for analytics development */}
-            <section className="mt-20">
+            <section className="pb-20">
               <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                 An end-to-end platform for analytics development
               </h2>
