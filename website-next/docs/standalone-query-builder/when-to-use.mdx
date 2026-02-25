@@ -5,6 +5,7 @@ description: Decide whether to start with the query builder or serve framework
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Callout } from 'fumadocs-ui/components/callout';
 
 # Choose Your Path: Builder vs Serve
 
@@ -176,91 +177,10 @@ Generate API docs without writing YAML:
 | **Learning curve** | Low | Medium |
 | **Best for** | Dashboards, scripts | APIs, multi-tenant apps |
 
----
-
-## Real-World Examples
-
-### Example 1: E-commerce Dashboard (Builder)
-
-**Scenario:** Single developer building internal analytics dashboard
-
-**Use Builder because:**
-- No external API consumers
-- Direct ClickHouse access from backend
-- Simple authentication (just you)
-- Fast iteration on queries
-
-```ts
-// analytics/dashboard.ts
-const metrics = await db
-  .table('orders')
-  .select(['date', 'revenue'])
-  .where('date', 'gte', '2024-01-01')
-  .execute();
-```
-
-**Upgrade to serve when:** You need to share analytics with other teams via API
-
----
-
-### Example 2: Multi-Tenant SaaS API (Serve)
-
-**Scenario:** B2B SaaS with 100+ customers needing analytics API
-
-**Use Serve because:**
-- Customer-facing HTTP API required
-- Per-customer data isolation (multi-tenancy)
-- Role-based access (admin vs. user)
-- API documentation for integrations
-
-```ts
-// api/analytics.ts
-const customerMetrics = query
-  .requireRole('user')
-  .query(async ({ ctx }) => {
-    // Tenant auto-injected from auth token
-    return await ctx.db
-      .table('events')
-      .where('tenant_id', 'eq', ctx.tenant.id)
-      .execute();
-  });
-```
-
----
-
-## Still Not Sure?
-
-<Callout type="info">
-  **Start with Builder.** You can migrate to Serve in 10 minutes when you're ready—no query code changes needed.
-
-  See the [Migration Guide: Builder → Serve](/docs/migration-builder-to-serve)
-</Callout>
-
-### Questions to Help You Decide
-
-**Do you need an HTTP API?**
-- No → Start with **Builder**
-- Yes → Use **Serve**
-
-**Will other teams consume your data?**
-- No → Start with **Builder**
-- Yes → Use **Serve**
-
-**Do you need user authentication?**
-- No → Start with **Builder**
-- Yes → Use **Serve**
-
-**Are you building a multi-tenant app?**
-- No → Start with **Builder**
-- Yes → Use **Serve**
-
-**If you answered "Builder" to any of these:** Start with the query builder and add serve later when you scale.
-
----
 
 ## Migration Path
 
-**Good news:** The query builder API is **100% identical** in both packages.
+The query builder API is **100% identical** in both packages.
 
 <CodeBlock>
 
@@ -285,9 +205,8 @@ const activeUsers = query
 
 **Migration steps:**
 1. Install `@hypequery/serve`
-2. Wrap queries with `initServe`
+2. Wrap queries with `defineServe`
 3. Add authentication (optional)
 4. That's it—no query changes needed!
 
 See [Migration Guide: Builder → Serve](/docs/migration-builder-to-serve) for details.
-
