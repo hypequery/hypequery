@@ -134,9 +134,13 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
               <div className="flex flex-col items-start md:flex-row relative">
                 <div className="max-w-3xl pb-12 relative z-10">
                   <div className="inline-flex items-center gap-2 mb-4">
-                    <div className="inline-flex items-center bg-green-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-green-700 dark:bg-green-500/10 dark:text-green-200">
-                      1,000+ weekly downloads
-                    </div>
+                    <Image
+                      src="https://img.shields.io/npm/dw/@hypequery/clickhouse?color=green&label=weekly%20downloads&logo=npm&style=flat-square"
+                      alt="npm downloads"
+                      width={160}
+                      height={20}
+                      className="h-5 w-auto"
+                    />
                     <div className="inline-flex items-center bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
                       The Type-Safe Query Builder for ClickHouse
                     </div>
