@@ -432,19 +432,17 @@ const result = await api.run('profile', {
 ```
 </CodeBlock>
 
-<Callout type="warning" title="Bypassing auth in internal calls">
-For trusted internal calls, you can provide context directly to skip auth:
+<Callout type="warning" title="Internal calls still enforce auth">
+`api.run()` follows the same auth pipeline as HTTP. For internal jobs, pass a trusted service token in headers.
 </Callout>
 
 <CodeBlock>
 ```typescript
-// Skip auth by providing context
 const result = await api.run('adminOnly', {
-  context: {
-    db: yourDbConnection,
-    auth: { userId: 'system', roles: ['admin'] },
-  },
   input: {},
+  request: {
+    headers: { 'x-auth-token': process.env.INTERNAL_SERVICE_TOKEN! },
+  },
 });
 ```
 </CodeBlock>

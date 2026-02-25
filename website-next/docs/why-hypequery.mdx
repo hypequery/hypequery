@@ -45,7 +45,7 @@ export const api = defineServe({
 
 ```typescript
 // In a cron job, background job or called by an AI agent
-const digest = await api.run('weeklyRevenue', { startDate: lastWeek });
+const digest = await api.run('weeklyRevenue', { input: { startDate: lastWeek } });
 
 // In React
 const { data } = useQuery('weeklyRevenue', { startDate: '2024-01-01' });

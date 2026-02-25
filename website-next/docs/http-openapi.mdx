@@ -99,11 +99,14 @@ Integrate hypequery directly into your web framework. Routes run on the **same p
 ```typescript
 // app/api/hypequery/[...hq]/route.ts
 import { api } from '@/analytics/queries';
+import { createFetchHandler } from '@hypequery/serve';
 
 export const runtime = 'nodejs';
 
-export const GET = api.handler;
-export const POST = api.handler;
+const handler = createFetchHandler(api.handler);
+
+export const GET = handler;
+export const POST = handler;
 ```
 </Pre>
 </CodeBlock>
@@ -117,7 +120,7 @@ Use the Node adapter to mount hypequery alongside your existing routes:
 ```typescript
 // server.ts
 import express from 'express';
-import { createNodeHandler } from '@hypequery/serve/adapters/node';
+import { createNodeHandler } from '@hypequery/serve';
 import { api } from './analytics/queries';
 
 const app = express();

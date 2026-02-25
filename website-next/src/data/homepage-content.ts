@@ -66,7 +66,7 @@ import { notifyOps } from '../lib/notifications';
 
 export async function sendRenewalDigest() {
   const digest = await api.run('renewalHealth', {
-    windowEnd: new Date().toISOString(),
+    input: { windowEnd: new Date().toISOString() },
   });
 
   await notifyOps('renewals', digest.rows);

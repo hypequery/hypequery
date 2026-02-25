@@ -188,7 +188,7 @@ For Next.js projects, use the fetch adapter:
 <CodeBlock>
 ```typescript
 // app/api/analytics/route.ts
-import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+import { createFetchHandler } from '@hypequery/serve';
 import { api } from '../../../analytics/queries';
 
 const handler = createFetchHandler(api.handler);

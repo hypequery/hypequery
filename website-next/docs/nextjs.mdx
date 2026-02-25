@@ -205,7 +205,7 @@ Create `app/api/analytics/[...path]/route.ts` (you write this manually):
 <CodeBlock>
 ```typescript
 import { api } from '@/analytics/queries';
-import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+import { createFetchHandler } from '@hypequery/serve';
 
 // Adapt hypequery's handler to the App Router fetch API
 const handler = createFetchHandler(api.handler);

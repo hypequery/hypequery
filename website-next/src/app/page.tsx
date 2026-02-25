@@ -62,7 +62,7 @@ const tools = new Set(catalog.queries.map((q) => q.key));
 const result = await api.run('weeklyRevenue', {
   request: { headers: { authorization: 'Bearer token' } },
 });`;
-  const httpCardCode = `import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+  const httpCardCode = `import { createFetchHandler } from '@hypequery/serve';
 
 api.route('/weekly-revenue', api.queries.weeklyRevenue);
 

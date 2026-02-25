@@ -8,12 +8,12 @@ Declarative HTTP server for exposing hypequery analytics endpoints. Build type-s
 npm install @hypequery/serve zod
 ```
 
-Peer dependencies: `zod@^3`, `tsx@^4` (optional, for dev server)
+Peer dependency: `tsx@^4` (optional, for dev server)
 
 ## Quick Start
 
 ```ts
-// analytics/server.ts
+// analytics/queries.ts
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
@@ -38,13 +38,24 @@ export const api = define({
   }),
 });
 
-// Expose as HTTP endpoint
+// Register an HTTP route
 api.route('/weeklyRevenue', api.queries.weeklyRevenue);
 ```
 
-Your API is now running with:
+```ts
+// analytics/server.ts
+import { api } from './queries';
+
+const server = await api.start({ port: 4000 });
+
+process.on('SIGTERM', async () => {
+  await server.stop();
+});
+```
+
+With the server running:
 - **Endpoint**: `POST http://localhost:4000/weeklyRevenue`
-- **Docs**: `http://localhost:4000/docs` (interactive Swagger UI)
+- **Docs**: `http://localhost:4000/docs` (Redoc UI)
 - **OpenAPI**: `http://localhost:4000/openapi.json` (machine-readable schema)
 
 ---

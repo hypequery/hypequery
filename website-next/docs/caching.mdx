@@ -51,11 +51,8 @@ export const api = define({
   }),
 });
 
-// Per-call overrides
-await api.run('leaderboard', { cache: { mode: 'network-first' } });
-
-// Disable caching entirely for this call
-await api.run('leaderboard', { cache: false });
+// Run through serve (uses cache behavior configured in your query/builder)
+await api.run('leaderboard');
 ```
 </Pre>
 </CodeBlock>

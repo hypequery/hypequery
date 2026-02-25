@@ -164,7 +164,7 @@ You can run your query in three ways:
   <CodeBlock>
     ```typescript
     // Run directly in your code (jobs, SSR, scripts)
-    const latest = await api.run('activeUsers', { limit: 25 });
+    const latest = await api.run('activeUsers', { input: { limit: 25 } });
     console.log(latest);
     ```
     </CodeBlock>
