@@ -444,18 +444,20 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                 When every dashboard, service, and script ships its own SQL, metrics drift and trust
                 disappears. The same definition should power every surface.
               </p>
-
-              {/* Before/After code comparison */}
-              <div className="mt-10 grid gap-8 lg:grid-cols-2">
-                {/* Before - Raw SQL */}
-                <div className="border-2 border-red-900/50 bg-[#0f172a] p-6">
-                  <div className="mb-4">
-                    <span className="text-sm font-semibold text-red-400">
-                      ❌ Before: Raw SQL
-                    </span>
-                  </div>
-                  <CodeHighlight
-                    code={`const result = await client.query({
+              <div className="mt-10 grid gap-6 lg:grid-cols-2">
+                <div className="border border-gray-700 bg-[#0f172a] p-6 text-gray-200">
+                  <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+                    The old way
+                  </p>
+                  <h3 className="font-display mt-4 text-2xl font-semibold text-gray-100">YAML. SQL strings.</h3>
+                  <ul className="mt-4 space-y-3 text-sm text-gray-300">
+                    <li>Query logic scattered across dashboards, scripts, and services.</li>
+                    <li>String‑concatenated SQL that drifts as schemas evolve.</li>
+                    <li>Metrics definitions duplicated and re‑implemented per team.</li>
+                  </ul>
+                  <div className="mt-6">
+                    <CodeHighlight
+                      code={`const result = await client.query({
   query: \`
     SELECT name, email, created_at
     FROM users
@@ -470,36 +472,9 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
 // ❌ Typos caught at runtime
 // ❌ SQL injection risk
 // ❌ Can't refactor safely`}
-                    language="typescript"
-                  />
-                </div>
-
-                {/* After - Type-safe */}
-                <div className="border-2 border-green-900/50 bg-[#0f172a] p-6">
-                  <div className="mb-4">
-                    <span className="text-sm font-semibold text-green-400">
-                      ✅ After: Type-Safe
-                    </span>
+                      language="typescript"
+                    />
                   </div>
-                  <DynamicCodeBlock
-                    lang="ts"
-                    code={apiCode}
-                    codeblock={{ className: 'hq-codeblock hq-highlight' }}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-12 grid gap-6 lg:grid-cols-2">
-                <div className="border border-gray-700 bg-[#0f172a] p-6 text-gray-200">
-                  <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
-                    The old way
-                  </p>
-                  <h3 className="font-display mt-4 text-2xl font-semibold text-gray-100">YAML. SQL strings.</h3>
-                  <ul className="mt-4 space-y-3 text-sm text-gray-300">
-                    <li>Query logic scattered across dashboards, scripts, and services.</li>
-                    <li>String‑concatenated SQL that drifts as schemas evolve.</li>
-                    <li>Metrics definitions duplicated and re‑implemented per team.</li>
-                  </ul>
                 </div>
                 <div className="border border-indigo-500/40 bg-[#0a0f1d] p-6 text-gray-200">
                   <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
@@ -511,6 +486,13 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                     <li>Reusable definitions power APIs, jobs, dashboards, and agents.</li>
                     <li>Auth, multi‑tenancy, and caching stay consistent everywhere.</li>
                   </ul>
+                  <div className="mt-6">
+                    <DynamicCodeBlock
+                      lang="ts"
+                      code={apiCode}
+                      codeblock={{ className: 'hq-codeblock hq-highlight' }}
+                    />
+                  </div>
                 </div>
               </div>
 
