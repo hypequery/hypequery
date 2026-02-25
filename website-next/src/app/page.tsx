@@ -438,7 +438,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             {/* The cost of raw SQL */}
             <section className="mt-20" id="solutions">
               <h2 className="font-display text-3xl font-bold tracking-tight text-gray-100">
-                Raw SQL breaks teams at scale
+                Raw SQL breaks as teams scale
               </h2>
               <p className="mt-3 text-base text-gray-300">
                 When every dashboard, service, and script ships its own SQL, metrics drift and trust
