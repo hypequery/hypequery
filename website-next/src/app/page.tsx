@@ -214,6 +214,86 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
           </div>
         </div>
 
+        {/* Before/After comparison section */}
+        <div className="bg-gray-50 py-16 dark:bg-gray-900">
+          <div className="mx-auto max-w-7xl px-4 lg:px-6">
+            <div className="text-center">
+              <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                From Raw SQL to Type-Safe Queries
+              </h2>
+              <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                See the difference hypequery makes
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-8 lg:grid-cols-2">
+              {/* Before - Raw SQL */}
+              <div className="relative">
+                <div className="absolute inset-0 -translate-x-2 -translate-y-2 rounded-lg bg-red-100 dark:bg-red-900/20"></div>
+                <div className="relative rounded-lg border-2 border-red-200 bg-white p-6 dark:border-red-800 dark:bg-gray-800">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                      ❌ Before: Raw SQL
+                    </span>
+                  </div>
+                  <CodeHighlight
+                    code={`const result = await client.query({
+      query: \`
+        SELECT name, email, created_at
+        FROM users
+        WHERE created_at >= '2024-01-01'
+        AND status = 'active'
+        ORDER BY created_at DESC
+        LIMIT 10
+      \`
+    });
+
+    // ❌ No type safety
+    // ❌ Typos caught at runtime
+    // ❌ SQL injection risk
+    // ❌ Can't refactor safely`}
+                    language="typescript"
+                  />
+                </div>
+              </div>
+
+              {/* After - Type-safe */}
+              <div className="relative">
+                <div className="absolute inset-0 translate-x-2 translate-y-2 rounded-lg bg-green-100 dark:bg-green-900/20"></div>
+                <div className="relative rounded-lg border-2 border-green-200 bg-white p-6 dark:border-green-800 dark:bg-gray-800">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                      ✅ After: Type-Safe
+                    </span>
+                  </div>
+                  <CodeHighlight
+                    code={`const result = await db
+      .table('users')
+      .select(['name', 'email', 'created_at'])
+      .where('created_at', 'gte', '2024-01-01')
+      .where('status', 'eq', 'active')
+      .orderBy('created_at', 'DESC')
+      .limit(10)
+      .execute();
+
+    // ✅ Full type safety
+    // ✅ Compile-time checks
+    // ✅ Auto-completion
+    // ✅ Refactor with confidence`}
+                    language="typescript"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 text-center">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Same query. Type-safe. Maintainable. Scalable.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Progression section */}
         <div className="bg-gray-50 py-16 dark:bg-gray-900">
           <div className="mx-auto max-w-7xl px-4 lg:px-6">
@@ -370,7 +450,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       AI Agent
                     </h3>
                     <p className="mt-3 text-base font-semibold text-gray-100">
-                      Callable by AI agent
+                      Callable by AI agents
                     </p>
                     <p className="mt-3 text-sm text-gray-300">
                       Give agents governed, typed access to metrics without raw SQL.
