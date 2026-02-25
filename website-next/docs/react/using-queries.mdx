@@ -3,6 +3,8 @@ title: Using Queries
 description: Learn how to use useQuery and useMutation in your React components
 ---
 
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+
 # Using Queries
 
 Once you've set up `@hypequery/react`, you can use `useQuery` and `useMutation` in your components with full type safety.
@@ -11,6 +13,8 @@ Once you've set up `@hypequery/react`, you can use `useQuery` and `useMutation` 
 
 Fetch data from your hypequery API with automatic caching and refetching:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { useQuery } from '@/lib/analytics';
 
@@ -25,11 +29,15 @@ function RevenueChart() {
   return <div>Total: ${data.total}</div>;
 }
 ```
+</Pre>
+</CodeBlock>
 
 ### Type Safety
 
 The query name and input are fully typed:
 
+<CodeBlock>
+<Pre>
 ```tsx
 // ✅ Type-safe
 const { data } = useQuery('weeklyRevenue', {
@@ -44,11 +52,15 @@ const { data } = useQuery('weeklyRevenue', {
   invalidField: 'value',
 });
 ```
+</Pre>
+</CodeBlock>
 
 ### TanStack Query Options
 
 All TanStack Query options are supported:
 
+<CodeBlock>
+<Pre>
 ```tsx
 const { data } = useQuery('weeklyRevenue',
   { startDate: '2025-01-01' },
@@ -59,11 +71,15 @@ const { data } = useQuery('weeklyRevenue',
   }
 );
 ```
+</Pre>
+</CodeBlock>
 
 ## `useMutation`
 
 Execute write operations or actions:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { useMutation } from '@/lib/analytics';
 
@@ -80,9 +96,13 @@ function RebuildButton() {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ### Handling Success and Errors
 
+<CodeBlock>
+<Pre>
 ```tsx
 const rebuild = useMutation('rebuildMetrics', {
   onSuccess: (data) => {
@@ -95,9 +115,13 @@ const rebuild = useMutation('rebuildMetrics', {
   },
 });
 ```
+</Pre>
+</CodeBlock>
 
 ### Optimistic Updates
 
+<CodeBlock>
+<Pre>
 ```tsx
 const updateMetric = useMutation('updateMetric', {
   onMutate: async (newData) => {
@@ -125,11 +149,15 @@ const updateMetric = useMutation('updateMetric', {
   },
 });
 ```
+</Pre>
+</CodeBlock>
 
 ## Error Handling
 
 Errors from your hypequery API are structured:
 
+<CodeBlock>
+<Pre>
 ```tsx
 const { data, error } = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
 
@@ -148,6 +176,8 @@ if (error) {
   return <div>Something went wrong: {error.message}</div>;
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Common Patterns
 
@@ -155,6 +185,8 @@ if (error) {
 
 Execute queries in sequence:
 
+<CodeBlock>
+<Pre>
 ```tsx
 function UserRevenue({ userId }: { userId: string }) {
   const { data: user } = useQuery('getUser', { userId });
@@ -168,11 +200,15 @@ function UserRevenue({ userId }: { userId: string }) {
   return <div>{revenue?.total}</div>;
 }
 ```
+</Pre>
+</CodeBlock>
 
 ### Polling
 
 Automatically refetch data at intervals:
 
+<CodeBlock>
+<Pre>
 ```tsx
 const { data } = useQuery(
   'liveMetrics',
@@ -180,11 +216,15 @@ const { data } = useQuery(
   { refetchInterval: 5000 } // Poll every 5 seconds
 );
 ```
+</Pre>
+</CodeBlock>
 
 ### Manual Refetch
 
 Trigger refetch on demand:
 
+<CodeBlock>
+<Pre>
 ```tsx
 function MetricsPanel() {
   const { data, refetch } = useQuery('metrics', {});
@@ -197,3 +237,5 @@ function MetricsPanel() {
   );
 }
 ```
+</Pre>
+</CodeBlock>

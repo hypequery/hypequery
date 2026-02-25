@@ -3,15 +3,21 @@ title: Getting Started
 description: Install and set up @hypequery/react for type-safe hooks
 ---
 
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+
 # React Hooks - Getting Started
 
 Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your existing `defineServe` API types and wire them into your React app without duplicating schemas.
 
 ## Installation
 
+<CodeBlock>
+<Pre>
 ```bash
 npm install @hypequery/react @tanstack/react-query
 ```
+</Pre>
+</CodeBlock>
 
 Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
 
@@ -21,6 +27,8 @@ Peer dependencies: `react@^18`, `@tanstack/react-query@^5`.
 
 Use `InferApiType` to automatically extract types from your API definition:
 
+<CodeBlock>
+<Pre>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
@@ -34,6 +42,8 @@ export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api', // where your hypequery routes live
 });
 ```
+</Pre>
+</CodeBlock>
 
 This eliminates the need to manually define and maintain a separate type for your API.
 
@@ -41,6 +51,8 @@ This eliminates the need to manually define and maintain a separate type for you
 
 If you prefer to manually define your API types:
 
+<CodeBlock>
+<Pre>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
@@ -57,11 +69,15 @@ export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
 });
 ```
+</Pre>
+</CodeBlock>
 
 ## Provider Setup
 
 Wrap your app with TanStack Query's provider:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -75,7 +91,11 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
+<CodeBlock>
+<Pre>
 ```tsx
 // app.tsx or _app.tsx
 import { AppProviders } from './providers';
@@ -88,3 +108,5 @@ function App() {
   );
 }
 ```
+</Pre>
+</CodeBlock>

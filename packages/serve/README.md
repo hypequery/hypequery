@@ -918,7 +918,7 @@ export const api = define({
 });
 
 // Execute with type safety (aliases: api.execute, api.client)
-const result = await api.run('getUser', { id: '123' });
+const result = await api.run('getUser', { input: { id: '123' } });
 const user = result[0];
 // user: { name: string; email: string }
 ```

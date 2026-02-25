@@ -130,6 +130,8 @@ export const api = define({
       ),
   }),
 });
+
+api.route('/sessionsQuery', api.queries.sessionsQuery, { method: 'GET' });
 ```
 
 Start the server:
@@ -413,8 +415,10 @@ Same query works everywhere:
 ```ts
 // 1. Execute directly (backend job)
 const users = await api.execute('powerUsers', {
-  since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  minSessions: 5,
+  input: {
+    since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    minSessions: 5,
+  },
 });
 
 // 2. HTTP endpoint
@@ -439,7 +443,7 @@ export const { useQuery, useMutation } = createHooks<ApiDefinition>({});
 // app/components/PowerUsers.tsx
 function PowerUsersDashboard() {
   const { data, isLoading, error } = useQuery('powerUsers', {
-    days: 7,
+    since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     minSessions: 5
   });
 

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import CodeHighlight from '@/components/CodeHighlight';
 
 export default async function BlogPostPage({
   params,
@@ -10,7 +11,7 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const posts = getPosts();
+  const posts = await getPosts();
   const post = posts.find((p) => p.slug === slug);
 
   if (!post) {
@@ -18,6 +19,7 @@ export default async function BlogPostPage({
   }
 
   const { data, content } = post;
+  const publishDate = data.date ?? data.pubDate;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-24 pt-28 lg:px-8">
@@ -34,10 +36,10 @@ export default async function BlogPostPage({
       <article>
         <div className="mb-8">
           <time
-            dateTime={data.date ?? data.pubDate ?? ''}
+            dateTime={publishDate ?? ''}
             className="text-sm text-gray-500 dark:text-gray-400"
           >
-            {new Date(data.date ?? data.pubDate ?? Date.now()).toLocaleDateString('en-US', {
+            {new Date(publishDate ?? '1970-01-01T00:00:00.000Z').toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
@@ -54,15 +56,39 @@ export default async function BlogPostPage({
         </div>
 
         <div className="prose prose-gray dark:prose-invert max-w-none">
-          <ReactMarkdown>{content}</ReactMarkdown>
+          <ReactMarkdown
+            components={{
+              code({ className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '');
+                const code = String(children).replace(/\n$/, '');
+
+                if (!match) {
+                  return (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                }
+
+                return (
+                  <CodeHighlight
+                    code={code}
+                    language={match[1]}
+                  />
+                );
+              },
+            }}
+          >
+            {content}
+          </ReactMarkdown>
         </div>
-      </article>
-    </div>
+      </article >
+    </div >
   );
 }
 
 export async function generateStaticParams() {
-  const posts = getPosts();
+  const posts = await getPosts();
   return posts.map((post) => ({
     slug: post.slug,
   }));
