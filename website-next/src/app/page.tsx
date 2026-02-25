@@ -140,6 +140,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       width={160}
                       height={20}
                       className="h-5 w-auto"
+                      unoptimized
                     />
                     <div className="inline-flex items-center bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
                       The Type-Safe Query Builder for ClickHouse
