@@ -3,6 +3,8 @@ title: Advanced Patterns
 description: Advanced React hooks configuration, HTTP methods, and cache management
 ---
 
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+
 # Advanced Patterns
 
 Learn advanced techniques for configuring and optimizing your React hooks with hypequery.
@@ -11,6 +13,8 @@ Learn advanced techniques for configuring and optimizing your React hooks with h
 
 By default, `useQuery` and `useMutation` issue `GET` requests. Override HTTP methods per query when you need `POST`, `PUT`, or other verbs:
 
+<CodeBlock>
+<Pre>
 ```ts
 import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
@@ -28,6 +32,8 @@ export const { useQuery, useMutation } = createHooks<Api>({
   },
 });
 ```
+</Pre>
+</CodeBlock>
 
 ### When to Use Different Methods
 
@@ -44,6 +50,8 @@ Instead of manually maintaining HTTP method configuration, let the server tell t
 
 When your React code can import the server bundle (e.g., Next.js App Router), pass the `api` directly:
 
+<CodeBlock>
+<Pre>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
@@ -57,6 +65,8 @@ export const { useQuery, useMutation } = createHooks<Api>({
   api, // ✅ Method metadata extracted automatically
 });
 ```
+</Pre>
+</CodeBlock>
 
 The `api` object contains method metadata from your route definitions. This keeps client and server configuration in sync automatically.
 
@@ -65,6 +75,8 @@ The `api` object contains method metadata from your route definitions. This keep
 If your frontend can't import the server module, expose a configuration endpoint:
 
 **1. Create a config endpoint:**
+<CodeBlock>
+<Pre>
 ```ts
 // app/api/hypequery-config/route.ts
 import { extractClientConfig } from '@hypequery/serve';
@@ -74,8 +86,12 @@ export function GET() {
   return Response.json(extractClientConfig(api));
 }
 ```
+</Pre>
+</CodeBlock>
 
 **2. Load config at runtime:**
+<CodeBlock>
+<Pre>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
@@ -97,8 +113,12 @@ export function getHypequeryHooks() {
   return hooksPromise;
 }
 ```
+</Pre>
+</CodeBlock>
 
 **3. Initialize in your app:**
+<CodeBlock>
+<Pre>
 ```tsx
 // app/providers.tsx
 import { getHypequeryHooks } from '@/lib/analytics';
@@ -123,11 +143,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Query Client Access
 
 Access the TanStack Query client directly for advanced cache management:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -151,6 +175,8 @@ function MetricsPanel() {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Cache Invalidation
 
@@ -158,6 +184,8 @@ function MetricsPanel() {
 
 Automatically refresh related queries when data changes:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { useMutation, useQuery } from '@/lib/analytics';
 import { useQueryClient } from '@tanstack/react-query';
@@ -181,11 +209,15 @@ function MetricsManager() {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ### Prefetching
 
 Preload data before it's needed:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -204,11 +236,15 @@ function Dashboard() {
   // ...
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Custom Query Keys
 
 By default, query keys are `[queryName, input]`. Override for advanced cache control:
 
+<CodeBlock>
+<Pre>
 ```tsx
 export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
@@ -218,6 +254,8 @@ export const { useQuery, useMutation } = createHooks<Api>({
   },
 });
 ```
+</Pre>
+</CodeBlock>
 
 This is useful when sharing cache with non-hypequery queries or integrating with existing TanStack Query setups.
 
@@ -225,6 +263,8 @@ This is useful when sharing cache with non-hypequery queries or integrating with
 
 Modify requests before they're sent (for auth tokens, headers, etc.):
 
+<CodeBlock>
+<Pre>
 ```tsx
 export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
@@ -242,11 +282,15 @@ export const { useQuery, useMutation } = createHooks<Api>({
   },
 });
 ```
+</Pre>
+</CodeBlock>
 
 ## Suspense Mode
 
 Use React Suspense for declarative loading states:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { Suspense } from 'react';
 
@@ -268,11 +312,15 @@ function Dashboard() {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Error Boundaries
 
 Handle errors declaratively with error boundaries:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { ErrorBoundary } from 'react-error-boundary';
 
@@ -287,11 +335,15 @@ function Dashboard() {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Advanced TanStack Query Options
 
 All TanStack Query options are supported:
 
+<CodeBlock>
+<Pre>
 ```tsx
 const { data, refetch, isFetching } = useQuery(
   'weeklyRevenue',
@@ -319,11 +371,15 @@ const { data, refetch, isFetching } = useQuery(
   }
 );
 ```
+</Pre>
+</CodeBlock>
 
 ## Background Refetching
 
 Keep data fresh with background updates:
 
+<CodeBlock>
+<Pre>
 ```tsx
 function LiveMetrics() {
   const { data, dataUpdatedAt } = useQuery(
@@ -346,11 +402,15 @@ function LiveMetrics() {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Parallel Queries
 
 Execute multiple queries efficiently:
 
+<CodeBlock>
+<Pre>
 ```tsx
 function Dashboard() {
   const revenue = useQuery('weeklyRevenue', { startDate: '2025-01-01' });
@@ -371,11 +431,15 @@ function Dashboard() {
   );
 }
 ```
+</Pre>
+</CodeBlock>
 
 ## Infinite Queries
 
 For paginated data that loads more as you scroll:
 
+<CodeBlock>
+<Pre>
 ```tsx
 import { useInfiniteQuery } from '@tanstack/react-query';
 
@@ -417,3 +481,5 @@ function InfiniteUserList() {
   );
 }
 ```
+</Pre>
+</CodeBlock>

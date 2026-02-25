@@ -9,37 +9,39 @@ export interface BlogPost {
     description?: string;
     date?: string;
     pubDate?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
   content: string;
 }
 
 const blogDir = path.join(process.cwd(), 'content/blog');
 
-export function getPosts(): BlogPost[] {
+export async function getPosts(): Promise<BlogPost[]> {
   if (!fs.existsSync(blogDir)) {
     return [];
   }
 
   const files = fs.readdirSync(blogDir);
-  const posts = files
-    .filter((file) => file.endsWith('.md') || file.endsWith('.mdx'))
-    .map((filename) => {
-      const filePath = path.join(blogDir, filename);
-      const fileContent = fs.readFileSync(filePath, 'utf-8');
-      const { data, content } = matter(fileContent);
+  const posts = await Promise.all(
+    files
+      .filter((file) => file.endsWith('.md') || file.endsWith('.mdx'))
+      .map(async (filename) => {
+        const filePath = path.join(blogDir, filename);
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        const { data, content } = matter(fileContent);
 
-      // Extract slug from filename (remove date prefix and extension)
-      const slug = filename
-        .replace(/^\d{4}-\d{2}-\d{2}-/, '')
-        .replace(/\.(md|mdx)$/, '');
+        // Extract slug from filename (remove date prefix and extension)
+        const slug = filename
+          .replace(/^\d{4}-\d{2}-\d{2}-/, '')
+          .replace(/\.(md|mdx)$/, '');
 
-      return {
-        slug,
-        data: data as BlogPost['data'],
-        content,
-      };
-    });
+        return {
+          slug,
+          data: data as BlogPost['data'],
+          content,
+        };
+      })
+  );
 
   // Sort by date (newest first)
   return posts.sort((a, b) => {

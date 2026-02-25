@@ -9,7 +9,7 @@ export default async function BlogPage({
 }) {
   const { page } = await searchParams;
   const pageNumber = Number(page) || 1;
-  const posts = getPosts();
+  const posts = await getPosts();
   const totalPages = Math.ceil(posts.length / 10);
 
   const startIndex = (pageNumber - 1) * 10;

@@ -86,8 +86,12 @@ body {
 /* Shiki code block styling */
 .shiki,
 .shiki code {
-  background: transparent !important;
   font-family: var(--font-geist-mono), 'Monaco', 'Courier New', monospace !important;
+}
+
+.home-page .shiki,
+.home-page .shiki code {
+  background: transparent !important;
 }
 
 .home-page .shiki {
@@ -96,9 +100,9 @@ body {
   overflow-x: auto;
 }
 
-/* Ensure code blocks in dark mode have proper styling */
-.dark .shiki,
-.dark .shiki code {
+/* Ensure homepage code blocks in dark mode have proper styling */
+.dark .home-page .shiki,
+.dark .home-page .shiki code {
   color: inherit;
 }
 
