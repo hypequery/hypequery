@@ -152,7 +152,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   <div className="mt-8 space-y-3">
                     <div className="flex flex-wrap items-center gap-4">
                       <Link
-                        href="/docs/standalone-query-builder/setup"
+                        href="/docs/quick-start"
                         className="bg-indigo-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-indigo-500 font-mono"
                       >
                         Get Started in 30 Seconds →
