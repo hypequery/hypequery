@@ -150,7 +150,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       One definition. Any context. Zero drift.
                     </p>
                   </div>
-                  <div className="mt-8 space-y-3">
+                  <div className="mt-10 space-y-3">
                     <div className="flex flex-wrap items-center gap-4">
                       <Link
                         href="/docs/quick-start"
