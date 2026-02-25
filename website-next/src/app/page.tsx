@@ -219,76 +219,44 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
           <div className="mx-auto max-w-7xl px-4 lg:px-6">
             <div className="text-center">
               <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                From Raw SQL to Type-Safe Queries
+                Raw SQL breaks teams at scale
               </h2>
               <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                See the difference hypequery makes
+                When every dashboard, service, and script ships its own SQL, metrics drift and trust disappears. The same definition should power every surface.
               </p>
             </div>
 
-            <div className="mt-12 grid gap-8 lg:grid-cols-2">
-              {/* Before - Raw SQL */}
-              <div className="relative">
-                <div className="absolute inset-0 -translate-x-2 -translate-y-2 rounded-lg bg-red-100 dark:bg-red-900/20"></div>
-                <div className="relative rounded-lg border-2 border-red-200 bg-white p-6 dark:border-red-800 dark:bg-gray-800">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      ❌ Before: Raw SQL
-                    </span>
-                  </div>
-                  <CodeHighlight
-                    code={`const result = await client.query({
-      query: \`
-        SELECT name, email, created_at
-        FROM users
-        WHERE created_at >= '2024-01-01'
-        AND status = 'active'
-        ORDER BY created_at DESC
-        LIMIT 10
-      \`
-    });
-
-    // ❌ No type safety
-    // ❌ Typos caught at runtime
-    // ❌ SQL injection risk
-    // ❌ Can't refactor safely`}
-                    language="typescript"
-                  />
-                </div>
+            <div className="mt-10 grid gap-6 lg:grid-cols-2">
+              {/* The old way */}
+              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-gray-400 dark:text-gray-500">
+                  The old way
+                </p>
+                <h3 className="font-display mt-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">YAML. SQL strings.</h3>
+                <ul className="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                  <li>Query logic scattered across dashboards, scripts, and services.</li>
+                  <li>String‑concatenated SQL that drifts as schemas evolve.</li>
+                  <li>Metrics definitions duplicated and re‑implemented per team.</li>
+                </ul>
               </div>
 
-              {/* After - Type-safe */}
-              <div className="relative">
-                <div className="absolute inset-0 translate-x-2 translate-y-2 rounded-lg bg-green-100 dark:bg-green-900/20"></div>
-                <div className="relative rounded-lg border-2 border-green-200 bg-white p-6 dark:border-green-800 dark:bg-gray-800">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                      ✅ After: Type-Safe
-                    </span>
-                  </div>
-                  <CodeHighlight
-                    code={`const result = await db
-      .table('users')
-      .select(['name', 'email', 'created_at'])
-      .where('created_at', 'gte', '2024-01-01')
-      .where('status', 'eq', 'active')
-      .orderBy('created_at', 'DESC')
-      .limit(10)
-      .execute();
-
-    // ✅ Full type safety
-    // ✅ Compile-time checks
-    // ✅ Auto-completion
-    // ✅ Refactor with confidence`}
-                    language="typescript"
-                  />
-                </div>
+              {/* The hypequery way */}
+              <div className="border border-indigo-500/40 bg-white p-6 shadow-sm ring-1 ring-indigo-100 dark:bg-gray-800 dark:border-indigo-500/40">
+                <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-indigo-600 dark:text-indigo-400">
+                  The hypequery way
+                </p>
+                <h3 className="font-display mt-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">Everything is code.</h3>
+                <ul className="mt-4 space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                  <li>Type‑safe metrics defined once in TypeScript.</li>
+                  <li>Reusable definitions power APIs, jobs, dashboards, and agents.</li>
+                  <li>Auth, multi‑tenancy, and caching stay consistent everywhere.</li>
+                </ul>
               </div>
             </div>
 
             <div className="mt-8 text-center">
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Same query. Type-safe. Maintainable. Scalable.
+                One definition. Any context. Zero drift.
               </p>
             </div>
           </div>
