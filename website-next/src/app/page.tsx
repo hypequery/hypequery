@@ -170,7 +170,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   <p className="mt-3 text-sm font-medium uppercase tracking-wide text-gray-500">
                     No YAML · No string-concatenated SQL · No duplicated metrics
                   </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
                     <Image
                       src="https://img.shields.io/npm/dm/@hypequery/clickhouse?color=white&label=downloads&logo=npm&style=flat-square"
                       alt="npm downloads"
