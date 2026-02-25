@@ -34,7 +34,7 @@ export default function Footer() {
               &gt; hypequery
             </span>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              Type-Safe Analytics Backend for ClickHouse Teams
+              The Type-Safe Query Builder for ClickHouse
             </p>
           </div>
           <div className="flex flex-col gap-6 text-sm text-gray-600 md:items-end dark:text-gray-400">

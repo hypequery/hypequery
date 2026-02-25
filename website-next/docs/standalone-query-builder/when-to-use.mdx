@@ -1,98 +1,212 @@
 ---
-title: When to Use Standalone
-description: Learn when to use the standalone query builder vs the full serve framework
+title: Choose Your Path - Builder vs Serve
+description: Decide whether to start with the query builder or serve framework
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Callout } from 'fumadocs-ui/components/callout';
 
-# When to Use Standalone
+# Choose Your Path: Builder vs Serve
 
-Most teams should start with the [serve framework](/docs/quick-start). Reach for standalone `@hypequery/clickhouse` when you only need the type-safe query builder and prefer to keep authentication, routing, multi-tenancy, caching, and API definitions entirely in your codebase.
+Hypequery gives you two ways to work with ClickHouse: **start with the query builder** for simplicity, or **use the serve framework** when you need APIs and team features.
 
-## Good Use Cases for Standalone
+<Callout type="tip">
+  **Recommendation:** Start with the **query builder**. You can migrate to serve in minutes when you're ready—no code changes needed.
+</Callout>
 
-### Custom workflows without the serve runtime
+---
 
-When you don't want the serve framework's routing/auth layers and only need the fluent query builder inside existing handlers or RPC endpoints.
+## Start with Builder if...
 
+### ✅ You're building a dashboard or internal tool
 
-### Background jobs, scripts, ETL
-
-Use standalone inside cron jobs, ETL workers, or migrations where you already manage retries, authentication, and scheduling.
-
-
-
-### Internal tools & one-off scripts
-
-Ad-hoc admin tools, diagnostics, or scripts wired directly to ClickHouse without building APIs.
-
-
-### You want to own every concern
-
-Standalone is perfect when you explicitly **don’t** want the built-in features serve provides:
-
-- You have custom auth/tenant logic and don’t need serve’s auth hooks
-- You want to design the HTTP/GraphQL/RPC surface yourself
-- Caching, rate limits, logging, and observability live elsewhere in your stack
-- You’re happy defining queries inline instead of a central schema
-- Your workload is single-tenant or non-user facing so multi-tenancy, OpenAPI, and generated React hooks would be overkill
-
-## When NOT to Use Standalone
-
-Consider the **serve framework** instead if you:
-
-- **Starting a new project**: Serve provides authentication, multi-tenancy, OpenAPI out of the box
-- **Building dashboards**: React hooks give you type-safe UI integration
-- **Need API endpoints**: Serve handles routing, validation, and OpenAPI generation
-- **Want consistency**: Define once, use everywhere (APIs, React, jobs)
-- **Multi-tenant apps**: Built-in tenant isolation with enforced filtering
-
-## Comparison
-
-| Feature | Standalone | Serve Framework |
-|---------|-----------|-----------------|
-| Type-safe queries | ✅ | ✅ |
-| Query builder API | ✅ | ✅ |
-| Works anywhere | ✅ | ✅ |
-| Manual setup | Required | Optional |
-| API framework | ❌ Bring your own | ✅ Built-in |
-| React hooks | ❌ | ✅ Auto-generated |
-| Authentication | ❌ DIY | ✅ Built-in |
-| Multi-tenancy | ❌ DIY | ✅ Built-in |
-| OpenAPI | ❌ | ✅ Auto-generated |
-| Learning curve | Lower | Higher |
-
-## Can I switch later?
-
-**Yes!** The query builder API is identical. You can:
-
-**Start standalone** → Add serve later:
-
-```bash
-npm install @hypequery/serve @hypequery/react
-```
-
-**Use both**: Use serve for APIs and standalone for background jobs:
+Build type-safe queries directly in your frontend or backend:
 
 <CodeBlock>
 
 ```ts
-// Shared query builder instance
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { Schema } from './generated-schema';
-
-export const db = createQueryBuilder<Schema>(config);
-
-// Use in serve
-import { defineServe } from '@hypequery/serve';
-
-export const api = defineServe({
-  context: () => ({ db }),
-  queries: { /* ... */ }
-});
-
-// Use in jobs
-await db.table('events').where(...).execute();
+const users = await db
+  .table('users')
+  .select(['name', 'email'])
+  .where('active', true)
+  .execute();
 ```
 
 </CodeBlock>
+
+**Perfect for:**
+- Internal analytics dashboards
+- Admin panels
+- Data visualization tools
+- Scripted reports
+
+---
+
+### ✅ You need type-safe ClickHouse queries
+
+Get full TypeScript autocomplete and compile-time validation:
+
+<CodeBlock>
+
+```ts
+// Table names, columns, and types are all verified
+const result = await db
+  .table('orders')  // ✅ Type-checked
+  .select(['id', 'total', 'created_at'])  // ✅ Validated
+  .where('status', 'eq', 'completed')  // ✅ Type-safe
+  .execute();
+```
+
+</CodeBlock>
+
+**Perfect for:**
+- Replacing raw SQL strings
+- Preventing typos in column names
+- Catching errors at compile time
+- Refactoring with confidence
+
+---
+
+### ✅ You're a solo developer or small team
+
+Keep things simple with direct ClickHouse access:
+
+- No HTTP layer to configure
+- No authentication setup needed
+- No API documentation to maintain
+- Just queries, types, and results
+
+---
+
+### ✅ You want full control over query execution
+
+Run queries wherever you need them:
+
+- Frontend (browser)
+- Backend (Node.js)
+- Background jobs
+- CLI scripts
+- Serverless functions
+
+---
+
+## Add Serve if...
+
+### 🚀 You need to expose queries as HTTP APIs
+
+Automatically generate endpoints with validation and docs:
+
+<CodeBlock>
+
+```ts
+const { define, query } = initServe({
+  context: () => ({ db }),
+  queries: queries({
+    weeklyRevenue: query
+      .describe('Weekly revenue totals')
+      .input(z.object({ startDate: z.string() }))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('orders')
+          .where('created_at', 'gte', input.startDate)
+          .sum('total', 'revenue')
+          .execute()
+      ),
+  }),
+});
+```
+
+</CodeBlock>
+
+**Perfect for:**
+- Customer-facing analytics APIs
+- Multi-tenant SaaS applications
+- Public data endpoints
+- Microservices architecture
+
+---
+
+### 🚀 Your team needs governance and access controls
+
+Built-in authentication and authorization:
+
+- **Role-based access control** (RBAC)
+- **API key authentication**
+- **JWT token validation**
+- **Endpoint-level permissions**
+- **Audit logging**
+
+---
+
+### 🚀 You're building multi-tenant SaaS applications
+
+Automatic tenant isolation:
+
+- **Tenant context injection**
+- **Automatic data filtering**
+- **Prevents cross-tenant data leaks**
+- **Per-tenant query limits**
+
+---
+
+### 🚀 You want automatic OpenAPI documentation
+
+Generate API docs without writing YAML:
+
+- **Auto-generated from queries**
+- **Type-safe request/response schemas**
+- **Interactive API explorer**
+- **SDK generation for frontend**
+
+---
+
+## Comparison Table
+
+| Feature | Query Builder | Serve Framework |
+|---------|---------------|-----------------|
+| **Type-safe queries** | ✅ | ✅ |
+| **Direct ClickHouse access** | ✅ | ✅ |
+| **Works in frontend/backend** | ✅ | ✅ |
+| **HTTP API generation** | ❌ | ✅ Built-in |
+| **Authentication (RBAC)** | ❌ | ✅ Built-in |
+| **Multi-tenancy** | Manual | ✅ Auto-inject |
+| **OpenAPI docs** | ❌ | ✅ Auto-generated |
+| **React hooks** | ❌ | ✅ Auto-generated |
+| **Query caching** | ✅ Manual | ✅ Built-in strategies |
+| **Learning curve** | Low | Medium |
+| **Best for** | Dashboards, scripts | APIs, multi-tenant apps |
+
+
+## Migration Path
+
+The query builder API is **100% identical** in both packages.
+
+<CodeBlock>
+
+```ts
+// Builder - Direct execution
+const result = await db
+  .table('users')
+  .where('active', true)
+  .execute();
+
+// Serve - Same query syntax!
+const activeUsers = query
+  .query(async ({ ctx }) => {
+    return await ctx.db  // Same builder API
+      .table('users')
+      .where('active', true)
+      .execute();
+  });
+```
+
+</CodeBlock>
+
+**Migration steps:**
+1. Install `@hypequery/serve`
+2. Wrap queries with `defineServe`
+3. Add authentication (optional)
+4. That's it—no query changes needed!
+
+See [Migration Guide: Builder → Serve](/docs/migration-builder-to-serve) for details.

@@ -405,7 +405,9 @@ const api = define({
 api.start({ port: 3000 });
 
 // Or use as middleware in Next.js, Express, etc.
-export default api.handler;
+import { createFetchHandler } from '@hypequery/serve';
+const handler = createFetchHandler(api.handler);
+export default handler;
 ```
 </CodeBlock>
 

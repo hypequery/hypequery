@@ -46,8 +46,10 @@ export const api = define({
 
 // 3. Execute in-process
 const results = await api.run('weeklyRevenue', {
-  startDate: '2025-01-01',
-  endDate: '2025-01-31'
+  input: {
+    startDate: '2025-01-01',
+    endDate: '2025-01-31',
+  },
 });
 
 // 4. Or expose via HTTP (optional)
@@ -98,16 +100,17 @@ const results = await api.run('queryName', { input: 'value' });
 **HTTP endpoints:**
 ```ts
 // Express
-import { createNodeHandler } from '@hypequery/serve/adapters/node';
+import { createNodeHandler } from '@hypequery/serve';
 app.use('/api/analytics', createNodeHandler(api.handler));
 
 // Next.js App Router
-export const GET = api.handler;
-export const POST = api.handler;
+import { createFetchHandler } from '@hypequery/serve';
+const handler = createFetchHandler(api.handler);
+export const GET = handler;
+export const POST = handler;
 
 // Hono/Edge
-import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
-const handler = createFetchHandler(api.handler);
+const edgeHandler = createFetchHandler(api.handler);
 ```
 
 **React hooks:**

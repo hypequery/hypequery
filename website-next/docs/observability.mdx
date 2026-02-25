@@ -90,7 +90,11 @@ const unsubscribe = logger.subscribeToQuery('users-demo', (log) => {
   console.log('Query log:', log);
 });
 
-await api.run('users', { request: { queryId: 'users-demo' } });
+await api.run('users', {
+  request: {
+    headers: { 'x-request-id': 'users-demo' },
+  },
+});
 
 unsubscribe();
 ```

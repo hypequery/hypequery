@@ -15,7 +15,7 @@ Serve turns query definitions into reusable HTTP handlers, docs, and tooling. Th
 When you call `initServe` (or `defineServe`) you get back an `api` object. That object is environment-agnostic:
 
 - `api.route('/hello', api.queries.hello)` registers an endpoint description
-- `api.handler` exposes a Fetch-style request handler
+- `api.handler` exposes a framework-agnostic `ServeHandler`
 - `api.start()` (and the CLI) boot a Node HTTP server
 - `api.run('hello')` executes the same logic in-process (aliases: `api.execute`, `api.client`)
 
@@ -27,7 +27,7 @@ Because all of those methods share the same metadata and resolvers, you can move
 | --- | --- | --- |
 | **Standalone server** | `npx hypequery dev api/queries.ts` (or `serve`) wraps `api.start()` to run a Node HTTP server, host docs, and emit OpenAPI. | Quick local previews, dedicated analytics services (Render, Fly, Railway, Docker). |
 | **Embedded framework handler** | Import the same `api` into Next.js, Remix, Express, Fastify, SST, etc. and wire up the provided handler/route helpers. | You already have an HTTP server and want the analytics endpoints to live beside existing routes. |
-| **Edge/Fetch runtimes** | Use `api.handler` (Fetch interface) or `createFetchHandler(api)` to deploy on Vercel Edge, Cloudflare Workers, or Service Workers. | Need low-latency, edge-hosted analytics or want to avoid Node entirely. |
+| **Edge/Fetch runtimes** | Use `createFetchHandler(api.handler)` to deploy on Vercel Edge, Cloudflare Workers, or Service Workers. | Need low-latency, edge-hosted analytics or want to avoid Node entirely. |
 | **In-process execution** | Call `api.run(key)` / `api.execute` / `api.client` directly—no HTTP involved. | Cron jobs, SSR, background workers, or AI agents that just need the data. |
 
 ## Standalone Server (CLI & Node Helper)
@@ -80,8 +80,12 @@ Because every query is already a handler, you can mount the runtime anywhere:
 ```typescript
 // Next.js App Router example (app/api/weekly-revenue/route.ts)
 import { api } from '@/analytics/queries';
+import { createFetchHandler } from '@hypequery/serve';
 
-export const POST = api.route('/weeklyRevenue', api.queries.weeklyRevenue).handler;
+api.route('/weeklyRevenue', api.queries.weeklyRevenue, { method: 'POST' });
+const handler = createFetchHandler(api.handler);
+
+export const POST = handler;
 ```
 </Pre>
 </CodeBlock>
@@ -91,7 +95,7 @@ Need more control? Use the adapters directly:
 <CodeBlock>
 <Pre>
 ```typescript
-import { createNodeHandler } from '@hypequery/serve/node';
+import { createNodeHandler } from '@hypequery/serve';
 import { api } from './analytics/queries';
 import express from 'express';
 
@@ -107,11 +111,14 @@ Edge runtimes can reuse the Fetch handler:
 <Pre>
 ```typescript
 // Cloudflare Worker
+import { createFetchHandler } from '@hypequery/serve';
 import { api } from './analytics/queries';
+
+const handler = createFetchHandler(api.handler);
 
 export default {
   fetch(request: Request) {
-    return api.handler(request);
+    return handler(request);
   },
 };
 ```
@@ -120,12 +127,12 @@ export default {
 
 ## Docs and OpenAPI Everywhere
 
-Whether you run the CLI server or embed handlers yourself, you can still render docs/OpenAPI:
+Whether you run the CLI server or embed handlers yourself, docs and OpenAPI are served from the same runtime:
 
-- `api.docsHtml()` / `buildDocsHtml()` to serve the Redoc UI wherever you want
-- `api.openapi()` / `buildOpenApiDocument()` to emit specs for schema registries
+- Docs UI: `${basePath}/docs` (default)
+- OpenAPI JSON: `${basePath}/openapi.json` (default)
 
-The CLI defaults to `/docs` and `/openapi.json`, but you can host the same assets under any route.
+The defaults can be customized via `docs.path` and `openapi.path` in `initServe`/`defineServe`.
 
 ## Choosing a Path
 

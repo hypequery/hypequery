@@ -107,8 +107,10 @@ Call `api.run()` in-process with no HTTP layer. Use this in scripts, cron jobs, 
 <Pre>
 ```typescript
 const data = await api.run('weeklyRevenue', {
-  start: '2025-01-01',
-  end: '2025-03-31',
+  input: {
+    start: '2025-01-01',
+    end: '2025-03-31',
+  },
 });
 ```
 </Pre>

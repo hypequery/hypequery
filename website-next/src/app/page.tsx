@@ -62,7 +62,7 @@ const tools = new Set(catalog.queries.map((q) => q.key));
 const result = await api.run('weeklyRevenue', {
   request: { headers: { authorization: 'Bearer token' } },
 });`;
-  const httpCardCode = `import { createFetchHandler } from '@hypequery/serve/adapters/fetch';
+  const httpCardCode = `import { createFetchHandler } from '@hypequery/serve';
 
 api.route('/weekly-revenue', api.queries.weeklyRevenue);
 
@@ -133,19 +133,20 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             <div className="mx-auto max-w-7xl px-4 lg:px-6">
               <div className="flex flex-col items-start md:flex-row relative">
                 <div className="max-w-3xl pb-12 relative z-10">
-                  <div className="inline-flex items-center mb-2 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
-                    The Analytics Backend for ClickHouse Teams
+                  <div className="inline-flex items-center gap-2 mb-4">
+                    <div className="inline-flex items-center bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
+                      The Type-Safe Query Builder for ClickHouse
+                    </div>
                   </div>
                   <h1 className="font-display text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl dark:text-gray-100">
                     Ship analytics across your entire stack
                   </h1>
                   <div>
                     <p className="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">
-                      Define metrics once in TypeScript. Reuse across APIs, jobs,
-                      dashboards, and AI agents. Authentication and multi-tenancy baked in.
+                      Build type-safe ClickHouse queries in seconds. Start simple, add governance when you scale.
                     </p>
                     <p className="mt-2 text-lg leading-8 text-gray-600 dark:text-gray-300 font-medium">
-                      One definition. Any context. Zero drift.
+                      Start with the query builder. Add serve when you need teams.
                     </p>
                   </div>
                   <div className="mt-8 space-y-3">
@@ -154,7 +155,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                         href="/docs/quick-start"
                         className="bg-indigo-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-indigo-500 font-mono"
                       >
-                        Start in 2 Minutes →
+                        Get Started in 30 Seconds →
                       </Link>
                       <a
                         href="https://github.com/hypequery/hypequery"
@@ -169,6 +170,32 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   <p className="mt-3 text-sm font-medium uppercase tracking-wide text-gray-500">
                     No YAML · No string-concatenated SQL · No duplicated metrics
                   </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Image
+                      src="https://img.shields.io/npm/dm/@hypequery/clickhouse?color=white&label=downloads&logo=npm&style=flat-square"
+                      alt="npm downloads"
+                      width={140}
+                      height={20}
+                      className="h-5 w-auto"
+                      unoptimized
+                    />
+                    <Image
+                      src="https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white&style=flat-square"
+                      alt="TypeScript"
+                      width={100}
+                      height={20}
+                      className="h-5 w-auto"
+                      unoptimized
+                    />
+                    <Image
+                      src="https://img.shields.io/badge/ClickHouse-000000?logo=clickhouse&logoColor=FCC624&style=flat-square&labelColor=000000"
+                      alt="ClickHouse"
+                      width={110}
+                      height={20}
+                      className="h-5 w-auto"
+                      unoptimized
+                    />
+                  </div>
                 </div>
 
                 {/* Hero mascot and terminal - only show on large screens */}
@@ -205,19 +232,98 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
           </div>
         </div>
 
-        <div className="bg-[#1f2937]">
-          <div className="mx-auto max-w-7xl px-4 lg:px-6 text-gray-100">
+        {/* Progression section */}
+        <div className="bg-gray-50 py-16 dark:bg-gray-900">
+          <div className="mx-auto max-w-7xl px-4 lg:px-6">
+            <div className="text-center">
+              <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                Start Simple, Scale When Ready
+              </h2>
+              <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                Progress from quick queries to governed APIs without rewriting code
+              </p>
+            </div>
+            <div className="mt-12 grid gap-8 md:grid-cols-3">
+              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
+                    1
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Query Builder
+                  </h3>
+                </div>
+                <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
+                  Build type-safe ClickHouse queries in seconds. Perfect for dashboards, internal tools, and scripts.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    href="/docs/standalone-query-builder/setup"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  >
+                    Get started →
+                  </Link>
+                </div>
+              </div>
+              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
+                    2
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Add Serve
+                  </h3>
+                </div>
+                <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
+                  Need HTTP APIs? Wrap queries with serve for backend APIs. Consume in process or in React.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    href="/docs/serve-runtime"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  >
+                    Learn more →
+                  </Link>
+                </div>
+              </div>
+              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
+                    3
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Governance
+                  </h3>
+                </div>
+                <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
+                  Scale with governance: authentication, multi-tenancy, and access controls.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    href="/docs/authentication"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  >
+                    Explore features →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white py-20 dark:bg-gray-900">
+          <div className="mx-auto max-w-7xl px-4 lg:px-6 text-gray-900 dark:text-gray-100">
             {/* Everything is code section */}
-            <section className="py-16">
+            <section className="mb-20">
               <div className="grid gap-12 lg:grid-cols-[1.1fr_1fr] lg:items-start">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-400">
+                  <p className="text-xs font-semibold uppercase tracking-[0.35em] text-indigo-600 dark:text-indigo-400">
                     Everything is code
                   </p>
-                  <h2 className="mt-4 font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-100">
+                  <h2 className="mt-4 font-display text-3xl md:text-4xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
                     From ClickHouse schema to governed APIs in minutes
                   </h2>
-                  <p className="mt-4 text-base md:text-lg leading-7 text-gray-300">
+                  <p className="mt-4 text-base md:text-lg leading-7 text-gray-600 dark:text-gray-300">
                     A quick path from your ClickHouse schema to a typed, governed API without YAML,
                     without SQL strings.
                   </p>
@@ -282,7 +388,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       AI Agent
                     </h3>
                     <p className="mt-3 text-base font-semibold text-gray-100">
-                      Callable by AI agent
+                      Callable by AI agents
                     </p>
                     <p className="mt-3 text-sm text-gray-300">
                       Give agents governed, typed access to metrics without raw SQL.
@@ -350,7 +456,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             {/* The cost of raw SQL */}
             <section className="mt-20" id="solutions">
               <h2 className="font-display text-3xl font-bold tracking-tight text-gray-100">
-                Raw SQL breaks teams at scale
+                Raw SQL breaks as teams scale
               </h2>
               <p className="mt-3 text-base text-gray-300">
                 When every dashboard, service, and script ships its own SQL, metrics drift and trust
@@ -367,6 +473,26 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                     <li>String‑concatenated SQL that drifts as schemas evolve.</li>
                     <li>Metrics definitions duplicated and re‑implemented per team.</li>
                   </ul>
+                  <div className="mt-6">
+                    <CodeHighlight
+                      code={`const result = await client.query({
+  query: \`
+    SELECT name, email, created_at
+    FROM users
+    WHERE created_at >= '2024-01-01'
+    AND status = 'active'
+    ORDER BY created_at DESC
+    LIMIT 10
+  \`
+});
+
+// ❌ No type safety
+// ❌ Typos caught at runtime
+// ❌ SQL injection risk
+// ❌ Can't refactor safely`}
+                      language="typescript"
+                    />
+                  </div>
                 </div>
                 <div className="border border-indigo-500/40 bg-[#0a0f1d] p-6 text-gray-200">
                   <p className="font-display text-xs font-semibold uppercase tracking-[0.3em] text-indigo-400">
@@ -378,6 +504,24 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                     <li>Reusable definitions power APIs, jobs, dashboards, and agents.</li>
                     <li>Auth, multi‑tenancy, and caching stay consistent everywhere.</li>
                   </ul>
+                  <div className="mt-6">
+                    <CodeHighlight
+                      code={`const result = await db
+  .table('users')
+  .select(['name', 'email', 'created_at'])
+  .where('created_at', 'gte', '2024-01-01')
+  .where('status', 'eq', 'active')
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+
+// ✅ Full type safety
+// ✅ Compile-time checks
+// ✅ Auto-completion
+// ✅ Refactor with confidence`}
+                      language="typescript"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -490,7 +634,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </section>
 
             {/* An end-to-end platform for analytics development */}
-            <section className="mt-20">
+            <section className="pt-20 pb-20">
               <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                 An end-to-end platform for analytics development
               </h2>
@@ -561,15 +705,15 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
               Ship faster
             </p>
             <h2 className="font-display mt-4 text-3xl font-bold sm:text-4xl">
-              Ship your first governed metric in 5 minutes
+              Build your first type-safe query in 30 seconds
             </h2>
             <p className="mt-4 text-base text-gray-600 sm:text-lg dark:text-white/80">
-              Point hypequery at your ClickHouse cluster and ship a governed metric in under five minutes.
+              Get started with the query builder, then add HTTP APIs and team features when you need them.
               Teams use it to keep product analytics, finance APIs, and AI agents perfectly in sync.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
-                href="/docs/quick-start"
+                href="/docs/quick-start-builder"
                 className="inline-flex items-center justify-center bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-500"
               >
                 Get started →
