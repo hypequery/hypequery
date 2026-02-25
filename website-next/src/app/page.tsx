@@ -135,7 +135,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                 <div className="max-w-3xl pb-12 relative z-10">
                   <div className="inline-flex items-center gap-2 mb-4">
                     <div className="inline-flex items-center bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
-                      The Type-Safe Analytics Backend for ClickHouse
+                      The Type-Safe Query Builder for ClickHouse
                     </div>
                   </div>
                   <h1 className="font-display text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl dark:text-gray-100">
