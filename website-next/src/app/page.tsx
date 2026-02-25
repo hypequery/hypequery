@@ -143,10 +143,11 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   </h1>
                   <div>
                     <p className="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">
-                      Build type-safe ClickHouse queries in seconds. Start simple, add governance when you scale.
+                      Define metrics once in TypeScript. Reuse across APIs, jobs,
+                      dashboards, and AI agents. Authentication and multi-tenancy baked in.
                     </p>
                     <p className="mt-2 text-lg leading-8 text-gray-600 dark:text-gray-300 font-medium">
-                      Start with the query builder. Add serve when you need teams.
+                      One definition. Any context. Zero drift.
                     </p>
                   </div>
                   <div className="mt-8 space-y-3">
