@@ -271,11 +271,11 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                     2
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    Add Serve
+                    Backend APIs
                   </h3>
                 </div>
                 <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
-                  Need HTTP APIs? Wrap queries with serve for authentication, multi-tenancy, and OpenAPI docs.
+                  Need HTTP APIs? Wrap queries with serve for backend APIs. Consume in process or in React.
                 </p>
                 <div className="mt-4">
                   <Link
@@ -292,11 +292,11 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                     3
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    Team Features
+                    Governance
                   </h3>
                 </div>
                 <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
-                  Scale with governance: role-based access, audit logs, and advanced compliance features.
+                  Scale with governance: authentication, multi-tenancy, and access controls.
                 </p>
                 <div className="mt-4">
                   <Link
