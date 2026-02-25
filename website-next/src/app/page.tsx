@@ -481,21 +481,10 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       ✅ After: Type-Safe
                     </span>
                   </div>
-                  <CodeHighlight
-                    code={`const result = await db
-  .table('users')
-  .select(['name', 'email', 'created_at'])
-  .where('created_at', 'gte', '2024-01-01')
-  .where('status', 'eq', 'active')
-  .orderBy('created_at', 'DESC')
-  .limit(10)
-  .execute();
-
-// ✅ Full type safety
-// ✅ Compile-time checks
-// ✅ Auto-completion
-// ✅ Refactor with confidence`}
-                    language="typescript"
+                  <DynamicCodeBlock
+                    lang="ts"
+                    code={apiCode}
+                    codeblock={{ className: 'hq-codeblock hq-highlight' }}
                   />
                 </div>
               </div>
