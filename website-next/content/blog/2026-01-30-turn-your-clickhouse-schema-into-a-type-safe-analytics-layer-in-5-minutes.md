@@ -20,10 +20,10 @@ const result = await client.query({
   `
 });
 
-// What's the type of `result`?
-// Did I spell `created_at` right?
-// Is `session_count` a string or number?
-// → You only find out at runtime 😬
+// What's the type of result?
+// Did I spell created_at right?
+// Is session_count a string or number?
+// → You only find out at runtime
 ```
 
 No autocomplete. No type safety. Refactors are a game of find-and-replace across string literals. Errors show up in production, not at compile time.
