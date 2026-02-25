@@ -271,7 +271,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                     2
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    Backend APIs
+                    Add Serve
                   </h3>
                 </div>
                 <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
