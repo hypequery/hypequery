@@ -133,35 +133,9 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             <div className="mx-auto max-w-7xl px-4 lg:px-6">
               <div className="flex flex-col items-start md:flex-row relative">
                 <div className="max-w-3xl pb-12 relative z-10">
-                  <div className="mb-4">
-                    <div className="inline-flex items-center bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 mb-3">
+                  <div className="inline-flex items-center gap-2 mb-4">
+                    <div className="inline-flex items-center bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
                       The Type-Safe Query Builder for ClickHouse
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Image
-                        src="https://img.shields.io/npm/dm/@hypequery/clickhouse?color=white&label=downloads&logo=npm&style=flat-square"
-                        alt="npm downloads"
-                        width={140}
-                        height={20}
-                        className="h-5 w-auto"
-                        unoptimized
-                      />
-                      <Image
-                        src="https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white&style=flat-square"
-                        alt="TypeScript"
-                        width={100}
-                        height={20}
-                        className="h-5 w-auto"
-                        unoptimized
-                      />
-                      <Image
-                        src="https://img.shields.io/badge/ClickHouse-000000?logo=clickhouse&logoColor=FCC624&style=flat-square&labelColor=000000"
-                        alt="ClickHouse"
-                        width={110}
-                        height={20}
-                        className="h-5 w-auto"
-                        unoptimized
-                      />
                     </div>
                   </div>
                   <h1 className="font-display text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl dark:text-gray-100">
@@ -196,6 +170,32 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                   <p className="mt-3 text-sm font-medium uppercase tracking-wide text-gray-500">
                     No YAML · No string-concatenated SQL · No duplicated metrics
                   </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Image
+                      src="https://img.shields.io/npm/dm/@hypequery/clickhouse?color=white&label=downloads&logo=npm&style=flat-square"
+                      alt="npm downloads"
+                      width={140}
+                      height={20}
+                      className="h-5 w-auto"
+                      unoptimized
+                    />
+                    <Image
+                      src="https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white&style=flat-square"
+                      alt="TypeScript"
+                      width={100}
+                      height={20}
+                      className="h-5 w-auto"
+                      unoptimized
+                    />
+                    <Image
+                      src="https://img.shields.io/badge/ClickHouse-000000?logo=clickhouse&logoColor=FCC624&style=flat-square&labelColor=000000"
+                      alt="ClickHouse"
+                      width={110}
+                      height={20}
+                      className="h-5 w-auto"
+                      unoptimized
+                    />
+                  </div>
                 </div>
 
                 {/* Hero mascot and terminal - only show on large screens */}
