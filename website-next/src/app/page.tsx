@@ -578,7 +578,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </section>
 
             {/* An end-to-end platform for analytics development */}
-            <section className="pb-20">
+            <section className="pt-20 pb-20">
               <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                 An end-to-end platform for analytics development
               </h2>
