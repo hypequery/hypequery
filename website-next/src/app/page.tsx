@@ -184,7 +184,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                         unoptimized
                       />
                       <Image
-                        src="https://img.shields.io/badge/ClickHouse-DB3321?logo=clickhouse&logoColor=white&style=flat-square"
+                        src="https://img.shields.io/badge/ClickHouse-FCC624?logo=clickhouse&logoColor=white&style=flat-square"
                         alt="ClickHouse"
                         width={110}
                         height={20}
