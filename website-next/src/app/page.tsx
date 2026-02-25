@@ -133,28 +133,32 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             <div className="mx-auto max-w-7xl px-4 lg:px-6">
               <div className="flex flex-col items-start md:flex-row relative">
                 <div className="max-w-3xl pb-12 relative z-10">
-                  <div className="inline-flex items-center mb-2 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
-                    The Analytics Backend for ClickHouse Teams
+                  <div className="inline-flex items-center gap-2 mb-4">
+                    <div className="inline-flex items-center bg-green-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-green-700 dark:bg-green-500/10 dark:text-green-200">
+                      1,000+ weekly downloads
+                    </div>
+                    <div className="inline-flex items-center bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
+                      The Type-Safe Query Builder for ClickHouse
+                    </div>
                   </div>
                   <h1 className="font-display text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl dark:text-gray-100">
                     Ship analytics across your entire stack
                   </h1>
                   <div>
                     <p className="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">
-                      Define metrics once in TypeScript. Reuse across APIs, jobs,
-                      dashboards, and AI agents. Authentication and multi-tenancy baked in.
+                      Build type-safe ClickHouse queries in seconds. Start simple, add governance when you scale.
                     </p>
                     <p className="mt-2 text-lg leading-8 text-gray-600 dark:text-gray-300 font-medium">
-                      One definition. Any context. Zero drift.
+                      Start with the query builder. Add serve when you need teams.
                     </p>
                   </div>
                   <div className="mt-8 space-y-3">
                     <div className="flex flex-wrap items-center gap-4">
                       <Link
-                        href="/docs/quick-start"
+                        href="/docs/standalone-query-builder/setup"
                         className="bg-indigo-600 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-sm transition hover:bg-indigo-500 font-mono"
                       >
-                        Start in 2 Minutes →
+                        Get Started in 30 Seconds →
                       </Link>
                       <a
                         href="https://github.com/hypequery/hypequery"
@@ -201,6 +205,85 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
 
               {/* Architecture explainer */}
               {/* <HypequeryArchitecture /> */}
+            </div>
+          </div>
+        </div>
+
+        {/* Progression section */}
+        <div className="bg-gray-50 py-16 dark:bg-gray-900">
+          <div className="mx-auto max-w-7xl px-4 lg:px-6">
+            <div className="text-center">
+              <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
+                Start Simple, Scale When Ready
+              </h2>
+              <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+                Progress from quick queries to governed APIs without rewriting code
+              </p>
+            </div>
+            <div className="mt-12 grid gap-8 md:grid-cols-3">
+              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
+                    1
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Query Builder
+                  </h3>
+                </div>
+                <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
+                  Build type-safe ClickHouse queries in seconds. Perfect for dashboards, internal tools, and scripts.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    href="/docs/standalone-query-builder/setup"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  >
+                    Get started →
+                  </Link>
+                </div>
+              </div>
+              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
+                    2
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Add Serve
+                  </h3>
+                </div>
+                <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
+                  Need HTTP APIs? Wrap queries with serve for authentication, multi-tenancy, and OpenAPI docs.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    href="/docs/serve-runtime"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  >
+                    Learn more →
+                  </Link>
+                </div>
+              </div>
+              <div className="border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold">
+                    3
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    Team Features
+                  </h3>
+                </div>
+                <p className="mt-4 text-base text-gray-600 dark:text-gray-300">
+                  Scale with governance: role-based access, audit logs, and advanced compliance features.
+                </p>
+                <div className="mt-4">
+                  <Link
+                    href="/docs/authentication"
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                  >
+                    Explore features →
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -561,15 +644,15 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
               Ship faster
             </p>
             <h2 className="font-display mt-4 text-3xl font-bold sm:text-4xl">
-              Ship your first governed metric in 5 minutes
+              Build your first type-safe query in 30 seconds
             </h2>
             <p className="mt-4 text-base text-gray-600 sm:text-lg dark:text-white/80">
-              Point hypequery at your ClickHouse cluster and ship a governed metric in under five minutes.
+              Get started with the query builder, then add HTTP APIs and team features when you need them.
               Teams use it to keep product analytics, finance APIs, and AI agents perfectly in sync.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
-                href="/docs/quick-start"
+                href="/docs/quick-start-builder"
                 className="inline-flex items-center justify-center bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-500"
               >
                 Get started →

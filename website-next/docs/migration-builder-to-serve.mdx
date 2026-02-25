@@ -1,0 +1,418 @@
+---
+title: Migrate from Builder to Serve
+description: Add HTTP APIs and team features to your existing queries
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Migrate from Builder to Serve
+
+Already using the query builder? Adding the serve framework takes **10 minutes** and requires **zero query code changes**.
+
+<Callout type="tip">
+  **The best part:** Your existing query builder code works exactly the same in serve. Same syntax, same types, same results.
+</Callout>
+
+---
+
+## Why Upgrade?
+
+### You Need Serve If...
+
+- **Your team is growing** and you need access controls
+- **You want to expose analytics as HTTP APIs**
+- **You're building multi-tenant applications**
+- **You need API documentation and governance**
+- **You want automatic React hooks and SDKs**
+
+### Stay With Builder If...
+
+- **You're building internal tools** (no external API consumers)
+- **You're a solo developer** or small team
+- **You don't need HTTP endpoints** (just queries)
+- **You prefer full control** over execution
+
+---
+
+<Steps>
+
+<Step>
+
+### Install Serve
+
+<CodeBlock>
+
+```bash
+npm install @hypequery/serve zod
+```
+
+</CodeBlock>
+
+<Callout type="info">
+  **Optional:** Install React integration if you want auto-generated hooks:
+
+  ```bash
+  npm install @hypequery/react
+  ```
+</Callout>
+
+</Step>
+
+<Step>
+
+### Wrap Your Queries
+
+**Before (Builder only):**
+
+<CodeBlock>
+
+```ts
+// lib/db.ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client';
+
+const client = createClient({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: '',
+  database: 'analytics'
+});
+
+export const db = createQueryBuilder({ client });
+
+// lib/queries.ts
+export async function getActiveUsers() {
+  return await db
+    .table('users')
+    .where('active', true)
+    .execute();
+}
+```
+
+</CodeBlock>
+
+**After (Serve + Builder):**
+
+<CodeBlock>
+
+```ts
+// lib/db.ts - Keep as is
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client';
+
+const client = createClient({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: '',
+  database: 'analytics'
+});
+
+export const db = createQueryBuilder({ client });
+
+// api/analytics.ts - NEW: Wrap with serve
+import { initServe, queries, query } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from '../lib/db';
+
+const { define, queries: apiQueries } = initServe({
+  context: () => ({ db }),
+  queries: queries({
+    activeUsers: query
+      .describe('Get all active users')
+      .query(async ({ ctx }) => {
+        // Same builder syntax!
+        return await ctx.db
+          .table('users')
+          .where('active', true)
+          .execute();
+      }),
+  }),
+});
+
+export const api = define(apiQueries);
+```
+
+</CodeBlock>
+
+**What Changed:**
+- ✅ Kept your existing `db` instance
+- ✅ Wrapped queries with `initServe` and `query()`
+- ✅ **No changes to query logic**—same `.table()`, `.where()`, `.execute()`
+
+</Step>
+
+<Step>
+
+### Add HTTP Handler
+
+Choose your platform:
+
+<CodeBlock>
+
+```ts
+// pages/api/hypequery/[...slug].ts (Next.js App Router)
+import { createNextHandler } from '@hypequery/serve/next';
+import { api } from '@/api/analytics';
+
+export const { GET, POST } = createNextHandler(api);
+
+// Or with Next.js Pages Router:
+import { createPagesHandler } from '@hypequery/serve/next';
+import { api } from '@/api/analytics';
+
+export default createPagesHandler(api);
+
+// Or with Node.js/Express:
+import { createNodeHandler } from '@hypequery/serve/node';
+import { api } from '@/api/analytics';
+
+const handler = createNodeHandler(api);
+
+app.use('/api/analytics', handler);
+```
+
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Test Your API
+
+<CodeBlock>
+
+```bash
+curl http://localhost:3000/api/analytics/activeUsers
+```
+
+</CodeBlock>
+
+You now have:
+- ✅ Type-safe HTTP endpoint
+- ✅ Auto-generated OpenAPI documentation
+- ✅ Request validation
+- ✅ Same query logic as before
+
+</Step>
+
+</Steps>
+
+---
+
+## Advanced Features
+
+### Add Authentication
+
+<CodeBlock>
+
+```ts
+import { initServe, queries, query } from '@hypequery/serve';
+import { jwtStrategy } from '@hypequery/serve/auth';
+
+const { define } = initServe({
+  context: () => ({ db }),
+  auth: jwtStrategy({
+    secret: process.env.JWT_SECRET,
+  }),
+  queries: queries({
+    adminOnly: query
+      .requireRole('admin')  // Only admins can access
+      .query(async ({ ctx }) => {
+        return await ctx.db
+          .table('sensitive_data')
+          .execute();
+      }),
+  }),
+});
+```
+
+</CodeBlock>
+
+### Add Multi-Tenancy
+
+<CodeBlock>
+
+```ts
+import { initServe, queries, query } from '@hypequery/serve';
+import { createTenantScope } from '@hypequery/serve/tenant';
+
+const { define } = initServe({
+  context: () => ({ db }),
+  tenant: createTenantScope({
+    getContext: (req) => {
+      // Extract tenant from JWT or header
+      const token = parseJWT(req.headers.authorization);
+      return { id: token.tenantId };
+    },
+  }),
+  queries: queries({
+    customerData: query
+      .query(async ({ ctx }) => {
+        // Tenant filter auto-injected!
+        return await ctx.db
+          .table('orders')
+          .execute();
+        // Automatically becomes:
+          // WHERE tenant_id = '...'
+      }),
+  }),
+});
+```
+
+</CodeBlock>
+
+### Generate React Hooks
+
+<CodeBlock>
+
+```tsx
+// ui/components/Dashboard.tsx
+import { createHooks } from '@hypequery/react';
+import type { ApiDefinition } from '@/api/analytics';
+
+const { useQuery } = createHooks<ApiDefinition>({
+  baseUrl: '/api/analytics',
+});
+
+export function Dashboard() {
+  const { data, isLoading } = useQuery('activeUsers');
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <ul>
+      {data?.map(user => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+</CodeBlock>
+
+---
+
+## Common Patterns
+
+### Use Both Builder and Serve
+
+Keep direct query execution for jobs, use serve for APIs:
+
+<CodeBlock>
+
+```ts
+// lib/queries.ts - Export both
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { initServe, queries, query } from '@hypequery/serve';
+
+export const db = createQueryBuilder({ client });
+
+// Direct execution for background jobs
+export async function syncUsers() {
+  return await db
+    .table('users')
+    .where('active', true)
+    .execute();
+}
+
+// HTTP API for frontend
+const { define } = initServe({
+  context: () => ({ db }),
+  queries: queries({
+    activeUsers: query
+      .query(async ({ ctx }) => {
+        return await ctx.db
+          .table('users')
+          .where('active', true)
+          .execute();
+      }),
+  }),
+});
+
+export const api = define(api.queries);
+```
+
+</CodeBlock>
+
+### Migrate Gradually
+
+Don't migrate everything at once—start with critical endpoints:
+
+<CodeBlock>
+
+```ts
+// Phase 1: Keep existing code, add serve alongside
+export async function getMetrics() {
+  // Old way - still works!
+  return await db.table('metrics').execute();
+}
+
+// Phase 2: Add serve for new APIs
+const api = initServe({
+  context: () => ({ db }),
+  queries: queries({
+    newEndpoint: query.query(async ({ ctx }) => {
+      return await ctx.db.table('new_data').execute();
+    }),
+  }),
+});
+
+// Phase 3: Migrate old endpoints when convenient
+const api = initServe({
+  context: () => ({ db }),
+  queries: queries({
+    newEndpoint: query.query(async ({ ctx }) => {
+      return await ctx.db.table('new_data').execute();
+    }),
+    metrics: query.query(async ({ ctx }) => {
+      // Migrated!
+      return await ctx.db.table('metrics').execute();
+    }),
+  }),
+});
+```
+
+</CodeBlock>
+
+---
+
+## What's NOT Changing
+
+- ✅ **Query syntax** - Same `.table()`, `.where()`, `.execute()` methods
+- ✅ **Type safety** - Same TypeScript types and autocomplete
+- ✅ **Schema** - Same generated types work
+- ✅ **Connection** - Same `db` instance can be shared
+- ✅ **Learning** - Your existing query knowledge transfers
+
+---
+
+## Next Steps
+
+After migration:
+
+1. **Add authentication** → [Authentication Guide](/docs/authentication)
+2. **Enable multi-tenancy** → [Multi-Tenancy Guide](/docs/multi-tenancy)
+3. **Set up React integration** → [React Getting Started](/docs/react/getting-started)
+4. **Configure caching** → [Caching Guide](/docs/caching)
+5. **Add observability** → [Observability Guide](/docs/observability)
+
+---
+
+## Questions?
+
+**Can I use both packages together?**
+Yes! See [Use Both Builder and Serve](#use-both-builder-and-serve) above.
+
+**Do I need to rewrite my queries?**
+No! The query builder API is 100% identical.
+
+**Can I migrate gradually?**
+Yes—migrate your most important endpoints first, keep others as direct queries.
+
+**What if I need help?**
+- Check [when to use serve](/docs/standalone-query-builder/when-to-use)
+- See [serve quick start](/docs/quick-start)
+- [Open an issue on GitHub](https://github.com/hypequery/hypequery/issues)

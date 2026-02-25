@@ -1,0 +1,162 @@
+---
+title: Quick Start: Builder Basics
+description: Get started with type-safe ClickHouse queries in 30 seconds
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Get started with type-safe ClickHouse queries in seconds.
+
+<Callout type="info">
+  **New to Hypequery?** This is the fastest way to start. Build queries directly with the query builder, then add the serve framework later when you need HTTP APIs and team features.
+</Callout>
+
+---
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js 18+** installed
+- **Access to a ClickHouse instance** with connection credentials
+
+---
+
+<Steps>
+<Step>
+
+### Install the query builder
+
+<CodeBlock>
+
+```bash
+npm install @hypequery/clickhouse @clickhouse/client
+```
+
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Connect to ClickHouse
+
+Create a file named `db.ts`:
+
+<CodeBlock>
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createClient } from '@clickhouse/client';
+
+const client = createClient({
+  host: 'http://localhost:8123',
+  username: 'default',
+  password: '',
+  database: 'analytics'
+});
+
+export const db = createQueryBuilder({ client });
+```
+
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Build your first type-safe query
+
+<CodeBlock>
+
+```ts
+import { db } from './db';
+
+const result = await db
+  .table('users')
+  .select(['id', 'name', 'email'])
+  .where('created_at', 'gte', '2024-01-01')
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+
+console.log(result);
+// => [{ id: 1, name: 'Alice', email: 'alice@example.com' }, ...]
+```
+
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Add schema awareness (optional but recommended)
+
+Generate TypeScript types from your ClickHouse schema for full type safety:
+
+<CodeBlock>
+
+```bash
+npx @hypequery/cli generate-types
+```
+
+</CodeBlock>
+
+Then use the schema:
+
+<CodeBlock>
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({ client });
+
+// Now table names, columns, and types are verified!
+const users = await db.table('users')
+  .select(['name', 'email'])
+  .execute();
+```
+
+</CodeBlock>
+
+</Step>
+
+</Steps>
+
+---
+
+## What's Next?
+
+You're now building type-safe ClickHouse queries! Here's where to go next:
+
+### Building a Dashboard?
+- Learn [query building basics](/docs/standalone-query-builder/query-building/basics)
+- Explore [aggregations](/docs/standalone-query-builder/query-building/aggregation)
+- See [execution patterns](/docs/standalone-query-builder/execution)
+
+### Need an HTTP API?
+- Learn about the [serve framework](/docs/quick-start)
+- See [when to add serve](/docs/standalone-query-builder/when-to-use)
+- Read the [migration guide](/docs/migration-builder-to-serve)
+
+### Scaling with a Team?
+- Explore [authentication](/docs/authentication)
+- Learn about [multi-tenancy](/docs/multi-tenancy)
+- See [team features](/docs/observability)
+
+---
+
+## Quick Reference
+
+| Want to... | Go to... |
+|------------|----------|
+| Filter data | [Where clauses](/docs/standalone-query-builder/query-building/where) |
+| Join tables | [Joins](/docs/standalone-query-builder/query-building/joins) |
+| Group & aggregate | [Aggregations](/docs/standalone-query-builder/query-building/aggregation) |
+| Handle time series | [Time functions](/docs/standalone-query-builder/query-building/time-functions) |
+| Add HTTP APIs | [Serve framework](/docs/quick-start) |
+| Not sure? | [Choose your path](/docs/standalone-query-builder/when-to-use) |
