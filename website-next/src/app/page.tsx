@@ -135,7 +135,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                 <div className="max-w-3xl pb-12 relative z-10">
                   <div className="inline-flex items-center gap-2 mb-4">
                     <Image
-                      src="https://img.shields.io/npm/dw/@hypequery/clickhouse?color=green&label=weekly%20downloads&logo=npm&style=flat-square"
+                      src="https://img.shields.io/npm/dm/@hypequery/clickhouse?color=green&label=monthly%20downloads&logo=npm&style=flat-square"
                       alt="npm downloads"
                       width={160}
                       height={20}
