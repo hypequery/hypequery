@@ -44,22 +44,11 @@ export const api = define({
   },
 });`;
 
-  const authCode = `import { z } from 'zod';
-
-export const authHeader = z.string().min(1);
-
-export function requireAuth(req: Request) {
-  const token = authHeader.parse(req.headers.get('authorization'));
-  if (!token.startsWith('Bearer ')) {
-    throw new Error('Unauthorized');
-  }
-  return { token: token.replace('Bearer ', '') };
-}`;
   const aiAgentCardCode = `const catalog = api.describe();
 const tools = new Set(catalog.queries.map((q) => q.key));
 
 const result = await api.run('weeklyRevenue', {
-  request: { headers: { authorization: 'Bearer token' } },
+  input: { startDate: '2026-01-01' },
 });`;
   const httpCardCode = `import { createFetchHandler } from '@hypequery/serve';
 
@@ -75,7 +64,6 @@ export const { useQuery } = createHooks<ApiDefinition>({
 const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
   const inProcessCardCode = `const latest = await api.run('activeUsers', {
   input: { limit: 25 },
-  request: { headers: { authorization: 'Bearer token' } },
 });`;
 
   const terminalLines = [
@@ -361,20 +349,12 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
                       <CodeBlockTabsTrigger value="queries">
                         analytics/queries.ts
                       </CodeBlockTabsTrigger>
-                      <CodeBlockTabsTrigger value="auth">auth.ts</CodeBlockTabsTrigger>
                     </CodeBlockTabsList>
                     <CodeBlockTab value="queries" title="analytics/queries.ts">
                       <DynamicCodeBlock
                         lang="ts"
                         code={apiCode}
                         codeblock={{ className: 'h-[500px] text-sm hq-codeblock hq-highlight' }}
-                      />
-                    </CodeBlockTab>
-                    <CodeBlockTab value="auth" title="auth.ts">
-                      <DynamicCodeBlock
-                        lang="ts"
-                        code={authCode}
-                        codeblock={{ className: 'hq-codeblock' }}
                       />
                     </CodeBlockTab>
                   </CodeBlockTabs>
@@ -634,64 +614,40 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </section>
 
             {/* An end-to-end platform for analytics development */}
-            <section className="pt-20 pb-20">
+            <section className="pt-20 pb-10">
               <h2 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
                 An end-to-end platform for analytics development
               </h2>
               <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white px-6 py-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Catch breaking schema changes before deploy
                   </h3>
-                  <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Your ClickHouse schema becomes a TypeScript SDK. Columns become types, tables
-                    become interfaces, so CI tells you when analytics logic drifts.
-                  </p>
                 </div>
-                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white px-6 py-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Run governed metrics everywhere, not just HTTP
                   </h3>
-                  <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Jobs, APIs, scripts, or agents import the exact same definition. HTTP is
-                    optional, your metrics travel to whatever surface needs them.
-                  </p>
                 </div>
-                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white px-6 py-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Metrics as first-class code citizens
                   </h3>
-                  <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Import definitions like any other module. The same query powers your API,
-                    dashboard, cron job, and agent without reimplementation.
-                  </p>
                 </div>
-                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white px-6 py-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Ship APIs with OpenAPI and authentication out of the box
                   </h3>
-                  <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Every query becomes an HTTP endpoint complete with validation and typed SDKs.
-                    No controllers, routing glue, or YAML hand wiring.
-                  </p>
                 </div>
-                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white px-6 py-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
-                    Bake tenant isolation into the platform
+                    Tenant isolation baked into the platform
                   </h3>
-                  <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Declare tenant patterns once. The runtime auto-injects filters, validates
-                    auth, and guarantees isolation—making cross-tenant leaks impossible.
-                  </p>
                 </div>
-                <div className="border border-gray-200 bg-white p-6 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                <div className="border border-gray-200 bg-white px-6 py-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-gray-100">
                     Ship-ready authentication, caching, and observability primitives
                   </h3>
-                  <p className="mt-4 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                    Verify sessions, inject user context, control access, and cache at the query
-                    level. You focus on metrics, the platform handles safety and insight.
-                  </p>
                 </div>
               </div>
             </section>
@@ -713,7 +669,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
-                href="/docs/quick-start-builder"
+                href="/docs/quick-start"
                 className="inline-flex items-center justify-center bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-500"
               >
                 Get started →
@@ -728,7 +684,7 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
             <p className="mt-6 text-gray-600 dark:text-gray-400 font-medium">
               Early adopter? DM us{' '}
               <a
-                href="https://twitter.com/hypequery"
+                href="https://x.com/hypequery"
                 className="text-indigo-600 hover:text-indigo-700 font-medium dark:text-indigo-400 dark:hover:text-indigo-300"
                 target="_blank"
                 rel="noopener noreferrer"
