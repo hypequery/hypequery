@@ -23,8 +23,14 @@ const displayFont = Space_Grotesk({
 export const metadata: Metadata = {
   title: "hypequery | Type-Safe Analytics Backend for ClickHouse",
   description: "Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.",
+  manifest: "/site.webmanifest",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-48x48.png", type: "image/png", sizes: "48x48" },
+      { url: "/icon.png", type: "image/png", sizes: "500x500" },
+    ],
     apple: "/apple-touch-icon.png",
   },
 };
