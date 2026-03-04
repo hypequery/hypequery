@@ -28,6 +28,14 @@ export type PredicateArg<State extends AnyBuilderState> =
   | PredicateValue
   | PredicatePrimitive[];
 
+export interface ClickHousePredicateBuilder<State extends AnyBuilderState> {
+  dictGet<T = unknown>(
+    dictionary: string,
+    attribute: string,
+    key: PredicateArg<State>
+  ): PredicateExpression<T>;
+}
+
 export interface PredicateBuilder<State extends AnyBuilderState> {
   fn<T = unknown>(name: string, ...args: Array<PredicateArg<State>>): PredicateExpression<T>;
   col(column: ColumnReference<State>): PredicateExpression;
@@ -37,6 +45,7 @@ export interface PredicateBuilder<State extends AnyBuilderState> {
   raw(sql: string): PredicateExpression;
   and(expressions: PredicateExpression[]): PredicateExpression<boolean>;
   or(expressions: PredicateExpression[]): PredicateExpression<boolean>;
+  ch: ClickHousePredicateBuilder<State>;
 }
 
 function createExpression<T = unknown>(sql: string, parameters: any[] = []): PredicateExpression<T> {
@@ -155,6 +164,10 @@ export function createPredicateBuilder<State extends AnyBuilderState>(): Predica
     array: values => buildArrayLiteral(values),
     raw: sql => createExpression(sql),
     and: expressions => buildLogical('AND', expressions),
-    or: expressions => buildLogical('OR', expressions)
+    or: expressions => buildLogical('OR', expressions),
+    ch: {
+      dictGet: <T = unknown>(dictionary: string, attribute: string, key: PredicateArg<State>) =>
+        buildFunctionExpression<State, T>('dictGet', [literal(dictionary), literal(attribute), key])
+    }
   };
 }

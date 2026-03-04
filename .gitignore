@@ -32,3 +32,6 @@ examples/basic-dashboard/src/generated/clickhouse-schema.ts
 
 # Local Netlify folder
 .netlify
+
+# Generated website artifacts
+website-next/.source/

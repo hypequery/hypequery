@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { createClient } from '@clickhouse/client';
 

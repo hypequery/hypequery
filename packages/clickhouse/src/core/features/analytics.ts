@@ -1,6 +1,8 @@
 import { ClickHouseSettings } from '@clickhouse/client-common';
 import type { AnyBuilderState, BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
+import type { PredicateExpression } from '../utils/predicate-builder.js';
+import { substituteParameters } from '../utils.js';
 
 export class AnalyticsFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -14,6 +16,15 @@ export class AnalyticsFeature<
     return {
       ...config,
       ctes: [...(config.ctes || []), `${alias} AS (${cte})`]
+    };
+  }
+
+  addScalar(alias: string, expression: PredicateExpression) {
+    const config = this.builder.getConfig();
+    const scalarExpression = substituteParameters(expression.sql, expression.parameters);
+    return {
+      ...config,
+      ctes: [...(config.ctes || []), `${scalarExpression} AS ${alias}`]
     };
   }
 

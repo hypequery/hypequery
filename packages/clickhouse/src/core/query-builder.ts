@@ -41,7 +41,8 @@ import type {
   WidenTables,
   AppendToOutput,
   BaseRow,
-  AddAlias
+  AddAlias,
+  AddScalar
 } from './types/builder-state.js';
 import {
   SelectableItem,
@@ -61,6 +62,7 @@ type ColumnOperatorValue<
 
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
+type ScalarAlias<Alias extends string> = Alias extends `${string} ${string}` ? never : Alias;
 
 export interface ExecuteOptions {
   queryId?: string;
@@ -171,6 +173,39 @@ export class QueryBuilder<
   ): this {
     this.config = this.analytics.addCTE(alias, subquery);
     return this;
+  }
+
+  // --- Analytics Helper: Add a scalar WITH alias.
+  withScalar<Alias extends string, TValue>(
+    alias: ScalarAlias<Alias>,
+    expressionBuilder: (expr: PredicateBuilder<State>) => PredicateExpression<TValue>
+  ): QueryBuilder<Schema, AddScalar<State, Alias, TValue>> {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(alias)) {
+      throw new Error(
+        `Invalid scalar alias "${alias}". Use an unquoted SQL identifier (letters, numbers, underscore; cannot start with a number).`
+      );
+    }
+    const expression = expressionBuilder(createPredicateBuilder<State>());
+    const nextConfig = this.analytics.addScalar(alias, expression) as QueryConfig<
+      AddScalar<State, Alias, TValue>['output'],
+      Schema
+    >;
+    const nextState = {
+      ...this.state,
+      scalars: {
+        ...this.state.scalars,
+        [alias]: undefined as TValue,
+      },
+    } as unknown as AddScalar<State, Alias, TValue>;
+
+    const builder = new QueryBuilder<Schema, AddScalar<State, Alias, TValue>>(
+      this.tableName,
+      nextState,
+      this.runtime
+    );
+    builder.config = { ...nextConfig };
+    builder.cacheOptions = this.cacheOptions;
+    return builder;
   }
 
   /**
@@ -841,7 +876,8 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         output: {} as InitialState<Schema, TableName>['output'],
         baseTable: tableName,
         base: {} as Schema[TableName],
-        aliases: {} as Partial<Record<string, keyof Schema>>
+        aliases: {} as Partial<Record<string, keyof Schema>>,
+        scalars: {} as InitialState<Schema, TableName>['scalars']
       } as InitialState<Schema, TableName>;
 
       return new QueryBuilder<Schema, typeof state>(tableName as string, state, runtime);

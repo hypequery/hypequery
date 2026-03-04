@@ -312,6 +312,14 @@ describe('QueryBuilder - Where Conditions', () => {
       expect(sql).toBe("SELECT * FROM test_table WHERE hasAny(lowerUTF8(tags), ['foo', 'bar'])");
     });
 
+    it('should support ClickHouse helper functions via expr.ch', () => {
+      const sql = builder
+        .where(expr => expr.fn('notEmpty', expr.ch.dictGet('users_dict', 'name', expr.col('created_by'))))
+        .toSQL();
+
+      expect(sql).toBe("SELECT * FROM test_table WHERE notEmpty(dictGet('users_dict', 'name', created_by))");
+    });
+
     it('should support logical combinations', () => {
       const sql = builder
         .where(expr =>
