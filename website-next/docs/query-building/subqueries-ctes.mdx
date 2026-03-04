@@ -109,7 +109,7 @@ const results = await builder
 
 </CodeBlock>
 
-### Scalar `WITH` Aliases (ClickHouse)
+### Scalar `WITH` Aliases
 
 ClickHouse also supports scalar expressions in the `WITH` clause. Use `withScalar()` when you want to define an expression once and reuse it in `SELECT`, `WHERE`, and `ORDER BY`.
 
@@ -132,6 +132,7 @@ const results = await ctx.db
 
 This generates:
 
+<CodeBlock>
 ```sql
 WITH dictGet('users_dict', 'name', user_id) AS user_name
 SELECT order_id, amount, user_name
@@ -140,6 +141,7 @@ WHERE user_name LIKE '%Alice%'
 ORDER BY user_name ASC
 LIMIT 50
 ```
+</CodeBlock>
 
 ## Raw SQL Expressions
 
