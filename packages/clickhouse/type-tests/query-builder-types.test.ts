@@ -160,6 +160,18 @@ type CteResult = Awaited<ReturnType<typeof cteQuery.execute>>;
 type CteExpected = { id: number }[];
 type AssertCteState = Expect<Equal<CteResult, CteExpected>>;
 
+const scalarQuery = builder
+  .withScalar('user_name', expr =>
+    expr.ch.dictGet<string>('users_dict', 'name', expr.col('created_by'))
+  )
+  .select(['created_by', 'user_name'] as const)
+  .where('user_name', 'like', '%team%')
+  .groupBy(['created_by', 'user_name'])
+  .orderBy('user_name', 'DESC');
+type ScalarQueryResult = Awaited<ReturnType<typeof scalarQuery.execute>>;
+type ScalarQueryExpected = { created_by: number; user_name: string }[];
+type AssertScalarQuery = Expect<Equal<ScalarQueryResult, ScalarQueryExpected>>;
+
 builder.withScalar('user_name', expr =>
   expr.ch.dictGet('users_dict', 'name', expr.col('created_by'))
 );

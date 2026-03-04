@@ -4,6 +4,10 @@ import { z } from 'zod';
 
 import { db } from './client.js';
 
+const demoDictionary = process.env.CLICKHOUSE_DEMO_DICTIONARY;
+const demoDictionaryAttribute =
+  process.env.CLICKHOUSE_DEMO_DICTIONARY_ATTRIBUTE ?? 'label';
+
 const { define, queries, query } = initServe({
   context: () => ({ db }),
 });
@@ -44,6 +48,53 @@ export const api = define({
           avgPassengers: Number((row as any).avg_passengers ?? 0),
           totalTrips: Number((row as any).total_trips ?? 0),
         };
+      }),
+    passengerLabels: query
+      .describe('Resolve passenger_count labels with ClickHouse dictGet (requires a configured dictionary)')
+      .input(
+        z.object({
+          limit: z.number().int().positive().max(20).default(10),
+          dictionary: z.string().optional(),
+          attribute: z.string().optional(),
+        })
+      )
+      .output(
+        z.array(
+          z.object({
+            passengerCount: z.number(),
+            passengerLabel: z.string(),
+            tripCount: z.number(),
+          })
+        )
+      )
+      .query(async ({ ctx, input }) => {
+        const dictionary = input.dictionary ?? demoDictionary;
+        const attribute = input.attribute ?? demoDictionaryAttribute;
+        const limit = input.limit ?? 10;
+
+        if (!dictionary) {
+          throw new Error(
+            'Set CLICKHOUSE_DEMO_DICTIONARY or pass input.dictionary to run passengerLabels.'
+          );
+        }
+
+        const rows = await ctx.db
+          .table('trips')
+          .withScalar('passenger_label', (expr) =>
+            expr.ch.dictGet(dictionary, attribute, expr.col('passenger_count'))
+          )
+          .select(['passenger_count', 'passenger_label'])
+          .count('trip_id', 'trip_count')
+          .groupBy(['passenger_count', 'passenger_label'])
+          .orderBy('trip_count', 'DESC')
+          .limit(limit)
+          .execute();
+
+        return rows.map((row) => ({
+          passengerCount: Number((row as any).passenger_count ?? 0),
+          passengerLabel: String((row as any).passenger_label ?? ''),
+          tripCount: Number((row as any).trip_count ?? 0),
+        }));
       }),
   }),
 });

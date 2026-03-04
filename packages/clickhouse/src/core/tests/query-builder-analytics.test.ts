@@ -186,6 +186,42 @@ describe('QueryBuilder Analytics Features', () => {
       expect(sql).toContain('WHERE id > 10');
     });
 
+    it('should allow scalar aliases in select, where, and groupBy', () => {
+      const sql = queryBuilder
+        .withScalar('user_name', expr =>
+          expr.ch.dictGet('users_dict', 'name', expr.col('created_by'))
+        )
+        .select(['created_by', 'user_name'])
+        .where('user_name', 'like', '%team%')
+        .groupBy(['created_by', 'user_name'])
+        .orderBy('user_name', 'ASC')
+        .toSQL();
+
+      expect(sql).toBe(
+        "WITH dictGet('users_dict', 'name', created_by) AS user_name " +
+        "SELECT created_by, user_name FROM test_table " +
+        "WHERE user_name LIKE '%team%' " +
+        'GROUP BY created_by, user_name ' +
+        'ORDER BY user_name ASC'
+      );
+    });
+
+    it('should allow ordering by a scalar alias', () => {
+      const sql = queryBuilder
+        .withScalar('user_name', expr =>
+          expr.ch.dictGet('users_dict', 'name', expr.col('created_by'))
+        )
+        .select(['id', 'user_name'])
+        .orderBy('user_name', 'DESC')
+        .toSQL();
+
+      expect(sql).toBe(
+        "WITH dictGet('users_dict', 'name', created_by) AS user_name " +
+        'SELECT id, user_name FROM test_table ' +
+        'ORDER BY user_name DESC'
+      );
+    });
+
     it('should reject invalid scalar aliases at runtime', () => {
       expect(() =>
         queryBuilder.withScalar('user name', expr =>

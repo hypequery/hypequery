@@ -108,7 +108,8 @@ export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<T
     output: {} as TableRecord<TestSchema['users']>,
     baseTable: 'users',
     base: TEST_SCHEMAS.users,
-    aliases: {}
+    aliases: {},
+    scalars: {}
   };
   return new QueryBuilder<TestSchema, UsersState>('users', state, createTestRuntime());
 }
@@ -120,7 +121,8 @@ export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableReco
     output: {} as TableRecord<TestSchema['test_table']>,
     baseTable: 'test_table',
     base: TEST_SCHEMAS.test_table,
-    aliases: {}
+    aliases: {},
+    scalars: {}
   };
   return new QueryBuilder<TestSchema, TestTableState>('test_table', state, createTestRuntime());
 }

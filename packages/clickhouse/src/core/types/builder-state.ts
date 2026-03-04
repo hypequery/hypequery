@@ -10,7 +10,8 @@ export type BuilderState<
   VisibleTables extends string,
   OutputRow,
   BaseTable extends keyof Schema,
-  Aliases extends Partial<Record<string, keyof Schema>> = {}
+  Aliases extends Partial<Record<string, keyof Schema>> = {},
+  Scalars extends Record<string, unknown> = {}
 > = {
   schema: Schema;
   tables: VisibleTables;
@@ -18,6 +19,7 @@ export type BuilderState<
   baseTable: BaseTable;
   base: Schema[BaseTable];
   aliases: Aliases;
+  scalars: Scalars;
 };
 
 export type AnyBuilderState = BuilderState<any, any, any, any, any>;
@@ -31,17 +33,31 @@ export type BaseRow<State extends AnyBuilderState> = Simplify<{
 export type WidenTables<
   State extends AnyBuilderState,
   Table extends keyof State['schema']
-> = BuilderState<State['schema'], State['tables'] | (Table & string), State['output'], State['baseTable'], State['aliases']>;
+> = BuilderState<
+  State['schema'],
+  State['tables'] | (Table & string),
+  State['output'],
+  State['baseTable'],
+  State['aliases'],
+  State['scalars']
+>;
 
 export type UpdateOutput<
   State extends AnyBuilderState,
   Output
-> = BuilderState<State['schema'], State['tables'], Output, State['baseTable'], State['aliases']>;
+> = BuilderState<
+  State['schema'],
+  State['tables'],
+  Output,
+  State['baseTable'],
+  State['aliases'],
+  State['scalars']
+>;
 
 export type InitialState<
   Schema extends SchemaDefinition<Schema>,
   Table extends keyof Schema
-> = BuilderState<Schema, Table & string, TableRecord<Schema[Table]>, Table, {}>;
+> = BuilderState<Schema, Table & string, TableRecord<Schema[Table]>, Table, {}, {}>;
 
 export type ExplicitSelectionState<State extends AnyBuilderState> =
   BaseRow<State> extends State['output']
@@ -69,7 +85,21 @@ export type AddAlias<
   State['tables'] | Alias,
   State['output'],
   State['baseTable'],
-  State['aliases'] & Record<Alias, Table>
+  State['aliases'] & Record<Alias, Table>,
+  State['scalars']
+>;
+
+export type AddScalar<
+  State extends AnyBuilderState,
+  Alias extends string,
+  Value
+> = BuilderState<
+  State['schema'],
+  State['tables'],
+  State['output'],
+  State['baseTable'],
+  State['aliases'],
+  State['scalars'] & Record<Alias, Value>
 >;
 
 export type ResolveTableSchema<

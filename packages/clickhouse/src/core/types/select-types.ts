@@ -16,9 +16,11 @@ export type QualifiedColumnKeys<State extends AnyBuilderState> = {
 
 export type BaseColumnKeys<State extends AnyBuilderState> = keyof BaseRow<State>;
 export type OutputColumnKeys<State extends AnyBuilderState> = keyof State['output'];
+export type ScalarColumnKeys<State extends AnyBuilderState> = keyof State['scalars'];
 
 export type SelectableColumn<State extends AnyBuilderState> =
   | OutputColumnKeys<State>
+  | ScalarColumnKeys<State>
   | BaseColumnKeys<State>
   | QualifiedColumnKeys<State>;
 
@@ -47,6 +49,8 @@ type QualifiedColumnValue<State extends AnyBuilderState, P> =
 export type ColumnSelectionValue<State extends AnyBuilderState, P> =
   P extends OutputColumnKeys<State>
   ? State['output'][P]
+  : P extends ScalarColumnKeys<State>
+  ? State['scalars'][P]
   : P extends BaseColumnKeys<State>
   ? BaseRow<State>[P]
   : QualifiedColumnValue<State, P>;
