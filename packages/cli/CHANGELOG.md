@@ -1,5 +1,12 @@
 # @hypequery/cli
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [cc466d5]
+  - @hypequery/clickhouse@1.6.0
+
 ## 0.0.9
 
 ### Patch Changes
