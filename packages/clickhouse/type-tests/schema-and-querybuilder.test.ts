@@ -1,5 +1,6 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
 import type { DatabaseAdapter } from '../src/core/adapters/database-adapter.js';
+import { ClickHouseDialect } from '../src/core/dialects/clickhouse-dialect.js';
 import type { BuilderState } from '../src/core/types/builder-state.js';
 import type { TableColumn, TableRecord } from '../src/types/schema.js';
 import { buildRuntimeContext, resolveCacheConfig } from '../src/core/cache/runtime-context.js';
@@ -56,6 +57,7 @@ const adapter: DatabaseAdapter = {
   },
   render: (sql, params = []) => substituteParameters(sql, params)
 };
+const dialect = new ClickHouseDialect();
 
 const qb = new QueryBuilder<AppSchema, UsersState>(
   'users',
@@ -69,7 +71,8 @@ const qb = new QueryBuilder<AppSchema, UsersState>(
     scalars: {}
   },
   runtime,
-  adapter
+  adapter,
+  dialect
 );
 
 const selected = qb.select(['id', 'name']);

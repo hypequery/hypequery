@@ -1,4 +1,5 @@
 import { QueryBuilder, SelectQB } from '../query-builder.js';
+import { ClickHouseDialect } from '../dialects/clickhouse-dialect.js';
 import type { DatabaseAdapter } from '../adapters/database-adapter.js';
 import type { BuilderState } from '../types/builder-state.js';
 import type { TableRecord } from '../../types/schema.js';
@@ -96,6 +97,7 @@ const testAdapter: DatabaseAdapter = {
   },
   render: (sql, params = []) => substituteParameters(sql, params)
 };
+const testDialect = new ClickHouseDialect();
 
 type UsersState = BuilderState<
   TestSchema,
@@ -121,7 +123,7 @@ export function setupUsersBuilder(): SelectQB<TestSchema, 'users', TableRecord<T
     aliases: {},
     scalars: {}
   };
-  return new QueryBuilder<TestSchema, UsersState>('users', state, createTestRuntime(), testAdapter);
+  return new QueryBuilder<TestSchema, UsersState>('users', state, createTestRuntime(), testAdapter, testDialect);
 }
 
 export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableRecord<TestSchema['test_table']>, 'test_table'> {
@@ -134,5 +136,5 @@ export function setupTestBuilder(): SelectQB<TestSchema, 'test_table', TableReco
     aliases: {},
     scalars: {}
   };
-  return new QueryBuilder<TestSchema, TestTableState>('test_table', state, createTestRuntime(), testAdapter);
+  return new QueryBuilder<TestSchema, TestTableState>('test_table', state, createTestRuntime(), testAdapter, testDialect);
 }

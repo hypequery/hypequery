@@ -124,44 +124,8 @@ export class ExecutorFeature<
 
   private toSQLWithoutParameters(): string {
     const config = this.builder.getConfig();
-    const formatter = this.builder.getFormatter();
-    const parts: string[] = [];
-
-    if (config.ctes?.length) {
-      parts.push(`WITH ${config.ctes.join(', ')}`);
-    }
-
-    parts.push(`SELECT ${formatter.formatSelect(config)}`);
-    parts.push(`FROM ${this.builder.getTableName()}`);
-
-    if (config.joins?.length) {
-      parts.push(formatter.formatJoins(config));
-    }
-
-    if (config.where?.length) {
-      parts.push(`WHERE ${formatter.formatWhere(config)}`);
-    }
-
-    if (config.groupBy?.length) {
-      parts.push(`GROUP BY ${formatter.formatGroupBy(config)}`);
-    }
-
-    if (config.having?.length) {
-      parts.push(`HAVING ${config.having.join(' AND ')}`);
-    }
-
-    if (config.orderBy?.length) {
-      const orderBy = config.orderBy
-        .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
-        .join(', ');
-      parts.push(`ORDER BY ${orderBy}`);
-    }
-
-    if (config.limit) {
-      const offsetClause = config.offset ? `OFFSET ${config.offset}` : '';
-      parts.push(`LIMIT ${config.limit} ${offsetClause}`);
-    }
-
-    return parts.join(' ').trim();
+    return this.builder.getDialect().compileQuery(config, {
+      tableName: this.builder.getTableName(),
+    });
   }
 }

@@ -5,7 +5,9 @@ export { createQueryBuilder } from './core/query-builder';
 export { ClickHouseConnection } from './core/connection';
 export { JoinRelationships } from './core/join-relationships';
 export { createClickHouseAdapter, ClickHouseAdapter } from './core/adapters/clickhouse-adapter';
+export { ClickHouseDialect } from './core/dialects/clickhouse-dialect';
 export type { DatabaseAdapter } from './core/adapters/database-adapter';
+export type { SqlDialect } from './core/dialects/sql-dialect';
 export type {
   ColumnType,
   TableSchema,

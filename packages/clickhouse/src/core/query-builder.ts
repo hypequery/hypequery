@@ -1,5 +1,7 @@
 import type { DatabaseAdapter } from './adapters/database-adapter.js';
 import { createClickHouseAdapter } from './adapters/clickhouse-adapter.js';
+import { ClickHouseDialect } from './dialects/clickhouse-dialect.js';
+import type { SqlDialect } from './dialects/sql-dialect.js';
 import { CrossFilter } from './cross-filter.js';
 import {
   FilterOperator,
@@ -9,7 +11,6 @@ import {
   JoinType
 } from '../types/index.js';
 import { AnySchema, ColumnType } from '../types/schema.js';
-import { SQLFormatter } from './formatters/sql-formatter.js';
 import { AggregationFeature } from './features/aggregations.js';
 import { JoinFeature } from './features/joins.js';
 import { FilteringFeature } from './features/filtering.js';
@@ -103,7 +104,6 @@ export class QueryBuilder<
   private config: QueryConfig<State['output'], Schema> = {};
   private tableName: string;
   private state: State;
-  private formatter = new SQLFormatter();
   private aggregations: AggregationFeature<Schema, State>;
   private joins: JoinFeature<Schema, State>;
   private filtering: FilteringFeature<Schema, State>;
@@ -113,18 +113,21 @@ export class QueryBuilder<
   private crossFiltering: CrossFilteringFeature<Schema, State>;
   private runtime: QueryRuntimeContext;
   private adapter: DatabaseAdapter;
+  private dialect: SqlDialect;
   private cacheOptions?: CacheOptions;
 
   constructor(
     tableName: string,
     state: State,
     runtime: QueryRuntimeContext,
-    adapter: DatabaseAdapter
+    adapter: DatabaseAdapter,
+    dialect: SqlDialect
   ) {
     this.tableName = tableName;
     this.state = state;
     this.runtime = runtime;
     this.adapter = adapter;
+    this.dialect = dialect;
     this.aggregations = new AggregationFeature(this);
     this.joins = new JoinFeature(this);
     this.filtering = new FilteringFeature(this);
@@ -146,7 +149,7 @@ export class QueryBuilder<
     state: NextState,
     config: QueryConfig<NextState['output'], Schema>
   ): QueryBuilder<Schema, NextState> {
-    const builder = new QueryBuilder<Schema, NextState>(this.tableName, state, this.runtime, this.adapter);
+    const builder = new QueryBuilder<Schema, NextState>(this.tableName, state, this.runtime, this.adapter, this.dialect);
     builder.config = { ...config };
     builder.cacheOptions = this.cacheOptions;
     return builder;
@@ -204,7 +207,9 @@ export class QueryBuilder<
     const builder = new QueryBuilder<Schema, AddScalar<State, Alias, TValue>>(
       this.tableName,
       nextState,
-      this.runtime
+      this.runtime,
+      this.adapter,
+      this.dialect
     );
     builder.config = { ...nextConfig };
     builder.cacheOptions = this.cacheOptions;
@@ -228,7 +233,12 @@ export class QueryBuilder<
     interval: string,
     method: 'toStartOfInterval' | 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear' = 'toStartOfInterval'
   ): this {
-    this.config = this.analytics.addTimeInterval(String(column), interval, method);
+    this.config = this.analytics.addTimeInterval(
+      String(column),
+      interval,
+      method,
+      this.dialect,
+    );
     return this;
   }
 
@@ -243,7 +253,7 @@ export class QueryBuilder<
 
   // --- Analytics Helper: Add query settings.
   settings(opts: ClickHouseSettings): this {
-    this.config = this.analytics.addSettings(opts);
+    this.config = this.analytics.addSettings(opts, this.dialect);
     return this;
   }
 
@@ -401,16 +411,16 @@ export class QueryBuilder<
     return this.tableName;
   }
 
-  getFormatter() {
-    return this.formatter;
-  }
-
   getRuntimeContext() {
     return this.runtime;
   }
 
   getAdapter(): DatabaseAdapter {
     return this.adapter;
+  }
+
+  getDialect(): SqlDialect {
+    return this.dialect;
   }
 
   getCacheOptions() {
@@ -841,23 +851,31 @@ export type CreateQueryBuilderConfig =
   | (ClickHouseConfig & {
     cache?: CacheConfig;
     adapter?: DatabaseAdapter;
+    dialect?: SqlDialect;
   })
   | {
     adapter: DatabaseAdapter;
     cache?: CacheConfig;
+    dialect?: SqlDialect;
   };
 
 export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
   config: CreateQueryBuilderConfig
 ) {
-  const { cache: cacheConfig, adapter } = config as { cache?: CacheConfig; adapter?: DatabaseAdapter };
+  const { cache: cacheConfig, adapter, dialect } = config as {
+    cache?: CacheConfig;
+    adapter?: DatabaseAdapter;
+    dialect?: SqlDialect;
+  };
   const resolvedAdapter = adapter ?? createClickHouseAdapter(config as ClickHouseConfig);
+  const resolvedDialect = dialect ?? new ClickHouseDialect();
   const namespace = cacheConfig?.namespace || resolvedAdapter.namespace || resolvedAdapter.name;
   const { runtime, cacheController } = initializeCacheRuntime(cacheConfig, namespace);
 
   return {
     cache: cacheController,
     adapter: resolvedAdapter,
+    dialect: resolvedDialect,
     async rawQuery<TResult = any>(sql: string, params: unknown[] = []) {
       return resolvedAdapter.query<TResult>(sql, params);
     },
@@ -877,7 +895,13 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         scalars: {} as InitialState<Schema, TableName>['scalars']
       } as InitialState<Schema, TableName>;
 
-      return new QueryBuilder<Schema, typeof state>(tableName as string, state, runtime, resolvedAdapter);
+      return new QueryBuilder<Schema, typeof state>(
+        tableName as string,
+        state,
+        runtime,
+        resolvedAdapter,
+        resolvedDialect,
+      );
     }
   };
 }

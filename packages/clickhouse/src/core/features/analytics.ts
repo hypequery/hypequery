@@ -1,6 +1,7 @@
 import { ClickHouseSettings } from '@clickhouse/client-common';
 import type { AnyBuilderState, BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
+import type { SqlDialect } from '../dialects/sql-dialect.js';
 import type { PredicateExpression } from '../utils/predicate-builder.js';
 import { substituteParameters } from '../utils.js';
 
@@ -31,16 +32,13 @@ export class AnalyticsFeature<
   addTimeInterval(
     column: string,
     interval: string,
-    method: 'toStartOfInterval' | 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear'
+    method: 'toStartOfInterval' | 'toStartOfMinute' | 'toStartOfHour' | 'toStartOfDay' | 'toStartOfWeek' | 'toStartOfMonth' | 'toStartOfQuarter' | 'toStartOfYear',
+    dialect: SqlDialect,
   ) {
     const config = this.builder.getConfig();
     const groupBy = config.groupBy || [];
 
-    if (method === 'toStartOfInterval') {
-      groupBy.push(`${method}(${column}, INTERVAL ${interval})`);
-    } else {
-      groupBy.push(`${method}(${column})`);
-    }
+    groupBy.push(dialect.formatTimeInterval(column, interval, method));
 
     return {
       ...config,
@@ -48,12 +46,11 @@ export class AnalyticsFeature<
     };
   }
 
-  addSettings(opts: ClickHouseSettings) {
+  addSettings(opts: ClickHouseSettings, dialect: SqlDialect) {
     const config = this.builder.getConfig();
-    const settingsFragments = Object.entries(opts).map(([key, value]) => `${key}=${value}`);
     return {
       ...config,
-      settings: settingsFragments.join(', ')
+      settings: dialect.formatSettings(opts)
     };
   }
 }
