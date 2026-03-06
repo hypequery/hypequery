@@ -68,6 +68,16 @@ async function normalizeChunk<T>(chunk: any, flush: () => T[], append: (value: s
     return flush();
   }
 
+  if (chunk instanceof Uint8Array) {
+    append(Buffer.from(chunk));
+    return flush();
+  }
+
+  if (chunk instanceof ArrayBuffer) {
+    append(Buffer.from(chunk));
+    return flush();
+  }
+
   if (typeof chunk === 'string') {
     append(chunk);
     return flush();

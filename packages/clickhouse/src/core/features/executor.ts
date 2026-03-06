@@ -1,9 +1,7 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { ClickHouseConnection } from '../connection.js';
-import { substituteParameters } from '../utils.js';
 import { logger, type QueryLog } from '../utils/logger.js';
-import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
+import { substituteParameters } from '../utils.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
@@ -25,17 +23,18 @@ export class ExecutorFeature<
 
   toSQL(): string {
     const { sql, parameters } = this.toSQLWithParams();
-    return substituteParameters(sql, parameters);
+    const adapter = this.builder.getAdapter();
+    return adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
   }
 
   async execute(options?: ExecutorRunOptions): Promise<State['output'][]> {
-    const client = ClickHouseConnection.getClient();
+    const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
-    const finalSQL = substituteParameters(sql, parameters);
+    const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
     logger.logQuery({
-      query: finalSQL,
+      query: renderSql,
       parameters,
       startTime,
       status: 'started',
@@ -44,16 +43,11 @@ export class ExecutorFeature<
     });
 
     try {
-      const result = await client.query({
-        query: finalSQL,
-        format: 'JSONEachRow'
-      });
-
-      const rows = await result.json<State['output']>();
+      const rows = await adapter.query<State['output']>(sql, parameters);
       const endTime = Date.now();
 
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,
@@ -69,7 +63,7 @@ export class ExecutorFeature<
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,
@@ -84,30 +78,27 @@ export class ExecutorFeature<
   }
 
   async stream(): Promise<ReadableStream<State['output'][]>> {
-    const client = ClickHouseConnection.getClient();
+    const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
-    const finalSQL = substituteParameters(sql, parameters);
+    const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
     logger.logQuery({
-      query: finalSQL,
+      query: renderSql,
       parameters,
       startTime,
       status: 'started'
     });
 
     try {
-      const result = await client.query({
-        query: finalSQL,
-        format: 'JSONEachRow'
-      });
-
-      const stream = result.stream();
-      const webStream = createJsonEachRowStream(stream);
+      if (!adapter.stream) {
+        throw new Error(`Streaming is not supported by adapter "${adapter.name}".`);
+      }
+      const webStream = await adapter.stream<State['output']>(sql, parameters);
 
       const endTime = Date.now();
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,
@@ -119,7 +110,7 @@ export class ExecutorFeature<
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
-        query: finalSQL,
+        query: renderSql,
         parameters,
         startTime,
         endTime,
@@ -133,44 +124,8 @@ export class ExecutorFeature<
 
   private toSQLWithoutParameters(): string {
     const config = this.builder.getConfig();
-    const formatter = this.builder.getFormatter();
-    const parts: string[] = [];
-
-    if (config.ctes?.length) {
-      parts.push(`WITH ${config.ctes.join(', ')}`);
-    }
-
-    parts.push(`SELECT ${formatter.formatSelect(config)}`);
-    parts.push(`FROM ${this.builder.getTableName()}`);
-
-    if (config.joins?.length) {
-      parts.push(formatter.formatJoins(config));
-    }
-
-    if (config.where?.length) {
-      parts.push(`WHERE ${formatter.formatWhere(config)}`);
-    }
-
-    if (config.groupBy?.length) {
-      parts.push(`GROUP BY ${formatter.formatGroupBy(config)}`);
-    }
-
-    if (config.having?.length) {
-      parts.push(`HAVING ${config.having.join(' AND ')}`);
-    }
-
-    if (config.orderBy?.length) {
-      const orderBy = config.orderBy
-        .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
-        .join(', ');
-      parts.push(`ORDER BY ${orderBy}`);
-    }
-
-    if (config.limit) {
-      const offsetClause = config.offset ? `OFFSET ${config.offset}` : '';
-      parts.push(`LIMIT ${config.limit} ${offsetClause}`);
-    }
-
-    return parts.join(' ').trim();
+    return this.builder.getDialect().compileQuery(config, {
+      tableName: this.builder.getTableName(),
+    });
   }
 }
