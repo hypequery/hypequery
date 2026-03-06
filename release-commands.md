@@ -1,11 +1,19 @@
 # hypequery Release Commands
 
-## Upcoming Changesets Workflow
-We're migrating to [Changesets](https://github.com/changesets/changesets) for release automation. Until the new workflow is finalized, releases should be coordinated manually.
+## Canary Releases
+Every push to `main` now publishes canary builds for `packages/clickhouse`, `packages/serve`, and `packages/cli`.
 
-### Temporary manual steps
+- Canary publishes use the npm `canary` dist-tag.
+- Canary versioning uses Changesets snapshot releases.
+- The GitHub Actions canary job creates a temporary changeset, snapshots the three publishable packages, publishes them, then restores the workspace files.
+- Stable versioning remains Changesets-driven and unchanged.
+
+## Stable Releases
+Stable releases continue to use [Changesets](https://github.com/changesets/changesets).
+
+### Manual steps when needed
 1. Ensure `main` is green (tests/lint/build).
-2. Generate a Changeset once the tooling lands:
+2. Generate a changeset for any stable release:
    ```bash
    pnpm changeset
    ```
@@ -17,6 +25,5 @@ We're migrating to [Changesets](https://github.com/changesets/changesets) for re
    ```
 
 ## Important Notes
-- Coordinate with the team before tagging a release while the tooling is in flux.
+- Canary publishing does not replace changesets for stable releases.
 - Always ensure tests pass before cutting a release.
-- Update this document again once the Changesets automation is fully wired up.
