@@ -1,6 +1,7 @@
 import { db } from '@/analytics/client';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const stream = await db
