@@ -1,195 +1,78 @@
 #!/usr/bin/env node
 
-/**
- * Script to verify the build outputs and diagnose any issues.
- * This runs as an additional check after the build process.
- */
-
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const rootDir = path.resolve(__dirname, '..');
-
-// ANSI color codes for prettier output
-const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  red: '\x1b[31m',
-  cyan: '\x1b[36m'
-};
-
-console.log(`${colors.cyan}${colors.bright}Verifying Build Outputs${colors.reset}`);
-console.log('=============================');
-
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = path.join(rootDir, 'dist');
-
-// Essential files that must exist for the package to work
-const essentialFiles = [
+const requiredFiles = [
   'index.js',
+  'index.d.ts',
   'core/connection.js',
+  'core/query-builder.js',
   'cli/bin.js',
   'cli/generate-types.js',
-  'cli/index.js'
+  'cli/index.js',
 ];
+const requiredDirs = ['core', 'cli', 'types'];
+const requiredIndexMarkers = ['createQueryBuilder', 'ClickHouseConnection', 'selectExpr'];
+const failures = [];
 
-// Check if dist directory exists
-if (!fs.existsSync(distDir)) {
-  console.error(`${colors.red}Error: dist directory does not exist!${colors.reset}`);
-  process.exit(1);
+function check(condition, message) {
+  if (!condition) failures.push(message);
 }
 
-// Check essential files
-console.log('Checking essential files:');
-let missingEssentialFiles = [];
+check(fs.existsSync(distDir), 'Missing dist directory');
 
-for (const file of essentialFiles) {
-  const filePath = path.join(distDir, file);
-  if (fs.existsSync(filePath)) {
-    console.log(`${colors.green}✓ ${file}${colors.reset}`);
-
-    // If this is the index.js file, check its content
-    if (file === 'index.js') {
-      const content = fs.readFileSync(filePath, 'utf8');
-
-      // We no longer check for CLI exports in index.js since we've deliberately removed them
-      // to prevent Node.js-specific modules from being bundled in browser environments
-      if (content.includes("export { ClickHouseConnection }") &&
-        content.includes("export { createQueryBuilder }")) {
-        console.log(`  ${colors.green}✓ index.js includes core exports${colors.reset}`);
-      } else {
-        console.log(`  ${colors.red}✗ index.js is missing core exports${colors.reset}`);
-        printFileContent(filePath, 10);
-      }
-    }
-  } else {
-    console.log(`${colors.red}✗ ${file}${colors.reset}`);
-    missingEssentialFiles.push(file);
-  }
+for (const file of requiredFiles) {
+  check(fs.existsSync(path.join(distDir, file)), `Missing ${file}`);
 }
-
-if (missingEssentialFiles.length > 0) {
-  console.error(`\n${colors.red}Error: ${missingEssentialFiles.length} essential files are missing:${colors.reset}`);
-  missingEssentialFiles.forEach(file => console.error(`  - ${file}`));
-}
-
-// Check directory structure
-console.log('\nChecking directory structure:');
-const requiredDirs = [
-  'core',
-  'cli',
-  'types'
-];
 
 for (const dir of requiredDirs) {
-  const dirPath = path.join(distDir, dir);
-  if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
-    console.log(`${colors.green}✓ ${dir}/ exists${colors.reset}`);
+  const target = path.join(distDir, dir);
+  check(fs.existsSync(target) && fs.statSync(target).isDirectory(), `Missing ${dir}/`);
+}
 
-    // List files in this directory
-    const files = fs.readdirSync(dirPath);
-    console.log(`  Contains ${files.length} files`);
-    if (files.length === 0) {
-      console.error(`  ${colors.red}Directory is empty!${colors.reset}`);
-    } else if (files.length < 5) {
-      console.log(`  Files: ${files.join(', ')}`);
-    }
-  } else {
-    console.error(`${colors.red}✗ ${dir}/ is missing${colors.reset}`);
+const indexPath = path.join(distDir, 'index.js');
+if (fs.existsSync(indexPath)) {
+  const indexContent = fs.readFileSync(indexPath, 'utf8');
+  for (const marker of requiredIndexMarkers) {
+    check(indexContent.includes(marker), `dist/index.js is missing ${marker}`);
+  }
+  check(!indexContent.includes('./cli/generate-types.js'), 'dist/index.js should not export CLI modules');
+}
+
+const binPath = path.join(distDir, 'cli', 'bin.js');
+if (fs.existsSync(binPath)) {
+  const binContent = fs.readFileSync(binPath, 'utf8');
+  check(binContent.startsWith('#!/usr/bin/env node'), 'dist/cli/bin.js is missing the node shebang');
+  if (process.platform !== 'win32') {
+    check(Boolean(fs.statSync(binPath).mode & fs.constants.S_IXUSR), 'dist/cli/bin.js is not executable');
   }
 }
 
-// List all files in dist/cli
-console.log('\nContents of dist/cli directory:');
-const cliDir = path.join(distDir, 'cli');
-if (fs.existsSync(cliDir)) {
-  const cliFiles = fs.readdirSync(cliDir);
-  if (cliFiles.length === 0) {
-    console.log(`${colors.yellow}(empty)${colors.reset}`);
-  } else {
-    cliFiles.forEach(file => {
-      console.log(`  - ${file}`);
-    });
-  }
-} else {
-  console.error(`${colors.red}dist/cli directory does not exist!${colors.reset}`);
-}
-
-// Check the permissions of bin.js
-const binJsPath = path.join(distDir, 'cli', 'bin.js');
-if (fs.existsSync(binJsPath)) {
-  try {
-    const stats = fs.statSync(binJsPath);
-    const isExecutable = !!(stats.mode & fs.constants.S_IXUSR);
-    if (isExecutable) {
-      console.log(`\n${colors.green}✓ bin.js is executable${colors.reset}`);
-    } else {
-      console.log(`\n${colors.yellow}⚠ bin.js is not executable${colors.reset}`);
-      console.log('  Will attempt to make it executable...');
-      fs.chmodSync(binJsPath, '755');
-      console.log('  File mode updated.');
-    }
-  } catch (error) {
-    console.error(`\n${colors.red}Error checking bin.js permissions: ${error.message}${colors.reset}`);
-  }
-}
-
-// Generate an index of all files
-console.log('\nGenerating file index:');
 const allFiles = [];
-
-function walkDir(dir, prefix = '') {
-  const files = fs.readdirSync(dir);
-
-  for (const file of files) {
-    const filePath = path.join(dir, file);
-    const relativePath = path.join(prefix, file);
-
-    if (fs.statSync(filePath).isDirectory()) {
-      walkDir(filePath, relativePath);
+function walk(dir, prefix = '') {
+  for (const entry of fs.readdirSync(dir)) {
+    const target = path.join(dir, entry);
+    const relative = path.join(prefix, entry);
+    if (fs.statSync(target).isDirectory()) {
+      walk(target, relative);
     } else {
-      allFiles.push(relativePath);
+      allFiles.push(relative);
     }
   }
 }
-
-try {
-  walkDir(distDir);
-  console.log(`Found ${allFiles.length} files in dist/`);
-
-  // Write the file index to disk for debugging
-  const indexPath = path.join(rootDir, 'dist-file-index.txt');
-  fs.writeFileSync(indexPath, allFiles.join('\n'));
-  console.log(`File index written to ${indexPath}`);
-} catch (error) {
-  console.error(`${colors.red}Error generating file index: ${error.message}${colors.reset}`);
+if (fs.existsSync(distDir)) {
+  walk(distDir);
+  fs.writeFileSync(path.join(rootDir, 'dist-file-index.txt'), allFiles.join('\n'));
 }
 
-// Helper function to print file content
-function printFileContent(filePath, lines = 10) {
-  try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const contentLines = content.split('\n').slice(0, lines);
-    console.log(`  ${colors.dim}First ${lines} lines of ${path.basename(filePath)}:${colors.reset}`);
-    contentLines.forEach((line, i) => {
-      console.log(`  ${colors.dim}${i + 1}:${colors.reset} ${line}`);
-    });
-  } catch (error) {
-    console.error(`  ${colors.red}Error reading file: ${error.message}${colors.reset}`);
-  }
-}
-
-// Print summary
-if (missingEssentialFiles.length > 0) {
-  console.error(`\n${colors.red}${colors.bright}Build verification failed!${colors.reset}`);
-  console.error(`${colors.red}${missingEssentialFiles.length} essential files are missing.${colors.reset}`);
+if (failures.length > 0) {
+  console.error('Build verification failed:');
+  for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
-} else {
-  console.log(`\n${colors.green}${colors.bright}Build verification passed!${colors.reset}`);
-} 
+}
+
+console.log('Build verification passed.');
