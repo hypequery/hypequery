@@ -69,6 +69,68 @@ jobs:
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run smoke tests
         run: pnpm smoke:examples
+  canary-release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build all hypequery packages
+        run: pnpm turbo run build --filter='@hypequery/*'
+      - name: Publish canary packages
+        run: |
+          cat <<'EOF' > .changeset/canary-release.md
+          ---
+          "@hypequery/clickhouse": patch
+          "@hypequery/serve": patch
+          "@hypequery/cli": patch
+          ---
+
+          Temporary canary snapshot release.
+          EOF
+
+          cleanup() {
+            git checkout -- \
+              pnpm-lock.yaml \
+              packages/clickhouse/package.json \
+              packages/clickhouse/CHANGELOG.md \
+              packages/serve/package.json \
+              packages/serve/CHANGELOG.md \
+              packages/cli/package.json \
+              packages/cli/CHANGELOG.md \
+              examples/auth-playground/package.json \
+              examples/next-dashboard/package.json \
+              examples/next-starter/package.json \
+              examples/node-embedded/package.json \
+              examples/vite-starter/package.json
+            rm -f .changeset/canary-release.md
+          }
+
+          trap cleanup EXIT
+
+          pnpm changeset version --snapshot canary
+          pnpm changeset publish --tag canary
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
   release:
     needs: build
     runs-on: ubuntu-latest
