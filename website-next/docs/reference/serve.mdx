@@ -94,6 +94,16 @@ export const api = defineServe({
       default: '{}',
       description: 'Lifecycle callbacks (`onRequestStart`, `onRequestEnd`, `onError`, `onAuthFailure`).',
     },
+    security: {
+      type: 'SecurityConfig',
+      default: 'undefined',
+      description: 'Security hardening options. See [Security hardening](#security-hardening) below.',
+    },
+    cors: {
+      type: 'boolean | CorsConfig',
+      default: 'undefined (disabled)',
+      description: 'Cross-origin resource sharing policy. `true` for permissive defaults (allow all origins), or a `CorsConfig` object for fine-grained control. Handles preflight automatically.',
+    },
     queryLogging: {
       type: "boolean | 'json' | ServeQueryEventCallback",
       default: 'undefined',
@@ -282,6 +292,237 @@ const apiKeyStrategy = apiKeyAuth({
 - **`buildOpenApiDocument(endpoints, options?)`** – Generates an OpenAPI 3.1 document from any list of `ServeEndpoint`s. Use it to persist specs or feed schema registries.
 - **`buildDocsHtml(openapiUrl, docsOptions?)`** – Produces the Redoc-powered HTML served at `/docs`. You can host the markup yourself by calling this helper directly.
 
+## Security hardening
+
+### CORS
+
+Enable cross-origin resource sharing so browser clients (including `@hypequery/react`) can reach the server. Configure via the `cors` key in `defineServe`:
+
+<CodeBlock>
+```typescript
+// Permissive — allow any origin (useful in development)
+const api = defineServe({ queries, cors: true });
+
+// Restrictive — fine-grained control
+const api = defineServe({
+  queries,
+  cors: {
+    origin: 'https://app.example.com',       // exact match; also accepts string[], or (origin) => boolean
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,                        // sets Access-Control-Allow-Credentials: true
+    maxAge: 86400,                            // preflight cache duration in seconds
+  },
+});
+```
+</CodeBlock>
+
+`OPTIONS` preflight requests are handled automatically and return `204 No Content`. CORS headers are injected on every response, including `404` and `429` errors.
+
+<TypeTable
+  type={{
+    origin: {
+      type: 'string | string[] | ((origin: string) => boolean)',
+      default: '"*"',
+      description: 'Allowed origin(s). Pass `"*"` to allow all, a string for an exact match, an array to allowlist multiple origins, or a function for custom logic. When `credentials` is `true`, the request origin is always echoed rather than `"*"`.',
+    },
+    methods: {
+      type: 'string[]',
+      default: '["GET","POST","PUT","PATCH","DELETE","OPTIONS"]',
+      description: 'HTTP methods exposed to cross-origin requests.',
+    },
+    allowedHeaders: {
+      type: 'string[]',
+      default: '["Content-Type","Authorization","X-Request-ID"]',
+      description: 'Headers the client is allowed to send.',
+    },
+    exposedHeaders: {
+      type: 'string[]',
+      default: '[]',
+      description: 'Response headers the browser is allowed to read.',
+    },
+    credentials: {
+      type: 'boolean',
+      default: 'false',
+      description: 'Whether to include `Access-Control-Allow-Credentials: true`.',
+    },
+    maxAge: {
+      type: 'number',
+      default: '86400',
+      description: 'How long (in seconds) the browser should cache preflight responses.',
+    },
+  }}
+/>
+
+### Rate limiting
+
+`rateLimit()` is a middleware factory that protects endpoints from abuse. It works as a global middleware or can be scoped to individual queries.
+
+<CodeBlock>
+```typescript
+import { rateLimit } from '@hypequery/serve';
+
+// Global — applied to every endpoint
+const api = defineServe({
+  queries,
+  middlewares: [
+    rateLimit({ windowMs: 60_000, max: 100 }), // 100 req/min per IP
+  ],
+});
+
+// Per-query — different limits per endpoint
+const api = defineServe({
+  queries: {
+    expensiveReport: {
+      query: async ({ ctx }) => { /* ... */ },
+      middlewares: [
+        rateLimit({
+          windowMs: 60_000,
+          max: 10,
+          keyBy: (ctx) => ctx.auth?.tenantId ?? null, // per-tenant instead of per-IP
+        }),
+      ],
+    },
+  },
+});
+```
+</CodeBlock>
+
+When the limit is exceeded the server responds with `429 Too Many Requests` and includes `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+
+<TypeTable
+  type={{
+    windowMs: {
+      type: 'number',
+      default: '60000',
+      description: 'Time window in milliseconds.',
+    },
+    max: {
+      type: 'number',
+      default: '100',
+      description: 'Maximum requests allowed per window per key.',
+    },
+    keyBy: {
+      type: '(ctx: EndpointContext) => string | null',
+      default: 'IP from x-forwarded-for / x-real-ip',
+      description: 'Function to derive the rate limit key. Return `null` to skip limiting for a request.',
+    },
+    store: {
+      type: 'RateLimitStore',
+      default: 'MemoryRateLimitStore',
+      description: 'Backing store for counters. The default in-memory store is suitable for single-process deployments. Implement `RateLimitStore` for Redis or other distributed stores.',
+    },
+    headers: {
+      type: 'boolean',
+      default: 'true',
+      description: 'Whether to include `X-RateLimit-*` headers in responses.',
+    },
+    message: {
+      type: 'string',
+      default: '"Too many requests, please try again later"',
+      description: 'Message included in the `429` error body.',
+    },
+    failOpen: {
+      type: 'boolean',
+      default: 'true',
+      description: 'If the store throws, pass the request through instead of rejecting it.',
+    },
+  }}
+/>
+
+#### Custom store (Redis / distributed)
+
+Implement `RateLimitStore` to share counters across processes:
+
+<CodeBlock>
+```typescript
+import { RateLimitStore, rateLimit } from '@hypequery/serve';
+import { Redis } from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);
+
+const redisStore: RateLimitStore = {
+  async increment(key, windowMs) {
+    const count = await redis.incr(key);
+    if (count === 1) await redis.pexpire(key, windowMs);
+    return count;
+  },
+  async getTtl(key) {
+    const ttl = await redis.pttl(key);
+    return ttl > 0 ? ttl : 0;
+  },
+  async reset(key) {
+    await redis.del(key);
+  },
+};
+
+const api = defineServe({
+  queries,
+  middlewares: [rateLimit({ store: redisStore, max: 500 })],
+});
+```
+</CodeBlock>
+
+### Body limits and request timeouts
+
+These are configured on the Node server via `api.start()` or `startNodeServer()`:
+
+<CodeBlock>
+```typescript
+await api.start({
+  port: 3000,
+  bodyLimit: 2_097_152,          // 2 MB — returns 413 if exceeded (default: 1 MB)
+  requestTimeout: 15_000,        // 15 s — returns 504 if handler stalls (default: 30 s)
+  gracefulShutdownTimeout: 5_000, // 5 s drain window on SIGTERM (default: 10 s)
+});
+```
+</CodeBlock>
+
+<TypeTable
+  type={{
+    bodyLimit: {
+      type: 'number',
+      default: '1048576 (1 MB)',
+      description: 'Maximum request body size in bytes. Requests exceeding this limit are rejected with `413 Payload Too Large`. Set to `0` to disable.',
+    },
+    requestTimeout: {
+      type: 'number',
+      default: '30000 (30 s)',
+      description: 'Maximum time in milliseconds a handler may run before the server returns `504 Gateway Timeout`. The underlying handler continues running but its response is discarded. Set to `0` to disable.',
+    },
+    gracefulShutdownTimeout: {
+      type: 'number',
+      default: '10000 (10 s)',
+      description: 'After a shutdown signal, the server stops accepting new connections and waits up to this many milliseconds for in-flight requests to complete. Any remaining connections are force-closed after the deadline.',
+    },
+  }}
+/>
+
+### Throwing structured errors from handlers
+
+Use `ServeHttpError` to return a specific HTTP status and error type from any handler or middleware without leaking internal details:
+
+<CodeBlock>
+```typescript
+import { ServeHttpError } from '@hypequery/serve';
+
+const api = defineServe({
+  queries: {
+    sensitiveReport: {
+      query: async ({ ctx, input }) => {
+        if (!ctx.auth?.isPremium) {
+          throw new ServeHttpError(403, 'UNAUTHORIZED', 'Upgrade required');
+        }
+        // ...
+      },
+    },
+  },
+});
+```
+</CodeBlock>
+
+The error reaches the client as a standard `ErrorEnvelope`. Unhandled `Error` instances (not `ServeHttpError`) are caught and returned as a generic `500 INTERNAL_SERVER_ERROR — "An unexpected error occurred"` without leaking the original message, stack trace, or query details. The raw error is still delivered to the `onError` lifecycle hook for logging.
+
 ## Observability
 
 Every response includes an `X-Request-Id` header (generated or echoed from the incoming `x-request-id` / `x-trace-id`). Use it to correlate HTTP responses with logs.
@@ -445,7 +686,7 @@ Both return `null` for `started` events (only format completions and errors).
   ```json
   {
     "error": {
-      "type": "VALIDATION_ERROR" | "UNAUTHORIZED" | "QUERY_FAILURE" | "CLICKHOUSE_UNREACHABLE" | "RATE_LIMITED" | "NOT_FOUND" | "INTERNAL_SERVER_ERROR",
+      "type": "VALIDATION_ERROR" | "UNAUTHORIZED" | "FORBIDDEN" | "QUERY_FAILURE" | "CLICKHOUSE_UNREACHABLE" | "RATE_LIMITED" | "NOT_FOUND" | "PAYLOAD_TOO_LARGE" | "GATEWAY_TIMEOUT" | "SERVICE_UNAVAILABLE" | "INTERNAL_SERVER_ERROR",
       "message": "Human-friendly summary",
       "details": {
         "issues": [ /* zod validation errors */ ],

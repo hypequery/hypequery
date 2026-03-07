@@ -62,6 +62,7 @@ export const createExecuteQuery = <
       queryLogger,
       additionalContext: options?.context,
       verboseAuthErrors,
+      sanitizeErrors: false, // In-process callers can see raw error messages
     });
 
     if (response.status !== 200) {

@@ -4,6 +4,7 @@ import type {
   AuthContext,
   AuthorizationFailureEvent,
   AuthStrategy,
+  CorsConfig,
   DocsOptions,
   EndpointContext,
   EndpointMetadata,
@@ -26,11 +27,13 @@ import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
+import { ServeHttpError } from './errors.js';
 import {
   checkRoleAuthorization,
   checkScopeAuthorization,
   AuthError,
 } from './auth.js';
+import { type ResolvedCorsConfig, handleCorsRequest } from './cors.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -51,11 +54,11 @@ const createErrorResponse = (
   message: string,
   details?: Record<string, unknown>,
   headers?: Record<string, string>,
-) => ({
+): ServeResponse<ErrorEnvelope> => ({
   status,
-  headers,
+  headers: headers ?? {},
   body: { error: { type, message, ...(details ? { details } : {}) } },
-}) satisfies ServeResponse<ErrorEnvelope>;
+});
 
 const buildContextInput = (request: ServeRequest) => {
   if (request.body !== undefined && request.body !== null) {
@@ -82,9 +85,11 @@ const resolveTenantConfig = <TAuth extends AuthContext>(
   const merged = { ...(globalConfig ?? {}), ...(override ?? {}) } as TenantConfig<TAuth>;
 
   if (!merged.extract) {
-    throw new Error(
+    throw new ServeHttpError(
+      500,
+      'INTERNAL_SERVER_ERROR',
       '[hypequery/serve] Tenant override requires an extract function when no global tenant config is set. ' +
-        'If you are using tenantOptional(), define a global tenant config with extract or pass extract in the per-query override.'
+        'If you are using tenantOptional(), define a global tenant config with extract or pass extract in the per-query override.',
     );
   }
 
@@ -247,6 +252,11 @@ export interface ExecuteEndpointOptions<
   queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
   verboseAuthErrors?: boolean;
+  /**
+   * When true (the default), internal error details are hidden from responses.
+   * Set to false for in-process execution where the caller is trusted.
+   */
+  sanitizeErrors?: boolean;
 }
 
 export const executeEndpoint = async <
@@ -267,6 +277,7 @@ export const executeEndpoint = async <
     queryLogger,
     additionalContext,
     verboseAuthErrors = false, // Default to secure mode for production safety
+    sanitizeErrors = true, // Default to secure mode for HTTP requests
   } = options;
 
   const requestId = resolveRequestId(request, explicitRequestId);
@@ -538,8 +549,42 @@ export const executeEndpoint = async <
       });
     }
 
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', message, undefined, { 'x-request-id': requestId });
+    // Structured errors thrown by middleware (rate limiter, custom middleware, etc.)
+    if (
+      error &&
+      typeof error === 'object' &&
+      'status' in error &&
+      'payload' in error
+    ) {
+      const structured = error as {
+        status: number;
+        payload: { type: string; message: string };
+        headers?: Record<string, string>;
+      };
+      const response = createErrorResponse(
+        structured.status,
+        structured.payload.type as ErrorEnvelope['error']['type'],
+        structured.payload.message,
+        undefined,
+        { 'x-request-id': requestId, ...(structured.headers ?? {}) },
+      );
+      return response;
+    }
+
+    // When sanitizeErrors is enabled (default for HTTP), hide internal error
+    // details to prevent leaking stack traces, paths, or SQL to clients.
+    // The raw error is still available in the onError hook above.
+    const errorMessage = sanitizeErrors
+      ? 'An unexpected error occurred'
+      : (error instanceof Error ? error.message : String(error));
+
+    return createErrorResponse(
+      500,
+      'INTERNAL_SERVER_ERROR',
+      errorMessage,
+      undefined,
+      { 'x-request-id': requestId },
+    );
   }
 };
 
@@ -555,6 +600,7 @@ interface HandlerOptions<
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
   verboseAuthErrors?: boolean;
+  corsConfig?: ResolvedCorsConfig | null;
 }
 
 export const createServeHandler = <
@@ -569,21 +615,30 @@ export const createServeHandler = <
   hooks,
   queryLogger,
   verboseAuthErrors = false,
+  corsConfig,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
+    // Handle CORS preflight and compute headers for actual requests
+    const { preflightResponse, corsHeaders } = handleCorsRequest(corsConfig ?? null, request);
+    if (preflightResponse) {
+      return preflightResponse;
+    }
+
     const requestId = resolveRequestId(request);
     const endpoint = router.match(request.method as HttpMethod, request.path);
     if (!endpoint) {
-      return createErrorResponse(
+      const response = createErrorResponse(
         404,
         'NOT_FOUND',
         `No endpoint registered for ${request.method} ${request.path}`,
         undefined,
         { 'x-request-id': requestId },
       );
+      response.headers = { ...response.headers, ...corsHeaders };
+      return response;
     }
 
-    return executeEndpoint<TContext, TAuth>({
+    const response = await executeEndpoint<TContext, TAuth>({
       endpoint,
       request,
       requestId,
@@ -595,6 +650,13 @@ export const createServeHandler = <
       queryLogger,
       verboseAuthErrors,
     });
+
+    // Inject CORS headers into every response
+    if (Object.keys(corsHeaders).length > 0) {
+      response.headers = { ...response.headers, ...corsHeaders };
+    }
+
+    return response;
   };
 };
 
