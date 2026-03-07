@@ -588,6 +588,100 @@ export type ExecuteQueryFunction<
   }
 ) => Promise<ServeEndpointResult<TQueries[TKey]>>;
 
+/**
+ * A transport-agnostic API definition. Contains queries, auth, tenancy,
+ * and a handler — but no HTTP server. Pass to standalone transport functions:
+ *
+ * @example
+ * ```ts
+ * const api = createAPI({ queries: { ... }, auth: jwtStrategy });
+ *
+ * // Use with any transport:
+ * serve(api, { port: 3000 });
+ * app.use('/analytics', toNodeHandler(api));
+ * export default toFetchHandler(api);
+ * ```
+ */
+export interface HypeQueryAPI<
+  TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
+    string,
+    ServeEndpoint<any, any, any, any>
+  >,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> {
+  readonly queries: TQueries;
+  /** Serve-layer query logger for subscribing to endpoint execution events */
+  readonly queryLogger: ServeQueryLogger;
+  /** The underlying request handler. Can be passed directly to transport adapters. */
+  readonly handler: ServeHandler;
+  route<Path extends string, TKey extends keyof TQueries>(
+    path: Path,
+    endpoint: TQueries[TKey],
+    options?: Partial<RouteRegistrationOptions<TContext, TAuth>>
+  ): this;
+  use(middleware: ServeMiddleware<any, any, TContext, TAuth>): this;
+  useAuth(strategy: AuthStrategy<TAuth>): this;
+  execute<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  /** Alias of execute() for in-process execution. */
+  client<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  /** Alias of execute() for in-process execution. */
+  run<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  describe(): ToolkitDescription;
+}
+
+/**
+ * Infer the API type from a HypeQueryAPI for use with @hypequery/react.
+ *
+ * @example
+ * ```ts
+ * const api = createAPI({ queries: { hello: ... } });
+ * type Api = InferAPIType<typeof api>;
+ * createHooks<Api>({ baseUrl: '/api' });
+ * ```
+ */
+export type InferAPIType<TTarget> = TTarget extends HypeQueryAPI<infer TQueries, any, any>
+  ? {
+      [K in keyof TQueries]: TQueries[K] extends ServeEndpoint<
+        infer TInputSchema,
+        infer TOutputSchema,
+        any,
+        any,
+        any
+      >
+        ? {
+            input: SchemaInput<TInputSchema>;
+            output: SchemaOutput<TOutputSchema>;
+          }
+        : never;
+    }
+  : never;
+
+/**
+ * @deprecated Use `HypeQueryAPI` and `createAPI()` instead. `ServeBuilder` adds
+ * transport concerns (`start()`) that should be handled separately.
+ */
 export interface ServeBuilder<
   TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
     string,
