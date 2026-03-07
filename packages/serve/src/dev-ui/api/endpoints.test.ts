@@ -330,19 +330,7 @@ describe('Cache Endpoints', () => {
   });
 
   describe('invalidateCache', () => {
-    it('validates cacheKeys is array', async () => {
-      const req = new MockRequest('/__dev/cache/invalidate', 'POST') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const promise = invalidateCache({ store, req, res });
-      (req as unknown as MockRequest).sendBody('{"cacheKeys": "not-an-array"}');
-      await promise;
-
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(400);
-    });
-
-    it('returns 503 when cache manager unavailable', async () => {
+    it('returns 503 when serveCacheStore unavailable', async () => {
       const req = new MockRequest('/__dev/cache/invalidate', 'POST') as unknown as IncomingMessage;
       const res = new MockResponse() as unknown as ServerResponse;
 
@@ -354,22 +342,53 @@ describe('Cache Endpoints', () => {
       expect(mockRes.statusCode).toBe(503);
     });
 
-    it('invalidates cache keys', async () => {
-      const cacheManager = {
-        invalidate: vi.fn().mockResolvedValue(undefined),
-        clear: vi.fn()
+    it('requires cacheKeys or pattern', async () => {
+      const serveCacheStore = {
+        delete: vi.fn().mockResolvedValue(true),
+        deletePattern: vi.fn().mockResolvedValue(0),
+        clear: vi.fn().mockResolvedValue(undefined),
+        resetStats: vi.fn(),
+        getStats: vi.fn().mockReturnValue({ hits: 0, misses: 0, hitRate: 0, totalQueries: 0, avgCacheAge: 0, entryCount: 0 }),
+        get: vi.fn(),
+        set: vi.fn(),
+        has: vi.fn(),
+        close: vi.fn()
       };
 
       const req = new MockRequest('/__dev/cache/invalidate', 'POST') as unknown as IncomingMessage;
       const res = new MockResponse() as unknown as ServerResponse;
 
-      const promise = invalidateCache({ store, req, res, cacheManager });
+      const promise = invalidateCache({ store, req, res, serveCacheStore: serveCacheStore as any });
+      (req as unknown as MockRequest).sendBody('{}');
+      await promise;
+
+      const mockRes = res as unknown as MockResponse;
+      expect(mockRes.statusCode).toBe(400);
+    });
+
+    it('invalidates cache keys', async () => {
+      const serveCacheStore = {
+        delete: vi.fn().mockResolvedValue(true),
+        deletePattern: vi.fn().mockResolvedValue(0),
+        clear: vi.fn().mockResolvedValue(undefined),
+        resetStats: vi.fn(),
+        getStats: vi.fn().mockReturnValue({ hits: 0, misses: 0, hitRate: 0, totalQueries: 0, avgCacheAge: 0, entryCount: 0 }),
+        get: vi.fn(),
+        set: vi.fn(),
+        has: vi.fn(),
+        close: vi.fn()
+      };
+
+      const req = new MockRequest('/__dev/cache/invalidate', 'POST') as unknown as IncomingMessage;
+      const res = new MockResponse() as unknown as ServerResponse;
+
+      const promise = invalidateCache({ store, req, res, serveCacheStore: serveCacheStore as any });
       (req as unknown as MockRequest).sendBody('{"cacheKeys": ["key1", "key2"]}');
       await promise;
 
       const mockRes = res as unknown as MockResponse;
       expect(mockRes.statusCode).toBe(200);
-      expect(cacheManager.invalidate).toHaveBeenCalledTimes(2);
+      expect(serveCacheStore.delete).toHaveBeenCalledTimes(2);
 
       const body = mockRes.getBody<{ invalidated: number }>();
       expect(body.invalidated).toBe(2);
@@ -377,7 +396,7 @@ describe('Cache Endpoints', () => {
   });
 
   describe('clearCache', () => {
-    it('returns 503 when cache manager unavailable', async () => {
+    it('returns 503 when serveCacheStore unavailable', async () => {
       const req = new MockRequest('/__dev/cache/clear', 'POST') as unknown as IncomingMessage;
       const res = new MockResponse() as unknown as ServerResponse;
 
@@ -390,21 +409,29 @@ describe('Cache Endpoints', () => {
     });
 
     it('clears cache', async () => {
-      const cacheManager = {
-        invalidate: vi.fn(),
-        clear: vi.fn().mockResolvedValue(undefined)
+      const serveCacheStore = {
+        delete: vi.fn(),
+        deletePattern: vi.fn(),
+        clear: vi.fn().mockResolvedValue(undefined),
+        resetStats: vi.fn(),
+        getStats: vi.fn().mockReturnValue({ hits: 0, misses: 0, hitRate: 0, totalQueries: 0, avgCacheAge: 0, entryCount: 0 }),
+        get: vi.fn(),
+        set: vi.fn(),
+        has: vi.fn(),
+        close: vi.fn()
       };
 
       const req = new MockRequest('/__dev/cache/clear', 'POST') as unknown as IncomingMessage;
       const res = new MockResponse() as unknown as ServerResponse;
 
-      const promise = clearCache({ store, req, res, cacheManager });
+      const promise = clearCache({ store, req, res, serveCacheStore: serveCacheStore as any });
       (req as unknown as MockRequest).sendBody('{}');
       await promise;
 
       const mockRes = res as unknown as MockResponse;
       expect(mockRes.statusCode).toBe(200);
-      expect(cacheManager.clear).toHaveBeenCalled();
+      expect(serveCacheStore.clear).toHaveBeenCalled();
+      expect(serveCacheStore.resetStats).toHaveBeenCalled();
 
       const body = mockRes.getBody<{ cleared: boolean }>();
       expect(body.cleared).toBe(true);

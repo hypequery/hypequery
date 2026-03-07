@@ -1,5 +1,5 @@
-import { logger as clickhouseLogger } from '@hypequery/clickhouse';
 import type { QueryHistoryStore, QueryLog } from './storage/index.js';
+import type { ServeQueryLogger, ServeQueryEvent } from '../query-logger.js';
 
 /**
  * Statistics for the query logger.
@@ -60,6 +60,7 @@ export class DevQueryLogger {
   private isShuttingDown = false;
   private eventListeners: Set<QueryLogEventCallback> = new Set();
   private isInitialized = false;
+  private unsubscribe: (() => void) | null = null;
 
   private stats: LoggerStats = {
     totalLogged: 0,
@@ -88,22 +89,43 @@ export class DevQueryLogger {
   }
 
   /**
-   * Initialize the logger and subscribe to clickhouse query logs.
-   * Configures the clickhouse logger to forward query logs to this logger.
+   * Initialize the logger and subscribe to serve-layer query events.
+   * @param serveLogger The ServeQueryLogger to subscribe to
    */
-  initialize(): void {
+  initialize(serveLogger: ServeQueryLogger): void {
     if (this.isInitialized) return;
 
-    // Configure clickhouse logger to call our enqueue method
-    clickhouseLogger.configure({
-      onQueryLog: (log) => {
-        this.enqueue(log);
-      }
+    // Subscribe to serve-layer query events
+    this.unsubscribe = serveLogger.on((event: ServeQueryEvent) => {
+      this.handleServeEvent(event);
     });
 
     // Start the flush timer
     this.startFlushTimer();
     this.isInitialized = true;
+  }
+
+  /**
+   * Handle a serve-layer query event and convert to QueryLog format.
+   */
+  private handleServeEvent(event: ServeQueryEvent): void {
+    const log: QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string } = {
+      queryId: event.requestId,
+      query: `${event.method} ${event.path}`,
+      startTime: event.startTime,
+      endTime: event.endTime,
+      duration: event.durationMs,
+      status: event.status,
+      error: event.error,
+      endpointKey: event.endpointKey,
+      endpointPath: event.path,
+      // Include cache info if available
+      cacheStatus: event.cache?.status,
+      cacheKey: event.cache?.key,
+      cacheAgeMs: event.cache?.age,
+    };
+
+    this.enqueue(log);
   }
 
   /**
@@ -130,7 +152,7 @@ export class DevQueryLogger {
    * Add a query log to the queue (non-blocking).
    * This method returns immediately without awaiting storage.
    */
-  private enqueue(log: QueryLog): void {
+  private enqueue(log: QueryLog & { endpointKey?: string; endpointPath?: string }): void {
     if (this.isShuttingDown) return;
 
     // Generate queryId if not present
@@ -139,8 +161,9 @@ export class DevQueryLogger {
     const entry = {
       ...log,
       queryId,
-      endpointKey: this.currentEndpointKey,
-      endpointPath: this.currentEndpointPath
+      // Use passed values, fall back to context if not provided
+      endpointKey: log.endpointKey ?? this.currentEndpointKey,
+      endpointPath: log.endpointPath ?? this.currentEndpointPath
     };
 
     this.queue.push(entry);
@@ -280,10 +303,11 @@ export class DevQueryLogger {
     // Stop the timer
     this.stopFlushTimer();
 
-    // Remove our onQueryLog handler by configuring with undefined
-    clickhouseLogger.configure({
-      onQueryLog: undefined
-    });
+    // Unsubscribe from serve-layer events
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
 
     // Clear event listeners
     this.eventListeners.clear();

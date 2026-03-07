@@ -6,6 +6,20 @@
  */
 
 /**
+ * Cache status for query events.
+ */
+export interface QueryCacheStatus {
+  /** Cache lookup result */
+  status: 'hit' | 'miss' | 'stale' | 'bypass';
+  /** Age of the cached entry in ms (only for hit/stale) */
+  age?: number;
+  /** TTL configured for this endpoint */
+  ttlMs?: number;
+  /** Cache key used */
+  key?: string;
+}
+
+/**
  * Event emitted by the serve-layer query logger.
  */
 export interface ServeQueryEvent {
@@ -21,6 +35,8 @@ export interface ServeQueryEvent {
   responseStatus?: number;
   error?: Error;
   result?: unknown;
+  /** Cache status (only present when caching is enabled) */
+  cache?: QueryCacheStatus;
 }
 
 /**
@@ -88,7 +104,26 @@ export function formatQueryEvent(event: ServeQueryEvent): string | null {
   const duration = event.durationMs != null ? `${event.durationMs}ms` : '?';
   const code = event.responseStatus ?? (event.status === 'error' ? 500 : 200);
 
-  let line = `  ${status} ${event.method} ${event.path} → ${code} (${duration})`;
+  // Cache status indicator
+  let cacheIndicator = '';
+  if (event.cache) {
+    switch (event.cache.status) {
+      case 'hit':
+        cacheIndicator = ' [cache hit]';
+        break;
+      case 'stale':
+        cacheIndicator = ' [cache stale]';
+        break;
+      case 'miss':
+        cacheIndicator = ' [cache miss]';
+        break;
+      case 'bypass':
+        cacheIndicator = ' [cache bypass]';
+        break;
+    }
+  }
+
+  let line = `  ${status} ${event.method} ${event.path} → ${code} (${duration})${cacheIndicator}`;
   if (event.status === 'error' && event.error) {
     line += ` — ${event.error.message}`;
   }
@@ -111,6 +146,15 @@ export function formatQueryEventJSON(event: ServeQueryEvent): string | null {
     method: event.method,
     status: event.responseStatus ?? (event.status === 'error' ? 500 : 200),
     durationMs: event.durationMs,
+    ...(event.cache
+      ? {
+          cache: {
+            status: event.cache.status,
+            ...(event.cache.age != null ? { ageMs: event.cache.age } : {}),
+            ...(event.cache.ttlMs != null ? { ttlMs: event.cache.ttlMs } : {}),
+          },
+        }
+      : {}),
     ...(event.status === 'error' && event.error
       ? { error: event.error.message }
       : {}),

@@ -20,14 +20,27 @@ export interface QueryHistoryEntry {
 }
 
 /**
- * Cache statistics snapshot.
+ * Cache statistics snapshot from serve-layer cache.
  */
 export interface CacheStats {
+  /** Total cache hits */
   hits: number;
+  /** Total cache misses */
   misses: number;
+  /** Total stale hits (served stale while revalidating) */
+  staleHits?: number;
+  /** Total queries that bypassed cache */
+  bypassed?: number;
+  /** Hit rate (0-1) */
   hitRate: number;
-  avgCacheAge: number;
+  /** Total queries through cache layer */
   totalQueries: number;
+  /** Average age of cache hits in ms */
+  avgCacheAge: number;
+  /** Number of entries currently in cache */
+  entryCount?: number;
+  /** Approximate memory usage in bytes */
+  memoryBytes?: number;
 }
 
 /**

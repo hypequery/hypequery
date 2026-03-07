@@ -114,10 +114,11 @@ export const serveDev = async <
       });
       queryLogger.initialize(api.queryLogger);
 
-      // Create dev handler with API integration
+      // Create dev handler with API integration and cache store
       devHandler = createDevHandler({
         store,
         logger: queryLogger,
+        serveCacheStore: api.cacheStore,
         api: {
           endpoints: Object.fromEntries(
             Object.entries(api.queries).map(([key, endpoint]) => [

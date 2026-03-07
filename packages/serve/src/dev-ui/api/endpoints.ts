@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import type { QueryHistoryStore, GetQueriesOptions } from '../storage/types.js';
 import type { DevQueryLogger } from '../query-logger.js';
 import type { SSEHandler } from './sse-handler.js';
+import type { CacheStore } from '../../cache/types.js';
 
 /**
  * Context passed to endpoint handlers.
@@ -11,17 +12,10 @@ export interface EndpointContext {
   req: IncomingMessage;
   res: ServerResponse;
   logger?: DevQueryLogger;
-  cacheManager?: CacheManager;
+  /** Serve-layer cache store for real-time cache stats and operations */
+  serveCacheStore?: CacheStore;
   sseHandler?: SSEHandler;
   api?: ApiInstance;
-}
-
-/**
- * Minimal cache manager interface.
- */
-interface CacheManager {
-  invalidate(key: string): Promise<void>;
-  clear(): Promise<void>;
 }
 
 /**
@@ -174,10 +168,24 @@ export async function getQuery(ctx: EndpointContext, queryId: string): Promise<v
 
 /**
  * GET /__dev/cache/stats
- * Get cache performance statistics.
+ * Get cache performance statistics from serve-layer cache.
  */
 export async function getCacheStats(ctx: EndpointContext): Promise<void> {
   try {
+    // Get serve-layer cache stats if available
+    if (ctx.serveCacheStore) {
+      const stats = ctx.serveCacheStore.getStats();
+
+      // Broadcast updated stats via SSE
+      ctx.sseHandler?.broadcast({
+        type: 'cache:stats',
+        data: stats
+      });
+
+      return sendJSON(ctx.res, stats);
+    }
+
+    // Fall back to query history cache stats
     const stats = await ctx.store.getCacheStats();
 
     // Broadcast updated stats via SSE
@@ -199,26 +207,32 @@ export async function getCacheStats(ctx: EndpointContext): Promise<void> {
  */
 export async function invalidateCache(ctx: EndpointContext): Promise<void> {
   try {
-    const body = await parseBody(ctx.req) as { cacheKeys?: string[] };
-    const { cacheKeys } = body;
+    const body = await parseBody(ctx.req) as { cacheKeys?: string[], pattern?: string };
+    const { cacheKeys, pattern } = body;
 
-    if (!Array.isArray(cacheKeys)) {
-      return sendError(ctx.res, 'cacheKeys must be an array', 400);
-    }
-
-    if (!ctx.cacheManager) {
-      return sendError(ctx.res, 'Cache manager not available', 503);
+    if (!ctx.serveCacheStore) {
+      return sendError(ctx.res, 'Cache not available', 503);
     }
 
     let invalidated = 0;
-    for (const key of cacheKeys) {
-      if (typeof key === 'string') {
-        await ctx.cacheManager.invalidate(key);
-        invalidated++;
+
+    // Invalidate by pattern
+    if (pattern && typeof pattern === 'string') {
+      invalidated = await ctx.serveCacheStore.deletePattern(pattern);
+    }
+    // Invalidate by specific keys
+    else if (Array.isArray(cacheKeys)) {
+      for (const key of cacheKeys) {
+        if (typeof key === 'string') {
+          const deleted = await ctx.serveCacheStore.delete(key);
+          if (deleted) invalidated++;
+        }
       }
+    } else {
+      return sendError(ctx.res, 'cacheKeys (array) or pattern (string) required', 400);
     }
 
-    const result = { invalidated, keys: cacheKeys };
+    const result = { invalidated, keys: cacheKeys, pattern };
 
     // Broadcast invalidation event
     ctx.sseHandler?.broadcast({
@@ -239,11 +253,14 @@ export async function invalidateCache(ctx: EndpointContext): Promise<void> {
  */
 export async function clearCache(ctx: EndpointContext): Promise<void> {
   try {
-    if (!ctx.cacheManager) {
-      return sendError(ctx.res, 'Cache manager not available', 503);
+    if (!ctx.serveCacheStore) {
+      return sendError(ctx.res, 'Cache not available', 503);
     }
 
-    await ctx.cacheManager.clear();
+    await ctx.serveCacheStore.clear();
+
+    // Reset stats as well
+    ctx.serveCacheStore.resetStats();
 
     const result = { cleared: true, timestamp: Date.now() };
 

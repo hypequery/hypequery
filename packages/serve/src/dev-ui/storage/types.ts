@@ -104,14 +104,14 @@ export interface QueryHistoryStore {
    * More efficient than individual inserts for bulk operations.
    * @param logs - Array of query logs with required queryId
    */
-  batchInsert(logs: Array<QueryLog & { queryId: string }>): Promise<void>;
+  batchInsert(logs: Array<QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string }>): Promise<void>;
 
   /**
    * Add a single query log entry.
    * Convenience method that wraps batchInsert.
    * @param log - Query log with required queryId
    */
-  addQuery(log: QueryLog & { queryId: string }): Promise<void>;
+  addQuery(log: QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string }): Promise<void>;
 
   /**
    * Retrieve query history entries with filtering and pagination.

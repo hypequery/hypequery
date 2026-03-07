@@ -25,12 +25,15 @@ import { createTenantScope, warnTenantMisconfiguration } from './tenant.js';
 import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
-import { ServeQueryLogger } from './query-logger.js';
+import { ServeQueryLogger, type QueryCacheStatus } from './query-logger.js';
 import {
   checkRoleAuthorization,
   checkScopeAuthorization,
   AuthError,
 } from './auth.js';
+import type { CacheStore, ServeCacheConfig } from './cache/types.js';
+import { generateCacheKey, wantsFreshResponse } from './cache/utils.js';
+import { MemoryCacheStore } from './cache/memory-store.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -232,6 +235,38 @@ const resolveContext = async <
 const resolveRequestId = (request: ServeRequest, provided?: string) =>
   provided ?? request.headers['x-request-id'] ?? request.headers['x-trace-id'] ?? generateRequestId();
 
+/**
+ * Determine the effective cache TTL for an endpoint.
+ */
+const getEffectiveCacheTtl = (
+  endpoint: ServeEndpoint<any, any, any, any>,
+  cacheConfig?: ServeCacheConfig,
+): number | null => {
+  // Explicit endpoint TTL takes precedence
+  if (endpoint.cacheTtlMs !== undefined && endpoint.cacheTtlMs !== null) {
+    return endpoint.cacheTtlMs;
+  }
+
+  // Fall back to global default if caching is enabled by default
+  if (cacheConfig?.enableByDefault && cacheConfig.defaultTtlMs) {
+    return cacheConfig.defaultTtlMs;
+  }
+
+  return null;
+};
+
+/**
+ * Generate cache key for an endpoint request.
+ */
+const getCacheKey = (
+  endpointKey: string,
+  input: unknown,
+  cacheConfig?: ServeCacheConfig,
+): string => {
+  const keyGenerator = cacheConfig?.defaultKeyGenerator ?? generateCacheKey;
+  return keyGenerator(endpointKey, input);
+};
+
 export interface ExecuteEndpointOptions<
   TContext extends Record<string, unknown>,
   TAuth extends AuthContext,
@@ -247,6 +282,10 @@ export interface ExecuteEndpointOptions<
   queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
   verboseAuthErrors?: boolean;
+  /** Cache store for serve-layer caching */
+  cacheStore?: CacheStore;
+  /** Cache configuration */
+  cacheConfig?: ServeCacheConfig;
 }
 
 export const executeEndpoint = async <
@@ -267,6 +306,8 @@ export const executeEndpoint = async <
     queryLogger,
     additionalContext,
     verboseAuthErrors = false, // Default to secure mode for production safety
+    cacheStore,
+    cacheConfig,
   } = options;
 
   const requestId = resolveRequestId(request, explicitRequestId);
@@ -462,18 +503,99 @@ export const executeEndpoint = async <
     }
     context.input = validationResult.data;
 
-    const pipeline = [
-      ...(globalMiddlewares ?? []),
-      ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
-    ];
+    // Cache logic
+    const effectiveCacheTtl = getEffectiveCacheTtl(endpoint, cacheConfig);
+    const cachingEnabled = cacheStore && effectiveCacheTtl !== null && effectiveCacheTtl > 0;
+    const bypassCache = cachingEnabled && wantsFreshResponse(request.headers as Record<string, string | undefined>);
+    const cacheKey = cachingEnabled ? getCacheKey(endpoint.key, context.input, cacheConfig) : undefined;
 
-    const result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+    let cacheStatus: QueryCacheStatus | undefined;
+    let result: unknown;
+    let fromCache = false;
+
+    // Check cache if enabled and not bypassed
+    if (cachingEnabled && !bypassCache && cacheKey) {
+      const cacheResult = await cacheStore.get(cacheKey);
+
+      if (cacheResult.status === 'hit') {
+        // Cache hit - return cached value
+        result = cacheResult.value;
+        fromCache = true;
+        cacheStatus = {
+          status: 'hit',
+          age: cacheResult.age,
+          ttlMs: effectiveCacheTtl,
+          key: cacheKey,
+        };
+      } else if (cacheResult.status === 'stale') {
+        // Stale - return cached value but trigger background refresh
+        result = cacheResult.value;
+        fromCache = true;
+        cacheStatus = {
+          status: 'stale',
+          age: cacheResult.age,
+          ttlMs: effectiveCacheTtl,
+          key: cacheKey,
+        };
+        // Note: In a production system, you might want to trigger
+        // an async background refresh here. For simplicity, we just
+        // serve the stale value.
+      } else {
+        // Cache miss
+        cacheStatus = {
+          status: 'miss',
+          ttlMs: effectiveCacheTtl,
+          key: cacheKey,
+        };
+      }
+    } else if (bypassCache) {
+      cacheStatus = {
+        status: 'bypass',
+        ttlMs: effectiveCacheTtl ?? undefined,
+        key: cacheKey,
+      };
+      // Record bypass in stats
+      if (cacheStore && 'recordBypass' in cacheStore) {
+        (cacheStore as MemoryCacheStore).recordBypass();
+      }
+    }
+
+    // Execute handler if not served from cache
+    if (!fromCache) {
+      const pipeline = [
+        ...(globalMiddlewares ?? []),
+        ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
+      ];
+
+      result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+
+      // Store in cache if enabled
+      if (cachingEnabled && cacheKey && effectiveCacheTtl) {
+        await cacheStore.set(cacheKey, result, {
+          ttlMs: effectiveCacheTtl,
+          staleWhileRevalidateMs: cacheConfig?.defaultStaleWhileRevalidateMs,
+        });
+      }
+    }
+
     const headers: Record<string, string> = {
       ...(endpoint.defaultHeaders ?? {}),
       'x-request-id': requestId,
     };
+
+    // Set Cache-Control header
     if (typeof cacheTtlMs === 'number') {
       headers['cache-control'] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : 'no-store';
+    } else if (effectiveCacheTtl && effectiveCacheTtl > 0) {
+      headers['cache-control'] = `public, max-age=${Math.floor(effectiveCacheTtl / 1000)}`;
+    }
+
+    // Add cache status header for debugging
+    if (cacheStatus) {
+      headers['x-cache'] = cacheStatus.status.toUpperCase();
+      if (cacheStatus.age !== undefined) {
+        headers['x-cache-age'] = String(cacheStatus.age);
+      }
     }
 
     const durationMs = Date.now() - startedAt;
@@ -501,6 +623,7 @@ export const executeEndpoint = async <
         input: context.input,
         responseStatus: 200,
         result,
+        cache: cacheStatus,
       });
     }
 
@@ -555,6 +678,8 @@ interface HandlerOptions<
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
   verboseAuthErrors?: boolean;
+  cacheStore?: CacheStore;
+  cacheConfig?: ServeCacheConfig;
 }
 
 export const createServeHandler = <
@@ -569,6 +694,8 @@ export const createServeHandler = <
   hooks,
   queryLogger,
   verboseAuthErrors = false,
+  cacheStore,
+  cacheConfig,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
     const requestId = resolveRequestId(request);
@@ -594,6 +721,8 @@ export const createServeHandler = <
       hooks,
       queryLogger,
       verboseAuthErrors,
+      cacheStore,
+      cacheConfig,
     });
   };
 };

@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { QueryHistoryStore } from '../storage/types.js';
 import type { DevQueryLogger } from '../query-logger.js';
+import type { CacheStore } from '../../cache/types.js';
 import { SSEHandler } from './sse-handler.js';
 import * as endpoints from './endpoints.js';
 
@@ -10,11 +11,8 @@ import * as endpoints from './endpoints.js';
 export interface RouterOptions {
   /** Query history store */
   store: QueryHistoryStore;
-  /** Optional cache manager for cache operations */
-  cacheManager?: {
-    invalidate(key: string): Promise<void>;
-    clear(): Promise<void>;
-  };
+  /** Serve-layer cache store for real-time cache stats and operations */
+  serveCacheStore?: CacheStore;
   /** Optional query logger for stats */
   logger?: DevQueryLogger;
   /** Optional API instance for available queries and execution */
@@ -103,7 +101,7 @@ export class DevAPIRouter {
   private createContext(req: IncomingMessage, res: ServerResponse): endpoints.EndpointContext {
     return {
       store: this.options.store,
-      cacheManager: this.options.cacheManager,
+      serveCacheStore: this.options.serveCacheStore,
       logger: this.options.logger,
       api: this.options.api,
       sseHandler: this.sseHandler,

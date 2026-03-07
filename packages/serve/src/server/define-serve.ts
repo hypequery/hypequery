@@ -20,6 +20,7 @@ import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createBuilderMethods } from "./builder.js";
+import { createMemoryCacheStore, type CacheStore } from "../cache/index.js";
 
 export const defineServe = <
   TContext extends Record<string, unknown> = Record<string, unknown>,
@@ -65,6 +66,15 @@ export const defineServe = <
     });
   }
 
+  // Initialize cache store if caching is configured
+  let cacheStore: CacheStore | undefined;
+  const cacheConfig = config.cache;
+  if (cacheConfig) {
+    cacheStore = cacheConfig.store ?? createMemoryCacheStore({
+      maxEntries: cacheConfig.maxEntries ?? 1000,
+    });
+  }
+
   const openapiConfig = {
     enabled: config.openapi?.enabled ?? true,
     path: config.openapi?.path ?? "/openapi.json",
@@ -93,6 +103,8 @@ export const defineServe = <
     hooks,
     queryLogger,
     verboseAuthErrors: config.security?.verboseAuthErrors ?? false,
+    cacheStore,
+    cacheConfig,
   });
 
   // Track route configuration for client config extraction
@@ -119,6 +131,7 @@ export const defineServe = <
     executeQuery,
     handler,
     basePath,
+    cacheStore,
   );
 
   if (openapiConfig.enabled) {

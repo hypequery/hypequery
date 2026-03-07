@@ -1,5 +1,6 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
+import type { ServeCacheConfig, CacheStore } from "./cache/types.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -532,6 +533,25 @@ export interface ServeConfig<
   security?: {
     verboseAuthErrors?: boolean;
   };
+  /**
+   * Server-side cache configuration.
+   *
+   * When enabled, query results are cached at the serve layer,
+   * reducing database load and improving response times.
+   *
+   * @example
+   * ```ts
+   * const api = defineServe({
+   *   queries,
+   *   cache: {
+   *     defaultTtlMs: 60_000, // 1 minute default
+   *     maxEntries: 1000,
+   *     enableByDefault: true,
+   *   }
+   * });
+   * ```
+   */
+  cache?: ServeCacheConfig;
 }
 
 export interface RouteRegistrationOptions<
@@ -621,6 +641,8 @@ export interface ServeBuilder<
   describe(): ToolkitDescription;
   handler: ServeHandler;
   start(options?: StartServerOptions): Promise<ServeStartResult>;
+  /** Cache store for serve-layer caching (if configured) */
+  readonly cacheStore?: CacheStore;
 }
 
 export interface ServeInitializer<

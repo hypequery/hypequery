@@ -18,6 +18,7 @@ import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
+import type { CacheStore } from "../cache/types.js";
 
 const loadNodeAdapter = async () => {
   if (typeof require !== "undefined") {
@@ -40,11 +41,13 @@ export const createBuilderMethods = <
   executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>,
   handler: ServeHandler,
   basePath: string,
+  cacheStore?: CacheStore,
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const builder: ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     queryLogger,
     _routeConfig: routeConfig,
+    cacheStore,
 
     route: (path: string, endpoint: ServeEndpoint<any, any, TContext, TAuth>, options: Partial<RouteRegistrationOptions<TContext, TAuth>> = {}) => {
       if (!endpoint) {

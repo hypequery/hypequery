@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { QueryHistoryStore } from './storage/types.js';
 import type { DevQueryLogger } from './query-logger.js';
+import type { CacheStore } from '../cache/types.js';
 import { DevAPIRouter, type RouterOptions } from './api/router.js';
 import { getDevUIAssets } from './assets.js';
 
@@ -12,8 +13,8 @@ export interface DevHandlerOptions {
   store: QueryHistoryStore;
   /** Query logger for stats */
   logger?: DevQueryLogger;
-  /** Cache manager for cache operations */
-  cacheManager?: RouterOptions['cacheManager'];
+  /** Serve-layer cache store for real-time cache stats and operations */
+  serveCacheStore?: CacheStore;
   /** API instance with endpoints and execute function */
   api?: RouterOptions['api'];
   /** Base path for dev UI (default: /__dev) */
@@ -35,7 +36,7 @@ export class DevHandler {
     this.router = new DevAPIRouter({
       store: options.store,
       logger: options.logger,
-      cacheManager: options.cacheManager,
+      serveCacheStore: options.serveCacheStore,
       api: options.api
     });
   }
