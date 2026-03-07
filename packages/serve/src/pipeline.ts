@@ -27,6 +27,7 @@ import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
+import { ServeHttpError } from './errors.js';
 import {
   checkRoleAuthorization,
   checkScopeAuthorization,
@@ -84,9 +85,11 @@ const resolveTenantConfig = <TAuth extends AuthContext>(
   const merged = { ...(globalConfig ?? {}), ...(override ?? {}) } as TenantConfig<TAuth>;
 
   if (!merged.extract) {
-    throw new Error(
+    throw new ServeHttpError(
+      500,
+      'INTERNAL_SERVER_ERROR',
       '[hypequery/serve] Tenant override requires an extract function when no global tenant config is set. ' +
-        'If you are using tenantOptional(), define a global tenant config with extract or pass extract in the per-query override.'
+        'If you are using tenantOptional(), define a global tenant config with extract or pass extract in the per-query override.',
     );
   }
 
@@ -249,6 +252,11 @@ export interface ExecuteEndpointOptions<
   queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
   verboseAuthErrors?: boolean;
+  /**
+   * When true (the default), internal error details are hidden from responses.
+   * Set to false for in-process execution where the caller is trusted.
+   */
+  sanitizeErrors?: boolean;
 }
 
 export const executeEndpoint = async <
@@ -269,6 +277,7 @@ export const executeEndpoint = async <
     queryLogger,
     additionalContext,
     verboseAuthErrors = false, // Default to secure mode for production safety
+    sanitizeErrors = true, // Default to secure mode for HTTP requests
   } = options;
 
   const requestId = resolveRequestId(request, explicitRequestId);
@@ -562,12 +571,17 @@ export const executeEndpoint = async <
       return response;
     }
 
-    // Sanitize: never leak internal error details (stack traces, paths, SQL)
-    // to the client. The raw error is available in the onError hook above.
+    // When sanitizeErrors is enabled (default for HTTP), hide internal error
+    // details to prevent leaking stack traces, paths, or SQL to clients.
+    // The raw error is still available in the onError hook above.
+    const errorMessage = sanitizeErrors
+      ? 'An unexpected error occurred'
+      : (error instanceof Error ? error.message : String(error));
+
     return createErrorResponse(
       500,
       'INTERNAL_SERVER_ERROR',
-      'An unexpected error occurred',
+      errorMessage,
       undefined,
       { 'x-request-id': requestId },
     );
