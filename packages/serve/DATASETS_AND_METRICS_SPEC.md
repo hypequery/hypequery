@@ -547,20 +547,43 @@ External behavior depends on configuration:
 
 ## 4. Execution Engine
 
-### 4.1 MetricExecutor
+### 4.1 Key Decision: Delegate to QueryBuilder
 
-The core runtime that resolves metrics to SQL and executes them.
+The MetricExecutor does **not** generate SQL strings directly. It composes the existing
+`@hypequery/clickhouse` QueryBuilder programmatically. This gives us parameterized queries,
+dialect handling, join resolution, CTE support, caching, and logging for free.
+
+The QueryBuilder exposes everything we need:
+- `.table(name)` — start from a physical table
+- `.select([...])` — dimension columns
+- `.sum(col, alias)`, `.count(col, alias)`, `.avg(col, alias)`, `.min()`, `.max()` — aggregations
+- `.where(col, op, value)` — filters (parameterized automatically)
+- `.groupBy([...])` — GROUP BY from dimensions
+- `.groupByTimeInterval(col, interval, method)` — time graining (`toStartOfMonth`, etc.)
+- `.orderBy(col, dir)`, `.limit(n)` — modifiers
+- `.leftJoin(table)` / `.withRelation(name)` — relationships via `JoinRelationships`
+- `.withCTE(alias, subqueryBuilder)` — CTE wrapping for derived metrics
+- `.toSQL()` / `.toSQLWithParams()` — SQL output without executing
+- `.execute()` — execute with logging, caching, and parameterization
+
+The QueryBuilder is heavily generic-typed for user-facing fluent chains. The MetricExecutor
+works with `QueryBuilder<any, any>` internally — type safety lives at the metric definition
+and contract boundary, not inside the executor.
+
+### 4.2 MetricExecutor
 
 ```ts
 class MetricExecutor {
+  private qb: ReturnType<typeof createQueryBuilder<any>>;
+
   constructor(options: {
-    adapter: DatabaseAdapter;
+    queryBuilder: ReturnType<typeof createQueryBuilder<any>>;
     datasets: DatasetRegistry;
   });
 
   /**
-   * Execute a metric query. Resolves derived metrics,
-   * generates SQL, applies tenant/filter context, executes.
+   * Execute a metric query. Builds a QueryBuilder chain from the metric
+   * definition, applies filters/dimensions/tenant context, and executes.
    */
   run<T>(
     metric: MetricRef<any, any, any>,
@@ -569,7 +592,8 @@ class MetricExecutor {
   ): Promise<MetricResult<T>>;
 
   /**
-   * Generate SQL without executing (debugging/logging).
+   * Generate SQL without executing (for debugging/logging).
+   * Delegates to QueryBuilder.toSQL().
    */
   toSQL(
     metric: MetricRef<any, any, any>,
@@ -586,24 +610,81 @@ class MetricExecutor {
 }
 ```
 
-### 4.2 SQL Generation Strategy
+### 4.3 How MetricExecutor Builds Queries
 
-**Base metrics** — single SELECT with GROUP BY:
+The executor translates metric definitions into QueryBuilder calls. Here's the
+mapping for each case:
 
+**Base metrics — `.table().select().sum().where().groupBy().execute()`**
+
+```ts
+// Metric: totalRevenue = sum("amount") on Orders dataset
+// Query:  dimensions: ["country"], filters: { status: "completed" }
+
+async run(metric, query, context) {
+  let builder = this.qb
+    .table(metric.dataset.source)          // .table("orders")
+    .select(query.dimensions)              // .select(["country"])
+    .sum("amount", "totalRevenue");        // .sum("amount", "totalRevenue")
+
+  // Auto-inject tenant
+  if (context?.tenantId && metric.dataset.tenantKey) {
+    builder = builder.where(metric.dataset.tenantKey, "eq", context.tenantId);
+  }
+
+  // User filters
+  for (const filter of query.filters ?? []) {
+    builder = builder.where(filter.field, filter.operator, filter.value);
+  }
+
+  // Order + limit
+  for (const ord of query.orderBy ?? []) {
+    builder = builder.orderBy(ord.field, ord.direction);
+  }
+  if (query.limit) builder = builder.limit(query.limit);
+
+  return { data: await builder.execute(), meta: { sql: builder.toSQL() } };
+}
+```
+
+Generated SQL (via QueryBuilder):
 ```sql
 SELECT
-  country,                        -- dimension
-  SUM(amount) AS totalRevenue     -- metric aggregation
+  country,
+  SUM(amount) AS totalRevenue
 FROM orders
-WHERE tenant_id = ?               -- auto-injected tenant
-  AND status = ?                  -- user filter
+WHERE tenant_id = ?
+  AND status = ?
 GROUP BY country
 ORDER BY totalRevenue DESC
 LIMIT 100
 ```
 
-**Derived metrics** — CTE wrapping base aggregations:
+**Derived metrics — `.withCTE()` for base aggregations + outer formula**
 
+```ts
+// Metric: avgOrderValue = divide(totalRevenue, orderCount)
+// The executor collects all base metrics, builds a CTE, then wraps with formula.
+
+const baseBuilder = this.qb
+  .table("orders")
+  .select(query.dimensions)
+  .sum("amount", "totalRevenue")
+  .count("id", "orderCount");
+  // + where, groupBy (same as above)
+
+const outerBuilder = this.qb
+  .table("base")                           // FROM base (the CTE)
+  .withCTE("base", baseBuilder)            // WITH base AS (SELECT ...)
+  .select([
+    ...query.dimensions,
+    rawAs("totalRevenue / NULLIF(orderCount, 0)", "avgOrderValue"),
+  ]);
+
+return { data: await outerBuilder.execute() };
+```
+
+Generated SQL:
 ```sql
 WITH base AS (
   SELECT
@@ -616,18 +697,36 @@ WITH base AS (
 )
 SELECT
   country,
-  totalRevenue,
-  orderCount,
   totalRevenue / NULLIF(orderCount, 0) AS avgOrderValue
 FROM base
 ```
 
-**Grained metrics** — time truncation in SELECT and GROUP BY:
+**Grained metrics — `.groupByTimeInterval()` from existing QueryBuilder**
 
+```ts
+// Metric: monthlyRevenue = totalRevenue.by("month")
+
+const grainMethod = {
+  day: "toStartOfDay",
+  week: "toStartOfWeek",
+  month: "toStartOfMonth",
+  quarter: "toStartOfQuarter",
+  year: "toStartOfYear",
+} as const;
+
+builder = this.qb
+  .table("orders")
+  .select([
+    rawAs(`${grainMethod[grain]}(${dataset.timeKey})`, "period"),
+  ])
+  .sum("amount", "totalRevenue")
+  .groupByTimeInterval(dataset.timeKey, `1 ${grain}`, grainMethod[grain]);
+```
+
+Generated SQL (ClickHouse):
 ```sql
 SELECT
-  toStartOfMonth(created_at) AS period,  -- ClickHouse
-  -- DATE_TRUNC('month', created_at) AS period  -- Postgres
+  toStartOfMonth(created_at) AS period,
   SUM(amount) AS totalRevenue
 FROM orders
 WHERE tenant_id = ?
@@ -635,33 +734,74 @@ GROUP BY period
 ORDER BY period
 ```
 
-**Cross-relationship metrics** — JOIN via relationship definitions:
-
-```sql
-SELECT
-  c.country,
-  SUM(o.amount) AS totalRevenue
-FROM orders o
-LEFT JOIN customers c ON o.customer_id = c.id
-WHERE o.tenant_id = ?
-GROUP BY c.country
-```
-
-### 4.3 DatabaseAdapter Interface
+**Cross-relationship metrics — `.leftJoin()` / `.withRelation()` from existing JoinRelationships**
 
 ```ts
-interface DatabaseAdapter {
-  execute<T = Record<string, unknown>>(
-    sql: string,
-    params?: unknown[],
-  ): Promise<T[]>;
+// Query includes a dimension from a related dataset (e.g., customer.country)
 
-  /** Adapter dialect — drives date truncation, window functions, etc. */
-  readonly dialect: 'clickhouse' | 'postgres';
+const relationships = JoinRelationships.create();
+relationships.define("orders_to_customers", {
+  from: "orders", to: "customers",
+  leftColumn: "customer_id", rightColumn: "id",
+  type: "LEFT",
+});
+
+builder = this.qb
+  .table("orders")
+  .leftJoin("customers", "customer_id", "id")
+  .select([rawAs("customers.country", "country")])
+  .sum("orders.amount", "totalRevenue");
+```
+
+Generated SQL:
+```sql
+SELECT
+  customers.country AS country,
+  SUM(orders.amount) AS totalRevenue
+FROM orders
+LEFT JOIN customers ON orders.customer_id = customers.id
+WHERE orders.tenant_id = ?
+GROUP BY customers.country
+```
+
+### 4.4 What We Get for Free from QueryBuilder
+
+| Concern | How QueryBuilder Handles It |
+|---------|---------------------------|
+| **Parameterization** | `.where()` auto-parameterizes values — no SQL injection risk |
+| **Dialect** | `ClickHouseDialect` compiles `QueryConfig` → SQL with CH-specific syntax |
+| **Time functions** | `.groupByTimeInterval()` uses `toStartOfDay`, `toStartOfMonth`, etc. |
+| **Joins** | `JoinRelationships` resolves named paths, chains of joins |
+| **CTEs** | `.withCTE(alias, subqueryBuilder)` — perfect for derived metrics |
+| **Caching** | `.cache({ ttlMs })` integrates with the existing cache system |
+| **Logging** | `ExecutorFeature.execute()` logs query timing, row count, errors |
+| **Raw expressions** | `raw()`, `rawAs()`, `selectExpr()` for custom SQL in formulas |
+| **Streaming** | `.stream()` / `.streamForEach()` available if needed |
+
+### 4.5 Aggregation Mapping
+
+The executor maps metric aggregation specs to QueryBuilder methods:
+
+```ts
+function applyAggregation(builder, spec, alias) {
+  switch (spec.type) {
+    case "sum":            return builder.sum(spec.field, alias);
+    case "count":          return builder.count(spec.field, alias);
+    case "avg":            return builder.avg(spec.field, alias);
+    case "min":            return builder.min(spec.field, alias);
+    case "max":            return builder.max(spec.field, alias);
+    case "countDistinct":
+      return builder.select([
+        ...currentSelects,
+        rawAs(`COUNT(DISTINCT ${spec.field})`, alias),
+      ]);
+  }
 }
 ```
 
-The existing `@hypequery/clickhouse` adapter satisfies this interface. Additional adapters can be added for Postgres or testing.
+Note: `countDistinct` doesn't have a dedicated QueryBuilder method, so we use
+`rawAs()` — the field name is validated against the dataset contract before this
+point, so it's safe.
 
 ---
 
