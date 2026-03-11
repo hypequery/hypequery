@@ -11,7 +11,6 @@ import type {
   DatasetDefinition,
   DatasetsMap,
   DimensionsMap,
-  MetricsMap,
   Dimension,
   DimensionDefinition,
   DimensionType,

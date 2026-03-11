@@ -11,6 +11,7 @@
   "dependencies": {
     "@radix-ui/react-popover": "^1.0.7",
     "@shikijs/rehype": "^3.23.0",
+    "@vercel/blob": "^2.3.1",
     "class-variance-authority": "^0.7.0",
     "framer-motion": "^12.31.0",
     "fumadocs-core": "^16.4.11",

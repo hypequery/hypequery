@@ -1,9 +1,11 @@
-import { getPosts } from '@/lib/blog';
+import { getPostBySlug } from '@/lib/blog';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import CodeHighlight from '@/components/CodeHighlight';
+
+export const dynamic = 'force-dynamic';
 
 export default async function BlogPostPage({
   params,
@@ -11,15 +13,14 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const posts = await getPosts();
-  const post = posts.find((p) => p.slug === slug);
+  const post = await getPostBySlug(slug);
 
   if (!post) {
     notFound();
   }
 
   const { data, content } = post;
-  const publishDate = data.date ?? data.pubDate;
+  const publishDate = data.date;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-24 pt-28 lg:px-8">
@@ -85,11 +86,4 @@ export default async function BlogPostPage({
       </article >
     </div >
   );
-}
-
-export async function generateStaticParams() {
-  const posts = await getPosts();
-  return posts.map((post) => ({
-    slug: post.slug,
-  }));
 }
