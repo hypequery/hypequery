@@ -39,8 +39,8 @@ export default async function BlogPage({
             className="border-b border-gray-200 pb-12 dark:border-gray-800"
           >
             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-              <time dateTime={post.data.date ?? post.data.pubDate ?? ''}>
-                {new Date(post.data.date ?? post.data.pubDate ?? Date.now()).toLocaleDateString('en-US', {
+              <time dateTime={post.data.date ?? ''}>
+                {new Date(post.data.date ?? '1970-01-01T00:00:00.000Z').toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric',
