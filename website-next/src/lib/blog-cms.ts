@@ -306,10 +306,18 @@ function initializeDatabase(db: DatabaseSync) {
 }
 
 async function readBlobStore(): Promise<BlogPostRecord[]> {
-  const result = await get(blobPathname, {
-    access: 'private',
-    useCache: false,
-  });
+  let result;
+
+  try {
+    result = await get(blobPathname, {
+      access: 'private',
+      useCache: false,
+    });
+  } catch (error) {
+    throw new Error('Failed to read blog posts from Vercel Blob.', {
+      cause: error,
+    });
+  }
 
   if (!result) {
     const seededPosts = createSeedPosts();
@@ -318,11 +326,20 @@ async function readBlobStore(): Promise<BlogPostRecord[]> {
   }
 
   if (result.statusCode !== 200) {
-    return [];
+    throw new Error(`Unexpected Vercel Blob response while reading blog posts: ${result.statusCode}.`);
   }
 
   const text = await new Response(result.stream).text();
-  const parsed = JSON.parse(text) as Partial<BlobStoreFile>;
+  let parsed: Partial<BlobStoreFile>;
+
+  try {
+    parsed = JSON.parse(text) as Partial<BlobStoreFile>;
+  } catch (error) {
+    throw new Error('Failed to parse blog posts from Vercel Blob.', {
+      cause: error,
+    });
+  }
+
   const posts = Array.isArray(parsed.posts) ? parsed.posts : [];
 
   return posts.map((post) => ({
@@ -472,7 +489,6 @@ export function formatPostForPublic(post: BlogPostRecord): BlogPost {
 }
 
 export async function getPosts(): Promise<BlogPost[]> {
-  noStore();
   const posts = await getAllPostsInternal();
 
   return posts
@@ -482,7 +498,6 @@ export async function getPosts(): Promise<BlogPost[]> {
 }
 
 export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
-  noStore();
   const posts = await getAllPostsInternal();
   const post = posts.find((item) => item.slug === sanitizeSlug(slug) && item.status === 'published');
 

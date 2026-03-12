@@ -5,8 +5,6 @@ import { ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import CodeHighlight from '@/components/CodeHighlight';
 
-export const dynamic = 'force-dynamic';
-
 export default async function BlogPostPage({
   params,
 }: {

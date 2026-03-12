@@ -2,8 +2,6 @@ import Link from 'next/link';
 import { getPosts } from '@/lib/blog';
 import Newsletter from '@/components/Newsletter';
 
-export const dynamic = 'force-dynamic';
-
 export default async function BlogPage({
   searchParams,
 }: {
