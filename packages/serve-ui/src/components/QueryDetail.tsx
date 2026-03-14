@@ -1,49 +1,12 @@
-import { X, Copy, Clock, Zap, Database, Server, AlertCircle, CheckCircle, RefreshCw, SkipForward, Users, Timer } from 'lucide-react';
+import { X, Copy, Clock, Zap, Database, Server, AlertCircle, Users, Timer } from 'lucide-react';
 import { cn, formatDuration, formatTime, formatNumber } from '@/lib/utils';
+import { COLORS, ICON_SIZES } from '@/lib/colors';
+import { getCacheDisplayConfig } from '@/lib/cache-display';
 import { SQLViewer } from './SQLViewer';
 import { StatusBadge } from './StatusBadge';
-import type { QueryHistoryEntry, CacheStatus } from '@/lib/types';
-
-/**
- * Get cache status display info.
- */
-function getCacheDisplayInfo(status?: CacheStatus, cacheHit?: boolean): {
-  label: string;
-  icon: typeof CheckCircle;
-  bgClass: string;
-  textClass: string;
-} {
-  if (status === 'hit' || (!status && cacheHit)) {
-    return {
-      label: 'Cache Hit',
-      icon: CheckCircle,
-      bgClass: 'bg-green-50 dark:bg-green-900/20',
-      textClass: 'text-green-700 dark:text-green-400',
-    };
-  }
-  if (status === 'stale') {
-    return {
-      label: 'Stale (Revalidating)',
-      icon: RefreshCw,
-      bgClass: 'bg-yellow-50 dark:bg-yellow-900/20',
-      textClass: 'text-yellow-700 dark:text-yellow-400',
-    };
-  }
-  if (status === 'bypass') {
-    return {
-      label: 'Bypass',
-      icon: SkipForward,
-      bgClass: 'bg-blue-50 dark:bg-blue-900/20',
-      textClass: 'text-blue-700 dark:text-blue-400',
-    };
-  }
-  return {
-    label: 'Cache Miss',
-    icon: Database,
-    bgClass: 'bg-muted',
-    textClass: 'text-muted-foreground',
-  };
-}
+import { MetricCard } from './MetricCard';
+import { IconButton } from './IconButton';
+import type { QueryHistoryEntry } from '@/lib/types';
 
 interface QueryDetailProps {
   query: QueryHistoryEntry;
@@ -75,12 +38,7 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
           )}
         </div>
         {onClose && (
-          <button
-            onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <IconButton icon={X} onClick={onClose} title="Close" />
         )}
       </div>
 
@@ -94,7 +52,7 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
               onClick={() => copyToClipboard(query.query)}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Copy className="h-3 w-3" />
+              <Copy className={ICON_SIZES.xs} />
               Copy
             </button>
           </div>
@@ -124,9 +82,9 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
             <MetricCard
               icon={Server}
               label="Cache Status"
-              value={getCacheDisplayInfo(query.cacheStatus, query.cacheHit).label}
-              highlight={query.cacheStatus === 'hit' || query.cacheHit}
-              highlightColor={query.cacheStatus === 'stale' ? 'yellow' : 'green'}
+              value={getCacheDisplayConfig(query.cacheStatus, query.cacheHit)?.label || 'N/A'}
+              highlight={query.cacheStatus === 'hit' || query.cacheHit === true}
+              highlightColor={query.cacheStatus === 'stale' ? 'warning' : 'success'}
             />
           </div>
         </section>
@@ -136,12 +94,13 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
           <section>
             <h3 className="text-sm font-medium mb-2">Cache</h3>
             {(() => {
-              const display = getCacheDisplayInfo(query.cacheStatus, query.cacheHit);
+              const display = getCacheDisplayConfig(query.cacheStatus, query.cacheHit);
+              if (!display) return null;
               const Icon = display.icon;
               return (
                 <div className={cn('rounded-md p-3 text-sm', display.bgClass)}>
                   <div className={cn('flex items-center gap-2 mb-2', display.textClass)}>
-                    <Icon className="h-4 w-4" />
+                    <Icon className={ICON_SIZES.md} />
                     <span className="font-medium">{display.label}</span>
                     {query.cacheAgeMs !== undefined && (query.cacheStatus === 'hit' || query.cacheStatus === 'stale' || query.cacheHit) && (
                       <span className="text-xs opacity-75">({formatDuration(query.cacheAgeMs)} old)</span>
@@ -155,7 +114,7 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
                           onClick={() => navigator.clipboard.writeText(query.cacheKey!)}
                           className="text-xs opacity-75 hover:opacity-100 flex items-center gap-1"
                         >
-                          <Copy className="h-3 w-3" />
+                          <Copy className={ICON_SIZES.xs} />
                           Copy
                         </button>
                       </div>
@@ -174,9 +133,9 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
         {query.tenantId && (
           <section>
             <h3 className="text-sm font-medium mb-2">Tenancy</h3>
-            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-md p-3 text-sm">
-              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
-                <Users className="h-4 w-4" />
+            <div className={cn('rounded-md p-3 text-sm', COLORS.purple.bgLight)}>
+              <div className={cn('flex items-center gap-2', COLORS.purple.text)}>
+                <Users className={ICON_SIZES.md} />
                 <span className="font-medium">Tenant: {query.tenantId}</span>
               </div>
             </div>
@@ -189,7 +148,7 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
             <h3 className="text-sm font-medium mb-2">Timing Breakdown</h3>
             <div className="bg-muted rounded-md p-3">
               <div className="flex items-center gap-2 mb-3 text-muted-foreground">
-                <Timer className="h-4 w-4" />
+                <Timer className={ICON_SIZES.md} />
                 <span className="text-sm">Total: {formatDuration(query.duration)}</span>
               </div>
               <div className="space-y-2">
@@ -211,9 +170,9 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
         {query.error && (
           <section>
             <h3 className="text-sm font-medium mb-2">Error</h3>
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-md p-3">
-              <div className="flex items-start gap-2 text-red-700 dark:text-red-400">
-                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div className={cn('rounded-md p-3', COLORS.error.bgLight)}>
+              <div className={cn('flex items-start gap-2', COLORS.error.text)}>
+                <AlertCircle className={cn(ICON_SIZES.md, 'mt-0.5 flex-shrink-0')} />
                 <pre className="text-sm whitespace-pre-wrap break-words font-mono">
                   {query.error}
                 </pre>
@@ -279,44 +238,6 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
           </dl>
         </section>
       </div>
-    </div>
-  );
-}
-
-/**
- * Metric card component.
- */
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  highlight = false,
-  highlightColor = 'yellow',
-}: {
-  icon: typeof Clock;
-  label: string;
-  value: string;
-  highlight?: boolean;
-  highlightColor?: 'yellow' | 'green' | 'red';
-}) {
-  const highlightStyles = {
-    yellow: 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400',
-    green: 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400',
-  };
-
-  return (
-    <div
-      className={cn(
-        'rounded-md p-3',
-        highlight ? highlightStyles[highlightColor] : 'bg-muted'
-      )}
-    >
-      <div className="flex items-center gap-2 text-muted-foreground mb-1">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-xs">{label}</span>
-      </div>
-      <div className="text-lg font-semibold">{value}</div>
     </div>
   );
 }

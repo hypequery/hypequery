@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { RefreshCw, Search, Shield, Clock, Users, X, Code, Tag, ChevronRight } from 'lucide-react';
 import { cn, formatDuration } from '@/lib/utils';
+import { COLORS, ICON_SIZES } from '@/lib/colors';
 import { useRegistry } from '@/hooks/useRegistry';
+import { MethodBadge } from './MethodBadge';
+import { IconButton } from './IconButton';
 import type { RegistryEntry } from '@/lib/types';
 
 interface RegistryProps {
@@ -59,15 +62,15 @@ export function Registry({ className }: RegistryProps) {
             <button
               onClick={() => refetch()}
               disabled={loading}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              <RefreshCw className={cn(ICON_SIZES.md, loading && 'animate-spin')} />
               Refresh
             </button>
           </div>
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground', ICON_SIZES.md)} />
             <input
               type="text"
               placeholder="Search endpoints..."
@@ -135,17 +138,7 @@ function RegistryRow({
       onClick={onClick}
     >
       {/* Method badge */}
-      <span
-        className={cn(
-          'flex-shrink-0 px-2 py-0.5 text-xs font-mono rounded',
-          entry.method === 'GET' && 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
-          entry.method === 'POST' && 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
-          entry.method === 'PUT' && 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
-          entry.method === 'DELETE' && 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-        )}
-      >
-        {entry.method}
-      </span>
+      <MethodBadge method={entry.method} className="flex-shrink-0" />
 
       {/* Info */}
       <div className="flex-1 min-w-0">
@@ -158,21 +151,21 @@ function RegistryRow({
       {/* Badges */}
       <div className="flex-shrink-0 flex items-center gap-1.5">
         {entry.hasTenant && (
-          <span className="p-1 rounded bg-purple-100 dark:bg-purple-900/30" title="Tenant-scoped">
-            <Users className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+          <span className={cn('p-1 rounded', COLORS.purple.bg)} title="Tenant-scoped">
+            <Users className={cn(ICON_SIZES.xs, COLORS.purple.text)} />
           </span>
         )}
         {entry.isCached && (
-          <span className="p-1 rounded bg-green-100 dark:bg-green-900/30" title="Cached">
-            <Clock className="h-3 w-3 text-green-600 dark:text-green-400" />
+          <span className={cn('p-1 rounded', COLORS.success.bg)} title="Cached">
+            <Clock className={cn(ICON_SIZES.xs, COLORS.success.text)} />
           </span>
         )}
         {entry.requiresAuth && (
-          <span className="p-1 rounded bg-yellow-100 dark:bg-yellow-900/30" title="Requires Auth">
-            <Shield className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
+          <span className={cn('p-1 rounded', COLORS.warning.bg)} title="Requires Auth">
+            <Shield className={cn(ICON_SIZES.xs, COLORS.warning.text)} />
           </span>
         )}
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        <ChevronRight className={cn(ICON_SIZES.md, 'text-muted-foreground')} />
       </div>
     </div>
   );
@@ -187,23 +180,10 @@ function RegistryDetail({ entry, onClose }: { entry: RegistryEntry; onClose: () 
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              'px-2 py-0.5 text-xs font-mono rounded',
-              entry.method === 'GET' && 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
-              entry.method === 'POST' && 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
-            )}
-          >
-            {entry.method}
-          </span>
+          <MethodBadge method={entry.method} />
           <span className="font-medium">{entry.name || entry.key}</span>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <IconButton icon={X} onClick={onClose} title="Close" />
       </div>
 
       {/* Content */}
@@ -232,7 +212,7 @@ function RegistryDetail({ entry, onClose }: { entry: RegistryEntry; onClose: () 
                   key={tag}
                   className="flex items-center gap-1 px-2 py-0.5 text-xs bg-muted rounded"
                 >
-                  <Tag className="h-3 w-3" />
+                  <Tag className={ICON_SIZES.xs} />
                   {tag}
                 </span>
               ))}
@@ -248,9 +228,9 @@ function RegistryDetail({ entry, onClose }: { entry: RegistryEntry; onClose: () 
               {entry.inputFields.map((field) => (
                 <span
                   key={field}
-                  className="flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded font-mono"
+                  className={cn('flex items-center gap-1 px-2 py-0.5 text-xs rounded font-mono', COLORS.info.bg, COLORS.info.text)}
                 >
-                  <Code className="h-3 w-3" />
+                  <Code className={ICON_SIZES.xs} />
                   {field}
                 </span>
               ))}
@@ -308,9 +288,9 @@ function RegistryDetail({ entry, onClose }: { entry: RegistryEntry; onClose: () 
             <span
               className={cn(
                 'px-2 py-0.5 text-xs rounded',
-                entry.visibility === 'public' && 'bg-green-100 dark:bg-green-900/30 text-green-700',
-                entry.visibility === 'internal' && 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700',
-                entry.visibility === 'private' && 'bg-red-100 dark:bg-red-900/30 text-red-700'
+                entry.visibility === 'public' && cn(COLORS.success.bg, COLORS.success.text),
+                entry.visibility === 'internal' && cn(COLORS.warning.bg, COLORS.warning.text),
+                entry.visibility === 'private' && cn(COLORS.error.bg, COLORS.error.text)
               )}
             >
               {entry.visibility}
@@ -343,7 +323,7 @@ function CapabilityRow({
         enabled ? 'bg-muted' : 'opacity-50'
       )}
     >
-      <Icon className={cn('h-4 w-4', enabled ? 'text-primary' : 'text-muted-foreground')} />
+      <Icon className={cn(ICON_SIZES.md, enabled ? 'text-primary' : 'text-muted-foreground')} />
       <div className="flex-1">
         <div className="text-sm font-medium">{label}</div>
         {enabled && description && (
@@ -354,7 +334,7 @@ function CapabilityRow({
         className={cn(
           'text-xs px-2 py-0.5 rounded',
           enabled
-            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+            ? cn(COLORS.success.bg, COLORS.success.text)
             : 'bg-muted text-muted-foreground'
         )}
       >
