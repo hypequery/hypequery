@@ -20,6 +20,18 @@ export interface QueryCacheStatus {
 }
 
 /**
+ * Timing breakdown for query execution.
+ */
+export interface QueryTimingBreakdown {
+  /** Time to resolve middleware and prepare context (ms) */
+  setupMs?: number;
+  /** Time to execute the actual query/handler (ms) */
+  handlerMs?: number;
+  /** Time to serialize and prepare response (ms) */
+  serializeMs?: number;
+}
+
+/**
  * Event emitted by the serve-layer query logger.
  */
 export interface ServeQueryEvent {
@@ -37,6 +49,10 @@ export interface ServeQueryEvent {
   result?: unknown;
   /** Cache status (only present when caching is enabled) */
   cache?: QueryCacheStatus;
+  /** Tenant ID if multi-tenancy is enabled */
+  tenantId?: string;
+  /** Timing breakdown for query execution */
+  timing?: QueryTimingBreakdown;
 }
 
 /**
@@ -124,6 +140,9 @@ export function formatQueryEvent(event: ServeQueryEvent): string | null {
   }
 
   let line = `  ${status} ${event.method} ${event.path} → ${code} (${duration})${cacheIndicator}`;
+  if (event.tenantId) {
+    line += ` [tenant: ${event.tenantId}]`;
+  }
   if (event.status === 'error' && event.error) {
     line += ` — ${event.error.message}`;
   }
@@ -146,6 +165,7 @@ export function formatQueryEventJSON(event: ServeQueryEvent): string | null {
     method: event.method,
     status: event.responseStatus ?? (event.status === 'error' ? 500 : 200),
     durationMs: event.durationMs,
+    ...(event.timing ? { timing: event.timing } : {}),
     ...(event.cache
       ? {
           cache: {
@@ -155,6 +175,7 @@ export function formatQueryEventJSON(event: ServeQueryEvent): string | null {
           },
         }
       : {}),
+    ...(event.tenantId ? { tenantId: event.tenantId } : {}),
     ...(event.status === 'error' && event.error
       ? { error: event.error.message }
       : {}),

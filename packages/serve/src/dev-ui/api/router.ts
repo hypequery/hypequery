@@ -25,6 +25,22 @@ export interface RouterOptions {
       tags?: string[];
       inputSchema?: unknown;
       outputSchema?: unknown;
+      metadata?: {
+        path?: string;
+        method?: string;
+        name?: string;
+        summary?: string;
+        description?: string;
+        tags?: string[];
+        requiresAuth?: boolean;
+        requiredRoles?: string[];
+        requiredScopes?: string[];
+        cacheTtlMs?: number | null;
+        visibility?: string;
+        custom?: Record<string, unknown>;
+      };
+      tenant?: unknown;
+      cacheTtlMs?: number | null;
     }>;
     execute?: (key: string, options: { input?: unknown }) => Promise<unknown>;
   };
@@ -38,6 +54,7 @@ const AVAILABLE_ROUTES = [
   'GET /__dev/queries - List query history',
   'GET /__dev/queries/:id - Get single query',
   'GET /__dev/queries/available - List available API endpoints',
+  'GET /__dev/registry - List all registered endpoints with full metadata',
   'DELETE /__dev/queries - Clear query history',
   'GET /__dev/cache/stats - Get cache statistics',
   'POST /__dev/cache/invalidate - Invalidate cache keys',
@@ -137,6 +154,12 @@ export class DevAPIRouter {
     if (path === '/__dev/events' && method === 'GET') {
       const lastEventId = req.headers['last-event-id'] as string | undefined;
       this.sseHandler.addClient(res, lastEventId);
+      return true;
+    }
+
+    // Route: Registry (full endpoint metadata)
+    if (path === '/__dev/registry' && method === 'GET') {
+      await endpoints.getRegistry(ctx);
       return true;
     }
 

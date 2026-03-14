@@ -2,6 +2,18 @@
  * Query log entry compatible with @hypequery/clickhouse QueryLog.
  * Defined locally so @hypequery/serve has no hard dependency on clickhouse.
  */
+/**
+ * Timing breakdown for query execution.
+ */
+export interface QueryTimingBreakdown {
+  /** Time to resolve middleware and prepare context (ms) */
+  setupMs?: number;
+  /** Time to execute the actual query/handler (ms) */
+  handlerMs?: number;
+  /** Time to serialize and prepare response (ms) */
+  serializeMs?: number;
+}
+
 export interface QueryLog {
   query: string;
   parameters?: any[];
@@ -17,6 +29,10 @@ export interface QueryLog {
   cacheMode?: string;
   cacheAgeMs?: number;
   cacheRowCount?: number;
+  /** Tenant ID if multi-tenancy is enabled */
+  tenantId?: string;
+  /** Timing breakdown */
+  timing?: QueryTimingBreakdown;
 }
 
 /**
@@ -35,6 +51,10 @@ export interface QueryHistoryEntry extends QueryLog {
   resultPreview?: any[];
   /** Timestamp when entry was created in storage */
   createdAt?: number;
+  /** Tenant ID if multi-tenancy is enabled */
+  tenantId?: string;
+  /** Timing breakdown */
+  timing?: QueryTimingBreakdown;
 }
 
 /**

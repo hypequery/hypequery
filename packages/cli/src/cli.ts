@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { devCommand } from './commands/dev.js';
 import { generateCommand } from './commands/generate.js';
+import { syncCommand } from './commands/sync.js';
 
 const program = new Command();
 
@@ -67,6 +68,21 @@ program
     }
   });
 
+// Sync command
+program
+  .command('sync [file]')
+  .description('Extract and sync endpoint registry')
+  .option('-o, --output <path>', 'Output file path (default: stdout)')
+  .option('-q, --quiet', 'Suppress informational messages')
+  .action(async (file, options) => {
+    try {
+      await syncCommand(file, options);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
 // Help command
 program
   .command('help [command]')
@@ -93,6 +109,7 @@ program.on('--help', () => {
   console.log('  hypequery dev');
   console.log('  hypequery dev --port 3000');
   console.log('  hypequery generate --output analytics/schema.ts');
+  console.log('  hypequery sync --output registry.json');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

@@ -5,6 +5,7 @@ import type {
   CacheStats,
   LoggerStats,
   AvailableEndpoint,
+  RegistryResponse,
 } from './types';
 
 /**
@@ -99,6 +100,13 @@ export const apiClient = {
    */
   async getAvailableEndpoints(): Promise<{ endpoints: AvailableEndpoint[] }> {
     return request<{ endpoints: AvailableEndpoint[] }>('/queries/available');
+  },
+
+  /**
+   * Get registry with full endpoint metadata.
+   */
+  async getRegistry(): Promise<RegistryResponse> {
+    return request<RegistryResponse>('/registry');
   },
 
   /**

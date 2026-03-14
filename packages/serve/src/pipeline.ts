@@ -25,7 +25,7 @@ import { createTenantScope, warnTenantMisconfiguration } from './tenant.js';
 import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
-import { ServeQueryLogger, type QueryCacheStatus } from './query-logger.js';
+import { ServeQueryLogger, type QueryCacheStatus, type QueryTimingBreakdown } from './query-logger.js';
 import {
   checkRoleAuthorization,
   checkScopeAuthorization,
@@ -560,6 +560,11 @@ export const executeEndpoint = async <
       }
     }
 
+    // Track timing breakdown
+    const timing: QueryTimingBreakdown = {};
+    const setupEndAt = Date.now();
+    timing.setupMs = setupEndAt - startedAt;
+
     // Execute handler if not served from cache
     if (!fromCache) {
       const pipeline = [
@@ -567,7 +572,9 @@ export const executeEndpoint = async <
         ...(endpoint.middlewares as ServeMiddleware<any, any, TContext, TAuth>[]),
       ];
 
+      const handlerStartAt = Date.now();
       result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
+      timing.handlerMs = Date.now() - handlerStartAt;
 
       // Store in cache if enabled
       if (cachingEnabled && cacheKey && effectiveCacheTtl) {
@@ -598,7 +605,10 @@ export const executeEndpoint = async <
       }
     }
 
-    const durationMs = Date.now() - startedAt;
+    const endAt = Date.now();
+    const durationMs = endAt - startedAt;
+    timing.serializeMs = endAt - (setupEndAt + (timing.handlerMs ?? 0));
+
     await safeInvokeHook('onRequestEnd', hooks.onRequestEnd, {
       requestId,
       queryKey: endpoint.key,
@@ -618,12 +628,14 @@ export const executeEndpoint = async <
         method: request.method,
         status: 'completed',
         startTime: startedAt,
-        endTime: startedAt + durationMs,
+        endTime: endAt,
         durationMs,
         input: context.input,
         responseStatus: 200,
         result,
         cache: cacheStatus,
+        tenantId: context.tenantId as string | undefined,
+        timing,
       });
     }
 
@@ -633,7 +645,8 @@ export const executeEndpoint = async <
       body: result,
     } satisfies ServeResponse;
   } catch (error) {
-    const errorDurationMs = Date.now() - startedAt;
+    const errorEndAt = Date.now();
+    const errorDurationMs = errorEndAt - startedAt;
     await safeInvokeHook('onError', hooks.onError, {
       requestId,
       queryKey: endpoint.key,
@@ -653,11 +666,12 @@ export const executeEndpoint = async <
         method: request.method,
         status: 'error',
         startTime: startedAt,
-        endTime: startedAt + errorDurationMs,
+        endTime: errorEndAt,
         durationMs: errorDurationMs,
         input: context.input,
         responseStatus: 500,
         error: error instanceof Error ? error : new Error(String(error)),
+        tenantId: context.tenantId as string | undefined,
       });
     }
 

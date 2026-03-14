@@ -109,7 +109,7 @@ export class DevQueryLogger {
    * Handle a serve-layer query event and convert to QueryLog format.
    */
   private handleServeEvent(event: ServeQueryEvent): void {
-    const log: QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string } = {
+    const log: QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string; tenantId?: string } = {
       queryId: event.requestId,
       query: `${event.method} ${event.path}`,
       startTime: event.startTime,
@@ -123,6 +123,9 @@ export class DevQueryLogger {
       cacheStatus: event.cache?.status,
       cacheKey: event.cache?.key,
       cacheAgeMs: event.cache?.age,
+      // Include tenant and timing
+      tenantId: event.tenantId,
+      timing: event.timing,
     };
 
     this.enqueue(log);

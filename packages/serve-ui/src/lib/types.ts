@@ -4,6 +4,18 @@
 export type CacheStatus = 'hit' | 'miss' | 'stale' | 'bypass';
 
 /**
+ * Timing breakdown for query execution.
+ */
+export interface QueryTimingBreakdown {
+  /** Time to resolve middleware and prepare context (ms) */
+  setupMs?: number;
+  /** Time to execute the actual query/handler (ms) */
+  handlerMs?: number;
+  /** Time to serialize and prepare response (ms) */
+  serializeMs?: number;
+}
+
+/**
  * Query history entry from the dev server.
  */
 export interface QueryHistoryEntry {
@@ -26,6 +38,10 @@ export interface QueryHistoryEntry {
   endpointPath?: string;
   resultPreview?: unknown[];
   createdAt?: number;
+  /** Tenant ID if multi-tenancy is enabled */
+  tenantId?: string;
+  /** Timing breakdown */
+  timing?: QueryTimingBreakdown;
 }
 
 /**
@@ -61,6 +77,36 @@ export interface AvailableEndpoint {
   method?: string;
   description?: string;
   tags?: string[];
+}
+
+/**
+ * Registry entry for an endpoint.
+ */
+export interface RegistryEntry {
+  key: string;
+  name?: string;
+  path: string;
+  method: string;
+  description?: string;
+  tags: string[];
+  hasInput: boolean;
+  inputFields?: string[];
+  hasTenant: boolean;
+  isCached: boolean;
+  cacheTtlMs?: number;
+  requiresAuth: boolean;
+  requiredRoles?: string[];
+  requiredScopes?: string[];
+  visibility?: string;
+  custom?: Record<string, unknown>;
+}
+
+/**
+ * Registry response from the API.
+ */
+export interface RegistryResponse {
+  entries: RegistryEntry[];
+  total: number;
 }
 
 /**

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { History, BarChart3, Play, Settings, Zap } from 'lucide-react';
+import { History, BarChart3, Play, Settings, Zap, Library } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QueryHistory } from '@/components/QueryHistory';
 import { CacheStats } from '@/components/CacheStats';
 import { Playground } from '@/components/Playground';
+import { Registry } from '@/components/Registry';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import {
   SidebarProvider,
@@ -20,11 +21,12 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 
-type View = 'queries' | 'cache' | 'playground' | 'settings';
+type View = 'queries' | 'registry' | 'cache' | 'playground' | 'settings';
 
 const NAV_ITEMS: Array<{ id: View; label: string; icon: typeof History }> = [
-  { id: 'queries', label: 'Query History', icon: History },
-  { id: 'cache', label: 'Cache Stats', icon: BarChart3 },
+  { id: 'queries', label: 'Runs', icon: History },
+  { id: 'registry', label: 'Registry', icon: Library },
+  { id: 'cache', label: 'Cache', icon: BarChart3 },
   { id: 'playground', label: 'Playground', icon: Play },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
@@ -106,6 +108,7 @@ function AppContent() {
         {/* Content */}
         <main className="flex-1 overflow-hidden">
           {activeView === 'queries' && <QueryHistory className="h-full" />}
+          {activeView === 'registry' && <Registry className="h-full" />}
           {activeView === 'cache' && <CacheStats className="h-full overflow-auto" />}
           {activeView === 'playground' && <Playground className="h-full" />}
           {activeView === 'settings' && <SettingsView />}

@@ -1,4 +1,4 @@
-import { X, Copy, Clock, Zap, Database, Server, AlertCircle, CheckCircle, RefreshCw, SkipForward } from 'lucide-react';
+import { X, Copy, Clock, Zap, Database, Server, AlertCircle, CheckCircle, RefreshCw, SkipForward, Users, Timer } from 'lucide-react';
 import { cn, formatDuration, formatTime, formatNumber } from '@/lib/utils';
 import { SQLViewer } from './SQLViewer';
 import { StatusBadge } from './StatusBadge';
@@ -170,6 +170,43 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
           </section>
         )}
 
+        {/* Tenant Info */}
+        {query.tenantId && (
+          <section>
+            <h3 className="text-sm font-medium mb-2">Tenancy</h3>
+            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-md p-3 text-sm">
+              <div className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                <Users className="h-4 w-4" />
+                <span className="font-medium">Tenant: {query.tenantId}</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Timing Breakdown */}
+        {query.timing && (query.timing.setupMs !== undefined || query.timing.handlerMs !== undefined || query.timing.serializeMs !== undefined) && (
+          <section>
+            <h3 className="text-sm font-medium mb-2">Timing Breakdown</h3>
+            <div className="bg-muted rounded-md p-3">
+              <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                <Timer className="h-4 w-4" />
+                <span className="text-sm">Total: {formatDuration(query.duration)}</span>
+              </div>
+              <div className="space-y-2">
+                {query.timing.setupMs !== undefined && (
+                  <TimingBar label="Setup" value={query.timing.setupMs} total={query.duration ?? 0} />
+                )}
+                {query.timing.handlerMs !== undefined && (
+                  <TimingBar label="Handler" value={query.timing.handlerMs} total={query.duration ?? 0} />
+                )}
+                {query.timing.serializeMs !== undefined && (
+                  <TimingBar label="Serialize" value={query.timing.serializeMs} total={query.duration ?? 0} />
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Error */}
         {query.error && (
           <section>
@@ -280,6 +317,27 @@ function MetricCard({
         <span className="text-xs">{label}</span>
       </div>
       <div className="text-lg font-semibold">{value}</div>
+    </div>
+  );
+}
+
+/**
+ * Timing bar for visualizing execution breakdown.
+ */
+function TimingBar({ label, value, total }: { label: string; value: number; total: number }) {
+  const percentage = total > 0 ? Math.min((value / total) * 100, 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono">{formatDuration(value)}</span>
+      </div>
+      <div className="h-1.5 bg-background rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary/60 rounded-full transition-all"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
     </div>
   );
 }

@@ -100,8 +100,13 @@ export function QueryRow({ query, isSelected, onClick }: QueryRowProps) {
         </div>
       </div>
 
-      {/* Cache indicator */}
+      {/* Badges */}
       <div className="flex-shrink-0 flex items-center gap-2">
+        {query.tenantId && (
+          <span className="text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 px-2 py-0.5 rounded">
+            {query.tenantId}
+          </span>
+        )}
         {(() => {
           const cacheDisplay = getCacheStatusDisplay(query.cacheStatus, query.cacheHit);
           return cacheDisplay ? (

@@ -89,6 +89,8 @@ export class MemoryStore implements QueryHistoryStore {
         cacheKey: log.cacheKey,
         cacheMode: log.cacheMode,
         cacheAgeMs: log.cacheAgeMs,
+        tenantId: log.tenantId,
+        timing: log.timing,
         createdAt: Date.now()
       };
 
