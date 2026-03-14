@@ -35,3 +35,8 @@ examples/basic-dashboard/src/generated/clickhouse-schema.ts
 
 # Generated website artifacts
 website-next/.source/
+
+# Build artifacts
+*.tsbuildinfo
+dist-file-index.txt
+.type-tests/
