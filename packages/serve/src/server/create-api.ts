@@ -12,13 +12,15 @@ import type {
   ServeConfig,
 } from "../types.js";
 import { createEndpoint } from "../endpoint.js";
-import { ServeRouter, applyBasePath } from "../router.js";
+import { ServeRouter, applyBasePath, normalizeRoutePath } from "../router.js";
 import { ensureArray } from "../utils.js";
 import { ServeQueryLogger, formatQueryEvent, formatQueryEventJSON } from "../query-logger.js";
 import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
+import { MetricExecutor } from "../semantic/datasets/executor.js";
+import { createMetricEndpoint } from "../semantic/datasets/metric-endpoint.js";
 
 /**
  * Create a transport-agnostic API definition.
@@ -110,6 +112,35 @@ export const createAPI = <
   };
   for (const key of Object.keys(configuredQueries) as Array<keyof TQueries>) {
     registerQuery(key, configuredQueries[key]);
+  }
+
+  // Process metrics — auto-generate POST endpoints
+  if (config.metrics) {
+    if (!config.metricAdapter) {
+      throw new Error(
+        'createAPI: `metricAdapter` is required when `metrics` is provided. ' +
+        'Pass { rawQuery: queryBuilder.rawQuery } from your createQueryBuilder instance.',
+      );
+    }
+
+    const executor = new MetricExecutor({ adapter: config.metricAdapter });
+
+    for (const [name, entry] of Object.entries(config.metrics)) {
+      const metricEndpoint = createMetricEndpoint(name, entry, executor);
+      const routePath = normalizeRoutePath(`/metrics/${name}`);
+
+      // Set the path on the endpoint metadata
+      const registeredEndpoint = {
+        ...metricEndpoint,
+        metadata: { ...metricEndpoint.metadata, path: routePath },
+      };
+
+      // Add to queryEntries so it's available via api.execute()
+      (queryEntries as Record<string, any>)[name] = registeredEndpoint;
+
+      // Auto-register with the router
+      router.register(registeredEndpoint);
+    }
   }
 
   const handler: ServeHandler = createServeHandler<TContext, TAuth>({

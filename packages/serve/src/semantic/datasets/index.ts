@@ -24,6 +24,9 @@ export { createDatasetRegistry } from './registry.js';
 export { MetricExecutor } from './executor.js';
 export type { MetricAdapter, MetricExecutorOptions, ValidationResult } from './executor.js';
 
+// Serve integration
+export { createMetricEndpoint } from './metric-endpoint.js';
+
 // Types
 export type {
   FieldType,
