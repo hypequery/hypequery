@@ -1,4 +1,4 @@
-import { defineModel, dataset } from '../semantic/index.js';
+import { defineModel, datasetQuery as dataset } from '../semantic/index.js';
 import type { InferDatasetResult, Model } from '../semantic/index.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
