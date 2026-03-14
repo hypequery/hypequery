@@ -1,4 +1,9 @@
 /**
+ * Cache status from serve-layer caching.
+ */
+export type CacheStatus = 'hit' | 'miss' | 'stale' | 'bypass';
+
+/**
  * Query history entry from the dev server.
  */
 export interface QueryHistoryEntry {
@@ -11,8 +16,12 @@ export interface QueryHistoryEntry {
   status: 'pending' | 'running' | 'completed' | 'error';
   error?: string;
   rowCount?: number;
+  /** @deprecated Use cacheStatus instead */
   cacheHit?: boolean;
+  /** Cache status: hit, miss, stale, or bypass */
+  cacheStatus?: CacheStatus;
   cacheAgeMs?: number;
+  cacheKey?: string;
   endpointKey?: string;
   endpointPath?: string;
   resultPreview?: unknown[];

@@ -1,8 +1,49 @@
-import { X, Copy, Clock, Zap, Database, Server, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Copy, Clock, Zap, Database, Server, AlertCircle, CheckCircle, RefreshCw, SkipForward } from 'lucide-react';
 import { cn, formatDuration, formatTime, formatNumber } from '@/lib/utils';
 import { SQLViewer } from './SQLViewer';
 import { StatusBadge } from './StatusBadge';
-import type { QueryHistoryEntry } from '@/lib/types';
+import type { QueryHistoryEntry, CacheStatus } from '@/lib/types';
+
+/**
+ * Get cache status display info.
+ */
+function getCacheDisplayInfo(status?: CacheStatus, cacheHit?: boolean): {
+  label: string;
+  icon: typeof CheckCircle;
+  bgClass: string;
+  textClass: string;
+} {
+  if (status === 'hit' || (!status && cacheHit)) {
+    return {
+      label: 'Cache Hit',
+      icon: CheckCircle,
+      bgClass: 'bg-green-50 dark:bg-green-900/20',
+      textClass: 'text-green-700 dark:text-green-400',
+    };
+  }
+  if (status === 'stale') {
+    return {
+      label: 'Stale (Revalidating)',
+      icon: RefreshCw,
+      bgClass: 'bg-yellow-50 dark:bg-yellow-900/20',
+      textClass: 'text-yellow-700 dark:text-yellow-400',
+    };
+  }
+  if (status === 'bypass') {
+    return {
+      label: 'Bypass',
+      icon: SkipForward,
+      bgClass: 'bg-blue-50 dark:bg-blue-900/20',
+      textClass: 'text-blue-700 dark:text-blue-400',
+    };
+  }
+  return {
+    label: 'Cache Miss',
+    icon: Database,
+    bgClass: 'bg-muted',
+    textClass: 'text-muted-foreground',
+  };
+}
 
 interface QueryDetailProps {
   query: QueryHistoryEntry;
@@ -83,23 +124,49 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
             <MetricCard
               icon={Server}
               label="Cache Status"
-              value={query.cacheHit ? 'Hit' : 'Miss'}
-              highlight={query.cacheHit}
-              highlightColor="green"
+              value={getCacheDisplayInfo(query.cacheStatus, query.cacheHit).label}
+              highlight={query.cacheStatus === 'hit' || query.cacheHit}
+              highlightColor={query.cacheStatus === 'stale' ? 'yellow' : 'green'}
             />
           </div>
         </section>
 
         {/* Cache Info */}
-        {query.cacheHit && query.cacheAgeMs !== undefined && (
+        {(query.cacheStatus || query.cacheHit || query.cacheKey) && (
           <section>
-            <h3 className="text-sm font-medium mb-2">Cache Details</h3>
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-md p-3 text-sm">
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                <CheckCircle className="h-4 w-4" />
-                <span>Served from cache ({formatDuration(query.cacheAgeMs)} old)</span>
-              </div>
-            </div>
+            <h3 className="text-sm font-medium mb-2">Cache</h3>
+            {(() => {
+              const display = getCacheDisplayInfo(query.cacheStatus, query.cacheHit);
+              const Icon = display.icon;
+              return (
+                <div className={cn('rounded-md p-3 text-sm', display.bgClass)}>
+                  <div className={cn('flex items-center gap-2 mb-2', display.textClass)}>
+                    <Icon className="h-4 w-4" />
+                    <span className="font-medium">{display.label}</span>
+                    {query.cacheAgeMs !== undefined && (query.cacheStatus === 'hit' || query.cacheStatus === 'stale' || query.cacheHit) && (
+                      <span className="text-xs opacity-75">({formatDuration(query.cacheAgeMs)} old)</span>
+                    )}
+                  </div>
+                  {query.cacheKey && (
+                    <div className="mt-2 pt-2 border-t border-current/10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs opacity-75">Cache Key</span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(query.cacheKey!)}
+                          className="text-xs opacity-75 hover:opacity-100 flex items-center gap-1"
+                        >
+                          <Copy className="h-3 w-3" />
+                          Copy
+                        </button>
+                      </div>
+                      <code className="text-xs font-mono block mt-1 truncate" title={query.cacheKey}>
+                        {query.cacheKey}
+                      </code>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
         )}
 

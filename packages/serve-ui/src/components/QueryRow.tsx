@@ -2,7 +2,49 @@ import { Database, Clock, Zap, AlertCircle } from 'lucide-react';
 import { cn, formatDuration, formatRelativeTime } from '@/lib/utils';
 import { SQLInline } from './SQLViewer';
 import { StatusBadge } from './StatusBadge';
-import type { QueryHistoryEntry } from '@/lib/types';
+import type { QueryHistoryEntry, CacheStatus } from '@/lib/types';
+
+/**
+ * Get the display config for a cache status.
+ */
+function getCacheStatusDisplay(status: CacheStatus | undefined, cacheHit?: boolean): {
+  label: string;
+  className: string;
+} | null {
+  // Handle new cacheStatus field
+  if (status) {
+    switch (status) {
+      case 'hit':
+        return {
+          label: 'CACHE HIT',
+          className: 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30',
+        };
+      case 'stale':
+        return {
+          label: 'STALE',
+          className: 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30',
+        };
+      case 'miss':
+        return {
+          label: 'MISS',
+          className: 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800/50',
+        };
+      case 'bypass':
+        return {
+          label: 'BYPASS',
+          className: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30',
+        };
+    }
+  }
+  // Fallback for legacy cacheHit boolean
+  if (cacheHit) {
+    return {
+      label: 'CACHE HIT',
+      className: 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30',
+    };
+  }
+  return null;
+}
 
 interface QueryRowProps {
   query: QueryHistoryEntry;
@@ -60,11 +102,14 @@ export function QueryRow({ query, isSelected, onClick }: QueryRowProps) {
 
       {/* Cache indicator */}
       <div className="flex-shrink-0 flex items-center gap-2">
-        {query.cacheHit && (
-          <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded">
-            CACHE HIT
-          </span>
-        )}
+        {(() => {
+          const cacheDisplay = getCacheStatusDisplay(query.cacheStatus, query.cacheHit);
+          return cacheDisplay ? (
+            <span className={cn('text-xs font-medium px-2 py-0.5 rounded', cacheDisplay.className)}>
+              {cacheDisplay.label}
+            </span>
+          ) : null;
+        })()}
         {query.error && (
           <AlertCircle className="h-4 w-4 text-destructive" />
         )}
