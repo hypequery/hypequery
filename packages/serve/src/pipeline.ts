@@ -539,7 +539,12 @@ export const executeEndpoint = async <
     }
 
     const message = error instanceof Error ? error.message : 'Unexpected error';
-    return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', message, undefined, { 'x-request-id': requestId });
+    // Respect error.status and error.payload if set by endpoint handlers (e.g., metric validation)
+    const errObj = error as any;
+    const status = errObj?.status ?? 500;
+    const errorType = errObj?.payload?.type ?? 'INTERNAL_SERVER_ERROR';
+    const errorDetails = errObj?.payload?.details;
+    return createErrorResponse(status, errorType, message, errorDetails, { 'x-request-id': requestId });
   }
 };
 

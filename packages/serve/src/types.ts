@@ -1,6 +1,8 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
 import type { ModelRegistry, SemanticSchema } from "./semantic/types.js";
+import type { MetricRef } from "./semantic/datasets/types.js";
+import type { MetricAdapter } from "./semantic/datasets/executor.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -479,12 +481,35 @@ export interface OpenApiDocument {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Metric serve config types
+// ---------------------------------------------------------------------------
+
+/** Per-metric entry: shorthand (just the ref) or with overrides. */
+export type MetricEntry<TAuth extends AuthContext = AuthContext> =
+  | MetricRef<any, any>
+  | {
+      metric: MetricRef<any, any>;
+      auth?: AuthStrategy<TAuth> | null;
+      cache?: number | null;
+      requiredRoles?: string[];
+      requiredScopes?: string[];
+    };
+
+/** Map of metric names to entries. */
+export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
+  Record<string, MetricEntry<TAuth>>;
+
+// ---------------------------------------------------------------------------
+// ServeConfig
+// ---------------------------------------------------------------------------
+
 export interface ServeConfig<
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
   TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
 > {
-  queries: TQueries;
+  queries?: TQueries;
   /**
    * Semantic models — named business-logic abstractions over physical tables.
    * Models define dimensions (groupable columns), measures (aggregations),
@@ -498,6 +523,32 @@ export interface ServeConfig<
    * });
    * ```
    */
+  /**
+   * Metrics: auto-generated POST endpoints for each metric.
+   * Each metric gets a `POST /api/analytics/metrics/:name` endpoint
+   * that validates dimensions/filters against the metric's contract.
+   *
+   * @example
+   * ```ts
+   * const api = createAPI({
+   *   metrics: {
+   *     totalRevenue,           // shorthand
+   *     profitMargin: {         // with overrides
+   *       metric: profitMargin,
+   *       auth: requireRole('finance'),
+   *       cache: 300_000,
+   *     },
+   *   },
+   * });
+   * ```
+   */
+  metrics?: MetricsConfig<TAuth>;
+  /**
+   * Database adapter for metric execution.
+   * Required when `metrics` is provided.
+   * Pass `{ rawQuery: queryBuilder.rawQuery }` from your createQueryBuilder instance.
+   */
+  metricAdapter?: MetricAdapter;
   models?: ModelRegistry<SemanticSchema>;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
