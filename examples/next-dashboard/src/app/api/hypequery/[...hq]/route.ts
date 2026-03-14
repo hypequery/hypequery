@@ -3,6 +3,7 @@ import { createVercelEdgeHandler } from '@hypequery/serve';
 import { api } from '@/analytics/queries';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const baseHandler = createVercelEdgeHandler(api.handler);
 

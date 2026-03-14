@@ -111,11 +111,13 @@ async function main() {
   console.log('  GET  http://localhost:4000/search?q=test&type=users');
   console.log('\nPress Ctrl+C to stop.\n');
 
-  process.on('SIGINT', async () => {
+  // Handle graceful shutdown
+  const shutdown = async () => {
     console.log('\nShutting down...');
     await server.stop();
     process.exit(0);
-  });
+  };
+  (process as NodeJS.Process).on('SIGINT', shutdown);
 }
 
 main().catch((error) => {
