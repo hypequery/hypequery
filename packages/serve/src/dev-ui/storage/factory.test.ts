@@ -143,7 +143,7 @@ describe('createStore factory', () => {
 
     expect(store).toBeInstanceOf(MemoryStore);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('[hypequery] SQLite unavailable'),
+      expect.stringContaining('[hypequery] SQLite initialization failed'),
       expect.any(String)
     );
 

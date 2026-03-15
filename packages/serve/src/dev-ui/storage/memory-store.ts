@@ -181,21 +181,21 @@ export class MemoryStore implements QueryHistoryStore {
   async cleanup(policy: RetentionPolicy): Promise<void> {
     const cutoffTime = Date.now() - (policy.maxDays * 24 * 60 * 60 * 1000);
 
-    // Remove entries older than maxDays
-    const idsToRemove: string[] = [];
+    // Collect IDs to remove based on age (O(n))
+    const idsToRemove = new Set<string>();
     for (const [id, entry] of this.queries) {
       if (entry.startTime < cutoffTime) {
-        idsToRemove.push(id);
+        idsToRemove.add(id);
       }
     }
 
+    // Delete from map
     for (const id of idsToRemove) {
       this.queries.delete(id);
-      const idx = this.orderedIds.indexOf(id);
-      if (idx !== -1) {
-        this.orderedIds.splice(idx, 1);
-      }
     }
+
+    // Filter orderedIds in O(n) instead of O(n²) indexOf/splice
+    this.orderedIds = this.orderedIds.filter(id => !idsToRemove.has(id));
 
     // Remove oldest entries if we exceed maxQueries
     while (this.orderedIds.length > policy.maxQueries) {

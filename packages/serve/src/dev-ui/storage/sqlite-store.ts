@@ -1,4 +1,3 @@
-import Database from 'better-sqlite3';
 import type {
   QueryLog,
   QueryHistoryStore,
@@ -9,13 +8,30 @@ import type {
   GetQueriesResult
 } from './types.js';
 
+// Type for better-sqlite3 Database instance (avoid static import)
+type BetterSqlite3Database = {
+  pragma(pragma: string): unknown;
+  exec(sql: string): void;
+  prepare(sql: string): {
+    run(...params: unknown[]): unknown;
+    get(...params: unknown[]): unknown;
+    all(...params: unknown[]): unknown[];
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  transaction<T extends (...args: any[]) => void>(fn: T): T;
+  close(): void;
+};
+
 /**
  * SQLite-based implementation of QueryHistoryStore.
  * Uses better-sqlite3 for synchronous, high-performance SQLite operations.
  * Ideal for local development and single-instance deployments.
+ *
+ * Note: better-sqlite3 is dynamically imported to allow graceful fallback
+ * when the native module is not available.
  */
 export class SQLiteStore implements QueryHistoryStore {
-  private db: Database.Database | null = null;
+  private db: BetterSqlite3Database | null = null;
 
   /**
    * Create a new SQLite store instance.
@@ -27,9 +43,12 @@ export class SQLiteStore implements QueryHistoryStore {
   /**
    * Initialize the database connection and create schema.
    * Creates tables and indexes if they don't exist.
+   * @throws Error if better-sqlite3 is not installed or cannot be loaded
    */
   async initialize(): Promise<void> {
-    this.db = new Database(this.dbPath);
+    // Dynamic import to allow graceful fallback when native module unavailable
+    const { default: Database } = await import('better-sqlite3');
+    this.db = new Database(this.dbPath) as BetterSqlite3Database;
 
     // Enable WAL mode for better concurrent read performance
     this.db.pragma('journal_mode = WAL');

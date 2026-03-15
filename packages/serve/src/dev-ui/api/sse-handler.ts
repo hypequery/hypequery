@@ -184,15 +184,20 @@ export class SSEHandler {
     const eventId = event.id || this.generateEventId();
     const message = this.formatEvent(event, eventId);
     let successCount = 0;
+    const failedClients: string[] = [];
 
     for (const [clientId, client] of this.clients) {
       try {
         client.res.write(message);
         successCount++;
       } catch {
-        // Client disconnected, remove them
-        this.removeClient(clientId);
+        failedClients.push(clientId);
       }
+    }
+
+    // Remove failed clients after iteration to avoid concurrent modification
+    for (const clientId of failedClients) {
+      this.removeClient(clientId);
     }
 
     return successCount;
@@ -216,14 +221,19 @@ export class SSEHandler {
    */
   private sendHeartbeat(): void {
     const heartbeat = `:heartbeat ${Date.now()}\n\n`;
+    const failedClients: string[] = [];
 
     for (const [clientId, client] of this.clients) {
       try {
         client.res.write(heartbeat);
       } catch {
-        // Client disconnected, remove them
-        this.removeClient(clientId);
+        failedClients.push(clientId);
       }
+    }
+
+    // Remove failed clients after iteration to avoid concurrent modification
+    for (const clientId of failedClients) {
+      this.removeClient(clientId);
     }
   }
 
