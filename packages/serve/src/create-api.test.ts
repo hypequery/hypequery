@@ -26,7 +26,7 @@ const createRequest = (overrides: Partial<ServeRequest> = {}): ServeRequest => (
 });
 
 describe("createAPI", () => {
-  it("routes registered queries and returns handler output", async () => {
+  it("auto-routes queries to GET /queries/{name}", async () => {
     const api = createAPI({
       queries: {
         weeklyRevenue: {
@@ -37,10 +37,8 @@ describe("createAPI", () => {
       },
     });
 
-    api.route("/metrics/weekly-revenue", api.queries.weeklyRevenue);
-
     const response = await api.handler(
-      createRequest({ path: "/metrics/weekly-revenue" })
+      createRequest({ path: "/queries/weeklyRevenue" })
     );
 
     expect(response.status).toBe(200);
@@ -63,9 +61,7 @@ describe("createAPI", () => {
       },
     });
 
-    api.route("/reports", api.queries.report);
-
-    const invalid = await api.handler(createRequest({ path: "/reports" }));
+    const invalid = await api.handler(createRequest({ path: "/queries/report" }));
 
     expect(invalid.status).toBe(400);
     expect(invalid.body).toMatchObject({
@@ -74,7 +70,7 @@ describe("createAPI", () => {
     expect(received).toHaveLength(0);
 
     const valid = await api.handler(
-      createRequest({ path: "/reports", query: { from: "2024-01-01" } })
+      createRequest({ path: "/queries/report", query: { from: "2024-01-01" } })
     );
 
     expect(valid.status).toBe(200);
@@ -94,8 +90,6 @@ describe("createAPI", () => {
       },
     });
 
-    api.route("/secure-metric", api.queries.secureMetric);
-
     api.useAuth(async ({ request }) => {
       const key = request.headers["x-api-key"];
       if (key === "valid-key") {
@@ -105,13 +99,13 @@ describe("createAPI", () => {
     });
 
     const unauthorized = await api.handler(
-      createRequest({ path: "/secure-metric" })
+      createRequest({ path: "/queries/secureMetric" })
     );
     expect(unauthorized.status).toBe(401);
 
     const authorized = await api.handler(
       createRequest({
-        path: "/secure-metric",
+        path: "/queries/secureMetric",
         headers: { "x-api-key": "valid-key" },
       })
     );
@@ -164,9 +158,7 @@ describe("createAPI", () => {
       },
     });
 
-    api.route("/ctx", api.queries.info);
-
-    const response = await api.handler(createRequest({ path: "/ctx" }));
+    const response = await api.handler(createRequest({ path: "/queries/info" }));
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ message: "ctx-powered" });
   });
@@ -182,8 +174,6 @@ describe("createAPI", () => {
         },
       },
     });
-
-    api.route("/metrics/total", api.queries.metric);
 
     const openapiResponse = await api.handler(createRequest({ path: "/openapi.json" }));
     expect(openapiResponse.status).toBe(200);
@@ -211,10 +201,9 @@ describe("createAPI", () => {
       },
     });
 
-    api.route("/metric", api.queries.metric);
     api.queryLogger.on((event) => events.push(event));
 
-    await api.handler(createRequest({ path: "/metric" }));
+    await api.handler(createRequest({ path: "/queries/metric" }));
 
     expect(events).toHaveLength(2);
     expect(events[0].status).toBe("started");
@@ -231,14 +220,38 @@ describe("createAPI", () => {
       },
     });
 
-    api.route("/revenue", api.queries.revenue);
-
     const description = api.describe();
     expect(description.basePath).toBe("/api/analytics");
 
     const revenueEndpoint = description.queries.find((q) => q.key === "revenue");
     expect(revenueEndpoint).toBeDefined();
     expect(revenueEndpoint!.tags).toContain("finance");
+  });
+
+  it("still allows .route() to register custom paths", async () => {
+    const api = createAPI({
+      queries: {
+        weeklyRevenue: {
+          query: async () => ({ total: 4200 }),
+        },
+      },
+    });
+
+    api.route("/custom/weekly", api.queries.weeklyRevenue);
+
+    // Custom path works
+    const custom = await api.handler(
+      createRequest({ path: "/custom/weekly" })
+    );
+    expect(custom.status).toBe(200);
+    expect(custom.body).toEqual({ total: 4200 });
+
+    // Auto-generated path still works too
+    const auto = await api.handler(
+      createRequest({ path: "/queries/weeklyRevenue" })
+    );
+    expect(auto.status).toBe(200);
+    expect(auto.body).toEqual({ total: 4200 });
   });
 });
 
@@ -250,13 +263,8 @@ describe("toNodeHandler", () => {
       },
     });
 
-    api.route("/ping", api.queries.ping);
-
     const handler = toNodeHandler(api);
     expect(typeof handler).toBe("function");
-
-    // The handler is a (req, res) => void function
-    // We can verify it's callable; full integration requires a real HTTP server
   });
 });
 
@@ -268,13 +276,11 @@ describe("toFetchHandler", () => {
       },
     });
 
-    api.route("/ping", api.queries.ping);
-
     const handler = toFetchHandler(api);
     expect(typeof handler).toBe("function");
 
     // Test with a real Request object
-    const request = new Request("http://localhost/api/analytics/ping", {
+    const request = new Request("http://localhost/api/analytics/queries/ping", {
       method: "GET",
     });
 
