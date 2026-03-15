@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Filter, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@/hooks/useQueries';
+import { useFilters } from '@/hooks/useFilters';
 import { QueryRow } from './QueryRow';
 import { QueryDetail } from './QueryDetail';
 import type { QueryFilters } from '@/lib/types';
@@ -29,21 +30,18 @@ const CACHE_OPTIONS = [
  */
 export function QueryHistory({ className }: QueryHistoryProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [cacheFilter, setCacheFilter] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const { filters: filterState, setSearch, setStatus, setCache, togglePanel, reset, hasActiveFilters } = useFilters();
 
-  // Build filters
-  const filters: QueryFilters = useMemo(() => {
+  // Build API filters from filter state
+  const apiFilters: QueryFilters = useMemo(() => {
     const f: QueryFilters = { limit: 100 };
-    if (searchQuery) f.search = searchQuery;
-    if (statusFilter) f.status = statusFilter as QueryFilters['status'];
-    if (cacheFilter) f.cacheHit = cacheFilter === 'true';
+    if (filterState.search) f.search = filterState.search;
+    if (filterState.status) f.status = filterState.status as QueryFilters['status'];
+    if (filterState.cache) f.cacheHit = filterState.cache === 'true';
     return f;
-  }, [searchQuery, statusFilter, cacheFilter]);
+  }, [filterState.search, filterState.status, filterState.cache]);
 
-  const { queries, total, loading, error, refetch, clearHistory } = useQueries(filters);
+  const { queries, total, loading, error, refetch, clearHistory } = useQueries(apiFilters);
 
   // Get selected query
   const selectedQuery = queries.find((q) => q.queryId === selectedId);
@@ -74,8 +72,8 @@ export function QueryHistory({ className }: QueryHistoryProps) {
             <input
               type="text"
               placeholder="Search queries..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={filterState.search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm bg-muted border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -83,18 +81,19 @@ export function QueryHistory({ className }: QueryHistoryProps) {
           {/* Filter toggle and actions */}
           <div className="flex items-center justify-between">
             <button
-              onClick={() => setShowFilters(!showFilters)}
+              onClick={togglePanel}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors',
-                showFilters
+                filterState.showPanel
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted hover:bg-muted/80'
               )}
             >
               <Filter className="h-4 w-4" />
               Filters
+              {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary-foreground" />}
               <ChevronDown
-                className={cn('h-4 w-4 transition-transform', showFilters && 'rotate-180')}
+                className={cn('h-4 w-4 transition-transform', filterState.showPanel && 'rotate-180')}
               />
             </button>
 
@@ -123,11 +122,11 @@ export function QueryHistory({ className }: QueryHistoryProps) {
           </div>
 
           {/* Filter options */}
-          {showFilters && (
+          {filterState.showPanel && (
             <div className="mt-3 flex flex-wrap gap-3">
               <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={filterState.status}
+                onChange={(e) => setStatus(e.target.value)}
                 className="px-3 py-1.5 text-sm bg-muted border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {STATUS_OPTIONS.map((opt) => (
@@ -138,8 +137,8 @@ export function QueryHistory({ className }: QueryHistoryProps) {
               </select>
 
               <select
-                value={cacheFilter}
-                onChange={(e) => setCacheFilter(e.target.value)}
+                value={filterState.cache}
+                onChange={(e) => setCache(e.target.value)}
                 className="px-3 py-1.5 text-sm bg-muted border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {CACHE_OPTIONS.map((opt) => (
@@ -148,6 +147,15 @@ export function QueryHistory({ className }: QueryHistoryProps) {
                   </option>
                 ))}
               </select>
+
+              {hasActiveFilters && (
+                <button
+                  onClick={reset}
+                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Clear all
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -162,13 +170,9 @@ export function QueryHistory({ className }: QueryHistoryProps) {
           {queries.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               <p>No queries found</p>
-              {(searchQuery || statusFilter || cacheFilter) && (
+              {hasActiveFilters && (
                 <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setStatusFilter('');
-                    setCacheFilter('');
-                  }}
+                  onClick={reset}
                   className="mt-2 text-sm text-primary hover:underline"
                 >
                   Clear filters

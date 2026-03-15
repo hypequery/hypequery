@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
 import { Play, Loader2, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { apiClient } from '@/lib/api-client';
+import { usePlayground } from '@/hooks/usePlayground';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -21,25 +20,6 @@ interface JsonSchema {
   maxLength?: number;
 }
 
-interface PlaygroundQuery {
-  key: string;
-  path: string;
-  method: string;
-  description?: string;
-  tags: string[];
-  inputSchema: JsonSchema | null;
-  outputSchema: JsonSchema | null;
-}
-
-interface ExecutionResult {
-  success: boolean;
-  queryKey: string;
-  result?: unknown;
-  error?: string;
-  duration: number;
-  timestamp: number;
-}
-
 interface PlaygroundProps {
   className?: string;
 }
@@ -48,72 +28,18 @@ interface PlaygroundProps {
  * Query Playground component for testing API endpoints.
  */
 export function Playground({ className }: PlaygroundProps) {
-  const [queries, setQueries] = useState<PlaygroundQuery[]>([]);
-  const [selectedQuery, setSelectedQuery] = useState<PlaygroundQuery | null>(null);
-  const [inputValues, setInputValues] = useState<Record<string, unknown>>({});
-  const [executing, setExecuting] = useState(false);
-  const [result, setResult] = useState<ExecutionResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch available queries
-  useEffect(() => {
-    async function fetchQueries() {
-      try {
-        setLoading(true);
-        const response = await apiClient.getPlaygroundQueries();
-        // Cast to our internal PlaygroundQuery type with proper schema types
-        const typedQueries = response.queries as PlaygroundQuery[];
-        setQueries(typedQueries);
-        if (typedQueries.length > 0 && !selectedQuery) {
-          setSelectedQuery(typedQueries[0]);
-        }
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchQueries();
-  }, []);
-
-  // Reset input values when query changes
-  useEffect(() => {
-    if (selectedQuery?.inputSchema) {
-      const defaults = getDefaultValues(selectedQuery.inputSchema);
-      setInputValues(defaults);
-    } else {
-      setInputValues({});
-    }
-    setResult(null);
-  }, [selectedQuery?.key]);
-
-  // Execute query
-  const executeQuery = useCallback(async () => {
-    if (!selectedQuery) return;
-
-    setExecuting(true);
-    setResult(null);
-
-    try {
-      const response = await apiClient.executePlaygroundQuery(
-        selectedQuery.key,
-        Object.keys(inputValues).length > 0 ? inputValues : undefined
-      );
-      setResult(response);
-    } catch (err) {
-      setResult({
-        success: false,
-        queryKey: selectedQuery.key,
-        error: (err as Error).message,
-        duration: 0,
-        timestamp: Date.now()
-      });
-    } finally {
-      setExecuting(false);
-    }
-  }, [selectedQuery, inputValues]);
+  const {
+    queries,
+    selectedQuery,
+    loading,
+    error,
+    selectQuery,
+    inputValues,
+    executing,
+    result,
+    setInputValues,
+    execute,
+  } = usePlayground();
 
   if (loading) {
     return (
@@ -156,7 +82,7 @@ export function Playground({ className }: PlaygroundProps) {
             {queries.map((query) => (
               <button
                 key={query.key}
-                onClick={() => setSelectedQuery(query)}
+                onClick={() => selectQuery(query)}
                 className={cn(
                   'w-full text-left px-3 py-2 rounded-md text-sm transition-colors',
                   selectedQuery?.key === query.key
@@ -229,7 +155,7 @@ export function Playground({ className }: PlaygroundProps) {
 
             {/* Execute Button */}
             <Button
-              onClick={executeQuery}
+              onClick={execute}
               disabled={executing}
               className="w-full"
               size="lg"
@@ -294,33 +220,6 @@ export function Playground({ className }: PlaygroundProps) {
       </div>
     </div>
   );
-}
-
-/**
- * Get default values from a JSON schema.
- */
-function getDefaultValues(schema: JsonSchema): Record<string, unknown> {
-  const values: Record<string, unknown> = {};
-
-  if (schema.type === 'object' && schema.properties) {
-    for (const [key, prop] of Object.entries(schema.properties)) {
-      if (prop.default !== undefined) {
-        values[key] = prop.default;
-      } else if (prop.type === 'string') {
-        values[key] = '';
-      } else if (prop.type === 'number' || prop.type === 'integer') {
-        values[key] = prop.minimum ?? 0;
-      } else if (prop.type === 'boolean') {
-        values[key] = false;
-      } else if (prop.type === 'array') {
-        values[key] = [];
-      } else if (prop.type === 'object') {
-        values[key] = getDefaultValues(prop);
-      }
-    }
-  }
-
-  return values;
 }
 
 /**
