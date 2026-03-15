@@ -5,6 +5,8 @@ import { COLORS, ICON_SIZES } from '@/lib/colors';
 import { useRegistry } from '@/hooks/useRegistry';
 import { MethodBadge } from './MethodBadge';
 import { IconButton } from './IconButton';
+import { EmptyState, FilteredEmptyState } from './EmptyState';
+import { RegistryListSkeleton } from './Skeleton';
 import type { RegistryEntry } from '@/lib/types';
 
 interface RegistryProps {
@@ -47,9 +49,9 @@ export function Registry({ className }: RegistryProps) {
   }
 
   return (
-    <div className={cn('flex h-full', className)}>
+    <div className={cn('flex flex-col md:flex-row h-full', className)}>
       {/* List panel */}
-      <div className={cn('flex flex-col border-r border-border', selectedEntry ? 'w-1/2' : 'flex-1')}>
+      <div className={cn('flex flex-col border-b md:border-b-0 md:border-r border-border', selectedEntry ? 'md:w-1/2' : 'flex-1')}>
         {/* Header */}
         <div className="flex-shrink-0 p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
@@ -84,13 +86,13 @@ export function Registry({ className }: RegistryProps) {
         {/* List */}
         <div className="flex-1 overflow-auto">
           {loading && entries.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              Loading registry...
-            </div>
+            <RegistryListSkeleton count={6} />
           ) : filteredEntries.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              {search ? 'No endpoints match your search' : 'No endpoints registered'}
-            </div>
+            search ? (
+              <FilteredEmptyState onClear={() => setSearch('')} />
+            ) : (
+              <EmptyState type="no-endpoints" />
+            )
           ) : (
             <div className="divide-y divide-border">
               {filteredEntries.map((entry) => (
@@ -106,9 +108,16 @@ export function Registry({ className }: RegistryProps) {
         </div>
       </div>
 
-      {/* Detail panel */}
+      {/* Detail panel - desktop */}
       {selectedEntry && (
-        <div className="w-1/2 flex flex-col overflow-hidden">
+        <div className="hidden md:flex md:w-1/2 flex-col overflow-hidden">
+          <RegistryDetail entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
+        </div>
+      )}
+
+      {/* Detail panel - mobile modal */}
+      {selectedEntry && (
+        <div className="md:hidden fixed inset-0 z-50 bg-background overflow-auto">
           <RegistryDetail entry={selectedEntry} onClose={() => setSelectedEntry(null)} />
         </div>
       )}

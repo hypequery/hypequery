@@ -5,6 +5,8 @@ import { useQueries } from '@/hooks/useQueries';
 import { useFilters } from '@/hooks/useFilters';
 import { QueryRow } from './QueryRow';
 import { QueryDetail } from './QueryDetail';
+import { EmptyState, FilteredEmptyState } from './EmptyState';
+import { QueryListSkeleton } from './Skeleton';
 import type { QueryFilters } from '@/lib/types';
 
 interface QueryHistoryProps {
@@ -167,18 +169,14 @@ export function QueryHistory({ className }: QueryHistoryProps) {
 
         {/* Query list */}
         <div className="flex-1 overflow-auto">
-          {queries.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              <p>No queries found</p>
-              {hasActiveFilters && (
-                <button
-                  onClick={reset}
-                  className="mt-2 text-sm text-primary hover:underline"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
+          {loading && queries.length === 0 ? (
+            <QueryListSkeleton count={8} />
+          ) : queries.length === 0 ? (
+            hasActiveFilters ? (
+              <FilteredEmptyState onClear={reset} />
+            ) : (
+              <EmptyState type="no-history" />
+            )
           ) : (
             queries.map((query) => (
               <QueryRow
@@ -192,16 +190,26 @@ export function QueryHistory({ className }: QueryHistoryProps) {
         </div>
       </div>
 
-      {/* Query detail panel */}
-      <div className="w-[450px] flex-shrink-0 overflow-auto bg-card">
+      {/* Query detail panel - responsive */}
+      <div className="hidden md:block w-[450px] flex-shrink-0 overflow-auto bg-card">
         {selectedQuery ? (
           <QueryDetail query={selectedQuery} onClose={() => setSelectedId(null)} />
         ) : (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <p>Select a query to view details</p>
-          </div>
+          <EmptyState
+            type="no-results"
+            title="Select a query"
+            description="Click on a query in the list to view its details, SQL, and performance metrics."
+            className="h-full"
+          />
         )}
       </div>
+
+      {/* Mobile detail modal */}
+      {selectedQuery && (
+        <div className="md:hidden fixed inset-0 z-50 bg-background">
+          <QueryDetail query={selectedQuery} onClose={() => setSelectedId(null)} />
+        </div>
+      )}
     </div>
   );
 }

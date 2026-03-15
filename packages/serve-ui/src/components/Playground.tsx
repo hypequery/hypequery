@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
+import { EmptyState } from './EmptyState';
+import { PlaygroundSidebarSkeleton, PlaygroundContentSkeleton } from './Skeleton';
 
 interface JsonSchema {
   type?: string;
@@ -43,39 +45,64 @@ export function Playground({ className }: PlaygroundProps) {
 
   if (loading) {
     return (
-      <div className={cn('flex items-center justify-center h-full', className)}>
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className={cn('h-full flex', className)}>
+        <div className="w-64 flex-shrink-0 border-r border-border">
+          <PlaygroundSidebarSkeleton />
+        </div>
+        <div className="flex-1">
+          <PlaygroundContentSkeleton />
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={cn('flex items-center justify-center h-full', className)}>
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
-          <p className="text-destructive">{error}</p>
-        </div>
-      </div>
+      <EmptyState
+        type="error"
+        description={error}
+        className={cn('h-full', className)}
+        action={
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        }
+      />
     );
   }
 
   if (queries.length === 0) {
     return (
-      <div className={cn('flex items-center justify-center h-full', className)}>
-        <div className="text-center text-muted-foreground">
-          <Play className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>No queries available</p>
-          <p className="text-sm mt-2">Add queries to your API to use the playground</p>
-        </div>
-      </div>
+      <EmptyState
+        type="no-queries"
+        className={cn('h-full', className)}
+      />
     );
   }
 
   return (
-    <div className={cn('h-full flex', className)}>
-      {/* Query Selector Sidebar */}
-      <div className="w-64 flex-shrink-0 border-r border-border overflow-auto">
+    <div className={cn('h-full flex flex-col md:flex-row', className)}>
+      {/* Mobile Query Selector */}
+      <div className="md:hidden flex-shrink-0 p-4 border-b border-border">
+        <label className="text-sm font-medium mb-2 block">Select Query</label>
+        <select
+          value={selectedQuery?.key || ''}
+          onChange={(e) => {
+            const query = queries.find(q => q.key === e.target.value);
+            if (query) selectQuery(query);
+          }}
+          className="w-full px-3 py-2 bg-muted border border-input rounded-md text-sm"
+        >
+          {queries.map((query) => (
+            <option key={query.key} value={query.key}>
+              [{query.method}] {query.key}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop Query Selector Sidebar */}
+      <div className="hidden md:block w-64 flex-shrink-0 border-r border-border overflow-auto">
         <div className="p-4">
           <h3 className="text-sm font-medium mb-3">Available Queries</h3>
           <div className="space-y-1">
