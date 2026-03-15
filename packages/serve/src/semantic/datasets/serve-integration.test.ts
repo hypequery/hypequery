@@ -5,6 +5,7 @@ import { field } from './field.js';
 import { sum, count, countDistinct } from './aggregations.js';
 import { divide, nullIfZero } from './formulas.js';
 import type { MetricAdapter } from './executor.js';
+import type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-protocol.js';
 import type { ServeRequest } from '../../types.js';
 
 // =============================================================================
@@ -431,6 +432,245 @@ describe("Serve integration — metrics", () => {
       expect(events.length).toBeGreaterThanOrEqual(2);
       expect(events[0].status).toBe("started");
       expect(events[events.length - 1].status).toBe("completed");
+    });
+  });
+
+  // ===========================================================================
+  // queryBuilder path (new)
+  // ===========================================================================
+
+  describe("queryBuilder config path", () => {
+    function createMockBuilderFactory(): QueryBuilderFactoryLike & { _calls: Record<string, any[][]> } {
+      const calls: Record<string, any[][]> = {};
+      const track = (name: string, ...args: any[]) => {
+        calls[name] = calls[name] || [];
+        calls[name].push(args);
+      };
+
+      const mockData = [
+        { country: "US", totalRevenue: 5000 },
+        { country: "DE", totalRevenue: 3000 },
+      ];
+
+      function createMockBuilder(): QueryBuilderLike {
+        const builder: QueryBuilderLike = {
+          select: (...args: any[]) => { track('select', ...args); return builder; },
+          sum: (...args: any[]) => { track('sum', ...args); return builder; },
+          count: (...args: any[]) => { track('count', ...args); return builder; },
+          countDistinct: (...args: any[]) => { track('countDistinct', ...args); return builder; },
+          avg: (...args: any[]) => { track('avg', ...args); return builder; },
+          min: (...args: any[]) => { track('min', ...args); return builder; },
+          max: (...args: any[]) => { track('max', ...args); return builder; },
+          where: (...args: any[]) => { track('where', ...args); return builder; },
+          groupBy: (...args: any[]) => { track('groupBy', ...args); return builder; },
+          orderBy: (...args: any[]) => { track('orderBy', ...args); return builder; },
+          limit: (...args: any[]) => { track('limit', ...args); return builder; },
+          offset: (...args: any[]) => { track('offset', ...args); return builder; },
+          toSQLWithParams: () => ({
+            sql: 'SELECT country, SUM(amount) AS totalRevenue FROM orders GROUP BY country',
+            parameters: [],
+          }),
+          execute: vi.fn().mockResolvedValue(mockData),
+        };
+        return builder;
+      }
+
+      return {
+        _calls: calls,
+        table: (name: string) => { track('table', name); return createMockBuilder(); },
+        rawQuery: vi.fn().mockResolvedValue(mockData),
+      };
+    }
+
+    it("creates API with queryBuilder instead of metricAdapter", () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+      });
+
+      expect(api).toBeDefined();
+      expect(api.handler).toBeDefined();
+    });
+
+    it("throws if neither queryBuilder nor metricAdapter is provided", () => {
+      expect(() =>
+        createAPI({ metrics: { totalRevenue } })
+      ).toThrow("queryBuilder");
+    });
+
+    it("executes base metric queries via builder.execute()", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect((response.body as any).data).toEqual([
+        { country: "US", totalRevenue: 5000 },
+        { country: "DE", totalRevenue: 3000 },
+      ]);
+
+      // Builder methods should have been called
+      expect(factory._calls['table']).toBeDefined();
+      expect(factory._calls['table'][0]).toEqual(['orders']);
+      expect(factory._calls['sum']).toBeDefined();
+      expect(factory._calls['sum'][0]).toEqual(['amount', 'totalRevenue']);
+    });
+
+    it("passes filters through builder.where()", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+      });
+
+      await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            filters: [{ field: "status", operator: "eq", value: "completed" }],
+          },
+        })
+      );
+
+      expect(factory._calls['where']).toBeDefined();
+      expect(factory._calls['where'][0]).toEqual(['status', 'eq', 'completed']);
+    });
+
+    it("applies time graining via builder.select() with grain function", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+      });
+
+      await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { by: "month" },
+        })
+      );
+
+      // Should select with toStartOfMonth expression
+      expect(factory._calls['select']).toBeDefined();
+      const selectArgs = factory._calls['select'][0][0];
+      expect(selectArgs).toContain('toStartOfMonth(created_at) AS period');
+    });
+
+    it("applies order/limit/offset via builder methods", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+      });
+
+      await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: {
+            orderBy: [{ field: "totalRevenue", direction: "desc" }],
+            limit: 10,
+            offset: 5,
+          },
+        })
+      );
+
+      expect(factory._calls['orderBy']).toBeDefined();
+      expect(factory._calls['orderBy'][0]).toEqual(['totalRevenue', 'DESC']);
+      expect(factory._calls['limit']).toBeDefined();
+      expect(factory._calls['limit'][0]).toEqual([10]);
+      expect(factory._calls['offset']).toBeDefined();
+      expect(factory._calls['offset'][0]).toEqual([5]);
+    });
+
+    it("injects tenant filter via builder.where()", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+        auth: async ({ request }) => {
+          const key = request.headers['x-api-key'];
+          if (key === 'valid') return { tenantId: 'tenant-123' };
+          return null;
+        },
+        tenant: {
+          extract: (auth) => auth.tenantId as string,
+          required: true,
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': 'valid',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      // tenant filter should go through builder.where()
+      expect(factory._calls['where']).toBeDefined();
+      expect(factory._calls['where'][0]).toEqual(['tenant_id', 'eq', 'tenant-123']);
+    });
+
+    it("handles derived metrics via builder for CTE + rawQuery for outer", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { avgOrderValue },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/avgOrderValue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      // Derived metrics fall back to rawQuery for the outer CTE query
+      expect(factory.rawQuery).toHaveBeenCalled();
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      expect(sql).toContain("WITH base AS");
+      expect(sql).toContain("NULLIF(orderCount, 0)");
+    });
+
+    it("legacy metricAdapter still works", async () => {
+      const adapter = createMockAdapter();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        metricAdapter: adapter,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(adapter.rawQuery).toHaveBeenCalled();
     });
   });
 });

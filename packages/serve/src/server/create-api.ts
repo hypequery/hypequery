@@ -116,14 +116,19 @@ export const createAPI = <
 
   // Process metrics — auto-generate POST endpoints
   if (config.metrics) {
-    if (!config.metricAdapter) {
+    const builderFactory = config.queryBuilder;
+    const adapter = config.metricAdapter;
+
+    if (!builderFactory && !adapter) {
       throw new Error(
-        'createAPI: `metricAdapter` is required when `metrics` is provided. ' +
-        'Pass { rawQuery: queryBuilder.rawQuery } from your createQueryBuilder instance.',
+        'createAPI: `queryBuilder` (or deprecated `metricAdapter`) is required when `metrics` is provided. ' +
+        'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
       );
     }
 
-    const executor = new MetricExecutor({ adapter: config.metricAdapter });
+    const executor = new MetricExecutor(
+      builderFactory ? { builderFactory } : { adapter: adapter! },
+    );
 
     for (const [name, entry] of Object.entries(config.metrics)) {
       const metricEndpoint = createMetricEndpoint(name, entry, executor);

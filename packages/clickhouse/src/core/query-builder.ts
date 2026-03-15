@@ -540,7 +540,16 @@ export class QueryBuilder<
     );
   }
 
-  private applyAggregation<Column extends SelectableColumn<State>, Alias extends string>(
+  countDistinct<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_countDistinct`>(
+    column: Column,
+    alias?: Alias
+  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
+    return this.applyAggregation(column, alias, 'countDistinct', (col, finalAlias) =>
+      this.aggregations.countDistinct(col, finalAlias)
+    );
+  }
+
+  private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string>(
     column: Column,
     alias: Alias | undefined,
     suffix: string,

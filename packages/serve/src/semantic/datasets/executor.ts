@@ -1,12 +1,13 @@
 /**
  * MetricExecutor — resolves metrics to SQL and executes them.
  *
- * The executor does NOT generate SQL strings directly. It delegates to
- * a provided query builder (e.g., `createQueryBuilder` from @hypequery/clickhouse)
- * which handles parameterization, dialect, joins, CTEs, etc.
+ * Supports two modes:
+ * 1. **Query builder** (recommended) — pass a `QueryBuilderFactoryLike` and the
+ *    executor builds queries via the builder's fluent API, then calls `.execute()`.
+ * 2. **Raw adapter** (deprecated) — pass a `MetricAdapter` with a `rawQuery` function
+ *    and the executor generates SQL strings manually.
  *
- * The executor accepts a generic "adapter" interface so it stays DB-agnostic.
- * The @hypequery/clickhouse adapter satisfies this interface.
+ * The executor stays DB-agnostic via duck-typed protocol interfaces.
  */
 
 import type {
@@ -24,13 +25,20 @@ import type {
   FormulaExpr,
 } from './types.js';
 
+import type {
+  QueryBuilderLike,
+  QueryBuilderFactoryLike,
+} from './query-builder-protocol.js';
+
 // =============================================================================
-// ADAPTER INTERFACE (DB-agnostic)
+// ADAPTER INTERFACE (DB-agnostic) — deprecated, use QueryBuilderFactoryLike
 // =============================================================================
 
 /**
  * Minimal adapter that the MetricExecutor needs from the query builder.
  * The `createQueryBuilder` return from @hypequery/clickhouse satisfies this.
+ *
+ * @deprecated Pass `queryBuilder` (a `QueryBuilderFactoryLike`) to the executor instead.
  */
 export interface MetricAdapter {
   rawQuery<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
@@ -49,9 +57,10 @@ const GRAIN_FUNCTIONS: Record<TimeGrain, string> = {
 };
 
 // =============================================================================
-// SQL BUILDING HELPERS
+// LEGACY SQL BUILDING HELPERS (used only by adapter path)
 // =============================================================================
 
+/** @deprecated Used only by legacy adapter path. */
 function aggregationToSQL(spec: AggregationSpec, alias: string): string {
   switch (spec.aggregation) {
     case 'sum': return `SUM(${spec.field}) AS ${alias}`;
@@ -64,6 +73,7 @@ function aggregationToSQL(spec: AggregationSpec, alias: string): string {
   }
 }
 
+/** @deprecated Used only by legacy adapter path. */
 const OPERATOR_SQL: Record<string, string> = {
   eq: '=',
   neq: '!=',
@@ -74,6 +84,7 @@ const OPERATOR_SQL: Record<string, string> = {
   like: 'LIKE',
 };
 
+/** @deprecated Used only by legacy adapter path. */
 function filterToSQL(filter: MetricFilter, params: unknown[]): string {
   if (filter.operator === 'in' || filter.operator === 'notIn') {
     const values = filter.value as unknown[];
@@ -150,18 +161,61 @@ function validateQuery(
 }
 
 // =============================================================================
+// QUERY BUILDER HELPERS
+// =============================================================================
+
+function applyAggregation(qb: QueryBuilderLike, spec: AggregationSpec, alias: string): QueryBuilderLike {
+  switch (spec.aggregation) {
+    case 'sum': return qb.sum(spec.field, alias);
+    case 'count': return qb.count(spec.field, alias);
+    case 'countDistinct': return qb.countDistinct(spec.field, alias);
+    case 'avg': return qb.avg(spec.field, alias);
+    case 'min': return qb.min(spec.field, alias);
+    case 'max': return qb.max(spec.field, alias);
+    default: throw new Error(`Unknown aggregation type: ${(spec as AggregationSpec).aggregation}`);
+  }
+}
+
+function appendOrderLimitOffset(
+  qb: QueryBuilderLike,
+  query: MetricQuery,
+  grain: TimeGrain | undefined,
+): QueryBuilderLike {
+  if (query.orderBy && query.orderBy.length > 0) {
+    for (const o of query.orderBy) {
+      qb = qb.orderBy(o.field, o.direction.toUpperCase() as 'ASC' | 'DESC');
+    }
+  } else if (grain) {
+    qb = qb.orderBy('period', 'ASC');
+  }
+
+  if (query.limit != null) qb = qb.limit(query.limit);
+  if (query.offset != null) qb = qb.offset(query.offset);
+
+  return qb;
+}
+
+// =============================================================================
 // METRIC EXECUTOR
 // =============================================================================
 
 export interface MetricExecutorOptions {
-  adapter: MetricAdapter;
+  /** @deprecated Use `builderFactory` instead. */
+  adapter?: MetricAdapter;
+  /** Query builder factory — the recommended way to execute metrics. */
+  builderFactory?: QueryBuilderFactoryLike;
 }
 
 export class MetricExecutor {
-  private adapter: MetricAdapter;
+  private adapter?: MetricAdapter;
+  private builderFactory?: QueryBuilderFactoryLike;
 
   constructor(options: MetricExecutorOptions) {
     this.adapter = options.adapter;
+    this.builderFactory = options.builderFactory;
+    if (!this.adapter && !this.builderFactory) {
+      throw new Error('MetricExecutor requires either adapter or builderFactory');
+    }
   }
 
   /**
@@ -178,17 +232,19 @@ export class MetricExecutor {
     }
 
     const start = Date.now();
-    const { sql, params } = this.buildSQL(metric, query, context);
-    const data = await this.adapter.rawQuery<T>(sql, params);
+
+    if (this.builderFactory) {
+      return this.runViaBuilder<T>(metric, query, context, start);
+    }
+
+    // Legacy adapter path
+    const { sql, params } = this.buildLegacySQL(metric, query, context);
+    const data = await this.adapter!.rawQuery<T>(sql, params);
     const timingMs = Date.now() - start;
 
     return {
       data,
-      meta: {
-        sql,
-        timingMs,
-        tenant: context?.tenantId,
-      },
+      meta: { sql, timingMs, tenant: context?.tenantId },
     };
   }
 
@@ -200,7 +256,20 @@ export class MetricExecutor {
     query: MetricQuery = {},
     context?: ExecutionContext,
   ): string {
-    return this.buildSQL(metric, query, context).sql;
+    if (this.builderFactory) {
+      const ref = metric.__type === 'grained_metric_ref' ? metric.metric : metric;
+      const grain = metric.__type === 'grained_metric_ref' ? metric.grain : query.by ?? undefined;
+      const spec = ref.spec;
+
+      if (spec.__type === 'derived_metric_spec') {
+        return this.buildDerivedSQLViaBuilder(ref, spec, query, grain, context).sql;
+      }
+
+      const builder = this.buildBaseQuery(ref, spec as AggregationSpec, ref.dataset, query, grain, context);
+      return builder.toSQLWithParams().sql;
+    }
+
+    return this.buildLegacySQL(metric, query, context).sql;
   }
 
   /**
@@ -214,10 +283,186 @@ export class MetricExecutor {
   }
 
   // ---------------------------------------------------------------------------
-  // Private SQL building
+  // Query builder path
   // ---------------------------------------------------------------------------
 
-  private buildSQL(
+  private async runViaBuilder<T>(
+    metric: MetricRef | GrainedMetricRef,
+    query: MetricQuery,
+    context: ExecutionContext | undefined,
+    start: number,
+  ): Promise<MetricResult<T>> {
+    const ref = metric.__type === 'grained_metric_ref' ? metric.metric : metric;
+    const grain = metric.__type === 'grained_metric_ref' ? metric.grain : query.by ?? undefined;
+    const spec = ref.spec;
+
+    if (spec.__type === 'derived_metric_spec') {
+      // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
+      const { sql, params } = this.buildDerivedSQLViaBuilder(ref, spec, query, grain, context);
+      const data = await this.builderFactory!.rawQuery<T>(sql, params);
+      const timingMs = Date.now() - start;
+      return { data, meta: { sql, timingMs, tenant: context?.tenantId } };
+    }
+
+    // Base metrics: fully use the builder's execute()
+    const builder = this.buildBaseQuery(ref, spec as AggregationSpec, ref.dataset, query, grain, context);
+    const { sql } = builder.toSQLWithParams();
+    const data = await builder.execute() as T[];
+    const timingMs = Date.now() - start;
+    return { data, meta: { sql, timingMs, tenant: context?.tenantId } };
+  }
+
+  private buildBaseQuery(
+    ref: MetricRef,
+    spec: AggregationSpec,
+    ds: DatasetInstance<any>,
+    query: MetricQuery,
+    grain: TimeGrain | undefined,
+    context?: ExecutionContext,
+  ): QueryBuilderLike {
+    let qb: QueryBuilderLike = this.builderFactory!.table(ds.source);
+
+    // Build select + groupBy parts
+    const selectParts: string[] = [];
+    const groupByParts: string[] = [];
+
+    if (grain) {
+      const fn = GRAIN_FUNCTIONS[grain];
+      selectParts.push(`${fn}(${ds.timeKey}) AS period`);
+      groupByParts.push('period');
+    }
+
+    for (const dim of query.dimensions ?? []) {
+      selectParts.push(dim);
+      groupByParts.push(dim);
+    }
+
+    if (selectParts.length > 0) {
+      qb = qb.select(selectParts);
+    }
+
+    // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
+    qb = applyAggregation(qb, spec, ref.name);
+
+    // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
+    if (groupByParts.length > 0) {
+      qb = qb.groupBy(groupByParts);
+    }
+
+    // Tenant auto-injection
+    if (context?.tenantId && ds.tenantKey) {
+      qb = qb.where(ds.tenantKey, 'eq', context.tenantId);
+    }
+
+    // User filters
+    for (const filter of query.filters ?? []) {
+      qb = qb.where(filter.field, filter.operator, filter.value);
+    }
+
+    // Order, limit, offset
+    qb = appendOrderLimitOffset(qb, query, grain);
+
+    return qb;
+  }
+
+  private buildDerivedSQLViaBuilder(
+    ref: MetricRef,
+    spec: DerivedMetricSpec,
+    query: MetricQuery,
+    grain: TimeGrain | undefined,
+    context?: ExecutionContext,
+  ): { sql: string; params: unknown[] } {
+    const ds = ref.dataset;
+
+    // Build the CTE inner query using the builder
+    let cteBuilder: QueryBuilderLike = this.builderFactory!.table(ds.source);
+
+    const selectParts: string[] = [];
+    const groupByParts: string[] = [];
+
+    if (grain) {
+      const fn = GRAIN_FUNCTIONS[grain];
+      selectParts.push(`${fn}(${ds.timeKey}) AS period`);
+      groupByParts.push('period');
+    }
+
+    for (const dim of query.dimensions ?? []) {
+      selectParts.push(dim);
+      groupByParts.push(dim);
+    }
+
+    if (selectParts.length > 0) {
+      cteBuilder = cteBuilder.select(selectParts);
+    }
+
+    // Base aggregations
+    const refAliases: Record<string, string> = {};
+    for (const [alias, baseMetric] of Object.entries(spec.uses)) {
+      const baseSpec = baseMetric.spec;
+      if (baseSpec.__type !== 'aggregation_spec') {
+        throw new Error(`Derived metric "${ref.name}" references non-base metric "${alias}".`);
+      }
+      cteBuilder = applyAggregation(cteBuilder, baseSpec, alias);
+      refAliases[alias] = alias;
+    }
+
+    if (groupByParts.length > 0) {
+      cteBuilder = cteBuilder.groupBy(groupByParts);
+    }
+
+    // Filters on CTE
+    if (context?.tenantId && ds.tenantKey) {
+      cteBuilder = cteBuilder.where(ds.tenantKey, 'eq', context.tenantId);
+    }
+    for (const filter of query.filters ?? []) {
+      cteBuilder = cteBuilder.where(filter.field, filter.operator, filter.value);
+    }
+
+    const { sql: cteSql, parameters: cteParams } = cteBuilder.toSQLWithParams();
+
+    // Outer query: trivial SELECT from the CTE — stays as string concat
+    // because table('base') would fail schema typing
+    const outerSelectParts: string[] = [];
+    if (grain) outerSelectParts.push('period');
+    for (const dim of query.dimensions ?? []) {
+      outerSelectParts.push(dim);
+    }
+
+    const formulaExpr = spec.formula(refAliases);
+    outerSelectParts.push(`${formulaExpr.toSQL()} AS ${ref.name}`);
+
+    for (const alias of Object.keys(spec.uses)) {
+      outerSelectParts.push(alias);
+    }
+
+    let sql = `WITH base AS (${cteSql}) SELECT ${outerSelectParts.join(', ')} FROM base`;
+
+    // ORDER BY
+    if (query.orderBy && query.orderBy.length > 0) {
+      const orderParts = query.orderBy.map(o =>
+        `${o.field} ${o.direction.toUpperCase()}`
+      );
+      sql += ` ORDER BY ${orderParts.join(', ')}`;
+    } else if (grain) {
+      sql += ' ORDER BY period';
+    }
+
+    if (query.limit != null) {
+      sql += ` LIMIT ${query.limit}`;
+    }
+    if (query.offset != null) {
+      sql += ` OFFSET ${query.offset}`;
+    }
+
+    return { sql, params: cteParams };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy adapter path (deprecated)
+  // ---------------------------------------------------------------------------
+
+  /** @deprecated Use builderFactory path instead. */
+  private buildLegacySQL(
     metric: MetricRef | GrainedMetricRef,
     query: MetricQuery,
     context?: ExecutionContext,
@@ -230,13 +475,14 @@ export class MetricExecutor {
     const spec = ref.spec;
 
     if (spec.__type === 'derived_metric_spec') {
-      return this.buildDerivedSQL(ref, spec, query, grain, context);
+      return this.buildLegacyDerivedSQL(ref, spec, query, grain, context);
     }
 
-    return this.buildBaseSQL(ref, spec, ds, query, grain, context);
+    return this.buildLegacyBaseSQL(ref, spec, ds, query, grain, context);
   }
 
-  private buildBaseSQL(
+  /** @deprecated */
+  private buildLegacyBaseSQL(
     ref: MetricRef,
     spec: AggregationSpec,
     ds: DatasetInstance<any>,
@@ -309,7 +555,8 @@ export class MetricExecutor {
     return { sql, params };
   }
 
-  private buildDerivedSQL(
+  /** @deprecated */
+  private buildLegacyDerivedSQL(
     ref: MetricRef,
     spec: DerivedMetricSpec,
     query: MetricQuery,
