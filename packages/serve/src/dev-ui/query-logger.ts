@@ -61,6 +61,8 @@ export class DevQueryLogger {
   private eventListeners: Set<QueryLogEventCallback> = new Set();
   private isInitialized = false;
   private unsubscribe: (() => void) | null = null;
+  /** Track in-flight persist operations for graceful shutdown */
+  private pendingPersists: Set<Promise<void>> = new Set();
 
   private stats: LoggerStats = {
     totalLogged: 0,
@@ -202,12 +204,18 @@ export class DevQueryLogger {
         return;
     }
 
+    const failedListeners: QueryLogEventCallback[] = [];
     for (const listener of this.eventListeners) {
       try {
         listener(event);
       } catch {
-        // Ignore listener errors
+        // Track failed listeners for removal
+        failedListeners.push(listener);
       }
+    }
+    // Remove listeners that threw errors to prevent accumulation
+    for (const listener of failedListeners) {
+      this.eventListeners.delete(listener);
     }
   }
 
@@ -246,15 +254,24 @@ export class DevQueryLogger {
 
   /**
    * Persist a batch of logs to storage.
+   * Tracks in-flight operations for graceful shutdown.
    */
-  private async persistBatch(logs: Array<QueryLog & { queryId: string }>): Promise<void> {
-    try {
-      await this.store.batchInsert(logs);
-      this.stats.persisted += logs.length;
-    } catch (error) {
-      this.stats.failed += logs.length;
-      console.error('[hypequery] Failed to persist query logs:', error);
-    }
+  private persistBatch(logs: Array<QueryLog & { queryId: string }>): void {
+    const persist = async () => {
+      try {
+        await this.store.batchInsert(logs);
+        this.stats.persisted += logs.length;
+      } catch (error) {
+        this.stats.failed += logs.length;
+        console.error('[hypequery] Failed to persist query logs:', error);
+      }
+    };
+
+    const promise = persist();
+    this.pendingPersists.add(promise);
+    promise.finally(() => {
+      this.pendingPersists.delete(promise);
+    });
   }
 
   /**
@@ -297,7 +314,7 @@ export class DevQueryLogger {
 
   /**
    * Gracefully shutdown the logger.
-   * Flushes remaining queue and clears event listeners.
+   * Waits for in-flight persists, flushes remaining queue, and clears event listeners.
    */
   async shutdown(): Promise<void> {
     this.isShuttingDown = true;
@@ -314,6 +331,11 @@ export class DevQueryLogger {
 
     // Clear event listeners
     this.eventListeners.clear();
+
+    // Wait for any in-flight persist operations to complete
+    if (this.pendingPersists.size > 0) {
+      await Promise.allSettled([...this.pendingPersists]);
+    }
 
     // Flush remaining items synchronously
     if (this.queue.length > 0) {

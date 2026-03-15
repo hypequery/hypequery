@@ -134,8 +134,21 @@ export class SQLiteStore implements QueryHistoryStore {
   }
 
   /**
+   * Safely parse JSON array, returning undefined on failure.
+   */
+  private safeJsonParseArray(value: string | null | undefined): any[] | undefined {
+    if (!value) return undefined;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
    * Map a database row to a QueryHistoryEntry object.
-   * Handles JSON parsing for serialized fields.
+   * Handles JSON parsing for serialized fields with safe fallbacks.
    * @param row - Raw database row
    * @returns Mapped QueryHistoryEntry
    */
@@ -146,7 +159,7 @@ export class SQLiteStore implements QueryHistoryStore {
       endpointKey: row.endpoint_key,
       endpointPath: row.endpoint_path,
       query: row.query,
-      parameters: row.parameters ? JSON.parse(row.parameters) : undefined,
+      parameters: this.safeJsonParseArray(row.parameters),
       startTime: row.started_at,
       endTime: row.completed_at,
       duration: row.duration_ms,
@@ -157,7 +170,7 @@ export class SQLiteStore implements QueryHistoryStore {
       cacheKey: row.cache_key,
       cacheMode: row.cache_mode,
       cacheAgeMs: row.cache_age_ms,
-      resultPreview: row.result_preview ? JSON.parse(row.result_preview) : undefined,
+      resultPreview: this.safeJsonParseArray(row.result_preview),
       createdAt: row.created_at
     };
   }

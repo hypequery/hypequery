@@ -239,6 +239,37 @@ export async function getCacheStats(ctx: EndpointContext): Promise<void> {
   }
 }
 
+/** Maximum regex pattern length to prevent ReDoS */
+const MAX_PATTERN_LENGTH = 200;
+
+/**
+ * Validate a regex pattern is safe to use.
+ * Returns null if invalid, the pattern string if valid.
+ */
+function validatePattern(pattern: string): string | null {
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    return null;
+  }
+  // Block patterns known to cause catastrophic backtracking
+  const dangerousPatterns = [
+    /\(\.\*\)\+/, // (.*)+
+    /\(\.\+\)\+/, // (.+)+
+    /\([^)]*\+[^)]*\)\+/, // nested quantifiers like (a+)+
+  ];
+  for (const dangerous of dangerousPatterns) {
+    if (dangerous.test(pattern)) {
+      return null;
+    }
+  }
+  // Try to compile the regex to catch syntax errors
+  try {
+    new RegExp(pattern);
+    return pattern;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * POST /__dev/cache/invalidate
  * Invalidate specific cache keys.
@@ -256,7 +287,11 @@ export async function invalidateCache(ctx: EndpointContext): Promise<void> {
 
     // Invalidate by pattern
     if (pattern && typeof pattern === 'string') {
-      invalidated = await ctx.serveCacheStore.deletePattern(pattern);
+      const safePattern = validatePattern(pattern);
+      if (!safePattern) {
+        return sendError(ctx.res, 'Invalid or unsafe pattern', 400);
+      }
+      invalidated = await ctx.serveCacheStore.deletePattern(safePattern);
     }
     // Invalidate by specific keys
     else if (Array.isArray(cacheKeys)) {
@@ -270,7 +305,8 @@ export async function invalidateCache(ctx: EndpointContext): Promise<void> {
       return sendError(ctx.res, 'cacheKeys (array) or pattern (string) required', 400);
     }
 
-    const result = { invalidated, keys: cacheKeys, pattern };
+    // Don't echo back cache keys (may contain sensitive data)
+    const result = { invalidated, pattern: pattern || undefined };
 
     // Broadcast invalidation event
     ctx.sseHandler?.broadcast({
@@ -516,14 +552,59 @@ export async function exportHistory(ctx: EndpointContext): Promise<void> {
  * POST /__dev/import
  * Import query history from JSON.
  */
+const VALID_STATUSES = ['started', 'completed', 'error'] as const;
+
+/**
+ * Validate imported query history entries.
+ * Returns null if valid, error message if invalid.
+ */
+function validateImportData(data: unknown): string | null {
+  if (!Array.isArray(data)) {
+    return 'Import data must be an array';
+  }
+  // Empty array is valid (no-op import)
+  if (data.length === 0) {
+    return null;
+  }
+  if (data.length > 10000) {
+    return 'Import data too large (max 10000 entries)';
+  }
+
+  for (let i = 0; i < data.length; i++) {
+    const entry = data[i];
+    if (!entry || typeof entry !== 'object') {
+      return `Entry ${i}: must be an object`;
+    }
+    if (typeof entry.queryId !== 'string' || !entry.queryId) {
+      return `Entry ${i}: missing or invalid queryId`;
+    }
+    if (typeof entry.query !== 'string') {
+      return `Entry ${i}: missing or invalid query`;
+    }
+    if (typeof entry.startTime !== 'number') {
+      return `Entry ${i}: missing or invalid startTime`;
+    }
+    if (!VALID_STATUSES.includes(entry.status)) {
+      return `Entry ${i}: invalid status (must be started, completed, or error)`;
+    }
+  }
+
+  return null;
+}
+
 export async function importHistory(ctx: EndpointContext): Promise<void> {
   try {
     const body = await parseBody(ctx.req);
-    const data = JSON.stringify(body);
 
+    const validationError = validateImportData(body);
+    if (validationError) {
+      return sendError(ctx.res, validationError, 400);
+    }
+
+    const data = JSON.stringify(body);
     await ctx.store.import(data, 'json');
 
-    const result = { imported: true, timestamp: Date.now() };
+    const result = { imported: true, count: (body as unknown[]).length, timestamp: Date.now() };
 
     sendJSON(ctx.res, result);
   } catch (error) {
