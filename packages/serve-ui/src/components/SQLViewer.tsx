@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo } from 'react';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-sql';
+import { format as formatSQL } from 'sql-formatter';
 import { cn } from '@/lib/utils';
 
 interface SQLViewerProps {
@@ -25,7 +26,17 @@ export function SQLViewer({
 
   // Format SQL for display
   const formattedSQL = useMemo(() => {
-    return sql.trim();
+    try {
+      return formatSQL(sql, {
+        language: 'sql',
+        tabWidth: 2,
+        keywordCase: 'upper',
+        linesBetweenQueries: 1,
+      });
+    } catch {
+      // Fall back to trimmed SQL if formatting fails
+      return sql.trim();
+    }
   }, [sql]);
 
   // Apply Prism highlighting
