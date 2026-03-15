@@ -4,6 +4,8 @@ import type { ModelRegistry, SemanticSchema } from "./semantic/types.js";
 import type { MetricRef } from "./semantic/datasets/types.js";
 import type { MetricAdapter } from "./semantic/datasets/executor.js";
 import type { QueryBuilderFactoryLike } from "./semantic/datasets/query-builder-protocol.js";
+import type { MetricsBlock } from "./semantic/datasets/define-metrics.js";
+import type { DatasetsBlock } from "./semantic/datasets/define-datasets.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -502,6 +504,28 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
   Record<string, MetricEntry<TAuth>>;
 
 // ---------------------------------------------------------------------------
+// Dataset serve config types
+// ---------------------------------------------------------------------------
+
+import type { DatasetInstance } from "./semantic/datasets/types.js";
+
+/** Per-dataset entry: shorthand (just the instance) or with overrides. */
+export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
+  | DatasetInstance<any>
+  | {
+      dataset: DatasetInstance<any>;
+      auth?: AuthStrategy<TAuth> | null;
+      cache?: number | null;
+      requiredRoles?: string[];
+      requiredScopes?: string[];
+      maxLimit?: number;
+    };
+
+/** Map of dataset names to entries. */
+export type DatasetsConfig<TAuth extends AuthContext = AuthContext> =
+  Record<string, DatasetEntry<TAuth>>;
+
+// ---------------------------------------------------------------------------
 // ServeConfig
 // ---------------------------------------------------------------------------
 
@@ -543,10 +567,32 @@ export interface ServeConfig<
    * });
    * ```
    */
-  metrics?: MetricsConfig<TAuth>;
+  metrics?: MetricsConfig<TAuth> | MetricsBlock<TAuth>;
   /**
-   * Query builder instance for metric execution.
-   * Required when `metrics` is provided (unless `metricAdapter` is given).
+   * Dataset browse endpoints — auto-generated POST endpoints for each dataset.
+   * Each dataset gets a `POST /api/analytics/datasets/:name/query` endpoint
+   * that validates columns/filters against the dataset's field definitions.
+   *
+   * Accepts either a DatasetsBlock (from `defineDatasets()`) or an inline map.
+   *
+   * @example
+   * ```ts
+   * // Using defineDatasets (recommended)
+   * const datasets = defineDatasets(qb, { orders, customers });
+   * const api = defineServe({ datasets });
+   *
+   * // Inline (requires queryBuilder)
+   * const api = defineServe({
+   *   datasets: { orders, customers },
+   *   queryBuilder: qb,
+   * });
+   * ```
+   */
+  datasets?: DatasetsConfig<TAuth> | DatasetsBlock<TAuth>;
+  /**
+   * Query builder instance for metric/dataset execution.
+   * Required when inline `metrics` or `datasets` are provided (unless `metricAdapter` is given).
+   * Not needed when using `defineMetrics()` / `defineDatasets()` blocks (they carry their own).
    * Pass the return value of `createQueryBuilder(config)` directly.
    *
    * @example
