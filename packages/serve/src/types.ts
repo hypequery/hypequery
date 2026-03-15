@@ -592,7 +592,6 @@ export interface ServeConfig<
   /**
    * Query builder instance for metric/dataset execution.
    * Required when inline `metrics` or `datasets` are provided (unless `metricAdapter` is given).
-   * Not needed when using `defineMetrics()` / `defineDatasets()` blocks (they carry their own).
    * Pass the return value of `createQueryBuilder(config)` directly.
    *
    * @example

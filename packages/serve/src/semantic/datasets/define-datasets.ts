@@ -3,23 +3,23 @@
  *
  * Returns a sealed DatasetsBlock that can be plugged into defineServe/createAPI.
  * Decouples dataset endpoint definition from the global API config.
+ * The queryBuilder is provided once on the ServeConfig and flows down automatically.
  *
  * @example
  * ```ts
  * import { defineDatasets } from '@hypequery/serve';
  *
- * const datasets = defineDatasets(qb, {
+ * const datasets = defineDatasets({
  *   orders,
  *   customers: { dataset: customers, cache: 60_000 },
  * });
  *
- * const api = defineServe({ datasets, queries: { ... } });
+ * const api = defineServe({ datasets, queryBuilder: qb });
  * ```
  */
 
 import type { AuthContext, AuthStrategy } from '../../types.js';
 import type { DatasetInstance } from './types.js';
-import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
 
 // ---------------------------------------------------------------------------
 // Per-dataset entry types
@@ -63,7 +63,6 @@ export interface DefineDatasetsOptions<TAuth extends AuthContext = AuthContext> 
 export interface DatasetsBlock<TAuth extends AuthContext = AuthContext> {
   readonly __type: 'datasets_block';
   readonly entries: Record<string, DatasetEntryInput<TAuth>>;
-  readonly builderFactory: QueryBuilderFactoryLike;
   readonly defaults?: DefineDatasetsOptions<TAuth>;
 }
 
@@ -72,14 +71,12 @@ export interface DatasetsBlock<TAuth extends AuthContext = AuthContext> {
 // ---------------------------------------------------------------------------
 
 export function defineDatasets<TAuth extends AuthContext = AuthContext>(
-  queryBuilder: QueryBuilderFactoryLike,
   datasets: DatasetsInput<TAuth>,
   options?: DefineDatasetsOptions<TAuth>,
 ): DatasetsBlock<TAuth> {
   return {
     __type: 'datasets_block',
     entries: datasets,
-    builderFactory: queryBuilder,
     defaults: options,
   };
 }
