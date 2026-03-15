@@ -578,11 +578,11 @@ export interface ServeConfig<
    * @example
    * ```ts
    * // Using defineDatasets (recommended)
-   * const datasets = defineDatasets(qb, { orders, customers });
-   * const api = defineServe({ datasets });
+   * const datasets = defineDatasets({ orders, customers });
+   * const api = createAPI({ datasets, queryBuilder: qb });
    *
-   * // Inline (requires queryBuilder)
-   * const api = defineServe({
+   * // Inline
+   * const api = createAPI({
    *   datasets: { orders, customers },
    *   queryBuilder: qb,
    * });
