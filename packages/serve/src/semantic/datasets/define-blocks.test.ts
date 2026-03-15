@@ -121,26 +121,23 @@ function createMockBuilderFactory(): QueryBuilderFactoryLike & { _calls: Record<
 
 describe("defineMetrics()", () => {
   it("returns a MetricsBlock with __type", () => {
-    const factory = createMockBuilderFactory();
-    const block = defineMetrics(factory, { totalRevenue });
+    const block = defineMetrics({ totalRevenue });
 
     expect(block.__type).toBe('metrics_block');
     expect(block.entries).toHaveProperty('totalRevenue');
-    expect(block.builderFactory).toBe(factory);
   });
 
   it("preserves block-level defaults", () => {
-    const factory = createMockBuilderFactory();
-    const block = defineMetrics(factory, { totalRevenue }, { cache: 60_000 });
+    const block = defineMetrics({ totalRevenue }, { cache: 60_000 });
 
     expect(block.defaults?.cache).toBe(60_000);
   });
 
   it("works with createAPI — basic metric endpoint", async () => {
     const factory = createMockBuilderFactory();
-    const metrics = defineMetrics(factory, { totalRevenue });
+    const metrics = defineMetrics({ totalRevenue });
 
-    const api = createAPI({ metrics });
+    const api = createAPI({ metrics, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -157,19 +154,17 @@ describe("defineMetrics()", () => {
     ]);
   });
 
-  it("does not require global queryBuilder when using defineMetrics block", () => {
-    const factory = createMockBuilderFactory();
-    const metrics = defineMetrics(factory, { totalRevenue });
+  it("throws without queryBuilder even when using defineMetrics block", () => {
+    const metrics = defineMetrics({ totalRevenue });
 
-    // Should NOT throw — block carries its own builder factory
-    expect(() => createAPI({ metrics })).not.toThrow();
+    expect(() => createAPI({ metrics })).toThrow("queryBuilder");
   });
 
   it("applies block-level cache defaults to shorthand entries", async () => {
     const factory = createMockBuilderFactory();
-    const metrics = defineMetrics(factory, { totalRevenue }, { cache: 60_000 });
+    const metrics = defineMetrics({ totalRevenue }, { cache: 60_000 });
 
-    const api = createAPI({ metrics });
+    const api = createAPI({ metrics, queryBuilder: factory });
     const description = api.describe();
     const metricEndpoint = description.queries.find(q => q.tags.includes("metrics"));
 
@@ -178,7 +173,7 @@ describe("defineMetrics()", () => {
 
   it("supports per-metric overrides within the block", async () => {
     const factory = createMockBuilderFactory();
-    const metrics = defineMetrics(factory, {
+    const metrics = defineMetrics({
       totalRevenue,
       orderCount: {
         metric: orderCount,
@@ -186,7 +181,7 @@ describe("defineMetrics()", () => {
       },
     });
 
-    const api = createAPI({ metrics });
+    const api = createAPI({ metrics, queryBuilder: factory });
 
     const r1 = await api.handler(
       createRequest({
@@ -209,13 +204,14 @@ describe("defineMetrics()", () => {
 
   it("works alongside manual queries", async () => {
     const factory = createMockBuilderFactory();
-    const metrics = defineMetrics(factory, { totalRevenue });
+    const metrics = defineMetrics({ totalRevenue });
 
     const api = createAPI({
       queries: {
         ping: { query: async () => ({ ok: true }) },
       },
       metrics,
+      queryBuilder: factory,
     });
 
     // Queries need explicit route registration
@@ -241,8 +237,8 @@ describe("defineMetrics()", () => {
 
   it("validates dimensions against metric contract", async () => {
     const factory = createMockBuilderFactory();
-    const metrics = defineMetrics(factory, { totalRevenue });
-    const api = createAPI({ metrics });
+    const metrics = defineMetrics({ totalRevenue });
+    const api = createAPI({ metrics, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -281,26 +277,23 @@ describe("defineMetrics()", () => {
 
 describe("defineDatasets()", () => {
   it("returns a DatasetsBlock with __type", () => {
-    const factory = createMockBuilderFactory();
-    const block = defineDatasets(factory, { orders: Orders });
+    const block = defineDatasets({ orders: Orders });
 
     expect(block.__type).toBe('datasets_block');
     expect(block.entries).toHaveProperty('orders');
-    expect(block.builderFactory).toBe(factory);
   });
 
   it("preserves block-level defaults", () => {
-    const factory = createMockBuilderFactory();
-    const block = defineDatasets(factory, { orders: Orders }, { maxLimit: 500 });
+    const block = defineDatasets({ orders: Orders }, { maxLimit: 500 });
 
     expect(block.defaults?.maxLimit).toBe(500);
   });
 
   it("works with createAPI — dataset browse endpoint", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
+    const datasets = defineDatasets({ orders: Orders });
 
-    const api = createAPI({ datasets });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -315,17 +308,16 @@ describe("defineDatasets()", () => {
     expect(Array.isArray((response.body as any).data)).toBe(true);
   });
 
-  it("does not require global queryBuilder when using defineDatasets block", () => {
-    const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
+  it("throws without queryBuilder even when using defineDatasets block", () => {
+    const datasets = defineDatasets({ orders: Orders });
 
-    expect(() => createAPI({ datasets })).not.toThrow();
+    expect(() => createAPI({ datasets })).toThrow("queryBuilder");
   });
 
   it("validates columns against dataset fields", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -341,8 +333,8 @@ describe("defineDatasets()", () => {
 
   it("validates filter fields against dataset fields", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -359,8 +351,8 @@ describe("defineDatasets()", () => {
 
   it("selects all fields by default when no columns specified", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     await api.handler(
       createRequest({
@@ -377,8 +369,8 @@ describe("defineDatasets()", () => {
 
   it("passes filters through builder.where()", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     await api.handler(
       createRequest({
@@ -396,8 +388,8 @@ describe("defineDatasets()", () => {
 
   it("applies order/limit/offset via builder methods", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     await api.handler(
       createRequest({
@@ -421,8 +413,8 @@ describe("defineDatasets()", () => {
 
   it("clamps limit to maxLimit", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders }, { maxLimit: 100 });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders }, { maxLimit: 100 });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     await api.handler(
       createRequest({
@@ -438,10 +430,11 @@ describe("defineDatasets()", () => {
 
   it("injects tenant filter when tenant is configured", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
+    const datasets = defineDatasets({ orders: Orders });
 
     const api = createAPI({
       datasets,
+      queryBuilder: factory,
       auth: async ({ request }) => {
         const key = request.headers['x-api-key'];
         if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -472,8 +465,8 @@ describe("defineDatasets()", () => {
 
   it("returns meta when x-include-meta header is set", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -494,11 +487,11 @@ describe("defineDatasets()", () => {
 
   it("supports multiple datasets", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, {
+    const datasets = defineDatasets({
       orders: Orders,
       customers: Customers,
     });
-    const api = createAPI({ datasets });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const r1 = await api.handler(
       createRequest({
@@ -521,8 +514,8 @@ describe("defineDatasets()", () => {
 
   it("returns 404 for unknown dataset", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -537,13 +530,14 @@ describe("defineDatasets()", () => {
 
   it("works alongside metrics and queries", async () => {
     const factory = createMockBuilderFactory();
-    const metrics = defineMetrics(factory, { totalRevenue });
-    const datasets = defineDatasets(factory, { orders: Orders });
+    const metrics = defineMetrics({ totalRevenue });
+    const datasets = defineDatasets({ orders: Orders });
 
     const api = createAPI({
       queries: { ping: { query: async () => ({ ok: true }) } },
       metrics,
       datasets,
+      queryBuilder: factory,
     });
 
     // Queries need explicit route registration
@@ -578,8 +572,8 @@ describe("defineDatasets()", () => {
 
   it("includes dataset endpoints in OpenAPI spec", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const response = await api.handler(
       createRequest({
@@ -596,8 +590,8 @@ describe("defineDatasets()", () => {
 
   it("includes dataset endpoints in describe()", () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, { orders: Orders, customers: Customers });
-    const api = createAPI({ datasets });
+    const datasets = defineDatasets({ orders: Orders, customers: Customers });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     const description = api.describe();
     const datasetEndpoints = description.queries.filter(q => q.tags.includes("datasets"));
@@ -606,14 +600,14 @@ describe("defineDatasets()", () => {
 
   it("per-dataset overrides in expanded form", async () => {
     const factory = createMockBuilderFactory();
-    const datasets = defineDatasets(factory, {
+    const datasets = defineDatasets({
       orders: {
         dataset: Orders,
         cache: 120_000,
         maxLimit: 50,
       },
     });
-    const api = createAPI({ datasets });
+    const api = createAPI({ datasets, queryBuilder: factory });
 
     await api.handler(
       createRequest({
@@ -647,7 +641,7 @@ describe("defineDatasets()", () => {
     expect(response.status).toBe(200);
   });
 
-  it("throws if inline datasets without queryBuilder", () => {
+  it("throws if datasets without queryBuilder", () => {
     expect(() =>
       createAPI({
         datasets: { orders: Orders },

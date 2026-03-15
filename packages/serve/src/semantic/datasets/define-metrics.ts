@@ -3,23 +3,23 @@
  *
  * Returns a sealed MetricsBlock that can be plugged into defineServe/createAPI.
  * Decouples metric endpoint definition from the global API config.
+ * The queryBuilder is provided once on the ServeConfig and flows down automatically.
  *
  * @example
  * ```ts
  * import { defineMetrics } from '@hypequery/serve';
  *
- * const metrics = defineMetrics(qb, {
+ * const metrics = defineMetrics({
  *   totalRevenue,
  *   avgOrderValue: { metric: avgOrderValue, cache: 300_000 },
  * });
  *
- * const api = defineServe({ metrics, queries: { ... } });
+ * const api = defineServe({ metrics, queryBuilder: qb });
  * ```
  */
 
 import type { AuthContext, AuthStrategy } from '../../types.js';
 import type { MetricRef } from './types.js';
-import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
 
 // ---------------------------------------------------------------------------
 // Per-metric entry types (same as MetricEntry but scoped here)
@@ -60,7 +60,6 @@ export interface DefineMetricsOptions<TAuth extends AuthContext = AuthContext> {
 export interface MetricsBlock<TAuth extends AuthContext = AuthContext> {
   readonly __type: 'metrics_block';
   readonly entries: Record<string, MetricEntryInput<TAuth>>;
-  readonly builderFactory: QueryBuilderFactoryLike;
   readonly defaults?: DefineMetricsOptions<TAuth>;
 }
 
@@ -69,14 +68,12 @@ export interface MetricsBlock<TAuth extends AuthContext = AuthContext> {
 // ---------------------------------------------------------------------------
 
 export function defineMetrics<TAuth extends AuthContext = AuthContext>(
-  queryBuilder: QueryBuilderFactoryLike,
   metrics: MetricsInput<TAuth>,
   options?: DefineMetricsOptions<TAuth>,
 ): MetricsBlock<TAuth> {
   return {
     __type: 'metrics_block',
     entries: metrics,
-    builderFactory: queryBuilder,
     defaults: options,
   };
 }

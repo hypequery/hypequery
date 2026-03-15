@@ -122,32 +122,20 @@ export const createAPI = <
     const isBlock = (m: any): m is MetricsBlock<TAuth> =>
       m && typeof m === 'object' && m.__type === 'metrics_block';
 
-    let metricsEntries: Record<string, any>;
-    let metricsBuilderFactory: typeof config.queryBuilder;
-    let metricsDefaults: { cache?: number | null } | undefined;
-
-    if (isBlock(config.metrics)) {
-      // defineMetrics() block — carries its own builder factory
-      metricsEntries = config.metrics.entries;
-      metricsBuilderFactory = config.metrics.builderFactory;
-      metricsDefaults = config.metrics.defaults;
-    } else {
-      // Inline metrics config — uses global queryBuilder / metricAdapter
-      metricsEntries = config.metrics;
-      metricsBuilderFactory = config.queryBuilder;
-    }
-
+    const metricsEntries = isBlock(config.metrics) ? config.metrics.entries : config.metrics;
+    const metricsDefaults = isBlock(config.metrics) ? config.metrics.defaults : undefined;
+    const builderFactory = config.queryBuilder;
     const adapter = config.metricAdapter;
 
-    if (!metricsBuilderFactory && !adapter) {
+    if (!builderFactory && !adapter) {
       throw new Error(
         'createAPI: `queryBuilder` (or deprecated `metricAdapter`) is required when `metrics` is provided. ' +
-        'Pass the createQueryBuilder(config) return value as `queryBuilder`, or use defineMetrics(qb, { ... }).',
+        'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
       );
     }
 
     const executor = new MetricExecutor(
-      metricsBuilderFactory ? { builderFactory: metricsBuilderFactory } : { adapter: adapter! },
+      builderFactory ? { builderFactory } : { adapter: adapter! },
     );
 
     for (const [name, entry] of Object.entries(metricsEntries)) {
@@ -156,13 +144,11 @@ export const createAPI = <
       if (metricsDefaults) {
         const isRef = entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'metric_ref';
         if (isRef) {
-          // Shorthand ref — wrap with block defaults
           resolvedEntry = {
             metric: entry,
             cache: metricsDefaults.cache,
           };
         } else if (typeof entry === 'object' && 'metric' in entry) {
-          // Expanded entry — fill in missing defaults
           resolvedEntry = {
             cache: metricsDefaults.cache,
             ...entry,
@@ -173,16 +159,12 @@ export const createAPI = <
       const metricEndpoint = createMetricEndpoint(name, resolvedEntry, executor);
       const routePath = normalizeRoutePath(`/metrics/${name}`);
 
-      // Set the path on the endpoint metadata
       const registeredEndpoint = {
         ...metricEndpoint,
         metadata: { ...metricEndpoint.metadata, path: routePath },
       };
 
-      // Add to queryEntries so it's available via api.execute()
       (queryEntries as Record<string, any>)[name] = registeredEndpoint;
-
-      // Auto-register with the router
       router.register(registeredEndpoint);
     }
   }
@@ -192,23 +174,14 @@ export const createAPI = <
     const isBlock = (d: any): d is DatasetsBlock<TAuth> =>
       d && typeof d === 'object' && d.__type === 'datasets_block';
 
-    let datasetEntries: Record<string, any>;
-    let datasetBuilderFactory: typeof config.queryBuilder;
-    let datasetDefaults: { cache?: number | null; maxLimit?: number } | undefined;
+    const datasetEntries = isBlock(config.datasets) ? config.datasets.entries : config.datasets;
+    const datasetDefaults = isBlock(config.datasets) ? config.datasets.defaults : undefined;
+    const builderFactory = config.queryBuilder;
 
-    if (isBlock(config.datasets)) {
-      datasetEntries = config.datasets.entries;
-      datasetBuilderFactory = config.datasets.builderFactory;
-      datasetDefaults = config.datasets.defaults;
-    } else {
-      datasetEntries = config.datasets;
-      datasetBuilderFactory = config.queryBuilder;
-    }
-
-    if (!datasetBuilderFactory) {
+    if (!builderFactory) {
       throw new Error(
         'createAPI: `queryBuilder` is required when `datasets` is provided. ' +
-        'Pass the createQueryBuilder(config) return value as `queryBuilder`, or use defineDatasets(qb, { ... }).',
+        'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
       );
     }
 
@@ -216,7 +189,7 @@ export const createAPI = <
       const datasetEndpoint = createDatasetEndpoint(
         name,
         entry,
-        datasetBuilderFactory,
+        builderFactory,
         datasetDefaults?.maxLimit,
       );
       const routePath = normalizeRoutePath(`/datasets/${name}/query`);
