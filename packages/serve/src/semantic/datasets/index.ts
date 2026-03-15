@@ -24,6 +24,9 @@ export { createDatasetRegistry } from './registry.js';
 export { MetricExecutor } from './executor.js';
 export type { MetricAdapter, MetricExecutorOptions, ValidationResult } from './executor.js';
 
+// Query builder protocol (duck-typed interfaces for DB-agnostic builder usage)
+export type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-protocol.js';
+
 // Serve integration
 export { createMetricEndpoint } from './metric-endpoint.js';
 

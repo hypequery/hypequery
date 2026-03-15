@@ -3,6 +3,7 @@ import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from 
 import type { ModelRegistry, SemanticSchema } from "./semantic/types.js";
 import type { MetricRef } from "./semantic/datasets/types.js";
 import type { MetricAdapter } from "./semantic/datasets/executor.js";
+import type { QueryBuilderFactoryLike } from "./semantic/datasets/query-builder-protocol.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -544,9 +545,23 @@ export interface ServeConfig<
    */
   metrics?: MetricsConfig<TAuth>;
   /**
+   * Query builder instance for metric execution.
+   * Required when `metrics` is provided (unless `metricAdapter` is given).
+   * Pass the return value of `createQueryBuilder(config)` directly.
+   *
+   * @example
+   * ```ts
+   * const qb = createQueryBuilder<Schema>(config);
+   * const api = createAPI({
+   *   metrics: { totalRevenue },
+   *   queryBuilder: qb,
+   * });
+   * ```
+   */
+  queryBuilder?: QueryBuilderFactoryLike;
+  /**
    * Database adapter for metric execution.
-   * Required when `metrics` is provided.
-   * Pass `{ rawQuery: queryBuilder.rawQuery }` from your createQueryBuilder instance.
+   * @deprecated Use `queryBuilder` instead — pass the `createQueryBuilder` return directly.
    */
   metricAdapter?: MetricAdapter;
   models?: ModelRegistry<SemanticSchema>;
