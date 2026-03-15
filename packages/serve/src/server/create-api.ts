@@ -110,11 +110,17 @@ export const createAPI = <
 
   const configuredQueries = config.queries ?? ({} as TQueries);
   const queryEntries = {} as ServeEndpointMap<TQueries, TContext, TAuth>;
-  const registerQuery = (key: keyof TQueries, definition: TQueries[keyof TQueries]) => {
-    queryEntries[key as keyof TQueries] = createEndpoint(String(key), definition);
-  };
   for (const key of Object.keys(configuredQueries) as Array<keyof TQueries>) {
-    registerQuery(key, configuredQueries[key]);
+    const endpoint = createEndpoint(String(key), configuredQueries[key]);
+    const routePath = normalizeRoutePath(`/queries/${String(key)}`);
+
+    const registeredEndpoint = {
+      ...endpoint,
+      metadata: { ...endpoint.metadata, path: routePath },
+    };
+
+    queryEntries[key as keyof TQueries] = registeredEndpoint as any;
+    router.register(registeredEndpoint);
   }
 
   // Process metrics — auto-generate POST endpoints
