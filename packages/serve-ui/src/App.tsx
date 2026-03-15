@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { History, BarChart3, Play, Settings, Zap, Library } from 'lucide-react';
+import { History, BarChart3, Play, Settings, Library } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { QueryHistory } from '@/components/QueryHistory';
 import { CacheStats } from '@/components/CacheStats';
 import { Playground } from '@/components/Playground';
 import { Registry } from '@/components/Registry';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
+import { Logo } from '@/components/Logo';
 import {
   SidebarProvider,
   Sidebar,
@@ -53,16 +54,11 @@ function AppContent() {
         <SidebarHeader>
           {!isCollapsed ? (
             <>
-              <div className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-primary" />
-                <span className="font-semibold">
-                  <span className="text-primary">Hype</span>Query
-                </span>
-              </div>
+              <Logo />
               <SidebarToggle />
             </>
           ) : (
-            <Zap className="h-5 w-5 text-primary" />
+            <Logo collapsed />
           )}
         </SidebarHeader>
 
