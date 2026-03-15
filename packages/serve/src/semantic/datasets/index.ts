@@ -29,6 +29,13 @@ export type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-
 
 // Serve integration
 export { createMetricEndpoint } from './metric-endpoint.js';
+export { createDatasetEndpoint } from './dataset-endpoint.js';
+
+// Standalone block factories
+export { defineMetrics } from './define-metrics.js';
+export type { MetricsBlock, MetricEntryInput, MetricsInput, DefineMetricsOptions } from './define-metrics.js';
+export { defineDatasets } from './define-datasets.js';
+export type { DatasetsBlock, DatasetEntryInput, DatasetsInput, DefineDatasetsOptions } from './define-datasets.js';
 
 // Types
 export type {
