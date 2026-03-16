@@ -59,6 +59,24 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
           <SQLViewer sql={query.query} showLineNumbers maxHeight="300px" />
         </section>
 
+        {query.input !== undefined && (
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium">Input</h3>
+              <button
+                onClick={() => copyToClipboard(JSON.stringify(query.input, null, 2))}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Copy className={ICON_SIZES.xs} />
+                Copy
+              </button>
+            </div>
+            <pre className="overflow-auto rounded-md bg-muted p-3 text-xs font-mono text-foreground">
+              {JSON.stringify(query.input, null, 2)}
+            </pre>
+          </section>
+        )}
+
         {/* Metrics */}
         <section>
           <h3 className="text-sm font-medium mb-3">Metrics</h3>
@@ -227,6 +245,12 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
               <div className="flex">
                 <dt className="w-24 text-muted-foreground">Endpoint</dt>
                 <dd className="font-mono text-xs">{query.endpointPath}</dd>
+              </div>
+            )}
+            {query.endpointDescription && (
+              <div className="flex">
+                <dt className="w-24 text-muted-foreground">Description</dt>
+                <dd>{query.endpointDescription}</dd>
               </div>
             )}
             {query.createdAt && (

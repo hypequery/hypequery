@@ -11,8 +11,8 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Format duration in milliseconds to human-readable string.
  */
-export function formatDuration(ms: number | undefined): string {
-  if (ms === undefined) return '-';
+export function formatDuration(ms: number | null | undefined): string {
+  if (ms == null) return '-';
   if (ms < 1) return '<1ms';
   if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
@@ -22,16 +22,16 @@ export function formatDuration(ms: number | undefined): string {
 /**
  * Format timestamp to locale string.
  */
-export function formatTime(timestamp: number | undefined): string {
-  if (!timestamp) return '-';
+export function formatTime(timestamp: number | null | undefined): string {
+  if (timestamp == null) return '-';
   return new Date(timestamp).toLocaleTimeString();
 }
 
 /**
  * Format timestamp to relative time.
  */
-export function formatRelativeTime(timestamp: number | undefined): string {
-  if (!timestamp) return '-';
+export function formatRelativeTime(timestamp: number | null | undefined): string {
+  if (timestamp == null) return '-';
 
   const now = Date.now();
   const diff = now - timestamp;
@@ -46,16 +46,16 @@ export function formatRelativeTime(timestamp: number | undefined): string {
 /**
  * Format number with locale separators.
  */
-export function formatNumber(n: number | undefined): string {
-  if (n === undefined) return '-';
+export function formatNumber(n: number | null | undefined): string {
+  if (n == null) return '-';
   return n.toLocaleString();
 }
 
 /**
  * Format percentage.
  */
-export function formatPercentage(value: number | undefined): string {
-  if (value === undefined) return '-';
+export function formatPercentage(value: number | null | undefined): string {
+  if (value == null) return '-';
   return `${(value * 100).toFixed(1)}%`;
 }
 
@@ -70,8 +70,8 @@ export function truncate(str: string, maxLength: number): string {
 /**
  * Format bytes to human-readable size.
  */
-export function formatBytes(bytes: number | undefined): string {
-  if (bytes === undefined) return '-';
+export function formatBytes(bytes: number | null | undefined): string {
+  if (bytes == null) return '-';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

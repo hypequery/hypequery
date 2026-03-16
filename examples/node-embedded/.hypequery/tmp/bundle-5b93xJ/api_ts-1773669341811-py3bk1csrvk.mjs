@@ -1,0 +1,64 @@
+// src/analytics/api.ts
+import { initServe } from "@hypequery/serve";
+import { selectExpr } from "@hypequery/clickhouse";
+import { z } from "zod";
+
+// src/analytics/client.ts
+import "dotenv/config";
+import { createQueryBuilder } from "@hypequery/clickhouse";
+import { createClient } from "@clickhouse/client";
+var url = process.env.CLICKHOUSE_URL ?? process.env.CLICKHOUSE_HOST ?? "http://localhost:8123";
+var username = process.env.CLICKHOUSE_USERNAME ?? "default";
+var password = process.env.CLICKHOUSE_PASSWORD ?? "";
+var database = process.env.CLICKHOUSE_DATABASE ?? "default";
+var client = createClient({ url, username, password, database });
+var db = createQueryBuilder({ client });
+
+// src/analytics/api.ts
+var { define, queries, query } = initServe({
+  context: () => ({ db })
+});
+var api = define({
+  queries: queries({
+    weeklyRevenue: query.describe("Weekly revenue grouped by pickup week").input(z.object({ start: z.string(), end: z.string() })).output(z.array(z.object({ week: z.string(), total: z.number() }))).query(async ({ ctx, input }) => {
+      const rows = await ctx.db.table("trips").where("pickup_datetime", "gte", input.start).where("pickup_datetime", "lte", input.end).select([selectExpr("toStartOfWeek(pickup_datetime)", "week")]).sum("total_amount", "total").groupBy(["week"]).orderBy("week", "ASC").execute();
+      return rows.map((row) => ({
+        week: row.week,
+        total: Number(row.total ?? 0)
+      }));
+    }),
+    passengerStats: query.describe("Passenger averages for recent trips").output(z.object({ avgPassengers: z.number(), totalTrips: z.number() })).query(async ({ ctx }) => {
+      const rows = await ctx.db.table("trips").avg("passenger_count", "avg_passengers").count("trip_id", "total_trips").execute();
+      const row = rows[0] ?? {};
+      return {
+        avgPassengers: Number(row.avg_passengers ?? 0),
+        totalTrips: Number(row.total_trips ?? 0)
+      };
+    }),
+    tripsByPassengerCount: query.describe("Get trip counts grouped by passenger count").input(
+      z.object({
+        limit: z.number().int().positive().max(20).default(10)
+      })
+    ).output(
+      z.array(
+        z.object({
+          passengerCount: z.number(),
+          tripCount: z.number()
+        })
+      )
+    ).query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 10;
+      const rows = await ctx.db.table("trips").select(["passenger_count"]).count("trip_id", "trip_count").groupBy(["passenger_count"]).orderBy("trip_count", "DESC").limit(limit).execute();
+      return rows.map((row) => ({
+        passengerCount: Number(row.passenger_count ?? 0),
+        tripCount: Number(row.trip_count ?? 0)
+      }));
+    })
+  })
+});
+export {
+  api
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsic3JjL2FuYWx5dGljcy9hcGkudHMiLCAic3JjL2FuYWx5dGljcy9jbGllbnQudHMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImltcG9ydCB7IGluaXRTZXJ2ZSB9IGZyb20gJ0BoeXBlcXVlcnkvc2VydmUnO1xuaW1wb3J0IHsgc2VsZWN0RXhwciB9IGZyb20gJ0BoeXBlcXVlcnkvY2xpY2tob3VzZSc7XG5pbXBvcnQgeyB6IH0gZnJvbSAnem9kJztcblxuaW1wb3J0IHsgZGIgfSBmcm9tICcuL2NsaWVudC5qcyc7XG5cbmNvbnN0IHsgZGVmaW5lLCBxdWVyaWVzLCBxdWVyeSB9ID0gaW5pdFNlcnZlKHtcbiAgY29udGV4dDogKCkgPT4gKHsgZGIgfSksXG59KTtcblxuZXhwb3J0IGNvbnN0IGFwaSA9IGRlZmluZSh7XG4gIHF1ZXJpZXM6IHF1ZXJpZXMoe1xuICAgIHdlZWtseVJldmVudWU6IHF1ZXJ5XG4gICAgICAuZGVzY3JpYmUoJ1dlZWtseSByZXZlbnVlIGdyb3VwZWQgYnkgcGlja3VwIHdlZWsnKVxuICAgICAgLmlucHV0KHoub2JqZWN0KHsgc3RhcnQ6IHouc3RyaW5nKCksIGVuZDogei5zdHJpbmcoKSB9KSlcbiAgICAgIC5vdXRwdXQoei5hcnJheSh6Lm9iamVjdCh7IHdlZWs6IHouc3RyaW5nKCksIHRvdGFsOiB6Lm51bWJlcigpIH0pKSlcbiAgICAgIC5xdWVyeShhc3luYyAoeyBjdHgsIGlucHV0IH0pID0+IHtcbiAgICAgICAgY29uc3Qgcm93cyA9IGF3YWl0IGN0eC5kYlxuICAgICAgICAgIC50YWJsZSgndHJpcHMnKVxuICAgICAgICAgIC53aGVyZSgncGlja3VwX2RhdGV0aW1lJywgJ2d0ZScsIGlucHV0LnN0YXJ0KVxuICAgICAgICAgIC53aGVyZSgncGlja3VwX2RhdGV0aW1lJywgJ2x0ZScsIGlucHV0LmVuZClcbiAgICAgICAgICAuc2VsZWN0KFtzZWxlY3RFeHByKCd0b1N0YXJ0T2ZXZWVrKHBpY2t1cF9kYXRldGltZSknLCAnd2VlaycpXSlcbiAgICAgICAgICAuc3VtKCd0b3RhbF9hbW91bnQnLCAndG90YWwnKVxuICAgICAgICAgIC5ncm91cEJ5KFsnd2VlayddKVxuICAgICAgICAgIC5vcmRlckJ5KCd3ZWVrJywgJ0FTQycpXG4gICAgICAgICAgLmV4ZWN1dGUoKTtcblxuICAgICAgICByZXR1cm4gcm93cy5tYXAoKHJvdykgPT4gKHtcbiAgICAgICAgICB3ZWVrOiAocm93IGFzIGFueSkud2VlayxcbiAgICAgICAgICB0b3RhbDogTnVtYmVyKChyb3cgYXMgYW55KS50b3RhbCA/PyAwKSxcbiAgICAgICAgfSkpO1xuICAgICAgfSksXG4gICAgcGFzc2VuZ2VyU3RhdHM6IHF1ZXJ5XG4gICAgICAuZGVzY3JpYmUoJ1Bhc3NlbmdlciBhdmVyYWdlcyBmb3IgcmVjZW50IHRyaXBzJylcbiAgICAgIC5vdXRwdXQoei5vYmplY3QoeyBhdmdQYXNzZW5nZXJzOiB6Lm51bWJlcigpLCB0b3RhbFRyaXBzOiB6Lm51bWJlcigpIH0pKVxuICAgICAgLnF1ZXJ5KGFzeW5jICh7IGN0eCB9KSA9PiB7XG4gICAgICAgIGNvbnN0IHJvd3MgPSBhd2FpdCBjdHguZGJcbiAgICAgICAgICAudGFibGUoJ3RyaXBzJylcbiAgICAgICAgICAuYXZnKCdwYXNzZW5nZXJfY291bnQnLCAnYXZnX3Bhc3NlbmdlcnMnKVxuICAgICAgICAgIC5jb3VudCgndHJpcF9pZCcsICd0b3RhbF90cmlwcycpXG4gICAgICAgICAgLmV4ZWN1dGUoKTtcbiAgICAgICAgY29uc3Qgcm93ID0gcm93c1swXSA/PyB7fTtcbiAgICAgICAgcmV0dXJuIHtcbiAgICAgICAgICBhdmdQYXNzZW5nZXJzOiBOdW1iZXIoKHJvdyBhcyBhbnkpLmF2Z19wYXNzZW5nZXJzID8/IDApLFxuICAgICAgICAgIHRvdGFsVHJpcHM6IE51bWJlcigocm93IGFzIGFueSkudG90YWxfdHJpcHMgPz8gMCksXG4gICAgICAgIH07XG4gICAgICB9KSxcbiAgICB0cmlwc0J5UGFzc2VuZ2VyQ291bnQ6IHF1ZXJ5XG4gICAgICAuZGVzY3JpYmUoJ0dldCB0cmlwIGNvdW50cyBncm91cGVkIGJ5IHBhc3NlbmdlciBjb3VudCcpXG4gICAgICAuaW5wdXQoXG4gICAgICAgIHoub2JqZWN0KHtcbiAgICAgICAgICBsaW1pdDogei5udW1iZXIoKS5pbnQoKS5wb3NpdGl2ZSgpLm1heCgyMCkuZGVmYXVsdCgxMCksXG4gICAgICAgIH0pXG4gICAgICApXG4gICAgICAub3V0cHV0KFxuICAgICAgICB6LmFycmF5KFxuICAgICAgICAgIHoub2JqZWN0KHtcbiAgICAgICAgICAgIHBhc3NlbmdlckNvdW50OiB6Lm51bWJlcigpLFxuICAgICAgICAgICAgdHJpcENvdW50OiB6Lm51bWJlcigpLFxuICAgICAgICAgIH0pXG4gICAgICAgIClcbiAgICAgIClcbiAgICAgIC5xdWVyeShhc3luYyAoeyBjdHgsIGlucHV0IH0pID0+IHtcbiAgICAgICAgY29uc3QgbGltaXQgPSBpbnB1dC5saW1pdCA/PyAxMDtcblxuICAgICAgICBjb25zdCByb3dzID0gYXdhaXQgY3R4LmRiXG4gICAgICAgICAgLnRhYmxlKCd0cmlwcycpXG4gICAgICAgICAgLnNlbGVjdChbJ3Bhc3Nlbmdlcl9jb3VudCddKVxuICAgICAgICAgIC5jb3VudCgndHJpcF9pZCcsICd0cmlwX2NvdW50JylcbiAgICAgICAgICAuZ3JvdXBCeShbJ3Bhc3Nlbmdlcl9jb3VudCddKVxuICAgICAgICAgIC5vcmRlckJ5KCd0cmlwX2NvdW50JywgJ0RFU0MnKVxuICAgICAgICAgIC5saW1pdChsaW1pdClcbiAgICAgICAgICAuZXhlY3V0ZSgpO1xuXG4gICAgICAgIHJldHVybiByb3dzLm1hcCgocm93KSA9PiAoe1xuICAgICAgICAgIHBhc3NlbmdlckNvdW50OiBOdW1iZXIoKHJvdyBhcyBhbnkpLnBhc3Nlbmdlcl9jb3VudCA/PyAwKSxcbiAgICAgICAgICB0cmlwQ291bnQ6IE51bWJlcigocm93IGFzIGFueSkudHJpcF9jb3VudCA/PyAwKSxcbiAgICAgICAgfSkpO1xuICAgICAgfSksXG4gIH0pLFxufSk7XG4iLCAiaW1wb3J0ICdkb3RlbnYvY29uZmlnJztcbmltcG9ydCB7IGNyZWF0ZVF1ZXJ5QnVpbGRlciB9IGZyb20gJ0BoeXBlcXVlcnkvY2xpY2tob3VzZSc7XG5pbXBvcnQgeyBjcmVhdGVDbGllbnQgfSBmcm9tICdAY2xpY2tob3VzZS9jbGllbnQnO1xuXG5pbXBvcnQgdHlwZSB7IEFuYWx5dGljc1NjaGVtYSB9IGZyb20gJy4vc2NoZW1hLmpzJztcblxuY29uc3QgdXJsID1cbiAgcHJvY2Vzcy5lbnYuQ0xJQ0tIT1VTRV9VUkwgPz9cbiAgcHJvY2Vzcy5lbnYuQ0xJQ0tIT1VTRV9IT1NUID8/XG4gICdodHRwOi8vbG9jYWxob3N0OjgxMjMnO1xuXG5jb25zdCB1c2VybmFtZSA9IHByb2Nlc3MuZW52LkNMSUNLSE9VU0VfVVNFUk5BTUUgPz8gJ2RlZmF1bHQnO1xuY29uc3QgcGFzc3dvcmQgPSBwcm9jZXNzLmVudi5DTElDS0hPVVNFX1BBU1NXT1JEID8/ICcnO1xuY29uc3QgZGF0YWJhc2UgPSBwcm9jZXNzLmVudi5DTElDS0hPVVNFX0RBVEFCQVNFID8/ICdkZWZhdWx0JztcblxuY29uc3QgY2xpZW50ID0gY3JlYXRlQ2xpZW50KHsgdXJsLCB1c2VybmFtZSwgcGFzc3dvcmQsIGRhdGFiYXNlIH0pO1xuXG5leHBvcnQgY29uc3QgZGIgPSBjcmVhdGVRdWVyeUJ1aWxkZXI8QW5hbHl0aWNzU2NoZW1hPih7IGNsaWVudCB9KTtcbiJdLAogICJtYXBwaW5ncyI6ICI7QUFBQSxTQUFTLGlCQUFpQjtBQUMxQixTQUFTLGtCQUFrQjtBQUMzQixTQUFTLFNBQVM7OztBQ0ZsQixPQUFPO0FBQ1AsU0FBUywwQkFBMEI7QUFDbkMsU0FBUyxvQkFBb0I7QUFJN0IsSUFBTSxNQUNKLFFBQVEsSUFBSSxrQkFDWixRQUFRLElBQUksbUJBQ1o7QUFFRixJQUFNLFdBQVcsUUFBUSxJQUFJLHVCQUF1QjtBQUNwRCxJQUFNLFdBQVcsUUFBUSxJQUFJ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
+
+//# sourceURL=file:///Users/lukereilly/repos/hypequery-core/examples/node-embedded/src/analytics/api.ts

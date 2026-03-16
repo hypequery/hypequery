@@ -78,8 +78,8 @@ export function SidebarHeader({ className, children, ...props }: SidebarHeaderPr
   return (
     <div
       className={cn(
-        'flex items-center h-14 border-b border-border px-3',
-        isCollapsed ? 'justify-center' : 'justify-between',
+        'flex items-center h-14 border-b border-border',
+        isCollapsed ? 'justify-center px-0' : 'justify-between px-3',
         className
       )}
       {...props}
@@ -102,9 +102,15 @@ export function SidebarContent({ className, children, ...props }: SidebarContent
 interface SidebarFooterProps extends React.HTMLAttributes<HTMLDivElement> {}
 
 export function SidebarFooter({ className, children, ...props }: SidebarFooterProps) {
+  const { isCollapsed } = useSidebar();
+
   return (
     <div
-      className={cn('border-t border-border p-2', className)}
+      className={cn(
+        'border-t border-border p-2',
+        isCollapsed && 'flex justify-center',
+        className
+      )}
       {...props}
     >
       {children}
@@ -166,8 +172,8 @@ export function SidebarNavItem({
   const button = (
     <button
       className={cn(
-        'w-full flex items-center gap-3 rounded-md text-sm font-medium transition-colors',
-        isCollapsed ? 'justify-center px-2 py-2' : 'px-3 py-2',
+        'flex items-center gap-3 rounded-md text-sm font-medium transition-colors',
+        isCollapsed ? 'mx-auto h-10 w-10 justify-center px-0 py-0' : 'w-full px-3 py-2',
         isActive
           ? 'bg-primary text-primary-foreground'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',

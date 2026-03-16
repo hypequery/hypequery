@@ -3,7 +3,6 @@ import path from 'node:path';
 import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { findQueriesFile } from '../utils/find-files.js';
-import { getTableCount } from '../utils/detect-database.js';
 import { loadApiModule } from '../utils/load-api.js';
 import { displayQueriesFileNotFoundError } from '../utils/error-messages.js';
 
@@ -36,25 +35,11 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   const startServer = async () => {
     // Loading spinners for slow operations
     const compileSpinner = ora('Compiling queries...').start();
-    const dbSpinner = ora('Connecting to ClickHouse...').start();
 
     try {
       // Load the API module
       const api = await loadApiModule(queriesFile);
       compileSpinner.succeed('Compiled queries');
-
-      // Get table count for display
-      let tableCount = 0;
-      try {
-        tableCount = await getTableCount('clickhouse');
-        dbSpinner.succeed(`Connected to ClickHouse (${tableCount} tables)`);
-      } catch (error) {
-        // Log but don't fail - table count is optional
-        dbSpinner.warn('Could not connect to ClickHouse');
-        if (error instanceof Error) {
-          logger.indent(`Reason: ${error.message}`);
-        }
-      }
 
       // Count queries
       const queryCount = Object.keys(api.queries || {}).length;
@@ -117,9 +102,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       // Stop spinners if they're still running
       if (compileSpinner.isSpinning) {
         compileSpinner.fail('Failed to compile queries');
-      }
-      if (dbSpinner.isSpinning) {
-        dbSpinner.stop();
       }
 
       logger.error('Failed to start server');

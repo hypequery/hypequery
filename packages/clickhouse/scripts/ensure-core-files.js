@@ -166,6 +166,7 @@ export { NoopCacheProvider } from './core/cache/providers/noop.js';
 export {
   raw,
   rawAs,
+  selectExpr,
   toDateTime,
   formatDateTime,
   toStartOfInterval,

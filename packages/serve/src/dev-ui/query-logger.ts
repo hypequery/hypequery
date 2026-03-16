@@ -42,6 +42,8 @@ export interface DevQueryLoggerOptions {
   flushInterval?: number;
   /** Enable endpoint metadata tracking (default: true) */
   trackEndpoints?: boolean;
+  /** Optional endpoint metadata indexed by key */
+  endpointMetadata?: Record<string, { description?: string; path?: string }>;
 }
 
 /**
@@ -76,6 +78,7 @@ export class DevQueryLogger {
   private readonly batchSize: number;
   private readonly flushInterval: number;
   private readonly trackEndpoints: boolean;
+  private readonly endpointMetadata: Record<string, { description?: string; path?: string }>;
 
   // Track current endpoint context for associating queries
   private currentEndpointKey?: string;
@@ -88,6 +91,7 @@ export class DevQueryLogger {
     this.batchSize = options.batchSize ?? 10;
     this.flushInterval = options.flushInterval ?? 1000;
     this.trackEndpoints = options.trackEndpoints ?? true;
+    this.endpointMetadata = options.endpointMetadata ?? {};
   }
 
   /**
@@ -111,16 +115,28 @@ export class DevQueryLogger {
    * Handle a serve-layer query event and convert to QueryLog format.
    */
   private handleServeEvent(event: ServeQueryEvent): void {
-    const log: QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string; tenantId?: string } = {
+    const endpointMetadata = event.endpointKey
+      ? this.endpointMetadata[event.endpointKey]
+      : undefined;
+
+    const log: QueryLog & {
+      queryId: string;
+      endpointKey?: string;
+      endpointDescription?: string;
+      endpointPath?: string;
+      tenantId?: string;
+    } = {
       queryId: event.requestId,
       query: `${event.method} ${event.path}`,
+      input: event.input,
       startTime: event.startTime,
       endTime: event.endTime,
       duration: event.durationMs,
       status: event.status,
       error: event.error,
       endpointKey: event.endpointKey,
-      endpointPath: event.path,
+      endpointDescription: endpointMetadata?.description,
+      endpointPath: endpointMetadata?.path ?? event.path,
       // Include cache info if available
       cacheStatus: event.cache?.status,
       cacheKey: event.cache?.key,
@@ -157,7 +173,7 @@ export class DevQueryLogger {
    * Add a query log to the queue (non-blocking).
    * This method returns immediately without awaiting storage.
    */
-  private enqueue(log: QueryLog & { endpointKey?: string; endpointPath?: string }): void {
+  private enqueue(log: QueryLog & { endpointKey?: string; endpointDescription?: string; endpointPath?: string }): void {
     if (this.isShuttingDown) return;
 
     // Generate queryId if not present
@@ -168,6 +184,7 @@ export class DevQueryLogger {
       queryId,
       // Use passed values, fall back to context if not provided
       endpointKey: log.endpointKey ?? this.currentEndpointKey,
+      endpointDescription: log.endpointDescription,
       endpointPath: log.endpointPath ?? this.currentEndpointPath
     };
 

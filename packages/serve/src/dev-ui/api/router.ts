@@ -53,17 +53,7 @@ const AVAILABLE_ROUTES = [
   'GET /__dev/events - SSE connection for real-time updates',
   'GET /__dev/queries - List query history',
   'GET /__dev/queries/:id - Get single query',
-  'GET /__dev/queries/available - List available API endpoints',
-  'GET /__dev/registry - List all registered endpoints with full metadata',
   'DELETE /__dev/queries - Clear query history',
-  'GET /__dev/cache/stats - Get cache statistics',
-  'POST /__dev/cache/invalidate - Invalidate cache keys',
-  'POST /__dev/cache/clear - Clear all cache',
-  'GET /__dev/logger/stats - Get logger statistics',
-  'GET /__dev/export - Export query history',
-  'POST /__dev/import - Import query history',
-  'GET /__dev/playground/queries - List queries with schemas for playground',
-  'POST /__dev/playground/execute - Execute a query from playground'
 ];
 
 /**
@@ -157,22 +147,10 @@ export class DevAPIRouter {
       return true;
     }
 
-    // Route: Registry (full endpoint metadata)
-    if (path === '/__dev/registry' && method === 'GET') {
-      await endpoints.getRegistry(ctx);
-      return true;
-    }
-
-    // Route: Available queries (must come before /__dev/queries/:id)
-    if (path === '/__dev/queries/available' && method === 'GET') {
-      await endpoints.getAvailableQueries(ctx);
-      return true;
-    }
-
     // Route: Single query by ID
     if (path.startsWith('/__dev/queries/') && method === 'GET') {
       const queryId = path.slice('/__dev/queries/'.length);
-      if (queryId && queryId !== 'available') {
+      if (queryId) {
         await endpoints.getQuery(ctx, queryId);
         return true;
       }
@@ -187,54 +165,6 @@ export class DevAPIRouter {
     // Route: Clear query history
     if (path === '/__dev/queries' && method === 'DELETE') {
       await endpoints.clearHistory(ctx);
-      return true;
-    }
-
-    // Route: Cache stats
-    if (path === '/__dev/cache/stats' && method === 'GET') {
-      await endpoints.getCacheStats(ctx);
-      return true;
-    }
-
-    // Route: Invalidate cache
-    if (path === '/__dev/cache/invalidate' && method === 'POST') {
-      await endpoints.invalidateCache(ctx);
-      return true;
-    }
-
-    // Route: Clear cache
-    if (path === '/__dev/cache/clear' && method === 'POST') {
-      await endpoints.clearCache(ctx);
-      return true;
-    }
-
-    // Route: Logger stats
-    if (path === '/__dev/logger/stats' && method === 'GET') {
-      await endpoints.getLoggerStats(ctx);
-      return true;
-    }
-
-    // Route: Export history
-    if (path === '/__dev/export' && method === 'GET') {
-      await endpoints.exportHistory(ctx);
-      return true;
-    }
-
-    // Route: Import history
-    if (path === '/__dev/import' && method === 'POST') {
-      await endpoints.importHistory(ctx);
-      return true;
-    }
-
-    // Route: Playground queries (with schemas)
-    if (path === '/__dev/playground/queries' && method === 'GET') {
-      await endpoints.getPlaygroundQueries(ctx);
-      return true;
-    }
-
-    // Route: Playground execute
-    if (path === '/__dev/playground/execute' && method === 'POST') {
-      await endpoints.executePlaygroundQuery(ctx);
       return true;
     }
 

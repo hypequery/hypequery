@@ -58,9 +58,11 @@ export class SQLiteStore implements QueryHistoryStore {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         query_id TEXT UNIQUE NOT NULL,
         endpoint_key TEXT,
+        endpoint_description TEXT,
         endpoint_path TEXT,
         query TEXT NOT NULL,
         parameters TEXT,
+        input TEXT,
         started_at INTEGER NOT NULL,
         completed_at INTEGER,
         duration_ms INTEGER,
@@ -80,6 +82,18 @@ export class SQLiteStore implements QueryHistoryStore {
       CREATE INDEX IF NOT EXISTS idx_query_id ON query_history(query_id);
       CREATE INDEX IF NOT EXISTS idx_endpoint_key ON query_history(endpoint_key);
     `);
+
+    this.ensureColumn('query_history', 'endpoint_description', 'TEXT');
+    this.ensureColumn('query_history', 'input', 'TEXT');
+  }
+
+  private ensureColumn(table: string, column: string, definition: string): void {
+    if (!this.db) throw new Error('Database not initialized');
+    const rows = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    const hasColumn = rows.some((row) => row.name === column);
+    if (!hasColumn) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
   }
 
   /**
@@ -93,20 +107,22 @@ export class SQLiteStore implements QueryHistoryStore {
 
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO query_history (
-        query_id, endpoint_key, endpoint_path, query, parameters,
+        query_id, endpoint_key, endpoint_description, endpoint_path, query, parameters, input,
         started_at, completed_at, duration_ms, status, error_message,
         row_count, cache_status, cache_key, cache_mode, cache_age_ms
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const insertMany = this.db.transaction((logs: Array<QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string }>) => {
+    const insertMany = this.db.transaction((logs: Array<QueryLog & { queryId: string; endpointKey?: string; endpointDescription?: string; endpointPath?: string }>) => {
       for (const log of logs) {
         stmt.run(
           log.queryId,
           log.endpointKey || null,
+          log.endpointDescription || null,
           log.endpointPath || null,
           log.query,
           log.parameters ? JSON.stringify(log.parameters) : null,
+          log.input !== undefined ? JSON.stringify(log.input) : null,
           log.startTime,
           log.endTime || null,
           log.duration || null,
@@ -146,6 +162,15 @@ export class SQLiteStore implements QueryHistoryStore {
     }
   }
 
+  private safeJsonParseValue(value: string | null | undefined): unknown {
+    if (!value) return undefined;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
+
   /**
    * Map a database row to a QueryHistoryEntry object.
    * Handles JSON parsing for serialized fields with safe fallbacks.
@@ -157,9 +182,11 @@ export class SQLiteStore implements QueryHistoryStore {
       id: row.id,
       queryId: row.query_id,
       endpointKey: row.endpoint_key,
+      endpointDescription: row.endpoint_description,
       endpointPath: row.endpoint_path,
       query: row.query,
       parameters: this.safeJsonParseArray(row.parameters),
+      input: this.safeJsonParseValue(row.input),
       startTime: row.started_at,
       endTime: row.completed_at,
       duration: row.duration_ms,
@@ -195,8 +222,9 @@ export class SQLiteStore implements QueryHistoryStore {
     }
 
     if (options.search) {
-      whereClauses.push('query LIKE ?');
-      params.push(`%${options.search}%`);
+      whereClauses.push('(query LIKE ? OR endpoint_key LIKE ? OR endpoint_description LIKE ? OR input LIKE ?)');
+      const searchValue = `%${options.search}%`;
+      params.push(searchValue, searchValue, searchValue, searchValue);
     }
 
     const whereClause = whereClauses.length > 0

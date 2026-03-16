@@ -48,7 +48,7 @@ function createEnhancedNodeHandler(
   const nodeHandler = createNodeHandler(originalHandler);
 
   return async (req: IncomingMessage, res: ServerResponse) => {
-    // Try dev handler first for /__dev/* routes
+    // Try dev handler first for the root UI and /__dev/* internal routes
     if (await devHandler.handleRequest(req, res)) {
       return;
     }
@@ -62,8 +62,7 @@ function createEnhancedNodeHandler(
  * Start a development server with enhanced features:
  * - Query history storage (SQLite with memory fallback)
  * - Real-time SSE updates
- * - Dev UI at /__dev
- * - Query playground
+ * - Dev UI at /
  *
  * @example
  * ```typescript
@@ -74,7 +73,7 @@ function createEnhancedNodeHandler(
  * // Start dev server with all features
  * const server = await serveDev(api, { port: 4000 });
  *
- * // Dev UI available at http://localhost:4000/__dev
+ * // Dev UI available at http://localhost:4000/
  * // API docs at http://localhost:4000/docs
  * ```
  */
@@ -110,7 +109,16 @@ export const serveDev = async <
       // Initialize query logger — subscribes to serve-layer events (backend-agnostic)
       queryLogger = new DevQueryLogger(store, {
         batchSize: 10,
-        flushInterval: 1000
+        flushInterval: 1000,
+        endpointMetadata: Object.fromEntries(
+          Object.entries(api.queries).map(([key, endpoint]) => [
+            key,
+            {
+              description: endpoint.metadata?.description,
+              path: endpoint.metadata?.path ?? `/${key}`,
+            },
+          ])
+        )
       });
       queryLogger.initialize(api.queryLogger);
 
@@ -209,7 +217,7 @@ export const serveDev = async <
     logger(`Docs available at http://${display}/docs`);
 
     if (devHandler) {
-      logger(`Dev Tools at http://${display}/__dev`);
+      logger(`Dev Tools at http://${display}/`);
 
       if (!isDevUIAvailable()) {
         logger(`  (UI not built - run: pnpm --filter @hypequery/serve-ui build)`);

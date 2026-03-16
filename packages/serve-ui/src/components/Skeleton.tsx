@@ -150,22 +150,6 @@ export function PlaygroundContentSkeleton() {
 }
 
 /**
- * Skeleton for cache stats cards.
- */
-export function CacheStatsSkeleton() {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="p-4 rounded-lg bg-card border border-border">
-          <Skeleton className="h-4 w-20 mb-2" />
-          <Skeleton className="h-8 w-16" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/**
  * Full page loading skeleton.
  */
 export function PageSkeleton() {

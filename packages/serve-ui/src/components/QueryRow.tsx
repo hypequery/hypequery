@@ -1,9 +1,8 @@
 import { Database, Clock, Zap, AlertCircle } from 'lucide-react';
-import { cn, formatDuration, formatRelativeTime } from '@/lib/utils';
+import { cn, formatDuration, formatNumber, formatRelativeTime } from '@/lib/utils';
 import { ICON_SIZES } from '@/lib/colors';
 import { SQLInline } from './SQLViewer';
 import { StatusBadge } from './StatusBadge';
-import { CacheBadge } from './CacheBadge';
 import { TenantBadge } from './TenantBadge';
 import type { QueryHistoryEntry } from '@/lib/types';
 
@@ -18,59 +17,70 @@ interface QueryRowProps {
  */
 export function QueryRow({ query, isSelected, onClick }: QueryRowProps) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        'flex items-center gap-4 px-4 py-3 border-b border-border cursor-pointer transition-colors',
-        'hover:bg-muted/50',
+        'grid w-full grid-cols-[140px_minmax(0,1.25fr)_minmax(0,0.95fr)_120px_110px_110px_auto] items-center gap-3 px-4 py-3 text-left transition-colors',
+        'border-b border-border hover:bg-muted/40',
         isSelected && 'bg-muted'
       )}
       onClick={onClick}
     >
-      {/* Status indicator */}
-      <div className="flex-shrink-0">
+      <div className="min-w-0">
         <StatusBadge status={query.status} />
       </div>
-
-      {/* Query preview */}
-      <div className="flex-1 min-w-0 overflow-hidden">
-        <div className="flex items-center gap-2 mb-1">
-          {query.endpointKey && (
-            <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">
-              {query.endpointKey}
-            </span>
-          )}
-          <SQLInline sql={query.query} maxLength={80} className="text-foreground/80" />
+      <div className="min-w-0">
+        <div className="mb-1 truncate text-sm font-medium">
+          {query.endpointKey ?? 'Ad hoc query'}
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Clock className={ICON_SIZES.xs} />
-            {formatRelativeTime(query.startTime)}
-          </span>
-          {query.duration !== undefined && (
-            <span className="flex items-center gap-1">
-              <Zap className={ICON_SIZES.xs} />
-              {formatDuration(query.duration)}
-            </span>
-          )}
-          {query.rowCount !== undefined && (
-            <span className="flex items-center gap-1">
-              <Database className={ICON_SIZES.xs} />
-              {query.rowCount.toLocaleString()} rows
-            </span>
-          )}
-        </div>
+        {query.endpointDescription && (
+          <p className="mb-1 truncate text-xs text-muted-foreground">
+            {query.endpointDescription}
+          </p>
+        )}
+        <SQLInline sql={query.query} maxLength={110} className="text-foreground/70" />
       </div>
-
-      {/* Badges */}
-      <div className="flex-shrink-0 flex items-center gap-2">
+      <div className="min-w-0">
+        <code className="block truncate text-xs text-muted-foreground">
+          {formatInputPreview(query.input)}
+        </code>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Clock className={ICON_SIZES.xs} />
+          {formatRelativeTime(query.startTime)}
+        </span>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Zap className={ICON_SIZES.xs} />
+          {formatDuration(query.duration)}
+        </span>
+      </div>
+      <div className="text-sm text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Database className={ICON_SIZES.xs} />
+          {query.rowCount != null ? `${formatNumber(query.rowCount)} rows` : '-'}
+        </span>
+      </div>
+      <div className="flex justify-end gap-2">
         {query.tenantId && <TenantBadge tenantId={query.tenantId} />}
-        <CacheBadge status={query.cacheStatus} cacheHit={query.cacheHit} variant="compact" />
         {query.error && (
           <AlertCircle className={cn(ICON_SIZES.md, 'text-destructive')} />
         )}
       </div>
-    </div>
+    </button>
   );
+}
+
+function formatInputPreview(input: unknown): string {
+  if (input == null) return '-';
+  try {
+    const serialized = JSON.stringify(input);
+    return serialized.length > 90 ? `${serialized.slice(0, 87)}...` : serialized;
+  } catch {
+    return String(input);
+  }
 }
 
 export default QueryRow;

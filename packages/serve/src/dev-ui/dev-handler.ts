@@ -17,8 +17,10 @@ export interface DevHandlerOptions {
   serveCacheStore?: CacheStore;
   /** API instance with endpoints and execute function */
   api?: RouterOptions['api'];
-  /** Base path for dev UI (default: /__dev) */
+  /** Base path for the HTML UI entry point (default: /) */
   basePath?: string;
+  /** Base path for internal UI assets and APIs (default: /__dev) */
+  apiBasePath?: string;
 }
 
 /**
@@ -27,10 +29,12 @@ export interface DevHandlerOptions {
 export class DevHandler {
   private router: DevAPIRouter;
   private basePath: string;
+  private apiBasePath: string;
   private assets: ReturnType<typeof getDevUIAssets>;
 
   constructor(options: DevHandlerOptions) {
-    this.basePath = options.basePath ?? '/__dev';
+    this.basePath = options.basePath ?? '/';
+    this.apiBasePath = options.apiBasePath ?? '/__dev';
     this.assets = getDevUIAssets();
 
     this.router = new DevAPIRouter({
@@ -49,26 +53,24 @@ export class DevHandler {
     const url = req.url || '';
     const path = url.split('?')[0];
 
-    // Only handle requests under basePath
-    if (!path.startsWith(this.basePath)) {
-      return false;
-    }
-
-    // Route: Serve React UI at /__dev or /__dev/
+    // Route: Serve React UI at / or configured base path
     if (path === this.basePath || path === `${this.basePath}/`) {
       this.serveHTML(res);
       return true;
     }
 
-    // Route: Serve static assets
-    if (path.startsWith(`${this.basePath}/assets/`)) {
-      const assetPath = path.slice(`${this.basePath}/assets/`.length);
+    // Route: Serve static assets from the internal dev base path
+    if (path.startsWith(`${this.apiBasePath}/assets/`)) {
+      const assetPath = path.slice(`${this.apiBasePath}/assets/`.length);
       return this.serveAsset(res, assetPath);
     }
 
     // Route: API endpoints (/__dev/*)
-    // The router handles /__dev/events, /__dev/queries, etc.
-    return this.router.handleRequest(req, res);
+    if (path.startsWith(`${this.apiBasePath}/`)) {
+      return this.router.handleRequest(req, res);
+    }
+
+    return false;
   }
 
   /**

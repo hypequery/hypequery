@@ -2,10 +2,7 @@ import type {
   QueryHistoryEntry,
   QueryListResult,
   QueryFilters,
-  CacheStats,
   LoggerStats,
-  AvailableEndpoint,
-  RegistryResponse,
 } from './types';
 
 /**
@@ -46,13 +43,25 @@ async function request<T>(
 
   if (!response.ok) {
     let details: unknown;
+    let message = `API request failed: ${response.statusText}`;
     try {
       details = await response.json();
+      if (
+        details &&
+        typeof details === 'object' &&
+        'error' in details &&
+        typeof (details as { error?: unknown }).error === 'string'
+      ) {
+        message = (details as { error: string }).error;
+      }
     } catch {
       details = await response.text();
+      if (typeof details === 'string' && details) {
+        message = details;
+      }
     }
     throw new APIError(
-      `API request failed: ${response.statusText}`,
+      message,
       response.status,
       details
     );
@@ -96,48 +105,10 @@ export const apiClient = {
   },
 
   /**
-   * Get available API endpoints.
-   */
-  async getAvailableEndpoints(): Promise<{ endpoints: AvailableEndpoint[] }> {
-    return request<{ endpoints: AvailableEndpoint[] }>('/queries/available');
-  },
-
-  /**
-   * Get registry with full endpoint metadata.
-   */
-  async getRegistry(): Promise<RegistryResponse> {
-    return request<RegistryResponse>('/registry');
-  },
-
-  /**
    * Clear query history.
    */
   async clearHistory(): Promise<{ cleared: number }> {
     return request<{ cleared: number }>('/queries', { method: 'DELETE' });
-  },
-
-  /**
-   * Get cache statistics.
-   */
-  async getCacheStats(): Promise<CacheStats> {
-    return request<CacheStats>('/cache/stats');
-  },
-
-  /**
-   * Invalidate cache keys.
-   */
-  async invalidateCache(keys: string[]): Promise<{ invalidated: number }> {
-    return request<{ invalidated: number }>('/cache/invalidate', {
-      method: 'POST',
-      body: JSON.stringify({ keys }),
-    });
-  },
-
-  /**
-   * Clear all cache.
-   */
-  async clearCache(): Promise<{ success: boolean }> {
-    return request<{ success: boolean }>('/cache/clear', { method: 'POST' });
   },
 
   /**
@@ -168,58 +139,6 @@ export const apiClient = {
     });
   },
 
-  /**
-   * Get available queries for the playground with schemas.
-   */
-  async getPlaygroundQueries(): Promise<PlaygroundQueriesResult> {
-    return request<PlaygroundQueriesResult>('/playground/queries');
-  },
-
-  /**
-   * Execute a query from the playground.
-   */
-  async executePlaygroundQuery(
-    queryKey: string,
-    input?: unknown
-  ): Promise<PlaygroundExecuteResult> {
-    return request<PlaygroundExecuteResult>('/playground/execute', {
-      method: 'POST',
-      body: JSON.stringify({ queryKey, input }),
-    });
-  },
 };
-
-/**
- * Playground query definition.
- */
-export interface PlaygroundQuery {
-  key: string;
-  path: string;
-  method: string;
-  description?: string;
-  tags: string[];
-  inputSchema: unknown | null;
-  outputSchema: unknown | null;
-}
-
-/**
- * Playground queries list result.
- */
-export interface PlaygroundQueriesResult {
-  queries: PlaygroundQuery[];
-  total: number;
-}
-
-/**
- * Playground execution result.
- */
-export interface PlaygroundExecuteResult {
-  success: boolean;
-  queryKey: string;
-  result?: unknown;
-  error?: string;
-  duration: number;
-  timestamp: number;
-}
 
 export default apiClient;

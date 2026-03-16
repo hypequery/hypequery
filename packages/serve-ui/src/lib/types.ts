@@ -22,19 +22,21 @@ export interface QueryHistoryEntry {
   id?: number;
   queryId: string;
   query: string;
+  input?: unknown;
   startTime: number;
   endTime?: number;
   duration?: number;
   status: 'pending' | 'running' | 'completed' | 'error';
   error?: string;
-  rowCount?: number;
+  rowCount?: number | null;
   /** @deprecated Use cacheStatus instead */
   cacheHit?: boolean;
   /** Cache status: hit, miss, stale, or bypass */
   cacheStatus?: CacheStatus;
-  cacheAgeMs?: number;
+  cacheAgeMs?: number | null;
   cacheKey?: string;
   endpointKey?: string;
+  endpointDescription?: string;
   endpointPath?: string;
   resultPreview?: unknown[];
   createdAt?: number;
@@ -66,47 +68,6 @@ export interface CacheStats {
   entryCount?: number;
   /** Approximate memory usage in bytes */
   memoryBytes?: number;
-}
-
-/**
- * Available API endpoint info.
- */
-export interface AvailableEndpoint {
-  key: string;
-  path?: string;
-  method?: string;
-  description?: string;
-  tags?: string[];
-}
-
-/**
- * Registry entry for an endpoint.
- */
-export interface RegistryEntry {
-  key: string;
-  name?: string;
-  path: string;
-  method: string;
-  description?: string;
-  tags: string[];
-  hasInput: boolean;
-  inputFields?: string[];
-  hasTenant: boolean;
-  isCached: boolean;
-  cacheTtlMs?: number;
-  requiresAuth: boolean;
-  requiredRoles?: string[];
-  requiredScopes?: string[];
-  visibility?: string;
-  custom?: Record<string, unknown>;
-}
-
-/**
- * Registry response from the API.
- */
-export interface RegistryResponse {
-  entries: RegistryEntry[];
-  total: number;
 }
 
 /**
@@ -169,9 +130,13 @@ export interface SSEEvent<T = unknown> {
 export interface QueryEventData {
   queryId: string;
   query?: string;
+  input?: unknown;
   status: 'pending' | 'running' | 'completed' | 'error';
   duration?: number;
   rowCount?: number;
   error?: string;
   cacheHit?: boolean;
+  endpointKey?: string;
+  endpointDescription?: string;
+  endpointPath?: string;
 }

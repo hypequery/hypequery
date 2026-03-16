@@ -1,47 +1,32 @@
 import { useState, useMemo } from 'react';
-import { Search, Filter, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
+import { Search, Trash2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@/hooks/useQueries';
-import { useFilters } from '@/hooks/useFilters';
 import { QueryRow } from './QueryRow';
 import { QueryDetail } from './QueryDetail';
-import { EmptyState, FilteredEmptyState } from './EmptyState';
+import { EmptyState } from './EmptyState';
 import { QueryListSkeleton } from './Skeleton';
 import type { QueryFilters } from '@/lib/types';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 interface QueryHistoryProps {
   className?: string;
 }
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'All statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'running', label: 'Running' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'error', label: 'Error' },
-] as const;
-
-const CACHE_OPTIONS = [
-  { value: '', label: 'All cache' },
-  { value: 'true', label: 'Cache hits' },
-  { value: 'false', label: 'Cache misses' },
-] as const;
 
 /**
  * Query history list with filtering and search.
  */
 export function QueryHistory({ className }: QueryHistoryProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { filters: filterState, setSearch, setStatus, setCache, togglePanel, reset, hasActiveFilters } = useFilters();
+  const [search, setSearch] = useState('');
 
   // Build API filters from filter state
   const apiFilters: QueryFilters = useMemo(() => {
     const f: QueryFilters = { limit: 100 };
-    if (filterState.search) f.search = filterState.search;
-    if (filterState.status) f.status = filterState.status as QueryFilters['status'];
-    if (filterState.cache) f.cacheHit = filterState.cache === 'true';
+    if (search) f.search = search;
     return f;
-  }, [filterState.search, filterState.status, filterState.cache]);
+  }, [search]);
 
   const { queries, total, loading, error, refetch, clearHistory } = useQueries(apiFilters);
 
@@ -71,95 +56,39 @@ export function QueryHistory({ className }: QueryHistoryProps) {
           {/* Search */}
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
+            <Input
               type="text"
-              placeholder="Search queries..."
-              value={filterState.search}
+              placeholder="Search runs..."
+              value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-muted border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+              className="pl-9"
             />
           </div>
 
-          {/* Filter toggle and actions */}
-          <div className="flex items-center justify-between">
-            <button
-              onClick={togglePanel}
-              className={cn(
-                'flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors',
-                filterState.showPanel
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              )}
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              disabled={loading}
             >
-              <Filter className="h-4 w-4" />
-              Filters
-              {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary-foreground" />}
-              <ChevronDown
-                className={cn('h-4 w-4 transition-transform', filterState.showPanel && 'rotate-180')}
-              />
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => refetch()}
-                disabled={loading}
-                className="p-1.5 text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
-                title="Refresh"
-              >
-                <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-              </button>
-              <button
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
                 onClick={() => {
                   if (confirm('Clear all query history?')) {
                     clearHistory();
                     setSelectedId(null);
                   }
                 }}
-                className="p-1.5 text-muted-foreground hover:text-destructive rounded-md hover:bg-muted transition-colors"
-                title="Clear history"
               >
                 <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
+                Clear
+            </Button>
           </div>
-
-          {/* Filter options */}
-          {filterState.showPanel && (
-            <div className="mt-3 flex flex-wrap gap-3">
-              <select
-                value={filterState.status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="px-3 py-1.5 text-sm bg-muted border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={filterState.cache}
-                onChange={(e) => setCache(e.target.value)}
-                className="px-3 py-1.5 text-sm bg-muted border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                {CACHE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-
-              {hasActiveFilters && (
-                <button
-                  onClick={reset}
-                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Query count */}
@@ -167,16 +96,22 @@ export function QueryHistory({ className }: QueryHistoryProps) {
           {loading ? 'Loading...' : `${total} ${total === 1 ? 'query' : 'queries'}`}
         </div>
 
+        <div className="grid grid-cols-[140px_minmax(0,1.25fr)_minmax(0,0.95fr)_120px_110px_110px_auto] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <div>Status</div>
+          <div>Query</div>
+          <div>Inputs</div>
+          <div>Started</div>
+          <div>Duration</div>
+          <div>Rows</div>
+          <div className="text-right">Meta</div>
+        </div>
+
         {/* Query list */}
         <div className="flex-1 overflow-auto">
           {loading && queries.length === 0 ? (
             <QueryListSkeleton count={8} />
           ) : queries.length === 0 ? (
-            hasActiveFilters ? (
-              <FilteredEmptyState onClear={reset} />
-            ) : (
               <EmptyState type="no-history" />
-            )
           ) : (
             queries.map((query) => (
               <QueryRow

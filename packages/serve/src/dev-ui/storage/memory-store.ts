@@ -50,7 +50,7 @@ export class MemoryStore implements QueryHistoryStore {
    * Evicts oldest entry if maxQueries limit is reached.
    * @param log - Query log with required queryId
    */
-  async addQuery(log: QueryLog & { queryId: string; endpointKey?: string; endpointPath?: string }): Promise<void> {
+  async addQuery(log: QueryLog & { queryId: string; endpointKey?: string; endpointDescription?: string; endpointPath?: string }): Promise<void> {
     const existing = this.queries.get(log.queryId);
 
     if (existing) {
@@ -76,9 +76,11 @@ export class MemoryStore implements QueryHistoryStore {
         id: this.nextId++,
         queryId: log.queryId,
         endpointKey: log.endpointKey,
+        endpointDescription: log.endpointDescription,
         endpointPath: log.endpointPath,
         query: log.query,
         parameters: log.parameters,
+        input: log.input,
         startTime: log.startTime,
         endTime: log.endTime,
         duration: log.duration,
@@ -121,7 +123,15 @@ export class MemoryStore implements QueryHistoryStore {
 
     if (options.search) {
       const searchLower = options.search.toLowerCase();
-      entries = entries.filter(e => e.query.toLowerCase().includes(searchLower));
+      entries = entries.filter((e) => {
+        const inputText = e.input != null ? JSON.stringify(e.input).toLowerCase() : '';
+        return (
+          e.query.toLowerCase().includes(searchLower) ||
+          (e.endpointKey?.toLowerCase().includes(searchLower) ?? false) ||
+          (e.endpointDescription?.toLowerCase().includes(searchLower) ?? false) ||
+          inputText.includes(searchLower)
+        );
+      });
     }
 
     const total = entries.length;
@@ -228,6 +238,7 @@ export class MemoryStore implements QueryHistoryStore {
         queryId: entry.queryId,
         query: entry.query,
         parameters: entry.parameters,
+        input: entry.input,
         startTime: entry.startTime,
         endTime: entry.endTime,
         duration: entry.duration,
@@ -239,6 +250,7 @@ export class MemoryStore implements QueryHistoryStore {
         cacheMode: entry.cacheMode,
         cacheAgeMs: entry.cacheAgeMs,
         endpointKey: entry.endpointKey,
+        endpointDescription: entry.endpointDescription,
         endpointPath: entry.endpointPath
       });
     }

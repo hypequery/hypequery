@@ -1,188 +1,20 @@
-import { useState } from 'react';
-import { History, BarChart3, Play, Settings, Library } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { QueryHistory } from '@/components/QueryHistory';
-import { CacheStats } from '@/components/CacheStats';
-import { Playground } from '@/components/Playground';
-import { Registry } from '@/components/Registry';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { Logo } from '@/components/Logo';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarToggle,
-  SidebarNav,
-  SidebarNavItem,
-  SidebarGroup,
-  useSidebar,
-} from '@/components/ui';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Select } from '@/components/ui/select';
+import { QueryHistory } from '@/components/QueryHistory';
 
-type View = 'queries' | 'registry' | 'cache' | 'playground' | 'settings';
-
-const NAV_ITEMS: Array<{ id: View; label: string; icon: typeof History }> = [
-  { id: 'queries', label: 'Runs', icon: History },
-  { id: 'registry', label: 'Registry', icon: Library },
-  { id: 'cache', label: 'Cache', icon: BarChart3 },
-  { id: 'playground', label: 'Playground', icon: Play },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
-
-/**
- * Main application shell with collapsible sidebar.
- */
 function App() {
   return (
-    <SidebarProvider defaultCollapsed={false}>
-      <AppContent />
-    </SidebarProvider>
-  );
-}
-
-function AppContent() {
-  const [activeView, setActiveView] = useState<View>('queries');
-  const { isCollapsed } = useSidebar();
-
-  return (
-    <div className="h-screen flex bg-background">
-      {/* Collapsible Sidebar */}
-      <Sidebar>
-        <SidebarHeader>
-          {!isCollapsed ? (
-            <>
-              <Logo />
-              <SidebarToggle />
-            </>
-          ) : (
-            <Logo collapsed />
-          )}
-        </SidebarHeader>
-
-        <SidebarContent>
-          <SidebarGroup label="Navigation">
-            <SidebarNav>
-              {NAV_ITEMS.map((item) => (
-                <SidebarNavItem
-                  key={item.id}
-                  icon={item.icon}
-                  isActive={activeView === item.id}
-                  onClick={() => setActiveView(item.id)}
-                  tooltip={item.label}
-                >
-                  {item.label}
-                </SidebarNavItem>
-              ))}
-            </SidebarNav>
-          </SidebarGroup>
-        </SidebarContent>
-
-        <SidebarFooter>
-          {isCollapsed ? (
-            <SidebarToggle className="w-full" />
-          ) : (
-            <div className="px-1">
-              <ConnectionStatus />
-            </div>
-          )}
-        </SidebarFooter>
-      </Sidebar>
-
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="flex-shrink-0 h-14 border-b border-border flex items-center justify-between px-6">
-          <h1 className="text-lg font-semibold">
-            {NAV_ITEMS.find((item) => item.id === activeView)?.label}
-          </h1>
-          {isCollapsed && <ConnectionStatus />}
-        </header>
-
-        {/* Content */}
-        <main className="flex-1 overflow-hidden">
-          {activeView === 'queries' && <QueryHistory className="h-full" />}
-          {activeView === 'registry' && <Registry className="h-full" />}
-          {activeView === 'cache' && <CacheStats className="h-full overflow-auto" />}
-          {activeView === 'playground' && <Playground className="h-full" />}
-          {activeView === 'settings' && <SettingsView />}
-        </main>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Settings view.
- */
-function SettingsView() {
-  return (
-    <div className="p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Theme</CardTitle>
-          <CardDescription>
-            Choose your preferred color scheme.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select defaultValue="system" className="w-48">
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="system">System</option>
-          </Select>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Auto-refresh</CardTitle>
-          <CardDescription>
-            Automatically refresh query list.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <label className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              defaultChecked
-              className="h-4 w-4 rounded border-input"
-            />
-            <span className="text-sm">Enable auto-refresh</span>
-          </label>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Data Management</CardTitle>
-          <CardDescription>
-            Export or import query history.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex gap-3">
-          <button
-            className={cn(
-              'px-4 py-2 text-sm font-medium rounded-md',
-              'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-              'transition-colors'
-            )}
-          >
-            Export History
-          </button>
-          <button
-            className={cn(
-              'px-4 py-2 text-sm font-medium rounded-md',
-              'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-              'transition-colors'
-            )}
-          >
-            Import History
-          </button>
-        </CardContent>
-      </Card>
+    <div className="h-screen overflow-hidden bg-background">
+      <header className="flex h-14 items-center justify-between border-b border-border px-4 md:px-6">
+        <div className="flex items-center gap-4">
+          <Logo />
+          <span className="text-sm font-medium text-muted-foreground">Runs</span>
+        </div>
+        <ConnectionStatus />
+      </header>
+      <main className="h-[calc(100vh-56px)]">
+        <QueryHistory className="h-full" />
+      </main>
     </div>
   );
 }
