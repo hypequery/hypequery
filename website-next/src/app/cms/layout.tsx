@@ -1,6 +1,14 @@
+import type { Metadata } from 'next';
 import { isCmsAuthenticated } from '@/lib/cms-auth';
 import Link from 'next/link';
 import { logoutAction } from './actions';
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function CmsLayout({
   children,

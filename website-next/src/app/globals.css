@@ -160,3 +160,16 @@ body {
 .behiiv-embed body {
   background-color: red !important;
 }
+
+#nd-page.docs-page-shell {
+  scroll-margin-top: 6rem;
+}
+
+#nd-page.docs-page-shell :is(h2, h3, h4, h5, h6) {
+  scroll-margin-top: 7rem;
+}
+
+.docs-body-shell {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1.5rem;
+}

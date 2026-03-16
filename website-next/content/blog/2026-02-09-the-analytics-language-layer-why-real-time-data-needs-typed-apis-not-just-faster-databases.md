@@ -3,6 +3,11 @@ title: "The Analytics Language Layer: Why Real-Time Data Needs Typed APIs, Not J
 description: "We've made our databases real-time. We haven't made our analytics interfaces real-time-safe. The missing abstraction between ClickHouse and your consumers — human or machine — is a typed, programmable analytics language layer."
 pubDate: 2026-02-09
 heroImage: ""
+tags:
+  - analytics-api
+  - semantic-layer
+  - ai-analytics
+  - analytics-architecture
 ---
 
 We've made our databases real-time. We haven't made our analytics interfaces real-time-safe.

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -8,6 +9,25 @@ import {
   CodeBlockTabsList,
   CodeBlockTabsTrigger,
 } from 'fumadocs-ui/components/codeblock';
+import { getCanonicalUrl } from '@/lib/seo';
+import StructuredData from '@/components/StructuredData';
+import Breadcrumbs from '@/components/Breadcrumbs';
+
+export const metadata: Metadata = {
+  title: 'Multi-Tenant SaaS Analytics Architecture',
+  description:
+    'Build tenant-aware analytics APIs with automatic scoping, inline role checks, and a shared typed ClickHouse query layer.',
+  alternates: {
+    canonical: getCanonicalUrl('/use-cases/multi-tenant-saas'),
+  },
+  openGraph: {
+    title: 'Multi-Tenant SaaS Analytics Architecture',
+    description:
+      'Build tenant-aware analytics APIs with automatic scoping, inline role checks, and a shared typed ClickHouse query layer.',
+    url: getCanonicalUrl('/use-cases/multi-tenant-saas'),
+    type: 'website',
+  },
+};
 
 const authCode = `import { createApiKeyStrategy, createAuthSystem } from '@hypequery/serve';
 
@@ -57,11 +77,46 @@ const roleCode = `revenueByPlan: query
 export default function MultiTenantSaasUseCasePage() {
   return (
     <>
+      <StructuredData
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: getCanonicalUrl('/').toString(),
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Use Cases',
+              item: getCanonicalUrl('/use-cases').toString(),
+            },
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: 'Multi-tenant SaaS',
+              item: getCanonicalUrl('/use-cases/multi-tenant-saas').toString(),
+            },
+          ],
+        }}
+      />
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
         <section className="relative overflow-hidden border-b border-slate-800/80">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(99,102,241,0.2),transparent_34%),radial-gradient(circle_at_84%_2%,rgba(14,165,233,0.16),transparent_34%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
+            <Breadcrumbs
+              items={[
+                { label: 'Home', href: '/' },
+                { label: 'Use Cases', href: '/use-cases' },
+                { label: 'Multi-tenant SaaS' },
+              ]}
+              className="mb-6"
+              theme="dark"
+            />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               Use Case
             </p>

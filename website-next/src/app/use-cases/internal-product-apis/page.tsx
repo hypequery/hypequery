@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
@@ -8,6 +9,25 @@ import {
   CodeBlockTabsList,
   CodeBlockTabsTrigger,
 } from 'fumadocs-ui/components/codeblock';
+import { getCanonicalUrl } from '@/lib/seo';
+import StructuredData from '@/components/StructuredData';
+import Breadcrumbs from '@/components/Breadcrumbs';
+
+export const metadata: Metadata = {
+  title: 'Internal Product APIs With Embedded Analytics',
+  description:
+    'Add analytics to existing product endpoints without breaking contracts. Reuse typed ClickHouse query definitions in-process and over HTTP.',
+  alternates: {
+    canonical: getCanonicalUrl('/use-cases/internal-product-apis'),
+  },
+  openGraph: {
+    title: 'Internal Product APIs With Embedded Analytics',
+    description:
+      'Add analytics to existing product endpoints without breaking contracts. Reuse typed ClickHouse query definitions in-process and over HTTP.',
+    url: getCanonicalUrl('/use-cases/internal-product-apis'),
+    type: 'website',
+  },
+};
 
 const routesCode = `import { createFetchHandler } from '@hypequery/serve';
 
@@ -49,11 +69,46 @@ export const api = serve.define({
 export default function InternalProductApisUseCasePage() {
   return (
     <>
+      <StructuredData
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: getCanonicalUrl('/').toString(),
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Use Cases',
+              item: getCanonicalUrl('/use-cases').toString(),
+            },
+            {
+              '@type': 'ListItem',
+              position: 3,
+              name: 'Internal Product APIs',
+              item: getCanonicalUrl('/use-cases/internal-product-apis').toString(),
+            },
+          ],
+        }}
+      />
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
         <section className="relative overflow-hidden border-b border-slate-800/80">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_12%,rgba(59,130,246,0.2),transparent_36%),radial-gradient(circle_at_82%_0%,rgba(14,165,233,0.14),transparent_32%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
+            <Breadcrumbs
+              items={[
+                { label: 'Home', href: '/' },
+                { label: 'Use Cases', href: '/use-cases' },
+                { label: 'Internal Product APIs' },
+              ]}
+              className="mb-6"
+              theme="dark"
+            />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
               Use Case
             </p>

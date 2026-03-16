@@ -3,6 +3,11 @@ title: "A Guide to Materialized Views in ClickHouse"
 description: "Production patterns, performance pitfalls, and when to use something else. Learn how ClickHouse materialized views really work, how to choose the right engine, and when alternative patterns like projections make more sense."
 pubDate: 2026-01-11
 heroImage: ""
+tags:
+  - clickhouse
+  - materialized-views
+  - query-performance
+  - analytics-architecture
 ---
 
 

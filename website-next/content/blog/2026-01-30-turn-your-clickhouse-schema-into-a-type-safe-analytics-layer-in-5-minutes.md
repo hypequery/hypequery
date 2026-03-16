@@ -3,6 +3,11 @@ title: "Turn Your ClickHouse Schema Into a Type-Safe Analytics Layer in 5 Minute
 description: "Go from raw SQL strings to a fully typed SDK + HTTP API + React hooks in about 5 minutes. Learn how to auto-generate TypeScript types from your ClickHouse schema and never worry about schema drift again."
 pubDate: 2026-01-30
 heroImage: "ClickHouse is fast. Your developer experience with it? Not so much."
+tags:
+  - clickhouse
+  - schema-management
+  - analytics-api
+  - react
 ---
 
 ClickHouse is fast. Your developer experience with it? Not so much.

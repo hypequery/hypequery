@@ -1,6 +1,25 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getPosts } from '@/lib/blog';
 import Newsletter from '@/components/Newsletter';
+import { blogTopics, isBlogTopicSlug } from '@/lib/blog-topics';
+import { getCanonicalUrl } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  title: 'ClickHouse Analytics Blog',
+  description:
+    'Deep dives on ClickHouse, analytics APIs, schema management, multi-tenant analytics, and type-safe data infrastructure.',
+  alternates: {
+    canonical: getCanonicalUrl('/blog'),
+  },
+  openGraph: {
+    title: 'ClickHouse Analytics Blog',
+    description:
+      'Deep dives on ClickHouse, analytics APIs, schema management, multi-tenant analytics, and type-safe data infrastructure.',
+    url: getCanonicalUrl('/blog'),
+    type: 'website',
+  },
+};
 
 export default async function BlogPage({
   searchParams,
@@ -32,6 +51,39 @@ export default async function BlogPage({
 
       <Newsletter />
 
+      <div className="mb-14 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-indigo-500">
+              Topic hubs
+            </p>
+            <h2 className="font-display mt-2 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              Start with the topic that matches what you are building
+            </h2>
+            <p className="mt-2 text-gray-600 dark:text-gray-300">
+              Explore related guides and docs grouped around the same problem area.
+            </p>
+          </div>
+          <Link
+            href="/blog/topics"
+            className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+          >
+            View all topics
+          </Link>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          {blogTopics.map((topic) => (
+            <Link
+              key={topic.slug}
+              href={`/blog/topics/${topic.slug}`}
+              className="rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
+            >
+              {topic.title}
+            </Link>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-12">
         {displayedPosts.map((post) => (
           <article
@@ -61,6 +113,26 @@ export default async function BlogPage({
               </p>
             )}
             <div className="mt-4">
+              <div className="mb-4 flex flex-wrap gap-2">
+                {post.data.tags?.map((tag) => (
+                  isBlogTopicSlug(tag) ? (
+                    <Link
+                      key={tag}
+                      href={`/blog/topics/${tag}`}
+                      className="rounded-full border border-gray-200 px-3 py-1 text-sm text-gray-700 hover:border-indigo-300 hover:text-indigo-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-indigo-500 dark:hover:text-indigo-400"
+                    >
+                      {tag}
+                    </Link>
+                  ) : (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-gray-200 px-3 py-1 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-300"
+                    >
+                      {tag}
+                    </span>
+                  )
+                ))}
+              </div>
               <Link
                 href={`/blog/${post.slug}`}
                 className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"

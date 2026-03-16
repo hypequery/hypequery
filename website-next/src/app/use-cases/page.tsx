@@ -1,6 +1,26 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import { getCanonicalUrl } from '@/lib/seo';
+import StructuredData from '@/components/StructuredData';
+import Breadcrumbs from '@/components/Breadcrumbs';
+
+export const metadata: Metadata = {
+  title: 'Analytics Use Cases',
+  description:
+    'Architecture patterns for internal analytics APIs, multi-tenant SaaS analytics, and type-safe ClickHouse backends.',
+  alternates: {
+    canonical: getCanonicalUrl('/use-cases'),
+  },
+  openGraph: {
+    title: 'Analytics Use Cases',
+    description:
+      'Architecture patterns for internal analytics APIs, multi-tenant SaaS analytics, and type-safe ClickHouse backends.',
+    url: getCanonicalUrl('/use-cases'),
+    type: 'website',
+  },
+};
 
 const useCases = [
   {
@@ -32,11 +52,39 @@ const useCases = [
 export default function UseCasesPage() {
   return (
     <>
+      <StructuredData
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: 'Home',
+              item: getCanonicalUrl('/').toString(),
+            },
+            {
+              '@type': 'ListItem',
+              position: 2,
+              name: 'Use Cases',
+              item: getCanonicalUrl('/use-cases').toString(),
+            },
+          ],
+        }}
+      />
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
         <section className="relative overflow-hidden border-b border-slate-800/80">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(99,102,241,0.28),transparent_40%),radial-gradient(circle_at_82%_0%,rgba(14,165,233,0.22),transparent_34%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
+            <Breadcrumbs
+              items={[
+                { label: 'Home', href: '/' },
+                { label: 'Use Cases' },
+              ]}
+              className="mb-6"
+              theme="dark"
+            />
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               Use Cases
             </p>

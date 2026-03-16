@@ -16,6 +16,8 @@ import {
 import { Steps, Step } from 'fumadocs-ui/components/steps';
 import { useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
 import { CopyButton } from '@/components/CopyButton';
+import StructuredData from '@/components/StructuredData';
+import { getCanonicalUrl, siteConfig } from '@/lib/seo';
 
 export default function Home() {
   const [selectedUseCase, setSelectedUseCase] = useState(useCaseExamplesRaw[0]);
@@ -112,6 +114,28 @@ const { data } = useQuery('weeklyRevenue', { startDate: '2026-01-01' });`;
 
   return (
     <>
+      <StructuredData
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'SoftwareApplication',
+          name: siteConfig.name,
+          applicationCategory: 'DeveloperApplication',
+          operatingSystem: 'Web',
+          description: siteConfig.description,
+          url: getCanonicalUrl('/').toString(),
+          offers: {
+            '@type': 'Offer',
+            price: '0',
+            priceCurrency: 'USD',
+          },
+          featureList: [
+            'Type-safe ClickHouse query builder',
+            'Analytics APIs and HTTP endpoints',
+            'Multi-tenant analytics architecture',
+            'React hooks and SDK generation',
+          ],
+        }}
+      />
       <Navigation />
       <main className="home-page">
         {/* Hero section */}
