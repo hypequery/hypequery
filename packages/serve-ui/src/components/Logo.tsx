@@ -6,7 +6,7 @@ interface LogoProps {
 }
 
 /**
- * HypeQuery logo matching the website branding.
+ * hypequery logo matching the website branding.
  * Shows "> hypequery" expanded or ">" collapsed.
  */
 export function Logo({ collapsed, className }: LogoProps) {
