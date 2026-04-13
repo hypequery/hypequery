@@ -1,4 +1,3 @@
-
 <p align="center">
   <img src="./website-next/public/logo.png" alt="hypequery logo" width="450" />
 </p>
@@ -8,7 +7,6 @@
 </p>
 
 <h4 align="center">Define metrics once, execute them anywhere (inline, HTTP, React, agents), and keep everything backed by your ClickHouse schema.</h4>
-
 
 <p align="center">
   <a href="https://github.com/hypequery/hypequery/blob/main/LICENSE">
@@ -28,40 +26,77 @@
   </a>
 </p>
 
-
 <p align="center">
   <a href="https://hypequery.com/docs">Docs</a> •
   <a href="https://hypequery.featurebase.app/roadmap">Roadmap</a> •
   <a href="https://github.com/hypequery/hypequery-examples">Examples</a>
 </p>
 
+## Why hypequery
+
+- 🔁 Reuse metrics across SSR routes, background jobs, cron tasks, and agents
+- 🧩 Built-in HTTP server with docs + OpenAPI (`hypequery dev`)
+- 🔐 Auth, multi-tenant helpers, and lifecycle hooks
+- ⚡ Query-level caching, logging, streaming, and analytics
+- 🧪 Type-safe execution + schema-aware validation
 
 ## Quick Start
 
-```bash
-# No installation needed
-npx @hypequery/cli init
+No installation needed — run directly with `npx`:
 
-# Or if you have the CLI installed:
+```bash
+npm install -D @hypequery/cli
 npx hypequery init
 ```
 
+## Query Builder
 
-### Define your type safe queries in TypeScript
+Get started with type-safe ClickHouse queries in seconds. Generate TypeScript types from your schema, then build queries with full autocomplete and compile-time safety.
+
+```bash
+# Generate types from your ClickHouse schema
+npm install @hypequery/clickhouse
+npx hypequery generate
+```
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: 'your-clickhouse-host',
+  username: 'default',
+  password: '',
+  database: 'default',
+});
+
+// Fully type-safe — columns, operators, and return types are all inferred
+const revenue = await db
+  .table('orders')
+  .where('created_at', 'gte', '2026-01-01')
+  .sum('total', 'revenue')
+  .groupBy(['region'])
+  .execute();
+```
+
+No SQL strings. No runtime surprises when your schema changes.
+
+## Going Further: Governed APIs with `@hypequery/serve`
+
+Need to share metrics across services, expose HTTP endpoints, or give AI agents structured access to your data? `@hypequery/serve` wraps your queries into a governed, reusable API layer.
 
 ```typescript
 import { initServe, type InferQueryResult } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './analytics/client.js';
+import { db } from './analytics/client';
 
 const serve = initServe({
   context: () => ({ db }),
 });
-const { query } = serve;
 
 export const api = serve.define({
   queries: serve.queries({
-    activeUsers: query
+    activeUsers: serve.query
       .describe('List active users')
       .input(z.object({ region: z.string() }))
       .query(async ({ ctx, input }) =>
@@ -81,32 +116,28 @@ export type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;
 
 **Inline**
 ```typescript
-const users = await api.execute('activeUsers');
+const users = await api.run('activeUsers', { input: { region: 'EU' } });
 ```
 
 **HTTP API**
 ```bash
-GET /api/activeUsers
+GET /api/activeUsers?region=EU
 ```
 
 **React**
 ```typescript
-const { data } = useQuery('activeUsers');
+const { data } = useQuery('activeUsers', { region: 'EU' });
+```
+
+**AI Agent**
+```typescript
+const catalog = api.describe();
+const result = await api.run('activeUsers', { input: { region: 'EU' } });
 ```
 
 One definition. Every consumer.
 
-## Why hypequery
-
-- 🔁 Reuse metrics across SSR routes, background jobs, cron tasks, and agents
-- 🧩 Built-in HTTP server with docs + OpenAPI (`hypequery dev`)
-- 🔐 Auth, multi-tenant helpers, and lifecycle hooks
-- ⚡ Query-level caching, logging, streaming, and analytics
-- 🧪 Type-safe execution + schema-aware validation
-
 ## CLI
-
-**No installation required** – run commands directly with `npx`:
 
 ```bash
 # Scaffold analytics folder + env vars
@@ -117,16 +148,6 @@ npx @hypequery/cli dev
 
 # Regenerate schema types
 npx @hypequery/cli generate
-```
-
-Or install for shorter commands:
-
-```bash
-npm install -D @hypequery/cli
-
-# Then use:
-npx hypequery init
-npx hypequery dev
 ```
 
 See the [CLI documentation](https://github.com/hypequery/hypequery/tree/main/packages/cli#readme) for all options.
