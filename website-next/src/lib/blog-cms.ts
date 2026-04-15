@@ -133,7 +133,7 @@ function createSeedPosts(): BlogPostRecord[] {
       title: typeof data.title === 'string' ? data.title : getSlugFromFilename(filename, data.slug),
       description: typeof data.description === 'string' ? data.description : null,
       body: content,
-      status: 'published',
+      status: normalizeStatus(data.status ?? 'published'),
       author: typeof data.author === 'string' ? data.author : null,
       tags: Array.isArray(data.tags) ? data.tags.filter((item): item is string => typeof item === 'string') : [],
       seoTitle: typeof data.seoTitle === 'string' ? data.seoTitle : null,
@@ -235,9 +235,21 @@ function safeParseStringArray(value: string) {
 
 function getDatabase() {
   if (!database) {
-    fs.mkdirSync(dataDir, { recursive: true });
-    database = new DatabaseSync(dbPath);
-    initializeDatabase(database);
+    // Only try to create database if we're in local development mode
+    if (hasBlobStorage()) {
+      throw new Error('Blob storage is configured, but database was requested. This should not happen.');
+    }
+
+    try {
+      fs.mkdirSync(dataDir, { recursive: true });
+      database = new DatabaseSync(dbPath);
+      initializeDatabase(database);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new Error('Cannot create data directory in production. Please configure BLOB_READ_WRITE_TOKEN environment variable for Vercel Blob storage.');
+      }
+      throw error;
+    }
   }
 
   return database;
@@ -377,7 +389,18 @@ async function writeBlobStore(posts: BlogPostRecord[]) {
 
 async function getAllPostsInternal(): Promise<BlogPostRecord[]> {
   if (hasBlobStorage()) {
-    return sortPosts(await readBlobStore());
+    try {
+      return sortPosts(await readBlobStore());
+    } catch (error) {
+      console.error('Failed to read from blob storage, falling back to seed posts:', error);
+      // If blob storage fails, fall back to seed posts
+      return sortPosts(createSeedPosts());
+    }
+  }
+
+  // Check if we're in production environment
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Blog CMS requires BLOB_READ_WRITE_TOKEN environment variable to be set in production.');
   }
 
   const db = getDatabase();
