@@ -17,7 +17,7 @@ export async function GET() {
     .stream();
 
   const encoder = new TextEncoder();
-  const transform = new TransformStream<any[], Uint8Array>({
+  const transform = new TransformStream<Record<string, unknown>[], Uint8Array>({
     transform(rows, controller) {
       for (const row of rows) {
         controller.enqueue(encoder.encode(`${JSON.stringify(row)}\n`));

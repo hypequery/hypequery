@@ -9,9 +9,9 @@ describe('Logger', () => {
   let consoleWarnSpy: any;
 
   beforeEach(() => {
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(vi.fn());
   });
 
   afterEach(() => {

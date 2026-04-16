@@ -60,28 +60,25 @@ interface ChartTooltipProps extends Omit<TooltipProps<number, string>, 'content'
   indicator?: "line" | "dot"
 }
 
-export const ChartTooltip = React.forwardRef<any, ChartTooltipProps>(
+export const ChartTooltip = React.forwardRef<HTMLElement, ChartTooltipProps>(
   ({ content, ...props }, _ref) => {
     if (!content) return null
 
+    const tooltipProps = {
+      ...props,
+      content: content as React.ReactElement,
+      cursor: { stroke: "var(--border)" as const, strokeWidth: 1 },
+      wrapperStyle: { outline: "none" } as const,
+    } as unknown as typeof props
 
-    return (
-      // @ts-ignore - Recharts tooltip type issues
-      <Tooltip
-        {...props}
-        // @ts-ignore - Recharts tooltip type issues
-        content={content}
-        cursor={{ stroke: "var(--border)", strokeWidth: 1 }}
-        wrapperStyle={{ outline: "none" }}
-      />
-    )
+    return <Tooltip {...tooltipProps} />
   }
 )
 ChartTooltip.displayName = "ChartTooltip"
 
 interface ChartTooltipContentProps extends React.HTMLAttributes<HTMLDivElement> {
   active?: boolean
-  payload?: Array<{ name: string; value: number; payload: Record<string, any> }>
+  payload?: Array<{ name: string; value: number; payload: Record<string, unknown> }>
   label?: string
   indicator?: "line" | "dot"
 }

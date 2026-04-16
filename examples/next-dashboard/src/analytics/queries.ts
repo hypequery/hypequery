@@ -19,6 +19,62 @@ const tripStatsSchema = z.object({
   avgPassengers: z.number(),
 });
 
+// Types for database query results
+type AverageAmountsResult = {
+  total_amount_avg?: number | string;
+  tip_amount_avg?: number | string;
+  tolls_amount_avg?: number | string;
+  fare_amount_avg?: number | string;
+};
+
+type TripStatsResult = {
+  trip_distance_avg?: number | string;
+  passenger_count_avg?: number | string;
+};
+
+type WeeklyTripsResult = {
+  week: string | Date;
+  trip_count: number | string;
+};
+
+type TripRowResult = {
+  pickup_datetime: string | Date;
+  dropoff_datetime: string | Date;
+  trip_distance: number | string;
+  passenger_count: number | string;
+  fare_amount: number | string;
+  tip_amount: number | string;
+  total_amount: number | string;
+  payment_type: number | string;
+};
+
+type CountResult = {
+  total_count?: number | string;
+};
+
+type WeeklyRowResult = {
+  pickup_datetime: string | Date;
+};
+
+type DashboardTripResult = {
+  trip_id: string | number;
+  pickup_datetime: string | Date;
+  dropoff_datetime: string | Date;
+  trip_distance: number | string;
+  passenger_count: number | string;
+  fare_amount: number | string;
+  tip_amount: number | string;
+  total_amount: number | string;
+  payment_type: number | string;
+};
+
+type DashboardStatsResult = {
+  avg_total?: number | string;
+  avg_distance?: number | string;
+  avg_passengers?: number | string;
+  total_trips?: number | string;
+};
+
 const weeklyPointSchema = z.object({
   name: z.string(),
   value: z.number(),
@@ -128,12 +184,12 @@ const apiDefinition = define({
           .avg('fare_amount')
           .execute();
 
-        const result = rows[0] ?? {};
+        const result = (rows[0] ?? {}) as AverageAmountsResult;
         return {
-          total: toNumber((result as any).total_amount_avg),
-          tips: toNumber((result as any).tip_amount_avg),
-          tolls: toNumber((result as any).tolls_amount_avg),
-          fare: toNumber((result as any).fare_amount_avg),
+          total: toNumber(result.total_amount_avg),
+          tips: toNumber(result.tip_amount_avg),
+          tolls: toNumber(result.tolls_amount_avg),
+          fare: toNumber(result.fare_amount_avg),
         } satisfies AverageAmounts;
       }),
     tripStats: query
@@ -149,10 +205,10 @@ const apiDefinition = define({
           .avg('passenger_count')
           .execute();
 
-        const result = rows[0] ?? {};
+        const result = (rows[0] ?? {}) as TripStatsResult;
         return {
-          avgDistance: toNumber((result as any).trip_distance_avg),
-          avgPassengers: toNumber((result as any).passenger_count_avg),
+          avgDistance: toNumber(result.trip_distance_avg),
+          avgPassengers: toNumber(result.passenger_count_avg),
         } satisfies TripStats;
       }),
     weeklyTripCounts: query
@@ -169,10 +225,13 @@ const apiDefinition = define({
           .groupBy('week')
           .execute();
 
-        return rows.map((row) => ({
-          name: new Date((row as any).week).toISOString(),
-          value: toNumber((row as any).trip_count),
-        } satisfies WeeklyPoint));
+        return rows.map((row) => {
+          const typedRow = row as WeeklyTripsResult;
+          return {
+            name: new Date(typedRow.week).toISOString(),
+            value: toNumber(typedRow.trip_count),
+          } satisfies WeeklyPoint;
+        });
       }),
     trips: query
       .describe('Paginated trip listing')
@@ -201,16 +260,19 @@ const apiDefinition = define({
           .offset(offset)
           .execute();
 
-        const mappedRows = rows.slice(0, pageSize).map((row) => ({
-          pickup_datetime: String((row as any).pickup_datetime),
-          dropoff_datetime: String((row as any).dropoff_datetime),
-          trip_distance: toNumber((row as any).trip_distance),
-          passenger_count: toNumber((row as any).passenger_count),
-          fare_amount: toNumber((row as any).fare_amount),
-          tip_amount: toNumber((row as any).tip_amount),
-          total_amount: toNumber((row as any).total_amount),
-          payment_type: String((row as any).payment_type),
-        }));
+        const mappedRows = rows.slice(0, pageSize).map((row) => {
+          const typedRow = row as TripRowResult;
+          return {
+            pickup_datetime: String(typedRow.pickup_datetime),
+            dropoff_datetime: String(typedRow.dropoff_datetime),
+            trip_distance: toNumber(typedRow.trip_distance),
+            passenger_count: toNumber(typedRow.passenger_count),
+            fare_amount: toNumber(typedRow.fare_amount),
+            tip_amount: toNumber(typedRow.tip_amount),
+            total_amount: toNumber(typedRow.total_amount),
+            payment_type: String(typedRow.payment_type),
+          };
+        });
 
         return {
           data: mappedRows,
@@ -242,13 +304,13 @@ const apiDefinition = define({
           else if (after.misses > before.misses) cacheStatus = 'miss';
         }
 
-        const result = rows[0] ?? {};
+        const result = (rows[0] ?? {}) as AverageAmountsResult;
         return {
           summary: {
-            total: toNumber((result as any).total_amount_avg),
-            tips: toNumber((result as any).tip_amount_avg),
-            tolls: toNumber((result as any).tolls_amount_avg),
-            fare: toNumber((result as any).fare_amount_avg),
+            total: toNumber(result.total_amount_avg),
+            tips: toNumber(result.tip_amount_avg),
+            tolls: toNumber(result.tolls_amount_avg),
+            fare: toNumber(result.fare_amount_avg),
           },
           cacheStatus,
           cacheStats: after,
@@ -299,10 +361,11 @@ const apiDefinition = define({
           ctx.db.table('trips').select(['pickup_datetime']).limit(1000).execute(),
         ]);
 
-        const total = toNumber((countRows[0] as any)?.total_count);
+        const total = toNumber(((countRows[0] ?? {}) as CountResult)?.total_count);
         const weeklyMap = new Map<string, number>();
         weeklyRows.forEach((row) => {
-          const date = new Date((row as any).pickup_datetime);
+          const typedRow = row as WeeklyRowResult;
+          const date = new Date(typedRow.pickup_datetime);
           const weekStart = new Date(date);
           weekStart.setDate(date.getDate() - date.getDay());
           const key = weekStart.toISOString();
@@ -314,20 +377,23 @@ const apiDefinition = define({
           .slice(0, 12)
           .map(([week, count]) => ({ week, count }));
 
-        const statsRow = statsRows[0] ?? {};
+        const statsRow = (statsRows[0] ?? {}) as DashboardStatsResult;
 
         return {
-          trips: tripRows.map((row) => ({
-            trip_id: String((row as any).trip_id),
-            pickup_datetime: String((row as any).pickup_datetime),
-            dropoff_datetime: String((row as any).dropoff_datetime),
-            trip_distance: toNumber((row as any).trip_distance),
-            passenger_count: toNumber((row as any).passenger_count),
-            fare_amount: toNumber((row as any).fare_amount),
-            tip_amount: toNumber((row as any).tip_amount),
-            total_amount: toNumber((row as any).total_amount),
-            payment_type: String((row as any).payment_type),
-          })),
+          trips: tripRows.map((row) => {
+            const typedRow = row as DashboardTripResult;
+            return {
+              trip_id: String(typedRow.trip_id),
+              pickup_datetime: String(typedRow.pickup_datetime),
+              dropoff_datetime: String(typedRow.dropoff_datetime),
+              trip_distance: toNumber(typedRow.trip_distance),
+              passenger_count: toNumber(typedRow.passenger_count),
+              fare_amount: toNumber(typedRow.fare_amount),
+              tip_amount: toNumber(typedRow.tip_amount),
+              total_amount: toNumber(typedRow.total_amount),
+              payment_type: String(typedRow.payment_type),
+            };
+          }),
           pagination: {
             page,
             limit,
@@ -337,10 +403,10 @@ const apiDefinition = define({
             hasPrev: page > 1,
           },
           stats: {
-            avgTotalAmount: toNumber((statsRow as any).avg_total),
-            avgDistance: toNumber((statsRow as any).avg_distance),
-            avgPassengers: toNumber((statsRow as any).avg_passengers),
-            totalTrips: toNumber((statsRow as any).total_trips),
+            avgTotalAmount: toNumber(statsRow.avg_total),
+            avgDistance: toNumber(statsRow.avg_distance),
+            avgPassengers: toNumber(statsRow.avg_passengers),
+            totalTrips: toNumber(statsRow.total_trips),
           },
           weeklyData,
         } satisfies NodeDashboard;

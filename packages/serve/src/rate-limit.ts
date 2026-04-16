@@ -1,4 +1,4 @@
-import type { AuthContext, ServeRequest, ServeMiddleware, EndpointContext } from './types.js';
+import type { AuthContext, ServeMiddleware, EndpointContext } from './types.js';
 
 /**
  * Rate limit store interface.

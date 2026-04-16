@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { access, mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
+import { access, mkdtemp, rm, mkdir } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { build } from 'esbuild';
@@ -37,7 +37,7 @@ export async function loadApiModule(modulePath: string) {
   let mod: any;
 
   try {
-    mod = await import(moduleUrl);
+    mod = await import(/* @vite-ignore */ moduleUrl);
   } catch (error: any) {
     const relativePath = path.relative(process.cwd(), resolved);
     throw new Error(
@@ -212,15 +212,12 @@ async function bundleTypeScriptModule(entryPath: string) {
       throw new Error('esbuild produced no output');
     }
 
-    const contents = `${output.text}\n//# sourceURL=${pathToFileURL(entryPath).href}`;
-    const tempDir = await ensureTempDir();
-    const tempFile = path.join(
-      tempDir,
-      `${path.basename(entryPath).replace(/[^a-zA-Z0-9_-]/g, '_')}-${Date.now()}-${Math.random().toString(36).slice(2)}.mjs`,
-    );
-    await writeFile(tempFile, contents, 'utf8');
-    tempFiles.add(tempFile);
-    return `${pathToFileURL(tempFile).href}?t=${Date.now()}`;
+    const timestamp = Date.now();
+    const contents =
+      `${output.text}\n` +
+      `//# sourceURL=${pathToFileURL(entryPath).href}\n` +
+      `//# hypequery-ts-bundle=${timestamp}`;
+    return `data:text/javascript;base64,${Buffer.from(contents, 'utf8').toString('base64')}`;
   } catch (error: any) {
     throw new Error(
       `Failed to compile ${relativePath} with esbuild.\n` +
@@ -233,7 +230,7 @@ async function findNearestTsconfig(filePath: string) {
   let dir = path.dirname(filePath);
   const visited: string[] = [];
 
-  while (true) {
+  while (dir) {
     if (tsconfigCache.has(dir)) {
       const cached = tsconfigCache.get(dir) ?? null;
       visited.forEach(pathname => tsconfigCache.set(pathname, cached));
@@ -257,4 +254,6 @@ async function findNearestTsconfig(filePath: string) {
       dir = parent;
     }
   }
+
+  return null;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { apiKeyAuth, AuthError, getHeader } from "./auth.js";
+import { apiKeyAuth, getHeader } from "./auth.js";
 import type { ServeRequest } from "./types.js";
 
 const baseRequest: ServeRequest = {

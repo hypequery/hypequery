@@ -5,7 +5,6 @@ import type {
   ServeBuilder,
   ServeConfig,
   ServeContextFactory,
-  ServeEndpoint,
   ServeEndpointMap,
   ServeHandler,
   ServeLifecycleHooks,

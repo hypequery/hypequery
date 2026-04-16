@@ -6,7 +6,6 @@ import type {
   ServeEndpoint,
   ServeEndpointMap,
   ServeMiddleware,
-  ServeRequest,
   ServeQueriesMap,
   ServeHandler,
   ExecuteQueryFunction,
@@ -37,7 +36,7 @@ export const createBuilderMethods = <
   router: ServeRouter,
   authStrategies: AuthStrategy<TAuth>[],
   globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[],
-  executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>,
+  executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext>,
   handler: ServeHandler,
   basePath: string,
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {

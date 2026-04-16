@@ -23,7 +23,7 @@ export const serveDev = async <
   const hostname = options.hostname ?? "localhost";
   const logger = options.logger ?? defaultLogger;
 
-  const unsubscribe = api.queryLogger.on((event) => {
+  api.queryLogger.on((event) => {
     const line = formatQueryEvent(event);
     if (line) logger(line);
   });

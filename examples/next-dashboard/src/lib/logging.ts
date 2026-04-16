@@ -21,7 +21,7 @@ export interface QueryLog {
   startTime?: number;
   duration?: number;
   rowCount?: number;
-  error?: any;
+  error?: unknown;
 }
 
 /**

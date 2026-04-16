@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { z } from "zod";
-
-import { defineServe, initServe } from "./server";
+import { initServe } from "./server";
 import {
   requireAuthMiddleware,
   requireRoleMiddleware,
@@ -709,9 +707,6 @@ describe("Auth Guards", () => {
     });
 
     it("combines roles and scopes with createAuthSystem", () => {
-      type AppRole = 'admin' | 'editor' | 'viewer';
-      type AppScope = 'read:metrics' | 'write:metrics' | 'delete:metrics';
-
       const { TypedAuth } = createAuthSystem({
         roles: ['admin', 'editor', 'viewer'] as const,
         scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,

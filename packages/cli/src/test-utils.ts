@@ -129,8 +129,7 @@ export function mockProcessExit() {
     throw new ProcessExitError(code ?? 0);
   }) as Mock;
 
-  // @ts-ignore
-  process.exit = exitMock;
+  process.exit = exitMock as unknown as typeof process.exit;
 
   return {
     exitMock,

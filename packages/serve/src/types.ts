@@ -1,5 +1,5 @@
 import type { ZodTypeAny } from "zod";
-import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
+import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -633,7 +633,6 @@ export interface StartServerOptions {
 export type ExecuteQueryFunction<
   TQueries extends Record<string, ServeEndpoint<any, any, any, any>>,
   TContext extends Record<string, unknown>,
-  TAuth extends AuthContext
 > = <TKey extends keyof TQueries>(
   key: TKey,
   options?: {
@@ -777,8 +776,8 @@ export interface RequestLifecycleBase<TAuth extends AuthContext = AuthContext> {
   auth: TAuth | null;
 }
 
-export interface RequestStartEvent<TAuth extends AuthContext = AuthContext>
-  extends RequestLifecycleBase<TAuth> {}
+export type RequestStartEvent<TAuth extends AuthContext = AuthContext> =
+  RequestLifecycleBase<TAuth>;
 
 export interface RequestEndEvent<TAuth extends AuthContext = AuthContext>
   extends RequestLifecycleBase<TAuth> {

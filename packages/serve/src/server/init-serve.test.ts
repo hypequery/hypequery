@@ -63,7 +63,6 @@ describe("initServe", () => {
 
   it("define creates a serve instance with context", () => {
     type Context = { userId: string };
-    type Auth = { userId: string };
 
     const contextFactory = async (): Promise<Context> => ({
       userId: "123",
