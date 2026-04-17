@@ -5,7 +5,9 @@ import type { Equal, Expect } from '@type-challenges/utils';
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 const serve = initServe({
-  context: () => ({}),
+  context: () => ({
+    db: {},
+  }),
 });
 const { query } = serve;
 
@@ -26,3 +28,21 @@ type _TypedResultNotAny = Expect<Equal<IsAny<TypedResult>, false>>;
 const _resultIsTyped: TypedResult = [{ plan: 'starter' }];
 // @ts-expect-error plan must be string
 const _resultRejectsNumber: TypedResult = [{ plan: 123 }];
+
+const executableQuery = query({
+  input: z.object({ startDate: z.string() }),
+  output: z.object({ total: z.number() }),
+  query: async ({ input, ctx }) => {
+    ctx.db;
+    return { total: Number(input.startDate.length) };
+  },
+});
+
+const executableResultPromise = executableQuery.execute({
+  input: { startDate: '2024-01-01' },
+});
+
+type ExecutableResult = Awaited<typeof executableResultPromise>;
+const _executableResultIsTyped: ExecutableResult = { total: 10 };
+// @ts-expect-error total must be number
+const _executableResultRejectsString: ExecutableResult = { total: '10' };

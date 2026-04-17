@@ -11,10 +11,10 @@ import { initServe, createAuthSystem } from '@hypequery/serve';
 // TYPESAFE AUTH SYSTEM
 // ============================================================
 
-const { useAuth, TypedAuth } = createAuthSystem({
-  roles: ['admin', 'editor', 'viewer'] as const,
-  scopes: ['read:data', 'write:data'] as const,
-});
+const { useAuth, TypedAuth } = createAuthSystem<
+  'admin' | 'editor' | 'viewer',
+  'read:data' | 'write:data'
+>();
 
 type AppAuth = typeof TypedAuth;
 type AppContext = { db: { data: string } };
@@ -51,11 +51,11 @@ const authStrategy = async ({ request }: { request: any }): Promise<AppAuth | nu
 // API DEFINITION
 // ============================================================
 
-const { define, query } = initServe<AppContext, AppAuth>({
+const { query, serve } = initServe<AppContext, AppAuth>({
   context: { db: { data: 'mock-data' } },
 });
 
-const api = define({
+const api = serve({
   auth: useAuth(authStrategy),
 
   queries: {

@@ -42,6 +42,7 @@ export const createBuilderMethods = <
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const builder: ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
+    basePath: basePath || undefined,
     queryLogger,
     _routeConfig: routeConfig,
 

@@ -326,6 +326,15 @@ export type ExecutableQuery<
   TAuth extends AuthContext = AuthContext
 > = QueryWrapper<TInput, TResult, TContext, TAuth>;
 
+export interface DirectQueryExecuteOptions<
+  TInput = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>
+> {
+  input?: TInput;
+  context?: Partial<TContext>;
+  request?: Partial<ServeRequest>;
+}
+
 export interface ServeEndpoint<
   TInputSchema extends ZodTypeAny | undefined = undefined,
   TOutputSchema extends ZodTypeAny = ZodTypeAny,
@@ -399,6 +408,35 @@ export interface ServeQueryConfig<
   requiredScopes?: string[];
   /** Custom metadata for application-specific use cases */
   custom?: Record<string, unknown>;
+}
+
+export interface StandaloneQueryDefinition<
+  TInputSchema extends ZodTypeAny | undefined = undefined,
+  TOutputSchema extends ZodTypeAny = ZodTypeAny,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+  TResult = SchemaOutput<TOutputSchema>
+> extends ServeQueryConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult> {
+  run: QueryResolver<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
+  execute(options?: DirectQueryExecuteOptions<SchemaInput<TInputSchema>, TContext>): Promise<TResult>;
+}
+
+export interface QueryObjectConfig<
+  TInputSchema extends ZodTypeAny | undefined = undefined,
+  TOutputSchema extends ZodTypeAny | undefined = undefined,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+  TResult = TOutputSchema extends ZodTypeAny ? SchemaOutput<TOutputSchema> : unknown
+> {
+  input?: TInputSchema;
+  output?: TOutputSchema;
+  method?: HttpMethod;
+  name?: string;
+  description?: string;
+  summary?: string;
+  tags?: string[];
+  cacheTtlMs?: number | null;
+  query: QueryResolver<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
 }
 
 export type ServeQueriesMap<
@@ -651,6 +689,8 @@ export interface ServeBuilder<
   TAuth extends AuthContext = AuthContext
 > {
   readonly queries: TQueries;
+  /** Base path applied to all registered routes, docs, and OpenAPI endpoints */
+  readonly basePath?: string;
   /** Serve-layer query logger for subscribing to endpoint execution events */
   readonly queryLogger: ServeQueryLogger;
   /** Internal route configuration mapping query names to their HTTP methods */
@@ -697,12 +737,34 @@ export interface ServeInitializer<
   TAuth extends AuthContext = AuthContext
 > {
   readonly procedure: QueryProcedureBuilder<TContext, TAuth>;
-  readonly query: QueryProcedureBuilder<TContext, TAuth>;
+  readonly query: QueryFactory<TContext, TAuth>;
   queries<TQueries extends ServeQueriesMap<TContext, TAuth>>(queries: TQueries): TQueries;
+  serve<TQueries extends ServeQueriesMap<TContext, TAuth>>(
+    config: Omit<ServeConfig<TContext, TAuth, TQueries>, "context">
+  ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
   define<TQueries extends ServeQueriesMap<TContext, TAuth>>(
     config: Omit<ServeConfig<TContext, TAuth, TQueries>, "context">
   ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
 }
+
+export type QueryFactory<
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext,
+> = QueryProcedureBuilder<TContext, TAuth> & {
+  <
+    TInputSchema extends ZodTypeAny | undefined = undefined,
+    TOutputSchema extends ZodTypeAny | undefined = undefined,
+    TResult = TOutputSchema extends ZodTypeAny ? SchemaOutput<TOutputSchema> : unknown
+  >(
+    config: QueryObjectConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult>
+  ): StandaloneQueryDefinition<
+    TInputSchema,
+    TOutputSchema extends ZodTypeAny ? TOutputSchema : ZodTypeAny,
+    TContext,
+    TAuth,
+    TResult
+  >;
+};
 
 export interface QueryProcedureBuilder<
   TContext extends Record<string, unknown>,

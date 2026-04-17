@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { serve, query } from "./serve.js";
 import { z } from "zod";
 
-describe("Simplified API - query() and serve()", () => {
+describe("query() and serve()", () => {
   it("should create a query object with query()", () => {
     const mockDb = {
       table: (tableName: string) => ({
@@ -26,7 +26,7 @@ describe("Simplified API - query() and serve()", () => {
     expect(typeof revenue.run).toBe("function");
   });
 
-  it("should run query independently with .run()", async () => {
+  it("should run query independently with .execute()", async () => {
     const mockDb = {
       table: (tableName: string) => ({
         select: () => ({
@@ -43,15 +43,15 @@ describe("Simplified API - query() and serve()", () => {
       },
     });
 
-    const result = await revenue.run({
+    const result = await revenue.execute({
       input: { startDate: "2024-01-01" },
-      ctx: { db: mockDb },
+      context: { db: mockDb },
     });
 
     expect(result).toEqual({ total: 100, startDate: "2024-01-01" });
   });
 
-  it("should serve query objects with serve()", () => {
+  it("should serve query objects with serve()", async () => {
     const mockDb = {
       table: (tableName: string) => ({
         select: () => ({
@@ -76,6 +76,7 @@ describe("Simplified API - query() and serve()", () => {
 
     expect(api).toBeDefined();
     expect(api.queries.revenue).toBeDefined();
+    await expect(api.execute("revenue", { context: { db: mockDb } })).resolves.toEqual({ total: 100 });
   });
 
   it("should serve multiple query objects", () => {
