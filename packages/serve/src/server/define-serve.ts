@@ -10,6 +10,7 @@ import type {
   ServeLifecycleHooks,
   ServeMiddleware,
   ServeQueriesMap,
+  ServeQueryConfig,
 } from "../types.js";
 import { createEndpoint } from "../endpoint.js";
 import { ServeRouter, applyBasePath } from "../router.js";
