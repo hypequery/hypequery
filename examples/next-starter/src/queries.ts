@@ -2,47 +2,57 @@ import { initServe } from '@hypequery/serve';
 import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   context: () => ({}),
+  basePath: '/',
 });
 
-const apiDefinition = define({
-  queries: queries({
-    postTest: query
-      .describe('Simple hello world query')
-      .input(z.object({
-        message: z.string(),
-        timestamp: z.string(),
-      }))
-      .query(async () => ({
-        message: 'Hello from hypequery!',
-        timestamp: new Date().toISOString(),
-      })),
-    hello: query
-      .describe('Simple hello world query')
-      .input(z.void())
-      .output(z.object({
-        message: z.string(),
-        timestamp: z.string(),
-      }))
-      .query(async () => ({
-        message: 'Hello from hypequery!',
-        timestamp: new Date().toISOString(),
-      })),
-    stats: query
-      .describe('Get some example stats')
-      .input(z.void())
-      .output(z.object({
-        users: z.number(),
-        revenue: z.number(),
-        growth: z.number(),
-      }))
-      .query(async () => ({
-        users: 1337,
-        revenue: 98765,
-        growth: 23.5,
-      })),
+const postTest = query({
+  description: 'Simple hello world query',
+  input: z.object({
+    message: z.string(),
+    timestamp: z.string(),
   }),
+  query: async () => ({
+    message: 'Hello from hypequery!',
+    timestamp: new Date().toISOString(),
+  }),
+});
+
+const hello = query({
+  description: 'Simple hello world query',
+  input: z.void(),
+  output: z.object({
+    message: z.string(),
+    timestamp: z.string(),
+  }),
+  query: async () => ({
+    message: 'Hello from hypequery!',
+    timestamp: new Date().toISOString(),
+  }),
+});
+
+const stats = query({
+  description: 'Get some example stats',
+  input: z.void(),
+  output: z.object({
+    users: z.number(),
+    revenue: z.number(),
+    growth: z.number(),
+  }),
+  query: async () => ({
+    users: 1337,
+    revenue: 98765,
+    growth: 23.5,
+  }),
+});
+
+const apiDefinition = serve({
+  queries: {
+    postTest,
+    hello,
+    stats,
+  },
 });
 
 export type ApiDefinition = InferApiType<typeof apiDefinition>;

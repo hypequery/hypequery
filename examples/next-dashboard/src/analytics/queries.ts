@@ -163,12 +163,13 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }),
+  basePath: '/',
 });
 
-const apiDefinition = define({
-  queries: queries({
+const apiDefinition = serve({
+  queries: {
     averageAmounts: query
       .describe('Average revenue components')
       .input(filtersSchema)
@@ -411,7 +412,7 @@ const apiDefinition = define({
           weeklyData,
         } satisfies NodeDashboard;
       }),
-  }),
+  },
 });
 
 export type ApiDefinition = InferApiType<typeof apiDefinition>;

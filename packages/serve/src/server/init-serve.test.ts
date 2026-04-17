@@ -16,8 +16,10 @@ describe("initServe", () => {
     // Should return a serve initializer with procedure, queries, and define
     expect(initializer).toBeDefined();
     expect(initializer.procedure).toBeDefined();
-    expect(initializer.query).toBe(initializer.procedure);
+    expect(typeof initializer.query).toBe("function");
+    expect(typeof initializer.query.input).toBe("function");
     expect(typeof initializer.queries).toBe("function");
+    expect(typeof initializer.serve).toBe("function");
     expect(typeof initializer.define).toBe("function");
   });
 
@@ -119,6 +121,73 @@ describe("initServe", () => {
     const result = await api.execute("getTime", { input: {} });
     expect(result.time).toBeDefined();
     expect(typeof result.time).toBe("number");
+  });
+
+  it("supports object-style queries with execute()", async () => {
+    const initializer = initServe({
+      context: async () => ({
+        db: {
+          getRevenue: (startDate: string) => ({ total: 100, startDate }),
+        },
+      }),
+    });
+
+    const revenue = initializer.query({
+      input: z.object({ startDate: z.string() }),
+      output: z.object({ total: z.number(), startDate: z.string() }),
+      query: async ({ input, ctx }) => {
+        return ctx.db.getRevenue(input.startDate);
+      },
+    });
+
+    const result = await revenue.execute({
+      input: { startDate: "2024-01-01" },
+    });
+
+    expect(result).toEqual({ total: 100, startDate: "2024-01-01" });
+  });
+
+  it("passes the configured method into object-style execute()", async () => {
+    const initializer = initServe({
+      context: async () => ({}),
+    });
+
+    const ping = initializer.query({
+      method: "GET",
+      output: z.object({ method: z.string() }),
+      query: async ({ ctx }) => {
+        return { method: ctx.request.method };
+      },
+    });
+
+    const result = await ping.execute();
+    expect(result).toEqual({ method: "GET" });
+  });
+
+  it("allows object-style queries to be served without repeating context", async () => {
+    const initializer = initServe({
+      context: async () => ({
+        db: {
+          getRevenue: () => ({ total: 100 }),
+        },
+      }),
+    });
+
+    const revenue = initializer.query({
+      output: z.object({ total: z.number() }),
+      query: async ({ ctx }) => {
+        return ctx.db.getRevenue();
+      },
+    });
+
+    const api = initializer.serve({
+      queries: { revenue },
+    });
+
+    api.route("/revenue", api.queries.revenue, { method: "POST" });
+
+    const result = await api.execute("revenue");
+    expect(result).toEqual({ total: 100 });
   });
 
   it("supports auth context in queries", async () => {

@@ -35,10 +35,10 @@ const mockDb = {
 // TYPESAFE AUTH SYSTEM
 // ============================================================
 
-const { useAuth, TypedAuth } = createAuthSystem({
-  roles: ['admin', 'editor', 'viewer'] as const,
-  scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,
-});
+const { useAuth, TypedAuth } = createAuthSystem<
+  'admin' | 'editor' | 'viewer',
+  'read:metrics' | 'write:metrics' | 'delete:metrics'
+>();
 
 type AppAuth = typeof TypedAuth;
 type AppContext = { db: typeof mockDb };
@@ -83,11 +83,11 @@ const apiKeyStrategy = async ({ request }: { request: ServeRequest }): Promise<A
 // API DEFINITION
 // ============================================================
 
-const { define, query } = initServe<AppContext, AppAuth>({
+const { query, serve } = initServe<AppContext, AppAuth>({
   context: { db: mockDb },
 });
 
-const api = define({
+const api = serve({
   auth: useAuth(apiKeyStrategy),
   basePath: '/',
 
@@ -194,12 +194,12 @@ const api = define({
 // ============================================================
 
 api.route('/healthcheck', api.queries.healthcheck, { method: 'GET'});
-api.route('/profile', api.queries.profile);
-api.route('/metrics', api.queries.metrics);
-api.route('/metrics/create', api.queries.createMetric);
-api.route('/secrets', api.queries.secrets);
-api.route('/metrics/delete', api.queries.deleteMetric);
-api.route('/dashboard/viewer', api.queries.viewerDashboard);
+api.route('/profile', api.queries.profile, { method: 'GET' });
+api.route('/metrics', api.queries.metrics, { method: 'GET' });
+api.route('/metrics/create', api.queries.createMetric, { method: 'POST' });
+api.route('/secrets', api.queries.secrets, { method: 'GET' });
+api.route('/metrics/delete', api.queries.deleteMetric, { method: 'POST' });
+api.route('/dashboard/viewer', api.queries.viewerDashboard, { method: 'GET' });
 
 // ============================================================
 // START SERVER

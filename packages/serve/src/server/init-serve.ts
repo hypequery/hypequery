@@ -1,5 +1,6 @@
 import type {
   AuthContext,
+  QueryFactory,
   ServeContextFactory,
   ServeInitializer,
   ServeQueriesMap,
@@ -7,6 +8,7 @@ import type {
 } from "../types.js";
 import { createProcedureBuilder } from "../builder.js";
 import { defineServe } from "./define-serve.js";
+import { createQueryFactory } from "../serve.js";
 
 type InferInitializerContext<
   TFactory,
@@ -41,21 +43,36 @@ export const initServe = <
   type TContext = InferInitializerContext<TFactory, TAuth>;
   const { context, ...staticOptions } = options;
   const procedure = createProcedureBuilder<TContext, TAuth>();
+  const define = <TQueries extends ServeQueriesMap<TContext, TAuth>>(
+    config: ServeInitializerDefinition<TContext, TAuth, TQueries>
+  ) => {
+    return defineServe<TContext, TAuth, TQueries>({
+      ...staticOptions,
+      ...config,
+      context: (context ?? {}) as ServeContextFactory<TContext, TAuth>,
+    });
+  };
+  const queryFactory = createQueryFactory<TContext, TAuth>((context ?? {}) as ServeContextFactory<TContext, TAuth>);
+  const query = new Proxy(queryFactory as QueryFactory<TContext, TAuth>, {
+    apply(target, thisArg, argArray) {
+      return Reflect.apply(target, thisArg, argArray);
+    },
+    get(target, property, receiver) {
+      if (property in procedure) {
+        return Reflect.get(procedure as object, property);
+      }
+
+      return Reflect.get(target, property, receiver);
+    },
+  });
 
   return {
     procedure,
-    query: procedure,
+    query,
     queries: <TQueries extends ServeQueriesMap<TContext, TAuth>>(
       definitions: TQueries
     ) => definitions,
-    define: <TQueries extends ServeQueriesMap<TContext, TAuth>>(
-      config: ServeInitializerDefinition<TContext, TAuth, TQueries>
-    ) => {
-      return defineServe<TContext, TAuth, TQueries>({
-        ...staticOptions,
-        ...config,
-        context: (context ?? {}) as ServeContextFactory<TContext, TAuth>,
-      });
-    },
+    serve: define,
+    define,
   } satisfies ServeInitializer<TContext, TAuth>;
 };

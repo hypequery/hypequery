@@ -26,6 +26,7 @@ coverage
 
 # Misc
 .DS_Store
+.hypequery/
 examples/basic-dashboard/src/generated/clickhouse-schema.ts
 .turbo
 .turbo-build
