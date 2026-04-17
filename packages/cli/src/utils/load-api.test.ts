@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 type LoadApiModule = typeof import('./load-api.js')['loadApiModule'];
+type ImportOverride = (moduleUrl: string) => Promise<any>;
 
 vi.mock('node:fs/promises', async () => {
   const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
@@ -27,6 +28,9 @@ describe('load-api', () => {
   let loadApiModule: LoadApiModule;
   let cwdSpy: ReturnType<typeof vi.spyOn> | undefined;
   let mockBuild: ReturnType<typeof vi.fn>;
+  const testGlobal = globalThis as typeof globalThis & {
+    __hypequeryCliImportOverride?: ImportOverride | null;
+  };
 
   beforeEach(async () => {
     vi.resetModules();
@@ -43,6 +47,13 @@ describe('load-api', () => {
     });
     loadApiModule = (await import('./load-api.js')).loadApiModule;
     vi.mocked(access).mockResolvedValue(undefined);
+    testGlobal.__hypequeryCliImportOverride = async (moduleUrl) => {
+      if (moduleUrl.includes('hypequery-cli-') || moduleUrl.includes('.hypequery/tmp/')) {
+        return { api: { handler: () => {} } };
+      }
+
+      return import(/* @vite-ignore */ moduleUrl);
+    };
     process.env = { ...originalEnv };
     cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/test/project');
   });
@@ -50,6 +61,7 @@ describe('load-api', () => {
   afterEach(() => {
     process.env = originalEnv;
     cwdSpy?.mockRestore();
+    testGlobal.__hypequeryCliImportOverride = null;
   });
 
   describe('file existence check', () => {

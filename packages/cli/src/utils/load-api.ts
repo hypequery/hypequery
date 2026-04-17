@@ -37,7 +37,10 @@ export async function loadApiModule(modulePath: string) {
   let mod: any;
 
   try {
-    mod = await import(/* @vite-ignore */ moduleUrl);
+    const importOverride = globalState.__hypequeryCliImportOverride;
+    mod = importOverride
+      ? await importOverride(moduleUrl)
+      : await import(/* @vite-ignore */ moduleUrl);
   } catch (error: any) {
     const relativePath = path.relative(process.cwd(), resolved);
     throw new Error(
@@ -89,6 +92,7 @@ const globalState = globalThis as typeof globalThis & {
   __hypequeryCliTempFiles?: Set<string>;
   __hypequeryCliTempDirs?: Set<string>;
   __hypequeryCliCleanupInstalled?: boolean;
+  __hypequeryCliImportOverride?: ((moduleUrl: string) => Promise<any>) | null;
 };
 
 let tempDirPromise: Promise<string> | null = globalState.__hypequeryCliTempDirPromise ?? null;
