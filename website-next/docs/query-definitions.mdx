@@ -251,7 +251,7 @@ type TripsResponse = InferQueryOutput<typeof api, 'tripsQuery'>;   // zod-derive
 ```
 </CodeBlock>
 
-Use `InferQueryResult` when you trust the builder's static typing (no schema required). `InferQueryOutput` reads the optional `outputSchema`, which is handy when runtime validation is the source of truth. Both helpers accept either the `serve.define` instance or a raw `ServeQueriesMap`, so you can infer types from any subset of queries.
+Use `InferQueryResult` when you trust the builder's static typing (no schema required). `InferQueryOutput` reads the optional `outputSchema`, which is handy when runtime validation is the source of truth. Both helpers accept either the `define()` result (your exported `api`) or a raw `ServeQueriesMap`, so you can infer types from any subset of queries.
 
 ### Inline Execution Helpers
 

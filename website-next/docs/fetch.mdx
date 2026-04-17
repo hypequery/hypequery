@@ -67,14 +67,13 @@ Follow the typical hypequery setup either manually or via `hypequery init`. Crea
 import { initServe } from '@hypequery/serve';
 import { db } from './client';
 
-const serve = initServe({
-  basePath: '/',
+const { define, queries, query } = initServe({
+  basePath: '',
   context: () => ({ db }),
 });
-const { query } = serve;
 
-export const api = serve.define({
-  queries: serve.queries({
+export const api = define({
+  queries: queries({
     tripsQuery: query
       .describe('Example query using the trips table')
       .query(async ({ ctx }) =>
@@ -87,7 +86,7 @@ export const api = serve.define({
   }),
 });
 
-api.route('/tripsQuery', api.queries.tripsQuery)
+api.route('/tripsQuery', api.queries.tripsQuery);
 ```
 
 > Want `/api/hypequery/tripsQuery` instead? Set `basePath: '/api/hypequery'` in `initServe`. Every `api.route()` inherits that prefix, so your fetch handler can mount once at `/api/hypequery/*`.

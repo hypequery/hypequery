@@ -112,26 +112,26 @@ const client = createClient({
 export const db = createQueryBuilder({ client });
 
 // api/analytics.ts - NEW: Wrap with serve
-import { initServe, queries, query } from '@hypequery/serve';
-import { z } from 'zod';
+import { initServe } from '@hypequery/serve';
 import { db } from '../lib/db';
 
-const { define, queries: apiQueries } = initServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
+});
+
+export const api = define({
   queries: queries({
     activeUsers: query
       .describe('Get all active users')
       .query(async ({ ctx }) => {
         // Same builder syntax!
-        return await ctx.db
+        return ctx.db
           .table('users')
           .where('active', true)
           .execute();
       }),
   }),
 });
-
-export const api = define(apiQueries);
 ```
 
 </CodeBlock>
@@ -152,23 +152,22 @@ Choose your platform:
 <CodeBlock>
 
 ```ts
-// pages/api/hypequery/[...slug].ts (Next.js App Router)
-import { createNextHandler } from '@hypequery/serve/next';
+// app/api/analytics/[...path]/route.ts (Next.js App Router)
+import { createFetchHandler } from '@hypequery/serve';
 import { api } from '@/api/analytics';
 
-export const { GET, POST } = createNextHandler(api);
+const handler = createFetchHandler(api.handler);
 
-// Or with Next.js Pages Router:
-import { createPagesHandler } from '@hypequery/serve/next';
-import { api } from '@/api/analytics';
-
-export default createPagesHandler(api);
+export const runtime = 'nodejs';
+export const GET = handler;
+export const POST = handler;
+export const OPTIONS = handler;
 
 // Or with Node.js/Express:
-import { createNodeHandler } from '@hypequery/serve/node';
+import { createNodeHandler } from '@hypequery/serve';
 import { api } from '@/api/analytics';
 
-const handler = createNodeHandler(api);
+const handler = createNodeHandler(api.handler);
 
 app.use('/api/analytics', handler);
 ```
@@ -208,19 +207,25 @@ You now have:
 <CodeBlock>
 
 ```ts
-import { initServe, queries, query } from '@hypequery/serve';
-import { jwtStrategy } from '@hypequery/serve/auth';
+import { initServe } from '@hypequery/serve';
 
-const { define } = initServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
-  auth: jwtStrategy({
-    secret: process.env.JWT_SECRET,
-  }),
+  auth: async ({ request }) => {
+    const token = request.headers.authorization;
+    if (token === `Bearer ${process.env.ADMIN_TOKEN}`) {
+      return { userId: 'admin-1', roles: ['admin'] };
+    }
+    return null;
+  },
+});
+
+export const api = define({
   queries: queries({
     adminOnly: query
-      .requireRole('admin')  // Only admins can access
+      .requireRole('admin')
       .query(async ({ ctx }) => {
-        return await ctx.db
+        return ctx.db
           .table('sensitive_data')
           .execute();
       }),
@@ -235,27 +240,29 @@ const { define } = initServe({
 <CodeBlock>
 
 ```ts
-import { initServe, queries, query } from '@hypequery/serve';
-import { createTenantScope } from '@hypequery/serve/tenant';
+import { initServe } from '@hypequery/serve';
 
-const { define } = initServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
-  tenant: createTenantScope({
-    getContext: (req) => {
-      // Extract tenant from JWT or header
-      const token = parseJWT(req.headers.authorization);
-      return { id: token.tenantId };
-    },
-  }),
+  tenant: {
+    extract: (auth) => auth?.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
+  auth: async ({ request }) => {
+    const tenantId = request.headers['x-tenant-id'];
+    if (!tenantId || Array.isArray(tenantId)) return null;
+    return { userId: 'user-1', tenantId };
+  },
+});
+
+export const api = define({
   queries: queries({
     customerData: query
       .query(async ({ ctx }) => {
-        // Tenant filter auto-injected!
-        return await ctx.db
+        return ctx.db
           .table('orders')
           .execute();
-        // Automatically becomes:
-          // WHERE tenant_id = '...'
       }),
   }),
 });
@@ -306,7 +313,7 @@ Keep direct query execution for jobs, use serve for APIs:
 ```ts
 // lib/queries.ts - Export both
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { initServe, queries, query } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 
 export const db = createQueryBuilder({ client });
 
@@ -319,20 +326,21 @@ export async function syncUsers() {
 }
 
 // HTTP API for frontend
-const { define } = initServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
+});
+
+export const api = define({
   queries: queries({
     activeUsers: query
       .query(async ({ ctx }) => {
-        return await ctx.db
+        return ctx.db
           .table('users')
           .where('active', true)
           .execute();
       }),
   }),
 });
-
-export const api = define(api.queries);
 ```
 
 </CodeBlock>
@@ -351,25 +359,27 @@ export async function getMetrics() {
 }
 
 // Phase 2: Add serve for new APIs
-const api = initServe({
+const { define, queries, query } = initServe({
   context: () => ({ db }),
+});
+
+export const api = define({
   queries: queries({
     newEndpoint: query.query(async ({ ctx }) => {
-      return await ctx.db.table('new_data').execute();
+      return ctx.db.table('new_data').execute();
     }),
   }),
 });
 
 // Phase 3: Migrate old endpoints when convenient
-const api = initServe({
-  context: () => ({ db }),
+export const expandedApi = define({
   queries: queries({
     newEndpoint: query.query(async ({ ctx }) => {
-      return await ctx.db.table('new_data').execute();
+      return ctx.db.table('new_data').execute();
     }),
     metrics: query.query(async ({ ctx }) => {
       // Migrated!
-      return await ctx.db.table('metrics').execute();
+      return ctx.db.table('metrics').execute();
     }),
   }),
 });
