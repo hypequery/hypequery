@@ -4,12 +4,10 @@ import type {
   ErrorEnvelope,
   SchemaInput,
   ServeContextFactory,
-  ServeEndpoint,
   ServeEndpointMap,
   ServeEndpointResult,
   ServeLifecycleHooks,
   ServeMiddleware,
-  ServeQueriesMap,
   ServeRequest,
   TenantConfig,
 } from "../types.js";

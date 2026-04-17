@@ -2,9 +2,7 @@ import { z, type ZodTypeAny } from 'zod';
 
 import type {
   AuthContext,
-  AuthorizationFailureEvent,
   AuthStrategy,
-  CorsConfig,
   DocsOptions,
   EndpointContext,
   EndpointMetadata,

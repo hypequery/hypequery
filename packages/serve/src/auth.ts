@@ -368,9 +368,7 @@ export type TypedAuthContext<
 export const createAuthSystem = <
   TRoles extends string = string,
   TScopes extends string = string,
->(
-  options: CreateAuthSystemOptions<TRoles, TScopes> = {}
-) => {
+>() => {
   return {
     /**
      * Type-safe wrapper for auth strategies.

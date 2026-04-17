@@ -43,5 +43,21 @@
     "eslint": "^8.0.0",
     "turbo": "^1.10.0",
     "typescript": "^4.9.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "ajv": "^6.14.0",
+      "brace-expansion": "^2.0.3",
+      "esbuild": "^0.25.0",
+      "flatted": "^3.4.2",
+      "glob": "^10.5.0",
+      "lodash": "^4.18.0",
+      "markdown-it": "^14.1.1",
+      "minimatch": "^10.2.3",
+      "picomatch": "^4.0.4",
+      "rollup": "^4.59.0",
+      "vite": "^6.4.2",
+      "yaml": "^2.8.3"
+    }
   }
 }

@@ -23,7 +23,7 @@ import {
 import { useState } from "react"
 
 interface DataTableProps<TData> {
-  columns: ColumnDef<TData, any>[]
+  columns: ColumnDef<TData, unknown>[]
   data: TData[]
 }
 
@@ -58,7 +58,6 @@ export function DataTable<TData>({
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id}>
-                      {/* @ts-ignore */}
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -80,7 +79,6 @@ export function DataTable<TData>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {/* @ts-ignore */}
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

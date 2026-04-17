@@ -2,9 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@hypequery/react"],
-  experimental: {
-    serverComponentsExternalPackages: ["@hypequery/serve", "@hypequery/clickhouse"],
-  },
+  serverExternalPackages: ["@hypequery/serve", "@hypequery/clickhouse"],
   async rewrites() {
     return [
       {

@@ -2,8 +2,10 @@ import prompts from 'prompts';
 import type { DatabaseType } from './detect-database.js';
 import { logger } from './logger.js';
 
+const noop = () => undefined;
+
 // Configure prompts to not exit on cancel
-prompts.override({ onCancel: () => {} });
+prompts.override({ onCancel: noop });
 
 /**
  * Prompt for database type selection

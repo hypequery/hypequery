@@ -2,8 +2,6 @@ import { describe, it, expect, vi } from "vitest";
 import {
   createApiKeyStrategy,
   createBearerTokenStrategy,
-  type ApiKeyStrategyOptions,
-  type BearerTokenStrategyOptions,
 } from "./auth.js";
 import type { ServeRequest } from "./types.js";
 
