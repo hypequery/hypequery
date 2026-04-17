@@ -55,8 +55,7 @@ Create `api/queries.ts`:
 <CodeBlock>
 ```typescript
 import 'dotenv/config';
-import { initServe } from '@hypequery/serve';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { initServe, type InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 
 const { define, queries, query } = initServe({
@@ -89,7 +88,7 @@ Run the API locally:
 ```bash
 npm run api
 # or manually: npx hypequery dev api/queries.ts --port 4000
-# Docs → http://localhost:4000/docs
+# Docs → http://localhost:4000/api/docs
 ```
 </CodeBlock>
 
@@ -113,7 +112,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

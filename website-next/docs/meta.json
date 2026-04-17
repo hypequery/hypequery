@@ -3,7 +3,7 @@
     "---Getting Started---",
     "introduction",
     "quick-start",
-    "quick-start-builder",
+    "standalone-query-builder/setup",
     "manual-installation",
     "why-hypequery",
     "core-concepts",

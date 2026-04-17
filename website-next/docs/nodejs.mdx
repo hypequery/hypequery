@@ -174,14 +174,13 @@ Create `analytics/queries.ts`:
 import { initServe } from '@hypequery/serve';
 import { db } from './client';
 
-const serve = initServe({
+const { define, queries, query } = initServe({
   basePath: '',
   context: () => ({ db }),
 });
-const { query } = serve;
 
-export const api = serve.define({
-  queries: serve.queries({
+export const api = define({
+  queries: queries({
     tripsQuery: query
       .describe('Example query using the trips table')
       .query(async ({ ctx }) =>
@@ -203,7 +202,7 @@ api.route('/tripsQuery', api.queries.tripsQuery);
 - Use `ctx.db` (not `db`) inside query functions
 - Always call `.execute()` at the end
 - Register routes with `api.route()` to expose via HTTP
-- Set `basePath: ''` to serve routes from root path
+- Set `basePath: ''` to serve routes from root path without URL rewriting
 
 </Step>
 
@@ -370,4 +369,3 @@ You have two options for serving queries:
 - Great for external APIs and frontend consumption
 
 Both approaches use the same query definitions, choose based on your use case.
-

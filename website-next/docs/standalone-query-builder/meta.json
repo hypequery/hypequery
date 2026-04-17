@@ -3,7 +3,7 @@
   "description": "Build type safe queries with the ClickHouse client directly",
   "root": true,
   "pages": [
-    "introduction",
+    "standalone-query-builder",
     "when-to-use",
     "setup",
     "execution",
