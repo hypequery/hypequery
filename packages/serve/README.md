@@ -1,6 +1,6 @@
 # @hypequery/serve
 
-Declarative HTTP server for exposing hypequery analytics endpoints. Build type-safe REST APIs with automatic OpenAPI documentation, authentication, middleware, and multi-platform deployment support.
+Code-first runtime for exposing hypequery analytics endpoints. Build typed query definitions, run them in-process, and add HTTP routes, docs, and adapters when needed.
 
 ## Installation
 
@@ -12,30 +12,37 @@ Peer dependency: `tsx@^4` (optional, for dev server)
 
 ## Quick Start
 
+Recommended path:
+
+1. Build a typed ClickHouse query
+2. Wrap it with `query({ ... })` when it becomes a reusable contract
+3. Add `serve({ queries })` when you need HTTP routes, docs, or adapters
+
 ```ts
 // analytics/queries.ts
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
 
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }),
+  basePath: '/api/analytics',
 });
 
-export const api = define({
-  queries: queries({
-    weeklyRevenue: query
-      .describe('Calculate weekly revenue')
-      .input(z.object({ startDate: z.string() }))
-      .query(({ ctx, input }) =>
-        ctx.db
-          .table('sales')
-          .select(['total_amount'])
-          .where('date', 'gte', input.startDate)
-          .sum('total_amount', 'total')
-          .execute()
-      ),
-  }),
+const weeklyRevenue = query({
+  description: 'Calculate weekly revenue',
+  input: z.object({ startDate: z.string() }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('sales')
+      .select(['total_amount'])
+      .where('date', 'gte', input.startDate)
+      .sum('total_amount', 'total')
+      .execute(),
+});
+
+export const api = serve({
+  queries: { weeklyRevenue },
 });
 
 // Register an HTTP route
@@ -54,19 +61,19 @@ process.on('SIGTERM', async () => {
 ```
 
 With the server running:
-- **Endpoint**: `POST http://localhost:4000/weeklyRevenue`
-- **Docs**: `http://localhost:4000/docs` (Redoc UI)
-- **OpenAPI**: `http://localhost:4000/openapi.json` (machine-readable schema)
+- **Endpoint**: `POST http://localhost:4000/api/analytics/weeklyRevenue`
+- **Docs**: `http://localhost:4000/api/analytics/docs`
+- **OpenAPI**: `http://localhost:4000/api/analytics/openapi.json`
 
 ---
 
 ## Core Concepts
 
-### 1. Server Builders
+### 1. Create Queries And A Runtime
 
 #### `initServe<TContext, TAuth>(options)`
 
-Main entry point for creating a hypequery server. Returns an initializer with type-safe query builders and context inference.
+Main entry point for creating typed query definitions and a serve runtime.
 
 **Parameters:**
 
@@ -102,22 +109,46 @@ interface ServeInitializerOptions<TContext, TAuth> {
 
 ```ts
 interface ServeInitializer<TContext, TAuth> {
-  // Query builder (chainable query configuration)
-  query: QueryProcedureBuilder<TContext, TAuth>;
+  query: QueryFactory<TContext, TAuth>;
+  serve<TQueries>(config: ServeConfig<TQueries, TContext, TAuth>): ServeBuilder<TQueries, TContext, TAuth>;
+}
+```
 
-  // Helper to group multiple queries
-  queries<TQueries>(definitions: TQueries): TQueries;
+Use `query({ ... })` to define a typed contract:
 
-  // Define server with queries
-  define<TQueries>(config: { queries: TQueries }): ServeBuilder<TQueries, TContext, TAuth>;
+```ts
+const weeklyRevenue = query({
+  description: 'Calculate weekly revenue totals',
+  input: z.object({ startDate: z.string() }),
+  query: async ({ ctx, input }) => {
+    return ctx.db
+      .table('sales')
+      .where('date', 'gte', input.startDate)
+      .sum('amount', 'total')
+      .execute();
+  },
+});
+```
+
+Use `serve({ queries })` to expose a typed runtime and optional HTTP surface:
+
+```ts
+interface ServeConfig<TQueries, TContext, TAuth> {
+  queries: TQueries;
+  basePath?: string;
+  auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
+  middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
+  tenant?: TenantConfig<TAuth>;
+  hooks?: ServeLifecycleHooks<TAuth>;
+  openapi?: OpenApiOptions;
+  docs?: DocsOptions;
 }
 ```
 
 **Example:**
 
 ```ts
-// Define context once
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   basePath: '/api',
   context: async ({ auth }) => ({
     db: createDatabase(),
@@ -131,31 +162,31 @@ const { define, queries, query } = initServe({
   }),
 });
 
-// Create queries with inferred types
-export const api = define({
-  queries: queries({
-    getUser: query
-      .input(z.object({ id: z.string() }))
-      .query(async ({ ctx, input }) => {
-        return ctx.db.query.users.findFirst({
-          where: eq(users.id, input.id),
-        });
-      }),
-
-    weeklyRevenue: query
-      .describe('Calculate weekly revenue totals')
-      .input(z.object({ startDate: z.string() }))
-      .query(async ({ ctx, input }) => {
-        return ctx.db
-          .table('sales')
-          .where('date', 'gte', input.startDate)
-          .sum('amount', 'total')
-          .execute();
-      }),
-  }),
+const getUser = query({
+  input: z.object({ id: z.string() }),
+  query: async ({ ctx, input }) => {
+    return ctx.db.query.users.findFirst({
+      where: eq(users.id, input.id),
+    });
+  },
 });
 
-// Expose as HTTP endpoints
+const weeklyRevenue = query({
+  description: 'Calculate weekly revenue totals',
+  input: z.object({ startDate: z.string() }),
+  query: async ({ ctx, input }) => {
+    return ctx.db
+      .table('sales')
+      .where('date', 'gte', input.startDate)
+      .sum('amount', 'total')
+      .execute();
+  },
+});
+
+export const api = serve({
+  queries: { getUser, weeklyRevenue },
+});
+
 api.route('/users/:id', api.queries.getUser, { method: 'GET' });
 api.route('/weeklyRevenue', api.queries.weeklyRevenue);
 ```
@@ -255,12 +286,12 @@ interface ApiKeyStrategyOptions<TAuth> {
 **Example:**
 
 ```ts
-import { createApiKeyStrategy } from '@hypequery/serve';
+import { createApiKeyStrategy, initServe } from '@hypequery/serve';
 
 const apiKeyAuth = createApiKeyStrategy({
   header: 'x-api-key',
-  queryParam: 'apiKey',  // Allow ?apiKey=xxx for development
-  validate: async (key, request) => {
+  queryParam: 'apiKey',
+  validate: async (key) => {
     const user = await db.query.apiKeys.findFirst({
       where: eq(apiKeys.key, key),
     });
@@ -274,9 +305,17 @@ const apiKeyAuth = createApiKeyStrategy({
   },
 });
 
-const api = defineServe({
+const { query, serve } = initServe({
   auth: apiKeyAuth,
-  queries: { /* ... */ },
+  context: () => ({ db }),
+});
+
+const revenue = query({
+  query: ({ ctx }) => ctx.db.table('sales').sum('amount', 'total').execute(),
+});
+
+const api = serve({
+  queries: { revenue },
 });
 ```
 
@@ -309,7 +348,7 @@ interface BearerTokenStrategyOptions<TAuth> {
 **Example:**
 
 ```ts
-import { createBearerTokenStrategy } from '@hypequery/serve';
+import { createBearerTokenStrategy, initServe } from '@hypequery/serve';
 import jwt from 'jsonwebtoken';
 
 const jwtAuth = createBearerTokenStrategy({
@@ -325,14 +364,22 @@ const jwtAuth = createBearerTokenStrategy({
         role: payload.role,
       };
     } catch {
-      return null;  // Invalid token
+      return null;
     }
   },
 });
 
-const api = defineServe({
+const { query, serve } = initServe({
   auth: jwtAuth,
-  queries: { /* ... */ },
+  context: () => ({ db: createDatabase() }),
+});
+
+const revenue = query({
+  query: ({ ctx }) => ctx.db.table('sales').sum('amount', 'total').execute(),
+});
+
+const api = serve({
+  queries: { revenue },
 });
 ```
 
@@ -344,73 +391,41 @@ curl -H "Authorization: Bearer eyJhbGc..." http://localhost:3000/revenue
 
 ---
 
-### 4. Query Builder (Advanced Query Configuration)
+### 4. Query Definition Options
 
-The query builder provides a chainable API for configuring queries with full type inference.
-
-**Available Methods:**
+`query({ ... })` accepts query logic plus optional metadata used for validation, docs, caching, and routing.
 
 ```ts
-interface QueryProcedureBuilder<TContext, TAuth> {
-  // Description (OpenAPI documentation, supports Markdown)
-  describe(description: string): QueryProcedureBuilder;
-
-  // Input schema (Zod)
-  input<TSchema extends ZodTypeAny>(schema: TSchema): QueryProcedureBuilder;
-
-  // HTTP method (GET, POST, PUT, DELETE, etc.)
-  method(method: HttpMethod): QueryProcedureBuilder;
-
-  // Add single tag (for OpenAPI grouping)
-  tag(tag: string): QueryProcedureBuilder;
-
-  // Add multiple tags
-  tags(tags: string[]): QueryProcedureBuilder;
-
-  // Cache TTL in milliseconds (sets Cache-Control header)
-  cache(ttlMs: number | null): QueryProcedureBuilder;
-
-  // Authentication strategy (overrides global auth)
-  auth(strategy: AuthStrategy<TAuth>): QueryProcedureBuilder;
-
-  // Multi-tenancy configuration
-  tenant(config: Partial<TenantConfig<TAuth>>): QueryProcedureBuilder;
-  tenantOptional(config?: Partial<TenantConfig<TAuth>>): QueryProcedureBuilder;
-  require(): QueryProcedureBuilder;
-
-  // Custom metadata (for extensions)
-  custom(metadata: Record<string, unknown>): QueryProcedureBuilder;
-
-  // Add middleware (runs before query handler)
-  use(...middlewares: ServeMiddleware[]): QueryProcedureBuilder;
-
-  // Define query handler (terminal operation)
-  query<TExecutable extends ExecutableQuery>(
-    executable: TExecutable
-  ): ServeQueryConfig;
+interface QueryConfig<TInput, TOutput, TContext, TAuth> {
+  query: (args: QueryResolverArgs<TInput, TContext, TAuth>) => Promise<TOutput> | TOutput;
+  input?: ZodTypeAny;
+  output?: ZodTypeAny;
+  description?: string;
+  summary?: string;
+  tags?: string[];
+  method?: HttpMethod;
+  cache?: number | null;
+  auth?: AuthStrategy<TAuth>;
+  tenant?: Partial<TenantConfig<TAuth>>;
+  middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
+  metadata?: Record<string, unknown>;
 }
 ```
 
 **Example:**
 
 ```ts
-const { query } = initServe({
-  context: async () => ({ db: createDatabase() }),
-});
-
-const getAnalytics = query
-  .describe(`
-    Returns aggregated analytics for the specified metric and date range.
-    Supports revenue, user count, and session metrics.
-  `)
-  .input(z.object({
+const getAnalytics = query({
+  description: 'Returns aggregated analytics for the selected metric and date range.',
+  summary: 'Analytics totals by date range',
+  input: z.object({
     startDate: z.string(),
     endDate: z.string(),
     metric: z.enum(['revenue', 'users', 'sessions']),
-  }))
-  .tag('Analytics')
-  .cache(300000)  // Cache for 5 minutes
-  .query(async ({ ctx, input }) => {
+  }),
+  tags: ['Analytics'],
+  cache: 300000,
+  query: async ({ ctx, input }) => {
     const result = await ctx.db
       .table('analytics')
       .where('date', 'gte', input.startDate)
@@ -419,7 +434,8 @@ const getAnalytics = query
       .execute();
 
     return result[0];
-  });
+  },
+});
 ```
 
 ---
@@ -452,7 +468,7 @@ interface TenantConfig<TAuth> {
 **Example (Manual Mode):**
 
 ```ts
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   tenant: {
     extract: (auth) => auth?.tenantId ?? null,
     mode: 'manual',  // You manually filter by tenantId
@@ -464,24 +480,25 @@ const { define, queries, query } = initServe({
   }),
 });
 
-export const api = define({
-  queries: queries({
-    getUsers: query
-      .query(async ({ ctx }) => {
-        // Manually filter by tenant
-        return ctx.db
-          .table('users')
-          .where('tenant_id', 'eq', ctx.tenantId)
-          .execute();
-      }),
-  }),
+const getUsers = query({
+  query: async ({ ctx }) => {
+    // Manually filter by tenant
+    return ctx.db
+      .table('users')
+      .where('tenant_id', 'eq', ctx.tenantId)
+      .execute();
+  },
+});
+
+export const api = serve({
+  queries: { getUsers },
 });
 ```
 
 **Example (Auto-Inject Mode):**
 
 ```ts
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   tenant: {
     extract: (auth) => auth?.organizationId ?? null,
     mode: 'auto-inject',
@@ -492,35 +509,36 @@ const { define, queries, query } = initServe({
   }),
 });
 
-export const api = define({
-  queries: queries({
-    getUsers: query
-      .query(async ({ ctx }) => {
-        // Tenant filter is automatically injected
-        return ctx.db
-          .table('users')
-          .select(['id', 'name'])
-          .execute();
-        // Equivalent to: SELECT id, name FROM users WHERE organization_id = <tenant_id>
-      }),
-  }),
+const getUsers = query({
+  query: async ({ ctx }) => {
+    // Tenant filter is automatically injected
+    return ctx.db
+      .table('users')
+      .select(['id', 'name'])
+      .execute();
+    // Equivalent to: SELECT id, name FROM users WHERE organization_id = <tenant_id>
+  },
+});
+
+export const api = serve({
+  queries: { getUsers },
 });
 ```
 
 **Per-query override (optional tenant, no auto-inject):**
 
 ```ts
-export const api = define({
-  queries: queries({
-    adminStats: query
-      .tenantOptional({ mode: 'manual' })
-      .query(async ({ ctx }) => {
-        if (ctx.tenantId) {
-          return ctx.db.table('stats').where('tenant_id', 'eq', ctx.tenantId).execute();
-        }
-        return ctx.db.table('stats').execute();
-      }),
-  }),
+const adminStats = query
+  .tenantOptional({ mode: 'manual' })
+  .query(async ({ ctx }) => {
+    if (ctx.tenantId) {
+      return ctx.db.table('stats').where('tenant_id', 'eq', ctx.tenantId).execute();
+    }
+    return ctx.db.table('stats').execute();
+  });
+
+export const api = serve({
+  queries: { adminStats },
 });
 ```
 
@@ -662,18 +680,23 @@ const requireAdmin: ServeMiddleware<any, any, any, { role: string }> = async (ct
   return next();
 };
 
-// Apply globally
-const api = defineServe({
+const { query, serve } = initServe({
+  context: () => ({ db: createDatabase() }),
   middlewares: [logMiddleware],
-  queries: { /* ... */ },
 });
 
-// Apply per-query
-const deleteUser = t.procedure
-  .use(requireAdmin)
-  .query(async ({ input, ctx }) => {
+const deleteUser = query({
+  input: z.object({ id: z.string() }),
+  middlewares: [requireAdmin],
+  query: async ({ input, ctx }) => {
     // Only admins can reach here
-  });
+    return ctx.db.table('users').where('id', 'eq', input.id).execute();
+  },
+});
+
+const api = serve({
+  queries: { deleteUser },
+});
 ```
 
 ---
@@ -732,7 +755,7 @@ interface ServeLifecycleHooks<TAuth> {
 **Example:**
 
 ```ts
-const api = defineServe({
+const api = serve({
   hooks: {
     onRequestStart: async (event) => {
       await analytics.track({
@@ -778,7 +801,7 @@ interface OpenApiOptions {
 **Example:**
 
 ```ts
-const api = defineServe({
+const api = serve({
   openapi: {
     path: '/api-schema.json',
     info: {
@@ -812,7 +835,7 @@ interface DocsOptions {
 **Example:**
 
 ```ts
-const api = defineServe({
+const api = serve({
   docs: {
     path: '/api-docs',
     title: 'Analytics API Reference',
@@ -893,28 +916,29 @@ All functions are fully typed with automatic inference:
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   context: async ({ auth }) => ({
     db: createDatabase(),
     userId: auth?.userId,
   }),
 });
 
-export const api = define({
-  queries: queries({
-    getUser: query
-      .input(z.object({ id: z.string() }))
-      .query(async ({ ctx, input }) => {
-        // input: { id: string }
-        // ctx: { db: Database; userId: string | undefined }
-        return ctx.db
-          .table('users')
-          .where('id', 'eq', input.id)
-          .select(['name', 'email'])
-          .limit(1)
-          .execute();
-      }),
-  }),
+const getUser = query({
+  input: z.object({ id: z.string() }),
+  query: async ({ ctx, input }) => {
+    // input: { id: string }
+    // ctx: { db: Database; userId: string | undefined }
+    return ctx.db
+      .table('users')
+      .where('id', 'eq', input.id)
+      .select(['name', 'email'])
+      .limit(1)
+      .execute();
+  },
+});
+
+export const api = serve({
+  queries: { getUser },
 });
 
 // Execute with type safety (aliases: api.execute, api.client)

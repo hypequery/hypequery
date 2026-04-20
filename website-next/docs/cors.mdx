@@ -1,0 +1,57 @@
+---
+title: CORS
+description: Configure CORS for serve({ queries }) when browser clients need cross-origin access.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# CORS
+
+Use CORS when your frontend or external browser client calls a hypequery runtime from a different origin.
+
+## Enable CORS
+
+The simplest option is:
+
+<CodeBlock>
+```typescript
+const api = serve({
+  queries: { activeUsers },
+  cors: true,
+});
+```
+</CodeBlock>
+
+That enables standard cross-origin handling for the runtime.
+
+## Configure CORS explicitly
+
+Use a config object when you need to control origins, headers, or methods:
+
+<CodeBlock>
+```typescript
+const api = serve({
+  queries: { activeUsers },
+  cors: {
+    origin: ['https://app.example.com', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['content-type', 'authorization', 'x-api-key'],
+    exposedHeaders: ['x-request-id'],
+    credentials: true,
+    maxAge: 86400,
+  },
+});
+```
+</CodeBlock>
+
+## When to use it
+
+- use CORS when your browser app calls a separate hypequery server
+- you usually do not need it when hypequery is mounted inside the same app origin
+- React hooks calling a different origin will typically need it
+
+## See Also
+
+- [Authentication](/docs/authentication)
+- [Serve Runtime Reference](/docs/reference/runtime)
+- [React hooks](/docs/reference/react)

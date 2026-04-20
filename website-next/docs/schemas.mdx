@@ -1,6 +1,6 @@
 ---
 title: Schemas
-description: Validate requests and responses with Zod schemas for type-safe APIs
+description: Validate ClickHouse query inputs and outputs with Zod. Use schemas for type-safe TypeScript APIs, runtime validation, and OpenAPI generation.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
@@ -26,30 +26,36 @@ Define what data your endpoint accepts:
 <CodeBlock>
 <Pre>
 ```typescript
-import { defineServe } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 
-const api = defineServe({
-  queries: {
-    revenue: {
-      inputSchema: z.object({
-        startDate: z.string().datetime(),
-        endDate: z.string().datetime(),
-        currency: z.enum(['USD', 'EUR', 'GBP']).default('USD'),
-        includeRefunds: z.boolean().optional(),
-      }),
-      query: async ({ input }) => {
-        // input is fully typed based on inputSchema!
-        const { startDate, endDate, currency, includeRefunds } = input;
+const { query, serve } = initServe({
+  context: () => ({ db }),
+});
 
-        return db.table('transactions')
-          .where('date', '>=', startDate)
-          .where('date', '<=', endDate)
-          .where('currency', currency)
-          .sum('amount');
-      },
-    },
+const revenue = query({
+  input: z.object({
+    startDate: z.string().datetime(),
+    endDate: z.string().datetime(),
+    currency: z.enum(['USD', 'EUR', 'GBP']).default('USD'),
+    includeRefunds: z.boolean().optional(),
+  }),
+  query: async ({ ctx, input }) => {
+    // input is fully typed based on the input schema
+    const { startDate, endDate, currency } = input;
+
+    return ctx.db
+      .table('transactions')
+      .where('date', 'gte', startDate)
+      .where('date', 'lte', endDate)
+      .where('currency', 'eq', currency)
+      .sum('amount', 'total')
+      .execute();
   },
+});
+
+export const api = serve({
+  queries: { revenue },
 });
 ```
 </Pre>
@@ -83,47 +89,45 @@ Invalid requests return detailed error messages:
 
 Document what your endpoint returns:
 
-Output schemas are optional for in-process usage. If you omit them, TypeScript infers the return type directly from your resolver and `api.run()` remains fully typed. However, without an `outputSchema`, OpenAPI docs, `api.describe()`, and external agents won't see structured response metadata. Add one whenever the query is exposed outside your codebase.
+Output schemas are optional for in-process usage. If you omit them, TypeScript infers the return type directly from your resolver and `api.run()` remains fully typed. However, without an `output`, OpenAPI docs, `api.describe()`, and external agents won't see structured response metadata. Add one whenever the query is exposed outside your codebase.
 
 <CodeBlock>
 <Pre>
 ```typescript
-queries: {
-  revenue: {
-    inputSchema: z.object({
-      startDate: z.string(),
-      endDate: z.string(),
+const revenue = query({
+  input: z.object({
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  output: z.object({
+    total: z.number(),
+    currency: z.string(),
+    breakdown: z.array(z.object({
+      date: z.string(),
+      amount: z.number(),
+      transactionCount: z.number(),
+    })),
+    metadata: z.object({
+      generatedAt: z.string(),
+      queryDurationMs: z.number(),
     }),
-    outputSchema: z.object({
-      total: z.number(),
-      currency: z.string(),
-      breakdown: z.array(z.object({
-        date: z.string(),
-        amount: z.number(),
-        transactionCount: z.number(),
-      })),
-      metadata: z.object({
-        generatedAt: z.string(),
-        queryDurationMs: z.number(),
-      }),
-    }),
-    query: async ({ input }) => {
-      // Return value is type-checked against outputSchema
-      return {
-        total: 42000,
-        currency: 'USD',
-        breakdown: [
-          { date: '2025-01-01', amount: 10000, transactionCount: 50 },
-          { date: '2025-01-02', amount: 12000, transactionCount: 60 },
-        ],
-        metadata: {
-          generatedAt: new Date().toISOString(),
-          queryDurationMs: 123,
-        },
-      };
-    },
+  }),
+  query: async ({ input }) => {
+    // Return value is type-checked against the output schema
+    return {
+      total: 42000,
+      currency: 'USD',
+      breakdown: [
+        { date: '2025-01-01', amount: 10000, transactionCount: 50 },
+        { date: '2025-01-02', amount: 12000, transactionCount: 60 },
+      ],
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        queryDurationMs: 123,
+      },
+    };
   },
-}
+});
 ```
 </Pre>
 </CodeBlock>
@@ -144,10 +148,10 @@ const dateRangeSchema = z.object({
 );
 
 queries: {
-  metrics: {
-    inputSchema: dateRangeSchema,
+  metrics: query({
+    input: dateRangeSchema,
     query: async ({ input }) => { /* ... */ },
-  },
+  }),
 }
 ```
 </Pre>
@@ -177,8 +181,8 @@ const reportSchema = z.discriminatedUnion('type', [
 ]);
 
 queries: {
-  generateReport: {
-    inputSchema: reportSchema,
+  generateReport: query({
+    input: reportSchema,
     query: async ({ input }) => {
       switch (input.type) {
         case 'revenue':
@@ -189,7 +193,7 @@ queries: {
           return generatePerformanceReport(input.metric, input.percentile);
       }
     },
-  },
+  }),
 }
 ```
 </Pre>
@@ -237,20 +241,21 @@ const userSchema = z.object({
   name: z.string(),
 });
 
-const api = defineServe({
-  queries: {
-    revenue: {
-      inputSchema: dateRangeSchema.extend({
-        currency: currencySchema,
-      }),
-      query: async ({ input }) => { /* ... */ },
-    },
-    users: {
-      inputSchema: paginationInputSchema,
-      outputSchema: paginationOutputSchema(userSchema),
-      query: async ({ input }) => { /* ... */ },
-    },
-  },
+const revenue = query({
+  input: dateRangeSchema.extend({
+    currency: currencySchema,
+  }),
+  query: async ({ input }) => { /* ... */ },
+});
+
+const users = query({
+  input: paginationInputSchema,
+  output: paginationOutputSchema(userSchema),
+  query: async ({ input }) => { /* ... */ },
+});
+
+const api = serve({
+  queries: { revenue, users },
 });
 ```
 </Pre>
@@ -278,23 +283,21 @@ type User = z.infer<typeof userSchema>;
 //   age?: number | undefined;
 // }
 
-queries: {
-  createUser: {
-    inputSchema: userSchema,
-    outputSchema: userSchema.extend({
-      createdAt: z.string().datetime(),
-    }),
-    query: async ({ input }) => {
-      // input: User (fully typed!)
-      const user = await db.table('users').insert(input).returning('*');
+const createUser = query({
+  input: userSchema,
+  output: userSchema.extend({
+    createdAt: z.string().datetime(),
+  }),
+  query: async ({ input }) => {
+    // input: User (fully typed!)
+    const user = await db.table('users').insert(input).returning('*');
 
-      return {
-        ...user,
-        createdAt: new Date().toISOString(),
-      };
-    },
+    return {
+      ...user,
+      createdAt: new Date().toISOString(),
+    };
   },
-}
+});
 ```
 </Pre>
 </CodeBlock>
@@ -306,22 +309,20 @@ Schemas automatically generate OpenAPI documentation:
 <CodeBlock>
 <Pre>
 ```typescript
-queries: {
-  revenue: {
-    inputSchema: z.object({
-      startDate: z.string().datetime().describe('Start of date range (ISO 8601)'),
-      endDate: z.string().datetime().describe('End of date range (ISO 8601)'),
-      currency: z.enum(['USD', 'EUR']).default('USD').describe('Currency code'),
-    }),
-    outputSchema: z.object({
-      total: z.number().describe('Total revenue in specified currency'),
-      transactionCount: z.number().int().describe('Number of transactions'),
-    }),
-    summary: 'Get revenue for date range',
-    description: 'Returns total revenue and transaction count',
-    query: async ({ input }) => { /* ... */ },
-  },
-}
+const revenue = query({
+  input: z.object({
+    startDate: z.string().datetime().describe('Start of date range (ISO 8601)'),
+    endDate: z.string().datetime().describe('End of date range (ISO 8601)'),
+    currency: z.enum(['USD', 'EUR']).default('USD').describe('Currency code'),
+  }),
+  output: z.object({
+    total: z.number().describe('Total revenue in specified currency'),
+    transactionCount: z.number().int().describe('Number of transactions'),
+  }),
+  summary: 'Get revenue for date range',
+  description: 'Returns total revenue and transaction count',
+  query: async ({ input }) => { /* ... */ },
+});
 
 // Auto-generates OpenAPI spec with detailed parameter descriptions
 ```

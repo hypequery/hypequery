@@ -1,0 +1,128 @@
+---
+title: Query Caching
+description: Cache query-builder execute() results with tags, TTLs, and custom providers.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+# Query Caching
+
+Query caching belongs to the typed ClickHouse builder in `@hypequery/clickhouse`. It caches the result of `execute()` so repeated reads do not always hit ClickHouse.
+
+## Configure a cache provider
+
+Start by enabling caching on the `db` client:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { createQueryBuilder, MemoryCacheProvider } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  host: process.env.CLICKHOUSE_HOST!,
+  cache: {
+    mode: 'stale-while-revalidate',
+    ttlMs: 2_000,
+    staleTtlMs: 30_000,
+    staleIfError: true,
+    provider: new MemoryCacheProvider({ maxEntries: 1_000 }),
+  },
+});
+```
+</Pre>
+</CodeBlock>
+
+## Cache an individual query
+
+Use `.cache(...)` on the builder chain:
+
+<CodeBlock>
+<Pre>
+```typescript
+const rows = await db
+  .table('orders')
+  .sum('total', 'revenue')
+  .groupBy(['customer_id'])
+  .orderBy('revenue', 'DESC')
+  .limit(10)
+  .cache({ tags: ['orders'], ttlMs: 5_000 })
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+## Cache modes
+
+| Mode | Description |
+| --- | --- |
+| `cache-first` | Serve hot entries, otherwise fetch and store. |
+| `network-first` | Always hit ClickHouse; fall back to stale data when `staleIfError` is enabled. |
+| `stale-while-revalidate` | Serve stale-but-acceptable results immediately and refresh in the background. |
+| `no-store` | Skip caching entirely. |
+
+Common options:
+
+- `ttlMs`
+- `staleTtlMs`
+- `cacheTimeMs`
+- `dedupe`
+- `serialize` / `deserialize`
+- `tags`
+
+## Invalidate and inspect cache state
+
+<CodeBlock>
+<Pre>
+```typescript
+await db.cache.invalidateKey('hq:v1:analytics:orders:abc123');
+await db.cache.invalidateTags(['orders', 'dashboards']);
+await db.cache.clear();
+
+const stats = db.cache.getStats();
+console.log(stats.hitRate, stats.staleHits);
+```
+</Pre>
+</CodeBlock>
+
+## Bring your own provider
+
+Use a custom `CacheProvider` when you want Redis, Upstash, KV, or another shared store:
+
+<CodeBlock>
+<Pre>
+```typescript
+import type { CacheEntry, CacheProvider } from '@hypequery/clickhouse';
+import { Redis } from 'ioredis';
+
+class RedisCacheProvider implements CacheProvider<string> {
+  constructor(private readonly client = new Redis(process.env.REDIS_URL!)) {}
+
+  async get(key: string) {
+    const raw = await this.client.get(key);
+    return raw ? (JSON.parse(raw) as CacheEntry) : null;
+  }
+
+  async set(key: string, entry: CacheEntry) {
+    await this.client.set(key, JSON.stringify(entry), 'PX', entry.cacheTimeMs ?? entry.ttlMs);
+  }
+
+  async delete(key: string) {
+    await this.client.del(key);
+  }
+
+  async deleteByTag(namespace: string, tag: string) {
+    const tagKey = `hq:tag:${namespace}:${tag}`;
+    const keys = await this.client.smembers(tagKey);
+    if (keys.length) await this.client.del(...keys);
+    await this.client.del(tagKey);
+  }
+}
+```
+</Pre>
+</CodeBlock>
+
+## See Also
+
+- [Query Builder API](/docs/reference/query-builder)
+- [Observability](/docs/observability)

@@ -19,8 +19,8 @@ Use joins to:
 - Avoid N+1 query problems
 - Maintain type safety across tables
 
-<Callout type="info" title="Serve context">
-  We assume every snippet lives inside `query(({ ctx }) => …)` and aliases `const db = ctx.db;`. Replace `db` with `ctx.db` directly if you prefer inline usage.
+<Callout type="info" title="Query builder syntax">
+  These examples use a typed standalone `db` client so the query builder stays the focus.
 </Callout>
 
 ## Join Types
@@ -39,7 +39,7 @@ Returns only rows where both tables have matching values:
 <CodeBlock>
 <Pre>
 ```ts
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -63,7 +63,7 @@ const results = await ctx.db.table('orders')
 Returns all rows from the left table, and matched rows from the right table (NULL if no match):
 
 <CodeBlock>
-const results = await ctx.db.table('users')
+const results = await db.table('users')
   .leftJoin('orders', 'users.id', 'orders.user_id')
   .select([
     'users.id',
@@ -87,7 +87,7 @@ Returns all rows from the right table, and matched rows from the left table:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .rightJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -106,7 +106,7 @@ Returns all rows when there's a match in either table:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('employees')
+const results = await db.table('employees')
   .fullJoin('departments', 'employees.dept_id', 'departments.id')
   .select([
     'employees.name AS employee',
@@ -124,7 +124,7 @@ const results = await ctx.db.table('employees')
 <CodeBlock>
 
 ```typescript
-ctx.db.table('table_name')
+db.table('table_name')
   .joinType('other_table', 'left_column', 'right_table.right_column')
 ```
 
@@ -140,7 +140,7 @@ ctx.db.table('table_name')
 <CodeBlock>
 
 ```typescript
-await ctx.db.table('orders')
+await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id', 'u')
   .select([
     'orders.id',
@@ -163,7 +163,7 @@ await ctx.db.table('orders')
 
 ```typescript
 // ❌ Error - users table not joined yet
-await ctx.db.table('orders')
+await db.table('orders')
   .select(['orders.id', 'users.name']) // TypeScript error
   .leftJoin('users', 'orders.user_id', 'users.id')
   .execute();
@@ -177,7 +177,7 @@ await ctx.db.table('orders')
 
 ```typescript
 // ✅ Correct - join first, then select
-await ctx.db.table('orders')
+await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .select(['orders.id', 'users.name']) // TypeScript OK
   .execute();
@@ -190,7 +190,7 @@ await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -216,7 +216,7 @@ Chain multiple joins to combine data from several tables:
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .leftJoin('products', 'orders.product_id', 'products.id')
   .leftJoin('categories', 'products.category_id', 'categories.id')
@@ -238,7 +238,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .where('users.country', 'eq', 'US')
   .where('orders.total', 'gte', 100)
@@ -257,7 +257,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .leftJoin('users', 'orders.user_id', 'users.id')
   .whereGroup((builder) => {
     builder
@@ -282,7 +282,7 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .where('users.status', 'eq', 'active')
   .where('orders.created_at', 'gte', '2024-01-01')
@@ -302,7 +302,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const orders = await ctx.db.table('orders')
+const orders = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .select([
     'orders.id',
@@ -323,7 +323,7 @@ const orders = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const products = await ctx.db.table('products')
+const products = await db.table('products')
   .leftJoin('categories', 'products.category_id', 'categories.id')
   .select([
     'products.id',
@@ -342,7 +342,7 @@ const products = await ctx.db.table('products')
 <CodeBlock>
 
 ```typescript
-const events = await ctx.db.table('events')
+const events = await db.table('events')
   .innerJoin('sessions', 'events.session_id', 'sessions.id')
   .innerJoin('users', 'sessions.user_id', 'users.id')
   .select([
@@ -363,7 +363,7 @@ const events = await ctx.db.table('events')
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db.table('users')
+const results = await db.table('users')
   .leftJoin('orders', 'users.id', 'orders.user_id')
   .select([
     'users.id',
@@ -392,7 +392,7 @@ const results = await ctx.db.table('users')
 
 ```typescript
 // ✅ Better - filter first
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .where('orders.status', 'eq', 'completed')
   .where('orders.total', 'gte', 100)
   .innerJoin('users', 'orders.user_id', 'users.id')
@@ -400,7 +400,7 @@ const results = await ctx.db.table('orders')
   .execute();
 
 // ❌ Worse - join all then filter
-const results = await ctx.db.table('orders')
+const results = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .where('orders.status', 'eq', 'completed')
   .where('orders.total', 'gte', 100)
@@ -417,7 +417,7 @@ const results = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const orderDetails = await ctx.db.table('orders')
+const orderDetails = await db.table('orders')
   .innerJoin('users', 'orders.user_id', 'users.id')
   .innerJoin('products', 'orders.product_id', 'products.id')
   .select([
@@ -441,7 +441,7 @@ const orderDetails = await ctx.db.table('orders')
 <CodeBlock>
 
 ```typescript
-const analytics = await ctx.db.table('events')
+const analytics = await db.table('events')
   .leftJoin('users', 'events.user_id', 'users.id')
   .leftJoin('segments', 'users.segment_id', 'segments.id')
   .select([

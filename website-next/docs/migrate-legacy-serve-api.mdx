@@ -1,0 +1,302 @@
+---
+title: Migrate from Legacy Serve API
+description: Move from the older builder-first serve API to object-style query definitions with serve({ queries }).
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Migrate from Legacy Serve API
+
+If you are already using the older builder-first serve API, the new path is:
+
+1. keep your existing `db` client
+2. convert each endpoint into `query({ ... })`
+3. export `api` from `serve({ queries })`
+
+The query builder itself does not change. Most of the migration is moving metadata out of the chained builder style and into object-style query definitions.
+
+<Callout type="info">
+  This guide is for migrating from the older serve API shown in <a href="/docs/legacy-serve/query-definitions">Legacy Serve API</a> to the current default path used in <a href="/docs/quick-start">Quick Start</a>.
+</Callout>
+
+## What changes
+
+### Old style
+
+- `const { define, queries, query } = initServe(...)`
+- `export const api = define({ queries: queries({ ... }) })`
+- query metadata lives on chained builders like `.describe()`, `.input()`, `.output()`
+
+### New style
+
+- `const { query, serve } = initServe(...)`
+- define each query as `const myQuery = query({ ... })`
+- export `api` from `serve({ queries: { myQuery } })`
+- keep route registration with `api.route(...)`
+
+## What stays the same
+
+- your typed `db` client
+- the fluent ClickHouse query builder
+- `ctx.db`
+- `.execute()`
+- `api.run(...)`
+- `api.handler`
+- `api.route(...)`
+
+## Before and after
+
+### Legacy serve API
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { define, queries, query } = initServe({
+  context: () => ({ db }),
+  basePath: '/api/analytics',
+});
+
+export const api = define({
+  queries: queries({
+    activeUsers: query
+      .describe('Most recent active users')
+      .input(z.object({
+        limit: z.number().min(1).max(100).default(10),
+      }))
+      .output(z.array(z.object({
+        id: z.string(),
+        email: z.string(),
+        created_at: z.string(),
+      })))
+      .query(({ ctx, input }) =>
+        ctx.db
+          .table('users')
+          .select(['id', 'email', 'created_at'])
+          .where('status', 'eq', 'active')
+          .orderBy('created_at', 'DESC')
+          .limit(input.limit)
+          .execute()
+      ),
+  }),
+});
+
+api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
+```
+</CodeBlock>
+
+### New serve API
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+  basePath: '/api/analytics',
+});
+
+const activeUsers = query({
+  description: 'Most recent active users',
+  input: z.object({
+    limit: z.number().min(1).max(100).default(10),
+  }),
+  output: z.array(z.object({
+    id: z.string(),
+    email: z.string(),
+    created_at: z.string(),
+  })),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('users')
+      .select(['id', 'email', 'created_at'])
+      .where('status', 'eq', 'active')
+      .orderBy('created_at', 'DESC')
+      .limit(input.limit)
+      .execute(),
+});
+
+export const api = serve({
+  queries: { activeUsers },
+});
+
+api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
+```
+</CodeBlock>
+
+## Migration steps
+
+<Steps>
+<Step>
+
+### Keep your `initServe()` config
+
+In most cases your `context`, `basePath`, auth setup, and other top-level runtime config can stay where it is. The main change is the return value you use:
+
+<CodeBlock>
+```typescript
+// before
+const { define, queries, query } = initServe({ ... });
+
+// after
+const { query, serve } = initServe({ ... });
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Convert each query from chained metadata to object-style config
+
+Map the old chained methods to the new object keys:
+
+| Legacy | New |
+| --- | --- |
+| `.describe('...')` | `description: '...'` |
+| `.input(schema)` | `input: schema` |
+| `.output(schema)` | `output: schema` |
+| `.query(fn)` | `query: fn` |
+
+Example:
+
+<CodeBlock>
+```typescript
+// before
+revenue: query
+  .describe('Weekly revenue totals')
+  .input(z.object({ startDate: z.string() }))
+  .output(z.object({ total: z.number() }))
+  .query(({ ctx, input }) => {
+    // ...
+  })
+
+// after
+const revenue = query({
+  description: 'Weekly revenue totals',
+  input: z.object({ startDate: z.string() }),
+  output: z.object({ total: z.number() }),
+  query: ({ ctx, input }) => {
+    // ...
+  },
+});
+```
+</CodeBlock>
+
+</Step>
+
+<Step>
+
+### Replace `define({ queries: queries(...) })` with `serve({ queries })`
+
+Once your queries are constants, export the runtime layer like this:
+
+<CodeBlock>
+```typescript
+export const api = serve({
+  queries: { revenue, activeUsers, topAccounts },
+});
+```
+</CodeBlock>
+
+This becomes the exported API object used by:
+
+- `api.route(...)`
+- `api.run(...)`
+- `api.handler`
+- `api.start(...)`
+
+</Step>
+
+<Step>
+
+### Keep route registration and in-process execution
+
+These usually do not change:
+
+<CodeBlock>
+```typescript
+api.route('/revenue', api.queries.revenue, { method: 'POST' });
+
+const result = await api.run('revenue', {
+  input: { startDate: '2026-01-01' },
+});
+```
+</CodeBlock>
+
+</Step>
+</Steps>
+
+## Common migration patterns
+
+### Multiple queries
+
+<CodeBlock>
+```typescript
+const revenue = query({ ... });
+const activeUsers = query({ ... });
+const topAccounts = query({ ... });
+
+export const api = serve({
+  queries: { revenue, activeUsers, topAccounts },
+});
+```
+</CodeBlock>
+
+### Query-first local execution
+
+The new API makes local execution more explicit:
+
+<CodeBlock>
+```typescript
+const result = await activeUsers.execute({
+  input: { limit: 25 },
+});
+```
+</CodeBlock>
+
+You can still execute through the runtime:
+
+<CodeBlock>
+```typescript
+const result = await api.run('activeUsers', {
+  input: { limit: 25 },
+});
+```
+</CodeBlock>
+
+## When not to migrate yet
+
+If you rely heavily on older builder-first per-query features that are still documented in the legacy section, keep using the legacy API for now.
+
+Examples include:
+
+- older per-query auth patterns
+- older tenant override patterns
+- builder-style middleware chains tied to legacy docs
+
+<Callout type="warning">
+  If your current setup depends on those legacy patterns, migrate only after confirming the equivalent behavior in the current runtime path. The legacy docs remain available for that reason.
+</Callout>
+
+## Recommended order
+
+If your codebase is large, migrate in this order:
+
+1. convert one simple query
+2. export `api` from `serve({ queries })`
+3. verify `api.run(...)` still works
+4. verify HTTP routes still work
+5. migrate the remaining queries one by one
+
+## Next steps
+
+- Start with the [Quick Start](/docs/quick-start) if you want the new happy path
+- Read [Core Concepts](/docs/core-concepts) for the new execution model
+- Keep the [Legacy Serve API](/docs/legacy-serve/query-definitions) open while migrating if you need to compare syntax

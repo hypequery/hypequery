@@ -15,36 +15,37 @@ import { z } from 'zod';
 import { db } from './client';
 
 // 1. Initialize with context factory
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }), // Can be async, can access request context
 });
 
-// 2. Define queries with fluent builder
-export const api = define({
-  queries: queries({
-    weeklyRevenue: query
-      .describe('Weekly revenue totals')
-      .input(z.object({
-        startDate: z.string().datetime(),
-        endDate: z.string().datetime(),
-      }))
-      .output(z.array(z.object({
-        week: z.string(),
-        revenue: z.number(),
-      })))
-      .query(({ ctx, input }) =>
-        ctx.db                            // Use ctx.db (not db)
-          .table('orders')
-          .where('created_at', 'gte', input.startDate)
-          .where('created_at', 'lte', input.endDate)
-          .groupByTimeInterval('created_at', '1 week')
-          .sum('amount', 'revenue')
-          .execute()                      // REQUIRED - never omit
-      ),
+// 2. Define reusable queries with object-style config
+const weeklyRevenue = query({
+  description: 'Weekly revenue totals',
+  input: z.object({
+    startDate: z.string().datetime(),
+    endDate: z.string().datetime(),
   }),
+  output: z.array(z.object({
+    week: z.string(),
+    revenue: z.number(),
+  })),
+  query: ({ ctx, input }) =>
+    ctx.db                            // Use ctx.db (not db)
+      .table('orders')
+      .where('created_at', 'gte', input.startDate)
+      .where('created_at', 'lte', input.endDate)
+      .groupByTimeInterval('created_at', '1 week')
+      .sum('amount', 'revenue')
+      .execute(),                     // REQUIRED - never omit
 });
 
-// 3. Execute in-process
+// 3. Add the runtime when you want routes/docs/handlers
+export const api = serve({
+  queries: { weeklyRevenue },
+});
+
+// 4. Execute in-process
 const results = await api.run('weeklyRevenue', {
   input: {
     startDate: '2025-01-01',
@@ -52,7 +53,7 @@ const results = await api.run('weeklyRevenue', {
   },
 });
 
-// 4. Or expose via HTTP (optional)
+// 5. Or expose via HTTP (optional)
 api.route('/revenue', api.queries.weeklyRevenue, { method: 'POST' });
 ```
 
@@ -141,19 +142,11 @@ npx hypequery dev              # Start dev server with docs (http://localhost:40
 npx hypequery serve --port 4000 # Production server
 ```
 
-## Critical Differences: Serve vs Standalone
+## Recommended Progression
 
-**Serve framework:**
-- Use `ctx.db` inside query definitions (provided by context factory)
-- Return the promise (don't await inside query function)
-- Get validation, HTTP routes, OpenAPI, React hooks, reusability
-- Queries must be registered to HTTP routes: `api.route('/path', api.queries.name)`
-
-**Standalone:**
-- Use `db` directly (import from client file)
-- Await the promise directly
-- Just the query builder, no framework features
-- Good for existing API routes, scripts, one-off queries
+- Start with `db` when the query is local
+- Use `query({ ... })` when the query becomes reusable
+- Add `serve({ queries })` when you need HTTP routes, OpenAPI, React hooks, or framework handlers
 
 **Both use `.execute()` - this is REQUIRED, never omit it**
 

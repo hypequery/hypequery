@@ -254,7 +254,7 @@ npx @hypequery/cli dev src/analytics/queries.js
 
 If the CLI reports that your file doesn't export an API properly:
 
-1. Ensure your queries file exports an `api` variable from `initServe` or `defineServe`
+1. Ensure your queries file exports an `api` variable created from `serve({ queries })`
 2. Check the error message for the list of exports found
 3. See the expected format in the error message
 
@@ -263,16 +263,18 @@ Example of correct format:
 ```typescript
 import { initServe } from '@hypequery/serve';
 
-const { define, queries, query } = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }),
 });
 
-export const api = define({
-  queries: queries({
-    myQuery: query.query(async ({ ctx }) => {
+const myQuery = query({
+  query: async ({ ctx }) => {
       // ...
-    }),
-  }),
+    },
+});
+
+export const api = serve({
+  queries: { myQuery },
 });
 ```
 </CodeBlock>

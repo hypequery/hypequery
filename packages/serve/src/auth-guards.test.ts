@@ -312,6 +312,71 @@ describe("Auth Guards", () => {
     });
   });
 
+  describe("object-style query auth metadata", () => {
+    it("enforces object-style auth requirements", async () => {
+      const { define, query } = initServe({
+        context: () => ({}),
+        security: { verboseAuthErrors: true },
+      });
+
+      const api = define({
+        queries: {
+          adminMetrics: query({
+            requiresAuth: true,
+            requiredRoles: ["admin"],
+            requiredScopes: ["read:metrics"],
+            query: async () => ({ data: [] }),
+          }),
+        },
+      });
+
+      api.route("/admin-metrics", api.queries.adminMetrics);
+
+      const unauthenticated = await api.handler(createRequest({ path: "/admin-metrics" }));
+      expect(unauthenticated.status).toBe(401);
+
+      api.useAuth(alwaysAuth({ userId: "u1", roles: ["admin"], scopes: [] }));
+      const unauthorized = await api.handler(createRequest({ path: "/admin-metrics" }));
+      expect(unauthorized.status).toBe(403);
+      expect(unauthorized.body).toMatchObject({
+        error: {
+          type: "FORBIDDEN",
+          details: {
+            reason: "missing_scope",
+            required: ["read:metrics"],
+            actual: [],
+          },
+        },
+      });
+    });
+
+    it("marks object-style public queries as not requiring auth", async () => {
+      const { define, query } = initServe({
+        context: () => ({}),
+      });
+
+      const api = define({
+        queries: {
+          health: query({
+            requiresAuth: false,
+            query: async () => ({ ok: true }),
+          }),
+        },
+      });
+
+      api.route("/health", api.queries.health);
+      api.useAuth(async () => null);
+
+      const response = await api.handler(createRequest({ path: "/health" }));
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ ok: true });
+
+      const description = api.describe();
+      const endpoint = description.queries.find((q) => q.key === "health");
+      expect(endpoint?.requiresAuth).toBe(false);
+    });
+  });
+
   describe("combined role + scope guards", () => {
     it("enforces both role and scope requirements", async () => {
       const { define, query } = initServe({
@@ -542,6 +607,31 @@ describe("Auth Guards", () => {
             .requireRole("admin", "super-admin")
             .requireScope("read:metrics")
             .query(async () => ({ data: [] })),
+        },
+      });
+
+      api.route("/admin-metrics", api.queries.adminMetrics);
+
+      const description = api.describe();
+      const endpoint = description.queries.find((q) => q.key === "adminMetrics");
+      expect(endpoint?.requiresAuth).toBe(true);
+      expect(endpoint?.requiredRoles).toEqual(["admin", "super-admin"]);
+      expect(endpoint?.requiredScopes).toEqual(["read:metrics"]);
+    });
+
+    it("includes object-style auth metadata in endpoint descriptions", async () => {
+      const { define, query } = initServe({
+        context: () => ({}),
+      });
+
+      const api = define({
+        queries: {
+          adminMetrics: query({
+            requiresAuth: true,
+            requiredRoles: ["admin", "super-admin"],
+            requiredScopes: ["read:metrics"],
+            query: async () => ({ data: [] }),
+          }),
         },
       });
 

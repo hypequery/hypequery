@@ -3,11 +3,16 @@ title: Getting Started
 description: Install and set up @hypequery/react for type-safe hooks
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 
 # React Hooks - Getting Started
 
-Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your existing `defineServe` API types and wire them into your React app without duplicating schemas.
+<Callout type="info">
+  We've simplified the serve API in v0.2. If you're looking for the older builder-first API, see <a href="/docs/migrate-legacy-serve-api">Migrate from Legacy Serve API</a> and <a href="/docs/legacy-serve/query-definitions">Legacy Serve API</a>.
+</Callout>
+
+Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your exported `serve({ queries })` API type into your React app without duplicating schemas.
 
 ## Installation
 

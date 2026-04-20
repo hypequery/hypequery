@@ -10,8 +10,8 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 hypequery provides support for Common Table Expressions (CTEs) and raw SQL capabilities that allow you to create complex queries with subqueries.
 
-<Callout type="info" title="Serve context">
-  These examples live inside `query(({ ctx }) => …)` resolvers. Alias `const db = ctx.db;` to keep the snippets concise.
+<Callout type="info" title="Query builder syntax">
+  These examples use a typed standalone `db` client so the query builder stays the focus.
 </Callout>
 
 ## Common Table Expressions (CTEs)
@@ -25,12 +25,12 @@ You can use another QueryBuilder instance as a CTE:
 <CodeBlock>
 
 ```typescript
-const activeUsersSubquery = ctx.db
+const activeUsersSubquery = db
   .table('users')
   .select(['id', 'user_name', 'email'])
   .where('status', 'eq', 'active');
 
-const results = await ctx.db
+const results = await db
   .table('orders')
   .withCTE('active_users', activeUsersSubquery)
   .select([
@@ -65,7 +65,7 @@ For more complex subqueries, you can use raw SQL strings:
 <CodeBlock>
 
 ```typescript
-const results = await builder
+const results = await db
   .table('orders')
   .withCTE(
     'monthly_totals',
@@ -91,7 +91,7 @@ You can chain multiple CTEs for complex analytics:
 <CodeBlock>
 
 ```typescript
-const results = await builder
+const results = await db
   .table('events')
   .withCTE(
     'daily_users',
@@ -116,7 +116,7 @@ ClickHouse also supports scalar expressions in the `WITH` clause. Use `withScala
 <CodeBlock>
 
 ```typescript
-const results = await ctx.db
+const results = await db
   .table('orders')
   .withScalar('user_name', expr =>
     expr.ch.dictGet('users_dict', 'name', expr.col('user_id'))
@@ -154,7 +154,7 @@ The `raw()` method allows you to add custom conditions to the HAVING clause:
 <CodeBlock>
 
 ```typescript
-const results = await builder
+const results = await db
   .table('orders')
   .select(['user_id'])
   .sum('total', 'total_spent')
@@ -195,7 +195,7 @@ Use a CTE approach:
 
 ```typescript
 // Create a CTE for active categories
-const results = await builder
+const results = await db
   .table('products')
   .withCTE(
     'active_categories',

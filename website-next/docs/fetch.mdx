@@ -1,153 +1,43 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: Fetch Runtime Integration
-description: Mount hypequery inside Hono, Cloudflare Workers, Bun, or any Fetch-based runtime using the fetch adapter
+description: Mount hypequery inside Hono, Cloudflare Workers, Bun, or any Fetch-based runtime using the fetch adapter.
 ---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # Fetch Runtime Integration
 
-Use this recipe when you want to host hypequery routes inside any platform that exposes a Fetch-style handler: Hono, Cloudflare Workers, Deno, Bun, Remix, etc. The flow is always the same—define your analytics catalog once, wrap `api.handler` with the fetch adapter, and mount it under the route prefix you control.
+This guide assumes you already have:
 
-## Prerequisites
+- a typed `db` client
+- an `analytics/queries.ts` file exporting `api`
+- at least one routed query
 
-- A Fetch-compatible runtime (examples below use Hono + `@hono/node-server`)
-- `@hypequery/clickhouse`, `@hypequery/serve`, `zod`
-- ClickHouse credentials exposed via `CLICKHOUSE_*` env vars
+If not, start with [Manual Installation](/docs/manual-installation) or [Quick Start](/docs/quick-start).
 
-## 1. Set up your Fetch runtime
+<Callout type="info">
+  We've simplified the serve API in v0.2. If you're looking for the older builder-first API, see <a href="/docs/migrate-legacy-serve-api">Migrate from Legacy Serve API</a> and <a href="/docs/legacy-serve/query-definitions">Legacy Serve API</a>.
+</Callout>
 
-Install and scaffold Hono (or skip if you already have an app):
+Use this pattern in Hono, Cloudflare Workers, Deno, Bun, Remix, and similar runtimes:
 
-```bash
-pnpm add hono @hono/node-server
-```
+<CodeBlock>
+```typescript
+import { Hono } from 'hono';
+import { api } from './analytics/queries.js';
+import { createFetchHandler } from '@hypequery/serve';
 
-```ts
-// app.ts
-import { Hono } from "hono";
-
-export const app = new Hono();
-
-app.get("/", (c) => {
-  return c.json({
-    status: "ok",
-    runtime: "node",
-  });
-});
-
-app.get("/hello/:name", async (c) => {
-  const name = c.req.param("name");
-  return c.text(`Hello ${name}!`);
-});
-```
-
-```ts
-// index.ts
-import "dotenv/config";
-import { serve } from "@hono/node-server";
-import { app } from "./app.js";
-
-const port = process.env.PORT
-  ? Number(process.env.PORT)
-  : 3000;
-
-serve({
-  fetch: app.fetch,
-  port,
-});
-
-console.log(`🚀 Hono running on http://localhost:${port}`);
-```
-
-## 2. Define queries and routes
-
-Follow the typical hypequery setup either manually or via `hypequery init`. Create `analytics/queries.ts`. Set `basePath: ''` if you want to mount each route manually, or keep `/api/analytics` if you prefer a shared prefix.
-
-```ts
-import { initServe } from '@hypequery/serve';
-import { db } from './client';
-
-const { define, queries, query } = initServe({
-  basePath: '',
-  context: () => ({ db }),
-});
-
-export const api = define({
-  queries: queries({
-    tripsQuery: query
-      .describe('Example query using the trips table')
-      .query(async ({ ctx }) =>
-        ctx.db
-          .table('trips')
-          .select('*')
-          .limit(1)
-          .execute()
-      ),
-  }),
-});
-
-api.route('/tripsQuery', api.queries.tripsQuery);
-```
-
-> Want `/api/hypequery/tripsQuery` instead? Set `basePath: '/api/hypequery'` in `initServe`. Every `api.route()` inherits that prefix, so your fetch handler can mount once at `/api/hypequery/*`.
-
-## 3. Mount the fetch adapter
-
-```ts
-// app.ts
-import { Hono } from "hono";
-import { api } from "./analytics/queries.js";
-import { createFetchHandler } from "@hypequery/serve";
-
+const app = new Hono();
 const hypequery = createFetchHandler(api.handler);
-export const app = new Hono();
 
-app.get("/", (c) => {
-  return c.json({
-    status: "ok",
-    runtime: "node",
-  });
-});
-
-app.get("/trips", async (c) => {
-  // call in process if you like
-  const result = await api.run('tripsQuery');
-  return c.json(result)
-})
-
-// Wire /tripsQuery into Hono’s router
-app.all('/tripsQuery', (c) => hypequery(c.req.raw));
-
-app.get("/hello/:name", async (c) => {
-  const name = c.req.param("name");
-  return c.text(`Hello ${name}!`);
-});
+app.all('/api/analytics/*', (c) => hypequery(c.req.raw));
 ```
-
-> On Cloudflare Workers/Deno/Bun just export the handler: `export default createFetchHandler(api.handler);`
-
-## 4. Start the runtime
-
-Visit `http://localhost:3000/tripsQuery` to hit the hypequery route. Because `basePath` is empty, there’s no URL rewriting required.
-
-## 5. Optional: keep `api.run()`
-
-Even with HTTP routes mounted, you can still execute queries in-process:
-
-```ts
-import { api } from './analytics/queries';
-
-await api.run('tripsQuery', {
-  request: { headers: { 'x-refresh': 'true' } },
-});
-```
-
-Use this inside cron jobs, workers, or React Server Components where HTTP isn’t needed.
+</CodeBlock>
 
 ## Notes
 
-- **Other runtimes:** Remix loaders, Bun, Workers all accept the same fetch handler. Mount it under your desired prefix or export it directly.
-- **React hooks:** Since `analytics/queries.ts` exports `ApiDefinition`, you can generate hooks anywhere: `createHooks<ApiDefinition>({ baseUrl: '/tripsQuery' })`.
-- **Multiple prefixes:** If you keep `basePath: '/api/hypequery'`, mount once at `app.all('/api/hypequery/*', c => hypequery(c.req.raw))` and the shared prefix takes care of routing.
-
-That’s all! Your hypequery definitions now run inside any Fetch runtime alongside your existing routes.
+- Keep the mounted prefix aligned with the `basePath` used in `initServe()`.
+- Use `api.run(...)` when you want in-process execution instead of HTTP.
+- Export the handler directly in runtimes that do not need an extra router layer.

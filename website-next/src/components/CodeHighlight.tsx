@@ -27,7 +27,7 @@ export default function CodeHighlight({ code, language = 'ts' }: CodeHighlightPr
 
   return (
     <div
-      className="not-prose py-4 overflow-x-auto rounded-lg border border-gray-800 text-sm [&_pre]:m-0 [&_pre]:bg-transparent"
+      className="not-prose py-4 overflow-x-auto rounded-lg text-sm [&_pre]:m-0 [&_pre]:bg-transparent"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

@@ -1,0 +1,88 @@
+---
+title: Runtime Features
+description: Middleware, auth injection, and runtime inspection for serve({ queries }).
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Runtime Features
+
+Beyond routing, `serve({ queries })` gives you a runtime surface you can extend and inspect.
+
+## `api.use(middleware)`
+
+Use middleware to run shared logic around every request:
+
+<CodeBlock>
+```typescript
+const timingMiddleware = async (ctx, next) => {
+  const start = Date.now();
+  const result = await next();
+  console.log('durationMs', Date.now() - start);
+  return result;
+};
+
+api.use(timingMiddleware);
+```
+</CodeBlock>
+
+Use middleware for:
+
+- rate limiting
+- logging
+- extra validation
+- request shaping
+
+## `api.useAuth(strategy)`
+
+Add an auth strategy to the runtime after creation:
+
+<CodeBlock>
+```typescript
+api.useAuth(async ({ request }) => {
+  const token = request.headers.authorization;
+  if (!token) return null;
+  return verifyToken(token);
+});
+```
+</CodeBlock>
+
+This is useful when the runtime is created before auth wiring is available.
+
+## `api.describe()`
+
+Use `api.describe()` to inspect the runtime shape programmatically:
+
+<CodeBlock>
+```typescript
+const description = api.describe();
+console.log(description.queries);
+```
+</CodeBlock>
+
+This is useful for:
+
+- internal tooling
+- AI and agent surfaces
+- generated clients
+- runtime introspection in tests
+
+## Observability belongs one layer over
+
+Hooks, query logging, and slow query detection are part of the same runtime surface, but they are covered in [Observability](/docs/observability) to keep this page focused on extension points.
+
+Use that page for:
+
+- `hooks.onRequestStart`
+- `hooks.onRequestEnd`
+- `hooks.onAuthFailure`
+- `hooks.onAuthorizationFailure`
+- `hooks.onError`
+- `queryLogging`
+- `slowQueryThreshold`
+
+## See Also
+
+- [Observability](/docs/observability)
+- [Rate Limiting](/docs/rate-limiting)
+- [Serve Runtime Reference](/docs/reference/runtime)

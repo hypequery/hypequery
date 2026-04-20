@@ -4,7 +4,14 @@ Command-line interface for Hypequery - the type-safe analytics layer for ClickHo
 
 ## Quick Start
 
-**No installation required!** Use `npx` to run commands directly:
+The CLI scaffolds and runs the main hypequery path:
+
+1. Generate schema types from ClickHouse
+2. Build queries with the typed query builder
+3. Wrap reusable queries with `query({ ... })`
+4. Add `serve({ queries })` when you want HTTP routes and docs
+
+Use `npx` to run commands directly:
 
 ```bash
 # Initialize a new project
@@ -68,7 +75,7 @@ npx hypequery init
 **What it does:**
 - Connects to your ClickHouse database
 - Generates TypeScript types from your schema
-- Creates client, queries, and config files
+- Creates the client, query, and serve files for the main path
 - Sets up `.env` with connection details
 - Updates `.gitignore` to protect secrets
 
@@ -192,7 +199,12 @@ npm run db:dev
 
 ## Documentation
 
-Visit [hypequery.com/docs](https://hypequery.com/docs) for full documentation.
+Visit the main docs flow:
+
+- [Quick Start](https://hypequery.com/docs/quick-start)
+- [Core Concepts](https://hypequery.com/docs/core-concepts)
+- [Query Building](https://hypequery.com/docs/query-building/basics)
+- [Serve Runtime Reference](https://hypequery.com/docs/reference/runtime)
 
 ## License
 

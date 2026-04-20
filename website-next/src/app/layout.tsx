@@ -4,6 +4,7 @@ import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
+import { absoluteUrl, siteUrl } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,8 +22,27 @@ const displayFont = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "hypequery | Type-Safe Analytics Backend for ClickHouse",
+  metadataBase: siteUrl,
+  title: {
+    default: "hypequery | Type-Safe Analytics Backend for ClickHouse",
+    template: "%s | hypequery",
+  },
   description: "Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.",
+  alternates: {
+    canonical: absoluteUrl('/'),
+  },
+  openGraph: {
+    type: 'website',
+    url: absoluteUrl('/'),
+    title: 'hypequery | Type-Safe Analytics Backend for ClickHouse',
+    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+    siteName: 'hypequery',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'hypequery | Type-Safe Analytics Backend for ClickHouse',
+    description: 'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+  },
   manifest: "/site.webmanifest",
   icons: {
     icon: [

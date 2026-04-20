@@ -10,7 +10,7 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # React hooks
 
-Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your existing `defineServe` API types and wire them into your React app without duplicating schemas.
+Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your exported `serve({ queries })` API type into your React app without duplicating schemas.
 
 ## Installation
 
@@ -98,7 +98,7 @@ const { data, error, isLoading } = useQuery('weeklyRevenue', {
 </CodeBlock>
 
 - `name` is one of your API keys
-- `input` matches the endpoint’s `inputSchema`
+- `input` matches the endpoint’s `input`
 - Options mirror TanStack Query (`staleTime`, `enabled`, etc.)
 
 ## `useMutation`

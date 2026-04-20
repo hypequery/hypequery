@@ -1,6 +1,6 @@
 ---
 title: Query Basics
-description: hypequery's query builder provides a fluent, type-safe API for building ClickHouse queries. Whether you're using the serve framework or the standalone client, the query builder API remains consistent.
+description: Learn the hypequery ClickHouse query builder for TypeScript. Build type-safe queries with autocomplete, reusable filters, joins, and strongly typed results.
 
 ---
 
@@ -13,41 +13,28 @@ The query builder is designed to be:
 - **Type-safe** - TypeScript ensures columns and types are correct
 - **Fluent** - Chain methods naturally to build complex queries
 - **Database-agnostic API** - Works with ClickHouse using familiar patterns
-- **Consistent** - The same API whether you're in serve or standalone mode
+- **Consistent** - The same chain continues to work inside `query({ ... })`
 
-## Working Inside Serve Queries
+## Start with `db`
 
-The core API is identical everywhere, but these docs focus on the serve framework. Every snippet lives inside a `query(({ ctx }) => …)` resolver and uses `ctx.db`:
+The core builder API starts with a typed `db` client. These docs show the raw builder chain first because it is the clearest way to learn:
 
 <CodeBlock>
 ```typescript
-import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
 
-const { define, queries, query } = initServe({
-  context: ({ headers }) => ({
-    db,
-    tenantId: headers.get('x-tenant-id'),
-  }),
-});
+const db = createQueryBuilder<Schema>({ client });
 
-export const api = define({
-  queries: queries({
-    getActiveUsers: query
-      .input(z.object({ status: z.string() }))
-      .query(async ({ ctx, input }) => {
-        return ctx.db
-          .table('users')
-          .where('status', 'eq', input.status)
-          .select(['id', 'name', 'email'])
-          .execute();
-      }),
-  }),
-});
+const activeUsers = await db
+  .table('users')
+  .where('status', 'eq', 'active')
+  .select(['id', 'name', 'email'])
+  .execute();
 ```
 </CodeBlock>
 
-> Want to use the query builder without the serve framework? The [Standalone Query Builder docs](/docs/standalone-query-builder/when-to-use) show the same operators with direct `db` access.
+When you move into query definitions, the builder chain stays the same. The Query Building section keeps examples in terms of a standalone typed `db` client so the builder API is easier to learn in isolation.
 
 ## Query Builder Pattern
 
@@ -55,7 +42,7 @@ All queries follow this pattern:
 
 <CodeBlock>
 ```typescript
-return ctx.db
+return db
   .table('table_name')
   .where('column', 'operator', 'value')
   .select(['col1', 'col2'])
@@ -82,13 +69,9 @@ The query builder is organized into logical concepts. Each concept has detailed 
 | **Joins** | Combine data from multiple tables | [Joins →](/docs/query-building/joins) |
 | **Aggregation** | Group data and calculate summaries (sum, count, avg) | [Aggregation →](/docs/query-building/aggregation) |
 | **Ordering** | Sort results and paginate with limit/offset | [Ordering →](/docs/query-building/ordering) |
-
-### Advanced Operations
-
-| Concept | Description | Link |
-| --- | --- | --- |
+| **Subqueries & CTEs** | Compose subqueries, reusable CTEs, and more complex builder flows | [Subqueries & CTEs →](/docs/query-building/subqueries-ctes) |
+| **SQL Expressions** | Drop to raw SQL fragments and expression helpers when the fluent API is not enough | [SQL Expressions →](/docs/query-building/sql-expressions) |
 | **Time Functions** | Work with dates, timestamps, and time intervals | [Time Functions →](/docs/query-building/time-functions) |
-| **Advanced** | CTEs, raw SQL, query settings, and utilities | [Advanced →](/docs/query-building/advanced) |
 
 ## Type Safety
 
@@ -97,20 +80,20 @@ hypequery ensures type safety throughout the query building process:
 <CodeBlock>
 ```typescript
 // TypeScript knows the exact columns in your schema
-ctx.db
+db
   .table('users')
   .select(['id', 'name', 'email'])
   .execute();
 // Returns: Promise<Array<{ id: number; name: string; email: string }>>
 
 // Invalid columns are caught at compile time
-ctx.db
+db
   .table('users')
   .select(['id', 'invalid_column']) // ❌ TypeScript error
   .execute();
 
 // Operators match column types
-ctx.db
+db
   .table('users')
   .where('created_at', 'eq', '2024-01-01') // ✅ Valid
   .where('age', 'gte', 18) // ✅ Valid
@@ -126,7 +109,7 @@ Run the query and get all results:
 
 <CodeBlock>
 ```typescript
-const users = await ctx.db
+const users = await db
   .table('users')
   .where('status', 'eq', 'active')
   .select(['id', 'name'])
@@ -140,7 +123,7 @@ Stream results for large datasets:
 
 <CodeBlock>
 ```typescript
-const stream = await ctx.db
+const stream = await db
   .table('events')
   .select(['id', 'data'])
   .stream();
@@ -161,7 +144,7 @@ Process rows with a callback:
 <CodeBlock>
 
 ```typescript
-await ctx.db
+await db
   .table('events')
   .select(['id', 'data'])
   .streamForEach(async (row) => {

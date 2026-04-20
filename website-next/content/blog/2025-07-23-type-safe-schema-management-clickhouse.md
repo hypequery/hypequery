@@ -1,6 +1,8 @@
 ---
 title: "Type-Safe Schema Management & Evolution in ClickHouse: Keeping Analytics in Sync"
 description: "Learn how to solve schema evolution challenges in ClickHouse with automated type generation, compile-time safety, and best practices for keeping your analytics applications resilient as your data grows."
+seoTitle: "ClickHouse TypeScript Schema Types: Prevent Schema Drift in Analytics Apps"
+seoDescription: "Generate ClickHouse schema types for TypeScript, prevent schema drift, and keep analytics queries in sync as your data model evolves."
 pubDate: 2025-07-23
 heroImage: ""
 ---
@@ -8,6 +10,8 @@ heroImage: ""
 Modern analytics applications rely on ClickHouse for its speed and scalability, but as team structures and business needs evolve, so too must your schema. Uncontrolled schema changes known as schema drift - can silently break applications or degrade performance, especially when teams manage both application and analytics codebases in strongly typed languages like TypeScript.
 
 In this comprehensive guide, we'll look at tools such as [hypequery](https://hypequery.com) and explore best practices to solve the schema evolution challenge by providing automated type generation, compile-time safety, and streamlined workflows that keep your analytics applications resilient as your data grows.
+
+If you are specifically trying to solve schema drift in a TypeScript application, the [ClickHouse TypeScript](/clickhouse-typescript) pillar is the best overview page to pair with this article.
 
 ## The Schema Evolution Challenge
 
@@ -89,6 +93,8 @@ Use LowCardinality(String) for enumerations, Decimal for currency, and DateTime6
 
 For strongly-typed application layers (TypeScript, Go, Java, etc.), automated type generation tools ensure that application code and database schema remain in lockstep.
 
+This is one reason modern teams move toward a reusable analytics layer instead of loose query strings. For that broader architectural frame, see [ClickHouse analytics](/clickhouse-analytics).
+
 hypequery is a notable tool for TypeScript and ClickHouse users: it introspects your live database schema and emits up-to-date, type-safe interfaces that application code can trust at compile time.
 
 When schema changes are applied (via any migration tool), hypequery regenerates TypeScript types based on your current ClickHouse schema.
@@ -143,4 +149,4 @@ Discipline in schema management is foundational for rapidly scaling, reliable an
 
 Whether you favour change-based scripts, state-driven declarative management, or full-featured platforms, the key is to match your workflow to team needs — and standardise it. Treating schema as code, embedding drift detection in your pipelines, and leveraging ClickHouse's system observability will future-proof your analytics infrastructure as business and data evolve.
 
-Want to learn more about building production-ready ClickHouse applications with [hypequery](https://hypequery.com)? [Check out our guide on getting started with ClickHouse and TypeScript](https://dev.to/lureilly1/getting-started-with-clickhouse-in-typescript-using-hypequery-15k4). 
+Want to learn more about building production-ready ClickHouse applications with [hypequery](https://hypequery.com)? Continue with [ClickHouse TypeScript](/clickhouse-typescript) for the schema-driven TypeScript workflow, or [ClickHouse analytics](/clickhouse-analytics) for the wider application architecture. 

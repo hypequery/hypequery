@@ -14,35 +14,37 @@ import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client';
 
-const serve = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }),
 });
-const { query } = serve;
 
-export const api = serve.define({
-  queries: serve.queries({`;
+`;
 
   if (hasExample && tableName) {
     template += `
-    ${camelCase(tableName)}Query: query
-      .describe('Example query using the ${tableName} table')
-      .query(async ({ ctx }) =>
-        ctx.db
-          .table('${tableName}')
-          .select('*')
-          .limit(10)
-          .execute()
-      ),`;
+const ${camelCase(tableName)}Query = query({
+  description: 'Example query using the ${tableName} table',
+  query: async ({ ctx }) =>
+    ctx.db
+      .table('${tableName}')
+      .select('*')
+      .limit(10)
+      .execute(),
+});`;
   } else {
     template += `
-    exampleMetric: query
-      .describe('Example metric that returns a simple value')
-      .output(z.object({ ok: z.boolean() }))
-      .query(async () => ({ ok: true })),`;
+const exampleMetric = query({
+  description: 'Example metric that returns a simple value',
+  output: z.object({ ok: z.boolean() }),
+  query: async () => ({ ok: true }),
+});`;
   }
 
   template += `
-  }),
+export const api = serve({
+  queries: {
+    ${metricKey},
+  },
 });
 
 export type ApiDefinition = InferApiType<typeof api>;
@@ -60,7 +62,7 @@ export type ApiDefinition = InferApiType<typeof api>;
  * api.route('/metrics/${metricKey}', api.queries.${metricKey});
  *
  * Dev server:
- * npx hypequery dev
+ * npx hypequery dev analytics/queries.ts
  */
 `;
 

@@ -3,24 +3,24 @@ import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './analytics/client';
 
-const { define, query } = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }),
 });
 
-export const api = define({
-  queries: {
-    weeklyRevenue: query
-      .describe('Weekly revenue totals')
-      .input(z.object({ startDate: z.string() }))
-      .query(({ ctx, input }) =>
-        ctx.db
-          .table('orders')
-          .where('created_at', 'gte', input.startDate)
-          .groupBy(['week'])
-          .sum('total', 'revenue')
-          .execute()
-      ),
-  },
+const weeklyRevenue = query({
+  description: 'Weekly revenue totals',
+  input: z.object({ startDate: z.string() }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('orders')
+      .where('created_at', 'gte', input.startDate)
+      .groupBy(['week'])
+      .sum('total', 'revenue')
+      .execute(),
+});
+
+export const api = serve({
+  queries: { weeklyRevenue },
 });
 `;
 
@@ -83,14 +83,19 @@ export async function sendRenewalDigest() {
     code: `
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
-import { verifySession } from '../lib/auth';
+import { createBearerTokenStrategy } from '@hypequery/serve';
 import { db } from './client';
 
-const { define, query } = initServe({
+const auth = createBearerTokenStrategy({
+  validate: async (token) => verifySession(token),
+});
+
+const { query, serve } = initServe({
   basePath: '/analytics',
-  context: ({ request }) => ({
+  auth,
+  context: ({ auth }) => ({
     db,
-    auth: verifySession(request),
+    userId: auth?.userId,
   }),
   tenant: {
     column: 'account_id',
@@ -99,23 +104,22 @@ const { define, query } = initServe({
   },
 });
 
-export const api = define({
-  queries: {
-    revenueByPlan: query
-      .describe('Get revenue by plan')
-      .input(z.object({ plan: z.string().optional() }))
-      .query(({ ctx, input }) =>
-        ctx.db
-          .table('orders')
-          .where('account_id', 'eq', ctx.tenantId)
-          .when(input.plan, (qb) =>
-            qb.where('plan', 'eq', input.plan)
-          )
-          .groupBy(['plan'])
-          .sum('amount', 'revenue')
-          .execute()
-      ),
-  },
+const revenueByPlan = query({
+  description: 'Get revenue by plan',
+  input: z.object({ plan: z.string().optional() }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('orders')
+      .when(input.plan, (qb) =>
+        qb.where('plan', 'eq', input.plan)
+      )
+      .groupBy(['plan'])
+      .sum('amount', 'revenue')
+      .execute(),
+});
+
+export const api = serve({
+  queries: { revenueByPlan },
 });
 
 api.route('/revenue/by-plan', api.queries.revenueByPlan);

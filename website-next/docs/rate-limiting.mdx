@@ -1,0 +1,112 @@
+---
+title: Rate Limiting
+description: Protect serve({ queries }) runtimes with middleware-based rate limiting.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Rate Limiting
+
+Use `rateLimit(...)` to protect your runtime from abuse. In the main `query + serve` path, you apply it as runtime middleware. Per-query use is still available on the builder-compatible `.use(...)` surface.
+
+## Global rate limiting
+
+Apply one policy to the whole runtime:
+
+<CodeBlock>
+```typescript
+import { initServe, rateLimit } from '@hypequery/serve';
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+  middlewares: [
+    rateLimit({
+      windowMs: 60_000,
+      max: 100,
+    }),
+  ],
+});
+```
+</CodeBlock>
+
+This is a good default for public APIs and browser-facing runtimes.
+
+## Per-query rate limiting
+
+If you need rate limiting on one specific query, use the builder-compatible middleware surface:
+
+<CodeBlock>
+```typescript
+const adminMetrics = query
+  .use(
+    rateLimit({
+      windowMs: 60_000,
+      max: 20,
+    })
+  )
+  .query(async ({ ctx }) => {
+    return ctx.db.table('metrics').select('*').execute();
+  });
+```
+</CodeBlock>
+
+## Per-tenant or custom keys
+
+Use `keyBy` when the limit should be scoped by tenant, user, or some other request-derived identity:
+
+<CodeBlock>
+```typescript
+const api = serve({
+  queries: { activeUsers },
+  middlewares: [
+    rateLimit({
+      windowMs: 60_000,
+      max: 50,
+      keyBy: (ctx) => ctx.auth?.tenantId ?? null,
+    }),
+  ],
+});
+```
+</CodeBlock>
+
+If `keyBy` returns `null`, the request skips rate limiting.
+
+## Options
+
+- `windowMs` sets the time window
+- `max` sets the maximum allowed hits in that window
+- `keyBy` controls how the rate-limit key is derived
+- `store` lets you use a custom backend instead of the in-memory store
+- `headers` enables or disables rate-limit headers on `429` responses
+- `message` customizes the 429 response message
+- `failOpen` controls whether store failures should skip limiting or fail the request
+
+## Custom store
+
+Use a custom `RateLimitStore` when you need a shared backend such as Redis:
+
+<CodeBlock>
+```typescript
+import type { RateLimitStore } from '@hypequery/serve';
+
+const redisStore: RateLimitStore = {
+  increment: async (key, windowMs) => {
+    // increment in Redis
+    return 1;
+  },
+  getTtl: async (key) => {
+    // return remaining ttl
+    return 60_000;
+  },
+  reset: async (key) => {
+    // clear stored counter
+  },
+};
+```
+</CodeBlock>
+
+## See Also
+
+- [Authentication](/docs/authentication)
+- [Multi-Tenancy](/docs/multi-tenancy)
+- [Runtime Features](/docs/runtime-features)

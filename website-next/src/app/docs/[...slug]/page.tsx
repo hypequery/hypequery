@@ -7,6 +7,43 @@ import {
 } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
+import type { Metadata } from 'next';
+import { absoluteUrl } from '@/lib/site';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const page = source.getPage(slug);
+
+  if (!page) {
+    return {};
+  }
+
+  const title = typeof page.data.title === 'string' ? page.data.title : 'Documentation';
+  const description = page.data.description ?? 'Documentation for hypequery.';
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: absoluteUrl(page.url),
+    },
+    openGraph: {
+      type: 'article',
+      url: absoluteUrl(page.url),
+      title,
+      description,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+  };
+}
 
 export default async function Page({
   params,

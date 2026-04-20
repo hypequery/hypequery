@@ -1,0 +1,132 @@
+---
+title: Re-using Queries
+description: Turn typed builder logic into reusable query definitions with the query function.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+
+## When to use
+
+Use `query({ ... })` when that builder logic needs to become a reusable application contract.
+
+That usually means you want one or more of these:
+
+- Typed input for callers
+- Output validation
+- Descriptions for docs and OpenAPI
+- Tags and summaries for grouped docs
+- Per-query auth and tenant rules
+- A stable definition you can execute locally and later mount in `serve({ queries })`
+
+<Callout type="info">
+  `query({ ... })` does not replace the builder. It wraps builder logic so you can reuse it consistently.
+</Callout>
+
+## The distinction
+
+- `db.table(...)` builds and runs a query directly
+- `query({ ... })` turns that query into a reusable definition
+- `serve({ queries })` exposes those definitions through routes, docs, handlers, and runtime features
+
+## Example: wrap builder logic as a reusable query
+
+Start by creating the shared runtime helpers:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client';
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+  basePath: '/api/analytics',
+});
+```
+</Pre>
+</CodeBlock>
+
+Then define a reusable query:
+
+<CodeBlock>
+<Pre>
+```typescript
+const activeUsers = query({
+  description: 'Most recent active users',
+  summary: 'List active users',
+  tags: ['users'],
+  requiredRoles: ['admin', 'editor'],
+  input: z.object({
+    limit: z.number().min(1).max(500).default(50),
+  }),
+  output: z.array(z.object({
+    id: z.string(),
+    email: z.string(),
+    created_at: z.string(),
+  })),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('users')
+      .select(['id', 'email', 'created_at'])
+      .where('status', 'eq', 'active')
+      .orderBy('created_at', 'DESC')
+      .limit(input.limit)
+      .execute(),
+});
+```
+</Pre>
+</CodeBlock>
+
+Inside `query({ ... })`, you still write normal builder code with `ctx.db.table(...)`.
+
+## What `query({ ... })` adds
+
+Compared with a raw builder chain, `query({ ... })` adds:
+
+- `input` for validated caller input
+- `output` for validated response shape
+- `description` and `summary` for docs
+- `tags` for grouping
+- `requiresAuth`, `requiredRoles`, and `requiredScopes` for per-query access rules
+- `tenant` for per-query tenant overrides
+
+Those fields do not change how you write the query itself. They add metadata and validation around it.
+
+## Reuse locally before HTTP
+
+You can execute a query definition in-process before you ever add a route:
+
+<CodeBlock>
+<Pre>
+```typescript
+const rows = await activeUsers.execute({
+  input: { limit: 25 },
+});
+```
+</Pre>
+</CodeBlock>
+
+This is useful when multiple server-side parts of your app should share the same query contract without going over HTTP.
+
+## Add `serve({ queries })` later
+
+Once you have reusable definitions, you can expose them through the runtime:
+
+<CodeBlock>
+<Pre>
+```typescript
+export const api = serve({
+  queries: { activeUsers },
+});
+
+api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
+```
+</Pre>
+</CodeBlock>
+
+The key in `queries: { activeUsers }` becomes the stable query name inside the exported API.
+If you need HTTP-specific behavior like `method`, add it when you route the query or in the runtime config.

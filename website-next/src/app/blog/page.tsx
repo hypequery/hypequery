@@ -1,6 +1,34 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
 import Newsletter from '@/components/Newsletter';
+import { absoluteUrl } from '@/lib/site';
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}): Promise<Metadata> {
+  const { page } = await searchParams;
+  const pageNumber = Number(page) || 1;
+  const title = pageNumber > 1 ? `Blog - Page ${pageNumber}` : 'Blog';
+  const description = 'Deep dives, architecture notes, and product guidance from the hypequery team.';
+  const canonicalPath = pageNumber > 1 ? `/blog?page=${pageNumber}` : '/blog';
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: absoluteUrl(canonicalPath),
+    },
+    openGraph: {
+      type: 'website',
+      url: absoluteUrl(canonicalPath),
+      title: pageNumber > 1 ? `hypequery Blog - Page ${pageNumber}` : 'hypequery Blog',
+      description,
+    },
+  };
+}
 
 export default async function BlogPage({
   searchParams,

@@ -22,28 +22,28 @@ const analytics = await api.run('productOverview', {
 
 return c.json({ productId, analytics });`;
 
-const defineOnceCode = `const serve = initServe({
+const defineOnceCode = `const { query, serve } = initServe({
   context: () => ({ db }),
 });
 
-export const api = serve.define({
+const topProducts = query({
+  output: z.array(z.object({
+    product_id: z.string(),
+    avg_order_value: z.number(),
+  })),
+  query: ({ ctx }) =>
+    ctx.db
+      .table('analytics.orders')
+      .select(['payment_type as product_id'])
+      .count('trip_id', 'orders')
+      .avg('order_total', 'avg_order_value')
+      .groupBy(['payment_type'])
+      .execute(),
+});
+
+export const api = serve({
   basePath: '/internal/hq',
-  queries: serve.queries({
-    topProducts: query
-      .output(z.array(z.object({
-        product_id: z.string(),
-        avg_order_value: z.number(),
-      })))
-      .query(({ ctx }) =>
-        ctx.db
-          .table('analytics.orders')
-          .select(['payment_type as product_id'])
-          .count('trip_id', 'orders')
-          .avg('order_total', 'avg_order_value')
-          .groupBy(['payment_type'])
-          .execute()
-      ),
-  }),
+  queries: { topProducts },
 });`;
 
 export default function InternalProductApisUseCasePage() {

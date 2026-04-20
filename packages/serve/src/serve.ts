@@ -97,7 +97,13 @@ const createStandaloneQuery = <
     ...(config.description && { description: config.description }),
     ...(config.summary && { summary: config.summary }),
     ...(config.tags && { tags: config.tags }),
+    ...(typeof config.auth !== "undefined" && { auth: config.auth }),
+    ...(typeof config.requiresAuth !== "undefined" && { requiresAuth: config.requiresAuth }),
+    ...(typeof config.tenant !== "undefined" && { tenant: config.tenant }),
     ...(typeof config.cacheTtlMs !== "undefined" && { cacheTtlMs: config.cacheTtlMs }),
+    ...(config.requiredRoles && { requiredRoles: config.requiredRoles }),
+    ...(config.requiredScopes && { requiredScopes: config.requiredScopes }),
+    ...(config.custom && { custom: config.custom }),
   };
 
   return definition as StandaloneQueryDefinition<TInputSchema, TOutputSchema extends ZodTypeAny ? TOutputSchema : ZodTypeAny, TContext, TAuth, TResult>;
