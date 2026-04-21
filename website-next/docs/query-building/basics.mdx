@@ -21,8 +21,16 @@ The core builder API starts with a typed `db` client. These docs show the raw bu
 
 <CodeBlock>
 ```typescript
+import { createClient } from '@clickhouse/client';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { Schema } from './generated-schema';
+
+const client = createClient({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
 const db = createQueryBuilder<Schema>({ client });
 
@@ -33,6 +41,8 @@ const activeUsers = await db
   .execute();
 ```
 </CodeBlock>
+
+Here, `client` is the underlying ClickHouse JavaScript client. If you have not set that up yet, see [Connecting to ClickHouse](/docs/reference/connection).
 
 When you move into query definitions, the builder chain stays the same. The Query Building section keeps examples in terms of a standalone typed `db` client so the builder API is easier to learn in isolation.
 

@@ -44,7 +44,7 @@ npx hypequery dev
 
 ### TypeScript support
 
-`hypequery dev` ships with an embedded TypeScript runtime (powered by `tsx`). Point it at your `.ts` or `.tsx` queries file and the CLI transpiles it in-process—no extra dependencies, watchers, or custom launch commands required. If you already compile to JavaScript, you can still target the generated `.js` file instead.
+`hypequery dev` can load `.ts` and `.tsx` query files directly. The CLI bundles your entry file in-process before importing it, so no separate TypeScript runtime is required. If you already compile to JavaScript, you can still target the generated `.js` file instead.
 
 ## Commands at a glance
 
@@ -52,7 +52,7 @@ npx hypequery dev
 | --- | --- |
 | `hypequery init` | Scaffold the `analytics/` folder, collect ClickHouse credentials, and optionally create an example query |
 | `hypequery dev [queries-file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
-| `hypequery generate` | Rebuild `analytics/schema.ts` (optionally watching for remote schema changes) |
+| `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 
 The sections below expand on the supported options and expected behavior for each command.
 
@@ -112,10 +112,7 @@ npx hypequery dev [path/to/queries.ts] [options]
 - **`-p, --port <port>`** – Desired port (default: `4000`)
 - **`-h, --hostname <host>`** – Bind address (default: `localhost`)
 - **`--no-watch`** – Run once without watching for file changes
-- **`--cache <provider>`** – Cache provider (`memory` | `redis` | `none`)
-- **`--redis-url <url>`** – Connection string when using the Redis cache provider
-- **`--open`** – Open the generated Docs URL in your default browser after the server starts
-- **`--cors`** – Enable CORS support in the dev server
+- **`--open`** – Open the local server URL in your default browser after the server starts
 - **`-q, --quiet`** – Reduce startup noise
 
 **What it does:**
@@ -128,7 +125,7 @@ The dev server:
 - Auto-reloads on file changes (unless `--no-watch`)
 - Displays query execution stats
 
-When `--open` is set, the CLI opens your browser to the docs page.
+When `--open` is set, the CLI opens your browser to the local server URL.
 
 **Example:**
 
@@ -140,8 +137,8 @@ npx @hypequery/cli dev
 # Custom port with browser auto-open
 npx @hypequery/cli dev --port 3000 --open
 
-# Disable caching for debugging
-npx @hypequery/cli dev --cache none
+# Run once without file watching
+npx @hypequery/cli dev --no-watch
 ```
 </CodeBlock>
 
@@ -149,16 +146,6 @@ npx @hypequery/cli dev --cache none
 
 Point the command at your TypeScript entry point (for example `analytics/queries.ts`) and the CLI loads it via the embedded runtime. No separate `tsx` install is necessary.
 
-
-## `hypequery serve [file]`
-
-<CodeBlock>
-```bash
-npx @hypequery/cli serve src/analytics/queries.ts --port 4000
-```
-</CodeBlock>
-
-Starts a production-ready HTTP server without file watching (ideal for Docker/PM2). Accepts the same flags as `dev` (port, hostname, cache options). Use this command in containers or long-running processes when you don’t need auto-reload.
 
 ## `hypequery generate`
 
@@ -231,18 +218,13 @@ Run `hypequery init --force` to regenerate the `analytics/` folder if it was rem
 
 ### TypeScript errors
 
-If you see "Unexpected token" or syntax errors when running `hypequery dev`:
+If you see "Unexpected token" or syntax errors when running `hypequery dev`, the usual causes are:
 
-1. Make sure `tsx` is installed:
-   <CodeBlock>
-   ```bash
-   npm install -D tsx
-   ```
-   </CodeBlock>
+1. A broken import path
+2. A missing dependency in your project
+3. A `tsconfig.json` mismatch affecting module resolution
 
-2. The CLI will automatically restart with TypeScript support
-
-Alternatively, compile your TypeScript first:
+As a fallback, compile your TypeScript first:
 <CodeBlock>
 ```bash
 tsc src/analytics/queries.ts

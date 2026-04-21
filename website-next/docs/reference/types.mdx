@@ -17,7 +17,7 @@ Use `InferApiType` to extract the client-safe API shape from an exported `api`.
 <CodeBlock>
 ```typescript
 import { InferApiType } from '@hypequery/serve';
-import type { api } from '@/analytics/queries';
+import { api } from '@/analytics/queries';
 
 type Api = InferApiType<typeof api>;
 ```
@@ -49,6 +49,7 @@ Extract the input type for one query key from an exported `api` or query map.
 <CodeBlock>
 ```typescript
 import type { InferQueryInput } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
 
 type ActiveUsersInput = InferQueryInput<typeof api, 'activeUsers'>;
 ```
@@ -61,6 +62,7 @@ Extract the output type for one query key.
 <CodeBlock>
 ```typescript
 import type { InferQueryOutput } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
 
 type ActiveUsersOutput = InferQueryOutput<typeof api, 'activeUsers'>;
 ```
@@ -73,6 +75,7 @@ Extract the resolved return type of the query resolver.
 <CodeBlock>
 ```typescript
 import type { InferQueryResult } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
 
 type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;
 ```
@@ -145,7 +148,7 @@ That gives you:
 ```typescript
 import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
-import type { api } from '@/analytics/queries';
+import { api } from '@/analytics/queries';
 
 type Api = InferApiType<typeof api>;
 

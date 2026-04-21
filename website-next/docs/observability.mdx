@@ -31,6 +31,12 @@ const api = serve({
     onRequestEnd: async (event) => {
       console.log('end', event.queryKey, event.durationMs);
     },
+    onAuthFailure: async (event) => {
+      console.warn('auth failed', event.queryKey, event.reason);
+    },
+    onAuthorizationFailure: async (event) => {
+      console.warn('forbidden', event.queryKey, event.reason, event.required);
+    },
     onError: async (event) => {
       console.error('error', event.queryKey, event.error);
     },
@@ -59,6 +65,14 @@ const api = serve({
 - `true`
 - `'json'`
 - `(event) => void`
+
+Lifecycle hooks currently support:
+
+- `onRequestStart`
+- `onRequestEnd`
+- `onAuthFailure`
+- `onAuthorizationFailure`
+- `onError`
 
 ## Builder-level query logging
 

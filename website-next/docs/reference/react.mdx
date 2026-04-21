@@ -33,7 +33,7 @@ Use `InferApiType` to automatically extract types from your API definition:
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
-import type { api } from '@/analytics/queries';
+import { api } from '@/analytics/queries';
 
 // Automatic type inference - no manual type definition needed!
 type Api = InferApiType<typeof api>;
@@ -150,7 +150,7 @@ By default, hooks issue `GET` requests (matching the default route method). Over
 ```ts
 import { createHooks } from '@hypequery/react';
 import { InferApiType } from '@hypequery/serve';
-import type { api } from '@/analytics/queries';
+import { api } from '@/analytics/queries';
 
 type Api = InferApiType<typeof api>;
 
@@ -208,10 +208,9 @@ export function GET() {
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
-import type { api } from '@/analytics/queries';
+import type { InferApiType } from '@hypequery/serve';
 
-type Api = InferApiType<typeof api>;
+type Api = InferApiType<typeof import('@/analytics/queries').api>;
 
 let hooksPromise: Promise<ReturnType<typeof createHooks<Api>>> | null = null;
 
@@ -228,7 +227,7 @@ export function getHypequeryHooks() {
 ```
 </CodeBlock>
 
-Call `await getHypequeryHooks()` once during app bootstrap (e.g., inside a top-level provider) and reuse the returned `useQuery`/`useMutation` instances throughout your app.
+Call `await getHypequeryHooks()` once during app bootstrap and reuse the returned hook helpers throughout your app.
 
 ## Advanced options
 

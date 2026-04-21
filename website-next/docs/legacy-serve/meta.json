@@ -1,0 +1,12 @@
+{
+  "title": "Legacy Serve API",
+  "description": "Builder-first serve docs for existing integrations",
+  "root": true,
+  "pages": [
+    "query-definitions",
+    "authentication",
+    "multi-tenancy",
+    "migration-builder-to-serve",
+    "reference"
+  ]
+}
