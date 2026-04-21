@@ -1,15 +1,15 @@
 ---
-title: Migrate from Legacy Serve API
-description: Move from the older builder-first serve API to object-style query definitions with serve({ queries }).
+title: Migrate from v0.1.x Serve API
+description: Move from the v0.1.x builder-first serve API to object-style query definitions with serve({ queries }).
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 
-# Migrate from Legacy Serve API
+# Migrate from v0.1.x Serve API
 
-If you are already using the older builder-first serve API, the new path is:
+If you are already using the v0.1.x builder-first serve API, the new path is:
 
 1. keep your existing `db` client
 2. convert each endpoint into `query({ ... })`
@@ -18,7 +18,7 @@ If you are already using the older builder-first serve API, the new path is:
 The query builder itself does not change. Most of the migration is moving metadata out of the chained builder style and into object-style query definitions.
 
 <Callout type="info">
-  This guide is for migrating from the older serve API shown in <a href="/docs/legacy-serve/query-definitions">Legacy Serve API</a> to the current default path used in <a href="/docs/quick-start">Quick Start</a>.
+  This guide is for migrating from the older serve API shown in <a href="/docs/legacy-serve/query-definitions">v0.1.x Serve API</a> to the current default path used in <a href="/docs/quick-start">Quick Start</a>.
 </Callout>
 
 ## What changes
@@ -299,4 +299,4 @@ If your codebase is large, migrate in this order:
 
 - Start with the [Quick Start](/docs/quick-start) if you want the new happy path
 - Read [Core Concepts](/docs/core-concepts) for the new execution model
-- Keep the [Legacy Serve API](/docs/legacy-serve/query-definitions) open while migrating if you need to compare syntax
+- Keep the [v0.1.x Serve API](/docs/legacy-serve/query-definitions) open while migrating if you need to compare syntax

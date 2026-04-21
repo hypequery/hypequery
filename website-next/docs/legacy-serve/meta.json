@@ -1,6 +1,6 @@
 {
-  "title": "Legacy Serve API",
-  "description": "Builder-first serve docs for existing integrations",
+  "title": "v0.1.x Serve API",
+  "description": "Builder-first serve docs for v0.1.x integrations",
   "root": true,
   "pages": [
     "query-definitions",

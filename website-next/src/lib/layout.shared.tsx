@@ -20,8 +20,8 @@ export function baseOptions() {
           icon: <Book className="w-4 h-4 text-indigo-400" />,
         },
         {
-          title: 'Legacy Serve API',
-          description: 'Builder-first serve docs for existing integrations',
+          title: 'v0.1.x Serve API',
+          description: 'Builder-first serve docs for v0.1.x integrations',
           url: '/docs/legacy-serve/query-definitions',
           icon: <History className="w-4 h-4 text-amber-400" />,
           urls: legacyTabUrls,
