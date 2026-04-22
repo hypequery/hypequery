@@ -181,6 +181,13 @@ export {
   DEFAULT_MIGRATIONS_TABLE,
 } from './migrations/config/index.js';
 export {
+  column,
+  ClickHouseColumnBuilder,
+  defineMaterializedView,
+  defineSchema,
+  defineTable,
+} from './migrations/schema/index.js';
+export {
   serializeSchemaToSnapshot,
   snapshotToStableJson,
   hashSnapshot,
@@ -197,14 +204,18 @@ export type {
 
 export type {
   ClickHouseColumnDefinition,
+  ClickHouseColumnBuilderLike,
   ClickHouseColumnType,
   ClickHouseLowCardinalityColumnType,
   ClickHouseMaterializedViewDefinition,
+  ClickHouseMaterializedViewInputDefinition,
   ClickHouseNamedColumnType,
   ClickHouseNullableColumnType,
   ClickHouseSchemaAst,
+  ClickHouseSchemaDefinition,
   ClickHouseSqlExpression,
   ClickHouseTableDefinition,
+  ClickHouseTableInputDefinition,
   ClickHouseTableEngine,
 } from './migrations/schema/index.js';
 

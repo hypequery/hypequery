@@ -7,6 +7,11 @@ export interface ClickHouseSchemaAst {
   materializedViews?: ClickHouseMaterializedViewDefinition[];
 }
 
+export interface ClickHouseSchemaDefinition {
+  tables: ClickHouseTableDefinition[];
+  materializedViews?: ClickHouseMaterializedViewDefinition[];
+}
+
 export interface ClickHouseTableDefinition {
   kind: 'table';
   name: string;
@@ -15,10 +20,20 @@ export interface ClickHouseTableDefinition {
   settings?: Record<string, string | number | boolean>;
 }
 
+export interface ClickHouseTableInputDefinition {
+  columns: Record<string, ClickHouseColumnBuilderLike>;
+  engine: ClickHouseTableEngine;
+  settings?: Record<string, string | number | boolean>;
+}
+
 export interface ClickHouseColumnDefinition {
   name: string;
   type: ClickHouseColumnType;
   default?: ClickHouseSqlExpression;
+}
+
+export interface ClickHouseColumnBuilderLike {
+  build(name: string): ClickHouseColumnDefinition;
 }
 
 export type ClickHouseColumnType =
@@ -55,5 +70,11 @@ export interface ClickHouseMaterializedViewDefinition {
   name: string;
   from: string;
   to?: string;
+  select: ClickHouseSqlExpression;
+}
+
+export interface ClickHouseMaterializedViewInputDefinition {
+  from: string | ClickHouseTableDefinition;
+  to?: string | ClickHouseTableDefinition;
   select: ClickHouseSqlExpression;
 }

@@ -58,6 +58,13 @@ export {
   DEFAULT_MIGRATIONS_TABLE,
 } from './migrations/config';
 export {
+  column,
+  ClickHouseColumnBuilder,
+  defineMaterializedView,
+  defineSchema,
+  defineTable,
+} from './migrations/schema';
+export {
   serializeSchemaToSnapshot,
   snapshotToStableJson,
   hashSnapshot,
@@ -73,15 +80,19 @@ export type {
 } from './migrations/config';
 
 export type {
+  ClickHouseColumnBuilderLike,
   ClickHouseColumnDefinition,
   ClickHouseColumnType,
   ClickHouseLowCardinalityColumnType,
   ClickHouseMaterializedViewDefinition,
+  ClickHouseMaterializedViewInputDefinition,
   ClickHouseNamedColumnType,
   ClickHouseNullableColumnType,
   ClickHouseSchemaAst,
+  ClickHouseSchemaDefinition,
   ClickHouseSqlExpression,
   ClickHouseTableDefinition,
+  ClickHouseTableInputDefinition,
   ClickHouseTableEngine,
 } from './migrations/schema';
 
