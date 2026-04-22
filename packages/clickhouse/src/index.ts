@@ -171,3 +171,48 @@ export {
   datasetsToJSON,
   summarizeAllDatasets,
 } from './dataset/introspection.js';
+
+// Migrations foundations
+export {
+  defineConfig,
+  resolveClickHouseConfig,
+  DEFAULT_MIGRATIONS_OUT_DIR,
+  DEFAULT_MIGRATIONS_PREFIX,
+  DEFAULT_MIGRATIONS_TABLE,
+} from './migrations/config/index.js';
+export {
+  serializeSchemaToSnapshot,
+  snapshotToStableJson,
+  hashSnapshot,
+} from './migrations/snapshot/index.js';
+
+export type {
+  ClickHouseClusterConfig,
+  ClickHouseMigrationDbCredentials,
+  ClickHouseMigrationDirectoryConfig,
+  HypequeryClickHouseConfig,
+  MigrationFilePrefix,
+  ResolvedHypequeryClickHouseConfig,
+} from './migrations/config/index.js';
+
+export type {
+  ClickHouseColumnDefinition,
+  ClickHouseColumnType,
+  ClickHouseLowCardinalityColumnType,
+  ClickHouseMaterializedViewDefinition,
+  ClickHouseNamedColumnType,
+  ClickHouseNullableColumnType,
+  ClickHouseSchemaAst,
+  ClickHouseSqlExpression,
+  ClickHouseTableDefinition,
+  ClickHouseTableEngine,
+} from './migrations/schema/index.js';
+
+export type {
+  Snapshot,
+  SnapshotColumn,
+  SnapshotDependencyEdge,
+  SnapshotMaterializedView,
+  SnapshotTable,
+  SnapshotTableEngine,
+} from './migrations/snapshot/index.js';

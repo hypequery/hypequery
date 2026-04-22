@@ -48,3 +48,48 @@ export type {
 
 // CLI exports
 export { generateTypes } from './cli/generate-types'; 
+
+// Migration foundations
+export {
+  defineConfig,
+  resolveClickHouseConfig,
+  DEFAULT_MIGRATIONS_OUT_DIR,
+  DEFAULT_MIGRATIONS_PREFIX,
+  DEFAULT_MIGRATIONS_TABLE,
+} from './migrations/config';
+export {
+  serializeSchemaToSnapshot,
+  snapshotToStableJson,
+  hashSnapshot,
+} from './migrations/snapshot';
+
+export type {
+  ClickHouseClusterConfig,
+  ClickHouseMigrationDbCredentials,
+  ClickHouseMigrationDirectoryConfig,
+  HypequeryClickHouseConfig,
+  MigrationFilePrefix,
+  ResolvedHypequeryClickHouseConfig,
+} from './migrations/config';
+
+export type {
+  ClickHouseColumnDefinition,
+  ClickHouseColumnType,
+  ClickHouseLowCardinalityColumnType,
+  ClickHouseMaterializedViewDefinition,
+  ClickHouseNamedColumnType,
+  ClickHouseNullableColumnType,
+  ClickHouseSchemaAst,
+  ClickHouseSqlExpression,
+  ClickHouseTableDefinition,
+  ClickHouseTableEngine,
+} from './migrations/schema';
+
+export type {
+  Snapshot,
+  SnapshotColumn,
+  SnapshotDependencyEdge,
+  SnapshotMaterializedView,
+  SnapshotTable,
+  SnapshotTableEngine,
+} from './migrations/snapshot';
