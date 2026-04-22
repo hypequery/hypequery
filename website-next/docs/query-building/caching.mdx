@@ -52,6 +52,28 @@ const rows = await db
 </Pre>
 </CodeBlock>
 
+Use `.cache(...)` when the query should normally be cached everywhere it is used.
+
+For one-off overrides, pass cache options directly to `execute(...)`:
+
+<CodeBlock>
+<Pre>
+```typescript
+const rows = await db
+  .table('orders')
+  .sum('total', 'revenue')
+  .groupBy(['customer_id'])
+  .execute({
+    cache: {
+      mode: 'network-first',
+      ttlMs: 1_000,
+      tags: ['orders', 'dashboards'],
+    },
+  });
+```
+</Pre>
+</CodeBlock>
+
 ## Cache modes
 
 | Mode | Description |
@@ -61,14 +83,28 @@ const rows = await db
 | `stale-while-revalidate` | Serve stale-but-acceptable results immediately and refresh in the background. |
 | `no-store` | Skip caching entirely. |
 
-Common options:
+Recommended defaults:
 
-- `ttlMs`
-- `staleTtlMs`
-- `cacheTimeMs`
-- `dedupe`
-- `serialize` / `deserialize`
-- `tags`
+- Use `cache-first` for dashboards and read-heavy widgets where slightly stale data is fine.
+- Use `network-first` when freshness matters more than latency, but you still want stale fallback during ClickHouse failures.
+- Use `stale-while-revalidate` when you want fast responses for repeated reads without blocking on a refresh.
+- Use `no-store` to bypass caching for highly volatile or user-specific reads.
+
+## Cache options
+
+| Option | What it does |
+| --- | --- |
+| `ttlMs` | How long an entry is considered fresh. |
+| `staleTtlMs` | Extra time an entry may still be served as stale. |
+| `cacheTimeMs` | Total time the provider should retain the entry. Defaults to `ttlMs + staleTtlMs`. |
+| `staleIfError` | In `network-first`, serve stale data if ClickHouse fails and a stale entry is available. |
+| `dedupe` | Reuse in-flight fetches for the same cache key instead of sending duplicate queries. |
+| `tags` | Attach tags for later invalidation. |
+| `key` | Override the generated cache key when you want multiple query shapes to share one entry. |
+| `namespace` | Isolate entries from other cache consumers sharing the same provider. |
+| `serialize` / `deserialize` | Customize how cached results are encoded and decoded before storage. |
+
+By default, hypequery generates deterministic cache keys from the SQL, parameters, and settings for the query.
 
 ## Invalidate and inspect cache state
 
@@ -79,11 +115,18 @@ await db.cache.invalidateKey('hq:v1:analytics:orders:abc123');
 await db.cache.invalidateTags(['orders', 'dashboards']);
 await db.cache.clear();
 
+await db.cache.warm([
+  () => db.table('orders').select(['id']).cache({ tags: ['orders'] }).execute(),
+  () => db.table('users').select(['id']).cache({ tags: ['users'] }).execute(),
+]);
+
 const stats = db.cache.getStats();
-console.log(stats.hitRate, stats.staleHits);
+console.log(stats.hitRate, stats.hits, stats.misses, stats.staleHits, stats.revalidations);
 ```
 </Pre>
 </CodeBlock>
+
+`invalidateTags(...)` requires the active cache provider to implement `deleteByTag(...)`. If it does not, hypequery will warn and only clear its in-memory parsed values for matching tags.
 
 ## Bring your own provider
 

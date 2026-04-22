@@ -440,6 +440,36 @@ describe("defineServe", () => {
     });
   });
 
+  it("includes object-style custom metadata in endpoint descriptions", async () => {
+    const { query, serve } = initServe({
+      context: () => ({}),
+    });
+
+    const analytics = query({
+      custom: {
+        owner: "data-team",
+        sla: "100ms",
+        costEstimate: "low",
+      },
+      query: async () => ({ data: [] }),
+    });
+
+    const api = serve({
+      queries: { analytics },
+    });
+
+    api.route("/analytics", api.queries.analytics);
+
+    const description = api.describe();
+    const analyticsEndpoint = description.queries.find((q) => q.key === "analytics");
+
+    expect(analyticsEndpoint?.custom).toEqual({
+      owner: "data-team",
+      sla: "100ms",
+      costEstimate: "low",
+    });
+  });
+
   it("auto-injects tenant filters when mode is auto-inject", async () => {
     // Create a mock query builder to verify tenant filtering is applied
     const queryLog: Array<{ table: string; filters: Array<{ column: string; operator: string; value: string }> }> = [];

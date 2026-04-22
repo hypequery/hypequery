@@ -1,0 +1,190 @@
+---
+title: Join Relationships
+description: Define reusable join paths with JoinRelationships and apply them with withRelation()
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
+
+# Join Relationships
+
+Inline joins are often enough for one-off queries. When the same join path appears across multiple queries, `JoinRelationships` gives you a reusable, named relationship that you can apply with `withRelation()`.
+
+## When to use this
+
+Use join relationships when you want to:
+
+- define common join paths once
+- keep multi-query join logic consistent
+- reuse multi-step joins without rewriting them
+- override join type or alias per query while keeping a shared base definition
+
+<Callout type="info" title="Query builder syntax">
+  These examples use a typed standalone `db` client so the query builder stays the focus.
+</Callout>
+
+## Define relationships
+
+Create a `JoinRelationships` registry during app startup:
+
+<CodeBlock>
+<Pre>
+```typescript
+import { createQueryBuilder, JoinRelationships } from '@hypequery/clickhouse';
+import type { Schema } from './generated-schema';
+
+const relationships = new JoinRelationships<Schema>();
+
+relationships.define('orderCustomer', {
+  from: 'orders',
+  to: 'users',
+  leftColumn: 'orders.user_id',
+  rightColumn: 'id',
+  type: 'LEFT',
+});
+
+createQueryBuilder.setJoinRelationships(relationships);
+
+export const db = createQueryBuilder<Schema>({
+  host: process.env.CLICKHOUSE_HOST!,
+});
+```
+</Pre>
+</CodeBlock>
+
+Each relationship includes:
+
+- `from`: source table
+- `to`: joined table
+- `leftColumn`: column on the source side
+- `rightColumn`: column on the joined table
+- `type`: optional default join type
+- `alias`: optional default alias
+
+## Use a relationship in a query
+
+Apply the relationship with `withRelation()`:
+
+<CodeBlock>
+<Pre>
+```typescript
+const rows = await db
+  .table('orders')
+  .withRelation('orderCustomer')
+  .select([
+    'orders.id',
+    'orders.total',
+    'users.name',
+    'users.email',
+  ])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+This is equivalent to writing the join inline, but the join path now lives in one reusable place.
+
+## Define relationship chains
+
+Use `defineChain()` when a relationship should apply multiple joins together:
+
+<CodeBlock>
+<Pre>
+```typescript
+const relationships = new JoinRelationships<Schema>();
+
+relationships.defineChain('orderCustomerRegion', [
+  {
+    from: 'orders',
+    to: 'users',
+    leftColumn: 'orders.user_id',
+    rightColumn: 'id',
+    type: 'INNER',
+  },
+  {
+    from: 'users',
+    to: 'regions',
+    leftColumn: 'users.region_id',
+    rightColumn: 'id',
+    type: 'LEFT',
+  },
+]);
+```
+</Pre>
+</CodeBlock>
+
+Then apply the whole chain in one call:
+
+<CodeBlock>
+<Pre>
+```typescript
+const rows = await db
+  .table('orders')
+  .withRelation('orderCustomerRegion')
+  .select([
+    'orders.id',
+    'users.name',
+    'regions.region_name',
+  ])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+## Override join options per query
+
+You can override the join type or alias without redefining the relationship:
+
+<CodeBlock>
+<Pre>
+```typescript
+const rows = await db
+  .table('orders')
+  .withRelation('orderCustomer', { type: 'INNER', alias: 'customer' })
+  .select([
+    'orders.id',
+    'customer.name',
+  ])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+This is useful when the shared relationship is usually `LEFT`, but one query needs stricter matching.
+
+## Initialization requirements
+
+Call `createQueryBuilder.setJoinRelationships(...)` before using `withRelation()`.
+
+If relationships are not registered, hypequery throws:
+
+<CodeBlock>
+<Pre>
+```text
+Join relationships have not been initialized. Call QueryBuilder.setJoinRelationships first.
+```
+</Pre>
+</CodeBlock>
+
+If a relationship name does not exist, hypequery throws:
+
+<CodeBlock>
+<Pre>
+```text
+Join relationship 'orderCustomer' not found
+```
+</Pre>
+</CodeBlock>
+
+## Best practices
+
+- Register relationships once during app startup, not inside query functions.
+- Use semantic names such as `orderCustomer` or `orderCustomerRegion`, not generic names like `join1`.
+- Prefer inline joins for one-off queries and relationships for stable, reused join paths.
+- Keep chains small and intentional so query behavior stays readable.
+
+## See Also
+
+- [Joins](/docs/query-building/joins)
+- [Subqueries & CTEs](/docs/query-building/subqueries-ctes)
+- [Query Builder API](/docs/reference/query-builder)

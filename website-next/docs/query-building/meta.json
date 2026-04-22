@@ -5,6 +5,7 @@
     "select",
     "where",
     "joins",
+    "join-relationships",
     "aggregation",
     "ordering",
     "caching",

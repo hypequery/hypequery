@@ -27,7 +27,6 @@
     "query-building/advanced-filtering",
     "re-using-queries",
     "schemas",
-    "---Define & Serve---",
     "---Runtime & Deployment---",
     "embedded-runtime",
     "authentication",
