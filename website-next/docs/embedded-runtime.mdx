@@ -3,16 +3,21 @@ title: Embedded Runtime
 description: Run hypequery definitions directly inside your application runtime
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Pre } from 'fumadocs-ui/components/codeblock';
 
 # Embedded Runtime
 
-You don't need HTTP to execute hypequery metrics. Every `defineServe` export exposes an embedded runtime so you can call queries directly from SSR routes, cron jobs, queues, or AI agents.
+<Callout type="info">
+  We've simplified the serve API in v0.2. If you're looking for the older builder-first API, see <a href="/docs/migrate-legacy-serve-api">Migrate from v0.1.x Serve API</a> and <a href="/docs/legacy-serve/query-definitions">v0.1.x Serve API</a>.
+</Callout>
+
+You don't need HTTP to execute hypequery metrics. Every `serve({ queries })` export exposes an embedded runtime so you can call queries directly from SSR routes, cron jobs, queues, or AI agents.
 
 ## Lifecycle
 
-1. **Initialization** – Import your `analytics/queries.ts` (or equivalent) so `defineServe` runs. This wires up global middleware, auth strategies, tenant config, docs/OpenAPI, etc. Make sure env vars are loaded before the import (e.g., `import 'dotenv/config'`).
+1. **Initialization** – Import your `analytics/queries.ts` (or equivalent) so your `initServe()` + `serve()` module runs. This wires up middleware, auth strategies, tenant config, docs/OpenAPI, etc. Make sure env vars are loaded before the import (e.g., `import 'dotenv/config'`).
 
 2. **Context creation** – Whenever you call the runtime, hypequery builds a `ctx` object that includes the request metadata, auth context (if any), tenant helpers, and whatever you return from the `context` factory (e.g., `db`, cache clients, tracing IDs).
 
@@ -20,7 +25,7 @@ You don't need HTTP to execute hypequery metrics. Every `defineServe` export exp
 
 4. **Execution** – The query resolver executes against your ClickHouse connection (or any other resources you injected). If the resolver returns a value, hypequery serializes it exactly as it would for HTTP responses.
 
-5. **Hot reload expectations** – During development the CLI reloads your `queries.ts` file automatically, so edits are picked up immediately. In production you control deployments; keep `defineServe` in a module that is only instantiated once per process to avoid re-registering endpoints.
+5. **Hot reload expectations** – During development the CLI reloads your `queries.ts` file automatically, so edits are picked up immediately. In production you control deployments; keep your `serve()` module instantiated once per process to avoid re-registering endpoints.
 
 ## Example Flows
 
@@ -44,7 +49,7 @@ export async function syncDailyRevenue() {
 </CodeBlock>
 
 - `api.run(key, options)` runs the endpoint in-process with the same validation, middleware, and hooks as HTTP (aliases: `api.execute`, `api.client`).
-- `input` must match the endpoint's `inputSchema`. If validation fails, the method throws an error containing the validation issues.
+- `input` must match the endpoint's `input` schema. If validation fails, the method throws an error containing the validation issues.
 - `context` lets you inject per-call data (job IDs, loggers, cache handles) that your middleware or resolver can read.
 
 ### API Handler (SSR / Server Action)

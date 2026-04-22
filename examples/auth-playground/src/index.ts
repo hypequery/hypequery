@@ -93,18 +93,19 @@ const api = serve({
 
   queries: {
     // PUBLIC ENDPOINT - No auth required
-    healthcheck: query
-      .public()
-      .query(async () => ({
+    healthcheck: query({
+      requiresAuth: false,
+      query: async () => ({
         status: 'ok',
         message: 'Server is healthy',
         timestamp: new Date().toISOString(),
-      })),
+      }),
+    }),
 
     // AUTHENTICATED ENDPOINT - Must be logged in
-    profile: query
-      .requireAuth()
-      .query(async ({ ctx }) => {
+    profile: query({
+      requiresAuth: true,
+      query: async ({ ctx }) => {
         const user = mockDb.users.find((u) => u.id === Number(ctx.auth!.userId));
         return {
           user: {
@@ -118,26 +119,28 @@ const api = serve({
             scopes: ctx.auth?.scopes,
           },
         };
-      }),
+      },
+    }),
 
     // ROLE-BASED - Must be admin OR editor (OR semantics)
-    metrics: query
-      .requireRole('admin', 'editor')
-      .query(async ({ ctx }) => {
+    metrics: query({
+      requiredRoles: ['admin', 'editor'],
+      query: async ({ ctx }) => {
         return {
           metrics: mockDb.metrics,
           requestedBy: ctx.auth?.userName,
         };
-      }),
+      },
+    }),
 
     // SCOPE-BASED - Must have read:metrics AND write:metrics (AND semantics)
-    createMetric: query
-      .requireScope('read:metrics', 'write:metrics')
-      .input(z.object({
+    createMetric: query({
+      requiredScopes: ['read:metrics', 'write:metrics'],
+      input: z.object({
         name: z.string(),
         value: z.number(),
-      }))
-      .query(async ({ ctx, input }) => {
+      }),
+      query: async ({ ctx, input }) => {
         return {
           message: 'Metric created',
           metric: {
@@ -147,37 +150,40 @@ const api = serve({
           },
           createdBy: ctx.auth?.userName,
         };
-      }),
+      },
+    }),
 
     // ADMIN ONLY - Single role check
-    secrets: query
-      .requireRole('admin')
-      .query(async ({ ctx }) => {
+    secrets: query({
+      requiredRoles: ['admin'],
+      query: async ({ ctx }) => {
         return {
           secrets: mockDb.secrets,
           accessedBy: ctx.auth?.userName,
         };
-      }),
+      },
+    }),
 
     // DELETE PERMISSION - Requires admin role + delete scope
-    deleteMetric: query
-      .requireRole('admin')
-      .requireScope('delete:metrics')
-      .input(z.object({
+    deleteMetric: query({
+      requiredRoles: ['admin'],
+      requiredScopes: ['delete:metrics'],
+      input: z.object({
         id: z.number(),
-      }))
-      .query(async ({ ctx, input }) => {
+      }),
+      query: async ({ ctx, input }) => {
         return {
           message: `Metric ${input.id} deleted`,
           deletedBy: ctx.auth?.userName,
         };
-      }),
+      },
+    }),
 
     // COMBINED GUARDS - Viewer role + read scope
-    viewerDashboard: query
-      .requireRole('viewer')
-      .requireScope('read:metrics')
-      .query(async ({ ctx }) => {
+    viewerDashboard: query({
+      requiredRoles: ['viewer'],
+      requiredScopes: ['read:metrics'],
+      query: async ({ ctx }) => {
         return {
           summary: {
             totalMetrics: mockDb.metrics.length,
@@ -185,7 +191,8 @@ const api = serve({
           },
           viewedBy: ctx.auth?.userName,
         };
-      }),
+      },
+    }),
   },
 });
 

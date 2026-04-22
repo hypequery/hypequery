@@ -4,6 +4,52 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import CodeHighlight from '@/components/CodeHighlight';
+import type { Metadata } from 'next';
+import { getPosts } from '@/lib/blog';
+import { absoluteUrl } from '@/lib/site';
+
+export async function generateStaticParams() {
+  const posts = await getPosts();
+  return posts.map((post) => ({ slug: post.slug }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
+
+  if (!post) {
+    return {};
+  }
+
+  const title = post.data.seoTitle ?? post.data.title;
+  const description = post.data.seoDescription ?? post.data.description ?? 'Read the latest hypequery article.';
+  const url = absoluteUrl(`/blog/${post.slug}`);
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: url,
+    },
+    openGraph: {
+      type: 'article',
+      url,
+      title,
+      description,
+      publishedTime: post.data.date,
+      tags: post.data.tags,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+  };
+}
 
 export default async function BlogPostPage({
   params,

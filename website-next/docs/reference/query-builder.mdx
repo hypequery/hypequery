@@ -1,20 +1,31 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
 title: Query Builder API
-description: Complete reference for the hypequery query builder API
+description: Quick reference for the hypequery ClickHouse query builder API.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # Query Builder API Reference
 
-Complete API reference for all query builder methods. Works identically in both serve framework and standalone usage.
+Use this page as a quick method index. For concepts and worked examples, use the main query-building guides.
+
+## Start Here
+
+- [Query Basics](/docs/query-building/basics)
+- [Select](/docs/query-building/select)
+- [Where](/docs/query-building/where)
+- [Joins](/docs/query-building/joins)
+- [Aggregation](/docs/query-building/aggregation)
+- [Ordering](/docs/query-building/ordering)
+- [Time Functions](/docs/query-building/time-functions)
+- [Subqueries & CTEs](/docs/query-building/subqueries-ctes)
+- [SQL Expressions](/docs/query-building/sql-expressions)
+- [Helper Methods](/docs/query-building/helper-methods)
 
 ## Core Methods
 
-### table()
-
-Start a query from a table:
+### `table()`
 
 <CodeBlock>
 ```ts
@@ -22,619 +33,82 @@ db.table('users')
 ```
 </CodeBlock>
 
-**Parameters:**
-- `tableName`: Name of the table (must exist in schema)
+Starts a query from a typed table.
 
-**Returns:** QueryBuilder instance
-
-### select()
-
-Specify which columns to return:
+### `select()`
 
 <CodeBlock>
 ```ts
-// Select specific columns
 db.table('users').select(['id', 'name', 'email'])
-
-// Select all columns
-db.table('users').select('*')
-
-// Select with aliases
-db.table('users').select(['id', 'name AS user_name'])
-
-// Select from joined tables
-db.table('orders')
-  .innerJoin('users', 'user_id', 'users.id')
-  .select(['orders.id', 'users.name', 'orders.amount'])
 ```
 </CodeBlock>
 
-**Parameters:**
-- `columns`: Array of column names or `'*'` for all columns
+Chooses output columns and updates the inferred result type.
 
-**Returns:** QueryBuilder instance with updated output type
-
-### where()
-
-Filter rows based on conditions:
+### `where()`
 
 <CodeBlock>
 ```ts
-// Simple condition
 db.table('users').where('status', 'eq', 'active')
-
-// Multiple conditions (AND)
-db.table('users')
-  .where('status', 'eq', 'active')
-  .where('age', 'gte', 18)
-
-// Conditional where (null/undefined is ignored)
-db.table('users')
-  .where(input.status ? ['status', 'eq', input.status] : null)
 ```
 </CodeBlock>
 
-**Operators:**
-- `eq`, `neq`: Equal, not equal
-- `gt`, `gte`, `lt`, `lte`: Comparison
-- `like`, `notLike`: Pattern matching
-- `in`, `notIn`: Array membership
-- `isNull`, `isNotNull`: Null checks
+Adds predicates with typed operators and values. See [Where](/docs/query-building/where).
 
-**Parameters:**
-- `column`: Column name
-- `operator`: Comparison operator
-- `value`: Value to compare against
-
-**Returns:** QueryBuilder instance
-
-See [Filtering](/docs/queries/filtering) for more details.
-
-### execute()
-
-Execute the query and return results:
+### `execute()`
 
 <CodeBlock>
 ```ts
-const results = await db
-  .table('users')
-  .where('status', 'eq', 'active')
-  .select(['id', 'name'])
-  .execute();
+const rows = await db.table('users').select(['id']).execute();
 ```
 </CodeBlock>
 
-**Parameters:**
-- `options` (optional): Execution options
-  - `cache`: Cache configuration override
-  - `queryId`: Custom query ID for logging
+Runs the query and returns typed results.
 
-**Returns:** Promise of typed result array
-
-### stream()
-
-Execute query and stream results:
+### `stream()`
 
 <CodeBlock>
 ```ts
-const stream = await db
-  .table('orders')
-  .select(['id', 'amount'])
-  .stream();
-
-const reader = stream.getReader();
-while (true) {
-  const { done, value: rows } = await reader.read();
-  if (done) break;
-  console.log(rows);
-}
+const stream = await db.table('events').stream();
 ```
 </CodeBlock>
 
-**Returns:** Promise of ReadableStream
+Streams result batches for large datasets.
 
-### streamForEach()
-
-Stream results with callback:
+### `streamForEach()`
 
 <CodeBlock>
 ```ts
-await db
-  .table('events')
-  .select(['id', 'event_type'])
-  .streamForEach(async (row) => {
-    await processEvent(row);
-  });
-```
-</CodeBlock>
-
-**Parameters:**
-- `callback`: Function called for each row batch
-
-**Returns:** Promise that resolves when stream completes
-
-## Joins
-
-### innerJoin()
-
-Perform an inner join:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .innerJoin('users', 'user_id', 'users.id')
-  .select(['orders.id', 'users.name'])
-```
-</CodeBlock>
-
-**Parameters:**
-- `table`: Table to join
-- `leftColumn`: Column from current table
-- `rightColumn`: Column from joined table (format: `'table.column'`)
-- `alias` (optional): Alias for joined table
-
-### leftJoin()
-
-Perform a left join:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .leftJoin('users', 'user_id', 'users.id')
-  .select(['orders.id', 'users.name'])
-```
-</CodeBlock>
-
-### rightJoin()
-
-Perform a right join:
-
-<CodeBlock>
-```ts
-db.table('users')
-  .rightJoin('orders', 'id', 'orders.user_id')
-```
-</CodeBlock>
-
-### fullJoin()
-
-Perform a full outer join:
-
-<CodeBlock>
-```ts
-db.table('users')
-  .fullJoin('orders', 'id', 'orders.user_id')
-```
-</CodeBlock>
-
-### withRelation()
-
-Use predefined relationships:
-
-<CodeBlock>
-```ts
-// First define relationships
-const relationships = new JoinRelationships<Schema>();
-relationships.define('userOrders', {
-  from: 'orders',
-  to: 'users',
-  leftColumn: 'user_id',
-  rightColumn: 'id',
-  type: 'LEFT'
+await db.table('events').streamForEach(async (row) => {
+  await processEvent(row);
 });
-
-QueryBuilder.setJoinRelationships(relationships);
-
-// Then use in queries
-db.table('orders')
-  .withRelation('userOrders')
-  .select(['orders.id', 'users.name'])
 ```
 </CodeBlock>
 
-See [Joins](/docs/queries/joins) and [Join Relationships](/docs/queries/join-relationships) for more details.
-
-## Aggregations
-
-### sum()
-
-Calculate sum of a column:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .sum('amount', 'total_revenue')
-```
-</CodeBlock>
-
-**Parameters:**
-- `column`: Column to sum
-- `alias`: Alias for the result
-
-### count()
-
-Count rows or non-null values:
-
-<CodeBlock>
-```ts
-db.table('users')
-  .count('id', 'user_count')
-```
-</CodeBlock>
-
-### avg()
-
-Calculate average:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .avg('amount', 'avg_order_value')
-```
-</CodeBlock>
-
-### min()
-
-Find minimum value:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .min('amount', 'min_order')
-```
-</CodeBlock>
-
-### max()
-
-Find maximum value:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .max('amount', 'max_order')
-```
-</CodeBlock>
-
-See [Aggregations](/docs/queries/aggregations) for more details.
-
-## Grouping & Ordering
-
-### groupBy()
-
-Group results:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .select(['country'])
-  .sum('amount', 'revenue')
-  .groupBy(['country'])
-```
-</CodeBlock>
-
-**Parameters:**
-- `columns`: Array of columns to group by
-
-### groupByTimeInterval()
-
-Group by time intervals:
-
-<CodeBlock>
-```ts
-// Built-in intervals
-db.table('events')
-  .count('id', 'event_count')
-  .groupByTimeInterval('created_at', null, 'toStartOfHour')
-
-// Custom intervals
-db.table('events')
-  .count('id', 'event_count')
-  .groupByTimeInterval('created_at', '5 minute')
-```
-</CodeBlock>
-
-**Parameters:**
-- `column`: Timestamp column
-- `interval`: Custom interval string (e.g., '5 minute', '1 hour')
-- `function`: Built-in ClickHouse function (e.g., 'toStartOfHour')
-
-See [Time Functions](/docs/queries/time-functions) for more details.
-
-### orderBy()
-
-Sort results:
-
-<CodeBlock>
-```ts
-db.table('users')
-  .orderBy('created_at', 'DESC')
-
-// Multiple sorts
-db.table('users')
-  .orderBy('country', 'ASC')
-  .orderBy('created_at', 'DESC')
-```
-</CodeBlock>
-
-**Parameters:**
-- `column`: Column to sort by
-- `direction`: `'ASC'` or `'DESC'`
-
-### having()
-
-Filter aggregated results:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .select(['country'])
-  .sum('amount', 'revenue')
-  .groupBy(['country'])
-  .having('revenue > 100000')
-```
-</CodeBlock>
-
-**Parameters:**
-- `condition`: SQL condition string
-- `parameters` (optional): Parameter values
-
-## Limiting & Pagination
-
-### limit()
-
-Limit number of results:
-
-<CodeBlock>
-```ts
-db.table('users').limit(10)
-```
-</CodeBlock>
-
-**Parameters:**
-- `count`: Maximum number of rows to return
-
-### offset()
-
-Skip rows:
-
-<CodeBlock>
-```ts
-db.table('users')
-  .orderBy('created_at', 'DESC')
-  .limit(20)
-  .offset(40) // Page 3 (skip first 40)
-```
-</CodeBlock>
-
-**Parameters:**
-- `count`: Number of rows to skip
-
-### distinct()
-
-Return only unique rows:
-
-<CodeBlock>
-```ts
-db.table('orders')
-  .select(['country'])
-  .distinct()
-```
-</CodeBlock>
-
-## Utility Methods
-
-### toSQL()
-
-Get generated SQL string:
-
-<CodeBlock>
-```ts
-const query = db
-  .table('users')
-  .where('status', 'eq', 'active')
-  .select(['id', 'name']);
-
-const sql = query.toSQL();
-// SELECT id, name FROM users WHERE status = 'active'
-```
-</CodeBlock>
-
-**Returns:** SQL string with parameters interpolated
-
-### toSQLWithParams()
-
-Get SQL and parameters separately:
-
-<CodeBlock>
-```ts
-const { sql, parameters } = db
-  .table('orders')
-  .where('amount', 'gt', 1000)
-  .toSQLWithParams();
-
-console.log(sql);        // SELECT * FROM orders WHERE amount > ?
-console.log(parameters); // [1000]
-```
-</CodeBlock>
-
-**Returns:** Object with `sql` string and `parameters` array
-
-### debug()
-
-Print query information:
-
-<CodeBlock>
-```ts
-db.table('users')
-  .where('status', 'eq', 'active')
-  .debug() // Logs SQL, parameters, settings
-  .execute();
-```
-</CodeBlock>
-
-**Returns:** QueryBuilder instance (chainable)
-
-### getConfig()
-
-Access current query configuration:
-
-<CodeBlock>
-```ts
-const config = db
-  .table('users')
-  .select(['id'])
-  .getConfig();
-
-console.log(config);
-// { table: 'users', select: ['id'], where: [], ... }
-```
-</CodeBlock>
-
-**Returns:** Query configuration object
-
-### raw()
-
-Insert raw SQL fragments:
-
-<CodeBlock>
-```ts
-db.table('events')
-  .raw('WHERE date BETWEEN toStartOfMonth(now()) AND now()')
-  .execute();
-```
-</CodeBlock>
-
-**Parameters:**
-- `sql`: Raw SQL string
-
-**Returns:** QueryBuilder instance
-
-**Warning:** Raw SQL bypasses type safety. Use sparingly.
-
-### settings()
-
-Configure ClickHouse query settings:
-
-<CodeBlock>
-```ts
-db.table('large_table')
-  .settings({
-    max_execution_time: 30,
-    max_memory_usage: '10000000000',
-    max_threads: 4,
-  })
-  .execute();
-```
-</CodeBlock>
-
-**Parameters:**
-- `settings`: ClickHouse settings object
-
-**Returns:** QueryBuilder instance
-
-### cache()
-
-Configure query caching:
-
-<CodeBlock>
-```ts
-db.table('users')
-  .where('status', 'eq', 'active')
-  .cache({
-    mode: 'cache-first',
-    ttlMs: 60000, // 1 minute
-    tags: ['users'],
-  })
-  .execute();
-```
-</CodeBlock>
-
-**Parameters:**
-- `options`: Cache configuration or `false` to disable
-
-**Returns:** QueryBuilder instance
-
-See [Caching](/docs/serve/caching) for more details.
-
-## Time Functions
-
-### toStartOfInterval()
-
-Convert timestamp to interval start:
-
-<CodeBlock>
-```ts
-db.table('events')
-  .select([
-    'id',
-    toStartOfInterval('created_at', '1 hour', 'hour_bucket'),
-  ])
-  .groupBy(['hour_bucket'])
-```
-</CodeBlock>
-
-**Parameters:**
-- `column`: Timestamp column
-- `interval`: Interval string (e.g., '1 hour', '5 minute')
-- `alias`: Alias for the result
-
-### datePart()
-
-Extract date component:
-
-<CodeBlock>
-```ts
-db.table('events')
-  .select([
-    datePart('year', 'created_at', 'year'),
-    datePart('month', 'created_at', 'month'),
-    datePart('day', 'created_at', 'day'),
-  ])
-```
-</CodeBlock>
-
-**Parameters:**
-- `part`: Date component ('year', 'month', 'day', 'hour', etc.)
-- `column`: Timestamp column
-- `alias`: Alias for the result
-
-See [Time Functions](/docs/queries/time-functions) for complete reference.
-
-## Type Safety
-
-All methods maintain full TypeScript type safety:
-
-<CodeBlock>
-```ts
-interface Schema {
-  users: {
-    id: 'Int32';
-    name: 'String';
-    age: 'UInt8';
-    created_at: 'DateTime';
-  };
-  orders: {
-    id: 'Int32';
-    user_id: 'Int32';
-    amount: 'Decimal64(2)';
-    status: 'String';
-  };
-}
-
-const db = createQueryBuilder<Schema>();
-
-// ✅ Type-safe
-const users = await db
-  .table('users')
-  .where('age', 'gte', 18)
-  .select(['id', 'name'])
-  .execute();
-// users: Array<{ id: number; name: string }>
-
-// ❌ TypeScript errors
-db.table('users')
-  .where('invalid_column', 'eq', 'value') // Error: column doesn't exist
-  .select(['id', 'invalid']) // Error: column doesn't exist
-  .sum('name', 'total'); // Error: can't sum string column
-```
-</CodeBlock>
+Processes rows incrementally with a callback.
+
+## Join Methods
+
+- `innerJoin()`
+- `leftJoin()`
+- `rightJoin()`
+- `fullJoin()`
+
+See [Joins](/docs/query-building/joins) for patterns and examples.
+
+## Other Common Methods
+
+- `groupBy()`
+- `having()`
+- `orderBy()`
+- `limit()`
+- `offset()`
+- `distinct()`
+- `settings()`
+- `raw()`
+- `rawQuery()`
+- `withCTE()`
+- `toSQL()`
+- `toSQLWithParams()`
+
+Use the dedicated guides above for examples and edge cases.

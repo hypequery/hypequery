@@ -12,6 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug?: 
   return new Response(await getLLMText(page), {
     headers: {
       'Content-Type': 'text/markdown',
+      'X-Robots-Tag': 'noindex, nofollow',
     },
   });
 }

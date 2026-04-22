@@ -435,7 +435,13 @@ export interface QueryObjectConfig<
   description?: string;
   summary?: string;
   tags?: string[];
+  auth?: AuthStrategy<TAuth> | null;
+  requiresAuth?: boolean;
+  tenant?: TenantConfigOverride<TAuth>;
   cacheTtlMs?: number | null;
+  requiredRoles?: string[];
+  requiredScopes?: string[];
+  custom?: Record<string, unknown>;
   query: QueryResolver<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
 }
 

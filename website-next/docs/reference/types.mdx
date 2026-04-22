@@ -1,238 +1,165 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Types Reference
-description: Complete reference for all TypeScript types exported by hypequery
+title: Type Helpers
+description: TypeScript helpers for the current hypequery query and serve APIs.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Types Reference
+# Type Helpers
 
-hypequery exports several TypeScript types and interfaces that you can use in your application. This page provides a complete reference for all available types.
+These are the most useful type helpers in the current `initServe` / `query({ ... })` / `serve({ queries })` path.
 
-## Core Types
+## `InferApiType`
 
-### QueryBuilder Types
-
-<CodeBlock>
-```typescript
-import { 
-  QueryBuilder,
-  ColumnType,
-  TableSchema,
-  DatabaseSchema
-} from '@hypequery/clickhouse';
-
-// Core query builder type
-type QueryBuilder<
-  Schema,        // Your database schema
-  T,             // Current table type
-  HasSelect,     // Whether select has been called
-  Aggregations,  // Current aggregations
-  OriginalT      // Original table type
->;
-
-// Column type definitions
-type ColumnType = 
-  | 'String'
-  | 'Int32'
-  | 'Int64'
-  | 'Float64'
-  | 'Date'
-  | 'DateTime'
-  | 'UInt8'
-  | `Array(${ColumnType})`;
-
-// Table schema definition
-interface TableSchema<T> {
-  name: string;
-  columns: T;
-}
-
-// Full database schema
-type DatabaseSchema = Record<string, Record<string, ColumnType>>;
-```
-</CodeBlock>
-
-### Filter Types
+Use `InferApiType` to extract the client-safe API shape from an exported `api`.
 
 <CodeBlock>
 ```typescript
-import {
-  FilterOperator,
-  FilterCondition,
-  FilterGroup,
-  CrossFilter
-} from '@hypequery/clickhouse';
+import { InferApiType } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
 
-// Available filter operators
-type FilterOperator =
-  | 'eq'
-  | 'neq'
-  | 'gt'
-  | 'gte'
-  | 'lt'
-  | 'lte'
-  | 'in'
-  | 'notIn'
-  | 'between'
-  | 'like'
-  | 'notLike';
-
-// Filter condition structure
-interface FilterCondition<T> {
-  column: string;
-  operator: FilterOperator;
-  value: T;
-  conjunction?: 'AND' | 'OR';
-}
-
-// Group of filter conditions
-interface FilterGroup {
-  operator: 'AND' | 'OR';
-  conditions: Array<FilterCondition | FilterGroup>;
-}
-
-// Cross filter instance type
-type CrossFilter<
-  Schema,      // Your database schema
-  TableName    // Current table name
->;
+type Api = InferApiType<typeof api>;
 ```
 </CodeBlock>
 
-### Join Types
+The inferred type maps each query key to:
 
 <CodeBlock>
 ```typescript
-import {
-  JoinType,
-  JoinClause,
-  JoinPath,
-  JoinRelationships
-} from '@hypequery/clickhouse';
-
-// Available join types
-type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
-
-// Join clause structure
-interface JoinClause {
-  type: JoinType;
-  table: string;
-  leftColumn: string;
-  rightColumn: string;
-  alias?: string;
-}
-
-// Join path definition
-interface JoinPath<Schema> {
-  from: keyof Schema;
-  to: keyof Schema;
-  leftColumn: string;
-  rightColumn: string;
-  type?: JoinType;
-  alias?: string;
-}
-
-// Join relationships manager type
-type JoinRelationships<Schema>;
+type Api = {
+  activeUsers: {
+    input: { limit?: number };
+    output: Array<{
+      id: string;
+      email: string;
+      created_at: string;
+    }>;
+  };
+};
 ```
 </CodeBlock>
 
-### Query Configuration Types
+This is the type you typically pass into `@hypequery/react`.
+
+## `InferQueryInput`
+
+Extract the input type for one query key from an exported `api` or query map.
 
 <CodeBlock>
 ```typescript
-import {
-  QueryConfig,
-  OrderDirection,
-  WhereCondition
-} from '@hypequery/clickhouse';
+import type { InferQueryInput } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
 
-// Full query configuration
-interface QueryConfig<T, Schema> {
-  select?: Array<keyof T | string>;
-  where?: WhereCondition[];
-  groupBy?: string[];
-  having?: string[];
-  limit?: number;
-  offset?: number;
-  distinct?: boolean;
-  orderBy?: Array<{
-    column: keyof T;
-    direction: OrderDirection;
-  }>;
-  joins?: JoinClause[];
-  parameters?: any[];
-  ctes?: string[];
-  settings?: string;
-}
-
-// Order direction
-type OrderDirection = 'ASC' | 'DESC';
-
-// Where condition
-interface WhereCondition {
-  column: string;
-  operator: FilterOperator;
-  value: any;
-  conjunction: 'AND' | 'OR';
-}
+type ActiveUsersInput = InferQueryInput<typeof api, 'activeUsers'>;
 ```
 </CodeBlock>
 
-## Type Inference
+## `InferQueryOutput`
 
-hypequery provides utility types for inferring column types:
+Extract the output type for one query key.
 
 <CodeBlock>
 ```typescript
-import { InferColumnType } from '@hypequery/clickhouse';
+import type { InferQueryOutput } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
 
-// Infer TypeScript type from ColumnType
-type InferredType = InferColumnType<ColumnType>;
-// Examples:
-type StringType = InferColumnType<'String'>;     // string
-type NumberType = InferColumnType<'Int32'>;      // number
-type DateType = InferColumnType<'Date'>;         // Date
-type ArrayType = InferColumnType<'Array(Int32)'>;// number[]
+type ActiveUsersOutput = InferQueryOutput<typeof api, 'activeUsers'>;
 ```
 </CodeBlock>
 
-## Usage Example
+## `InferQueryResult`
 
-Here's how to use these types in your application:
+Extract the resolved return type of the query resolver.
 
 <CodeBlock>
 ```typescript
-import {
-  QueryBuilder,
-  ColumnType,
-  FilterCondition
-} from '@hypequery/clickhouse';
+import type { InferQueryResult } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
 
-// Define your schema
-interface UserSchema {
-  id: 'Int32';
-  name: 'String';
-  email: 'String';
-  created_at: 'Date';
-}
-
-interface Schema {
-  users: UserSchema;
-}
-
-// Create typed query builder
-const db = createQueryBuilder<Schema>();
-
-// Types are automatically inferred
-const query = db
-  .table('users')
-  .select(['id', 'name'])
-  .where('created_at', 'gt', new Date())
-  .orderBy('created_at', 'DESC')
-  .limit(10)
-  .execute();
+type ActiveUsersResult = InferQueryResult<typeof api, 'activeUsers'>;
 ```
 </CodeBlock>
+
+## Query Input / Output Inference
+
+When you define a query with Zod schemas, TypeScript infers both input and output automatically:
+
+<CodeBlock>
+```typescript
+const activeUsers = query({
+  input: z.object({
+    limit: z.number().min(1).max(100).default(10),
+  }),
+  output: z.array(z.object({
+    id: z.string(),
+    email: z.string(),
+  })),
+  query: async ({ ctx, input }) => {
+    return ctx.db.table('users').select(['id', 'email']).limit(input.limit).execute();
+  },
+});
+```
+</CodeBlock>
+
+Inside the resolver:
+
+- `input` is inferred from `input`
+- the return value is checked against `output`
+
+## Resolver Types
+
+The runtime also exports resolver/context helpers:
+
+<CodeBlock>
+```typescript
+import type { QueryResolverArgs, QueryRuntimeContext } from '@hypequery/serve';
+```
+</CodeBlock>
+
+- `QueryResolverArgs<TInput, TContext, TAuth>`
+- `QueryRuntimeContext<TContext, TAuth>`
+
+## Query Builder Types
+
+The builder itself remains fully typed from your generated schema:
+
+<CodeBlock>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({ client });
+```
+</CodeBlock>
+
+That gives you:
+
+- typed table names
+- typed column names
+- typed result shapes
+- typed operators
+
+## React Hook Types
+
+`InferApiType` works directly with `createHooks`:
+
+<CodeBlock>
+```typescript
+import { createHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMutation } = createHooks<Api>({
+  baseUrl: '/api',
+});
+```
+</CodeBlock>
+
+## See Also
+
+- [Query Definition Reference](/docs/reference/query)
+- [Serve Runtime Reference](/docs/reference/runtime)
+- [React hooks](/docs/reference/react)

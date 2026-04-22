@@ -10,8 +10,8 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 hypequery exposes powerful filtering controls. Use fluent `where` clauses for simple logic or the `CrossFilter` helper when you need nested groups, reusable predicates, or top-N shortcuts.
 
-<Callout type="info" title="Serve context">
-  All examples live inside `query(({ ctx, input }) => …)` resolvers. Alias `const db = ctx.db;` at the top of the resolver or call `ctx.db` directly.
+<Callout type="info" title="Query builder syntax">
+  These examples use a typed standalone `db` client so the query builder stays the focus.
 </Callout>
 
 ## Basic Filtering
@@ -21,16 +21,11 @@ Chain multiple `where` clauses inside any query. Every predicate stays type-safe
 <CodeBlock>
 
 ```typescript
-const activeAdultUsers = query
-  .describe('Get active adults')
-  .query(({ ctx }) => {
-    return ctx.db
-      .table('users')
-      .where('age', 'gt', 18)
-      .where('status', 'eq', 'active')
-      .execute();
-  });
-
+const activeAdultUsers = await db
+  .table('users')
+  .where('age', 'gt', 18)
+  .where('status', 'eq', 'active')
+  .execute();
 ```
 
 </CodeBlock>
@@ -68,7 +63,7 @@ const ordersFilter = new CrossFilter()
     'OR',
   );
 
-const filteredOrders = await ctx.db.table('orders').applyCrossFilters(ordersFilter).execute();
+const filteredOrders = await db.table('orders').applyCrossFilters(ordersFilter).execute();
 
 ```
 
@@ -177,41 +172,40 @@ const filter = new CrossFilter().topN('revenue', 10, 'desc');
 
 </CodeBlock>
 
-## Using `CrossFilter` inside serve queries
+## Using `CrossFilter` with validated input
 
 <CodeBlock>
 
 ```typescript
-const getFilteredOrders = query
-  .describe('Filter orders by flexible criteria')
-  .input(z.object({
-    dateRange: z.tuple([z.string(), z.string()]).optional(),
-    customerIds: z.array(z.string()).default([]),
-  }))
-  .query(({ ctx, input }) => {
-    const filter = new CrossFilter();
+type OrdersFilterInput = {
+  dateRange?: [string, string];
+  customerIds: string[];
+};
 
-    if (input.dateRange) {
-      filter.add({
-        column: 'created_at',
-        operator: 'between',
-        value: input.dateRange,
-      });
-    }
+async function getFilteredOrders(input: OrdersFilterInput) {
+  const filter = new CrossFilter();
 
-    if (input.customerIds.length) {
-      filter.add({
-        column: 'customer_id',
-        operator: 'in',
-        value: input.customerIds,
-      });
-    }
+  if (input.dateRange) {
+    filter.add({
+      column: 'created_at',
+      operator: 'between',
+      value: input.dateRange,
+    });
+  }
 
-    return ctx.db
-      .table('orders')
-      .applyCrossFilters(filter)
-      .execute();
-  });
+  if (input.customerIds.length) {
+    filter.add({
+      column: 'customer_id',
+      operator: 'in',
+      value: input.customerIds,
+    });
+  }
+
+  return db
+    .table('orders')
+    .applyCrossFilters(filter)
+    .execute();
+}
 
 ```
 
@@ -234,7 +228,7 @@ const todayFilter = new CrossFilter().add({
   operator: 'between',
   value: [startOfDay(today).toISOString(), endOfDay(today).toISOString()],
 });
-const todaysOrders = await ctx.db.table('orders').applyCrossFilters(todayFilter).execute();
+const todaysOrders = await db.table('orders').applyCrossFilters(todayFilter).execute();
 
 // Last 7 days
 const last7DaysFilter = new CrossFilter().add({
@@ -270,7 +264,7 @@ const dayJsTodayFilter = new CrossFilter().add({
   operator: 'between',
   value: [today.startOf('day').toISOString(), today.endOf('day').toISOString()],
 });
-const todayEvents = await ctx.db.table('events').applyCrossFilters(dayJsTodayFilter).execute();
+const todayEvents = await db.table('events').applyCrossFilters(dayJsTodayFilter).execute();
 
 // Last 30 days
 const dayJsLast30Filter = new CrossFilter().add({

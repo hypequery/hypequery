@@ -1,10 +1,14 @@
 ---
 title: "Type-Safe SQL in TypeScript: Why Your Current Approach is Failing You (And What to Do About It)"
 description: Developer productivity suffers when SQL queries break at runtime instead of compile time. Type-safe SQL in TypeScript isn't just a nice-to-have, it's essential for building reliable applications. This guide explores why traditional approaches fall short and shows you how modern solutions like hypequery can transform your development workflow.
+seoTitle: "ClickHouse TypeScript Types: Fix Runtime SQL Errors with Type-Safe Queries"
+seoDescription: "Using ClickHouse with TypeScript? Learn why raw SQL and manual types fail, what breaks at runtime, and how to get type-safe queries with compile-time guarantees."
 pubDate: 2025-07-04T11:10:00.000Z
 heroImage: ""
 ---
 
+
+If you're coming at this from a ClickHouse-specific angle, pair this article with the [ClickHouse TypeScript](/clickhouse-typescript) pillar page. If your broader concern is building a reusable metrics layer, also see [ClickHouse analytics](/clickhouse-analytics).
 
 ## The Hidden Cost of Runtime SQL Errors
 
@@ -102,6 +106,8 @@ According to recent performance comparisons, **Drizzle generally outperforms Pri
 ## The ClickHouse Challenge: Why Analytics Needs Special Treatment
 
 ClickHouse has emerged as the go-to database for analytics and dashboards, but **connecting it to TypeScript applications safely remains challenging**. The official ClickHouse JavaScript client provides basic TypeScript support but lacks query-level type safety:
+
+That gap is exactly what the [ClickHouse TypeScript](/clickhouse-typescript) pillar page is about: not generic TypeScript SQL ergonomics, but the specific runtime and schema-mapping problems that appear on ClickHouse.
 
 ```typescript
 // Official ClickHouse client - minimal type safety
@@ -213,6 +219,8 @@ const monthlyRevenue = await db
 
 The difference between traditional approaches and hypequery becomes clear in real development scenarios:
 
+At that point the problem is no longer just safer query syntax. It becomes an analytics-layer design problem, which is why the [ClickHouse analytics](/clickhouse-analytics) pillar is a useful next read.
+
 ## Before hypequery (Traditional Approach)
 
 ```typescript
@@ -320,4 +328,4 @@ Type-safe SQL in TypeScript isn't just a luxury—it's essential for building re
 
 Stop debugging runtime SQL errors. Start building with confidence using hypequery's type-safe approach to ClickHouse development.
 
-Ready to transform your development workflow? [Get started with hypequery today](https://hypequery.com/docs/installation).
+Ready to transform your development workflow? [Get started with hypequery today](https://hypequery.com/docs/quick-start).

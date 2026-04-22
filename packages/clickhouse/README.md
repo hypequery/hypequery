@@ -1,6 +1,6 @@
 <div align="center">
   <h1>@hypequery/clickhouse</h1>
-  <p>A typescript-first library for building type-safe dashboards with ClickHouse</p>
+  <p>A TypeScript-first query builder for ClickHouse and the foundation of the hypequery path.</p>
   
   [![GitHub license](https://img.shields.io/github/license/hypequery/hypequery)](https://github.com/hypequery/hypequery/blob/main/LICENSE)
   [![npm version](https://badge.fury.io/js/@hypequery%2Fclickhouse.svg)](https://badge.fury.io/js/@hypequery%2Fclickhouse)
@@ -10,7 +10,7 @@
 
 ## Overview
 
-hypequery is a typescript-first query builder for ClickHouse designed specifically for building type-safe analytics dashboards. Unlike generic SQL query builders, hypequery understands your ClickHouse schema and provides full type checking, making it ideal for data-intensive applications.
+`@hypequery/clickhouse` is the first step in the main hypequery flow. Generate types from your ClickHouse schema, build typed queries locally, then promote important queries into `query({ ... })` and `serve({ queries })` when they need to be reused across your app.
 
 ## Features
 
@@ -40,6 +40,13 @@ npm install @hypequery/clickhouse @clickhouse/client-web
 - **Auto-detection**: Automatically selects the client for Node.js environments
 
 ## Quick Start
+
+Main path:
+
+1. Generate schema types
+2. Create a typed `db` with `createQueryBuilder(...)`
+3. Build and execute queries locally
+4. Add `@hypequery/serve` later if a query needs a reusable contract or HTTP surface
 
 ### Node.js Environments
 
@@ -126,18 +133,15 @@ const rows = await db
 await db.cache.invalidateTags(['users']);
 ```
 
-Use `.cache()` to attach defaults to a fluent chain, pass `execute({ cache: { ... } })` for one-off overrides, or call `db.cache.*` for manual invalidation. For a deep dive on cache modes, invalidation, advanced serialization, and bring-your-own-provider recipes (Redis/Upstash, compression, etc.), see the [Caching guide](https://hypequery.com/docs/features/caching).
+Use `.cache()` to attach defaults to a fluent chain, pass `execute({ cache: { ... } })` for one-off overrides, or call `db.cache.*` for manual invalidation. For a deep dive on cache modes, invalidation, advanced serialization, and bring-your-own-provider recipes (Redis/Upstash, compression, etc.), see the [Caching guide](https://hypequery.com/docs/caching).
 
 ## Schema Generation
 
-hypequery provides a CLI tool to generate TypeScript types from your ClickHouse schema:
+Use the hypequery CLI to generate TypeScript types from your ClickHouse schema:
 
 ```bash
-# Install globally (optional)
-npm install -g @hypequery/clickhouse
-
-# Generate schema types
-npx hypequery-generate-types --host your-clickhouse-host --database your-database
+npm install -D @hypequery/cli
+npx hypequery generate
 ```
 
 This creates a `generated-schema.ts` file that you can import in your application:
@@ -278,12 +282,13 @@ hypequery follows semantic versioning and provides multiple release channels:
 
 ## Documentation
 
-For detailed documentation and examples, visit our [documentation site](https://hypequery.com/docs).
+For detailed documentation and examples, visit the main docs flow.
 
-- [Getting Started](https://hypequery.com/docs/installation)
-- [Query Building](https://hypequery.com/docs/guides/query-building)
-- [Filtering](https://hypequery.com/docs/guides/filtering)
-- [API Reference](https://hypequery.com/docs/reference/api)
+- [Quick Start](https://hypequery.com/docs/quick-start)
+- [Core Concepts](https://hypequery.com/docs/core-concepts)
+- [Query Building](https://hypequery.com/docs/query-building/basics)
+- [Filtering](https://hypequery.com/docs/query-building/where)
+- [API Reference](https://hypequery.com/docs/reference/query-builder)
 
 
 ## Troubleshooting

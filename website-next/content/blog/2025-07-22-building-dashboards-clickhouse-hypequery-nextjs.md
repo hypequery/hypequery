@@ -1,11 +1,15 @@
 ---
 title: "Building Dashboards on ClickHouse with hypequery and Next.js"
 description: "Learn how to build type-safe, real-time analytics dashboards using hypequery, ClickHouse, and Next.js. Get complete type safety, autocomplete, and developer productivity for your analytics applications."
+seoTitle: "Build ClickHouse Dashboards in Next.js with Type-Safe TypeScript Queries"
+seoDescription: "Learn how to build ClickHouse dashboards in Next.js with typed queries, reusable metrics, and safer TypeScript data fetching using hypequery."
 pubDate: 2025-07-22
 heroImage: ""
 ---
 
 Modern analytics applications demand both real-time insights and developer productivity. If you're building dashboards on ClickHouse with TypeScript, you've likely run into the pain of raw SQL strings, manual type definitions, and the challenges of interactive, scalable data apps. In this guide, we'll show you how to solve these problems using hypequery — a TypeScript-first, type-safe query builder for ClickHouse — alongside Next.js, the leading React framework.
+
+If you're evaluating the broader architecture first, start with the [ClickHouse Next.js](/clickhouse-nextjs), [ClickHouse React](/clickhouse-react), and [ClickHouse analytics](/clickhouse-analytics) pillar pages. This post is the implementation-level companion.
 
 **You can check hypequery out on [github](https://github.com/hypequery/hypequery)**.
 
@@ -90,6 +94,8 @@ const results = await db
 
 Interactive dashboards often need to synchronize filters across multiple queries. hypequery's CrossFilter makes this easy:
 
+This is also where a reusable analytics layer becomes more valuable than one-off database calls. If your team is still deciding on the architectural approach, read the [ClickHouse analytics](/clickhouse-analytics) pillar after this section.
+
 ```typescript
 import { CrossFilter } from '@hypequery/clickhouse';
 
@@ -125,6 +131,8 @@ Type safety is preserved from the database to your frontend.
 ### 6. Display Data in Your Next.js Dashboard
 
 Use React components to fetch and display the data:
+
+If your main question is how to structure the React client layer cleanly, the [ClickHouse React](/clickhouse-react) pillar goes deeper on typed hooks and browser-side consumption patterns.
 
 ```typescript
 // components/TripsTable.tsx
@@ -180,4 +188,4 @@ Install hypequery and start building your type-safe analytics dashboard today:
 npm install @hypequery/clickhouse
 ```
 
-Explore the **[hypequery documentation](/docs)** for more examples and advanced features. 
+Explore the **[hypequery documentation](/docs)** for more examples and advanced features. For a higher-level decision guide, continue to [ClickHouse Next.js](/clickhouse-nextjs) or [ClickHouse analytics](/clickhouse-analytics). 

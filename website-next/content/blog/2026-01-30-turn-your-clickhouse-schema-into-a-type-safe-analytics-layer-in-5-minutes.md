@@ -1,6 +1,8 @@
 ---
 title: "Turn Your ClickHouse Schema Into a Type-Safe Analytics Layer in 5 Minutes"
 description: "Go from raw SQL strings to a fully typed SDK + HTTP API + React hooks in about 5 minutes. Learn how to auto-generate TypeScript types from your ClickHouse schema and never worry about schema drift again."
+seoTitle: "ClickHouse Query Builder for TypeScript: Build a Type-Safe Analytics Layer"
+seoDescription: "Looking for a ClickHouse query builder in TypeScript? Learn how to generate schema types, define typed queries, and expose them as APIs and React hooks."
 pubDate: 2026-01-30
 heroImage: "ClickHouse is fast. Your developer experience with it? Not so much."
 ---
@@ -73,6 +75,8 @@ const powerUsers = await api.execute('powerUsers', {
 Full autocomplete. Compile-time type checking. Refactor-friendly.
 
 What makes this possible is a schema-driven analytics layer, and it takes about 30 seconds to set up with ClickHouse.
+
+If you want the higher-level overview first, start with [ClickHouse analytics](/clickhouse-analytics). If you mainly care about runtime type correctness, pair this guide with [ClickHouse TypeScript](/clickhouse-typescript).
 
 In this post, you'll go from a plain ClickHouse schema to a schema-driven analytics layer (typed SDK + HTTP API + React hooks) in about 5 minutes.
 
@@ -432,6 +436,8 @@ const { data } = useQuery('powerUsers', {
 ```
 
 For the React dashboard, create hooks in a few lines:
+
+For a dedicated overview of the client-side patterns, see the [ClickHouse React](/clickhouse-react) pillar. If this is living inside App Router, the [ClickHouse Next.js](/clickhouse-nextjs) pillar connects the server and client sides.
 
 ```ts
 // lib/analytics.ts

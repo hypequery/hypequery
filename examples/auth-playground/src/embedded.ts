@@ -60,44 +60,49 @@ const api = serve({
 
   queries: {
     // Public endpoint
-    public: query
-      .public()
-      .query(async () => ({
+    public: query({
+      requiresAuth: false,
+      query: async () => ({
         message: 'Anyone can access this',
-      })),
+      }),
+    }),
 
     // Authenticated
-    profile: query
-      .requireAuth()
-      .query(async ({ ctx }) => ({
+    profile: query({
+      requiresAuth: true,
+      query: async ({ ctx }) => ({
         userId: ctx.auth?.userId,
         roles: ctx.auth?.roles,
-      })),
+      }),
+    }),
 
     // Role-based
-    adminOnly: query
-      .requireRole('admin')
-      .query(async ({ ctx }) => ({
+    adminOnly: query({
+      requiredRoles: ['admin'],
+      query: async ({ ctx }) => ({
         message: 'Admin data',
         userId: ctx.auth?.userId,
-      })),
+      }),
+    }),
 
     // Scope-based
-    writeData: query
-      .requireScope('write:data')
-      .query(async ({ ctx }) => ({
+    writeData: query({
+      requiredScopes: ['write:data'],
+      query: async ({ ctx }) => ({
         message: 'Data written',
         userId: ctx.auth?.userId,
-      })),
+      }),
+    }),
 
     // Combined guards
-    superAdmin: query
-      .requireRole('admin')
-      .requireScope('write:data')
-      .query(async ({ ctx }) => ({
+    superAdmin: query({
+      requiredRoles: ['admin'],
+      requiredScopes: ['write:data'],
+      query: async ({ ctx }) => ({
         message: 'Super admin operation',
         userId: ctx.auth?.userId,
-      })),
+      }),
+    }),
   },
 });
 

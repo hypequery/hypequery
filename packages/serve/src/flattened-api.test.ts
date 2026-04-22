@@ -165,4 +165,27 @@ describe("query() and serve()", () => {
     expect(revenue).toBeDefined();
     expect(revenue.run).toBeDefined();
   });
+
+  it("should preserve object-style runtime metadata on standalone queries", () => {
+    const revenue = query({
+      description: "Calculate total revenue",
+      summary: "Monthly revenue calculation",
+      tags: ["finance", "revenue"],
+      requiresAuth: true,
+      requiredRoles: ["admin"],
+      requiredScopes: ["read:finance"],
+      tenant: { required: false },
+      custom: { owner: "finance-team" },
+      query: async () => ({ total: 100 }),
+    });
+
+    expect(revenue.description).toBe("Calculate total revenue");
+    expect(revenue.summary).toBe("Monthly revenue calculation");
+    expect(revenue.tags).toEqual(["finance", "revenue"]);
+    expect(revenue.requiresAuth).toBe(true);
+    expect(revenue.requiredRoles).toEqual(["admin"]);
+    expect(revenue.requiredScopes).toEqual(["read:finance"]);
+    expect(revenue.tenant).toEqual({ required: false });
+    expect(revenue.custom).toEqual({ owner: "finance-team" });
+  });
 });

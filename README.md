@@ -42,7 +42,7 @@
 
 ## Quick Start
 
-No installation needed — run directly with `npx`:
+Start with the CLI:
 
 ```bash
 npm install -D @hypequery/cli
@@ -81,31 +81,33 @@ const revenue = await db
 
 No SQL strings. No runtime surprises when your schema changes.
 
-## Going Further: Governed APIs with `@hypequery/serve`
+## Add Query Definitions And Serve When You Need Them
 
-Need to share metrics across services, expose HTTP endpoints, or give AI agents structured access to your data? `@hypequery/serve` wraps your queries into a governed, reusable API layer.
+Start with the query builder for local typed execution. Add `@hypequery/serve` when a query becomes a reusable contract or needs an HTTP surface.
 
 ```typescript
 import { initServe, type InferQueryResult } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './analytics/client';
 
-const serve = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }),
+  basePath: '/api/analytics',
 });
 
-export const api = serve.define({
-  queries: serve.queries({
-    activeUsers: serve.query
-      .describe('List active users')
-      .input(z.object({ region: z.string() }))
-      .query(async ({ ctx, input }) =>
-        ctx.db
-          .table('users')
-          .where('status', 'eq', 'active')
-          .where('region', 'eq', input.region)
-      ),
-  }),
+const activeUsers = query({
+  description: 'List active users',
+  input: z.object({ region: z.string() }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('users')
+      .where('status', 'eq', 'active')
+      .where('region', 'eq', input.region)
+      .execute(),
+});
+
+export const api = serve({
+  queries: { activeUsers },
 });
 
 // Export typed helpers for downstream usage
@@ -121,7 +123,7 @@ const users = await api.run('activeUsers', { input: { region: 'EU' } });
 
 **HTTP API**
 ```bash
-GET /api/activeUsers?region=EU
+POST /api/analytics/activeUsers
 ```
 
 **React**
@@ -135,7 +137,7 @@ const catalog = api.describe();
 const result = await api.run('activeUsers', { input: { region: 'EU' } });
 ```
 
-One definition. Every consumer.
+One query definition. Every consumer.
 
 ## CLI
 

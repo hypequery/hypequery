@@ -7,6 +7,8 @@ heroImage: ""
 
 Uber, Cloudflare, Instacart, GitLab, Lyft, Microsoft, and Contentsquare share more than ClickHouse adoption. Each independently built the same abstraction stack—query translation engines, semantic layers, and self service interfaces that let thousands of people query without reading a line of raw ClickHouse SQL. Different industries, different workloads, identical pattern.
 
+If you want the practical product-engineering version of that pattern before reading the case studies, start with the [ClickHouse analytics](/clickhouse-analytics) pillar page.
+
 This convergence is not stylistic. It is the direct consequence of optimising ClickHouse for speed. Every schema level optimisation that squeezes out milliseconds also adds cognitive overhead that analysts should not carry. Platform teams end up absorbing that complexity into infrastructure because it is the only way to scale.
 
 ## The Architecture Everyone Arrives At
@@ -97,6 +99,8 @@ The platform team absorbs complexity once; the organisation scales without propo
 Once embedded, these layers create natural lock in—not through dark patterns, but through workflow familiarity. Uber's Kibana dashboards represent years of institutional memory. PostHog's HogQL becomes communal language. GitLab's Arel based builders teach analysts GitLab specific conventions. Instacart's YAML definitions capture historical fraud heuristics.
 
 Retraining humans, migrating saved queries, and rebuilding dashboards is far harder than swapping databases. The abstraction layer becomes an asset that justifies further investment.
+
+For SaaS teams serving customer-facing analytics, that same pattern usually needs strong isolation guarantees too, which is where [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics) becomes relevant.
 
 ## AI Is Joining the Stack, Not Sitting on Top
 

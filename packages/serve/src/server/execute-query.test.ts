@@ -61,7 +61,37 @@ describe("createExecuteQuery", () => {
     );
 
     await expect(executeQuery("nonexistent" as any)).rejects.toThrow(
-      "No query registered for key nonexistent"
+      "Query 'nonexistent' not found. No queries are currently registered."
+    );
+  });
+
+  it("includes available query keys in missing-query errors", async () => {
+    const endpoint = createEndpoint("test", {
+      inputSchema: z.object({}),
+      outputSchema: z.object({ ok: z.boolean() }),
+      query: async () => ({ ok: true }),
+    });
+
+    const queryEntries = { test: endpoint };
+    const authStrategies: any[] = [];
+    const contextFactory = undefined;
+    const globalMiddlewares: any[] = [];
+    const tenantConfig = undefined;
+    const hooks = {};
+    const queryLogger = new ServeQueryLogger();
+
+    const executeQuery = createExecuteQuery<any, any>(
+      queryEntries,
+      authStrategies,
+      contextFactory,
+      globalMiddlewares,
+      tenantConfig,
+      hooks,
+      queryLogger,
+    );
+
+    await expect(executeQuery("nonexistent" as any)).rejects.toThrow(
+      "Query 'nonexistent' not found. Available queries: test."
     );
   });
 

@@ -1,5 +1,5 @@
-import { Book, Braces } from 'lucide-react';
-import { standaloneTabUrls } from '@/lib/standalone-urls';
+import { Book, History } from 'lucide-react';
+import { legacyTabUrls } from '@/lib/docs-sections';
 
 export function baseOptions() {
   return {
@@ -20,11 +20,11 @@ export function baseOptions() {
           icon: <Book className="w-4 h-4 text-indigo-400" />,
         },
         {
-          title: 'Standalone Query Builder',
-          description: 'Build type safe queries with the ClickHouse client directly',
-          url: '/docs/standalone-query-builder/when-to-use',
-          icon: <Braces className="w-4 h-4 text-purple-500" />,
-          urls: standaloneTabUrls,
+          title: 'v0.1.x Serve API',
+          description: 'Builder-first serve docs for v0.1.x integrations',
+          url: '/docs/legacy-serve/query-definitions',
+          icon: <History className="w-4 h-4 text-amber-400" />,
+          urls: legacyTabUrls,
         },
       ],
       search: {

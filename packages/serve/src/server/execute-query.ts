@@ -37,7 +37,12 @@ export const createExecuteQuery = <
   ): Promise<ServeEndpointResult<(typeof queryEntries)[TKey]>> => {
     const endpoint = queryEntries[key];
     if (!endpoint) {
-      throw new Error(`No query registered for key ${String(key)}`);
+      const availableQueries = Object.keys(queryEntries);
+      const availableMessage =
+        availableQueries.length > 0
+          ? ` Available queries: ${availableQueries.join(", ")}.`
+          : " No queries are currently registered.";
+      throw new Error(`Query '${String(key)}' not found.${availableMessage}`);
     }
 
     const request: ServeRequest = {

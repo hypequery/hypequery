@@ -440,6 +440,36 @@ describe("defineServe", () => {
     });
   });
 
+  it("includes object-style custom metadata in endpoint descriptions", async () => {
+    const { query, serve } = initServe({
+      context: () => ({}),
+    });
+
+    const analytics = query({
+      custom: {
+        owner: "data-team",
+        sla: "100ms",
+        costEstimate: "low",
+      },
+      query: async () => ({ data: [] }),
+    });
+
+    const api = serve({
+      queries: { analytics },
+    });
+
+    api.route("/analytics", api.queries.analytics);
+
+    const description = api.describe();
+    const analyticsEndpoint = description.queries.find((q) => q.key === "analytics");
+
+    expect(analyticsEndpoint?.custom).toEqual({
+      owner: "data-team",
+      sla: "100ms",
+      costEstimate: "low",
+    });
+  });
+
   it("auto-injects tenant filters when mode is auto-inject", async () => {
     // Create a mock query builder to verify tenant filtering is applied
     const queryLog: Array<{ table: string; filters: Array<{ column: string; operator: string; value: string }> }> = [];
@@ -661,6 +691,84 @@ describe("defineServe", () => {
 
     expect(queryLog[1].table).toBe("users");
     // No tenant filter since it's optional and no tenant was provided
+  });
+
+  it("applies object-style tenant overrides through the serve runtime", async () => {
+    const queryLog: Array<{ table: string; tenantFilter: boolean }> = [];
+
+    const mockDb = {
+      table: (name: string) => {
+        let hasTenantFilter = false;
+        const chainable: any = {
+          where: (column: string, operator: string, value: string) => {
+            if (column === "org_id" && value !== undefined) {
+              hasTenantFilter = true;
+            }
+            return chainable;
+          },
+          select: () => {
+            queryLog.push({
+              table: name,
+              tenantFilter: hasTenantFilter,
+            });
+            return Promise.resolve([]);
+          },
+        };
+        return chainable;
+      },
+    };
+
+    const { query, serve } = initServe({
+      context: () => ({ db: mockDb }),
+      tenant: {
+        extract: (auth: any) => auth.tenantId,
+        required: true,
+        column: "org_id",
+        mode: "auto-inject",
+      },
+    });
+
+    const orders = query({
+      query: async ({ ctx }) => {
+        return ctx.db.table("orders").where("status", "=", "active").select();
+      },
+    });
+
+    const adminUsers = query({
+      tenant: {
+        required: false,
+      },
+      query: async ({ ctx }) => {
+        return ctx.db.table("users").where("role", "=", "admin").select();
+      },
+    });
+
+    const api = serve({
+      queries: { orders, adminUsers },
+    });
+
+    api.route("/orders", api.queries.orders);
+    api.route("/admin/users", api.queries.adminUsers);
+
+    api.useAuth(async ({ request }) => {
+      const tenantId = request.headers["x-tenant-id"];
+      return { userId: "user-123", tenantId };
+    });
+
+    await api.handler(
+      createRequest({
+        path: "/orders",
+        headers: { "x-tenant-id": "org-999" },
+      })
+    );
+
+    expect(queryLog[0].table).toBe("orders");
+    expect(queryLog[0].tenantFilter).toBe(true);
+
+    await api.handler(createRequest({ path: "/admin/users" }));
+
+    expect(queryLog[1].table).toBe("users");
+    expect(queryLog[1].tenantFilter).toBe(false);
   });
 
   it("returns a clear error when tenantOptional is used without a global tenant config", async () => {

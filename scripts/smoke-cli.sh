@@ -42,5 +42,7 @@ await initCommand({
 });
 NODE
 test -f analytics/queries.ts
-grep -q "queries: serve\.queries" analytics/queries.ts
+grep -q "const { query, serve } = initServe" analytics/queries.ts
+grep -q "export const api = serve({" analytics/queries.ts
+grep -q "queries: {" analytics/queries.ts
 popd > /dev/null

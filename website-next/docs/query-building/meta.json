@@ -8,11 +8,11 @@
     "join-relationships",
     "aggregation",
     "ordering",
+    "caching",
     "time-functions",
     "helper-methods",
     "sql-expressions",
     "subqueries-ctes",
-    "advanced-filtering",
-    "advanced"
+    "advanced-filtering"
   ]
 }

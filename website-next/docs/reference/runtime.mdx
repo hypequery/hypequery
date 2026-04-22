@@ -1,0 +1,198 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Serve Runtime
+description: Reference for serve({ queries }) and the exported api surface.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# Serve Runtime Reference
+
+Use `serve(config)` to turn query definitions into an exported runtime surface.
+
+<CodeBlock>
+```typescript
+export const api = serve({
+  queries: { activeUsers, weeklyRevenue },
+  basePath: '/api/analytics',
+});
+```
+</CodeBlock>
+
+## `serve(config)`
+
+`serve()` collects query definitions into one API object that can be executed locally, routed over HTTP, or mounted in frameworks.
+
+<TypeTable
+  type={{
+    queries: {
+      type: 'Record<string, QueryDefinition>',
+      required: true,
+      description: 'Map of named query definitions created with `query({ ... })`.',
+    },
+    basePath: {
+      type: 'string',
+      description: 'Optional route prefix for docs, OpenAPI, and registered routes.',
+    },
+    context: {
+      type: 'object | factory',
+      description: 'Optional context factory on the unbound `serve()` export.',
+    },
+    auth: {
+      type: 'AuthStrategy | AuthStrategy[]',
+      description: 'Optional auth strategy configuration.',
+    },
+    tenant: {
+      type: 'TenantConfig',
+      description: 'Optional tenant isolation configuration.',
+    },
+    middlewares: {
+      type: 'ServeMiddleware[]',
+      description: 'Optional global middleware stack.',
+    },
+    docs: {
+      type: 'DocsOptions',
+      description: 'Built-in docs UI configuration.',
+    },
+    openapi: {
+      type: 'OpenApiOptions',
+      description: 'OpenAPI document configuration.',
+    },
+    cors: {
+      type: 'boolean | CorsConfig',
+      description: 'Optional CORS configuration.',
+    },
+    hooks: {
+      type: 'ServeLifecycleHooks',
+      description: 'Optional lifecycle callbacks.',
+    },
+    queryLogging: {
+      type: "boolean | 'json' | callback",
+      description: 'Optional query logging configuration.',
+    },
+    slowQueryThreshold: {
+      type: 'number',
+      description: 'Optional threshold for slow query warnings.',
+    },
+  }}
+/>
+
+## Returned `api`
+
+The exported `api` object is the main runtime surface.
+
+It also exposes:
+
+- `queries`
+- `basePath`
+- `queryLogger`
+- `_routeConfig`
+
+### `api.route(path, endpoint, options?)`
+
+Registers an HTTP route for an existing query.
+
+<CodeBlock>
+```typescript
+api.route('/active-users', api.queries.activeUsers, {
+  method: 'POST',
+});
+```
+</CodeBlock>
+
+### `api.run(name, options?)`
+
+Runs a query in-process through the exported API.
+
+<CodeBlock>
+```typescript
+const rows = await api.run('activeUsers', {
+  input: { limit: 25 },
+});
+```
+</CodeBlock>
+
+Execution options support:
+
+- `input`
+- `context`
+- `request`
+
+### `api.execute(name, options?)`
+
+Alias for `api.run(...)`.
+
+### `api.client(name, options?)`
+
+Alias for in-process execution, useful when you want a client-like surface inside server code.
+
+### `api.handler`
+
+Framework-compatible request handler surface used by adapters such as `createFetchHandler`.
+
+<CodeBlock>
+```typescript
+import { createFetchHandler } from '@hypequery/serve';
+
+const handler = createFetchHandler(api.handler);
+```
+</CodeBlock>
+
+### `api.start(options?)`
+
+Starts a dedicated server directly from the exported API.
+
+<CodeBlock>
+```typescript
+const server = await api.start({ port: 4000 });
+```
+</CodeBlock>
+
+`start()` accepts options such as:
+
+- `port`
+- `hostname`
+- `signal`
+- `quiet`
+- `requestTimeout`
+- `bodyLimit`
+- `gracefulShutdownTimeout`
+
+### `api.use(middleware)`
+
+Pushes a global middleware onto the runtime.
+
+### `api.useAuth(strategy)`
+
+Appends an auth strategy to the runtime.
+
+### `api.describe()`
+
+Returns a runtime description object for docs/client tooling.
+
+## `api.queries`
+
+`api.queries` exposes the routed query definitions by name so they can be reused in `api.route(...)`.
+
+<CodeBlock>
+```typescript
+api.route('/weekly-revenue', api.queries.weeklyRevenue, {
+  method: 'POST',
+});
+```
+</CodeBlock>
+
+## Delivery Modes
+
+The same `api` can be used in three ways:
+
+- `api.run(...)` for in-process execution
+- `api.handler` for framework mounting
+- `api.start(...)` for a dedicated server
+
+## See Also
+
+- [Query Definition Reference](/docs/reference/query)
+- [Core Concepts](/docs/core-concepts)
+- [Type Helpers](/docs/reference/types)

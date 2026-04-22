@@ -217,7 +217,7 @@ export const checkScopeAuthorization = (
  *
  * @deprecated Use `query.requireAuth()` instead for per-endpoint authentication.
  *             This middleware is kept for complex use cases where guards aren't suitable.
- *             See: https://hypequery.com/docs/serve/authentication#middleware-helpers
+ *             See: https://hypequery.com/docs/authentication#middleware-helpers
  *
  * Use this as a global middleware via `api.use(requireAuthMiddleware())`.
  * For per-query guards, prefer `query.requireAuth()`.
@@ -242,7 +242,7 @@ export const requireAuthMiddleware = <
  *
  * @deprecated Use `query.requireRole(...)` instead for per-endpoint authorization.
  *             This middleware is kept for complex use cases where guards aren't suitable.
- *             See: https://hypequery.com/docs/serve/authentication#middleware-helpers
+ *             See: https://hypequery.com/docs/authentication#middleware-helpers
  *
  * Use this as a global or per-query middleware via `api.use(requireRoleMiddleware('admin'))`.
  * For per-query guards, prefer `query.requireRole('admin')`.
@@ -270,7 +270,7 @@ export const requireRoleMiddleware = <
  *
  * @deprecated Use `query.requireScope(...)` instead for per-endpoint authorization.
  *             This middleware is kept for complex use cases where guards aren't suitable.
- *             See: https://hypequery.com/docs/serve/authentication#middleware-helpers
+ *             See: https://hypequery.com/docs/authentication#middleware-helpers
  *
  * Use this as a global or per-query middleware via `api.use(requireScopeMiddleware('read:metrics'))`.
  * For per-query guards, prefer `query.requireScope('read:metrics')`.
@@ -338,7 +338,7 @@ export type TypedAuthContext<
  *
  * @example
  * ```ts
- * import { createAuthSystem, defineServe, query } from '@hypequery/serve';
+ * import { createAuthSystem, initServe } from '@hypequery/serve';
  *
  * // Define your roles and scopes up front
  * const { useAuth, TypedAuth } = createAuthSystem({
@@ -346,22 +346,32 @@ export type TypedAuthContext<
  *   scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,
  * });
  *
- * // Extract the typed auth type for use with defineServe
+ * // Extract the typed auth type for use with initServe
  * type AppAuth = TypedAuth;
  *
- * const api = defineServe<AppAuth>({
+ * const { query, serve } = initServe<Record<string, never>, AppAuth>({
  *   auth: useAuth(jwtStrategy),
- *   queries: {
- *     adminOnly: query.requireRole('admin').query(async ({ ctx }) => {
- *       // ✅ TypeScript autocomplete for 'admin'
- *       // ❌ Compile error on typo like 'admn'
- *       return { secret: true };
- *     }),
- *     writeData: query.requireScope('write:metrics').query(async ({ ctx }) => {
- *       // ✅ TypeScript autocomplete for 'write:metrics'
- *       return { success: true };
- *     }),
+ * });
+ *
+ * const adminOnly = query({
+ *   requiredRoles: ['admin'],
+ *   query: async () => {
+ *     // ✅ TypeScript autocomplete for 'admin'
+ *     // ❌ Compile error on typo like 'admn'
+ *     return { secret: true };
  *   },
+ * });
+ *
+ * const writeData = query({
+ *   requiredScopes: ['write:metrics'],
+ *   query: async () => {
+ *     // ✅ TypeScript autocomplete for 'write:metrics'
+ *     return { success: true };
+ *   },
+ * });
+ *
+ * const api = serve({
+ *   queries: { adminOnly, writeData },
  * });
  * ```
  */

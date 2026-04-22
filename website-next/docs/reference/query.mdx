@@ -1,0 +1,232 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Query Definition
+description: Reference for initServe and object-style query definitions.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { TypeTable } from 'fumadocs-ui/components/type-table';
+
+# Query Definition Reference
+
+Object-style `query({ ... })` is the recommended API. Builder-style chaining remains supported for backwards compatibility and is documented below where relevant.
+
+Use `initServe()` to create the current query/runtime API:
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+
+const { procedure, query, queries, serve, define } = initServe({
+  context: () => ({ db }),
+  basePath: '/api/analytics',
+});
+```
+</CodeBlock>
+
+## `initServe(options)`
+
+`initServe()` binds shared runtime configuration once and returns helpers for defining queries and exporting an API.
+
+<TypeTable
+  type={{
+    context: {
+      type: 'object | (() => object | Promise<object>)',
+      description: 'Values merged into `ctx` for every query.',
+    },
+    basePath: {
+      type: 'string',
+      description: 'Route prefix used by docs, OpenAPI, and routed endpoints.',
+    },
+    auth: {
+      type: 'AuthStrategy | AuthStrategy[]',
+      description: 'Optional auth strategy configuration.',
+    },
+    tenant: {
+      type: 'TenantConfig',
+      description: 'Optional tenant isolation configuration.',
+    },
+    middlewares: {
+      type: 'ServeMiddleware[]',
+      description: 'Optional global middleware stack.',
+    },
+    hooks: {
+      type: 'ServeLifecycleHooks',
+      description: 'Optional lifecycle callbacks.',
+    },
+  }}
+/>
+
+## Returned Initializer
+
+`initServe()` returns:
+
+- `procedure` - builder-style query procedure factory
+- `query` - object-style query factory plus builder helpers
+- `queries(definitions)` - identity helper for typed query maps
+- `serve(config)` - bound serve factory with shared context/config
+- `define(config)` - alias of `serve(config)`
+
+## `query({ ... })`
+
+`query({ ... })` turns one builder chain into an executable, reusable definition.
+
+<CodeBlock>
+```typescript
+const activeUsers = query({
+  description: 'Most recent active users',
+  requiredRoles: ['admin', 'editor'],
+  input: z.object({
+    limit: z.number().min(1).max(100).default(10),
+  }),
+  output: z.array(z.object({
+    id: z.string(),
+    email: z.string(),
+  })),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('users')
+      .select(['id', 'email'])
+      .where('status', 'eq', 'active')
+      .limit(input.limit)
+      .execute(),
+});
+```
+</CodeBlock>
+
+### Query Options
+
+<TypeTable
+  type={{
+    query: {
+      type: '({ input, ctx }) => Promise<TResult>',
+      required: true,
+      description: 'Resolver function for the query definition.',
+    },
+    input: {
+      type: 'Zod schema',
+      description: 'Optional input validation and inference.',
+    },
+    output: {
+      type: 'Zod schema',
+      description: 'Optional output validation and inference.',
+    },
+    description: {
+      type: 'string',
+      description: 'Human-readable description for docs and metadata.',
+    },
+    summary: {
+      type: 'string',
+      description: 'Short summary for docs/OpenAPI.',
+    },
+    tags: {
+      type: 'string[]',
+      description: 'Optional docs/OpenAPI tags.',
+    },
+    auth: {
+      type: 'AuthStrategy | null',
+      description: 'Optional per-query auth strategy override.',
+    },
+    requiresAuth: {
+      type: 'boolean',
+      description: 'Explicitly require auth or mark a query public with `false`.',
+    },
+    requiredRoles: {
+      type: 'string[]',
+      description: 'Require at least one matching role. Implies auth.',
+    },
+    requiredScopes: {
+      type: 'string[]',
+      description: 'Require all listed scopes. Implies auth.',
+    },
+    tenant: {
+      type: 'TenantConfigOverride',
+      description: 'Optional per-query tenant override.',
+    },
+    method: {
+      type: 'HTTP method',
+      description: 'Optional default HTTP method used when routing.',
+    },
+    cacheTtlMs: {
+      type: 'number | null',
+      description: 'Optional HTTP/runtime cache TTL metadata.',
+    },
+    custom: {
+      type: 'Record<string, unknown>',
+      description: 'Optional application-specific metadata.',
+    },
+  }}
+/>
+
+## Returned Query Object
+
+A query definition can be executed locally before you ever add HTTP:
+
+<CodeBlock>
+```typescript
+const rows = await activeUsers.execute({
+  input: { limit: 25 },
+});
+```
+</CodeBlock>
+
+The returned query object is designed to be:
+
+- executable locally via `execute(...)`
+- reusable inside `serve(...)`
+- inferable for client types
+
+Auth and tenant metadata become active when the query is used through the serve runtime, for example via `serve({ queries })`, `api.run(...)`, `api.execute(...)`, or routed HTTP handlers. Standalone `query.execute(...)` does not run the auth/tenant pipeline.
+
+It exposes:
+
+- `query` - the resolver
+- `run` - resolver alias
+- `execute(options?)` - local execution
+- `inputSchema` / `outputSchema` - normalized schema metadata
+- metadata such as `method`, `name`, `description`, `summary`, `tags`, `auth`, `requiresAuth`, `requiredRoles`, `requiredScopes`, `tenant`, `cacheTtlMs`, `custom`
+
+## Builder-style Query Procedures
+
+The same `query` export also supports chained builder-style metadata through `procedure` methods:
+
+<CodeBlock>
+```typescript
+const legacyStyle = query
+  .input(z.object({ limit: z.number() }))
+  .output(z.array(z.object({ id: z.string() })))
+  .describe('Users')
+  .query(({ ctx, input }) => {
+    return ctx.db.table('users').limit(input.limit).execute();
+  });
+```
+</CodeBlock>
+
+Available chain helpers include:
+
+- `input(...)`
+- `output(...)`
+- `describe(...)`
+- `name(...)`
+- `summary(...)`
+- `tag(...)` / `tags(...)`
+- `method(...)`
+- `cache(...)`
+- `auth(...)`
+- `requireAuth()`
+- `requireRole(...)`
+- `requireScope(...)`
+- `public()`
+- `tenant(...)`
+- `tenantOptional(...)`
+- `require()`
+- `custom(...)`
+- `use(...)`
+
+These are still part of the actual exported API, even though the default docs path prefers object-style `query({ ... })`.
+
+## See Also
+
+- [Core Concepts](/docs/core-concepts)
+- [Serve Runtime Reference](/docs/reference/runtime)
+- [Type Helpers](/docs/reference/types)
