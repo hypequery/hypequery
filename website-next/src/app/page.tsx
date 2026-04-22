@@ -98,7 +98,7 @@ const typeSafeCode = `const result = await db
 
 const features = [
   'Typed query definitions you can execute locally',
-  'Optional HTTP routes and docs from serve({ queries })',
+  'Optional HTTP routes and API docs',
   'One contract reused across apps, jobs, and dashboards',
   'Safer schema changes through generated ClickHouse types',
   'Auth, multi-tenancy, and caching when your app needs them',
@@ -182,7 +182,7 @@ function CodeFrame({
         <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
         <span className="ml-2 font-mono text-[11px] tracking-[0.03em] text-slate-400">{filename}</span>
       </div>
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-4 bg-[#07090F]">
         <CodeHighlight code={code} language={language} />
       </div>
     </div>
@@ -390,7 +390,7 @@ export default function Home() {
               </h2>
               <p className="mt-4 text-lg leading-8 text-slate-400">
                 hypequery does not force you into a big framework on day one. Start with the query builder, reuse the
-                query when it matters, and add <code>serve()</code> when you want HTTP routes, docs, and framework
+                query when it matters, and when you need it, add HTTP routes, docs, and framework
                 integration.
               </p>
             </div>
@@ -537,13 +537,6 @@ export default function Home() {
                 Explore docs
               </Link>
             </div>
-            <p className="mt-6 text-base text-slate-400">
-              Early adopter? DM us{' '}
-              <a href="https://x.com/hypequery" target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-indigo-200">
-                @hypequery
-              </a>{' '}
-              — let&apos;s build this together.
-            </p>
           </div>
         </section>
       </main>
