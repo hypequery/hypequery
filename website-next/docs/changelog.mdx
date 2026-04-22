@@ -1,13 +1,52 @@
 ---
 title: Changelog
-description: Release notes and updates for @hypequery/clickhouse
+description: Release notes and updates for hypequery
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
 # Changelog
 
-Latest updates and improvements to @hypequery/clickhouse.
+Latest updates and improvements across hypequery packages and docs.
+
+## [Upcoming]
+
+### Serve and CLI Updates
+
+This release pushes the current object-style hypequery path further forward: `query({ ... })` + `serve({ queries })` is now the clearer default for new integrations, and the underlying serve runtime and CLI scaffolding both support that direction more directly.
+
+#### What changed
+
+* **`@hypequery/serve` now supports object-style auth and tenant metadata more completely.** Object-style query definitions can carry runtime metadata such as:
+  - `requiresAuth`
+  - `auth`
+  - `tenant`
+  - `requiredRoles`
+  - `requiredScopes`
+  - `custom`
+
+  That metadata is preserved when queries are defined with `query({ ... })`, reused through `serve({ queries })`, and surfaced through runtime inspection/endpoint descriptions.
+
+* **Object-style auth requirements are enforced through the serve runtime**, including public routes and role/scope-based authorization. This closes a gap between the newer object-style API and the older builder-first flow.
+
+* **Object-style tenant overrides now apply through the serve runtime**, so per-query tenant behavior works in the newer API without requiring a fallback to builder-first patterns.
+
+* **`@hypequery/cli` now scaffolds the current main path by default.** Generated query templates use:
+  - `initServe(...)`
+  - object-style `query({ ... })`
+  - `serve({ queries })`
+
+  instead of centering the older builder-first serve style in generated starter code.
+
+* **The docs and migration path now line up with the shipped API direction.** The current object-style runtime API is documented as the primary path, while the older builder-first serve docs are preserved under `v0.1.x` for teams that are still migrating.
+
+* **Docs search is now better at finding code/API terms** like `dictGet`, `withScalar`, and similar technical keywords that appear primarily in examples and code snippets.
+
+#### Why it matters
+
+* New projects start on the current query/serve API instead of scaffolding into a style they immediately need to migrate away from.
+* Existing users get a clearer migration path from the v0.1.x serve flow to the current object-style runtime API.
+* The newer query/serve API is now closer to feature parity for auth and tenant concerns, reducing the need to fall back to older patterns.
 
 ## [1.5.0]
 

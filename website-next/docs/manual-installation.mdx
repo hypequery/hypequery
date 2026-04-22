@@ -135,7 +135,7 @@ const { query } = initServe({
   context: () => ({ db }),
 });
 
-const latestUsers = query({
+export const latestUsers = query({
   description: 'Most recent active users',
   input: z.object({
     limit: z.number().min(1).max(100).default(10),
@@ -174,4 +174,3 @@ This is the point where a local builder query becomes a reusable contract you ca
 
 - Use [Query Basics](/docs/query-building/basics) to keep learning the raw builder chain
 - Use [Core Concepts](/docs/core-concepts) to understand when to stay at the query layer and when to add the runtime
-
