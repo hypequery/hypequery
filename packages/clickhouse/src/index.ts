@@ -191,6 +191,10 @@ export {
   diffSnapshots,
 } from './migrations/diff/index.js';
 export {
+  createMigrationPlan,
+  isMigrationPlan,
+} from './migrations/plan/index.js';
+export {
   serializeSchemaToSnapshot,
   snapshotToStableJson,
   hashSnapshot,
@@ -247,7 +251,26 @@ export type {
   UnsupportedChange,
 } from './migrations/diff/index.js';
 export type {
+  ClickHouseMigrationSyncSetting,
+  ClickHouseMigrationPlanContext,
+  ClickHouseTableCostStats,
+  CreateMigrationPlanOptions,
+  MigrationPlanAnalyzer,
+  MigrationPlanAnalyzerContext,
+  MigrationPlanAnalyzerResult,
+  MigrationOperationClassification,
+  MigrationOperationCostEstimate,
+  MigrationPlan,
+  MigrationPlanBlocker,
+  MigrationPlanConfirmation,
+  MigrationPlanDiagnostic,
+  MigrationPlanDiagnosticLevel,
+  MigrationPlanInput,
+  PlannedMigrationOperation,
+} from './migrations/plan/index.js';
+export type {
   MigrationMeta,
+  RenderMigrationArtifactsInput,
   RenderMigrationArtifactsOptions,
   RenderMigrationArtifactsResult,
   WriteMigrationArtifactsOptions,

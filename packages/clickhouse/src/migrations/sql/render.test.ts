@@ -101,7 +101,7 @@ GROUP BY day
     expect(artifacts.meta).toEqual({
       name: 'add_order_region',
       timestamp: '20260422140000',
-      operations: [{ kind: 'AlterTableWithDependentViews' }],
+      operations: [{ kind: 'AlterTableWithDependentViews', classification: 'metadata' }],
       sourceSnapshotHash: previousSnapshot.contentHash,
       targetSnapshotHash: nextSnapshot.contentHash,
       custom: false,
@@ -118,6 +118,7 @@ GROUP BY day
 
     expect(await readFile(written.upPath, 'utf8')).toContain('ALTER TABLE `orders` ADD COLUMN `region`');
     expect(await readFile(written.metaPath, 'utf8')).toContain('"name": "add_order_region"');
+    expect(await readFile(written.planPath, 'utf8')).toContain('"classification": "metadata"');
   });
 
   it('marks unsafe/manual down flows for non-reversible operations and renders cluster clauses', () => {
@@ -163,8 +164,12 @@ GROUP BY day
 
     expect(artifacts.upSql).toContain('ALTER TABLE `users` ON CLUSTER `main_cluster` MODIFY COLUMN `email` Nullable(String);');
     expect(artifacts.downSql).toContain('-- MANUAL STEP REQUIRED: revert type change for "users.email" manually');
+    expect(artifacts.meta.operations).toEqual([{ kind: 'ModifyColumnType', classification: 'mutation' }]);
     expect(artifacts.meta.unsafe).toBe(true);
     expect(artifacts.meta.containsManualSteps).toBe(true);
+    expect(artifacts.plan.requiredConfirmations).toEqual([
+      expect.objectContaining({ kind: 'MutationRequiresConfirmation' }),
+    ]);
   });
 
   it('preserves and escapes literal defaults while collapsing duplicate modify-column renders', () => {
@@ -264,6 +269,48 @@ GROUP BY day
         timestamp: '20260422170000',
       }),
     ).toThrow(/Use a custom SQL migration/);
+  });
+
+  it('rejects planner-level forbidden operations before rendering SQL', () => {
+    const previousSnapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('events', {
+            columns: {
+              id: column.UInt64(),
+              payload: column.String(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    const nextSnapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('events', {
+            columns: {
+              payload: column.String(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(() =>
+      renderMigrationArtifacts(diffSnapshots(previousSnapshot, nextSnapshot), {
+        name: 'drop_key_column',
+        timestamp: '20260422200000',
+      }),
+    ).toThrow(/Cannot drop key column "events\.id" automatically/);
   });
 
   it('rejects empty identifiers during rendering', () => {

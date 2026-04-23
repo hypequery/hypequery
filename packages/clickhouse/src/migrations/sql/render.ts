@@ -1,8 +1,8 @@
 import type {
   AlterTableWithDependentViewsOperation,
   MigrationOperation,
-  SnapshotDiffResult,
 } from '../diff/types.js';
+import { createMigrationPlan, isMigrationPlan } from '../plan/index.js';
 import type {
   Snapshot,
   SnapshotColumn,
@@ -12,6 +12,7 @@ import type {
 } from '../snapshot/types.js';
 import type {
   MaterializedViewRenderContext,
+  RenderMigrationArtifactsInput,
   RenderMigrationArtifactsOptions,
   RenderMigrationArtifactsResult,
   RenderSqlContext,
@@ -26,27 +27,35 @@ import type {
  * view SELECT definitions are dropped and recreated with the target snapshot.
  */
 export function renderMigrationArtifacts(
-  diff: SnapshotDiffResult,
+  input: RenderMigrationArtifactsInput,
   options: RenderMigrationArtifactsOptions,
 ): RenderMigrationArtifactsResult {
-  assertNoUnsupportedChanges(diff);
+  const plan = isMigrationPlan(input) ? input : createMigrationPlan(input);
+  assertNoPlanBlockers(plan);
   const upStatements: string[] = [];
   const downStatements: string[] = [];
   const consumedViewNames = new Set<string>();
-  const renderedOperations: Array<{ kind: MigrationOperation['kind'] }> = [];
+  const renderedOperations: Array<{
+    kind: MigrationOperation['kind'];
+    classification: typeof plan.operations[number]['classification'];
+  }> = [];
   let containsManualSteps = false;
 
-  for (const operation of normalizeOperationsForRendering(diff.operations)) {
+  for (const plannedOperation of normalizeOperationsForRendering(plan.operations)) {
+    const { operation } = plannedOperation;
     if (isMaterializedViewOperation(operation) && consumedViewNames.has(getOperationViewName(operation))) {
       continue;
     }
 
-    renderedOperations.push({ kind: operation.kind });
-    upStatements.push(...renderOperationUp(operation, { diff, cluster: options.cluster }, consumedViewNames));
+    renderedOperations.push({
+      kind: operation.kind,
+      classification: plannedOperation.classification,
+    });
+    upStatements.push(...renderOperationUp(operation, { plan, cluster: options.cluster }, consumedViewNames));
 
     const renderedDown = renderOperationDown(operation, {
-      previousSnapshot: diff.previousSnapshot,
-      nextSnapshot: diff.nextSnapshot,
+      previousSnapshot: plan.previousSnapshot,
+      nextSnapshot: plan.nextSnapshot,
       cluster: options.cluster,
     }, consumedViewNames);
     downStatements.unshift(...renderedDown.statements);
@@ -60,12 +69,15 @@ export function renderMigrationArtifacts(
       name: options.name,
       timestamp: options.timestamp,
       operations: renderedOperations,
-      sourceSnapshotHash: diff.previousSnapshot.contentHash,
-      targetSnapshotHash: diff.nextSnapshot.contentHash,
+      sourceSnapshotHash: plan.sourceSnapshotHash,
+      targetSnapshotHash: plan.targetSnapshotHash,
       custom: false,
-      unsafe: diff.warnings.length > 0 || diff.unsupportedChanges.length > 0 || containsManualSteps,
+      unsafe: plan.diagnostics.some(diagnostic => diagnostic.level === 'warning') ||
+        plan.blockers.length > 0 ||
+        containsManualSteps,
       containsManualSteps,
     },
+    plan,
   };
 }
 
@@ -85,7 +97,7 @@ function renderOperationUp(
       return [renderAlterTableDropColumn(operation.tableName, operation.columnName, context.cluster)];
     case 'ModifyColumnDefault':
     case 'ModifyColumnType': {
-      const nextColumn = requireColumn(context.diff.nextSnapshot, operation.tableName, operation.columnName);
+      const nextColumn = requireColumn(context.plan.nextSnapshot, operation.tableName, operation.columnName);
       return [renderAlterTableModifyColumn(operation.tableName, nextColumn, context.cluster)];
     }
     case 'CreateMaterializedView':
@@ -183,7 +195,7 @@ function renderAlterTableWithDependentViewsUp(
   for (const viewName of operation.dependentViewNames) {
     statements.push(
       renderCreateMaterializedView({
-        view: requireMaterializedView(context.diff.nextSnapshot, viewName),
+        view: requireMaterializedView(context.plan.nextSnapshot, viewName),
         cluster: context.cluster,
       }),
     );
@@ -392,25 +404,31 @@ function escapeStringLiteral(value: string): string {
     .replace(/'/g, "\\'");
 }
 
-function normalizeOperationsForRendering(operations: MigrationOperation[]): MigrationOperation[] {
-  return operations.map(operation => {
-    if (operation.kind !== 'AlterTableWithDependentViews') {
-      return operation;
+function normalizeOperationsForRendering(
+  operations: RenderMigrationArtifactsResult['plan']['operations'],
+) {
+  return operations.map(plannedOperation => {
+    if (plannedOperation.operation.kind !== 'AlterTableWithDependentViews') {
+      return plannedOperation;
     }
 
     return {
-      ...operation,
-      operations: normalizeTableMutationOperations(operation.operations),
+      ...plannedOperation,
+      operation: {
+        ...plannedOperation.operation,
+        operations: normalizeTableMutationOperations(plannedOperation.operation.operations),
+      },
     };
-  }).filter(operation => {
-    if (operation.kind !== 'ModifyColumnDefault') {
+  }).filter(plannedOperation => {
+    if (plannedOperation.operation.kind !== 'ModifyColumnDefault') {
       return true;
     }
 
+    const operation = plannedOperation.operation;
     return !operations.some(candidate =>
-      candidate.kind === 'ModifyColumnType' &&
-      candidate.tableName === operation.tableName &&
-      candidate.columnName === operation.columnName,
+      candidate.operation.kind === 'ModifyColumnType' &&
+      candidate.operation.tableName === operation.tableName &&
+      candidate.operation.columnName === operation.columnName,
     );
   });
 }
@@ -429,14 +447,14 @@ function normalizeTableMutationOperations(operations: AlterTableWithDependentVie
   });
 }
 
-function assertNoUnsupportedChanges(diff: SnapshotDiffResult) {
-  if (diff.unsupportedChanges.length === 0) {
+function assertNoPlanBlockers(plan: RenderMigrationArtifactsResult['plan']) {
+  if (plan.blockers.length === 0) {
     return;
   }
 
   throw new Error(
     'Cannot render migration with unsupported changes:\n' +
-    diff.unsupportedChanges.map(change => `- ${change.message}`).join('\n') +
+    plan.blockers.map(blocker => `- ${blocker.message}`).join('\n') +
     '\n\nUse a custom SQL migration for this change, or split the schema evolution into supported steps.',
   );
 }

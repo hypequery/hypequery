@@ -14,7 +14,7 @@ It assumes a narrow v1 centered on correctness, package boundaries, and material
 
 ## Current State
 
-Today the codebase provides:
+Before this work, the codebase provided:
 
 - ClickHouse query builder and runtime in `packages/clickhouse`
 - end-user CLI in `packages/cli`
@@ -24,6 +24,99 @@ Today the codebase provides:
 - no migration journal, diff engine, or execution layer
 
 This means the migration system must start with new foundations rather than layering on the existing generator.
+
+## Progress So Far
+
+Status as of the first migrations foundation PR:
+
+- Phase 0 is complete.
+- Phase 1 is complete for the initial supported schema surface.
+- Phase 2 is complete for the initial diff-operation set.
+- Phase 3 is complete for v1 planning scope; live ClickHouse querying remains future introspection/execution work.
+- Phase 4 is partially complete for reviewable SQL artifact generation, but not yet final because generation is still evolving around the planner model.
+
+Completed implementation:
+
+- `packages/clickhouse/src/migrations/config`
+  - `defineConfig`
+  - `resolveClickHouseConfig`
+  - migration directory defaults
+  - typed ClickHouse migration config
+- `packages/cli/src/utils/load-hypequery-config.ts`
+  - loads `hypequery.config.ts`
+  - validates the loaded object is ClickHouse migration config-shaped
+- `packages/clickhouse/src/migrations/schema`
+  - `defineSchema`
+  - `defineTable`
+  - `defineMaterializedView`
+  - `column.*` builders for the initial type surface
+  - structured column defaults that distinguish SQL expressions from literal defaults
+- `packages/clickhouse/src/migrations/snapshot`
+  - deterministic snapshot serialization
+  - stable JSON output
+  - content hashing
+  - materialized-view dependency edges from managed schema definitions
+- `packages/clickhouse/src/migrations/diff`
+  - typed operation model
+  - create/drop table detection
+  - add/drop/modify column detection
+  - materialized-view create/drop/recreate detection
+  - MV-aware table alteration wrapper operation
+  - unsupported possible-rename detection
+  - unsupported engine/settings-change detection
+- `packages/clickhouse/src/migrations/plan`
+  - initial `MigrationPlan` model
+  - static operation classification as `metadata`, `mutation`, `data-copy`, or `forbidden`
+  - diagnostics
+  - blockers from unsupported changes
+  - required confirmations for mutation-class operations
+  - analyzer plugin hook
+  - recommended ClickHouse sync settings for the future executor
+  - static key-column forbidden-operation detection
+  - provided-context cost estimates for table rows, bytes, active parts, pending mutations, and replica delay
+- `packages/clickhouse/src/migrations/sql`
+  - MV-aware `up.sql` rendering
+  - best-effort `down.sql` rendering
+  - cluster clause rendering
+  - metadata generation with operation classifications
+  - `plan.json` writing
+  - safe migration-name validation
+  - identifier validation
+  - string literal escaping
+- public exports from `@hypequery/clickhouse`
+  - schema DSL
+  - snapshot serializer
+  - diff engine
+  - planner
+  - SQL artifact renderer/writer
+
+Quality and validation completed:
+
+- removed manual `src/index.d.ts` to avoid declaration drift
+- exported the generated migration types from `src/index.ts`
+- added unit coverage for config, schema DSL, snapshot serialization, diffing, planning, SQL rendering, and artifact writing
+- verified:
+  - `pnpm --filter @hypequery/clickhouse test`
+  - `pnpm --filter @hypequery/cli test`
+  - `pnpm --filter @hypequery/clickhouse build`
+- external canary smoke test passed against `@hypequery/clickhouse@0.0.0-canary-20260423101304`
+  - TypeScript imports compiled in a separate consumer repo
+  - schema DSL, snapshots, diffing, SQL rendering, and artifact writing worked
+  - MV-safe SQL sequencing generated correctly
+  - literal, numeric, and SQL-expression defaults rendered correctly
+  - unsupported rename-like changes were detected and rejected at render time
+  - invalid migration artifact names were rejected
+
+Known current limitations:
+
+- no CLI migration command yet
+- no migration journal/state table yet
+- no ClickHouse execution layer yet
+- no live schema introspection for migrations yet
+- no drift detection yet
+- planner consumes provided cost context but does not query `system.*` tables itself
+- SQL rendering supports the initial operation set only
+- data migrations remain custom SQL only
 
 ## Target Architecture
 
@@ -321,16 +414,24 @@ This graph powers sequencing decisions later.
 
 ## Phase 3: Planner and Safety Classification
 
+Status: complete for v1 planning scope.
+
 ### Goal
 
 Turn raw diff operations into an explicit migration plan before SQL is rendered.
 
 ### Deliverables
 
-- `MigrationPlan` model
-- operation classification
-- diagnostic model
-- initial blocker handling for unsupported changes
+- `MigrationPlan` model: initial version implemented
+- operation classification: initial static classifier implemented
+- diagnostic model: initial version implemented
+- initial blocker handling for unsupported changes: implemented
+- analyzer plugin surface: implemented
+- recommended sync settings: implemented
+- static key-column forbidden classification: implemented
+- cost estimate model: implemented
+- provided ClickHouse context enrichment: implemented
+- live ClickHouse querying: intentionally deferred to introspection/execution phases
 
 ### Operation classification
 
@@ -343,7 +444,18 @@ Classify each operation as:
 
 Initial implementation can classify from static snapshot/diff information only.
 
-Later implementation can enrich classifications with live ClickHouse data from:
+Current static classification:
+
+- `ModifyColumnType` => `mutation`
+- `DropColumn` or `ModifyColumnType` on key columns => `forbidden`
+- `AlterTableWithDependentViews` => highest nested table-mutation classification
+- initial create/drop/add/default/MV operations => `metadata`
+- unsupported changes become plan blockers before rendering
+- `data-copy` is reserved for future custom/compound operations
+
+The planner can consume provided context shaped from live ClickHouse data. The actual queries are deferred to later phases.
+
+Relevant future data sources:
 
 - `system.parts`
 - `system.mutations`
@@ -354,36 +466,71 @@ Later implementation can enrich classifications with live ClickHouse data from:
 
 The plan should include:
 
-- operations
-- planned statements or statement placeholders
-- classifications
-- diagnostics
-- blockers
-- required confirmations
-- source and target snapshot hashes
+- operations: implemented
+- classifications: implemented
+- diagnostics: implemented
+- blockers: implemented
+- required confirmations: implemented for mutation-class operations
+- recommended sync settings: implemented
+- cost estimates: implemented when table stats are provided
+- source and target snapshot hashes: implemented
+- planned statements or statement placeholders: not implemented yet; SQL renderer still owns concrete SQL statement rendering
 
 ### Analyzer direction
 
-The planner should be designed so analyzers can be added later:
+The planner supports custom analyzers with:
 
-- destructive-change analyzer
-- expensive-mutation analyzer
+```ts
+(plan, context) => ({
+  diagnostics?: Diagnostic[],
+  blockers?: Blocker[],
+  confirmations?: Confirmation[],
+})
+```
+
+This lets analyzers warn, hard-block rendering, or require explicit approval without overloading diagnostic severity.
+
+Built-in/static analyzer coverage currently includes:
+
+- destructive drop diagnostics
+- mutation diagnostics
+- key-column forbidden diagnostics
+- cost-threshold diagnostics for provided table stats
+  - expensive mutation bytes
+  - expensive mutation rows
+  - high active part count
+  - pending mutations
+  - replica delay
+
+Future analyzers:
+
 - materialized-view dependency analyzer
 - cluster-safety analyzer
-- key-column analyzer
 - unmanaged-dependency analyzer
 
 ### Testing
 
-- operation classification tests
-- blocker tests
-- diagnostic tests
+- operation classification tests: implemented
+- blocker tests: implemented
+- diagnostic tests: implemented
+- analyzer tests: implemented
+- required sync setting tests: implemented
+- provided-context cost-estimation tests: implemented
+- live query integration tests: deferred
 
 ### Exit criteria
 
-- unsupported changes block plan rendering deterministically
-- renderable operations carry classifications
-- SQL generation no longer consumes raw diff output directly
+- unsupported changes block plan rendering deterministically: implemented
+- renderable operations carry classifications: implemented
+- forbidden key-column operations block rendering deterministically: implemented
+- static planner emits recommended sync settings for executor use: implemented
+- planner attaches cost estimates from provided context: implemented
+- planner emits cost-threshold diagnostics from provided context: implemented
+- SQL generation no longer consumes raw diff output directly: partially implemented
+
+Compatibility note:
+
+`renderMigrationArtifacts()` still accepts a raw `SnapshotDiffResult` for API continuity, but internally converts it to a `MigrationPlan`. New callers should prefer calling `createMigrationPlan()` explicitly and passing the plan to the renderer.
 
 ## Phase 4: SQL Generation
 
