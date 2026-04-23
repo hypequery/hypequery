@@ -171,3 +171,95 @@ export {
   datasetsToJSON,
   summarizeAllDatasets,
 } from './dataset/introspection.js';
+
+// Migrations foundations
+export {
+  defineConfig,
+  resolveClickHouseConfig,
+  DEFAULT_MIGRATIONS_OUT_DIR,
+  DEFAULT_MIGRATIONS_PREFIX,
+  DEFAULT_MIGRATIONS_TABLE,
+} from './migrations/config/index.js';
+export {
+  column,
+  ClickHouseColumnBuilder,
+  defineMaterializedView,
+  defineSchema,
+  defineTable,
+} from './migrations/schema/index.js';
+export {
+  diffSnapshots,
+} from './migrations/diff/index.js';
+export {
+  serializeSchemaToSnapshot,
+  snapshotToStableJson,
+  hashSnapshot,
+} from './migrations/snapshot/index.js';
+export {
+  renderMigrationArtifacts,
+  writeMigrationArtifacts,
+} from './migrations/sql/index.js';
+
+export type {
+  ClickHouseClusterConfig,
+  ClickHouseMigrationDbCredentials,
+  ClickHouseMigrationDirectoryConfig,
+  HypequeryClickHouseConfig,
+  MigrationFilePrefix,
+  ResolvedHypequeryClickHouseConfig,
+} from './migrations/config/index.js';
+
+export type {
+  ClickHouseColumnDefinition,
+  ClickHouseColumnBuilderLike,
+  ClickHouseColumnDefaultValue,
+  ClickHouseColumnType,
+  ClickHouseDefaultInput,
+  ClickHouseLowCardinalityColumnType,
+  ClickHouseLiteralDefaultValue,
+  ClickHouseMaterializedViewDefinition,
+  ClickHouseMaterializedViewInputDefinition,
+  ClickHouseNamedColumnType,
+  ClickHouseNullableColumnType,
+  ClickHouseSqlDefaultValue,
+  ClickHouseSchemaAst,
+  ClickHouseSchemaDefinition,
+  ClickHouseSqlExpression,
+  ClickHouseTableDefinition,
+  ClickHouseTableInputDefinition,
+  ClickHouseTableEngine,
+} from './migrations/schema/index.js';
+export type {
+  AddColumnOperation,
+  AlterTableWithDependentViewsOperation,
+  CreateMaterializedViewOperation,
+  CreateTableOperation,
+  DiffWarning,
+  DropColumnOperation,
+  DropMaterializedViewOperation,
+  DropTableOperation,
+  MigrationOperation,
+  ModifyColumnDefaultOperation,
+  ModifyColumnTypeOperation,
+  RecreateMaterializedViewOperation,
+  SnapshotDiffResult,
+  TableMutationOperation,
+  UnsupportedChange,
+} from './migrations/diff/index.js';
+export type {
+  MigrationMeta,
+  RenderMigrationArtifactsOptions,
+  RenderMigrationArtifactsResult,
+  WriteMigrationArtifactsOptions,
+  WriteMigrationArtifactsResult,
+} from './migrations/sql/index.js';
+
+export type {
+  Snapshot,
+  SnapshotColumn,
+  SnapshotColumnDefault,
+  SnapshotDependencyEdge,
+  SnapshotMaterializedView,
+  SnapshotTable,
+  SnapshotTableEngine,
+} from './migrations/snapshot/index.js';

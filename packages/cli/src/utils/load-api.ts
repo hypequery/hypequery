@@ -13,46 +13,22 @@ const tsconfigCache = new Map<string, string | null>();
 
 export async function loadApiModule(modulePath: string) {
   const resolved = path.resolve(process.cwd(), modulePath);
-
-  // Check if file exists first
-  try {
-    await access(resolved);
-  } catch {
-    const relativePath = path.relative(process.cwd(), resolved);
-    throw new Error(
-      `File not found: ${relativePath}\n\n` +
-      `Make sure the file exists and the path is correct.\n` +
-      `You can specify a different file with:\n` +
-      `  hypequery dev path/to/your/queries.ts`
-    );
-  }
-
-  const extension = path.extname(resolved).toLowerCase();
-  const isTypeScript = TYPESCRIPT_EXTENSIONS.has(extension);
-
-  // Load module content. TypeScript entries are bundled with esbuild so we can import them as ESM.
-  const moduleUrl = isTypeScript
-    ? await bundleTypeScriptModule(resolved)
-    : `${pathToFileURL(resolved).href}?t=${Date.now()}`;
   let mod: any;
 
   try {
-    const importOverride = globalState.__hypequeryCliImportOverride;
-    mod = importOverride
-      ? await importOverride(moduleUrl)
-      : await import(/* @vite-ignore */ moduleUrl);
-  } catch (error: any) {
-    const relativePath = path.relative(process.cwd(), resolved);
-    throw new Error(
-      `Failed to load module: ${relativePath}\n\n` +
-      `Error: ${error.message}\n\n` +
-      (error.code === 'ERR_MODULE_NOT_FOUND'
-        ? `This usually means:\n` +
-          `  • A dependency is missing (run 'npm install')\n` +
-          `  • An import path is incorrect\n`
-        : ``) +
-      (error.stack ? `\nStack trace:\n${error.stack}\n` : '')
-    );
+    mod = await loadModule(modulePath);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('File not found:')) {
+      const relativePath = path.relative(process.cwd(), resolved);
+      throw new Error(
+        `File not found: ${relativePath}\n\n` +
+        `Make sure the file exists and the path is correct.\n` +
+        `You can specify a different file with:\n` +
+        `  hypequery dev path/to/your/queries.ts`
+      );
+    }
+
+    throw error;
   }
 
   const api = mod.api ?? mod.default;
@@ -85,6 +61,42 @@ export async function loadApiModule(modulePath: string) {
   }
 
   return api;
+}
+
+export async function loadModule(modulePath: string) {
+  const resolved = path.resolve(process.cwd(), modulePath);
+
+  try {
+    await access(resolved);
+  } catch {
+    const relativePath = path.relative(process.cwd(), resolved);
+    throw new Error(`File not found: ${relativePath}`);
+  }
+
+  const extension = path.extname(resolved).toLowerCase();
+  const isTypeScript = TYPESCRIPT_EXTENSIONS.has(extension);
+  const moduleUrl = isTypeScript
+    ? await bundleTypeScriptModule(resolved)
+    : `${pathToFileURL(resolved).href}?t=${Date.now()}`;
+
+  try {
+    const importOverride = globalState.__hypequeryCliImportOverride;
+    return importOverride
+      ? await importOverride(moduleUrl)
+      : await import(/* @vite-ignore */ moduleUrl);
+  } catch (error: any) {
+    const relativePath = path.relative(process.cwd(), resolved);
+    throw new Error(
+      `Failed to load module: ${relativePath}\n\n` +
+      `Error: ${error.message}\n\n` +
+      (error.code === 'ERR_MODULE_NOT_FOUND'
+        ? `This usually means:\n` +
+          `  • A dependency is missing (run 'npm install')\n` +
+          `  • An import path is incorrect\n`
+        : ``) +
+      (error.stack ? `\nStack trace:\n${error.stack}\n` : '')
+    );
+  }
 }
 
 const globalState = globalThis as typeof globalThis & {
