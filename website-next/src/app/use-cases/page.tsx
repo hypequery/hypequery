@@ -1,6 +1,24 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import { absoluteUrl } from '@/lib/site';
+
+export const metadata: Metadata = {
+  title: 'hypequery Use Cases',
+  description:
+    'Use hypequery to add type-safe ClickHouse analytics to product APIs, internal tools, and multi-tenant SaaS applications.',
+  alternates: {
+    canonical: absoluteUrl('/use-cases'),
+  },
+  openGraph: {
+    type: 'website',
+    url: absoluteUrl('/use-cases'),
+    title: 'hypequery Use Cases | Type-Safe ClickHouse Analytics',
+    description:
+      'Patterns for adding governed, reusable ClickHouse analytics to product APIs and SaaS applications.',
+  },
+};
 
 const useCases = [
   {
@@ -30,18 +48,31 @@ const useCases = [
 ];
 
 export default function UseCasesPage() {
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Use Cases',
+        item: absoluteUrl('/use-cases').toString(),
+      },
+    ],
+  };
+
   return (
     <>
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <section className="relative overflow-hidden border-b border-slate-800/80">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(99,102,241,0.28),transparent_40%),radial-gradient(circle_at_82%_0%,rgba(14,165,233,0.22),transparent_34%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               Use Cases
             </p>
             <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-              Product-ready analytics pages, not feature fragments
+              ClickHouse analytics use cases for product APIs and SaaS
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
               Start from your existing backend contracts, add type-safe analytics, and
@@ -126,7 +157,7 @@ export default function UseCasesPage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <div className="border border-indigo-500/40 bg-[linear-gradient(140deg,rgba(30,41,59,0.9),rgba(15,23,42,0.92))] p-8 md:flex md:items-center md:justify-between md:gap-8">
+          <div className="border border-indigo-500/40 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Next step

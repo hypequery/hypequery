@@ -1,13 +1,25 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock';
-import {
-  CodeBlockTab,
-  CodeBlockTabs,
-  CodeBlockTabsList,
-  CodeBlockTabsTrigger,
-} from 'fumadocs-ui/components/codeblock';
+import CodeWindow from '@/components/CodeWindow';
+import { absoluteUrl } from '@/lib/site';
+
+export const metadata: Metadata = {
+  title: 'Internal Product APIs with ClickHouse Analytics',
+  description:
+    'Add type-safe ClickHouse analytics to existing product APIs with reusable query definitions, stable route contracts, and optional HTTP exposure.',
+  alternates: {
+    canonical: absoluteUrl('/use-cases/internal-product-apis'),
+  },
+  openGraph: {
+    type: 'website',
+    url: absoluteUrl('/use-cases/internal-product-apis'),
+    title: 'Internal Product APIs with ClickHouse Analytics | hypequery',
+    description:
+      'Layer reusable ClickHouse analytics into existing backend routes without duplicating SQL across services.',
+  },
+};
 
 const routesCode = `import { createFetchHandler } from '@hypequery/serve';
 
@@ -47,18 +59,38 @@ export const api = serve({
 });`;
 
 export default function InternalProductApisUseCasePage() {
+  const pageUrl = absoluteUrl('/use-cases/internal-product-apis').toString();
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Use Cases',
+        item: absoluteUrl('/use-cases').toString(),
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Internal Product APIs',
+        item: pageUrl,
+      },
+    ],
+  };
+
   return (
     <>
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <section className="relative overflow-hidden border-b border-slate-800/80">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_12%,rgba(59,130,246,0.2),transparent_36%),radial-gradient(circle_at_82%_0%,rgba(14,165,233,0.14),transparent_32%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
               Use Case
             </p>
             <h1 className="font-display mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-              Internal product APIs with embedded analytics
+              Internal product APIs with embedded ClickHouse analytics
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
               Layer type-safe analytics into the backend you already run. Keep product
@@ -155,18 +187,7 @@ export default function InternalProductApisUseCasePage() {
             Your backend stays in control. Mount HypeQuery routes where you want
             them.
           </p>
-          <CodeBlockTabs className="mt-6 rounded-none" defaultValue="routes">
-            <CodeBlockTabsList>
-              <CodeBlockTabsTrigger value="routes">routes.ts</CodeBlockTabsTrigger>
-            </CodeBlockTabsList>
-            <CodeBlockTab value="routes" title="routes.ts">
-              <DynamicCodeBlock
-                lang="ts"
-                code={routesCode}
-                codeblock={{ className: 'hq-codeblock hq-highlight text-sm' }}
-              />
-            </CodeBlockTab>
-          </CodeBlockTabs>
+          <CodeWindow code={routesCode} filename="routes.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
@@ -177,18 +198,7 @@ export default function InternalProductApisUseCasePage() {
             Use <code>api.run(...)</code> from existing handlers whenever product
             responses need analytics context.
           </p>
-          <CodeBlockTabs className="mt-6 rounded-none" defaultValue="compose">
-            <CodeBlockTabsList>
-              <CodeBlockTabsTrigger value="compose">products.ts</CodeBlockTabsTrigger>
-            </CodeBlockTabsList>
-            <CodeBlockTab value="compose" title="products.ts">
-              <DynamicCodeBlock
-                lang="ts"
-                code={composeCode}
-                codeblock={{ className: 'hq-codeblock hq-highlight text-sm' }}
-              />
-            </CodeBlockTab>
-          </CodeBlockTabs>
+          <CodeWindow code={composeCode} filename="products.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
@@ -199,22 +209,11 @@ export default function InternalProductApisUseCasePage() {
             The same query definitions can power internal HTTP routes and
             in-process calls.
           </p>
-          <CodeBlockTabs className="mt-6 rounded-none" defaultValue="api">
-            <CodeBlockTabsList>
-              <CodeBlockTabsTrigger value="api">analytics/api.ts</CodeBlockTabsTrigger>
-            </CodeBlockTabsList>
-            <CodeBlockTab value="api" title="analytics/api.ts">
-              <DynamicCodeBlock
-                lang="ts"
-                code={defineOnceCode}
-                codeblock={{ className: 'hq-codeblock hq-highlight text-sm' }}
-              />
-            </CodeBlockTab>
-          </CodeBlockTabs>
+          <CodeWindow code={defineOnceCode} filename="analytics/api.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <div className="border border-indigo-500/35 bg-[linear-gradient(130deg,rgba(30,41,59,0.9),rgba(15,23,42,0.95))] p-8 md:flex md:items-center md:justify-between md:gap-6">
+          <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Ready to implement

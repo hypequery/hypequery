@@ -50,7 +50,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
       title="Build multi-tenant ClickHouse analytics without trusting every query author"
       description="SaaS analytics breaks when tenant isolation is a convention instead of a system property. hypequery lets you inject tenant filters automatically so reusable ClickHouse queries stay safely scoped across APIs, dashboards, and internal tooling."
       primaryCta={{ href: '/docs/multi-tenancy', label: 'Open multi-tenancy docs' }}
-      secondaryCta={{ href: '/app/use-cases/multi-tenant-saas', label: 'See the SaaS use case' }}
+      secondaryCta={{ href: '/use-cases/multi-tenant-saas', label: 'See the SaaS use case' }}
       stats={[
         { label: 'Isolation mode', value: 'Auto-inject filters' },
         { label: 'Best fit', value: 'B2B SaaS analytics' },
@@ -139,7 +139,7 @@ export default function ClickHouseMultiTenantAnalyticsPage() {
           description: 'The detailed configuration guide for tenant extraction and auto-injection.',
         },
         {
-          href: '/app/use-cases/multi-tenant-saas',
+          href: '/use-cases/multi-tenant-saas',
           title: 'Multi-tenant SaaS use case',
           description: 'See how the product use case is framed for teams evaluating hypequery.',
         },

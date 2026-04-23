@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import CodeWindow from '@/components/CodeWindow';
 import { absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -87,12 +88,12 @@ const comparisonLinks = [
     description: 'A deep dive into the runtime type mismatches that bite TypeScript teams on ClickHouse.',
   },
   {
-    href: '/blog/hypequery-vs-clickhouse-client',
+    href: '/compare/hypequery-vs-clickhouse-client',
     title: 'hypequery vs @clickhouse/client',
     description: 'What you actually gain when you move from raw queries to generated schema types and reusable query definitions.',
   },
   {
-    href: '/blog/hypequery-vs-kysely',
+    href: '/compare/hypequery-vs-kysely',
     title: 'hypequery vs Kysely',
     description: 'Where Kysely is excellent, where ClickHouse changes the tradeoffs, and when hypequery is the better fit.',
   },
@@ -127,7 +128,6 @@ export default function ClickHouseTypeScriptPage() {
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
         <section className="relative overflow-hidden border-b border-slate-800/80">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(99,102,241,0.28),transparent_38%),radial-gradient(circle_at_78%_0%,rgba(14,165,233,0.2),transparent_32%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               ClickHouse TypeScript
@@ -211,9 +211,7 @@ export default function ClickHouseTypeScriptPage() {
                 <h3 className="font-display mt-3 text-xl font-semibold text-white">
                   Generate schema types from ClickHouse
                 </h3>
-                <pre className="mt-4 overflow-x-auto border border-slate-800 bg-black/40 p-4 text-sm text-emerald-200">
-                  <code>{schemaCode}</code>
-                </pre>
+                <CodeWindow code={schemaCode} filename="generate-schema.sh" language="bash" className="mt-4" />
                 <p className="mt-4 text-sm leading-7 text-slate-300">
                   This is where the ClickHouse TypeScript workflow becomes reliable. Runtime types like
                   `DateTime`, `UInt64`, `Nullable`, and `Decimal` get mapped correctly instead of being guessed.
@@ -244,14 +242,12 @@ export default function ClickHouseTypeScriptPage() {
                   be reused safely.
                 </p>
                 <p>
-                  If your team is comparing options, read <Link href="/blog/hypequery-vs-clickhouse-client" className="text-cyan-300 hover:text-cyan-200">hypequery vs @clickhouse/client</Link> and <Link href="/blog/hypequery-vs-kysely" className="text-cyan-300 hover:text-cyan-200">hypequery vs Kysely</Link> after this page.
+                  If your team is comparing options, read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-cyan-300 hover:text-cyan-200">hypequery vs @clickhouse/client</Link> and <Link href="/compare/hypequery-vs-kysely" className="text-cyan-300 hover:text-cyan-200">hypequery vs Kysely</Link> after this page.
                 </p>
               </div>
             </div>
             <div className="border border-slate-700 bg-slate-950/80 p-6">
-              <pre className="overflow-x-auto text-sm text-emerald-200">
-                <code>{queryCode}</code>
-              </pre>
+              <CodeWindow code={queryCode} filename="analytics-api.ts" className="mt-0" />
             </div>
           </div>
         </section>
@@ -338,7 +334,7 @@ export default function ClickHouseTypeScriptPage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-6">
-          <div className="border border-indigo-500/35 bg-[linear-gradient(140deg,rgba(30,41,59,0.9),rgba(15,23,42,0.95))] p-8 md:flex md:items-center md:justify-between md:gap-8">
+          <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Next step
