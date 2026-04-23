@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: '/blog/hypequery-vs-clickhouse-client',
+        destination: '/compare/hypequery-vs-clickhouse-client',
+        permanent: true,
+      },
+      {
+        source: '/blog/hypequery-vs-kysely',
+        destination: '/compare/hypequery-vs-kysely',
+        permanent: true,
+      },
+      {
         source: '/docs/installation',
         destination: '/docs/quick-start',
         permanent: true,

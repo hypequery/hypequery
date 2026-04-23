@@ -1,13 +1,25 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import { DynamicCodeBlock } from 'fumadocs-ui/components/dynamic-codeblock';
-import {
-  CodeBlockTab,
-  CodeBlockTabs,
-  CodeBlockTabsList,
-  CodeBlockTabsTrigger,
-} from 'fumadocs-ui/components/codeblock';
+import CodeWindow from '@/components/CodeWindow';
+import { absoluteUrl } from '@/lib/site';
+
+export const metadata: Metadata = {
+  title: 'Multi-Tenant SaaS Analytics on ClickHouse',
+  description:
+    'Build multi-tenant SaaS analytics on ClickHouse with automatic tenant scoping, role checks, and reusable type-safe query definitions.',
+  alternates: {
+    canonical: absoluteUrl('/use-cases/multi-tenant-saas'),
+  },
+  openGraph: {
+    type: 'website',
+    url: absoluteUrl('/use-cases/multi-tenant-saas'),
+    title: 'Multi-Tenant SaaS Analytics on ClickHouse | hypequery',
+    description:
+      'Use tenant-aware ClickHouse query definitions to reduce data-leak risk in customer-facing SaaS analytics.',
+  },
+};
 
 const authCode = `import { createApiKeyStrategy, createAuthSystem } from '@hypequery/serve';
 
@@ -55,18 +67,38 @@ const roleCode = `revenueByPlan: query
   )`;
 
 export default function MultiTenantSaasUseCasePage() {
+  const pageUrl = absoluteUrl('/use-cases/multi-tenant-saas').toString();
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Use Cases',
+        item: absoluteUrl('/use-cases').toString(),
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Multi-tenant SaaS',
+        item: pageUrl,
+      },
+    ],
+  };
+
   return (
     <>
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <section className="relative overflow-hidden border-b border-slate-800/80">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(99,102,241,0.2),transparent_34%),radial-gradient(circle_at_84%_2%,rgba(14,165,233,0.16),transparent_34%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               Use Case
             </p>
             <h1 className="font-display mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-              Multi-tenant SaaS analytics with policy control by default
+              Multi-tenant SaaS ClickHouse analytics with policy control by default
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
               Resolve auth context once, enforce tenant filtering automatically, and keep
@@ -161,18 +193,7 @@ export default function MultiTenantSaasUseCasePage() {
           <p className="mt-3 text-lg leading-8 text-gray-300">
             Use API key auth and map tenant and admin identities directly into typed auth context.
           </p>
-          <CodeBlockTabs className="mt-6 rounded-none" defaultValue="auth">
-            <CodeBlockTabsList>
-              <CodeBlockTabsTrigger value="auth">auth.ts</CodeBlockTabsTrigger>
-            </CodeBlockTabsList>
-            <CodeBlockTab value="auth" title="auth.ts">
-              <DynamicCodeBlock
-                lang="ts"
-                code={authCode}
-                codeblock={{ className: 'hq-codeblock hq-highlight text-sm' }}
-              />
-            </CodeBlockTab>
-          </CodeBlockTabs>
+          <CodeWindow code={authCode} filename="auth.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
@@ -180,18 +201,7 @@ export default function MultiTenantSaasUseCasePage() {
           <p className="mt-3 text-lg leading-8 text-gray-300">
             Set tenant extraction once and let HypeQuery inject filters automatically.
           </p>
-          <CodeBlockTabs className="mt-6 rounded-none" defaultValue="tenant">
-            <CodeBlockTabsList>
-              <CodeBlockTabsTrigger value="tenant">api.ts</CodeBlockTabsTrigger>
-            </CodeBlockTabsList>
-            <CodeBlockTab value="tenant" title="api.ts">
-              <DynamicCodeBlock
-                lang="ts"
-                code={tenantCode}
-                codeblock={{ className: 'hq-codeblock hq-highlight text-sm' }}
-              />
-            </CodeBlockTab>
-          </CodeBlockTabs>
+          <CodeWindow code={tenantCode} filename="api.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
@@ -199,22 +209,11 @@ export default function MultiTenantSaasUseCasePage() {
           <p className="mt-3 text-lg leading-8 text-gray-300">
             Apply access control directly in query definitions.
           </p>
-          <CodeBlockTabs className="mt-6 rounded-none" defaultValue="rbac">
-            <CodeBlockTabsList>
-              <CodeBlockTabsTrigger value="rbac">queries.ts</CodeBlockTabsTrigger>
-            </CodeBlockTabsList>
-            <CodeBlockTab value="rbac" title="queries.ts">
-              <DynamicCodeBlock
-                lang="ts"
-                code={roleCode}
-                codeblock={{ className: 'hq-codeblock hq-highlight text-sm' }}
-              />
-            </CodeBlockTab>
-          </CodeBlockTabs>
+          <CodeWindow code={roleCode} filename="queries.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <div className="border border-indigo-500/35 bg-[linear-gradient(140deg,rgba(30,41,59,0.9),rgba(15,23,42,0.95))] p-8 md:flex md:items-center md:justify-between md:gap-6">
+          <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Governance outcome

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import CodeWindow from '@/components/CodeWindow';
 
 type LinkItem = {
   href: string;
@@ -86,7 +87,6 @@ export function ClickhousePillarPage({
       <Navigation />
       <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
         <section className="relative overflow-hidden border-b border-slate-800/80">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(99,102,241,0.28),transparent_38%),radial-gradient(circle_at_78%_0%,rgba(14,165,233,0.2),transparent_32%)]" />
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">{eyebrow}</p>
             <h1 className="font-display mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
@@ -164,9 +164,11 @@ export function ClickhousePillarPage({
                   <h3 className="font-display mt-3 text-xl font-semibold text-white">
                     {solutionSection.codePanel.title}
                   </h3>
-                  <pre className="mt-4 overflow-x-auto border border-slate-800 bg-black/40 p-4 text-sm text-emerald-200">
-                    <code>{solutionSection.codePanel.code}</code>
-                  </pre>
+                  <CodeWindow
+                    code={solutionSection.codePanel.code}
+                    filename={`${solutionSection.eyebrow.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.ts`}
+                    className="mt-4"
+                  />
                   <p className="mt-4 text-sm leading-7 text-slate-300">
                     {solutionSection.codePanel.description}
                   </p>
@@ -210,9 +212,11 @@ export function ClickhousePillarPage({
                 <h3 className="font-display mt-3 text-xl font-semibold text-white">
                   {implementationSection.codePanel.title}
                 </h3>
-                <pre className="mt-4 overflow-x-auto text-sm text-emerald-200">
-                  <code>{implementationSection.codePanel.code}</code>
-                </pre>
+                <CodeWindow
+                  code={implementationSection.codePanel.code}
+                  filename={`${implementationSection.eyebrow.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.ts`}
+                  className="mt-4"
+                />
                 <p className="mt-4 text-sm leading-7 text-slate-300">
                   {implementationSection.codePanel.description}
                 </p>
@@ -281,7 +285,7 @@ export function ClickhousePillarPage({
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-6">
-          <div className="border border-indigo-500/35 bg-[linear-gradient(140deg,rgba(30,41,59,0.9),rgba(15,23,42,0.95))] p-8 md:flex md:items-center md:justify-between md:gap-8">
+          <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 {nextStep.eyebrow}

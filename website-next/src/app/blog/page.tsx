@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
 import Newsletter from '@/components/Newsletter';
 import { absoluteUrl } from '@/lib/site';
+import { comparePageBySlug } from '@/data/compare-pages';
 
 export async function generateMetadata({
   searchParams,
@@ -11,8 +12,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { page } = await searchParams;
   const pageNumber = Number(page) || 1;
-  const title = pageNumber > 1 ? `Blog - Page ${pageNumber}` : 'Blog';
-  const description = 'Deep dives, architecture notes, and product guidance from the hypequery team.';
+  const title = pageNumber > 1 ? `ClickHouse TypeScript Blog - Page ${pageNumber}` : 'ClickHouse TypeScript Blog';
+  const description = 'Deep dives, comparison posts, and implementation guidance for ClickHouse and TypeScript teams.';
   const canonicalPath = pageNumber > 1 ? `/blog?page=${pageNumber}` : '/blog';
 
   return {
@@ -24,7 +25,7 @@ export async function generateMetadata({
     openGraph: {
       type: 'website',
       url: absoluteUrl(canonicalPath),
-      title: pageNumber > 1 ? `hypequery Blog - Page ${pageNumber}` : 'hypequery Blog',
+      title: pageNumber > 1 ? `hypequery ClickHouse Blog - Page ${pageNumber}` : 'hypequery ClickHouse Blog',
       description,
     },
   };
@@ -51,7 +52,7 @@ export default async function BlogPage({
           Insights
         </p>
         <h1 className="font-display text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl mb-4">
-          Ideas for shipping faster with ClickHouse
+          ClickHouse and TypeScript implementation guides
         </h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
           Deep dives, architecture notes, and product guidance from the hypequery team.
@@ -62,10 +63,7 @@ export default async function BlogPage({
 
       <div className="space-y-12">
         {displayedPosts.map((post) => (
-          <article
-            key={post.slug}
-            className="border-b border-gray-200 pb-12 dark:border-gray-800"
-          >
+          <article key={post.slug} className="border-b border-gray-200 pb-12 dark:border-gray-800">
             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
               <time dateTime={post.data.date ?? ''}>
                 {new Date(post.data.date ?? '1970-01-01T00:00:00.000Z').toLocaleDateString('en-US', {
@@ -88,6 +86,16 @@ export default async function BlogPage({
                 {post.data.description}
               </p>
             )}
+            {post.slug in comparePageBySlug ? (
+              <div className="mt-4">
+                <Link
+                  href={comparePageBySlug[post.slug as keyof typeof comparePageBySlug].href}
+                  className="inline-flex items-center gap-2 border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950"
+                >
+                  Open comparison page
+                </Link>
+              </div>
+            ) : null}
             <div className="mt-4">
               <Link
                 href={`/blog/${post.slug}`}

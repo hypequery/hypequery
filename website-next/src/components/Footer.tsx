@@ -1,10 +1,7 @@
+import Link from 'next/link';
+import { seoFooterGroups } from '@/data/seo-links';
+
 const navigation = {
-  primary: [
-    { name: 'Docs', href: '/docs' },
-    { name: 'ClickHouse TypeScript', href: '/clickhouse-typescript' },
-    { name: 'Changelog', href: '/docs/changelog' },
-    { name: 'GitHub', href: 'https://github.com/hypequery/hypequery' },
-  ],
   social: [
     {
       name: 'GitHub',
@@ -28,7 +25,7 @@ export default function Footer() {
   return (
     <footer className="border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="items-start flex flex-row gap-6 flex-col justify-between">
+        <div className="grid gap-10 lg:grid-cols-[1fr_2fr]">
           <div>
             <span className="font-mono text-xl font-bold text-indigo-600 dark:text-indigo-400">
               &gt; hypequery
@@ -37,18 +34,28 @@ export default function Footer() {
               The Type-Safe Query Builder for ClickHouse
             </p>
           </div>
-          <div className="flex flex-col gap-6 text-sm text-gray-600 md:items-end dark:text-gray-400">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              {navigation.primary.map((item) => (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  className="hover:text-indigo-600 dark:hover:text-indigo-400"
-                >
-                  {item.name}
-                </a>
-              ))}
-            </div>
+          <div className="grid gap-8 text-sm text-gray-600 sm:grid-cols-2 lg:grid-cols-4 dark:text-gray-400">
+            {seoFooterGroups.map((group) => (
+              <div key={group.title}>
+                <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-500">
+                  {group.title}
+                </h2>
+                <div className="mt-4 flex flex-col gap-3">
+                  {group.links.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="hover:text-indigo-600 dark:hover:text-indigo-400"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-8 flex flex-col gap-6 text-sm text-gray-600 dark:text-gray-400">
             <div className="text-gray-600 dark:text-gray-400 font-medium">
               Feedback?{' '}
               <a
@@ -70,7 +77,6 @@ export default function Footer() {
               </a>{' '}
               on X.
             </div>
-          </div>
         </div>
         <div className="mt-8 flex flex-col gap-4 text-xs text-gray-500 md:flex-row md:items-center md:justify-between dark:text-gray-400">
           <p>&copy; {new Date().getFullYear()} hypequery. All rights reserved.</p>
