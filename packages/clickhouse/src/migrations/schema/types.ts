@@ -1,6 +1,7 @@
 import type { SQLExpression } from '../../dataset/sql-tag.js';
 
 export type ClickHouseSqlExpression = string | SQLExpression;
+export type ClickHouseDefaultInput = string | number | boolean | null | SQLExpression;
 
 export interface ClickHouseSchemaAst {
   tables: ClickHouseTableDefinition[];
@@ -29,11 +30,25 @@ export interface ClickHouseTableInputDefinition {
 export interface ClickHouseColumnDefinition {
   name: string;
   type: ClickHouseColumnType;
-  default?: ClickHouseSqlExpression;
+  default?: ClickHouseColumnDefaultValue;
 }
 
 export interface ClickHouseColumnBuilderLike {
   build(name: string): ClickHouseColumnDefinition;
+}
+
+export type ClickHouseColumnDefaultValue =
+  | ClickHouseLiteralDefaultValue
+  | ClickHouseSqlDefaultValue;
+
+export interface ClickHouseLiteralDefaultValue {
+  kind: 'literal';
+  value: string | number | boolean | null;
+}
+
+export interface ClickHouseSqlDefaultValue {
+  kind: 'sql';
+  value: ClickHouseSqlExpression;
 }
 
 export type ClickHouseColumnType =

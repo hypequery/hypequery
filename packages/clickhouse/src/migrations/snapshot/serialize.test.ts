@@ -155,7 +155,10 @@ describe('serialize schema to snapshot', () => {
         {
           "name": "status",
           "type": "LowCardinality(String)",
-          "default": "pending"
+          "default": {
+            "kind": "literal",
+            "value": "pending"
+          }
         },
         {
           "name": "user_id",

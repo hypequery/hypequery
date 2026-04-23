@@ -27,6 +27,27 @@ This means the migration system must start with new foundations rather than laye
 
 ## Target Architecture
 
+### Future package boundary
+
+Keep the first implementation inside `@hypequery/clickhouse`, but structure modules so a future `@hypequery/migrations-core` extraction remains possible.
+
+The likely future split is:
+
+- generic migration primitives
+  - artifact metadata
+  - journal/checksum primitives
+  - planner diagnostics
+  - command-independent migration plan interfaces
+- ClickHouse-specific implementation
+  - schema DSL
+  - snapshot serializer
+  - diff engine
+  - operation classifier
+  - SQL renderer
+  - introspection and execution adapters
+
+Do not prematurely genericize ClickHouse concepts such as engines, materialized-view sequencing, operation cost classes, or system-table checks. Those are the product differentiators and should remain ClickHouse-native.
+
 ### `packages/clickhouse`
 
 New internal areas:
@@ -90,6 +111,21 @@ Do not begin with migration execution. Start by making the desired state represe
 ### Another guiding rule
 
 Materialized view sequencing stays in the initial product release even if other coverage is deferred. It is a strategic requirement, not polish.
+
+### Scope guardrail
+
+Do not let generated schema migrations expand into generated data migrations.
+
+v1 should support:
+
+- generated schema migrations
+- custom SQL data migrations in the same timeline
+
+v1 should not attempt:
+
+- generated backfills
+- generated data rewrites
+- automatic rename/data-copy workflows
 
 ## Phase 0: Foundations and Contracts
 
@@ -235,6 +271,7 @@ Produce typed operations from snapshot changes.
 - `DropTable`
 - `AddColumn`
 - `DropColumn`
+- `ModifyColumnDefault`
 - `CreateMaterializedView`
 - `DropMaterializedView`
 - `RecreateMaterializedView`
@@ -250,6 +287,17 @@ Treat likely renames as:
 - unsupported
 - or explicit drop/add requiring confirmation
 
+Document the recommended replacement recipe instead:
+
+1. add the replacement column
+2. backfill it with a custom SQL migration
+3. switch reads and writes
+4. drop the old column later
+
+Important nuance:
+
+`RENAME COLUMN` can be metadata-level in modern ClickHouse. The reason v1 should avoid automatic rename inference is not just physical cost; it is semantic safety. Materialized views, application queries, and generated types can still reference the old name.
+
 ### Materialized view dependency graph
 
 Build a dependency graph from managed schema objects:
@@ -264,13 +312,80 @@ This graph powers sequencing decisions later.
 - snapshot-to-ops tests
 - unmanaged dependency detection tests
 - unsupported sort-key change tests
+- operation classification tests
 
 ### Exit criteria
 
 - snapshot deltas produce stable operation lists
 - unsupported operations are rejected deterministically
 
-## Phase 3: SQL Generation
+## Phase 3: Planner and Safety Classification
+
+### Goal
+
+Turn raw diff operations into an explicit migration plan before SQL is rendered.
+
+### Deliverables
+
+- `MigrationPlan` model
+- operation classification
+- diagnostic model
+- initial blocker handling for unsupported changes
+
+### Operation classification
+
+Classify each operation as:
+
+- `metadata`
+- `mutation`
+- `data-copy`
+- `forbidden`
+
+Initial implementation can classify from static snapshot/diff information only.
+
+Later implementation can enrich classifications with live ClickHouse data from:
+
+- `system.parts`
+- `system.mutations`
+- `system.replicas`
+- `system.distributed_ddl_queue`
+
+### Planner output
+
+The plan should include:
+
+- operations
+- planned statements or statement placeholders
+- classifications
+- diagnostics
+- blockers
+- required confirmations
+- source and target snapshot hashes
+
+### Analyzer direction
+
+The planner should be designed so analyzers can be added later:
+
+- destructive-change analyzer
+- expensive-mutation analyzer
+- materialized-view dependency analyzer
+- cluster-safety analyzer
+- key-column analyzer
+- unmanaged-dependency analyzer
+
+### Testing
+
+- operation classification tests
+- blocker tests
+- diagnostic tests
+
+### Exit criteria
+
+- unsupported changes block plan rendering deterministically
+- renderable operations carry classifications
+- SQL generation no longer consumes raw diff output directly
+
+## Phase 4: SQL Generation
 
 ### Goal
 
@@ -281,6 +396,7 @@ Render typed operations into ClickHouse SQL with safe ordering.
 - operation-to-SQL renderer
 - migration file writer
 - best-effort down generator
+- operation classifications surfaced in metadata
 
 ### Core renderer modules
 
@@ -300,12 +416,25 @@ For any operation touching a managed source table:
 4. emit table alteration
 5. emit recreated view statements
 
+### Rendering rules
+
+SQL generation consumes a `MigrationPlan`, not raw diff output.
+
+Implementation expectation:
+
+- metadata operations render normally
+- mutation operations render with warnings and set `unsafe`
+- data-copy operations render only when provided explicitly by custom SQL or future compound primitives
+- forbidden operations never reach rendering
+- generated DDL should use `IF EXISTS` / `IF NOT EXISTS` where ClickHouse supports it
+
 ### Required output metadata
 
 Each migration directory should include:
 
 - `up.sql`
 - `down.sql`
+- `plan.json`
 - `meta.json`
 
 `meta.json` should contain:
@@ -316,18 +445,20 @@ Each migration directory should include:
 - source snapshot hash
 - target snapshot hash
 - flags like `custom`, `unsafe`, `contains_manual_steps`
+- operation classifications
 
 ### Testing
 
 - SQL golden tests
 - MV sequencing golden tests
 - cluster-clause rendering tests
+- unsafe/manual-step metadata tests
 
 ### Exit criteria
 
 - generator can write reviewable migration folders from snapshot diffs
 
-## Phase 4: CLI Integration
+## Phase 5: CLI Integration
 
 ### Goal
 
@@ -335,7 +466,7 @@ Expose the system through `@hypequery/cli`.
 
 ### Commands
 
-#### 4.1 `generate`
+#### 5.1 `generate`
 
 Flow:
 
@@ -344,11 +475,20 @@ Flow:
 3. serialize snapshot
 4. load latest journal snapshot
 5. diff
-6. render SQL
-7. write migration folder
-8. update journal
+6. plan and classify
+7. render SQL
+8. write migration folder
+9. update journal
 
-#### 4.2 `pull`
+For custom migrations:
+
+1. create migration folder
+2. write user-authored `up.sql`
+3. write stub or optional `down.sql`
+4. mark `meta.json.custom = true`
+5. do not auto-advance schema snapshot unless later baselined
+
+#### 5.2 `pull`
 
 Flow:
 
@@ -358,7 +498,11 @@ Flow:
 4. write `0000_snapshot.json`
 5. initialize journal
 
-#### 4.3 `drop`
+#### 5.3 `plan`
+
+Write a reviewable `plan.json` and SQL preview without applying anything.
+
+#### 5.4 `drop`
 
 Remove latest unapplied migration and roll back journal metadata only.
 
@@ -371,6 +515,13 @@ The existing `generate` command currently means type generation. You have two ch
 
 This is a product decision, not just an implementation detail. It should be resolved before shipping to avoid CLI churn.
 
+Migration directory naming should stay simple:
+
+- `20260422140000_add_orders_table`
+- `20260422140500_backfill_order_region`
+
+Use the shape `<timestamp>_<slug>`.
+
 ### Testing
 
 - command unit tests
@@ -380,7 +531,7 @@ This is a product decision, not just an implementation detail. It should be reso
 
 - users can create migration files and baseline from a live database
 
-## Phase 5: Migration Execution
+## Phase 6: Migration Execution
 
 ### Goal
 
@@ -392,14 +543,38 @@ Apply generated migrations and track applied state.
 - ordered migration application
 - checksum recording
 - `status` and `check` commands
+- per-statement progress tracking
+- statement-boundary parsing via `-- hypequery:breakpoint`
 
 ### Execution model
 
-#### 5.1 State table management
+#### 6.1 State table management
 
 Create `_hypequery_migrations` on first run if missing.
 
-#### 5.2 Checksum strategy
+Use a richer table than a minimal `{name, checksum}` journal because ClickHouse DDL is non-transactional and partial progress matters.
+
+Recommended fields:
+
+- migration id
+- monotonic version
+- migration name
+- checksum
+- type
+- started/finished/rolled-back timestamps
+- applied step count
+- total steps
+- per-statement hashes
+- status
+- error statement/message
+- execution time
+- applied user
+- cluster
+- hypequery version
+
+For cluster mode, prefer a replicated engine variant.
+
+#### 6.2 Checksum strategy
 
 Checksum should be computed over canonical file contents.
 
@@ -408,17 +583,59 @@ Recommended:
 - hash `up.sql`
 - hash `down.sql` if present
 - hash `meta.json`
+- hash `plan.json` if present
 - combine hashes into one migration checksum
 
-#### 5.3 Failure behavior
+Also maintain a `hypequery.sum` file in the migration directory tree:
+
+- whole-directory hash
+- per-file SHA-256 hashes
+
+`migrate` should verify this before applying.
+
+#### 6.3 Failure behavior
 
 Because ClickHouse DDL is non-transactional:
 
 - stop on first failure
-- record nothing for a failed migration
+- record failed/dirty state with the failing statement
 - print explicit reconciliation guidance
+- explicitly warn that partial ClickHouse side effects may already exist
 
 Do not attempt automatic rollback in v1.
+
+#### 6.4 Distributed lock
+
+Use a distributed lock before production apply.
+
+Preferred later implementation:
+
+- KeeperMap-backed lock table
+- TTL-based expiry
+- owner/process metadata for diagnostics
+
+If this is deferred, `migrate deploy` must say so clearly.
+
+#### 6.5 Post-step verification
+
+Execution should not trust the client acknowledgement alone.
+
+After statements:
+
+- poll `system.mutations` for mutation completion
+- poll `system.replicas` for replica queue health where applicable
+- poll `system.distributed_ddl_queue` for `ON CLUSTER` convergence
+- re-query `system.columns` / `system.tables` before dependent follow-up steps
+
+### Safety messaging
+
+Execution UX should distinguish:
+
+- metadata migrations
+- mutation-bearing migrations
+- forbidden/rewrite-class migrations that should never be generated in v1
+
+The CLI must not imply transactional rollback safety.
 
 ### `status`
 
@@ -443,7 +660,7 @@ Should verify:
 
 - migrations can be applied, tracked, and verified
 
-## Phase 6: Push Workflow
+## Phase 7: Push Workflow
 
 ### Goal
 
@@ -463,7 +680,7 @@ Provide a dev-only fast path.
 - explicit dev-only messaging
 - not recommended for CI or production
 
-## Phase 7: Introspection and Baseline Adoption
+## Phase 8: Introspection and Baseline Adoption
 
 ### Goal
 
@@ -484,6 +701,17 @@ Support existing ClickHouse users.
 - settings
 - managed materialized views where discoverable
 
+### System tables to use
+
+Initial implementation should draw from:
+
+- `system.tables`
+- `system.columns`
+- `system.parts`
+- `system.mutations`
+- `system.replicas`
+- `system.distributed_ddl_queue`
+
 ### Hard edge
 
 Introspecting arbitrary materialized view SQL into a clean TypeScript DSL is hard. The first version may need:
@@ -493,7 +721,7 @@ Introspecting arbitrary materialized view SQL into a clean TypeScript DSL is har
 
 If a live object cannot be cleanly represented, the tool should emit a clear TODO section rather than silently dropping detail.
 
-## Phase 8: Safety and Unsupported-Change UX
+## Phase 9: Safety and Unsupported-Change UX
 
 ### Goal
 
@@ -520,7 +748,7 @@ Reject and require custom SQL for:
 - rebuild-copy-swap flows
 - unmanaged dependency chains
 
-## Phase 9: Fuller ClickHouse Coverage
+## Phase 10: Fuller ClickHouse Coverage
 
 ### Goal
 
@@ -535,6 +763,12 @@ Expand beyond the initial safe core after the product is stable.
 - replicated/distributed table helpers
 - `ON CLUSTER` generation polish
 - future reconciliation workflows
+- automated shadow-table migrations for rewrite-class changes
+- KeeperMap distributed locking
+- cost-estimated migration plans
+- resumable chunked data migrations
+- materialized-view SELECT dependency parsing
+- compound primitives such as `exchangeSwap`, `renameColumnSafely`, and `alterMaterializedView`
 
 These are expansion phases, not prerequisites for a useful launch.
 
@@ -557,17 +791,19 @@ Outcome:
 
 - Phase 3
 - Phase 4
+- Phase 5
 
 Outcome:
 
+- reviewable migration plans
 - generated migration folders
 - baseline pull
 - MV-aware SQL generation
 
 ### Milestone C: Execution beta
 
-- Phase 5
 - Phase 6
+- Phase 7
 
 Outcome:
 
@@ -577,8 +813,8 @@ Outcome:
 
 ### Milestone D: Adoption and hardening
 
-- Phase 7
 - Phase 8
+- Phase 9
 
 Outcome:
 
@@ -587,7 +823,7 @@ Outcome:
 
 ### Milestone E: Coverage expansion
 
-- Phase 9
+- Phase 10
 
 Outcome:
 
@@ -627,6 +863,26 @@ Raw SQL migrations can desynchronize snapshots.
 Mitigation:
 
 - make reconciliation explicit in CLI and docs
+
+### 6. False confidence in ClickHouse failure recovery
+
+Users may assume failed migrations can simply be retried without consequences.
+
+Mitigation:
+
+- document that ClickHouse failures may leave partial state behind
+- surface higher-risk mutation classifications clearly
+- reject rewrite-class automation in v1
+
+### 7. Planner layer complexity
+
+Adding a planner layer can slow early delivery if it tries to solve live cost estimation immediately.
+
+Mitigation:
+
+- start with static classification and blockers
+- defer live system-table cost estimates to execution/planning hardening
+- keep the plan JSON stable and reviewable
 
 ### 5. False confidence in down migrations
 

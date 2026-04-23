@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { isSQLExpression } from '../../dataset/sql-tag.js';
 import type {
+  ClickHouseColumnDefaultValue,
   ClickHouseColumnType,
   ClickHouseSchemaAst,
   ClickHouseSqlExpression,
@@ -8,6 +9,7 @@ import type {
 import type {
   Snapshot,
   SnapshotColumn,
+  SnapshotColumnDefault,
   SnapshotDependencyEdge,
   SnapshotMaterializedView,
   SnapshotTable,
@@ -15,6 +17,13 @@ import type {
 
 type SnapshotWithoutHash = Omit<Snapshot, 'contentHash'>;
 
+/**
+ * Converts a schema AST into a deterministic ClickHouse snapshot.
+ *
+ * Snapshot serialization normalizes ordering, SQL-expression whitespace, type
+ * wrappers, settings, and materialized-view dependencies before computing the
+ * content hash used by migration metadata.
+ */
 export function serializeSchemaToSnapshot(schema: ClickHouseSchemaAst): Snapshot {
   const snapshot: SnapshotWithoutHash = {
     version: 1,
@@ -30,7 +39,7 @@ export function serializeSchemaToSnapshot(schema: ClickHouseSchemaAst): Snapshot
               name: column.name,
               type: normalizeColumnType(column.type),
               ...(column.default !== undefined
-                ? { default: normalizeSqlExpression(column.default) }
+                ? { default: normalizeColumnDefault(column.default) }
                 : {}),
             }),
           ),
@@ -78,10 +87,30 @@ export function serializeSchemaToSnapshot(schema: ClickHouseSchemaAst): Snapshot
   };
 }
 
+function normalizeColumnDefault(defaultValue: ClickHouseColumnDefaultValue): SnapshotColumnDefault {
+  if (defaultValue.kind === 'literal') {
+    return {
+      kind: 'literal',
+      value: defaultValue.value,
+    };
+  }
+
+  return {
+    kind: 'sql',
+    value: normalizeSqlExpression(defaultValue.value),
+  };
+}
+
+/**
+ * Serializes a snapshot with stable formatting for writing to disk and hashing.
+ */
 export function snapshotToStableJson(snapshot: Snapshot | SnapshotWithoutHash): string {
   return JSON.stringify(snapshot, null, 2);
 }
 
+/**
+ * Computes the SHA-256 content hash for a normalized snapshot.
+ */
 export function hashSnapshot(snapshot: Snapshot | SnapshotWithoutHash): string {
   return createHash('sha256').update(snapshotToStableJson(snapshot)).digest('hex');
 }

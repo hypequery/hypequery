@@ -67,6 +67,14 @@ Potentially destructive or rewrite-heavy operations require explicit acknowledge
 
 Migration files are plain SQL, designed to be committed and code-reviewed.
 
+### Declarative in, imperative out
+
+hypequery should be described as:
+
+> Declarative schema definition, imperative migration output, full developer control.
+
+Developers define the desired schema state in TypeScript, hypequery computes the diff, and the tool emits imperative SQL files that remain reviewable and editable.
+
 ### Progressive adoption
 
 Existing ClickHouse users can baseline their current schema and adopt the system incrementally.
@@ -115,6 +123,57 @@ Typed change operations are converted into ClickHouse DDL. ClickHouse-specific b
 #### 4. Migration Execution
 
 Generated migration files are applied in order. Applied state is stored in a `_hypequery_migrations` table.
+
+## Schema Migrations vs Data Migrations
+
+These are separate categories and the product should treat them differently.
+
+### Schema migrations
+
+Schema migrations change structure:
+
+- create or drop tables
+- add or drop columns
+- modify supported defaults or types
+- create or drop materialized views
+- change supported table metadata
+
+This is the core v1 feature and should be generated automatically from TypeScript schema diffs.
+
+### Data migrations
+
+Data migrations change row contents:
+
+- backfilling a new column
+- rewriting historic values into a new representation
+- copying data from an old column into a replacement column
+- normalizing legacy data after a schema change
+
+These should be supported in v1 only through custom SQL migrations, not through automatic generation from the schema DSL.
+
+### Product stance
+
+v1 should support both, but through different mechanisms:
+
+- schema migrations: auto-generated
+- data migrations: custom SQL escape hatch
+
+Both should live in the same migration timeline and be tracked, checksummed, and applied through the same runner.
+
+### Important ClickHouse nuance: column rename vs column replacement
+
+Column renames should not be treated as a simple generated rename in v1.
+
+Modern ClickHouse can perform `RENAME COLUMN` as a metadata-level operation, but that does not make it operationally safe for generated migrations. The larger risk is semantic breakage: materialized view SELECT text, application queries, and downstream generated types may still reference the old column name.
+
+The safer production workflow for many rename-like changes is:
+
+1. add a new column with the desired name
+2. backfill it from the old column using custom SQL
+3. switch reads and writes
+4. drop the old column later
+
+This is a schema migration plus a data migration. v1 should document the recipe and refuse automatic rename inference. A future compound primitive can automate the multi-step replacement workflow.
 
 ## Configuration
 
@@ -256,6 +315,55 @@ The diff engine emits typed changes rather than generating SQL directly.
 - primary-key/order-key rebuild recipes
 - arbitrary backfills
 - complex table-copy swaps
+- column rename automation
+
+## Planner and Safety Classification
+
+The diff engine should not feed SQL generation directly in the long term.
+
+The desired pipeline is:
+
+1. schema snapshot
+2. diff operations
+3. migration plan
+4. rendered SQL
+5. execution and verification
+
+The planner consumes typed diff operations, classifies them, runs lint rules, optionally attaches live ClickHouse cost estimates, and either emits a renderable plan or blocks generation.
+
+### Operation classification
+
+Every operation should be classified into one of four categories:
+
+- `metadata`
+  - metadata-oriented changes
+- `mutation`
+  - operations likely to rewrite data parts
+- `data-copy`
+  - explicit data movement, backfills, or shadow-table copy work
+- `forbidden`
+  - operations that require a shadow-table or rebuild workflow
+
+This classification should drive UX:
+
+- metadata operations can be generated normally
+- mutation operations require explicit warnings and confirmations
+- data-copy operations are custom SQL or future compound primitives
+- forbidden operations are rejected in v1 and redirected to custom SQL or future shadow-table automation
+
+### Planner diagnostics
+
+The planner should eventually support diagnostics from analyzers:
+
+- destructive changes
+- mutation-heavy changes
+- materialized-view dependency risks
+- missing cluster configuration
+- unsafe use of `POPULATE`
+- changes to key columns
+- unmanaged dependencies
+
+The first implementation can keep this simple, but the architecture should make diagnostics first-class.
 
 ## Materialized View Dependency Sequencing
 
@@ -299,6 +407,12 @@ It does not need to fully support:
 
 If unmanaged dependent objects are detected, generation should stop and require explicit custom SQL.
 
+### Future materialized-view planner work
+
+Managed DSL references are sufficient for v1 generation. Later versions should parse materialized-view SELECT SQL to detect dependencies beyond the leftmost source table, especially JOIN sources.
+
+The tool should reject `POPULATE` for generated production migrations. It is not resumable and can miss rows inserted during the population window.
+
 ## CLI Surface
 
 ```bash
@@ -341,9 +455,11 @@ migrations/
 ├── 20260422140000_add_orders_table/
 │   ├── up.sql
 │   ├── down.sql
+│   ├── plan.json
 │   └── meta.json
 └── meta/
     ├── _journal.json
+    ├── hypequery.sum
     └── 0000_snapshot.json
 ```
 
@@ -369,6 +485,16 @@ In those cases, the generator should emit either:
 - no `down.sql`, or
 - a stub file with clear manual instructions
 
+### Naming convention
+
+Use a simple timestamp-prefix naming scheme:
+
+- `20260422140000_add_orders_table`
+- `20260422140500_add_region_to_orders`
+- `20260422141000_backfill_order_region`
+
+Use the shape `<timestamp>_<slug>` and do not over-complicate naming beyond that.
+
 ## Custom SQL Migrations
 
 Custom migrations remain an escape hatch:
@@ -390,20 +516,66 @@ The docs and CLI must make the reconciliation model explicit:
 - after custom migrations, rerun `pull` or a future snapshot reconciliation flow if the schema state changed
 - drift detection should warn when live schema diverges from recorded snapshots
 
+### Expected v1 use cases for custom SQL
+
+Custom SQL is the supported path for:
+
+- data backfills
+- one-off historic data repairs
+- phased column replacement workflows
+- advanced operational DDL the generator rejects
+- manual shadow-table style migrations before v2 automation exists
+
 ## State Tracking
 
 Applied migrations are tracked in a ClickHouse table:
 
 ```sql
 CREATE TABLE _hypequery_migrations (
-  id UInt64,
-  name String,
+  id UUID,
+  version UInt64,
+  migration_name String,
   checksum String,
-  applied_at DateTime DEFAULT now(),
-  applied_by String DEFAULT ''
-) ENGINE = MergeTree
-ORDER BY id;
+  type LowCardinality(String),
+  started_at DateTime64(3),
+  finished_at Nullable(DateTime64(3)),
+  rolled_back_at Nullable(DateTime64(3)),
+  applied_steps_count UInt32,
+  total_steps UInt32,
+  partial_hashes Array(String),
+  status LowCardinality(String),
+  error_message Nullable(String),
+  error_stmt Nullable(String),
+  execution_time_ms UInt64,
+  applied_by String DEFAULT currentUser(),
+  cluster Nullable(String),
+  hypequery_version String
+) ENGINE = ReplacingMergeTree(started_at)
+ORDER BY (migration_name, id);
 ```
+
+For cluster mode, use a replicated engine variant where possible.
+
+### Migration integrity
+
+In addition to DB-side checksums, the migration directory should include an Atlas-style `hypequery.sum` integrity file.
+
+The file should contain:
+
+- one hash for the whole migration directory state
+- per-file SHA-256 hashes
+
+The goal is to catch merge conflicts and post-hoc file edits before `migrate` runs.
+
+### Statement boundaries
+
+Generated SQL should use an explicit statement separator comment, for example:
+
+```sql
+-- hypequery:breakpoint
+```
+
+Do not rely on naive semicolon splitting for execution, because SQL string literals and function bodies can contain semicolons.
 
 ## Adoption Path
 
@@ -417,6 +589,16 @@ Existing users adopt through `pull`:
 No initial migration file is required for the baseline.
 
 ## Safety Model
+
+ClickHouse migration safety is meaningfully different from Postgres-style transactional systems.
+
+### Core constraint
+
+hypequery cannot guarantee transactional safety because ClickHouse cannot.
+
+Failed DDL or mutation workflows may leave the system partially applied. In distributed or replicated environments, interrupted execution can also leave nodes in inconsistent states.
+
+This must be stated explicitly in documentation and UX.
 
 ### Safe-by-default generated changes in v1
 
@@ -439,6 +621,32 @@ No initial migration file is required for the baseline.
 - replication-lag coordination
 - partial recovery from complex failed multi-step rebuilds
 
+### UX implications
+
+- stop on first failure
+- do not imply automatic rollback safety
+- label mutation operations as higher risk
+- reject forbidden/rewrite-class changes in v1
+- provide explicit manual reconciliation guidance when needed
+- prefer idempotent DDL with `IF EXISTS` / `IF NOT EXISTS` where ClickHouse supports it
+- poll mutation and replication state after execution rather than trusting the client acknowledgement
+
+### Live ClickHouse checks for later execution phases
+
+Execution and preflight code should eventually use:
+
+- `system.parts` for table size and active-part counts
+- `system.mutations` for mutation progress and failures
+- `system.replicas` for replica lag and queue health
+- `system.distributed_ddl_queue` for `ON CLUSTER` convergence
+- `system.tables` and `system.columns` for post-step verification
+
+Sync settings should be injected based on operation class where appropriate:
+
+- `alter_sync = 2`
+- `mutations_sync = 2`
+- `replication_alter_partitions_sync = 2`
+
 ## Scope
 
 ### In scope for v1
@@ -458,9 +666,13 @@ No initial migration file is required for the baseline.
 - broad engine completeness beyond the initial supported set
 - projections and skipping indices
 - sort-key rebuild automation
+- automated shadow-table migrations
 - advanced replicated/distributed orchestration
 - team locking and approval workflows
 - generalized reconciliation tooling
+- cost-estimated planning
+- resumable chunked data migrations
+- full materialized-view SELECT dependency parsing
 
 ### Explicitly out of scope
 
@@ -468,6 +680,56 @@ No initial migration file is required for the baseline.
 - row-level CRUD
 - transactional guarantees over DDL
 - automated data backfill planning
+
+## Competitive Read: `clickhouse-migrations`
+
+`clickhouse-migrations` is a raw SQL migration runner, not a schema-first declarative migration generator.
+
+### What it does
+
+- discovers numbered SQL files
+- applies them in order
+- tracks applied migrations
+- supports CLI and embedded execution
+
+### What it does not do
+
+- no TypeScript schema definition
+- no snapshot or diff model
+- no automatic SQL generation
+- no materialized-view dependency sequencing
+- no query/schema type-safety workflow
+
+### Strategic conclusion
+
+It is not the main competitor for hypequery's TypeScript-native workflow. It is closer to the execution layer that exists inside the broader product we are building.
+
+Useful lessons:
+
+- keep migration naming simple
+- keep the state table minimal
+- make the CLI primary and programmatic access secondary
+
+## V2 Direction
+
+The clearest v2 feature is automated shadow-table migration support for rewrite-class changes.
+
+That should cover cases such as:
+
+- sort-key changes
+- primary-key or engine rebuilds
+- complex zero-downtime table replacement flows
+- orchestrated backfill around shadow tables
+
+v1 should reject those changes. v2 can automate them.
+
+Other high-value v2 directions:
+
+- KeeperMap-backed distributed locking with TTL
+- cost-estimated migration plans
+- resumable time-chunked backfills
+- compound primitives such as `renameColumnSafely`, `exchangeSwap`, and `alterMaterializedView`
+- stronger replication convergence verification
 
 ## Success Criteria
 

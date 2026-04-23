@@ -17,7 +17,19 @@ export interface SnapshotTable {
 export interface SnapshotColumn {
   name: string;
   type: string;
-  default?: string;
+  default?: SnapshotColumnDefault;
+}
+
+export type SnapshotColumnDefault = SnapshotLiteralColumnDefault | SnapshotSqlColumnDefault;
+
+export interface SnapshotLiteralColumnDefault {
+  kind: 'literal';
+  value: string | number | boolean | null;
+}
+
+export interface SnapshotSqlColumnDefault {
+  kind: 'sql';
+  value: string;
 }
 
 export interface SnapshotTableEngine {

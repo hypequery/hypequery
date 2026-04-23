@@ -36,10 +36,22 @@ export interface ResolvedHypequeryClickHouseConfig
   migrations: ClickHouseMigrationDirectoryConfig;
 }
 
+/**
+ * Defines a ClickHouse migration configuration while preserving literal TypeScript types.
+ *
+ * Use this from `hypequery.config.ts` so the CLI can load database credentials,
+ * schema entry points, and migration output settings from one typed object.
+ */
 export function defineConfig(config: HypequeryClickHouseConfig): HypequeryClickHouseConfig {
   return config;
 }
 
+/**
+ * Applies default migration settings to a user-provided ClickHouse config.
+ *
+ * This keeps CLI and programmatic callers aligned on the default output directory,
+ * migration table name, and timestamp-based file prefix strategy.
+ */
 export function resolveClickHouseConfig(
   config: HypequeryClickHouseConfig,
 ): ResolvedHypequeryClickHouseConfig {

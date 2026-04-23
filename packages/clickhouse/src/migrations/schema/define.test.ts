@@ -54,7 +54,10 @@ describe('migration schema DSL', () => {
             kind: 'low_cardinality',
             inner: { kind: 'named', name: 'String' },
           },
-          default: 'pending',
+          default: {
+            kind: 'literal',
+            value: 'pending',
+          },
         },
         {
           name: 'created_at',

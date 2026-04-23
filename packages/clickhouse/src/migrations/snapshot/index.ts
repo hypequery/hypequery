@@ -7,6 +7,7 @@ export {
 export type {
   Snapshot,
   SnapshotColumn,
+  SnapshotColumnDefault,
   SnapshotDependencyEdge,
   SnapshotMaterializedView,
   SnapshotTable,
