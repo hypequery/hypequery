@@ -84,6 +84,9 @@ core/join-relationships.js
 core/query-builder.d.ts
 core/query-builder.d.ts.map
 core/query-builder.js
+core/query-node.d.ts
+core/query-node.d.ts.map
+core/query-node.js
 core/tests/index.d.ts
 core/tests/index.d.ts.map
 core/tests/index.js
@@ -166,6 +169,15 @@ migrations/diff/index.js
 migrations/diff/types.d.ts
 migrations/diff/types.d.ts.map
 migrations/diff/types.js
+migrations/plan/index.d.ts
+migrations/plan/index.d.ts.map
+migrations/plan/index.js
+migrations/plan/plan.d.ts
+migrations/plan/plan.d.ts.map
+migrations/plan/plan.js
+migrations/plan/types.d.ts
+migrations/plan/types.d.ts.map
+migrations/plan/types.js
 migrations/schema/column.d.ts
 migrations/schema/column.d.ts.map
 migrations/schema/column.js

@@ -206,5 +206,41 @@ describe('QueryBuilder - Joins', () => {
       );
     });
 
+    it('should preserve join, aggregation, and having nodes in the query tree', () => {
+      const query = builder
+        .innerJoin('users', 'created_by', 'users.id', 'author')
+        .select(['author.user_name'])
+        .sum('price', 'revenue')
+        .count('id', 'order_count')
+        .where('active', 'eq', 1)
+        .groupBy('author.user_name')
+        .having('revenue > ?', [1000])
+        .having('order_count > ?', [5])
+        .orderBy('author.user_name', 'DESC');
+
+      expect(query.toSQL()).toBe(
+        "SELECT author.user_name, SUM(price) AS revenue, COUNT(id) AS order_count FROM test_table " +
+        "INNER JOIN users AS author ON created_by = users.id " +
+        "WHERE active = 1 " +
+        "GROUP BY author.user_name " +
+        "HAVING revenue > 1000 AND order_count > 5 " +
+        "ORDER BY author.user_name DESC"
+      );
+
+      const queryNode = query.toQueryNode();
+      expect(queryNode.joins?.map(join => [join.type, join.table, join.alias])).toEqual([
+        ['INNER', 'users', 'author'],
+      ]);
+      expect(queryNode.select?.map(item => item.selection)).toEqual([
+        'author.user_name',
+        'SUM(price) AS revenue',
+        'COUNT(id) AS order_count',
+      ]);
+      expect(queryNode.having?.map(item => item.expression)).toEqual([
+        'revenue > ?',
+        'order_count > ?',
+      ]);
+    });
+
   });
 }); 

@@ -12,7 +12,8 @@ export class QueryModifiersFeature<
     const config = this.builder.getConfig();
     return {
       ...config,
-      groupBy: Array.isArray(columns) ? columns.map(String) : [String(columns)]
+      groupBy: (Array.isArray(columns) ? columns.map(String) : [String(columns)])
+        .map(expression => ({ kind: 'group-by-item' as const, expression }))
     };
   }
 
@@ -36,19 +37,24 @@ export class QueryModifiersFeature<
     const config = this.builder.getConfig();
     return {
       ...config,
-      orderBy: [...(config.orderBy || []), { column, direction }]
+      orderBy: [...(config.orderBy || []), { kind: 'order-by-item' as const, column, direction }]
     };
   }
 
   addHaving(condition: string, parameters?: any[]) {
     const config = this.builder.getConfig();
-    const having = [...(config.having || []), condition];
-    const newParams = parameters ? [...(config.parameters || []), ...parameters] : config.parameters;
+    const having = [
+      ...(config.having || []),
+      {
+        kind: 'having' as const,
+        expression: condition,
+        parameters: parameters?.map(value => ({ kind: 'value' as const, value })),
+      }
+    ];
 
     return {
       ...config,
-      having,
-      parameters: newParams
+      having
     };
   }
 

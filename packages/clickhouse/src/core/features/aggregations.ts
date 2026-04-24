@@ -16,16 +16,19 @@ export class AggregationFeature<
     const config = this.builder.getConfig();
 
     if (config.select) {
+      const selections = config.select.map(item => item.selection);
       return {
         ...config,
-        select: [...(config.select || []).map(String), aggregationSQL],
-        groupBy: (config.select || []).map(String).filter(col => !col.includes(' AS '))
+        select: [...config.select, { kind: 'selection' as const, selection: aggregationSQL }],
+        groupBy: selections
+          .filter(col => !col.includes(' AS '))
+          .map(expression => ({ kind: 'group-by-item' as const, expression }))
       };
     }
 
     return {
       ...config,
-      select: [aggregationSQL]
+      select: [{ kind: 'selection' as const, selection: aggregationSQL }]
     };
   }
 

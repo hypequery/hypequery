@@ -87,4 +87,41 @@ describe('QueryBuilder - Basic Operations', () => {
       expect(sql).toContain('SELECT id FROM test_table WHERE id IN (SELECT id FROM recent_ids)');
     });
   });
-}); 
+
+  describe('immutability', () => {
+    it('does not mutate the base builder when branching', () => {
+      const base = builder.select(['id', 'name']);
+      const recent = base.orderBy('id', 'DESC').limit(10);
+      const filtered = base.where('category', 'eq', 'premium');
+
+      expect(base.toSQL()).toBe('SELECT id, name FROM test_table');
+      expect(recent.toSQL()).toBe('SELECT id, name FROM test_table ORDER BY id DESC LIMIT 10');
+      expect(filtered.toSQL()).toBe("SELECT id, name FROM test_table WHERE category = 'premium'");
+    });
+
+    it('does not leak nested array state across branches', () => {
+      const base = builder.where('active', 'eq', 1);
+      const a = base.where('category', 'eq', 'premium');
+      const b = base.where('brand', 'eq', 'luxury');
+
+      expect(base.toSQL()).toBe('SELECT * FROM test_table WHERE active = 1');
+      expect(a.toSQL()).toBe("SELECT * FROM test_table WHERE active = 1 AND category = 'premium'");
+      expect(b.toSQL()).toBe("SELECT * FROM test_table WHERE active = 1 AND brand = 'luxury'");
+    });
+
+    it('exposes a root select-query node as the builder source of truth', () => {
+      const query = builder
+        .select(['id'])
+        .where('id', 'eq', 1)
+        .groupBy('id')
+        .orderBy('id', 'DESC')
+        .toQueryNode();
+
+      expect(query.kind).toBe('select-query');
+      expect(query.select?.map(item => item.selection)).toEqual(['id']);
+      expect(query.where?.kind).toBe('condition');
+      expect(query.groupBy?.map(item => item.expression)).toEqual(['id']);
+      expect(query.orderBy?.map(item => [item.column, item.direction])).toEqual([['id', 'DESC']]);
+    });
+  });
+});

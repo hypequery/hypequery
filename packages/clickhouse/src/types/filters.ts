@@ -27,6 +27,8 @@ export type FilterCondition<T> = {
   globalInTable: string;
   inTuple: [FilterValue<T>, FilterValue<T>][];
   globalInTuple: [FilterValue<T>, FilterValue<T>][];
+  isNull: never;
+  isNotNull: never;
 };
 
 // Define type-safe filter operators and their expected value types
@@ -41,6 +43,8 @@ export type FilterValueType<T, Op extends FilterOperator, Schema = any> =
   ? keyof Schema
   : Op extends 'inTuple' | 'globalInTuple'
   ? [T, T][]
+  : Op extends 'isNull' | 'isNotNull'
+  ? never
   : T;
 
 // Type-safe operator mapping
@@ -64,6 +68,8 @@ export type OperatorValueMap<T, Schema = any> = {
   'globalInTable': keyof Schema;
   'inTuple': [T | string, T | string][];
   'globalInTuple': [T | string, T | string][];
+  'isNull': never;
+  'isNotNull': never;
 };
 
 export type FilterOperator = keyof OperatorValueMap<any>;
