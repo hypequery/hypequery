@@ -89,6 +89,31 @@ describe('QueryBuilder Analytics Features', () => {
     });
   });
 
+  describe('settings', () => {
+    it('should not change rendered SQL', () => {
+      const sql = queryBuilder
+        .select(['id'])
+        .settings({ max_execution_time: 10, final: 1 })
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT id FROM test_table'
+      );
+    });
+
+    it('should merge settings across repeated calls without affecting rendered SQL', () => {
+      const query = queryBuilder
+        .settings({ max_execution_time: 10 })
+        .settings({ final: 1 });
+
+      expect(query.toSQL()).toBe('SELECT * FROM test_table');
+      expect(query.getConfig().settings).toEqual({
+        max_execution_time: 10,
+        final: 1,
+      });
+    });
+  });
+
   describe('withCTE', () => {
     it('should add CTE using a subquery', () => {
       const subquery = builderUsers

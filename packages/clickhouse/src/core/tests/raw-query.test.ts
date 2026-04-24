@@ -6,7 +6,7 @@ const queryMock = vi.fn();
 
 const testAdapter: DatabaseAdapter = {
   name: 'test',
-  query: (sql, params = []) => queryMock(sql, params)
+  query: (sql, params = [], options) => queryMock(sql, params, options)
 };
 
 type TestSchema = {
@@ -30,7 +30,33 @@ describe('rawQuery helper', () => {
     expect(result).toEqual(rows);
     expect(queryMock).toHaveBeenCalledWith(
       'SELECT * FROM users WHERE id = ? AND status = ?',
-      [42, 'active']
+      [42, 'active'],
+      undefined,
+    );
+  });
+
+  it('forwards per-query execution options', async () => {
+    const rows = [{ id: 1 }];
+    queryMock.mockResolvedValue(rows);
+
+    const db = createQueryBuilder<TestSchema>({ adapter: testAdapter });
+    const result = await db.rawQuery(
+      'SELECT * FROM users WHERE id = ?',
+      [42],
+      {
+        clickhouseSettings: { final: 1 },
+        queryId: 'raw-123',
+      },
+    );
+
+    expect(result).toEqual(rows);
+    expect(queryMock).toHaveBeenCalledWith(
+      'SELECT * FROM users WHERE id = ?',
+      [42],
+      {
+        clickhouseSettings: { final: 1 },
+        queryId: 'raw-123',
+      },
     );
   });
 });

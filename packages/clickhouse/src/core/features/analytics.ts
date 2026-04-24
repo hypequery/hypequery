@@ -46,11 +46,14 @@ export class AnalyticsFeature<
     };
   }
 
-  addSettings(opts: ClickHouseSettings, dialect: SqlDialect) {
+  addSettings(opts: ClickHouseSettings) {
     const config = this.builder.getConfig();
     return {
       ...config,
-      settings: dialect.formatSettings(opts)
+      settings: {
+        ...(config.settings || {}),
+        ...opts,
+      }
     };
   }
 }

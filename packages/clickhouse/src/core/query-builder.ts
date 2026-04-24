@@ -1,4 +1,4 @@
-import type { DatabaseAdapter } from './adapters/database-adapter.js';
+import type { DatabaseAdapter, QueryExecutionOptions } from './adapters/database-adapter.js';
 import { createClickHouseAdapter } from './adapters/clickhouse-adapter.js';
 import { ClickHouseDialect } from './dialects/clickhouse-dialect.js';
 import type { SqlDialect } from './dialects/sql-dialect.js';
@@ -253,7 +253,7 @@ export class QueryBuilder<
 
   // --- Analytics Helper: Add query settings.
   settings(opts: ClickHouseSettings): this {
-    this.config = this.analytics.addSettings(opts, this.dialect);
+    this.config = this.analytics.addSettings(opts);
     return this;
   }
 
@@ -876,8 +876,12 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
     cache: cacheController,
     adapter: resolvedAdapter,
     dialect: resolvedDialect,
-    async rawQuery<TResult = any>(sql: string, params: unknown[] = []) {
-      return resolvedAdapter.query<TResult>(sql, params);
+    async rawQuery<TResult = any>(
+      sql: string,
+      params: unknown[] = [],
+      options?: QueryExecutionOptions
+    ) {
+      return resolvedAdapter.query<TResult>(sql, params, options);
     },
     table<TableName extends Extract<keyof Schema, string>>(tableName: TableName): SelectQB<
       Schema,
