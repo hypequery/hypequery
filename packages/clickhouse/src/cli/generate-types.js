@@ -57,10 +57,6 @@ export const clickhouseToTsType = (type) => {
       }
 
       // JSON object keys are strings even when ClickHouse map keys are numeric.
-      if (keyType === 'LowCardinality(String)' || keyType.includes('Int') || keyType.includes('UInt') || keyType === 'String') {
-        return `Record<string, ${valueTsType}>`;
-      }
-
       return `Record<string, ${valueTsType}>`;
     }
     return 'Record<string, unknown>';
