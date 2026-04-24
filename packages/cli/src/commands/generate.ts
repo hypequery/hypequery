@@ -11,7 +11,14 @@ export interface GenerateOptions {
   database?: DatabaseType;
 }
 
-export async function generateCommand(options: GenerateOptions = {}) {
+export interface GenerateCommandRuntimeOptions {
+  commandName?: string;
+}
+
+export async function generateCommand(
+  options: GenerateOptions = {},
+  runtime: GenerateCommandRuntimeOptions = {},
+) {
   // Determine output path
   let outputPath: string;
 
@@ -39,7 +46,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
   const dbType = requestedDbType ?? (await detectDatabase());
 
   logger.newline();
-  logger.header('hypequery generate');
+  logger.header(`hypequery ${runtime.commandName ?? 'generate:schema'}`);
 
   const spinner = ora(`Connecting to ${dbType}...`).start();
 
@@ -84,7 +91,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
         logger.indent('• Firewall blocking connection');
         logger.newline();
         logger.info('Check your configuration:');
-        logger.indent('CLICKHOUSE_HOST=' + (process.env.CLICKHOUSE_HOST || 'not set'));
+        logger.indent('CLICKHOUSE_URL=' + (process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST || 'not set'));
         logger.newline();
         logger.info('Docs: https://hypequery.com/docs/troubleshooting#connection-errors');
       } else if (error.message.includes('ETIMEDOUT') || error.message.includes('timeout')) {
@@ -121,7 +128,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
         logger.indent('• User does not have required permissions');
         logger.newline();
         logger.info('Check your configuration:');
-        logger.indent('CLICKHOUSE_USERNAME=' + (process.env.CLICKHOUSE_USERNAME || 'not set'));
+        logger.indent('CLICKHOUSE_USER=' + (process.env.CLICKHOUSE_USER || process.env.CLICKHOUSE_USERNAME || 'not set'));
         logger.indent('CLICKHOUSE_PASSWORD=' + (process.env.CLICKHOUSE_PASSWORD ? '***' : 'not set'));
       }
     } else {

@@ -69,7 +69,7 @@ describe('generate command', () => {
     it('generates types with default output path', async () => {
       await generateCommand({});
 
-      expect(logger.header).toHaveBeenCalledWith('hypequery generate');
+      expect(logger.header).toHaveBeenCalledWith('hypequery generate:schema');
       expect(detectDb.getTableCount).toHaveBeenCalledWith('clickhouse');
       expect(mockSpinner.succeed).toHaveBeenCalledWith('Connected to ClickHouse');
       expect(logger.success).toHaveBeenCalledWith('Found 10 tables');

@@ -92,7 +92,7 @@ describe('init command - graceful failure handling', () => {
       );
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('schema.ts'),
-        expect.stringContaining('Run \'npx hypequery generate\'')
+        expect.stringContaining('Run \'npx hypequery generate:schema\'')
       );
       expect(logger.info).toHaveBeenCalledWith('Skipping database connection for now.');
     });
