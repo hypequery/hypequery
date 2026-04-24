@@ -9,7 +9,8 @@ import type {
  * Writes rendered migration artifacts to a migration directory.
  *
  * The migration name must be a single safe path segment. The writer creates
- * `up.sql`, `down.sql`, and `meta.json` files under `outDir/migrationName`.
+ * `up.sql`, `down.sql`, `meta.json`, and `plan.json` files under
+ * `outDir/migrationName`.
  */
 export async function writeMigrationArtifacts(
   options: WriteMigrationArtifactsOptions,
@@ -22,16 +23,19 @@ export async function writeMigrationArtifacts(
   const upPath = path.join(migrationDir, 'up.sql');
   const downPath = path.join(migrationDir, 'down.sql');
   const metaPath = path.join(migrationDir, 'meta.json');
+  const planPath = path.join(migrationDir, 'plan.json');
 
   await writeFile(upPath, `${options.artifacts.upSql}\n`, 'utf8');
   await writeFile(downPath, `${options.artifacts.downSql}\n`, 'utf8');
   await writeFile(metaPath, `${JSON.stringify(options.artifacts.meta, null, 2)}\n`, 'utf8');
+  await writeFile(planPath, `${JSON.stringify(options.artifacts.plan, null, 2)}\n`, 'utf8');
 
   return {
     migrationDir,
     upPath,
     downPath,
     metaPath,
+    planPath,
   };
 }
 

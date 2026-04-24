@@ -3,6 +3,7 @@ export { writeMigrationArtifacts } from './write.js';
 
 export type {
   MigrationMeta,
+  RenderMigrationArtifactsInput,
   RenderMigrationArtifactsOptions,
   RenderMigrationArtifactsResult,
   WriteMigrationArtifactsOptions,
