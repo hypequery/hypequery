@@ -131,6 +131,22 @@ type AssertAliasRowKeys = Expect<Equal<AliasRowKeys, 'avg_total'>>;
 type AliasValue = AliasRow['avg_total'];
 type AssertAliasValue = Expect<Equal<AliasValue, number>>;
 
+const mixedAliasSelection = builder.select([
+  'id',
+  rawAs('COUNT(*)', 'value_count'),
+]);
+type MixedAliasSelectionResult = Awaited<ReturnType<typeof mixedAliasSelection.execute>>;
+type ExpectedMixedAliasSelectionResult = { id: number; value_count: unknown }[];
+type AssertMixedAliasSelection = Expect<Equal<MixedAliasSelectionResult, ExpectedMixedAliasSelectionResult>>;
+
+const typedMixedAliasSelection = builder.select([
+  'id',
+  rawAs<number, 'value_count'>('COUNT(*)', 'value_count'),
+]);
+type TypedMixedAliasSelectionResult = Awaited<ReturnType<typeof typedMixedAliasSelection.execute>>;
+type ExpectedTypedMixedAliasSelectionResult = { id: number; value_count: number }[];
+type AssertTypedMixedAliasSelection = Expect<Equal<TypedMixedAliasSelectionResult, ExpectedTypedMixedAliasSelectionResult>>;
+
 const joinedColumnsQuery = builder
   .innerJoin('users', 'created_by', 'users.id')
   .select(['users.email', 'name']);

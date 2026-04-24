@@ -31,7 +31,8 @@ type AliasedColumnString<State extends AnyBuilderState> = `${StringSelectableCol
 export type SelectableItem<State extends AnyBuilderState> =
   | SelectableColumn<State>
   | AliasedColumnString<State>
-  | SqlExpression;
+  | AliasedExpression<any, string>
+  | SqlExpression<any>;
 
 export type ColumnSelectionKey<P> = P extends `${string}.${infer C}` ? C : P;
 
