@@ -91,6 +91,15 @@ describe('QueryBuilder - Where Conditions', () => {
   });
 
   describe('whereGroup conditions', () => {
+    it('treats an empty whereGroup as a no-op', () => {
+      const sql = builder
+        .where('active', 'eq', 1)
+        .whereGroup(() => {})
+        .toSQL();
+
+      expect(sql).toBe('SELECT * FROM test_table WHERE active = 1');
+    });
+
     it('should handle simple whereGroup', () => {
       const sql = builder
         .whereGroup((qb) => {
@@ -129,6 +138,15 @@ describe('QueryBuilder - Where Conditions', () => {
   });
 
   describe('orWhereGroup conditions', () => {
+    it('treats an empty orWhereGroup as a no-op', () => {
+      const sql = builder
+        .where('active', 'eq', 1)
+        .orWhereGroup(() => {})
+        .toSQL();
+
+      expect(sql).toBe('SELECT * FROM test_table WHERE active = 1');
+    });
+
     it('should handle simple orWhereGroup', () => {
       const sql = builder
         .where('active', 'eq', 1)
@@ -302,7 +320,7 @@ describe('QueryBuilder - Where Conditions', () => {
           // Empty group
         })
         .toSQL();
-      expect(sql).toBe('SELECT * FROM test_table WHERE ()');
+      expect(sql).toBe('SELECT * FROM test_table');
     });
 
     it('should handle single condition in whereGroup', () => {

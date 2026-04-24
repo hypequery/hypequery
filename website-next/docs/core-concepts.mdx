@@ -12,8 +12,6 @@ hypequery has three layers:
 - reusable query definitions
 - an optional runtime for routes, docs, auth, and framework integration
 
-Most users should start with the builder layer and only move up when the same query needs reuse or delivery outside local application code.
-
 ## The three layers
 
 ### 1. Query builder
@@ -23,10 +21,13 @@ The builder is the lowest-level and most direct part of hypequery.
 This is where you:
 
 - connect to ClickHouse
+- generate a typed schema
 - build typed queries with `db.table(...)`
 - execute them directly in your application
 
-If your query only lives in one place, this may be all you need.
+If your query only lives in one place, this may be all you need. 
+
+If you want to read more about our query builder see our [query builder internals](/docs/reference/query-builder-internals) and [ClickHouse semantics](/docs/reference/clickhouse-semantics) pages in the reference section of these docs.
 
 ### 2. Reusable query definitions
 
@@ -187,11 +188,3 @@ It is one query model with three levels of use:
 - optional delivery and runtime integration
 
 That is why the same builder code remains central even as you move up the stack.
-
-## Read next
-
-- Read [Query Basics](/docs/query-building/basics) for the raw builder chain
-- Read [Quick Start](/docs/quick-start) for the builder-first and runtime paths on one page
-- Read [Re-using Queries](/docs/re-using-queries) for reusable query definitions
-- Read [Runtime Features](/docs/runtime-features) for middleware, hooks, auth, and runtime behavior
-- Use [Query Definition Reference](/docs/reference/api/query) and [Serve Runtime Reference](/docs/reference/api/runtime) for full API details

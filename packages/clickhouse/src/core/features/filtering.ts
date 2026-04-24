@@ -129,6 +129,10 @@ export class FilteringFeature<
     expression: ExprNode | undefined
   ) {
     const config = this.builder.getConfig();
+    if (!expression) {
+      return config;
+    }
+
     const grouped: ExprNode = {
       kind: 'group',
       expression,

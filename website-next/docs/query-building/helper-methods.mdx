@@ -10,10 +10,6 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 hypequery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
 
-<Callout type="info" title="Query builder syntax">
-  These examples use a typed standalone `db` client so the query builder stays the focus.
-</Callout>
-
 ## SQL Generation
 
 ### toSQL
@@ -164,11 +160,11 @@ const query = db
 
 </CodeBlock>
 
-## Query Configuration
+## Query Inspection
 
-### getConfig
+### getQueryNode
 
-Access the current query configuration:
+Access a snapshot of the current structured query node:
 
 <CodeBlock>
 
@@ -178,18 +174,22 @@ const query = db
   .select(['id', 'name'])
   .where('active', 'eq', true);
 
-const config = query.getConfig();
-console.log(config);
+const queryNode = query.getQueryNode();
+console.log(queryNode);
 // {
-//   select: ['id', 'name'],
-//   where: [...],
-//   parameters: [...],
+//   kind: 'select-query',
+//   select: [{ kind: 'selection', selection: 'id' }, ...],
+//   where: { kind: 'condition', ... },
 //   ...
 // }
 
 ```
 
 </CodeBlock>
+
+### getConfig
+
+`getConfig()` is deprecated. If you need to inspect the current query shape, prefer `getQueryNode()`.
 
 ## Type Safety
 

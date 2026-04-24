@@ -630,6 +630,19 @@ export class QueryBuilder<
 
     if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
       const columns = columnOrColumns.map(String);
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
+      }
+      value.forEach((tuple: unknown, index: number) => {
+        if (!Array.isArray(tuple)) {
+          throw new Error(`Expected tuple ${index + 1} for ${operator} operator to be an array`);
+        }
+        if (tuple.length !== columns.length) {
+          throw new Error(
+            `Expected tuple ${index + 1} for ${operator} operator to have ${columns.length} values, but got ${tuple.length}`
+          );
+        }
+      });
       this.validateFilterValue(columnOrColumns, operator, value);
       return this.updateQuery(() => this.filtering.addCondition(clause, conjunction, columns, operator, value));
     }
@@ -956,9 +969,12 @@ export class QueryBuilder<
     return this.transition<NextState>(nextState, nextConfig);
   }
 
-  // Compatibility shim for existing features until they consume SelectQueryNode directly.
+  /**
+   * @deprecated Prefer `getQueryNode()` for inspection or `toQueryNode()` for the
+   * transformed query tree used during compilation.
+   */
   getConfig() {
-    return this.query;
+    return cloneSelectQueryNode(this.query);
   }
 
   toQueryNode(): SelectQueryNode<State['output'], Schema> {

@@ -42,25 +42,32 @@ export class SQLFormatter {
         };
       case 'group':
         if (!expr.expression) {
-          return { query: '()', parameters: [] };
+          return { query: '', parameters: [] };
         }
         const compiledGroup = this.compileExpr(expr.expression);
+        if (!compiledGroup.query) {
+          return { query: '', parameters: [] };
+        }
         return {
           query: `(${compiledGroup.query})`,
           parameters: compiledGroup.parameters,
         };
       case 'sequence':
         return this.combineCompiled(
-          expr.items.map((item, index) => {
-            const rendered = this.compileExpr(item.expression, true);
-            return {
-              query: index === 0 ? rendered.query : ` ${item.conjunction} ${rendered.query}`,
-              parameters: rendered.parameters,
-            };
-          })
+          expr.items
+            .map((item, index) => {
+              const rendered = this.compileExpr(item.expression, true);
+              return {
+                query: index === 0 ? rendered.query : ` ${item.conjunction} ${rendered.query}`,
+                parameters: rendered.parameters,
+              };
+            })
+            .filter(part => part.query.length > 0)
         );
       case 'logical': {
-        const rendered = expr.conditions.map(condition => this.compileExpr(condition, true));
+        const rendered = expr.conditions
+          .map(condition => this.compileExpr(condition, true))
+          .filter(part => part.query.length > 0);
         if (rendered.length === 0) return { query: '', parameters: [] };
         const combined = this.combineCompiledWithSeparator(rendered, ` ${expr.operator} `);
         return {
@@ -131,8 +138,13 @@ export class SQLFormatter {
       if (value.length === 0) {
         return { query: '1 = 0', parameters: [] };
       }
+      const tupleWidth = (value[0] as ValueNode[]).length;
+      if (tupleWidth === 0) {
+        throw new Error(`Expected non-empty tuples for ${operator} operator`);
+      }
+      const tuplePlaceholder = `(${Array.from({ length: tupleWidth }, () => '?').join(', ')})`;
       return {
-        query: `${column} ${operator === 'inTuple' ? 'IN' : 'GLOBAL IN'} (${value.map(() => '(?, ?)').join(', ')})`,
+        query: `${column} ${operator === 'inTuple' ? 'IN' : 'GLOBAL IN'} (${value.map(() => tuplePlaceholder).join(', ')})`,
         parameters: (value as ValueNode[][]).flatMap(tuple => tuple.map(item => item.value)),
       };
     }

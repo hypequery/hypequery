@@ -123,5 +123,15 @@ describe('QueryBuilder - Basic Operations', () => {
       expect(query.groupBy?.map(item => item.expression)).toEqual(['id']);
       expect(query.orderBy?.map(item => [item.column, item.direction])).toEqual([['id', 'DESC']]);
     });
+
+    it('returns a snapshot from getConfig instead of leaking internal mutability', () => {
+      const query = builder.select(['id']).where('id', 'eq', 1);
+      const config = query.getConfig();
+
+      config.select?.push({ kind: 'selection', selection: 'name' });
+
+      expect(query.toSQL()).toBe('SELECT id FROM test_table WHERE id = 1');
+      expect(query.getConfig().select?.map(item => item.selection)).toEqual(['id']);
+    });
   });
 });

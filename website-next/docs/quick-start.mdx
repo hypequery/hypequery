@@ -23,13 +23,14 @@ If you only need typed ClickHouse queries in your application code, start here:
 <Steps>
 <Step>
 
-### Install the core package
+### Install the packages
 
 <Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
   <Tab value='npm' label='npm'>
     <CodeBlock>
 ```bash
 npm install @hypequery/clickhouse
+npm install -D @hypequery/cli
 ```
     </CodeBlock>
   </Tab>
@@ -37,6 +38,7 @@ npm install @hypequery/clickhouse
     <CodeBlock>
 ```bash
 pnpm add @hypequery/clickhouse
+pnpm add -D @hypequery/cli
 ```
     </CodeBlock>
   </Tab>
@@ -44,6 +46,7 @@ pnpm add @hypequery/clickhouse
     <CodeBlock>
 ```bash
 yarn add @hypequery/clickhouse
+yarn add -D @hypequery/cli
 ```
     </CodeBlock>
   </Tab>
@@ -51,10 +54,30 @@ yarn add @hypequery/clickhouse
     <CodeBlock>
 ```bash
 bun add @hypequery/clickhouse
+bun add -D @hypequery/cli
 ```
     </CodeBlock>
   </Tab>
 </Tabs>
+
+</Step>
+
+<Step>
+
+### Configure your ClickHouse env vars
+
+Create `.env`:
+
+<CodeBlock>
+```bash
+CLICKHOUSE_URL=https://example.clickhouse.cloud:8443
+CLICKHOUSE_DATABASE=default
+CLICKHOUSE_USER=cli_user
+CLICKHOUSE_PASSWORD=super-secret
+```
+</CodeBlock>
+
+`hypequery generate` uses these values to connect to ClickHouse during schema introspection.
 
 </Step>
 
@@ -70,7 +93,7 @@ npx hypequery generate
 ```
 </CodeBlock>
 
-This creates the generated schema type you import into the builder.
+This creates the generated schema type you import into the builder. Re-run it anytime your ClickHouse schema changes.
 
 </Step>
 
@@ -103,13 +126,13 @@ const users = await db
 </Step>
 </Steps>
 
-If that is all you need, continue with [Query Basics](/docs/query-building/basics).Or if you're having connection issues, read [Connecting to ClickHouse](/docs/reference/api/connection).
+If that is all you need, continue with [Query Basics](/docs/query-building/basics). Or read more about [connecting to ClickHouse](/docs/reference/connection).
 
 ## Route 2: Reusable queries and serve runtime
 
 In this route you will:
 
-- build a typed ClickHouse query with `db.table(...)`
+- build a typed ClickHouse query
 - wrap that query with object-style `query({ ... })` when it becomes reusable
 - run it locally with `query.execute()`
 - expose the same query over HTTP with `serve({ queries })`

@@ -25,8 +25,8 @@ export type FilterCondition<T> = {
   globalInSubquery: string;
   inTable: string;
   globalInTable: string;
-  inTuple: [FilterValue<T>, FilterValue<T>][];
-  globalInTuple: [FilterValue<T>, FilterValue<T>][];
+  inTuple: FilterValue<T>[][];
+  globalInTuple: FilterValue<T>[][];
   isNull: never;
   isNotNull: never;
 };
@@ -42,7 +42,7 @@ export type FilterValueType<T, Op extends FilterOperator, Schema = any> =
   : Op extends 'inTable' | 'globalInTable'
   ? keyof Schema
   : Op extends 'inTuple' | 'globalInTuple'
-  ? [T, T][]
+  ? T[][]
   : Op extends 'isNull' | 'isNotNull'
   ? never
   : T;
@@ -66,8 +66,8 @@ export type OperatorValueMap<T, Schema = any> = {
   'globalInSubquery': string;
   'inTable': keyof Schema;
   'globalInTable': keyof Schema;
-  'inTuple': [T | string, T | string][];
-  'globalInTuple': [T | string, T | string][];
+  'inTuple': (T | string)[][];
+  'globalInTuple': (T | string)[][];
   'isNull': never;
   'isNotNull': never;
 };

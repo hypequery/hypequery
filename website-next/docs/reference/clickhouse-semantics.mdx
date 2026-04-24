@@ -3,8 +3,6 @@ title: ClickHouse Semantics
 description: ClickHouse-specific behavior that matters when using hypequery's query builder and runtime.
 ---
 
-# ClickHouse Semantics
-
 hypequery is ClickHouse-first. Some of the most important behavior in the library comes from ClickHouse itself rather than from hypequery abstractions.
 
 This page is the short reference for the semantics that are easiest to miss.
@@ -13,12 +11,20 @@ This page is the short reference for the semantics that are easiest to miss.
 
 These are the most important ClickHouse-specific features exposed directly in the builder today:
 
-| Feature | hypequery support | Notes |
-| --- | --- | --- |
-| `PREWHERE` | Yes | Separate from `WHERE`, with its own builder methods |
-| `FINAL` | Yes | Supported for single-table reads and advanced source-level cases |
-| Query `SETTINGS` | Yes | Passed through to ClickHouse for that execution |
-| Explicit null helpers | Yes | Prefer explicit null checks over bare `null` equality |
+| Feature | Notes |
+| --- | --- |
+| `PREWHERE` | Separate from `WHERE`, with `prewhere(...)` and `orPrewhere(...)` |
+| `FINAL` | Exposed directly as `.final()` because it is a table-read concern |
+| Query `SETTINGS` | Passed through to ClickHouse for that execution |
+| `GLOBAL IN` / `GLOBAL NOT IN` | Exposed through `globalIn` and `globalNotIn` operators |
+| `IN` subqueries | Exposed through `inSubquery` and `globalInSubquery` |
+| `IN` table references | Exposed through `inTable` and `globalInTable` |
+| Tuple membership | Exposed through `inTuple` and `globalInTuple` |
+| `WITH` clause CTEs | Exposed through `withCTE(...)` |
+| `WITH` scalar expressions | Exposed through `withScalar(...)` |
+| ClickHouse time bucketing | Exposed through `groupByTimeInterval(...)` and related helpers |
+| Explicit null helpers | Prefer `whereNull(...)` and related helpers over bare `null` equality |
+| `LEFT JOIN` null semantics control | Use `.settings({ join_use_nulls: 1 })` when SQL-style nulls matter |
 
 The builder is not trying to hide these behind a generic SQL abstraction. They exist because they matter for real ClickHouse queries.
 
@@ -109,8 +115,3 @@ If you are deciding where to put a condition or setting, the usual rules are:
 - use `.settings({...})` for ClickHouse runtime behavior like `join_use_nulls` or `max_threads`
 - use explicit null helpers when you mean null checks
 
-## What to read next
-
-- [Connecting to ClickHouse](/docs/reference/api/connection)
-- [Query Builder API](/docs/reference/api/query-builder)
-- [Core Concepts](/docs/core-concepts)

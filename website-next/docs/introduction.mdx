@@ -10,7 +10,9 @@ import { SiVite, SiNextdotjs, SiNodedotjs, SiX } from 'react-icons/si';
 
 hypequery is a **code-first analytics backend for ClickHouse**, built for TypeScript teams who want scalable, type-safe analytics.
 
-At its lowest level, hypequery is a TypeScript query builder for ClickHouse, with opt-in features for query reuse, caching, multi-tenancy, authentication, and HTTP endpoint generation.
+At its core, hypequery is a ClickHouse-native TypeScript query builder, you generate types from your schema and then build ClickHouse queries with full type-safety.
+
+Beyond this, hypequery ships with with opt-in features for query reuse, caching, multi-tenancy, authentication, and HTTP endpoint generation.
 
 Instead of scattering SQL across applications, dashboards, and scripts, hypequery gives you a single, versioned place where analytics logic lives. **In code.**
 
@@ -24,7 +26,7 @@ hypequery is a library, not a hosted platform. It integrates directly with your 
 
 hypequery has two common starting points:
 
-1. Start with the ClickHouse-native query builder for local typed ClickHouse queries
+1. Start with the ClickHouse-native query builder for local typed queries
 2. Add `query({ ... })` and `serve({ queries })` when the query needs reuse, validation, routes, docs, or framework handlers
 
 If you are unsure, start with the query builder. The Quick Start page now shows both routes on one page.
@@ -41,11 +43,11 @@ If you are unsure, start with the query builder. The Quick Start page now shows 
   </div>
 </a>
 
-<a href="/docs/manual-installation" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors bg-gray-900/50 cursor-pointer">
+<a href="/docs/reference/connection" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors bg-gray-900/50 cursor-pointer">
   <Book className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Setup Reference</div>
-    <p className="text-sm text-gray-400">Install packages, configure env vars, and create the typed client without the guided flow</p>
+    <div className="font-semibold text-white mb-1">Connection Reference</div>
+    <p className="text-sm text-gray-400">Look up connection options, client setup, and ClickHouse configuration details</p>
   </div>
 </a>
 

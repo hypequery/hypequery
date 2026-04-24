@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/reference/api',
-        destination: '/docs/reference/query-builder',
+        destination: '/docs/reference/api/query-builder',
         permanent: true,
       },
       {
@@ -54,7 +54,22 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/docs/troubleshooting',
-        destination: '/docs/manual-installation',
+        destination: '/docs/quick-start',
+        permanent: true,
+      },
+      {
+        source: '/docs/manual-installation',
+        destination: '/docs/quick-start',
+        permanent: true,
+      },
+      {
+        source: '/docs/reference/api/connection',
+        destination: '/docs/reference/connection',
+        permanent: true,
+      },
+      {
+        source: '/docs/reference/api/packages',
+        destination: '/docs/reference/packages',
         permanent: true,
       },
       {

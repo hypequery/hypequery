@@ -1,9 +1,7 @@
 {
   "pages": [
-    "---Documentation---",
     "introduction",
     "quick-start",
-    "manual-installation",
     "why-hypequery",
     "core-concepts",
     "---Build Queries---",
@@ -41,7 +39,10 @@
     "nodejs",
     "fetch",
     "---Reference---",
-    "reference/meta",
+    "reference/api",
+    "reference/packages",
+    "reference/query-builder-internals",
+    "reference/clickhouse-semantics",
     "migrate-legacy-serve-api",
     "---Resources---",
     "changelog",
