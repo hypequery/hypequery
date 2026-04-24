@@ -30,6 +30,7 @@ export class ExecutorFeature<
   async execute(options?: ExecutorRunOptions): Promise<State['output'][]> {
     const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
+    const config = this.builder.getConfig();
     const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
@@ -43,7 +44,10 @@ export class ExecutorFeature<
     });
 
     try {
-      const rows = await adapter.query<State['output']>(sql, parameters);
+      const rows = await adapter.query<State['output']>(sql, parameters, {
+        clickhouseSettings: config.settings,
+        queryId: options?.queryId,
+      });
       const endTime = Date.now();
 
       logger.logQuery({
@@ -80,6 +84,7 @@ export class ExecutorFeature<
   async stream(): Promise<ReadableStream<State['output'][]>> {
     const adapter = this.builder.getAdapter();
     const { sql, parameters } = this.toSQLWithParams();
+    const config = this.builder.getConfig();
     const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
@@ -94,7 +99,9 @@ export class ExecutorFeature<
       if (!adapter.stream) {
         throw new Error(`Streaming is not supported by adapter "${adapter.name}".`);
       }
-      const webStream = await adapter.stream<State['output']>(sql, parameters);
+      const webStream = await adapter.stream<State['output']>(sql, parameters, {
+        clickhouseSettings: config.settings,
+      });
 
       const endTime = Date.now();
       logger.logQuery({

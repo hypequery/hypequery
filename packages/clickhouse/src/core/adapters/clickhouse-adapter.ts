@@ -1,4 +1,4 @@
-import type { DatabaseAdapter } from './database-adapter.js';
+import type { DatabaseAdapter, QueryExecutionOptions } from './database-adapter.js';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import type { ClickHouseConfig } from '../query-builder.js';
@@ -38,20 +38,24 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     this.client = createClickHouseClient(config);
   }
 
-  async query<T>(sql: string, params: unknown[] = []): Promise<T[]> {
+  async query<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<T[]> {
     const finalSQL = substituteParameters(sql, params);
     const result = await this.client.query({
       query: finalSQL,
-      format: 'JSONEachRow'
+      format: 'JSONEachRow',
+      clickhouse_settings: options?.clickhouseSettings,
+      query_id: options?.queryId,
     });
     return result.json<T>();
   }
 
-  async stream<T>(sql: string, params: unknown[] = []): Promise<ReadableStream<T[]>> {
+  async stream<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>> {
     const finalSQL = substituteParameters(sql, params);
     const result = await this.client.query({
       query: finalSQL,
-      format: 'JSONEachRow'
+      format: 'JSONEachRow',
+      clickhouse_settings: options?.clickhouseSettings,
+      query_id: options?.queryId,
     });
     const stream = result.stream();
     return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream);

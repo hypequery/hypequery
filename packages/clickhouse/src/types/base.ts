@@ -1,3 +1,4 @@
+import type { ClickHouseSettings } from '@clickhouse/client-common';
 import { FilterOperator } from "./filters.js";
 import type { TableColumn } from './schema.js';
 
@@ -17,7 +18,7 @@ export interface QueryConfig<T, Schema> {
   parameters?: any[];
   ctes?: string[];
   unionQueries?: string[];
-  settings?: string;
+  settings?: ClickHouseSettings;
 }
 
 export type { ColumnType, TableSchema, DatabaseSchema, TableRecord, InferColumnType, TableColumn } from './schema.js';

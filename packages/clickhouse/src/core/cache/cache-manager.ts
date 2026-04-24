@@ -89,7 +89,7 @@ export async function executeWithCache<
     namespace,
     sql,
     parameters,
-    settings: builder.getConfig().settings ? { settings: builder.getConfig().settings } : undefined,
+    settings: builder.getConfig().settings,
     version: runtime.versionTag,
     tableName
   });

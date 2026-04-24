@@ -16,11 +16,10 @@ describe('dialect seam', () => {
   const renderMock = vi.fn();
   const compileQueryMock = vi.fn();
   const formatTimeIntervalMock = vi.fn();
-  const formatSettingsMock = vi.fn();
 
   const adapter: DatabaseAdapter = {
     name: 'test-adapter',
-    query: (sql, params = []) => queryMock(sql, params),
+    query: (sql, params = [], options) => queryMock(sql, params, options),
     render: (sql, params = []) => renderMock(sql, params),
   };
 
@@ -29,7 +28,7 @@ describe('dialect seam', () => {
     compileQuery: (config, context) => compileQueryMock(config, context),
     formatTimeInterval: (column, interval, method) =>
       formatTimeIntervalMock(column, interval, method),
-    formatSettings: (settings) => formatSettingsMock(settings),
+    formatSettings: () => '',
   };
 
   beforeEach(() => {
@@ -37,12 +36,10 @@ describe('dialect seam', () => {
     renderMock.mockReset();
     compileQueryMock.mockReset();
     formatTimeIntervalMock.mockReset();
-    formatSettingsMock.mockReset();
 
     formatTimeIntervalMock.mockReturnValue('bucket(created_at, 1 day)');
-    formatSettingsMock.mockReturnValue('max_execution_time=10');
     compileQueryMock.mockImplementation((config, context) => (
-      `compiled:${context.tableName}:${config.groupBy?.join('|') ?? 'none'}:${config.settings ?? 'none'}`
+      `compiled:${context.tableName}:${config.groupBy?.join('|') ?? 'none'}:${JSON.stringify(config.settings ?? null)}`
     ));
     renderMock.mockImplementation((sql, params = []) => `rendered:${sql}:${params.join(',')}`);
     queryMock.mockResolvedValue([{ id: 1 }]);
@@ -67,7 +64,7 @@ describe('dialect seam', () => {
       .settings({ max_execution_time: 10 });
 
     expect(query.toSQL()).toBe(
-      'rendered:compiled:users:bucket(created_at, 1 day):max_execution_time=10:42'
+      'rendered:compiled:users:bucket(created_at, 1 day):{"max_execution_time":10}:42'
     );
 
     const first = await query.execute();
@@ -80,15 +77,23 @@ describe('dialect seam', () => {
       '1 day',
       'toStartOfInterval',
     );
-    expect(formatSettingsMock).toHaveBeenCalledWith({ max_execution_time: 10 });
-    expect(compileQueryMock).toHaveBeenCalled();
+    expect(compileQueryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: { max_execution_time: 10 },
+      }),
+      expect.anything(),
+    );
     expect(queryMock).toHaveBeenCalledTimes(1);
     expect(queryMock).toHaveBeenCalledWith(
-      'compiled:users:bucket(created_at, 1 day):max_execution_time=10',
+      'compiled:users:bucket(created_at, 1 day):{"max_execution_time":10}',
       [42],
+      {
+        clickhouseSettings: { max_execution_time: 10 },
+        queryId: undefined,
+      },
     );
     expect(renderMock).toHaveBeenCalledWith(
-      'compiled:users:bucket(created_at, 1 day):max_execution_time=10',
+      'compiled:users:bucket(created_at, 1 day):{"max_execution_time":10}',
       [42],
     );
   });
