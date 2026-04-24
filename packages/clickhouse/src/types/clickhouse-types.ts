@@ -2,6 +2,13 @@ export type ClickHouseInteger =
   | 'Int8' | 'Int16' | 'Int32' | 'Int64' | 'Int128' | 'Int256'
   | 'UInt8' | 'UInt16' | 'UInt32' | 'UInt64' | 'UInt128' | 'UInt256';
 
+export type ClickHouseJsSafeInteger =
+  | 'Int8' | 'Int16' | 'Int32'
+  | 'UInt8' | 'UInt16' | 'UInt32';
+
+export type ClickHouseJsUnsafeInteger =
+  Exclude<ClickHouseInteger, ClickHouseJsSafeInteger>;
+
 export type ClickHouseFloat = 'Float32' | 'Float64';
 
 export type ClickHouseDecimal =
@@ -65,7 +72,8 @@ export type ClickHouseType =
 export type InferClickHouseType<T extends ClickHouseType, Depth extends number = 0> =
   Depth extends 5
   ? unknown
-  : T extends ClickHouseInteger ? number
+  : T extends ClickHouseJsSafeInteger ? number
+  : T extends ClickHouseJsUnsafeInteger ? string
   : T extends ClickHouseFloat ? number
   : T extends ClickHouseDecimal ? number
   : T extends ClickHouseDateTime ? string
