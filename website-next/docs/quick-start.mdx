@@ -9,16 +9,112 @@ import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-## What you'll build
+## Choose your route
 
-In this guide you will:
+This page has two paths:
+
+- **Route 1: Query Builder first** if you want typed ClickHouse queries running in-process as quickly as possible
+- **Route 2: Reusable queries and serve runtime** if you want named query contracts, HTTP routes, docs, or OpenAPI
+
+## Route 1: Query Builder first
+
+If you only need typed ClickHouse queries in your application code, start here:
+
+<Steps>
+<Step>
+
+### Install the core package
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
+  <Tab value='npm' label='npm'>
+    <CodeBlock>
+```bash
+npm install @hypequery/clickhouse
+```
+    </CodeBlock>
+  </Tab>
+  <Tab value='pnpm' label='pnpm'>
+    <CodeBlock>
+```bash
+pnpm add @hypequery/clickhouse
+```
+    </CodeBlock>
+  </Tab>
+  <Tab value='yarn' label='yarn'>
+    <CodeBlock>
+```bash
+yarn add @hypequery/clickhouse
+```
+    </CodeBlock>
+  </Tab>
+  <Tab value='bun' label='bun'>
+    <CodeBlock>
+```bash
+bun add @hypequery/clickhouse
+```
+    </CodeBlock>
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+### Generate your schema types
+
+Use the CLI to introspect ClickHouse and write your TypeScript schema:
+
+<CodeBlock>
+```bash
+npx hypequery generate
+```
+</CodeBlock>
+
+This creates the generated schema type you import into the builder.
+
+</Step>
+
+<Step>
+
+### Connect and run a typed query
+
+<CodeBlock>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+const users = await db
+  .table('users')
+  .select(['id', 'email', 'created_at'])
+  .where('status', 'eq', 'active')
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+```
+</CodeBlock>
+
+</Step>
+</Steps>
+
+If that is all you need, continue with [Query Basics](/docs/query-building/basics).Or if you're having connection issues, read [Connecting to ClickHouse](/docs/reference/api/connection).
+
+## Route 2: Reusable queries and serve runtime
+
+In this route you will:
 
 - build a typed ClickHouse query with `db.table(...)`
 - wrap that query with object-style `query({ ... })` when it becomes reusable
 - run it locally with `query.execute()`
 - expose the same query over HTTP with `serve({ queries })`
 
-This is the main recommended path for new projects.
+This is the right route when the same query should have a stable name, validation, docs, OpenAPI, or HTTP handlers.
 
 <Steps>
 <Step>
@@ -205,6 +301,7 @@ curl -X POST http://localhost:4000/api/analytics/active-users \
 
 ## What to learn next
 
+- Use [Query Basics](/docs/query-building/basics) if you want to stay at the raw builder layer
 - Read [Re-using Queries](/docs/re-using-queries) for the distinction between builder queries and `query({ ... })`
 - Read [Core Concepts](/docs/core-concepts) for the full builder, query, and serve model
-- See [Next.js](/docs/nextjs), [Vite](/docs/vite), or [Node.js](/docs/nodejs) for framework setup
+- See [Next.js](/docs/nextjs), [Vite](/docs/vite), or [Node.js](/docs/nodejs) once you are ready to mount the runtime inside a framework

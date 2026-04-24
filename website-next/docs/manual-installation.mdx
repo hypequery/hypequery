@@ -17,13 +17,13 @@ Use this page as a setup reference when you do not want to start from `hypequery
 - Node.js 18+
 - ClickHouse credentials
 
-## 1. Install packages
+## 1. Install the ClickHouse package
 
 <Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
   <Tab value='npm' label='npm'>
     <CodeBlock>
 ```bash
-npm install @hypequery/clickhouse @hypequery/serve zod
+npm install @hypequery/clickhouse
 npm install -D @hypequery/cli
 ```
     </CodeBlock>
@@ -31,7 +31,7 @@ npm install -D @hypequery/cli
   <Tab value='pnpm' label='pnpm'>
     <CodeBlock>
 ```bash
-pnpm add @hypequery/clickhouse @hypequery/serve zod
+pnpm add @hypequery/clickhouse
 pnpm add -D @hypequery/cli
 ```
     </CodeBlock>
@@ -39,7 +39,7 @@ pnpm add -D @hypequery/cli
   <Tab value='yarn' label='yarn'>
     <CodeBlock>
 ```bash
-yarn add @hypequery/clickhouse @hypequery/serve zod
+yarn add @hypequery/clickhouse
 yarn add -D @hypequery/cli
 ```
     </CodeBlock>
@@ -47,7 +47,7 @@ yarn add -D @hypequery/cli
   <Tab value='bun' label='bun'>
     <CodeBlock>
 ```bash
-bun add @hypequery/clickhouse @hypequery/serve zod
+bun add @hypequery/clickhouse
 bun add -D @hypequery/cli
 ```
     </CodeBlock>
@@ -60,9 +60,9 @@ Create `.env`:
 
 <CodeBlock>
 ```bash
-CLICKHOUSE_HOST=https://example.clickhouse.cloud:8443
+CLICKHOUSE_URL=https://example.clickhouse.cloud:8443
 CLICKHOUSE_DATABASE=default
-CLICKHOUSE_USERNAME=cli_user
+CLICKHOUSE_USER=cli_user
 CLICKHOUSE_PASSWORD=super-secret
 ```
 </CodeBlock>
@@ -88,15 +88,15 @@ import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './schema';
 
 export const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST!,
+  url: process.env.CLICKHOUSE_URL!,
   database: process.env.CLICKHOUSE_DATABASE!,
-  username: process.env.CLICKHOUSE_USERNAME!,
+  username: process.env.CLICKHOUSE_USER!,
   password: process.env.CLICKHOUSE_PASSWORD,
 });
 ```
 </CodeBlock>
 
-## 5. Build a simple query
+## 5. Build and execute a simple query
 
 Create `analytics/example.ts`:
 
@@ -105,22 +105,55 @@ Create `analytics/example.ts`:
 ```typescript
 import { db } from './client';
 
-const lastUsers =
-  db
+const lastUsers = await db
     .table('users')
     .select(['id', 'email', 'created_at'])
     .where('status', 'eq', 'active')
     .orderBy('created_at', 'DESC')
-    .limit(10);
+    .limit(10)
+    .execute();
+
+console.log(lastUsers);
 ```
 </Pre>
 </CodeBlock>
 
-This is the first useful step in hypequery: a typed ClickHouse query.
+This is the first useful step in hypequery: a typed ClickHouse query executing directly in your application code.
 
-## 6. Need to share it?
+## 6. Need reusable queries or HTTP routes?
 
-Once that builder query needs a name, typed input, or reuse across your app, wrap it with `query({ ... })`.
+If that builder query now needs a stable name, validation, docs, or HTTP routes, install the runtime packages and wrap it with `query({ ... })`.
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
+  <Tab value='npm' label='npm'>
+    <CodeBlock>
+```bash
+npm install @hypequery/serve zod
+```
+    </CodeBlock>
+  </Tab>
+  <Tab value='pnpm' label='pnpm'>
+    <CodeBlock>
+```bash
+pnpm add @hypequery/serve zod
+```
+    </CodeBlock>
+  </Tab>
+  <Tab value='yarn' label='yarn'>
+    <CodeBlock>
+```bash
+yarn add @hypequery/serve zod
+```
+    </CodeBlock>
+  </Tab>
+  <Tab value='bun' label='bun'>
+    <CodeBlock>
+```bash
+bun add @hypequery/serve zod
+```
+    </CodeBlock>
+  </Tab>
+</Tabs>
 
 Create `analytics/queries.ts`:
 
@@ -174,3 +207,4 @@ This is the point where a local builder query becomes a reusable contract you ca
 
 - Use [Query Basics](/docs/query-building/basics) to keep learning the raw builder chain
 - Use [Core Concepts](/docs/core-concepts) to understand when to stay at the query layer and when to add the runtime
+- Use [Quick Start](/docs/quick-start) if you want the guided builder-first and runtime paths on one page

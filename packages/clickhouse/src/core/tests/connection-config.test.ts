@@ -21,4 +21,12 @@ describe('isClientConfig', () => {
 
     expect(isClientConfig(config)).toBe(false);
   });
+
+  it('returns false for url-only configs without a client', () => {
+    const config: ClickHouseConfig = {
+      url: 'http://localhost:8123'
+    };
+
+    expect(isClientConfig(config)).toBe(false);
+  });
 });

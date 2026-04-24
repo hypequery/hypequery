@@ -1,0 +1,13 @@
+{
+  "title": "API",
+  "pages": [
+    "packages",
+    "connection",
+    "cli",
+    "query-builder",
+    "query",
+    "runtime",
+    "react",
+    "types"
+  ]
+}

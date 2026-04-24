@@ -38,8 +38,8 @@ function getClickHouseClientSync(): ClickHouseClientModule {
     'Please use manual injection by providing a client instance:\n\n' +
     '```typescript\n' +
     'import { createClient } from \'@clickhouse/client-web\';\n' +
-    'const client = createClient({ host: \'http://localhost:8123\' });\n' +
-    'ClickHouseConnection.initialize({ host: \'http://localhost:8123\', client });\n' +
+    'const client = createClient({ url: \'http://localhost:8123\' });\n' +
+    'ClickHouseConnection.initialize({ url: \'http://localhost:8123\', client });\n' +
     '```\n\n' +
     'This is required because browser environments cannot use require() to load modules.'
   );
@@ -59,20 +59,20 @@ function getClickHouseClientSync(): ClickHouseClientModule {
  * // Method 1: Manual injection (required for browser environments)
  * import { createClient } from '@clickhouse/client-web';
  * const client = createClient({
- *   host: 'http://localhost:8123',
+ *   url: 'http://localhost:8123',
  *   username: 'default',
  *   password: 'password'
  * });
  * 
  * ClickHouseConnection.initialize({
- *   host: 'http://localhost:8123',
+ *   url: 'http://localhost:8123',
  *   database: 'my_database',
  *   client // Explicitly provide the client
  * });
  * 
  * // Method 2: Auto-detection (Node.js environments only)
  * ClickHouseConnection.initialize({
- *   host: 'http://localhost:8123',
+ *   url: 'http://localhost:8123',
  *   username: 'default',
  *   password: 'password',
  *   database: 'my_database'
@@ -114,12 +114,12 @@ export class ClickHouseConnection {
    * ```typescript
    * // Manual injection (required for browser environments)
    * import { createClient } from '@clickhouse/client-web';
-   * const client = createClient({ host: 'http://localhost:8123' });
-   * ClickHouseConnection.initialize({ host: 'http://localhost:8123', client });
+   * const client = createClient({ url: 'http://localhost:8123' });
+   * ClickHouseConnection.initialize({ url: 'http://localhost:8123', client });
    * 
    * // Auto-detection (Node.js environments only)
    * ClickHouseConnection.initialize({
-   *   host: 'http://localhost:8123',
+   *   url: 'http://localhost:8123',
    *   username: 'default',
    *   password: 'password',
    *   database: 'my_database'
@@ -133,7 +133,7 @@ export class ClickHouseConnection {
       return ClickHouseConnection;
     }
 
-    // Otherwise, auto-detect the client (we know we have a host-based config)
+    // Otherwise, auto-detect the client using the provided ClickHouse connection config.
     this.clientModule = getClickHouseClientSync();
     this.instance = this.clientModule.createClient(config);
     return ClickHouseConnection;

@@ -12,6 +12,23 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 The `hypequery` CLI provides commands for scaffolding, generating types, and running development servers. Every command expects access to your ClickHouse credentials via the prompts presented during `init` or via the `CLICKHOUSE_*` environment variables listed below.
 
+## Which command should I use?
+
+Use the CLI commands for different jobs:
+
+| Command | Use it when | What it does |
+| --- | --- | --- |
+| `hypequery generate` | You already have a project and need fresh schema types | Connects to ClickHouse and regenerates your TypeScript schema file |
+| `hypequery init` | You want the CLI to scaffold an `analytics/` folder for you | Writes starter files like `client.ts`, `schema.ts`, and `queries.ts` |
+| `hypequery dev` | You already have queries and want a local runtime server | Runs the local `@hypequery/serve` dev server with docs and hot reload |
+
+The most common confusion is between `init` and `generate`:
+
+- `init` scaffolds a project structure
+- `generate` refreshes schema types from your current ClickHouse database
+
+If you have already created your analytics folder and only need updated types, run `hypequery generate`.
+
 ## Installation
 
 **No installation required!** Run commands directly with `npx`:
@@ -72,7 +89,7 @@ npx hypequery init [options]
 - **`--database <type>`** – Database type (currently only `clickhouse`)
 - **`--path <dir>`** – Target directory for `client.ts`, `schema.ts`, and `queries.ts`. Defaults to `analytics/`
 - **`--no-example`** – Skip generating the sample query
-- **`--no-interactive`** – Skip prompts and read the ClickHouse host/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing
+- **`--no-interactive`** – Skip prompts and read the ClickHouse URL/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing
 - **`--force`** – Overwrite existing files without asking
 
 **What it does:**
@@ -82,6 +99,8 @@ During the flow the CLI tests your ClickHouse connection immediately using the c
 - Generates `client.ts`, `schema.ts`, and `queries.ts` in the selected directory
 - Creates or updates `.gitignore` to protect secrets
 - Prints follow-up instructions for `hypequery dev`
+
+Use `init` when you want the CLI to create the starting files for you. If those files already exist and you only need to refresh `schema.ts`, use `generate` instead.
 
 **Example:**
 
@@ -161,6 +180,8 @@ npx hypequery generate [options]
 
 `hypequery generate` auto-detects your database configuration (currently ClickHouse) and ships with the necessary driver, so there’s no extra package to install. Use `--database <type>` once additional drivers become available or you want to override detection.
 
+This is the command most users want after initial setup. Run it whenever your ClickHouse schema changes and you need to refresh the generated TypeScript types.
+
 **Options:**
 - **`--output <file>`** – Where to write the generated types. Defaults to your existing `analytics/schema.ts` or `analytics/schema.ts` if not found
 - **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected
@@ -175,6 +196,8 @@ The generator:
 - Updates your schema file with type-safe definitions
 
 The generator shares the `CLICKHOUSE_*` configuration with the rest of the CLI, so ensure those env vars are set (or run `hypequery init` first).
+
+Unlike `init`, `generate` does not scaffold `client.ts` or `queries.ts`. It only updates the generated schema types.
 
 **Example:**
 
@@ -195,11 +218,11 @@ These variables are read whenever the CLI talks to ClickHouse (either during `in
 
 | Variable | Description |
 | --- | --- |
-| `CLICKHOUSE_HOST` | Fully-qualified host URL, e.g. `https://example.clickhouse.cloud:8443` |
+| `CLICKHOUSE_URL` | Fully-qualified ClickHouse URL, e.g. `https://example.clickhouse.cloud:8443` |
 | `CLICKHOUSE_DATABASE` | Database to target (defaults to `default`) |
-| `CLICKHOUSE_USERNAME` | Username used for CLI connections |
+| `CLICKHOUSE_USER` | Username used for CLI connections |
 | `CLICKHOUSE_PASSWORD` | Password or token |
-| `CLICKHOUSE_URL` / `CLICKHOUSE_USER` / `CLICKHOUSE_PASS` | Legacy aliases also detected by the CLI |
+| `CLICKHOUSE_HOST` / `CLICKHOUSE_USERNAME` / `CLICKHOUSE_PASS` | Backward-compatible aliases also detected by the CLI |
 
 Set these in your `.env` (the `init` command will scaffold this file for you) or export them in CI/CD before running CLI commands.
 
@@ -208,7 +231,7 @@ Set these in your `.env` (the `init` command will scaffold this file for you) or
 ### Connection errors
 
 Verify the environment variables above and ensure network access to ClickHouse. The CLI reports detailed errors with actionable hints:
-- `ECONNREFUSED` – ClickHouse is not running or wrong host/port
+- `ECONNREFUSED` – ClickHouse is not running or the URL/port is wrong
 - `Authentication failed` – Check username and password
 - TLS errors – Verify SSL configuration
 

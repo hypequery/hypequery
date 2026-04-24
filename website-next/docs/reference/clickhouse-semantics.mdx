@@ -1,0 +1,116 @@
+---
+title: ClickHouse Semantics
+description: ClickHouse-specific behavior that matters when using hypequery's query builder and runtime.
+---
+
+# ClickHouse Semantics
+
+hypequery is ClickHouse-first. Some of the most important behavior in the library comes from ClickHouse itself rather than from hypequery abstractions.
+
+This page is the short reference for the semantics that are easiest to miss.
+
+## Supported ClickHouse-first features
+
+These are the most important ClickHouse-specific features exposed directly in the builder today:
+
+| Feature | hypequery support | Notes |
+| --- | --- | --- |
+| `PREWHERE` | Yes | Separate from `WHERE`, with its own builder methods |
+| `FINAL` | Yes | Supported for single-table reads and advanced source-level cases |
+| Query `SETTINGS` | Yes | Passed through to ClickHouse for that execution |
+| Explicit null helpers | Yes | Prefer explicit null checks over bare `null` equality |
+
+The builder is not trying to hide these behind a generic SQL abstraction. They exist because they matter for real ClickHouse queries.
+
+## `PREWHERE` is different from `WHERE`
+
+`PREWHERE` is not just another spelling of `WHERE`.
+
+Use:
+
+- `prewhere(...)` for highly selective predicates that should run earlier
+- `where(...)` for the rest of your filtering logic
+
+hypequery keeps these as separate clauses and does not try to promote one into the other automatically.
+
+## `FINAL` belongs to the table read
+
+`FINAL` is a ClickHouse table-read feature, not a generic query modifier.
+
+In hypequery you can use:
+
+- `.final()` for simple single-table reads
+- source-level `FINAL` behavior when the query shape gets more advanced
+
+Use it intentionally on engines where merge-time correctness matters.
+
+## Query settings pass through to ClickHouse
+
+`.settings({...})` becomes ClickHouse query settings for that execution.
+
+This is the right place for settings like:
+
+- `max_execution_time`
+- `join_use_nulls`
+- `max_threads`
+- `final`
+
+hypequery preserves the query SQL separately from the settings payload, so settings do not mutate the SQL text itself.
+
+## `LEFT JOIN` defaults are a ClickHouse behavior
+
+ClickHouse does not default unmatched `LEFT JOIN` columns to `null` unless `join_use_nulls = 1` is enabled.
+
+That means the right-hand side of a `LEFT JOIN` may come back with type defaults instead of null-like values unless you opt into null semantics through query settings.
+
+If you need SQL-style null behavior, set:
+
+- `.settings({ join_use_nulls: 1 })`
+
+This is a ClickHouse runtime rule, not a hypequery quirk.
+
+## Null handling is explicit
+
+Bare `null` equality is a poor fit for ClickHouse semantics.
+
+Prefer:
+
+- `whereNull(...)`
+- `whereNotNull(...)`
+- `prewhereNull(...)`
+- `prewhereNotNull(...)`
+
+These APIs make the intended behavior explicit and avoid pretending ClickHouse behaves like Postgres.
+
+## Runtime values come from `JSONEachRow`
+
+Builder types and result expectations should match what the ClickHouse JavaScript client actually returns under `JSONEachRow`.
+
+That means some values may not come back as the JavaScript types users expect by default. When in doubt, check the driver/runtime behavior rather than assuming a more transformed result shape.
+
+Common examples:
+
+| ClickHouse value | Typical runtime value |
+| --- | --- |
+| `UInt64` / `Int64` | `string` |
+| `count()` and other 64-bit integer aggregates | `string` |
+| `DateTime` / `DateTime64` | `string` |
+| `Decimal(p, s)` | `number` |
+
+The decimal case is worth calling out: JavaScript numbers may lose precision for larger decimal values even if ClickHouse stored them exactly.
+
+## Practical guidance
+
+If you are deciding where to put a condition or setting, the usual rules are:
+
+- use `prewhere(...)` for highly selective early filters
+- use `where(...)` for the rest of your filtering logic
+- use `final()` when merge-time correctness matters for the table read
+- use `.settings({...})` for ClickHouse runtime behavior like `join_use_nulls` or `max_threads`
+- use explicit null helpers when you mean null checks
+
+## What to read next
+
+- [Connecting to ClickHouse](/docs/reference/api/connection)
+- [Query Builder API](/docs/reference/api/query-builder)
+- [Core Concepts](/docs/core-concepts)

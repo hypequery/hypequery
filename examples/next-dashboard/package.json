@@ -9,7 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@clickhouse/client": "^1.11.2",
+    "@clickhouse/client": "^1.18.3",
     "@hypequery/clickhouse": "*",
     "@hypequery/react": "*",
     "@hypequery/serve": "*",
