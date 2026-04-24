@@ -23,7 +23,7 @@ dotenv.config();
  * @param {string} type - The ClickHouse type to convert
  * @returns {string} - The corresponding TypeScript type
  */
-const clickhouseToTsType = (type) => {
+export const clickhouseToTsType = (type) => {
   if (type.startsWith('Array(')) {
     const innerType = type.slice(6, -1);
     return `Array<${clickhouseToTsType(innerType)}>`;
@@ -44,14 +44,6 @@ const clickhouseToTsType = (type) => {
       const keyType = mapContent.substring(0, commaIndex).trim();
       const valueType = mapContent.substring(commaIndex + 1).trim();
 
-      // Handle different key types
-      let keyTsType = 'string';
-      if (keyType === 'LowCardinality(String)') {
-        keyTsType = 'string';
-      } else if (keyType.includes('Int') || keyType.includes('UInt')) {
-        keyTsType = 'number';
-      }
-
       // Handle different value types
       let valueTsType = 'unknown';
       if (valueType.startsWith('Array(')) {
@@ -64,7 +56,12 @@ const clickhouseToTsType = (type) => {
         valueTsType = clickhouseToTsType(valueType);
       }
 
-      return `Record<${keyTsType}, ${valueTsType}>`;
+      // JSON object keys are strings even when ClickHouse map keys are numeric.
+      if (keyType === 'LowCardinality(String)' || keyType.includes('Int') || keyType.includes('UInt') || keyType === 'String') {
+        return `Record<string, ${valueTsType}>`;
+      }
+
+      return `Record<string, ${valueTsType}>`;
     }
     return 'Record<string, unknown>';
   }
@@ -77,11 +74,11 @@ const clickhouseToTsType = (type) => {
     case 'int16':
     case 'int32':
     case 'uint8':
-    case 'int64':
     case 'uint16':
     case 'uint32':
-    case 'uint64':
       return 'number';
+    case 'int64':
+    case 'uint64':
     case 'uint128':
     case 'uint256':
     case 'int128':

@@ -2,6 +2,7 @@ import { QueryBuilder } from '../src/core/query-builder.js';
 import type { DatabaseAdapter } from '../src/core/adapters/database-adapter.js';
 import { ClickHouseDialect } from '../src/core/dialects/clickhouse-dialect.js';
 import type { BuilderState } from '../src/core/types/builder-state.js';
+import type { InferClickHouseType } from '../src/types/clickhouse-types.js';
 import type { TableColumn, TableRecord } from '../src/types/schema.js';
 import { buildRuntimeContext, resolveCacheConfig } from '../src/core/cache/runtime-context.js';
 import { substituteParameters } from '../src/core/utils.js';
@@ -32,6 +33,12 @@ type EventsRecord = TableRecord<AppSchema['events']>;
 type _UsersIdIsNumber = Expect<Equal<UsersRecord['id'], number>>;
 type _UsersCreatedAtIsString = Expect<Equal<UsersRecord['created_at'], string>>;
 type _EventsTimestampIsString = Expect<Equal<EventsRecord['ts'], string>>;
+type _UInt64InfersToString = Expect<Equal<InferClickHouseType<'UInt64'>, string>>;
+type _Int128InfersToString = Expect<Equal<InferClickHouseType<'Int128'>, string>>;
+type _UInt32InfersToNumber = Expect<Equal<InferClickHouseType<'UInt32'>, number>>;
+type _NullableUInt64InfersToStringOrNull = Expect<Equal<InferClickHouseType<'Nullable(UInt64)'>, string | null>>;
+type _ArrayUInt64InfersToStringArray = Expect<Equal<InferClickHouseType<'Array(UInt64)'>, string[]>>;
+type _MapUInt64InfersToStringValues = Expect<Equal<InferClickHouseType<'Map(String, UInt64)'>, Record<string, string>>>;
 
 // Validate TableColumn helper emits both qualified + bare column unions
 type ExpectedColumns =
