@@ -16,11 +16,21 @@ export class JoinFeature<
     alias?: string
   ): QueryConfig<State['output'], Schema> {
     const config = this.builder.getConfig();
+    const renderedRightColumn = alias
+      ? rightColumn.replace(`${String(table)}.`, `${alias}.`) as typeof rightColumn
+      : rightColumn;
     const newConfig = {
       ...config,
       joins: [
         ...(config.joins || []),
-        { kind: 'join' as const, type, table: String(table), leftColumn: String(leftColumn), rightColumn, alias }
+        {
+          kind: 'join' as const,
+          type,
+          table: String(table),
+          leftColumn: String(leftColumn),
+          rightColumn: renderedRightColumn,
+          alias,
+        }
       ]
     };
     return newConfig;
