@@ -5,8 +5,6 @@ description: Release notes and updates for hypequery
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-# Changelog
-
 Latest updates and improvements across hypequery packages and docs.
 
 ## [Upcoming]
@@ -42,11 +40,14 @@ This release pushes the current object-style hypequery path further forward: `qu
 
 * **Docs search is now better at finding code/API terms** like `dictGet`, `withScalar`, and similar technical keywords that appear primarily in examples and code snippets.
 
+* **Query inspection now centers on structured query nodes.** `getQueryNode()` is now the preferred public inspection API for builder state. `getConfig()` still exists for compatibility, but it is deprecated and should be treated as a legacy inspection helper rather than a stable flat config interface.
+
 #### Why it matters
 
 * New projects start on the current query/serve API instead of scaffolding into a style they immediately need to migrate away from.
 * Existing users get a clearer migration path from the v0.1.x serve flow to the current object-style runtime API.
 * The newer query/serve API is now closer to feature parity for auth and tenant concerns, reducing the need to fall back to older patterns.
+* Builder consumers now have a clearer public inspection path that matches the internal query-node model.
 
 ## [1.5.0]
 

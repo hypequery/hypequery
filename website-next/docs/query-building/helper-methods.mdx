@@ -6,8 +6,6 @@ description: Learn about utility methods and additional features in hypequery
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Helper Methods
-
 hypequery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
 
 ## SQL Generation
@@ -190,6 +188,10 @@ console.log(queryNode);
 ### getConfig
 
 `getConfig()` is deprecated. If you need to inspect the current query shape, prefer `getQueryNode()`.
+
+<Callout type="info">
+  `getConfig()` now returns a snapshot of the structured query state. It should be treated as legacy inspection API rather than the normal public extension point.
+</Callout>
 
 ## Type Safety
 

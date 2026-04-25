@@ -55,6 +55,8 @@ This is the main reference point for the current implementation because it gives
 
 In practice, that means the builder can preserve query intent for longer and compile it later.
 
+For public inspection, prefer `getQueryNode()` when you want a snapshot of the current structured query. `getConfig()` still exists for compatibility, but it is now a deprecated legacy inspection method.
+
 ## Why the query tree matters
 
 The query tree is useful for a few reasons:
