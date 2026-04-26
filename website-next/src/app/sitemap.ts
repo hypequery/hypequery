@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import { getPosts } from '@/lib/blog';
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
+import { clickhouseFunctions } from '@/data/clickhouse-functions';
 
 const redirectedBlogSlugs = new Set([
   'hypequery-vs-clickhouse-client',
@@ -13,6 +14,7 @@ const redirectedBlogSlugs = new Set([
 ]);
 
 const staticRoutes = [
+  '/clickhouse/functions',
   '/',
   '/blog',
   '/compare',
@@ -75,5 +77,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: post.data.date ? new Date(post.data.date) : undefined,
     }));
 
-  return [...staticEntries, ...docsEntries, ...blogEntries];
+  const functionEntries: MetadataRoute.Sitemap = clickhouseFunctions.map((fn) => ({
+    url: absoluteUrl(`/clickhouse/functions/${fn.slug}`).toString(),
+  }));
+
+  return [...staticEntries, ...functionEntries, ...docsEntries, ...blogEntries];
 }

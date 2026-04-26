@@ -63,6 +63,17 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'ClickHouse ORM', href: '/clickhouse-orm' },
     ],
   },
+  {
+    title: 'Functions',
+    links: [
+      { label: 'Function Reference', href: '/clickhouse/functions' },
+      { label: 'toStartOfDay', href: '/clickhouse/functions/toStartOfDay' },
+      { label: 'toStartOfInterval', href: '/clickhouse/functions/toStartOfInterval' },
+      { label: 'uniq', href: '/clickhouse/functions/uniq' },
+      { label: 'quantile', href: '/clickhouse/functions/quantile' },
+      { label: 'groupArray', href: '/clickhouse/functions/groupArray' },
+    ],
+  },
 ];
 
 export const homepageResourceLinks: SeoLink[] = [
