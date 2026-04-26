@@ -137,14 +137,14 @@ export default function ClickHouseAnalyticsPage() {
       ]}
       readingLinks={[
         {
+          href: '/clickhouse-semantic-layer',
+          title: 'ClickHouse semantic layer alternative',
+          description: 'The honest positioning page: what hypequery does today, what a full semantic layer would mean, and where Cube fits.',
+        },
+        {
           href: '/blog/the-analytics-language-layer-why-real-time-data-needs-typed-apis-not-just-faster-databases',
           title: 'Why real-time data needs typed APIs',
           description: 'The most direct articulation of the analytics-layer thesis behind these pages.',
-        },
-        {
-          href: '/blog/seven-companies-one-pattern-why-every-scaled-clickhouse-deployment-looks-the-same',
-          title: 'Seven companies, one pattern',
-          description: 'Evidence that large ClickHouse deployments converge on the same abstraction stack.',
         },
         {
           href: '/clickhouse-typescript',
@@ -158,6 +158,7 @@ export default function ClickHouseAnalyticsPage() {
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-nextjs', label: 'ClickHouse Next.js' },
         { href: '/clickhouse-react', label: 'ClickHouse React' },

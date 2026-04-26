@@ -9,7 +9,7 @@ heroImage: ""
 
 We've made our databases real-time. We haven't made our analytics interfaces real-time-safe.
 
-If you want the condensed, implementation-oriented version of this argument, start with the [ClickHouse analytics](/clickhouse-analytics) pillar page. If your use case is customer-facing SaaS analytics, pair it with [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics).
+If you want the condensed, implementation-oriented version of this argument, start with the [ClickHouse analytics](/clickhouse-analytics) pillar page. If you are specifically searching for a ClickHouse semantic layer, read the [ClickHouse semantic layer alternative](/clickhouse-semantic-layer) page for the honest product boundary. If your use case is customer-facing SaaS analytics, pair this with [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics).
 
 ClickHouse can ingest a billion rows per second and return aggregations across terabytes in milliseconds. The storage problem is solved. The execution problem is solved. But the interface problem — how consumers actually talk to the engine, remains stuck in the era of hand-crafted SQL strings, copy-pasted metric definitions, and dashboards that nobody trusts.
 

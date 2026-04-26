@@ -23,6 +23,7 @@ const staticRoutes = [
   '/clickhouse-real-time-analytics',
   '/clickhouse-audit-log',
   '/clickhouse-time-series',
+  '/clickhouse-semantic-layer',
   '/clickhouse-orm',
   '/clickhouse-rest-api',
   '/clickhouse-openapi',

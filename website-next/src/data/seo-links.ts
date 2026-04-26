@@ -17,6 +17,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'ClickHouse TypeScript', href: '/clickhouse-typescript' },
       { label: 'Query Builder', href: '/clickhouse-query-builder' },
       { label: 'Analytics', href: '/clickhouse-analytics' },
+      { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
       { label: 'Schema Types', href: '/clickhouse-schema' },
     ],
   },
