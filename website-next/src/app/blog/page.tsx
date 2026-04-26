@@ -38,7 +38,7 @@ export default async function BlogPage({
 }) {
   const { page } = await searchParams;
   const pageNumber = Number(page) || 1;
-  const posts = await getPosts();
+  const posts = (await getPosts()).filter((post) => !(post.slug in comparePageBySlug));
   const totalPages = Math.ceil(posts.length / 10);
 
   const startIndex = (pageNumber - 1) * 10;
@@ -86,16 +86,6 @@ export default async function BlogPage({
                 {post.data.description}
               </p>
             )}
-            {post.slug in comparePageBySlug ? (
-              <div className="mt-4">
-                <Link
-                  href={comparePageBySlug[post.slug as keyof typeof comparePageBySlug].href}
-                  className="inline-flex items-center gap-2 border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950"
-                >
-                  Open comparison page
-                </Link>
-              </div>
-            ) : null}
             <div className="mt-4">
               <Link
                 href={`/blog/${post.slug}`}

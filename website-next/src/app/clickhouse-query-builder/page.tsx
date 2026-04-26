@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Query Builder for TypeScript | hypequery',
   description:
-    'The only ClickHouse query builder with generated TypeScript types. Schema introspection, composable queries, HTTP API, and OpenAPI docs. No SQL strings.',
+    'Build ClickHouse queries in TypeScript with schema-generated types, reusable query definitions, and a practical raw SQL escape hatch when needed.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-query-builder'),
   },
@@ -78,7 +78,7 @@ export default function ClickHouseQueryBuilderPage() {
         {
           title: 'Generic query builders are not built for ClickHouse',
           copy:
-            'Tools built for Postgres need adapting for ClickHouse. PREWHERE, ARRAY JOIN, dictGet(), withScalar CTEs, SAMPLE — these need native support, not workarounds.',
+            'Tools built for Postgres need adapting for ClickHouse. A ClickHouse-focused layer should at minimum understand the data types, support reusable analytical queries, and provide an honest escape hatch for ClickHouse-specific SQL.',
         },
       ]}
       solutionSection={{
@@ -90,7 +90,7 @@ export default function ClickHouseQueryBuilderPage() {
           'Schema types generated from your live ClickHouse database',
           'Correct runtime type mappings — DateTime→string, UInt64→string, Nullable→T|null',
           'Composable builder with conditional filters and reusable query fragments',
-          'Full ClickHouse-native syntax: PREWHERE, ARRAY JOIN, CTEs, dictGet(), SAMPLE',
+          'Typed query composition, CTE helpers, and raw SQL escape hatches where needed',
           'Same query definition runs inline, over HTTP, or as a React hook',
         ],
         codePanel: {
@@ -122,7 +122,7 @@ export default function ClickHouseQueryBuilderPage() {
         {
           title: 'ClickHouse query builder TypeScript',
           copy:
-            'The key question is not just syntax — it\'s whether the builder understands ClickHouse runtime types and can be reused across your app. hypequery is the only option built specifically for ClickHouse + TypeScript.',
+            'The useful distinction is not fluent syntax alone. It is whether the builder understands ClickHouse return types, keeps query definitions reusable, and stays honest about when raw SQL is still the right tool.',
         },
         {
           title: 'Type-safe ClickHouse queries',
@@ -137,7 +137,7 @@ export default function ClickHouseQueryBuilderPage() {
         {
           title: 'ClickHouse HTTP API TypeScript',
           copy:
-            'If you want a typed HTTP API on top of ClickHouse without writing a custom layer, @hypequery/serve exposes query definitions as HTTP endpoints with OpenAPI docs automatically.',
+            'If you want a typed HTTP layer on top of ClickHouse without rebuilding request validation and response schemas yourself, @hypequery/serve turns named query definitions into documented endpoints.',
         },
       ]}
       readingLinks={[

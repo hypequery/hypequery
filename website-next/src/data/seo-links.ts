@@ -14,34 +14,53 @@ export const seoFooterGroups: SeoLinkGroup[] = [
     links: [
       { label: 'Docs', href: '/docs' },
       { label: 'Quick Start', href: '/docs/quick-start' },
-      { label: 'Query Builder', href: '/clickhouse-query-builder' },
-      { label: 'React', href: '/clickhouse-react' },
-      { label: 'Next.js', href: '/clickhouse-nextjs' },
-    ],
-  },
-  {
-    title: 'ClickHouse Guides',
-    links: [
       { label: 'ClickHouse TypeScript', href: '/clickhouse-typescript' },
-      { label: 'ClickHouse Analytics', href: '/clickhouse-analytics' },
-      { label: 'Multi-Tenant Analytics', href: '/clickhouse-multi-tenant-analytics' },
-      { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
+      { label: 'Query Builder', href: '/clickhouse-query-builder' },
+      { label: 'Analytics', href: '/clickhouse-analytics' },
+      { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
+      { label: 'Schema Types', href: '/clickhouse-schema' },
     ],
   },
   {
-    title: 'Compare',
+    title: 'Frameworks',
     links: [
-      { label: 'hypequery vs ClickHouse Client', href: '/compare/hypequery-vs-clickhouse-client' },
-      { label: 'hypequery vs Kysely', href: '/compare/hypequery-vs-kysely' },
-      { label: 'ClickHouse Query Builders', href: '/blog/clickhouse-query-builder-typescript' },
+      { label: 'ClickHouse JavaScript', href: '/clickhouse-js' },
+      { label: 'ClickHouse Node.js', href: '/clickhouse-nodejs' },
+      { label: 'ClickHouse React', href: '/clickhouse-react' },
+      { label: 'ClickHouse Next.js', href: '/clickhouse-nextjs' },
+      { label: 'REST API', href: '/clickhouse-rest-api' },
+      { label: 'OpenAPI', href: '/clickhouse-openapi' },
     ],
   },
   {
     title: 'Use Cases',
     links: [
+      { label: 'ClickHouse Dashboard', href: '/clickhouse-dashboard' },
+      { label: 'Product Analytics', href: '/clickhouse-product-analytics' },
+      { label: 'Real-Time Analytics', href: '/clickhouse-real-time-analytics' },
+      { label: 'Audit Log', href: '/clickhouse-audit-log' },
+      { label: 'Time Series', href: '/clickhouse-time-series' },
+      { label: 'SaaS Analytics', href: '/clickhouse-saas-analytics' },
+      { label: 'Multi-Tenant Analytics', href: '/clickhouse-multi-tenant-analytics' },
+    ],
+  },
+  {
+    title: 'Compare',
+    links: [
+      { label: 'Comparison Hub', href: '/compare' },
+      { label: 'vs ClickHouse Client', href: '/compare/hypequery-vs-clickhouse-client' },
+      { label: 'vs Kysely', href: '/compare/hypequery-vs-kysely' },
+      { label: 'ClickHouse Query Builders', href: '/blog/clickhouse-query-builder-typescript' },
+    ],
+  },
+  {
+    title: 'More',
+    links: [
       { label: 'Use Cases', href: '/use-cases' },
       { label: 'Internal Product APIs', href: '/use-cases/internal-product-apis' },
       { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },
+      { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
+      { label: 'ClickHouse ORM', href: '/clickhouse-orm' },
     ],
   },
 ];

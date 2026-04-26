@@ -6,12 +6,29 @@ import { absoluteUrl } from '@/lib/site';
 const redirectedBlogSlugs = new Set([
   'hypequery-vs-clickhouse-client',
   'hypequery-vs-kysely',
+  'hypequery-vs-drizzle',
+  'hypequery-vs-prisma',
+  'hypequery-vs-cube',
+  'hypequery-vs-tinybird',
 ]);
 
 const staticRoutes = [
   '/',
   '/blog',
   '/compare',
+  '/clickhouse-js',
+  '/clickhouse-nodejs',
+  '/clickhouse-dashboard',
+  '/clickhouse-product-analytics',
+  '/clickhouse-real-time-analytics',
+  '/clickhouse-audit-log',
+  '/clickhouse-time-series',
+  '/clickhouse-semantic-layer',
+  '/clickhouse-orm',
+  '/clickhouse-rest-api',
+  '/clickhouse-openapi',
+  '/clickhouse-saas-analytics',
+  '/clickhouse-schema',
   '/clickhouse-typescript',
   '/clickhouse-query-builder',
   '/clickhouse-mcp',
@@ -26,6 +43,10 @@ const staticRoutes = [
   '/use-cases/multi-tenant-saas',
   '/compare/hypequery-vs-clickhouse-client',
   '/compare/hypequery-vs-kysely',
+  '/compare/hypequery-vs-drizzle',
+  '/compare/hypequery-vs-prisma',
+  '/compare/hypequery-vs-cube',
+  '/compare/hypequery-vs-tinybird',
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
