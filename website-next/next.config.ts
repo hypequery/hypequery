@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'hypequery.com',
+          },
+        ],
+        destination: 'https://www.hypequery.com/:path*',
+        permanent: true,
+      },
+      {
         source: '/blog/hypequery-vs-clickhouse-client',
         destination: '/compare/hypequery-vs-clickhouse-client',
         permanent: true,
@@ -25,6 +36,11 @@ const nextConfig: NextConfig = {
       {
         source: '/docs/quick-start-builder',
         destination: '/docs/standalone-query-builder/when-to-use',
+        permanent: true,
+      },
+      {
+        source: '/docs/manual-installation',
+        destination: '/docs/quick-start',
         permanent: true,
       },
       {
@@ -48,13 +64,38 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: '/docs/reference/serve',
+        destination: '/docs/legacy-serve/reference/serve',
+        permanent: true,
+      },
+      {
         source: '/docs/features/caching',
         destination: '/docs/caching',
         permanent: true,
       },
       {
         source: '/docs/troubleshooting',
-        destination: '/docs/manual-installation',
+        destination: '/docs/quick-start',
+        permanent: true,
+      },
+      {
+        source: '/docs/query-definitions',
+        destination: '/docs/legacy-serve/query-definitions',
+        permanent: true,
+      },
+      {
+        source: '/docs/migration-builder-to-serve',
+        destination: '/docs/legacy-serve/migration-builder-to-serve',
+        permanent: true,
+      },
+      {
+        source: '/docs/standalone-query-builder/query-building/:slug',
+        destination: '/docs/query-building/:slug',
+        permanent: true,
+      },
+      {
+        source: '/docs/standalone-query-builder/:slug',
+        destination: '/docs/query-building/:slug',
         permanent: true,
       },
       {

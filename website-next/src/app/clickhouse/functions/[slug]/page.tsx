@@ -166,9 +166,9 @@ export default function ClickHouseFunctionPage({ params }: Props) {
                   Use {fn.name} in a typed TypeScript query
                 </h2>
                 <p className="mt-5 text-base leading-8 text-slate-300">
-                  hypequery gives you a type-safe query builder for ClickHouse. The generated schema maps every
-                  ClickHouse column to its TypeScript equivalent — so the result of your {fn.name} query is fully
-                  typed without manual interface definitions.
+                  hypequery gives you a type-safe query builder for ClickHouse. The generated schema maps your
+                  ClickHouse columns to TypeScript types, and raw SQL expressions let you incorporate functions like
+                  {` ${fn.name} `} when you need them inside a builder query.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-4">
                   <Link
@@ -288,8 +288,8 @@ export default function ClickHouseFunctionPage({ params }: Props) {
                 Use {fn.name} in a type-safe TypeScript query
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                hypequery generates TypeScript types from your ClickHouse schema. Write queries using {fn.name} with
-                full IDE autocomplete and compile-time safety — no manual type definitions.
+                hypequery generates TypeScript types from your ClickHouse schema. Use {fn.name} alongside the builder,
+                and reach for raw SQL expressions when the function is not exposed as a dedicated helper.
               </p>
             </div>
             <div className="mt-6 flex gap-3 md:mt-0">

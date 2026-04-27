@@ -6,22 +6,22 @@ import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionsByCluster } from '@/data/clickhouse-functions';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Functions — TypeScript Reference with hypequery',
+  title: 'ClickHouse Functions — TypeScript Examples with hypequery',
   description:
-    'Complete TypeScript reference for ClickHouse functions: date functions (toStartOfDay, toStartOfInterval), aggregate functions (uniq, quantile), string, conditional, and math functions — with hypequery examples.',
+    'Curated TypeScript examples for common ClickHouse functions: date functions, aggregates, strings, conditionals, and math — with hypequery query-builder examples.',
   alternates: { canonical: absoluteUrl('/clickhouse/functions') },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/clickhouse/functions'),
-    title: 'ClickHouse Functions — TypeScript Reference with hypequery',
+    title: 'ClickHouse Functions — TypeScript Examples with hypequery',
     description:
-      'TypeScript examples for every major ClickHouse function. Date bucketing, aggregate analytics, conditionals, and string manipulation — all with hypequery typed queries.',
+      'TypeScript examples for common ClickHouse analytics functions. Date bucketing, aggregates, conditionals, and string manipulation with hypequery queries.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Functions — TypeScript Reference with hypequery',
+    title: 'ClickHouse Functions — TypeScript Examples with hypequery',
     description:
-      'TypeScript reference for ClickHouse date, aggregate, string, conditional, and math functions with hypequery examples.',
+      'TypeScript examples for ClickHouse date, aggregate, string, conditional, and math functions with hypequery.',
   },
 };
 
@@ -55,9 +55,9 @@ const clusterColor: Record<string, string> = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'CollectionPage',
-  name: 'ClickHouse Functions — TypeScript Reference',
+  name: 'ClickHouse Functions — TypeScript Examples',
   description:
-    'TypeScript reference pages for ClickHouse functions grouped by category: date, aggregate, string, conditional, and math.',
+    'TypeScript example pages for common ClickHouse functions grouped by category: date, aggregate, string, conditional, and math.',
   url: absoluteUrl('/clickhouse/functions').toString(),
   hasPart: clickhouseFunctions.map((fn) => ({
     '@type': 'TechArticle',
@@ -87,8 +87,8 @@ export default function ClickHouseFunctionsIndexPage() {
               ClickHouse function reference for TypeScript developers
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-              Every ClickHouse function you use for analytics — date bucketing, aggregation, string manipulation —
-              with TypeScript examples using hypequery. Generated schema, typed results, no manual interfaces.
+              A curated set of common ClickHouse functions for analytics, with SQL and hypequery examples for date
+              bucketing, aggregation, string manipulation, conditionals, and numeric bucketing.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
@@ -111,11 +111,11 @@ export default function ClickHouseFunctionsIndexPage() {
               </div>
               <div className="border border-slate-700/80 bg-slate-950/70 p-5">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Clusters</p>
-                <p className="mt-2 text-xl font-semibold text-slate-100">Date · Aggregate · String · Math</p>
+                <p className="mt-2 text-xl font-semibold text-slate-100">Date · Aggregate · String · Conditional · Math</p>
               </div>
               <div className="border border-slate-700/80 bg-slate-950/70 p-5">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Each page includes</p>
-                <p className="mt-2 text-xl font-semibold text-slate-100">SQL + TypeScript examples</p>
+                <p className="mt-2 text-xl font-semibold text-slate-100">SQL + query-builder examples</p>
               </div>
             </div>
           </div>
@@ -158,12 +158,12 @@ export default function ClickHouseFunctionsIndexPage() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">Get started</p>
               <h2 className="font-display mt-3 text-2xl font-semibold text-white">
-                Use any ClickHouse function with full TypeScript types
+                Use common ClickHouse functions in typed TypeScript queries
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                hypequery generates a TypeScript schema from your live ClickHouse database. Every function in this
-                reference works in hypequery queries — with typed results, IDE autocomplete, and zero manual
-                interface definitions.
+                hypequery generates a TypeScript schema from your live ClickHouse database. These examples show how to
+                combine ClickHouse functions with the query builder, while using raw SQL expressions when the function
+                is not wrapped by a dedicated helper.
               </p>
             </div>
             <div className="mt-6 flex gap-3 md:mt-0">

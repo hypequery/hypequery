@@ -1,4 +1,4 @@
-const SITE_URL = 'https://hypequery.com';
+const SITE_URL = 'https://www.hypequery.com';
 
 function normalizePath(pathname: string) {
   if (!pathname || pathname === '/') {

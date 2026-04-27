@@ -6,8 +6,6 @@ description: Use raw SQL and expression helpers when the fluent query builder is
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# SQL Expressions
-
 The fluent query builder covers most workflows, but you can always run raw SQL or use expression helpers for complex cases. This page shows when and how to use them.
 
 <Callout type="info" title="Query builder syntax">
@@ -48,9 +46,9 @@ const results = await db.rawQuery(sql, [accountId]);
 
 When the builder handles most of the query but you need a custom expression, use `raw`, `rawAs`, or `selectExpr`. These helpers keep your queries type-safe.
 
-### `raw()` – inject SQL fragments
+### `raw()` – create a SQL expression
 
-Use `raw()` to inject SQL fragments into where clauses or other parts of your query:
+Use `raw()` when you need an expression the fluent builder does not model directly:
 
 <CodeBlock>
 
@@ -59,15 +57,15 @@ import { raw } from '@hypequery/clickhouse';
 
 db.table('sensors')
   .select(['id', 'reading'])
-  .where(raw('reading BETWEEN ? AND ?', [min, max]))
+  .where(raw('toDate(recorded_at)'), 'eq', '2024-01-01')
 
 ```
 
 </CodeBlock>
 
-- Accepts any SQL fragment plus optional bindings (positional `?` placeholders)
+- Accepts a SQL fragment string and returns a typed expression object
 - Treat as an escape hatch; TypeScript cannot validate the expression
-- Use for complex predicates the fluent API doesn't support
+- Use for computed projections or predicate expressions the fluent API doesn't support
 
 ### `rawAs()` – expression + alias
 
@@ -85,7 +83,7 @@ db.table('orders')
     rawAs('COUNT(*)', 'order_count'),
   ])
   .groupBy(['account_id'])
-  .having(rawAs('SUM(total)', 'total_revenue'), 'gt', 1000)
+  .having('SUM(total) > 1000')
 
 ```
 
@@ -136,7 +134,7 @@ db.table('events')
   .select([
     'id',
     toDateTime('occurred_at', 'event_ts'),
-    formatDateTime('occurred_at', 'Y-MM-dd', 'event_date'),
+    formatDateTime('occurred_at', 'Y-MM-dd', { alias: 'event_date' }),
   ])
   .where('event_type', 'eq', 'purchase')
 
@@ -180,7 +178,7 @@ const rows = await db.rawQuery<{ day: string; signups: number }>(sql, [accountId
 
 ### Best practices
 
-- **Parameterize user input**: Always use `?` placeholders with `raw()` and `rawAs()` to prevent SQL injection
+- **Keep raw SQL static**: Build raw expressions from trusted SQL snippets rather than interpolating user input
 - **Prefer fluent API**: Use expression helpers only when the fluent API doesn't support your use case
 - **Alias all expressions**: Computed columns need aliases for type safety
 - **Type raw queries**: Always provide type arguments to `rawQuery()`

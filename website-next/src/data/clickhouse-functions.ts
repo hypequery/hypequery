@@ -43,13 +43,22 @@ FROM events
 GROUP BY day
 ORDER BY day DESC
 LIMIT 30`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const daily = await createQueryBuilder(db, 'events')
-  .select(['created_at', 'id'])
-  .groupBy('toStartOfDay(created_at)')
-  .orderBy('toStartOfDay(created_at)', 'DESC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const daily = await db
+  .table('events')
+  .select([selectExpr('toStartOfDay(created_at)', 'day')])
+  .count('id', 'events')
+  .groupBy('day')
+  .orderBy('day', 'DESC')
   .limit(30)
   .execute();`,
     hypequeryFilename: 'daily-events.ts',
@@ -115,13 +124,22 @@ FROM events
 GROUP BY week
 ORDER BY week DESC
 LIMIT 12`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const weekly = await createQueryBuilder(db, 'events')
-  .select(['created_at', 'id'])
-  .groupBy('toStartOfWeek(created_at)')
-  .orderBy('toStartOfWeek(created_at)', 'DESC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const weekly = await db
+  .table('events')
+  .select([selectExpr('toStartOfWeek(created_at)', 'week')])
+  .count('id', 'events')
+  .groupBy('week')
+  .orderBy('week', 'DESC')
   .limit(12)
   .execute();`,
     hypequeryFilename: 'weekly-events.ts',
@@ -179,14 +197,25 @@ FROM events
 WHERE created_at >= today() - 365
 GROUP BY month
 ORDER BY month`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const mau = await createQueryBuilder(db, 'events')
-  .select(['created_at', 'user_id'])
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const mau = await db
+  .table('events')
+  .select([
+    selectExpr('toStartOfMonth(created_at)', 'month'),
+    rawAs('uniq(user_id)', 'mau'),
+  ])
   .where('created_at', 'gte', new Date(Date.now() - 365 * 86400 * 1000))
-  .groupBy('toStartOfMonth(created_at)')
-  .orderBy('toStartOfMonth(created_at)', 'ASC')
+  .groupBy('month')
+  .orderBy('month', 'ASC')
   .execute();`,
     hypequeryFilename: 'monthly-active-users.ts',
     returnType: 'Date',
@@ -238,13 +267,24 @@ const mau = await createQueryBuilder(db, 'events')
 FROM deals
 GROUP BY quarter
 ORDER BY quarter`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const qArr = await createQueryBuilder(db, 'deals')
-  .select(['closed_at', 'arr'])
-  .groupBy('toStartOfQuarter(closed_at)')
-  .orderBy('toStartOfQuarter(closed_at)', 'ASC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const qArr = await db
+  .table('deals')
+  .select([
+    selectExpr('toStartOfQuarter(closed_at)', 'quarter'),
+    rawAs('sum(arr)', 'quarterly_arr'),
+  ])
+  .groupBy('quarter')
+  .orderBy('quarter', 'ASC')
   .execute();`,
     hypequeryFilename: 'quarterly-arr.ts',
     returnType: 'Date',
@@ -296,15 +336,25 @@ FROM events
 WHERE created_at >= now() - INTERVAL 1 HOUR
 GROUP BY bucket
 ORDER BY bucket`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// Raw SQL expression in groupBy for custom intervals
-const fiveMin = await createQueryBuilder(db, 'events')
-  .select(['created_at', 'id'])
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const fiveMin = await db
+  .table('events')
+  .select([
+    selectExpr('toStartOfInterval(created_at, INTERVAL 5 MINUTE)', 'bucket'),
+    rawAs('count()', 'events'),
+  ])
   .where('created_at', 'gte', new Date(Date.now() - 3600 * 1000))
-  .groupBy("toStartOfInterval(created_at, INTERVAL 5 MINUTE)")
-  .orderBy("toStartOfInterval(created_at, INTERVAL 5 MINUTE)", 'ASC')
+  .groupBy('bucket')
+  .orderBy('bucket', 'ASC')
   .execute();`,
     hypequeryFilename: 'five-minute-buckets.ts',
     returnType: 'DateTime',
@@ -363,12 +413,19 @@ WHERE created_at >= now() - INTERVAL 24 HOUR
 SELECT count() FROM events
 WHERE created_at >= toStartOfDay(now())`,
     hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+import type { IntrospectedSchema } from './schema';
 
-// Last 7 days
-const recent = await createQueryBuilder(db, 'events')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const recent = await db
+  .table('events')
   .select(['id', 'user_id', 'created_at'])
-  .where('created_at', 'gte', new Date(Date.now() - 7 * 86400 * 1000))
+  .where((expr) => expr.raw('created_at >= now() - INTERVAL 7 DAY'))
   .orderBy('created_at', 'DESC')
   .limit(1000)
   .execute();`,
@@ -428,12 +485,19 @@ WHERE toDate(created_at) BETWEEN toDate('2024-01-01') AND toDate('2024-03-31')
 -- Strip time from DateTime
 SELECT user_id, toDate(created_at) AS signup_date FROM users`,
     hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+import type { IntrospectedSchema } from './schema';
 
-const q1events = await createQueryBuilder(db, 'events')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const q1events = await db
+  .table('events')
   .select(['id', 'user_id', 'created_at'])
-  .where('created_at', 'gte', new Date('2024-01-01'))
-  .where('created_at', 'lte', new Date('2024-03-31'))
+  .where((expr) => expr.raw("toDate(created_at) BETWEEN toDate('2024-01-01') AND toDate('2024-03-31')"))
   .execute();`,
     hypequeryFilename: 'q1-events.ts',
     returnType: 'Date',
@@ -480,14 +544,24 @@ const q1events = await createQueryBuilder(db, 'events')
 FROM events
 GROUP BY month_label
 ORDER BY month_label`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// Raw expression to get formatted labels
-const labels = await createQueryBuilder(db, 'events')
-  .select(['created_at', 'id'])
-  .groupBy("formatDateTime(created_at, '%Y-%m')")
-  .orderBy("formatDateTime(created_at, '%Y-%m')", 'ASC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const labels = await db
+  .table('events')
+  .select([
+    rawAs("formatDateTime(created_at, '%Y-%m')", 'month_label'),
+    rawAs('count()', 'events'),
+  ])
+  .groupBy('month_label')
+  .orderBy('month_label', 'ASC')
   .execute();`,
     hypequeryFilename: 'monthly-labels.ts',
     returnType: 'String',
@@ -541,15 +615,22 @@ SELECT
   countIf(status = 'failed') AS failed_count
 FROM orders`,
     hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+import type { IntrospectedSchema } from './schema';
 
-// Count with where clause
-const total = await createQueryBuilder(db, 'events')
-  .select(['id'])
-  .where('status', 'eq', 'active')
-  .execute();
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
-console.log(total.length); // JavaScript-side count after fetch`,
+const totals = await db
+  .table('events')
+  .select(['status'])
+  .count('id', 'event_count')
+  .groupBy('status')
+  .orderBy('event_count', 'DESC')
+  .execute();`,
     hypequeryFilename: 'event-counts.ts',
     returnType: 'UInt64',
     notes: [
@@ -606,14 +687,24 @@ FROM events
 GROUP BY day
 ORDER BY day DESC
 LIMIT 30`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// uniq() as raw expression
-const dau = await createQueryBuilder(db, 'events')
-  .select(['event_time'])
-  .groupBy('toStartOfDay(event_time)')
-  .orderBy('toStartOfDay(event_time)', 'DESC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const dau = await db
+  .table('events')
+  .select([
+    selectExpr('toStartOfDay(event_time)', 'day'),
+    rawAs('uniq(user_id)', 'dau'),
+  ])
+  .groupBy('day')
+  .orderBy('day', 'DESC')
   .limit(30)
   .execute();`,
     hypequeryFilename: 'daily-unique-users.ts',
@@ -673,13 +764,22 @@ FROM orders
 GROUP BY day
 ORDER BY day DESC
 LIMIT 30`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const dailyRevenue = await createQueryBuilder(db, 'orders')
-  .select(['created_at', 'amount'])
-  .groupBy('toStartOfDay(created_at)')
-  .orderBy('toStartOfDay(created_at)', 'DESC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const dailyRevenue = await db
+  .table('orders')
+  .select([selectExpr('toStartOfDay(created_at)', 'day')])
+  .sum('amount', 'revenue')
+  .groupBy('day')
+  .orderBy('day', 'DESC')
   .limit(30)
   .execute();`,
     hypequeryFilename: 'daily-revenue.ts',
@@ -734,13 +834,22 @@ FROM orders
 GROUP BY day
 ORDER BY day DESC
 LIMIT 30`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const aov = await createQueryBuilder(db, 'orders')
-  .select(['created_at', 'order_value'])
-  .groupBy('toStartOfDay(created_at)')
-  .orderBy('toStartOfDay(created_at)', 'DESC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const aov = await db
+  .table('orders')
+  .select([selectExpr('toStartOfDay(created_at)', 'day')])
+  .avg('order_value', 'aov')
+  .groupBy('day')
+  .orderBy('day', 'DESC')
   .limit(30)
   .execute();`,
     hypequeryFilename: 'average-order-value.ts',
@@ -792,14 +901,26 @@ FROM api_requests
 GROUP BY hour
 ORDER BY hour DESC
 LIMIT 24`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs, selectExpr } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// quantiles() expression via raw SQL in select
-const latency = await createQueryBuilder(db, 'api_requests')
-  .select(['ts'])
-  .groupBy('toStartOfHour(ts)')
-  .orderBy('toStartOfHour(ts)', 'DESC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const latency = await db
+  .table('api_requests')
+  .select([
+    selectExpr('toStartOfHour(ts)', 'hour'),
+    rawAs('quantile(0.50)(response_ms)', 'p50'),
+    rawAs('quantile(0.95)(response_ms)', 'p95'),
+    rawAs('quantile(0.99)(response_ms)', 'p99'),
+  ])
+  .groupBy('hour')
+  .orderBy('hour', 'DESC')
   .limit(24)
   .execute();`,
     hypequeryFilename: 'latency-percentiles.ts',
@@ -862,12 +983,22 @@ SELECT
   groupArray(5)(event_name) AS recent_events
 FROM events
 GROUP BY user_id`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// groupArray in raw expression
-const sessions = await createQueryBuilder(db, 'page_views')
-  .select(['session_id'])
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const sessions = await db
+  .table('page_views')
+  .select([
+    'session_id',
+    rawAs('groupArray(page_path)', 'path_sequence'),
+  ])
   .groupBy('session_id')
   .execute();`,
     hypequeryFilename: 'session-paths.ts',
@@ -921,12 +1052,23 @@ JOIN users u ON toString(e.user_id) = u.external_id
 
 -- Display UInt64 as string
 SELECT toString(order_id) AS order_ref FROM orders`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// hypequery handles type mapping via schema — raw cast when needed
-const orders = await createQueryBuilder(db, 'orders')
-  .select(['order_id', 'user_id', 'created_at'])
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const orders = await db
+  .table('orders')
+  .select([
+    rawAs('toString(order_id)', 'order_ref'),
+    'user_id',
+    'created_at',
+  ])
   .execute();`,
     hypequeryFilename: 'order-display.ts',
     returnType: 'String',
@@ -978,13 +1120,24 @@ FROM events
 GROUP BY event_label
 ORDER BY hits DESC
 LIMIT 20`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const labels = await createQueryBuilder(db, 'events')
-  .select(['category', 'action'])
-  .groupBy("concat(category, ':', action)")
-  .orderBy('count()', 'DESC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const labels = await db
+  .table('events')
+  .select([
+    rawAs("concat(category, ':', action)", 'event_label'),
+  ])
+  .count('id', 'hits')
+  .groupBy('event_label')
+  .orderBy('hits', 'DESC')
   .limit(20)
   .execute();`,
     hypequeryFilename: 'event-labels.ts',
@@ -1039,19 +1192,24 @@ SELECT
   sumIf(amount, status = 'paid') AS paid,
   sumIf(amount, status = 'refunded') AS refunded
 FROM orders`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// if() in raw expression
-const classified = await createQueryBuilder(db, 'sessions')
-  .select(['user_id', 'is_new_user'])
-  .execute();
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
-// Post-process in TypeScript
-const result = classified.map(row => ({
-  ...row,
-  userType: row.is_new_user ? 'new' : 'returning',
-}));`,
+const classified = await db
+  .table('sessions')
+  .select([
+    rawAs("if(is_new_user = 1, 'new', 'returning')", 'user_type'),
+  ])
+  .count('user_id', 'users')
+  .groupBy('user_type')
+  .execute();`,
     hypequeryFilename: 'user-classification.ts',
     returnType: 'Same type as then/else branches',
     notes: [
@@ -1102,19 +1260,24 @@ const result = classified.map(row => ({
   count() AS students
 FROM exam_results
 GROUP BY grade`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-// multiIf() as raw expression
-const graded = await createQueryBuilder(db, 'exam_results')
-  .select(['student_id', 'score'])
-  .execute();
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
-// Or post-process in TypeScript
-const result = graded.map(row => ({
-  ...row,
-  grade: row.score >= 90 ? 'A' : row.score >= 80 ? 'B' : row.score >= 70 ? 'C' : 'D',
-}));`,
+const graded = await db
+  .table('exam_results')
+  .select([
+    rawAs("multiIf(score >= 90, 'A', score >= 80, 'B', score >= 70, 'C', score >= 60, 'D', 'F')", 'grade'),
+  ])
+  .count('student_id', 'students')
+  .groupBy('grade')
+  .execute();`,
     hypequeryFilename: 'grade-classification.ts',
     returnType: 'Same type as value branches',
     notes: [
@@ -1159,18 +1322,22 @@ const result = graded.map(row => ({
   round(avg(order_value), 2) AS avg_order_value,
   round(avg(response_ms), 0) AS avg_latency_ms
 FROM orders`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const metrics = await createQueryBuilder(db, 'orders')
-  .select(['order_value', 'created_at'])
-  .execute();
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
 
-// Post-process rounding in TypeScript
-const result = metrics.map(row => ({
-  ...row,
-  order_value: Math.round(Number(row.order_value) * 100) / 100,
-}));`,
+const metrics = await db
+  .table('orders')
+  .select([
+    rawAs('round(avg(order_value), 2)', 'avg_order_value'),
+  ])
+  .execute();`,
     hypequeryFilename: 'rounded-metrics.ts',
     returnType: 'Same type as input',
     notes: [
@@ -1217,13 +1384,24 @@ SELECT
 FROM orders
 GROUP BY price_bucket
 ORDER BY price_bucket`,
-    hypequeryExample: `import { createQueryBuilder } from '@hypequery/clickhouse';
-import { db } from './schema';
+    hypequeryExample: `import { createQueryBuilder, rawAs } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './schema';
 
-const histogram = await createQueryBuilder(db, 'orders')
-  .select(['order_value'])
-  .groupBy('intDiv(order_value, 10) * 10')
-  .orderBy('intDiv(order_value, 10) * 10', 'ASC')
+const db = createQueryBuilder<IntrospectedSchema>({
+  host: process.env.CLICKHOUSE_HOST!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const histogram = await db
+  .table('orders')
+  .select([
+    rawAs('intDiv(order_value, 10) * 10', 'price_bucket'),
+  ])
+  .count('order_id', 'orders')
+  .groupBy('price_bucket')
+  .orderBy('price_bucket', 'ASC')
   .execute();`,
     hypequeryFilename: 'price-histogram.ts',
     returnType: 'Integer (same width as input)',
