@@ -18,14 +18,24 @@ function createClickHouseClient(config: ClickHouseConfig): ClickHouseClient {
   return clientModule.createClient(config);
 }
 
+function getConnectionEndpoint(config: ClickHouseConfig): string | undefined {
+  if ('url' in config && typeof config.url === 'string') {
+    return config.url;
+  }
+  if ('host' in config && typeof config.host === 'string') {
+    return config.host;
+  }
+  return undefined;
+}
+
 function deriveNamespace(config: ClickHouseConfig): string {
   if ('client' in config && config.client) {
     return 'client';
   }
-  const host = 'host' in config ? config.host : 'unknown-host';
+  const endpoint = getConnectionEndpoint(config);
   const database = 'database' in config ? config.database : 'default';
   const username = 'username' in config ? config.username : 'default';
-  return `${host || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
+  return `${endpoint || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
 }
 
 export class ClickHouseAdapter implements DatabaseAdapter {

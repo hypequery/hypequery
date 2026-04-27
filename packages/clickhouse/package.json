@@ -48,11 +48,11 @@
     "README-CLI.md"
   ],
   "dependencies": {
-    "@clickhouse/client": "^1.11.2",
+    "@clickhouse/client": "^1.18.3",
     "dotenv": "^16.0.0"
   },
   "peerDependencies": {
-    "@clickhouse/client-web": "^0.2.0 || ^1.0.0"
+    "@clickhouse/client-web": "^1.18.3"
   },
   "peerDependenciesMeta": {
     "@clickhouse/client-web": {
@@ -60,9 +60,9 @@
     }
   },
   "devDependencies": {
-    "@clickhouse/client": "^1.11.2",
-    "@clickhouse/client-common": "^1.11.2",
-    "@clickhouse/client-web": "^1.11.2",
+    "@clickhouse/client": "^1.18.3",
+    "@clickhouse/client-common": "^1.18.3",
+    "@clickhouse/client-web": "^1.18.3",
     "@types/node": "^18.19.80",
     "glob": "^11.0.3",
     "ts-node": "^10.9.0",
