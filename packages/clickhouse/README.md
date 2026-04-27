@@ -56,7 +56,7 @@ import type { IntrospectedSchema } from './generated-schema';
 
 // Initialize the query builder
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: 'your-clickhouse-host',
+  url: 'your-clickhouse-url',
   username: 'default',
   password: 'your-password',
   database: 'default'
@@ -81,7 +81,7 @@ import type { IntrospectedSchema } from './generated-schema';
 
 // Create the ClickHouse client explicitly
 const client = createClient({
-  host: 'your-clickhouse-host',
+  url: 'your-clickhouse-url',
   username: 'default',
   password: '',
   database: 'default'
@@ -110,7 +110,7 @@ The query builder can cache results with deterministic keys, stale-while-revalid
 import { createQueryBuilder, MemoryCacheProvider } from '@hypequery/clickhouse';
 
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: 'your-clickhouse-host',
+  url: 'your-clickhouse-url',
   username: 'default',
   password: '',
   database: 'default',
@@ -251,7 +251,7 @@ const sortedTrips = await db.table('trips')
 
 ```typescript
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: 'your-clickhouse-host',
+  url: 'your-clickhouse-url',
   username: 'default',
   password: '',
   database: 'default'

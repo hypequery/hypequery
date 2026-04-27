@@ -22,7 +22,7 @@ For Node.js environments, hypequery can use the Node.js ClickHouse client automa
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const db = createQueryBuilder({
-  host: 'http://localhost:8123',
+  url: 'http://localhost:8123',
   username: 'default',
   password: 'password',
   database: 'my_database'
@@ -46,7 +46,7 @@ import { createQueryBuilder } from '@hypequery/clickhouse';
 import { createClient } from '@clickhouse/client-web';
 
 const client = createClient({
-  host: 'https://your-clickhouse-host',
+  url: 'https://your-clickhouse-host',
   username: 'default',
   password: '',
   database: 'my_database'
@@ -67,10 +67,12 @@ hypequery supports all connection options provided by the official ClickHouse Ja
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
-| `host` | `string` | The URL of the ClickHouse server, including protocol and port | Required |
+| `url` | `string` | The URL of the ClickHouse server, including protocol and port | Required |
 | `username` | `string` | Username for authentication | 'default' |
 | `password` | `string` | Password for authentication | undefined |
 | `database` | `string` | The database to connect to | 'default' |
+
+`host` is still accepted for backward compatibility, but `url` is the preferred option.
 
 
 ### Advanced Options

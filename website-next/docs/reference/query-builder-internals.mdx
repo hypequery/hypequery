@@ -1,0 +1,164 @@
+---
+title: Query Builder Internals
+description: Internal model, compilation flow, and design reference points for hypequery's ClickHouse query builder.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+This page is a compact reference for how hypequery's query builder works internally today.
+
+It is not required reading to use the library well, but it is useful if you are:
+
+- debugging query generation
+- contributing to the builder
+- reasoning about builder immutability
+- trying to understand where ClickHouse semantics are represented
+
+## The high-level model
+
+The builder is ClickHouse-first and type-driven.
+
+Internally, the current implementation is centered around an immutable query tree rather than a bag of mutable SQL fragments.
+
+At a high level, the flow is:
+
+1. builder methods update a typed query node
+2. the builder preserves type state alongside that query node
+3. the dialect compiles the query node into SQL plus parameters
+4. the adapter executes the compiled query against ClickHouse
+
+That split is intentional:
+
+- the builder owns typed query construction
+- the dialect owns SQL compilation
+- the adapter owns execution and transport details
+
+## The current source of truth
+
+The internal source of truth is a root `select-query` node.
+
+That node contains structured representations of things like:
+
+- `from`
+- `select`
+- `prewhere`
+- `where`
+- `joins`
+- `groupBy`
+- `having`
+- `orderBy`
+- `ctes`
+- `settings`
+
+This is the main reference point for the current implementation because it gives the builder a stable internal model that is richer than raw SQL strings.
+
+In practice, that means the builder can preserve query intent for longer and compile it later.
+
+For public inspection, prefer `getQueryNode()` when you want a snapshot of the current structured query. `getConfig()` still exists for compatibility, but it is now a deprecated legacy inspection method.
+
+## Why the query tree matters
+
+The query tree is useful for a few reasons:
+
+- it supports immutable branching without leaking nested state across builder instances
+- it keeps `PREWHERE` and `WHERE` distinct instead of flattening them too early
+- it preserves clause-level semantics like `FINAL`, joins, and `HAVING`
+- it gives dialects a structured input instead of forcing them to reconstruct intent from strings
+
+This is especially important in a ClickHouse-first builder, where details like `PREWHERE`, table-level `FINAL`, and per-query settings are meaningful parts of the query model rather than edge-case modifiers.
+
+## Immutability and branching
+
+Builder instances are intended to be immutable from the caller's point of view.
+
+That means code like this should behave predictably:
+
+<CodeBlock>
+<Pre>
+```typescript
+const base = db.table('events').select(['id', 'user_id']);
+
+const recent = base.orderBy('id', 'DESC').limit(10);
+const active = base.where('is_active', 'eq', 1);
+```
+</Pre>
+</CodeBlock>
+
+`recent` and `active` should diverge from the same base query without mutating each other.
+
+Internally, that is why the builder clones or transitions query state instead of appending into one shared mutable config object.
+
+## Expressions and filtering
+
+Filtering is represented as structured expression nodes rather than a flat array of ad hoc conditions.
+
+That matters because the builder needs to preserve:
+
+- `AND` and `OR` sequences
+- grouped expressions
+- raw predicate expressions
+- separate `PREWHERE` and `WHERE` trees
+- explicit null checks like `IS NULL` and `IS NOT NULL`
+
+This makes nested groups and mixed boolean logic more predictable to compile.
+
+## Reference points inside the builder
+
+When reading or extending the implementation, these are the useful mental reference points:
+
+- the query node is the canonical internal representation
+- builder state still carries type information about tables, aliases, scalars, and output shape
+- features like filtering, joins, aggregations, and modifiers operate on the structured query model
+- the dialect is where the final SQL string and ordered parameter list are produced
+- the adapter is where execution concerns such as ClickHouse settings, query ids, rendering, and transport live
+
+Those boundaries are helpful when deciding where a change belongs.
+
+## Dialect boundary
+
+The dialect boundary exists so the builder does not need to hardcode every formatting concern directly into method implementations.
+
+The ClickHouse dialect takes the structured query node and produces:
+
+- compiled SQL
+- ordered parameters
+
+This is also the right place for ClickHouse-specific SQL rendering details such as:
+
+- how expression trees become SQL text
+- how `PREWHERE` is emitted
+- how table sources like `FINAL` are rendered
+- how `HAVING`, `CTEs`, and ordering are serialized
+
+## Adapter boundary
+
+After compilation, the adapter is responsible for execution.
+
+This includes concerns like:
+
+- passing query settings through to the client
+- parameterized execution
+- rendered SQL for debugging and logs
+- cache namespacing and query execution metadata
+
+This separation keeps the builder focused on query construction rather than transport.
+
+## Where ClickHouse semantics live
+
+The builder internals and ClickHouse semantics are related, but they are not the same thing.
+
+- this page explains the builder's internal model and compilation flow
+- [ClickHouse Semantics](/docs/reference/clickhouse-semantics) explains the ClickHouse-specific behaviors that shape the public API
+
+If you are deciding whether something is an internal modeling concern or a database behavior concern, that is the distinction to keep in mind.
+
+## Practical guidance for contributors
+
+If you are changing the builder internals, the usual standard is:
+
+- preserve immutability when branching builders
+- keep ClickHouse-specific semantics explicit rather than hiding them behind generic SQL assumptions
+- prefer extending the structured query model over smuggling more meaning through loose strings
+- keep type-state changes aligned with query-shape changes
+- add tests at the query-node, SQL, and behavior level when a change is subtle

@@ -1,54 +1,146 @@
 ---
 title: Core Concepts
-description: "Understand the three layers in hypequery: query builder, query definitions, and serve runtime."
+description: Understand the builder, reusable query definitions, and runtime layers in hypequery.
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Pre } from 'fumadocs-ui/components/codeblock';
 
 hypequery has three layers:
 
-- `db.table(...)` is the typed ClickHouse query builder
-- `query({ ... })` turns builder logic into a reusable contract
-- `serve({ queries })` exposes those contracts through routes, docs, handlers, and runtime features
+- a ClickHouse query builder
+- reusable query definitions
+- an optional runtime for routes, docs, auth, and framework integration
+
+## The three layers
+
+### 1. Query builder
+
+The builder is the lowest-level and most direct part of hypequery.
+
+This is where you:
+
+- connect to ClickHouse
+- generate a typed schema
+- build typed queries with `db.table(...)`
+- execute them directly in your application
+
+If your query only lives in one place, this may be all you need. 
+
+If you want to read more about our query builder see our [query builder internals](/docs/reference/query-builder-internals) and [ClickHouse semantics](/docs/reference/clickhouse-semantics) pages in the reference section of these docs.
+
+### 2. Reusable query definitions
+
+The next layer turns local query logic into a reusable contract.
+
+This is where you add things like:
+
+- a stable name
+- input and output schemas
+- validation
+- metadata
+- per-query auth or tenant rules
+
+The important idea is that the SQL-building logic does not move somewhere else. You still write normal builder code. This layer just gives that logic a durable interface.
+
+### 3. Runtime
+
+The runtime is optional.
+
+It is the layer you add when reusable query definitions should also become part of a larger application surface, such as:
+
+- HTTP routes
+- generated docs
+- OpenAPI
+- middleware
+- authentication
+- framework handlers
+
+This is not a separate query language. It is a delivery layer around the same query definitions.
 
 ## The mental model
 
-Start with the query builder when the logic is local.
+Start with a local typed query.
 
-Move to `query({ ... })` when that logic needs:
+Move to a reusable query definition when the same query needs a stable interface.
 
-- a stable name
-- typed input or output
-- validation
-- per-query auth or tenant rules
-- reuse across your codebase
+Add the runtime when that interface should also be exposed through an application boundary such as HTTP or framework routing.
 
-Add `serve({ queries })` when the same query needs:
+That progression looks like this:
 
-- HTTP routes
-- docs and OpenAPI
-- framework handlers
-- shared auth, tenant isolation, and runtime middleware
+| Layer | Use it when | Adds |
+| --- | --- | --- |
+| Query builder | Query logic is local to one place | Typed ClickHouse query construction and execution |
+| Reusable query definition | The query needs a stable contract | Validation, schemas, metadata, named execution, per-query rules |
+| Runtime | The contract needs an application surface | Routes, docs, OpenAPI, auth, middleware, framework integration |
 
-## One compact example
+If you are unsure where to start, start with the builder.
+
+## One example, three stages
+
+### Stage 1: local builder query
 
 <CodeBlock>
 <Pre>
 ```typescript
-import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
-import { db } from './client';
+const latestUsers = await db
+  .table('users')
+  .select(['id', 'email', 'created_at'])
+  .where('status', 'eq', 'active')
+  .orderBy('created_at', 'DESC')
+  .limit(10)
+  .execute();
+```
+</Pre>
+</CodeBlock>
 
+This is the simplest useful hypequery program: a typed ClickHouse query executing directly in your code.
+
+### Stage 2: reusable query definition
+
+<CodeBlock>
+<Pre>
+```typescript
+const { query } = initServe({
+  context: () => ({ db }),
+});
+
+export const latestUsers = query({
+  description: 'Most recent active users',
+  input: z.object({
+    limit: z.number().min(1).max(100).default(10),
+  }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('users')
+      .select(['id', 'email', 'created_at'])
+      .where('status', 'eq', 'active')
+      .orderBy('created_at', 'DESC')
+      .limit(input.limit)
+      .execute(),
+});
+```
+</Pre>
+</CodeBlock>
+
+The important change is not the SQL. The important change is that the query now has a defined interface with validation and metadata around the same builder logic.
+
+### Stage 3: runtime exposure
+
+At this point the same reusable query can be mounted behind routes, docs, auth, middleware, or framework-specific handlers.
+
+The runtime layer builds on the reusable query definition rather than replacing it.
+
+<CodeBlock>
+<Pre>
+```typescript
 const { query, serve } = initServe({
   context: () => ({ db }),
   basePath: '/api/analytics',
 });
 
-const latestUsers = query({
+export const latestUsers = query({
   description: 'Most recent active users',
-  requiredRoles: ['admin'],
   input: z.object({
     limit: z.number().min(1).max(100).default(10),
   }),
@@ -69,17 +161,30 @@ export const api = serve({
 </Pre>
 </CodeBlock>
 
-Inside `query({ ... })`, you still write normal builder code with `ctx.db.table(...)`.
+## Common transitions
 
-## When to use each layer
+Move from the builder to reusable query definitions when:
 
-- Use the query builder when the query only lives in one place and you just want typed ClickHouse access.
-- Use `query({ ... })` when the query should become a reusable, validated contract with its own input, metadata, and per-query rules.
-- Use `serve({ queries })` when that contract should also become an API or shared runtime surface.
+- the same query appears in more than one place
+- the query needs validation
+- the query needs metadata
+- the query should have a stable name or contract
 
-## Read next
+Move from reusable query definitions to the runtime when:
 
-- Read [Query Basics](/docs/query-building/basics) for the raw builder chain
-- Read [Re-using Queries](/docs/re-using-queries) for `query({ ... })`
-- Read [Runtime Features](/docs/runtime-features) for middleware, hooks, auth, and runtime behavior
-- Use [Query Definition Reference](/docs/reference/query) and [Serve Runtime Reference](/docs/reference/runtime) for full API details
+- the query should be callable over HTTP
+- the query should appear in docs or OpenAPI
+- the query should participate in shared auth or middleware
+- the query should integrate with a framework surface
+
+## What this means in practice
+
+hypequery is not one thing pretending to be many things.
+
+It is one query model with three levels of use:
+
+- local typed query building
+- reusable query contracts
+- optional delivery and runtime integration
+
+That is why the same builder code remains central even as you move up the stack.

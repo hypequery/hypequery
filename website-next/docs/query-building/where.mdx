@@ -116,12 +116,12 @@ await db.table('orders')
 ```typescript
 // Is null
 await db.table('users')
-  .where('deleted_at', 'isNull')
+  .whereNull('deleted_at')
   .execute();
 
 // Is not null
 await db.table('users')
-  .where('email', 'isNotNull')
+  .whereNotNull('email')
   .execute();
 ```
 
