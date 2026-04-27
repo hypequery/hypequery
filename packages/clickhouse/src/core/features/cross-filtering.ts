@@ -1,15 +1,17 @@
 
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { CrossFilter, FilterGroup } from '../cross-filter.js';
-import { FilterConditionInput } from '../../types/index.js';
+import { CrossFilter, type FilterGroup } from '../cross-filter.js';
+import type { FilterConditionInput } from '../../types/index.js';
 
-function isFilterCondition(obj: any): obj is FilterConditionInput<any, any, any> {
-  return obj && 'column' in obj && 'operator' in obj && 'value' in obj;
-}
+type CrossFilterNode<Schema extends SchemaDefinition<Schema>> =
+  | FilterConditionInput<any, Schema, any>
+  | FilterGroup<Schema, any>;
 
-function isFilterGroup(obj: any): obj is FilterGroup<any, any> {
-  return obj && 'conditions' in obj && 'operator' in obj;
+function isFilterCondition<Schema extends SchemaDefinition<Schema>>(
+  node: CrossFilterNode<Schema>
+): node is FilterConditionInput<any, Schema, any> {
+  return 'column' in node;
 }
 
 export class CrossFilteringFeature<
@@ -19,95 +21,52 @@ export class CrossFilteringFeature<
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
   applyCrossFilters(crossFilter: CrossFilter<Schema, Extract<keyof Schema, string>>) {
-    const filterGroup = crossFilter.getConditions();
+    const root = crossFilter.getConditions();
 
-    if (filterGroup.conditions.length === 0) {
-      return this.builder.getConfig();
+    if (root.conditions.length === 0) {
+      return this.builder;
     }
 
-    if (filterGroup.operator === 'AND') {
-      this.applyAndConditions(filterGroup.conditions);
-    } else {
-      this.builder.whereGroup(builder => {
-        this.applyOrConditions(filterGroup.conditions, builder);
-      });
-    }
-
-    return this.builder.getConfig();
+    return root.operator === 'AND'
+      ? this.applyAndConditions(this.builder, root.conditions)
+      : this.builder.whereGroup(groupBuilder => this.applyOrConditions(groupBuilder, root.conditions));
   }
 
-  private applyAndConditions(conditions: Array<FilterConditionInput<any, Schema, any> | FilterGroup<Schema, any>>): void {
-    conditions.forEach(condition => {
+  private applyAndConditions(
+    builder: QueryBuilder<Schema, State>,
+    conditions: CrossFilterNode<Schema>[]
+  ): QueryBuilder<Schema, State> {
+    return conditions.reduce((currentBuilder, condition) => {
       if (isFilterCondition(condition)) {
-        this.builder.where(
-          condition.column,
-          condition.operator,
-          condition.value
-        );
-      } else if (isFilterGroup(condition)) {
-        if (condition.operator === 'AND') {
-          this.builder.whereGroup(builder => {
-            const feature = new CrossFilteringFeature(builder);
-            feature.applyAndConditions(condition.conditions);
-          });
-        } else {
-          this.builder.whereGroup(builder => {
-            const feature = new CrossFilteringFeature(builder);
-            feature.applyOrConditions(condition.conditions, builder);
-          });
-        }
+        return currentBuilder.where(condition.column, condition.operator, condition.value);
       }
-    });
+
+      return condition.operator === 'AND'
+        ? currentBuilder.whereGroup(groupBuilder => this.applyAndConditions(groupBuilder, condition.conditions))
+        : currentBuilder.whereGroup(groupBuilder => this.applyOrConditions(groupBuilder, condition.conditions));
+    }, builder);
   }
 
   private applyOrConditions(
-    conditions: Array<FilterConditionInput<any, Schema, any> | FilterGroup<Schema, any>>,
-    builder: QueryBuilder<Schema, State> = this.builder
-  ): void {
-    if (conditions.length === 0) return;
-
-    const firstCondition = conditions[0];
-    if (isFilterCondition(firstCondition)) {
-      builder.where(
-        firstCondition.column,
-        firstCondition.operator,
-        firstCondition.value
-      );
-    } else if (isFilterGroup(firstCondition)) {
-      if (firstCondition.operator === 'AND') {
-        builder.whereGroup(innerBuilder => {
-          const feature = new CrossFilteringFeature(innerBuilder);
-          feature.applyAndConditions(firstCondition.conditions);
-        });
-      } else {
-        builder.whereGroup(innerBuilder => {
-          const feature = new CrossFilteringFeature(innerBuilder);
-          feature.applyOrConditions(firstCondition.conditions, innerBuilder);
-        });
-      }
-    }
-
-    for (let i = 1; i < conditions.length; i++) {
-      const condition = conditions[i];
+    builder: QueryBuilder<Schema, State>,
+    conditions: CrossFilterNode<Schema>[]
+  ): QueryBuilder<Schema, State> {
+    return conditions.reduce((currentBuilder, condition, index) => {
       if (isFilterCondition(condition)) {
-        builder.orWhere(
-          condition.column,
-          condition.operator,
-          condition.value
-        );
-      } else if (isFilterGroup(condition)) {
-        if (condition.operator === 'AND') {
-          builder.orWhereGroup(innerBuilder => {
-            const feature = new CrossFilteringFeature(innerBuilder);
-            feature.applyAndConditions(condition.conditions);
-          });
-        } else {
-          builder.orWhereGroup(innerBuilder => {
-            const feature = new CrossFilteringFeature(innerBuilder);
-            feature.applyOrConditions(condition.conditions, innerBuilder);
-          });
-        }
+        return index === 0
+          ? currentBuilder.where(condition.column, condition.operator, condition.value)
+          : currentBuilder.orWhere(condition.column, condition.operator, condition.value);
       }
-    }
+
+      if (condition.operator === 'AND') {
+        return index === 0
+          ? currentBuilder.whereGroup(groupBuilder => this.applyAndConditions(groupBuilder, condition.conditions))
+          : currentBuilder.orWhereGroup(groupBuilder => this.applyAndConditions(groupBuilder, condition.conditions));
+      }
+
+      return index === 0
+        ? currentBuilder.whereGroup(groupBuilder => this.applyOrConditions(groupBuilder, condition.conditions))
+        : currentBuilder.orWhereGroup(groupBuilder => this.applyOrConditions(groupBuilder, condition.conditions));
+    }, builder);
   }
 }

@@ -1,7 +1,32 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { FilterOperator } from '../../types/index.js';
+import { FilterOperator, type ExprNode, type ValueNode } from '../../types/index.js';
 import { PredicateExpression } from '../utils/predicate-builder.js';
+
+function appendExpression(
+  existing: ExprNode | undefined,
+  next: ExprNode,
+  conjunction: 'AND' | 'OR'
+): ExprNode {
+  if (!existing) {
+    return next;
+  }
+
+  if (existing.kind === 'sequence') {
+    return {
+      ...existing,
+      items: [...existing.items, { conjunction, expression: next }],
+    };
+  }
+
+  return {
+    kind: 'sequence',
+    items: [
+      { expression: existing },
+      { conjunction, expression: next },
+    ],
+  };
+}
 
 export class FilteringFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -9,41 +34,51 @@ export class FilteringFeature<
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
+  private wrapValue(operator: FilterOperator, value: any) {
+    if (operator === 'inSubquery' || operator === 'globalInSubquery' || operator === 'inTable' || operator === 'globalInTable') {
+      return value;
+    }
+
+    if (operator === 'between') {
+      return [
+        { kind: 'value' as const, value: value[0] },
+        { kind: 'value' as const, value: value[1] },
+      ] as [ValueNode, ValueNode];
+    }
+
+    if (operator === 'inTuple' || operator === 'globalInTuple') {
+      return value.map((tuple: any[]) => tuple.map(tupleValue => ({ kind: 'value' as const, value: tupleValue })));
+    }
+
+    if (operator === 'in' || operator === 'notIn' || operator === 'globalIn' || operator === 'globalNotIn') {
+      return value.map((item: any) => ({ kind: 'value' as const, value: item }));
+    }
+
+    return { kind: 'value' as const, value };
+  }
+
   addCondition(
+    clause: 'where' | 'prewhere',
     conjunction: 'AND' | 'OR',
     column: string | string[],
     operator: FilterOperator,
     value: any
   ) {
     const config = this.builder.getConfig();
-    const where = config.where || [];
-    const parameters = config.parameters || [];
 
     const columnString = Array.isArray(column)
       ? `(${column.map(String).join(', ')})`
       : String(column);
 
-    where.push({
-      column: columnString,
-      operator,
-      value,
-      conjunction,
-      type: 'condition'
-    });
-
     if (operator === 'in' || operator === 'notIn' || operator === 'globalIn' || operator === 'globalNotIn') {
       if (!Array.isArray(value)) {
         throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
       }
-      parameters.push(...value);
     }
     else if (operator === 'inTuple' || operator === 'globalInTuple') {
       if (!Array.isArray(value)) {
         throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
       }
-      value.forEach((tuple: any[]) => {
-        parameters.push(...tuple);
-      });
     }
     else if (operator === 'inSubquery' || operator === 'globalInSubquery') {
       if (typeof value !== 'string') {
@@ -55,95 +90,57 @@ export class FilteringFeature<
         throw new Error(`Expected a string (table name) for ${operator} operator, but got ${typeof value}`);
       }
     }
-    else if (operator === 'between') {
-      parameters.push(value[0], value[1]);
-    }
-    else {
-      parameters.push(value);
-    }
+
+    const nextExpr: ExprNode = {
+      kind: 'condition',
+      column: columnString,
+      operator,
+      value: this.wrapValue(operator, value),
+    };
 
     return {
       ...config,
-      where,
-      parameters
+      [clause]: appendExpression(config[clause], nextExpr, conjunction)
     };
   }
 
   addExpressionCondition(
+    clause: 'where' | 'prewhere',
     conjunction: 'AND' | 'OR',
     expression: PredicateExpression
   ) {
     const config = this.builder.getConfig();
-    const where = config.where || [];
-    const parameters = config.parameters || [];
 
-    where.push({
-      type: 'expression',
+    const nextExpr: ExprNode = {
+      kind: 'raw',
       expression: expression.sql,
-      parameters: expression.parameters,
-      conjunction
-    });
-
-    parameters.push(...expression.parameters);
+      parameters: expression.parameters.map(value => ({ kind: 'value' as const, value })),
+    };
 
     return {
       ...config,
-      where,
-      parameters
+      [clause]: appendExpression(config[clause], nextExpr, conjunction)
     };
   }
 
-  startWhereGroup() {
+  addGroup(
+    clause: 'where' | 'prewhere',
+    conjunction: 'AND' | 'OR',
+    expression: ExprNode | undefined
+  ) {
     const config = this.builder.getConfig();
-    const where = config.where || [];
+    if (!expression) {
+      return config;
+    }
 
-    where.push({
-      column: '',
-      operator: 'eq',
-      value: null,
-      conjunction: 'AND',
-      type: 'group-start'
-    });
-
-    return {
-      ...config,
-      where
+    const grouped: ExprNode = {
+      kind: 'group',
+      expression,
     };
-  }
-
-  startOrWhereGroup() {
-    const config = this.builder.getConfig();
-    const where = config.where || [];
-
-    where.push({
-      column: '',
-      operator: 'eq',
-      value: null,
-      conjunction: 'OR',
-      type: 'group-start'
-    });
 
     return {
       ...config,
-      where
-    };
-  }
-
-  endWhereGroup() {
-    const config = this.builder.getConfig();
-    const where = config.where || [];
-
-    where.push({
-      column: '',
-      operator: 'eq',
-      value: null,
-      conjunction: 'AND',
-      type: 'group-end'
-    });
-
-    return {
-      ...config,
-      where
+      [clause]: appendExpression(config[clause], grouped, conjunction)
     };
   }
 }

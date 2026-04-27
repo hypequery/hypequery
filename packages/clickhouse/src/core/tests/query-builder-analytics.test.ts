@@ -114,6 +114,17 @@ describe('QueryBuilder Analytics Features', () => {
     });
   });
 
+  describe('final', () => {
+    it('renders FINAL on the table source', () => {
+      const sql = queryBuilder
+        .final()
+        .select(['id'])
+        .toSQL();
+
+      expect(sql).toBe('SELECT id FROM test_table FINAL');
+    });
+  });
+
   describe('withCTE', () => {
     it('should add CTE using a subquery', () => {
       const subquery = builderUsers

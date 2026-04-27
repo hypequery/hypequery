@@ -15,10 +15,8 @@ export class ExecutorFeature<
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
   toSQLWithParams(): { sql: string, parameters: any[] } {
-    const sql = this.toSQLWithoutParameters();
-    const config = this.builder.getConfig();
-    const parameters = config.parameters || [];
-    return { sql, parameters };
+    const compiled = this.compileQuery();
+    return { sql: compiled.query, parameters: [...compiled.parameters] };
   }
 
   toSQL(): string {
@@ -129,9 +127,9 @@ export class ExecutorFeature<
     }
   }
 
-  private toSQLWithoutParameters(): string {
-    const config = this.builder.getConfig();
-    return this.builder.getDialect().compileQuery(config, {
+  private compileQuery() {
+    const queryNode = this.builder.toQueryNode();
+    return this.builder.getDialect().compileQuery(queryNode, {
       tableName: this.builder.getTableName(),
     });
   }

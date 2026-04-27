@@ -193,7 +193,7 @@ export class CrossFilter<
   private isGroup(
     item: FilterConditionInput<any, Schema, Schema[TableName]> | FilterGroup<Schema, Schema[TableName]>
   ): item is FilterGroup<Schema, Schema[TableName]> {
-    return typeof (item as any).conditions !== 'undefined';
+    return 'conditions' in item;
   }
 
   /**

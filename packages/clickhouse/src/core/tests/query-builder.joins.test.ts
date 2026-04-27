@@ -26,7 +26,7 @@ describe('QueryBuilder - Joins', () => {
         .innerJoin('users', 'created_by', 'users.id', 'u1')
         .innerJoin('users', 'updated_by', 'users.id', 'u2')
         .toSQL();
-      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS u1 ON created_by = users.id INNER JOIN users AS u2 ON updated_by = users.id');
+      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS u1 ON created_by = u1.id INNER JOIN users AS u2 ON updated_by = u2.id');
     });
 
     it('should maintain types when joining on same column name', () => {
@@ -37,6 +37,27 @@ describe('QueryBuilder - Joins', () => {
           'id',
           'users.id'
         );
+
+      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Expected = { id: number }[];
+      type _Assert = Expect<Equal<Result, Expected>>;
+    });
+
+    it('should use the join alias in the ON clause when an alias is provided', () => {
+      const sql = builder
+        .innerJoin('users', 'created_by', 'users.id', 'author')
+        .select(['author.user_name'])
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT author.user_name FROM test_table INNER JOIN users AS author ON created_by = author.id'
+      );
+    });
+
+    it('requires aliases when selecting duplicate leaf column names from joined tables', () => {
+      const query = builder
+        .innerJoin('users', 'created_by', 'users.id')
+        .select(['test_table.id', 'users.id']);
 
       type Result = Awaited<ReturnType<typeof query.execute>>;
       type Expected = { id: number }[];
@@ -146,8 +167,8 @@ describe('QueryBuilder - Joins', () => {
       expect(sql).toBe(
         'SELECT test_table.name, u1.user_name as creator, u2.user_name as updater ' +
         'FROM test_table ' +
-        'INNER JOIN users AS u1 ON created_by = users.id ' +
-        'LEFT JOIN users AS u2 ON updated_by = users.id'
+        'INNER JOIN users AS u1 ON created_by = u1.id ' +
+        'LEFT JOIN users AS u2 ON updated_by = u2.id'
       );
     });
 
@@ -204,6 +225,42 @@ describe('QueryBuilder - Joins', () => {
         'HAVING COUNT(*) > 1 ' +
         'ORDER BY users.user_name DESC'
       );
+    });
+
+    it('should preserve join, aggregation, and having nodes in the query tree', () => {
+      const query = builder
+        .innerJoin('users', 'created_by', 'users.id', 'author')
+        .select(['author.user_name'])
+        .sum('price', 'revenue')
+        .count('id', 'order_count')
+        .where('active', 'eq', 1)
+        .groupBy('author.user_name')
+        .having('revenue > ?', [1000])
+        .having('order_count > ?', [5])
+        .orderBy('author.user_name', 'DESC');
+
+      expect(query.toSQL()).toBe(
+        "SELECT author.user_name, SUM(price) AS revenue, COUNT(id) AS order_count FROM test_table " +
+        "INNER JOIN users AS author ON created_by = author.id " +
+        "WHERE active = 1 " +
+        "GROUP BY author.user_name " +
+        "HAVING revenue > 1000 AND order_count > 5 " +
+        "ORDER BY author.user_name DESC"
+      );
+
+      const queryNode = query.toQueryNode();
+      expect(queryNode.joins?.map(join => [join.type, join.table, join.alias])).toEqual([
+        ['INNER', 'users', 'author'],
+      ]);
+      expect(queryNode.select?.map(item => item.selection)).toEqual([
+        'author.user_name',
+        'SUM(price) AS revenue',
+        'COUNT(id) AS order_count',
+      ]);
+      expect(queryNode.having?.map(item => item.expression)).toEqual([
+        'revenue > ?',
+        'order_count > ?',
+      ]);
     });
 
   });

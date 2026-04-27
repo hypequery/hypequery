@@ -38,9 +38,10 @@ describe('dialect seam', () => {
     formatTimeIntervalMock.mockReset();
 
     formatTimeIntervalMock.mockReturnValue('bucket(created_at, 1 day)');
-    compileQueryMock.mockImplementation((config, context) => (
-      `compiled:${context.tableName}:${config.groupBy?.join('|') ?? 'none'}:${JSON.stringify(config.settings ?? null)}`
-    ));
+    compileQueryMock.mockImplementation((config, context) => ({
+      query: `compiled:${context.tableName}:${config.groupBy?.map((item: any) => typeof item === 'string' ? item : item.expression).join('|') ?? 'none'}:${JSON.stringify(config.settings ?? null)}`,
+      parameters: [42],
+    }));
     renderMock.mockImplementation((sql, params = []) => `rendered:${sql}:${params.join(',')}`);
     queryMock.mockResolvedValue([{ id: 1 }]);
   });
@@ -95,6 +96,36 @@ describe('dialect seam', () => {
     expect(renderMock).toHaveBeenCalledWith(
       'compiled:users:bucket(created_at, 1 day):{"max_execution_time":10}',
       [42],
+    );
+  });
+
+  it('passes a root select-query node into injected dialects', () => {
+    const db = createQueryBuilder<TestSchema>({
+      adapter,
+      dialect,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 10_000,
+        provider: new MemoryCacheProvider({ maxEntries: 10 }),
+      },
+    });
+
+    const query = db
+      .table('users')
+      .select(['id'])
+      .where('id', 'eq', 42)
+      .orderBy('id', 'DESC');
+
+    query.toSQL();
+
+    expect(compileQueryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'select-query',
+        from: { kind: 'table', name: 'users' },
+        select: [{ kind: 'selection', selection: 'id' }],
+        orderBy: [{ kind: 'order-by-item', column: 'id', direction: 'DESC' }],
+      }),
+      expect.anything(),
     );
   });
 });

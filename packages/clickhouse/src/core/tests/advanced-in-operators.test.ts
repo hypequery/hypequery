@@ -155,6 +155,16 @@ describe('Advanced IN Operators', () => {
       expect(sql).toContain('WHERE (id, created_by) IN ((?, ?))');
       expect(parameters).toEqual([1, 123]);
     });
+
+    it('should support wider tuples when the column list is wider', () => {
+      const query = builder
+        .where(['id', 'created_by', 'updated_by'] as any, 'inTuple', [[1, 123, 456], [2, 234, 567]]);
+
+      const { sql, parameters } = query.toSQLWithParams();
+
+      expect(sql).toContain('WHERE (id, created_by, updated_by) IN ((?, ?, ?), (?, ?, ?))');
+      expect(parameters).toEqual([1, 123, 456, 2, 234, 567]);
+    });
   });
 
   describe('Combined Usage', () => {
@@ -228,6 +238,12 @@ describe('Advanced IN Operators', () => {
       expect(() => {
         builder.where(['id', 'created_by'], 'inTuple', 'not-an-array' as any);
       }).toThrow('Expected an array of tuples for inTuple operator, but got string');
+    });
+
+    it('should throw error when tuple width does not match the column width', () => {
+      expect(() => {
+        builder.where(['id', 'created_by'], 'inTuple', [[1, 2, 3]] as any);
+      }).toThrow('Expected tuple 1 for inTuple operator to have 2 values, but got 3');
     });
   });
 

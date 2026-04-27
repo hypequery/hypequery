@@ -1,4 +1,4 @@
-import type { QueryConfig } from '../../types/index.js';
+import type { CompiledQuery, SelectQueryNode } from '../../types/index.js';
 
 export interface CompileQueryContext {
   tableName: string;
@@ -6,7 +6,7 @@ export interface CompileQueryContext {
 
 export interface SqlDialect {
   readonly name: string;
-  compileQuery(config: QueryConfig<any, any>, context: CompileQueryContext): string;
+  compileQuery(query: SelectQueryNode<any, any>, context: CompileQueryContext): CompiledQuery;
   formatTimeInterval(
     column: string,
     interval: string,
