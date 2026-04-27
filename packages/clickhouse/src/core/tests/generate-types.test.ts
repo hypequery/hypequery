@@ -24,4 +24,28 @@ describe('clickhouseToTsType', () => {
     expect(clickhouseToTsType('Map(UInt64, String)')).toBe('Record<string, string>');
     expect(clickhouseToTsType('Map(UInt32, UInt64)')).toBe('Record<string, string>');
   });
+
+  it('renders tuple types positionally', () => {
+    expect(
+      clickhouseToTsType('Tuple(UInt32, LowCardinality(String), String, String, LowCardinality(String))')
+    ).toBe('[number, string, string, string, string]');
+    expect(
+      clickhouseToTsType('Array(Tuple(UInt32, LowCardinality(String), String, String, LowCardinality(String)))')
+    ).toBe('Array<[number, string, string, string, string]>');
+  });
+
+  it('handles nested tuple values inside maps and nullable wrappers', () => {
+    expect(
+      clickhouseToTsType('Map(String, Tuple(UInt64, Nullable(String)))')
+    ).toBe('Record<string, [string, string | null]>');
+    expect(
+      clickhouseToTsType('LowCardinality(Nullable(String))')
+    ).toBe('string | null');
+    expect(
+      clickhouseToTsType('Nullable(Array(Tuple(UInt32, String)))')
+    ).toBe('Array<[number, string]> | null');
+    expect(
+      clickhouseToTsType('Map(String, Array(Tuple(UInt32, String)))')
+    ).toBe('Record<string, Array<[number, string]>>');
+  });
 });

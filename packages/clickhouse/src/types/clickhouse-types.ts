@@ -1,3 +1,5 @@
+import type { ParseTopLevelArgs } from './type-helpers.js';
+
 export type ClickHouseInteger =
   | 'Int8' | 'Int16' | 'Int32' | 'Int64' | 'Int128' | 'Int256'
   | 'UInt8' | 'UInt16' | 'UInt32' | 'UInt64' | 'UInt128' | 'UInt256';
@@ -48,8 +50,11 @@ export type ClickHouseType =
   | `Array(Nullable(${ClickHouseBaseType}))`
   | `Array(LowCardinality(String))`
   | `Array(LowCardinality(${ClickHouseEnum}))`
+  | `Array(Tuple(${string}))`
   | `Nullable(${ClickHouseBaseType})`
   | `Nullable(Array(${ClickHouseBaseType}))`
+  | `Nullable(Array(Tuple(${string})))`
+  | `Nullable(Tuple(${string}))`
   | `LowCardinality(${ClickHouseString})`
   | `LowCardinality(${ClickHouseEnum})`
   | `LowCardinality(Nullable(${ClickHouseString}))`
@@ -57,19 +62,32 @@ export type ClickHouseType =
   | `Map(String, ${ClickHouseBaseType})`
   | `Map(String, Array(${ClickHouseBaseType}))`
   | `Map(String, Nullable(${ClickHouseBaseType}))`
+  | `Map(String, Tuple(${string}))`
+  | `Map(String, Array(Tuple(${string})))`
   | `Map(LowCardinality(String), ${ClickHouseBaseType})`
   | `Map(LowCardinality(String), Array(${ClickHouseBaseType}))`
   | `Map(LowCardinality(String), Nullable(${ClickHouseBaseType}))`
+  | `Map(LowCardinality(String), Tuple(${string}))`
+  | `Map(LowCardinality(String), Array(Tuple(${string})))`
   | `Map(${ClickHouseInteger}, ${ClickHouseBaseType})`
   | `Map(${ClickHouseInteger}, Array(${ClickHouseBaseType}))`
   | `Map(${ClickHouseInteger}, Nullable(${ClickHouseBaseType}))`
+  | `Map(${ClickHouseInteger}, Tuple(${string}))`
+  | `Map(${ClickHouseInteger}, Array(Tuple(${string})))`
   | `Array(Map(String, ${ClickHouseBaseType}))`
+  | `Array(Map(String, Tuple(${string})))`
   | `Array(Map(LowCardinality(String), ${ClickHouseBaseType}))`
+  | `Array(Map(LowCardinality(String), Tuple(${string})))`
   | `Array(Map(${ClickHouseInteger}, ${ClickHouseBaseType}))`
+  | `Array(Map(${ClickHouseInteger}, Tuple(${string})))`
   | `Nullable(Map(String, ${ClickHouseBaseType}))`
-  | `Nullable(Map(LowCardinality(String), ${ClickHouseBaseType}))`;
+  | `Nullable(Map(String, Tuple(${string})))`
+  | `Nullable(Map(LowCardinality(String), ${ClickHouseBaseType}))`
+  | `Nullable(Map(LowCardinality(String), Tuple(${string})))`
+  | `Tuple(${string})`;
 
-export type InferClickHouseType<T extends ClickHouseType, Depth extends number = 0> =
+// Cap recursive expansion for nested ClickHouse wrappers to keep type instantiation bounded.
+export type InferClickHouseType<T extends string, Depth extends number = 0> =
   Depth extends 5
   ? unknown
   : T extends ClickHouseJsSafeInteger ? number
@@ -84,6 +102,10 @@ export type InferClickHouseType<T extends ClickHouseType, Depth extends number =
   ? U extends ClickHouseType
   ? Array<InferClickHouseType<U, Add1<Depth>>>
   : unknown[]
+  : T extends `Tuple(${infer U})`
+  ? ParseTopLevelArgs<U> extends infer Parts extends string[]
+    ? { [K in keyof Parts]: InferClickHouseType<Parts[K] & ClickHouseType, Add1<Depth>> }
+    : unknown[]
   : T extends `Nullable(${infer U})`
   ? U extends ClickHouseType
   ? InferClickHouseType<U, Add1<Depth>> | null
