@@ -39,6 +39,24 @@ type _UInt32InfersToNumber = Expect<Equal<InferClickHouseType<'UInt32'>, number>
 type _NullableUInt64InfersToStringOrNull = Expect<Equal<InferClickHouseType<'Nullable(UInt64)'>, string | null>>;
 type _ArrayUInt64InfersToStringArray = Expect<Equal<InferClickHouseType<'Array(UInt64)'>, string[]>>;
 type _MapUInt64InfersToStringValues = Expect<Equal<InferClickHouseType<'Map(String, UInt64)'>, Record<string, string>>>;
+type _TupleInfersPositionally = Expect<
+  Equal<
+    InferClickHouseType<'Tuple(UInt32, LowCardinality(String), String, String, LowCardinality(String))'>,
+    [number, string, string, string, string]
+  >
+>;
+type _ArrayOfTupleInfersNestedTupleRows = Expect<
+  Equal<
+    InferClickHouseType<'Array(Tuple(UInt32, LowCardinality(String), String, String, LowCardinality(String)))'>,
+    Array<[number, string, string, string, string]>
+  >
+>;
+type _MapTupleValuesInferPositionally = Expect<
+  Equal<
+    InferClickHouseType<'Map(String, Tuple(UInt64, Nullable(String)))'>,
+    Record<string, [string, string | null]>
+  >
+>;
 
 // Validate TableColumn helper emits both qualified + bare column unions
 type ExpectedColumns =

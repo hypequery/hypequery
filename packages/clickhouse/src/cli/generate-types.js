@@ -2,6 +2,9 @@ import { ClickHouseConnection } from '../core/connection.js';
 import fs from 'fs/promises';
 import path from 'path';
 import dotenv from 'dotenv';
+import { clickhouseToTsType } from './type-parsing.js';
+
+export { clickhouseToTsType } from './type-parsing.js';
 
 // Load environment variables from the current directory
 dotenv.config();
@@ -17,87 +20,6 @@ dotenv.config();
  * @property {string[]} [includeTables] - List of tables to include
  * @property {string[]} [excludeTables] - List of tables to exclude
  */
-
-/**
- * Converts ClickHouse types to TypeScript types
- * @param {string} type - The ClickHouse type to convert
- * @returns {string} - The corresponding TypeScript type
- */
-export const clickhouseToTsType = (type) => {
-  if (type.startsWith('Array(')) {
-    const innerType = type.slice(6, -1);
-    return `Array<${clickhouseToTsType(innerType)}>`;
-  }
-
-  // Handle Nullable types
-  if (type.startsWith('Nullable(')) {
-    const innerType = type.slice(9, -1);
-    return `${clickhouseToTsType(innerType)} | null`;
-  }
-
-  // Handle Map types
-  if (type.startsWith('Map(')) {
-    // Extract key and value types from Map(KeyType, ValueType)
-    const mapContent = type.slice(4, -1); // Remove 'Map(' and ')'
-    const commaIndex = mapContent.lastIndexOf(',');
-    if (commaIndex !== -1) {
-      const keyType = mapContent.substring(0, commaIndex).trim();
-      const valueType = mapContent.substring(commaIndex + 1).trim();
-
-      // Handle different value types
-      let valueTsType = 'unknown';
-      if (valueType.startsWith('Array(')) {
-        const innerType = valueType.slice(6, -1);
-        valueTsType = `Array<${clickhouseToTsType(innerType)}>`;
-      } else if (valueType.startsWith('Nullable(')) {
-        const innerType = valueType.slice(9, -1);
-        valueTsType = `${clickhouseToTsType(innerType)} | null`;
-      } else {
-        valueTsType = clickhouseToTsType(valueType);
-      }
-
-      // JSON object keys are strings even when ClickHouse map keys are numeric.
-      return `Record<string, ${valueTsType}>`;
-    }
-    return 'Record<string, unknown>';
-  }
-
-  switch (type.toLowerCase()) {
-    case 'string':
-    case 'fixedstring':
-      return 'string';
-    case 'int8':
-    case 'int16':
-    case 'int32':
-    case 'uint8':
-    case 'uint16':
-    case 'uint32':
-      return 'number';
-    case 'int64':
-    case 'uint64':
-    case 'uint128':
-    case 'uint256':
-    case 'int128':
-    case 'int256':
-      return 'string';
-    case 'float32':
-    case 'float64':
-    case 'decimal':
-      return 'number';
-    case 'datetime':
-    case 'datetime64':
-      return 'string'; // Use string for datetime
-    case 'date':
-    case 'date32':
-      return 'string'; // Use string for date
-    case 'bool':
-    case 'boolean':
-      return 'boolean';
-    default:
-      // For complex types or unknown types, return string as a safe default
-      return 'string';
-  }
-};
 
 /**
  * Generates TypeScript type definitions from the ClickHouse database schema

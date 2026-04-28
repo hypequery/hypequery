@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const srcCliDir = path.join(rootDir, 'src', 'cli');
 const distCliDir = path.join(rootDir, 'dist', 'cli');
-const files = ['bin.js', 'generate-types.js', 'index.js', 'generate-types.d.ts', 'index.d.ts'];
+const files = ['bin.js', 'generate-types.js', 'index.js', 'type-parsing.js', 'generate-types.d.ts', 'index.d.ts'];
 
 fs.mkdirSync(distCliDir, { recursive: true });
 
