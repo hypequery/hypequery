@@ -22,62 +22,61 @@ const DEFAULT_WARNING =
 
 const capitalizeFirstLetter = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
-const clickhouseToTsType = (type: string): string => {
-  if (type.startsWith('Array(')) {
-    const innerType = type.slice(6, -1);
-    return `Array<${clickhouseToTsType(innerType)}>`;
-  }
+function splitTopLevelArgs(value: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let depth = 0;
 
-  if (type.startsWith('Nullable(')) {
-    const innerType = type.slice(9, -1);
-    return `${clickhouseToTsType(innerType)} | null`;
-  }
-
-  if (type.startsWith('Map(')) {
-    const mapContent = type.slice(4, -1);
-    const commaIndex = mapContent.lastIndexOf(',');
-
-    if (commaIndex !== -1) {
-      const keyType = mapContent.substring(0, commaIndex).trim();
-      const valueType = mapContent.substring(commaIndex + 1).trim();
-
-      let keyTsType = 'string';
-      if (keyType === 'LowCardinality(String)') {
-        keyTsType = 'string';
-      } else if (keyType.includes('Int') || keyType.includes('UInt')) {
-        keyTsType = 'number';
-      }
-
-      let valueTsType = 'unknown';
-      if (valueType.startsWith('Array(')) {
-        const innerType = valueType.slice(6, -1);
-        valueTsType = `Array<${clickhouseToTsType(innerType)}>`;
-      } else if (valueType.startsWith('Nullable(')) {
-        const innerType = valueType.slice(9, -1);
-        valueTsType = `${clickhouseToTsType(innerType)} | null`;
-      } else {
-        valueTsType = clickhouseToTsType(valueType);
-      }
-
-      return `Record<${keyTsType}, ${valueTsType}>`;
+  for (const char of value) {
+    if (char === '(') {
+      depth += 1;
+      current += char;
+      continue;
     }
 
-    return 'Record<string, unknown>';
+    if (char === ')') {
+      depth -= 1;
+      current += char;
+      continue;
+    }
+
+    if (char === ',' && depth === 0) {
+      parts.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
   }
 
-  switch (type.toLowerCase()) {
+  if (current.trim()) {
+    parts.push(current.trim());
+  }
+
+  return parts;
+}
+
+function unwrapType(type: string, wrapperName: string): string | null {
+  const prefix = `${wrapperName}(`;
+  return type.startsWith(prefix) && type.endsWith(')') ? type.slice(prefix.length, -1) : null;
+}
+
+function getPrimitiveTsType(type: string): string | null {
+  const lowerType = type.toLowerCase();
+
+  switch (lowerType) {
     case 'string':
-    case 'fixedstring':
+    case 'uuid':
       return 'string';
     case 'int8':
     case 'int16':
     case 'int32':
     case 'uint8':
-    case 'int64':
     case 'uint16':
     case 'uint32':
-    case 'uint64':
       return 'number';
+    case 'int64':
+    case 'uint64':
     case 'uint128':
     case 'uint256':
     case 'int128':
@@ -96,9 +95,57 @@ const clickhouseToTsType = (type: string): string => {
     case 'boolean':
       return 'boolean';
     default:
-      return 'string';
+      if (type.startsWith('FixedString(')) return 'string';
+      if (type.startsWith('Decimal(')) return 'number';
+      if (type.startsWith('DateTime64(')) return 'string';
+      if (type.startsWith('DateTime(')) return 'string';
+      if (type.startsWith('Enum8(')) return 'string';
+      if (type.startsWith('Enum16(')) return 'string';
+      return null;
   }
+}
+
+const clickhouseToTsType = (type: string): string => {
+  const wrappedArrayType = unwrapType(type, 'Array');
+  if (wrappedArrayType) {
+    return `Array<${clickhouseToTsType(wrappedArrayType)}>`;
+  }
+
+  const wrappedNullableType = unwrapType(type, 'Nullable');
+  if (wrappedNullableType) {
+    return `${clickhouseToTsType(wrappedNullableType)} | null`;
+  }
+
+  const wrappedLowCardinalityType = unwrapType(type, 'LowCardinality');
+  if (wrappedLowCardinalityType) {
+    return clickhouseToTsType(wrappedLowCardinalityType);
+  }
+
+  const wrappedTupleType = unwrapType(type, 'Tuple');
+  if (wrappedTupleType) {
+    const tupleParts = splitTopLevelArgs(wrappedTupleType);
+    return `[${tupleParts.map(clickhouseToTsType).join(', ')}]`;
+  }
+
+  const wrappedMapType = unwrapType(type, 'Map');
+  if (wrappedMapType) {
+    const mapParts = splitTopLevelArgs(wrappedMapType);
+    if (mapParts.length === 2) {
+      const [, valueType] = mapParts;
+      // JSON object keys are strings even when ClickHouse map keys are numeric.
+      return `Record<string, ${clickhouseToTsType(valueType)}>`;
+    }
+    return 'Record<string, unknown>';
+  }
+
+  const primitiveType = getPrimitiveTsType(type);
+  if (primitiveType) return primitiveType;
+
+  // Unsupported or more complex ClickHouse types currently preserve the historical fallback.
+  return 'string';
 };
+
+export { clickhouseToTsType };
 
 async function fetchTables(includeTables?: string[], excludeTables?: string[]) {
   const client = getClickHouseClient();

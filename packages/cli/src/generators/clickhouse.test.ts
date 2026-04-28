@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateClickHouseTypes } from './clickhouse.js';
+import { generateClickHouseTypes, clickhouseToTsType } from './clickhouse.js';
 
 const mkdir = vi.hoisted(() => vi.fn());
 const writeFile = vi.hoisted(() => vi.fn());
@@ -42,5 +42,31 @@ describe('generateClickHouseTypes', () => {
     const [writtenPath, contents] = writeFile.mock.calls[0];
     expect(writtenPath).toContain('analytics/schema.ts');
     expect(contents).toContain('export interface IntrospectedSchema');
+  });
+});
+
+describe('clickhouseToTsType', () => {
+  it('renders tuple types positionally', () => {
+    expect(
+      clickhouseToTsType('Tuple(UInt32, LowCardinality(String), String, String, LowCardinality(String))')
+    ).toBe('[number, string, string, string, string]');
+    expect(
+      clickhouseToTsType('Array(Tuple(UInt32, LowCardinality(String), String, String, LowCardinality(String)))')
+    ).toBe('Array<[number, string, string, string, string]>');
+  });
+
+  it('handles nested tuple values inside maps and nullable wrappers', () => {
+    expect(
+      clickhouseToTsType('Map(String, Tuple(UInt64, Nullable(String)))')
+    ).toBe('Record<string, [string, string | null]>');
+    expect(
+      clickhouseToTsType('LowCardinality(Nullable(String))')
+    ).toBe('string | null');
+    expect(
+      clickhouseToTsType('Nullable(Array(Tuple(UInt32, String)))')
+    ).toBe('Array<[number, string]> | null');
+    expect(
+      clickhouseToTsType('Map(String, Array(Tuple(UInt32, String)))')
+    ).toBe('Record<string, Array<[number, string]>>');
   });
 });
