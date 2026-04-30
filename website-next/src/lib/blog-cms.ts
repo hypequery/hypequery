@@ -4,10 +4,9 @@ import crypto from 'crypto';
 import matter from 'gray-matter';
 import { get, put } from '@vercel/blob';
 import { unstable_noStore as noStore } from 'next/cache';
-import { DatabaseSync } from 'node:sqlite';
 
 export type BlogStatus = 'draft' | 'review' | 'published';
-export type CmsStorageMode = 'blob' | 'local-sqlite';
+export type CmsStorageMode = 'blob' | 'local-json';
 
 export interface BlogPostRecord {
   id: string;
@@ -55,24 +54,7 @@ export interface UpsertBlogPostInput {
   publishedAt?: string;
 }
 
-type BlogPostRow = {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  body: string;
-  status: BlogStatus;
-  author: string | null;
-  tags_json: string | null;
-  seo_title: string | null;
-  seo_description: string | null;
-  published_at: string | null;
-  created_at: string;
-  updated_at: string;
-  source: 'seed' | 'cms';
-};
-
-type BlobStoreFile = {
+type BlogStoreFile = {
   version: 1;
   posts: BlogPostRecord[];
 };
@@ -90,26 +72,66 @@ function normalizeSource(value: unknown): BlogPostRecord['source'] {
 }
 
 const dataDir = path.join(process.cwd(), 'data');
-const dbPath = path.join(dataDir, 'blog-cms.sqlite');
+const localStorePath = path.join(dataDir, 'blog-posts.local.json');
 const seedBlogDir = path.join(process.cwd(), 'content/blog');
 const blobPathname = 'cms/blog-posts.json';
-
-let database: DatabaseSync | null = null;
 
 function hasBlobStorage() {
   return typeof process.env.BLOB_READ_WRITE_TOKEN === 'string' && process.env.BLOB_READ_WRITE_TOKEN.length > 0;
 }
 
 export function getCmsStorageMode(): CmsStorageMode {
-  return hasBlobStorage() ? 'blob' : 'local-sqlite';
+  return hasBlobStorage() ? 'blob' : 'local-json';
 }
 
 export function getCmsStorageLabel() {
-  return getCmsStorageMode() === 'blob' ? 'Vercel Blob' : 'Local SQLite fallback';
+  return getCmsStorageMode() === 'blob' ? 'Vercel Blob' : 'Local JSON fallback';
 }
 
 export function isCmsDurableStorageConfigured() {
   return getCmsStorageMode() === 'blob';
+}
+
+function isValidDate(date: Date) {
+  return !Number.isNaN(date.getTime());
+}
+
+function normalizeDate(value: unknown) {
+  if (value instanceof Date) {
+    return isValidDate(value) ? value.toISOString() : null;
+  }
+
+  if (typeof value === 'number') {
+    const date = new Date(value);
+    return isValidDate(date) ? date.toISOString() : null;
+  }
+
+  if (typeof value !== 'string' || value.length === 0) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return isValidDate(date) ? date.toISOString() : null;
+}
+
+function sanitizeSlug(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function getSlugFromFilename(filename: string, explicitSlug?: unknown) {
+  if (typeof explicitSlug === 'string' && explicitSlug.length > 0) {
+    return sanitizeSlug(explicitSlug);
+  }
+
+  return sanitizeSlug(
+    filename
+      .replace(/^\d{4}-\d{2}-\d{2}-/, '')
+      .replace(/\.(md|mdx)$/, ''),
+  );
 }
 
 function createSeedPosts(): BlogPostRecord[] {
@@ -146,39 +168,6 @@ function createSeedPosts(): BlogPostRecord[] {
   });
 }
 
-function getSlugFromFilename(filename: string, explicitSlug?: unknown) {
-  if (typeof explicitSlug === 'string' && explicitSlug.length > 0) {
-    return sanitizeSlug(explicitSlug);
-  }
-
-  return sanitizeSlug(
-    filename
-      .replace(/^\d{4}-\d{2}-\d{2}-/, '')
-      .replace(/\.(md|mdx)$/, ''),
-  );
-}
-
-function sanitizeSlug(input: string) {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function normalizeDate(value: unknown) {
-  if (typeof value !== 'string' || value.length === 0) {
-    return null;
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date.toISOString();
-}
-
 function sortPosts(posts: BlogPostRecord[]) {
   return [...posts].sort((a, b) => {
     const statusWeight = (status: BlogStatus) => {
@@ -203,118 +192,81 @@ function sortPosts(posts: BlogPostRecord[]) {
   });
 }
 
-function mapRow(row: BlogPostRow): BlogPostRecord {
-  const tags = row.tags_json ? safeParseStringArray(row.tags_json) : [];
+function normalizeStoredPost(post: Partial<BlogPostRecord>): BlogPostRecord | null {
+  const slug = typeof post.slug === 'string' ? sanitizeSlug(post.slug) : '';
+  if (!slug) {
+    return null;
+  }
 
   return {
-    id: row.id,
-    slug: row.slug,
-    title: row.title,
-    description: row.description,
-    body: row.body,
-    status: row.status,
-    author: row.author,
-    tags,
-    seoTitle: row.seo_title,
-    seoDescription: row.seo_description,
-    publishedAt: row.published_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    source: row.source,
+    id: typeof post.id === 'string' ? post.id : crypto.randomUUID(),
+    slug,
+    title: typeof post.title === 'string' ? post.title : 'Untitled post',
+    description: typeof post.description === 'string' ? post.description : null,
+    body: typeof post.body === 'string' ? post.body : '',
+    status: normalizeStatus(post.status),
+    author: typeof post.author === 'string' ? post.author : null,
+    tags: Array.isArray(post.tags) ? post.tags.filter((item): item is string => typeof item === 'string') : [],
+    seoTitle: typeof post.seoTitle === 'string' ? post.seoTitle : null,
+    seoDescription: typeof post.seoDescription === 'string' ? post.seoDescription : null,
+    publishedAt: normalizeDate(post.publishedAt) ?? null,
+    createdAt: normalizeDate(post.createdAt) ?? new Date().toISOString(),
+    updatedAt: normalizeDate(post.updatedAt) ?? new Date().toISOString(),
+    source: normalizeSource(post.source),
   };
 }
 
-function safeParseStringArray(value: string) {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
-  } catch {
+function mergeSeedPosts(existingPosts: BlogPostRecord[], seedPosts: BlogPostRecord[]) {
+  const merged = new Map<string, BlogPostRecord>();
+
+  for (const post of existingPosts) {
+    merged.set(post.slug, post);
+  }
+
+  for (const seedPost of seedPosts) {
+    const existing = merged.get(seedPost.slug);
+
+    if (!existing || existing.source === 'seed') {
+      merged.set(seedPost.slug, existing ? {
+        ...seedPost,
+        id: existing.id,
+        createdAt: existing.createdAt,
+        updatedAt: seedPost.updatedAt,
+      } : seedPost);
+    }
+  }
+
+  return sortPosts(Array.from(merged.values()));
+}
+
+function ensureLocalDataDir() {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+function readLocalStoreRaw(): BlogPostRecord[] {
+  if (!fs.existsSync(localStorePath)) {
     return [];
   }
+
+  const text = fs.readFileSync(localStorePath, 'utf-8');
+  const parsed = JSON.parse(text) as Partial<BlogStoreFile>;
+  const posts = Array.isArray(parsed.posts) ? parsed.posts : [];
+
+  return posts
+    .map((post) => normalizeStoredPost(post))
+    .filter((post): post is BlogPostRecord => post !== null);
 }
 
-function getDatabase() {
-  if (!database) {
-    // Only try to create database if we're in local development mode
-    if (hasBlobStorage()) {
-      throw new Error('Blob storage is configured, but database was requested. This should not happen.');
-    }
-
-    try {
-      fs.mkdirSync(dataDir, { recursive: true });
-      database = new DatabaseSync(dbPath);
-      initializeDatabase(database);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw new Error('Cannot create data directory in production. Please configure BLOB_READ_WRITE_TOKEN environment variable for Vercel Blob storage.');
-      }
-      throw error;
-    }
-  }
-
-  return database;
+function writeLocalStore(posts: BlogPostRecord[]) {
+  ensureLocalDataDir();
+  const payload: BlogStoreFile = { version: 1, posts };
+  fs.writeFileSync(localStorePath, JSON.stringify(payload, null, 2), 'utf-8');
 }
 
-function initializeDatabase(db: DatabaseSync) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS blog_posts (
-      id TEXT PRIMARY KEY,
-      slug TEXT NOT NULL UNIQUE,
-      title TEXT NOT NULL,
-      description TEXT,
-      body TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('draft', 'review', 'published')),
-      author TEXT,
-      tags_json TEXT,
-      seo_title TEXT,
-      seo_description TEXT,
-      published_at TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL,
-      source TEXT NOT NULL DEFAULT 'cms' CHECK(source IN ('seed', 'cms'))
-    );
-
-    CREATE INDEX IF NOT EXISTS blog_posts_status_idx
-      ON blog_posts(status, published_at DESC, updated_at DESC);
-  `);
-
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO blog_posts (
-      id,
-      slug,
-      title,
-      description,
-      body,
-      status,
-      author,
-      tags_json,
-      seo_title,
-      seo_description,
-      published_at,
-      created_at,
-      updated_at,
-      source
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  for (const post of createSeedPosts()) {
-    insert.run(
-      post.id,
-      post.slug,
-      post.title,
-      post.description,
-      post.body,
-      post.status,
-      post.author,
-      JSON.stringify(post.tags),
-      post.seoTitle,
-      post.seoDescription,
-      post.publishedAt,
-      post.createdAt,
-      post.updatedAt,
-      post.source,
-    );
-  }
+function readLocalStore(): BlogPostRecord[] {
+  const mergedPosts = mergeSeedPosts(readLocalStoreRaw(), createSeedPosts());
+  writeLocalStore(mergedPosts);
+  return mergedPosts;
 }
 
 async function readBlobStore(): Promise<BlogPostRecord[]> {
@@ -342,10 +294,10 @@ async function readBlobStore(): Promise<BlogPostRecord[]> {
   }
 
   const text = await new Response(result.stream).text();
-  let parsed: Partial<BlobStoreFile>;
+  let parsed: Partial<BlogStoreFile>;
 
   try {
-    parsed = JSON.parse(text) as Partial<BlobStoreFile>;
+    parsed = JSON.parse(text) as Partial<BlogStoreFile>;
   } catch (error) {
     throw new Error('Failed to parse blog posts from Vercel Blob.', {
       cause: error,
@@ -354,26 +306,13 @@ async function readBlobStore(): Promise<BlogPostRecord[]> {
 
   const posts = Array.isArray(parsed.posts) ? parsed.posts : [];
 
-  return posts.map((post) => ({
-    id: typeof post.id === 'string' ? post.id : crypto.randomUUID(),
-    slug: typeof post.slug === 'string' ? sanitizeSlug(post.slug) : '',
-    title: typeof post.title === 'string' ? post.title : 'Untitled post',
-    description: typeof post.description === 'string' ? post.description : null,
-    body: typeof post.body === 'string' ? post.body : '',
-    status: normalizeStatus(post.status),
-    author: typeof post.author === 'string' ? post.author : null,
-    tags: Array.isArray(post.tags) ? post.tags.filter((item): item is string => typeof item === 'string') : [],
-    seoTitle: typeof post.seoTitle === 'string' ? post.seoTitle : null,
-    seoDescription: typeof post.seoDescription === 'string' ? post.seoDescription : null,
-    publishedAt: normalizeDate(post.publishedAt) ?? null,
-    createdAt: normalizeDate(post.createdAt) ?? new Date().toISOString(),
-    updatedAt: normalizeDate(post.updatedAt) ?? new Date().toISOString(),
-    source: normalizeSource(post.source),
-  })).filter((post) => post.slug.length > 0);
+  return posts
+    .map((post) => normalizeStoredPost(post))
+    .filter((post): post is BlogPostRecord => post !== null);
 }
 
 async function writeBlobStore(posts: BlogPostRecord[]) {
-  const payload: BlobStoreFile = {
+  const payload: BlogStoreFile = {
     version: 1,
     posts,
   };
@@ -393,88 +332,26 @@ async function getAllPostsInternal(): Promise<BlogPostRecord[]> {
       return sortPosts(await readBlobStore());
     } catch (error) {
       console.error('Failed to read from blob storage, falling back to seed posts:', error);
-      // If blob storage fails, fall back to seed posts
       return sortPosts(createSeedPosts());
     }
   }
 
-  // Check if we're in production environment
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Blog CMS requires BLOB_READ_WRITE_TOKEN environment variable to be set in production.');
   }
 
-  const db = getDatabase();
-  const rows = db.prepare(`
-    SELECT *
-    FROM blog_posts
-    ORDER BY
-      CASE status
-        WHEN 'published' THEN 0
-        WHEN 'review' THEN 1
-        ELSE 2
-      END,
-      COALESCE(published_at, updated_at) DESC
-  `).all<BlogPostRow>();
-
-  return rows.map(mapRow);
+  return readLocalStore();
 }
 
 async function saveAllPostsInternal(posts: BlogPostRecord[]) {
+  const sortedPosts = sortPosts(posts);
+
   if (hasBlobStorage()) {
-    await writeBlobStore(posts);
+    await writeBlobStore(sortedPosts);
     return;
   }
 
-  const db = getDatabase();
-  db.exec('BEGIN');
-
-  try {
-    const remove = db.prepare('DELETE FROM blog_posts');
-    remove.run();
-
-    const insert = db.prepare(`
-      INSERT INTO blog_posts (
-        id,
-        slug,
-        title,
-        description,
-        body,
-        status,
-        author,
-        tags_json,
-        seo_title,
-        seo_description,
-        published_at,
-        created_at,
-        updated_at,
-        source
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    for (const post of posts) {
-      insert.run(
-        post.id,
-        post.slug,
-        post.title,
-        post.description,
-        post.body,
-        post.status,
-        post.author,
-        JSON.stringify(post.tags),
-        post.seoTitle,
-        post.seoDescription,
-        post.publishedAt,
-        post.createdAt,
-        post.updatedAt,
-        post.source,
-      );
-    }
-
-    db.exec('COMMIT');
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
-  }
+  writeLocalStore(sortedPosts);
 }
 
 function validateInput(input: UpsertBlogPostInput) {
@@ -596,6 +473,6 @@ export async function upsertBlogPost(input: UpsertBlogPostInput): Promise<BlogPo
     ? posts.map((post) => (post.id === nextPost.id ? nextPost : post))
     : [...posts, nextPost];
 
-  await saveAllPostsInternal(sortPosts(nextPosts));
+  await saveAllPostsInternal(nextPosts);
   return nextPost;
 }
