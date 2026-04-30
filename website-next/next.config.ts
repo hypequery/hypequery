@@ -8,17 +8,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: '/:path*',
-        has: [
-          {
-            type: 'host',
-            value: 'hypequery.com',
-          },
-        ],
-        destination: 'https://www.hypequery.com/:path*',
-        permanent: true,
-      },
-      {
         source: '/blog/hypequery-vs-clickhouse-client',
         destination: '/compare/hypequery-vs-clickhouse-client',
         permanent: true,
