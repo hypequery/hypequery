@@ -1,24 +1,24 @@
-import { QueryConfig, FilterOperator, type CompiledQuery, type ExprNode, type SourceNode, type ValueNode } from '../../types/index.js';
+import { FilterOperator, type CompiledQuery, type ExprNode, type SelectQueryNode, type SourceNode, type ValueNode } from '../../types/index.js';
 
 export class SQLFormatter {
-  formatSelect(config: QueryConfig<any, any>): string {
-    const distinctClause = config.distinct ? 'DISTINCT ' : '';
-    if (!config.select?.length) return distinctClause + '*';
-    return distinctClause + config.select.map(item => item.selection).join(', ');
+  formatSelect(query: SelectQueryNode<any, any>): string {
+    const distinctClause = query.distinct ? 'DISTINCT ' : '';
+    if (!query.select?.length) return distinctClause + '*';
+    return distinctClause + query.select.map(item => item.selection).join(', ');
   }
 
-  formatGroupBy(config: QueryConfig<any, any>): string {
-    const groupBy = config.groupBy;
+  formatGroupBy(query: SelectQueryNode<any, any>): string {
+    const groupBy = query.groupBy;
     if (!groupBy?.length) return '';
     return groupBy.map(item => item.expression).join(', ');
   }
 
-  formatPrewhere(config: QueryConfig<any, any>): string {
-    return this.compileExpr(config.prewhere).query;
+  formatPrewhere(query: SelectQueryNode<any, any>): string {
+    return this.compileExpr(query.prewhere).query;
   }
 
-  formatWhere(config: QueryConfig<any, any>): string {
-    return this.compileExpr(config.where).query;
+  formatWhere(query: SelectQueryNode<any, any>): string {
+    return this.compileExpr(query.where).query;
   }
 
   formatFrom(source?: SourceNode): string {
@@ -169,11 +169,11 @@ export class SQLFormatter {
     };
   }
 
-  compileHaving(config: QueryConfig<any, any>): CompiledQuery {
-    if (!config.having?.length) return { query: '', parameters: [] };
+  compileHaving(query: SelectQueryNode<any, any>): CompiledQuery {
+    if (!query.having?.length) return { query: '', parameters: [] };
 
     return this.combineCompiledWithSeparator(
-      config.having.map(item => ({
+      query.having.map(item => ({
         query: item.expression,
         parameters: item.parameters?.map(parameter => parameter.value) || [],
       })),
@@ -195,10 +195,10 @@ export class SQLFormatter {
     }
   }
 
-  formatJoins(config: QueryConfig<any, any>): string {
-    if (!config.joins?.length) return '';
+  formatJoins(query: SelectQueryNode<any, any>): string {
+    if (!query.joins?.length) return '';
 
-    return config.joins.map(join => {
+    return query.joins.map(join => {
       const tableClause = join.alias
         ? `${join.table} AS ${join.alias}`
         : join.table;
@@ -206,14 +206,14 @@ export class SQLFormatter {
     }).join(' ');
   }
 
-  formatCtes(config: QueryConfig<any, any>): string {
-    if (!config.ctes?.length) return '';
-    return config.ctes.map(item => item.expression).join(', ');
+  formatCtes(query: SelectQueryNode<any, any>): string {
+    if (!query.ctes?.length) return '';
+    return query.ctes.map(item => item.expression).join(', ');
   }
 
-  formatOrderBy(config: QueryConfig<any, any>): string {
-    if (!config.orderBy?.length) return '';
-    return config.orderBy
+  formatOrderBy(query: SelectQueryNode<any, any>): string {
+    if (!query.orderBy?.length) return '';
+    return query.orderBy
       .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
       .join(', ');
   }

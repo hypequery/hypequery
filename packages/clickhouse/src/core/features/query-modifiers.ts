@@ -1,6 +1,6 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { OrderDirection } from '../../types/index.js';
+import { OrderDirection, type SelectQueryNode } from '../../types/index.js';
 
 export class QueryModifiersFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -8,43 +8,43 @@ export class QueryModifiersFeature<
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
-  addGroupBy(columns: string | string[]) {
-    const config = this.builder.getConfig();
+  addGroupBy(columns: string | string[]): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     return {
-      ...config,
+      ...query,
       groupBy: (Array.isArray(columns) ? columns.map(String) : [String(columns)])
         .map(expression => ({ kind: 'group-by-item' as const, expression }))
     };
   }
 
-  addLimit(count: number) {
-    const config = this.builder.getConfig();
+  addLimit(count: number): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     return {
-      ...config,
+      ...query,
       limit: count
     };
   }
 
-  addOffset(count: number) {
-    const config = this.builder.getConfig();
+  addOffset(count: number): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     return {
-      ...config,
+      ...query,
       offset: count
     };
   }
 
-  addOrderBy(column: string, direction: OrderDirection = 'ASC') {
-    const config = this.builder.getConfig();
+  addOrderBy(column: string, direction: OrderDirection = 'ASC'): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     return {
-      ...config,
-      orderBy: [...(config.orderBy || []), { kind: 'order-by-item' as const, column, direction }]
+      ...query,
+      orderBy: [...(query.orderBy || []), { kind: 'order-by-item' as const, column, direction }]
     };
   }
 
-  addHaving(condition: string, parameters?: any[]) {
-    const config = this.builder.getConfig();
+  addHaving(condition: string, parameters?: any[]): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     const having = [
-      ...(config.having || []),
+      ...(query.having || []),
       {
         kind: 'having' as const,
         expression: condition,
@@ -53,15 +53,15 @@ export class QueryModifiersFeature<
     ];
 
     return {
-      ...config,
+      ...query,
       having
     };
   }
 
-  setDistinct() {
-    const config = this.builder.getConfig();
+  setDistinct(): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     return {
-      ...config,
+      ...query,
       distinct: true
     };
   }

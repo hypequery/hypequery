@@ -200,6 +200,48 @@ describe('JoinRelationships', () => {
       );
     });
 
+    it('should throw when a single relationship starts from an unavailable source', () => {
+      relationships.define('usersToTestTable', {
+        from: 'users',
+        to: 'test_table',
+        leftColumn: 'id',
+        rightColumn: 'updated_by',
+        type: 'LEFT'
+      });
+
+      expect(() => {
+        builder.withRelation('usersToTestTable');
+      }).toThrow(
+        "Join relationship 'usersToTestTable' step 1 expects source 'users', but available sources are: test_table"
+      );
+    });
+
+    it('should throw when a join chain references an unavailable intermediate source', () => {
+      relationships.defineChain('brokenChain', [
+        {
+          from: 'test_table',
+          to: 'users',
+          leftColumn: 'created_by',
+          rightColumn: 'id',
+          type: 'INNER',
+          alias: 'creator'
+        },
+        {
+          from: 'users',
+          to: 'test_table',
+          leftColumn: 'id',
+          rightColumn: 'updated_by',
+          type: 'LEFT'
+        }
+      ]);
+
+      expect(() => {
+        builder.withRelation('brokenChain');
+      }).toThrow(
+        "Join relationship 'brokenChain' step 2 expects source 'users', but available sources are: test_table, creator"
+      );
+    });
+
     it('should throw error for undefined relationship', () => {
       expect(() => {
         builder.withRelation('nonexistent');

@@ -1,6 +1,6 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { JoinType, type QueryConfig } from '../../types/index.js';
+import { JoinType, type SelectQueryNode } from '../../types/index.js';
 
 export class JoinFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -14,15 +14,15 @@ export class JoinFeature<
     leftColumn: string,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
     alias?: string
-  ): QueryConfig<State['output'], Schema> {
-    const config = this.builder.getConfig();
+  ): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     const renderedRightColumn = alias
       ? rightColumn.replace(`${String(table)}.`, `${alias}.`) as typeof rightColumn
       : rightColumn;
     const newConfig = {
-      ...config,
+      ...query,
       joins: [
-        ...(config.joins || []),
+        ...(query.joins || []),
         {
           kind: 'join' as const,
           type,

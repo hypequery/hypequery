@@ -1,6 +1,6 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import { FilterOperator, type ExprNode, type ValueNode } from '../../types/index.js';
+import { FilterOperator, type ExprNode, type SelectQueryNode, type ValueNode } from '../../types/index.js';
 import { PredicateExpression } from '../utils/predicate-builder.js';
 
 function appendExpression(
@@ -63,8 +63,8 @@ export class FilteringFeature<
     column: string | string[],
     operator: FilterOperator,
     value: any
-  ) {
-    const config = this.builder.getConfig();
+  ): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
 
     const columnString = Array.isArray(column)
       ? `(${column.map(String).join(', ')})`
@@ -99,8 +99,8 @@ export class FilteringFeature<
     };
 
     return {
-      ...config,
-      [clause]: appendExpression(config[clause], nextExpr, conjunction)
+      ...query,
+      [clause]: appendExpression(query[clause], nextExpr, conjunction)
     };
   }
 
@@ -108,8 +108,8 @@ export class FilteringFeature<
     clause: 'where' | 'prewhere',
     conjunction: 'AND' | 'OR',
     expression: PredicateExpression
-  ) {
-    const config = this.builder.getConfig();
+  ): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
 
     const nextExpr: ExprNode = {
       kind: 'raw',
@@ -118,8 +118,8 @@ export class FilteringFeature<
     };
 
     return {
-      ...config,
-      [clause]: appendExpression(config[clause], nextExpr, conjunction)
+      ...query,
+      [clause]: appendExpression(query[clause], nextExpr, conjunction)
     };
   }
 
@@ -127,10 +127,10 @@ export class FilteringFeature<
     clause: 'where' | 'prewhere',
     conjunction: 'AND' | 'OR',
     expression: ExprNode | undefined
-  ) {
-    const config = this.builder.getConfig();
+  ): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
     if (!expression) {
-      return config;
+      return query;
     }
 
     const grouped: ExprNode = {
@@ -139,8 +139,8 @@ export class FilteringFeature<
     };
 
     return {
-      ...config,
-      [clause]: appendExpression(config[clause], grouped, conjunction)
+      ...query,
+      [clause]: appendExpression(query[clause], grouped, conjunction)
     };
   }
 }

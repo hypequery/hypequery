@@ -1,5 +1,6 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
+import type { SelectQueryNode } from '../../types/index.js';
 
 export class AggregationFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -11,15 +12,15 @@ export class AggregationFeature<
     column: string,
     fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
     alias: string
-  ) {
+  ): SelectQueryNode<State['output'], Schema> {
     const aggregationSQL = `${fn}(${column}) AS ${alias}`;
-    const config = this.builder.getConfig();
+    const query = this.builder.getQueryNode();
 
-    if (config.select) {
-      const selections = config.select.map(item => item.selection);
+    if (query.select) {
+      const selections = query.select.map(item => item.selection);
       return {
-        ...config,
-        select: [...config.select, { kind: 'selection' as const, selection: aggregationSQL }],
+        ...query,
+        select: [...query.select, { kind: 'selection' as const, selection: aggregationSQL }],
         groupBy: selections
           .filter(col => !col.includes(' AS '))
           .map(expression => ({ kind: 'group-by-item' as const, expression }))
@@ -27,7 +28,7 @@ export class AggregationFeature<
     }
 
     return {
-      ...config,
+      ...query,
       select: [{ kind: 'selection' as const, selection: aggregationSQL }]
     };
   }

@@ -40,6 +40,8 @@ import type { CacheOptions, CacheConfig } from './cache/types.js';
 import type { QueryRuntimeContext } from './cache/runtime-context.js';
 import { executeWithCache } from './cache/cache-manager.js';
 import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.js';
+import { normalizeFilterApplication } from './utils/filter-application.js';
+import { applyRelationPath, resolveRelationPath } from './utils/relation-application.js';
 import type {
   BuilderState,
   AnyBuilderState,
@@ -204,9 +206,9 @@ export class QueryBuilder<
     >
   >(
     state: NextState,
-    config: QueryConfig<NextState['output'], Schema>
+    query: SelectQueryNode<NextState['output'], Schema>
   ): QueryBuilder<Schema, NextState> {
-    return this.transition(state, config);
+    return this.transition(state, query);
   }
 
   private transition<
@@ -219,10 +221,10 @@ export class QueryBuilder<
     >
   >(
     state: NextState,
-    query: QueryConfig<NextState['output'], Schema> | SelectQueryNode<NextState['output'], Schema>
+    query: SelectQueryNode<NextState['output'], Schema>
   ): QueryBuilder<Schema, NextState> {
     const builder = new QueryBuilder<Schema, NextState>(this.tableName, state, this.runtime, this.adapter, this.dialect);
-    builder.query = createSelectQueryNode(query);
+    builder.query = cloneSelectQueryNode(query);
     builder.cacheOptions = this.cacheOptions ? { ...this.cacheOptions } : undefined;
     builder.queryTransforms = [...this.queryTransforms] as Array<QueryNodeTransform<NextState['output'], Schema>>;
     return builder;
@@ -234,16 +236,16 @@ export class QueryBuilder<
 
   private assignQuery(
     builder: this,
-    query: QueryConfig<State['output'], Schema> | SelectQueryNode<State['output'], Schema>
+    query: SelectQueryNode<State['output'], Schema>
   ): this {
-    builder.query = createSelectQueryNode(query);
+    builder.query = cloneSelectQueryNode(query);
     return builder;
   }
 
   private updateQuery(
     updater: (
       query: SelectQueryNode<State['output'], Schema>
-    ) => QueryConfig<State['output'], Schema> | SelectQueryNode<State['output'], Schema>
+    ) => SelectQueryNode<State['output'], Schema>
   ): this {
     return this.assignQuery(this.cloneMutable(), updater(this.query));
   }
@@ -270,7 +272,7 @@ export class QueryBuilder<
     } as UpdateOutput<State, NextOutput>;
   }
 
-  private buildSelectQuery<NextOutput>(selections: string[]): QueryConfig<NextOutput, Schema> {
+  private buildSelectQuery<NextOutput>(selections: string[]): SelectQueryNode<NextOutput, Schema> {
     return {
       ...this.query,
       select: selections.map(selection => ({ kind: 'selection' as const, selection })),
@@ -534,7 +536,7 @@ export class QueryBuilder<
     column: Column,
     alias: Alias | undefined,
     suffix: string,
-    updater: (column: string, alias: Alias) => QueryConfig<AppendToOutput<State, Record<Alias, string>>['output'], Schema>
+    updater: (column: string, alias: Alias) => SelectQueryNode<AppendToOutput<State, Record<Alias, string>>['output'], Schema>
   ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
     const columnName = String(column);
     const finalAlias = (alias || `${columnName}_${suffix}`) as Alias;
@@ -645,53 +647,27 @@ export class QueryBuilder<
     operator?: FilterOperator,
     value?: any
   ): this {
-    if (typeof columnOrColumns === 'function') {
-      const expression = columnOrColumns(createPredicateBuilder<State>());
-      return this.updateQuery(() => this.filtering.addExpressionCondition(clause, conjunction, expression));
+    const normalized = normalizeFilterApplication(
+      clause,
+      conjunction,
+      columnOrColumns as string | string[] | ((expr: PredicateBuilder<any>) => PredicateExpression),
+      operator,
+      value,
+      builder => builder(createPredicateBuilder<State>())
+    );
+
+    if (normalized.kind === 'expression') {
+      return this.updateQuery(() => this.filtering.addExpressionCondition(clause, conjunction, normalized.expression));
     }
 
-    if (operator === undefined) {
-      throw new Error(`Operator is required when specifying a column for ${conjunction === 'AND' ? clause : `or${clause[0]!.toUpperCase()}${clause.slice(1)}`}()`);
-    }
-
-    if (Array.isArray(columnOrColumns) && (operator === 'inTuple' || operator === 'globalInTuple')) {
-      const columns = columnOrColumns.map(String);
-      if (!Array.isArray(value)) {
-        throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
-      }
-      value.forEach((tuple: unknown, index: number) => {
-        if (!Array.isArray(tuple)) {
-          throw new Error(`Expected tuple ${index + 1} for ${operator} operator to be an array`);
-        }
-        if (tuple.length !== columns.length) {
-          throw new Error(
-            `Expected tuple ${index + 1} for ${operator} operator to have ${columns.length} values, but got ${tuple.length}`
-          );
-        }
-      });
-      this.validateFilterValue(columnOrColumns, operator, value);
-      return this.updateQuery(() => this.filtering.addCondition(clause, conjunction, columns, operator, value));
-    }
-
-    if (operator === 'inTuple' || operator === 'globalInTuple') {
-      if (!Array.isArray(value)) {
-        throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
-      }
-      value.forEach((tuple: unknown, index: number) => {
-        if (!Array.isArray(tuple)) {
-          throw new Error(`Expected tuple ${index + 1} for ${operator} operator to be an array`);
-        }
-        if (tuple.length !== 1) {
-          throw new Error(
-            `Expected tuple ${index + 1} for ${operator} operator to have 1 value, but got ${tuple.length}`
-          );
-        }
-      });
-    }
-
-    const column = Array.isArray(columnOrColumns) ? String(columnOrColumns[0]) : String(columnOrColumns);
-    this.validateFilterValue(columnOrColumns as WhereColumn<State>, operator, value);
-    return this.updateQuery(() => this.filtering.addCondition(clause, conjunction, column, operator, value));
+    this.validateFilterValue(normalized.validationTarget as WhereColumn<State> | WhereColumn<State>[], normalized.operator, normalized.value);
+    return this.updateQuery(() => this.filtering.addCondition(
+      clause,
+      conjunction,
+      normalized.column,
+      normalized.operator,
+      normalized.value
+    ));
   }
 
   /**
@@ -815,7 +791,7 @@ export class QueryBuilder<
    */
   whereGroup(callback: (builder: this) => void): this {
     const groupBuilder = this.runDraftCallback(this.createDetachedBuilder(), callback);
-    return this.updateQuery(() => this.filtering.addGroup('where', 'AND', groupBuilder.getConfig().where));
+    return this.updateQuery(() => this.filtering.addGroup('where', 'AND', groupBuilder.getQueryNode().where));
   }
 
   /**
@@ -831,7 +807,7 @@ export class QueryBuilder<
    */
   orWhereGroup(callback: (builder: this) => void): this {
     const groupBuilder = this.runDraftCallback(this.createDetachedBuilder(), callback);
-    return this.updateQuery(() => this.filtering.addGroup('where', 'OR', groupBuilder.getConfig().where));
+    return this.updateQuery(() => this.filtering.addGroup('where', 'OR', groupBuilder.getQueryNode().where));
   }
 
   /**
@@ -1057,45 +1033,22 @@ export class QueryBuilder<
     nameOrPath: string | JoinPath<Schema> | readonly JoinPath<Schema>[],
     options?: JoinPathOptions
   ): QueryBuilder<Schema, any> {
-    let next = this.cloneMutable();
-    let path: JoinPath<Schema> | readonly JoinPath<Schema>[];
-
-    if (typeof nameOrPath === 'string') {
-      const relationships = QueryBuilder.relationships;
-      if (!relationships) {
-        throw new Error('Join relationships have not been initialized. Call QueryBuilder.setJoinRelationships first.');
-      }
-
-      const resolved = relationships.get(nameOrPath);
-      if (!resolved) {
-        throw new Error(`Join relationship '${nameOrPath}' not found`);
-      }
-      path = resolved;
-    } else {
-      path = nameOrPath;
-    }
-
-    if (Array.isArray(path) && options?.alias) {
-      const nameLabel = typeof nameOrPath === 'string' ? `'${nameOrPath}' ` : '';
-      throw new Error(
-        `Join relationship ${nameLabel}is a chain; alias override is only supported for single-join relationships`
-      );
-    }
-
-    const applyJoin = (joinPath: JoinPath<Schema>) => {
+    const next = this.cloneMutable();
+    const { path, label } = resolveRelationPath(nameOrPath, QueryBuilder.relationships as JoinRelationships<Schema> | undefined);
+    next.query = applyRelationPath(
+      next.query,
+      path,
+      options,
+      (currentQuery, joinPath, relationOptions) => {
+        next.query = currentQuery;
       const type = options?.type || joinPath.type || 'INNER';
-      const alias = options?.alias || joinPath.alias;
+      const alias = relationOptions?.alias || joinPath.alias;
       const table = String(joinPath.to) as Extract<keyof Schema, string>;
       const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
-      next.query = createSelectQueryNode(next.joins.addJoin(type, table, String(joinPath.leftColumn), rightColumn, alias));
-    };
-
-    if (Array.isArray(path)) {
-      path.forEach(applyJoin);
-    } else {
-      applyJoin(path as JoinPath<Schema>);
-    }
-
+        return next.joins.addJoin(type, table, String(joinPath.leftColumn), rightColumn, alias);
+      },
+      label
+    );
     return next;
   }
 }
