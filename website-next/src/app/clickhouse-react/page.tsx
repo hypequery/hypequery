@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse React',
   description:
-    'Use ClickHouse with React through typed hooks, shared query definitions, and TanStack Query-powered caching instead of hand-rolled fetch wrappers.',
+    'Use ClickHouse from React through typed hooks and a shared server API instead of hand-rolled fetch wrappers per component.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-react'),
   },
@@ -50,7 +50,7 @@ export default function ClickHouseReactPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse React"
       title="Use ClickHouse in React with typed hooks instead of custom fetch glue"
-      description="React teams want analytics queries that are cache-aware, type-safe, and easy to reuse across charts and dashboards. hypequery gives you shared query definitions on the server and typed React hooks on the client."
+      description="This page starts where the server pages stop. The query already exists on the backend. The React problem is how components consume it without rebuilding request helpers, cache logic, and response types over and over."
       primaryCta={{ href: '/docs/react/getting-started', label: 'Open React docs' }}
       secondaryCta={{ href: '/docs/react/using-queries', label: 'See hook usage examples' }}
       stats={[
@@ -60,26 +60,26 @@ export default function ClickHouseReactPage() {
       ]}
       problems={[
         {
-          title: 'React dashboards grow a lot of fragile fetch code',
+          title: 'Components keep growing their own request wrappers',
           copy:
-            'Teams often hand-roll request helpers, response types, loading states, and cache invalidation logic for every chart. The complexity compounds fast.',
+            'A dashboard starts with one chart and quickly becomes a stack of `fetch`, loading state, error handling, cache invalidation, and manually typed response objects.',
         },
         {
-          title: 'Client code should not know raw ClickHouse details',
+          title: 'The browser should not own analytics schema details',
           copy:
-            'A browser should not care about schema drift, `UInt64` mapping, or how analytics SQL is built. It should call a typed contract and render the result.',
+            'The UI should not need to know about ClickHouse return types or how backend query code is assembled. It should call a typed API surface and render what comes back.',
         },
         {
-          title: 'Server and client types usually drift apart',
+          title: 'Client typing drifts when it is maintained separately',
           copy:
-            'When the API layer and React layer are typed separately, changes arrive as runtime bugs instead of compile-time feedback.',
+            'Once the React layer starts owning its own request and response types, changes show up as UI bugs rather than compiler errors.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'React-friendly model',
-        title: 'Generate hooks from the same analytics API your server already owns',
+        eyebrow: 'The client-side shape',
+        title: 'Derive hooks from the server API instead of recreating it',
         description:
-          'The stable pattern is straightforward: define analytics on the server, expose them over HTTP, and derive React hooks from that definition so the browser stays thin.',
+          'The clean React model is straightforward: keep analytics on the server, expose a typed API, and let the hook layer inherit that type so components stay focused on UI behavior.',
         bullets: [
           'Keep ClickHouse access and schema knowledge on the server',
           'Infer hook types directly from the serve API',
@@ -89,49 +89,49 @@ export default function ClickHouseReactPage() {
         ],
         codePanel: {
           eyebrow: 'Hook setup',
-          title: 'Create hooks from the server API type',
+          title: 'One hook layer for the whole React app',
           description:
-            'This is the key to keeping React in sync with the real analytics contract instead of maintaining a second hand-written client schema.',
+            'This is the boundary worth preserving. The hook layer learns from the API type rather than inventing its own client-side contract.',
           code: hooksCode,
         },
       }}
       implementationSection={{
         eyebrow: 'Dashboard usage',
-        title: 'Keep components focused on rendering and interaction',
+        title: 'Let components deal with UI state, not transport details',
         description:
-          'Once the hook layer exists, React components become much simpler. They ask for a named query with typed input, then render loading, error, and success states without custom networking glue.',
+          'Once the hooks exist, a component can ask for a named query and render it. That keeps the React layer concerned with charts, filters, and interaction instead of transport details.',
         paragraphs: [
-          'This fits especially well with ClickHouse dashboards where multiple charts share filters and query lifecycles. TanStack Query handles the browser concerns while hypequery preserves the analytics contract.',
-          'If your app is on Next.js, combine this pattern with the Next.js pillar page so server-rendered and client-rendered analytics use the same backend definitions.',
+          'This pays off quickly in dashboards where several panels share filters and revalidation rules. TanStack Query handles the browser lifecycle while the backend still owns the actual analytics definition.',
+          'If your main concern is App Router delivery and server components, use the Next.js page. This page is specifically about the client hook layer.',
         ],
         codePanel: {
           eyebrow: 'Component',
-          title: 'Use a typed analytics hook in React',
+          title: 'A chart component that only consumes a typed hook',
           description:
-            'The component only deals with UI state. Query naming, input shape, and output typing all come from the shared analytics layer.',
+            'The component does not import ClickHouse types or know about SQL. It consumes the typed hook and renders UI state.',
           code: componentCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse React hooks',
+          title: 'What this page replaces',
           copy:
-            'If you are searching for React hooks for ClickHouse, the right abstraction is usually a typed analytics API plus generated hooks, not direct database access from the browser.',
+            'It replaces component-level fetch helpers and hand-written hook wrappers that slowly diverge from the backend response shape.',
         },
         {
-          title: 'React dashboard data fetching for analytics',
+          title: 'Where React should stop',
           copy:
-            'Interactive dashboards need cache control, background updates, and typed inputs. TanStack Query plus a schema-driven API is the pragmatic route.',
+            'The React layer should own cache behavior and UI state, not ClickHouse details or backend schema assumptions.',
         },
         {
-          title: 'Type-safe React queries on ClickHouse',
+          title: 'What makes the typing trustworthy',
           copy:
-            'Type safety only matters if the server contract is accurate. That starts with schema-driven analytics definitions, not just client-side TypeScript wrappers.',
+            'The hook types are useful because they are derived from the backend API definition, which is itself derived from the query layer.',
         },
         {
-          title: 'When React should call HTTP vs server code',
+          title: 'Where to branch next',
           copy:
-            'Server components can execute locally, but browser components need HTTP. A shared analytics layer lets both paths use the same query definition.',
+            'Use the Next.js page for local server execution versus HTTP delivery. Use this page when the hook layer itself is the thing you are designing.',
         },
       ]}
       readingLinks={[

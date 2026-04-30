@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer | hypequery',
   description:
-    'Build customer-facing analytics on ClickHouse for your SaaS product. hypequery handles tenant isolation, typed APIs, React hooks, and dashboard delivery — without building a custom analytics layer.',
+    'Build customer-facing ClickHouse analytics with tenant-scoped query definitions, typed APIs, and dashboard delivery that does not fork per surface.',
   alternates: { canonical: absoluteUrl('/clickhouse-saas-analytics') },
   openGraph: {
     type: 'website',
@@ -46,18 +46,21 @@ const usageDashboard = query({
 const app = serve({ queries: { usageDashboard } });`;
 
 const reactCode = `import { createHooks } from '@hypequery/react';
-import { usageDashboard } from './analytics';
+import { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/usage-queries';
 
-const { useUsageDashboard } = createHooks({ usageDashboard });
+type Api = InferApiType<typeof api>;
+
+const { useQuery } = createHooks<Api>({ baseUrl: '/api/analytics' });
 
 function AnalyticsDashboard() {
-  const { data, loading } = useUsageDashboard();
+  const { data, isLoading } = useQuery('usageDashboard', {});
 
-  if (loading) return <Skeleton />;
+  if (isLoading) return <Skeleton />;
 
   return (
     <BarChart
-      data={data}
+      data={data ?? []}
       xKey="date"
       yKey="total"
     />
@@ -69,8 +72,8 @@ export default function ClickHouseSaasAnalyticsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse SaaS Analytics"
       title="Embed customer-facing analytics in your SaaS product with ClickHouse"
-      description="Customer-facing analytics is where ClickHouse stops being just a database choice and becomes a product architecture problem. You need tenant scoping, stable metric contracts, and dashboard delivery patterns that can survive feature growth. hypequery is aimed at that layer."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
+      description="This is the point where analytics becomes product surface, not just internal reporting. You need tenant scoping that is hard to bypass, a stable API for the UI, and one query path that can serve dashboards, exports, and internal support views without splitting into separate implementations."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-multi-tenant-analytics', label: 'See multi-tenant guide' }}
       stats={[
         { label: 'Tenant isolation', value: 'Enforced in context' },
@@ -79,78 +82,78 @@ export default function ClickHouseSaasAnalyticsPage() {
       ]}
       problems={[
         {
-          title: 'Tenant isolation is easy to forget and hard to audit',
+          title: 'Tenant scoping fails quietly when it is copied by hand',
           copy:
-            'Every ClickHouse query in a multi-tenant SaaS product needs a tenant_id filter. Applying it at the query level means every developer has to remember it — and auditing whether every query is correctly isolated is slow and error-prone.',
+            'If every query author has to remember the tenant filter, somebody eventually forgets it. That is not a style issue. It is a product risk.',
         },
         {
-          title: 'Building a custom analytics API layer takes weeks',
+          title: 'Customer-facing analytics grows more consumers than expected',
           copy:
-            'Most SaaS teams build a custom Express or Next.js API layer between ClickHouse and the dashboard frontend. Auth, tenancy, validation, response typing — it is not trivial and it is not their core product.',
+            'The same usage metric often ends up on the customer dashboard, in support tooling, in exports, and inside internal admin screens. Separate implementations for each surface do not stay aligned for long.',
         },
         {
-          title: 'Analytics queries get duplicated across the product',
+          title: 'The API layer becomes a product of its own',
           copy:
-            'The same usage metrics appear on the customer dashboard, the admin panel, CSV exports, and scheduled reports. Each surface has its own query implementation that drifts from the others.',
+            'Once auth, validation, tenancy, and response typing are all hand-built around ClickHouse, teams accidentally sign up to maintain an analytics platform inside the app.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'How hypequery handles SaaS analytics',
-        title: 'Tenant isolation in the context layer, not the query layer',
+        eyebrow: 'The safe default',
+        title: 'Put tenant context in the standard request path',
         description:
-          'hypequery injects tenant context once — at the request level — and makes it available to every query. That gives teams a standard place to apply tenant scoping instead of threading tenant IDs through every request shape by hand. Define analytics queries once and serve them across every product surface.',
+          'The useful move here is centralization. Put auth and tenant lookup in the request context, make every query read from that context, and keep the customer-facing API surface tied to those shared definitions.',
         bullets: [
           'Tenant ID injected per-request from JWT, API key, or session',
           'Every query in the serve() call has access to typed tenant context',
-          'Tenant scoping is centralised in the standard request path',
-          'Same query definition serves dashboard, API, export, and report',
-          'React hooks consume typed endpoints directly — no custom client code',
+          'Tenant scoping lives in one reviewable path instead of every query file',
+          'The same query definition can serve dashboard, API, export, and report use cases',
+          'React hooks consume typed endpoints directly instead of custom client glue',
         ],
         codePanel: {
           eyebrow: 'Tenant isolation',
-          title: 'Tenant context enforced at the request level',
+          title: 'Inject tenant once, use it everywhere downstream',
           description:
-            'The tenant ID is injected once in the context function. Every query in the serve() call has access to it automatically, which keeps tenant scoping in one reviewable place.',
+            'The important thing is not the syntax. It is that the tenant boundary stops being optional once the request enters the standard query path.',
           code: tenantCode,
         },
       }}
       implementationSection={{
         eyebrow: 'Dashboard delivery',
-        title: 'Typed React hooks for your customer dashboard',
+        title: 'Let the UI consume the typed API instead of rebuilding it',
         description:
-          '@hypequery/react wraps your typed REST endpoints as React hooks. Your dashboard components get typed data without writing custom fetch logic, managing loading states manually, or handling error boundaries from scratch.',
+          'Once the backend surface is tenant-scoped and typed, the frontend can stay much thinner. Customer dashboards consume the existing API through hooks instead of inventing another analytics client inside the browser.',
         paragraphs: [
-          'The hook knows the exact shape of the response because it comes from the same type definition as the ClickHouse query. When the query changes, the hook type updates automatically.',
-          'Read the multi-tenant analytics guide for the full isolation pattern, and the React guide for hook usage in dashboard components.',
+          'That does not just help the customer dashboard. The same endpoint shape can also serve support tooling or internal product surfaces without another round of hand-written typing.',
+          'Read the multi-tenant guide for the full isolation story, and the React guide if you want the hook layer details by themselves.',
         ],
         codePanel: {
           eyebrow: 'React hooks',
-          title: 'Typed dashboard components from ClickHouse queries',
+          title: 'A customer-facing component that stays close to the UI',
           description:
-            'createHooks() wraps your query definitions as React hooks. Data is typed, loading state is managed, and the response shape matches the ClickHouse schema — no glue code.',
+            'The component does not need to know how tenant scoping works or how the query is built. It consumes the typed surface that the backend already owns.',
           code: reactCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'Embedded analytics ClickHouse SaaS',
+          title: 'What this page is really about',
           copy:
-            'Embedding analytics in a SaaS product on ClickHouse requires tenant scoping, a typed API layer, and dashboard delivery. hypequery is positioned as the TypeScript layer that ties those concerns together inside one codebase.',
+            'It is about not letting customer-facing analytics split into one-off dashboard code, one-off export code, and one-off admin code with different isolation assumptions.',
         },
         {
-          title: 'ClickHouse multi-tenant analytics TypeScript',
+          title: 'Why tenant context matters so much',
           copy:
-            'The most reliable way to enforce tenant isolation in ClickHouse is to inject tenantId at the request context level rather than relying on per-query filters. hypequery makes this the default pattern.',
+            'The safest default is to make tenant identity part of the request context and let every query read from it. That is much easier to review than trusting scattered filters.',
         },
         {
-          title: 'Customer-facing analytics on ClickHouse',
+          title: 'What teams get out of this',
           copy:
-            'ClickHouse handles the volume and cardinality that customer-facing analytics requires. hypequery provides the TypeScript layer between ClickHouse and your product — typed queries, validated APIs, and React hooks.',
+            'One API surface, one scoping model, and fewer opportunities for customer-facing metrics to drift between product surfaces.',
         },
         {
-          title: 'ClickHouse analytics API for SaaS dashboard',
+          title: 'Where to go after this',
           copy:
-            'Instead of building a custom analytics API layer with Express or Next.js API routes, define your analytics queries with hypequery and serve them as typed REST endpoints with OpenAPI docs automatically.',
+            'Use the multi-tenant guide for the deeper isolation pattern and the dashboard or React pages for the frontend delivery side.',
         },
       ]}
       readingLinks={[
@@ -183,10 +186,10 @@ export default function ClickHouseSaasAnalyticsPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Build your first tenant-isolated ClickHouse analytics endpoint',
+        title: 'Start with one customer-facing metric and scope it properly',
         description:
-          'Start with schema generation, define a tenant-scoped query, and serve it as a typed API endpoint. The React hook for your dashboard comes from the same definition.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Pick a metric that reaches customers, move it behind a tenant-scoped query definition, and expose it once through the standard API path. That gives you the right foundation before the surface area multiplies.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/clickhouse-multi-tenant-analytics', label: 'Read the multi-tenant guide' },
       }}
     />

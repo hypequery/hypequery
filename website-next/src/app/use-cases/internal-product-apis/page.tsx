@@ -8,7 +8,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Internal Product APIs with ClickHouse Analytics',
   description:
-    'Add type-safe ClickHouse analytics to existing product APIs with reusable query definitions, stable route contracts, and optional HTTP exposure.',
+    'Add ClickHouse analytics to the backend you already run without rewriting your public API surface first.',
   alternates: {
     canonical: absoluteUrl('/use-cases/internal-product-apis'),
   },
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/use-cases/internal-product-apis'),
     title: 'Internal Product APIs with ClickHouse Analytics | hypequery',
     description:
-      'Layer reusable ClickHouse analytics into existing backend routes without duplicating SQL across services.',
+      'Keep your existing backend routes and move repeated analytics logic onto one shared ClickHouse query path.',
   },
 };
 
@@ -93,8 +93,7 @@ export default function InternalProductApisUseCasePage() {
               Internal product APIs with embedded ClickHouse analytics
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-              Layer type-safe analytics into the backend you already run. Keep product
-              routes stable while exposing analytics under an internal namespace.
+              This is the migration path for teams that already have a backend and do not want to split it into a separate analytics service on day one. Keep the existing routes, move the query logic onto a shared path, and expose more only when it earns its place.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
@@ -131,24 +130,24 @@ export default function InternalProductApisUseCasePage() {
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="grid gap-6 md:grid-cols-3">
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Keep route contracts stable</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Existing API consumers keep working while analytics ships behind internal paths.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Use one query definition</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Call analytics from handlers with <code>api.run(...)</code> and expose the same logic via HTTP.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Scale rollout safely</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Start with one endpoint, validate outcomes, then expand into a broader internal API surface.
-              </p>
-            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Keep route contracts stable</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Existing consumers do not need to notice the migration while you move analytics logic behind an internal path.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Use one query definition</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Let handlers call `api.run(...)` directly and expose the same definition over HTTP only where it is genuinely useful.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Scale rollout safely</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Start with one endpoint or one response shape, see what sticks, then widen the internal surface deliberately.
+	              </p>
+	            </div>
           </div>
         </section>
 
@@ -159,34 +158,33 @@ export default function InternalProductApisUseCasePage() {
               <div className="border border-slate-700 bg-slate-900/70 p-6">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 1</p>
                 <h3 className="font-display mt-3 text-lg font-semibold text-slate-100">Mount internal routes</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Add HypeQuery under a dedicated internal namespace beside current handlers.
-                </p>
+	                <p className="mt-3 text-sm leading-7 text-slate-300">
+	                  Mount the analytics handler beside the routes you already run instead of restructuring the whole backend first.
+	                </p>
               </div>
               <div className="border border-slate-700 bg-slate-900/70 p-6">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 2</p>
                 <h3 className="font-display mt-3 text-lg font-semibold text-slate-100">Compose in endpoints</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Pull analytics into product responses directly from business endpoints.
-                </p>
+	                <p className="mt-3 text-sm leading-7 text-slate-300">
+	                  Pull analytics into existing business responses without turning every route into bespoke query code.
+	                </p>
               </div>
               <div className="border border-slate-700 bg-slate-900/70 p-6">
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Step 3</p>
                 <h3 className="font-display mt-3 text-lg font-semibold text-slate-100">Reuse query logic</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Keep one typed source of truth for both in-process and routed analytics execution.
-                </p>
+	                <p className="mt-3 text-sm leading-7 text-slate-300">
+	                  Keep one typed source of truth whether the query is called directly or exposed under an internal path.
+	                </p>
               </div>
             </div>
           </div>
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <h2 className="font-display text-2xl font-semibold text-gray-100">Works with your existing routes</h2>
-          <p className="mt-3 text-lg leading-8 text-gray-300">
-            Your backend stays in control. Mount HypeQuery routes where you want
-            them.
-          </p>
+	          <h2 className="font-display text-2xl font-semibold text-gray-100">Works with your existing routes</h2>
+	          <p className="mt-3 text-lg leading-8 text-gray-300">
+	            The route tree stays yours. Add the analytics surface where it fits instead of adopting a separate service boundary immediately.
+	          </p>
           <CodeWindow code={routesCode} filename="routes.ts" className="mt-6" />
         </section>
 
@@ -194,10 +192,9 @@ export default function InternalProductApisUseCasePage() {
           <h2 className="font-display text-2xl font-semibold text-gray-100">
             Compose analytics directly in business endpoints
           </h2>
-          <p className="mt-3 text-lg leading-8 text-gray-300">
-            Use <code>api.run(...)</code> from existing handlers whenever product
-            responses need analytics context.
-          </p>
+	          <p className="mt-3 text-lg leading-8 text-gray-300">
+	            Use `api.run(...)` when a product response needs analytics context but does not need another network hop inside the same backend.
+	          </p>
           <CodeWindow code={composeCode} filename="products.ts" className="mt-6" />
         </section>
 
@@ -205,10 +202,9 @@ export default function InternalProductApisUseCasePage() {
           <h2 className="font-display text-2xl font-semibold text-gray-100">
             Define once, reuse everywhere
           </h2>
-          <p className="mt-3 text-lg leading-8 text-gray-300">
-            The same query definitions can power internal HTTP routes and
-            in-process calls.
-          </p>
+	          <p className="mt-3 text-lg leading-8 text-gray-300">
+	            The same definition can back an internal route and an in-process call, which is the whole point of this adoption path.
+	          </p>
           <CodeWindow code={defineOnceCode} filename="analytics/api.ts" className="mt-6" />
         </section>
 
@@ -218,15 +214,15 @@ export default function InternalProductApisUseCasePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Ready to implement
               </p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
-                Use this as your first production migration path
-              </h2>
-              <ul className="mt-4 space-y-2 text-sm leading-7 text-slate-300">
-                <li>Keep existing consumer contracts intact</li>
-                <li>Move analytics logic into typed definitions</li>
-                <li>Expand exposure only when your team is ready</li>
-              </ul>
-            </div>
+	              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
+	                Use this as your first production migration path
+	              </h2>
+	              <ul className="mt-4 space-y-2 text-sm leading-7 text-slate-300">
+	                <li>Keep existing consumer contracts intact</li>
+	                <li>Move the query logic into one typed definition</li>
+	                <li>Expose more surface area only when the team actually needs it</li>
+	              </ul>
+	            </div>
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"

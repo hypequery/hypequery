@@ -8,7 +8,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Compare Hypequery',
   description:
-    'Compare hypequery against the ClickHouse client and Kysely for ClickHouse-first TypeScript analytics use cases.',
+    'Compare hypequery against the main ClickHouse TypeScript options and start from the tradeoff closest to your current stack.',
   alternates: {
     canonical: absoluteUrl('/compare'),
   },
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/compare'),
     title: 'Compare hypequery | ClickHouse TypeScript Tradeoffs',
     description:
-      'Decision guides for teams evaluating hypequery against other ClickHouse TypeScript approaches.',
+      'Compare hypequery with the main ClickHouse TypeScript options and move quickly from evaluation into a real implementation test.',
   },
 };
 
@@ -47,8 +47,7 @@ export default function CompareIndexPage() {
               Compare hypequery against the main ClickHouse TypeScript options
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-              These pages are for teams deciding how to structure ClickHouse access in TypeScript. Start with the
-              comparison closest to your current stack, then move into the implementation guides.
+              These pages are for teams trying to decide what to keep and what to replace. Start with the comparison that matches the tool or pattern you already use, then move into implementation only if the tradeoff is actually clear.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <div className="border border-slate-700/80 bg-slate-950/70 p-5">
@@ -69,24 +68,24 @@ export default function CompareIndexPage() {
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="mb-10 grid gap-6 md:grid-cols-3">
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Built for real evaluations</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Each comparison focuses on what changes when ClickHouse is part of the architecture, not generic query-builder advice.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Linked to implementation</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Every comparison page leads directly into the docs and pillar pages so the evaluation can turn into implementation quickly.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Opinionated about fit</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                The goal is to clarify where hypequery fits well and where a lower-level or more general tool may still be the right choice.
-              </p>
-            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Built for real evaluations</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Each page is written around the actual switch a team might make, not a generic feature checklist.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Linked to implementation</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                If a comparison is useful, it should get you into the docs quickly rather than trapping you in more comparison content.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Opinionated about fit</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                The goal is to clarify where hypequery fits and where the other tool should remain the right choice.
+	              </p>
+	            </div>
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
             {comparePages.map((page) => (
@@ -119,12 +118,12 @@ export default function CompareIndexPage() {
           <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">Next step</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
-                Start with the quick start once you know the shape you want
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                Move from evaluation into implementation with generated schema types and your first reusable query.
-              </p>
+	              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
+	                Start with the quick start once you know the shape you want
+	              </h2>
+	              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+	                Do not linger in comparison mode longer than necessary. Once one path looks right, test it against your own schema and one real query.
+	              </p>
             </div>
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link

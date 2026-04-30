@@ -5,21 +5,26 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
 import { absoluteUrl } from '@/lib/site';
-import { clickhouseFunctions, functionsBySlug } from '@/data/clickhouse-functions';
+import {
+  clickhouseFunctions,
+  findFunction,
+  functionPathSegment,
+} from '@/data/clickhouse-functions';
 
 type Props = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 export async function generateStaticParams() {
-  return clickhouseFunctions.map((fn) => ({ slug: fn.slug }));
+  return clickhouseFunctions.map((fn) => ({ slug: functionPathSegment(fn.name) }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const fn = functionsBySlug[params.slug];
+  const { slug } = await params;
+  const fn = findFunction(slug);
   if (!fn) return {};
 
-  const canonical = absoluteUrl(`/clickhouse/functions/${fn.slug}`);
+  const canonical = absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`);
 
   return {
     title: fn.metaTitle,
@@ -48,8 +53,20 @@ const clusterLabel: Record<string, string> = {
 };
 
 export default function ClickHouseFunctionPage({ params }: Props) {
-  const fn = functionsBySlug[params.slug];
+  return <ClickHouseFunctionPageInner params={params} />;
+}
+
+async function ClickHouseFunctionPageInner({ params }: Props) {
+  const { slug } = await params;
+  const fn = findFunction(slug);
   if (!fn) notFound();
+
+  const resolvedRelatedFunctions = fn.relatedFunctions
+    .map((name) => findFunction(name))
+    .filter((candidate, index, arr): candidate is NonNullable<typeof candidate> => {
+      if (!candidate) return false;
+      return arr.findIndex((item) => item?.slug === candidate.slug) === index;
+    });
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -58,7 +75,7 @@ export default function ClickHouseFunctionPage({ params }: Props) {
         '@type': 'TechArticle',
         headline: fn.metaTitle,
         description: fn.metaDescription,
-        url: absoluteUrl(`/clickhouse/functions/${fn.slug}`).toString(),
+        url: absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`).toString(),
         author: { '@type': 'Organization', name: 'hypequery' },
         publisher: {
           '@type': 'Organization',
@@ -240,27 +257,23 @@ export default function ClickHouseFunctionPage({ params }: Props) {
               <h2 className="font-display mt-3 text-2xl font-semibold text-white">
                 Functions used alongside {fn.name}
               </h2>
-              <div className="mt-6 flex flex-wrap gap-3">
-                {fn.relatedFunctions.map((name) => {
-                  const target = clickhouseFunctions.find((f) => f.slug === name || f.name === name);
-                  return target ? (
+              {resolvedRelatedFunctions.length > 0 ? (
+                <div className="mt-6 flex flex-wrap gap-3">
+                  {resolvedRelatedFunctions.map((related) => (
                     <Link
-                      key={name}
-                      href={`/clickhouse/functions/${target.slug}`}
+                      key={related.slug}
+                      href={`/clickhouse/functions/${functionPathSegment(related.name)}`}
                       className="border border-slate-700 bg-slate-900/70 px-4 py-2 font-mono text-sm text-cyan-300 transition hover:border-cyan-400 hover:bg-slate-900"
                     >
-                      {name}()
+                      {related.name}()
                     </Link>
-                  ) : (
-                    <span
-                      key={name}
-                      className="border border-slate-800 bg-slate-900/40 px-4 py-2 font-mono text-sm text-slate-400"
-                    >
-                      {name}()
-                    </span>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-6 text-sm leading-7 text-slate-400">
+                  More function pages are being added. Use the full function index for the currently published reference set.
+                </p>
+              )}
             </div>
             <div className="border border-slate-700 bg-slate-950/80 p-6">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Related guides</p>

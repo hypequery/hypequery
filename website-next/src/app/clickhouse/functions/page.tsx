@@ -3,7 +3,7 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { absoluteUrl } from '@/lib/site';
-import { clickhouseFunctions, functionsByCluster } from '@/data/clickhouse-functions';
+import { clickhouseFunctions, functionPathSegment, functionsByCluster } from '@/data/clickhouse-functions';
 
 export const metadata: Metadata = {
   title: 'ClickHouse Functions — TypeScript Examples with hypequery',
@@ -62,7 +62,7 @@ const jsonLd = {
   hasPart: clickhouseFunctions.map((fn) => ({
     '@type': 'TechArticle',
     headline: fn.metaTitle,
-    url: absoluteUrl(`/clickhouse/functions/${fn.slug}`).toString(),
+    url: absoluteUrl(`/clickhouse/functions/${functionPathSegment(fn.name)}`).toString(),
   })),
 };
 
@@ -107,7 +107,7 @@ export default function ClickHouseFunctionsIndexPage() {
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <div className="border border-slate-700/80 bg-slate-950/70 p-5">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Functions covered</p>
-                <p className="mt-2 text-xl font-semibold text-slate-100">{clickhouseFunctions.length}+</p>
+                <p className="mt-2 text-xl font-semibold text-slate-100">{clickhouseFunctions.length}</p>
               </div>
               <div className="border border-slate-700/80 bg-slate-950/70 p-5">
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Clusters</p>
@@ -135,7 +135,7 @@ export default function ClickHouseFunctionsIndexPage() {
                 {fns.map((fn) => (
                   <Link
                     key={fn.slug}
-                    href={`/clickhouse/functions/${fn.slug}`}
+                    href={`/clickhouse/functions/${functionPathSegment(fn.name)}`}
                     className="group border border-slate-700 bg-slate-900/70 p-5 transition hover:-translate-y-1 hover:border-indigo-400 hover:bg-slate-900"
                   >
                     <code className={`font-mono text-base font-semibold ${clusterColor[cluster]}`}>

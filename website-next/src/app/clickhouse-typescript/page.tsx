@@ -6,24 +6,24 @@ import CodeWindow from '@/components/CodeWindow';
 import { absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse TypeScript',
+  title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs | hypequery',
   description:
-    'Use ClickHouse with TypeScript without hand-written query types, raw SQL drift, or runtime schema mismatches. Build typed queries, APIs, and analytics backends with hypequery.',
+    'Use ClickHouse with TypeScript without hand-written interfaces. Generate schema types, build typed queries, and reuse them across APIs, jobs, and dashboards.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-typescript'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/clickhouse-typescript'),
-    title: 'ClickHouse TypeScript | Type-Safe Queries, APIs, and Analytics',
+    title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs | hypequery',
     description:
-      'Build ClickHouse backends in TypeScript with generated schema types, type-safe queries, reusable analytics definitions, and typed HTTP APIs.',
+      'Build ClickHouse backends in TypeScript with generated schema types, typed queries, reusable analytics definitions, and cleaner delivery paths.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse TypeScript | Type-Safe Queries, APIs, and Analytics',
+    title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs | hypequery',
     description:
-      'Build ClickHouse backends in TypeScript with generated schema types, type-safe queries, reusable analytics definitions, and typed HTTP APIs.',
+      'Use ClickHouse with TypeScript through generated schema types, typed queries, and reusable analytics APIs.',
   },
 };
 
@@ -97,6 +97,11 @@ const comparisonLinks = [
     title: 'hypequery vs Kysely',
     description: 'Where Kysely is excellent, where ClickHouse changes the tradeoffs, and when hypequery is the better fit.',
   },
+  {
+    href: '/drizzle-clickhouse',
+    title: 'Drizzle ORM for ClickHouse',
+    description: 'For teams searching for Drizzle ORM support on ClickHouse and the closest TypeScript-native alternative.',
+  },
 ];
 
 const ecosystemLinks = [
@@ -133,25 +138,23 @@ export default function ClickHouseTypeScriptPage() {
               ClickHouse TypeScript
             </p>
             <h1 className="font-display mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-              Type-safe ClickHouse queries, APIs, and analytics backends in TypeScript
+              ClickHouse with TypeScript
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-              hypequery helps teams use ClickHouse with TypeScript without hand-written schema interfaces,
-              raw SQL drift, or runtime type mismatches. Generate schema types, define reusable analytics
-              queries, and expose the same logic over HTTP.
+              The annoying part of using ClickHouse from TypeScript is not writing SQL. It is keeping runtime types, query code, and API surfaces aligned as the codebase grows. hypequery gives you generated schema types and a reusable query layer so that work does not keep getting rebuilt by hand.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/docs/quick-start"
                 className="bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
               >
-                Start with the quick start
+                Start with hypequery
               </Link>
               <Link
-                href="/blog/clickhouse-typescript-type-problem"
+                href="/clickhouse-schema"
                 className="border border-slate-600 px-6 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
               >
-                Read the type problem guide
+                Generate schema types
               </Link>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -189,14 +192,12 @@ export default function ClickHouseTypeScriptPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
                   How hypequery helps
                 </p>
-                <h2 className="font-display mt-3 text-3xl font-semibold text-white">
-                  A ClickHouse TypeScript workflow built for reusable analytics
-                </h2>
-                <p className="mt-5 text-base leading-8 text-slate-300">
-                  Instead of hand-writing TypeScript interfaces and duplicating raw SQL strings, you generate
-                  schema types from ClickHouse and define analytics queries once. Those definitions can run
-                  locally in-process or be served over HTTP with the same types.
-                </p>
+              <h2 className="font-display mt-3 text-3xl font-semibold text-white">
+                A ClickHouse TypeScript workflow built for reusable analytics
+              </h2>
+              <p className="mt-5 text-base leading-8 text-slate-300">
+                Instead of hand-writing TypeScript interfaces and copying SQL into route handlers, jobs, and dashboards, you generate schema types from ClickHouse and define the query once. That definition can run locally or be served over HTTP without drifting from the source query.
+              </p>
                 <ul className="mt-8 space-y-3 text-sm text-slate-200">
                   {benefits.map((benefit) => (
                     <li key={benefit} className="flex gap-3">
@@ -242,7 +243,10 @@ export default function ClickHouseTypeScriptPage() {
                   be reused safely.
                 </p>
                 <p>
-                  If your team is comparing options, read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-cyan-300 hover:text-cyan-200">hypequery vs @clickhouse/client</Link> and <Link href="/compare/hypequery-vs-kysely" className="text-cyan-300 hover:text-cyan-200">hypequery vs Kysely</Link> after this page.
+                  If you want the shortest path to a working setup, skip the comparison content and <Link href="/docs/quick-start" className="text-cyan-300 hover:text-cyan-200">start with hypequery now</Link>. One real query against your own schema will tell you more than another hour of reading.
+                </p>
+                <p>
+                  If your team is comparing options, read <Link href="/compare/hypequery-vs-clickhouse-client" className="text-cyan-300 hover:text-cyan-200">hypequery vs @clickhouse/client</Link>, <Link href="/compare/hypequery-vs-kysely" className="text-cyan-300 hover:text-cyan-200">hypequery vs Kysely</Link>, and <Link href="/drizzle-clickhouse" className="text-cyan-300 hover:text-cyan-200">Drizzle ORM for ClickHouse</Link> after this page.
                 </p>
               </div>
             </div>
@@ -295,6 +299,14 @@ export default function ClickHouseTypeScriptPage() {
                   from the system instead of relying on discipline alone.
                 </p>
               </div>
+              <div className="border border-slate-700 bg-slate-900/70 p-6">
+                <h3 className="font-display text-xl font-semibold text-slate-100">
+                  How do I use ClickHouse with TypeScript?
+                </h3>
+                <p className="mt-3 text-sm leading-7 text-slate-300">
+                  Start by introspecting the live schema. Generate TypeScript types from that schema. Build queries against those types. Then decide where the query needs to run: inline, behind an endpoint, or in a dashboard. That is the workflow hypequery makes easier.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -340,11 +352,10 @@ export default function ClickHouseTypeScriptPage() {
                 Next step
               </p>
               <h2 className="font-display mt-3 text-2xl font-semibold text-white">
-                Start with the ClickHouse TypeScript quick path
+                Start with hypequery on one real ClickHouse query
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                Generate schema types, define your first typed query, and then decide whether you want to run it
-                locally or expose it over HTTP.
+                Generate schema types, define your first typed query, and prove the workflow on your actual ClickHouse schema before expanding further.
               </p>
             </div>
             <div className="mt-6 flex gap-3 md:mt-0">
@@ -352,13 +363,13 @@ export default function ClickHouseTypeScriptPage() {
                 href="/docs/quick-start"
                 className="inline-flex items-center bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
               >
-                Open quick start
+                Start with hypequery
               </Link>
               <Link
-                href="/docs/schemas"
+                href="/clickhouse-schema"
                 className="inline-flex items-center border border-slate-600 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800"
               >
-                Read schemas guide
+                Generate schema types
               </Link>
             </div>
           </div>

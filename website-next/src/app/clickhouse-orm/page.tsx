@@ -3,22 +3,22 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse ORM for TypeScript — Schema-Driven Query Layer | hypequery',
+  title: 'ORM for ClickHouse in TypeScript | hypequery',
   description:
-    'There is no Prisma for ClickHouse — but hypequery is the closest equivalent. Schema-generated types, a composable query builder, and typed HTTP APIs for ClickHouse analytics.',
+    'Looking for an ORM for ClickHouse? Prisma, Drizzle, and TypeORM do not fit ClickHouse well. hypequery is the schema-driven TypeScript alternative for analytics work.',
   alternates: { canonical: absoluteUrl('/clickhouse-orm') },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/clickhouse-orm'),
-    title: 'ClickHouse ORM for TypeScript — Schema-Driven Query Layer | hypequery',
+    title: 'ORM for ClickHouse in TypeScript | hypequery',
     description:
-      'hypequery gives you the schema-first, type-safe experience of an ORM for ClickHouse — without the overhead or the wrong abstractions.',
+      'If you need an ORM-like workflow for ClickHouse, hypequery gives you generated schema types, composable queries, and typed APIs without forcing relational abstractions onto an analytics database.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse ORM for TypeScript | hypequery',
+    title: 'ORM for ClickHouse in TypeScript | hypequery',
     description:
-      'There is no Prisma for ClickHouse — hypequery is the closest equivalent. Schema-generated types, composable queries, typed HTTP APIs.',
+      'Looking for an ORM for ClickHouse? hypequery is the schema-driven TypeScript alternative for ClickHouse analytics teams.',
   },
 };
 
@@ -56,10 +56,10 @@ export default function ClickHouseOrmPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse ORM"
-      title="The closest thing to a TypeScript ORM for ClickHouse"
-      description="Prisma, Drizzle, and Kysely were built for transactional databases. ClickHouse is an analytics database with a fundamentally different data model — and it needs a different tool. hypequery gives you the schema-first, type-safe developer experience of an ORM without the wrong abstractions."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
-      secondaryCta={{ href: '/clickhouse-query-builder', label: 'See the query builder' }}
+      title="The closest thing to an ORM for ClickHouse"
+      description="Most teams searching for an ORM for ClickHouse are not looking for relations or migrations. They want generated types, query composition, and a way to reuse analytics logic without hand-maintaining interfaces. Prisma, Drizzle, and TypeORM were built for transactional databases. hypequery is built for ClickHouse."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
+      secondaryCta={{ href: '/clickhouse-schema', label: 'Generate schema types now' }}
       stats={[
         { label: 'Type source', value: 'Generated from live schema' },
         { label: 'Target database', value: 'ClickHouse native' },
@@ -77,16 +77,16 @@ export default function ClickHouseOrmPage() {
             'Kysely is excellent for Postgres. For ClickHouse it needs adapting: DateTime returns as a string, UInt64 returns as a string, Nullable works differently. You end up hand-writing type mappings that drift from reality.',
         },
         {
-          title: '@clickhouse/client gives you a connection but no structure',
+          title: 'Most teams searching for a ClickHouse ORM actually need a reusable query layer',
           copy:
-            'The official client runs queries and returns untyped results. You get full control but you also build the entire type layer, reuse layer, and API layer yourself — which most teams end up reinventing repeatedly.',
+            'The official client gives you connectivity, not structure. Once ClickHouse powers app features, teams usually need generated types, reusable queries, and typed delivery paths rather than entity mapping.',
         },
       ]}
       solutionSection={{
         eyebrow: 'How hypequery works',
-        title: 'Schema-first types and composable queries, built for ClickHouse',
+        title: 'Schema-first types and composable queries for ClickHouse',
         description:
-          'hypequery introspects your live ClickHouse schema and generates a TypeScript interface for every table and column — with correct ClickHouse-to-TypeScript type mappings. You then build queries using a fluent builder that understands ClickHouse natively.',
+          'hypequery introspects your live ClickHouse schema and generates a TypeScript interface for every table and column with the right ClickHouse-to-TypeScript mappings. You then build queries with a fluent builder that stays close to real ClickHouse usage.',
         bullets: [
           'Schema types generated from your live ClickHouse database — not hand-written',
           'Correct runtime mappings: DateTime→string, UInt64→string, Nullable→T|null',
@@ -106,10 +106,10 @@ export default function ClickHouseOrmPage() {
         eyebrow: 'Step 2',
         title: 'Build typed queries from generated schema',
         description:
-          'The query builder uses the generated schema types so every table name, column name, and return value is fully typed. Autocomplete works. Refactors are safe. The schema stays in sync by re-running generate.',
+          'The query builder uses the generated schema so table names, column names, and result shapes stay typed. Autocomplete works, refactors are safer, and the schema stays in sync by re-running generate.',
         paragraphs: [
-          'This is the ORM-like experience for ClickHouse — not a relational ORM adapted to fit, but a tool designed from the ground up for the ClickHouse data model and the TypeScript developer workflow.',
-          'Read the query builder guide or the comparison with @clickhouse/client to understand exactly what you get and where the boundaries are.',
+          'This is the ORM-like experience for ClickHouse, but without pretending ClickHouse behaves like Postgres.',
+          'If you want the fastest proof, generate types from your own schema and write one real query. That will tell you more than another comparison table.',
         ],
         codePanel: {
           eyebrow: 'Step 2',
@@ -138,7 +138,7 @@ export default function ClickHouseOrmPage() {
         {
           title: 'Type-safe ClickHouse queries without hand-written interfaces',
           copy:
-            'The core ORM value proposition — types that come from the database, not from your imagination — is exactly what hypequery provides for ClickHouse. Run generate, get types, build queries.',
+            'The useful part of the ORM promise is simple: types should come from the database, not from your imagination. That is exactly what hypequery gives you for ClickHouse.',
         },
       ]}
       readingLinks={[
@@ -153,9 +153,19 @@ export default function ClickHouseOrmPage() {
           description: 'What you gain moving from raw queries to a typed, structured analytics layer.',
         },
         {
-          href: '/compare/hypequery-vs-kysely',
-          title: 'hypequery vs Kysely',
-          description: 'Where Kysely is excellent, where ClickHouse changes the tradeoffs, and when hypequery fits better.',
+          href: '/drizzle-clickhouse',
+          title: 'Drizzle ORM for ClickHouse',
+          description: 'A dedicated page for teams searching for Drizzle ORM support on ClickHouse and what to use instead.',
+        },
+        {
+          href: '/prisma-clickhouse',
+          title: 'Prisma for ClickHouse',
+          description: 'A dedicated page for teams searching for Prisma on ClickHouse and the TypeScript-first alternative.',
+        },
+        {
+          href: '/typeorm-clickhouse',
+          title: 'TypeORM for ClickHouse',
+          description: 'A dedicated page for teams searching for TypeORM on ClickHouse and the TypeScript-first alternative.',
         },
         {
           href: '/clickhouse-schema',
@@ -171,11 +181,11 @@ export default function ClickHouseOrmPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Generate schema types and write your first typed query',
+        title: 'Generate schema types and start with hypequery on a real ClickHouse query',
         description:
-          'Run schema generation against your ClickHouse instance, then build a typed query. The whole setup takes under five minutes.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
-        secondaryCta: { href: '/clickhouse-query-builder', label: 'See the query builder' },
+          'Run schema generation against your ClickHouse instance, then build your first typed query. This is the fastest way to prove the ORM-like workflow on your real schema.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
+        secondaryCta: { href: '/clickhouse-schema', label: 'Generate schema types' },
       }}
     />
   );

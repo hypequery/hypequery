@@ -1,15 +1,15 @@
 ---
 title: "ClickHouse React Hooks: Type-Safe Data Fetching Without the Boilerplate"
-description: "@hypequery/react generates typed React hooks from the same query definitions that back your HTTP API. No manual useState/useEffect, no type drift between server and client."
-seoTitle: "ClickHouse React Hooks: Generated, Type-Safe, Zero Boilerplate"
-seoDescription: "Stop hand-rolling ClickHouse data fetching in React. @hypequery/react generates typed hooks from your query definitions. Types flow from the schema to your components."
+description: "Generate typed React hooks from the same backend query definitions that power your ClickHouse API, so components stop owning fetch glue and response types."
+seoTitle: "ClickHouse React Hooks: Generated and Type-Safe"
+seoDescription: "Use typed React hooks on top of your ClickHouse API instead of rebuilding fetch logic and response types in every component."
 pubDate: 2026-04-23
 heroImage: ""
 slug: clickhouse-react-hooks
 status: published
 ---
 
-Most React + ClickHouse setups look something like this:
+Most React plus ClickHouse setups start with some variation of this:
 
 ```typescript
 function RevenueChart() {
@@ -37,9 +37,9 @@ function RevenueChart() {
 }
 ```
 
-This works. But the return type is `any[]`, so every downstream use of `data` is untyped. The fetch URL is a string that can drift from the actual endpoint. Loading and error state is duplicated across every component that fetches data. When the query changes, the component has no way to know.
+It works, but it does not age well. The return type is `any[]`, the endpoint is just a string, and every component starts owning its own networking and typing story.
 
-`@hypequery/react` replaces this pattern with generated hooks that are typed from the schema and shared with the same query definitions your API uses.
+`@hypequery/react` replaces that pattern with hooks derived from the same backend query layer your API already uses.
 
 ## How it works
 

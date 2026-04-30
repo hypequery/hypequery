@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Dashboard Data Layer for React and TypeScript | hypequery',
   description:
-    'Keep multi-panel ClickHouse dashboards consistent with shared metric definitions, typed hooks, and one server-side contract for every chart.',
+    'Build ClickHouse dashboards without inventing a custom API and fetch layer for every chart.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-dashboard'),
   },
@@ -26,7 +26,6 @@ export const metadata: Metadata = {
 
 const queryDefinitionCode = `// analytics/dashboard-queries.ts
 import { initServe } from '@hypequery/serve';
-import { createHooks } from '@hypequery/react';
 import { db } from '@/lib/clickhouse';
 import { z } from 'zod';
 
@@ -79,7 +78,7 @@ type Api = InferApiType<typeof api>;
 
 const { useQuery } = createHooks<Api>({ baseUrl: '/api/analytics' });
 
-export function DashboardPage({ tenantId }: { tenantId: string }) {
+export function DashboardPage() {
   const { data: views, isLoading: viewsLoading } = useQuery('pageViews', {
     startDate: '2026-04-01',
     endDate: '2026-04-30',
@@ -124,8 +123,8 @@ export default function ClickHouseDashboardPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Dashboard"
       title="Build typed ClickHouse dashboards without a custom data layer"
-      description="The hard part of a ClickHouse dashboard is rarely the chart library. It is keeping the backend metric definitions, API contracts, and frontend data shapes aligned as the dashboard grows from one panel to twenty. hypequery gives TypeScript teams a shared path from query definition to React component."
-      primaryCta={{ href: '/docs/quick-start', label: 'Open quick start' }}
+      description="The chart library is usually not the hard part. The hard part is that every panel wants a route, a request helper, a response type, loading state handling, and one more place for the metric definition to drift. hypequery gives the dashboard a cleaner backend path."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-react', label: 'See React hook setup' }}
       stats={[
         { label: 'Frontend layer', value: '@hypequery/react hooks' },
@@ -134,78 +133,78 @@ export default function ClickHouseDashboardPage() {
       ]}
       problems={[
         {
-          title: 'Most teams write a custom API layer between ClickHouse and the dashboard',
+          title: 'Every chart grows its own fetch path',
           copy:
-            'Express routes, manual fetch calls, and hand-written TypeScript interfaces get invented for every dashboard project. The query logic ends up spread across routes, client helpers, and component files — and none of it is reusable.',
+            'A dashboard starts with one helper and ends with a patchwork of route handlers, response mappers, and component-specific fetch code. The backend logic becomes harder to reason about than the visual layer.',
         },
         {
-          title: 'Dashboard data shapes are tightly coupled to ClickHouse queries',
+          title: 'Panel logic drifts when the metric changes',
           copy:
-            'When a query changes — a column is renamed, an aggregation is added — the frontend component breaks silently. Without schema-generated types flowing end-to-end, the connection between query output and chart input is a runtime assumption.',
+            'Rename a field or change an aggregation and you can break half the dashboard if every panel has its own assumptions about the response shape.',
         },
         {
-          title: 'Multi-tenant dashboards need tenant isolation in every query',
+          title: 'Shared filters make duplication worse',
           copy:
-            'Adding a WHERE tenant_id = ? clause to every dashboard query is easy to forget and hard to audit. A shared analytics layer can centralise tenant scoping so it is applied through the standard query path instead of copied into every panel.',
+            'Date ranges, tenant scope, and common breakdowns get repeated across panels. That duplication is where dashboards become fragile long before the chart count gets large.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'Query and hook setup',
-        title: 'Define dashboard queries once, derive React hooks from the same types',
+        eyebrow: 'The dashboard shape',
+        title: 'Keep query definitions on the server and let the UI consume typed hooks',
         description:
-          'The right model for a ClickHouse dashboard is a server-side analytics layer with named, typed queries — and a client hook layer that derives its types from the server definition, not a hand-maintained copy.',
+          'A dashboard usually wants a small set of named queries, one server-side place to own them, and a client hook layer that inherits those types instead of recreating them in React.',
         bullets: [
           'Generate schema types from ClickHouse with npx @hypequery/cli generate',
           'Define named dashboard queries with typed inputs and typed outputs',
-          'Apply tenant isolation at context level, not per-query',
+          'Keep shared filters and scoping close to the backend definition',
           'Expose queries over HTTP with @hypequery/serve',
           'Derive React hooks from the serve API type so the browser stays in sync',
         ],
         codePanel: {
           eyebrow: 'Query definitions',
-          title: 'Named, typed dashboard queries with tenant isolation',
+          title: 'Two dashboard queries that live in one server file',
           description:
-            'The context receives tenantId once. Every query downstream automatically scopes to the right tenant without each query re-implementing the filter.',
+            'This is the part teams often skip. Put the dashboard queries in one file first, then let the client build on top of that instead of inventing panel-by-panel route code.',
           code: queryDefinitionCode,
         },
       }}
       implementationSection={{
         eyebrow: 'React dashboard',
-        title: 'Components get typed data — no fetch glue required',
+        title: 'Panels stay focused on rendering instead of networking glue',
         description:
-          'Once the hook layer is derived from the serve API type, React components become straightforward: call a named hook with typed input, handle loading and data states, render. No manual response typing, no duplicated request helpers.',
+          'Once the hook layer is derived from the API type, the component can just ask for a named query and render the result. That is a better place to spend complexity than hand-maintaining request wrappers around every chart.',
         paragraphs: [
-          'Multi-chart dashboards benefit the most from this pattern. When a shared date range filter changes, every hook sharing that input can invalidate together via TanStack Query — without custom cache invalidation logic.',
-          'The same analytics definitions that serve the React dashboard can also power server-rendered pages, scheduled reports, or external API consumers — the query is written once.',
+          'This matters more as the dashboard gets bigger. Shared filters, cache invalidation, and panel reuse are all easier when the panels are consuming one typed backend surface.',
+          'If your main concern is the hook layer itself, continue to the React page. If the problem is broader application reuse, step back to the analytics page.',
         ],
         codePanel: {
           eyebrow: 'Dashboard component',
-          title: 'Typed hooks in a multi-panel dashboard',
+          title: 'A component that only worries about UI state',
           description:
-            'The component never imports ClickHouse types directly. It only sees the output of the typed hook — which is guaranteed to match the actual query output by construction.',
+            'The component does not need to know how ClickHouse works. It gets typed data, handles loading state, and renders the panel.',
           code: dashboardComponentCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse dashboard TypeScript',
+          title: 'What this page replaces',
           copy:
-            'The real dashboard problem is not choosing a charting library. It is keeping every panel pointed at the same metric definitions and output shapes as the dashboard grows.',
+            'It replaces the usual mix of ad hoc API routes, fetch helpers, and copied response types that accumulate when teams build dashboards panel by panel.',
         },
         {
-          title: 'React ClickHouse dashboard',
+          title: 'Where the complexity should live',
           copy:
-            'React should consume typed hooks, not hand-written fetch wrappers per panel. Keep ClickHouse queries on the server and let chart components depend on one stable contract.',
+            'The backend should own metric definitions and response shapes. The frontend should own rendering, interaction, and cache behavior.',
         },
         {
-          title: 'ClickHouse analytics dashboard API',
+          title: 'When this starts to pay off',
           copy:
-            'A dashboard API should serve named metrics with typed inputs and outputs, not a different ad hoc route for every chart. That matters once metrics are reused across panels and teams.',
+            'You feel the benefit as soon as more than one panel depends on shared filters or reused metrics. That is usually much earlier than teams expect.',
         },
         {
-          title: 'ClickHouse real-time dashboard React',
+          title: 'What to read next',
           copy:
-            'Real-time dashboards need two pieces: a low-latency server query layer and a browser cache strategy. hypequery covers the first piece; TanStack Query covers the second.',
+            'Use the React page for client-side hook details and the Next.js page if the dashboard lives inside App Router.',
         },
       ]}
       readingLinks={[
@@ -238,10 +237,10 @@ export default function ClickHouseDashboardPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Generate your schema and wire the first typed dashboard query',
+        title: 'Replace one dashboard panel end to end',
         description:
-          'The fastest path to a working typed dashboard is schema generation followed by a single named query. Once that runs, the hook layer and React component follow the same pattern for every chart you add.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Take one panel that currently owns its own route and fetch code, move it to a named server query, and let the component consume a typed hook instead. That gives you the real signal quickly.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/clickhouse-react', label: 'See React hook setup' },
       }}
     />

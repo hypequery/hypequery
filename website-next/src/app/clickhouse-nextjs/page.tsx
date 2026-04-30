@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Next.js',
   description:
-    'Build ClickHouse analytics into Next.js with shared typed queries, App Router handlers, server component execution, and React-friendly data access.',
+    'Build ClickHouse analytics into Next.js App Router without splitting query logic across route handlers, server components, and browser code.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-nextjs'),
   },
@@ -52,7 +52,7 @@ export default function ClickHouseNextJsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Next.js"
       title="Build ClickHouse analytics into Next.js without duplicating query logic"
-      description="Use hypequery to define a ClickHouse query once, run it inside App Router server components, and expose the same contract over HTTP for browser clients. This is the clean path for analytics-heavy Next.js apps."
+      description="This page is about the App Router split: some analytics should run directly in server components, some should be exposed to browser clients, and you do not want those two paths to invent different versions of the same query."
       primaryCta={{ href: '/docs/nextjs', label: 'Open the Next.js guide' }}
       secondaryCta={{ href: '/blog/building-dashboards-clickhouse-hypequery-nextjs', label: 'Read the dashboard article' }}
       stats={[
@@ -62,26 +62,26 @@ export default function ClickHouseNextJsPage() {
       ]}
       problems={[
         {
-          title: 'Analytics logic drifts across routes and components',
+          title: 'App Router makes it easy to fork the same query',
           copy:
-            'Teams often write one query in an API route, another in a server component, and a third in a cron job. The logic slowly diverges and debugging becomes guesswork.',
+            'A metric often starts in a server component, then gets copied into a route handler for client-side refresh, then appears again in another page. Next.js makes both paths easy, which is exactly why they drift.',
         },
         {
-          title: 'Next.js developers need both server-side and browser access',
+          title: 'Server and browser consumers need different delivery',
           copy:
-            'Some analytics belong in server components or actions, while other screens need typed browser fetching. You need one definition that can serve both paths.',
+            'The server can call code directly. The browser cannot. The awkward part is keeping those two access modes aligned without rewriting the query for each one.',
         },
         {
-          title: 'Raw ClickHouse clients leave too much wiring to the app team',
+          title: 'Route files become accidental analytics files',
           copy:
-            'You still need request validation, handler setup, and a reusable query layer that fits naturally into App Router instead of living as loose SQL strings.',
+            'If the only reusable unit is a loose SQL string, route files and page files start accumulating validation, parsing, and analytics logic that should live elsewhere.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'Why this stack works',
-        title: 'Use one typed query definition across the whole Next.js runtime',
+        eyebrow: 'The App Router shape',
+        title: 'Keep the query definition outside the route and page files',
         description:
-          'hypequery gives a Next.js team a stable analytics contract: typed ClickHouse queries, an App Router handler, and direct in-process execution when HTTP is unnecessary.',
+          'The cleanest Next.js setup is one shared query definition plus two delivery paths: local execution for server code and a thin App Router handler for browser consumers.',
         bullets: [
           'Generate schema types from your ClickHouse database',
           'Define reusable analytics queries in TypeScript',
@@ -91,49 +91,49 @@ export default function ClickHouseNextJsPage() {
         ],
         codePanel: {
           eyebrow: 'App Router',
-          title: 'Mount a typed analytics handler once',
+          title: 'One route file that stays thin',
           description:
-            'This keeps your HTTP surface thin. The real analytics logic lives in shared query definitions, not inside the route file.',
+            'The route exists to expose the query, not to become the place where the query is authored.',
           code: routeCode,
         },
       }}
       implementationSection={{
         eyebrow: 'Server-first usage',
-        title: 'Prefer local execution in server components, use HTTP for browser consumers',
+        title: 'Run local in server code, use HTTP only where the browser needs it',
         description:
-          'A strong Next.js setup does not force every analytics request through HTTP. Server code can call the query directly, while client-side charts can hit the same query through typed endpoints.',
+          'The big advantage of Next.js is that not every query needs to go through the network. Use direct execution in server components by default, and reserve HTTP for interactive client-side flows.',
         paragraphs: [
-          'This split is especially useful for dashboards. Server components can render the initial state with low overhead, and interactive client components can progressively refetch via HTTP only where needed.',
-          'If React hooks are part of the plan, the dedicated ClickHouse React pillar and the React docs are the natural next step after this page.',
+          'That server-first split is what makes this page different from the React page. The React page starts at the client hook layer. This page starts at the question of whether the query should leave the server at all.',
+          'If browser hooks are the main concern, continue to the React page. If the concern is general backend reuse outside Next.js, use the Node.js page.',
         ],
         codePanel: {
           eyebrow: 'Server component',
-          title: 'Run the same query in-process',
+          title: 'A server component calling the shared query directly',
           description:
-            'You avoid network overhead inside the same app process while keeping the exact same validation and query definition.',
+            'The component gets the data without a self-HTTP call, but it is still using the same analytics definition the browser path can expose later.',
           code: serverCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse Next.js App Router setup',
+          title: 'What this page is really answering',
           copy:
-            'If you are searching for how to connect ClickHouse to App Router, the real answer is not just connection code. It is deciding which analytics stay local and which become reusable HTTP endpoints.',
+            'Not just how to connect ClickHouse to Next.js, but where query logic should live when the framework gives you both server and client execution paths.',
         },
         {
-          title: 'Next.js analytics dashboard architecture',
+          title: 'Where the duplication usually starts',
           copy:
-            'Dashboards usually need SSR, client hydration, and typed re-fetching. A shared query layer stops those concerns from creating three versions of the same metric.',
+            'Usually when a server-rendered dashboard later needs client refresh or filtering and teams copy the query into a route instead of exposing the shared definition cleanly.',
         },
         {
-          title: 'ClickHouse API routes in Next.js',
+          title: 'Why App Router changes the advice',
           copy:
-            'You can expose typed analytics endpoints under `app/api/*` without hand-writing validation or response contracts for each route.',
+            'Because you can often skip HTTP inside the app itself. That is why the local-vs-HTTP split matters more here than on the generic REST page.',
         },
         {
-          title: 'When to add React hooks',
+          title: 'Where to go next',
           copy:
-            'Use direct execution for server code first. Add hooks when browser-side interactivity needs cache-aware fetching and mutation ergonomics.',
+            'Use the React page when the client hook layer is the next problem, not the current one.',
         },
       ]}
       readingLinks={[

@@ -1,15 +1,15 @@
 ---
 title: "Stop writing the same query three times"
-description: "hypequery 0.2.0 ships a query() API that returns a typed object you can execute inline, expose over HTTP, and attach auth rules to — without writing three separate implementations."
-seoTitle: "hypequery 0.2.0: One Query Object, Inline Execution, HTTP Endpoint, OpenAPI Docs"
-seoDescription: "hypequery 0.2.0 introduces query() — define a ClickHouse query once, run it inline with .execute(), expose it as an HTTP endpoint, and attach auth rules. One definition, three contexts."
+description: "hypequery 0.2.0 adds a query() API for the common problem where one ClickHouse query ends up reimplemented for scripts, HTTP endpoints, and frontend consumers."
+seoTitle: "hypequery 0.2.0: One Query Definition for Inline and HTTP Use"
+seoDescription: "Define a ClickHouse query once, execute it inline, and expose the same definition over HTTP instead of rewriting it for every context."
 pubDate: 2026-04-23
 heroImage: ""
 slug: stop-writing-the-same-query-three-times
 status: published
 ---
 
-Here's a pattern that ends up in most ClickHouse TypeScript codebases eventually.
+Here is a pattern that shows up in most ClickHouse TypeScript codebases eventually.
 
 You write a revenue query inline, for a script or a cron job:
 
@@ -36,7 +36,7 @@ app.get("/api/revenue", async (req, res) => {
 
 Then you need a React hook. You write it a third time, or you call the HTTP endpoint and lose the type information on the way back.
 
-Three representations of one query. Three places to update when the schema changes. Three opportunities for them to drift.
+That is the real problem: one logical query becomes several implementations, and each new consumer makes drift more likely.
 
 hypequery 0.2.0 ships a different model.
 

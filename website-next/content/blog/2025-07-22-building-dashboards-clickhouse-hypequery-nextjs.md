@@ -1,17 +1,15 @@
 ---
 title: "Building Dashboards on ClickHouse with hypequery and Next.js"
-description: "Learn how to build type-safe, real-time analytics dashboards using hypequery, ClickHouse, and Next.js. Get complete type safety, autocomplete, and developer productivity for your analytics applications."
-seoTitle: "Build ClickHouse Dashboards in Next.js with Type-Safe TypeScript Queries"
-seoDescription: "Learn how to build ClickHouse dashboards in Next.js with typed queries, reusable metrics, and safer TypeScript data fetching using hypequery."
+description: "A practical Next.js dashboard walkthrough: schema generation, shared backend queries, and a React consumption path that does not duplicate analytics logic."
+seoTitle: "Build ClickHouse Dashboards in Next.js with Typed Queries"
+seoDescription: "Build ClickHouse dashboards in Next.js with shared backend queries, typed delivery, and a cleaner split between server execution and React consumption."
 pubDate: 2025-07-22
 heroImage: ""
 ---
 
-Modern analytics applications demand both real-time insights and developer productivity. If you're building dashboards on ClickHouse with TypeScript, you've likely run into the pain of raw SQL strings, manual type definitions, and the challenges of interactive, scalable data apps. In this guide, we'll show you how to solve these problems using hypequery — a TypeScript-first, type-safe query builder for ClickHouse — alongside Next.js, the leading React framework.
+If you are building dashboards on ClickHouse with Next.js, the hard part is usually not the charting library. It is deciding where query logic should live, how server-rendered and browser-rendered views stay aligned, and how to stop every panel from owning its own fetch path.
 
 If you're evaluating the broader architecture first, start with the [ClickHouse Next.js](/clickhouse-nextjs), [ClickHouse React](/clickhouse-react), and [ClickHouse analytics](/clickhouse-analytics) pillar pages. This post is the implementation-level companion.
-
-**You can check hypequery out on [github](https://github.com/hypequery/hypequery)**.
 
 ## Why ClickHouse + TypeScript for Dashboards?
 

@@ -21,6 +21,14 @@ export type ClickHouseFunctionDef = {
   faqItems: { question: string; answer: string }[];
 };
 
+export function functionPathSegment(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .replace(/_/g, '-')
+    .toLowerCase();
+}
+
 export const clickhouseFunctions: ClickHouseFunctionDef[] = [
   // ── DATE CLUSTER ────────────────────────────────────────────────────────────
   {
@@ -1433,6 +1441,14 @@ const histogram = await db
 export const functionsBySlug = Object.fromEntries(
   clickhouseFunctions.map((fn) => [fn.slug, fn]),
 ) as Record<string, ClickHouseFunctionDef>;
+
+export const functionsByPathSegment = Object.fromEntries(
+  clickhouseFunctions.map((fn) => [functionPathSegment(fn.name), fn]),
+) as Record<string, ClickHouseFunctionDef>;
+
+export function findFunction(identifier: string): ClickHouseFunctionDef | undefined {
+  return functionsBySlug[identifier] ?? functionsByPathSegment[functionPathSegment(identifier)];
+}
 
 export const functionsByCluster = clickhouseFunctions.reduce<
   Record<ClickHouseFunctionCluster, ClickHouseFunctionDef[]>

@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Query Builder for TypeScript | hypequery',
   description:
-    'Build ClickHouse queries in TypeScript with schema-generated types, reusable query definitions, and a practical raw SQL escape hatch when needed.',
+    'Build ClickHouse queries in TypeScript with schema-generated types, native ClickHouse syntax, and a clean path from one-off queries to reusable API definitions.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-query-builder'),
   },
@@ -39,25 +39,41 @@ const rows = await db
 // rows: { total_revenue: string; order_date: string }[]
 // correct — matches what ClickHouse actually returns`;
 
-const multiContextCode = `// same query definition — three execution contexts
+const serveCode = `import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
 
-// 1. inline execution
-const rows = await revenue.execute()
+const { query, serve } = initServe({
+  context: () => ({ db }),
+});
 
-// 2. HTTP endpoint with OpenAPI docs
-const app = serve({ queries: { revenue } })
-app.listen(3000)
+const revenueByDay = query({
+  input: z.object({
+    tenantId: z.string(),
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  query: ({ ctx, input }) =>
+    ctx.db
+      .table('orders')
+      .where('tenant_id', 'eq', input.tenantId)
+      .where('order_date', 'gte', input.startDate)
+      .where('order_date', 'lte', input.endDate)
+      .groupBy(['order_date'])
+      .sum('total', 'revenue')
+      .execute(),
+});
 
-// 3. React hook
-const { useRevenue } = createHooks({ revenue })`;
+export const api = serve({
+  queries: { revenueByDay },
+});`;
 
 export default function ClickHouseQueryBuilderPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse Query Builder"
       title="The TypeScript-first ClickHouse query builder"
-      description="Write composable, type-safe ClickHouse queries. Types are generated from your live schema — including correct ClickHouse-to-TypeScript mappings for DateTime, UInt64, Nullable, and Decimal. No SQL strings. No hand-written interfaces."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
+      description="This page is about writing the query itself: selecting columns, filtering, grouping, and composing something you can keep in a real codebase. hypequery gives you typed schema access and native ClickHouse ergonomics without forcing everything through raw SQL strings."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/blog/clickhouse-query-builder-typescript', label: 'Compare your options' }}
       stats={[
         { label: 'Type source', value: 'Generated from schema' },
@@ -66,78 +82,78 @@ export default function ClickHouseQueryBuilderPage() {
       ]}
       problems={[
         {
-          title: 'ClickHouse types do not map cleanly to TypeScript',
+          title: 'Hand-written result types drift fast',
           copy:
-            'DateTime comes back as a string, not a Date. UInt64 comes back as a string. If you write your own interfaces, you\'re guessing — and TypeScript trusts you. hypequery generates types from the live schema so they\'re always right.',
+            'If you build queries with raw strings and cast the result afterwards, you end up maintaining a second version of the schema in TypeScript. That breaks the moment a column changes or a query shape evolves.',
         },
         {
-          title: 'SQL strings do not scale across a codebase',
+          title: 'Most general-purpose builders are shaped around Postgres',
           copy:
-            'The same analytics query ends up duplicated in API routes, background jobs, dashboards, and internal tools. A query builder with composable, reusable definitions removes that drift.',
+            'ClickHouse query code tends to lean on date bucketing, aggregates, CTEs, and engine-specific syntax. A builder that treats ClickHouse as an edge case turns normal analytics work into workaround-heavy code.',
         },
         {
-          title: 'Generic query builders are not built for ClickHouse',
+          title: 'Teams still need a way out when SQL is the right tool',
           copy:
-            'Tools built for Postgres need adapting for ClickHouse. A ClickHouse-focused layer should at minimum understand the data types, support reusable analytical queries, and provide an honest escape hatch for ClickHouse-specific SQL.',
+            'A good ClickHouse builder should cover the common path well and stay honest about the rest. You do not want a fake abstraction that makes basic queries pleasant but blocks real ClickHouse work.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'How hypequery works',
-        title: 'Generate types from ClickHouse, then build composable queries',
+        eyebrow: 'What the builder gives you',
+        title: 'Start from the real schema, then write normal ClickHouse query code',
         description:
-          'Run npx @hypequery/cli generate against your ClickHouse instance. You get a typed schema file that maps every table and column to the correct TypeScript type. Then build queries with a fluent builder that understands ClickHouse natively.',
+          'Run schema generation once, point the query builder at the generated type, and then write queries against real table and column names. That is the useful part: less casting, better autocomplete, and fewer mistakes when a query gets edited six months later.',
         bullets: [
           'Schema types generated from your live ClickHouse database',
-          'Correct runtime type mappings — DateTime→string, UInt64→string, Nullable→T|null',
-          'Composable builder with conditional filters and reusable query fragments',
-          'Typed query composition, CTE helpers, and raw SQL escape hatches where needed',
-          'Same query definition runs inline, over HTTP, or as a React hook',
+          'Column names and return shapes inferred from that schema',
+          'A fluent builder for the common path: filters, grouping, ordering, aggregates',
+          'Helpers for composing query fragments instead of copying strings between files',
+          'Raw SQL escape hatches for the parts ClickHouse specialists actually need',
         ],
         codePanel: {
-          eyebrow: 'Query builder',
-          title: 'Typed queries from generated schema',
+          eyebrow: 'Builder example',
+          title: 'A typed query without post-query casting',
           description:
-            'Types come from the schema, not from hand-written interfaces. When the schema changes and you regenerate, TypeScript catches the mismatch at compile time.',
+            'The important part is not the fluent syntax. It is that the builder knows the schema it is operating on, so table names, columns, and result shapes stay aligned with the database.',
           code: builderCode,
         },
       }}
       implementationSection={{
-        eyebrow: 'Multi-context execution',
-        title: 'Define once, execute in any context',
+        eyebrow: 'When the query stops being local',
+        title: 'Promote a useful query into a named API definition',
         description:
-          'The query builder is one part of hypequery. The same query definition that runs inline can also be served as an HTTP endpoint with OpenAPI docs, or wrapped in a typed React hook — without rewriting anything.',
+          'This is where the page should stay concrete: the query builder helps you author and test the query. If that same query later needs to power a dashboard or internal API, move it into a named definition with `initServe()` rather than rewriting it in a route file.',
         paragraphs: [
-          'This is the core difference between a query builder and an analytics layer. A query builder helps you write queries. An analytics layer makes those queries reusable across your entire product.',
-          'If you are comparing options, the blog post walks through @clickhouse/client, Kysely, Cube, and hypequery side by side.',
+          'That is the boundary between this page and the broader analytics pages. Start here if you are replacing raw query strings. Move to the REST or React pages only when the query needs consumers outside the current process.',
+          'If you are comparing libraries, the companion article walks through @clickhouse/client, Kysely, Cube, and hypequery with the tradeoffs spelled out.',
         ],
         codePanel: {
-          eyebrow: 'Multi-context',
-          title: 'One query definition, three execution contexts',
+          eyebrow: 'Serve example',
+          title: 'Turn a working query into a reusable endpoint',
           description:
-            'Define it once. Run it inline for scripts and tests, serve it over HTTP for dashboards, or wrap it in a React hook for interactive components.',
-          code: multiContextCode,
+            'The query-builder page should not pretend everything is a React hook immediately. The natural next step is usually a named query that can be served and reused.',
+          code: serveCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse query builder TypeScript',
+          title: 'What makes a ClickHouse builder useful',
           copy:
-            'The useful distinction is not fluent syntax alone. It is whether the builder understands ClickHouse return types, keeps query definitions reusable, and stays honest about when raw SQL is still the right tool.',
+            'Fluent syntax alone is not enough. The builder has to understand ClickHouse return types, stay out of the way on aggregates and grouping, and avoid forcing a relational model onto analytics queries.',
         },
         {
-          title: 'Type-safe ClickHouse queries',
+          title: 'Where raw SQL still wins',
           copy:
-            'Type safety in ClickHouse starts with getting the mappings right. DateTime, UInt64, Decimal, and Nullable columns all behave differently from what TypeScript might assume. Generated schema types fix this at the source.',
+            'Some queries are clearer as SQL, especially when you are leaning on more advanced ClickHouse features. A good builder should let you drop down deliberately instead of pretending that never happens.',
         },
         {
-          title: 'ClickHouse vs Kysely',
+          title: 'How this differs from Kysely',
           copy:
-            'Kysely is excellent for Postgres. For ClickHouse-primary analytics, the lack of native ClickHouse syntax and schema introspection means you\'ll be working around its edges. See the full comparison in the blog post.',
+            'Kysely is excellent in relational stacks. This page is for teams whose center of gravity is ClickHouse analytics, where schema introspection and ClickHouse-native query patterns matter more than SQL portability.',
         },
         {
-          title: 'ClickHouse HTTP API TypeScript',
+          title: 'When to leave this page',
           copy:
-            'If you want a typed HTTP layer on top of ClickHouse without rebuilding request validation and response schemas yourself, @hypequery/serve turns named query definitions into documented endpoints.',
+            'If your next problem is HTTP delivery, not query authoring, jump to the REST API page. If your problem is browser consumers, jump to the React or Next.js pages.',
         },
       ]}
       readingLinks={[
@@ -161,6 +177,11 @@ export default function ClickHouseQueryBuilderPage() {
           title: 'hypequery vs Kysely',
           description: 'Where Kysely is excellent, where ClickHouse changes the tradeoffs, and when hypequery is the better fit.',
         },
+        {
+          href: '/drizzle-clickhouse',
+          title: 'Drizzle ORM for ClickHouse',
+          description: 'A dedicated landing page for the Drizzle-on-ClickHouse search intent and the closest alternative.',
+        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
@@ -170,10 +191,10 @@ export default function ClickHouseQueryBuilderPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Start with schema generation',
+        title: 'Write one real query against your schema',
         description:
-          'Generate TypeScript types from your live ClickHouse schema. Then build your first typed query, and decide whether to run it inline or expose it over HTTP.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Generate the schema file, point the builder at it, and replace one raw query in your codebase. That is the fastest way to tell whether the workflow fits how your team actually writes ClickHouse code.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/docs/schemas', label: 'Read the schemas guide' },
       }}
     />

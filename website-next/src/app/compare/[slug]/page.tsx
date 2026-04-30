@@ -143,7 +143,7 @@ export default async function ComparePage({
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
               {post.data.description ?? comparePage.verdict}
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
+	            <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/docs/quick-start"
                 className="bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
@@ -189,25 +189,25 @@ export default async function ComparePage({
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <div className="mb-10 grid gap-6 md:grid-cols-3">
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">What this page is for</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Use this page when the question is not just syntax, but how a tool fits a ClickHouse-heavy application architecture.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">What this page is not</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                It is not a generic ecosystem roundup. The comparison is intentionally focused on teams building reusable analytics behavior in TypeScript.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Recommended next move</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                If hypequery looks like the right fit, move directly into the quick start and the ClickHouse TypeScript guide.
-              </p>
-            </div>
+	            <div className="mb-10 grid gap-6 md:grid-cols-3">
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">What this page is for</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Use this page when the real question is how one tool changes the shape of your ClickHouse application code, not just which syntax looks nicer.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">What this page is not</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                It is not a broad ecosystem roundup. It stays narrow on the tradeoff a ClickHouse-heavy TypeScript team is actually deciding.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Recommended next move</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                If the tradeoff already looks clear, stop reading comparisons and test the fit against one real query in your own schema.
+	              </p>
+	            </div>
           </div>
           <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr_1.3fr]">
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Dimension</div>
@@ -271,14 +271,14 @@ export default async function ComparePage({
                 {post.content}
               </ReactMarkdown>
             </div>
-            <div className="mt-10 border border-slate-700 bg-slate-900/70 p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Decision checkpoint</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
-                If the tradeoff is already clear, move into implementation
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                Teams usually do not need more comparison content after this point. The faster path is to generate schema types and build one real query against your own ClickHouse schema.
-              </p>
+	            <div className="mt-10 border border-slate-700 bg-slate-900/70 p-6">
+	              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Decision checkpoint</p>
+	              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
+	                If the tradeoff is already clear, move into implementation
+	              </h2>
+	              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+	                Most teams do not need another round of comparison content after this point. The better test is whether the workflow holds up on your own schema and your own query complexity.
+	              </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/docs/quick-start"

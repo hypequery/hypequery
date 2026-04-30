@@ -1,13 +1,13 @@
 ---
 title: "Turn Your ClickHouse Schema Into a Type-Safe Analytics Layer in 5 Minutes"
-description: "Go from raw SQL strings to a fully typed SDK + HTTP API + React hooks in about 5 minutes. Learn how to auto-generate TypeScript types from your ClickHouse schema and never worry about schema drift again."
-seoTitle: "ClickHouse Query Builder for TypeScript: Build a Type-Safe Analytics Layer"
-seoDescription: "Looking for a ClickHouse query builder in TypeScript? Learn how to generate schema types, define typed queries, and expose them as APIs and React hooks."
+description: "Generate schema types from ClickHouse, define one typed query, and use it as the base for backend code, HTTP delivery, and React consumption."
+seoTitle: "ClickHouse Query Builder for TypeScript: Generate Schema Types and Build Typed Queries"
+seoDescription: "Generate ClickHouse schema types, build typed queries, and turn them into a reusable backend API layer in TypeScript."
 pubDate: 2026-01-30
 heroImage: "ClickHouse is fast. Your developer experience with it? Not so much."
 ---
 
-ClickHouse is fast. Your developer experience with it? Not so much.
+ClickHouse is fast. The developer experience around it is usually not.
 
 ## The old way: Raw SQL strings in TypeScript
 
@@ -28,9 +28,9 @@ const result = await client.query({
 // → You only find out at runtime
 ```
 
-No autocomplete. No type safety. Refactors are a game of find-and-replace across string literals. Errors show up in production, not at compile time.
+That approach works until the query needs to survive schema changes, more consumers, or a refactor. Then the missing type source becomes the real problem.
 
-Here's the new way:
+Here is the same idea with a shared query definition instead of another raw string:
 
 ```ts
 import { initServe } from '@hypequery/serve';

@@ -228,10 +228,10 @@ export function ClickhousePillarPage({
         <section className="border-y border-slate-800 bg-slate-950/60">
           <div className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
-              Why teams search for this
+              Where teams usually get stuck
             </p>
             <h2 className="font-display mt-3 text-3xl font-semibold text-white">
-              Common implementation questions this page should solve
+              The questions this page should answer
             </h2>
             <div className="mt-10 grid gap-6 md:grid-cols-2">
               {searchIntentCards.map((item) => (
@@ -249,7 +249,7 @@ export function ClickhousePillarPage({
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">Further reading</p>
               <h2 className="font-display mt-3 text-3xl font-semibold text-white">
-                Go deeper with comparison posts and implementation guides
+                Go deeper where it actually helps
               </h2>
               <div className="mt-10 grid gap-6 lg:grid-cols-2">
                 {readingLinks.map((item) => (

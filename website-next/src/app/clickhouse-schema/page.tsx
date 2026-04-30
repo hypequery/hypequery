@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Schema — TypeScript Types Generated from Your Database | hypequery',
   description:
-    'Generate TypeScript types directly from your live ClickHouse schema. hypequery introspects every table and column and outputs correct type mappings for DateTime, UInt64, Nullable, and Decimal.',
+    'Generate TypeScript types from your live ClickHouse schema so query code stops relying on hand-written interfaces and incorrect runtime assumptions.',
   alternates: { canonical: absoluteUrl('/clickhouse-schema') },
   openGraph: {
     type: 'website',
@@ -55,8 +55,8 @@ export default function ClickHouseSchemaPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Schema"
       title="Generate TypeScript types from your live ClickHouse schema"
-      description="Hand-written TypeScript interfaces for ClickHouse drift. DateTime is not a Date, UInt64 is not a number, and Nullable columns behave differently to what TypeScript assumes. hypequery introspects your live ClickHouse database and generates correct type mappings for every table and column — automatically."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
+      description="This is the page for the first problem most TypeScript teams hit on ClickHouse: the database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/docs/schemas', label: 'Read the schemas guide' }}
       stats={[
         { label: 'Command', value: 'npx @hypequery/cli generate' },
@@ -65,26 +65,26 @@ export default function ClickHouseSchemaPage() {
       ]}
       problems={[
         {
-          title: 'ClickHouse types do not map to TypeScript cleanly',
+          title: 'ClickHouse runtime types are easy to misread',
           copy:
-            'DateTime returns as a string formatted as "YYYY-MM-DD HH:MM:SS" — not a JS Date. UInt64 returns as a string to avoid precision loss beyond Number.MAX_SAFE_INTEGER. Nullable(T) returns T | null. If you hand-write interfaces, you are guessing — and TypeScript trusts you.',
+            'DateTime is not a JavaScript Date. UInt64 is often not a safe number. Nullable columns change the shape again. If you guess these mappings in an interface, the compiler cannot tell you that the guess is wrong.',
         },
         {
-          title: 'Hand-written interfaces drift after every schema change',
+          title: 'Manual interfaces become stale immediately',
           copy:
-            'Every ALTER TABLE, every new column, every type change means manually updating TypeScript interfaces. On a team moving fast on ClickHouse, the interfaces are almost always slightly wrong — and the bugs are silent until runtime.',
+            'A renamed column or changed type means updating interfaces by hand, then hoping every cast and helper stayed aligned. That is fragile even on a small team.',
         },
         {
-          title: 'Generic types like any and unknown kill the value of TypeScript',
+          title: 'Raw clients push the typing problem downstream',
           copy:
-            'When @clickhouse/client returns any[], teams either cast to interfaces they wrote by hand or give up on types entirely. Both options mean TypeScript is not actually protecting you from the mistakes it exists to catch.',
+            'If the client gives you `any[]`, somebody still has to decide what the rows look like. That usually ends in a cast, which means the most important boundary in the system is left unchecked.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'How schema generation works',
-        title: 'One command — correct types for every table and column',
+        eyebrow: 'What generate actually does',
+        title: 'Read the live schema and write the TypeScript file you would not maintain by hand',
         description:
-          'hypequery connects to your live ClickHouse instance and reads the schema from information_schema. It maps each ClickHouse type to the correct TypeScript type using the same rules the ClickHouse JS client follows at runtime — so the types actually match what comes back.',
+          'The `generate` command introspects the live ClickHouse schema and writes a database interface you can import everywhere else. The value is not that a file appears. The value is that query code now starts from the same source of truth as the database.',
         bullets: [
           'Reads schema from your live ClickHouse information_schema',
           'Correct mappings: DateTime→string, UInt64→string, Nullable(T)→T|null, Decimal→string',
@@ -94,49 +94,49 @@ export default function ClickHouseSchemaPage() {
         ],
         codePanel: {
           eyebrow: 'Generate command',
-          title: 'Introspect your live ClickHouse schema',
+          title: 'Point the CLI at the real database',
           description:
-            'Point the CLI at your ClickHouse instance. It reads the schema and outputs a TypeScript interface file. Run it in CI after any schema migration to keep types in sync automatically.',
+            'This is the only manual step. After that, the generated file becomes the type source for the query builder and the rest of the TypeScript layer.',
           code: generateCode,
         },
       }}
       implementationSection={{
-        eyebrow: 'Generated output',
-        title: 'Correct ClickHouse-to-TypeScript type mappings',
+        eyebrow: 'What you get back',
+        title: 'A schema file that reflects runtime reality',
         description:
-          'The generated schema file reflects exactly what ClickHouse returns at runtime. No guessing, no hand-writing, no drift. When you add a column or change a type, re-run generate and TypeScript catches every affected query at compile time.',
+          'The generated output matters because it becomes boring infrastructure: import it once, build queries against it, and let TypeScript flag the places that no longer match after a schema change.',
         paragraphs: [
-          'The type mappings are not arbitrary. They follow the same rules as @clickhouse/client — UInt64 comes back as a string because JavaScript cannot represent it precisely as a number. DateTime comes back as a string because ClickHouse uses its own format.',
-          'Once the schema is generated, the query builder uses it to provide autocomplete on table names, column names, and return value types across your entire codebase.',
+          'The mappings follow ClickHouse runtime behavior rather than wishful TypeScript shapes. That is why `UInt64` stays a string and why `DateTime` does not become `Date` automatically.',
+          'Once this file exists, the rest of the tooling gets simpler: autocomplete is better, casts disappear, and query edits stop feeling like blind string manipulation.',
         ],
         codePanel: {
           eyebrow: 'Generated schema',
-          title: 'TypeScript types reflecting your live ClickHouse database',
+          title: 'The kind of file you import everywhere else',
           description:
-            'Every column has the correct TypeScript type — matching what ClickHouse actually returns at runtime. Nullable columns are T | null. UInt64 columns are string. No surprises.',
+            'This is the useful artifact: a database-shaped interface that matches what ClickHouse actually returns, not what a relational ORM would prefer it to return.',
           code: outputCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse TypeScript type generation',
+          title: 'Why this matters more than nicer query syntax',
           copy:
-            'hypequery generate is the only tool that introspects a live ClickHouse schema and outputs correct TypeScript type mappings. It handles the DateTime, UInt64, Nullable, and Decimal cases that hand-written interfaces get wrong.',
+            'If the schema types are wrong, every nicer abstraction above them is built on sand. Fixing the type source is usually a better first move than introducing more wrappers.',
         },
         {
-          title: 'ClickHouse schema introspection',
+          title: 'What teams usually automate next',
           copy:
-            'The generate command reads from information_schema — the same source ClickHouse uses internally. Every table, every column, every type — mapped to TypeScript and written to a file you commit alongside your code.',
+            'Most teams rerun generation after schema changes or in CI so type drift gets caught before application code is merged.',
         },
         {
-          title: 'Keep TypeScript types in sync with ClickHouse schema',
+          title: 'What this page is not about',
           copy:
-            'The standard workflow is to re-run generate in CI after any schema change. This makes TypeScript the last line of defence against using a column that no longer exists or expecting the wrong type from a changed column.',
+            'This is not a migrations page and it is not an ORM page. It is the narrow piece that keeps runtime ClickHouse shapes and TypeScript expectations aligned.',
         },
         {
-          title: 'ClickHouse column type TypeScript mapping',
+          title: 'Where to go after this',
           copy:
-            'The full type mapping: String→string, UInt8/16/32→number, UInt64→string, Int8/16/32→number, Int64→string, Float32/64→number, Decimal→string, DateTime→string, Date→string, Boolean→boolean, Nullable(T)→T|null, Array(T)→T[].',
+            'Once the schema file exists, the next pages that matter are the query builder and TypeScript workflow pages. That is where the generated types start paying off in everyday code.',
         },
       ]}
       readingLinks={[
@@ -169,10 +169,10 @@ export default function ClickHouseSchemaPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Generate TypeScript types from your ClickHouse schema',
+        title: 'Run generate against a real ClickHouse database',
         description:
-          'Run npx @hypequery/cli generate against your ClickHouse instance. You get a typed schema file in seconds — then build typed queries against it.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Do it on the schema you already have, then inspect the generated file. You will know quickly whether it removes the casts and wrong assumptions your current code relies on.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/docs/schemas', label: 'Read the schemas guide' },
       }}
     />

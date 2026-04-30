@@ -17,9 +17,9 @@ export const comparePages: ComparePageConfig[] = [
   {
     slug: 'hypequery-vs-clickhouse-client',
     href: '/compare/hypequery-vs-clickhouse-client',
-    title: 'Quick comparison: hypequery vs @clickhouse/client',
+    title: 'hypequery vs @clickhouse/client',
     verdict:
-      '@clickhouse/client is the right low-level client. hypequery is the better fit when you need generated schema types, reusable query definitions, typed APIs, and frontend consumption on top of ClickHouse.',
+      '@clickhouse/client is still the right low-level transport layer. hypequery is the better fit when the application also needs generated schema types, reusable query definitions, and a typed API surface on top of ClickHouse.',
     rows: [
       {
         label: 'Best for',
@@ -53,9 +53,9 @@ export const comparePages: ComparePageConfig[] = [
   {
     slug: 'hypequery-vs-kysely',
     href: '/compare/hypequery-vs-kysely',
-    title: 'Quick comparison: hypequery vs Kysely',
+    title: 'hypequery vs Kysely',
     verdict:
-      'Kysely is an excellent general TypeScript query builder. hypequery is narrower: it is built for ClickHouse runtime type mapping, schema generation, and reusable analytics APIs.',
+      'Kysely is an excellent general TypeScript query builder. hypequery is narrower and more opinionated around ClickHouse runtime type mapping, schema generation, and reusable analytics APIs.',
     rows: [
       {
         label: 'Best for',
@@ -89,9 +89,9 @@ export const comparePages: ComparePageConfig[] = [
   {
     slug: 'hypequery-vs-drizzle',
     href: '/compare/hypequery-vs-drizzle',
-    title: 'Quick comparison: hypequery vs Drizzle',
+    title: 'hypequery vs Drizzle',
     verdict:
-      'Drizzle ORM does not support ClickHouse. hypequery is the TypeScript-first alternative — schema generation from your live ClickHouse database, a composable query builder, and typed HTTP APIs.',
+      'Drizzle ORM does not support ClickHouse. hypequery is the TypeScript-first alternative for teams who want schema generation from a live ClickHouse database, a composable query builder, and a typed API layer.',
     rows: [
       {
         label: 'ClickHouse support',
@@ -125,9 +125,9 @@ export const comparePages: ComparePageConfig[] = [
   {
     slug: 'hypequery-vs-prisma',
     href: '/compare/hypequery-vs-prisma',
-    title: 'Quick comparison: hypequery vs Prisma',
+    title: 'hypequery vs Prisma',
     verdict:
-      'Prisma does not support ClickHouse. hypequery gives you the schema-first, TypeScript-first experience for ClickHouse analytics — schema generation, typed queries, and HTTP APIs built for the ClickHouse data model.',
+      'Prisma does not support ClickHouse. hypequery gives TypeScript teams the closest equivalent for ClickHouse analytics: schema generation, typed queries, and an API layer built around the ClickHouse data model.',
     rows: [
       {
         label: 'ClickHouse support',
@@ -161,9 +161,9 @@ export const comparePages: ComparePageConfig[] = [
   {
     slug: 'hypequery-vs-cube',
     href: '/compare/hypequery-vs-cube',
-    title: 'Quick comparison: hypequery vs Cube',
+    title: 'hypequery vs Cube',
     verdict:
-      'Cube is a semantic layer platform for centralised metrics. hypequery is a lightweight code-first TypeScript layer for product engineers building ClickHouse-backed features. Different problems, different tools.',
+      'Cube is a semantic layer platform for centralized metrics. hypequery is a lighter code-first TypeScript layer for product engineers building ClickHouse-backed features. They solve different problems.',
     rows: [
       {
         label: 'Best for',
@@ -197,9 +197,9 @@ export const comparePages: ComparePageConfig[] = [
   {
     slug: 'hypequery-vs-tinybird',
     href: '/compare/hypequery-vs-tinybird',
-    title: 'Quick comparison: hypequery vs Tinybird',
+    title: 'hypequery vs Tinybird',
     verdict:
-      'Tinybird is a managed ClickHouse platform with a built-in API layer — ideal when you want zero ops and a fast path to HTTP endpoints from SQL. hypequery is the right fit when your data must stay in your own infrastructure and your team wants TypeScript-first, schema-generated types with full code ownership.',
+      'Tinybird is a managed ClickHouse platform with a built-in API layer. hypequery is the better fit when your data needs to stay in your own infrastructure and your team wants TypeScript-first, schema-generated types with full code ownership.',
     rows: [
       {
         label: 'Infrastructure',
