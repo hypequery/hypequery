@@ -71,6 +71,39 @@ type ColumnOperatorValue<
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 type ScalarAlias<Alias extends string> = Alias extends `${string} ${string}` ? never : Alias;
+type JoinPathTableName<
+  Schema extends SchemaDefinition<Schema>,
+  Path extends JoinPath<Schema>
+> = Extract<Path['to'], keyof Schema>;
+type JoinPathAlias<Path extends JoinPath<any>, OverrideAlias extends string | undefined> =
+  OverrideAlias extends string
+    ? OverrideAlias
+    : Path['alias'] extends string
+      ? Path['alias']
+      : undefined;
+type ApplyJoinPathState<
+  Schema extends SchemaDefinition<Schema>,
+  State extends AnyBuilderState,
+  Path extends JoinPath<Schema>,
+  OverrideAlias extends string | undefined = undefined
+> = JoinPathAlias<Path, OverrideAlias> extends string
+  ? AddAlias<
+      WidenTables<State, JoinPathTableName<Schema, Path>>,
+      JoinPathAlias<Path, OverrideAlias>,
+      JoinPathTableName<Schema, Path>
+    >
+  : WidenTables<State, JoinPathTableName<Schema, Path>>;
+type ApplyJoinPathChainState<
+  Schema extends SchemaDefinition<Schema>,
+  State extends AnyBuilderState,
+  Paths extends readonly JoinPath<Schema>[]
+> = Paths extends readonly [infer First, ...infer Rest]
+  ? First extends JoinPath<Schema>
+    ? Rest extends readonly JoinPath<Schema>[]
+      ? ApplyJoinPathChainState<Schema, ApplyJoinPathState<Schema, State, First>, Rest>
+      : ApplyJoinPathState<Schema, State, First>
+    : State
+  : State;
 const ADVANCED_IN_OPERATORS = new Set<FilterOperator>([
   'globalIn',
   'globalNotIn',
@@ -640,6 +673,22 @@ export class QueryBuilder<
       return this.updateQuery(() => this.filtering.addCondition(clause, conjunction, columns, operator, value));
     }
 
+    if (operator === 'inTuple' || operator === 'globalInTuple') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
+      }
+      value.forEach((tuple: unknown, index: number) => {
+        if (!Array.isArray(tuple)) {
+          throw new Error(`Expected tuple ${index + 1} for ${operator} operator to be an array`);
+        }
+        if (tuple.length !== 1) {
+          throw new Error(
+            `Expected tuple ${index + 1} for ${operator} operator to have 1 value, but got ${tuple.length}`
+          );
+        }
+      });
+    }
+
     const column = Array.isArray(columnOrColumns) ? String(columnOrColumns[0]) : String(columnOrColumns);
     this.validateFilterValue(columnOrColumns as WhereColumn<State>, operator, value);
     return this.updateQuery(() => this.filtering.addCondition(clause, conjunction, column, operator, value));
@@ -990,16 +1039,47 @@ export class QueryBuilder<
   /**
    * Apply a predefined join relationship
    */
-  withRelation(name: string, options?: JoinPathOptions): this {
+  withRelation<
+    Path extends JoinPath<Schema>,
+    Alias extends string | undefined = undefined
+  >(
+    path: Path,
+    options?: Omit<JoinPathOptions, 'alias'> & { alias?: Alias }
+  ): QueryBuilder<Schema, ApplyJoinPathState<Schema, State, Path, Alias>>;
+  withRelation<
+    Paths extends readonly [JoinPath<Schema>, ...JoinPath<Schema>[]]
+  >(
+    paths: Paths,
+    options?: Omit<JoinPathOptions, 'alias'>
+  ): QueryBuilder<Schema, ApplyJoinPathChainState<Schema, State, Paths>>;
+  withRelation(name: string, options?: JoinPathOptions): this;
+  withRelation(
+    nameOrPath: string | JoinPath<Schema> | readonly JoinPath<Schema>[],
+    options?: JoinPathOptions
+  ): QueryBuilder<Schema, any> {
     let next = this.cloneMutable();
-    const relationships = QueryBuilder.relationships;
-    if (!relationships) {
-      throw new Error('Join relationships have not been initialized. Call QueryBuilder.setJoinRelationships first.');
+    let path: JoinPath<Schema> | readonly JoinPath<Schema>[];
+
+    if (typeof nameOrPath === 'string') {
+      const relationships = QueryBuilder.relationships;
+      if (!relationships) {
+        throw new Error('Join relationships have not been initialized. Call QueryBuilder.setJoinRelationships first.');
+      }
+
+      const resolved = relationships.get(nameOrPath);
+      if (!resolved) {
+        throw new Error(`Join relationship '${nameOrPath}' not found`);
+      }
+      path = resolved;
+    } else {
+      path = nameOrPath;
     }
 
-    const path = relationships.get(name);
-    if (!path) {
-      throw new Error(`Join relationship '${name}' not found`);
+    if (Array.isArray(path) && options?.alias) {
+      const nameLabel = typeof nameOrPath === 'string' ? `'${nameOrPath}' ` : '';
+      throw new Error(
+        `Join relationship ${nameLabel}is a chain; alias override is only supported for single-join relationships`
+      );
     }
 
     const applyJoin = (joinPath: JoinPath<Schema>) => {
@@ -1013,7 +1093,7 @@ export class QueryBuilder<
     if (Array.isArray(path)) {
       path.forEach(applyJoin);
     } else {
-      applyJoin(path);
+      applyJoin(path as JoinPath<Schema>);
     }
 
     return next;

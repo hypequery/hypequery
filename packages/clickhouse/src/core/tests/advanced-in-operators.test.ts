@@ -116,6 +116,16 @@ describe('Advanced IN Operators', () => {
   });
 
   describe('Tuple IN Operators', () => {
+    it('should generate IN tuple SQL for a single column', () => {
+      const query = builder
+        .where('id', 'inTuple', [[1], [2]]);
+
+      const { sql, parameters } = query.toSQLWithParams();
+
+      expect(sql).toContain('WHERE id IN ((?), (?))');
+      expect(parameters).toEqual([1, 2]);
+    });
+
     it('should generate IN tuple SQL for multiple columns', () => {
       const query = builder
         .where(['id', 'created_by'], 'inTuple', [[1, 123], [2, 456]]);
@@ -216,6 +226,12 @@ describe('Advanced IN Operators', () => {
   });
 
   describe('Error Handling', () => {
+    it('should throw error for malformed single-column tuple values', () => {
+      expect(() => {
+        builder.where('id', 'inTuple', [[1, 2], [3]] as any).toSQLWithParams();
+      }).toThrow('Expected tuple 1 for inTuple operator to have 1 value, but got 2');
+    });
+
     it('should throw error for non-array value in globalIn', () => {
       expect(() => {
         builder.where('id', 'globalIn', 'not-an-array' as any);

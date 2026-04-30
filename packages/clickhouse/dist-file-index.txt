@@ -3,6 +3,7 @@ cli/generate-types.d.ts
 cli/generate-types.js
 cli/index.d.ts
 cli/index.js
+cli/type-parsing.js
 core/adapters/clickhouse-adapter.d.ts
 core/adapters/clickhouse-adapter.d.ts.map
 core/adapters/clickhouse-adapter.js
@@ -226,3 +227,6 @@ types/index.js
 types/schema.d.ts
 types/schema.d.ts.map
 types/schema.js
+types/type-helpers.d.ts
+types/type-helpers.d.ts.map
+types/type-helpers.js

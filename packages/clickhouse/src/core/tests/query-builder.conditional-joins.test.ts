@@ -42,14 +42,14 @@ describe('Conditional Joins', () => {
     // Test with updater only
     const updaterOnlyQuery = buildUserQuery(false, true);
     const updaterOnlySQL = updaterOnlyQuery.toSQL();
-    expect(updaterOnlySQL).toContain('LEFT JOIN users AS updater ON updated_by = users.id');
+    expect(updaterOnlySQL).toContain('LEFT JOIN users AS updater ON updated_by = updater.id');
     expect(updaterOnlySQL).not.toContain('users ON created_by');
 
     // Test with both
     const bothQuery = buildUserQuery(true, true);
     const bothSQL = bothQuery.toSQL();
     expect(bothSQL).toContain('LEFT JOIN users ON created_by = users.id');
-    expect(bothSQL).toContain('LEFT JOIN users AS updater ON updated_by = users.id');
+    expect(bothSQL).toContain('LEFT JOIN users AS updater ON updated_by = updater.id');
 
     // Test with neither
     const neitherQuery = buildUserQuery(false, false);
@@ -82,7 +82,7 @@ describe('Conditional Joins', () => {
       joinType: 'INNER'
     });
     const innerJoinSQL = innerJoinQuery.toSQL();
-    expect(innerJoinSQL).toContain('INNER JOIN users AS creator ON created_by = users.id');
+    expect(innerJoinSQL).toContain('INNER JOIN users AS creator ON created_by = creator.id');
     expect(innerJoinSQL).not.toContain('LEFT JOIN');
 
     // Test with LEFT join for creator
@@ -92,7 +92,7 @@ describe('Conditional Joins', () => {
       joinType: 'LEFT'
     });
     const leftJoinSQL = leftJoinQuery.toSQL();
-    expect(leftJoinSQL).toContain('LEFT JOIN users AS creator ON created_by = users.id');
+    expect(leftJoinSQL).toContain('LEFT JOIN users AS creator ON created_by = creator.id');
   });
 
   it('should maintain type safety in conditional joins', () => {

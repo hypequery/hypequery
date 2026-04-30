@@ -327,6 +327,40 @@ describe('Cache manager integration', () => {
     expect(queryMock).toHaveBeenCalledTimes(2);
   });
 
+  it('uses transformed query settings when computing cache keys', async () => {
+    const provider = new TestCacheProvider();
+    let callCount = 0;
+    queryMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
+
+    const db = createQueryBuilder<TestSchema>({
+      adapter: testAdapter,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 10_000,
+        provider
+      }
+    });
+
+    const base = db.table('users').select(['id']);
+    const fastQuery = base.cache({ ttlMs: 10_000 });
+    (fastQuery as any).queryTransforms.push((query: any) => ({
+      ...query,
+      settings: { max_execution_time: 10 },
+    }));
+
+    const slowQuery = base.cache({ ttlMs: 10_000 });
+    (slowQuery as any).queryTransforms.push((query: any) => ({
+      ...query,
+      settings: { max_execution_time: 20 },
+    }));
+
+    await fastQuery.execute();
+    await slowQuery.execute();
+
+    expect(queryMock).toHaveBeenCalledTimes(2);
+    expect(provider.store.size).toBe(2);
+  });
+
   it('reports hit rate including stale serves', async () => {
     let callCount = 0;
     queryMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
