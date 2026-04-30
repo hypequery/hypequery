@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse for Node.js Scripts, Jobs, and APIs | hypequery',
   description:
-    'Query ClickHouse from Node.js with schema-generated types, reusable analytics code, and one path that works across scripts, workers, and HTTP servers.',
+    'Use ClickHouse from Node.js scripts, jobs, and servers without rebuilding row types and HTTP wiring around every query.',
   alternates: { canonical: absoluteUrl('/clickhouse-nodejs') },
   openGraph: {
     type: 'website',
@@ -67,8 +67,8 @@ export default function ClickHouseNodejsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Node.js"
       title="Use ClickHouse from Node.js without hand-maintained query types"
-      description="Most Node.js teams do not need an abstract database platform. They need a reliable way to query ClickHouse from scripts, API servers, jobs, and dashboards without retyping result shapes by hand. hypequery gives that Node.js workflow a typed center of gravity."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
+      description="This page is narrower than the JavaScript page. It is about the backend reality: scripts, workers, Express servers, and the point where a query needs to become a reusable API instead of another helper buried in a service file."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API' }}
       stats={[
         { label: 'Runtime', value: 'Node.js and Bun' },
@@ -77,26 +77,26 @@ export default function ClickHouseNodejsPage() {
       ]}
       problems={[
         {
-          title: '@clickhouse/client returns untyped results in Node.js',
+          title: 'Node services accumulate query helpers fast',
           copy:
-            'The official Node.js ClickHouse client runs queries and returns any. Every response requires a manual type cast to an interface you hand-wrote and have to maintain as the schema changes.',
+            'A server codebase rarely has just one query caller. Jobs, workers, route handlers, and admin tasks all want the same data, and each one tends to grow its own helper if there is no shared path.',
         },
         {
-          title: 'Building a Node.js analytics API from scratch is slow',
+          title: 'The HTTP layer keeps getting rebuilt',
           copy:
-            'Once you need to expose ClickHouse data over HTTP in Node.js, you write server routes with validation, error handling, auth, and response typing. That layer is not trivial and it is not your core product.',
+            'Once a query needs an endpoint, teams start writing validation, auth handling, error shaping, and docs around it. That is a lot of repeated backend work for what should still be one analytics query.',
         },
         {
-          title: 'ClickHouse type mappings trip up Node.js developers',
+          title: 'Type mismatches hide inside server code',
           copy:
-            'Node.js developers familiar with Postgres expect Date objects and numbers from a database query. ClickHouse returns DateTime as a formatted string and UInt64 as a string. Silent bugs follow.',
+            'Node developers often spot the runtime mismatch later because the wrong shape is hidden inside service code and only surfaces after it has already passed through several layers.',
         },
       ]}
       solutionSection={{
         eyebrow: 'Setup',
-          title: 'A typed Node.js query layer for ClickHouse in minutes',
+        title: 'Start with a typed backend query layer, not another helper module',
         description:
-          'Run schema generation to get a typed DB interface from your live ClickHouse database. Pass it to createQueryBuilder() and you have a fully typed query builder — autocomplete on table names, column names, and return values across your Node.js codebase.',
+          'Generate the schema once, initialize the builder in your backend, and make that the standard way Node code reaches ClickHouse. That gives scripts, workers, and services the same typed starting point.',
         bullets: [
           'Works well in Node.js services, scripts, and Bun runtimes',
           'Schema types generated from your live ClickHouse instance',
@@ -106,49 +106,49 @@ export default function ClickHouseNodejsPage() {
         ],
         codePanel: {
           eyebrow: 'Setup',
-          title: 'Typed ClickHouse client for Node.js',
+          title: 'A backend entry point you can reuse across services and jobs',
           description:
-            'Import the generated DB type and pass it to createQueryBuilder(). From that point every query is fully typed — table names autocomplete, column names autocomplete, and return types are inferred from the schema.',
+            'The point of this setup is consistency. Once the builder exists in one standard place, the rest of the Node codebase stops reinventing how it talks to ClickHouse.',
           code: setupCode,
         },
       }}
       implementationSection={{
         eyebrow: 'With Express',
-        title: 'Mount typed ClickHouse analytics on any Node.js server',
+        title: 'Promote a query into an endpoint without burying logic in the route',
         description:
-          'If you are building an analytics API on top of ClickHouse in Node.js, @hypequery/serve handles the HTTP layer. Define your queries, pass them to serve(), and mount `api.handler` through the Node adapter in Express or another Node server.',
+          'When Node code needs to expose analytics over HTTP, keep the query definition separate from the web framework and mount the handler around it. That keeps the route thin and the analytics logic reusable.',
         paragraphs: [
-          'The Node adapter is the stable integration point for Express-style servers. For fetch-based runtimes such as Next.js App Router route handlers, Cloudflare Workers, or Deno, the fetch adapter is the right fit.',
-          'For standalone scripts and jobs, skip serve() entirely and call .execute() directly. The query builder works the same way regardless of context.',
+          'That separation is what makes the Node page distinct from the framework pages. The query can still run directly inside a job or script, and only becomes an HTTP concern when you actually need a server surface.',
+          'If your app is specifically App Router-first, use the Next.js page. This page is for the general backend case where Express-style or standalone Node runtimes are still the center of gravity.',
         ],
         codePanel: {
           eyebrow: 'Express integration',
-          title: 'Typed analytics endpoints on Express',
+          title: 'A thin Express mount around a shared analytics definition',
           description:
-            'Define your analytics queries and mount them through createNodeHandler(api.handler). Input validation, typed responses, and OpenAPI docs are all handled by hypequery.',
+            'The useful part is not the middleware line by itself. It is that the route is no longer where the analytics logic lives.',
           code: expressCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse Node.js client TypeScript',
+          title: 'What this page is really for',
           copy:
-            'The official client gets data in and out. The harder Node.js problem is reusing those queries across scripts, jobs, servers, and dashboards without rewriting types around each call site.',
+            'It is for backend teams whose main concern is service code, jobs, and server routes, not client hooks or App Router rendering.',
         },
         {
-          title: 'ClickHouse Node.js query builder',
+          title: 'Where Node teams usually feel pain',
           copy:
-            'A useful Node.js query builder for ClickHouse should give you typed composition for the common path and a raw SQL escape hatch for the clauses that still need it.',
+            'Usually when the same query appears in a worker, a route, and a report generator and every copy evolves separately.',
         },
         {
-          title: 'ClickHouse Express.js API',
+          title: 'Why the server layer matters',
           copy:
-            'If those same Node.js queries later need an API surface, the serve layer can expose them without pushing the query logic into Express-specific files.',
+            'Backend teams end up paying for every decision twice if query logic and route logic are fused together. This page is about keeping them separate.',
         },
         {
-          title: 'ClickHouse Node HTTP adapter',
+          title: 'Where to branch next',
           copy:
-            'The HTTP adapter matters because it keeps the query layer separate from the web framework. That separation is what lets the same analytics code serve scripts, jobs, and endpoints.',
+            'Use the Next.js page for App Router specifics and the REST page if the endpoint layer itself is your main concern.',
         },
       ]}
       readingLinks={[
@@ -181,10 +181,10 @@ export default function ClickHouseNodejsPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Add hypequery to your Node.js project',
+        title: 'Replace one backend query path end to end',
         description:
-          'Install the package, run schema generation, and write your first typed ClickHouse query in Node.js. Works with any Node.js framework or runtime.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Pick one script, worker, or route that currently owns its own ClickHouse query code, move it onto the shared builder, and then decide whether it also deserves a served API surface.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/clickhouse-rest-api', label: 'See the REST API guide' },
       }}
     />

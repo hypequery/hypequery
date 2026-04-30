@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse JS — JavaScript & TypeScript Query Builder | hypequery',
   description:
-    'Stop writing raw SQL strings for ClickHouse in JavaScript. hypequery gives you schema-generated types, a composable query builder, and typed HTTP APIs. Free and open source.',
+    'Use ClickHouse from JavaScript without living on raw query strings, hand-written row types, and repeated response parsing.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-js'),
   },
@@ -48,35 +48,41 @@ const rows = await db
 // rows: { order_date: string; revenue: string }[]
 // correct ClickHouse-to-JS type mappings, always`;
 
-const multiContextCode = `// define your query once in JavaScript or TypeScript
+const serveCode = `import { initServe } from '@hypequery/serve';
+import { z } from 'zod';
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+});
+
 const revenueByDay = query({
-  input: z.object({ tenantId: z.string() }),
-  query: async ({ ctx, input }) =>
+  input: z.object({
+    tenantId: z.string(),
+    startDate: z.string(),
+    endDate: z.string(),
+  }),
+  query: ({ ctx, input }) =>
     ctx.db
       .table('orders')
       .where('tenant_id', 'eq', input.tenantId)
+      .where('order_date', 'gte', input.startDate)
+      .where('order_date', 'lte', input.endDate)
       .groupBy(['order_date'])
       .sum('total', 'revenue')
       .execute(),
 });
 
-// 1. run inline — scripts, jobs, tests
-const rows = await revenueByDay.execute({ tenantId: 'acme' });
-
-// 2. serve over HTTP with OpenAPI docs
-const app = serve({ queries: { revenueByDay } });
-app.listen(3000);
-
-// 3. wrap as a typed React hook
-const { useRevenueByDay } = createHooks({ revenueByDay });`;
+export const api = serve({
+  queries: { revenueByDay },
+});`;
 
 export default function ClickHouseJSPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse JS"
       title="The JavaScript query builder built for ClickHouse"
-      description="@clickhouse/client gives you a connection. hypequery gives you a full JavaScript analytics layer — schema-generated types, a composable query builder, typed HTTP APIs, and React hooks. Built specifically for ClickHouse, not adapted from a Postgres tool."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started free' }}
+      description="This page is for teams starting from plain JavaScript or TypeScript and wondering how far the raw ClickHouse client really gets them. hypequery keeps the connection layer, but adds schema-driven query code so the rest of the app is not built on casts and copied SQL."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/compare/hypequery-vs-clickhouse-client', label: 'Compare vs @clickhouse/client' }}
       stats={[
         { label: 'Language', value: 'JavaScript & TypeScript' },
@@ -85,78 +91,78 @@ export default function ClickHouseJSPage() {
       ]}
       problems={[
         {
-          title: '@clickhouse/client returns any — no type safety',
+          title: 'The raw client stops at query execution',
           copy:
-            'The official ClickHouse JS client executes queries and returns untyped results. Every response is effectively `any`. You hand-write interfaces that drift from the real schema, and TypeScript cannot catch the mismatch.',
+            'It connects to ClickHouse and runs SQL well. The problem starts after that, when every caller has to decide what the rows look like and how much parsing or casting it wants to do.',
         },
         {
-          title: 'ClickHouse types do not map to JavaScript cleanly',
+          title: 'JavaScript callers keep re-solving the same runtime type issues',
           copy:
-            'DateTime columns come back as strings, not Date objects. UInt64 values come back as strings to avoid precision loss. Nullable columns return null. If you are guessing the mappings, you are introducing silent bugs.',
+            'DateTime, UInt64, Nullable, and Decimal do not map the way many teams expect. Without a shared type source, every query callsite ends up making its own assumptions.',
         },
         {
-          title: 'Raw SQL strings do not scale in a JavaScript codebase',
+          title: 'The same query logic leaks into every runtime',
           copy:
-            'The same analytics query gets copy-pasted into API routes, background jobs, dashboards, and internal tools. When the schema changes, you find and fix it everywhere — or miss one and ship a bug.',
+            'A JavaScript stack often spans scripts, server code, and UI consumers. If the query only exists as a string plus an informal row shape, reuse turns into copy-paste very quickly.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'How hypequery works',
-        title: 'Generate types from ClickHouse, then build composable queries in JS',
+        eyebrow: 'What changes',
+        title: 'Keep the JavaScript runtime, replace the fragile query layer',
         description:
-          'Run `npx @hypequery/cli generate` against your ClickHouse instance. You get a typed schema file that maps every table and column to the correct JavaScript type. Then use the query builder to write composable, reusable analytics queries without touching a SQL string.',
+          'The useful move is not adopting a whole new stack. It is generating a schema file from ClickHouse and using that as the basis for query code, so JavaScript callers stop inventing row types ad hoc.',
         bullets: [
           'Schema types generated from your live ClickHouse database',
           'Correct JS runtime type mappings — DateTime→string, UInt64→string, Nullable→T|null',
           'Composable builder with filters, groupBy, orderBy, and aggregations',
           'Composable builder plus raw SQL escape hatches for ClickHouse-specific clauses',
-          'Works in Node.js, Next.js, Bun, and any JS runtime that supports fetch',
+          'Works across Node.js, Next.js, Bun, and other JavaScript runtimes',
         ],
         codePanel: {
           eyebrow: 'Before vs after',
-          title: 'From raw @clickhouse/client to typed hypequery',
+          title: 'From raw client rows to schema-aware query results',
           description:
-            'The raw client returns untyped results. hypequery returns results typed from your generated schema — correct ClickHouse-to-JavaScript mappings included.',
+            'The important difference is not style. It is that the second version has a real type source instead of leaving every caller to cast the result however it likes.',
           code: `${rawClientCode}\n\n// ---\n\n${hypequerCode}`,
         },
       }}
       implementationSection={{
-        eyebrow: 'Multi-context execution',
-        title: 'Define once, run anywhere in your JS stack',
+        eyebrow: 'When a query becomes shared',
+        title: 'Move useful queries into named definitions',
         description:
-          'hypequery is not just a query builder. The same query definition that runs inline can be served as an HTTP endpoint with OpenAPI docs, or wrapped as a typed React hook — without duplicating logic.',
+          'Once a JavaScript query stops being local implementation detail, it should stop living as an unstructured string. Promote it into a named definition and let the rest of the stack consume that definition instead.',
         paragraphs: [
-          'This is the difference between a ClickHouse JS client and a ClickHouse JS analytics layer. A client runs queries. An analytics layer makes those queries reusable, typed, and composable across your entire JavaScript product.',
-          'If you are evaluating your options, read the full comparison of @clickhouse/client, Kysely, Cube, and hypequery side by side.',
+          'That is the practical difference between this page and the raw-client story. The client gives you transport. The named query layer gives you something the rest of the product can safely call.',
+          'If you are evaluating the tradeoffs, the comparison page spells out where @clickhouse/client stays the simpler option and where it starts leaving too much work to application code.',
         ],
         codePanel: {
-          eyebrow: 'Multi-context',
-          title: 'One query, three execution contexts',
+          eyebrow: 'Named query',
+          title: 'A reusable query definition instead of another raw string',
           description:
-            'Define your analytics query once in JavaScript or TypeScript. Run it inline, serve it over HTTP, or use it as a React hook — the same definition, zero duplication.',
-          code: multiContextCode,
+            'This is the step that makes the JavaScript story scale. The query stops being “whatever this file does” and becomes something the rest of the app can depend on.',
+          code: serveCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse JavaScript client',
+          title: 'What this page is really comparing',
           copy:
-            '@clickhouse/client is the official option — but it returns untyped results and requires you to hand-write interfaces. hypequery wraps your ClickHouse connection with generated types and a composable query builder on top.',
+            'It is less about official client versus unofficial client, and more about whether query code stays raw and local or becomes typed and reusable.',
         },
         {
-          title: 'ClickHouse Node.js query builder',
+          title: 'Where JavaScript teams usually get stuck',
           copy:
-            'Most query builders are built for Postgres and adapted for ClickHouse. hypequery is built specifically for ClickHouse workloads, with typed query composition and room to drop to raw SQL when a ClickHouse-specific clause is needed.',
+            'Usually not on connecting to ClickHouse. Usually on keeping row shapes, response parsing, and copied SQL under control once the codebase grows a few consumers.',
         },
         {
-          title: 'ClickHouse JS types — DateTime, UInt64, Nullable',
+          title: 'Why the type source matters',
           copy:
-            'The ClickHouse-to-JavaScript type mapping is where most teams hit silent bugs. DateTime returns as a string. UInt64 returns as a string. hypequery generates these mappings from your live schema so you never guess.',
+            'If the query layer starts from the wrong assumptions about DateTime or UInt64, every higher-level abstraction inherits the mistake.',
         },
         {
-          title: 'ClickHouse HTTP API in JavaScript',
+          title: 'Where to branch next',
           copy:
-            'If you want a typed HTTP API on top of ClickHouse without hand-writing each route, @hypequery/serve exposes your query definitions as HTTP endpoints with full OpenAPI docs automatically.',
+            'Use the Node.js page for server and job concerns, Next.js for App Router concerns, and React for browser consumption.',
         },
       ]}
       readingLinks={[
@@ -189,10 +195,10 @@ export default function ClickHouseJSPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Add hypequery to your JavaScript project',
+        title: 'Replace one raw query in a JavaScript runtime you already own',
         description:
-          'Install the package, run schema generation against your ClickHouse instance, and write your first typed query in under five minutes.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Pick a query that currently returns untyped rows, generate the schema, and move that query onto the builder. That is enough to see whether the workflow earns its place.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/docs/schemas', label: 'Read the schemas guide' },
       }}
     />

@@ -7,7 +7,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'hypequery Use Cases',
   description:
-    'Use hypequery to add type-safe ClickHouse analytics to product APIs, internal tools, and multi-tenant SaaS applications.',
+    'See the two main ways teams adopt hypequery: adding analytics to existing product APIs or shipping tenant-scoped SaaS analytics on ClickHouse.',
   alternates: {
     canonical: absoluteUrl('/use-cases'),
   },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/use-cases'),
     title: 'hypequery Use Cases | Type-Safe ClickHouse Analytics',
     description:
-      'Patterns for adding governed, reusable ClickHouse analytics to product APIs and SaaS applications.',
+      'The two main adoption paths: add analytics to an existing backend or ship tenant-scoped SaaS analytics on ClickHouse.',
   },
 };
 
@@ -75,8 +75,7 @@ export default function UseCasesPage() {
               ClickHouse analytics use cases for product APIs and SaaS
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-              Start from your existing backend contracts, add type-safe analytics, and
-              grow from internal use to external APIs without rewriting core logic.
+              These are the two adoption paths that show up most often: teams layering analytics into an existing backend, and teams shipping customer-facing analytics with tenant boundaries that need to hold up in production.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
               <div className="border border-slate-700/80 bg-slate-950/70 p-5">
@@ -100,7 +99,7 @@ export default function UseCasesPage() {
             Use Cases
           </p>
           <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Pick the pattern that matches your architecture
+            Start with the path closest to the codebase you already have
           </h2>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
             {useCases.map((item) => (
@@ -122,39 +121,39 @@ export default function UseCasesPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-7 text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300 transition group-hover:text-cyan-200">
-                  Explore use case
-                </p>
-              </Link>
-            ))}
-          </div>
-        </section>
+	                <p className="mt-7 text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300 transition group-hover:text-cyan-200">
+	                  Open use case
+	                </p>
+	              </Link>
+	            ))}
+	          </div>
+	        </section>
 
-        <section className="border-y border-slate-800 bg-slate-950/60">
-          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 lg:grid-cols-3 lg:px-6">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 01</p>
-              <h3 className="font-display mt-3 text-xl font-semibold text-white">Model metrics once</h3>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Define analytics in TypeScript with explicit inputs, outputs, and auth expectations.
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 02</p>
-              <h3 className="font-display mt-3 text-xl font-semibold text-white">Integrate into your backend</h3>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Mount generated routes where needed or call queries in-process from existing handlers.
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 03</p>
-              <h3 className="font-display mt-3 text-xl font-semibold text-white">Expand usage safely</h3>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Reuse the same definitions across dashboards, services, and internal tools without drift.
-              </p>
-            </div>
-          </div>
-        </section>
+	        <section className="border-y border-slate-800 bg-slate-950/60">
+	          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 lg:grid-cols-3 lg:px-6">
+	            <div>
+	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 01</p>
+	              <h3 className="font-display mt-3 text-xl font-semibold text-white">Pick one repeated query</h3>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Start with analytics logic that already appears in more than one place in your codebase.
+	              </p>
+	            </div>
+	            <div>
+	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 02</p>
+	              <h3 className="font-display mt-3 text-xl font-semibold text-white">Put it on a shared path</h3>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Either call it in-process from the backend you already run or expose it under a controlled internal API path.
+	              </p>
+	            </div>
+	            <div>
+	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 03</p>
+	              <h3 className="font-display mt-3 text-xl font-semibold text-white">Expand only after it proves useful</h3>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Let more consumers depend on the same definition instead of minting new one-off query copies.
+	              </p>
+	            </div>
+	          </div>
+	        </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="border border-indigo-500/40 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
@@ -162,13 +161,13 @@ export default function UseCasesPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Next step
               </p>
-              <h3 className="font-display mt-3 text-2xl font-semibold text-white">
-                Start with the use case closest to your current architecture
-              </h3>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
-                Both paths share the same core model: define once, run anywhere, govern centrally.
-              </p>
-            </div>
+	              <h3 className="font-display mt-3 text-2xl font-semibold text-white">
+	                Start with the use case closest to your current architecture
+	              </h3>
+	              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+	                Do not start by adopting everything at once. Pick the path that matches your existing backend shape and replace one real query first.
+	              </p>
+	            </div>
             <div className="mt-6 md:mt-0">
               <Link
                 href="/docs/quick-start"

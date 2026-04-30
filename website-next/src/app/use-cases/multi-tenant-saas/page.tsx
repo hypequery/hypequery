@@ -8,7 +8,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Multi-Tenant SaaS Analytics on ClickHouse',
   description:
-    'Build multi-tenant SaaS analytics on ClickHouse with automatic tenant scoping, role checks, and reusable type-safe query definitions.',
+    'Build customer-facing ClickHouse analytics with tenant scoping and role checks that live in one reviewable backend path.',
   alternates: {
     canonical: absoluteUrl('/use-cases/multi-tenant-saas'),
   },
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     url: absoluteUrl('/use-cases/multi-tenant-saas'),
     title: 'Multi-Tenant SaaS Analytics on ClickHouse | hypequery',
     description:
-      'Use tenant-aware ClickHouse query definitions to reduce data-leak risk in customer-facing SaaS analytics.',
+      'Use one reviewable backend path for tenant-scoped, customer-facing ClickHouse analytics.',
   },
 };
 
@@ -101,8 +101,7 @@ export default function MultiTenantSaasUseCasePage() {
               Multi-tenant SaaS ClickHouse analytics with policy control by default
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-              Resolve auth context once, enforce tenant filtering automatically, and keep
-              role checks in query definitions where teams can review and version them.
+              This is the path for teams whose analytics already reach customers. The goal is not only faster queries. It is a backend path where tenant scope and role checks stop being easy to forget.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
@@ -139,24 +138,24 @@ export default function MultiTenantSaasUseCasePage() {
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="grid gap-6 md:grid-cols-3">
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Map auth once</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Convert API keys or sessions into typed auth context with tenant and role metadata.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Inject tenant filters</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Configure extraction once and let query execution scope data automatically.
-              </p>
-            </div>
-            <div className="border border-slate-700 bg-slate-900/60 p-6">
-              <h2 className="font-display text-lg font-semibold text-slate-100">Enforce roles inline</h2>
-              <p className="mt-3 text-sm leading-7 text-slate-300">
-                Require admin or tenant-specific roles directly in sensitive query definitions.
-              </p>
-            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Map auth once</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Turn API keys or sessions into typed request context with tenant and role metadata in one place.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Inject tenant filters</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Configure extraction once and let the standard query path apply tenant scope instead of trusting every author to remember it.
+	              </p>
+	            </div>
+	            <div className="border border-slate-700 bg-slate-900/60 p-6">
+	              <h2 className="font-display text-lg font-semibold text-slate-100">Enforce roles inline</h2>
+	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	                Keep sensitive access checks next to the query definition instead of scattering them through route files.
+	              </p>
+	            </div>
           </div>
         </section>
 
@@ -189,26 +188,26 @@ export default function MultiTenantSaasUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <h2 className="font-display text-2xl font-semibold text-gray-100">Tenant auth without glue code</h2>
-          <p className="mt-3 text-lg leading-8 text-gray-300">
-            Use API key auth and map tenant and admin identities directly into typed auth context.
-          </p>
+	          <h2 className="font-display text-2xl font-semibold text-gray-100">Tenant auth without glue code</h2>
+	          <p className="mt-3 text-lg leading-8 text-gray-300">
+	            Map incoming auth to one typed context object so tenant and role data enter the system in a predictable way.
+	          </p>
           <CodeWindow code={authCode} filename="auth.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="font-display text-2xl font-semibold text-gray-100">Automatic tenant scoping</h2>
-          <p className="mt-3 text-lg leading-8 text-gray-300">
-            Set tenant extraction once and let HypeQuery inject filters automatically.
-          </p>
+	          <h2 className="font-display text-2xl font-semibold text-gray-100">Automatic tenant scoping</h2>
+	          <p className="mt-3 text-lg leading-8 text-gray-300">
+	            Set tenant extraction once and let the backend query path apply it consistently rather than relying on repeated manual filters.
+	          </p>
           <CodeWindow code={tenantCode} filename="api.ts" className="mt-6" />
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="font-display text-2xl font-semibold text-gray-100">Role-based access for sensitive queries</h2>
-          <p className="mt-3 text-lg leading-8 text-gray-300">
-            Apply access control directly in query definitions.
-          </p>
+	          <h2 className="font-display text-2xl font-semibold text-gray-100">Role-based access for sensitive queries</h2>
+	          <p className="mt-3 text-lg leading-8 text-gray-300">
+	            Put the access rule on the query definition that needs it instead of treating authorization as an afterthought outside the analytics layer.
+	          </p>
           <CodeWindow code={roleCode} filename="queries.ts" className="mt-6" />
         </section>
 
@@ -218,15 +217,15 @@ export default function MultiTenantSaasUseCasePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
                 Governance outcome
               </p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
-                Clear tenant boundaries with a single shared query layer
-              </h2>
-              <ul className="mt-4 space-y-2 text-sm leading-7 text-slate-300">
-                <li>Clear admin versus tenant capabilities</li>
-                <li>Reusable auth and policy primitives</li>
-                <li>Faster onboarding for new product teams</li>
-              </ul>
-            </div>
+	              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
+	                Clear tenant boundaries with a single shared query layer
+	              </h2>
+	              <ul className="mt-4 space-y-2 text-sm leading-7 text-slate-300">
+	                <li>Clear admin versus tenant capabilities</li>
+	                <li>Reusable auth and policy primitives</li>
+	                <li>One reviewable backend path for customer-facing analytics</li>
+	              </ul>
+	            </div>
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/multi-tenancy"

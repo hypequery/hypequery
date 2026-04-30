@@ -3,24 +3,24 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Semantic Layer Alternative for TypeScript Teams | hypequery',
+  title: 'ClickHouse Semantic Layer for TypeScript Teams | hypequery',
   description:
-    'hypequery is not a full semantic layer. It gives ClickHouse teams reusable typed query contracts, HTTP delivery, and governed query reuse while fuller semantic-layer capabilities remain on the roadmap.',
+    'Need a ClickHouse semantic layer? hypequery gives TypeScript teams reusable query definitions and typed delivery paths, and shows where Cube or dbt MetricFlow are the better fit.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-semantic-layer'),
   },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/clickhouse-semantic-layer'),
-    title: 'ClickHouse Semantic Layer Alternative | hypequery',
+    title: 'ClickHouse Semantic Layer for TypeScript Teams | hypequery',
     description:
-      'If you want a ClickHouse semantic layer, start with the honest distinction: hypequery provides reusable typed query contracts today, not a full metrics-semantic platform.',
+      'Looking for a ClickHouse semantic layer? hypequery covers reusable query definitions for TypeScript apps and explains when a fuller semantic platform is the better fit.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse Semantic Layer Alternative | hypequery',
+    title: 'ClickHouse Semantic Layer for TypeScript Teams | hypequery',
     description:
-      'hypequery is not a full semantic layer. It helps ClickHouse teams define reusable typed query contracts and delivery paths today.',
+      'A ClickHouse semantic layer for TypeScript teams often starts with reusable query definitions. hypequery explains that layer and where Cube or dbt MetricFlow fit instead.',
   },
 };
 
@@ -71,67 +71,67 @@ export default function ClickHouseSemanticLayerPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse Semantic Layer"
-      title="A semantic-layer alternative for ClickHouse, with honest limits"
-      description="Some teams searching for a ClickHouse semantic layer do not actually need a full metrics platform on day one. They need reusable named queries, typed inputs and outputs, safer delivery paths, and one reviewed contract per metric. hypequery does that well today. It is not a full semantic layer, and semantic-analysis capabilities are on the roadmap rather than already shipped."
-      primaryCta={{ href: '/clickhouse-analytics', label: 'See the analytics layer' }}
-      secondaryCta={{ href: 'https://github.com/hypequery/hypequery/issues', label: 'Request semantic-layer features' }}
+      title="ClickHouse semantic layer for TypeScript teams"
+      description="Most teams searching for a ClickHouse semantic layer are trying to solve one of two problems. Either they need a full semantic platform for BI and shared metrics, or they need one place to define queries that can be reused safely across APIs, jobs, dashboards, and app code. hypequery is built for the second case."
+      primaryCta={{ href: '/clickhouse-analytics', label: 'Open analytics layer guide' }}
+      secondaryCta={{ href: '/compare/hypequery-vs-cube', label: 'Compare with Cube' }}
       stats={[
-        { label: 'What hypequery is', value: 'Typed query-contract layer' },
-        { label: 'What it is not', value: 'Full semantic metrics platform' },
-        { label: 'Best fit', value: 'Product and app teams on ClickHouse' },
+        { label: 'Primary fit', value: 'Typed query-contract layer' },
+        { label: 'Platform comparison', value: 'Lighter than Cube / MetricFlow' },
+        { label: 'Best audience', value: 'TypeScript teams on ClickHouse' },
       ]}
       problems={[
         {
-          title: 'Raw ClickHouse queries do not become a governed metrics layer by themselves',
+          title: 'A ClickHouse semantic layer can mean several different products',
           copy:
-            'Even when the SQL is correct, metrics drift once the same idea is repeated across dashboards, APIs, exports, and internal tools. Teams need named contracts, not more scattered query strings.',
+            'Sometimes the goal is centralized BI metrics for many consumers. Sometimes it is one reviewed query definition that can be reused inside a product codebase. Those overlap, but they are not the same tool.',
         },
         {
-          title: 'Full semantic layers can be heavier than what product teams need first',
+          title: 'Full semantic platforms solve a broader problem than many app teams need first',
           copy:
-            'Tools like Cube are strong when you need central metrics for BI tools, multiple external consumers, caching, and pre-aggregations. Many ClickHouse teams are earlier than that and mainly need governed reuse inside a TypeScript application stack.',
+            'Cube and dbt MetricFlow are strong when you need centralized metrics, broader semantic modeling, multiple non-engineering consumers, or platform-level governance. Many ClickHouse teams are earlier than that and mainly need reusable typed query contracts inside a TypeScript stack.',
         },
         {
-          title: 'The term "semantic layer" covers several different needs',
+          title: 'Raw SQL is not a semantic layer just because it is shared in a few places',
           copy:
-            'Sometimes the need is metric governance. Sometimes it is type-safe delivery into apps. Sometimes it is AI-safe query exposure. Those overlap, but they are not the same product surface.',
+            'Even correct ClickHouse SQL drifts once the same logic is copied into dashboards, endpoints, exports, and product code. The first useful layer is a named query with typed inputs and a stable output shape.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'What hypequery does today',
-        title: 'Reusable typed query contracts that travel across your stack',
+        eyebrow: 'What hypequery gives you',
+        title: 'One query definition that can travel across your stack',
         description:
-          'hypequery lets you define named ClickHouse queries in TypeScript, validate inputs, infer outputs from the schema, and reuse the same contract across local execution, HTTP endpoints, React hooks, and agent-facing surfaces. That covers an important part of the semantic-layer problem: governed reuse.',
+          'hypequery lets you define named ClickHouse queries in TypeScript, validate inputs, infer outputs from the schema, and reuse that same definition across local execution, HTTP endpoints, React hooks, and agent-facing surfaces. For many product teams, that is the useful part of the semantic-layer problem.',
         bullets: [
           'Schema-generated types from your live ClickHouse database',
           'Named query definitions instead of anonymous SQL fragments',
           'Typed inputs with Zod and typed outputs from the query result',
-          'One contract reused across services, dashboards, and app features',
-          'A clean path to HTTP, OpenAPI, React, and MCP-style consumers',
-          'No claim of full semantic modeling, metric compiler rules, or BI-wide governance today',
+          'One contract reused across services, dashboards, internal tools, and app features',
+          'A clean path to HTTP, OpenAPI, React, and agent-facing consumers',
+          'A lighter operational footprint than running a separate semantic platform',
         ],
         codePanel: {
           eyebrow: 'Named contract',
           title: 'Define a metric-like query once',
           description:
-            'This is the part hypequery does well today: define a query contract once, type it from the real schema, and make it reusable across consumers.',
+            'This is the workflow hypequery supports well today: define a query once, type it from the live schema, and reuse it across consumers without re-authoring the logic.',
           code: contractCode,
         },
       }}
       implementationSection={{
-        eyebrow: 'Where the boundary is',
-        title: 'Use hypequery for governed reuse, and reach for Cube when you need a full semantic platform',
+        eyebrow: 'Where the line is',
+        title: 'Use hypequery for product delivery, and reach for Cube or dbt MetricFlow when semantic governance is the product',
         description:
-          'The honest line is simple. If you need centralized metrics serving many BI and non-engineering consumers, pre-aggregations, and a dedicated semantic platform, evaluate Cube. If you need reusable query contracts inside a ClickHouse-heavy TypeScript product, hypequery is a lighter fit.',
+          'The honest line is simple. If you need centralized metrics for BI tools, richer semantic modeling, or a dedicated platform that serves many non-engineering consumers, evaluate Cube or dbt MetricFlow. If you need reusable query definitions inside a ClickHouse-heavy TypeScript product, hypequery is the lighter fit.',
         paragraphs: [
-          'A lot of teams searching for "ClickHouse semantic layer" are really trying to stop duplicating query logic across codepaths. hypequery addresses that directly by making queries first-class, typed, and transportable.',
-          'If semantic analysis, richer metric semantics, or more explicit modeling capabilities are important to your workflow, open an issue. That is a legitimate extension area for hypequery, but it should be described as roadmap work, not present-day functionality.',
+          'A lot of teams searching for "ClickHouse semantic layer" are really trying to stop duplicating query logic across codepaths. hypequery addresses that directly by making queries first-class and reusable.',
+          'If your world is BI tooling and centrally managed metric definitions, Cube and dbt MetricFlow are better search paths. If your world is shipping ClickHouse-backed features in TypeScript, hypequery is usually closer to the problem you actually have today.',
         ],
         codePanel: {
           eyebrow: 'Reuse pattern',
           title: 'One definition, several delivery paths',
           description:
-            'This is the practical payoff: the same reviewed query contract can feed server code, REST endpoints, dashboards, and agent workflows without being re-authored in each place.',
+            'This is the practical payoff: the same query definition can feed server code, REST endpoints, dashboards, and agent workflows without being rewritten in each place.',
           code: reuseCode,
         },
       }}
@@ -139,22 +139,22 @@ export default function ClickHouseSemanticLayerPage() {
         {
           title: 'ClickHouse semantic layer',
           copy:
-            'If you want a ClickHouse semantic layer, first decide whether you need a full metrics platform or a reusable application-layer contract for queries and metrics.',
+            'The key question is whether you need a full semantic metrics platform or a reusable application-layer contract for queries and metric-shaped outputs.',
         },
         {
-          title: 'Cube.js alternative for ClickHouse apps',
+          title: 'dbt MetricFlow alternative for TypeScript apps',
           copy:
-            'Cube is a stronger fit for centralized semantic serving across many consumers. hypequery is the lighter code-first option when your main need is governed query reuse inside a TypeScript stack.',
+            'dbt MetricFlow is stronger when semantic modeling and broader analytics governance are the main job. hypequery is the lighter code-first option when your main need is governed ClickHouse query reuse inside TypeScript.',
         },
         {
           title: 'Reusable metrics on ClickHouse',
           copy:
-            'Reusable metrics start with named contracts, typed inputs, and consistent delivery paths. That is the part hypequery solves directly today.',
+            'Reusable metrics start with named queries, typed inputs, and consistent delivery paths. That is the part hypequery solves directly for ClickHouse applications today.',
         },
         {
-          title: 'Semantic layer roadmap for hypequery',
+          title: 'Cube alternative for ClickHouse-backed apps',
           copy:
-            'hypequery is not claiming full semantic-layer functionality today. If that is the missing piece for your use case, the right move is to raise it directly as a roadmap request.',
+            'Cube is a stronger fit for a fuller semantic platform. hypequery is the lighter fit when the main need is reusable query contracts, typed APIs, and application delivery on top of ClickHouse.',
         },
       ]}
       readingLinks={[
@@ -174,6 +174,11 @@ export default function ClickHouseSemanticLayerPage() {
           description: 'A direct comparison between a code-first query layer and a fuller semantic-layer platform.',
         },
         {
+          href: '/clickhouse-query-builder',
+          title: 'ClickHouse Query Builder',
+          description: 'See the lower-level query composition layer that sits underneath reusable contracts and typed delivery paths.',
+        },
+        {
           href: '/clickhouse-mcp',
           title: 'ClickHouse MCP',
           description: 'How defined query contracts become safer AI-agent tools than raw SQL exposure.',
@@ -182,14 +187,15 @@ export default function ClickHouseSemanticLayerPage() {
       relatedPillars={[
         { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
+        { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
         { href: '/clickhouse-rest-api', label: 'ClickHouse REST API' },
-        { href: '/clickhouse-multi-tenant-analytics', label: 'ClickHouse Multi-Tenant Analytics' },
+        { href: '/clickhouse-mcp', label: 'ClickHouse MCP' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
         title: 'Decide whether you need a query-contract layer or a full semantic platform',
         description:
-          'If governed query reuse inside your app is the main problem, start with the analytics layer. If you need deeper semantic capabilities, compare Cube and tell us what hypequery would need to support your workflow.',
+          'If repeated query logic inside your app is the main problem, start with the analytics layer. If you need deeper semantic capabilities, compare Cube and then decide whether your team is solving app delivery or broader semantic governance.',
         primaryCta: { href: '/clickhouse-analytics', label: 'Open analytics layer guide' },
         secondaryCta: { href: '/compare/hypequery-vs-cube', label: 'Compare with Cube' },
       }}

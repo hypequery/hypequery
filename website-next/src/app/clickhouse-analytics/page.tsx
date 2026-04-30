@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse Analytics',
   description:
-    'Build a reusable ClickHouse analytics layer in TypeScript with schema-driven queries, typed APIs, and delivery paths for dashboards, apps, and internal tools.',
+    'Build ClickHouse analytics that can be reused across product code instead of re-implementing the same metrics in routes, jobs, and dashboards.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-analytics'),
   },
@@ -51,8 +51,8 @@ export default function ClickHouseAnalyticsPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Analytics"
       title="Turn ClickHouse into a reusable analytics layer instead of a pile of raw queries"
-      description="ClickHouse is excellent at running analytical workloads. The harder problem is making analytics safe and reusable across dashboards, APIs, internal tools, and product features. hypequery gives TypeScript teams a practical analytics layer on top of ClickHouse."
-      primaryCta={{ href: '/docs/quick-start', label: 'Open quick start' }}
+      description="This page is about what happens after the first few queries work. The database is fast, but the same metrics start showing up in route handlers, exports, dashboards, and internal tools. hypequery gives those queries one place to live so the codebase stops forking the same logic."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/blog/the-analytics-language-layer-why-real-time-data-needs-typed-apis-not-just-faster-databases', label: 'Read the architecture essay' }}
       stats={[
         { label: 'Core pattern', value: 'Schema-driven analytics layer' },
@@ -61,78 +61,78 @@ export default function ClickHouseAnalyticsPage() {
       ]}
       problems={[
         {
-          title: 'Raw SQL scales poorly across consumers',
+          title: 'Metrics get reimplemented everywhere',
           copy:
-            'The same metric is reimplemented in dashboards, routes, jobs, exports, and internal tools. Even if ClickHouse is fast, the application layer turns brittle.',
+            'A team writes one version of “active users” for a dashboard, another for an export, and another for an API. Each one is close enough to feel safe until the numbers stop matching.',
         },
         {
-          title: 'Analytics contracts are rarely explicit',
+          title: 'The useful queries never stay local',
           copy:
-            'Teams know they need “active users” or “revenue by day”, but those definitions live as code fragments instead of named, reviewed, reusable assets.',
+            'The query that starts in one file usually ends up feeding several consumers. Without a named definition, every new consumer becomes another copy and another place for the logic to drift.',
         },
         {
-          title: 'Database speed does not solve governance',
+          title: 'ClickHouse speed does not solve application sprawl',
           copy:
-            'As more product surfaces, teams, and agents hit ClickHouse, the problem becomes safe access and reuse rather than just query execution speed.',
+            'Fast scans are not the bottleneck once several teams or surfaces depend on the same numbers. The real problem is keeping access, filters, and result shapes consistent as usage expands.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'The operating model',
-        title: 'Define analytics once, then deliver them to every consumer',
+        eyebrow: 'What changes',
+        title: 'Give important queries names and reuse them on purpose',
         description:
-          'A healthy ClickHouse analytics stack treats metrics and queries as code-level contracts. They are typed, named, reviewed, and transportable across runtime boundaries.',
+          'The main shift is simple: stop treating analytics queries as loose implementation detail. Generate the schema, define the query once, and make that definition the thing other parts of the product call.',
         bullets: [
-          'Generate schema types from ClickHouse so contracts reflect reality',
+          'Generate schema types from ClickHouse so query code matches runtime reality',
           'Define named queries in TypeScript instead of scattering SQL strings',
-          'Run those definitions locally or expose them over HTTP',
-          'Document and validate inputs with the same source of truth',
-          'Add React hooks or external consumers without rewriting the metric',
+          'Call those definitions locally or expose them over HTTP when needed',
+          'Keep input validation and response typing next to the query itself',
+          'Add new consumers without rewriting the underlying metric logic',
         ],
         codePanel: {
-          eyebrow: 'Shared definition',
-          title: 'Create an analytics contract once',
+          eyebrow: 'Named query',
+          title: 'One shared definition for a metric the product keeps using',
           description:
-            'This is the core shift from “database client” to “analytics layer”. The query is a named contract that multiple consumers can share.',
+            'The page gets much less abstract once you see the unit being shared. It is just a named query with typed input and one obvious place to change it later.',
           code: layerCode,
         },
       }}
       implementationSection={{
-        eyebrow: 'Delivery paths',
-        title: 'Support multiple consumers without rewriting the metric',
+        eyebrow: 'What reuse looks like',
+        title: 'The query stays the same even when the consumer changes',
         description:
-          'Once analytics are defined as contracts, the same definition can feed server-side calls, browser clients, dashboards, scheduled jobs, and eventually AI or agent workflows.',
+          'This is the part that makes the architecture useful in practice. A server call, an HTTP endpoint, and a browser hook can all depend on the same query instead of growing their own local version.',
         paragraphs: [
-          'That is the practical reason to build an analytics layer: not because SQL is impossible, but because organizations need one durable definition per metric as the number of consumers grows.',
-          'If your concern is the TypeScript mapping problem specifically, pair this page with the ClickHouse TypeScript pillar. If your concern is isolation in SaaS products, continue to the multi-tenant analytics pillar.',
+          'That is the only claim this page really needs to make. It is not that SQL is hard. It is that reused analytics logic should stop being copied from file to file.',
+          'If your current pain is runtime types, go to the TypeScript page. If your current pain is tenant-scoped customer analytics, go to the SaaS analytics page.',
         ],
         codePanel: {
-          eyebrow: 'Multiple consumers',
-          title: 'One analytics definition, several execution paths',
+          eyebrow: 'Consumers',
+          title: 'Three places the same metric can show up',
           description:
-            'The consumer changes. The underlying metric definition does not. That is what keeps analytics coherent as a codebase grows.',
+            'Nothing fancy is happening here. The point is that the consumer changes and the definition does not.',
           code: consumerCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse analytics architecture',
+          title: 'When this architecture matters',
           copy:
-            'If you are evaluating how to structure product analytics on ClickHouse, the main choice is whether metrics stay as raw SQL snippets or become shared application contracts.',
+            'It matters once a few queries stop being one-off reports and start feeding product features, internal tools, or several teams at the same time.',
         },
         {
-          title: 'ClickHouse semantic layer alternative',
+          title: 'What this is not',
           copy:
-            'Some teams want the benefits of a semantic layer but prefer a code-first, TypeScript-native approach that fits directly into their application stack.',
+            'This is not a huge BI platform and it is not trying to be. It is a code-first way to stop duplicating analytics logic inside a TypeScript application.',
         },
         {
-          title: 'Reusable metrics on ClickHouse',
+          title: 'What teams actually gain',
           copy:
-            'Reusable metrics matter when multiple teams and product surfaces need the same numbers with the same filtering and validation rules.',
+            'Fewer mismatched numbers, fewer route-specific rewrites, and one obvious place to change a metric when the definition moves.',
         },
         {
-          title: 'Typed analytics APIs',
+          title: 'Where to go next',
           copy:
-            'A typed analytics API turns ClickHouse access into governed application behavior instead of ad-hoc database calls spread across the stack.',
+            'Use the TypeScript page for runtime type problems, the REST page for delivery over HTTP, and the dashboard page for the browser-side consumption story.',
         },
       ]}
       readingLinks={[
@@ -166,10 +166,10 @@ export default function ClickHouseAnalyticsPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Use the quick start to make your first named analytics contract real',
+        title: 'Take one repeated metric and give it a single definition',
         description:
-          'Once you see a schema-generated query run locally and over HTTP from the same definition, the analytics-layer pattern becomes concrete.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Pick a metric that already exists in more than one place, move it into a named query, and wire one consumer to it. That is the fastest way to tell whether this model earns its place in your codebase.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/clickhouse-typescript', label: 'See TypeScript specifics' },
       }}
     />

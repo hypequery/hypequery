@@ -1,18 +1,17 @@
 ---
-title: "Type-Safe SQL in TypeScript: Why Your Current Approach is Failing You (And What to Do About It)"
-description: Developer productivity suffers when SQL queries break at runtime instead of compile time. Type-safe SQL in TypeScript isn't just a nice-to-have, it's essential for building reliable applications. This guide explores why traditional approaches fall short and shows you how modern solutions like hypequery can transform your development workflow.
-seoTitle: "ClickHouse TypeScript Types: Fix Runtime SQL Errors with Type-Safe Queries"
-seoDescription: "Using ClickHouse with TypeScript? Learn why raw SQL and manual types fail, what breaks at runtime, and how to get type-safe queries with compile-time guarantees."
+title: "Type-Safe SQL in TypeScript: Why Your Current Approach Is Failing You"
+description: "Raw SQL plus hand-written row types leaves a blind spot in TypeScript applications. This post explains where that breaks down and what a safer query workflow looks like."
+seoTitle: "Type-Safe SQL in TypeScript: Fix Runtime Query Errors"
+seoDescription: "Why raw SQL and manual row types still fail in TypeScript, and what a safer query workflow looks like for ClickHouse-heavy codebases."
 pubDate: 2025-07-04T11:10:00.000Z
 heroImage: ""
 ---
-
 
 If you're coming at this from a ClickHouse-specific angle, pair this article with the [ClickHouse TypeScript](/clickhouse-typescript) pillar page. If your broader concern is building a reusable metrics layer, also see [ClickHouse analytics](/clickhouse-analytics).
 
 ## The Hidden Cost of Runtime SQL Errors
 
-Here's the scenario: you deploy your application, confident that your type checking caught all potential issues, only to discover SQL-related runtime errors in production. Despite TypeScript's powerful static analysis, **database queries remain a significant blind spot** in most applications.
+TypeScript catches a lot of application errors. It usually does not catch the query boundary itself. That gap is where many teams discover that “typed app” and “typed data access” are not the same thing.
 
 Consider this common pattern:
 

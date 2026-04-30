@@ -3,13 +3,8 @@ title: Time Functions
 description: Work with dates, timestamps, and time intervals
 ---
 
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-import { Pre } from 'fumadocs-ui/components/codeblock';
-
-
-# Time Functions
 
 hypequery provides powerful time-based functions for working with dates, timestamps, and time intervals. These are essential for analytics, reporting, and time-series data.
 
@@ -208,14 +203,14 @@ const events = await db.table('events')
 
 ### Built-in Intervals
 
-hypequery provides predefined interval functions:
+`groupByTimeInterval()` supports ClickHouse's built-in `toStartOf*` bucketing methods. The builder still expects a string interval argument, even when the selected method does not use it directly:
 
 <CodeBlock>
 
 ```typescript
 const events = await db.table('events')
   .count('id', 'event_count')
-  .groupByTimeInterval('created_at', null, 'toStartOfMinute')
+  .groupByTimeInterval('created_at', '1 minute', 'toStartOfMinute')
   .execute();
 ```
 
@@ -226,7 +221,6 @@ const events = await db.table('events')
 | Function | Description |
 | --- | --- |
 | `toStartOfMinute` | Truncate to minute |
-| `toStartOfFiveMinutes` | Truncate to 5-minute intervals |
 | `toStartOfHour` | Truncate to hour |
 | `toStartOfDay` | Truncate to day |
 | `toStartOfWeek` | Truncate to week (Monday) |
@@ -256,7 +250,7 @@ const events = await db.table('events')
 ```typescript
 const dailyActive = await db.table('events')
   .select([
-    toStartOfDay('created_at', 'date'),
+    toStartOfInterval('created_at', '1 day', 'date'),
   ])
   .distinctCount('user_id', 'daily_active_users')
   .groupBy(['date'])
@@ -290,7 +284,7 @@ const hourlyEvents = await db.table('events')
 ```typescript
 const monthlyRevenue = await db.table('orders')
   .select([
-    toStartOfMonth('created_at', 'month'),
+    toStartOfInterval('created_at', '1 month', 'month'),
   ])
   .sum('total', 'revenue')
   .groupBy(['month'])
@@ -307,7 +301,7 @@ const monthlyRevenue = await db.table('orders')
 ```typescript
 const cohorts = await db.table('users')
   .select([
-    toStartOfWeek('created_at', 'cohort_week'),
+    toStartOfInterval('created_at', '1 week', 'cohort_week'),
   ])
   .count('id', 'new_users')
   .groupBy(['cohort_week'])
@@ -424,7 +418,7 @@ const events = await db.table('events')
 ```typescript
 const funnel = await db.table('events')
   .select([
-    toStartOfDay('created_at', 'date'),
+    toStartOfInterval('created_at', '1 day', 'date'),
     'event_type',
   ])
   .distinctCount('user_id', 'unique_users')
@@ -442,7 +436,7 @@ const funnel = await db.table('events')
 ```typescript
 const movingAvg = await db.table('events')
   .select([
-    toStartOfDay('created_at', 'date'),
+    toStartOfInterval('created_at', '1 day', 'date'),
     selectExpr('avg(count) OVER (ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)', 'moving_avg'),
   ])
   .count('id', 'count')
@@ -474,7 +468,7 @@ const yoy = await db.table('orders')
 ## Performance Tips
 
 <Callout type="tip" title="Time Query Performance">
-  - Use `toStartOf*` functions for pre-calculated buckets
+  - Prefer `toStartOfInterval(...)` or `groupByTimeInterval(...)` for explicit buckets
   - Consider materialized views for common time-based aggregations
   - Filter by time ranges before grouping when possible
   - Use appropriate partitioning by time for large tables
@@ -489,7 +483,7 @@ const yoy = await db.table('orders')
 const stats = await db.table('events')
   .where('created_at', 'gte', '2024-01-01')
   .select([
-    toStartOfDay('created_at', 'date'),
+    toStartOfInterval('created_at', '1 day', 'date'),
   ])
   .count('id', 'event_count')
   .groupBy(['date'])
@@ -498,7 +492,7 @@ const stats = await db.table('events')
 // ❌ Slower - group everything
 const stats = await db.table('events')
   .select([
-    toStartOfDay('created_at', 'date'),
+    toStartOfInterval('created_at', '1 day', 'date'),
   ])
   .count('id', 'event_count')
   .groupBy(['date'])
@@ -535,7 +529,7 @@ const hourlyTraffic = await db.table('page_views')
 ```typescript
 const signups = await db.table('users')
   .select([
-    toStartOfWeek('created_at', 'week'),
+    toStartOfInterval('created_at', '1 week', 'week'),
   ])
   .count('id', 'new_signups')
   .groupBy(['week'])

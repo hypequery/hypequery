@@ -1,15 +1,15 @@
 ---
-title: "Type-Safe Schema Management & Evolution in ClickHouse: Keeping Analytics in Sync"
-description: "Learn how to solve schema evolution challenges in ClickHouse with automated type generation, compile-time safety, and best practices for keeping your analytics applications resilient as your data grows."
-seoTitle: "ClickHouse TypeScript Schema Types: Prevent Schema Drift in Analytics Apps"
-seoDescription: "Generate ClickHouse schema types for TypeScript, prevent schema drift, and keep analytics queries in sync as your data model evolves."
+title: "Type-Safe Schema Management and Evolution in ClickHouse"
+description: "Schema drift is where many ClickHouse TypeScript codebases start to break. This post focuses on generated schema types and workflows that keep query code aligned with the live database."
+seoTitle: "ClickHouse Schema Types for TypeScript: Prevent Schema Drift"
+seoDescription: "Prevent schema drift in ClickHouse TypeScript code by generating schema types and keeping query code aligned with the live database."
 pubDate: 2025-07-23
 heroImage: ""
 ---
 
-Modern analytics applications rely on ClickHouse for its speed and scalability, but as team structures and business needs evolve, so too must your schema. Uncontrolled schema changes known as schema drift - can silently break applications or degrade performance, especially when teams manage both application and analytics codebases in strongly typed languages like TypeScript.
+ClickHouse schemas change. The problem is not that they change, but that application code often learns about the change too late. In TypeScript codebases, that usually means one thing: the database moved first and the row types never caught up.
 
-In this comprehensive guide, we'll look at tools such as [hypequery](https://hypequery.com) and explore best practices to solve the schema evolution challenge by providing automated type generation, compile-time safety, and streamlined workflows that keep your analytics applications resilient as your data grows.
+This guide focuses on the practical fix: generate schema types from the live database and make query code depend on that source of truth instead of hand-maintained interfaces.
 
 If you are specifically trying to solve schema drift in a TypeScript application, the [ClickHouse TypeScript](/clickhouse-typescript) pillar is the best overview page to pair with this article.
 

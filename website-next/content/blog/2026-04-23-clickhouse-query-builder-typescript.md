@@ -1,17 +1,17 @@
 ---
 title: "ClickHouse Query Builders for TypeScript: What Your Options Actually Are"
-description: "The official ClickHouse client has no query builder. This post maps every realistic option in 2026 — raw client, Kysely, Cube, and hypequery — and where each one stops."
-seoTitle: "ClickHouse Query Builder for TypeScript: Options, Tradeoffs, and What to Pick"
-seoDescription: "Comparing ClickHouse query builders for TypeScript? Here's every option in 2026 — @clickhouse/client, Kysely, Cube, and hypequery — with honest tradeoffs and code examples."
+description: "A practical comparison of the real TypeScript options for ClickHouse: raw client, Kysely, Cube, and hypequery, with the tradeoffs each one leaves you holding."
+seoTitle: "ClickHouse Query Builder for TypeScript: Options and Tradeoffs"
+seoDescription: "Comparing ClickHouse query builders for TypeScript? See where @clickhouse/client, Kysely, Cube, and hypequery fit, and where each option stops helping."
 pubDate: 2026-04-23
 heroImage: ""
 slug: clickhouse-query-builder-typescript
 status: published
 ---
 
-If you're running ClickHouse and writing TypeScript, there's a gap in the ecosystem that's easy to miss until you're deep into a project. ClickHouse has a well-maintained official JavaScript client. What it doesn't have is a query builder — a typed, composable layer that lets you construct queries programmatically without writing SQL strings.
+If you are running ClickHouse from TypeScript, the missing piece usually does not show up on day one. It shows up when the first raw query becomes the fifth one, the row types start drifting, and the backend needs something more reusable than SQL strings plus casts.
 
-This post covers every realistic option in 2026: what each one gives you, where it stops, and where hypequery fits.
+This post covers the realistic options in 2026: what each one is good at, where it stops, and which tradeoff you are actually making.
 
 ## What a query builder actually is (and why ClickHouse makes it harder)
 

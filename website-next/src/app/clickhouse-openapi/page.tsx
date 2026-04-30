@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse OpenAPI — Auto-Generated Docs from Query Definitions | hypequery',
   description:
-    'hypequery automatically generates an OpenAPI spec from your ClickHouse query definitions. Ship typed REST APIs with request validation, response schemas, and Swagger UI — no manual documentation.',
+    'Generate an OpenAPI spec from real ClickHouse query definitions so your docs, request validation, and response schemas stay aligned with the code you actually ship.',
   alternates: { canonical: absoluteUrl('/clickhouse-openapi') },
   openGraph: {
     type: 'website',
@@ -92,8 +92,8 @@ export default function ClickHouseOpenApiPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse OpenAPI"
       title="Auto-generated OpenAPI docs from ClickHouse query definitions"
-      description="When you define ClickHouse queries with hypequery, the OpenAPI specification is generated automatically. Request validation, response schemas, and Swagger UI — all derived from your Zod input schemas and ClickHouse-generated output types. No manual documentation step."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
+      description="Most internal analytics APIs never get documented properly because the spec is a second thing to maintain. hypequery makes the docs fall out of the query definition, so the request shape, response shape, and served endpoint stay in sync."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/clickhouse-rest-api', label: 'See the REST API' }}
       stats={[
         { label: 'Spec format', value: 'OpenAPI 3.0' },
@@ -102,78 +102,78 @@ export default function ClickHouseOpenApiPage() {
       ]}
       problems={[
         {
-          title: 'Analytics APIs are rarely documented',
+          title: 'Hand-written specs drift from real endpoints',
           copy:
-            'Internal ClickHouse analytics APIs almost never have OpenAPI docs — the team writes the endpoints, frontend developers guess the shape from network logs, and breaking changes get discovered at runtime rather than compile time.',
+            'Teams update the route, forget the YAML, and then frontend code is generated from a spec that no longer matches production. That is worse than having no spec at all.',
         },
         {
-          title: 'Writing OpenAPI specs by hand drifts from the implementation',
+          title: 'Frontend teams still need a contract they can trust',
           copy:
-            'When you hand-write OpenAPI YAML alongside your ClickHouse query code, the two drift immediately. The spec says one shape, the query returns another — and the gap grows with every schema change.',
+            'If a dashboard or another service is consuming the API, “ask backend for the shape” does not scale. They need a stable spec that reflects the actual query output.',
         },
         {
-          title: 'Client generation requires accurate specs',
+          title: 'Documentation is usually treated as a separate project',
           copy:
-            'Tools like openapi-typescript and openapi-generator can generate fully typed frontend clients from your API spec — but only if the spec is accurate and up to date. A hand-maintained spec is never fully trustworthy.',
+            'As soon as docs become a parallel workflow, they slip. The only durable version is one derived from the same definitions that serve the endpoint.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'How it works',
-        title: 'The spec is derived from types, not written by hand',
+        eyebrow: 'What actually happens',
+        title: 'Define the query once and let the spec come from it',
         description:
-          'When you define a query with hypequery, the input schema comes from Zod and the output schema comes from the ClickHouse-generated types. @hypequery/serve reads both and generates the OpenAPI spec automatically — it is always in sync with the actual implementation.',
+          'The query definition already contains the pieces an API spec needs: validated input, a known endpoint, and a typed response. hypequery uses those pieces directly instead of asking you to mirror them in a second file.',
         bullets: [
           'Request body schema derived from your Zod input definition',
           'Response schema derived from ClickHouse-generated TypeScript types',
           'Full OpenAPI 3.0 spec available at /openapi.json',
           'Interactive Swagger UI available at /docs',
-          'Spec updates automatically when query definitions change',
+          'Spec changes when the query definition changes, not on a separate docs schedule',
         ],
         codePanel: {
           eyebrow: 'Query definition',
-          title: 'Input and output types become the OpenAPI spec',
+          title: 'The source of truth is the served query',
           description:
-            'The Zod schema defines the request body. The ClickHouse return type defines the response. hypequery generates the OpenAPI spec from both — no manual step.',
+            'This is the only code you should need to maintain. The spec is derived from the input schema and the inferred query result instead of being copied into OpenAPI YAML.',
           code: queryCode,
         },
       }}
       implementationSection={{
-        eyebrow: 'Generated output',
-        title: 'The OpenAPI spec reflects your real types, always',
+        eyebrow: 'What the client sees',
+        title: 'The generated spec is boring in the right way',
         description:
-          'The generated spec is derived directly from the types in your codebase — not from a separate documentation layer. When you change a query input or the ClickHouse schema changes, the spec updates automatically on the next generate run.',
+          'A good generated spec should look ordinary. That is the point. Consumers get a standard OpenAPI document they can inspect, feed into tooling, or use to generate clients without knowing anything about hypequery.',
         paragraphs: [
-          'This makes client generation reliable. Use openapi-typescript to generate a fully typed frontend client from the spec — knowing it reflects the actual query shapes.',
-          'See the REST API guide for the full serve() setup, and the React hooks guide for consuming the typed endpoints in dashboard components.',
+          'That makes client generation viable again. If you feed this into `openapi-typescript`, the resulting client types are grounded in the same query definitions that serve production traffic.',
+          'If your main problem is the endpoint layer itself, go to the REST API page. If the problem is browser consumption, pair this with the React page.',
         ],
         codePanel: {
           eyebrow: 'Generated spec',
-          title: 'OpenAPI output for the activeUsers query',
+          title: 'A normal OpenAPI response, not a custom format',
           description:
-            'The spec reflects the Zod input schema and the ClickHouse output types exactly. Use it to generate typed clients, share with third-party consumers, or power Swagger UI.',
+            'What matters here is not the JSON itself. It is that the output is plain OpenAPI, which means the rest of your tooling can stay standard.',
           code: openApiOutput,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse API documentation',
+          title: 'Why this is better than writing YAML',
           copy:
-            'Most ClickHouse analytics APIs have no documentation because hand-writing OpenAPI specs is too slow. hypequery generates the spec automatically from your query type definitions — no manual documentation step.',
+            'You stop maintaining two parallel descriptions of the same endpoint. The served query is the implementation, and the OpenAPI document is a by-product of that implementation.',
         },
         {
-          title: 'Generate OpenAPI from ClickHouse TypeScript',
+          title: 'What frontend teams get out of it',
           copy:
-            'If your ClickHouse analytics are served as HTTP endpoints, hypequery can generate the OpenAPI spec from your TypeScript query definitions. Input validation, response types, and Swagger UI all included.',
+            'A trustworthy spec means frontend codegen becomes practical again. Consumers can generate types or clients without reverse-engineering responses from network tabs.',
         },
         {
-          title: 'ClickHouse API client generation',
+          title: 'When this page matters',
           copy:
-            'With an accurate OpenAPI spec from hypequery, you can generate fully typed frontend clients using openapi-typescript or similar tools. The spec is always in sync with the implementation.',
+            'This page matters once a query is no longer private implementation detail and needs external consumers, generated clients, or documentation that survives team growth.',
         },
         {
-          title: 'ClickHouse Swagger UI',
+          title: 'When it does not',
           copy:
-            'hypequery serves an interactive Swagger UI at /docs automatically. Your analytics endpoints are explorable and testable from the browser without any additional tooling setup.',
+            'If you only run queries locally inside one service, OpenAPI is not the point. The value starts when other people or other apps need to call what you built.',
         },
       ]}
       readingLinks={[
@@ -206,10 +206,10 @@ export default function ClickHouseOpenApiPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Get OpenAPI docs from your first ClickHouse query',
+        title: 'Serve one query and inspect the generated spec',
         description:
-          'Define a query, serve it with @hypequery/serve, and visit /openapi.json. The spec is generated immediately from your input and output types.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
+          'Pick a real analytics query, expose it through `serve()`, and look at `/openapi.json`. That gives you a much better signal than polishing a docs layer before the endpoint even exists.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
         secondaryCta: { href: '/clickhouse-rest-api', label: 'See the REST API guide' },
       }}
     />

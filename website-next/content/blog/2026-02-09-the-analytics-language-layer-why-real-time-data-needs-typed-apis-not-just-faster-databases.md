@@ -1,17 +1,17 @@
 ---
 title: "The Analytics Language Layer: Why Real-Time Data Needs Typed APIs, Not Just Faster Databases"
-description: "We've made our databases real-time. We haven't made our analytics interfaces real-time-safe. The missing abstraction between ClickHouse and your consumers — human or machine — is a typed, programmable analytics language layer."
-seoTitle: "Type-Safe ClickHouse APIs: Why Real-Time Analytics Needs More Than SQL"
-seoDescription: "SQL alone is a weak interface for real-time analytics apps and AI agents. Learn why typed ClickHouse APIs and reusable query layers outperform raw query strings."
+description: "ClickHouse solved fast analytics reads. It did not solve how the rest of your product should call those queries safely. This post argues for a typed analytics layer between raw SQL and every consumer."
+seoTitle: "Typed ClickHouse APIs: Why Real-Time Analytics Needs More Than SQL"
+seoDescription: "Fast ClickHouse queries are not the hard part anymore. Learn why reusable typed APIs and query definitions matter more once analytics reaches apps, dashboards, and AI agents."
 pubDate: 2026-02-09
 heroImage: ""
 ---
 
-We've made our databases real-time. We haven't made our analytics interfaces real-time-safe.
+We've made our databases real-time. We still have not made the interface to those databases safe enough for the rest of the stack.
 
 If you want the condensed, implementation-oriented version of this argument, start with the [ClickHouse analytics](/clickhouse-analytics) pillar page. If you are specifically searching for a ClickHouse semantic layer, read the [ClickHouse semantic layer alternative](/clickhouse-semantic-layer) page for the honest product boundary. If your use case is customer-facing SaaS analytics, pair this with [ClickHouse multi-tenant analytics](/clickhouse-multi-tenant-analytics).
 
-ClickHouse can ingest a billion rows per second and return aggregations across terabytes in milliseconds. The storage problem is solved. The execution problem is solved. But the interface problem — how consumers actually talk to the engine, remains stuck in the era of hand-crafted SQL strings, copy-pasted metric definitions, and dashboards that nobody trusts.
+ClickHouse can ingest huge volumes and return aggregations quickly. That part is no longer the bottleneck. The harder problem is what the rest of the product does with those queries once they need to be reused across routes, dashboards, jobs, and agents.
 
 This gap didn't matter much when the consumer was a human analyst writing a query in a notebook. It matters enormously now that the consumer is increasingly a service, a background job, an embedded dashboard, or an AI agent. The weakest link in the modern analytics stack isn't the database. It's the language we use to talk to it.
 

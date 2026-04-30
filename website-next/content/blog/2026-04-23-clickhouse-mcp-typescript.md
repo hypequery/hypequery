@@ -1,21 +1,21 @@
 ---
 title: "ClickHouse MCP: Give Your AI Agent Type-Safe Access to Analytics Data"
-description: "Most ClickHouse MCP examples expose raw SQL to the model. This post shows a better pattern: pre-defined typed query objects as MCP tools, with tenant isolation built in."
-seoTitle: "ClickHouse MCP Server: Structured AI Agent Access with hypequery"
-seoDescription: "Build a ClickHouse MCP server using hypequery. Define typed queries, expose them as MCP tools via OpenAPI, and keep tenant isolation without raw SQL access."
+description: "A safer ClickHouse MCP pattern: expose a small set of named analytics queries as tools instead of letting the model write arbitrary SQL."
+seoTitle: "ClickHouse MCP Server: Safer Agent Access Without Raw SQL"
+seoDescription: "Build a ClickHouse MCP server around named analytics queries instead of raw SQL so tenant scope and response shapes stay under control."
 pubDate: 2026-04-23
 heroImage: ""
 slug: clickhouse-mcp-typescript
 status: published
 ---
 
-The Model Context Protocol (MCP) is how AI agents get access to external tools. If you're running ClickHouse and want an AI agent — Claude, Cursor, a custom GPT — to be able to query your analytics data, you need an MCP server that exposes your ClickHouse queries as structured tools.
+The Model Context Protocol (MCP) is how AI agents get access to external tools. If you want an agent to query ClickHouse, the first real design decision is not how to connect it. It is what the agent should actually be allowed to do.
 
-Most MCP + ClickHouse examples do the same thing: open a database connection and let the model write arbitrary SQL. This works for exploration. It's wrong for production.
+Most MCP plus ClickHouse examples do the same thing: open a database connection and let the model write arbitrary SQL. That may be fine for exploration. It is the wrong default for production.
 
 The problems with arbitrary SQL over MCP: no tenant isolation (a model that can write any query can read any tenant's data), no type contract (the agent doesn't know what shape to expect back), no access control (every table is reachable), and no audit trail.
 
-This post shows a different approach: use hypequery's serve layer to define your queries first, then expose them as MCP tools. The agent gets access to structured, pre-defined, typed query functions — not a raw SQL interface.
+This post shows the safer alternative: define the queries first, then expose only those queries as MCP tools.
 
 ## How hypequery serve + MCP fits together
 

@@ -6,8 +6,6 @@ description: Learn about utility methods and additional features in hypequery
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Helper Methods
-
 hypequery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
 
 <Callout type="info" title="Query builder syntax">
@@ -58,14 +56,16 @@ console.log(parameters); // [1000]
 
 ### Raw Expressions
 
-Include raw SQL expressions in your queries:
+`QueryBuilder.raw()` currently appends raw SQL to the `HAVING` clause. Use it for grouped-query filters that are easier to express directly in SQL:
 
 <CodeBlock>
 
 ```typescript
 const results = await db
-  .table('users')
-  .raw('WHERE age > 18 AND status = "active"')
+  .table('orders')
+  .groupBy('account_id')
+  .count('id', 'order_count')
+  .raw('COUNT(*) > 10')
   .execute();
 
 ```
@@ -74,18 +74,17 @@ const results = await db
 
 ### Complex Raw SQL
 
-Use raw SQL for complex conditions:
+Use `having()` or `raw()` for advanced aggregate filters:
 
 <CodeBlock>
 
 ```typescript
 const results = await db
   .table('events')
-  .raw(`
-    WHERE date BETWEEN
-    toStartOfMonth(now())
-    AND toStartOfMonth(now()) + INTERVAL 1 MONTH
-  `)
+  .select(['event_type'])
+  .count('id', 'event_count')
+  .groupBy(['event_type'])
+  .raw('COUNT(*) > 100 AND uniq(user_id) > 10')
   .execute();
 
 ```
@@ -156,9 +155,8 @@ const query = db
   .debug();
 
 // Logs:
-// - SQL query
-// - Parameters
-// - Settings
+// - Internal builder state
+// - Internal query config
 
 ```
 
@@ -168,7 +166,7 @@ const query = db
 
 ### getConfig
 
-Access the current query configuration:
+Access the current internal query configuration:
 
 <CodeBlock>
 
@@ -179,17 +177,17 @@ const query = db
   .where('active', 'eq', true);
 
 const config = query.getConfig();
-console.log(config);
-// {
-//   select: ['id', 'name'],
-//   where: [...],
-//   parameters: [...],
-//   ...
-// }
+console.log(config.settings);
+console.log(config.joins);
+console.log(config.groupBy);
 
 ```
 
 </CodeBlock>
+
+<Callout type="warn" title="Advanced API">
+  `getConfig()` exposes the builder's internal query structure. It is useful for advanced integrations and tests, but for everyday inspection `toSQL()` and `toSQLWithParams()` are usually the better tools.
+</Callout>
 
 ## Type Safety
 
@@ -210,7 +208,8 @@ const db = createQueryBuilder<Schema>();
 
 // TypeScript will catch these errors:
 db.table('users')
-  .raw('WHERE invalid_column = 1') // No type checking for raw SQL
+  .groupBy('status')
+  .raw('COUNT(*) > invalid_column') // No type checking for raw SQL
   .settings({ invalid_setting: true }); // Error: invalid setting
 
 ```
@@ -227,8 +226,8 @@ db.table('users')
 // Prefer builder methods when possible
 db.table('users').where('age', 'gt', 18) // Good
 
-// Use raw SQL only when necessary
-db.table('users').raw('WHERE age > 18') // Less ideal
+// Use raw HAVING fragments only when necessary
+db.table('users').groupBy('status').raw('COUNT(*) > 10') // Less ideal
 ```
 
 </CodeBlock>

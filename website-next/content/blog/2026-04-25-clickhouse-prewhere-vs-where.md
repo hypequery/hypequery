@@ -1,15 +1,21 @@
 ---
-title: "ClickHouse PREWHERE vs WHERE — When to Use Each"
-description: "PREWHERE filters before reading all columns, WHERE filters after. Here's when the difference matters and how to think about PREWHERE from a TypeScript app using hypequery."
-seoTitle: "ClickHouse PREWHERE vs WHERE Explained — Performance and Usage"
-seoDescription: "PREWHERE in ClickHouse filters before reading all columns — WHERE filters after. Learn when PREWHERE improves performance and how to approach it from a TypeScript app using hypequery."
+title: "ClickHouse PREWHERE vs WHERE: When PREWHERE Helps"
+description: "PREWHERE filters before reading all columns, WHERE filters after. Learn when PREWHERE actually improves ClickHouse performance, when it does not matter, and how to approach it from a TypeScript app using hypequery."
+seoTitle: "ClickHouse PREWHERE vs WHERE: When PREWHERE Helps"
+seoDescription: "PREWHERE in ClickHouse can reduce reads and improve query performance. Learn when to use PREWHERE vs WHERE, with practical examples and TypeScript context."
 pubDate: 2026-04-25
 heroImage: ""
 slug: clickhouse-prewhere-vs-where
 status: published
 ---
 
-PREWHERE is a ClickHouse-specific optimisation that doesn't exist in standard SQL. It's not magic — it solves a specific problem in columnar storage — but when applied to the right queries it can meaningfully reduce IO and improve query speed. This post explains the mechanics and shows when to reach for it.
+PREWHERE is a ClickHouse-specific optimization that can reduce reads when a selective filter lets ClickHouse avoid loading expensive columns too early.
+
+**Short answer:** use `PREWHERE` when a compact, selective filter can eliminate most rows before ClickHouse reads wide or expensive columns. Use normal `WHERE` when the filter is not selective, depends on computed values, or when ClickHouse already auto-promotes the condition for you.
+
+If you are building with TypeScript, the shortest path is still to start with the typed hypequery builder for normal filters, then reach for explicit `PREWHERE` only when you have profiled a real query and know the extra control is worth it. If you want to start there, use the [quick start](/docs/quick-start) and then come back to `PREWHERE` as an optimization step rather than a default.
+
+This post explains the mechanics, shows where `PREWHERE` helps most, and gives a practical rule for when to stay with `WHERE`.
 
 ## How Columnar Storage Works (Briefly)
 
@@ -31,6 +37,17 @@ PREWHERE:
 5. Continue processing
 
 The IO saving is real when PREWHERE eliminates most rows before expensive columns are read. If your PREWHERE condition filters out 90% of rows, you read the remaining 90% of column data at 10% of the cost.
+
+## When PREWHERE Helps
+
+Use `PREWHERE` when all of these are roughly true:
+
+- The filter column is cheap to read, such as `UInt32`, `UInt8`, or `LowCardinality(String)`
+- The filter is selective enough to remove most rows early
+- The other referenced columns are relatively expensive, wide, or string-heavy
+- The table is in the `MergeTree` family
+
+If those conditions are not true, `WHERE` is usually enough and often clearer.
 
 ## A Concrete Example
 
@@ -91,16 +108,16 @@ PREWHERE delivers the biggest gains when all of these are true:
 
 **MergeTree tables.** PREWHERE is only available on MergeTree family engines (MergeTree, ReplacingMergeTree, AggregatingMergeTree, etc.). It's silently ignored or errors on other engines.
 
-## When to Use WHERE Instead
+## When WHERE Is Enough
 
-Use WHERE (not PREWHERE) when:
+Use `WHERE` instead of explicit `PREWHERE` when:
 
 - **Filtering on computed values**: `WHERE toDate(created_at) = today` — this requires reading `created_at` regardless, so PREWHERE on a computed value doesn't help.
 - **Multiple columns together**: conditions like `WHERE a = 1 AND b = 2` where both columns need to be read together. You could PREWHERE on the most selective one and WHERE on the rest.
 - **Nullable columns**: PREWHERE has edge cases with NULL handling in some ClickHouse versions — using WHERE is safer.
 - **The filter column is in the sort key and ClickHouse can skip granules**: ClickHouse's primary key skip index already handles the IO reduction in this case.
 
-## Note on Auto-Optimization
+## Let ClickHouse Auto-Promote First
 
 Recent versions of ClickHouse (22.x+) automatically move some WHERE conditions to PREWHERE when it determines the optimisation is safe. You can check with `EXPLAIN` whether your WHERE was promoted:
 
@@ -129,3 +146,16 @@ LIMIT 10
 ```
 
 PREWHERE runs first to narrow down to this tenant's rows. WHERE then applies the remaining conditions on that reduced set. In a hypequery app, that usually means one of two paths: keep the query in the typed builder and let ClickHouse auto-promote WHERE when appropriate, or switch to a raw SQL query when you need explicit PREWHERE control.
+
+## Practical Rule For TypeScript Teams
+
+The default workflow should be:
+
+1. Start with the typed builder and normal `WHERE`
+2. Measure the real query
+3. Check whether ClickHouse already auto-promotes the condition
+4. Only switch to explicit `PREWHERE` with raw SQL when the gain is real
+
+That keeps the day-one code path simple while still leaving room for ClickHouse-specific optimization when it actually matters.
+
+If you want the shortest path to a typed baseline before worrying about `PREWHERE`, start with the [ClickHouse TypeScript guide](/clickhouse-typescript) or the [quick start](/docs/quick-start).

@@ -5,7 +5,7 @@ import { absoluteUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'ClickHouse MCP Server with Type-Safe Queries | hypequery',
   description:
-    'Give AI agents structured, tenant-safe access to ClickHouse. hypequery generates an MCP-ready API from typed query definitions. No arbitrary SQL exposure.',
+    'Give AI agents a fixed, tenant-safe ClickHouse tool surface instead of raw SQL access.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-mcp'),
   },
@@ -24,7 +24,9 @@ export const metadata: Metadata = {
   },
 };
 
-const queryCode = `const { query, serve } = initServe({
+const queryCode = `import { initServe } from '@hypequery/serve';
+
+const { query, serve } = initServe({
   context: (req) => ({
     db,
     tenantId: req.headers["x-tenant-id"] as string,
@@ -42,32 +44,36 @@ export const dailyRevenue = query({
 })
 
 // expose as HTTP API — OpenAPI spec auto-generated at /openapi.json
-serve({ queries: { dailyRevenue } }).listen(3000)`;
+export const api = serve({ queries: { dailyRevenue } });`;
 
 const mcpCode = `import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
-// MCP server reads the OpenAPI spec and registers each query as a tool
-const spec = await fetch("http://localhost:3000/openapi.json").then(r => r.json())
-
 const server = new McpServer({ name: "clickhouse-analytics", version: "1.0.0" })
 
-for (const [path, methods] of Object.entries(spec.paths)) {
-  const get = (methods as any).get
-  if (!get) continue
-  const toolName = path.replace("/", "")
-  server.tool(toolName, get.description, {}, async () => {
-    const data = await fetch(\`http://localhost:3000\${path}\`).then(r => r.json())
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] }
-  })
-}`;
+server.tool(
+  "dailyRevenue",
+  "Get daily revenue for the current tenant",
+  {},
+  async () => {
+    const data = await fetch("http://localhost:3000/dailyRevenue", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    }).then((r) => r.json())
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+    }
+  }
+)`;
 
 export default function ClickHouseMcpPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse MCP"
       title="Connect AI agents to ClickHouse — without exposing raw SQL"
-      description="hypequery turns typed ClickHouse query definitions into an MCP-ready HTTP API. Your AI agent calls structured tools, not arbitrary SQL. Tenant isolation and access control are built in at the query level."
-      primaryCta={{ href: '/docs/http-openapi', label: 'Read the serve docs' }}
+      description="This page is about choosing the tool surface an agent gets. If the model can write arbitrary SQL, your access control story is already weak. hypequery lets you expose a small set of named analytics queries instead."
+      primaryCta={{ href: '/docs/http-openapi', label: 'Open serve docs' }}
       secondaryCta={{ href: '/blog/clickhouse-mcp-typescript', label: 'Read the full guide' }}
       stats={[
         { label: 'Agent access model', value: 'Structured tools' },
@@ -76,78 +82,78 @@ export default function ClickHouseMcpPage() {
       ]}
       problems={[
         {
-          title: 'Arbitrary SQL access has no tenant isolation',
+          title: 'Raw SQL is the wrong primitive for agent access',
           copy:
-            'If the model can write any SQL, it can read any tenant\'s data. Prompt engineering is not access control. Pre-defined query objects are.',
+            'If the model decides what to query directly, you have already handed over too much surface area. Prompt instructions are not a meaningful replacement for access control.',
         },
         {
-          title: 'The agent has no predictable response shape',
+          title: 'Agents work better with known result shapes',
           copy:
-            'Without pre-defined output types, the agent guesses what structure it gets back. Inconsistent responses break agent reasoning and make outputs unreliable.',
+            'A named tool returning a predictable payload is much easier to reason over than arbitrary query output that changes shape from call to call.',
         },
         {
-          title: 'You have no audit trail over what ran',
+          title: 'A fixed tool surface is easier to review and audit',
           copy:
-            'Arbitrary SQL execution means you have no record of what queries an agent ran or what data it accessed. Pre-defined tools give you a fixed, auditable surface.',
+            'It is far easier to reason about five exposed analytics tools than a general database capability whose behavior depends on whatever the model asks for next.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'How hypequery + MCP works',
-        title: 'Pre-defined queries become MCP tools automatically',
+        eyebrow: 'The safer model',
+        title: 'Expose named analytics queries, not a database console',
         description:
-          'Define your queries with hypequery. Expose them via @hypequery/serve — it generates an OpenAPI spec at /openapi.json. Your MCP server reads that spec and registers each query as a tool. The agent calls tools, not SQL.',
+          'Define a small set of queries with the same typed backend layer you would use for the rest of the app, expose them over HTTP, and register those endpoints as MCP tools. The agent only gets the capabilities you decided to publish.',
         bullets: [
-          'Tenant isolation injected at the query level — agents cannot bypass it',
-          'Access control enforced at the serve layer — only exposed queries are reachable',
-          'OpenAPI spec auto-generated — no manual MCP tool registration needed',
-          'Input schemas from Zod definitions become typed tool parameters',
-          'Add a new query to serve({ queries }) — it appears as a new tool automatically',
+          'Tenant isolation injected in the same request path as the rest of your analytics API',
+          'Only explicitly exposed queries are reachable by the agent',
+          'Input schemas stay next to the query definition instead of inside prompt text',
+          'The same backend query layer can serve humans, dashboards, and agents',
+          'The tool list stays small enough to review deliberately',
         ],
         codePanel: {
           eyebrow: 'Query definition',
-          title: 'Typed queries with tenant isolation built in',
+          title: 'A served query the agent is allowed to call',
           description:
-            'The agent never sees the WHERE clause. It just calls the tool. Tenant context is injected from the request headers — enforced at the query level, not in a prompt.',
+            'The useful part is that the agent never chooses the SQL. It only calls the query surface you already chose to expose.',
           code: queryCode,
         },
       }}
       implementationSection={{
         eyebrow: 'MCP server',
-        title: 'Read the OpenAPI spec, register tools automatically',
+        title: 'Register a small tool surface on top of the API',
         description:
-          'Because hypequery generates a standard OpenAPI spec, the MCP server can discover tools dynamically. No hard-coded tool list. No manual sync between the analytics layer and the agent layer.',
+          'You do not need a magical agent-specific backend. In most cases, a straightforward MCP server that forwards to a few served analytics endpoints is the better design.',
         paragraphs: [
-          'The agent sees named tool functions — dailyRevenue(), topProducts() — not a raw database. It gets structured responses with predictable shapes that it can reason over reliably.',
-          'Input parameters from Zod schemas flow through to the MCP tool registration. The agent can call parameterised queries with type-checked arguments.',
+          'That is also easier to audit. The tool list is explicit, the HTTP surface is explicit, and the backend queries are the same ones your application code can already review and test.',
+          'If you want to automate tool generation later, the OpenAPI surface makes that possible. The important architectural choice is still the same: expose named queries, not arbitrary SQL.',
         ],
         codePanel: {
           eyebrow: 'MCP server',
-          title: 'Auto-register tools from the OpenAPI spec',
+          title: 'A single MCP tool backed by a served analytics endpoint',
           description:
-            'This MCP server reads the hypequery OpenAPI spec and registers each endpoint as a tool. Add a query to your analytics layer — it becomes a tool without touching this file.',
+            'Start simple. Register one or two tools against the endpoints you trust, then expand deliberately if the agent use case proves valuable.',
           code: mcpCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse MCP server',
+          title: 'What this page is really deciding',
           copy:
-            'If you want a ClickHouse MCP server, the question is whether to expose raw SQL or pre-defined query tools. For production or multi-tenant systems, pre-defined tools are the right default.',
+            'Not just how to wire MCP to ClickHouse, but what the agent should be allowed to do once it gets there.',
         },
         {
-          title: 'Give Claude access to ClickHouse',
+          title: 'What the safer default looks like',
           copy:
-            'Claude can call MCP tools to query analytics data. hypequery makes this safe by defining the query surface explicitly — Claude calls tools, not arbitrary SQL.',
+            'A short list of named analytics tools with tenant-scoped backend definitions is much safer than a model deciding which SQL to write.',
         },
         {
-          title: 'MCP TypeScript analytics',
+          title: 'Why this fits the rest of the stack',
           copy:
-            'The stable pattern for MCP + analytics databases is: define typed queries on the server, expose them via HTTP, generate MCP tools from the OpenAPI spec. hypequery handles the middle layer.',
+            'The same query layer can already serve dashboards and APIs, so the MCP surface does not need its own separate data-access architecture.',
         },
         {
-          title: 'AI agent ClickHouse access control',
+          title: 'Where to go next',
           copy:
-            'Access control for AI agents should not live in the prompt. It should live at the query definition level, where it\'s enforced regardless of what the model asks.',
+            'Use the serve/OpenAPI docs for the HTTP layer details and the full MCP guide for the end-to-end wiring pattern.',
         },
       ]}
       readingLinks={[

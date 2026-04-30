@@ -3,22 +3,22 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse REST API in TypeScript — Typed HTTP Endpoints | hypequery',
+  title: 'ClickHouse API in TypeScript — Typed REST Endpoints | hypequery',
   description:
-    'Turn ClickHouse query definitions into typed REST endpoints with auto-generated OpenAPI docs. @hypequery/serve wraps your analytics queries in a production-ready HTTP API.',
+    'Build a ClickHouse API in TypeScript without hand-writing every route. hypequery turns query definitions into typed REST endpoints with OpenAPI docs and input validation.',
   alternates: { canonical: absoluteUrl('/clickhouse-rest-api') },
   openGraph: {
     type: 'website',
     url: absoluteUrl('/clickhouse-rest-api'),
-    title: 'ClickHouse REST API in TypeScript — Typed HTTP Endpoints | hypequery',
+    title: 'ClickHouse API in TypeScript — Typed REST Endpoints | hypequery',
     description:
-      'Define your ClickHouse analytics queries once. Serve them as typed REST endpoints with OpenAPI docs — no hand-written route per query required.',
+      'Define your ClickHouse analytics queries once. Serve them as typed API endpoints with OpenAPI docs and no hand-written route per query.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse REST API in TypeScript | hypequery',
+    title: 'ClickHouse API in TypeScript | hypequery',
     description:
-      'Turn ClickHouse query definitions into typed REST endpoints with auto-generated OpenAPI docs. No custom HTTP layer required.',
+      'Build a ClickHouse API in TypeScript from typed query definitions. OpenAPI docs and validated inputs included.',
   },
 };
 
@@ -67,10 +67,10 @@ export default function ClickHouseRestApiPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse REST API"
-      title="Serve ClickHouse analytics queries as typed REST endpoints"
-      description="Most teams building on ClickHouse end up writing a custom HTTP layer — Express routes or Next.js API routes — that wraps their analytics queries. @hypequery/serve eliminates that step. Define your queries once and serve them as typed REST endpoints with OpenAPI docs automatically."
-      primaryCta={{ href: '/docs/quick-start', label: 'Get started' }}
-      secondaryCta={{ href: '/clickhouse-openapi', label: 'See OpenAPI generation' }}
+      title="Build a ClickHouse API from typed query definitions"
+      description="The hard part of building a ClickHouse API is not opening an HTTP port. It is keeping validation, auth, response shapes, and query logic from drifting apart. @hypequery/serve solves that by turning one query definition into a typed API endpoint."
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
+      secondaryCta={{ href: '/clickhouse-openapi', label: 'Generate OpenAPI docs' }}
       stats={[
         { label: 'Package', value: '@hypequery/serve' },
         { label: 'Docs generation', value: 'Automatic OpenAPI' },
@@ -80,7 +80,7 @@ export default function ClickHouseRestApiPage() {
         {
           title: 'Every team rebuilds the same ClickHouse HTTP layer',
           copy:
-            'Once your analytics queries need to be consumed by a frontend, a mobile app, or a third-party integration, you write HTTP routes. That layer is not trivial — you need validation, error handling, auth, and response typing. Most teams do it from scratch each time.',
+            'Once analytics queries need to be consumed by a frontend, a mobile app, or another service, someone ends up writing API routes. That means validation, error handling, auth, and response typing. Most teams rebuild that layer from scratch.',
         },
         {
           title: 'Query logic gets duplicated across routes',
@@ -90,14 +90,14 @@ export default function ClickHouseRestApiPage() {
         {
           title: 'No OpenAPI docs means dashboard teams have to guess the shape',
           copy:
-            'Without a schema for your analytics endpoints, frontend developers have to inspect network requests or ask the backend team about response shapes. Every change to a ClickHouse query potentially breaks the frontend silently.',
+            'Without a schema for your analytics API, frontend developers have to inspect network requests or ask the backend team about response shapes. Every change to a ClickHouse query potentially breaks consumers silently.',
         },
       ]}
       solutionSection={{
         eyebrow: 'How @hypequery/serve works',
         title: 'Define queries once, serve them as typed HTTP endpoints',
         description:
-          'You define analytics queries using the hypequery query builder. @hypequery/serve wraps those definitions in HTTP endpoints — with Zod input validation, typed responses, auth context injection, and automatic OpenAPI spec generation.',
+          'You define analytics queries using the hypequery query builder. @hypequery/serve wraps those definitions in endpoints with Zod input validation, typed responses, auth context injection, and automatic OpenAPI spec generation.',
         bullets: [
           'Query definitions become POST endpoints with validated request bodies',
           'Response types inferred from ClickHouse schema — no annotation needed',
@@ -119,8 +119,8 @@ export default function ClickHouseRestApiPage() {
         description:
           'Pass your query definitions to serve() and get a production-ready HTTP server. Each query becomes an endpoint, OpenAPI docs are generated automatically, and the response types match the ClickHouse schema.',
         paragraphs: [
-          'The same query definition that runs inline in a script or cron job becomes an HTTP endpoint without any duplication. If the query logic changes, it changes in one place.',
-          'See the OpenAPI guide for details on what the generated spec looks like and how to customise endpoint paths and authentication.',
+          'The same query definition that runs inline in a script or cron job becomes an API endpoint without duplication. If the query changes, it changes in one place.',
+          'If you want the shortest proof, define one real query and expose it. The generated OpenAPI output is then a by-product of the same contract rather than a second task.',
         ],
         codePanel: {
           eyebrow: 'Step 2',
@@ -132,9 +132,9 @@ export default function ClickHouseRestApiPage() {
       }}
       searchIntentCards={[
         {
-          title: 'ClickHouse HTTP API TypeScript',
+          title: 'ClickHouse API TypeScript',
           copy:
-            'Building a typed HTTP API on top of ClickHouse in TypeScript is exactly what @hypequery/serve handles. Define your analytics queries once and serve them as REST endpoints with validated inputs and typed responses.',
+            'Building a typed ClickHouse API in TypeScript is exactly what @hypequery/serve handles. Define your analytics queries once and serve them as REST endpoints with validated inputs and typed responses.',
         },
         {
           title: 'ClickHouse API server Node.js',
@@ -149,7 +149,7 @@ export default function ClickHouseRestApiPage() {
         {
           title: 'ClickHouse REST endpoint from query definition',
           copy:
-            'Instead of writing an Express route that calls ClickHouse and returns a response, you define the query once with hypequery and pass it to serve(). The HTTP endpoint is the query definition — nothing duplicated.',
+            'Instead of writing an Express route that calls ClickHouse and returns a response, you define the query once with hypequery and pass it to serve(). The endpoint comes from the query definition instead of re-implementing it.',
         },
       ]}
       readingLinks={[
@@ -157,6 +157,11 @@ export default function ClickHouseRestApiPage() {
           href: '/clickhouse-openapi',
           title: 'ClickHouse OpenAPI generation',
           description: 'What the auto-generated OpenAPI spec looks like and how to use it with frontend clients.',
+        },
+        {
+          href: '/clickhouse-api',
+          title: 'ClickHouse API',
+          description: 'The direct intent page for teams searching for how to build or expose a ClickHouse API.',
         },
         {
           href: '/clickhouse-query-builder',
@@ -182,11 +187,11 @@ export default function ClickHouseRestApiPage() {
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Serve your first ClickHouse query as a REST endpoint',
+        title: 'Start with hypequery and serve your first ClickHouse API endpoint',
         description:
-          'Install @hypequery/serve, define a query, and serve it as a typed HTTP endpoint. The OpenAPI spec is generated automatically on first request.',
-        primaryCta: { href: '/docs/quick-start', label: 'Open quick start' },
-        secondaryCta: { href: '/clickhouse-openapi', label: 'See OpenAPI docs' },
+          'Install @hypequery/serve, define a query, and expose it as a typed API endpoint. The OpenAPI spec is generated automatically from the same contract.',
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
+        secondaryCta: { href: '/clickhouse-openapi', label: 'Generate OpenAPI docs' },
       }}
     />
   );
