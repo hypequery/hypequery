@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
   initializeTestConnection,
   setupTestDatabase,
@@ -11,7 +10,7 @@ const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || 
 describe('Integration Tests - Basic Queries', () => {
   // Only run these tests if not skipped
   (SKIP_INTEGRATION_TESTS ? describe.skip : describe)('ClickHouse Integration', () => {
-    let db: Awaited<ReturnType<any>>;
+    let db: Awaited<ReturnType<typeof initializeTestConnection>>;
 
     beforeAll(async () => {
       if (!SKIP_INTEGRATION_TESTS) {

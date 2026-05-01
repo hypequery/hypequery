@@ -47,9 +47,29 @@ Package-specific commands are available via `pnpm --filter <workspace> <script>`
 Each published package has a `test:types` target driven by `tsconfig.type-tests.json`. These run automatically when you call `pnpm test`, but you can run them manually, too:
 
 ```bash
+pnpm --filter @hypequery/clickhouse test:types
 pnpm --filter @hypequery/react test:types
 pnpm --filter @hypequery/serve test:types
 ```
+
+### ClickHouse query-builder changes
+
+For `packages/clickhouse`, prefer package-local verification over broad root runs when changing query-builder internals or fluent API behavior:
+
+```bash
+cd packages/clickhouse
+pnpm test:types
+pnpm test:unit
+```
+
+If your change touches query composition, joins, grouping, aggregation, or filter semantics, make sure the tests cover:
+
+- repeated builder calls, not just single-call happy paths
+- explicit plus inferred behavior in the same query chain
+- aliased expression cases
+- qualified joined-column cases
+- empty collection semantics for set operators
+- both runtime SQL assertions and type-test coverage when public fluent API typing changes
 
 ### Integration tests
 
@@ -78,6 +98,7 @@ When a PR is merged, Changesets handles the versioning flow automatically in the
 
 - [ ] Tests pass (`pnpm test`), or failing tests are explained/ignored with justification
 - [ ] Type tests updated if public types changed
+- [ ] Query-builder changes cover repeated calls, explicit+inferred interactions, and alias/empty-input edge cases
 - [ ] Changeset added for any package that needs a release
 - [ ] Examples/docs touched if behavior changed
 - [ ] CI-only release job is still disabled (manual publish required until rebrand)

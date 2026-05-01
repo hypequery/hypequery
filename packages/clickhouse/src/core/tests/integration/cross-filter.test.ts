@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
   initializeTestConnection,
   setupTestDatabase,
@@ -121,10 +120,6 @@ describe('Integration Tests - Cross Filtering', () => {
       const result = await db.table('test_table')
         .applyCrossFilters(filter)
         .execute();
-
-      console.log('SQL: ', await db.table('test_table')
-        .applyCrossFilters(filter)
-        .toSQL())
 
       // Verify results
       const expectedCount = TEST_DATA.test_table.filter(
