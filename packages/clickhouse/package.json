@@ -52,7 +52,7 @@
     "dotenv": "^16.0.0"
   },
   "peerDependencies": {
-    "@clickhouse/client-web": "^1.18.3"
+    "@clickhouse/client-web": "^0.2.0 || ^1.0.0"
   },
   "peerDependenciesMeta": {
     "@clickhouse/client-web": {
