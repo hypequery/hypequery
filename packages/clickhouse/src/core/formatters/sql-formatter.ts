@@ -1,119 +1,184 @@
-import { QueryConfig, FilterOperator } from '../../types/index.js';
+import { FilterOperator, type CompiledQuery, type ExprNode, type SelectQueryNode, type SourceNode, type ValueNode } from '../../types/index.js';
 
 export class SQLFormatter {
-  formatSelect(config: QueryConfig<any, any>): string {
-    const distinctClause = config.distinct ? 'DISTINCT ' : '';
-    if (!config.select?.length) return distinctClause + '*';
-    return distinctClause + config.select.join(', ');
+  formatSelect(query: SelectQueryNode<any, any>): string {
+    const distinctClause = query.distinct ? 'DISTINCT ' : '';
+    if (!query.select?.length) return distinctClause + '*';
+    return distinctClause + query.select.map(item => item.selection).join(', ');
   }
 
-  formatGroupBy(config: QueryConfig<any, any>): string {
-    const groupBy = config.groupBy;
+  formatGroupBy(query: SelectQueryNode<any, any>): string {
+    const groupBy = query.groupBy;
     if (!groupBy?.length) return '';
-    if (Array.isArray(groupBy)) {
-      return groupBy.join(', ');
-    }
-    return String(groupBy);
+    return groupBy.map(item => item.expression).join(', ');
   }
 
-  formatWhere(config: QueryConfig<any, any>): string {
-    if (!config.where?.length) return '';
+  formatPrewhere(query: SelectQueryNode<any, any>): string {
+    return this.compileExpr(query.prewhere).query;
+  }
 
-    let afterGroupStart = false; // Track whether we're immediately after a group-start
+  formatWhere(query: SelectQueryNode<any, any>): string {
+    return this.compileExpr(query.where).query;
+  }
 
-    // First pass - generate the SQL fragments for each condition
-    const fragments = config.where.map((condition, index) => {
-      // Handle expression predicates
-      if (condition.type === 'expression') {
-        const prefix = index === 0 || afterGroupStart ? '' : ` ${condition.conjunction} `;
-        afterGroupStart = false;
-        return `${prefix}${condition.expression}`.trim();
-      }
+  formatFrom(source?: SourceNode): string {
+    if (!source) return '';
+    switch (source.kind) {
+      case 'table':
+        return `${source.name}${source.final ? ' FINAL' : ''}`;
+      default:
+        throw new Error(`Unsupported source kind: ${String((source as { kind?: string }).kind)}`);
+    }
+  }
 
-      // Handle special group markers
-      if (condition.type === 'group-start') {
-        const prefix = index === 0 ? '' : ` ${condition.conjunction} `;
-        afterGroupStart = true; // Mark that the next condition follows a group-start
-        return `${prefix}(`.trim();
-      }
+  compileExpr(expr?: ExprNode, nested = false): CompiledQuery {
+    if (!expr) return { query: '', parameters: [] };
 
-      if (condition.type === 'group-end') {
-        afterGroupStart = false; // Reset the flag after group-end
-        return ')';
-      }
-
-      // Normal conditions
-      const { column, operator, value, conjunction } = condition;
-
-      // Don't add conjunction if it's the first condition or right after a group-start
-      const prefix = index === 0 || afterGroupStart ? '' : ` ${conjunction} `;
-
-      // Reset the afterGroupStart flag
-      afterGroupStart = false;
-
-      // Handle IN operators
-      if (operator === 'in' || operator === 'notIn') {
-        if (!Array.isArray(value)) {
-          throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
+    switch (expr.kind) {
+      case 'raw':
+        return {
+          query: expr.expression,
+          parameters: expr.parameters.map(parameter => parameter.value),
+        };
+      case 'group':
+        if (!expr.expression) {
+          return { query: '', parameters: [] };
         }
-        if (value.length === 0) {
-          return `${prefix}1 = 0`;
+        const compiledGroup = this.compileExpr(expr.expression);
+        if (!compiledGroup.query) {
+          return { query: '', parameters: [] };
         }
-        const placeholders = value.map(() => '?').join(', ');
-        return `${prefix}${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${placeholders})`.trim();
+        return {
+          query: `(${compiledGroup.query})`,
+          parameters: compiledGroup.parameters,
+        };
+      case 'sequence':
+        return this.combineCompiled(
+          expr.items
+            .map((item, index) => {
+              const rendered = this.compileExpr(item.expression, true);
+              return {
+                query: index === 0 ? rendered.query : ` ${item.conjunction} ${rendered.query}`,
+                parameters: rendered.parameters,
+              };
+            })
+            .filter(part => part.query.length > 0)
+        );
+      case 'logical': {
+        const rendered = expr.conditions
+          .map(condition => this.compileExpr(condition, true))
+          .filter(part => part.query.length > 0);
+        if (rendered.length === 0) return { query: '', parameters: [] };
+        const combined = this.combineCompiledWithSeparator(rendered, ` ${expr.operator} `);
+        return {
+          query: nested ? `(${combined.query})` : combined.query,
+          parameters: combined.parameters,
+        };
       }
-      // Handle GLOBAL IN operators
-      else if (operator === 'globalIn' || operator === 'globalNotIn') {
-        if (!Array.isArray(value)) {
-          throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
-        }
-        if (value.length === 0) {
-          return `${prefix}1 = 0`;
-        }
-        const placeholders = value.map(() => '?').join(', ');
-        return `${prefix}${column} ${operator === 'globalIn' ? 'GLOBAL IN' : 'GLOBAL NOT IN'} (${placeholders})`.trim();
-      }
-      // Handle subquery IN operators
-      else if (operator === 'inSubquery' || operator === 'globalInSubquery') {
-        if (typeof value !== 'string') {
-          throw new Error(`Expected a string (subquery) for ${operator} operator, but got ${typeof value}`);
-        }
-        return `${prefix}${column} ${operator === 'inSubquery' ? 'IN' : 'GLOBAL IN'} (${value})`.trim();
-      }
-      // Handle table reference IN operators
-      else if (operator === 'inTable' || operator === 'globalInTable') {
-        if (typeof value !== 'string') {
-          throw new Error(`Expected a string (table name) for ${operator} operator, but got ${typeof value}`);
-        }
-        return `${prefix}${column} ${operator === 'inTable' ? 'IN' : 'GLOBAL IN'} ${value}`.trim();
-      }
-      // Handle tuple IN operators
-      else if (operator === 'inTuple' || operator === 'globalInTuple') {
-        if (!Array.isArray(value)) {
-          throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
-        }
-        if (value.length === 0) {
-          return `${prefix}1 = 0`;
-        }
-        const placeholders = value.map(() => '(?, ?)').join(', ');
-        return `${prefix}${column} ${operator === 'inTuple' ? 'IN' : 'GLOBAL IN'} (${placeholders})`.trim();
-      }
-      else if (operator === 'between') {
-        return `${prefix}${column} BETWEEN ? AND ?`.trim();
-      } else if (operator === 'like') {
-        return `${prefix}${column} LIKE ?`.trim();
-      } else {
-        return `${prefix}${column} ${this.getSqlOperator(operator)} ?`.trim();
-      }
-    });
+      case 'condition':
+        return this.compileCondition(expr);
+      default:
+        throw new Error(`Unsupported expression kind: ${String((expr as { kind?: string }).kind)}`);
+    }
+  }
 
-    // Join fragments and then remove extra spaces around parentheses
-    let result = fragments.join(' ');
+  private compileCondition({ column, operator, value }: Extract<ExprNode, { kind: 'condition' }>): CompiledQuery {
+    if (operator === 'isNull' || operator === 'isNotNull') {
+      return {
+        query: `${column} IS ${operator === 'isNull' ? '' : 'NOT '}NULL`.trim(),
+        parameters: [],
+      };
+    }
+    if (operator === 'in' || operator === 'notIn') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
+      }
+      if (value.length === 0) {
+        return { query: '1 = 0', parameters: [] };
+      }
+      return {
+        query: `${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${value.map(() => '?').join(', ')})`,
+        parameters: (value as ValueNode[]).map(item => item.value),
+      };
+    }
+    if (operator === 'globalIn' || operator === 'globalNotIn') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
+      }
+      if (value.length === 0) {
+        return { query: '1 = 0', parameters: [] };
+      }
+      return {
+        query: `${column} ${operator === 'globalIn' ? 'GLOBAL IN' : 'GLOBAL NOT IN'} (${value.map(() => '?').join(', ')})`,
+        parameters: (value as ValueNode[]).map(item => item.value),
+      };
+    }
+    if (operator === 'inSubquery' || operator === 'globalInSubquery') {
+      if (typeof value !== 'string') {
+        throw new Error(`Expected a string (subquery) for ${operator} operator, but got ${typeof value}`);
+      }
+      return {
+        query: `${column} ${operator === 'inSubquery' ? 'IN' : 'GLOBAL IN'} (${value})`,
+        parameters: [],
+      };
+    }
+    if (operator === 'inTable' || operator === 'globalInTable') {
+      if (typeof value !== 'string') {
+        throw new Error(`Expected a string (table name) for ${operator} operator, but got ${typeof value}`);
+      }
+      return {
+        query: `${column} ${operator === 'inTable' ? 'IN' : 'GLOBAL IN'} ${value}`,
+        parameters: [],
+      };
+    }
+    if (operator === 'inTuple' || operator === 'globalInTuple') {
+      if (!Array.isArray(value)) {
+        throw new Error(`Expected an array of tuples for ${operator} operator, but got ${typeof value}`);
+      }
+      if (value.length === 0) {
+        return { query: '1 = 0', parameters: [] };
+      }
+      const tupleWidth = (value[0] as ValueNode[]).length;
+      if (tupleWidth === 0) {
+        throw new Error(`Expected non-empty tuples for ${operator} operator`);
+      }
+      const tuplePlaceholder = `(${Array.from({ length: tupleWidth }, () => '?').join(', ')})`;
+      return {
+        query: `${column} ${operator === 'inTuple' ? 'IN' : 'GLOBAL IN'} (${value.map(() => tuplePlaceholder).join(', ')})`,
+        parameters: (value as ValueNode[][]).flatMap(tuple => tuple.map(item => item.value)),
+      };
+    }
+    if (operator === 'between') {
+      const range = value as [ValueNode, ValueNode];
+      return {
+        query: `${column} BETWEEN ? AND ?`,
+        parameters: [range[0].value, range[1].value],
+      };
+    }
+    if (operator === 'like') {
+      const parameter = value as ValueNode;
+      return {
+        query: `${column} LIKE ?`,
+        parameters: [parameter.value],
+      };
+    }
+    const parameter = value as ValueNode;
+    return {
+      query: `${column} ${this.getSqlOperator(operator)} ?`,
+      parameters: [parameter.value],
+    };
+  }
 
-    // Replace "( " with "(" and " )" with ")"
-    result = result.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+  compileHaving(query: SelectQueryNode<any, any>): CompiledQuery {
+    if (!query.having?.length) return { query: '', parameters: [] };
 
-    return result;
+    return this.combineCompiledWithSeparator(
+      query.having.map(item => ({
+        query: item.expression,
+        parameters: item.parameters?.map(parameter => parameter.value) || [],
+      })),
+      ' AND '
+    );
   }
 
   private getSqlOperator(operator: FilterOperator): string {
@@ -130,14 +195,40 @@ export class SQLFormatter {
     }
   }
 
-  formatJoins(config: QueryConfig<any, any>): string {
-    if (!config.joins?.length) return '';
+  formatJoins(query: SelectQueryNode<any, any>): string {
+    if (!query.joins?.length) return '';
 
-    return config.joins.map(join => {
+    return query.joins.map(join => {
       const tableClause = join.alias
         ? `${join.table} AS ${join.alias}`
         : join.table;
       return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
     }).join(' ');
+  }
+
+  formatCtes(query: SelectQueryNode<any, any>): string {
+    if (!query.ctes?.length) return '';
+    return query.ctes.map(item => item.expression).join(', ');
+  }
+
+  formatOrderBy(query: SelectQueryNode<any, any>): string {
+    if (!query.orderBy?.length) return '';
+    return query.orderBy
+      .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
+      .join(', ');
+  }
+
+  private combineCompiled(parts: CompiledQuery[]): CompiledQuery {
+    return {
+      query: parts.map(part => part.query).join(''),
+      parameters: parts.flatMap(part => part.parameters),
+    };
+  }
+
+  private combineCompiledWithSeparator(parts: CompiledQuery[], separator: string): CompiledQuery {
+    return {
+      query: parts.map(part => part.query).join(separator),
+      parameters: parts.flatMap(part => part.parameters),
+    };
   }
 } 

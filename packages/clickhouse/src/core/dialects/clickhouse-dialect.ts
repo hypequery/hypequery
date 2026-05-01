@@ -1,4 +1,4 @@
-import type { QueryConfig } from '../../types/index.js';
+import type { CompiledQuery, SelectQueryNode } from '../../types/index.js';
 import { SQLFormatter } from '../formatters/sql-formatter.js';
 import type { CompileQueryContext, SqlDialect } from './sql-dialect.js';
 
@@ -6,45 +6,56 @@ export class ClickHouseDialect implements SqlDialect {
   readonly name = 'clickhouse';
   private formatter = new SQLFormatter();
 
-  compileQuery(config: QueryConfig<any, any>, context: CompileQueryContext): string {
+  compileQuery(query: SelectQueryNode<any, any>, context: CompileQueryContext): CompiledQuery {
     const parts: string[] = [];
+    const parameters: unknown[] = [];
 
-    if (config.ctes?.length) {
-      parts.push(`WITH ${config.ctes.join(', ')}`);
+    if (query.ctes?.length) {
+      parts.push(`WITH ${this.formatter.formatCtes(query)}`);
     }
 
-    parts.push(`SELECT ${this.formatter.formatSelect(config)}`);
-    parts.push(`FROM ${context.tableName}`);
+    parts.push(`SELECT ${this.formatter.formatSelect(query)}`);
+    parts.push(`FROM ${this.formatter.formatFrom(query.from ?? { kind: 'table', name: context.tableName })}`);
 
-    if (config.joins?.length) {
-      parts.push(this.formatter.formatJoins(config));
+    if (query.joins?.length) {
+      parts.push(this.formatter.formatJoins(query));
     }
 
-    if (config.where?.length) {
-      parts.push(`WHERE ${this.formatter.formatWhere(config)}`);
+    if (query.prewhere) {
+      const compiled = this.formatter.compileExpr(query.prewhere);
+      parts.push(`PREWHERE ${compiled.query}`);
+      parameters.push(...compiled.parameters);
     }
 
-    if (config.groupBy?.length) {
-      parts.push(`GROUP BY ${this.formatter.formatGroupBy(config)}`);
+    if (query.where) {
+      const compiled = this.formatter.compileExpr(query.where);
+      parts.push(`WHERE ${compiled.query}`);
+      parameters.push(...compiled.parameters);
     }
 
-    if (config.having?.length) {
-      parts.push(`HAVING ${config.having.join(' AND ')}`);
+    if (query.groupBy?.length) {
+      parts.push(`GROUP BY ${this.formatter.formatGroupBy(query)}`);
     }
 
-    if (config.orderBy?.length) {
-      const orderBy = config.orderBy
-        .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
-        .join(', ');
-      parts.push(`ORDER BY ${orderBy}`);
+    if (query.having?.length) {
+      const compiled = this.formatter.compileHaving(query);
+      parts.push(`HAVING ${compiled.query}`);
+      parameters.push(...compiled.parameters);
     }
 
-    if (config.limit) {
-      const offsetClause = config.offset ? `OFFSET ${config.offset}` : '';
-      parts.push(`LIMIT ${config.limit} ${offsetClause}`);
+    if (query.orderBy?.length) {
+      parts.push(`ORDER BY ${this.formatter.formatOrderBy(query)}`);
     }
 
-    return parts.join(' ').trim();
+    if (query.limit) {
+      const offsetClause = query.offset ? `OFFSET ${query.offset}` : '';
+      parts.push(`LIMIT ${query.limit} ${offsetClause}`);
+    }
+
+    return {
+      query: parts.join(' ').trim(),
+      parameters,
+    };
   }
 
   formatTimeInterval(column: string, interval: string, method: string): string {

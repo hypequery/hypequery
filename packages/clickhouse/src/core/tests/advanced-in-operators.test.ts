@@ -116,6 +116,16 @@ describe('Advanced IN Operators', () => {
   });
 
   describe('Tuple IN Operators', () => {
+    it('should generate IN tuple SQL for a single column', () => {
+      const query = builder
+        .where('id', 'inTuple', [[1], [2]]);
+
+      const { sql, parameters } = query.toSQLWithParams();
+
+      expect(sql).toContain('WHERE id IN ((?), (?))');
+      expect(parameters).toEqual([1, 2]);
+    });
+
     it('should generate IN tuple SQL for multiple columns', () => {
       const query = builder
         .where(['id', 'created_by'], 'inTuple', [[1, 123], [2, 456]]);
@@ -154,6 +164,16 @@ describe('Advanced IN Operators', () => {
 
       expect(sql).toContain('WHERE (id, created_by) IN ((?, ?))');
       expect(parameters).toEqual([1, 123]);
+    });
+
+    it('should support wider tuples when the column list is wider', () => {
+      const query = builder
+        .where(['id', 'created_by', 'updated_by'] as any, 'inTuple', [[1, 123, 456], [2, 234, 567]]);
+
+      const { sql, parameters } = query.toSQLWithParams();
+
+      expect(sql).toContain('WHERE (id, created_by, updated_by) IN ((?, ?, ?), (?, ?, ?))');
+      expect(parameters).toEqual([1, 123, 456, 2, 234, 567]);
     });
   });
 
@@ -206,6 +226,12 @@ describe('Advanced IN Operators', () => {
   });
 
   describe('Error Handling', () => {
+    it('should throw error for malformed single-column tuple values', () => {
+      expect(() => {
+        builder.where('id', 'inTuple', [[1, 2], [3]] as any).toSQLWithParams();
+      }).toThrow('Expected tuple 1 for inTuple operator to have 1 value, but got 2');
+    });
+
     it('should throw error for non-array value in globalIn', () => {
       expect(() => {
         builder.where('id', 'globalIn', 'not-an-array' as any);
@@ -228,6 +254,12 @@ describe('Advanced IN Operators', () => {
       expect(() => {
         builder.where(['id', 'created_by'], 'inTuple', 'not-an-array' as any);
       }).toThrow('Expected an array of tuples for inTuple operator, but got string');
+    });
+
+    it('should throw error when tuple width does not match the column width', () => {
+      expect(() => {
+        builder.where(['id', 'created_by'], 'inTuple', [[1, 2, 3]] as any);
+      }).toThrow('Expected tuple 1 for inTuple operator to have 2 values, but got 3');
     });
   });
 

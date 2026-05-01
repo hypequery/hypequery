@@ -15,10 +15,8 @@ export class ExecutorFeature<
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
   toSQLWithParams(): { sql: string, parameters: any[] } {
-    const sql = this.toSQLWithoutParameters();
-    const config = this.builder.getConfig();
-    const parameters = config.parameters || [];
-    return { sql, parameters };
+    const compiled = this.compileQuery();
+    return { sql: compiled.query, parameters: [...compiled.parameters] };
   }
 
   toSQL(): string {
@@ -29,8 +27,8 @@ export class ExecutorFeature<
 
   async execute(options?: ExecutorRunOptions): Promise<State['output'][]> {
     const adapter = this.builder.getAdapter();
+    const queryNode = this.builder.toQueryNode();
     const { sql, parameters } = this.toSQLWithParams();
-    const config = this.builder.getConfig();
     const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
@@ -45,7 +43,7 @@ export class ExecutorFeature<
 
     try {
       const rows = await adapter.query<State['output']>(sql, parameters, {
-        clickhouseSettings: config.settings,
+        clickhouseSettings: queryNode.settings,
         queryId: options?.queryId,
       });
       const endTime = Date.now();
@@ -83,8 +81,8 @@ export class ExecutorFeature<
 
   async stream(): Promise<ReadableStream<State['output'][]>> {
     const adapter = this.builder.getAdapter();
+    const queryNode = this.builder.toQueryNode();
     const { sql, parameters } = this.toSQLWithParams();
-    const config = this.builder.getConfig();
     const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
@@ -100,7 +98,7 @@ export class ExecutorFeature<
         throw new Error(`Streaming is not supported by adapter "${adapter.name}".`);
       }
       const webStream = await adapter.stream<State['output']>(sql, parameters, {
-        clickhouseSettings: config.settings,
+        clickhouseSettings: queryNode.settings,
       });
 
       const endTime = Date.now();
@@ -129,9 +127,9 @@ export class ExecutorFeature<
     }
   }
 
-  private toSQLWithoutParameters(): string {
-    const config = this.builder.getConfig();
-    return this.builder.getDialect().compileQuery(config, {
+  private compileQuery() {
+    const queryNode = this.builder.toQueryNode();
+    return this.builder.getDialect().compileQuery(queryNode, {
       tableName: this.builder.getTableName(),
     });
   }

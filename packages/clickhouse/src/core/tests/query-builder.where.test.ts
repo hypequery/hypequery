@@ -32,6 +32,34 @@ describe('QueryBuilder - Where Conditions', () => {
         .toSQL();
       expect(sql).toBe("SELECT * FROM test_table WHERE name LIKE '%O''Brien%'");
     });
+
+    it('should support explicit null helpers', () => {
+      const sql = builder
+        .whereNull('optional_name')
+        .orWhereNotNull('name')
+        .toSQL();
+
+      expect(sql).toBe('SELECT * FROM test_table WHERE optional_name IS NULL OR name IS NOT NULL');
+    });
+
+    it('should support prewhere clauses', () => {
+      const sql = builder
+        .prewhere('active', 'eq', 1)
+        .orPrewhere('category', 'eq', 'premium')
+        .where('price', 'gt', 100)
+        .toSQL();
+
+      expect(sql).toBe("SELECT * FROM test_table PREWHERE active = 1 OR category = 'premium' WHERE price > 100");
+    });
+
+    it('should support prewhere null helpers', () => {
+      const sql = builder
+        .prewhereNull('optional_name')
+        .prewhereNotNull('name')
+        .toSQL();
+
+      expect(sql).toBe('SELECT * FROM test_table PREWHERE optional_name IS NULL AND name IS NOT NULL');
+    });
   });
 
   describe('orWhere conditions', () => {
@@ -63,6 +91,15 @@ describe('QueryBuilder - Where Conditions', () => {
   });
 
   describe('whereGroup conditions', () => {
+    it('treats an empty whereGroup as a no-op', () => {
+      const sql = builder
+        .where('active', 'eq', 1)
+        .whereGroup(() => {})
+        .toSQL();
+
+      expect(sql).toBe('SELECT * FROM test_table WHERE active = 1');
+    });
+
     it('should handle simple whereGroup', () => {
       const sql = builder
         .whereGroup((qb) => {
@@ -101,6 +138,15 @@ describe('QueryBuilder - Where Conditions', () => {
   });
 
   describe('orWhereGroup conditions', () => {
+    it('treats an empty orWhereGroup as a no-op', () => {
+      const sql = builder
+        .where('active', 'eq', 1)
+        .orWhereGroup(() => {})
+        .toSQL();
+
+      expect(sql).toBe('SELECT * FROM test_table WHERE active = 1');
+    });
+
     it('should handle simple orWhereGroup', () => {
       const sql = builder
         .where('active', 'eq', 1)
@@ -184,6 +230,32 @@ describe('QueryBuilder - Where Conditions', () => {
         .toSQL();
       expect(sql).toBe("SELECT * FROM test_table WHERE (active = 1 AND (price >= 100 OR (category = 'premium' OR brand = 'luxury')))");
     });
+
+    it('should preserve nested where/orWhere groups alongside prewhere clauses', () => {
+      const query = builder
+        .prewhere('active', 'eq', 1)
+        .orPrewhere('category', 'eq', 'premium')
+        .whereGroup((qb) => {
+          qb.where('status', 'eq', 'completed')
+            .orWhereGroup((innerQb) => {
+              innerQb.where('total', 'gte', 100)
+                .whereGroup((deepQb) => {
+                  deepQb.where('priority', 'eq', 'high')
+                    .orWhere('brand', 'eq', 'luxury');
+                });
+            });
+        })
+        .whereNotNull('optional_name');
+
+      expect(query.toSQL()).toBe(
+        "SELECT * FROM test_table PREWHERE active = 1 OR category = 'premium' WHERE (status = 'completed' OR (total >= 100 AND (priority = 'high' OR brand = 'luxury'))) AND optional_name IS NOT NULL"
+      );
+
+      const queryNode = query.toQueryNode();
+      expect(queryNode.kind).toBe('select-query');
+      expect(queryNode.prewhere?.kind).toBe('sequence');
+      expect(queryNode.where?.kind).toBe('sequence');
+    });
   });
 
   describe('complex mixed conditions', () => {
@@ -248,7 +320,7 @@ describe('QueryBuilder - Where Conditions', () => {
           // Empty group
         })
         .toSQL();
-      expect(sql).toBe('SELECT * FROM test_table WHERE ()');
+      expect(sql).toBe('SELECT * FROM test_table');
     });
 
     it('should handle single condition in whereGroup', () => {

@@ -10,6 +10,11 @@ import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 
 Inline joins are often enough for one-off queries. When the same join path appears across multiple queries, `JoinRelationships` gives you a reusable, named relationship that you can apply with `withRelation()`.
 
+There are two `withRelation()` modes:
+
+- pass a relationship name from `JoinRelationships` for reusable runtime lookup
+- pass a `JoinPath` object (or chain) directly when you want compile-time table/alias widening
+
 ## When to use this
 
 Use join relationships when you want to:
@@ -17,7 +22,7 @@ Use join relationships when you want to:
 - define common join paths once
 - keep multi-query join logic consistent
 - reuse multi-step joins without rewriting them
-- override join type or alias per query while keeping a shared base definition
+- override join type per query while keeping a shared base definition
 
 <Callout type="info" title="Query builder syntax">
   These examples use a typed standalone `db` client so the query builder stays the focus.
@@ -133,14 +138,49 @@ const rows = await db
 
 ## Override join options per query
 
-You can override the join type or alias without redefining the relationship:
+You can override the join type without redefining the relationship:
 
 <CodeBlock>
 <Pre>
 ```typescript
 const rows = await db
   .table('orders')
-  .withRelation('orderCustomer', { type: 'INNER', alias: 'customer' })
+  .withRelation('orderCustomer', { type: 'INNER' })
+  .select([
+    'orders.id',
+    'users.name',
+  ])
+  .execute();
+```
+</Pre>
+</CodeBlock>
+
+This is useful when the shared relationship is usually `LEFT`, but one query needs stricter matching.
+
+`alias` can be defined on the relationship itself for SQL generation, but `withRelation()` does not widen the builder's alias typing the way inline `join(..., alias)` methods do. For typed alias-based column selection, prefer inline joins.
+
+Alias override is only supported for single-join relationships. For `defineChain()` relationships, each step should define its own alias explicitly if needed.
+
+## Typed direct-path usage
+
+If you want `withRelation()` to widen the builder type for joined-table or aliased column selection, pass a `JoinPath` directly instead of looking it up by string name:
+
+<CodeBlock>
+<Pre>
+```typescript
+import type { JoinPath } from '@hypequery/clickhouse';
+
+const orderCustomerPath = {
+  from: 'orders',
+  to: 'users',
+  leftColumn: 'orders.user_id',
+  rightColumn: 'id',
+  alias: 'customer',
+} as const satisfies JoinPath<Schema>;
+
+const rows = await db
+  .table('orders')
+  .withRelation(orderCustomerPath)
   .select([
     'orders.id',
     'customer.name',
@@ -150,7 +190,7 @@ const rows = await db
 </Pre>
 </CodeBlock>
 
-This is useful when the shared relationship is usually `LEFT`, but one query needs stricter matching.
+String-based registry lookups remain convenient for reuse, but their widening is runtime-only because the relationship name is not available to TypeScript.
 
 ## Initialization requirements
 

@@ -3,20 +3,18 @@ import { FilterOperator } from "./filters.js";
 import type { TableColumn } from './schema.js';
 
 export interface QueryConfig<T, Schema> {
-  select?: Array<keyof T | string>;
-  where?: WhereCondition[];
-  groupBy?: string[];
-  having?: string[];
+  select?: SelectionNode[];
+  from?: SourceNode;
+  prewhere?: ExprNode;
+  where?: ExprNode;
+  groupBy?: GroupByItemNode[];
+  having?: HavingNode[];
   limit?: number;
   offset?: number;
   distinct?: boolean;
-  orderBy?: Array<{
-    column: keyof T | TableColumn<Schema>;
-    direction: OrderDirection;
-  }>;
-  joins?: JoinClause[];
-  parameters?: any[];
-  ctes?: string[];
+  orderBy?: OrderByItemNode[];
+  joins?: JoinNode[];
+  ctes?: CteNode[];
   unionQueries?: string[];
   settings?: ClickHouseSettings;
 }
@@ -28,31 +26,105 @@ export type GroupByExpression<T> = keyof T | Array<keyof T>;
 
 export type OrderDirection = 'ASC' | 'DESC';
 
-export interface StandardWhereCondition {
+export interface CompiledQuery {
+  query: string;
+  parameters: unknown[];
+}
+
+export interface SelectionNode {
+  kind: 'selection';
+  selection: string;
+}
+
+export interface ValueNode {
+  kind: 'value';
+  value: unknown;
+}
+
+export type ConditionValueNode =
+  | ValueNode
+  | ValueNode[]
+  | ValueNode[][]
+  | [ValueNode, ValueNode]
+  | string;
+
+export interface ConditionExprNode {
+  kind: 'condition';
   column: string;
   operator: FilterOperator;
-  value: any;
-  conjunction: 'AND' | 'OR';
-  type?: 'condition' | 'group-start' | 'group-end';
+  value: ConditionValueNode;
 }
 
-export interface ExpressionWhereCondition {
-  type: 'expression';
+export interface RawExprNode {
+  kind: 'raw';
   expression: string;
-  parameters: any[];
-  conjunction: 'AND' | 'OR';
+  parameters: ValueNode[];
 }
 
-export type WhereCondition = StandardWhereCondition | ExpressionWhereCondition;
+export interface LogicalExprNode {
+  kind: 'logical';
+  operator: 'AND' | 'OR';
+  conditions: ExprNode[];
+}
+
+export interface SequenceExprNode {
+  kind: 'sequence';
+  items: Array<{
+    conjunction?: 'AND' | 'OR';
+    expression: ExprNode;
+  }>;
+}
+
+export interface GroupExprNode {
+  kind: 'group';
+  expression?: ExprNode;
+}
+
+export type ExprNode = ConditionExprNode | RawExprNode | LogicalExprNode | SequenceExprNode | GroupExprNode;
+
+export interface TableSourceNode {
+  kind: 'table';
+  name: string;
+  final?: boolean;
+}
+
+export type SourceNode = TableSourceNode;
+
+export interface GroupByItemNode {
+  kind: 'group-by-item';
+  expression: string;
+}
+
+export interface HavingNode {
+  kind: 'having';
+  expression: string;
+  parameters?: ValueNode[];
+}
 
 export type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
 
-export interface JoinClause {
+export interface JoinNode {
+  kind: 'join';
   type: JoinType;
   table: string;
   leftColumn: string;
   rightColumn: string;
   alias?: string;
+}
+
+export interface OrderByItemNode {
+  kind: 'order-by-item';
+  column: string;
+  direction: OrderDirection;
+}
+
+export interface CteNode {
+  kind: 'cte';
+  expression: string;
+}
+
+export interface SelectQueryNode<T, Schema> extends QueryConfig<T, Schema> {
+  kind: 'select-query';
 }
 
 export type AggregationType<T, Aggregations, Column, A extends string, Suffix extends string, HasSelect extends boolean> =

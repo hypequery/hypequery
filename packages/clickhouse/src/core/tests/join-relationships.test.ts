@@ -1,5 +1,7 @@
+import type { Equal, Expect } from '@type-challenges/utils';
 import { JoinRelationships } from '../join-relationships.js';
 import { QueryBuilder } from '../query-builder.js';
+import type { JoinPath } from '../join-relationships.js';
 import { TestSchema, setupTestBuilder } from './test-utils.js';
 
 describe('JoinRelationships', () => {
@@ -111,7 +113,7 @@ describe('JoinRelationships', () => {
         .withRelation('complexChain')
         .toSQL();
 
-      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users ON created_by = users.id LEFT JOIN test_table AS updated_by_user ON id = test_table.updated_by');
+      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users ON created_by = users.id LEFT JOIN test_table AS updated_by_user ON id = updated_by_user.updated_by');
     });
 
     it('should override join type', () => {
@@ -128,6 +130,116 @@ describe('JoinRelationships', () => {
         .toSQL();
 
       expect(sql).toBe('SELECT * FROM test_table LEFT JOIN users ON created_by = users.id');
+    });
+
+    it('should support typed direct join paths with alias-aware selection', () => {
+      const orderCustomerPath = {
+        from: 'test_table',
+        to: 'users',
+        leftColumn: 'created_by',
+        rightColumn: 'id',
+        alias: 'author'
+      } as const satisfies JoinPath<TestSchema>;
+
+      const query = builder
+        .withRelation(orderCustomerPath)
+        .select(['author.user_name']);
+
+      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Expected = { user_name: string }[];
+      type _Assert = Expect<Equal<Result, Expected>>;
+
+      expect(query.toSQL()).toBe(
+        'SELECT author.user_name FROM test_table INNER JOIN users AS author ON created_by = author.id'
+      );
+    });
+
+    it('should support alias override for a direct single-join path', () => {
+      const orderCustomerPath = {
+        from: 'test_table',
+        to: 'users',
+        leftColumn: 'created_by',
+        rightColumn: 'id',
+      } as const satisfies JoinPath<TestSchema>;
+
+      const query = builder
+        .withRelation(orderCustomerPath, { type: 'LEFT', alias: 'customer' })
+        .select(['customer.email']);
+
+      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Expected = { email: string }[];
+      type _Assert = Expect<Equal<Result, Expected>>;
+
+      expect(query.toSQL()).toBe(
+        'SELECT customer.email FROM test_table LEFT JOIN users AS customer ON created_by = customer.id'
+      );
+    });
+
+    it('should throw when alias override is used for a join chain', () => {
+      relationships.defineChain('complexChain', [
+        {
+          from: 'test_table',
+          to: 'users',
+          leftColumn: 'created_by',
+          rightColumn: 'id',
+          type: 'INNER'
+        },
+        {
+          from: 'users',
+          to: 'test_table',
+          leftColumn: 'id',
+          rightColumn: 'updated_by',
+          type: 'LEFT'
+        }
+      ]);
+
+      expect(() => {
+        builder.withRelation('complexChain', { alias: 'customer' });
+      }).toThrow(
+        "Join relationship 'complexChain' is a chain; alias override is only supported for single-join relationships"
+      );
+    });
+
+    it('should throw when a single relationship starts from an unavailable source', () => {
+      relationships.define('usersToTestTable', {
+        from: 'users',
+        to: 'test_table',
+        leftColumn: 'id',
+        rightColumn: 'updated_by',
+        type: 'LEFT'
+      });
+
+      expect(() => {
+        builder.withRelation('usersToTestTable');
+      }).toThrow(
+        "Join relationship 'usersToTestTable' step 1 expects source 'users', but available sources are: test_table"
+      );
+    });
+
+    it('should throw when a join chain references an unavailable intermediate source', () => {
+      relationships.defineChain('brokenChain', [
+        {
+          from: 'test_table',
+          to: 'users',
+          leftColumn: 'created_by',
+          rightColumn: 'id',
+          type: 'INNER',
+          alias: 'creator'
+        },
+        {
+          from: 'users',
+          to: 'test_table',
+          leftColumn: 'id',
+          rightColumn: 'updated_by',
+          type: 'LEFT'
+        }
+      ]);
+
+      expect(() => {
+        builder.withRelation('brokenChain');
+      }).toThrow(
+        "Join relationship 'brokenChain' step 2 expects source 'users', but available sources are: test_table, creator"
+      );
     });
 
     it('should throw error for undefined relationship', () => {

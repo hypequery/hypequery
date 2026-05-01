@@ -13,9 +13,10 @@ function isCacheable(options: CacheOptions): boolean {
 }
 
 function deriveTags<Schema extends SchemaDefinition<Schema>, State extends AnyBuilderState>(builder: QueryBuilder<Schema, State>): string[] {
+  const queryNode = builder.toQueryNode();
   const tags = new Set<string>();
-  tags.add(builder.getTableName());
-  const joins = builder.getConfig().joins || [];
+  tags.add(queryNode.from?.kind === 'table' ? queryNode.from.name : builder.getTableName());
+  const joins = queryNode.joins || [];
   joins.forEach(join => tags.add(join.table));
   return Array.from(tags);
 }
@@ -85,11 +86,12 @@ export async function executeWithCache<
   const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
   const tableName = builder.getTableName();
   const namespace = mergedOptions.namespace || runtime.namespace;
+  const queryNode = builder.toQueryNode();
   const key = mergedOptions.key || computeCacheKey({
     namespace,
     sql,
     parameters,
-    settings: builder.getConfig().settings,
+    settings: queryNode.settings,
     version: runtime.versionTag,
     tableName
   });
