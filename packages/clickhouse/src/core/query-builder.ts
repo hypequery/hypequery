@@ -122,10 +122,17 @@ export interface ExecuteOptions {
   cache?: CacheOptions | false;
 }
 
+export interface ClickHouseConnectionOptions extends Omit<BaseClickHouseClientConfigOptions, 'host'> {
+  /**
+   * @deprecated Use `url` instead. `host` is kept for backward compatibility.
+   */
+  host?: BaseClickHouseClientConfigOptions['host'];
+}
+
 /**
  * Configuration for client-based connections.
  */
-export interface ClickHouseClientConfig extends BaseClickHouseClientConfigOptions {
+export interface ClickHouseClientConfig extends ClickHouseConnectionOptions {
   /** Pre-configured ClickHouse client instance. */
   client: ClickHouseClient;
 }
@@ -134,7 +141,7 @@ export interface ClickHouseClientConfig extends BaseClickHouseClientConfigOption
  * Configuration options for ClickHouse connections.
  * Either provide a client instance OR connection details, but not both.
  */
-export type ClickHouseConfig = BaseClickHouseClientConfigOptions | ClickHouseClientConfig;
+export type ClickHouseConfig = ClickHouseConnectionOptions | ClickHouseClientConfig;
 
 /**
  * Type guard to check if a config is a client-based configuration.

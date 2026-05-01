@@ -4,6 +4,7 @@ import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client
 import type { ClickHouseConfig } from '../query-builder.js';
 import { isClientConfig } from '../query-builder.js';
 import { substituteParameters } from '../utils.js';
+import { getConnectionEndpoint } from '../utils/connection-endpoint.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 import { getAutoClientModule } from '../env/auto-client.js';
 import type { AutoClientModule } from '../env/auto-client.js';
@@ -22,10 +23,10 @@ function deriveNamespace(config: ClickHouseConfig): string {
   if ('client' in config && config.client) {
     return 'client';
   }
-  const host = 'host' in config ? config.host : 'unknown-host';
+  const endpoint = getConnectionEndpoint(config);
   const database = 'database' in config ? config.database : 'default';
   const username = 'username' in config ? config.username : 'default';
-  return `${host || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
+  return `${endpoint || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
 }
 
 export class ClickHouseAdapter implements DatabaseAdapter {

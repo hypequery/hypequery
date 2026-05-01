@@ -11,7 +11,7 @@ describe('env template', () => {
         password: 'secret123',
       });
 
-      expect(result).toContain('CLICKHOUSE_HOST=http://localhost:8123');
+      expect(result).toContain('CLICKHOUSE_URL=http://localhost:8123');
       expect(result).toContain('CLICKHOUSE_DATABASE=default');
       expect(result).toContain('CLICKHOUSE_USERNAME=admin');
       expect(result).toContain('CLICKHOUSE_PASSWORD=secret123');
@@ -26,7 +26,7 @@ describe('env template', () => {
         password: 'YOUR_PASSWORD',
       });
 
-      expect(result).toContain('CLICKHOUSE_HOST=YOUR_CLICKHOUSE_HOST');
+      expect(result).toContain('CLICKHOUSE_URL=YOUR_CLICKHOUSE_HOST');
       expect(result).toContain('Replace these placeholder values');
     });
 
@@ -52,7 +52,7 @@ describe('env template', () => {
         password: 'secret',
       }));
 
-      expect(result).toContain('CLICKHOUSE_HOST=http://localhost:8123');
+      expect(result).toContain('CLICKHOUSE_URL=http://localhost:8123');
     });
 
     it('should append to existing env file', () => {
@@ -65,14 +65,14 @@ describe('env template', () => {
       }));
 
       expect(result).toContain('EXISTING_VAR=value');
-      expect(result).toContain('CLICKHOUSE_HOST=http://localhost:8123');
+      expect(result).toContain('CLICKHOUSE_URL=http://localhost:8123');
     });
 
     it('should replace existing hypequery section', () => {
       const existing = `EXISTING_VAR=value
 
 # Hypequery Configuration
-CLICKHOUSE_HOST=http://old:8123
+CLICKHOUSE_URL=http://old:8123
 CLICKHOUSE_DATABASE=old_db
 CLICKHOUSE_USERNAME=old_user
 CLICKHOUSE_PASSWORD=old_pass
@@ -87,7 +87,7 @@ OTHER_VAR=value
         password: 'new_pass',
       }));
 
-      expect(result).toContain('CLICKHOUSE_HOST=http://new:8123');
+      expect(result).toContain('CLICKHOUSE_URL=http://new:8123');
       expect(result).toContain('CLICKHOUSE_DATABASE=new_db');
       expect(result).not.toContain('old_db');
       expect(result).toContain('EXISTING_VAR=value');
@@ -104,7 +104,7 @@ OTHER_VAR=value
       }));
 
       expect(result).toContain('EXISTING_VAR=value\n');
-      expect(result).toContain('CLICKHOUSE_HOST=http://localhost:8123');
+      expect(result).toContain('CLICKHOUSE_URL=http://localhost:8123');
     });
   });
 });

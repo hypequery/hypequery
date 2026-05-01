@@ -88,7 +88,7 @@ describe('init command - graceful failure handling', () => {
       // Should create placeholder files
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('.env'),
-        expect.stringContaining('YOUR_CLICKHOUSE_HOST')
+        expect.stringContaining('YOUR_CLICKHOUSE_URL')
       );
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('schema.ts'),
@@ -136,7 +136,7 @@ describe('init command - graceful failure handling', () => {
       expect(logger.info).toHaveBeenCalledWith('Continuing without database connection.');
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('.env'),
-        expect.stringContaining('YOUR_CLICKHOUSE_HOST')
+        expect.stringContaining('YOUR_CLICKHOUSE_URL')
       );
     });
 
@@ -200,7 +200,7 @@ describe('init command - graceful failure handling', () => {
       expect(mockGenerateTypes).toHaveBeenCalled();
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('.env'),
-        expect.not.stringContaining('YOUR_CLICKHOUSE_HOST')
+        expect.not.stringContaining('YOUR_CLICKHOUSE_URL')
       );
     });
 
@@ -298,7 +298,8 @@ describe('init command - graceful failure handling', () => {
 
   describe('Non-interactive mode', () => {
     it('should use environment variables in non-interactive mode', async () => {
-      process.env.CLICKHOUSE_HOST = 'http://test:8123';
+      process.env.CLICKHOUSE_URL = 'http://test:8123';
+      delete process.env.CLICKHOUSE_HOST;
       process.env.CLICKHOUSE_DATABASE = 'test_db';
       process.env.CLICKHOUSE_USERNAME = 'test_user';
       process.env.CLICKHOUSE_PASSWORD = 'test_pass';

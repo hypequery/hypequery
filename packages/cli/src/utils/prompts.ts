@@ -38,8 +38,8 @@ export async function promptClickHouseConnection(): Promise<{
     {
       type: 'text',
       name: 'host',
-      message: 'ClickHouse host (or skip to configure later):',
-      initial: process.env.CLICKHOUSE_HOST ?? '',
+      message: 'ClickHouse URL (or skip to configure later):',
+      initial: process.env.CLICKHOUSE_URL ?? process.env.CLICKHOUSE_HOST ?? '',
     },
     {
       type: 'text',

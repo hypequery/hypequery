@@ -60,20 +60,21 @@ async function determineDatabase(options: InitOptions): Promise<DatabaseType> {
 
 async function resolveConnectionConfig(options: InitOptions): Promise<ConnectionConfig | null> {
   if (options.noInteractive) {
-    const required = (key: string): string => {
-      const value = process.env[key];
+    const required = (keys: string | string[]): string => {
+      const values = Array.isArray(keys) ? keys : [keys];
+      const value = values.map((key) => process.env[key]).find(Boolean);
       if (!value) {
         throw new Error(
-          `Missing ${key}. Provide ClickHouse connection info via environment variables when using --no-interactive.`,
+          `Missing ${values.join(' or ')}. Provide ClickHouse connection info via environment variables when using --no-interactive.`,
         );
       }
       return value;
     };
 
     return {
-      host: required('CLICKHOUSE_HOST'),
+      host: required(['CLICKHOUSE_URL', 'CLICKHOUSE_HOST']),
       database: required('CLICKHOUSE_DATABASE'),
-      username: required('CLICKHOUSE_USERNAME'),
+      username: required(['CLICKHOUSE_USERNAME', 'CLICKHOUSE_USER']),
       password: process.env.CLICKHOUSE_PASSWORD ?? '',
     };
   }
@@ -86,6 +87,7 @@ async function testConnection(
   dbType: DatabaseType,
 ): Promise<{ hasValidConnection: boolean; tableCount: number }> {
   const spinner = ora('Testing connection...').start();
+  process.env.CLICKHOUSE_URL = connectionConfig.host;
   process.env.CLICKHOUSE_HOST = connectionConfig.host;
   process.env.CLICKHOUSE_DATABASE = connectionConfig.database;
   process.env.CLICKHOUSE_USERNAME = connectionConfig.username;
@@ -235,7 +237,7 @@ export async function initCommand(options: InitOptions = {}) {
     const envExists = await hasEnvFile();
 
     const placeholderConfig = {
-      host: 'YOUR_CLICKHOUSE_HOST',
+      url: 'YOUR_CLICKHOUSE_URL',
       database: 'YOUR_DATABASE',
       username: 'YOUR_USERNAME',
       password: 'YOUR_PASSWORD',

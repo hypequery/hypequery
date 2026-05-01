@@ -35,7 +35,7 @@ export function getClickHouseClient(): ClickHouseClient {
 
     if (!config) {
       throw new Error(
-        'ClickHouse connection details are missing. Set CLICKHOUSE_HOST (or CLICKHOUSE_URL), CLICKHOUSE_DATABASE, CLICKHOUSE_USERNAME, and CLICKHOUSE_PASSWORD.'
+        'ClickHouse connection details are missing. Set CLICKHOUSE_URL (or CLICKHOUSE_HOST), CLICKHOUSE_DATABASE, CLICKHOUSE_USERNAME, and CLICKHOUSE_PASSWORD.'
       );
     }
 

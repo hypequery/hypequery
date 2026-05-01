@@ -11,11 +11,16 @@ const resolveEnv = (...keys: (keyof NodeJS.ProcessEnv)[]): string | undefined =>
   return undefined;
 };
 
-const host = resolveEnv('CLICKHOUSE_HOST', 'NEXT_PUBLIC_CLICKHOUSE_HOST');
+const url = resolveEnv(
+  'CLICKHOUSE_URL',
+  'NEXT_PUBLIC_CLICKHOUSE_URL',
+  'CLICKHOUSE_HOST',
+  'NEXT_PUBLIC_CLICKHOUSE_HOST',
+);
 
-if (!host) {
+if (!url) {
   throw new Error(
-    'Missing CLICKHOUSE_HOST (or NEXT_PUBLIC_CLICKHOUSE_HOST) environment variable. Copy examples/next-dashboard/.env.example to .env and fill it in.',
+    'Missing CLICKHOUSE_URL (or NEXT_PUBLIC_CLICKHOUSE_URL). Legacy CLICKHOUSE_HOST variables are still supported. Copy examples/next-dashboard/.env.example to .env and fill it in.',
   );
 }
 
@@ -27,7 +32,7 @@ const database =
   process.env.CLICKHOUSE_DATABASE ?? process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE ?? 'default';
 
 const client = createClient({
-  host,
+  url,
   username,
   password,
   database,
