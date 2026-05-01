@@ -7,7 +7,6 @@ import {
   FilterOperator,
   OperatorValueMap,
   OrderDirection,
-  QueryConfig,
   JoinType,
   type SelectQueryNode,
 } from '../types/index.js';
@@ -41,6 +40,7 @@ import type { QueryRuntimeContext } from './cache/runtime-context.js';
 import { executeWithCache } from './cache/cache-manager.js';
 import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.js';
 import { normalizeFilterApplication } from './utils/filter-application.js';
+import { toLegacyQueryConfig } from './utils/query-config-compat.js';
 import { applyRelationPath, resolveRelationPath } from './utils/relation-application.js';
 import type {
   BuilderState,
@@ -79,10 +79,10 @@ type JoinPathTableName<
 > = Extract<Path['to'], keyof Schema>;
 type JoinPathAlias<Path extends JoinPath<any>, OverrideAlias extends string | undefined> =
   OverrideAlias extends string
-    ? OverrideAlias
-    : Path['alias'] extends string
-      ? Path['alias']
-      : undefined;
+  ? OverrideAlias
+  : Path['alias'] extends string
+  ? Path['alias']
+  : undefined;
 type ApplyJoinPathState<
   Schema extends SchemaDefinition<Schema>,
   State extends AnyBuilderState,
@@ -90,10 +90,10 @@ type ApplyJoinPathState<
   OverrideAlias extends string | undefined = undefined
 > = JoinPathAlias<Path, OverrideAlias> extends string
   ? AddAlias<
-      WidenTables<State, JoinPathTableName<Schema, Path>>,
-      JoinPathAlias<Path, OverrideAlias>,
-      JoinPathTableName<Schema, Path>
-    >
+    WidenTables<State, JoinPathTableName<Schema, Path>>,
+    JoinPathAlias<Path, OverrideAlias>,
+    JoinPathTableName<Schema, Path>
+  >
   : WidenTables<State, JoinPathTableName<Schema, Path>>;
 type ApplyJoinPathChainState<
   Schema extends SchemaDefinition<Schema>,
@@ -101,10 +101,10 @@ type ApplyJoinPathChainState<
   Paths extends readonly JoinPath<Schema>[]
 > = Paths extends readonly [infer First, ...infer Rest]
   ? First extends JoinPath<Schema>
-    ? Rest extends readonly JoinPath<Schema>[]
-      ? ApplyJoinPathChainState<Schema, ApplyJoinPathState<Schema, State, First>, Rest>
-      : ApplyJoinPathState<Schema, State, First>
-    : State
+  ? Rest extends readonly JoinPath<Schema>[]
+  ? ApplyJoinPathChainState<Schema, ApplyJoinPathState<Schema, State, First>, Rest>
+  : ApplyJoinPathState<Schema, State, First>
+  : State
   : State;
 const ADVANCED_IN_OPERATORS = new Set<FilterOperator>([
   'globalIn',
@@ -992,7 +992,7 @@ export class QueryBuilder<
    * transformed query tree used during compilation.
    */
   getConfig() {
-    return cloneSelectQueryNode(this.query);
+    return toLegacyQueryConfig(this.getQueryNode());
   }
 
   toQueryNode(): SelectQueryNode<State['output'], Schema> {
@@ -1041,10 +1041,10 @@ export class QueryBuilder<
       options,
       (currentQuery, joinPath, relationOptions) => {
         next.query = currentQuery;
-      const type = options?.type || joinPath.type || 'INNER';
-      const alias = relationOptions?.alias || joinPath.alias;
-      const table = String(joinPath.to) as Extract<keyof Schema, string>;
-      const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
+        const type = options?.type || joinPath.type || 'INNER';
+        const alias = relationOptions?.alias || joinPath.alias;
+        const table = String(joinPath.to) as Extract<keyof Schema, string>;
+        const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
         return next.joins.addJoin(type, table, String(joinPath.leftColumn), rightColumn, alias);
       },
       label

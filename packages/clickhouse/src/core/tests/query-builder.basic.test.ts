@@ -128,10 +128,141 @@ describe('QueryBuilder - Basic Operations', () => {
       const query = builder.select(['id']).where('id', 'eq', 1);
       const config = query.getConfig();
 
-      config.select?.push({ kind: 'selection', selection: 'name' });
+      config.select?.push('name');
 
       expect(query.toSQL()).toBe('SELECT id FROM test_table WHERE id = 1');
-      expect(query.getConfig().select?.map(item => item.selection)).toEqual(['id']);
+      expect(query.getConfig().select).toEqual(['id']);
+    });
+
+    it('preserves legacy getConfig() shapes for select, joins, ordering, and parameters', () => {
+      const query = builder
+        .innerJoin('users', 'created_by', 'users.id', 'author')
+        .select(['id', 'author.user_name'])
+        .where('active', 'eq', 1)
+        .where('category', 'in', ['premium', 'vip'])
+        .orderBy('id', 'DESC')
+        .limit(10)
+        .offset(20);
+
+      const config = query.getConfig();
+
+      expect(config.select).toEqual(['id', 'author.user_name']);
+      expect(config.joins).toEqual([
+        {
+          type: 'INNER',
+          table: 'users',
+          leftColumn: 'created_by',
+          rightColumn: 'author.id',
+          alias: 'author',
+        },
+      ]);
+      expect(config.orderBy).toEqual([
+        {
+          column: 'id',
+          direction: 'DESC',
+        },
+      ]);
+      expect(config.limit).toBe(10);
+      expect(config.offset).toBe(20);
+      expect(config.parameters).toEqual([1, 'premium', 'vip']);
+      expect(config.where).toEqual([
+        {
+          column: 'active',
+          operator: 'eq',
+          value: 1,
+          conjunction: 'AND',
+        },
+        {
+          column: 'category',
+          operator: 'in',
+          value: ['premium', 'vip'],
+          conjunction: 'AND',
+        },
+      ]);
+    });
+
+    it('preserves legacy grouped where serialization in getConfig()', () => {
+      const query = builder
+        .where('active', 'eq', 1)
+        .whereGroup((qb) => {
+          qb.where('price', 'gte', 100)
+            .orWhere('category', 'eq', 'premium');
+        })
+        .orWhere('created_by', 'eq', 42);
+
+      const config = query.getConfig();
+
+      expect(config.parameters).toEqual([1, 100, 'premium', 42]);
+      expect(config.where).toEqual([
+        {
+          column: 'active',
+          operator: 'eq',
+          value: 1,
+          conjunction: 'AND',
+        },
+        {
+          column: '',
+          operator: 'eq',
+          value: null,
+          conjunction: 'AND',
+          type: 'group-start',
+        },
+        {
+          column: 'price',
+          operator: 'gte',
+          value: 100,
+          conjunction: 'AND',
+        },
+        {
+          column: 'category',
+          operator: 'eq',
+          value: 'premium',
+          conjunction: 'OR',
+        },
+        {
+          column: '',
+          operator: 'eq',
+          value: null,
+          conjunction: 'AND',
+          type: 'group-end',
+        },
+        {
+          column: 'created_by',
+          operator: 'eq',
+          value: 42,
+          conjunction: 'OR',
+        },
+      ]);
+    });
+
+    it('preserves legacy prewhere and having serialization in getConfig()', () => {
+      const query = builder
+        .select(['category'])
+        .prewhere('active', 'eq', 1)
+        .orPrewhere('optional_name', 'isNull' as any, null)
+        .groupBy('category')
+        .having('COUNT(*) > ?', [5])
+        .having('SUM(price) < ?', [1000]);
+
+      const config = query.getConfig();
+
+      expect(config.prewhere).toEqual([
+        {
+          column: 'active',
+          operator: 'eq',
+          value: 1,
+          conjunction: 'AND',
+        },
+        {
+          column: 'optional_name',
+          operator: 'isNull',
+          value: null,
+          conjunction: 'OR',
+        },
+      ]);
+      expect(config.groupBy).toEqual(['category']);
+      expect(config.having).toEqual(['COUNT(*) > ?', 'SUM(price) < ?']);
+      expect(config.parameters).toEqual([1, 5, 1000]);
     });
   });
 });
