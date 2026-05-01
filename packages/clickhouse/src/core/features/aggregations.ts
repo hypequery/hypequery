@@ -8,6 +8,19 @@ export class AggregationFeature<
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
+  private inferGroupBySelections(select: Array<{ selection: string }>) {
+    return select
+      .map(item => item.selection)
+      .filter(selection => selection !== '*')
+      .map(selection => {
+        const aliasMatch = selection.match(/\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+        return {
+          kind: 'group-by-item' as const,
+          expression: aliasMatch ? aliasMatch[1] : selection,
+        };
+      });
+  }
+
   private createAggregation(
     column: string,
     fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
@@ -17,13 +30,10 @@ export class AggregationFeature<
     const query = this.builder.getQueryNode();
 
     if (query.select) {
-      const selections = query.select.map(item => item.selection);
       return {
         ...query,
         select: [...query.select, { kind: 'selection' as const, selection: aggregationSQL }],
-        groupBy: selections
-          .filter(col => !col.includes(' AS '))
-          .map(expression => ({ kind: 'group-by-item' as const, expression }))
+        groupBy: query.groupBy || this.inferGroupBySelections(query.select)
       };
     }
 

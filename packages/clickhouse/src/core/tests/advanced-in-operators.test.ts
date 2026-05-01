@@ -44,7 +44,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE 1 = 0');
+      expect(sql).toContain('WHERE 1 = 1');
       expect(parameters).toEqual([]);
     });
   });

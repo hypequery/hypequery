@@ -1,3 +1,4 @@
+import { rawAs } from '../utils/sql-expressions.js';
 import { setupTestBuilder } from './test-utils.js';
 
 describe('QueryBuilder - Aggregations', () => {
@@ -28,6 +29,25 @@ describe('QueryBuilder - Aggregations', () => {
       .count('id')
       .toSQL();
     expect(sql).toBe('SELECT name, SUM(price) AS price_sum, COUNT(id) AS id_count FROM test_table GROUP BY name');
+  });
+
+  it('should infer GROUP BY from aliased expressions when adding aggregations', () => {
+    const sql = builder
+      .select([rawAs('toDate(created_at)', 'day')])
+      .sum('price')
+      .toSQL();
+
+    expect(sql).toBe('SELECT toDate(created_at) AS day, SUM(price) AS price_sum FROM test_table GROUP BY day');
+  });
+
+  it('should preserve an explicit GROUP BY when adding aggregations later', () => {
+    const sql = builder
+      .select(['name'])
+      .groupBy('name')
+      .sum('price')
+      .toSQL();
+
+    expect(sql).toBe('SELECT name, SUM(price) AS price_sum FROM test_table GROUP BY name');
   });
 
   describe('HAVING', () => {

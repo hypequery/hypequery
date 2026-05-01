@@ -173,11 +173,11 @@ describe('QueryBuilder - Joins', () => {
     });
 
     describe('type safety for column selection', () => {
-      it('should maintain correct types for joined table columns', () => {
-        const query = builder
-          .innerJoin(
-            'users',
-            'created_by',
+    it('should maintain correct types for joined table columns', () => {
+      const query = builder
+        .innerJoin(
+          'users',
+          'created_by',
             'users.id'
           )
           .select(['test_table.price', 'users.user_name'] as const);
@@ -189,6 +189,26 @@ describe('QueryBuilder - Joins', () => {
         }[];
 
         type _Assert = Expect<Equal<Result, Expected>>;
+      });
+
+      it('should allow aggregating qualified columns from joined tables', () => {
+        const query = builder
+          .innerJoin('users', 'created_by', 'users.id')
+          .select(['users.user_name'])
+          .count('users.id', 'user_count')
+          .groupBy('users.user_name');
+
+        type Result = Awaited<ReturnType<typeof query.execute>>;
+        type Expected = {
+          user_name: string;
+          user_count: string;
+        }[];
+
+        type _Assert = Expect<Equal<Result, Expected>>;
+
+        expect(query.toSQL()).toBe(
+          'SELECT users.user_name, COUNT(users.id) AS user_count FROM test_table INNER JOIN users ON created_by = users.id GROUP BY users.user_name'
+        );
       });
     });
 

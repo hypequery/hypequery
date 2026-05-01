@@ -314,6 +314,13 @@ describe('QueryBuilder - Where Conditions', () => {
       expect(sql).toBe('SELECT * FROM test_table WHERE 1 = 0');
     });
 
+    it('should handle empty arrays in NOT IN as a match-all condition', () => {
+      const sql = builder
+        .where('id', 'notIn', [])
+        .toSQL();
+      expect(sql).toBe('SELECT * FROM test_table WHERE 1 = 1');
+    });
+
     it('should handle empty whereGroup', () => {
       const sql = builder
         .whereGroup((_qb) => {

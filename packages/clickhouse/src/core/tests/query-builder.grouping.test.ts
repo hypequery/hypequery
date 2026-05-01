@@ -25,6 +25,15 @@ describe('QueryBuilder - Grouping and Ordering', () => {
         .toSQL();
       expect(sql).toBe('SELECT name, created_at, SUM(price) AS price_sum FROM test_table GROUP BY name, created_at');
     });
+
+    it('should append when GROUP BY is called multiple times', () => {
+      const sql = builder
+        .select(['name', 'category'])
+        .groupBy('name')
+        .groupBy('category')
+        .toSQL();
+      expect(sql).toBe('SELECT name, category FROM test_table GROUP BY name, category');
+    });
   });
 
   describe('ORDER BY', () => {
