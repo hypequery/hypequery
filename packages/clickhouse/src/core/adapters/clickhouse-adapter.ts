@@ -4,6 +4,7 @@ import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client
 import type { ClickHouseConfig } from '../query-builder.js';
 import { isClientConfig } from '../query-builder.js';
 import { substituteParameters } from '../utils.js';
+import { getConnectionEndpoint } from '../utils/connection-endpoint.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 import { getAutoClientModule } from '../env/auto-client.js';
 import type { AutoClientModule } from '../env/auto-client.js';
@@ -16,16 +17,6 @@ function createClickHouseClient(config: ClickHouseConfig): ClickHouseClient {
   }
   const clientModule: AutoClientModule = getAutoClientModule();
   return clientModule.createClient(config);
-}
-
-function getConnectionEndpoint(config: ClickHouseConfig): string | undefined {
-  if ('url' in config && typeof config.url === 'string') {
-    return config.url;
-  }
-  if ('host' in config && typeof config.host === 'string') {
-    return config.host;
-  }
-  return undefined;
 }
 
 function deriveNamespace(config: ClickHouseConfig): string {
