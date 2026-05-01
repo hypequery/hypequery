@@ -94,7 +94,7 @@ export class SQLFormatter {
         throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
       }
       if (value.length === 0) {
-        return { query: '1 = 0', parameters: [] };
+        return { query: operator === 'in' ? '1 = 0' : '1 = 1', parameters: [] };
       }
       return {
         query: `${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${value.map(() => '?').join(', ')})`,
@@ -106,7 +106,7 @@ export class SQLFormatter {
         throw new Error(`Expected an array for ${operator} operator, but got ${typeof value}`);
       }
       if (value.length === 0) {
-        return { query: '1 = 0', parameters: [] };
+        return { query: operator === 'globalIn' ? '1 = 0' : '1 = 1', parameters: [] };
       }
       return {
         query: `${column} ${operator === 'globalIn' ? 'GLOBAL IN' : 'GLOBAL NOT IN'} (${value.map(() => '?').join(', ')})`,

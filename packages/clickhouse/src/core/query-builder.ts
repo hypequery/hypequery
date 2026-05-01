@@ -494,7 +494,7 @@ export class QueryBuilder<
     return this.select(columns);
   }
 
-  sum<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_sum`>(
+  sum<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_sum`>(
     column: Column,
     alias?: Alias
   ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
@@ -503,7 +503,7 @@ export class QueryBuilder<
     );
   }
 
-  count<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_count`>(
+  count<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_count`>(
     column: Column,
     alias?: Alias
   ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
@@ -512,7 +512,7 @@ export class QueryBuilder<
     );
   }
 
-  avg<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_avg`>(
+  avg<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_avg`>(
     column: Column,
     alias?: Alias
   ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
@@ -521,7 +521,7 @@ export class QueryBuilder<
     );
   }
 
-  min<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_min`>(
+  min<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_min`>(
     column: Column,
     alias?: Alias
   ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
@@ -530,7 +530,7 @@ export class QueryBuilder<
     );
   }
 
-  max<Column extends keyof BaseRow<State>, Alias extends string = `${Column & string}_max`>(
+  max<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_max`>(
     column: Column,
     alias?: Alias
   ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
@@ -539,7 +539,7 @@ export class QueryBuilder<
     );
   }
 
-  private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string>(
+  private applyAggregation<Column extends SelectableColumn<State>, Alias extends string>(
     column: Column,
     alias: Alias | undefined,
     suffix: string,

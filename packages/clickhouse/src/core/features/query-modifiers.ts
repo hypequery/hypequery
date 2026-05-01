@@ -10,10 +10,17 @@ export class QueryModifiersFeature<
 
   addGroupBy(columns: string | string[]): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
+    const existingExpressions = new Set((query.groupBy || []).map(item => item.expression));
+    const groupByItems = (Array.isArray(columns) ? columns.map(String) : [String(columns)])
+      .filter(expression => {
+        if (existingExpressions.has(expression)) return false;
+        existingExpressions.add(expression);
+        return true;
+      })
+      .map(expression => ({ kind: 'group-by-item' as const, expression }));
     return {
       ...query,
-      groupBy: (Array.isArray(columns) ? columns.map(String) : [String(columns)])
-        .map(expression => ({ kind: 'group-by-item' as const, expression }))
+      groupBy: [...(query.groupBy || []), ...groupByItems]
     };
   }
 
