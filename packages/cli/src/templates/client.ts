@@ -6,7 +6,7 @@ export function generateClientTemplate(): string {
 import type { IntrospectedSchema } from './schema';
 
 export const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST!,
+  url: process.env.CLICKHOUSE_URL ?? process.env.CLICKHOUSE_HOST!,
   database: process.env.CLICKHOUSE_DATABASE!,
   username: process.env.CLICKHOUSE_USERNAME!,
   password: process.env.CLICKHOUSE_PASSWORD,

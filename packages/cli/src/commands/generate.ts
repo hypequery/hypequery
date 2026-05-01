@@ -84,7 +84,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
         logger.indent('• Firewall blocking connection');
         logger.newline();
         logger.info('Check your configuration:');
-        logger.indent('CLICKHOUSE_HOST=' + (process.env.CLICKHOUSE_HOST || 'not set'));
+        logger.indent('CLICKHOUSE_URL=' + (process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST || 'not set'));
         logger.newline();
         logger.info('Docs: https://hypequery.com/docs/troubleshooting#connection-errors');
       } else if (error.message.includes('ETIMEDOUT') || error.message.includes('timeout')) {

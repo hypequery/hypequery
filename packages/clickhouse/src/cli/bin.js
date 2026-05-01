@@ -41,7 +41,8 @@ ${colors.bright}Usage:${colors.reset}
 
 ${colors.bright}Options:${colors.reset}
   --output=<path>            Path where TypeScript definitions will be saved (default: "./generated-schema.ts")
-  --host=<url>               ClickHouse server URL (default: http://localhost:8123)
+  --url=<url>                ClickHouse server URL (default: http://localhost:8123)
+  --host=<url>               Deprecated alias for --url
   --username=<user>          ClickHouse username (default: default)
   --password=<password>      ClickHouse password
   --database=<db>            ClickHouse database name (default: default)
@@ -53,9 +54,12 @@ ${colors.bright}Options:${colors.reset}
 ${colors.dim}Note: All options support both formats: --option=value or --option value${colors.reset}
 
 ${colors.bright}Environment variables:${colors.reset}
-  CLICKHOUSE_HOST            ClickHouse server URL
-  VITE_CLICKHOUSE_HOST       Alternative variable for Vite projects
-  NEXT_PUBLIC_CLICKHOUSE_HOST Alternative variable for Next.js projects
+  CLICKHOUSE_URL             ClickHouse server URL
+  VITE_CLICKHOUSE_URL        Alternative variable for Vite projects
+  NEXT_PUBLIC_CLICKHOUSE_URL Alternative variable for Next.js projects
+  CLICKHOUSE_HOST            Deprecated alternative
+  VITE_CLICKHOUSE_HOST       Deprecated alternative for Vite projects
+  NEXT_PUBLIC_CLICKHOUSE_HOST Deprecated alternative for Next.js projects
   
   CLICKHOUSE_USER            ClickHouse username
   VITE_CLICKHOUSE_USER       Alternative variable for Vite projects
@@ -73,8 +77,8 @@ ${colors.bright}Examples:${colors.reset}
   npx hypequery-generate-types
   npx hypequery-generate-types --output=./src/types/db-schema.ts
   npx hypequery-generate-types --output ./src/types/db-schema.ts
-  npx hypequery-generate-types --host=https://your-instance.clickhouse.cloud:8443 --secure
-  npx hypequery-generate-types --host http://localhost:8123 --username default --password password --database my_db
+  npx hypequery-generate-types --url=https://your-instance.clickhouse.cloud:8443 --secure
+  npx hypequery-generate-types --url http://localhost:8123 --username default --password password --database my_db
   npx hypequery-generate-types --include-tables=users,orders,products
   npx hypequery-generate-types --include-tables users,orders,products
   `);
@@ -107,6 +111,7 @@ function parseArguments(args) {
   // Parameter handlers map
   const paramHandlers = {
     '--output': (value) => config.output = value,
+    '--url': (value) => config.host = value,
     '--host': (value) => config.host = value,
     '--username': (value) => config.username = value,
     '--password': (value) => config.password = value,
@@ -176,6 +181,9 @@ async function main() {
   try {
     // Get connection parameters from args and environment variables
     const host = config.host ||
+      process.env.CLICKHOUSE_URL ||
+      process.env.VITE_CLICKHOUSE_URL ||
+      process.env.NEXT_PUBLIC_CLICKHOUSE_URL ||
       process.env.CLICKHOUSE_HOST ||
       process.env.VITE_CLICKHOUSE_HOST ||
       process.env.NEXT_PUBLIC_CLICKHOUSE_HOST ||
@@ -237,7 +245,7 @@ import { createQueryBuilder } from '@hypequery/clickhouse';
 import { IntrospectedSchema } from '${config.output.replace(/\.ts$/, '')}';
 
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: '${host}',
+  url: '${host}',
   username: '${username}',
   password: '********',
   database: '${database}'

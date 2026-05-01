@@ -87,7 +87,7 @@ describe('prompts', () => {
       const originalEnv = process.env;
       process.env = {
         ...originalEnv,
-        CLICKHOUSE_HOST: 'http://test:8123',
+        CLICKHOUSE_URL: 'http://test:8123',
         CLICKHOUSE_DATABASE: 'test_db',
         CLICKHOUSE_USERNAME: 'test_user',
         CLICKHOUSE_PASSWORD: 'test_pass',
@@ -129,6 +129,7 @@ describe('prompts', () => {
     it('should leave initial prompts empty when env vars not set', async () => {
       const originalEnv = process.env;
       process.env = { ...originalEnv };
+      delete process.env.CLICKHOUSE_URL;
       delete process.env.CLICKHOUSE_HOST;
       delete process.env.CLICKHOUSE_DATABASE;
       delete process.env.CLICKHOUSE_USERNAME;

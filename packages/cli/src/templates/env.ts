@@ -2,18 +2,20 @@
  * Generate .env file content for ClickHouse
  */
 export function generateEnvTemplate(config: {
-  host: string;
+  host?: string;
+  url?: string;
   database: string;
   username: string;
   password: string;
 }): string {
-  const isPlaceholder = config.host.includes('YOUR_');
+  const connectionUrl = config.url ?? config.host ?? '';
+  const isPlaceholder = connectionUrl.includes('YOUR_');
 
   if (isPlaceholder) {
     return `# Hypequery Configuration
 # Replace these placeholder values with your actual ClickHouse credentials
 
-CLICKHOUSE_HOST=${config.host}
+CLICKHOUSE_URL=${connectionUrl}
 CLICKHOUSE_DATABASE=${config.database}
 CLICKHOUSE_USERNAME=${config.username}
 CLICKHOUSE_PASSWORD=${config.password}
@@ -21,7 +23,7 @@ CLICKHOUSE_PASSWORD=${config.password}
   }
 
   return `# Hypequery Configuration
-CLICKHOUSE_HOST=${config.host}
+CLICKHOUSE_URL=${connectionUrl}
 CLICKHOUSE_DATABASE=${config.database}
 CLICKHOUSE_USERNAME=${config.username}
 CLICKHOUSE_PASSWORD=${config.password}
