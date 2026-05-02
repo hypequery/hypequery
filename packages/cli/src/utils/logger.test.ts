@@ -63,12 +63,34 @@ describe('Logger', () => {
       );
     });
 
+    it('should log phase messages with a consistent marker', () => {
+      logger.phase('Inspecting schema');
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        chalk.cyan('○') + '  ' + chalk.bold('Inspecting schema')
+      );
+    });
+
     it('should log header with bold formatting and newlines', () => {
       logger.header('Section Header');
 
       expect(consoleLogSpy).toHaveBeenCalledWith(
         '\n' + chalk.bold('Section Header') + '\n'
       );
+    });
+
+    it('should log command headers with branding', () => {
+      logger.command('pull', 'Baseline a live ClickHouse schema');
+
+      expect(consoleLogSpy).toHaveBeenNthCalledWith(
+        1,
+        '\n' + chalk.dim('hypequery') + ' ' + chalk.bold('pull')
+      );
+      expect(consoleLogSpy).toHaveBeenNthCalledWith(
+        2,
+        chalk.dim('  ' + 'Baseline a live ClickHouse schema')
+      );
+      expect(consoleLogSpy).toHaveBeenNthCalledWith(3);
     });
 
     it('should log empty newline', () => {
@@ -131,6 +153,19 @@ describe('Logger', () => {
       });
     });
 
+    describe('callout', () => {
+      it('should log a titled callout block', () => {
+        logger.callout('Follow-up', ['Line 1', 'Line 2']);
+
+        expect(consoleLogSpy).toHaveBeenCalledTimes(5);
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(1, expect.stringContaining('┌'));
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(2, expect.stringContaining('Follow-up'));
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(3, expect.stringContaining('Line 1'));
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(4, expect.stringContaining('Line 2'));
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(5, expect.stringContaining('└'));
+      });
+    });
+
     describe('table', () => {
       it('should log table with headers and rows', () => {
         logger.table(['Name', 'Age'], [['Alice', '25'], ['Bob', '30']]);
@@ -185,6 +220,34 @@ describe('Logger', () => {
         const headerCall = consoleLogSpy.mock.calls[0][0];
         expect(headerCall).toContain(chalk.bold('Header'));
       });
+
+      it('should align ANSI-colored cells based on visible width', () => {
+        logger.table(['Kind'], [[chalk.cyan('custom SQL')], ['generated']]);
+
+        const row1Call = consoleLogSpy.mock.calls[1][0];
+        const row2Call = consoleLogSpy.mock.calls[2][0];
+        expect(row1Call.length).toBeGreaterThan(0);
+        expect(row2Call.length).toBeGreaterThan(0);
+      });
+    });
+
+    describe('kv', () => {
+      it('should log aligned key value rows', () => {
+        logger.kv([
+          ['migration', '20260501120000_add_events'],
+          ['kind', 'custom'],
+        ]);
+
+        expect(consoleLogSpy).toHaveBeenCalledTimes(2);
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(
+          1,
+          `  ${chalk.dim('migration')}  20260501120000_add_events`
+        );
+        expect(consoleLogSpy).toHaveBeenNthCalledWith(
+          2,
+          `  ${chalk.dim('kind'.padEnd('migration'.length))}  custom`
+        );
+      });
     });
   });
 
@@ -215,6 +278,30 @@ describe('Logger', () => {
 
     it('should not log info messages in quiet mode', () => {
       logger.info('Info');
+
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not log command headers in quiet mode', () => {
+      logger.command('status');
+
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not log phase messages in quiet mode', () => {
+      logger.phase('phase');
+
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not log kv rows in quiet mode', () => {
+      logger.kv([['key', 'value']]);
+
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    });
+
+    it('should not log callouts in quiet mode', () => {
+      logger.callout('title', ['line']);
 
       expect(consoleLogSpy).not.toHaveBeenCalled();
     });

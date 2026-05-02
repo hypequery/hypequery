@@ -34,6 +34,7 @@ Status as of the first migrations foundation PR:
 - Phase 2 is complete for the initial diff-operation set.
 - Phase 3 is complete for v1 planning scope; live ClickHouse querying remains future introspection/execution work.
 - Phase 4 is partially complete for reviewable SQL artifact generation, but not yet final because generation is still evolving around the planner model.
+- Phase 5 is now partially complete for local schema-migration generation, review-only planning, custom SQL scaffolding, local rollback, local journal status, and an initial baseline `pull` flow via CLI. Phase 6 has now started with a first `migrate` runner that can bootstrap and write ClickHouse-applied state, but execution hardening remains incomplete.
 
 Completed implementation:
 
@@ -89,6 +90,51 @@ Completed implementation:
   - diff engine
   - planner
   - SQL artifact renderer/writer
+- `packages/cli/src/commands/generate-migration.ts`
+  - loads `hypequery.config.ts`
+  - loads the managed schema module
+  - compares the desired schema snapshot to the journal-tracked latest saved snapshot in `migrations/meta`
+  - renders and writes migration artifact directories
+  - writes the next saved snapshot to `migrations/meta`
+  - updates `migrations/meta/_journal.json`
+  - supports `--custom` scaffolding for raw SQL migrations without advancing the managed schema snapshot
+- `packages/cli/src/commands/plan.ts`
+  - loads the same migration planning pipeline without mutating migration state
+  - writes reviewable SQL preview artifacts under `migrations/meta/_plan`
+- `packages/cli/src/commands/drop.ts`
+  - removes the latest locally tracked generated migration directory
+  - removes its tracked snapshot file
+  - rolls back `migrations/meta/_journal.json` to the previous snapshot pointer
+- `packages/cli/src/commands/status.ts`
+  - reports the local journal-tracked latest snapshot
+  - lists local generated/custom migrations from `_journal.json`
+  - compares local journal-tracked migrations against recorded ClickHouse execution state
+  - warns on applied checksum drift between local files and the migration table
+- `packages/cli/src/commands/pull.ts`
+  - introspects live ClickHouse tables and columns from `system.tables` and `system.columns`
+  - emits a managed schema AST file to `config.schema`
+  - writes `migrations/meta/0000_snapshot.json`
+  - initializes `migrations/meta/_journal.json`
+  - currently skips materialized view emission and does not preserve table settings
+- `packages/cli/src/commands/migrate.ts`
+  - bootstraps the ClickHouse migration state table if missing
+  - loads journal-tracked migrations and skips already-completed ones
+  - computes directory checksums from migration artifact files
+  - blocks when a previously failed migration still needs reconciliation
+  - blocks when an already-applied migration no longer matches the local files
+  - applies `up.sql` statements in order
+  - performs best-effort post-step mutation verification via `system.mutations` for touched `ALTER TABLE` / `OPTIMIZE TABLE` targets
+  - records one final completed or failed execution row per migration
+- `packages/cli/src/commands/check.ts`
+  - verifies the ClickHouse migration table is initialized
+  - verifies completed applied migrations still match current local file checksums
+  - verifies completed applied migrations still exist locally
+  - fails fast when recorded execution state requires reconciliation
+- `packages/cli/src/utils/migration-state.ts`
+  - shared schema-loading and migration-planning pipeline
+  - migration journal read/write helpers
+  - one-time legacy fallback for pre-journal snapshot directories
+  - latest-migration resolution, custom-migration tracking, and rollback helpers for local file-state commands
 
 Quality and validation completed:
 
@@ -109,14 +155,17 @@ Quality and validation completed:
 
 Known current limitations:
 
-- no CLI migration command yet
-- no migration journal/state table yet
-- no ClickHouse execution layer yet
 - no live schema introspection for migrations yet
-- no drift detection yet
 - planner consumes provided cost context but does not query `system.*` tables itself
 - SQL rendering supports the initial operation set only
-- data migrations remain custom SQL only
+- migration generation currently ships as `generate:migration` while the existing `generate` command remains type generation
+- `_journal.json` tracks local planning state, while the ClickHouse migration table now tracks applied execution state; the two still need deeper reconciliation workflows over time
+- `drop` only manages local file/journal state and intentionally does not inspect or reconcile any live ClickHouse-applied state yet
+- `status` reports local journal state plus recorded ClickHouse execution state, but it does not yet inspect live schema drift or verify partially applied side effects
+- `check` verifies applied-state integrity against local files, but it does not yet inspect live schema drift or verify partially applied side effects
+- data migrations remain custom SQL only, now via scaffolded local migration directories rather than generated planner output
+- `pull` currently baselines managed tables/columns only; materialized view emission and richer table metadata coverage are still deferred
+- `migrate` currently records final execution rows, verifies checksum drift, blocks on previously failed migrations, and performs best-effort `system.mutations` polling, but does not yet implement distributed locking, replica health verification, or distributed DDL convergence polling
 
 ## Target Architecture
 

@@ -55,11 +55,33 @@ export class Logger {
   }
 
   /**
+   * Phase marker for multi-step commands.
+   */
+  phase(message: string) {
+    if (!this.quiet) {
+      console.log(chalk.cyan('○') + '  ' + chalk.bold(message));
+    }
+  }
+
+  /**
    * Section header
    */
   header(message: string) {
     if (!this.quiet) {
       console.log('\n' + chalk.bold(message) + '\n');
+    }
+  }
+
+  /**
+   * Command header with a consistent hypequery brand line.
+   */
+  command(name: string, subtitle?: string) {
+    if (!this.quiet) {
+      console.log('\n' + chalk.dim('hypequery') + ' ' + chalk.bold(name));
+      if (subtitle) {
+        console.log(chalk.dim('  ' + subtitle));
+      }
+      console.log();
     }
   }
 
@@ -99,29 +121,60 @@ export class Logger {
   }
 
   /**
+   * Callout block for warnings or follow-up guidance.
+   */
+  callout(title: string, lines: string[]) {
+    if (!this.quiet) {
+      const content = [chalk.bold(title), ...lines];
+      const maxLength = Math.max(...content.map(line => visibleLength(line)));
+      const border = '─'.repeat(maxLength + 4);
+
+      console.log('  ┌' + border + '┐');
+      for (const line of content) {
+        const padding = ' '.repeat(maxLength - visibleLength(line));
+        console.log('  │  ' + line + padding + '  │');
+      }
+      console.log('  └' + border + '┘');
+    }
+  }
+
+  /**
    * Table output (for dev server stats)
    */
   table(headers: string[], rows: string[][]) {
     if (!this.quiet) {
       const columnWidths = headers.map((header, i) => {
         const maxContentWidth = Math.max(
-          ...rows.map(row => (row[i] || '').length)
+          ...rows.map(row => visibleLength(row[i] || ''))
         );
-        return Math.max(header.length, maxContentWidth);
+        return Math.max(visibleLength(header), maxContentWidth);
       });
 
       // Header
       const headerRow = headers
-        .map((h, i) => h.padEnd(columnWidths[i]))
+        .map((h, i) => padAnsi(h, columnWidths[i]))
         .join('    ');
       console.log('  ' + chalk.bold(headerRow));
 
       // Rows
       for (const row of rows) {
         const formattedRow = row
-          .map((cell, i) => cell.padEnd(columnWidths[i]))
+          .map((cell, i) => padAnsi(cell, columnWidths[i]))
           .join('    ');
         console.log('  ' + formattedRow);
+      }
+    }
+  }
+
+  /**
+   * Aligned key/value rows for compact command summaries.
+   */
+  kv(rows: Array<[string, string]>) {
+    if (!this.quiet) {
+      const labelWidth = rows.reduce((max, [label]) => Math.max(max, label.length), 0);
+
+      for (const [label, value] of rows) {
+        console.log(`  ${chalk.dim(label.padEnd(labelWidth))}  ${value}`);
       }
     }
   }
@@ -135,3 +188,12 @@ export class Logger {
 }
 
 export const logger = new Logger();
+
+function visibleLength(value: string): number {
+  return value.replace(/\u001B\[[0-9;]*m/g, '').length;
+}
+
+function padAnsi(value: string, width: number): string {
+  const padding = Math.max(0, width - visibleLength(value));
+  return value + ' '.repeat(padding);
+}

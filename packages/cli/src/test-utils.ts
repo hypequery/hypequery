@@ -50,11 +50,15 @@ export function createMockLogger() {
     warn: vi.fn(),
     info: vi.fn(),
     reload: vi.fn(),
+    phase: vi.fn(),
     header: vi.fn(),
+    command: vi.fn(),
     newline: vi.fn(),
     indent: vi.fn(),
     box: vi.fn(),
+    callout: vi.fn(),
     table: vi.fn(),
+    kv: vi.fn(),
     raw: vi.fn(),
   };
 }

@@ -200,6 +200,10 @@ export {
   hashSnapshot,
 } from './migrations/snapshot/index.js';
 export {
+  buildPulledSchemaAst,
+  renderPulledSchemaSource,
+} from './migrations/introspect/index.js';
+export {
   renderMigrationArtifacts,
   writeMigrationArtifacts,
 } from './migrations/sql/index.js';
@@ -268,6 +272,10 @@ export type {
   MigrationPlanInput,
   PlannedMigrationOperation,
 } from './migrations/plan/index.js';
+export type {
+  IntrospectedColumnRow,
+  IntrospectedTableRow,
+} from './migrations/introspect/index.js';
 export type {
   MigrationMeta,
   RenderMigrationArtifactsInput,
