@@ -171,16 +171,15 @@ Known current limitations:
 
 ### Future package boundary
 
-Keep the first implementation inside `@hypequery/clickhouse`, but structure modules so a future `@hypequery/migrations-core` extraction remains possible.
+Keep the first implementation inside `@hypequery/clickhouse`, but structure modules so a future dedicated migrations package remains possible.
 
 The likely future split is:
 
-- generic migration primitives
-  - artifact metadata
-  - journal/checksum primitives
-  - planner diagnostics
-  - command-independent migration plan interfaces
-- ClickHouse-specific implementation
+- query/runtime package
+  - query builder
+  - runtime client/adapter code
+  - dataset/query ergonomics
+- dedicated ClickHouse migrations package
   - schema DSL
   - snapshot serializer
   - diff engine
@@ -188,7 +187,11 @@ The likely future split is:
   - SQL renderer
   - introspection and execution adapters
 
+The first extraction should remain ClickHouse-specific rather than trying to invent a generic migrations core too early.
+
 Do not prematurely genericize ClickHouse concepts such as engines, materialized-view sequencing, operation cost classes, or system-table checks. Those are the product differentiators and should remain ClickHouse-native.
+
+Package naming is still intentionally open. A shorter dedicated name may be preferable to something verbose like `@hypequery/clickhouse-migrations`, but the boundary matters more than the exact label at this stage.
 
 ### `packages/clickhouse`
 
