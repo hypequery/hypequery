@@ -177,7 +177,7 @@ import type { JoinPath } from '@hypequery/clickhouse';
 const orderCustomerPath = {
   from: 'orders',
   to: 'users',
-  leftColumn: 'orders.user_id',
+  leftColumn: 'user_id',
   rightColumn: 'id',
   alias: 'customer',
 } as const satisfies JoinPath<Schema>;

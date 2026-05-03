@@ -207,7 +207,9 @@ describe('Query Builder Helper Utilities', () => {
               kind: 'join' as const,
               type: joinPath.type || 'INNER',
               table: String(joinPath.to),
-              leftColumn: String(joinPath.leftColumn),
+              leftColumn: String(joinPath.leftColumn).includes('.')
+                ? String(joinPath.leftColumn)
+                : `${String(joinPath.from)}.${String(joinPath.leftColumn)}`,
               rightColumn: `${joinPath.alias || String(joinPath.to)}.${joinPath.rightColumn}`,
               alias: joinPath.alias,
             },
@@ -218,6 +220,10 @@ describe('Query Builder Helper Utilities', () => {
       expect(result.joins?.map(join => [join.table, join.alias, join.rightColumn])).toEqual([
         ['users', 'creator', 'creator.id'],
         ['test_table', 'updated_by_user', 'updated_by_user.updated_by'],
+      ]);
+      expect(result.joins?.map(join => join.leftColumn)).toEqual([
+        'test_table.created_by',
+        'creator.id',
       ]);
     });
   });

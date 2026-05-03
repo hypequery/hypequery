@@ -1054,8 +1054,11 @@ export class QueryBuilder<
         const type = options?.type || joinPath.type || 'INNER';
         const alias = relationOptions?.alias || joinPath.alias;
         const table = String(joinPath.to) as Extract<keyof Schema, string>;
+        const leftColumn = String(joinPath.leftColumn).includes('.')
+          ? String(joinPath.leftColumn)
+          : `${String(joinPath.from)}.${String(joinPath.leftColumn)}`;
         const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
-        return next.joins.addJoin(type, table, String(joinPath.leftColumn), rightColumn, alias);
+        return next.joins.addJoin(type, table, leftColumn, rightColumn, alias);
       },
       label
     );

@@ -87,7 +87,7 @@ describe('JoinRelationships', () => {
         .withRelation('testToUsers')
         .toSQL();
 
-      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users ON created_by = users.id');
+      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users ON test_table.created_by = users.id');
     });
 
     it('should apply join chain', () => {
@@ -113,7 +113,7 @@ describe('JoinRelationships', () => {
         .withRelation('complexChain')
         .toSQL();
 
-      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users ON created_by = users.id LEFT JOIN test_table AS updated_by_user ON id = updated_by_user.updated_by');
+      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users ON test_table.created_by = users.id LEFT JOIN test_table AS updated_by_user ON users.id = updated_by_user.updated_by');
     });
 
     it('should apply join chains that continue from a prior alias', () => {
@@ -140,7 +140,7 @@ describe('JoinRelationships', () => {
         .withRelation('aliasChain')
         .toSQL();
 
-      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS creator ON created_by = creator.id LEFT JOIN test_table AS updated_by_user ON id = updated_by_user.updated_by');
+      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS creator ON test_table.created_by = creator.id LEFT JOIN test_table AS updated_by_user ON creator.id = updated_by_user.updated_by');
     });
 
     it('should override join type', () => {
@@ -156,7 +156,7 @@ describe('JoinRelationships', () => {
         .withRelation('testToUsers', { type: 'LEFT' })
         .toSQL();
 
-      expect(sql).toBe('SELECT * FROM test_table LEFT JOIN users ON created_by = users.id');
+      expect(sql).toBe('SELECT * FROM test_table LEFT JOIN users ON test_table.created_by = users.id');
     });
 
     it('should support typed direct join paths with alias-aware selection', () => {
@@ -177,7 +177,7 @@ describe('JoinRelationships', () => {
       type _Assert = Expect<Equal<Result, Expected>>;
 
       expect(query.toSQL()).toBe(
-        'SELECT author.user_name FROM test_table INNER JOIN users AS author ON created_by = author.id'
+        'SELECT author.user_name FROM test_table INNER JOIN users AS author ON test_table.created_by = author.id'
       );
     });
 
@@ -198,7 +198,7 @@ describe('JoinRelationships', () => {
       type _Assert = Expect<Equal<Result, Expected>>;
 
       expect(query.toSQL()).toBe(
-        'SELECT customer.email FROM test_table LEFT JOIN users AS customer ON created_by = customer.id'
+        'SELECT customer.email FROM test_table LEFT JOIN users AS customer ON test_table.created_by = customer.id'
       );
     });
 
