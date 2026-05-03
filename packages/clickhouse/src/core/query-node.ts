@@ -56,14 +56,22 @@ export function createSelectQueryNode<TOutput, TSchema>(
     kind: 'select-query',
     from: config.from ? { ...config.from } : undefined,
     select: config.select ? config.select.map(item => ({ ...item })) : undefined,
+    arrayJoins: config.arrayJoins ? config.arrayJoins.map(item => ({ ...item })) : undefined,
     prewhere: cloneExprNode(config.prewhere),
     where: cloneExprNode(config.where),
     groupBy: config.groupBy ? config.groupBy.map(item => ({ ...item })) : undefined,
+    withTotals: config.withTotals,
     having: config.having
       ? config.having.map(item => ({
         ...item,
         parameters: item.parameters?.map(parameter => ({ ...parameter })),
       }))
+      : undefined,
+    limitBy: config.limitBy
+      ? {
+        ...config.limitBy,
+        by: [...config.limitBy.by],
+      }
       : undefined,
     limit: config.limit,
     offset: config.offset,

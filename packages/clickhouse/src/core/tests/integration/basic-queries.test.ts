@@ -163,6 +163,78 @@ describe('Integration Tests - Basic Queries', () => {
       }
     });
 
+    test('should execute ARRAY JOIN queries', async () => {
+      const result = await db.table('test_table')
+        .select(['id', 'tags'])
+        .arrayJoin('tags')
+        .orderBy('id', 'ASC')
+        .execute();
+
+      const expected = TEST_DATA.test_table.flatMap(item =>
+        item.tags.map(tag => ({
+          id: item.id,
+          tags: tag,
+        }))
+      );
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({ id: Number(row.id), tags: String(row.tags) }))).toEqual(expected);
+    });
+
+    test('should execute LIMIT BY queries', async () => {
+      const result = await db.table('orders')
+        .select(['user_id', 'id', 'created_at'])
+        .orderBy('created_at', 'DESC')
+        .limitBy(1, 'user_id')
+        .execute();
+
+      const expected = Object.values(
+        TEST_DATA.orders
+          .slice()
+          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+          .reduce((acc, order) => {
+            if (!acc[order.user_id]) {
+              acc[order.user_id] = {
+                user_id: order.user_id,
+                id: order.id,
+                created_at: order.created_at,
+              };
+            }
+            return acc;
+          }, {} as Record<number, { user_id: number; id: number; created_at: string }>)
+      );
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({
+        user_id: Number(row.user_id),
+        id: Number(row.id),
+        created_at: String(row.created_at),
+      }))).toEqual(expected);
+    });
+
+    test('should execute GROUP BY queries with WITH TOTALS enabled', async () => {
+      const result = await db.table('test_table')
+        .select(['category'])
+        .count('id', 'count')
+        .groupBy('category')
+        .withTotals()
+        .orderBy('category', 'ASC')
+        .execute();
+
+      const expected = [...new Set(TEST_DATA.test_table.map(item => item.category))]
+        .sort((a, b) => a.localeCompare(b))
+        .map(category => ({
+          category,
+          count: TEST_DATA.test_table.filter(item => item.category === category).length,
+        }));
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({
+        category: String(row.category),
+        count: Number(row.count),
+      }))).toEqual(expected);
+    });
+
     test('should handle complex queries', async () => {
       const result = await db.table('test_table')
         .select(['category'])

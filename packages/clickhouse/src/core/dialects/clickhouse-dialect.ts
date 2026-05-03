@@ -17,6 +17,10 @@ export class ClickHouseDialect implements SqlDialect {
     parts.push(`SELECT ${this.formatter.formatSelect(query)}`);
     parts.push(`FROM ${this.formatter.formatFrom(query.from ?? { kind: 'table', name: context.tableName })}`);
 
+    if (query.arrayJoins?.length) {
+      parts.push(this.formatter.formatArrayJoins(query));
+    }
+
     if (query.joins?.length) {
       parts.push(this.formatter.formatJoins(query));
     }
@@ -34,7 +38,8 @@ export class ClickHouseDialect implements SqlDialect {
     }
 
     if (query.groupBy?.length) {
-      parts.push(`GROUP BY ${this.formatter.formatGroupBy(query)}`);
+      const groupByClause = `GROUP BY ${this.formatter.formatGroupBy(query)}`;
+      parts.push(query.withTotals ? `${groupByClause} WITH TOTALS` : groupByClause);
     }
 
     if (query.having?.length) {
@@ -45,6 +50,10 @@ export class ClickHouseDialect implements SqlDialect {
 
     if (query.orderBy?.length) {
       parts.push(`ORDER BY ${this.formatter.formatOrderBy(query)}`);
+    }
+
+    if (query.limitBy) {
+      parts.push(`LIMIT ${this.formatter.formatLimitBy(query)}`);
     }
 
     if (query.limit) {

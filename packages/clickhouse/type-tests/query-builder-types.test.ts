@@ -91,6 +91,12 @@ type ArrayResult = Awaited<ReturnType<typeof arrayQuery.execute>>;
 type ArrayExpected = { tags: string[]; categories: string[] }[];
 type AssertArraySelect = Expect<Equal<ArrayResult, ArrayExpected>>;
 
+builder.arrayJoin('tags');
+builder.leftArrayJoin('categories');
+builder.limitBy(3, 'category');
+builder.limitBy(5, ['category', 'brand']);
+builder.groupBy('category').withTotals();
+
 const nullableQuery = builder.select(['optional_name', 'optional_tags']);
 type NullableResult = Awaited<ReturnType<typeof nullableQuery.execute>>;
 type NullableExpected = { optional_name: string | null; optional_tags: string[] | null }[];

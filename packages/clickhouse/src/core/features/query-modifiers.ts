@@ -24,11 +24,38 @@ export class QueryModifiersFeature<
     };
   }
 
+  addArrayJoin(type: 'ARRAY' | 'LEFT ARRAY', expression: string): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
+    return {
+      ...query,
+      arrayJoins: [
+        ...(query.arrayJoins || []),
+        {
+          kind: 'array-join' as const,
+          type,
+          expression,
+        },
+      ],
+    };
+  }
+
   addLimit(count: number): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
     return {
       ...query,
       limit: count
+    };
+  }
+
+  addLimitBy(limit: number, by: string | string[]): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
+    return {
+      ...query,
+      limitBy: {
+        kind: 'limit-by' as const,
+        limit,
+        by: Array.isArray(by) ? by.map(String) : [String(by)],
+      },
     };
   }
 
@@ -70,6 +97,14 @@ export class QueryModifiersFeature<
     return {
       ...query,
       distinct: true
+    };
+  }
+
+  setWithTotals(): SelectQueryNode<State['output'], Schema> {
+    const query = this.builder.getQueryNode();
+    return {
+      ...query,
+      withTotals: true,
     };
   }
 }
