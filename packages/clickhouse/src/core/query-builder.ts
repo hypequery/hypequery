@@ -18,7 +18,7 @@ import { AnalyticsFeature } from './features/analytics.js';
 import { ExecutorFeature } from './features/executor.js';
 import { QueryModifiersFeature } from './features/query-modifiers.js';
 import { FilterValidator } from './validators/filter-validator.js';
-import { JoinRelationships, JoinPathOptions, type JoinPath } from './join-relationships.js';
+import { JoinRelationships, JoinPathOptions, type JoinPath, type ValidJoinPathChain } from './join-relationships.js';
 import { SqlExpression } from './utils/sql-expressions.js';
 import {
   PredicateBuilder,
@@ -75,9 +75,9 @@ type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 type ScalarAlias<Alias extends string> = Alias extends `${string} ${string}` ? never : Alias;
 type JoinPathTableName<
   Schema extends SchemaDefinition<Schema>,
-  Path extends JoinPath<Schema>
+  Path extends JoinPath<Schema, string>
 > = Extract<Path['to'], keyof Schema>;
-type JoinPathAlias<Path extends JoinPath<any>, OverrideAlias extends string | undefined> =
+type JoinPathAlias<Path extends JoinPath<any, string>, OverrideAlias extends string | undefined> =
   OverrideAlias extends string
   ? OverrideAlias
   : Path['alias'] extends string
@@ -86,7 +86,7 @@ type JoinPathAlias<Path extends JoinPath<any>, OverrideAlias extends string | un
 type ApplyJoinPathState<
   Schema extends SchemaDefinition<Schema>,
   State extends AnyBuilderState,
-  Path extends JoinPath<Schema>,
+  Path extends JoinPath<Schema, string>,
   OverrideAlias extends string | undefined = undefined
 > = JoinPathAlias<Path, OverrideAlias> extends string
   ? AddAlias<
@@ -98,10 +98,10 @@ type ApplyJoinPathState<
 type ApplyJoinPathChainState<
   Schema extends SchemaDefinition<Schema>,
   State extends AnyBuilderState,
-  Paths extends readonly JoinPath<Schema>[]
+  Paths extends readonly JoinPath<Schema, string>[]
 > = Paths extends readonly [infer First, ...infer Rest]
-  ? First extends JoinPath<Schema>
-  ? Rest extends readonly JoinPath<Schema>[]
+  ? First extends JoinPath<Schema, string>
+  ? Rest extends readonly JoinPath<Schema, string>[]
   ? ApplyJoinPathChainState<Schema, ApplyJoinPathState<Schema, State, First>, Rest>
   : ApplyJoinPathState<Schema, State, First>
   : State
@@ -1023,16 +1023,19 @@ export class QueryBuilder<
    * Apply a predefined join relationship
    */
   withRelation<
-    Path extends JoinPath<Schema>,
+    Path extends JoinPath<Schema, State['tables']>,
     Alias extends string | undefined = undefined
   >(
     path: Path,
     options?: Omit<JoinPathOptions, 'alias'> & { alias?: Alias }
   ): QueryBuilder<Schema, ApplyJoinPathState<Schema, State, Path, Alias>>;
   withRelation<
-    Paths extends readonly [JoinPath<Schema>, ...JoinPath<Schema>[]]
+    Paths extends readonly [
+      JoinPath<Schema, State['tables']>,
+      ...JoinPath<Schema, string>[],
+    ]
   >(
-    paths: Paths,
+    paths: Paths & ValidJoinPathChain<Schema, State['tables'], Paths>,
     options?: Omit<JoinPathOptions, 'alias'>
   ): QueryBuilder<Schema, ApplyJoinPathChainState<Schema, State, Paths>>;
   withRelation(name: string, options?: JoinPathOptions): this;
@@ -1051,8 +1054,11 @@ export class QueryBuilder<
         const type = options?.type || joinPath.type || 'INNER';
         const alias = relationOptions?.alias || joinPath.alias;
         const table = String(joinPath.to) as Extract<keyof Schema, string>;
+        const leftColumn = String(joinPath.leftColumn).includes('.')
+          ? String(joinPath.leftColumn)
+          : `${String(joinPath.from)}.${String(joinPath.leftColumn)}`;
         const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
-        return next.joins.addJoin(type, table, String(joinPath.leftColumn), rightColumn, alias);
+        return next.joins.addJoin(type, table, leftColumn, rightColumn, alias);
       },
       label
     );

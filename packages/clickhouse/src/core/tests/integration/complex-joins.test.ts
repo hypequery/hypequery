@@ -4,6 +4,8 @@ import {
   setupTestDatabase,
   TEST_DATA
 } from './setup';
+import { JoinRelationships } from '../../join-relationships.js';
+import { QueryBuilder } from '../../query-builder.js';
 import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 
 describe('Integration Tests - Complex Joins', () => {
@@ -17,6 +19,27 @@ describe('Integration Tests - Complex Joins', () => {
           // Setup only - don't start/stop container (handled by shell script)
           db = await initializeTestConnection();
           await setupTestDatabase();
+
+          const relationships = new JoinRelationships();
+          relationships.defineChain('orderCustomerEcho', [
+            {
+              from: 'orders',
+              to: 'users',
+              leftColumn: 'user_id',
+              rightColumn: 'id',
+              type: 'INNER',
+              alias: 'customer',
+            },
+            {
+              from: 'customer',
+              to: 'users',
+              leftColumn: 'id',
+              rightColumn: 'id',
+              type: 'INNER',
+              alias: 'customer_echo',
+            },
+          ]);
+          QueryBuilder.setJoinRelationships(relationships);
         } catch (error) {
           console.error('Failed to set up integration tests:', error);
           throw error;
@@ -49,6 +72,29 @@ describe('Integration Tests - Complex Joins', () => {
         expect(row.order_status).toBe(order?.status);
         expect(row.user_name).toBe(user?.user_name);
         expect(row.email).toBe(user?.email);
+      }
+    });
+
+    test('should execute alias-origin relation chains with unqualified left columns', async () => {
+      const result = await db
+        .table('orders')
+        .withRelation('orderCustomerEcho')
+        .select([
+          'orders.id as order_id',
+          'customer.user_name as customer_name',
+          'customer_echo.user_name as echoed_customer_name',
+        ])
+        .orderBy('orders.id', 'ASC')
+        .execute();
+
+      expect(result).toHaveLength(TEST_DATA.orders.length);
+
+      for (const row of result) {
+        const order = TEST_DATA.orders.find(o => o.id === Number(row.order_id));
+        const user = TEST_DATA.users.find(u => u.id === order?.user_id);
+
+        expect(row.customer_name).toBe(user?.user_name);
+        expect(row.echoed_customer_name).toBe(user?.user_name);
       }
     });
 
