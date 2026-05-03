@@ -63,7 +63,7 @@ const users = await db.table('users')
 
 ```typescript
 const orders = await db.table('orders')
-  .leftJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('users', 'user_id', 'users.id')
   .select([
     'orders.id',
     'orders.total',
@@ -298,8 +298,8 @@ const results = await db.table('events')
 
 ```typescript
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
-  .leftJoin('products', 'orders.product_id', 'products.id')
+  .innerJoin('users', 'user_id', 'users.id')
+  .leftJoin('products', 'product_id', 'products.id')
   .select([
     'orders.id AS order_id',
     'users.name AS customer_name',

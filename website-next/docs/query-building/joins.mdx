@@ -40,7 +40,7 @@ Returns only rows where both tables have matching values:
 <Pre>
 ```ts
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .select([
     'orders.id',
     'orders.total',
@@ -64,7 +64,7 @@ Returns all rows from the left table, and matched rows from the right table (NUL
 
 <CodeBlock>
 const results = await db.table('users')
-  .leftJoin('orders', 'users.id', 'orders.user_id')
+  .leftJoin('orders', 'id', 'orders.user_id')
   .select([
     'users.id',
     'users.name',
@@ -88,7 +88,7 @@ Returns all rows from the right table, and matched rows from the left table:
 
 ```typescript
 const results = await db.table('orders')
-  .rightJoin('users', 'orders.user_id', 'users.id')
+  .rightJoin('users', 'user_id', 'users.id')
   .select([
     'orders.id',
     'users.name',
@@ -107,7 +107,7 @@ Returns all rows when there's a match in either table:
 
 ```typescript
 const results = await db.table('employees')
-  .fullJoin('departments', 'employees.dept_id', 'departments.id')
+  .fullJoin('departments', 'dept_id', 'departments.id')
   .select([
     'employees.name AS employee',
     'departments.name AS department',
@@ -141,7 +141,7 @@ db.table('table_name')
 
 ```typescript
 await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id', 'u')
+  .innerJoin('users', 'user_id', 'users.id', 'u')
   .select([
     'orders.id',
     'u.name AS customer_name',
@@ -165,7 +165,7 @@ await db.table('orders')
 // ❌ Error - users table not joined yet
 await db.table('orders')
   .select(['orders.id', 'users.name']) // TypeScript error
-  .leftJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('users', 'user_id', 'users.id')
   .execute();
 ```
 
@@ -178,7 +178,7 @@ await db.table('orders')
 ```typescript
 // ✅ Correct - join first, then select
 await db.table('orders')
-  .leftJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('users', 'user_id', 'users.id')
   .select(['orders.id', 'users.name']) // TypeScript OK
   .execute();
 ```
@@ -191,7 +191,7 @@ await db.table('orders')
 
 ```typescript
 const results = await db.table('orders')
-  .leftJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('users', 'user_id', 'users.id')
   .select([
     'orders.id',
     'orders.total',
@@ -217,9 +217,9 @@ Chain multiple joins to combine data from several tables:
 
 ```typescript
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
-  .leftJoin('products', 'orders.product_id', 'products.id')
-  .leftJoin('categories', 'products.category_id', 'categories.id')
+  .innerJoin('users', 'user_id', 'users.id')
+  .leftJoin('products', 'product_id', 'products.id')
+  .leftJoin('categories', 'category_id', 'categories.id')
   .select([
     'orders.id AS order_id',
     'users.name AS customer_name',
@@ -239,7 +239,7 @@ const results = await db.table('orders')
 
 ```typescript
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .where('users.country', 'eq', 'US')
   .where('orders.total', 'gte', 100)
   .select([
@@ -258,7 +258,7 @@ const results = await db.table('orders')
 
 ```typescript
 const results = await db.table('orders')
-  .leftJoin('users', 'orders.user_id', 'users.id')
+  .leftJoin('users', 'user_id', 'users.id')
   .whereGroup((builder) => {
     builder
       .where('users.country', 'eq', 'US')
@@ -283,7 +283,7 @@ ClickHouse doesn't natively support multiple join conditions in the same join. U
 
 ```typescript
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .where('users.status', 'eq', 'active')
   .where('orders.created_at', 'gte', '2024-01-01')
   .select([
@@ -303,7 +303,7 @@ const results = await db.table('orders')
 
 ```typescript
 const orders = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .select([
     'orders.id',
     'orders.total',
@@ -324,7 +324,7 @@ const orders = await db.table('orders')
 
 ```typescript
 const products = await db.table('products')
-  .leftJoin('categories', 'products.category_id', 'categories.id')
+  .leftJoin('categories', 'category_id', 'categories.id')
   .select([
     'products.id',
     'products.name',
@@ -343,8 +343,8 @@ const products = await db.table('products')
 
 ```typescript
 const events = await db.table('events')
-  .innerJoin('sessions', 'events.session_id', 'sessions.id')
-  .innerJoin('users', 'sessions.user_id', 'users.id')
+  .innerJoin('sessions', 'session_id', 'sessions.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .select([
     'events.id',
     'events.type',
@@ -364,7 +364,7 @@ const events = await db.table('events')
 
 ```typescript
 const results = await db.table('users')
-  .leftJoin('orders', 'users.id', 'orders.user_id')
+  .leftJoin('orders', 'id', 'orders.user_id')
   .select([
     'users.id',
     'users.name',
@@ -395,13 +395,13 @@ const results = await db.table('users')
 const results = await db.table('orders')
   .where('orders.status', 'eq', 'completed')
   .where('orders.total', 'gte', 100)
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .select(['orders.*', 'users.name'])
   .execute();
 
 // ❌ Worse - join all then filter
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .where('orders.status', 'eq', 'completed')
   .where('orders.total', 'gte', 100)
   .select(['orders.*', 'users.name'])
@@ -418,8 +418,8 @@ const results = await db.table('orders')
 
 ```typescript
 const orderDetails = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
-  .innerJoin('products', 'orders.product_id', 'products.id')
+  .innerJoin('users', 'user_id', 'users.id')
+  .innerJoin('products', 'product_id', 'products.id')
   .select([
     'orders.id AS order_id',
     'orders.quantity',
@@ -442,8 +442,8 @@ const orderDetails = await db.table('orders')
 
 ```typescript
 const analytics = await db.table('events')
-  .leftJoin('users', 'events.user_id', 'users.id')
-  .leftJoin('segments', 'users.segment_id', 'segments.id')
+  .leftJoin('users', 'user_id', 'users.id')
+  .leftJoin('segments', 'segment_id', 'segments.id')
   .select([
     'events.type',
     'segments.name AS user_segment',

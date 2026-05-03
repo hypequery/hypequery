@@ -223,14 +223,14 @@ const tripsWithDrivers = await db.table('trips')
 
 // After joining, TypeScript understands the expanded scope
 const tripsWithUsers = await db.table('trips')
-  .innerJoin('users', 'trips.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .select(['users.email', 'trips.trip_id'])
   .where('users.email', 'like', '%@example.com')
   .execute();
 
 // Keep literal column inference with selectConst and reuse joined columns in ORDER BY / HAVING
 const sortedTrips = await db.table('trips')
-  .innerJoin('users', 'trips.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .selectConst('users.email', 'trips.trip_id')
   .groupBy(['users.email', 'trips.trip_id'])
   .having('COUNT(*) > 1')

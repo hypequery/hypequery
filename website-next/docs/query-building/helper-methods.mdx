@@ -186,7 +186,7 @@ console.log(config.groupBy);
 </CodeBlock>
 
 <Callout type="warn" title="Advanced API">
-  `getConfig()` exposes the builder's internal query structure. It is useful for advanced integrations and tests, but for everyday inspection `toSQL()` and `toSQLWithParams()` are usually the better tools.
+  `getConfig()` returns a legacy snapshot shape for advanced integrations and tests. Prefer `getQueryNode()` or `toQueryNode()` for structured inspection, and `toSQL()` / `toSQLWithParams()` for everyday debugging.
 </Callout>
 
 ## Type Safety

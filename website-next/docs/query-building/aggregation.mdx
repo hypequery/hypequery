@@ -281,7 +281,7 @@ const results = await db.table('orders')
 
 ```typescript
 const salesByCategory = await db.table('orders')
-  .innerJoin('products', 'orders.product_id', 'products.id')
+  .innerJoin('products', 'product_id', 'products.id')
   .select(['products.category'])
   .sum('orders.total', 'revenue')
   .count('orders.id', 'order_count')
@@ -406,7 +406,7 @@ const stats = await db.table('orders')
 
 ```typescript
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .select(['users.country'])
   .sum('orders.total', 'revenue')
   .count('orders.id', 'order_count')

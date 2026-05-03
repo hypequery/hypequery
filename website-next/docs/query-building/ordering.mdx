@@ -80,7 +80,7 @@ const users = await db.table('users')
 
 ```typescript
 const results = await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .select([
     'orders.id',
     'users.name',
@@ -126,7 +126,7 @@ const latestUsers = await db.table('users')
 
 ```typescript
 const topCategories = await db.table('orders')
-  .innerJoin('products', 'orders.product_id', 'products.id')
+  .innerJoin('products', 'product_id', 'products.id')
   .select(['products.category'])
   .sum('orders.total', 'revenue')
   .groupBy(['products.category'])
@@ -406,7 +406,7 @@ await db.table('users')
 
 // ✅ Valid - can sort by joined columns after joining
 await db.table('orders')
-  .innerJoin('users', 'orders.user_id', 'users.id')
+  .innerJoin('users', 'user_id', 'users.id')
   .orderBy('users.name', 'ASC')
   .execute();
 
