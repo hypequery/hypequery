@@ -131,7 +131,7 @@ describe('Query Builder Helper Utilities', () => {
     });
 
     it('rejects alias override on chains', () => {
-      const chain: readonly JoinPath<TestSchema>[] = [
+      const chain: readonly JoinPath<TestSchema, string>[] = [
         {
           from: 'test_table',
           to: 'users',
@@ -154,7 +154,7 @@ describe('Query Builder Helper Utilities', () => {
     });
 
     it('validates that chained relations start from available sources', () => {
-      const chain: readonly JoinPath<TestSchema>[] = [
+      const chain: readonly JoinPath<TestSchema, string>[] = [
         {
           from: 'test_table',
           to: 'users',
@@ -178,7 +178,7 @@ describe('Query Builder Helper Utilities', () => {
     });
 
     it('applies validated relation paths in sequence', () => {
-      const chain: readonly JoinPath<TestSchema>[] = [
+      const chain: readonly JoinPath<TestSchema, string>[] = [
         {
           from: 'test_table',
           to: 'users',

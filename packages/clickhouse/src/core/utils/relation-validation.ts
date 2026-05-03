@@ -17,7 +17,7 @@ function getAvailableRelationSources<Schema extends SchemaDefinition<Schema>>(
 
 export function validateRelationPathOrigin<Schema extends SchemaDefinition<Schema>>(
   query: SelectQueryNode<any, Schema>,
-  path: JoinPath<Schema> | readonly JoinPath<Schema>[],
+  path: JoinPath<Schema, string> | readonly JoinPath<Schema, string>[],
   label?: string
 ): void {
   const availableSources = getAvailableRelationSources(query);
@@ -37,7 +37,7 @@ export function validateRelationPathOrigin<Schema extends SchemaDefinition<Schem
 }
 
 export function validateRelationAliasOverride(
-  path: JoinPath<any> | readonly JoinPath<any>[],
+  path: JoinPath<any, string> | readonly JoinPath<any, string>[],
   alias: string | undefined,
   label?: string
 ): void {

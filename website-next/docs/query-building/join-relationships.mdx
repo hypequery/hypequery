@@ -43,7 +43,7 @@ const relationships = new JoinRelationships<Schema>();
 relationships.define('orderCustomer', {
   from: 'orders',
   to: 'users',
-  leftColumn: 'orders.user_id',
+  leftColumn: 'user_id',
   rightColumn: 'id',
   type: 'LEFT',
 });
@@ -102,14 +102,14 @@ relationships.defineChain('orderCustomerRegion', [
   {
     from: 'orders',
     to: 'users',
-    leftColumn: 'orders.user_id',
+    leftColumn: 'user_id',
     rightColumn: 'id',
     type: 'INNER',
   },
   {
     from: 'users',
     to: 'regions',
-    leftColumn: 'users.region_id',
+    leftColumn: 'region_id',
     rightColumn: 'id',
     type: 'LEFT',
   },
@@ -157,7 +157,11 @@ const rows = await db
 
 This is useful when the shared relationship is usually `LEFT`, but one query needs stricter matching.
 
-`alias` can be defined on the relationship itself for SQL generation, but `withRelation()` does not widen the builder's alias typing the way inline `join(..., alias)` methods do. For typed alias-based column selection, prefer inline joins.
+`alias` can be defined on the relationship itself for SQL generation.
+
+- For string-based registry lookups such as `withRelation('orderCustomer')`, TypeScript cannot inspect the stored relationship shape, so alias/table widening is runtime-only.
+- For direct `JoinPath` usage, `withRelation()` does widen the builder type for joined tables and aliases.
+- Inline joins are still a good choice for one-off joins, but direct `JoinPath` usage is fully typed when you want reusable path objects with compile-time widening.
 
 Alias override is only supported for single-join relationships. For `defineChain()` relationships, each step should define its own alias explicitly if needed.
 

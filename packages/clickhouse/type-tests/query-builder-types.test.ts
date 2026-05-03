@@ -1,5 +1,6 @@
 import { QueryBuilder } from '../src/core/query-builder.js';
 import { CrossFilter } from '../src/core/cross-filter.js';
+import { JoinRelationships } from '../src/core/join-relationships.js';
 import { setupTestBuilder, setupUsersBuilder, TestSchema, TEST_SCHEMAS } from '../src/core/tests/test-utils.js';
 import { createPredicateBuilder } from '../src/core/utils/predicate-builder.js';
 import { rawAs } from '../src/core/utils/sql-expressions.js';
@@ -206,3 +207,75 @@ type AssertAliasJoin = Expect<Equal<AliasJoinResult, AliasJoinExpected>>;
 builder
   .innerJoin('users', 'created_by', 'users.id', 'creator')
   .where('creator.user_name', 'eq', 'team@example.com');
+
+const aliasedRelationQuery = builder.withRelation([
+  {
+    from: 'test_table',
+    to: 'users',
+    leftColumn: 'created_by',
+    rightColumn: 'id',
+    alias: 'creator',
+  },
+  {
+    from: 'creator',
+    to: 'test_table',
+    leftColumn: 'id',
+    rightColumn: 'updated_by',
+    alias: 'updated_by_user',
+  },
+] as const).select(['creator.user_name', 'updated_by_user.name']);
+type AliasedRelationResult = Awaited<ReturnType<typeof aliasedRelationQuery.execute>>;
+type AliasedRelationExpected = { user_name: string; name: string }[];
+type AssertAliasedRelation = Expect<Equal<AliasedRelationResult, AliasedRelationExpected>>;
+
+// @ts-expect-error second relation step cannot start from an unknown source
+builder.withRelation([
+  {
+    from: 'test_table',
+    to: 'users',
+    leftColumn: 'created_by',
+    rightColumn: 'id',
+    alias: 'creator',
+  },
+  {
+    from: 'unknown_alias',
+    to: 'test_table',
+    leftColumn: 'id',
+    rightColumn: 'updated_by',
+  },
+] as const);
+
+const relationships = new JoinRelationships<TestSchema>();
+relationships.defineChain('creatorChain', [
+  {
+    from: 'test_table',
+    to: 'users',
+    leftColumn: 'created_by',
+    rightColumn: 'id',
+    alias: 'creator',
+  },
+  {
+    from: 'creator',
+    to: 'test_table',
+    leftColumn: 'id',
+    rightColumn: 'updated_by',
+    alias: 'updated_by_user',
+  },
+] as const);
+
+// @ts-expect-error registry chains must also reference a source introduced earlier in the chain
+relationships.defineChain('invalidCreatorChain', [
+  {
+    from: 'test_table',
+    to: 'users',
+    leftColumn: 'created_by',
+    rightColumn: 'id',
+    alias: 'creator',
+  },
+  {
+    from: 'missing_alias',
+    to: 'test_table',
+    leftColumn: 'id',
+    rightColumn: 'updated_by',
+  },
+] as const);

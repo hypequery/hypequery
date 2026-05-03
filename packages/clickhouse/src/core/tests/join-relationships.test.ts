@@ -116,6 +116,33 @@ describe('JoinRelationships', () => {
       expect(sql).toBe('SELECT * FROM test_table INNER JOIN users ON created_by = users.id LEFT JOIN test_table AS updated_by_user ON id = updated_by_user.updated_by');
     });
 
+    it('should apply join chains that continue from a prior alias', () => {
+      relationships.defineChain('aliasChain', [
+        {
+          from: 'test_table',
+          to: 'users',
+          leftColumn: 'created_by',
+          rightColumn: 'id',
+          type: 'INNER',
+          alias: 'creator'
+        },
+        {
+          from: 'creator',
+          to: 'test_table',
+          leftColumn: 'id',
+          rightColumn: 'updated_by',
+          type: 'LEFT',
+          alias: 'updated_by_user'
+        }
+      ]);
+
+      const sql = builder
+        .withRelation('aliasChain')
+        .toSQL();
+
+      expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS creator ON created_by = creator.id LEFT JOIN test_table AS updated_by_user ON id = updated_by_user.updated_by');
+    });
+
     it('should override join type', () => {
       relationships.define('testToUsers', {
         from: 'test_table',

@@ -4,9 +4,9 @@ import type { JoinPath, JoinPathOptions, JoinRelationships } from '../join-relat
 import { validateRelationAliasOverride, validateRelationPathOrigin } from './relation-validation.js';
 
 export function resolveRelationPath<Schema extends SchemaDefinition<Schema>>(
-  nameOrPath: string | JoinPath<Schema> | readonly JoinPath<Schema>[],
+  nameOrPath: string | JoinPath<Schema, string> | readonly JoinPath<Schema, string>[],
   relationships: JoinRelationships<Schema> | undefined
-): { path: JoinPath<Schema> | readonly JoinPath<Schema>[]; label?: string } {
+): { path: JoinPath<Schema, string> | readonly JoinPath<Schema, string>[]; label?: string } {
   if (typeof nameOrPath !== 'string') {
     return { path: nameOrPath };
   }
@@ -25,11 +25,11 @@ export function resolveRelationPath<Schema extends SchemaDefinition<Schema>>(
 
 export function applyRelationPath<Schema extends SchemaDefinition<Schema>>(
   query: SelectQueryNode<any, Schema>,
-  path: JoinPath<Schema> | readonly JoinPath<Schema>[],
+  path: JoinPath<Schema, string> | readonly JoinPath<Schema, string>[],
   options: JoinPathOptions | undefined,
   appendJoin: (
     currentQuery: SelectQueryNode<any, Schema>,
-    joinPath: JoinPath<Schema>,
+    joinPath: JoinPath<Schema, string>,
     options: JoinPathOptions | undefined
   ) => SelectQueryNode<any, Schema>,
   label?: string
