@@ -13,6 +13,13 @@ export class SQLFormatter {
     return groupBy.map(item => item.expression).join(', ');
   }
 
+  formatArrayJoins(query: SelectQueryNode<any, any>): string {
+    if (!query.arrayJoins?.length) return '';
+    return query.arrayJoins
+      .map(item => `${item.type} JOIN ${item.expression}`)
+      .join(' ');
+  }
+
   formatPrewhere(query: SelectQueryNode<any, any>): string {
     return this.compileExpr(query.prewhere).query;
   }
@@ -202,7 +209,10 @@ export class SQLFormatter {
       const tableClause = join.alias
         ? `${join.table} AS ${join.alias}`
         : join.table;
-      return `${join.type} JOIN ${tableClause} ON ${join.leftColumn} = ${join.rightColumn}`;
+      const leftColumn = join.leftSource && !join.leftColumn.includes('.')
+        ? `${join.leftSource}.${join.leftColumn}`
+        : join.leftColumn;
+      return `${join.type} JOIN ${tableClause} ON ${leftColumn} = ${join.rightColumn}`;
     }).join(' ');
   }
 
@@ -216,6 +226,11 @@ export class SQLFormatter {
     return query.orderBy
       .map(({ column, direction }) => `${String(column)} ${direction}`.trim())
       .join(', ');
+  }
+
+  formatLimitBy(query: SelectQueryNode<any, any>): string {
+    if (!query.limitBy) return '';
+    return `${query.limitBy.limit} BY ${query.limitBy.by.join(', ')}`;
   }
 
   private combineCompiled(parts: CompiledQuery[]): CompiledQuery {

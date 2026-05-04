@@ -831,8 +831,24 @@ export class QueryBuilder<
     return this.updateQuery(() => this.modifiers.addGroupBy(normalized));
   }
 
+  arrayJoin(column: SelectableColumn<State>): this {
+    return this.updateQuery(() => this.modifiers.addArrayJoin('ARRAY', String(column)));
+  }
+
+  leftArrayJoin(column: SelectableColumn<State>): this {
+    return this.updateQuery(() => this.modifiers.addArrayJoin('LEFT ARRAY', String(column)));
+  }
+
   limit(count: number): this {
     return this.updateQuery(() => this.modifiers.addLimit(count));
+  }
+
+  limitBy(
+    count: number,
+    by: SelectableColumn<State> | Array<SelectableColumn<State>>
+  ): this {
+    const normalized = Array.isArray(by) ? by.map(String) : String(by);
+    return this.updateQuery(() => this.modifiers.addLimitBy(count, normalized));
   }
 
   offset(count: number): this {
@@ -871,6 +887,10 @@ export class QueryBuilder<
 
   distinct(): this {
     return this.updateQuery(() => this.modifiers.setDistinct());
+  }
+
+  withTotals(): this {
+    return this.updateQuery(() => this.modifiers.setWithTotals());
   }
 
   whereNull<Column extends WhereColumn<State>>(column: Column): this {
@@ -1053,12 +1073,11 @@ export class QueryBuilder<
         next.query = currentQuery;
         const type = options?.type || joinPath.type || 'INNER';
         const alias = relationOptions?.alias || joinPath.alias;
+        const leftColumn = String(joinPath.leftColumn);
+        const leftSource = String(joinPath.from);
         const table = String(joinPath.to) as Extract<keyof Schema, string>;
-        const leftColumn = String(joinPath.leftColumn).includes('.')
-          ? String(joinPath.leftColumn)
-          : `${String(joinPath.from)}.${String(joinPath.leftColumn)}`;
         const rightColumn = `${table}.${joinPath.rightColumn}` as `${typeof table}.${keyof Schema[typeof table] & string}`;
-        return next.joins.addJoin(type, table, leftColumn, rightColumn, alias);
+        return next.joins.addJoin(type, table, leftColumn, rightColumn, alias, leftSource);
       },
       label
     );

@@ -13,7 +13,8 @@ export class JoinFeature<
     table: TableName,
     leftColumn: string,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: string
+    alias?: string,
+    leftSource?: string
   ): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
     const renderedRightColumn = alias
@@ -28,6 +29,7 @@ export class JoinFeature<
           type,
           table: String(table),
           leftColumn: String(leftColumn),
+          leftSource,
           rightColumn: renderedRightColumn,
           alias,
         }

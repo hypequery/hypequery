@@ -241,6 +241,7 @@ export interface TestSchemaType {
     price: number;
     created_at: string;
     is_active: boolean;
+    tags: string[];
   }>;
   users: Array<{
     id: number;
@@ -283,7 +284,8 @@ function normalizeTestData() {
     category: row.category,
     price: row.price,
     created_at: normalizeDateValue(row.created_at),
-    is_active: row.is_active
+    is_active: row.is_active,
+    tags: row.tags ?? [],
   }));
 
   const users = (rawTestData.users ?? []).map(row => ({
@@ -345,7 +347,8 @@ export const setupTestDatabase = async (): Promise<void> => {
           category String,
           price Float64,
           created_at Date,
-          is_active Boolean
+          is_active Boolean,
+          tags Array(String)
         ) ENGINE = MergeTree()
         ORDER BY id
       `

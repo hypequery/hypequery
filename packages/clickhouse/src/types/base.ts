@@ -5,10 +5,13 @@ import type { TableColumn } from './schema.js';
 export interface QueryConfig<T, Schema> {
   select?: SelectionNode[];
   from?: SourceNode;
+  arrayJoins?: ArrayJoinNode[];
   prewhere?: ExprNode;
   where?: ExprNode;
   groupBy?: GroupByItemNode[];
+  withTotals?: boolean;
   having?: HavingNode[];
+  limitBy?: LimitByNode;
   limit?: number;
   offset?: number;
   distinct?: boolean;
@@ -95,6 +98,12 @@ export interface GroupByItemNode {
   expression: string;
 }
 
+export interface ArrayJoinNode {
+  kind: 'array-join';
+  type: 'ARRAY' | 'LEFT ARRAY';
+  expression: string;
+}
+
 export interface HavingNode {
   kind: 'having';
   expression: string;
@@ -108,6 +117,7 @@ export interface JoinNode {
   type: JoinType;
   table: string;
   leftColumn: string;
+  leftSource?: string;
   rightColumn: string;
   alias?: string;
 }
@@ -116,6 +126,12 @@ export interface OrderByItemNode {
   kind: 'order-by-item';
   column: string;
   direction: OrderDirection;
+}
+
+export interface LimitByNode {
+  kind: 'limit-by';
+  limit: number;
+  by: string[];
 }
 
 export interface CteNode {

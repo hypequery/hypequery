@@ -272,6 +272,58 @@ describe('Integration Tests - Complex Joins', () => {
       }
     });
 
+    test('should execute alias-origin withRelation chains with unqualified leftColumn values', async () => {
+      const result = await db
+        .table('orders')
+        .withRelation([
+          {
+            from: 'orders',
+            to: 'users',
+            leftColumn: 'user_id',
+            rightColumn: 'id',
+            alias: 'customer',
+          },
+          {
+            from: 'customer',
+            to: 'orders',
+            leftColumn: 'id',
+            rightColumn: 'user_id',
+            alias: 'customer_order',
+          },
+        ])
+        .select([
+          'orders.id as order_id',
+          'customer.user_name',
+          'customer_order.id as related_order_id',
+        ])
+        .orderBy('orders.id', 'ASC')
+        .orderBy('customer_order.id', 'ASC')
+        .execute();
+
+      const expected = TEST_DATA.orders
+        .slice()
+        .sort((a, b) => a.id - b.id)
+        .flatMap(order => {
+          const customer = TEST_DATA.users.find(user => user.id === order.user_id);
+          const relatedOrders = TEST_DATA.orders
+            .filter(candidate => candidate.user_id === order.user_id)
+            .slice()
+            .sort((a, b) => a.id - b.id);
+
+          return relatedOrders.map(relatedOrder => ({
+            order_id: order.id,
+            user_name: customer?.user_name ?? null,
+            related_order_id: relatedOrder.id,
+          }));
+        });
+
+      expect(result.map(row => ({
+        order_id: Number(row.order_id),
+        user_name: row.user_name,
+        related_order_id: Number(row.related_order_id),
+      }))).toEqual(expected);
+    });
+
     test('should handle complex filtering and aggregation in joined queries', async () => {
       const result = await db
         .table('users')

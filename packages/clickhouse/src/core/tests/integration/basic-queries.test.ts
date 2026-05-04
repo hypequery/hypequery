@@ -4,14 +4,12 @@ import {
   setupTestDatabase,
   TEST_DATA
 } from './setup';
-
-// Skip integration tests if running in CI or if explicitly disabled
-const SKIP_INTEGRATION_TESTS = process.env.SKIP_INTEGRATION_TESTS === 'true' || process.env.CI === 'true';
+import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
 
 describe('Integration Tests - Basic Queries', () => {
   // Only run these tests if not skipped
   (SKIP_INTEGRATION_TESTS ? describe.skip : describe)('ClickHouse Integration', () => {
-    let db: Awaited<ReturnType<any>>;
+    let db: Awaited<ReturnType<typeof initializeTestConnection>>;
 
     beforeAll(async () => {
       if (!SKIP_INTEGRATION_TESTS) {
@@ -24,7 +22,7 @@ describe('Integration Tests - Basic Queries', () => {
           throw error;
         }
       }
-    }, 30000);
+    }, SETUP_TIMEOUT);
 
     test('should execute a simple SELECT query', async () => {
       const result = await db.table('test_table')
@@ -161,6 +159,139 @@ describe('Integration Tests - Basic Queries', () => {
       for (let i = 1; i < descResult.length; i++) {
         expect(Number(descResult[i].price)).toBeLessThanOrEqual(Number(descResult[i - 1].price));
       }
+    });
+
+    test('should execute ARRAY JOIN queries', async () => {
+      const result = await db.table('test_table')
+        .select(['id', 'tags'])
+        .arrayJoin('tags')
+        .orderBy('id', 'ASC')
+        .execute();
+
+      const expected = TEST_DATA.test_table.flatMap(item =>
+        item.tags.map(tag => ({
+          id: item.id,
+          tags: tag,
+        }))
+      );
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({ id: Number(row.id), tags: String(row.tags) }))).toEqual(expected);
+    });
+
+    test('should execute LEFT ARRAY JOIN queries', async () => {
+      const result = await db.table('test_table')
+        .select(['id', 'tags'])
+        .leftArrayJoin('tags')
+        .orderBy('id', 'ASC')
+        .execute();
+
+      const expected = TEST_DATA.test_table.flatMap(item =>
+        item.tags.length > 0
+          ? item.tags.map(tag => ({
+              id: item.id,
+              tags: tag,
+            }))
+          : [{
+              id: item.id,
+              tags: '',
+            }]
+      );
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({ id: Number(row.id), tags: String(row.tags) }))).toEqual(expected);
+    });
+
+    test('should execute LIMIT BY queries', async () => {
+      const result = await db.table('orders')
+        .select(['user_id', 'id', 'created_at'])
+        .orderBy('created_at', 'DESC')
+        .limitBy(1, 'user_id')
+        .execute();
+
+      const expected = Object.values(
+        Array.from(
+          TEST_DATA.orders
+            .slice()
+            .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+            .reduce((acc, order) => {
+              if (!acc.has(order.user_id)) {
+                acc.set(order.user_id, {
+                  user_id: order.user_id,
+                  id: order.id,
+                  created_at: order.created_at,
+                });
+              }
+              return acc;
+            }, new Map<number, { user_id: number; id: number; created_at: string }>())
+            .values()
+        )
+      );
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({
+        user_id: Number(row.user_id),
+        id: Number(row.id),
+        created_at: String(row.created_at),
+      }))).toEqual(expected);
+    });
+
+    test('should execute multi-column LIMIT BY queries', async () => {
+      const result = await db.table('test_table')
+        .select(['category', 'is_active', 'id', 'created_at'])
+        .orderBy('created_at', 'DESC')
+        .limitBy(1, ['category', 'is_active'])
+        .execute();
+
+      const expected = Array.from(
+        TEST_DATA.test_table
+          .slice()
+          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+          .reduce((acc, row) => {
+            const key = `${row.category}|${row.is_active ? 1 : 0}`;
+            if (!acc.has(key)) {
+              acc.set(key, {
+                category: row.category,
+                is_active: row.is_active ? 1 : 0,
+                id: row.id,
+                created_at: row.created_at,
+              });
+            }
+            return acc;
+          }, new Map<string, { category: string; is_active: number; id: number; created_at: string }>())
+          .values()
+      );
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({
+        category: String(row.category),
+        is_active: Number(row.is_active),
+        id: Number(row.id),
+        created_at: String(row.created_at),
+      }))).toEqual(expected);
+    });
+
+    test('should execute GROUP BY queries with WITH TOTALS enabled', async () => {
+      const result = await db.table('test_table')
+        .select(['category'])
+        .count('id', 'count')
+        .groupBy('category')
+        .withTotals()
+        .orderBy('category', 'ASC')
+        .execute();
+
+      const expected = [...new Set(TEST_DATA.test_table.map(item => item.category))]
+        .sort((a, b) => a.localeCompare(b))
+        .map(category => ({
+          category,
+          count: TEST_DATA.test_table.filter(item => item.category === category).length,
+        }));
+
+      expect(result).toHaveLength(expected.length);
+      expect(result.map(row => ({
+        category: String(row.category),
+        count: Number(row.count),
+      }))).toEqual(expected);
     });
 
     test('should handle complex queries', async () => {
