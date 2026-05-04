@@ -280,7 +280,7 @@ async function seedDatabase() {
     `DROP TABLE IF EXISTS ${CLICKHOUSE_DB}.test_table`,
     `DROP TABLE IF EXISTS ${CLICKHOUSE_DB}.users`,
     `DROP TABLE IF EXISTS ${CLICKHOUSE_DB}.orders`,
-    `CREATE TABLE ${CLICKHOUSE_DB}.test_table (\n      id UInt32,\n      name String,\n      category String,\n      price Float64,\n      created_at Date,\n      is_active Boolean\n    ) ENGINE = MergeTree()\n    ORDER BY id`,
+    `CREATE TABLE ${CLICKHOUSE_DB}.test_table (\n      id UInt32,\n      name String,\n      category String,\n      price Float64,\n      created_at Date,\n      is_active Boolean,\n      tags Array(String)\n    ) ENGINE = MergeTree()\n    ORDER BY id`,
     `CREATE TABLE ${CLICKHOUSE_DB}.users (\n      id UInt32,\n      user_name String,\n      email String,\n      status String,\n      created_at Date\n    ) ENGINE = MergeTree()\n    ORDER BY id`,
     `CREATE TABLE ${CLICKHOUSE_DB}.orders (\n      id UInt32,\n      user_id UInt32,\n      product_id UInt32,\n      quantity UInt32,\n      total Float64,\n      status String,\n      created_at Date\n    ) ENGINE = MergeTree()\n    ORDER BY id`
   ];
@@ -292,7 +292,7 @@ async function seedDatabase() {
   const testTableRows = (data.test_table ?? []).map(row =>
     pickColumns(
       row,
-      ['id', 'name', 'category', 'price', 'created_at', 'is_active'],
+      ['id', 'name', 'category', 'price', 'created_at', 'is_active', 'tags'],
       { created_at: normalizeDateValue }
     )
   );

@@ -117,6 +117,7 @@ export interface JoinNode {
   type: JoinType;
   table: string;
   leftColumn: string;
+  leftSource?: string;
   rightColumn: string;
   alias?: string;
 }
