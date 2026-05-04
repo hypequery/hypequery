@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sql } from '../../dataset/sql-tag.js';
+import { sql } from '../utils/sql-tag.js';
 import { column, defineMaterializedView, defineSchema, defineTable } from '../schema/index.js';
 import type { ClickHouseSchemaAst } from '../schema/types.js';
 import { serializeSchemaToSnapshot, snapshotToStableJson } from './serialize.js';

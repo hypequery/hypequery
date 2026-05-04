@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { isSQLExpression } from '../../dataset/sql-tag.js';
+import { isSQLExpression } from '../utils/sql-tag.js';
 import type {
   ClickHouseColumnDefaultValue,
   ClickHouseColumnType,

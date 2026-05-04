@@ -2,6 +2,7 @@ packages:
   - 'packages/cli'
   - 'packages/clickhouse'
   - 'packages/create-app'
+  - 'packages/migrations'
   - 'packages/react'
   - 'packages/serve'
   - 'packages/tsconfig'
