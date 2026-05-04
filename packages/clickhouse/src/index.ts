@@ -60,6 +60,13 @@ export {
   toDateTime,
   formatDateTime,
   toStartOfInterval,
+  toStartOfMinute,
+  toStartOfHour,
+  toStartOfDay,
+  toStartOfWeek,
+  toStartOfMonth,
+  toStartOfQuarter,
+  toStartOfYear,
   datePart
 } from './core/utils/sql-expressions.js';
 
@@ -77,6 +84,9 @@ export type {
   PredicateBuilder,
   PredicateArg
 } from './core/utils/predicate-builder.js';
+
+// CLI utilities
+export { generateTypes } from './cli/index.js';
 
 // =============================================================================
 // DATASET API (Phase 1)

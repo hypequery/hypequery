@@ -129,6 +129,78 @@ export function toStartOfInterval(field: string, interval: string, alias?: strin
     : raw<Date>(`toStartOfInterval(${field}, INTERVAL ${interval})`);
 }
 
+function toStartOfUnit<T = Date>(functionName: string, field: string): SqlExpression<T>;
+function toStartOfUnit<T = Date, Alias extends string = string>(
+  functionName: string,
+  field: string,
+  alias: Alias
+): AliasedExpression<T, Alias>;
+function toStartOfUnit<T = Date>(
+  functionName: string,
+  field: string,
+  alias?: string
+): SqlExpression<T> | AliasedExpression<T> {
+  return alias
+    ? rawAs<T>(`${functionName}(${field})`, alias)
+    : raw<T>(`${functionName}(${field})`);
+}
+
+export function toStartOfMinute(field: string): SqlExpression<Date>;
+export function toStartOfMinute<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfMinute(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  return alias
+    ? toStartOfUnit<Date>('toStartOfMinute', field, alias)
+    : toStartOfUnit<Date>('toStartOfMinute', field);
+}
+
+export function toStartOfHour(field: string): SqlExpression<Date>;
+export function toStartOfHour<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfHour(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  return alias
+    ? toStartOfUnit<Date>('toStartOfHour', field, alias)
+    : toStartOfUnit<Date>('toStartOfHour', field);
+}
+
+export function toStartOfDay(field: string): SqlExpression<Date>;
+export function toStartOfDay<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfDay(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  return alias
+    ? toStartOfUnit<Date>('toStartOfDay', field, alias)
+    : toStartOfUnit<Date>('toStartOfDay', field);
+}
+
+export function toStartOfWeek(field: string): SqlExpression<Date>;
+export function toStartOfWeek<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfWeek(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  return alias
+    ? rawAs<Date>(`toStartOfWeek(${field}, 1)`, alias)
+    : raw<Date>(`toStartOfWeek(${field}, 1)`);
+}
+
+export function toStartOfMonth(field: string): SqlExpression<Date>;
+export function toStartOfMonth<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfMonth(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  return alias
+    ? toStartOfUnit<Date>('toStartOfMonth', field, alias)
+    : toStartOfUnit<Date>('toStartOfMonth', field);
+}
+
+export function toStartOfQuarter(field: string): SqlExpression<Date>;
+export function toStartOfQuarter<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfQuarter(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  return alias
+    ? toStartOfUnit<Date>('toStartOfQuarter', field, alias)
+    : toStartOfUnit<Date>('toStartOfQuarter', field);
+}
+
+export function toStartOfYear(field: string): SqlExpression<Date>;
+export function toStartOfYear<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
+export function toStartOfYear(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  return alias
+    ? toStartOfUnit<Date>('toStartOfYear', field, alias)
+    : toStartOfUnit<Date>('toStartOfYear', field);
+}
+
 /**
  * Extracts the specified part from a date/time value
  * @param part The part to extract (year, month, day, etc.)
