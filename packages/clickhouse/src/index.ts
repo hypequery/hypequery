@@ -60,6 +60,13 @@ export {
   toDateTime,
   formatDateTime,
   toStartOfInterval,
+  toStartOfMinute,
+  toStartOfHour,
+  toStartOfDay,
+  toStartOfWeek,
+  toStartOfMonth,
+  toStartOfQuarter,
+  toStartOfYear,
   datePart
 } from './core/utils/sql-expressions.js';
 

@@ -1,5 +1,20 @@
 import type { Equal, Expect } from '@type-challenges/utils';
-import { raw, rawAs, selectExpr, toDateTime, formatDateTime, toStartOfInterval, datePart } from '../utils/sql-expressions.js';
+import {
+  raw,
+  rawAs,
+  selectExpr,
+  toDateTime,
+  formatDateTime,
+  toStartOfInterval,
+  toStartOfMinute,
+  toStartOfHour,
+  toStartOfDay,
+  toStartOfWeek,
+  toStartOfMonth,
+  toStartOfQuarter,
+  toStartOfYear,
+  datePart
+} from '../utils/sql-expressions.js';
 import { setupTestBuilder } from './test-utils.js';
 
 describe('SQL Expressions', () => {
@@ -46,6 +61,17 @@ describe('SQL Expressions', () => {
 
       const aliasedExpr = toStartOfInterval('created_at', '1 day', 'day_start');
       expect(aliasedExpr.toSql()).toBe('toStartOfInterval(created_at, INTERVAL 1 day) AS day_start');
+    });
+
+    it('should provide helpers for built-in start-of time buckets', () => {
+      expect(toStartOfMinute('created_at').toSql()).toBe('toStartOfMinute(created_at)');
+      expect(toStartOfHour('created_at').toSql()).toBe('toStartOfHour(created_at)');
+      expect(toStartOfDay('created_at').toSql()).toBe('toStartOfDay(created_at)');
+      expect(toStartOfWeek('created_at').toSql()).toBe('toStartOfWeek(created_at, 1)');
+      expect(toStartOfMonth('created_at').toSql()).toBe('toStartOfMonth(created_at)');
+      expect(toStartOfQuarter('created_at').toSql()).toBe('toStartOfQuarter(created_at)');
+      expect(toStartOfYear('created_at').toSql()).toBe('toStartOfYear(created_at)');
+      expect(toStartOfDay('created_at', 'day_start').toSql()).toBe('toStartOfDay(created_at) AS day_start');
     });
 
     it('should provide helper for datePart function', () => {

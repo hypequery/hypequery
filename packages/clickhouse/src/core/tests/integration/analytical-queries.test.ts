@@ -6,6 +6,16 @@ import {
 } from './setup';
 import { raw } from '../../utils/sql-expressions.js';
 import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
+import {
+  raw,
+  toStartOfMinute,
+  toStartOfHour,
+  toStartOfDay,
+  toStartOfWeek,
+  toStartOfMonth,
+  toStartOfQuarter,
+  toStartOfYear,
+} from '../../../index.js';
 
 describe('Integration Tests - Analytical Queries', () => {
   // Only run these tests if not skipped
@@ -212,6 +222,91 @@ describe('Integration Tests - Analytical Queries', () => {
         expect(Number(row.order_count)).toBe(expectedOrderCount);
         expect(Number(row.total_sales)).toBeCloseTo(expectedTotalSales, 2);
       }
+    });
+
+    test('should execute exported start-of interval helpers with expected bucket values', async () => {
+      const createdAtDateTime = 'toDateTime(created_at)';
+      const result = await db
+        .table('test_table')
+        .select([
+          'id',
+          toStartOfMinute(createdAtDateTime, 'minute_start'),
+          toStartOfHour(createdAtDateTime, 'hour_start'),
+          toStartOfDay(createdAtDateTime, 'day_start'),
+          toStartOfWeek(createdAtDateTime, 'week_start'),
+          toStartOfMonth(createdAtDateTime, 'month_start'),
+          toStartOfQuarter(createdAtDateTime, 'quarter_start'),
+          toStartOfYear(createdAtDateTime, 'year_start'),
+        ])
+        .orderBy('id', 'ASC')
+        .execute();
+
+      const toLocalDateTime = (value: string | Date) => {
+        if (typeof value === 'string') {
+          return value.replace(' ', 'T').slice(0, 19);
+        }
+
+        const pad = (num: number) => String(num).padStart(2, '0');
+        return [
+          value.getFullYear(),
+          pad(value.getMonth() + 1),
+          pad(value.getDate()),
+        ].join('-') + `T${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+      };
+
+      const toLocalDate = (value: string | Date) => {
+        if (typeof value === 'string') {
+          return value.slice(0, 10);
+        }
+
+        const pad = (num: number) => String(num).padStart(2, '0');
+        return [
+          value.getFullYear(),
+          pad(value.getMonth() + 1),
+          pad(value.getDate()),
+        ].join('-');
+      };
+
+      const startOfWeekUtc = (value: string) => {
+        const date = new Date(`${value}T00:00:00Z`);
+        const day = date.getUTCDay();
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        date.setUTCDate(date.getUTCDate() + diffToMonday);
+        return date.toISOString().slice(0, 10);
+      };
+
+      const startOfQuarterUtc = (value: string) => {
+        const date = new Date(`${value}T00:00:00Z`);
+        const quarterMonth = Math.floor(date.getUTCMonth() / 3) * 3;
+        date.setUTCMonth(quarterMonth, 1);
+        return date.toISOString().slice(0, 10);
+      };
+
+      const expected = TEST_DATA.test_table.map(product => {
+        const dateOnly = product.created_at.split(' ')[0];
+        const [year, month] = dateOnly.split('-');
+        return {
+          id: Number(product.id),
+          minute_start: `${dateOnly}T00:00:00`,
+          hour_start: `${dateOnly}T00:00:00`,
+          day_start: `${dateOnly}T00:00:00`,
+          week_start: startOfWeekUtc(dateOnly),
+          month_start: `${year}-${month}-01`,
+          quarter_start: startOfQuarterUtc(dateOnly),
+          year_start: `${year}-01-01`,
+        };
+      });
+
+      expect(result.map(row => ({
+        id: Number(row.id),
+        minute_start: toLocalDateTime(row.minute_start),
+        hour_start: toLocalDateTime(row.hour_start),
+        day_start: toLocalDateTime(row.day_start),
+        week_start: toLocalDate(row.week_start),
+        month_start: toLocalDate(row.month_start),
+        quarter_start: toLocalDate(row.quarter_start),
+        year_start: toLocalDate(row.year_start),
+      }))).toEqual(expected);
     });
 
     test('should analyze user retention', async () => {
