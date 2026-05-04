@@ -85,6 +85,9 @@ export type {
   PredicateArg
 } from './core/utils/predicate-builder.js';
 
+// CLI utilities
+export { generateTypes } from './cli/index.js';
+
 // =============================================================================
 // DATASET API (Phase 1)
 // =============================================================================

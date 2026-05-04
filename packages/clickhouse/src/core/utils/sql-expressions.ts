@@ -148,19 +148,25 @@ function toStartOfUnit<T = Date>(
 export function toStartOfMinute(field: string): SqlExpression<Date>;
 export function toStartOfMinute<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
 export function toStartOfMinute(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
-  return toStartOfUnit<Date>('toStartOfMinute', field, alias);
+  return alias
+    ? toStartOfUnit<Date>('toStartOfMinute', field, alias)
+    : toStartOfUnit<Date>('toStartOfMinute', field);
 }
 
 export function toStartOfHour(field: string): SqlExpression<Date>;
 export function toStartOfHour<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
 export function toStartOfHour(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
-  return toStartOfUnit<Date>('toStartOfHour', field, alias);
+  return alias
+    ? toStartOfUnit<Date>('toStartOfHour', field, alias)
+    : toStartOfUnit<Date>('toStartOfHour', field);
 }
 
 export function toStartOfDay(field: string): SqlExpression<Date>;
 export function toStartOfDay<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
 export function toStartOfDay(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
-  return toStartOfUnit<Date>('toStartOfDay', field, alias);
+  return alias
+    ? toStartOfUnit<Date>('toStartOfDay', field, alias)
+    : toStartOfUnit<Date>('toStartOfDay', field);
 }
 
 export function toStartOfWeek(field: string): SqlExpression<Date>;
@@ -174,19 +180,25 @@ export function toStartOfWeek(field: string, alias?: string): SqlExpression<Date
 export function toStartOfMonth(field: string): SqlExpression<Date>;
 export function toStartOfMonth<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
 export function toStartOfMonth(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
-  return toStartOfUnit<Date>('toStartOfMonth', field, alias);
+  return alias
+    ? toStartOfUnit<Date>('toStartOfMonth', field, alias)
+    : toStartOfUnit<Date>('toStartOfMonth', field);
 }
 
 export function toStartOfQuarter(field: string): SqlExpression<Date>;
 export function toStartOfQuarter<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
 export function toStartOfQuarter(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
-  return toStartOfUnit<Date>('toStartOfQuarter', field, alias);
+  return alias
+    ? toStartOfUnit<Date>('toStartOfQuarter', field, alias)
+    : toStartOfUnit<Date>('toStartOfQuarter', field);
 }
 
 export function toStartOfYear(field: string): SqlExpression<Date>;
 export function toStartOfYear<T extends string>(field: string, alias: T): AliasedExpression<Date, T>;
 export function toStartOfYear(field: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
-  return toStartOfUnit<Date>('toStartOfYear', field, alias);
+  return alias
+    ? toStartOfUnit<Date>('toStartOfYear', field, alias)
+    : toStartOfUnit<Date>('toStartOfYear', field);
 }
 
 /**
