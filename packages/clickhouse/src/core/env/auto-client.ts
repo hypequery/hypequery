@@ -9,11 +9,11 @@ export interface AutoClientModule {
 }
 
 let cachedModule: AutoClientModule | undefined;
+const nodeRequire = createRequire(import.meta.url);
 
 export function getAutoClientModule(): AutoClientModule {
   if (!cachedModule) {
     try {
-      const nodeRequire = createRequire(`${process.cwd()}/noop.js`);
       const clientModule: NodeClientModule = nodeRequire('@clickhouse/client');
       const settings = (clientModule as { ClickHouseSettings?: ClickHouseSettings }).ClickHouseSettings;
       cachedModule = {
