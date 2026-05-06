@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { generateQueriesTemplate } from './queries.js';
+import { generateClientTemplate } from './client.js';
 
 describe('queries template', () => {
   it('should generate basic template without example', () => {
@@ -8,7 +9,7 @@ describe('queries template', () => {
     });
 
     expect(result).toContain('import { initServe }');
-    expect(result).toContain('import { db } from \'./client\'');
+    expect(result).toContain('import { db } from \'./client.js\'');
     expect(result).toContain('exampleMetric');
     expect(result).toContain('ok: true');
   });
@@ -42,6 +43,14 @@ describe('queries template', () => {
     expect(result).toContain('api.execute(');
   });
 
+  it('registers a default HTTP route', () => {
+    const result = generateQueriesTemplate({
+      hasExample: false,
+    });
+
+    expect(result).toContain("api.route('/metrics/exampleMetric', api.queries.exampleMetric);");
+  });
+
   it('should reference correct query in usage example', () => {
     const resultBasic = generateQueriesTemplate({
       hasExample: false,
@@ -70,5 +79,15 @@ describe('queries template', () => {
     });
 
     expect(result).toContain('customerOrderItemsQuery');
+  });
+
+  it('emits NodeNext-safe relative imports in generated files', () => {
+    const client = generateClientTemplate();
+    const queries = generateQueriesTemplate({
+      hasExample: false,
+    });
+
+    expect(client).toContain("import type { IntrospectedSchema } from './schema.js';");
+    expect(queries).toContain("import { db } from './client.js';");
   });
 });
