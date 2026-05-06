@@ -304,9 +304,9 @@ importers:
       '@hypequery/clickhouse':
         specifier: workspace:*
         version: link:../clickhouse
-      '@hypequery/migrations':
+      '@hypequery/schema':
         specifier: workspace:*
-        version: link:../migrations
+        version: link:../schema
       '@hypequery/serve':
         specifier: workspace:*
         version: link:../serve
@@ -366,21 +366,6 @@ importers:
         specifier: ^2.1.6
         version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
-  packages/migrations:
-    devDependencies:
-      '@types/node':
-        specifier: ^18.19.80
-        version: 18.19.130
-      '@vitest/coverage-v8':
-        specifier: ^2.1.6
-        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
-
   packages/react:
     devDependencies:
       '@tanstack/react-query':
@@ -413,6 +398,21 @@ importers:
       vitest:
         specifier: ^2.1.6
         version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+
+  packages/schema:
+    devDependencies:
+      '@types/node':
+        specifier: ^18.19.80
+        version: 18.19.130
+      '@vitest/coverage-v8':
+        specifier: ^2.1.6
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.6
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/serve:
     dependencies:

@@ -1,7 +1,7 @@
 import type {
   HypequeryClickHouseConfig,
   ResolvedHypequeryClickHouseConfig,
-} from '@hypequery/migrations';
+} from '@hypequery/schema';
 import { loadModule } from './load-api.js';
 
 export const DEFAULT_HYPEQUERY_CONFIG_PATH = 'hypequery.config.ts';

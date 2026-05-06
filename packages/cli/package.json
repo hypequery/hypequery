@@ -28,20 +28,20 @@
   },
   "peerDependencies": {
     "@hypequery/clickhouse": "*",
-    "@hypequery/migrations": "*",
+    "@hypequery/schema": "*",
     "@hypequery/serve": "*"
   },
   "peerDependenciesMeta": {
     "@hypequery/clickhouse": {
       "optional": true
     },
-    "@hypequery/migrations": {
+    "@hypequery/schema": {
       "optional": true
     }
   },
   "devDependencies": {
     "@hypequery/clickhouse": "workspace:*",
-    "@hypequery/migrations": "workspace:*",
+    "@hypequery/schema": "workspace:*",
     "@hypequery/serve": "workspace:*",
     "@types/node": "^20.11.30",
     "@types/prompts": "^2.4.9",

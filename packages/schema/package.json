@@ -1,5 +1,5 @@
 {
-  "name": "@hypequery/migrations",
+  "name": "@hypequery/schema",
   "version": "0.0.0",
   "description": "Schema migrations for ClickHouse with Hypequery",
   "main": "dist/index.js",
