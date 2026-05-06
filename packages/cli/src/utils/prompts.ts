@@ -1,29 +1,10 @@
 import prompts from 'prompts';
-import type { DatabaseType } from './detect-database.js';
 import { logger } from './logger.js';
 
 const noop = () => undefined;
 
 // Configure prompts to not exit on cancel
 prompts.override({ onCancel: noop });
-
-/**
- * Prompt for database type selection
- */
-export async function promptDatabaseType(): Promise<DatabaseType | null> {
-  const response = await prompts({
-    type: 'select',
-    name: 'database',
-    message: 'Which database are you using?',
-    choices: [
-      { title: 'ClickHouse', value: 'clickhouse' },
-      { title: 'BigQuery (coming soon)', value: 'bigquery', disabled: true },
-    ],
-    initial: 0,
-  });
-
-  return response.database || null;
-}
 
 /**
  * Prompt for ClickHouse connection details

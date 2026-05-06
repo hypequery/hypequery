@@ -2,13 +2,17 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
-const REQUIRED_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve'];
+const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', 'zod'] as const;
+const CLI_PACKAGE_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
 
 type PackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun';
 
 type PackageJson = {
+  name?: string;
+  version?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   packageManager?: string;
@@ -21,13 +25,33 @@ const MANUAL_COMMANDS: Record<PackageManager, string> = {
   bun: 'bun add',
 };
 
-function hasDependency(pkg: PackageJson, name: string) {
-  return Boolean(pkg.dependencies?.[name] ?? pkg.devDependencies?.[name]);
+
+function getDependencyVersion(pkg: PackageJson, name: string): string | undefined {
+  return pkg.dependencies?.[name] ?? pkg.devDependencies?.[name];
+}
+
+function packageNameFromSpecifier(specifier: string): string {
+  if (!specifier.startsWith('@')) {
+    const atIndex = specifier.lastIndexOf('@');
+    return atIndex > 0 ? specifier.slice(0, atIndex) : specifier;
+  }
+
+  const separatorIndex = specifier.indexOf('@', specifier.indexOf('/') + 1);
+  return separatorIndex === -1 ? specifier : specifier.slice(0, separatorIndex);
 }
 
 async function readProjectPackageJson(): Promise<PackageJson | null> {
   try {
     const file = await readFile(path.join(process.cwd(), 'package.json'), 'utf8');
+    return JSON.parse(file) as PackageJson;
+  } catch {
+    return null;
+  }
+}
+
+async function readCliPackageJson(): Promise<PackageJson | null> {
+  try {
+    const file = await readFile(CLI_PACKAGE_PATH, 'utf8');
     return JSON.parse(file) as PackageJson;
   } catch {
     return null;
@@ -71,18 +95,54 @@ function formatManualCommand(manager: PackageManager, packages: string[]) {
   return `${MANUAL_COMMANDS[manager]} ${packages.join(' ')}`;
 }
 
-export async function installServeDependencies() {
+export function resolveScaffoldPackages(cliVersion: string | undefined): string[] {
+  if (cliVersion?.includes('canary')) {
+    return [
+      `@hypequery/clickhouse@${cliVersion}`,
+      `@hypequery/serve@${cliVersion}`,
+      'zod',
+    ];
+  }
+
+  return [...STABLE_SCAFFOLD_PACKAGES];
+}
+
+function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean {
+  const name = packageNameFromSpecifier(specifier);
+  const existingVersion = getDependencyVersion(pkgJson, name);
+
+  if (!existingVersion) {
+    return true;
+  }
+
+  const desiredHasPinnedVersion = specifier.startsWith('@')
+    ? specifier.indexOf('@', specifier.indexOf('/') + 1) !== -1
+    : specifier.includes('@');
+
+  if (!desiredHasPinnedVersion) {
+    return false;
+  }
+
+  const desiredVersion = specifier.slice(name.length + 1);
+  return existingVersion !== desiredVersion;
+}
+
+export async function installScaffoldDependencies() {
   if (process.env.HYPEQUERY_SKIP_INSTALL === '1') {
     return;
   }
 
-  const pkgJson = await readProjectPackageJson();
+  const [pkgJson, cliPkgJson] = await Promise.all([
+    readProjectPackageJson(),
+    readCliPackageJson(),
+  ]);
   if (!pkgJson) {
-    logger.warn('package.json not found. Install @hypequery/clickhouse and @hypequery/serve manually.');
+    logger.warn('package.json not found. Install @hypequery/clickhouse, @hypequery/serve, and zod manually.');
     return;
   }
 
-  const missing = REQUIRED_PACKAGES.filter(pkg => !hasDependency(pkgJson, pkg));
+  const requestedPackages = resolveScaffoldPackages(cliPkgJson?.version);
+  const missing = requestedPackages.filter(pkg => shouldInstallPackage(pkgJson, pkg));
   if (missing.length === 0) {
     return;
   }
@@ -116,3 +176,5 @@ export async function installServeDependencies() {
     }
   }
 }
+
+export const installServeDependencies = installScaffoldDependencies;

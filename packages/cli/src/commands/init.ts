@@ -1,10 +1,8 @@
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import ora from 'ora';
-import type { DatabaseType } from '../utils/detect-database.js';
 import { logger } from '../utils/logger.js';
 import {
-  promptDatabaseType,
   promptClickHouseConnection,
   promptOutputDirectory,
   promptGenerateExample,
@@ -24,10 +22,9 @@ import { generateClientTemplate } from '../templates/client.js';
 import { generateQueriesTemplate } from '../templates/queries.js';
 import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
-import { installServeDependencies } from '../utils/dependency-installer.js';
+import { installScaffoldDependencies } from '../utils/dependency-installer.js';
 
 export interface InitOptions {
-  database?: string;
   path?: string;
   noExample?: boolean;
   noInteractive?: boolean;
@@ -41,22 +38,6 @@ type ConnectionConfig = {
   username: string;
   password: string;
 };
-
-async function determineDatabase(options: InitOptions): Promise<DatabaseType> {
-  const dbType = (options.database as DatabaseType | undefined) ?? (await promptDatabaseType());
-
-  if (!dbType) {
-    logger.info('Setup cancelled');
-    process.exit(0);
-  }
-
-  if (dbType !== 'clickhouse') {
-    logger.error(`${dbType} is not yet supported. Only ClickHouse is available.`);
-    process.exit(1);
-  }
-
-  return dbType;
-}
 
 async function resolveConnectionConfig(options: InitOptions): Promise<ConnectionConfig | null> {
   if (options.noInteractive) {
@@ -84,7 +65,6 @@ async function resolveConnectionConfig(options: InitOptions): Promise<Connection
 
 async function testConnection(
   connectionConfig: ConnectionConfig,
-  dbType: DatabaseType,
 ): Promise<{ hasValidConnection: boolean; tableCount: number }> {
   const spinner = ora('Testing connection...').start();
   process.env.CLICKHOUSE_URL = connectionConfig.host;
@@ -93,7 +73,7 @@ async function testConnection(
   process.env.CLICKHOUSE_USERNAME = connectionConfig.username;
   process.env.CLICKHOUSE_PASSWORD = connectionConfig.password;
 
-  const isValid = await validateConnection(dbType);
+  const isValid = await validateConnection('clickhouse');
 
   if (!isValid) {
     spinner.fail('Connection failed');
@@ -109,19 +89,19 @@ async function testConnection(
     return { hasValidConnection: false, tableCount: 0 };
   }
 
-  const tableCount = await getTableCount(dbType);
+  const tableCount = await getTableCount('clickhouse');
   spinner.succeed(`Connected successfully (${tableCount} tables found)`);
   logger.newline();
   return { hasValidConnection: true, tableCount };
 }
 
 export async function initCommand(options: InitOptions = {}) {
+  const noInteractive = options.noInteractive === true || (options as InitOptions & { interactive?: boolean }).interactive === false;
+
   logger.newline();
   logger.header('Welcome to hypequery!');
   logger.info("Let's set up your analytics layer.");
   logger.newline();
-
-  const dbType = await determineDatabase(options);
 
   // Step 2: Get connection details
   let connectionConfig = await resolveConnectionConfig(options);
@@ -136,11 +116,15 @@ export async function initCommand(options: InitOptions = {}) {
     logger.info('Skipping database connection test (requested).');
     logger.newline();
   } else {
-    const { hasValidConnection: valid, tableCount: count } = await testConnection(connectionConfig, dbType);
+    const { hasValidConnection: valid, tableCount: count } = await testConnection(connectionConfig);
     hasValidConnection = valid;
     tableCount = count;
 
     if (!hasValidConnection) {
+      if (noInteractive) {
+        throw new Error('Failed to connect to ClickHouse in non-interactive mode. Check your environment variables or use interactive setup.');
+      }
+
       const retry = await promptRetry('Try again?');
       if (retry) {
         return initCommand(options);
@@ -162,7 +146,7 @@ export async function initCommand(options: InitOptions = {}) {
 
   // Step 4: Get output directory
   let outputDir = options.path;
-  if (!outputDir && !options.noInteractive) {
+  if (!outputDir && !noInteractive) {
     outputDir = await promptOutputDirectory();
   } else if (!outputDir) {
     outputDir = 'analytics';
@@ -190,7 +174,7 @@ export async function initCommand(options: InitOptions = {}) {
   if (existingFiles.length > 0 && !options.force) {
     logger.warn('Files already exist');
     logger.newline();
-    const shouldOverwrite = await confirmOverwrite(existingFiles);
+    const shouldOverwrite = noInteractive ? false : await confirmOverwrite(existingFiles);
     if (!shouldOverwrite) {
       logger.info('Setup cancelled');
       process.exit(0);
@@ -202,11 +186,11 @@ export async function initCommand(options: InitOptions = {}) {
   let generateExample = !options.noExample && hasValidConnection;
   let selectedTable: string | null = null;
 
-  if (generateExample && !options.noInteractive && hasValidConnection) {
+  if (generateExample && !noInteractive && hasValidConnection) {
     generateExample = await promptGenerateExample();
 
     if (generateExample) {
-      const tables = await getTables(dbType);
+      const tables = await getTables('clickhouse');
       selectedTable = await promptTableSelection(tables);
       generateExample = selectedTable !== null;
     }
@@ -313,7 +297,7 @@ export interface IntrospectedSchema {
   }
 
   // Step 13: Ensure required hypequery packages are installed
-  await installServeDependencies();
+  await installScaffoldDependencies();
 
   // Step 14: Success message
   logger.newline();

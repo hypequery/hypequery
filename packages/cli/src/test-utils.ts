@@ -6,7 +6,6 @@ import type { Mock } from 'vitest';
  */
 export function createMockPrompts() {
   return {
-    promptDatabaseType: vi.fn(),
     promptClickHouseConnection: vi.fn(),
     promptOutputDirectory: vi.fn(),
     promptGenerateExample: vi.fn(),

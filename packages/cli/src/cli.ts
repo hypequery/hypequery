@@ -5,6 +5,13 @@ import { generateCommand } from './commands/generate.js';
 
 const program = new Command();
 
+export function normalizeInitOptions(options: Record<string, unknown>) {
+  return {
+    ...options,
+    noInteractive: options.noInteractive === true || options.interactive === false,
+  };
+}
+
 program
   .name('hypequery')
   .description('Type-safe analytics layer for ClickHouse')
@@ -14,7 +21,6 @@ program
 program
   .command('init')
   .description('Initialize a new hypequery project')
-  .option('--database <type>', 'Database type (clickhouse|bigquery)')
   .option('--path <path>', 'Output directory (default: analytics/)')
   .option('--no-example', 'Skip example query generation')
   .option('--no-interactive', 'Non-interactive mode (use env vars)')
@@ -22,7 +28,7 @@ program
   .option('--skip-connection', 'Skip database connectivity test')
   .action(async (options) => {
     try {
-      await initCommand(options);
+      await initCommand(normalizeInitOptions(options));
     } catch (error) {
       console.error(error instanceof Error ? error.message : error);
       process.exit(1);

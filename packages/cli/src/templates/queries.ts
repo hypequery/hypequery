@@ -8,11 +8,12 @@ export function generateQueriesTemplate(options: {
   const { hasExample, tableName } = options;
   const metricKey = hasExample && tableName ? `${camelCase(tableName)}Query` : 'exampleMetric';
   const typeAlias = `${pascalCase(metricKey)}Result`;
+  const routePath = `/metrics/${metricKey}`;
 
   let template = `import { initServe } from '@hypequery/serve';
 import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './client';
+import { db } from './client.js';
 
 const { query, serve } = initServe({
   context: () => ({ db }),
@@ -46,6 +47,7 @@ export const api = serve({
     ${metricKey},
   },
 });
+api.route('${routePath}', api.queries.${metricKey});
 
 export type ApiDefinition = InferApiType<typeof api>;
 
@@ -58,8 +60,8 @@ export type ApiDefinition = InferApiType<typeof api>;
  * // import type { InferQueryResult } from '@hypequery/serve';
  * type ${typeAlias} = InferQueryResult<typeof api, '${metricKey}'>;
  *
- * // Register HTTP route:
- * api.route('/metrics/${metricKey}', api.queries.${metricKey});
+ * HTTP route:
+ * ${routePath}
  *
  * Dev server:
  * npx hypequery dev analytics/queries.ts
