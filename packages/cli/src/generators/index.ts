@@ -15,7 +15,7 @@ export function getTypeGenerator(dbType: DatabaseType): GeneratorFn {
   if (!generator) {
     throw new Error(
       dbType === 'unknown'
-        ? 'Unable to detect database type. Re-run `hypequery init --database <type>` or pass `--database` explicitly.'
+        ? 'Unable to detect database type. Re-run `hypequery generate --database <type>` or pass `--database` explicitly.'
         : `Type generation for ${dbType} is not supported yet.`
     );
   }

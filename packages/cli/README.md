@@ -80,7 +80,6 @@ npx hypequery init
 - Updates `.gitignore` to protect secrets
 
 **Options:**
-- `--database <type>` - Database type (currently only `clickhouse`)
 - `--path <path>` - Output directory (default: `analytics/`)
 - `--no-example` - Skip example query generation
 - `--no-interactive` - Non-interactive mode (uses environment variables)
@@ -88,7 +87,7 @@ npx hypequery init
 
 **Example:**
 ```bash
-# Interactive mode (recommended)
+# ClickHouse setup (default)
 npx @hypequery/cli init
 
 # Non-interactive with custom path
@@ -153,7 +152,7 @@ npx @hypequery/cli generate
 npx hypequery generate
 ```
 
-The CLI bundles the ClickHouse driver directly, so you can run this command without installing `@hypequery/clickhouse`. Specify `--database <type>` once additional drivers become available.
+The CLI bundles the ClickHouse driver directly, so you can run this command without installing `@hypequery/clickhouse`.
 
 **What it does:**
 - Connects to ClickHouse

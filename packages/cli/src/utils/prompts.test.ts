@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import prompts from 'prompts';
 import {
-  promptDatabaseType,
   promptClickHouseConnection,
   promptOutputDirectory,
   promptGenerateExample,
@@ -18,45 +17,6 @@ vi.mock('./logger.js');
 describe('prompts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe('promptDatabaseType', () => {
-    it('should return selected database type', async () => {
-      vi.mocked(prompts).mockResolvedValue({ database: 'clickhouse' });
-
-      const result = await promptDatabaseType();
-
-      expect(result).toBe('clickhouse');
-      expect(prompts).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'select',
-          name: 'database',
-          message: 'Which database are you using?',
-        })
-      );
-    });
-
-    it('should return null if user cancels', async () => {
-      vi.mocked(prompts).mockResolvedValue({});
-
-      const result = await promptDatabaseType();
-
-      expect(result).toBeNull();
-    });
-
-    it('should show clickhouse as first option', async () => {
-      vi.mocked(prompts).mockResolvedValue({ database: 'clickhouse' });
-
-      await promptDatabaseType();
-
-      expect(prompts).toHaveBeenCalledWith(
-        expect.objectContaining({
-          choices: expect.arrayContaining([
-            expect.objectContaining({ title: 'ClickHouse', value: 'clickhouse' }),
-          ]),
-        })
-      );
-    });
   });
 
   describe('promptClickHouseConnection', () => {

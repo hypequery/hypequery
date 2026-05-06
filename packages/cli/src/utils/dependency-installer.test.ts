@@ -115,4 +115,33 @@ describe('dependency installer', () => {
 
     expect(spawnMock).not.toHaveBeenCalled();
   });
+
+  it('upgrades existing stable sibling deps to the matching canary version', async () => {
+    vi.mocked(readFile)
+      .mockResolvedValueOnce(JSON.stringify({
+        name: 'fixture-app',
+        packageManager: 'pnpm@10.0.0',
+        dependencies: {
+          '@hypequery/clickhouse': '^1.6.2',
+          '@hypequery/serve': '^0.2.0',
+        },
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        name: '@hypequery/cli',
+        version: '0.0.0-canary-20260506195711',
+      }));
+
+    await installScaffoldDependencies();
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      'pnpm',
+      [
+        'add',
+        '@hypequery/clickhouse@0.0.0-canary-20260506195711',
+        '@hypequery/serve@0.0.0-canary-20260506195711',
+        'zod',
+      ],
+      expect.any(Object)
+    );
+  });
 });

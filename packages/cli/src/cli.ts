@@ -21,7 +21,6 @@ program
 program
   .command('init')
   .description('Initialize a new hypequery project')
-  .option('--database <type>', 'Database type (clickhouse|bigquery)')
   .option('--path <path>', 'Output directory (default: analytics/)')
   .option('--no-example', 'Skip example query generation')
   .option('--no-interactive', 'Non-interactive mode (use env vars)')

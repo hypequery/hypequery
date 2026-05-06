@@ -61,20 +61,6 @@ describe('init command - graceful failure handling', () => {
   });
 
   describe('User cancellation scenarios', () => {
-    it('should exit cleanly when a non-clickhouse database is requested', async () => {
-      try {
-        await initCommand({ database: 'bigquery' });
-      } catch (error) {
-        expect(error).toBeInstanceOf(ProcessExitError);
-        expect((error as ProcessExitError).code).toBe(1);
-      }
-
-      expect(exitHandler.exitMock).toHaveBeenCalledWith(1);
-      expect(logger.error).toHaveBeenCalledWith('bigquery is not yet supported. Only ClickHouse is available.');
-      expect(mkdir).not.toHaveBeenCalled();
-      expect(writeFile).not.toHaveBeenCalled();
-    });
-
     it('should continue when user skips connection details', async () => {
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
       vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
@@ -295,7 +281,6 @@ describe('init command - graceful failure handling', () => {
       vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
 
       await initCommand({
-        database: 'clickhouse',
         noInteractive: true,
         path: 'analytics',
       });
@@ -318,7 +303,6 @@ describe('init command - graceful failure handling', () => {
       vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
 
       await initCommand({
-        database: 'clickhouse',
         noInteractive: true,
         force: true,
         path: 'analytics',
@@ -342,7 +326,6 @@ describe('init command - graceful failure handling', () => {
       vi.mocked(detectDb.validateConnection).mockResolvedValue(false);
 
       await expect(initCommand({
-        database: 'clickhouse',
         noInteractive: true,
         force: true,
         path: 'analytics',

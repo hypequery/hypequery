@@ -1,7 +1,6 @@
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import ora from 'ora';
-import type { DatabaseType } from '../utils/detect-database.js';
 import { logger } from '../utils/logger.js';
 import {
   promptClickHouseConnection,
@@ -26,7 +25,6 @@ import { getTypeGenerator } from '../generators/index.js';
 import { installScaffoldDependencies } from '../utils/dependency-installer.js';
 
 export interface InitOptions {
-  database?: string;
   path?: string;
   noExample?: boolean;
   noInteractive?: boolean;
@@ -40,17 +38,6 @@ type ConnectionConfig = {
   username: string;
   password: string;
 };
-
-async function determineDatabase(options: InitOptions): Promise<DatabaseType> {
-  const dbType = (options.database as DatabaseType | undefined) ?? 'clickhouse';
-
-  if (dbType !== 'clickhouse') {
-    logger.error(`${dbType} is not yet supported. Only ClickHouse is available.`);
-    process.exit(1);
-  }
-
-  return dbType;
-}
 
 async function resolveConnectionConfig(options: InitOptions): Promise<ConnectionConfig | null> {
   if (options.noInteractive) {
@@ -78,7 +65,6 @@ async function resolveConnectionConfig(options: InitOptions): Promise<Connection
 
 async function testConnection(
   connectionConfig: ConnectionConfig,
-  dbType: DatabaseType,
 ): Promise<{ hasValidConnection: boolean; tableCount: number }> {
   const spinner = ora('Testing connection...').start();
   process.env.CLICKHOUSE_URL = connectionConfig.host;
@@ -87,7 +73,7 @@ async function testConnection(
   process.env.CLICKHOUSE_USERNAME = connectionConfig.username;
   process.env.CLICKHOUSE_PASSWORD = connectionConfig.password;
 
-  const isValid = await validateConnection(dbType);
+  const isValid = await validateConnection('clickhouse');
 
   if (!isValid) {
     spinner.fail('Connection failed');
@@ -103,7 +89,7 @@ async function testConnection(
     return { hasValidConnection: false, tableCount: 0 };
   }
 
-  const tableCount = await getTableCount(dbType);
+  const tableCount = await getTableCount('clickhouse');
   spinner.succeed(`Connected successfully (${tableCount} tables found)`);
   logger.newline();
   return { hasValidConnection: true, tableCount };
@@ -116,8 +102,6 @@ export async function initCommand(options: InitOptions = {}) {
   logger.header('Welcome to hypequery!');
   logger.info("Let's set up your analytics layer.");
   logger.newline();
-
-  const dbType = await determineDatabase(options);
 
   // Step 2: Get connection details
   let connectionConfig = await resolveConnectionConfig(options);
@@ -132,7 +116,7 @@ export async function initCommand(options: InitOptions = {}) {
     logger.info('Skipping database connection test (requested).');
     logger.newline();
   } else {
-    const { hasValidConnection: valid, tableCount: count } = await testConnection(connectionConfig, dbType);
+    const { hasValidConnection: valid, tableCount: count } = await testConnection(connectionConfig);
     hasValidConnection = valid;
     tableCount = count;
 
@@ -206,7 +190,7 @@ export async function initCommand(options: InitOptions = {}) {
     generateExample = await promptGenerateExample();
 
     if (generateExample) {
-      const tables = await getTables(dbType);
+      const tables = await getTables('clickhouse');
       selectedTable = await promptTableSelection(tables);
       generateExample = selectedTable !== null;
     }

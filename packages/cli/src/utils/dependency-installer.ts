@@ -25,8 +25,9 @@ const MANUAL_COMMANDS: Record<PackageManager, string> = {
   bun: 'bun add',
 };
 
-function hasDependency(pkg: PackageJson, name: string) {
-  return Boolean(pkg.dependencies?.[name] ?? pkg.devDependencies?.[name]);
+
+function getDependencyVersion(pkg: PackageJson, name: string): string | undefined {
+  return pkg.dependencies?.[name] ?? pkg.devDependencies?.[name];
 }
 
 function packageNameFromSpecifier(specifier: string): string {
@@ -106,6 +107,26 @@ export function resolveScaffoldPackages(cliVersion: string | undefined): string[
   return [...STABLE_SCAFFOLD_PACKAGES];
 }
 
+function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean {
+  const name = packageNameFromSpecifier(specifier);
+  const existingVersion = getDependencyVersion(pkgJson, name);
+
+  if (!existingVersion) {
+    return true;
+  }
+
+  const desiredHasPinnedVersion = specifier.startsWith('@')
+    ? specifier.indexOf('@', specifier.indexOf('/') + 1) !== -1
+    : specifier.includes('@');
+
+  if (!desiredHasPinnedVersion) {
+    return false;
+  }
+
+  const desiredVersion = specifier.slice(name.length + 1);
+  return existingVersion !== desiredVersion;
+}
+
 export async function installScaffoldDependencies() {
   if (process.env.HYPEQUERY_SKIP_INSTALL === '1') {
     return;
@@ -121,7 +142,7 @@ export async function installScaffoldDependencies() {
   }
 
   const requestedPackages = resolveScaffoldPackages(cliPkgJson?.version);
-  const missing = requestedPackages.filter(pkg => !hasDependency(pkgJson, packageNameFromSpecifier(pkg)));
+  const missing = requestedPackages.filter(pkg => shouldInstallPackage(pkgJson, pkg));
   if (missing.length === 0) {
     return;
   }
