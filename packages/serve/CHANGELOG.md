@@ -1,5 +1,11 @@
 # @hypequery/serve
 
+## 1.0.0
+
+### Major Changes
+
+- Stable v1.0.0 release. The package is feature-complete with a declarative HTTP server for ClickHouse analytics endpoints, multi-tenant auth (API key, bearer token, role/scope guards), OpenAPI docs, Node.js/fetch/Vercel adapters, CORS, rate limiting, and a full object-style query API with runtime auth parity.
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @hypequery/react
 
+## 1.0.0
+
+### Major Changes
+
+- Stable v1.0.0 release. The package is feature-complete with full type-safe React Query hooks for consuming hypequery serve APIs, comprehensive error handling, custom fetch and header support, and support for React 18 and 19.
+
 ## 0.1.1
 
 ### Patch Changes
