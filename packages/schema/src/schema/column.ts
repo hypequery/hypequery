@@ -6,7 +6,7 @@ import type {
   ClickHouseColumnType,
   ClickHouseNamedColumnType,
 } from './types.js';
-import { isSQLExpression } from '../../dataset/sql-tag.js';
+import { isSQLExpression } from '../utils/sql-tag.js';
 
 type NamedTypeArgument = string | number;
 type NestedColumnTypeInput = string | ClickHouseColumnBuilder | ClickHouseColumnType;

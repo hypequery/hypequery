@@ -1,4 +1,4 @@
-import type { SQLExpression } from '../../dataset/sql-tag.js';
+import type { SQLExpression } from '../utils/sql-tag.js';
 
 export type ClickHouseSqlExpression = string | SQLExpression;
 export type ClickHouseDefaultInput = string | number | boolean | null | SQLExpression;

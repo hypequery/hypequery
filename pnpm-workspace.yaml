@@ -3,6 +3,7 @@ packages:
   - 'packages/clickhouse'
   - 'packages/create-app'
   - 'packages/react'
+  - 'packages/schema'
   - 'packages/serve'
   - 'packages/tsconfig'
   - 'examples/*'
