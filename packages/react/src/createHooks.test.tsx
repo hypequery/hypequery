@@ -291,6 +291,54 @@ describe('createHooks', () => {
         expect.objectContaining({ method: 'POST' })
       );
     });
+
+    it('resolves root-relative config paths against an absolute baseUrl host', async () => {
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://api.example.com/hypequery',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        config: {
+          getUser: { method: 'POST', path: '/api/analytics/queries/getUser' },
+        },
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '123' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.example.com/api/analytics/queries/getUser',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ id: '123' }),
+        })
+      );
+    });
+
+    it('resolves relative config paths against baseUrl', async () => {
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://api.example.com/hypequery',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        config: {
+          getUser: { method: 'POST', path: 'queries/getUser' },
+        },
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '123' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.example.com/hypequery/queries/getUser',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ id: '123' }),
+        })
+      );
+    });
   });
 
   describe('Query Parameter Serialization', () => {

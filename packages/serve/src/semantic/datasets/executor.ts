@@ -23,6 +23,7 @@ import type {
   DatasetInstance,
   TimeGrain,
   FormulaExpr,
+  FieldType,
 } from './types.js';
 
 import type {
@@ -110,6 +111,10 @@ function filterToSQL(filter: MetricFilter, params: unknown[]): string {
   return `${filter.field} ${sqlOp} ?`;
 }
 
+function resolveFilterColumn(ds: DatasetInstance<any>, filter: MetricFilter): string {
+  return ds.filters[filter.field]?.field ?? filter.field;
+}
+
 // =============================================================================
 // VALIDATION
 // =============================================================================
@@ -119,6 +124,64 @@ export interface ValidationResult {
   errors: string[];
 }
 
+function matchesFieldType(fieldType: FieldType, value: unknown): boolean {
+  switch (fieldType) {
+    case 'string':
+    case 'timestamp':
+      return typeof value === 'string';
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value);
+    case 'boolean':
+      return typeof value === 'boolean';
+    default:
+      return false;
+  }
+}
+
+function validateFilterValue(filter: MetricFilter, fieldType: FieldType): string | null {
+  switch (filter.operator) {
+    case 'eq':
+    case 'neq':
+      return matchesFieldType(fieldType, filter.value)
+        ? null
+        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
+    case 'gt':
+    case 'gte':
+    case 'lt':
+    case 'lte':
+      if (fieldType === 'boolean') {
+        return `"${filter.operator}" is not supported for boolean field "${filter.field}".`;
+      }
+      return matchesFieldType(fieldType, filter.value)
+        ? null
+        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
+    case 'like':
+      if (fieldType !== 'string' && fieldType !== 'timestamp') {
+        return `"like" is only supported for string or timestamp field "${filter.field}".`;
+      }
+      return typeof filter.value === 'string'
+        ? null
+        : `"like" expects a string value for field "${filter.field}".`;
+    case 'in':
+    case 'notIn':
+      if (!Array.isArray(filter.value) || filter.value.length === 0) {
+        return `"${filter.operator}" expects a non-empty array for field "${filter.field}".`;
+      }
+      return filter.value.every(value => matchesFieldType(fieldType, value))
+        ? null
+        : `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`;
+    case 'between':
+      if (!Array.isArray(filter.value) || filter.value.length !== 2) {
+        return `"between" expects a two-item array for field "${filter.field}".`;
+      }
+      return filter.value.every(value => matchesFieldType(fieldType, value))
+        ? null
+        : `"between" expects ${fieldType} values for field "${filter.field}".`;
+    default:
+      return null;
+  }
+}
+
 function validateQuery(
   metric: MetricRef | GrainedMetricRef,
   query: MetricQuery,
@@ -126,19 +189,61 @@ function validateQuery(
   const errors: string[] = [];
   const ref = metric.__type === 'grained_metric_ref' ? metric.metric : metric;
   const ds = ref.dataset;
-  const fieldNames = Object.keys(ds.fields);
+  const dimensionNames = Object.keys(ds.dimensions);
+  const filterNames = Object.keys(ds.filters).length > 0
+    ? Object.keys(ds.filters)
+    : dimensionNames;
+  const grain = metric.__type === 'grained_metric_ref' ? metric.grain : query.by;
+  const orderableFields = new Set<string>([
+    ...(query.dimensions ?? []),
+    ref.name,
+    ...(grain ? ['period'] : []),
+  ]);
+
+  if (metric.__type === 'grained_metric_ref' && query.by && query.by !== metric.grain) {
+    errors.push(
+      `Metric "${ref.name}" is already grained by "${metric.grain}" and cannot be queried with by="${query.by}".`,
+    );
+  }
 
   // Validate dimensions
   for (const dim of query.dimensions ?? []) {
-    if (!fieldNames.includes(dim)) {
-      errors.push(`Unknown dimension "${dim}". Available: ${fieldNames.join(', ')}`);
+    if (!dimensionNames.includes(dim)) {
+      errors.push(`Unknown dimension "${dim}". Available: ${dimensionNames.join(', ')}`);
     }
   }
 
   // Validate filters
   for (const filter of query.filters ?? []) {
-    if (!fieldNames.includes(filter.field)) {
-      errors.push(`Unknown filter field "${filter.field}". Available: ${fieldNames.join(', ')}`);
+    if (!filterNames.includes(filter.field)) {
+      errors.push(`Unknown filter field "${filter.field}". Available: ${filterNames.join(', ')}`);
+      continue;
+    }
+
+    const filterDefinition = ds.filters[filter.field];
+    if (filterDefinition?.operators && !filterDefinition.operators.includes(filter.operator)) {
+      errors.push(
+        `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${filterDefinition.operators.join(', ')}`,
+      );
+      continue;
+    }
+
+    const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+    const fieldType = ds.dimensions[resolvedField]?.fieldType;
+    if (fieldType) {
+      const filterError = validateFilterValue(filter, fieldType);
+      if (filterError) {
+        errors.push(filterError);
+      }
+    }
+  }
+
+  // Validate order by fields against the metric output shape
+  for (const order of query.orderBy ?? []) {
+    if (!orderableFields.has(order.field)) {
+      errors.push(
+        `Unknown orderBy field "${order.field}". Available: ${Array.from(orderableFields).join(', ')}`,
+      );
     }
   }
 
@@ -151,6 +256,9 @@ function validateQuery(
   if (ds.limits) {
     if (ds.limits.maxDimensions && (query.dimensions?.length ?? 0) > ds.limits.maxDimensions) {
       errors.push(`Too many dimensions (${query.dimensions?.length}). Max: ${ds.limits.maxDimensions}`);
+    }
+    if (ds.limits.maxMeasures && 1 > ds.limits.maxMeasures) {
+      errors.push(`Too many measures (1). Max: ${ds.limits.maxMeasures}`);
     }
     if (ds.limits.maxFilters && (query.filters?.length ?? 0) > ds.limits.maxFilters) {
       errors.push(`Too many filters (${query.filters?.length}). Max: ${ds.limits.maxFilters}`);
@@ -356,7 +464,7 @@ export class MetricExecutor {
 
     // User filters
     for (const filter of query.filters ?? []) {
-      qb = qb.where(filter.field, filter.operator, filter.value);
+      qb = qb.where(resolveFilterColumn(ds, filter), filter.operator, filter.value);
     }
 
     // Order, limit, offset
@@ -415,7 +523,7 @@ export class MetricExecutor {
       cteBuilder = cteBuilder.where(ds.tenantKey, 'eq', context.tenantId);
     }
     for (const filter of query.filters ?? []) {
-      cteBuilder = cteBuilder.where(filter.field, filter.operator, filter.value);
+      cteBuilder = cteBuilder.where(resolveFilterColumn(ds, filter), filter.operator, filter.value);
     }
 
     const { sql: cteSql, parameters: cteParams } = cteBuilder.toSQLWithParams();
@@ -521,7 +629,7 @@ export class MetricExecutor {
 
     // User filters
     for (const filter of query.filters ?? []) {
-      whereParts.push(filterToSQL(filter, params));
+      whereParts.push(filterToSQL({ ...filter, field: resolveFilterColumn(ds, filter) }, params));
     }
 
     // Build SQL
@@ -601,7 +709,7 @@ export class MetricExecutor {
       params.push(context.tenantId);
     }
     for (const filter of query.filters ?? []) {
-      whereParts.push(filterToSQL(filter, params));
+      whereParts.push(filterToSQL({ ...filter, field: resolveFilterColumn(ds, filter) }, params));
     }
 
     // Build CTE

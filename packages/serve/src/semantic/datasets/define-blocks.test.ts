@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createAPI } from '../../server/create-api.js';
 import { dataset } from './dataset.js';
 import { field } from './field.js';
+import { measure } from './measure.js';
 import { sum, count } from './aggregations.js';
 import { divide, nullIfZero } from './formulas.js';
 import { defineMetrics } from './define-metrics.js';
@@ -25,6 +26,17 @@ const Orders = dataset("orders", {
     amount: field.number({ label: "Amount" }),
     createdAt: field.timestamp(),
   },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+  filters: {
+    status: {
+      __type: 'filter_definition',
+      field: 'status',
+      operators: ['eq'],
+    },
+  },
   limits: {
     maxDimensions: 5,
   },
@@ -37,6 +49,9 @@ const Customers = dataset("customers", {
     id: field.string(),
     name: field.string({ label: "Customer Name" }),
     tier: field.string({ label: "Tier" }),
+  },
+  measures: {
+    customerCount: measure.count('id'),
   },
 });
 
@@ -115,6 +130,10 @@ function createMockBuilderFactory(): QueryBuilderFactoryLike & { _calls: Record<
   };
 }
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 // =============================================================================
 // defineMetrics TESTS
 // =============================================================================
@@ -169,6 +188,59 @@ describe("defineMetrics()", () => {
     const metricEndpoint = description.queries.find(q => q.tags.includes("metrics"));
 
     expect(metricEndpoint).toBeDefined();
+  });
+
+  it("applies block-level auth defaults to shorthand metric entries", async () => {
+    const factory = createMockBuilderFactory();
+    const metrics = defineMetrics(
+      { totalRevenue },
+      {
+        auth: async ({ request }) => request.headers["x-api-key"] === "valid" ? { userId: "u1" } : null,
+      },
+    );
+
+    const api = createAPI({ metrics, queryBuilder: factory });
+
+    const denied = await api.handler(
+      createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: {},
+      }),
+    );
+    expect(denied.status).toBe(401);
+
+    const allowed = await api.handler(
+      createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: {},
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": "valid",
+        },
+      }),
+    );
+    expect(allowed.status).toBe(200);
+  });
+
+  it("enforces metric filter operator allowlists", async () => {
+    const factory = createMockBuilderFactory();
+    const metrics = defineMetrics({ totalRevenue });
+    const api = createAPI({ metrics, queryBuilder: factory });
+
+    const response = await api.handler(
+      createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: {
+          filters: [{ field: "status", operator: "like", value: "%complete%" }],
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((response.body as any).error.message).toContain('does not allow operator "like"');
   });
 
   it("supports per-metric overrides within the block", async () => {
@@ -299,7 +371,7 @@ describe("defineDatasets()", () => {
       createRequest({
         path: "/datasets/orders/query",
         method: "POST",
-        body: { columns: ["country", "amount"] },
+        body: { dimensions: ["country"], measures: ["revenue"] },
       })
     );
 
@@ -314,7 +386,7 @@ describe("defineDatasets()", () => {
     expect(() => createAPI({ datasets })).toThrow("queryBuilder");
   });
 
-  it("validates columns against dataset fields", async () => {
+  it("rejects stale row-browse payloads against the semantic dataset contract", async () => {
     const factory = createMockBuilderFactory();
     const datasets = defineDatasets({ orders: Orders });
     const api = createAPI({ datasets, queryBuilder: factory });
@@ -349,7 +421,26 @@ describe("defineDatasets()", () => {
     expect(response.status).toBe(400);
   });
 
-  it("selects all fields by default when no columns specified", async () => {
+  it("enforces dataset filter operator allowlists", async () => {
+    const factory = createMockBuilderFactory();
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
+
+    const response = await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: {
+          filters: [{ field: "status", operator: "like", value: "%complete%" }],
+        },
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect((response.body as any).error.message).toContain('does not allow operator "like"');
+  });
+
+  it("applies all dataset measures by default when no measures are specified", async () => {
     const factory = createMockBuilderFactory();
     const datasets = defineDatasets({ orders: Orders });
     const api = createAPI({ datasets, queryBuilder: factory });
@@ -362,9 +453,10 @@ describe("defineDatasets()", () => {
       })
     );
 
-    expect(factory._calls['select']).toBeDefined();
-    const selectedColumns = factory._calls['select'][0][0];
-    expect(selectedColumns).toEqual(expect.arrayContaining(['id', 'customerId', 'country', 'status', 'amount', 'createdAt']));
+    expect(factory._calls['sum']).toBeDefined();
+    expect(factory._calls['count']).toBeDefined();
+    expect(factory._calls['sum'][0]).toEqual(['amount', 'revenue']);
+    expect(factory._calls['count'][0]).toEqual(['id', 'orderCount']);
   });
 
   it("passes filters through builder.where()", async () => {
@@ -396,7 +488,9 @@ describe("defineDatasets()", () => {
         path: "/datasets/orders/query",
         method: "POST",
         body: {
-          orderBy: [{ field: "amount", direction: "desc" }],
+          dimensions: ['country'],
+          measures: ['revenue'],
+          orderBy: [{ field: "revenue", direction: "desc" }],
           limit: 50,
           offset: 10,
         },
@@ -404,7 +498,7 @@ describe("defineDatasets()", () => {
     );
 
     expect(factory._calls['orderBy']).toBeDefined();
-    expect(factory._calls['orderBy'][0]).toEqual(['amount', 'DESC']);
+    expect(factory._calls['orderBy'][0]).toEqual(['revenue', 'DESC']);
     expect(factory._calls['limit']).toBeDefined();
     expect(factory._calls['limit'][0]).toEqual([50]);
     expect(factory._calls['offset']).toBeDefined();
@@ -426,6 +520,97 @@ describe("defineDatasets()", () => {
 
     expect(factory._calls['limit']).toBeDefined();
     expect(factory._calls['limit'][0]).toEqual([100]);
+  });
+
+  it("rejects unknown dataset orderBy fields", async () => {
+    const factory = createMockBuilderFactory();
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
+
+    const response = await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: {
+          orderBy: [{ field: "DROP TABLE orders", direction: "asc" }],
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((response.body as any).error.message).toContain("Unknown orderBy fields");
+  });
+
+  it("rejects incompatible dataset filter values", async () => {
+    const factory = createMockBuilderFactory();
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
+
+    const response = await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: {
+          filters: [{ field: "amount", operator: "eq", value: "not-a-number" }],
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((response.body as any).error.message).toContain('expects a number value');
+  });
+
+  it("rejects malformed dataset filter operator payloads", async () => {
+    const factory = createMockBuilderFactory();
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
+
+    const response = await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: {
+          filters: [{ field: "country", operator: "in", value: [] }],
+        },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((response.body as any).error.message).toContain('expects a non-empty array');
+  });
+
+  it("applies block-level auth defaults to shorthand dataset entries", async () => {
+    const factory = createMockBuilderFactory();
+    const datasets = defineDatasets(
+      { orders: Orders },
+      {
+        auth: async ({ request }) => request.headers["x-api-key"] === "valid" ? { userId: "u1" } : null,
+      },
+    );
+
+    const api = createAPI({ datasets, queryBuilder: factory });
+
+    const denied = await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: {},
+      }),
+    );
+    expect(denied.status).toBe(401);
+
+    const allowed = await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: {},
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": "valid",
+        },
+      }),
+    );
+    expect(allowed.status).toBe(200);
   });
 
   it("injects tenant filter when tenant is configured", async () => {
@@ -461,6 +646,41 @@ describe("defineDatasets()", () => {
     expect(response.status).toBe(200);
     expect(factory._calls['where']).toBeDefined();
     expect(factory._calls['where'][0]).toEqual(['tenant_id', 'eq', 'tenant-123']);
+  });
+
+  it("does not warn about manual tenant mode for generated dataset endpoints", async () => {
+    const factory = createMockBuilderFactory();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const datasets = defineDatasets({ orders: Orders });
+
+    const api = createAPI({
+      datasets,
+      queryBuilder: factory,
+      auth: async ({ request }) => {
+        const key = request.headers['x-api-key'];
+        if (key === 'valid') return { tenantId: 'tenant-123' };
+        return null;
+      },
+      tenant: {
+        extract: (auth) => auth.tenantId as string,
+        required: true,
+      },
+    });
+
+    const response = await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: {},
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': 'valid',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("returns meta when x-include-meta header is set", async () => {
@@ -586,6 +806,31 @@ describe("defineDatasets()", () => {
     const doc = response.body as any;
     const datasetPath = Object.keys(doc.paths).find(p => p.includes("orders"));
     expect(datasetPath).toBeDefined();
+  });
+
+  it("documents dataset request body fields in OpenAPI", async () => {
+    const factory = createMockBuilderFactory();
+    const datasets = defineDatasets({ orders: Orders });
+    const api = createAPI({ datasets, queryBuilder: factory });
+
+    const response = await api.handler(
+      createRequest({
+        path: "/openapi.json",
+        method: "GET",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const doc = response.body as any;
+    const schema = doc.paths["/api/analytics/datasets/orders/query"].post.requestBody.content["application/json"].schema;
+
+    expect(schema.properties).toHaveProperty("dimensions");
+    expect(schema.properties).toHaveProperty("measures");
+    expect(schema.properties).toHaveProperty("filters");
+    expect(schema.properties).toHaveProperty("orderBy");
+    expect(schema.properties).toHaveProperty("limit");
+    expect(schema.properties).toHaveProperty("offset");
+    expect(schema.properties).toHaveProperty("by");
   });
 
   it("includes dataset endpoints in describe()", () => {

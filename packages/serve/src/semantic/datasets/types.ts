@@ -1,129 +1,113 @@
-/**
- * Types for the Dataset & Metrics API (v2).
- *
- * Datasets are typed data contracts over physical tables. Metrics are
- * dataset-attached aggregations — canonical, reusable business values.
- */
-
-// =============================================================================
-// FIELD TYPES
-// =============================================================================
-
-/** Semantic type of a field. */
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
+export type DimensionType = FieldType;
 
-/** Options for field helpers. */
-export interface FieldOptions {
+export interface DimensionOptions {
   label?: string;
   description?: string;
+  column?: string;
+  sql?: string;
+  filterable?: boolean;
+  groupable?: boolean;
 }
 
-/** A field definition — lightweight type marker with optional metadata. */
-export interface FieldDefinition<T extends FieldType = FieldType> {
-  readonly __type: 'field_definition';
-  readonly fieldType: T;
-  readonly label?: string;
-  readonly description?: string;
+export type FieldOptions = DimensionOptions;
+
+export interface DimensionDefinition<TType extends DimensionType = DimensionType> {
+  __type: 'field_definition';
+  fieldType: TType;
+  label?: string;
+  description?: string;
+  column?: string;
+  sql?: string;
+  filterable?: boolean;
+  groupable?: boolean;
 }
 
-/** Maps a FieldType to its TypeScript type. */
-export type InferFieldType<T extends FieldType> =
-  T extends 'string' ? string :
-  T extends 'number' ? number :
-  T extends 'boolean' ? boolean :
-  T extends 'timestamp' ? string :
+export type FieldDefinition<TType extends FieldType = FieldType> = DimensionDefinition<TType>;
+
+export type InferFieldType<T extends FieldDefinition> =
+  T['fieldType'] extends 'string' ? string :
+  T['fieldType'] extends 'number' ? number :
+  T['fieldType'] extends 'boolean' ? boolean :
+  T['fieldType'] extends 'timestamp' ? string :
   never;
 
-// =============================================================================
-// RELATIONSHIP TYPES
-// =============================================================================
+export type InferDimensionType<T extends DimensionDefinition> = InferFieldType<T>;
 
 export type RelationshipKind = 'belongsTo' | 'hasMany' | 'hasOne';
 
 export interface RelationshipDefinition {
-  readonly __type: 'relationship';
-  readonly kind: RelationshipKind;
-  readonly target: () => DatasetInstance<any>;
-  readonly from: string;
-  readonly to: string;
+  __type: 'relationship';
+  kind: RelationshipKind;
+  target: () => { __type: 'dataset'; name: string };
+  from: string;
+  to: string;
 }
-
-// =============================================================================
-// AGGREGATION TYPES
-// =============================================================================
 
 export type AggregationType = 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max';
+export type MeasureAggregation = AggregationType;
 
-/** Aggregation spec — what `sum("amount")` returns. */
 export interface AggregationSpec {
-  readonly __type: 'aggregation_spec';
-  readonly aggregation: AggregationType;
-  readonly field: string;
+  __type: 'aggregation_spec';
+  aggregation: AggregationType;
+  field: string;
 }
 
-// =============================================================================
-// FORMULA TYPES
-// =============================================================================
-
-/** A symbolic formula expression — not raw SQL, compiled later. */
-export interface FormulaExpr {
-  readonly __type: 'formula_expr';
-  toSQL(): string;
+export interface MeasureOptions {
+  label?: string;
+  description?: string;
 }
 
-/** Spec for a derived metric — uses base metrics + formula. */
-export interface DerivedMetricSpec {
-  readonly __type: 'derived_metric_spec';
-  readonly uses: Record<string, MetricRef<any, any>>;
-  readonly formula: (refs: Record<string, string>) => FormulaExpr;
+export interface MeasureDefinition {
+  __type: 'measure_definition';
+  aggregation: MeasureAggregation;
+  field: string;
+  label?: string;
+  description?: string;
 }
 
-// =============================================================================
-// TIME GRAIN TYPES
-// =============================================================================
+export type FormulaExpr = {
+  __type: 'formula_expr';
+  toSQL: () => string;
+};
 
-export type TimeGrain = 'day' | 'week' | 'month' | 'quarter' | 'year';
-
-// =============================================================================
-// METRIC REF
-// =============================================================================
-
-/** A lightweight, serializable handle to a metric. */
 export interface MetricRef<
   TDatasetName extends string = string,
-  TName extends string = string,
+  TMetricName extends string = string,
 > {
-  readonly __type: 'metric_ref';
-  readonly datasetName: TDatasetName;
-  readonly name: TName;
-  readonly spec: AggregationSpec | DerivedMetricSpec;
-  readonly label?: string;
-  readonly description?: string;
-  readonly dataset: DatasetInstance<any>;
-
-  /** Time grain operator — returns a grained metric ref. */
-  by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TName>;
-
-  /** Get the metric's contract for introspection. */
+  __type: 'metric_ref';
+  datasetName: TDatasetName;
+  name: TMetricName;
+  spec: AggregationSpec | DerivedMetricSpec;
+  label?: string;
+  description?: string;
+  dataset: DatasetInstance<any, any, any>;
+  by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName>;
   contract(): MetricContract;
 }
 
-/** A metric with a time grain applied. */
+export interface DerivedMetricSpec {
+  __type: 'derived_metric_spec';
+  uses: Record<string, MetricRef>;
+  formula: (inputs: Record<string, string>) => FormulaExpr;
+}
+
 export interface GrainedMetricRef<
   TDatasetName extends string = string,
-  TName extends string = string,
+  TMetricName extends string = string,
 > {
-  readonly __type: 'grained_metric_ref';
-  readonly metric: MetricRef<TDatasetName, TName>;
-  readonly grain: TimeGrain;
-
-  /** Get the grained metric's contract. */
+  __type: 'grained_metric_ref';
+  metric: MetricRef<TDatasetName, TMetricName>;
+  grain: TimeGrain;
   contract(): MetricContract;
 }
 
-// =============================================================================
-// METRIC CONTRACT
-// =============================================================================
+export type MetricHandle<
+  TDatasetName extends string = string,
+  TMetricName extends string = string,
+> = MetricRef<TDatasetName, TMetricName> | GrainedMetricRef<TDatasetName, TMetricName>;
+
+export type TimeGrain = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export interface MetricContract {
   kind: 'metric' | 'derived_metric' | 'grained_metric';
@@ -133,16 +117,13 @@ export interface MetricContract {
   label?: string;
   description?: string;
   dimensions: string[];
+  measures?: string[];
   filters: string[];
   grains: TimeGrain[];
   grain?: TimeGrain;
   requires?: string[];
   tenantScoped: boolean;
 }
-
-// =============================================================================
-// METRIC QUERY
-// =============================================================================
 
 export interface MetricFilter {
   field: string;
@@ -164,112 +145,132 @@ export interface MetricQuery {
   by?: TimeGrain;
 }
 
-// =============================================================================
-// METRIC RESULT
-// =============================================================================
-
 export interface MetricResultMeta {
-  cache?: { hit: boolean; key?: string };
   timingMs?: number;
-  traceId?: string;
   sql?: string;
   tenant?: string;
 }
 
 export interface MetricResult<T = Record<string, unknown>> {
   data: T[];
-  meta: MetricResultMeta;
+  meta?: MetricResultMeta;
 }
-
-// =============================================================================
-// EXECUTION CONTEXT
-// =============================================================================
 
 export interface ExecutionContext {
   tenantId?: string;
 }
 
-// =============================================================================
-// DATASET DEFINITION
-// =============================================================================
-
-/** The config object passed to `dataset()`. */
-export interface DatasetConfig<
-  TFields extends Record<string, FieldDefinition> = Record<string, FieldDefinition>,
-  TRelationships extends Record<string, RelationshipDefinition> = Record<string, RelationshipDefinition>,
-> {
-  source: string;
-  tenantKey?: string;
-  timeKey?: string;
-  fields: TFields;
-  relationships?: TRelationships;
-  limits?: DatasetLimits;
+export interface SemanticFilterDefinition {
+  __type: 'filter_definition';
+  field: string;
+  label?: string;
+  description?: string;
+  operators?: MetricFilter['operator'][];
 }
+
+export type SemanticFiltersDefinition = Record<string, SemanticFilterDefinition>;
 
 export interface DatasetLimits {
   maxDimensions?: number;
+  maxMeasures?: number;
   maxFilters?: number;
   maxResultSize?: number;
 }
 
-/** A dataset instance — returned by `dataset()`. Has a `.metric()` method. */
-export interface DatasetInstance<
-  TFields extends Record<string, FieldDefinition> = Record<string, FieldDefinition>,
-> {
-  readonly __type: 'dataset';
-  readonly name: string;
-  readonly source: string;
-  readonly tenantKey?: string;
-  readonly timeKey?: string;
-  readonly fields: TFields;
-  readonly relationships: Record<string, RelationshipDefinition>;
-  readonly limits?: DatasetLimits;
-
-  /** Define a base metric on this dataset. */
-  metric<TName extends string>(
-    name: TName,
-    config: BaseMetricConfig<TFields>,
-  ): MetricRef<string, TName>;
-
-  /** Define a derived metric on this dataset. */
-  metric<TName extends string>(
-    name: TName,
-    config: DerivedMetricConfig,
-  ): MetricRef<string, TName>;
-}
-
-/** Config for a base metric (has `value`). */
 export interface BaseMetricConfig<
-  TFields extends Record<string, FieldDefinition> = Record<string, FieldDefinition>,
+  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
+  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
 > {
-  value: AggregationSpec;
+  value?: AggregationSpec;
+  measure?: keyof TMeasures & string;
   label?: string;
   description?: string;
 }
 
-/** Config for a derived metric (has `uses` + `formula`). */
 export interface DerivedMetricConfig {
-  uses: Record<string, MetricRef<any, any>>;
-  formula: (refs: Record<string, string>) => FormulaExpr;
+  uses: Record<string, MetricRef>;
+  formula: (inputs: Record<string, string>) => FormulaExpr;
   label?: string;
   description?: string;
 }
 
-// =============================================================================
-// DATASET REGISTRY
-// =============================================================================
+export interface DatasetQueryConfig<
+  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
+  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
+> {
+  dimensions?: Array<keyof TDimensions & string>;
+  measures?: Array<keyof TMeasures & string>;
+  filters?: MetricFilter[];
+  orderBy?: MetricOrderBy[];
+  limit?: number;
+  offset?: number;
+  by?: TimeGrain;
+}
+
+export interface DatasetQueryContract {
+  dataset: string;
+  dimensions: string[];
+  measures: string[];
+  filters: string[];
+  grains: TimeGrain[];
+  tenantScoped: boolean;
+}
+
+export interface DatasetQueryRef<
+  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
+  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
+> {
+  __type: 'dataset_query_ref';
+  dataset: DatasetInstance<TDimensions, TMeasures, any>;
+  config: DatasetQueryConfig<TDimensions, TMeasures>;
+  contract(): DatasetQueryContract;
+}
+
+export interface DatasetConfig<
+  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
+  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
+  TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+> {
+  source: string;
+  tenantKey?: string;
+  timeKey?: string;
+  dimensions?: TDimensions;
+  fields?: TDimensions;
+  measures?: TMeasures;
+  filters?: SemanticFiltersDefinition;
+  relationships?: TRelationships;
+  limits?: DatasetLimits;
+}
+
+export interface DatasetInstance<
+  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
+  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
+  TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+> {
+  __type: 'dataset';
+  name: string;
+  source: string;
+  tenantKey?: string;
+  timeKey?: string;
+  dimensions: TDimensions;
+  fields: TDimensions;
+  measures: TMeasures;
+  filters: SemanticFiltersDefinition;
+  relationships: TRelationships;
+  limits?: DatasetLimits;
+  metric<TName extends string>(
+    metricName: TName,
+    metricConfig: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig,
+  ): MetricRef<string, TName>;
+  query(config: DatasetQueryConfig<TDimensions, TMeasures>): DatasetQueryRef<TDimensions, TMeasures>;
+}
 
 export interface DatasetRegistryInstance {
-  register(ds: DatasetInstance<any>): void;
-  get(name: string): DatasetInstance<any> | undefined;
-  getAll(): DatasetInstance<any>[];
+  register(ds: DatasetInstance<any, any, any>): void;
+  get(name: string): DatasetInstance<any, any, any> | undefined;
+  getAll(): DatasetInstance<any, any, any>[];
   has(name: string): boolean;
 }
 
-// =============================================================================
-// TYPE INFERENCE
-// =============================================================================
-
-/** Extract field names from a DatasetInstance. */
-export type DatasetFieldNames<T extends DatasetInstance<any>> =
-  T extends DatasetInstance<infer F> ? Extract<keyof F, string> : never;
+export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any>> =
+  keyof TDataset['dimensions'] & string;

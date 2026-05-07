@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createAPI } from '../../server/create-api.js';
 import { dataset } from './dataset.js';
 import { field } from './field.js';
@@ -24,6 +24,13 @@ const Orders = dataset("orders", {
     amount: field.number({ label: "Amount" }),
     createdAt: field.timestamp(),
   },
+  filters: {
+    status: {
+      __type: 'filter_definition',
+      field: 'status',
+      operators: ['eq'],
+    },
+  },
   limits: {
     maxDimensions: 5,
   },
@@ -46,6 +53,8 @@ const avgOrderValue = Orders.metric("avgOrderValue", {
     divide(totalRevenue, nullIfZero(orderCount)),
   label: "Average Order Value",
 });
+
+const monthlyRevenue = totalRevenue.by("month");
 
 const BASE_PATH = "/api/analytics";
 
@@ -71,6 +80,10 @@ function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
     path: normalized,
   };
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // =============================================================================
 // TESTS
@@ -168,6 +181,26 @@ describe("Serve integration — metrics", () => {
       expect((response.body as any).error.type).toBe("VALIDATION_ERROR");
     });
 
+    it("returns 400 for disallowed metric filter operators", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        metricAdapter: createMockAdapter(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: {
+            filters: [{ field: "status", operator: "like", value: "%complete%" }],
+          },
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect((response.body as any).error.message).toContain('does not allow operator "like"');
+    });
+
     it("passes dimensions and filters to the executor", async () => {
       const adapter = createMockAdapter();
       const api = createAPI({
@@ -216,6 +249,45 @@ describe("Serve integration — metrics", () => {
       expect(sql).toContain("period");
     });
 
+    it("supports grained metric refs in createAPI", async () => {
+      const adapter = createMockAdapter();
+      const api = createAPI({
+        metrics: { monthlyRevenue },
+        metricAdapter: adapter,
+      });
+
+      await api.handler(
+        createRequest({
+          path: "/metrics/monthlyRevenue",
+          method: "POST",
+          body: {},
+        })
+      );
+
+      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      expect(sql).toContain("toStartOfMonth");
+      expect(sql).toContain("ORDER BY period");
+    });
+
+    it("rejects conflicting body.by for grained metric refs", async () => {
+      const adapter = createMockAdapter();
+      const api = createAPI({
+        metrics: { monthlyRevenue },
+        metricAdapter: adapter,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/monthlyRevenue",
+          method: "POST",
+          body: { by: "week" },
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect((response.body as any).error.message).toContain('already grained by "month"');
+    });
+
     it("works with derived metrics", async () => {
       const adapter = createMockAdapter();
       const api = createAPI({
@@ -234,6 +306,33 @@ describe("Serve integration — metrics", () => {
       const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("NULLIF(orderCount, 0)");
+    });
+
+    it("matches the docs-style monthly metric example end-to-end", async () => {
+      const adapter = createMockAdapter();
+      const api = createAPI({
+        metrics: { monthlyRevenue },
+        metricAdapter: adapter,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/monthlyRevenue",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            orderBy: [{ field: "period", direction: "asc" }],
+            limit: 12,
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      expect(sql).toContain("toStartOfMonth");
+      expect(sql).toContain("country");
+      expect(sql).toContain("ORDER BY period ASC");
+      expect(sql).toContain("LIMIT 12");
     });
   });
 
@@ -310,6 +409,39 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("tenant_id = ?");
+    });
+
+    it("does not warn about manual tenant mode for generated metric endpoints", async () => {
+      const adapter = createMockAdapter();
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const api = createAPI({
+        metrics: { totalRevenue },
+        metricAdapter: adapter,
+        auth: async ({ request }) => {
+          const key = request.headers['x-api-key'];
+          if (key === 'valid') return { tenantId: 'tenant-123' };
+          return null;
+        },
+        tenant: {
+          extract: (auth) => auth.tenantId as string,
+          required: true,
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: {},
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': 'valid',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(warnSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -395,6 +527,33 @@ describe("Serve integration — metrics", () => {
       const metricPath = Object.keys(doc.paths).find(p => p.includes("totalRevenue"));
       expect(metricPath).toBeDefined();
       expect(doc.paths[metricPath!].post).toBeDefined();
+    });
+
+    it("documents metric request body fields in OpenAPI", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue, monthlyRevenue },
+        metricAdapter: createMockAdapter(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/openapi.json",
+          method: "GET",
+        })
+      );
+
+      expect(response.status).toBe(200);
+      const doc = response.body as any;
+      const baseSchema = doc.paths["/api/analytics/metrics/totalRevenue"].post.requestBody.content["application/json"].schema;
+      const grainedSchema = doc.paths["/api/analytics/metrics/monthlyRevenue"].post.requestBody.content["application/json"].schema;
+
+      expect(baseSchema.properties).toHaveProperty("dimensions");
+      expect(baseSchema.properties).toHaveProperty("filters");
+      expect(baseSchema.properties).toHaveProperty("orderBy");
+      expect(baseSchema.properties).toHaveProperty("limit");
+      expect(baseSchema.properties).toHaveProperty("offset");
+      expect(baseSchema.properties).toHaveProperty("by");
+      expect(grainedSchema.properties).toHaveProperty("by");
     });
   });
 
@@ -549,6 +708,28 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['where'][0]).toEqual(['status', 'eq', 'completed']);
     });
 
+    it("rejects disallowed metric filter operators before builder execution", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: {
+            filters: [{ field: "status", operator: "like", value: "%complete%" }],
+          },
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect((response.body as any).error.message).toContain('does not allow operator "like"');
+      expect(factory._calls['where']).toBeUndefined();
+    });
+
     it("applies time graining via builder.select() with grain function", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
@@ -651,6 +832,29 @@ describe("Serve integration — metrics", () => {
       expect(factory.rawQuery).toHaveBeenCalled();
       const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("WITH base AS");
+      expect(sql).toContain("NULLIF(orderCount, 0)");
+    });
+
+    it("handles grained derived metrics via builder + rawQuery", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { monthlyAverageOrderValue: avgOrderValue.by("month") },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/monthlyAverageOrderValue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory.rawQuery).toHaveBeenCalled();
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      expect(sql).toContain("WITH base AS");
+      expect(sql).toContain("period");
       expect(sql).toContain("NULLIF(orderCount, 0)");
     });
 

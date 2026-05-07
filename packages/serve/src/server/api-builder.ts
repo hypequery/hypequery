@@ -28,7 +28,7 @@ export const createAPImethods = <
   router: ServeRouter,
   authStrategies: AuthStrategy<TAuth>[],
   globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[],
-  executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>,
+  executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext>,
   handler: ServeHandler,
   basePath: string,
 ): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {

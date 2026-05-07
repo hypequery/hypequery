@@ -111,7 +111,10 @@ export const createAPI = <
   const configuredQueries = config.queries ?? ({} as TQueries);
   const queryEntries = {} as ServeEndpointMap<TQueries, TContext, TAuth>;
   for (const key of Object.keys(configuredQueries) as Array<keyof TQueries>) {
-    const endpoint = createEndpoint(String(key), configuredQueries[key]);
+    const endpoint = createEndpoint<TContext, TAuth, TQueries[typeof key]>(
+      String(key),
+      configuredQueries[key],
+    );
     const routePath = normalizeRoutePath(`/queries/${String(key)}`);
 
     const registeredEndpoint = {
@@ -148,14 +151,17 @@ export const createAPI = <
       // Apply block-level defaults for inline entries (shorthand MetricRef)
       let resolvedEntry = entry;
       if (metricsDefaults) {
-        const isRef = entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'metric_ref';
+        const isRef = entry && typeof entry === 'object' && '__type' in entry &&
+          (entry.__type === 'metric_ref' || entry.__type === 'grained_metric_ref');
         if (isRef) {
           resolvedEntry = {
             metric: entry,
+            auth: metricsDefaults.auth,
             cache: metricsDefaults.cache,
           };
         } else if (typeof entry === 'object' && 'metric' in entry) {
           resolvedEntry = {
+            auth: metricsDefaults.auth,
             cache: metricsDefaults.cache,
             ...entry,
           };
@@ -175,7 +181,7 @@ export const createAPI = <
     }
   }
 
-  // Process datasets — auto-generate POST endpoints for row browsing
+  // Process datasets — auto-generate POST endpoints for semantic dataset queries
   if (config.datasets) {
     const isBlock = (d: any): d is DatasetsBlock<TAuth> =>
       d && typeof d === 'object' && d.__type === 'datasets_block';
@@ -192,9 +198,26 @@ export const createAPI = <
     }
 
     for (const [name, entry] of Object.entries(datasetEntries)) {
+      const resolvedEntry =
+        datasetDefaults && entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'dataset'
+          ? {
+              dataset: entry,
+              auth: datasetDefaults.auth,
+              cache: datasetDefaults.cache,
+              maxLimit: datasetDefaults.maxLimit,
+            }
+          : datasetDefaults && typeof entry === 'object' && 'dataset' in entry
+            ? {
+                auth: datasetDefaults.auth,
+                cache: datasetDefaults.cache,
+                maxLimit: datasetDefaults.maxLimit,
+                ...entry,
+              }
+            : entry;
+
       const datasetEndpoint = createDatasetEndpoint(
         name,
-        entry,
+        resolvedEntry,
         builderFactory,
         datasetDefaults?.maxLimit,
       );

@@ -4,6 +4,8 @@ import { field } from './field.js';
 import { belongsTo, hasMany, hasOne } from './relationships.js';
 import { sum, count, countDistinct, avg, min, max } from './aggregations.js';
 import { divide, multiply, subtract, add, nullIfZero, coalesce, round, floor, ceil } from './formulas.js';
+import { eq, between, desc } from './query-helpers.js';
+import { measure } from './measure.js';
 import { createDatasetRegistry } from './registry.js';
 import { MetricExecutor } from './executor.js';
 import type { MetricAdapter } from './executor.js';
@@ -35,6 +37,10 @@ const Orders = dataset("orders", {
     amount: field.number({ label: "Amount" }),
     createdAt: field.timestamp({ label: "Created At" }),
   },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
   relationships: {
     customer: belongsTo(() => Customers, { from: "customerId", to: "id" }),
   },
@@ -57,7 +63,7 @@ describe("dataset()", () => {
     expect(Orders.timeKey).toBe("created_at");
   });
 
-  it("stores field definitions", () => {
+  it("stores dimension definitions", () => {
     expect(Orders.fields.amount.__type).toBe("field_definition");
     expect(Orders.fields.amount.fieldType).toBe("number");
     expect(Orders.fields.amount.label).toBe("Amount");
@@ -187,6 +193,31 @@ describe("Dataset.metric()", () => {
     expect(avgOrderValue.spec.__type).toBe("derived_metric_spec");
   });
 
+  it("rejects base metrics that reference unknown fields", () => {
+    expect(() =>
+      Orders.metric("badRevenue", { value: sum("missing_field") })
+    ).toThrow('does not exist on dataset "orders"');
+  });
+
+  it("rejects numeric aggregations on non-numeric fields", () => {
+    expect(() =>
+      Orders.metric("badAverage", { value: avg("status") })
+    ).toThrow('avg() requires a numeric dimension');
+  });
+
+  it("rejects derived metrics that reference another dataset", () => {
+    const totalRevenue = Orders.metric("totalRevenue", { value: sum("amount") });
+    const customerCount = Customers.metric("customerCount", { value: count("id") });
+
+    expect(() =>
+      Orders.metric("invalidCrossDataset", {
+        uses: { totalRevenue, customerCount },
+        formula: ({ totalRevenue: revenue, customerCount: customers }) =>
+          divide(revenue, nullIfZero(customers)),
+      })
+    ).toThrow('belongs to dataset "customers"');
+  });
+
   it(".by() creates a grained metric", () => {
     const totalRevenue = Orders.metric("totalRevenue", { value: sum("amount") });
     const monthly = totalRevenue.by("month");
@@ -199,6 +230,44 @@ describe("Dataset.metric()", () => {
   it(".by() throws if dataset has no timeKey", () => {
     const m = Customers.metric("count", { value: count("id") });
     expect(() => m.by("month")).toThrow("no timeKey");
+  });
+});
+
+describe("Dataset.query()", () => {
+  it("creates a semantic dataset query from dimensions, measures, filters, and sort helpers", () => {
+    const queryRef = Orders.query({
+      dimensions: ['country'],
+      measures: ['revenue', 'orderCount'],
+      filters: [eq('status', 'completed'), between('createdAt', '2025-01-01', '2025-01-31')],
+      orderBy: [desc('revenue')],
+      by: 'month',
+      limit: 25,
+    });
+
+    expect(queryRef.__type).toBe('dataset_query_ref');
+    expect(queryRef.config.dimensions).toEqual(['country']);
+    expect(queryRef.config.filters).toEqual([
+      { field: 'status', operator: 'eq', value: 'completed' },
+      { field: 'createdAt', operator: 'between', value: ['2025-01-01', '2025-01-31'] },
+    ]);
+    expect(queryRef.config.orderBy).toEqual([{ field: 'revenue', direction: 'desc' }]);
+    expect(queryRef.contract()).toMatchObject({
+      dataset: 'orders',
+      tenantScoped: true,
+      grains: ['day', 'week', 'month', 'quarter', 'year'],
+    });
+  });
+
+  it("preserves relationship metadata without exposing related paths in current query contracts", () => {
+    const queryRef = Orders.query({
+      dimensions: ['country'],
+      measures: ['revenue'],
+    });
+
+    expect(Orders.relationships.customer.target()).toBe(Customers);
+    expect(queryRef.contract().dimensions).toEqual(['country']);
+    expect(queryRef.contract().measures).toEqual(['revenue']);
+    expect(queryRef.contract().dimensions).not.toContain('customer.country');
   });
 });
 
@@ -398,6 +467,15 @@ describe("MetricExecutor", () => {
 
       expect(sql).toContain("toStartOfWeek(created_at) AS period");
     });
+
+    it("rejects conflicting query.by on grained metrics", () => {
+      const executor = new MetricExecutor({ adapter: createMockAdapter() });
+      const monthly = totalRevenue.by("month");
+      const result = executor.validate(monthly, { by: "week" });
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('already grained by "month"');
+    });
   });
 
   describe("toSQL() — derived metrics", () => {
@@ -469,6 +547,52 @@ describe("MetricExecutor", () => {
         filters: [{ field: "nonexistent", operator: "eq", value: "x" }],
       });
       expect(result.valid).toBe(false);
+    });
+
+    it("rejects incompatible filter values", () => {
+      const executor = new MetricExecutor({ adapter: createMockAdapter() });
+      const result = executor.validate(totalRevenue, {
+        filters: [{ field: "amount", operator: "eq", value: "not-a-number" }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('expects a number value');
+    });
+
+    it("rejects empty arrays for in/notIn filters", () => {
+      const executor = new MetricExecutor({ adapter: createMockAdapter() });
+      const result = executor.validate(totalRevenue, {
+        filters: [{ field: "status", operator: "in", value: [] }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('expects a non-empty array');
+    });
+
+    it("rejects malformed between filters", () => {
+      const executor = new MetricExecutor({ adapter: createMockAdapter() });
+      const result = executor.validate(totalRevenue, {
+        filters: [{ field: "amount", operator: "between", value: [1] }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('"between" expects a two-item array');
+    });
+
+    it("rejects like on numeric fields", () => {
+      const executor = new MetricExecutor({ adapter: createMockAdapter() });
+      const result = executor.validate(totalRevenue, {
+        filters: [{ field: "amount", operator: "like", value: "%100%" }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('"like" is only supported');
+    });
+
+    it("rejects unknown orderBy fields", () => {
+      const executor = new MetricExecutor({ adapter: createMockAdapter() });
+      const result = executor.validate(totalRevenue, {
+        dimensions: ["country"],
+        orderBy: [{ field: "amount", direction: "desc" }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain("Unknown orderBy field");
     });
 
     it("rejects exceeding dimension limits", () => {

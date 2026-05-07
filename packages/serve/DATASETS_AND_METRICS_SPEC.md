@@ -1,6 +1,6 @@
-# Datasets & Metrics API — Implementation Spec v2
+# Semantic Datasets & Metrics API — Implementation Spec v3
 
-> **Status:** Draft v2 — complete rewrite reflecting the dataset-centric architecture.
+> **Status:** Draft v3 — unified semantic-layer architecture.
 > **Prerequisite:** The `createAPI()` / transport-separation PR.
 
 ---
@@ -11,17 +11,19 @@ Hypequery's analytics layer is built on four primitives:
 
 | Layer | Purpose | Feel |
 |-------|---------|------|
-| **Dataset** | Typed data contract + analytics defaults | Like a Drizzle/Prisma schema, but for analytics |
-| **Metric** | Canonical, reusable business values | Dataset-attached, composable |
-| **Query** | Shaped reads (existing query builder) | Unchanged — `table().select().where().execute()` |
-| **Serve** | Execution runtime | Auth, tenancy, caching, transport |
+| **Dataset** | Semantic model over a physical source | Dimensions, measures, filters, relationships, tenant/time semantics |
+| **Metric** | Canonical reusable business values | Derived from dataset measures and formulas |
+| **Query** | Semantic query composition | Dataset-attached dimensions/measures/filters |
+| **Serve** | Execution/runtime surface | Auth, tenancy, caching, transport, OpenAPI |
 
 Key departures from the previous spec:
-- **No `defineModel` / dimensions / measures vocabulary.** Datasets have fields and metrics. This avoids the Cube-like semantic model feel.
-- **No `useDataset` hook.** The React client consumes metrics via `useMetric`, not arbitrary dataset queries.
+- **One semantic surface.** There is no separate `defineModel` API. `dataset(...)` is the semantic model.
+- **Datasets use dimensions and measures.** `field` remains a compatibility alias of `dimension`, not a separate concept.
+- **Serve generation is optional.** The semantic layer is useful in-process even without generated HTTP endpoints.
+- **React consumes real endpoint paths.** Client config now carries `method` and `path`, so generated metric and dataset endpoints can be consumed by hooks without flat-route assumptions.
 - **No `defineDashboard`.** Dashboard composition is a UI concern, not a server primitive.
 - **No materialization.** Out of scope — too much DDL lifecycle complexity.
-- **Queries stay as-is.** The existing type-safe query builder (`table().select().where()`) and serve query endpoints are unchanged. No new query abstraction.
+- **`query(...)` stays as-is.** Existing query-builder and serve query endpoints remain available unchanged.
 
 ---
 
@@ -31,19 +33,21 @@ Key departures from the previous spec:
 ┌──────────────────────────────────────────────────────────────┐
 │  serve({                                                      │
 │    metrics: { totalRevenue, avgOrderValue, revenueGrowthMoM } │
+│    datasets: { orders: Orders }                               │
 │    queries: { recentOrders: query.query(async () => ...) }    │
 │    auth, caching, tenant                                      │
 │  })                                                           │
 │                                                               │
-│  ┌──────────────────────┐   ┌───────────────────────────┐    │
-│  │  Queries (unchanged) │   │  Datasets + Metrics        │    │
-│  │  query: fn()         │   │                            │    │
-│  │  ↓                   │   │  Dataset ──→ Metric        │    │
-│  │  QueryBuilder        │   │              ↓             │    │
-│  │  ↓                   │   │         MetricExecutor     │    │ ← NEW
-│  │  adapter.execute()   │   │              ↓             │    │
-│  │                      │   │         adapter.execute()  │    │
-│  └──────────────────────┘   └───────────────────────────┘    │
+│  ┌──────────────────────┐   ┌────────────────────────────┐   │
+│  │  Queries (unchanged) │   │  Semantic datasets         │   │
+│  │  query: fn()         │   │                            │   │
+│  │  ↓                   │   │  Dataset                   │   │
+│  │  QueryBuilder        │   │   ├─ dimensions            │   │
+│  │  ↓                   │   │   ├─ measures              │   │
+│  │  adapter.execute()   │   │   ├─ relationships         │   │
+│  │                      │   │   ├─ dataset.query(...)    │   │
+│  │                      │   │   └─ dataset.metric(...)   │   │
+│  └──────────────────────┘   └────────────────────────────┘   │
 │                                                               │
 │  ServeHandler ──→ transports (serve, node, fetch)             │
 └──────────────────────────────────────────────────────────────┘
@@ -55,19 +59,23 @@ Key departures from the previous spec:
 
 ### 3.1 Dataset Definition
 
-A dataset is a typed data contract over a physical table. Fields are inferred from the schema by default; explicit field config is for overrides only (labels, custom types, grain hints).
+A dataset is the semantic model. It defines the public dimensions, reusable measures, allowed filters, relationships, and tenant/time semantics for one logical source.
 
 ```ts
-import { dataset, field, belongsTo } from '@hypequery/serve';
+import { dataset, dimension, measure, belongsTo } from '@hypequery/serve';
 
 const Customers = dataset("customers", {
   source: "customers",
   tenantKey: "tenant_id",
 
-  fields: {
-    id: field.string(),
-    country: field.string(),
-    createdAt: field.timestamp(),
+  dimensions: {
+    id: dimension.string(),
+    country: dimension.string(),
+    createdAt: dimension.timestamp({ column: "created_at" }),
+  },
+
+  measures: {
+    customerCount: measure.count("id"),
   },
 });
 
@@ -76,13 +84,23 @@ const Orders = dataset("orders", {
   tenantKey: "tenant_id",
   timeKey: "created_at",
 
-  fields: {
-    id: field.string(),
-    customerId: field.string(),
-    country: field.string({ label: "Country" }),
-    status: field.string({ label: "Order Status" }),
-    amount: field.number({ label: "Amount" }),
-    createdAt: field.timestamp({ label: "Created At" }),
+  dimensions: {
+    id: dimension.string(),
+    customerId: dimension.string({ column: "customer_id" }),
+    country: dimension.string({ label: "Country" }),
+    status: dimension.string({ label: "Order Status" }),
+    createdAt: dimension.timestamp({ column: "created_at", label: "Created At" }),
+  },
+
+  measures: {
+    revenue: measure.sum("amount", { label: "Revenue" }),
+    orderCount: measure.count("id", { label: "Orders" }),
+    avgAmount: measure.avg("amount"),
+  },
+
+  filters: {
+    status: { field: "status" },
+    country: { field: "country" },
   },
 
   relationships: {
@@ -97,24 +115,44 @@ const Orders = dataset("orders", {
 **Design notes:**
 
 - `source` is the physical table name. The dataset name (first arg) is the logical name.
-- `tenantKey` declares which column holds the tenant ID. The runtime auto-injects `WHERE tenant_id = ?` based on the serve tenant config. Same `auto-inject` / `manual` modes as existing queries.
-- `timeKey` declares the default time dimension for time-series operations (`.by()`, `.rolling()`, `.compare()`).
-- `field.*()` functions are lightweight type markers. They don't create runtime overhead — they produce metadata used for contract generation, validation, and type inference.
+- `tenantKey` declares which physical column holds the tenant ID. Generated metric and dataset endpoints auto-inject tenant filters.
+- `timeKey` declares the physical time column used by `.by(grain)` and semantic dataset queries with `by`.
+- `dimension.*()` functions define the queryable/groupable public dimensions.
+- `measure.*()` functions define canonical aggregations that metrics and dataset queries reuse.
+- `filters` lets you explicitly constrain and name the filter surface. If omitted, filterable dimensions are exposed by default.
 - Relationships use lazy thunks (`() => Customers`) to avoid circular import issues.
+- For this release, relationships are semantic model metadata only. They are stored on the dataset and available for introspection, but current query execution does not yet resolve joined dimensions, joined measures, or cross-dataset metrics.
 
-**Field types:**
+**Dimension helpers:**
 
 ```ts
-field.string(opts?)      // string dimension
-field.number(opts?)      // numeric dimension/metric source
-field.boolean(opts?)     // boolean dimension
-field.timestamp(opts?)   // time dimension — supports graining
+dimension.string(opts?)
+dimension.number(opts?)
+dimension.boolean(opts?)
+dimension.timestamp(opts?)
 
 // Common options:
-interface FieldOptions {
+interface DimensionOptions {
   label?: string;
   description?: string;
+  column?: string;
+  sql?: string;
+  filterable?: boolean;
+  groupable?: boolean;
 }
+```
+
+`field.*()` remains available as an alias of `dimension.*()`.
+
+**Measure helpers:**
+
+```ts
+measure.sum(field, opts?)
+measure.count(field, opts?)
+measure.countDistinct(field, opts?)
+measure.avg(field, opts?)
+measure.min(field, opts?)
+measure.max(field, opts?)
 ```
 
 **Relationship types:**
@@ -125,74 +163,36 @@ hasMany(() => Target, { from, to })    // one-to-many (FK on target table)
 hasOne(() => Target, { from, to })     // one-to-one (FK on target table)
 ```
 
+Relationship note for this release:
+- Defining relationships is supported and stable.
+- Query execution is still same-dataset only.
+- Public examples should not imply path traversal like `customer.country` works yet.
+
 ### 3.2 Base Metrics
 
-Base metrics are dataset-attached aggregations. They are the canonical business values — named, documented, and reusable.
+Base metrics are dataset-attached reusable business values. They are typically defined in terms of named measures.
 
 ```ts
-import { sum, count, countDistinct, avg, min, max } from '@hypequery/serve';
-
 const totalRevenue = Orders.metric("totalRevenue", {
-  value: sum("amount"),
+  measure: "revenue",
   label: "Total Revenue",
   description: "Sum of all order amounts",
 });
 
 const orderCount = Orders.metric("orderCount", {
-  value: count("id"),
-});
-
-const uniqueCustomers = Orders.metric("uniqueCustomers", {
-  value: countDistinct("customerId"),
-});
-
-const avgAmount = Orders.metric("avgAmount", {
-  value: avg("amount"),
+  measure: "orderCount",
 });
 ```
 
-**Aggregation helpers:**
-
-Each helper takes a field name (type-checked against the dataset's fields) and returns an `AggregationSpec`:
+Direct aggregation specs are still supported when you want an inline metric:
 
 ```ts
-sum(field: string): AggregationSpec
-count(field: string): AggregationSpec
-countDistinct(field: string): AggregationSpec
-avg(field: string): AggregationSpec
-min(field: string): AggregationSpec
-max(field: string): AggregationSpec
+const totalRevenue = Orders.metric("totalRevenue", {
+  value: sum("amount"),
+});
 ```
 
-**What `Orders.metric()` returns:**
-
-A `MetricRef` — a lightweight, serializable handle that carries:
-- The dataset it belongs to
-- The metric name
-- The aggregation spec
-- The label/description metadata
-
-```ts
-interface MetricRef<
-  TDataset extends string,
-  TName extends string,
-  TGrain extends string = never
-> {
-  readonly __type: 'metric_ref';
-  readonly dataset: TDataset;
-  readonly name: TName;
-  readonly spec: AggregationSpec | DerivedMetricSpec;
-  readonly label?: string;
-  readonly description?: string;
-
-  // Time operators (see §3.4)
-  by(grain: TimeGrain): GrainedMetric<TDataset, TName, TimeGrain>;
-  rolling(window: RollingWindow): GrainedMetric<TDataset, TName, string>;
-
-  // Contract introspection (see §3.6)
-  contract(): MetricContract;
-}
-```
+`Orders.metric()` returns a reusable `MetricRef` with `.by(grain)` and `.contract()`.
 
 ### 3.3 Derived Metrics (Same-Dataset)
 
@@ -734,7 +734,9 @@ GROUP BY period
 ORDER BY period
 ```
 
-**Cross-relationship metrics — `.leftJoin()` / `.withRelation()` from existing JoinRelationships**
+**Future: cross-relationship metrics and joined semantic queries**
+
+This is not part of the shipped execution surface in this release. Relationship-aware query planning and joined metric execution are a follow-on milestone.
 
 ```ts
 // Query includes a dimension from a related dataset (e.g., customer.country)
@@ -771,7 +773,6 @@ GROUP BY customers.country
 | **Parameterization** | `.where()` auto-parameterizes values — no SQL injection risk |
 | **Dialect** | `ClickHouseDialect` compiles `QueryConfig` → SQL with CH-specific syntax |
 | **Time functions** | `.groupByTimeInterval()` uses `toStartOfDay`, `toStartOfMonth`, etc. |
-| **Joins** | `JoinRelationships` resolves named paths, chains of joins |
 | **CTEs** | `.withCTE(alias, subqueryBuilder)` — perfect for derived metrics |
 | **Caching** | `.cache({ ttlMs })` integrates with the existing cache system |
 | **Logging** | `ExecutorFeature.execute()` logs query timing, row count, errors |
@@ -1124,7 +1125,8 @@ function Dashboard() {
 | Feature | Status |
 |---------|--------|
 | Datasets with typed fields | **Ship now** |
-| Dataset relationships | **Ship now** |
+| Dataset relationships (model metadata) | **Ship now** |
+| Relationship-aware query execution | **Ship next** |
 | Base metrics (sum, count, avg, min, max, countDistinct) | **Ship now** |
 | Same-dataset derived metrics (formula) | **Ship now** |
 | Metric contracts | **Ship now** |
@@ -1147,6 +1149,6 @@ function Dashboard() {
 ## 9. What This Is Not
 
 - **Not a BI tool.** Hypequery does not render charts or build dashboards. It serves typed data that frontend tools consume.
-- **Not Cube.** No "semantic model" vocabulary, no pre-aggregations, no REST/GraphQL API soup. Datasets and metrics feel like TypeScript-native data contracts.
+- **Not Cube.** The API is a semantic layer in code, but it avoids external model DSLs, pre-aggregations, and REST/GraphQL API sprawl. Datasets and metrics stay TypeScript-native.
 - **Not an ORM.** The existing query builder handles arbitrary reads. Datasets/metrics handle canonical analytics values. They coexist.
 - **Not a materialization engine.** No DDL management, no refresh policies, no view lifecycle. Cache with TTLs. Materialize externally if needed.

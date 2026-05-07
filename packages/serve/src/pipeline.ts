@@ -424,6 +424,7 @@ export const executeEndpoint = async <
         context.tenantId = tenantId;
         const mode = activeTenantConfig.mode ?? 'manual';
         const column = activeTenantConfig.column;
+        const tenantHandledInternally = Boolean(metadataWithAuth.custom && (metadataWithAuth.custom as Record<string, unknown>).tenantHandledInternally);
 
         if (mode === 'auto-inject' && column) {
           const contextValues = context as Record<string, unknown>;
@@ -436,7 +437,7 @@ export const executeEndpoint = async <
               });
             }
           }
-        } else if (mode === 'manual') {
+        } else if (mode === 'manual' && !tenantHandledInternally) {
           warnTenantMisconfiguration({
             queryKey: endpoint.key,
             hasTenantConfig: true,

@@ -1,6 +1,10 @@
 /**
  * Relationship helpers for dataset definitions.
  *
+ * These helpers currently define semantic model metadata only. The shipped
+ * executor does not yet resolve relationship paths into joined dataset queries
+ * or cross-dataset metrics.
+ *
  * @example
  * ```ts
  * const Orders = dataset("orders", {
@@ -13,11 +17,11 @@
  * ```
  */
 
-import type { DatasetInstance, RelationshipDefinition, RelationshipKind } from './types.js';
+import type { RelationshipDefinition, RelationshipKind } from './types.js';
 
 function createRelationship(
   kind: RelationshipKind,
-  target: () => DatasetInstance<any>,
+  target: () => { __type: 'dataset'; name: string },
   join: { from: string; to: string },
 ): RelationshipDefinition {
   return {
@@ -31,7 +35,7 @@ function createRelationship(
 
 /** Many-to-one relationship (FK on this table). */
 export function belongsTo(
-  target: () => DatasetInstance<any>,
+  target: () => { __type: 'dataset'; name: string },
   join: { from: string; to: string },
 ): RelationshipDefinition {
   return createRelationship('belongsTo', target, join);
@@ -39,7 +43,7 @@ export function belongsTo(
 
 /** One-to-many relationship (FK on target table). */
 export function hasMany(
-  target: () => DatasetInstance<any>,
+  target: () => { __type: 'dataset'; name: string },
   join: { from: string; to: string },
 ): RelationshipDefinition {
   return createRelationship('hasMany', target, join);
@@ -47,7 +51,7 @@ export function hasMany(
 
 /** One-to-one relationship (FK on target table). */
 export function hasOne(
-  target: () => DatasetInstance<any>,
+  target: () => { __type: 'dataset'; name: string },
   join: { from: string; to: string },
 ): RelationshipDefinition {
   return createRelationship('hasOne', target, join);

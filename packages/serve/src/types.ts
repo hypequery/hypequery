@@ -1,7 +1,5 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
-import type { ModelRegistry, SemanticSchema } from "./semantic/types.js";
-import type { MetricRef } from "./semantic/datasets/types.js";
 import type { MetricAdapter } from "./semantic/datasets/executor.js";
 import type { QueryBuilderFactoryLike } from "./semantic/datasets/query-builder-protocol.js";
 import type { MetricsBlock } from "./semantic/datasets/define-metrics.js";
@@ -537,9 +535,9 @@ export interface OpenApiDocument {
 
 /** Per-metric entry: shorthand (just the ref) or with overrides. */
 export type MetricEntry<TAuth extends AuthContext = AuthContext> =
-  | MetricRef<any, any>
+  | MetricHandle<any, any>
   | {
-      metric: MetricRef<any, any>;
+      metric: MetricHandle<any, any>;
       auth?: AuthStrategy<TAuth> | null;
       cache?: number | null;
       requiredRoles?: string[];
@@ -554,7 +552,7 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
 // Dataset serve config types
 // ---------------------------------------------------------------------------
 
-import type { DatasetInstance } from "./semantic/datasets/types.js";
+import type { DatasetInstance, MetricHandle } from "./semantic/datasets/types.js";
 
 /** Per-dataset entry: shorthand (just the instance) or with overrides. */
 export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
@@ -583,19 +581,6 @@ export interface ServeConfig<
 > {
   queries?: TQueries;
   /**
-   * Semantic models — named business-logic abstractions over physical tables.
-   * Models define dimensions (groupable columns), measures (aggregations),
-   * and relationships to other models.
-   *
-   * @example
-   * ```ts
-   * const api = defineServe({
-   *   models: { orders: OrderModel, customers: CustomerModel },
-   *   queries: { ... },
-   * });
-   * ```
-   */
-  /**
    * Metrics: auto-generated POST endpoints for each metric.
    * Each metric gets a `POST /api/analytics/metrics/:name` endpoint
    * that validates dimensions/filters against the metric's contract.
@@ -616,9 +601,9 @@ export interface ServeConfig<
    */
   metrics?: MetricsConfig<TAuth> | MetricsBlock<TAuth>;
   /**
-   * Dataset browse endpoints — auto-generated POST endpoints for each dataset.
+   * Semantic dataset endpoints — auto-generated POST endpoints for each dataset.
    * Each dataset gets a `POST /api/analytics/datasets/:name/query` endpoint
-   * that validates columns/filters against the dataset's field definitions.
+   * that validates dimensions/measures/filters against the dataset definition.
    *
    * Accepts either a DatasetsBlock (from `defineDatasets()`) or an inline map.
    *
@@ -656,7 +641,6 @@ export interface ServeConfig<
    * @deprecated Use `queryBuilder` instead — pass the `createQueryBuilder` return directly.
    */
   metricAdapter?: MetricAdapter;
-  models?: ModelRegistry<SemanticSchema>;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];

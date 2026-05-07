@@ -1,9 +1,9 @@
 /**
- * Converts a DatasetInstance into a standard ServeEndpoint for row browsing.
+ * Converts a DatasetInstance into a standard ServeEndpoint for semantic queries.
  *
  * The generated endpoint is a POST handler that:
- * - Accepts columns, filters, orderBy, limit, offset
- * - Validates requested columns/filters against the dataset's field definitions
+ * - Accepts dimensions, measures, filters, orderBy, limit, offset, by
+ * - Validates requested dimensions/measures/filters against the dataset contract
  * - Executes via QueryBuilderFactoryLike
  * - Auto-injects tenant filtering if dataset.tenantKey is set
  * - Returns { data } or { data, meta } based on headers
@@ -18,7 +18,7 @@ import type {
   ServeEndpoint,
   ServeMiddleware,
 } from '../../types.js';
-import type { DatasetInstance } from './types.js';
+import type { DatasetInstance, FieldType, MetricFilter, MeasureDefinition, TimeGrain } from './types.js';
 import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
 
 // ---------------------------------------------------------------------------
@@ -37,12 +37,14 @@ const datasetOrderBySchema = z.object({
 });
 
 const datasetQueryInputSchema = z.object({
-  columns: z.array(z.string()).optional(),
+  dimensions: z.array(z.string()).optional(),
+  measures: z.array(z.string()).optional(),
   filters: z.array(datasetFilterSchema).optional(),
   orderBy: z.array(datasetOrderBySchema).optional(),
   limit: z.number().int().positive().optional(),
   offset: z.number().int().nonnegative().optional(),
-});
+  by: z.enum(['day', 'week', 'month', 'quarter', 'year']).optional(),
+}).strict();
 
 const datasetResultMetaSchema = z.object({
   timingMs: z.number().optional(),
@@ -103,26 +105,141 @@ interface ValidationResult {
   errors: string[];
 }
 
+function matchesFieldType(fieldType: FieldType, value: unknown): boolean {
+  switch (fieldType) {
+    case 'string':
+    case 'timestamp':
+      return typeof value === 'string';
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value);
+    case 'boolean':
+      return typeof value === 'boolean';
+    default:
+      return false;
+  }
+}
+
+function validateFilterValue(filter: MetricFilter, fieldType: FieldType): string | null {
+  switch (filter.operator) {
+    case 'eq':
+    case 'neq':
+      return matchesFieldType(fieldType, filter.value)
+        ? null
+        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
+    case 'gt':
+    case 'gte':
+    case 'lt':
+    case 'lte':
+      if (fieldType === 'boolean') {
+        return `"${filter.operator}" is not supported for boolean field "${filter.field}".`;
+      }
+      return matchesFieldType(fieldType, filter.value)
+        ? null
+        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
+    case 'like':
+      if (fieldType !== 'string' && fieldType !== 'timestamp') {
+        return `"like" is only supported for string or timestamp field "${filter.field}".`;
+      }
+      return typeof filter.value === 'string'
+        ? null
+        : `"like" expects a string value for field "${filter.field}".`;
+    case 'in':
+    case 'notIn':
+      if (!Array.isArray(filter.value) || filter.value.length === 0) {
+        return `"${filter.operator}" expects a non-empty array for field "${filter.field}".`;
+      }
+      return filter.value.every(value => matchesFieldType(fieldType, value))
+        ? null
+        : `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`;
+    case 'between':
+      if (!Array.isArray(filter.value) || filter.value.length !== 2) {
+        return `"between" expects a two-item array for field "${filter.field}".`;
+      }
+      return filter.value.every(value => matchesFieldType(fieldType, value))
+        ? null
+        : `"between" expects ${fieldType} values for field "${filter.field}".`;
+    default:
+      return null;
+  }
+}
+
 function validateDatasetQuery(
   ds: DatasetInstance<any>,
-  query: { columns?: string[]; filters?: Array<{ field: string }> },
+  query: {
+    dimensions?: string[];
+    measures?: string[];
+    filters?: Array<{ field: string }>;
+    orderBy?: Array<{ field: string }>;
+    by?: TimeGrain;
+  },
   maxLimit?: number,
 ): ValidationResult {
   const errors: string[] = [];
-  const fieldNames = Object.keys(ds.fields);
+  const dimensionNames = Object.keys(ds.dimensions);
+  const measureNames = Object.keys(ds.measures);
+  const filterNames = Object.keys(ds.filters);
+  const selectedMeasures = query.measures ?? measureNames;
+  const orderableFields = new Set<string>([
+    ...(query.dimensions ?? []),
+    ...selectedMeasures,
+    ...(query.by ? ['period'] : []),
+  ]);
 
-  if (query.columns) {
-    const invalid = query.columns.filter(c => !fieldNames.includes(c));
+  if (query.dimensions) {
+    const invalid = query.dimensions.filter(c => !dimensionNames.includes(c));
     if (invalid.length > 0) {
-      errors.push(`Unknown columns: ${invalid.join(', ')}. Available: ${fieldNames.join(', ')}`);
+      errors.push(`Unknown dimensions: ${invalid.join(', ')}. Available: ${dimensionNames.join(', ')}`);
+    }
+  }
+
+  if (query.measures) {
+    const invalid = query.measures.filter(c => !measureNames.includes(c));
+    if (invalid.length > 0) {
+      errors.push(`Unknown measures: ${invalid.join(', ')}. Available: ${measureNames.join(', ')}`);
     }
   }
 
   if (query.filters) {
-    const invalid = query.filters.filter(f => !fieldNames.includes(f.field));
+    const invalid = query.filters.filter(f => !filterNames.includes(f.field));
     if (invalid.length > 0) {
-      errors.push(`Unknown filter fields: ${invalid.map(f => f.field).join(', ')}. Available: ${fieldNames.join(', ')}`);
+      errors.push(`Unknown filter fields: ${invalid.map(f => f.field).join(', ')}. Available: ${filterNames.join(', ')}`);
     }
+
+    for (const filter of query.filters) {
+      const filterDefinition = ds.filters[filter.field];
+      if (filterDefinition?.operators && !filterDefinition.operators.includes((filter as MetricFilter).operator)) {
+        errors.push(
+          `Filter "${filter.field}" does not allow operator "${(filter as MetricFilter).operator}". Allowed: ${filterDefinition.operators.join(', ')}`,
+        );
+        continue;
+      }
+      const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+      const fieldType = ds.dimensions[resolvedField]?.fieldType;
+      if (!fieldType) continue;
+      const filterError = validateFilterValue(filter as MetricFilter, fieldType);
+      if (filterError) {
+        errors.push(filterError);
+      }
+    }
+  }
+
+  if (query.orderBy) {
+    const invalid = query.orderBy.filter(o => !orderableFields.has(o.field));
+    if (invalid.length > 0) {
+      errors.push(`Unknown orderBy fields: ${invalid.map(o => o.field).join(', ')}. Available: ${Array.from(orderableFields).join(', ')}`);
+    }
+  }
+
+  if (query.by && !ds.timeKey) {
+    errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
+  }
+
+  if (ds.limits?.maxDimensions && query.dimensions && query.dimensions.length > ds.limits.maxDimensions) {
+    errors.push(`Too many dimensions: ${query.dimensions.length} (max ${ds.limits.maxDimensions})`);
+  }
+
+  if (ds.limits?.maxMeasures && query.measures && query.measures.length > ds.limits.maxMeasures) {
+    errors.push(`Too many measures: ${query.measures.length} (max ${ds.limits.maxMeasures})`);
   }
 
   if (ds.limits?.maxFilters && query.filters && query.filters.length > ds.limits.maxFilters) {
@@ -130,6 +247,37 @@ function validateDatasetQuery(
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+const GRAIN_FUNCTIONS: Record<TimeGrain, string> = {
+  day: 'toStartOfDay',
+  week: 'toStartOfWeek',
+  month: 'toStartOfMonth',
+  quarter: 'toStartOfQuarter',
+  year: 'toStartOfYear',
+};
+
+function applyMeasure(
+  builder: ReturnType<QueryBuilderFactoryLike['table']>,
+  name: string,
+  definition: MeasureDefinition,
+) {
+  switch (definition.aggregation) {
+    case 'sum':
+      return builder.sum(definition.field, name);
+    case 'count':
+      return builder.count(definition.field, name);
+    case 'countDistinct':
+      return builder.countDistinct(definition.field, name);
+    case 'avg':
+      return builder.avg(definition.field, name);
+    case 'min':
+      return builder.min(definition.field, name);
+    case 'max':
+      return builder.max(definition.field, name);
+    default:
+      throw new Error(`Unsupported measure aggregation: ${definition.aggregation}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -144,14 +292,15 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 ): ServeEndpoint<typeof datasetQueryInputSchema, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
-  const fieldNames = Object.keys(ds.fields);
+  const dimensionNames = Object.keys(ds.dimensions);
+  const measureNames = Object.keys(ds.measures);
   const effectiveMaxLimit = resolved.maxLimit ?? blockMaxLimit ?? ds.limits?.maxResultSize ?? 1000;
 
   const metadata: EndpointMetadata = {
     path: '', // filled by router.register
     method: 'POST',
     name: name,
-    summary: `Query the "${name}" dataset`,
+    summary: `Query the "${name}" semantic dataset`,
     description: buildDescription(ds, effectiveMaxLimit),
     tags: ['datasets'],
     requiresAuth: resolved.auth !== null ? undefined : false,
@@ -159,6 +308,9 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     requiredScopes: resolved.requiredScopes,
     cacheTtlMs: resolved.cache,
     visibility: 'public',
+    custom: {
+      tenantHandledInternally: true,
+    },
   };
 
   const handler: EndpointHandler<any, any, any, TAuth> = async (ctx) => {
@@ -181,9 +333,42 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     // Build query
     let builder = builderFactory.table(ds.source);
 
-    // Select columns (default: all fields)
-    const columns = input.columns ?? fieldNames;
-    builder = builder.select(columns);
+    const dimensions = input.dimensions ?? [];
+    const measures = input.measures ?? measureNames;
+    const grain = input.by as TimeGrain | undefined;
+
+    const selectParts: string[] = [];
+    const groupByParts: string[] = [];
+
+    if (grain) {
+      const fn = GRAIN_FUNCTIONS[grain];
+      selectParts.push(`${fn}(${ds.timeKey}) AS period`);
+      groupByParts.push('period');
+    }
+
+    for (const dimensionName of dimensions) {
+      const definition = ds.dimensions[dimensionName];
+      const expression = definition?.sql ?? definition?.column ?? dimensionName;
+      if (expression === dimensionName) {
+        selectParts.push(dimensionName);
+      } else {
+        selectParts.push(`${expression} AS ${dimensionName}`);
+      }
+      groupByParts.push(dimensionName);
+    }
+
+    if (selectParts.length > 0) {
+      builder = builder.select(selectParts);
+    }
+
+    for (const measureName of measures) {
+      const definition = ds.measures[measureName];
+      builder = applyMeasure(builder, measureName, definition);
+    }
+
+    if (groupByParts.length > 0) {
+      builder = builder.groupBy(groupByParts);
+    }
 
     // Tenant injection
     if (ds.tenantKey && ctx.tenantId) {
@@ -193,7 +378,8 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     // User filters
     if (input.filters) {
       for (const filter of input.filters) {
-        builder = builder.where(filter.field, filter.operator, filter.value);
+        const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+        builder = builder.where(resolvedField, filter.operator, filter.value);
       }
     }
 
@@ -202,6 +388,8 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       for (const ob of input.orderBy) {
         builder = builder.orderBy(ob.field, ob.direction.toUpperCase() as 'ASC' | 'DESC');
       }
+    } else if (grain) {
+      builder = builder.orderBy('period', 'ASC');
     }
 
     // Pagination
@@ -248,11 +436,13 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 }
 
 function buildDescription(ds: DatasetInstance<any>, maxLimit: number): string {
-  const fieldNames = Object.keys(ds.fields);
+  const dimensionNames = Object.keys(ds.dimensions);
+  const measureNames = Object.keys(ds.measures);
   const lines = [
-    `Browse rows from the ${ds.name} dataset (source: ${ds.source}).`,
+    `Query the ${ds.name} semantic dataset (source: ${ds.source}).`,
     '',
-    `**Columns:** ${fieldNames.join(', ')}`,
+    `**Dimensions:** ${dimensionNames.join(', ') || 'none'}`,
+    `**Measures:** ${measureNames.join(', ') || 'none'}`,
     `**Max limit:** ${maxLimit}`,
   ];
 

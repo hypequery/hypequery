@@ -1,35 +1,46 @@
 /**
- * Field helpers — lightweight type markers for dataset field definitions.
+ * Dimension helpers — lightweight semantic markers for dataset dimensions.
  *
  * @example
  * ```ts
- * import { field } from '@hypequery/serve';
+ * import { dimension } from '@hypequery/serve';
  *
  * const Orders = dataset("orders", {
  *   source: "orders",
- *   fields: {
- *     id: field.string(),
- *     amount: field.number({ label: "Amount" }),
- *     createdAt: field.timestamp({ label: "Created At" }),
+ *   dimensions: {
+ *     id: dimension.string(),
+ *     amount: dimension.number({ label: "Amount" }),
+ *     createdAt: dimension.timestamp({ label: "Created At" }),
  *   },
  * });
  * ```
  */
 
-import type { FieldDefinition, FieldOptions, FieldType } from './types.js';
+import type { DimensionDefinition, DimensionOptions, FieldDefinition, FieldOptions, FieldType } from './types.js';
 
 function createFieldHelper<T extends FieldType>(fieldType: T) {
-  return (opts?: FieldOptions): FieldDefinition<T> => ({
+  return (opts?: DimensionOptions): DimensionDefinition<T> => ({
     __type: 'field_definition',
     fieldType,
     label: opts?.label,
     description: opts?.description,
+    column: opts?.column,
+    sql: opts?.sql,
+    filterable: opts?.filterable,
+    groupable: opts?.groupable,
   });
 }
 
-export const field = {
+export const dimension = {
   string: createFieldHelper('string'),
   number: createFieldHelper('number'),
   boolean: createFieldHelper('boolean'),
   timestamp: createFieldHelper('timestamp'),
 } as const;
+
+export const field: {
+  string: (opts?: FieldOptions) => FieldDefinition<'string'>;
+  number: (opts?: FieldOptions) => FieldDefinition<'number'>;
+  boolean: (opts?: FieldOptions) => FieldDefinition<'boolean'>;
+  timestamp: (opts?: FieldOptions) => FieldDefinition<'timestamp'>;
+} = dimension;

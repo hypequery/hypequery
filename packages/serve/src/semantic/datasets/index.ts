@@ -2,7 +2,10 @@
 export { dataset } from './dataset.js';
 
 // Field helpers
-export { field } from './field.js';
+export { field, dimension } from './field.js';
+
+// Measure helpers
+export { measure } from './measure.js';
 
 // Relationship helpers
 export { belongsTo, hasMany, hasOne } from './relationships.js';
@@ -16,6 +19,14 @@ export {
   nullIfZero, coalesce,
   round, floor, ceil,
 } from './formulas.js';
+
+// Semantic query helpers
+export {
+  eq, neq, gt, gte, lt, lte,
+  inList, notInList, between, like,
+  asc, desc,
+  filter, order,
+} from './query-helpers.js';
 
 // Registry
 export { createDatasetRegistry } from './registry.js';
@@ -40,12 +51,19 @@ export type { DatasetsBlock, DatasetEntryInput, DatasetsInput, DefineDatasetsOpt
 // Types
 export type {
   FieldType,
+  DimensionType,
+  DimensionOptions,
   FieldOptions,
   FieldDefinition,
+  DimensionDefinition,
+  MeasureOptions,
+  MeasureDefinition,
   InferFieldType,
+  InferDimensionType,
   RelationshipKind,
   RelationshipDefinition,
   AggregationType,
+  MeasureAggregation,
   AggregationSpec,
   FormulaExpr,
   DerivedMetricSpec,
@@ -59,7 +77,12 @@ export type {
   MetricResultMeta,
   MetricResult,
   ExecutionContext,
+  SemanticFilterDefinition,
+  SemanticFiltersDefinition,
   DatasetConfig,
+  DatasetQueryConfig,
+  DatasetQueryContract,
+  DatasetQueryRef,
   DatasetLimits,
   DatasetInstance,
   BaseMetricConfig,

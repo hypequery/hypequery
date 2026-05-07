@@ -17,7 +17,7 @@ import type {
   ServeEndpoint,
   ServeMiddleware,
 } from '../../types.js';
-import type { MetricRef } from './types.js';
+import type { MetricContract, MetricHandle } from './types.js';
 import { MetricExecutor } from './executor.js';
 
 // ---------------------------------------------------------------------------
@@ -62,17 +62,22 @@ const metricResultSchema = z.object({
 function resolveMetricEntry<TAuth extends AuthContext>(
   entry: MetricEntry<TAuth>,
 ): {
-  metric: MetricRef<any, any>;
+  metric: MetricHandle<any, any>;
   auth?: AuthStrategy<TAuth> | null;
   cache?: number | null;
   requiredRoles?: string[];
   requiredScopes?: string[];
 } {
-  if (entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'metric_ref') {
-    return { metric: entry as MetricRef<any, any> };
+  if (
+    entry &&
+    typeof entry === 'object' &&
+    '__type' in entry &&
+    (entry.__type === 'metric_ref' || entry.__type === 'grained_metric_ref')
+  ) {
+    return { metric: entry as MetricHandle<any, any> };
   }
   return entry as {
-    metric: MetricRef<any, any>;
+    metric: MetricHandle<any, any>;
     auth?: AuthStrategy<TAuth> | null;
     cache?: number | null;
     requiredRoles?: string[];
@@ -105,6 +110,9 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     requiredScopes: resolved.requiredScopes,
     cacheTtlMs: resolved.cache,
     visibility: 'public',
+    custom: {
+      tenantHandledInternally: true,
+    },
   };
 
   const handler: EndpointHandler<any, any, any, TAuth> = async (ctx) => {
@@ -165,7 +173,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   };
 }
 
-function buildDescription(contract: ReturnType<MetricRef['contract']>): string {
+function buildDescription(contract: MetricContract): string {
   const lines = [
     contract.description ?? `${contract.name} metric on the ${contract.dataset} dataset.`,
     '',

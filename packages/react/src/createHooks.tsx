@@ -11,6 +11,7 @@ import { HttpError } from './errors.js';
 
 export interface QueryMethodConfig {
   method?: string;
+  path?: string;
 }
 
 type HeaderMap = Record<string, string | undefined>;
@@ -30,10 +31,10 @@ export function queryOptions<T extends object>(opts: T): T & { [OPTIONS_SYMBOL]:
   return { ...opts, [OPTIONS_SYMBOL]: true as const };
 }
 
-const normalizeMethodConfig = (source?: Record<string, { method?: string }>) => {
+const normalizeMethodConfig = (source?: Record<string, { method?: string; path?: string }>) => {
   if (!source) return {};
   return Object.fromEntries(
-    Object.entries(source).map(([key, value]) => [key, { method: value.method ?? 'GET' }])
+    Object.entries(source).map(([key, value]) => [key, { method: value.method ?? 'GET', path: value.path }])
   );
 };
 
@@ -61,11 +62,35 @@ const deriveMethodConfig = (api: unknown): Record<string, QueryMethodConfig> => 
   return {};
 };
 
-const buildUrl = (baseUrl: string, name: string) => {
+const isAbsoluteHttpUrl = (value: string) => /^https?:\/\//.test(value);
+
+const ensureTrailingSlash = (value: string) => value.endsWith('/') ? value : `${value}/`;
+
+const buildUrl = (baseUrl: string, name: string, path?: string) => {
+  if (path) {
+    if (isAbsoluteHttpUrl(path)) {
+      return path;
+    }
+
+    if (isAbsoluteHttpUrl(baseUrl)) {
+      return new URL(path, ensureTrailingSlash(baseUrl)).toString();
+    }
+
+    if (path.startsWith('/')) {
+      return path;
+    }
+
+    if (!baseUrl) {
+      throw new Error('baseUrl is required');
+    }
+
+    return `${ensureTrailingSlash(baseUrl)}${path}`;
+  }
+
   if (!baseUrl) {
     throw new Error('baseUrl is required');
   }
-  return baseUrl.endsWith('/') ? `${baseUrl}${name}` : `${baseUrl}/${name}`;
+  return `${ensureTrailingSlash(baseUrl)}${name}`;
 };
 
 const parseResponse = async (res: Response) => {
@@ -108,8 +133,9 @@ export function createHooks<Api extends Record<string, { input: any; output: any
     input: unknown,
     defaultMethod: string = 'GET'
   ): Promise<unknown> => {
-    const url = buildUrl(baseUrl, name);
-    const method = finalConfig[name]?.method ?? defaultMethod;
+    const methodConfig = finalConfig[name];
+    const url = buildUrl(baseUrl, name, methodConfig?.path);
+    const method = methodConfig?.method ?? defaultMethod;
 
     let finalUrl = url;
     let body: string | undefined;

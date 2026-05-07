@@ -223,6 +223,26 @@ describe("Client Config Utilities", () => {
 
         expect(config.patchData.method).toBe("PATCH");
       });
+
+      it("extracts endpoint metadata paths", () => {
+        const api = {
+          queries: {
+            totalRevenue: {
+              method: "POST" as const,
+              metadata: {
+                path: "/api/analytics/metrics/totalRevenue",
+              },
+            },
+          },
+        } as unknown as ServeBuilder<any, any, any>;
+
+        const config = extractClientConfig(api);
+
+        expect(config.totalRevenue).toEqual({
+          method: "POST",
+          path: "/api/analytics/metrics/totalRevenue",
+        });
+      });
     });
   });
 

@@ -19,7 +19,7 @@
  */
 
 import type { AuthContext, AuthStrategy } from '../../types.js';
-import type { MetricRef } from './types.js';
+import type { MetricHandle } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Per-metric entry types (same as MetricEntry but scoped here)
@@ -27,9 +27,9 @@ import type { MetricRef } from './types.js';
 
 /** Shorthand (just the ref) or expanded with per-metric overrides. */
 export type MetricEntryInput<TAuth extends AuthContext = AuthContext> =
-  | MetricRef<any, any>
+  | MetricHandle<any, any>
   | {
-      metric: MetricRef<any, any>;
+      metric: MetricHandle<any, any>;
       auth?: AuthStrategy<TAuth> | null;
       cache?: number | null;
       requiredRoles?: string[];
