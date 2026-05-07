@@ -5,7 +5,8 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
-const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', 'zod'] as const;
+const ZOD_SCAFFOLD_VERSION = '^3.23.8';
+const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', `zod@${ZOD_SCAFFOLD_VERSION}`] as const;
 const CLI_PACKAGE_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
 
 type PackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun';
@@ -100,7 +101,7 @@ export function resolveScaffoldPackages(cliVersion: string | undefined): string[
     return [
       `@hypequery/clickhouse@${cliVersion}`,
       `@hypequery/serve@${cliVersion}`,
-      'zod',
+      `zod@${ZOD_SCAFFOLD_VERSION}`,
     ];
   }
 

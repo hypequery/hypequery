@@ -51,7 +51,7 @@ describe('dependency installer', () => {
     expect(resolveScaffoldPackages('1.1.1')).toEqual([
       '@hypequery/clickhouse',
       '@hypequery/serve',
-      'zod',
+      'zod@^3.23.8',
     ]);
   });
 
@@ -59,7 +59,7 @@ describe('dependency installer', () => {
     expect(resolveScaffoldPackages('0.0.0-canary-20260506195711')).toEqual([
       '@hypequery/clickhouse@0.0.0-canary-20260506195711',
       '@hypequery/serve@0.0.0-canary-20260506195711',
-      'zod',
+      'zod@^3.23.8',
     ]);
   });
 
@@ -83,7 +83,7 @@ describe('dependency installer', () => {
         'add',
         '@hypequery/clickhouse@0.0.0-canary-20260506195711',
         '@hypequery/serve@0.0.0-canary-20260506195711',
-        'zod',
+        'zod@^3.23.8',
       ],
       expect.objectContaining({
         cwd: '/tmp/project',
@@ -91,7 +91,7 @@ describe('dependency installer', () => {
       })
     );
     expect(logger.success).toHaveBeenCalledWith(
-      'Installed @hypequery/clickhouse@0.0.0-canary-20260506195711, @hypequery/serve@0.0.0-canary-20260506195711, zod'
+      'Installed @hypequery/clickhouse@0.0.0-canary-20260506195711, @hypequery/serve@0.0.0-canary-20260506195711, zod@^3.23.8'
     );
   });
 
@@ -103,7 +103,7 @@ describe('dependency installer', () => {
         dependencies: {
           '@hypequery/clickhouse': '0.0.0-canary-20260506195711',
           '@hypequery/serve': '0.0.0-canary-20260506195711',
-          zod: '^3.25.0',
+          zod: '^3.23.8',
         },
       }))
       .mockResolvedValueOnce(JSON.stringify({
@@ -139,8 +139,33 @@ describe('dependency installer', () => {
         'add',
         '@hypequery/clickhouse@0.0.0-canary-20260506195711',
         '@hypequery/serve@0.0.0-canary-20260506195711',
-        'zod',
+        'zod@^3.23.8',
       ],
+      expect.any(Object)
+    );
+  });
+
+  it('upgrades incompatible zod versions to the scaffold-compatible range', async () => {
+    vi.mocked(readFile)
+      .mockResolvedValueOnce(JSON.stringify({
+        name: 'fixture-app',
+        packageManager: 'pnpm@10.0.0',
+        dependencies: {
+          '@hypequery/clickhouse': '0.0.0-canary-20260506195711',
+          '@hypequery/serve': '0.0.0-canary-20260506195711',
+          zod: '^4.4.3',
+        },
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        name: '@hypequery/cli',
+        version: '0.0.0-canary-20260506195711',
+      }));
+
+    await installScaffoldDependencies();
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      'pnpm',
+      ['add', 'zod@^3.23.8'],
       expect.any(Object)
     );
   });
