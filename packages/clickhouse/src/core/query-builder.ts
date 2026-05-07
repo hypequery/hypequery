@@ -57,6 +57,7 @@ import type {
 import {
   SelectableItem,
   SelectableColumn,
+  ArraySelectableColumn,
   SelectionResult,
   ColumnSelectionValue
 } from './types/select-types.js';
@@ -831,11 +832,11 @@ export class QueryBuilder<
     return this.updateQuery(() => this.modifiers.addGroupBy(normalized));
   }
 
-  arrayJoin(column: SelectableColumn<State>): this {
+  arrayJoin(column: ArraySelectableColumn<State>): this {
     return this.updateQuery(() => this.modifiers.addArrayJoin('ARRAY', String(column)));
   }
 
-  leftArrayJoin(column: SelectableColumn<State>): this {
+  leftArrayJoin(column: ArraySelectableColumn<State>): this {
     return this.updateQuery(() => this.modifiers.addArrayJoin('LEFT ARRAY', String(column)));
   }
 

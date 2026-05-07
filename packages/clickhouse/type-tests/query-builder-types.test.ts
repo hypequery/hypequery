@@ -93,6 +93,25 @@ type AssertArraySelect = Expect<Equal<ArrayResult, ArrayExpected>>;
 
 builder.arrayJoin('tags');
 builder.leftArrayJoin('categories');
+builder.arrayJoin('optional_tags');
+// @ts-expect-error - arrayJoin only accepts array-typed columns
+builder.arrayJoin('total_amount');
+// @ts-expect-error - leftArrayJoin only accepts array-typed columns
+builder.leftArrayJoin('metadata');
+builder
+  .innerJoin('users', 'created_by', 'users.id')
+  .arrayJoin('users.roles');
+builder
+  .innerJoin('users', 'created_by', 'users.id', 'creator')
+  .leftArrayJoin('creator.roles');
+builder
+  .innerJoin('users', 'created_by', 'users.id')
+  // @ts-expect-error - joined qualified column must still be array-typed
+  .arrayJoin('users.email');
+builder
+  .innerJoin('users', 'created_by', 'users.id', 'creator')
+  // @ts-expect-error - aliased joined column must still be array-typed
+  .leftArrayJoin('creator.email');
 builder.limitBy(3, 'category');
 builder.limitBy(5, ['category', 'brand']);
 builder.groupBy('category').withTotals();
