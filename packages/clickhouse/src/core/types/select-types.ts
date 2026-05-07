@@ -56,6 +56,13 @@ export type ColumnSelectionValue<State extends AnyBuilderState, P> =
   ? BaseRow<State>[P]
   : QualifiedColumnValue<State, P>;
 
+export type ArraySelectableColumn<State extends AnyBuilderState> = {
+  [P in SelectableColumn<State>]:
+    ColumnSelectionValue<State, P> extends readonly unknown[] | null
+      ? P
+      : never;
+}[SelectableColumn<State>];
+
 export type ColumnSelectionRecord<
   State extends AnyBuilderState,
   K
