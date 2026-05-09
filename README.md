@@ -1,4 +1,9 @@
 <p align="center">
+  <strong><sub>⭐ Please star hypequery if it is useful to you 🙏</sub></strong><br />
+  <strong>It helps more people find the project.</strong>
+</p>
+
+<p align="center">
   <img src="./website-next/public/logo.png" alt="hypequery logo" width="300" />
 </p>
 
@@ -24,10 +29,6 @@
   <a href="https://www.npmjs.com/package/@hypequery/react">
     <img alt="npm @hypequery/react" src="https://img.shields.io/npm/v/%40hypequery%2Freact?style=for-the-badge&label=%40hypequery%2Freact" />
   </a>
-</p>
-
-<p align="center">
-  If hypequery is useful to you, please give the repo a star to help other people find it. 
 </p>
 
 <p align="center">
