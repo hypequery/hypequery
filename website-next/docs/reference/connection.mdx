@@ -13,6 +13,10 @@ hypequery provides a type-safe way to connect to ClickHouse from Node.js and bro
 
 Run `npx hypequery init` to scaffold your ClickHouse connection, env variables, and schema generation so you can skip the manual setup steps below.
 
+<Callout type="info" title="Prefer `url`">
+  Use `url` in new code and `CLICKHOUSE_URL` in new env files. `host` is still supported for backward compatibility, but it is deprecated.
+</Callout>
+
 ## Connection Setup
 
 For Node.js environments, hypequery can use the Node.js ClickHouse client automatically:
@@ -68,11 +72,12 @@ hypequery supports all connection options provided by the official ClickHouse Ja
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
 | `url` | `string` | The URL of the ClickHouse server, including protocol and port | Required |
+| `host` | `string` | Deprecated alias for `url`, still supported for backward compatibility | Optional |
 | `username` | `string` | Username for authentication | 'default' |
 | `password` | `string` | Password for authentication | undefined |
 | `database` | `string` | The database to connect to | 'default' |
 
-`host` is still accepted for backward compatibility, but `url` is the preferred option.
+For env vars, prefer `CLICKHOUSE_URL`. Older `CLICKHOUSE_HOST` setups can continue to work while you migrate.
 
 
 ### Advanced Options

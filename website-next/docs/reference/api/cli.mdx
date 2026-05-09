@@ -91,6 +91,7 @@ npx hypequery init [options]
 - **`--no-example`** – Skip generating the sample query
 - **`--no-interactive`** – Skip prompts and read the ClickHouse URL/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing
 - **`--force`** – Overwrite existing files without asking
+- **`--skip-connection`** – Skip the initial ClickHouse connectivity test and scaffold files without validating the connection first
 
 **What it does:**
 
@@ -98,7 +99,10 @@ During the flow the CLI tests your ClickHouse connection immediately using the c
 - Writes `.env` with your connection details
 - Generates `client.ts`, `schema.ts`, and `queries.ts` in the selected directory
 - Creates or updates `.gitignore` to protect secrets
+- Installs the scaffold dependencies the generated files expect
 - Prints follow-up instructions for `hypequery dev`
+
+The generated scaffold is written for modern ESM and NodeNext-style resolution, so local relative imports include the `.js` extension where needed.
 
 Use `init` when you want the CLI to create the starting files for you. If those files already exist and you only need to refresh `schema.ts`, use `generate` instead.
 

@@ -78,12 +78,14 @@ npx hypequery init
 - Creates the client, query, and serve files for the main path
 - Sets up `.env` with connection details
 - Updates `.gitignore` to protect secrets
+- Installs the scaffold dependencies those files expect, including `zod`
 
 **Options:**
 - `--path <path>` - Output directory (default: `analytics/`)
 - `--no-example` - Skip example query generation
 - `--no-interactive` - Non-interactive mode (uses environment variables)
 - `--force` - Overwrite existing files without confirmation
+- `--skip-connection` - Scaffold files without testing the ClickHouse connection first
 
 **Example:**
 ```bash

@@ -20,7 +20,7 @@ Start by enabling caching on the `db` client:
 import { createQueryBuilder, MemoryCacheProvider } from '@hypequery/clickhouse';
 
 const db = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST!,
+  url: process.env.CLICKHOUSE_URL!,
   cache: {
     mode: 'stale-while-revalidate',
     ttlMs: 2_000,

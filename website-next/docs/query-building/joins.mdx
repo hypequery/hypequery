@@ -31,6 +31,8 @@ Use joins to:
 | **LEFT JOIN** | `leftJoin()` | Returns all rows from left table, matched rows from right |
 | **RIGHT JOIN** | `rightJoin()` | Returns all rows from right table, matched rows from left |
 | **FULL JOIN** | `fullJoin()` | Returns all rows when there's a match in either table |
+| **ARRAY JOIN** | `arrayJoin()` | Expands array values into multiple rows |
+| **LEFT ARRAY JOIN** | `leftArrayJoin()` | Expands array values while preserving rows with empty arrays |
 
 ## Inner Join
 
@@ -116,6 +118,44 @@ const results = await db.table('employees')
 ```
 
 </CodeBlock>
+
+## Array Join
+
+Use `arrayJoin()` when a ClickHouse array column should expand into one row per element.
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('events')
+  .select(['id', 'tags'])
+  .arrayJoin('tags')
+  .execute();
+```
+
+</CodeBlock>
+
+This maps directly to ClickHouse `ARRAY JOIN`.
+
+<Callout type="warning" title="Array-typed columns only">
+  `arrayJoin()` and `leftArrayJoin()` are intended for array-valued columns. The type system now enforces that more strictly, including for joined and aliased columns.
+</Callout>
+
+## Left Array Join
+
+Use `leftArrayJoin()` when you want array expansion but still need rows with empty arrays to stay in the result.
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('events')
+  .select(['id', 'tags'])
+  .leftArrayJoin('tags')
+  .execute();
+```
+
+</CodeBlock>
+
+This maps directly to ClickHouse `LEFT ARRAY JOIN`.
 
 ## Join Syntax
 

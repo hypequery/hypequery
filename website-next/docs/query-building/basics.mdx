@@ -67,6 +67,46 @@ return db
   Always finish your query chains with `.execute()` to run the query.
 </Callout>
 
+## Builder immutability
+
+Builder methods return a new builder state. In normal chained code that is easy to miss because the fluent style reads naturally, but it matters when you build queries conditionally.
+
+<CodeBlock>
+```typescript
+// Good: reassign as you add optional clauses
+let query = db.table('users');
+
+if (onlyActive) {
+  query = query.where('status', 'eq', 'active');
+}
+
+if (limit) {
+  query = query.limit(limit);
+}
+
+const rows = await query.select(['id', 'email']).execute();
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+// Fragile: these calls do not update query unless you keep the return value
+const query = db.table('users');
+
+if (onlyActive) {
+  query.where('status', 'eq', 'active');
+}
+
+if (limit) {
+  query.limit(limit);
+}
+```
+</CodeBlock>
+
+<Callout type="warning" title="Migration note">
+  If you have older code that conditionally calls builder methods without reassigning the returned builder, update it for `v2.0.0`.
+</Callout>
+
 ## Query Building Blocks
 
 The query builder is organized into logical concepts. Each concept has detailed documentation:

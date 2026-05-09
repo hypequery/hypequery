@@ -123,7 +123,7 @@ db.table('rides')
 
 ### Built-in function helpers
 
-Helpers like `toDateTime`, `formatDateTime`, `toStartOfInterval`, and `datePart` wrap common ClickHouse functions with type safety:
+Helpers like `toDateTime`, `formatDateTime`, `toStartOfInterval`, the built-in `toStartOf*` helpers, and `datePart` wrap common ClickHouse functions with type safety:
 
 <CodeBlock>
 
@@ -141,6 +141,8 @@ db.table('events')
 ```
 
 </CodeBlock>
+
+The built-in time-bucketing helpers are also exported directly from `@hypequery/clickhouse`, for example `toStartOfMinute`, `toStartOfHour`, `toStartOfDay`, `toStartOfWeek`, `toStartOfMonth`, `toStartOfQuarter`, and `toStartOfYear`.
 
 ## Typing & Best Practices
 

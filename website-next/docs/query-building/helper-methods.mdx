@@ -193,6 +193,10 @@ console.log(queryNode);
   `getConfig()` now returns a snapshot of the structured query state. It should be treated as legacy inspection API rather than the normal public extension point.
 </Callout>
 
+<Callout type="warning" title="Do not mutate inspection snapshots">
+  `getQueryNode()` and `getConfig()` are for inspection. Do not mutate the returned objects and expect the builder instance to change. Builder methods return new builder state instead.
+</Callout>
+
 ## Type Safety
 
 Helper methods maintain type safety:

@@ -1,5 +1,18 @@
 # @hypequery/cli
 
+## 1.1.2
+
+### Patch Changes
+
+- fix: harden the CLI for release and generated scaffold reliability. This includes:
+
+  - cleaner non-interactive `init` behavior, including cleaner failure paths when connection validation fails
+  - support for `--skip-connection` during scaffolding
+  - NodeNext-safe generated relative imports such as `./client.js` and `./schema.js`
+  - improved scaffold dependency installation, including `zod`
+  - aligned canary scaffold dependency versions when scaffolding from a canary CLI build
+  - cleaner cancellation and overwrite flows during interactive setup
+
 ## 1.1.1
 
 ### Patch Changes

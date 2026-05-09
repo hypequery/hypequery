@@ -214,11 +214,45 @@ const results = await db.table('orders')
 
 </CodeBlock>
 
+### Repeated `groupBy()` calls
+
+`groupBy()` is additive. If you call it more than once, hypequery appends the new grouping expressions and avoids duplicate entries.
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
+  .select(['country', 'status'])
+  .groupBy(['country'])
+  .groupBy(['status'])
+  .sum('total', 'total_revenue')
+  .execute();
+// GROUP BY country, status
+```
+
+</CodeBlock>
+
 <Callout type="tip" title="Group By Syntax">
   All columns in `select()` must either be:
   - Listed in `groupBy()`
   - Wrapped in an aggregation function (sum, count, avg, etc.)
 </Callout>
+
+Aliased selected expressions count here too. If you select an expression like `toDate(created_at) AS day` and then add an aggregation, make sure the query groups by `day`.
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('events')
+  .select([rawAs('toDate(created_at)', 'day')])
+  .count('id', 'event_count')
+  .groupBy(['day'])
+  .execute();
+```
+
+</CodeBlock>
+
+If you already set an explicit `groupBy()`, adding aggregations preserves it instead of rebuilding duplicate grouping entries.
 
 ## Having
 
@@ -236,6 +270,25 @@ const results = await db.table('orders')
 ```
 
 </CodeBlock>
+
+## With Totals
+
+Use `withTotals()` when you want ClickHouse to include totals metadata for a grouped query.
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
+  .select(['country'])
+  .count('id', 'order_count')
+  .groupBy(['country'])
+  .withTotals()
+  .execute();
+```
+
+</CodeBlock>
+
+This maps directly to ClickHouse `GROUP BY ... WITH TOTALS`.
 
 <Callout type="info" title="Where vs Having">
   - **WHERE**: Filters rows **before** grouping
@@ -410,6 +463,22 @@ const results = await db.table('orders')
   .select(['users.country'])
   .sum('orders.total', 'revenue')
   .count('orders.id', 'order_count')
+  .groupBy(['users.country'])
+  .execute();
+```
+
+</CodeBlock>
+
+Qualified joined columns also work directly in aggregation helpers:
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
+  .innerJoin('users', 'user_id', 'users.id')
+  .select(['users.country'])
+  .count('users.id', 'user_count')
+  .sum('orders.total', 'total_sales')
   .groupBy(['users.country'])
   .execute();
 ```

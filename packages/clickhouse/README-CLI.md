@@ -34,7 +34,7 @@ npx hypequery-generate-types ./src/types/db-schema.ts
 **Specify database connection directly:**
 
 ```bash
-CLICKHOUSE_HOST=http://clickhouse.example.com:8123 \
+CLICKHOUSE_URL=http://clickhouse.example.com:8123 \
 CLICKHOUSE_USER=myuser \
 CLICKHOUSE_PASSWORD=mypassword \
 CLICKHOUSE_DATABASE=analytics \
@@ -47,7 +47,8 @@ Configure the connection using environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `CLICKHOUSE_HOST` | ClickHouse server URL | `http://localhost:8123` |
+| `CLICKHOUSE_URL` | ClickHouse server URL | `http://localhost:8123` |
+| `CLICKHOUSE_HOST` | Deprecated alias for `CLICKHOUSE_URL` | _(none)_ |
 | `CLICKHOUSE_USER` | ClickHouse username | `default` |
 | `CLICKHOUSE_PASSWORD` | ClickHouse password | _(empty)_ |
 | `CLICKHOUSE_DATABASE` | ClickHouse database name | `default` |
