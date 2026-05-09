@@ -4,9 +4,9 @@
 
 ### Patch Changes
 
-- fix: harden the CLI for release and generated scaffold reliability. This includes:
+- Harden the CLI for release and generated scaffold reliability. This includes:
 
-  - cleaner non-interactive `init` behavior, including cleaner failure paths when connection validation fails
+  - stricter non-interactive `init` behavior, including cleaner failure paths when connection validation fails
   - support for `--skip-connection` during scaffolding
   - NodeNext-safe generated relative imports such as `./client.js` and `./schema.js`
   - improved scaffold dependency installation, including `zod`

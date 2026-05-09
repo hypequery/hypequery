@@ -17,7 +17,7 @@ For `@hypequery/clickhouse`, this release includes:
 
 For `@hypequery/cli`, this release includes:
 
-- harder non-interactive setup behavior with cleaner failure paths
+- stricter non-interactive setup behavior with cleaner failure paths
 - NodeNext-safe generated scaffold imports
 - improved scaffold dependency installation, including `zod` and aligned canary sibling versions
 - support for `--skip-connection` during init scaffolding
