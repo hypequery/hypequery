@@ -1,5 +1,5 @@
 <p align="center">
-  <strong><sub>⭐ Please star hypequery if it is useful to you 🙏</sub></strong><br />
+  <strong>⭐ Please star hypequery if it is useful to you 🙏</strong><br />
   <strong>It helps more people find the project.</strong>
 </p>
 
