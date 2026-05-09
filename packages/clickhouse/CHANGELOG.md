@@ -4,6 +4,29 @@
 
 ### Major Changes
 
+- 29761f3: Release `@hypequery/clickhouse` as `2.0.0` and include the related CLI patch release.
+
+  For `@hypequery/clickhouse`, this release includes:
+
+  - a refactor toward an explicit query-node internal model
+  - stricter `withRelation()` behavior for chained relationships
+  - stricter tuple `IN` validation and improved empty-set filter semantics
+  - additive `groupBy()` behavior and improved aggregation inference
+  - support for ClickHouse-native builder features such as `arrayJoin()`, `leftArrayJoin()`, `limitBy()`, and `withTotals()`
+  - exported built-in time-bucketing helpers such as `toStartOfMinute()` through `toStartOfYear()`
+  - `url` as the preferred ClickHouse connection field, while keeping deprecated `host` compatibility
+
+  For `@hypequery/cli`, this release includes:
+
+  - stricter non-interactive setup behavior with cleaner failure paths
+  - NodeNext-safe generated scaffold imports
+  - improved scaffold dependency installation, including `zod` and aligned canary sibling versions
+  - support for `--skip-connection` during init scaffolding
+
+## 2.0.0
+
+### Major Changes
+
 - query builder internals are now centered on a structured `SelectQueryNode` model instead of looser config mutation. This keeps the public builder workflow largely the same, but makes filtering, relation application, validation, and SQL compilation more explicit internally.
 
 - advanced builder inspection should now prefer `getQueryNode()`. `getConfig()` still exists for compatibility, but it should be treated as a legacy inspection helper rather than the main public view of builder state.
@@ -27,8 +50,8 @@
 - builder chains should be treated as immutable. If you are composing a query conditionally, reassign the returned builder rather than assuming methods mutate the existing instance.
 
   ```typescript
-  let query = db.table('users');
-  if (onlyActive) query = query.where('status', 'eq', 'active');
+  let query = db.table("users");
+  if (onlyActive) query = query.where("status", "eq", "active");
   if (limit) query = query.limit(limit);
   ```
 
