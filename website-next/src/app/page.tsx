@@ -7,6 +7,7 @@ import CodeHighlight from '@/components/CodeHighlight';
 import SiteFooter from '@/components/SiteFooter';
 import SiteHeader from '@/components/SiteHeader';
 import { useCaseExamples as useCaseExamplesRaw } from '@/data/homepage-content';
+import { trackUmamiEvent } from '@/lib/umami';
 
 const queryBuilderCode = `import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { IntrospectedSchema } from './analytics/schema';
@@ -167,6 +168,14 @@ export default function Home() {
   const [selectedUseCase, setSelectedUseCase] = useState(useCaseExamplesRaw[0]);
   const [heroVisible, setHeroVisible] = useState(false);
 
+  const trackCta = (target: string, location: string) => {
+    trackUmamiEvent('cta_click', {
+      target,
+      location,
+      page: '/',
+    });
+  };
+
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       setHeroVisible(true);
@@ -214,6 +223,7 @@ export default function Home() {
             >
               <Link
                 href="/docs/quick-start"
+                onClick={() => trackCta('docs_quick_start', 'hero')}
                 className="bg-indigo-500 px-6 py-3 font-mono text-sm font-semibold tracking-[0.02em] text-white transition hover:-translate-y-0.5 hover:bg-indigo-400"
               >
                 Get Started in 30 Seconds →
@@ -222,6 +232,7 @@ export default function Home() {
                 href="https://github.com/hypequery/hypequery"
                 target="_blank"
                 rel="noreferrer"
+                onClick={() => trackCta('github_star', 'hero')}
                 className="border border-white/10 px-6 py-3 font-mono text-sm font-semibold tracking-[0.02em] text-slate-100 transition hover:border-white/20 hover:bg-white/5"
               >
                 Star on GitHub
@@ -412,12 +423,14 @@ export default function Home() {
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
                 href="/docs/quick-start"
+                onClick={() => trackCta('docs_quick_start', 'footer')}
                 className="bg-indigo-500 px-6 py-3 font-mono text-sm font-semibold tracking-[0.02em] text-white transition hover:-translate-y-0.5 hover:bg-indigo-400"
               >
                 Get started →
               </Link>
               <Link
                 href="/docs"
+                onClick={() => trackCta('docs_home', 'footer')}
                 className="border border-white/10 px-6 py-3 font-mono text-sm font-semibold tracking-[0.02em] text-slate-100 transition hover:border-white/20 hover:bg-white/5"
               >
                 Explore docs

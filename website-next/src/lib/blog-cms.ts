@@ -75,9 +75,29 @@ const dataDir = path.join(process.cwd(), 'data');
 const localStorePath = path.join(dataDir, 'blog-posts.local.json');
 const seedBlogDir = path.join(process.cwd(), 'content/blog');
 const blobPathname = 'cms/blog-posts.json';
+let hasWarnedAboutBlobFallback = false;
 
 function hasBlobStorage() {
   return typeof process.env.BLOB_READ_WRITE_TOKEN === 'string' && process.env.BLOB_READ_WRITE_TOKEN.length > 0;
+}
+
+function isBuildPhase() {
+  return process.env.NEXT_PHASE === 'phase-production-build';
+}
+
+function warnBlobFallbackOnce(error: unknown) {
+  if (hasWarnedAboutBlobFallback) {
+    return;
+  }
+
+  hasWarnedAboutBlobFallback = true;
+
+  if (process.env.NODE_ENV === 'production' || isBuildPhase()) {
+    console.warn('Vercel Blob blog storage is unavailable. Falling back to seed posts.');
+    return;
+  }
+
+  console.error('Failed to read from blob storage, falling back to seed posts:', error);
 }
 
 export function getCmsStorageMode(): CmsStorageMode {
@@ -331,7 +351,7 @@ async function getAllPostsInternal(): Promise<BlogPostRecord[]> {
     try {
       return sortPosts(await readBlobStore());
     } catch (error) {
-      console.error('Failed to read from blob storage, falling back to seed posts:', error);
+      warnBlobFallbackOnce(error);
       return sortPosts(createSeedPosts());
     }
   }
