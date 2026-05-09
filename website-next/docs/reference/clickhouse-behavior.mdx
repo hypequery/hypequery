@@ -1,0 +1,141 @@
+---
+title: ClickHouse Behavior
+description: The ClickHouse-specific behavior that most often affects how you use hypequery.
+---
+
+hypequery is built for ClickHouse, so some of the behavior you see is really ClickHouse behavior showing through.
+
+This page covers the main things worth knowing so the API feels less surprising.
+
+## What hypequery exposes directly
+
+These are the ClickHouse features that show up clearly in the builder:
+
+| Feature | Notes |
+| --- | --- |
+| `PREWHERE` | Separate from `WHERE`, with `prewhere(...)` and `orPrewhere(...)` |
+| `FINAL` | Exposed directly as `.final()` because it is a table-read concern |
+| Query `SETTINGS` | Passed through to ClickHouse for that execution |
+| `GLOBAL IN` / `GLOBAL NOT IN` | Exposed through `globalIn` and `globalNotIn` operators |
+| `IN` subqueries | Exposed through `inSubquery` and `globalInSubquery` |
+| `IN` table references | Exposed through `inTable` and `globalInTable` |
+| Tuple membership | Exposed through `inTuple` and `globalInTuple` |
+| `WITH` clause CTEs | Exposed through `withCTE(...)` |
+| `WITH` scalar expressions | Exposed through `withScalar(...)` |
+| `ARRAY JOIN` / `LEFT ARRAY JOIN` | Exposed through `arrayJoin(...)` and `leftArrayJoin(...)` |
+| `LIMIT ... BY ...` | Exposed through `limitBy(...)` |
+| `GROUP BY ... WITH TOTALS` | Exposed through `withTotals()` |
+| ClickHouse time bucketing | Exposed through `groupByTimeInterval(...)` and related helpers |
+| Explicit null helpers | Prefer `whereNull(...)` and related helpers over bare `null` equality |
+| `LEFT JOIN` null semantics control | Use `.settings({ join_use_nulls: 1 })` when SQL-style nulls matter |
+
+The point is not to hide ClickHouse behind a generic SQL layer. These features are exposed because they matter in real queries.
+
+## `PREWHERE` is different from `WHERE`
+
+`PREWHERE` is its own ClickHouse clause. It is not just another spelling of `WHERE`.
+
+Use:
+
+- `prewhere(...)` for highly selective predicates that should run earlier
+- `where(...)` for the rest of your filtering logic
+
+hypequery keeps them separate and does not try to rewrite one into the other for you.
+
+## `FINAL` belongs to the table read
+
+`FINAL` is about how ClickHouse reads a table. It is not a general-purpose query modifier.
+
+In hypequery you can use:
+
+- `.final()` for simple single-table reads
+- source-level `FINAL` behavior when the query shape gets more advanced
+
+Use it when merge-time correctness matters for the table you are reading.
+
+## Array joins are their own ClickHouse feature
+
+`ARRAY JOIN` and `LEFT ARRAY JOIN` are not ordinary relational joins.
+
+Use:
+
+- `arrayJoin(...)` when array elements should expand into separate rows
+- `leftArrayJoin(...)` when you want that expansion but still need rows with empty arrays preserved
+
+These map directly to ClickHouse array-join behavior.
+
+## `LIMIT BY` is different from `LIMIT`
+
+`LIMIT BY` limits rows per grouping key. It does not just cap the final result set.
+
+Use:
+
+- `limitBy(count, by)` when you want a per-group cap
+- `limit(count)` when you want a cap on the final result
+
+You can use both in the same query when needed.
+
+## Query settings pass through to ClickHouse
+
+`.settings({...})` becomes ClickHouse query settings for that execution.
+
+This is the right place for settings like:
+
+- `max_execution_time`
+- `join_use_nulls`
+- `max_threads`
+- `final`
+
+The SQL text and the settings payload stay separate. Settings affect execution, not the SQL string itself.
+
+## `LEFT JOIN` defaults are a ClickHouse behavior
+
+ClickHouse does not default unmatched `LEFT JOIN` columns to `null` unless `join_use_nulls = 1` is enabled.
+
+That means the right-hand side of a `LEFT JOIN` may come back with type defaults instead of `null` unless you opt into null semantics.
+
+If you need SQL-style null behavior, set:
+
+- `.settings({ join_use_nulls: 1 })`
+
+That is a ClickHouse rule, not a hypequery quirk.
+
+## Null handling is explicit
+
+Plain `null` equality is not a great fit for how ClickHouse works.
+
+Prefer:
+
+- `whereNull(...)`
+- `whereNotNull(...)`
+- `prewhereNull(...)`
+- `prewhereNotNull(...)`
+
+These helpers make the intent obvious and avoid pretending ClickHouse behaves like Postgres.
+
+## Runtime values come from `JSONEachRow`
+
+The values you get back should match what the ClickHouse JavaScript client returns from `JSONEachRow`.
+
+That means some values may not come back in the JavaScript shape people expect at first glance.
+
+Common examples:
+
+| ClickHouse value | Typical runtime value |
+| --- | --- |
+| `UInt64` / `Int64` | `string` |
+| `count()` and other 64-bit integer aggregates | `string` |
+| `DateTime` / `DateTime64` | `string` |
+| `Decimal(p, s)` | `number` |
+
+One important caveat: JavaScript numbers can lose precision for larger decimal values even when ClickHouse stored them exactly.
+
+## Practical guidance
+
+If you are deciding where something belongs, the usual rules are:
+
+- use `prewhere(...)` for highly selective early filters
+- use `where(...)` for the rest of your filtering logic
+- use `final()` when merge-time correctness matters for the table read
+- use `.settings({...})` for ClickHouse runtime behavior like `join_use_nulls` or `max_threads`
+- use explicit null helpers when you mean null checks

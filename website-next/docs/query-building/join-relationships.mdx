@@ -15,6 +15,10 @@ There are two `withRelation()` modes:
 - pass a relationship name from `JoinRelationships` for reusable runtime lookup
 - pass a `JoinPath` object (or chain) directly when you want compile-time table/alias widening
 
+<Callout type="warning" title="v2.0.0 behavior">
+  `withRelation()` is stricter now. Alias override is only supported for single-step relationships, and direct `JoinPath` usage is the typed path when you want compile-time widening.
+</Callout>
+
 ## When to use this
 
 Use join relationships when you want to:
@@ -51,7 +55,7 @@ relationships.define('orderCustomer', {
 createQueryBuilder.setJoinRelationships(relationships);
 
 export const db = createQueryBuilder<Schema>({
-  host: process.env.CLICKHOUSE_HOST!,
+  url: process.env.CLICKHOUSE_URL!,
 });
 ```
 </Pre>
@@ -163,7 +167,7 @@ This is useful when the shared relationship is usually `LEFT`, but one query nee
 - For direct `JoinPath` usage, `withRelation()` does widen the builder type for joined tables and aliases.
 - Inline joins are still a good choice for one-off joins, but direct `JoinPath` usage is fully typed when you want reusable path objects with compile-time widening.
 
-Alias override is only supported for single-join relationships. For `defineChain()` relationships, each step should define its own alias explicitly if needed.
+Alias override is only supported for single-step relationships. For `defineChain()` relationships, define aliases on the chain steps themselves if needed.
 
 ## Typed direct-path usage
 
@@ -231,4 +235,4 @@ Join relationship 'orderCustomer' not found
 
 - [Joins](/docs/query-building/joins)
 - [Subqueries & CTEs](/docs/query-building/subqueries-ctes)
-- [Query Builder API](/docs/reference/query-builder)
+- [Query Builder API](/docs/reference/api/query-builder)

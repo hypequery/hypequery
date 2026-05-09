@@ -5,9 +5,188 @@ description: Release notes and updates for hypequery
 
 import { Callout } from 'fumadocs-ui/components/callout';
 
-# Changelog
-
 Latest updates and improvements across hypequery packages and docs.
+
+## [2.0.0]
+
+### Query Builder Internals and Relationship Semantics
+
+This release refactors the ClickHouse query builder around a more explicit internal query-node model. Most users will not need to change how they write queries, but the builder is now easier to reason about internally and several advanced behaviors are stricter and better defined.
+
+#### Breaking changes
+
+* **Treat builder chains as immutable.** Query-builder methods return a new builder state. If you build queries conditionally, reassign the builder instead of assuming methods mutate the existing instance.
+
+  ```typescript
+  // Good
+  let query = db.table('users');
+  if (onlyActive) query = query.where('status', 'eq', 'active');
+  if (limit) query = query.limit(limit);
+
+  // Fragile
+  const query = db.table('users');
+  if (onlyActive) query.where('status', 'eq', 'active');
+  if (limit) query.limit(limit);
+  ```
+
+* **`withRelation()` is stricter for chained relationships.** Alias override is now only supported for single-step relationships. If you use a relationship chain, define aliases on the chain steps themselves instead of trying to override the whole chain at call time.
+
+* **Tuple `IN` filters now validate width more strictly.** Malformed tuples and mismatched tuple widths fail earlier with clearer errors instead of flowing deeper into query compilation.
+
+#### What changed
+
+* **The query builder now compiles from a structured query node instead of relying on looser internal config mutation.** Filtering, joins, ordering, grouping, `HAVING`, CTEs, and settings all move through a more explicit internal model before being compiled to SQL.
+
+* **Internal query-builder responsibilities are split into smaller helpers.** Filter application, relation application, relation validation, tuple validation, and config compatibility are now handled in focused internal modules instead of being packed into one large builder implementation.
+
+* **`getQueryNode()` is now the clearest inspection API for advanced builder debugging.** It reflects the newer structured internal model directly. `getConfig()` still exists for compatibility, but it should be treated as a legacy inspection helper.
+
+* **Advanced `IN` handling is stricter and better covered.** This includes explicit tuple-width validation, better single-column tuple handling, and earlier failures when tuple input does not match the selected columns.
+
+* **`isNull` and `isNotNull` are now supported as first-class filter operators.** This makes null checks easier to express without falling back to raw SQL or overloading equality semantics.
+
+* **`withRelation()` behavior is now more explicit.** Runtime string lookup still works for registered relationships, but direct `JoinPath` usage is the typed path when you want compile-time table or alias widening.
+
+* **Alias override is now limited to single-step relationships.** Chained relationships no longer allow alias override, which avoids ambiguous or misleading builder state in more complex joins.
+
+* **The join relationships docs now describe the two `withRelation()` modes more clearly.** The docs now call out when string lookup is fine, when direct join paths are the better typed option, and where alias limits apply.
+
+#### Why it matters
+
+* The builder is easier to maintain, extend, and test without changing the main public query-building workflow.
+* Advanced filters and relationship joins now fail earlier with clearer errors instead of leaving more room for confusing runtime behavior.
+* Users who rely on builder inspection now have a more accurate mental model of how a query is represented before SQL compilation.
+
+#### Migration notes
+
+* If you compose queries conditionally, always reassign the builder returned by each call.
+* Do not treat `getConfig()` or `getQueryNode()` snapshots as mutable builder state.
+* If you use `withRelation()` with chained relationships plus alias override, expect stricter behavior. Alias override is now only supported for single-step relationships.
+* If you want typed table or alias widening from `withRelation()`, prefer passing a direct `JoinPath` instead of a string registry key.
+* If you use tuple `IN` filters, malformed tuple shapes now fail earlier and more explicitly.
+
+### Connection Config Now Prefers `url`
+
+This release updates docs, examples, and scaffolding to prefer `url` for ClickHouse connections. This matches the direction of `clickhouse-js`, while keeping `host` available as a backward-compatible deprecated option.
+
+#### What changed
+
+* **Docs and examples now use `url` as the default connection field.**
+* **`host` remains supported in the public config types, but is deprecated.**
+* **Connection namespace derivation now works with either `url` or `host`.**
+* **CLI scaffolding and env templates now prefer `CLICKHOUSE_URL`, while still accepting legacy `CLICKHOUSE_HOST`.**
+* **Compatibility coverage was added for host-only configs so existing setups continue to initialize correctly.**
+
+#### Why it matters
+
+* New code follows the current ClickHouse client direction instead of centering a deprecated field.
+* Existing users do not need to migrate immediately just to stay on a working release.
+* Cache and adapter namespace behavior stays stable whether a project still uses `host` or has moved to `url`.
+
+#### Migration notes
+
+* Prefer `url` in new code, examples, and environment variables.
+* Existing `host`-only configs should continue to work.
+* If you maintain templates or starter code around hypequery, update them to prefer `CLICKHOUSE_URL`.
+
+### Grouping, Aggregation, and Filter Correctness Fixes
+
+This release also fixes several query-builder correctness issues around grouping, aggregation inference, and empty-set filter behavior.
+
+#### What changed
+
+* **Empty exclusion filters now behave correctly.**
+  - `IN []` and `GLOBAL IN []` compile to `1 = 0`
+  - `NOT IN []` and `GLOBAL NOT IN []` compile to `1 = 1`
+
+  This matches the expected meaning of “exclude nothing”.
+
+* **Repeated `groupBy()` calls are now additive.** Additional grouping expressions are appended instead of replacing earlier ones, and repeated expressions are de-duplicated.
+
+* **Aggregation inference now handles aliased selected expressions correctly.** If you select an aliased expression and then add an aggregation, the required grouping entry is preserved so the generated SQL stays valid.
+
+* **Explicit `groupBy()` clauses are preserved when aggregations are added.** The builder avoids rebuilding grouping state in a way that duplicates entries like `GROUP BY name, name`.
+
+* **Aggregation helpers now accept qualified joined columns in their type surface.** Calls like `count('users.id', 'user_count')` and `sum('orders.total', 'total_sales')` now match the runtime SQL support more accurately.
+
+#### Why it matters
+
+* Aggregation-heavy queries are less likely to produce invalid SQL in edge cases.
+* Repeated `groupBy()` calls now behave more like the rest of the fluent API.
+* Joined-column aggregations are easier to express without fighting the type system.
+
+### New ClickHouse Query Features
+
+This release adds several ClickHouse-specific builder methods that map directly to useful ClickHouse SQL features:
+
+- `arrayJoin()`
+- `leftArrayJoin()`
+- `limitBy()`
+- `withTotals()`
+
+#### What changed
+
+* **`arrayJoin()` and `leftArrayJoin()` are now first-class builder methods.** You no longer need to drop to raw SQL for common array expansion patterns.
+
+* **`limitBy()` is now supported directly in the fluent builder.** This makes ClickHouse’s per-group row limiting easier to express in typed queries.
+
+* **`withTotals()` is now supported on grouped queries.** This exposes ClickHouse `WITH TOTALS` directly from the builder.
+
+* **SQL rendering, type coverage, and integration coverage were added for all three features.**
+
+#### Why it matters
+
+* More ClickHouse-native query patterns can stay inside the typed builder instead of falling back to raw SQL.
+* Array expansion, top-N-per-group style queries, and grouped totals are easier to write and easier to keep consistent.
+
+#### Follow-up type tightening
+
+* **`arrayJoin()` and `leftArrayJoin()` now only accept array-typed columns at the type level.** Joined and aliased columns still work, but they must resolve to array-valued fields.
+
+### CLI Hardening and Scaffold Reliability
+
+This release also hardens the CLI around non-interactive setup, generated scaffold compatibility, and dependency installation.
+
+#### What changed
+
+* **`hypequery init` is stricter about non-interactive behavior.** When `--no-interactive` is used, the CLI now stays out of prompt-only code paths and fails cleanly if connection validation fails.
+
+* **CLI option normalization is more reliable.** Commander-style `--no-interactive` flows map cleanly onto the CLI’s internal `noInteractive` behavior.
+
+* **Generated scaffold imports are now NodeNext-safe.** Generated files use explicit `.js` relative imports where needed, which avoids module-resolution issues in NodeNext projects.
+
+* **Scaffold dependency installation is more robust.** The CLI now installs the scaffold dependencies it actually needs, including `zod`, and keeps canary sibling package versions aligned when scaffolding from a canary CLI build.
+
+* **Cancellation and overwrite flows behave more cleanly.** The setup path exits earlier and more predictably when users cancel prompts or decline overwrite or continue paths.
+
+#### Why it matters
+
+* Automated setup is more predictable in CI and other non-interactive environments.
+* Generated starter projects are less likely to fail immediately on stricter TypeScript and NodeNext setups.
+* Scaffolded projects are more likely to come up with the right dependencies already installed.
+
+### Exported Time-Bucketing Helpers
+
+This release exports the built-in ClickHouse start-of-time helpers directly from `@hypequery/clickhouse`.
+
+#### What changed
+
+The following helpers are now available from the package entrypoint:
+
+- `toStartOfMinute`
+- `toStartOfHour`
+- `toStartOfDay`
+- `toStartOfWeek`
+- `toStartOfMonth`
+- `toStartOfQuarter`
+- `toStartOfYear`
+
+These helpers were added to the public export surface with test and integration coverage.
+
+#### Why it matters
+
+* Common time-bucketing expressions are easier to discover and import directly.
+* Teams can use the built-in start-of helpers without reaching into internal module paths or re-creating the same expressions with raw SQL.
 
 ## [Upcoming]
 
@@ -42,11 +221,14 @@ This release pushes the current object-style hypequery path further forward: `qu
 
 * **Docs search is now better at finding code/API terms** like `dictGet`, `withScalar`, and similar technical keywords that appear primarily in examples and code snippets.
 
+* **Query inspection now centers on structured query nodes.** `getQueryNode()` is now the preferred public inspection API for builder state. `getConfig()` still exists for compatibility, but it is deprecated and should be treated as a legacy inspection helper rather than a stable flat config interface.
+
 #### Why it matters
 
 * New projects start on the current query/serve API instead of scaffolding into a style they immediately need to migrate away from.
 * Existing users get a clearer migration path from the v0.1.x serve flow to the current object-style runtime API.
 * The newer query/serve API is now closer to feature parity for auth and tenant concerns, reducing the need to fall back to older patterns.
+* Builder consumers now have a clearer public inspection path that matches the internal query-node model.
 
 ## [1.5.0]
 

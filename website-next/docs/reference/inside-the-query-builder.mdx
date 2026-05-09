@@ -1,0 +1,137 @@
+---
+title: Inside the Query Builder
+description: A plain-English look at how hypequery builds a query before it turns into SQL.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+This page is a short map of how the builder works internally.
+
+It is most useful if you are debugging query generation, contributing to the builder, or trying to understand how the internal pieces fit together.
+
+## The basic idea
+
+The builder is ClickHouse-first and type-driven. Internally, it builds a structured query tree instead of mutating a SQL string.
+
+At a high level, the flow is:
+
+1. builder methods update a typed query node
+2. the builder preserves type state alongside that query node
+3. the dialect compiles the query node into SQL plus parameters
+4. the adapter executes the compiled query against ClickHouse
+
+Each layer has a clear job:
+
+- the builder creates the typed query shape
+- the dialect turns that shape into SQL
+- the adapter sends the query to ClickHouse
+
+## The source of truth
+
+The main internal representation is a root `select-query` node.
+
+It stores structured versions of things like:
+
+- `from`
+- `select`
+- `prewhere`
+- `where`
+- `joins`
+- `groupBy`
+- `having`
+- `orderBy`
+- `ctes`
+- `settings`
+
+For public inspection, prefer `getQueryNode()` when you want a snapshot of the current structured query. `getConfig()` still exists for compatibility, but it is now a deprecated legacy inspection method.
+
+## Why the query tree matters
+
+The query tree makes a few things much easier:
+
+- it lets builders branch without mutating each other
+- it keeps `PREWHERE` and `WHERE` separate
+- it preserves things like `FINAL`, joins, and `HAVING`
+- it gives the SQL compiler a clean structured input
+
+## Immutability and branching
+
+Builder instances are intended to be immutable from the caller's point of view.
+
+That means code like this should behave predictably:
+
+<CodeBlock>
+<Pre>
+```typescript
+const base = db.table('events').select(['id', 'user_id']);
+
+const recent = base.orderBy('id', 'DESC').limit(10);
+const active = base.where('is_active', 'eq', 1);
+```
+</Pre>
+</CodeBlock>
+
+`recent` and `active` should both come from `base` without changing `base` or each other. That is why the builder creates new query state instead of writing into one shared object.
+
+## Expressions and filtering
+
+Filtering is stored as structured expression nodes rather than loose condition strings. That helps the builder preserve:
+
+- `AND` and `OR` sequences
+- nested groups
+- raw predicate expressions
+- separate `PREWHERE` and `WHERE` trees
+- explicit null checks like `IS NULL` and `IS NOT NULL`
+
+## Useful mental model
+
+If you are reading or changing the builder, this is the simplest mental model:
+
+- the query node is the canonical internal shape
+- builder state still carries type information about tables, aliases, scalars, and output shape
+- features like filtering, joins, aggregations, and modifiers update that structured query model
+- the dialect is where the final SQL string and ordered parameter list are produced
+- the adapter is where execution concerns such as ClickHouse settings, query ids, rendering, and transport live
+
+## Dialect boundary
+
+The ClickHouse dialect takes the structured query node and produces:
+
+- compiled SQL
+- ordered parameters
+
+This is also where ClickHouse-specific SQL rendering details live, such as:
+
+- how expression trees become SQL text
+- how `PREWHERE` is emitted
+- how table sources like `FINAL` are rendered
+- how `HAVING`, `CTEs`, and ordering are serialized
+
+## Adapter boundary
+
+After compilation, the adapter handles execution concerns like:
+
+- passing query settings through to the client
+- parameterized execution
+- rendered SQL for debugging and logs
+- cache namespacing and query execution metadata
+
+## Where ClickHouse behavior lives
+
+The builder internals and ClickHouse behavior are related, but they are not the same thing.
+
+- this page explains the builder's internal model and compilation flow
+- [ClickHouse Behavior](/docs/reference/clickhouse-behavior) explains the ClickHouse-specific behavior that shapes the public API
+
+If you are deciding whether a change belongs to the builder model or to ClickHouse behavior, that is the line to keep in mind.
+
+## Practical guidance for contributors
+
+If you are changing the builder internals, the usual rules are:
+
+- preserve immutability when branching builders
+- keep ClickHouse-specific semantics explicit rather than hiding them behind generic SQL assumptions
+- prefer extending the structured query model over smuggling more meaning through loose strings
+- keep type-state changes aligned with query-shape changes
+- add tests at the query-node, SQL, and behavior level when a change is subtle

@@ -116,6 +116,38 @@ const latestUsers = await db.table('users')
 
 </CodeBlock>
 
+## Limit By
+
+`limitBy()` applies ClickHouse `LIMIT ... BY ...`, which limits rows per grouping key instead of limiting the whole result set.
+
+<CodeBlock>
+
+```typescript
+const latestOrderPerUser = await db.table('orders')
+  .select(['user_id', 'id', 'created_at'])
+  .orderBy('created_at', 'DESC')
+  .limitBy(1, 'user_id')
+  .execute();
+```
+
+</CodeBlock>
+
+You can also limit by multiple columns:
+
+<CodeBlock>
+
+```typescript
+const results = await db.table('orders')
+  .select(['user_id', 'status', 'id'])
+  .orderBy('created_at', 'DESC')
+  .limitBy(2, ['user_id', 'status'])
+  .execute();
+```
+
+</CodeBlock>
+
+`limitBy()` is applied before the final `limit()` if you use both.
+
 <Callout type="tip" title="Performance">
   Always use `limit()` with `orderBy()` for predictable results. Without `orderBy()`, the rows returned may vary.
 </Callout>

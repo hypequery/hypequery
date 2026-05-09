@@ -5,6 +5,7 @@ description: Learn how to connect to ClickHouse databases with hypequery
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Callout } from 'fumadocs-ui/components/callout';
 
 
 # Connecting to ClickHouse
@@ -12,6 +13,10 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 hypequery provides a type-safe way to connect to ClickHouse from Node.js and browser-capable runtimes.
 
 Run `npx hypequery init` to scaffold your ClickHouse connection, env variables, and schema generation so you can skip the manual setup steps below.
+
+<Callout type="info" title="Prefer `url`">
+  Use `url` in new code and `CLICKHOUSE_URL` in new env files. `host` is still supported for backward compatibility, but it is deprecated.
+</Callout>
 
 ## Connection Setup
 
@@ -22,7 +27,7 @@ For Node.js environments, hypequery can use the Node.js ClickHouse client automa
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const db = createQueryBuilder({
-  host: 'http://localhost:8123',
+  url: 'http://localhost:8123',
   username: 'default',
   password: 'password',
   database: 'my_database'
@@ -46,7 +51,7 @@ import { createQueryBuilder } from '@hypequery/clickhouse';
 import { createClient } from '@clickhouse/client-web';
 
 const client = createClient({
-  host: 'https://your-clickhouse-host',
+  url: 'https://your-clickhouse-host',
   username: 'default',
   password: '',
   database: 'my_database'
@@ -67,10 +72,13 @@ hypequery supports all connection options provided by the official ClickHouse Ja
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
-| `host` | `string` | The URL of the ClickHouse server, including protocol and port | Required |
+| `url` | `string` | The URL of the ClickHouse server, including protocol and port | Required |
+| `host` | `string` | Deprecated alias for `url`, still supported for backward compatibility | Optional |
 | `username` | `string` | Username for authentication | 'default' |
 | `password` | `string` | Password for authentication | undefined |
 | `database` | `string` | The database to connect to | 'default' |
+
+For env vars, prefer `CLICKHOUSE_URL`. Older `CLICKHOUSE_HOST` setups can continue to work while you migrate.
 
 
 ### Advanced Options

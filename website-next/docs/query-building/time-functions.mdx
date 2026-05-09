@@ -8,6 +8,8 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 hypequery provides powerful time-based functions for working with dates, timestamps, and time intervals. These are essential for analytics, reporting, and time-series data.
 
+All helpers shown on this page are public exports from `@hypequery/clickhouse`.
+
 ## Overview
 
 Use time functions to:
@@ -198,6 +200,36 @@ const events = await db.table('events')
 | `1 month` | Truncate to month |
 | `1 quarter` | Truncate to quarter |
 | `1 year` | Truncate to year |
+
+### Built-in start-of helpers
+
+If you already know the exact bucket you want, you can import the built-in helpers directly instead of using a string interval:
+
+<CodeBlock>
+
+```typescript
+import {
+  toStartOfMinute,
+  toStartOfHour,
+  toStartOfDay,
+  toStartOfWeek,
+  toStartOfMonth,
+  toStartOfQuarter,
+  toStartOfYear,
+} from '@hypequery/clickhouse';
+
+const events = await db.table('events')
+  .select([
+    toStartOfHour('created_at', 'hour_start'),
+    toStartOfDay('created_at', 'day_start'),
+    toStartOfMonth('created_at', 'month_start'),
+  ])
+  .execute();
+```
+
+</CodeBlock>
+
+Use these when you want a direct helper for a standard ClickHouse bucket without spelling out an interval string.
 
 ## Group By Time Intervals
 

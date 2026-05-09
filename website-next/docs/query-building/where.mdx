@@ -109,6 +109,10 @@ await db.table('orders')
 
 </CodeBlock>
 
+<Callout type="info" title="Empty sets">
+  `where('id', 'in', [])` matches nothing. `where('id', 'notIn', [])` excludes nothing, so it behaves like no filter for that condition.
+</Callout>
+
 ## Null Checks
 
 <CodeBlock>
@@ -116,16 +120,62 @@ await db.table('orders')
 ```typescript
 // Is null
 await db.table('users')
-  .where('deleted_at', 'isNull')
+  .whereNull('deleted_at')
   .execute();
 
 // Is not null
 await db.table('users')
-  .where('email', 'isNotNull')
+  .whereNotNull('email')
   .execute();
 ```
 
 </CodeBlock>
+
+You can also express these directly with filter operators:
+
+<CodeBlock>
+
+```typescript
+await db.table('users')
+  .where('deleted_at', 'isNull', null)
+  .execute();
+
+await db.table('users')
+  .where('email', 'isNotNull', null)
+  .execute();
+```
+
+</CodeBlock>
+
+## Tuple `IN` filters
+
+Use tuple `IN` when you need membership checks across multiple columns.
+
+<CodeBlock>
+
+```typescript
+await db.table('orders')
+  .where(['id', 'created_by'], 'inTuple', [[1, 123], [2, 456]])
+  .execute();
+```
+
+</CodeBlock>
+
+Single-column tuple `IN` is supported too:
+
+<CodeBlock>
+
+```typescript
+await db.table('users')
+  .where('id', 'inTuple', [[1], [2], [3]])
+  .execute();
+```
+
+</CodeBlock>
+
+<Callout type="warning" title="Tuple width is validated">
+  The tuple shape must match the column shape. For example, `where(['id', 'created_by'], 'inTuple', [[1, 2, 3]])` now fails early instead of compiling into a broken query.
+</Callout>
 
 ## OR Conditions
 

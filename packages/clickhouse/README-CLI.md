@@ -1,123 +1,78 @@
-# hypequery TypeScript Generator
+# hypequery Type Generator
 
-This tool automatically generates TypeScript type definitions from your ClickHouse database schema.
+`hypequery-generate-types` introspects your ClickHouse schema and writes a TypeScript interface you can use with `createQueryBuilder()`.
 
-## Installation
+Most users should prefer:
 
-The TypeScript generator is included with the `@hypequery/clickhouse` package:
+```bash
+npx hypequery generate
+```
+
+This file documents the lower-level binary that ships with `@hypequery/clickhouse`.
+
+## Install
 
 ```bash
 npm install @hypequery/clickhouse
 ```
 
-## Quick Start
-
-Generate TypeScript types for your ClickHouse database:
+## Usage
 
 ```bash
 npx hypequery-generate-types
 ```
 
-This will:
-1. Connect to your ClickHouse database using environment variables
-2. Introspect all tables in your database
-3. Generate TypeScript definitions in `./generated-schema.ts`
+By default it:
 
-## Example Usage
+- reads ClickHouse connection details from environment variables
+- introspects tables in the target database
+- writes `generated-schema.ts` in the current working directory
 
-**Generate types with a custom output path:**
+Custom output path:
 
 ```bash
 npx hypequery-generate-types ./src/types/db-schema.ts
 ```
 
-**Specify database connection directly:**
+## Environment Variables
+
+| Variable | Description |
+| --- | --- |
+| `CLICKHOUSE_URL` | Preferred ClickHouse URL |
+| `CLICKHOUSE_HOST` | Deprecated alias for `CLICKHOUSE_URL` |
+| `CLICKHOUSE_USER` | ClickHouse username |
+| `CLICKHOUSE_PASSWORD` | ClickHouse password |
+| `CLICKHOUSE_DATABASE` | ClickHouse database |
+
+Example:
 
 ```bash
-CLICKHOUSE_HOST=http://clickhouse.example.com:8123 \
-CLICKHOUSE_USER=myuser \
-CLICKHOUSE_PASSWORD=mypassword \
+CLICKHOUSE_URL=http://localhost:8123 \
+CLICKHOUSE_USER=default \
+CLICKHOUSE_PASSWORD=secret \
 CLICKHOUSE_DATABASE=analytics \
-npx hypequery-generate-types
+npx hypequery-generate-types ./analytics/schema.ts
 ```
 
-## Configuration
+## Using The Generated Types
 
-Configure the connection using environment variables:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CLICKHOUSE_HOST` | ClickHouse server URL | `http://localhost:8123` |
-| `CLICKHOUSE_USER` | ClickHouse username | `default` |
-| `CLICKHOUSE_PASSWORD` | ClickHouse password | _(empty)_ |
-| `CLICKHOUSE_DATABASE` | ClickHouse database name | `default` |
-
-You can set these in:
-- A `.env` file in your project root
-- Your system environment
-- Directly when running the command
-
-## Using Generated Types
-
-Import the generated types in your code:
-
-```typescript
+```ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { IntrospectedSchema } from './generated-schema';
+import type { IntrospectedSchema } from './analytics/schema.js';
 
-// Create a type-safe query builder
 const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
-
-// Enjoy complete type safety!
-const results = await db
-  .table('users')          // TypeScript checks table exists
-  .select(['id', 'name'])  // TypeScript checks columns exist
-  .where('id', 'gt', 10)   // TypeScript validates types
-  .execute();
-
-// Results are properly typed
-results.forEach(user => {
-  console.log(user.name);  // TypeScript knows this is a string
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  database: process.env.CLICKHOUSE_DATABASE!,
 });
 ```
 
-## Adding to Your Workflow
+## Docs
 
-Add it to your npm scripts:
+- [Quick start](https://hypequery.com/docs/quick-start)
+- [CLI reference](https://hypequery.com/docs/reference/api/cli)
 
-```json
-{
-  "scripts": {
-    "generate-types": "hypequery-generate-types ./src/types/db-schema.ts",
-    "prebuild": "npm run generate-types",
-    "build": "tsc"
-  }
-}
-```
+## License
 
-## Troubleshooting
-
-If you encounter issues:
-
-1. **Connection problems**
-   - Make sure ClickHouse is running and accessible
-   - Check your firewall settings
-
-2. **Authentication failures**
-   - Verify your username and password
-   - Ensure the user has sufficient permissions
-
-3. **Missing tables**
-   - Confirm you're connecting to the correct database
-   - Verify the tables exist in your ClickHouse instance
-
-For more help, run:
-
-```bash
-npx hypequery-generate-types --help
-``` 
+Apache-2.0.

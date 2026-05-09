@@ -1,210 +1,109 @@
 # @hypequery/cli
 
-Command-line interface for Hypequery - the type-safe analytics layer for ClickHouse.
+CLI for scaffolding and running the main hypequery path.
+
+Use it to:
+
+- generate schema types from ClickHouse
+- scaffold `analytics/` files
+- run the local dev server with docs
 
 ## Quick Start
 
-The CLI scaffolds and runs the main hypequery path:
-
-1. Generate schema types from ClickHouse
-2. Build queries with the typed query builder
-3. Wrap reusable queries with `query({ ... })`
-4. Add `serve({ queries })` when you want HTTP routes and docs
-
-Use `npx` to run commands directly:
+Run it directly:
 
 ```bash
-# Initialize a new project
 npx @hypequery/cli init
-
-# Start development server
 npx @hypequery/cli dev
-
-# Generate types from database
 npx @hypequery/cli generate
 ```
 
-## Installation (Optional)
-
-For frequent use, install as a dev dependency:
+Or install it once:
 
 ```bash
 npm install -D @hypequery/cli
-# or
-pnpm add -D @hypequery/cli
-# or
-yarn add -D @hypequery/cli
 ```
-
-Then use the shorter `hypequery` command:
-
-```bash
-npx hypequery dev
-```
-
-Or add to your `package.json` scripts:
-
-```json
-{
-  "scripts": {
-    "hypequery:init": "hypequery init",
-    "hypequery:dev": "hypequery dev",
-    "hypequery:generate": "hypequery generate"
-  }
-}
-```
-
-## TypeScript Support
-
-`hypequery dev` bundles a TypeScript runtime (powered by `tsx`), so pointing it at `analytics/queries.ts` or any `.ts/.tsx` file just works—no extra install or custom runner required. If your project already compiles to JavaScript you can keep targeting the generated `.js` file instead.
 
 ## Commands
 
 ### `hypequery init`
 
-Interactive setup wizard that scaffolds a new Hypequery project.
+Scaffolds the standard hypequery setup.
 
 ```bash
-# Without installation
-npx @hypequery/cli init
-
-# With installation
 npx hypequery init
 ```
 
-**What it does:**
-- Connects to your ClickHouse database
-- Generates TypeScript types from your schema
-- Creates the client, query, and serve files for the main path
-- Sets up `.env` with connection details
-- Updates `.gitignore` to protect secrets
+It will:
 
-**Options:**
-- `--path <path>` - Output directory (default: `analytics/`)
-- `--no-example` - Skip example query generation
-- `--no-interactive` - Non-interactive mode (uses environment variables)
-- `--force` - Overwrite existing files without confirmation
+- generate schema types
+- create client and query files
+- write `.env` values
+- update `.gitignore`
+- install scaffold dependencies, including `zod`
 
-**Example:**
-```bash
-# ClickHouse setup (default)
-npx @hypequery/cli init
+Options:
 
-# Non-interactive with custom path
-npx @hypequery/cli init --path src/analytics --no-interactive
-```
+- `--path <path>`: output directory, default `analytics/`
+- `--no-example`: skip the example query
+- `--no-interactive`: read connection details from env vars
+- `--force`: overwrite existing scaffold files
+- `--skip-connection`: skip testing the ClickHouse connection before scaffolding
 
 ### `hypequery dev`
 
-Start development server with live reload and query playground.
+Runs the local serve runtime with docs and hot reload.
 
 ```bash
-# Without installation
-npx @hypequery/cli dev
-
-# With installation
 npx hypequery dev
-
-# With TypeScript file
-npx @hypequery/cli dev src/analytics/queries.ts
 ```
 
-**What it does:**
-- Starts a local HTTP server for your queries
-- Provides interactive API documentation at `/docs`
-- Auto-reloads on file changes
-- Displays query execution stats
+Options:
 
-**Options:**
-- `-p, --port <port>` - Port number (default: `4000`)
-- `-h, --hostname <host>` - Hostname to bind (default: `localhost`)
-- `--no-watch` - Disable file watching
-- `--cache <provider>` - Cache provider (`memory` | `redis` | `none`)
-- `--open` - Open browser automatically
-- `--cors` - Enable CORS
-- `-q, --quiet` - Suppress startup messages
+- `--port <port>`: default `4000`
+- `--hostname <host>`: default `localhost`
+- `--no-watch`: disable file watching
+- `--cache <provider>`: `memory`, `redis`, or `none`
+- `--open`: open the browser automatically
+- `--cors`: enable CORS
+- `--quiet`: reduce startup output
 
-**Example:**
-```bash
-# Basic usage
-npx @hypequery/cli dev
-
-# Custom port with browser auto-open
-npx @hypequery/cli dev --port 3000 --open
-
-# Disable caching for debugging
-npx @hypequery/cli dev --cache none
-```
-
-**Common Issues:**
-
-If you see "Unexpected token" errors while loading your queries, double-check that you're pointing the CLI at the TypeScript source file (e.g. `analytics/queries.ts`). The CLI bundles the loader and should not require additional dependencies.
+The CLI understands TypeScript entry files directly, so `analytics/queries.ts` works without an extra runner.
 
 ### `hypequery generate`
 
-Regenerate TypeScript types from ClickHouse schema.
+Regenerates schema types from ClickHouse.
 
 ```bash
-# Without installation
-npx @hypequery/cli generate
-
-# With installation
 npx hypequery generate
 ```
 
-The CLI bundles the ClickHouse driver directly, so you can run this command without installing `@hypequery/clickhouse`.
+Options:
 
-**What it does:**
-- Connects to ClickHouse
-- Introspects your database schema
-- Generates TypeScript interfaces for all tables
-- Updates your schema file with type-safe definitions
+- `--output <path>`: default `analytics/schema.ts`
+- `--tables <names>`: comma-separated table list
+- `--database <type>`: currently `clickhouse`
 
-**Options:**
-- `-o, --output <path>` - Output file (default: `analytics/schema.ts`)
-- `--tables <names>` - Only generate for specific tables (comma-separated)
-- `--database <type>` - Override detected database (currently only `clickhouse`)
+## Non-interactive Setup
 
-**Example:**
-```bash
-# Generate all tables
-npx @hypequery/cli generate
+`hypequery init --no-interactive` reads:
 
-# Generate specific tables
-npx @hypequery/cli generate --tables users,events
+- `CLICKHOUSE_URL` or deprecated `CLICKHOUSE_HOST`
+- `CLICKHOUSE_DATABASE`
+- `CLICKHOUSE_USERNAME` or `CLICKHOUSE_USER`
+- `CLICKHOUSE_PASSWORD`
 
-# Custom output path
-npx @hypequery/cli generate --output src/schema.ts
-```
+## Notes
 
-## Package Scripts
+- generated scaffold files use NodeNext-safe local `.js` imports
+- `CLICKHOUSE_URL` is now the preferred connection variable
+- the CLI bundles the ClickHouse driver for schema generation
 
-Add these to your `package.json` for easy access:
+## Docs
 
-```json
-{
-  "scripts": {
-    "db:init": "hypequery init",
-    "db:dev": "hypequery dev",
-    "db:generate": "hypequery generate"
-  }
-}
-```
-
-Then run with:
-```bash
-npm run db:dev
-```
-
-## Documentation
-
-Visit the main docs flow:
-
-- [Quick Start](https://hypequery.com/docs/quick-start)
-- [Core Concepts](https://hypequery.com/docs/core-concepts)
-- [Query Building](https://hypequery.com/docs/query-building/basics)
-- [Serve Runtime Reference](https://hypequery.com/docs/reference/runtime)
+- [Quick start](https://hypequery.com/docs/quick-start)
+- [CLI reference](https://hypequery.com/docs/reference/api/cli)
 
 ## License
 
-Apache-2.0
+Apache-2.0.

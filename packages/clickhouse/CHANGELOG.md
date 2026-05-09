@@ -1,5 +1,78 @@
 # @hypequery/clickhouse Changelog
 
+## 2.0.0
+
+### Major Changes
+
+- query builder internals are now centered on a structured `SelectQueryNode` model instead of looser config mutation. This keeps the public builder workflow largely the same, but makes filtering, relation application, validation, and SQL compilation more explicit internally.
+
+- advanced builder inspection should now prefer `getQueryNode()`. `getConfig()` still exists for compatibility, but it should be treated as a legacy inspection helper rather than the main public view of builder state.
+
+- `withRelation()` behavior is stricter and better defined:
+
+  - string relationship lookup still works for reusable runtime registry usage
+  - direct `JoinPath` usage is the typed path for compile-time table and alias widening
+  - alias override is only supported for single-step relationships, not chains
+
+- tuple `IN` handling is stricter:
+
+  - single-column tuple `IN` is now covered explicitly
+  - tuple width is validated against the selected column width
+  - malformed tuple input fails earlier with clearer errors
+
+- add first-class `isNull` / `isNotNull` filter operators.
+
+### Breaking Changes
+
+- builder chains should be treated as immutable. If you are composing a query conditionally, reassign the returned builder rather than assuming methods mutate the existing instance.
+
+  ```typescript
+  let query = db.table('users');
+  if (onlyActive) query = query.where('status', 'eq', 'active');
+  if (limit) query = query.limit(limit);
+  ```
+
+- `withRelation(..., { alias })` no longer supports alias override for chained relationships. Define aliases on each step of the chain instead.
+
+- tuple `IN` filters now fail earlier when the tuple width does not match the target column list.
+
+### Additional Changes
+
+- docs, examples, and scaffolding now prefer `url` over `host` for ClickHouse connection config.
+
+- `host` remains supported as a deprecated backward-compatible option. Existing `host`-only configs should continue to work.
+
+- adapter namespace derivation now reads either `url` or `host`, which keeps cache/namespace behavior stable across both config styles.
+
+- fix several query-builder correctness issues around grouping, aggregation inference, and empty-set filter behavior:
+
+  - `NOT IN []` / `GLOBAL NOT IN []` now compile to `1 = 1` instead of `1 = 0`
+  - repeated `groupBy()` calls are additive and de-duplicated
+  - aliased selected expressions are grouped correctly when aggregations are added later
+  - explicit `groupBy()` clauses are preserved without duplicate inferred entries
+  - aggregation helpers now accept qualified joined columns in their type surface
+
+- add ClickHouse-specific builder support for:
+
+  - `arrayJoin()`
+  - `leftArrayJoin()`
+  - `limitBy()`
+  - `withTotals()`
+
+  This extends the query AST, SQL renderer, type surface, and integration coverage for several common ClickHouse-native query patterns.
+
+- tighten `arrayJoin()` and `leftArrayJoin()` typing so they only accept array-typed columns, including qualified joined columns and aliased joined columns.
+
+- export the built-in start-of time helpers from the package entrypoint:
+
+  - `toStartOfMinute`
+  - `toStartOfHour`
+  - `toStartOfDay`
+  - `toStartOfWeek`
+  - `toStartOfMonth`
+  - `toStartOfQuarter`
+  - `toStartOfYear`
+
 ## 1.6.2
 
 ### Patch Changes

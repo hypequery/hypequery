@@ -8,10 +8,6 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 hypequery provides several helper methods and utilities to assist with query building and debugging. This guide covers these additional features.
 
-<Callout type="info" title="Query builder syntax">
-  These examples use a typed standalone `db` client so the query builder stays the focus.
-</Callout>
-
 ## SQL Generation
 
 ### toSQL
@@ -162,11 +158,11 @@ const query = db
 
 </CodeBlock>
 
-## Query Configuration
+## Query Inspection
 
-### getConfig
+### getQueryNode
 
-Access the current internal query configuration:
+Access a snapshot of the current structured query node:
 
 <CodeBlock>
 
@@ -176,17 +172,29 @@ const query = db
   .select(['id', 'name'])
   .where('active', 'eq', true);
 
-const config = query.getConfig();
-console.log(config.settings);
-console.log(config.joins);
-console.log(config.groupBy);
+const queryNode = query.getQueryNode();
+console.log(queryNode);
+// {
+//   kind: 'select-query',
+//   select: [{ kind: 'selection', selection: 'id' }, ...],
+//   where: { kind: 'condition', ... },
+//   ...
+// }
 
 ```
 
 </CodeBlock>
 
-<Callout type="warn" title="Advanced API">
-  `getConfig()` returns a legacy snapshot shape for advanced integrations and tests. Prefer `getQueryNode()` or `toQueryNode()` for structured inspection, and `toSQL()` / `toSQLWithParams()` for everyday debugging.
+### getConfig
+
+`getConfig()` is deprecated. If you need to inspect the current query shape, prefer `getQueryNode()`.
+
+<Callout type="info">
+  `getConfig()` now returns a snapshot of the structured query state. It should be treated as legacy inspection API rather than the normal public extension point.
+</Callout>
+
+<Callout type="warning" title="Do not mutate inspection snapshots">
+  `getQueryNode()` and `getConfig()` are for inspection. Do not mutate the returned objects and expect the builder instance to change. Builder methods return new builder state instead.
 </Callout>
 
 ## Type Safety
