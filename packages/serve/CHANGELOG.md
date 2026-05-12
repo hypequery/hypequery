@@ -1,5 +1,11 @@
 # @hypequery/serve
 
+## 0.2.1
+
+### Patch Changes
+
+- de7f4b4: Security update: upgrade openapi-typescript dependency from 7.4.2 to 7.13.0 to resolve high-severity fast-uri vulnerabilities (CVE path traversal and host confusion issues).
+
 ## 0.2.0
 
 ### Minor Changes
