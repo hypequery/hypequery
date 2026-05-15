@@ -1,6 +1,6 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
-import type { QueryBuilderFactoryLike } from "./semantic/datasets/query-builder-protocol.js";
+import type { QueryBuilderFactoryLike } from "@hypequery/semantic";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -549,19 +549,9 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
 // Dataset serve config types
 // ---------------------------------------------------------------------------
 
-import type { DatasetInstance, MetricHandle } from "./semantic/datasets/types.js";
-
-/** Per-dataset entry: shorthand (just the instance) or with overrides. */
-export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
-  | DatasetInstance<any>
-  | {
-      dataset: DatasetInstance<any>;
-      auth?: AuthStrategy<TAuth> | null;
-      cache?: number | null;
-      requiredRoles?: string[];
-      requiredScopes?: string[];
-      maxLimit?: number;
-    };
+import type { DatasetInstance, MetricHandle } from "@hypequery/semantic";
+import type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
+export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 
 /** Map of dataset names to entries. */
 export type DatasetsConfig<TAuth extends AuthContext = AuthContext> =

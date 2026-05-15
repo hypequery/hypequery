@@ -50,7 +50,7 @@ importers:
     dependencies:
       '@hypequery/serve':
         specifier: '*'
-        version: link:../../packages/serve
+        version: 0.2.1(tsx@4.21.0)(typescript@5.9.3)
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -75,7 +75,7 @@ importers:
         version: link:../../packages/react
       '@hypequery/serve':
         specifier: '*'
-        version: link:../../packages/serve
+        version: 0.2.1(tsx@4.21.0)(typescript@5.9.3)
       '@radix-ui/react-popover':
         specifier: ^1.0.7
         version: 1.1.15(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -133,7 +133,7 @@ importers:
         version: 3.3.5
       '@hypequery/cli':
         specifier: '*'
-        version: link:../../packages/cli
+        version: 1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
       '@types/node':
         specifier: ^20.11.24
         version: 20.19.31
@@ -175,7 +175,7 @@ importers:
         version: link:../../packages/react
       '@hypequery/serve':
         specifier: '*'
-        version: link:../../packages/serve
+        version: 0.2.1(tsx@4.21.0)(typescript@5.9.3)
       '@tanstack/react-query':
         specifier: ^5.62.11
         version: 5.90.20(react@18.3.1)
@@ -194,7 +194,7 @@ importers:
     devDependencies:
       '@hypequery/cli':
         specifier: '*'
-        version: link:../../packages/cli
+        version: 1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
       '@types/node':
         specifier: ^20
         version: 20.19.31
@@ -218,7 +218,7 @@ importers:
         version: 1.6.1(@clickhouse/client-web@1.18.3)
       '@hypequery/serve':
         specifier: '*'
-        version: link:../../packages/serve
+        version: 0.2.1(tsx@4.21.0)(typescript@5.9.3)
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
@@ -240,7 +240,7 @@ importers:
         version: link:../../packages/react
       '@hypequery/serve':
         specifier: '*'
-        version: link:../../packages/serve
+        version: 0.2.1(tsx@4.21.0)(typescript@5.9.3)
       '@tanstack/react-query':
         specifier: ^5.62.11
         version: 5.90.20(react@18.3.1)
@@ -256,7 +256,7 @@ importers:
     devDependencies:
       '@hypequery/cli':
         specifier: '*'
-        version: link:../../packages/cli
+        version: 1.1.2(@hypequery/clickhouse@packages+clickhouse)(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.28
@@ -416,8 +416,30 @@ importers:
         specifier: ^2.1.6
         version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
+  packages/semantic:
+    dependencies:
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^18.19.80
+        version: 18.19.130
+      '@vitest/coverage-v8':
+        specifier: ^2.1.6
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.6
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+
   packages/serve:
     dependencies:
+      '@hypequery/semantic':
+        specifier: workspace:*
+        version: link:../semantic
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@5.9.3)
@@ -916,6 +938,19 @@ packages:
     resolution: {integrity: sha512-93zYdMES/c1D69yZiKDBj0V24vqNzB/koF26KPaagAfd3P/4gUlh3Dys5ogAK+Exi9QyzlD8x/08Zt7wIKcDcA==}
     deprecated: Use @eslint/object-schema instead
 
+  '@hypequery/cli@1.1.2':
+    resolution: {integrity: sha512-/wG7X6s8Wt3gMWXskvHEZNNolljgOY41A13Zyh8AzbUoMdJLKcYN3KMkCUnnKfkRuTdfFSHyp3z8vEQdeG2F/g==}
+    hasBin: true
+    peerDependencies:
+      '@hypequery/clickhouse': '*'
+      '@hypequery/schema': '*'
+      '@hypequery/serve': '*'
+    peerDependenciesMeta:
+      '@hypequery/clickhouse':
+        optional: true
+      '@hypequery/schema':
+        optional: true
+
   '@hypequery/clickhouse@1.6.1':
     resolution: {integrity: sha512-MFFHCLBZCoixCiiagOUwWVnK7mF8i/SJ3fwY2o6ml+iVATHL7oJEhEWmT8f/a6wNfcIwH1lNfs3qW3D/fnjxYA==}
     hasBin: true
@@ -923,6 +958,14 @@ packages:
       '@clickhouse/client-web': ^0.2.0 || ^1.0.0
     peerDependenciesMeta:
       '@clickhouse/client-web':
+        optional: true
+
+  '@hypequery/serve@0.2.1':
+    resolution: {integrity: sha512-GIKT1+0MJiH7au4qA96tEc8M6nIfjPD1P77mx6iwf2aiUGxs06yli9e+dn0tQl6bkF13TCk4AIJOaAHDGr5ysw==}
+    peerDependencies:
+      tsx: ^4.0.0
+    peerDependenciesMeta:
+      tsx:
         optional: true
 
   '@img/colour@1.1.0':
@@ -3492,6 +3535,12 @@ packages:
     peerDependencies:
       typescript: ^5.x
 
+  openapi-typescript@7.13.0:
+    resolution: {integrity: sha512-EFP392gcqXS7ntPvbhBzbF8TyBA+baIYEm791Hy5YkjDYKTnk/Tn5OQeKm5BIZvJihpp8Zzr4hzx0Irde1LNGQ==}
+    hasBin: true
+    peerDependencies:
+      typescript: ^5.x
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -5037,12 +5086,52 @@ snapshots:
 
   '@humanwhocodes/object-schema@2.0.3': {}
 
+  '@hypequery/cli@1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))':
+    dependencies:
+      '@clickhouse/client': 1.18.3
+      '@hypequery/serve': 0.2.1(tsx@4.21.0)(typescript@5.9.3)
+      chalk: 5.6.2
+      commander: 12.1.0
+      dotenv: 16.6.1
+      esbuild: 0.25.12
+      open: 10.2.0
+      ora: 8.2.0
+      prompts: 2.4.2
+    optionalDependencies:
+      '@hypequery/clickhouse': 1.6.1(@clickhouse/client-web@1.18.3)
+      '@hypequery/schema': link:packages/schema
+
+  '@hypequery/cli@1.1.2(@hypequery/clickhouse@packages+clickhouse)(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))':
+    dependencies:
+      '@clickhouse/client': 1.18.3
+      '@hypequery/serve': 0.2.1(tsx@4.21.0)(typescript@5.9.3)
+      chalk: 5.6.2
+      commander: 12.1.0
+      dotenv: 16.6.1
+      esbuild: 0.25.12
+      open: 10.2.0
+      ora: 8.2.0
+      prompts: 2.4.2
+    optionalDependencies:
+      '@hypequery/clickhouse': link:packages/clickhouse
+      '@hypequery/schema': link:packages/schema
+
   '@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3)':
     dependencies:
       '@clickhouse/client': 1.18.3
       dotenv: 16.6.1
     optionalDependencies:
       '@clickhouse/client-web': 1.18.3
+
+  '@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3)':
+    dependencies:
+      openapi-typescript: 7.13.0(typescript@5.9.3)
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
+    optionalDependencies:
+      tsx: 4.21.0
+    transitivePeerDependencies:
+      - typescript
 
   '@img/colour@1.1.0':
     optional: true
@@ -7750,6 +7839,16 @@ snapshots:
       define-lazy-prop: 3.0.0
       is-inside-container: 1.0.0
       wsl-utils: 0.1.0
+
+  openapi-typescript@7.13.0(typescript@5.9.3):
+    dependencies:
+      '@redocly/openapi-core': 1.34.6(supports-color@10.2.2)
+      ansi-colors: 4.1.3
+      change-case: 5.4.4
+      parse-json: 8.3.0
+      supports-color: 10.2.2
+      typescript: 5.9.3
+      yargs-parser: 21.1.1
 
   openapi-typescript@7.13.0(typescript@5.9.3):
     dependencies:

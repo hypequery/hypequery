@@ -27,7 +27,8 @@
   "dependencies": {
     "openapi-typescript": "^7.13.0",
     "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.23.5"
+    "zod-to-json-schema": "^3.23.5",
+    "@hypequery/semantic": "workspace:*"
   },
   "peerDependencies": {
     "tsx": "^4.0.0"

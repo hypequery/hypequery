@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createAPI } from '../../server/create-api.js';
-import { dataset } from './dataset.js';
-import { dimension } from './field.js';
-import { measure } from './measure.js';
-import { sum, count, countDistinct } from './aggregations.js';
-import { divide, nullIfZero } from './formulas.js';
-import type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-protocol.js';
+import {
+  dataset,
+  dimension,
+  measure,
+  sum,
+  count,
+  countDistinct,
+  divide,
+  nullIfZero,
+  type QueryBuilderLike,
+  type QueryBuilderFactoryLike,
+} from '@hypequery/semantic';
 import type { ServeRequest } from '../../types.js';
 
 // =============================================================================

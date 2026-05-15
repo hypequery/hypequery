@@ -18,11 +18,17 @@ import type {
   ServeEndpoint,
   ServeMiddleware,
 } from '../../types.js';
-import type { DatasetInstance, FieldType, MetricFilter, MeasureDefinition, TimeGrain } from './types.js';
-import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
+import type {
+  DatasetInstance,
+  FieldType,
+  MetricFilter,
+  MeasureDefinition,
+  TimeGrain,
+  QueryBuilderFactoryLike,
+  ValidationResult,
+} from '@hypequery/semantic';
+import { validateFilterValue, matchesFieldType, GRAIN_FUNCTIONS } from '@hypequery/semantic';
 import { ServeHttpError } from '../../errors.js';
-import { validateFilterValue, matchesFieldType, type ValidationResult } from './validation.js';
-import { GRAIN_FUNCTIONS } from './constants.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for dataset query input / output

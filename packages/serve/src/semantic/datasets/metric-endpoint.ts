@@ -17,8 +17,8 @@ import type {
   ServeEndpoint,
   ServeMiddleware,
 } from '../../types.js';
-import type { MetricContract, MetricHandle } from './types.js';
-import { MetricExecutor } from './executor.js';
+import type { MetricContract, MetricHandle } from '@hypequery/semantic';
+import { MetricExecutor } from '@hypequery/semantic';
 import { ServeHttpError } from '../../errors.js';
 
 // ---------------------------------------------------------------------------

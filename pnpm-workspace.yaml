@@ -4,6 +4,7 @@ packages:
   - 'packages/create-app'
   - 'packages/react'
   - 'packages/schema'
+  - 'packages/semantic'
   - 'packages/serve'
   - 'packages/tsconfig'
   - 'examples/*'

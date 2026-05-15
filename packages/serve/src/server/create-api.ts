@@ -19,9 +19,8 @@ import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { MetricExecutor } from "../semantic/datasets/executor.js";
-import { createMetricEndpoint } from "../semantic/datasets/metric-endpoint.js";
-import { createDatasetEndpoint } from "../semantic/datasets/dataset-endpoint.js";
+import { MetricExecutor } from "@hypequery/semantic";
+import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
 
 /**
  * Create a transport-agnostic API definition.
