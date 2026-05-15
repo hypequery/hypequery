@@ -161,6 +161,22 @@ function appendOrderLimitOffset(
   return qb;
 }
 
+function resolveDimensionExpression(
+  ds: DatasetInstance,
+  dimensionName: string,
+): string {
+  const definition = ds.dimensions[dimensionName];
+  return definition?.sql ?? definition?.column ?? dimensionName;
+}
+
+function resolveFilterField(
+  ds: DatasetInstance,
+  filterField: string,
+): string {
+  const resolvedField = ds.filters[filterField]?.field ?? filterField;
+  return resolveDimensionExpression(ds, resolvedField);
+}
+
 // =============================================================================
 // METRIC EXECUTOR
 // =============================================================================
@@ -275,7 +291,12 @@ export class MetricExecutor {
     }
 
     for (const dim of query.dimensions ?? []) {
-      selectParts.push(dim);
+      const expression = resolveDimensionExpression(ds, dim);
+      if (expression === dim) {
+        selectParts.push(dim);
+      } else {
+        selectParts.push(`${expression} AS ${dim}`);
+      }
       groupByParts.push(dim);
     }
 
@@ -298,7 +319,7 @@ export class MetricExecutor {
 
     // User filters
     for (const filter of query.filters ?? []) {
-      const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+      const resolvedField = resolveFilterField(ds, filter.field);
       qb = qb.where(resolvedField, filter.operator, filter.value);
     }
 
@@ -330,7 +351,12 @@ export class MetricExecutor {
     }
 
     for (const dim of query.dimensions ?? []) {
-      selectParts.push(dim);
+      const expression = resolveDimensionExpression(ds, dim);
+      if (expression === dim) {
+        selectParts.push(dim);
+      } else {
+        selectParts.push(`${expression} AS ${dim}`);
+      }
       groupByParts.push(dim);
     }
 
@@ -358,7 +384,7 @@ export class MetricExecutor {
       cteBuilder = cteBuilder.where(ds.tenantKey, 'eq', context.tenantId);
     }
     for (const filter of query.filters ?? []) {
-      const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+      const resolvedField = resolveFilterField(ds, filter.field);
       cteBuilder = cteBuilder.where(resolvedField, filter.operator, filter.value);
     }
 

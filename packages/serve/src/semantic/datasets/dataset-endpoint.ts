@@ -123,13 +123,20 @@ function validateDatasetQuery(
   const errors: string[] = [];
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
-  const filterNames = Object.keys(ds.filters);
+  const selectedDimensions = query.dimensions ?? [];
   const selectedMeasures = query.measures ?? measureNames;
+  const filterNames = Object.keys(ds.filters);
   const orderableFields = new Set<string>([
-    ...(query.dimensions ?? []),
+    ...selectedDimensions,
     ...selectedMeasures,
     ...(query.by ? ['period'] : []),
   ]);
+
+  if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
+    errors.push(
+      `Dataset "${ds.name}" query must select at least one dimension or measure.`,
+    );
+  }
 
   if (query.dimensions) {
     const invalid = query.dimensions.filter(c => !dimensionNames.includes(c));
@@ -193,6 +200,22 @@ function validateDatasetQuery(
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+function resolveDimensionExpression(
+  ds: DatasetInstance,
+  dimensionName: string,
+): string {
+  const definition = ds.dimensions[dimensionName];
+  return definition?.sql ?? definition?.column ?? dimensionName;
+}
+
+function resolveFilterField(
+  ds: DatasetInstance,
+  filterField: string,
+): string {
+  const resolvedField = ds.filters[filterField]?.field ?? filterField;
+  return resolveDimensionExpression(ds, resolvedField);
 }
 
 function applyMeasure(
@@ -283,8 +306,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     }
 
     for (const dimensionName of dimensions) {
-      const definition = ds.dimensions[dimensionName];
-      const expression = definition?.sql ?? definition?.column ?? dimensionName;
+      const expression = resolveDimensionExpression(ds, dimensionName);
       if (expression === dimensionName) {
         selectParts.push(dimensionName);
       } else {
@@ -314,7 +336,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     // User filters
     if (input.filters) {
       for (const filter of input.filters) {
-        const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+        const resolvedField = resolveFilterField(ds, filter.field);
         builder = builder.where(resolvedField, filter.operator, filter.value);
       }
     }

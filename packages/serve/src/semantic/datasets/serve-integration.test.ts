@@ -46,6 +46,19 @@ const Orders = dataset("orders", {
   },
 });
 
+const OrdersWithAliases = dataset("ordersWithAliases", {
+  source: "orders",
+  timeKey: "created_at",
+  dimensions: {
+    createdAt: dimension.timestamp({ column: "created_at" }),
+    countryCode: dimension.string({ column: "country_code" }),
+    amount: dimension.number(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+
 const totalRevenue = Orders.metric("totalRevenue", {
   measure: "revenue",
   label: "Total Revenue",
@@ -65,6 +78,9 @@ const avgOrderValue = Orders.metric("avgOrderValue", {
 });
 
 const monthlyRevenue = totalRevenue.by("month");
+const aliasedRevenue = OrdersWithAliases.metric("aliasedRevenue", {
+  measure: "revenue",
+});
 
 const BASE_PATH = "/api/analytics";
 
@@ -265,12 +281,11 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      expect(factory.rawQuery).toHaveBeenCalled();
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-      expect(sql).toContain("country");
-      expect(sql).toContain("SUM(amount)");
-      expect(sql).toContain("status = ?");
-      expect(sql).toContain("LIMIT 10");
+      expect(factory._calls['select']).toBeDefined();
+      expect(factory._calls['select'][0][0]).toContain('country');
+      expect(factory._calls['sum']).toContainEqual(['amount', 'totalRevenue']);
+      expect(factory._calls['where']).toContainEqual(['status', 'eq', 'completed']);
+      expect(factory._calls['limit']).toContainEqual([10]);
     });
 
     it("supports time graining via body.by", async () => {
@@ -288,9 +303,8 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-      expect(sql).toContain("toStartOfMonth");
-      expect(sql).toContain("period");
+      expect(factory._calls['select']).toBeDefined();
+      expect(factory._calls['select'][0][0]).toContain('toStartOfMonth(created_at) AS period');
     });
 
     it("supports grained metric refs in createAPI", async () => {
@@ -308,9 +322,9 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-      expect(sql).toContain("toStartOfMonth");
-      expect(sql).toContain("ORDER BY period");
+      expect(factory._calls['select']).toBeDefined();
+      expect(factory._calls['select'][0][0]).toContain('toStartOfMonth(created_at) AS period');
+      expect(factory._calls['orderBy']).toContainEqual(['period', 'ASC']);
     });
 
     it("rejects conflicting body.by for grained metric refs", async () => {
@@ -372,11 +386,38 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-      expect(sql).toContain("toStartOfMonth");
-      expect(sql).toContain("country");
-      expect(sql).toContain("ORDER BY period ASC");
-      expect(sql).toContain("LIMIT 12");
+      expect(factory._calls['select']).toBeDefined();
+      expect(factory._calls['select'][0][0]).toContain('toStartOfMonth(created_at) AS period');
+      expect(factory._calls['select'][0][0]).toContain('country');
+      expect(factory._calls['orderBy']).toContainEqual(['period', 'ASC']);
+      expect(factory._calls['limit']).toContainEqual([12]);
+    });
+
+    it("resolves aliased dimensions and filters through dataset field mappings", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { aliasedRevenue },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/aliasedRevenue",
+          method: "POST",
+          body: {
+            dimensions: ["countryCode"],
+            filters: [{ field: "createdAt", operator: "gte", value: "2025-01-01" }],
+            by: "month",
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory._calls['select']).toBeDefined();
+      const selectArgs = factory._calls['select'].flat(2);
+      expect(selectArgs).toContain('toStartOfMonth(created_at) AS period');
+      expect(selectArgs).toContain('country_code AS countryCode');
+      expect(factory._calls['where']).toContainEqual(['created_at', 'gte', '2025-01-01']);
     });
   });
 
@@ -451,8 +492,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-      expect(sql).toContain("tenant_id = ?");
+      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
     it("does not warn about manual tenant mode for generated metric endpoints", async () => {
@@ -859,6 +899,29 @@ describe("Serve integration — metrics", () => {
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("period");
       expect(sql).toContain("NULLIF(orderCount, 0)");
+    });
+
+    it("rejects empty dataset queries instead of falling back to raw table selection", async () => {
+      const EmptyDataset = dataset("emptyDataset", {
+        source: "orders",
+        dimensions: {},
+        measures: {},
+      });
+      const api = createAPI({
+        datasets: { emptyDataset: EmptyDataset },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/emptyDataset/query",
+          method: "POST",
+          body: {},
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect((response.body as any).error.message).toContain("at least one dimension or measure");
     });
 
   });

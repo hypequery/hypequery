@@ -45,6 +45,33 @@ export const defineServe = <
 
   // Extend the API with backwards-compatible ServeBuilder methods
   const builder = api as unknown as ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
+  const routeConfig: Record<string, { method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" }> = {};
+
+  for (const [key, endpoint] of Object.entries(api.queries)) {
+    routeConfig[key] = { method: endpoint.method };
+  }
+
+  Object.defineProperty(builder, "basePath", {
+    value: config.basePath ?? "/api/analytics",
+    enumerable: true,
+    configurable: true,
+  });
+
+  Object.defineProperty(builder, "_routeConfig", {
+    value: routeConfig,
+    enumerable: true,
+    configurable: true,
+  });
+
+  const originalRoute = builder.route.bind(builder);
+  (builder as any).route = (path: string, endpoint: any, options: any = {}) => {
+    const result = originalRoute(path, endpoint, options);
+    const queryKey = Object.entries(api.queries).find(([_, entry]) => entry === endpoint)?.[0];
+    if (queryKey) {
+      routeConfig[queryKey] = { method: options?.method ?? endpoint.method };
+    }
+    return result;
+  };
 
   // Add transport method that ServeBuilder expects
   (builder as any).start = async (options: StartServerOptions = {}) => {
