@@ -16,7 +16,7 @@
  * ```
  */
 
-import type { DimensionDefinition, DimensionOptions, FieldDefinition, FieldOptions, FieldType } from './types.js';
+import type { DimensionDefinition, DimensionOptions, FieldType } from './types.js';
 
 function createFieldHelper<T extends FieldType>(fieldType: T) {
   return (opts?: DimensionOptions): DimensionDefinition<T> => ({
@@ -37,10 +37,3 @@ export const dimension = {
   boolean: createFieldHelper('boolean'),
   timestamp: createFieldHelper('timestamp'),
 } as const;
-
-export const field: {
-  string: (opts?: FieldOptions) => FieldDefinition<'string'>;
-  number: (opts?: FieldOptions) => FieldDefinition<'number'>;
-  boolean: (opts?: FieldOptions) => FieldDefinition<'boolean'>;
-  timestamp: (opts?: FieldOptions) => FieldDefinition<'timestamp'>;
-} = dimension;

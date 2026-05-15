@@ -19,6 +19,7 @@ import type {
 } from '../../types.js';
 import type { MetricContract, MetricHandle } from './types.js';
 import { MetricExecutor } from './executor.js';
+import { ServeHttpError } from '../../errors.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for metric query input / output
@@ -131,14 +132,11 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     // Validate against contract
     const validation = executor.validate(metricRef, query);
     if (!validation.valid) {
-      const error = new Error(validation.errors.join('; ')) as any;
-      error.status = 400;
-      error.payload = {
-        type: 'VALIDATION_ERROR' as const,
-        message: validation.errors.join('; '),
-        details: { errors: validation.errors },
-      };
-      throw error;
+      throw new ServeHttpError(
+        400,
+        'VALIDATION_ERROR',
+        validation.errors.join('; ')
+      );
     }
 
     // Execute with tenant context

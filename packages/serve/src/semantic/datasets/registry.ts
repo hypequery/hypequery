@@ -7,10 +7,10 @@
 import type { DatasetInstance, DatasetRegistryInstance } from './types.js';
 
 export function createDatasetRegistry(): DatasetRegistryInstance {
-  const datasets = new Map<string, DatasetInstance<any>>();
+  const datasets = new Map<string, DatasetInstance>();
 
   return {
-    register(ds: DatasetInstance<any>): void {
+    register(ds: DatasetInstance): void {
       if (datasets.has(ds.name)) {
         throw new Error(
           `Dataset "${ds.name}" is already registered. Dataset names must be unique.`,
@@ -19,11 +19,11 @@ export function createDatasetRegistry(): DatasetRegistryInstance {
       datasets.set(ds.name, ds);
     },
 
-    get(name: string): DatasetInstance<any> | undefined {
+    get(name: string): DatasetInstance | undefined {
       return datasets.get(name);
     },
 
-    getAll(): DatasetInstance<any>[] {
+    getAll(): DatasetInstance[] {
       return Array.from(datasets.values());
     },
 

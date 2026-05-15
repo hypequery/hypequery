@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PropsWithChildren } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { createSemanticHooks } from './semanticHooks.js';
+import { createAnalyticsHooks } from './analyticsHooks.js';
 
 type SemanticApi = {
   totalRevenue: {
@@ -40,7 +40,7 @@ function mockSuccessResponse<T>(data: T) {
   } as Response;
 }
 
-describe('createSemanticHooks', () => {
+describe('createAnalyticsHooks', () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
@@ -50,7 +50,7 @@ describe('createSemanticHooks', () => {
   it('queries metrics through useMetric with metric names only', async () => {
     fetchMock.mockResolvedValue(mockSuccessResponse({ data: [{ totalRevenue: 42 }] }));
 
-    const { useMetric } = createSemanticHooks<SemanticApi>({
+    const { useMetric } = createAnalyticsHooks<SemanticApi>({
       baseUrl: '/api/analytics',
       fetchFn: fetchMock as unknown as typeof fetch,
       metrics: ['totalRevenue', 'monthlyRevenue'],
@@ -80,7 +80,7 @@ describe('createSemanticHooks', () => {
   it('queries datasets through useDataset without exposing dataset: keys', async () => {
     fetchMock.mockResolvedValue(mockSuccessResponse({ data: [{ country: 'US', revenue: 120 }] }));
 
-    const { useDataset } = createSemanticHooks<SemanticApi>({
+    const { useDataset } = createAnalyticsHooks<SemanticApi>({
       baseUrl: '/api/analytics',
       fetchFn: fetchMock as unknown as typeof fetch,
       metrics: [] as const,
@@ -110,7 +110,7 @@ describe('createSemanticHooks', () => {
   it('supports metric names from the declared semantic metric list', async () => {
     fetchMock.mockResolvedValue(mockSuccessResponse({ data: [{ period: '2025-01-01', monthlyRevenue: 90 }] }));
 
-    const { useMetric } = createSemanticHooks<SemanticApi>({
+    const { useMetric } = createAnalyticsHooks<SemanticApi>({
       baseUrl: '/api/analytics',
       fetchFn: fetchMock as unknown as typeof fetch,
       metrics: ['totalRevenue', 'monthlyRevenue'],
@@ -132,7 +132,7 @@ describe('createSemanticHooks', () => {
   it('resolves semantic config paths against an absolute baseUrl host', async () => {
     fetchMock.mockResolvedValue(mockSuccessResponse({ data: [{ totalRevenue: 42 }] }));
 
-    const { useMetric } = createSemanticHooks<SemanticApi>({
+    const { useMetric } = createAnalyticsHooks<SemanticApi>({
       baseUrl: 'https://api.example.com/hypequery',
       fetchFn: fetchMock as unknown as typeof fetch,
       metrics: ['totalRevenue', 'monthlyRevenue'],

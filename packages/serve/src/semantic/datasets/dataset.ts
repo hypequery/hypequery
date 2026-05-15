@@ -51,15 +51,6 @@ import type {
 const ALL_GRAINS: TimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
 const NUMERIC_FIELD_TYPES = new Set(['number']);
 
-function isBaseMetricConfig<
-  TDimensions extends Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition>,
->(
-  config: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig,
-): config is BaseMetricConfig<TDimensions, TMeasures> {
-  return 'value' in config || 'measure' in config;
-}
-
 function isDerivedMetricConfig<
   TDimensions extends Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition>,
@@ -200,11 +191,7 @@ function validateDerivedMetric(
 function normalizeDimensions<TDimensions extends Record<string, DimensionDefinition>>(
   config: DatasetConfig<TDimensions, any, any>,
 ): TDimensions {
-  const dimensions = config.dimensions ?? config.fields;
-  if (!dimensions) {
-    throw new Error('dataset() requires a `dimensions` definition.');
-  }
-  return dimensions as TDimensions;
+  return config.dimensions as TDimensions;
 }
 
 function normalizeFilters(
@@ -275,7 +262,6 @@ export function dataset<
     tenantKey: config.tenantKey,
     timeKey: config.timeKey,
     dimensions,
-    fields: dimensions,
     measures,
     filters,
     relationships: (config.relationships ?? {}) as TRelationships,
@@ -285,31 +271,6 @@ export function dataset<
       metricName: TName,
       metricConfig: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig,
     ): MetricRef<string, TName> {
-      if ('measure' in metricConfig && metricConfig.measure) {
-        const measureName = metricConfig.measure;
-        const measure = ds.measures[measureName];
-        if (!measure) {
-          throw new Error(
-            `Invalid metric "${metricName}": measure "${measureName}" does not exist on dataset "${ds.name}".`,
-          );
-        }
-        const spec = measureToAggregationSpec(measureName, measure);
-        validateBaseMetric(ds, metricName, spec, { allowHiddenField: true });
-        return createMetricRef(
-          ds, metricName, spec,
-          metricConfig.label ?? measure.label,
-          metricConfig.description ?? measure.description,
-        ) as MetricRef<string, TName>;
-      }
-
-      if (isBaseMetricConfig(metricConfig) && metricConfig.value) {
-        validateBaseMetric(ds, metricName, metricConfig.value);
-        return createMetricRef(
-          ds, metricName, metricConfig.value,
-          metricConfig.label, metricConfig.description,
-        ) as MetricRef<string, TName>;
-      }
-
       if (isDerivedMetricConfig(metricConfig)) {
         validateDerivedMetric(ds, metricName, metricConfig);
         const derivedSpec: DerivedMetricSpec = {
@@ -323,10 +284,21 @@ export function dataset<
         ) as MetricRef<string, TName>;
       }
 
-      throw new Error(
-        `Invalid metric config for "${metricName}". ` +
-        `Expected either { value: sum(...) } or { uses: ..., formula: ... }.`,
-      );
+      // Base metric (measure-based)
+      const measureName = metricConfig.measure;
+      const measure = ds.measures[measureName];
+      if (!measure) {
+        throw new Error(
+          `Invalid metric "${metricName}": measure "${measureName}" does not exist on dataset "${ds.name}".`,
+        );
+      }
+      const spec = measureToAggregationSpec(measureName, measure);
+      validateBaseMetric(ds, metricName, spec, { allowHiddenField: true });
+      return createMetricRef(
+        ds, metricName, spec,
+        metricConfig.label ?? measure.label,
+        metricConfig.description ?? measure.description,
+      ) as MetricRef<string, TName>;
     },
 
     query(queryConfig: DatasetQueryConfig<TDimensions, TMeasures>): DatasetQueryRef<TDimensions, TMeasures> {

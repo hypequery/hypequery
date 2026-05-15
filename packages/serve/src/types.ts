@@ -1,9 +1,6 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
-import type { MetricAdapter } from "./semantic/datasets/executor.js";
 import type { QueryBuilderFactoryLike } from "./semantic/datasets/query-builder-protocol.js";
-import type { MetricsBlock } from "./semantic/datasets/define-metrics.js";
-import type { DatasetsBlock } from "./semantic/datasets/define-datasets.js";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -599,7 +596,7 @@ export interface ServeConfig<
    * });
    * ```
    */
-  metrics?: MetricsConfig<TAuth> | MetricsBlock<TAuth>;
+  metrics?: MetricsConfig<TAuth>;
   /**
    * Semantic dataset endpoints — auto-generated POST endpoints for each dataset.
    * Each dataset gets a `POST /api/analytics/datasets/:name/query` endpoint
@@ -620,10 +617,10 @@ export interface ServeConfig<
    * });
    * ```
    */
-  datasets?: DatasetsConfig<TAuth> | DatasetsBlock<TAuth>;
+  datasets?: DatasetsConfig<TAuth>;
   /**
    * Query builder instance for metric/dataset execution.
-   * Required when inline `metrics` or `datasets` are provided (unless `metricAdapter` is given).
+   * Required when `metrics` or `datasets` are provided.
    * Pass the return value of `createQueryBuilder(config)` directly.
    *
    * @example
@@ -636,11 +633,6 @@ export interface ServeConfig<
    * ```
    */
   queryBuilder?: QueryBuilderFactoryLike;
-  /**
-   * Database adapter for metric execution.
-   * @deprecated Use `queryBuilder` instead — pass the `createQueryBuilder` return directly.
-   */
-  metricAdapter?: MetricAdapter;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
@@ -693,6 +685,31 @@ export interface ServeConfig<
    */
   security?: {
     verboseAuthErrors?: boolean;
+  };
+  /**
+   * Customize path prefixes for auto-generated semantic layer endpoints.
+   * Useful for avoiding route collisions or organizing API structure.
+   *
+   * @default { metrics: '/metrics', datasets: '/datasets' }
+   *
+   * @example
+   * ```ts
+   * const api = createAPI({
+   *   metrics: { totalRevenue },
+   *   datasets: { orders: Orders },
+   *   semanticPaths: {
+   *     metrics: '/api/metrics',
+   *     datasets: '/api/data',
+   *   },
+   * });
+   * // Generates:
+   * // POST /api/metrics/totalRevenue
+   * // POST /api/data/orders/query
+   * ```
+   */
+  semanticPaths?: {
+    metrics?: string;
+    datasets?: string;
   };
 }
 

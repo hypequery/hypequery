@@ -22,8 +22,6 @@ import { createAPImethods } from "./api-builder.js";
 import { MetricExecutor } from "../semantic/datasets/executor.js";
 import { createMetricEndpoint } from "../semantic/datasets/metric-endpoint.js";
 import { createDatasetEndpoint } from "../semantic/datasets/dataset-endpoint.js";
-import type { MetricsBlock } from "../semantic/datasets/define-metrics.js";
-import type { DatasetsBlock } from "../semantic/datasets/define-datasets.js";
 
 /**
  * Create a transport-agnostic API definition.
@@ -128,48 +126,22 @@ export const createAPI = <
 
   // Process metrics — auto-generate POST endpoints
   if (config.metrics) {
-    const isBlock = (m: any): m is MetricsBlock<TAuth> =>
-      m && typeof m === 'object' && m.__type === 'metrics_block';
-
-    const metricsEntries = isBlock(config.metrics) ? config.metrics.entries : config.metrics;
-    const metricsDefaults = isBlock(config.metrics) ? config.metrics.defaults : undefined;
+    const metricsEntries = config.metrics;
     const builderFactory = config.queryBuilder;
-    const adapter = config.metricAdapter;
 
-    if (!builderFactory && !adapter) {
+    if (!builderFactory) {
       throw new Error(
-        'createAPI: `queryBuilder` (or deprecated `metricAdapter`) is required when `metrics` is provided. ' +
+        'createAPI: `queryBuilder` is required when `metrics` is provided. ' +
         'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
       );
     }
 
-    const executor = new MetricExecutor(
-      builderFactory ? { builderFactory } : { adapter: adapter! },
-    );
+    const executor = new MetricExecutor({ builderFactory });
 
     for (const [name, entry] of Object.entries(metricsEntries)) {
-      // Apply block-level defaults for inline entries (shorthand MetricRef)
-      let resolvedEntry = entry;
-      if (metricsDefaults) {
-        const isRef = entry && typeof entry === 'object' && '__type' in entry &&
-          (entry.__type === 'metric_ref' || entry.__type === 'grained_metric_ref');
-        if (isRef) {
-          resolvedEntry = {
-            metric: entry,
-            auth: metricsDefaults.auth,
-            cache: metricsDefaults.cache,
-          };
-        } else if (typeof entry === 'object' && 'metric' in entry) {
-          resolvedEntry = {
-            auth: metricsDefaults.auth,
-            cache: metricsDefaults.cache,
-            ...entry,
-          };
-        }
-      }
-
-      const metricEndpoint = createMetricEndpoint(name, resolvedEntry, executor);
-      const routePath = normalizeRoutePath(`/metrics/${name}`);
+      const metricEndpoint = createMetricEndpoint(name, entry, executor);
+      const metricsPath = config.semanticPaths?.metrics ?? '/metrics';
+      const routePath = normalizeRoutePath(`${metricsPath}/${name}`);
 
       const registeredEndpoint = {
         ...metricEndpoint,
@@ -183,11 +155,7 @@ export const createAPI = <
 
   // Process datasets — auto-generate POST endpoints for semantic dataset queries
   if (config.datasets) {
-    const isBlock = (d: any): d is DatasetsBlock<TAuth> =>
-      d && typeof d === 'object' && d.__type === 'datasets_block';
-
-    const datasetEntries = isBlock(config.datasets) ? config.datasets.entries : config.datasets;
-    const datasetDefaults = isBlock(config.datasets) ? config.datasets.defaults : undefined;
+    const datasetEntries = config.datasets;
     const builderFactory = config.queryBuilder;
 
     if (!builderFactory) {
@@ -198,30 +166,13 @@ export const createAPI = <
     }
 
     for (const [name, entry] of Object.entries(datasetEntries)) {
-      const resolvedEntry =
-        datasetDefaults && entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'dataset'
-          ? {
-              dataset: entry,
-              auth: datasetDefaults.auth,
-              cache: datasetDefaults.cache,
-              maxLimit: datasetDefaults.maxLimit,
-            }
-          : datasetDefaults && typeof entry === 'object' && 'dataset' in entry
-            ? {
-                auth: datasetDefaults.auth,
-                cache: datasetDefaults.cache,
-                maxLimit: datasetDefaults.maxLimit,
-                ...entry,
-              }
-            : entry;
-
       const datasetEndpoint = createDatasetEndpoint(
         name,
-        resolvedEntry,
+        entry,
         builderFactory,
-        datasetDefaults?.maxLimit,
       );
-      const routePath = normalizeRoutePath(`/datasets/${name}/query`);
+      const datasetsPath = config.semanticPaths?.datasets ?? '/datasets';
+      const routePath = normalizeRoutePath(`${datasetsPath}/${name}/query`);
 
       const registeredEndpoint = {
         ...datasetEndpoint,

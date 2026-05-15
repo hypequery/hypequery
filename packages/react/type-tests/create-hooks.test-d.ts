@@ -1,4 +1,4 @@
-import { createHooks, createSemanticHooks, queryOptions, type QueryInput, type QueryOutput } from '../src/index.js';
+import { createHooks, createAnalyticsHooks, queryOptions, type QueryInput, type QueryOutput } from '../src/index.js';
 import type { Expect, Equal } from '@type-challenges/utils';
 
 type Api = {
@@ -20,7 +20,7 @@ type Api = {
 };
 
 const hooks = createHooks<Api>({ baseUrl: 'https://api.example.com' });
-const semantic = createSemanticHooks<{
+const semantic = createAnalyticsHooks<{
   totalRevenue: {
     input: { dimensions?: string[] };
     output: { data: Array<{ totalRevenue: number }> };

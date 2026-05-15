@@ -1,8 +1,8 @@
 // Dataset definition
 export { dataset } from './dataset.js';
 
-// Field helpers
-export { field, dimension } from './field.js';
+// Dimension helpers
+export { dimension } from './field.js';
 
 // Measure helpers
 export { measure } from './measure.js';
@@ -33,32 +33,33 @@ export { createDatasetRegistry } from './registry.js';
 
 // Executor
 export { MetricExecutor } from './executor.js';
-export type { MetricAdapter, MetricExecutorOptions, ValidationResult } from './executor.js';
+export type { MetricExecutorOptions } from './executor.js';
+
+// Validation
+export type { ValidationResult } from './validation.js';
+export { validateFilterValue, matchesFieldType } from './validation.js';
 
 // Query builder protocol (duck-typed interfaces for DB-agnostic builder usage)
 export type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-protocol.js';
 
+// SQL utilities
+export { validateSQLIdentifier, isSafeSQLIdentifier, quoteSQLIdentifier } from './sql-utils.js';
+
+// Constants
+export { GRAIN_FUNCTIONS } from './constants.js';
+
 // Serve integration
 export { createMetricEndpoint } from './metric-endpoint.js';
 export { createDatasetEndpoint } from './dataset-endpoint.js';
-
-// Standalone block factories
-export { defineMetrics } from './define-metrics.js';
-export type { MetricsBlock, MetricEntryInput, MetricsInput, DefineMetricsOptions } from './define-metrics.js';
-export { defineDatasets } from './define-datasets.js';
-export type { DatasetsBlock, DatasetEntryInput, DatasetsInput, DefineDatasetsOptions } from './define-datasets.js';
 
 // Types
 export type {
   FieldType,
   DimensionType,
   DimensionOptions,
-  FieldOptions,
-  FieldDefinition,
   DimensionDefinition,
   MeasureOptions,
   MeasureDefinition,
-  InferFieldType,
   InferDimensionType,
   RelationshipKind,
   RelationshipDefinition,

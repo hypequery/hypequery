@@ -20,6 +20,9 @@ import type {
 } from '../../types.js';
 import type { DatasetInstance, FieldType, MetricFilter, MeasureDefinition, TimeGrain } from './types.js';
 import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
+import { ServeHttpError } from '../../errors.js';
+import { validateFilterValue, matchesFieldType, type ValidationResult } from './validation.js';
+import { GRAIN_FUNCTIONS } from './constants.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for dataset query input / output
@@ -63,9 +66,9 @@ const datasetResultSchema = z.object({
 
 /** Per-dataset entry: shorthand (just the instance) or with overrides. */
 export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
-  | DatasetInstance<any>
+  | DatasetInstance
   | {
-      dataset: DatasetInstance<any>;
+      dataset: DatasetInstance;
       auth?: AuthStrategy<TAuth> | null;
       cache?: number | null;
       requiredRoles?: string[];
@@ -76,7 +79,7 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
 function resolveDatasetEntry<TAuth extends AuthContext>(
   entry: DatasetEntry<TAuth>,
 ): {
-  dataset: DatasetInstance<any>;
+  dataset: DatasetInstance;
   auth?: AuthStrategy<TAuth> | null;
   cache?: number | null;
   requiredRoles?: string[];
@@ -84,10 +87,10 @@ function resolveDatasetEntry<TAuth extends AuthContext>(
   maxLimit?: number;
 } {
   if (entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'dataset') {
-    return { dataset: entry as DatasetInstance<any> };
+    return { dataset: entry as DatasetInstance };
   }
   return entry as {
-    dataset: DatasetInstance<any>;
+    dataset: DatasetInstance;
     auth?: AuthStrategy<TAuth> | null;
     cache?: number | null;
     requiredRoles?: string[];
@@ -100,71 +103,8 @@ function resolveDatasetEntry<TAuth extends AuthContext>(
 // Validation
 // ---------------------------------------------------------------------------
 
-interface ValidationResult {
-  valid: boolean;
-  errors: string[];
-}
-
-function matchesFieldType(fieldType: FieldType, value: unknown): boolean {
-  switch (fieldType) {
-    case 'string':
-    case 'timestamp':
-      return typeof value === 'string';
-    case 'number':
-      return typeof value === 'number' && Number.isFinite(value);
-    case 'boolean':
-      return typeof value === 'boolean';
-    default:
-      return false;
-  }
-}
-
-function validateFilterValue(filter: MetricFilter, fieldType: FieldType): string | null {
-  switch (filter.operator) {
-    case 'eq':
-    case 'neq':
-      return matchesFieldType(fieldType, filter.value)
-        ? null
-        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
-    case 'gt':
-    case 'gte':
-    case 'lt':
-    case 'lte':
-      if (fieldType === 'boolean') {
-        return `"${filter.operator}" is not supported for boolean field "${filter.field}".`;
-      }
-      return matchesFieldType(fieldType, filter.value)
-        ? null
-        : `"${filter.operator}" expects a ${fieldType} value for field "${filter.field}".`;
-    case 'like':
-      if (fieldType !== 'string' && fieldType !== 'timestamp') {
-        return `"like" is only supported for string or timestamp field "${filter.field}".`;
-      }
-      return typeof filter.value === 'string'
-        ? null
-        : `"like" expects a string value for field "${filter.field}".`;
-    case 'in':
-    case 'notIn':
-      if (!Array.isArray(filter.value) || filter.value.length === 0) {
-        return `"${filter.operator}" expects a non-empty array for field "${filter.field}".`;
-      }
-      return filter.value.every(value => matchesFieldType(fieldType, value))
-        ? null
-        : `"${filter.operator}" expects ${fieldType} values for field "${filter.field}".`;
-    case 'between':
-      if (!Array.isArray(filter.value) || filter.value.length !== 2) {
-        return `"between" expects a two-item array for field "${filter.field}".`;
-      }
-      return filter.value.every(value => matchesFieldType(fieldType, value))
-        ? null
-        : `"between" expects ${fieldType} values for field "${filter.field}".`;
-    default:
-      return null;
-  }
-}
-
 function validateDatasetQuery(
-  ds: DatasetInstance<any>,
+  ds: DatasetInstance,
   query: {
     dimensions?: string[];
     measures?: string[];
@@ -249,32 +189,26 @@ function validateDatasetQuery(
   return { valid: errors.length === 0, errors };
 }
 
-const GRAIN_FUNCTIONS: Record<TimeGrain, string> = {
-  day: 'toStartOfDay',
-  week: 'toStartOfWeek',
-  month: 'toStartOfMonth',
-  quarter: 'toStartOfQuarter',
-  year: 'toStartOfYear',
-};
-
 function applyMeasure(
   builder: ReturnType<QueryBuilderFactoryLike['table']>,
   name: string,
   definition: MeasureDefinition,
 ) {
+  const fieldOrExpr = definition.sql ?? definition.field;
+
   switch (definition.aggregation) {
     case 'sum':
-      return builder.sum(definition.field, name);
+      return builder.sum(fieldOrExpr, name);
     case 'count':
-      return builder.count(definition.field, name);
+      return builder.count(fieldOrExpr, name);
     case 'countDistinct':
-      return builder.countDistinct(definition.field, name);
+      return builder.countDistinct(fieldOrExpr, name);
     case 'avg':
-      return builder.avg(definition.field, name);
+      return builder.avg(fieldOrExpr, name);
     case 'min':
-      return builder.min(definition.field, name);
+      return builder.min(fieldOrExpr, name);
     case 'max':
-      return builder.max(definition.field, name);
+      return builder.max(fieldOrExpr, name);
     default:
       throw new Error(`Unsupported measure aggregation: ${definition.aggregation}`);
   }
@@ -288,13 +222,12 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   name: string,
   entry: DatasetEntry<TAuth>,
   builderFactory: QueryBuilderFactoryLike,
-  blockMaxLimit?: number,
 ): ServeEndpoint<typeof datasetQueryInputSchema, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
-  const effectiveMaxLimit = resolved.maxLimit ?? blockMaxLimit ?? ds.limits?.maxResultSize ?? 1000;
+  const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
 
   const metadata: EndpointMetadata = {
     path: '', // filled by router.register
@@ -320,14 +253,11 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     // Validate
     const validation = validateDatasetQuery(ds, input, effectiveMaxLimit);
     if (!validation.valid) {
-      const error = new Error(validation.errors.join('; ')) as any;
-      error.status = 400;
-      error.payload = {
-        type: 'VALIDATION_ERROR' as const,
-        message: validation.errors.join('; '),
-        details: { errors: validation.errors },
-      };
-      throw error;
+      throw new ServeHttpError(
+        400,
+        'VALIDATION_ERROR',
+        validation.errors.join('; ')
+      );
     }
 
     // Build query
@@ -435,7 +365,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   };
 }
 
-function buildDescription(ds: DatasetInstance<any>, maxLimit: number): string {
+function buildDescription(ds: DatasetInstance, maxLimit: number): string {
   const dimensionNames = Object.keys(ds.dimensions);
   const measureNames = Object.keys(ds.measures);
   const lines = [

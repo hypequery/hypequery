@@ -5,6 +5,7 @@ function createMeasureHelper(aggregation: MeasureAggregation) {
     __type: 'measure_definition',
     aggregation,
     field,
+    sql: opts?.sql,
     label: opts?.label,
     description: opts?.description,
   });

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createAPI } from '../../server/create-api.js';
 import { dataset } from './dataset.js';
-import { field } from './field.js';
+import { dimension } from './field.js';
+import { measure } from './measure.js';
 import { sum, count, countDistinct } from './aggregations.js';
 import { divide, nullIfZero } from './formulas.js';
-import type { MetricAdapter } from './executor.js';
 import type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-protocol.js';
 import type { ServeRequest } from '../../types.js';
 
@@ -16,13 +16,17 @@ const Orders = dataset("orders", {
   source: "orders",
   tenantKey: "tenant_id",
   timeKey: "created_at",
-  fields: {
-    id: field.string(),
-    customerId: field.string(),
-    country: field.string({ label: "Country" }),
-    status: field.string({ label: "Order Status" }),
-    amount: field.number({ label: "Amount" }),
-    createdAt: field.timestamp(),
+  dimensions: {
+    id: dimension.string(),
+    customerId: dimension.string(),
+    country: dimension.string({ label: "Country" }),
+    status: dimension.string({ label: "Order Status" }),
+    amount: dimension.number({ label: "Amount" }),
+    createdAt: dimension.timestamp(),
+  },
+  measures: {
+    revenue: measure.sum('amount', { label: "Revenue" }),
+    count: measure.count('id', { label: "Order Count" }),
   },
   filters: {
     status: {
@@ -37,13 +41,13 @@ const Orders = dataset("orders", {
 });
 
 const totalRevenue = Orders.metric("totalRevenue", {
-  value: sum("amount"),
+  measure: "revenue",
   label: "Total Revenue",
   description: "Sum of all order amounts",
 });
 
 const orderCount = Orders.metric("orderCount", {
-  value: count("id"),
+  measure: "count",
   label: "Order Count",
 });
 
@@ -58,14 +62,6 @@ const monthlyRevenue = totalRevenue.by("month");
 
 const BASE_PATH = "/api/analytics";
 
-function createMockAdapter(): MetricAdapter {
-  return {
-    rawQuery: vi.fn().mockResolvedValue([
-      { country: "US", totalRevenue: 5000 },
-      { country: "DE", totalRevenue: 3000 },
-    ]),
-  };
-}
 
 function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
   const path = overrides.path ?? "/";
@@ -81,6 +77,48 @@ function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
   };
 }
 
+function createMockBuilderFactory(): QueryBuilderFactoryLike & { _calls: Record<string, any[][]> } {
+  const calls: Record<string, any[][]> = {};
+  const track = (name: string, ...args: any[]) => {
+    calls[name] = calls[name] || [];
+    calls[name].push(args);
+  };
+
+  const mockData = [
+    { country: "US", totalRevenue: 5000 },
+    { country: "DE", totalRevenue: 3000 },
+  ];
+
+  function createMockBuilder(): QueryBuilderLike {
+    const builder: QueryBuilderLike = {
+      select: (...args: any[]) => { track('select', ...args); return builder; },
+      sum: (...args: any[]) => { track('sum', ...args); return builder; },
+      count: (...args: any[]) => { track('count', ...args); return builder; },
+      countDistinct: (...args: any[]) => { track('countDistinct', ...args); return builder; },
+      avg: (...args: any[]) => { track('avg', ...args); return builder; },
+      min: (...args: any[]) => { track('min', ...args); return builder; },
+      max: (...args: any[]) => { track('max', ...args); return builder; },
+      where: (...args: any[]) => { track('where', ...args); return builder; },
+      groupBy: (...args: any[]) => { track('groupBy', ...args); return builder; },
+      orderBy: (...args: any[]) => { track('orderBy', ...args); return builder; },
+      limit: (...args: any[]) => { track('limit', ...args); return builder; },
+      offset: (...args: any[]) => { track('offset', ...args); return builder; },
+      toSQLWithParams: () => ({
+        sql: 'SELECT country, SUM(amount) AS totalRevenue FROM orders GROUP BY country',
+        parameters: [],
+      }),
+      execute: vi.fn().mockResolvedValue(mockData),
+    };
+    return builder;
+  }
+
+  return {
+    _calls: calls,
+    table: (name: string) => { track('table', name); return createMockBuilder(); },
+    rawQuery: vi.fn().mockResolvedValue(mockData),
+  };
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -91,18 +129,18 @@ afterEach(() => {
 
 describe("Serve integration — metrics", () => {
   describe("createAPI with metrics", () => {
-    it("throws if metricAdapter is missing when metrics are provided", () => {
+    it("throws if queryBuilder is missing when metrics are provided", () => {
       expect(() =>
         createAPI({
           metrics: { totalRevenue },
         })
-      ).toThrow("metricAdapter");
+      ).toThrow("queryBuilder");
     });
 
     it("creates API with metric endpoints", () => {
       const api = createAPI({
         metrics: { totalRevenue, orderCount },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       expect(api).toBeDefined();
@@ -115,7 +153,7 @@ describe("Serve integration — metrics", () => {
           ping: { query: async () => ({ ok: true }) },
         },
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       expect(api).toBeDefined();
@@ -124,10 +162,10 @@ describe("Serve integration — metrics", () => {
 
   describe("metric endpoints", () => {
     it("responds to POST /metrics/:name", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
       });
 
       const response = await api.handler(
@@ -149,7 +187,7 @@ describe("Serve integration — metrics", () => {
     it("returns 404 for unknown metric", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -166,7 +204,7 @@ describe("Serve integration — metrics", () => {
     it("returns 400 for invalid dimensions", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -184,7 +222,7 @@ describe("Serve integration — metrics", () => {
     it("returns 400 for disallowed metric filter operators", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -202,10 +240,10 @@ describe("Serve integration — metrics", () => {
     });
 
     it("passes dimensions and filters to the executor", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
       });
 
       await api.handler(
@@ -221,8 +259,8 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      expect(adapter.rawQuery).toHaveBeenCalled();
-      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      expect(factory.rawQuery).toHaveBeenCalled();
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("country");
       expect(sql).toContain("SUM(amount)");
       expect(sql).toContain("status = ?");
@@ -230,10 +268,10 @@ describe("Serve integration — metrics", () => {
     });
 
     it("supports time graining via body.by", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
       });
 
       await api.handler(
@@ -244,16 +282,16 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("toStartOfMonth");
       expect(sql).toContain("period");
     });
 
     it("supports grained metric refs in createAPI", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { monthlyRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
       });
 
       await api.handler(
@@ -264,16 +302,16 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("toStartOfMonth");
       expect(sql).toContain("ORDER BY period");
     });
 
     it("rejects conflicting body.by for grained metric refs", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { monthlyRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
       });
 
       const response = await api.handler(
@@ -289,10 +327,10 @@ describe("Serve integration — metrics", () => {
     });
 
     it("works with derived metrics", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { avgOrderValue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
       });
 
       await api.handler(
@@ -303,16 +341,16 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("NULLIF(orderCount, 0)");
     });
 
     it("matches the docs-style monthly metric example end-to-end", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { monthlyRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
       });
 
       const response = await api.handler(
@@ -328,7 +366,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("toStartOfMonth");
       expect(sql).toContain("country");
       expect(sql).toContain("ORDER BY period ASC");
@@ -340,7 +378,7 @@ describe("Serve integration — metrics", () => {
     it("excludes meta by default", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -357,7 +395,7 @@ describe("Serve integration — metrics", () => {
     it("includes meta when X-Include-Meta header is set", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -379,10 +417,10 @@ describe("Serve integration — metrics", () => {
 
   describe("tenant injection", () => {
     it("injects tenant ID into metric queries when tenant config is provided", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -407,16 +445,16 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      const sql = (adapter.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
       expect(sql).toContain("tenant_id = ?");
     });
 
     it("does not warn about manual tenant mode for generated metric endpoints", async () => {
-      const adapter = createMockAdapter();
+      const factory = createMockBuilderFactory();
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: adapter,
+        queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -449,7 +487,7 @@ describe("Serve integration — metrics", () => {
     it("accepts shorthand metric entry", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -471,7 +509,7 @@ describe("Serve integration — metrics", () => {
             cache: 60_000,
           },
         },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -493,7 +531,7 @@ describe("Serve integration — metrics", () => {
             auth: async () => null, // always reject
           },
         },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -512,7 +550,7 @@ describe("Serve integration — metrics", () => {
     it("includes metric endpoints in OpenAPI spec", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -532,7 +570,7 @@ describe("Serve integration — metrics", () => {
     it("documents metric request body fields in OpenAPI", async () => {
       const api = createAPI({
         metrics: { totalRevenue, monthlyRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const response = await api.handler(
@@ -561,7 +599,7 @@ describe("Serve integration — metrics", () => {
     it("includes metric endpoints in describe output", () => {
       const api = createAPI({
         metrics: { totalRevenue, orderCount },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       const description = api.describe();
@@ -575,7 +613,7 @@ describe("Serve integration — metrics", () => {
       const events: any[] = [];
       const api = createAPI({
         metrics: { totalRevenue },
-        metricAdapter: createMockAdapter(),
+        queryBuilder: createMockBuilderFactory(),
       });
 
       api.queryLogger.on((event) => events.push(event));
@@ -599,47 +637,6 @@ describe("Serve integration — metrics", () => {
   // ===========================================================================
 
   describe("queryBuilder config path", () => {
-    function createMockBuilderFactory(): QueryBuilderFactoryLike & { _calls: Record<string, any[][]> } {
-      const calls: Record<string, any[][]> = {};
-      const track = (name: string, ...args: any[]) => {
-        calls[name] = calls[name] || [];
-        calls[name].push(args);
-      };
-
-      const mockData = [
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
-      ];
-
-      function createMockBuilder(): QueryBuilderLike {
-        const builder: QueryBuilderLike = {
-          select: (...args: any[]) => { track('select', ...args); return builder; },
-          sum: (...args: any[]) => { track('sum', ...args); return builder; },
-          count: (...args: any[]) => { track('count', ...args); return builder; },
-          countDistinct: (...args: any[]) => { track('countDistinct', ...args); return builder; },
-          avg: (...args: any[]) => { track('avg', ...args); return builder; },
-          min: (...args: any[]) => { track('min', ...args); return builder; },
-          max: (...args: any[]) => { track('max', ...args); return builder; },
-          where: (...args: any[]) => { track('where', ...args); return builder; },
-          groupBy: (...args: any[]) => { track('groupBy', ...args); return builder; },
-          orderBy: (...args: any[]) => { track('orderBy', ...args); return builder; },
-          limit: (...args: any[]) => { track('limit', ...args); return builder; },
-          offset: (...args: any[]) => { track('offset', ...args); return builder; },
-          toSQLWithParams: () => ({
-            sql: 'SELECT country, SUM(amount) AS totalRevenue FROM orders GROUP BY country',
-            parameters: [],
-          }),
-          execute: vi.fn().mockResolvedValue(mockData),
-        };
-        return builder;
-      }
-
-      return {
-        _calls: calls,
-        table: (name: string) => { track('table', name); return createMockBuilder(); },
-        rawQuery: vi.fn().mockResolvedValue(mockData),
-      };
-    }
 
     it("creates API with queryBuilder instead of metricAdapter", () => {
       const factory = createMockBuilderFactory();
@@ -858,23 +855,5 @@ describe("Serve integration — metrics", () => {
       expect(sql).toContain("NULLIF(orderCount, 0)");
     });
 
-    it("legacy metricAdapter still works", async () => {
-      const adapter = createMockAdapter();
-      const api = createAPI({
-        metrics: { totalRevenue },
-        metricAdapter: adapter,
-      });
-
-      const response = await api.handler(
-        createRequest({
-          path: "/metrics/totalRevenue",
-          method: "POST",
-          body: { dimensions: ["country"] },
-        })
-      );
-
-      expect(response.status).toBe(200);
-      expect(adapter.rawQuery).toHaveBeenCalled();
-    });
   });
 });

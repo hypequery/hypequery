@@ -10,8 +10,6 @@ export interface DimensionOptions {
   groupable?: boolean;
 }
 
-export type FieldOptions = DimensionOptions;
-
 export interface DimensionDefinition<TType extends DimensionType = DimensionType> {
   __type: 'field_definition';
   fieldType: TType;
@@ -23,16 +21,12 @@ export interface DimensionDefinition<TType extends DimensionType = DimensionType
   groupable?: boolean;
 }
 
-export type FieldDefinition<TType extends FieldType = FieldType> = DimensionDefinition<TType>;
-
-export type InferFieldType<T extends FieldDefinition> =
+export type InferDimensionType<T extends DimensionDefinition> =
   T['fieldType'] extends 'string' ? string :
   T['fieldType'] extends 'number' ? number :
   T['fieldType'] extends 'boolean' ? boolean :
   T['fieldType'] extends 'timestamp' ? string :
   never;
-
-export type InferDimensionType<T extends DimensionDefinition> = InferFieldType<T>;
 
 export type RelationshipKind = 'belongsTo' | 'hasMany' | 'hasOne';
 
@@ -54,6 +48,7 @@ export interface AggregationSpec {
 }
 
 export interface MeasureOptions {
+  sql?: string;
   label?: string;
   description?: string;
 }
@@ -62,6 +57,7 @@ export interface MeasureDefinition {
   __type: 'measure_definition';
   aggregation: MeasureAggregation;
   field: string;
+  sql?: string;
   label?: string;
   description?: string;
 }
@@ -181,8 +177,7 @@ export interface BaseMetricConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
 > {
-  value?: AggregationSpec;
-  measure?: keyof TMeasures & string;
+  measure: keyof TMeasures & string;
   label?: string;
   description?: string;
 }
@@ -234,8 +229,7 @@ export interface DatasetConfig<
   source: string;
   tenantKey?: string;
   timeKey?: string;
-  dimensions?: TDimensions;
-  fields?: TDimensions;
+  dimensions: TDimensions;
   measures?: TMeasures;
   filters?: SemanticFiltersDefinition;
   relationships?: TRelationships;
@@ -253,7 +247,6 @@ export interface DatasetInstance<
   tenantKey?: string;
   timeKey?: string;
   dimensions: TDimensions;
-  fields: TDimensions;
   measures: TMeasures;
   filters: SemanticFiltersDefinition;
   relationships: TRelationships;
@@ -266,11 +259,11 @@ export interface DatasetInstance<
 }
 
 export interface DatasetRegistryInstance {
-  register(ds: DatasetInstance<any, any, any>): void;
-  get(name: string): DatasetInstance<any, any, any> | undefined;
-  getAll(): DatasetInstance<any, any, any>[];
+  register(ds: DatasetInstance): void;
+  get(name: string): DatasetInstance | undefined;
+  getAll(): DatasetInstance[];
   has(name: string): boolean;
 }
 
-export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any>> =
+export type DatasetFieldNames<TDataset extends DatasetInstance> =
   keyof TDataset['dimensions'] & string;

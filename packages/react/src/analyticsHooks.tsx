@@ -42,19 +42,23 @@ type DatasetQueryParams<Api, Name extends DatasetNamesFromApi<Api>> =
         options?: QueryOptions<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
       ];
 
-export interface CreateSemanticHooksConfig<
+export interface CreateAnalyticsHooksConfig<
   Api extends Record<string, { input: any; output: any }>,
   TMetrics extends readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[] = readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[],
 > extends CreateHooksConfig<Api> {
-  metrics: TMetrics;
+  metrics?: TMetrics;
 }
 
-export function createSemanticHooks<
+export function createAnalyticsHooks<
   Api extends Record<string, { input: any; output: any }>,
   const TMetrics extends readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[] = readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[],
->(config: CreateSemanticHooksConfig<Api, TMetrics>) {
+>(config: CreateAnalyticsHooksConfig<Api, TMetrics>) {
   const hooks = createHooks<Api>(config);
-  type MetricName = TMetrics[number];
+  type MetricName = TMetrics extends readonly (infer U)[]
+    ? U extends string
+      ? U
+      : never
+    : Exclude<ExtractNames<Api>, `dataset:${string}`>;
 
   function useMetric<Name extends MetricName>(
     ...args: MetricQueryParams<Api, Name>
