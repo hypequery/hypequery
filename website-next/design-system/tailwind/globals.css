@@ -1,0 +1,135 @@
+/* hypequery — Tailwind globals
+ * Pull this into your entry stylesheet ALONGSIDE Tailwind's
+ * directives. It declares the theme variables that the preset's
+ * utilities reference, plus a few things that can't be expressed
+ * cleanly as Tailwind utilities (paper-noise overlay, highlight.js
+ * code-panel styling, the body baseline).
+ *
+ * Tailwind v3 layout:
+ *   @import './design-system/tailwind/globals.css';
+ *   @tailwind base;
+ *   @tailwind components;
+ *   @tailwind utilities;
+ *
+ * Tailwind v4 layout (uses @theme natively — see the v4 block below):
+ *   @import 'tailwindcss';
+ *   @import './design-system/tailwind/globals.css';
+ */
+
+/* ════════════════════════════════════════════════════════════
+   FONTS — Comment out the @import if your build already includes it
+   ════════════════════════════════════════════════════════════ */
+/* @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); */
+
+/* ════════════════════════════════════════════════════════════
+   THEME TOKENS — referenced by tailwind.preset.js
+   ════════════════════════════════════════════════════════════ */
+html[data-theme="light"], :root {
+  --bg:          #f5f3ee;
+  --bg-alt:      #ebe7df;
+  --bg-card:     #ffffff;
+  --bg-code:     #0c0e14;
+  --code-text:   #e8eaf0;
+
+  --border:        rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+
+  --text:        #1a1a1a;
+  --text-muted:  #5a5d63;
+  --text-dim:    #8b8d92;
+
+  --accent:      #3a3f8c;
+  --accent-soft: rgba(58, 63, 140, 0.08);
+  --accent-hi:   rgba(58, 63, 140, 0.40);
+
+  --status-green:      #22a06b;
+  --status-green-soft: rgba(34, 160, 107, 0.12);
+
+  --noise-opacity: 0.04;
+}
+
+html[data-theme="dark"] {
+  --bg:          #0c0e14;
+  --bg-alt:      #13161f;
+  --bg-card:     #161922;
+  --bg-code:     #0a0c12;
+  --code-text:   #e8eaf0;
+
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+
+  --text:        #f5f3ee;
+  --text-muted:  #a0a3ad;
+  --text-dim:    #6a6e78;
+
+  --accent:      #a5b4fc;
+  --accent-soft: rgba(165, 180, 252, 0.10);
+  --accent-hi:   rgba(165, 180, 252, 0.40);
+
+  --status-green:      #34d399;
+  --status-green-soft: rgba(52, 211, 153, 0.12);
+
+  --noise-opacity: 0.03;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TAILWIND v4 — @theme block
+   If you're on Tailwind v4 you can skip preset.js entirely and
+   use this block. (v3 ignores it.)
+   ════════════════════════════════════════════════════════════ */
+@theme {
+  --color-bg:           var(--bg);
+  --color-bg-alt:       var(--bg-alt);
+  --color-bg-card:      var(--bg-card);
+  --color-bg-code:      var(--bg-code);
+  --color-border:       var(--border);
+  --color-border-strong:var(--border-strong);
+  --color-text:         var(--text);
+  --color-text-muted:   var(--text-muted);
+  --color-text-dim:     var(--text-dim);
+  --color-accent:       var(--accent);
+  --color-accent-soft:  var(--accent-soft);
+  --color-accent-hi:    var(--accent-hi);
+  --color-success:      var(--status-green);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius:    4px;
+  --radius-sm: 3px;
+  --radius-lg: 8px;
+  --radius-pill: 100px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   BASELINE — body, paper noise, code panels
+   ════════════════════════════════════════════════════════════ */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 300ms cubic-bezier(0.4,0,0.2,1), color 300ms cubic-bezier(0.4,0,0.2,1);
+}
+
+/* paper-noise overlay — part of the brand feel */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: -1;
+  opacity: var(--noise-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* highlight.js — strip its bg, keep our token */
+.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+  color: var(--code-text);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+::-webkit-scrollbar       { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-alt); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }

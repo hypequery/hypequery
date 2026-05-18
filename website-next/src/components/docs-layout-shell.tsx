@@ -15,7 +15,7 @@ export function DocsLayoutShell({
     <DocsLayout
       {...baseOptions()}
       tree={tree}
-      themeSwitch={{ enabled: false }}
+      themeSwitch={{ enabled: true }}
       githubUrl={'https://github.com/hypequery/hypequery'}
     >
       {children}

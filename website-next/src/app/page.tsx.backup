@@ -244,9 +244,6 @@ function Why() {
         <article className="bg-bg-card border border-border rounded-lg overflow-hidden flex flex-col">
           <div className="p-7 pb-4 border-b border-border">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-[38px] h-[38px] rounded-lg grid place-items-center font-mono text-[15px] font-bold bg-bg-alt text-text-dim shrink-0">
-                ✗
-              </div>
               <div>
                 <h3 className="text-h4 text-text">The old way</h3>
               </div>
@@ -272,7 +269,6 @@ function Why() {
           </div>
           <div className="min-h-[320px] p-4">
             <div className="bg-bg-alt h-full rounded-lg border border-border px-5 py-4">
-              <div className="mb-2 font-mono text-[10.5px] text-text-muted">raw-sql.ts</div>
               <CodeHighlight
                 code={OLD_WAY_CODE}
                 language="typescript"
@@ -284,9 +280,6 @@ function Why() {
 
         {/* hypequery Way */}
         <article className="bg-bg-card border border-border-strong rounded-lg overflow-hidden flex flex-col relative ring-1 ring-accent/20">
-          <div className="absolute -top-px left-1/2 -translate-x-1/2 px-3 py-1 bg-accent text-bg font-mono text-[10px] font-bold tracking-[0.1em] uppercase rounded-b-sm">
-            Recommended
-          </div>
           <div className="p-7 pb-4 border-b border-border">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-[38px] h-[38px] rounded-lg grid place-items-center font-mono text-[15px] font-bold bg-accent-soft text-accent shrink-0">
@@ -317,7 +310,6 @@ function Why() {
           </div>
           <div className="min-h-[320px] p-4">
             <div className="bg-bg-alt h-full rounded-lg border border-border px-5 py-4 ring-1 ring-accent/10">
-              <div className="mb-2 font-mono text-[10.5px] text-accent">type-safe-query.ts</div>
               <CodeHighlight
                 code={HYPEQUERY_WAY_CODE}
                 language="typescript"
