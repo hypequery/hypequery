@@ -1,7 +1,18 @@
 {
   "name": "@hypequery/cli",
   "version": "1.1.2",
-  "description": "Command-line interface for hypequery",
+  "description": "CLI for hypequery — scaffold, generate TypeScript types from ClickHouse schema, and run a local dev server",
+  "keywords": [
+    "clickhouse",
+    "cli",
+    "typescript",
+    "codegen",
+    "schema",
+    "analytics",
+    "query-builder",
+    "type-safe",
+    "database"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "bin": {

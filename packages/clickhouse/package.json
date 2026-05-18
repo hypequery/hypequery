@@ -1,7 +1,21 @@
 {
   "name": "@hypequery/clickhouse",
   "version": "2.0.0",
-  "description": "ClickHouse typescript query builder",
+  "description": "Type-safe ClickHouse query builder for TypeScript — build typed queries from your real schema, no raw SQL",
+  "keywords": [
+    "clickhouse",
+    "typescript",
+    "query-builder",
+    "type-safe",
+    "analytics",
+    "orm",
+    "database",
+    "nodejs",
+    "sql",
+    "clickhouse-client",
+    "data",
+    "olap"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",

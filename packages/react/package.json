@@ -1,7 +1,18 @@
 {
   "name": "@hypequery/react",
   "version": "0.1.1",
-  "description": "React hooks for consuming hypequery APIs",
+  "description": "React hooks for type-safe ClickHouse queries — TanStack Query wrappers for hypequery analytics APIs",
+  "keywords": [
+    "clickhouse",
+    "react",
+    "hooks",
+    "analytics",
+    "typescript",
+    "tanstack-query",
+    "react-query",
+    "type-safe",
+    "data-fetching"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "exports": {

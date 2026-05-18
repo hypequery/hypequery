@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
 import { absoluteUrl, siteUrl } from "@/lib/site";
+import { THEME_STORAGE_KEY } from "@/lib/theme";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const sans = Plus_Jakarta_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const mono = JetBrains_Mono({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-mono",
 });
 
 const displayFont = Space_Grotesk({
@@ -63,8 +66,36 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" data-theme="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => {
+  try {
+    const key = ${JSON.stringify(THEME_STORAGE_KEY)};
+    const stored = window.localStorage.getItem(key);
+    const mode = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system';
+    const resolved = mode === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : mode;
+    const root = document.documentElement;
+    // Set class attribute for fumadocs compatibility
+    root.classList.remove('light', 'dark');
+    root.classList.add(resolved);
+    // Also set data-theme for custom styling
+    root.setAttribute('data-theme', resolved);
+    root.style.colorScheme = resolved;
+  } catch (_) {}
+})();`,
+          }}
+        />
+        <Script
+          id="theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: '',
+          }}
+        />
         <Script
           defer
           src="https://cloud.umami.is/script.js"
@@ -120,13 +151,15 @@ gtag('config', '${gaMeasurementId}');`,
         ) : null}
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${displayFont.variable} antialiased`}
+        className={`${sans.variable} ${mono.variable} ${displayFont.variable} antialiased`}
       >
         <RootProvider
           theme={{
-            forcedTheme: "dark",
-            defaultTheme: "dark",
-            enableSystem: false,
+            defaultTheme: "system",
+            enableSystem: true,
+            disableTransitionOnChange: true,
+            storageKey: THEME_STORAGE_KEY,
+            attribute: "class",
           }}
           search={{
             SearchDialog: DefaultSearchDialog,

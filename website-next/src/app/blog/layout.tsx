@@ -1,5 +1,5 @@
-import SiteFooter from '@/components/SiteFooter';
-import SiteHeader from '@/components/SiteHeader';
+import Footer from '@/components/Footer';
+import Navigation from '@/components/Navigation';
 import Script from 'next/script';
 
 export default function BlogLayout({
@@ -9,9 +9,9 @@ export default function BlogLayout({
 }) {
   return (
     <>
-      <SiteHeader />
-      <main className="min-h-screen">{children}</main>
-      <SiteFooter />
+      <Navigation />
+      <main className="min-h-screen bg-bg pt-28 text-text">{children}</main>
+      <Footer />
       <Script
         src="https://subscribe-forms.beehiiv.com/embed.js"
         strategy="afterInteractive"
