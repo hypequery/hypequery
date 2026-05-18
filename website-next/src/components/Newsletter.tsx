@@ -3,12 +3,12 @@
 export default function Newsletter() {
   return (
     <div className="mb-20 flex justify-center">
-      <div className="w-full max-w-3xl rounded-3xl border border-gray-200 bg-white p-6 text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="w-full max-w-3xl rounded-lg border border-border bg-bg-card p-6 text-text shadow-card">
         <div className="mb-4 text-left">
-          <p className="mb-2 text-xs uppercase tracking-[0.3em] text-indigo-800 dark:text-indigo-200">
+          <p className="mb-2 text-xs uppercase tracking-[0.3em] text-accent">
             Join our newsletter
           </p>
-          <p className="text-indigo-800 dark:text-indigo-200">
+          <p className="text-text-muted">
             Steal the exact query patterns, cache plays, and architecture
             shortcuts behind sub-second analytics. 5 minute read, every
             Friday.
