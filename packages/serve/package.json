@@ -1,7 +1,20 @@
 {
   "name": "@hypequery/serve",
   "version": "0.2.1",
-  "description": "Declarative HTTP server for exposing hypequery analytics endpoints",
+  "description": "Type-safe HTTP layer for ClickHouse — expose typed query contracts as REST endpoints with auto-generated OpenAPI docs",
+  "keywords": [
+    "clickhouse",
+    "analytics",
+    "http",
+    "api",
+    "typescript",
+    "rest",
+    "openapi",
+    "query",
+    "server",
+    "type-safe",
+    "zod"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",

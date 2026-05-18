@@ -1,9 +1,4 @@
 <p align="center">
-  <strong>⭐ Please star hypequery if it is useful to you 🙏</strong><br />
-  <strong>It helps more people find the project.</strong>
-</p>
-
-<p align="center">
   <img src="./website-next/public/logo.png" alt="hypequery logo" width="300" />
 </p>
 
@@ -43,6 +38,47 @@
   <a href="https://github.com/hypequery/hypequery-examples">Examples</a>
 </p>
 
+## The problem
+
+Querying ClickHouse from TypeScript with the official client means writing raw SQL strings, casting results to `any`, and maintaining hand-rolled types that drift from your real schema:
+
+```ts
+// Raw @clickhouse/client — no types, no safety, breaks silently
+const result = await client.query({
+  query: `SELECT region, sum(total) as revenue
+          FROM orders
+          WHERE created_at >= '2026-01-01'
+          GROUP BY region
+          ORDER BY revenue DESC`,
+  format: 'JSONEachRow',
+});
+const rows = await result.json(); // typed as any[]
+//    ^^^^ schema drift, typos, and runtime errors are on you
+```
+
+## The solution
+
+hypequery generates TypeScript types directly from your live ClickHouse schema, then gives you a fluent query builder where every table name, column, filter, and result is fully typed:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './analytics/schema.js';
+
+const db = createQueryBuilder<IntrospectedSchema>({ /* connection */ });
+
+const revenueByRegion = await db
+  .table('orders')             // ✅ autocompletes your real tables
+  .select(['region'])          // ✅ only valid columns for this table
+  .where('created_at', 'gte', '2026-01-01') // ✅ type-checked operator + value
+  .sum('total', 'revenue')     // ✅ typed aggregation
+  .groupBy('region')
+  .orderBy('revenue', 'DESC')
+  .execute();
+// revenueByRegion is fully typed — no casting, no surprises
+```
+
+If this saves you from hand-writing ClickHouse types, a ⭐ helps other TypeScript devs find it.
+
 ## Why hypequery
 
 - Build on top of your real ClickHouse schema instead of hand-maintained query types
@@ -68,30 +104,7 @@ That gives you the main path:
 
 1. Generate schema types from ClickHouse
 2. Write typed queries locally
-4. Expose the queries over HTTP when you need a shared contract
-
-## Query Builder
-
-```ts
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './analytics/schema.js';
-
-const db = createQueryBuilder<IntrospectedSchema>({
-  url: process.env.CLICKHOUSE_URL!,
-  username: process.env.CLICKHOUSE_USERNAME!,
-  password: process.env.CLICKHOUSE_PASSWORD ?? '',
-  database: process.env.CLICKHOUSE_DATABASE!,
-});
-
-const revenueByRegion = await db
-  .table('orders')
-  .select(['region'])
-  .where('created_at', 'gte', '2026-01-01')
-  .sum('total', 'revenue')
-  .groupBy('region')
-  .orderBy('revenue', 'DESC')
-  .execute();
-```
+3. Expose the queries over HTTP when you need a shared contract
 
 ## Add Contracts And HTTP When Needed
 
