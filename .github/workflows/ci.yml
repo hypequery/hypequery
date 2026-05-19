@@ -59,7 +59,7 @@ jobs:
           fi
       - name: Run unit tests
         run: pnpm test
-      - name: Run integration tests
+      - name: Run ClickHouse integration tests
         run: pnpm --filter @hypequery/clickhouse test:integration
         env:
           CLICKHOUSE_TEST_HOST: http://localhost:8123
@@ -67,6 +67,8 @@ jobs:
           CLICKHOUSE_TEST_PASSWORD: hypequery_test
           CLICKHOUSE_TEST_DB: test_db
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
+      - name: Run Datasets integration tests
+        run: pnpm --filter @hypequery/datasets test:integration
       - name: Run smoke tests
         run: pnpm smoke:examples
   canary-release:
