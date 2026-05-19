@@ -3,16 +3,23 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "target": "es2020",
-    "module": "es2020",
-    "moduleResolution": "node",
-    "lib": ["es2020"],
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "composite": true,
     "allowSyntheticDefaultImports": true
   },
   "include": [
-    "src"
+    "src/**/*.ts"
   ],
   "exclude": [
+    "node_modules",
+    "dist",
     "src/**/*.test.ts"
+  ],
+  "references": [
+    { "path": "../datasets" },
+    { "path": "../clickhouse" }
   ]
 }
