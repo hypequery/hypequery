@@ -4,10 +4,16 @@
     "noEmit": true,
     "skipLibCheck": true,
     "rootDir": "./",
-    "outDir": "./.type-tests"
+    "outDir": "./.type-tests",
+    "composite": false
   },
   "include": [
-    "type-tests/**/*.ts"
+    "type-tests/**/*.ts",
+    "src/**/*.ts"
   ],
-  "exclude": []
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/core/tests/**/*",
+    "src/dataset/*.test.ts"
+  ]
 }

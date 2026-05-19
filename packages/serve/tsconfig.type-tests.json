@@ -3,11 +3,14 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": "src",
-    "outDir": "./.type-tests"
+    "outDir": "./.type-tests",
+    "composite": false
   },
   "include": [
-    "src/type-tests/**/*.ts",
-    "src/type-tests/**/*.d.ts"
+    "src/**/*.ts"
   ],
-  "exclude": []
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.integration.spec.ts"
+  ]
 }
