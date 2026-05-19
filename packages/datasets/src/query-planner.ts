@@ -54,22 +54,25 @@ export function buildDimensionSelectionPlan(
 
 export function applyAggregationSpec(
   qb: QueryBuilderLike,
+  ds: DatasetInstance,
   spec: AggregationSpec,
   alias: string,
 ): QueryBuilderLike {
+  const fieldOrExpr = resolveDimensionExpression(ds, spec.field);
+
   switch (spec.aggregation) {
     case "sum":
-      return qb.sum(spec.field, alias);
+      return qb.sum(fieldOrExpr, alias);
     case "count":
-      return qb.count(spec.field, alias);
+      return qb.count(fieldOrExpr, alias);
     case "countDistinct":
-      return qb.countDistinct(spec.field, alias);
+      return qb.countDistinct(fieldOrExpr, alias);
     case "avg":
-      return qb.avg(spec.field, alias);
+      return qb.avg(fieldOrExpr, alias);
     case "min":
-      return qb.min(spec.field, alias);
+      return qb.min(fieldOrExpr, alias);
     case "max":
-      return qb.max(spec.field, alias);
+      return qb.max(fieldOrExpr, alias);
     default:
       throw new Error(`Unknown aggregation type: ${spec.aggregation}`);
   }
@@ -77,10 +80,11 @@ export function applyAggregationSpec(
 
 export function applyMeasureDefinition(
   qb: QueryBuilderLike,
+  ds: DatasetInstance,
   name: string,
   definition: MeasureDefinition,
 ): QueryBuilderLike {
-  const fieldOrExpr = definition.sql ?? definition.field;
+  const fieldOrExpr = definition.sql ?? resolveDimensionExpression(ds, definition.field);
 
   switch (definition.aggregation) {
     case "sum":

@@ -251,7 +251,7 @@ export class MetricExecutor {
     }
 
     // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
-    qb = applyAggregationSpec(qb, spec, ref.name);
+    qb = applyAggregationSpec(qb, ds, spec, ref.name);
 
     // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
     if (groupByParts.length > 0) {
@@ -307,7 +307,7 @@ export class MetricExecutor {
       if (baseSpec.__type !== 'aggregation_spec') {
         throw new Error(`Derived metric "${ref.name}" references non-base metric "${alias}".`);
       }
-      cteBuilder = applyAggregationSpec(cteBuilder, baseSpec, alias);
+      cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias);
       refAliases[alias] = alias;
     }
 
@@ -341,10 +341,6 @@ export class MetricExecutor {
     const formulaExpr = spec.formula(refAliases);
     validateSQLIdentifier(ref.name, 'metric name');
     outerSelectParts.push(`${formulaExpr.toSQL()} AS ${ref.name}`);
-
-    for (const alias of Object.keys(spec.uses)) {
-      outerSelectParts.push(alias);
-    }
 
     let sql = `WITH base AS (${cteSql}) SELECT ${outerSelectParts.join(', ')} FROM base`;
 

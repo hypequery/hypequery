@@ -99,14 +99,16 @@ function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
   };
 }
 
-function createMockBuilderFactory(): QueryBuilderFactoryLike & { _calls: Record<string, any[][]> } {
+function createMockBuilderFactory(
+  mockDataOverride?: Array<Record<string, unknown>>,
+): QueryBuilderFactoryLike & { _calls: Record<string, any[][]> } {
   const calls: Record<string, any[][]> = {};
   const track = (name: string, ...args: any[]) => {
     calls[name] = calls[name] || [];
     calls[name].push(args);
   };
 
-  const mockData = [
+  const mockData = mockDataOverride ?? [
     { country: "US", totalRevenue: 5000 },
     { country: "DE", totalRevenue: 3000 },
   ];
@@ -1009,6 +1011,266 @@ describe("Serve integration — metrics", () => {
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("period");
       expect(sql).toContain("NULLIF(orderCount, 0)");
+    });
+
+    it("executes dataset queries via builder.execute() and returns dataset rows", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000, count: 12 },
+        { country: "DE", revenue: 3000, count: 8 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue", "count"],
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect((response.body as any).data).toEqual([
+        { country: "US", revenue: 5000, count: 12 },
+        { country: "DE", revenue: 3000, count: 8 },
+      ]);
+      expect(factory._calls['table'][0]).toEqual(['orders']);
+      expect(factory._calls['select'][0][0]).toContain('country');
+      expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
+      expect(factory._calls['count']).toContainEqual(['id', 'count']);
+      expect(factory._calls['groupBy'][0][0]).toContain('country');
+    });
+
+    it("executes dataset queries with aliases and time grain and preserves returned row shape", async () => {
+      const factory = createMockBuilderFactory([
+        { period: "2025-01-01", countryCode: "US", revenue: 5000 },
+        { period: "2025-01-01", countryCode: "DE", revenue: 3000 },
+      ]);
+      const api = createAPI({
+        datasets: { ordersWithAliases: OrdersWithAliases },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/ordersWithAliases/query",
+          method: "POST",
+          body: {
+            dimensions: ["countryCode"],
+            measures: ["revenue"],
+            by: "month",
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect((response.body as any).data).toEqual([
+        { period: "2025-01-01", countryCode: "US", revenue: 5000 },
+        { period: "2025-01-01", countryCode: "DE", revenue: 3000 },
+      ]);
+      const selectArgs = factory._calls['select'][0][0];
+      expect(selectArgs).toContain('toStartOfMonth(created_at) AS period');
+      expect(selectArgs).toContain('country_code AS countryCode');
+      expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
+      expect(factory._calls['groupBy'][0][0]).toContain('period');
+      expect(factory._calls['groupBy'][0][0]).toContain('countryCode');
+    });
+
+    it("passes dataset filters through resolved fields before execution", async () => {
+      const factory = createMockBuilderFactory([
+        { countryCode: "US", revenue: 5000 },
+      ]);
+      const api = createAPI({
+        datasets: { ordersWithAliases: OrdersWithAliases },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/ordersWithAliases/query",
+          method: "POST",
+          body: {
+            dimensions: ["countryCode"],
+            measures: ["revenue"],
+            filters: [{ field: "createdAt", operator: "gte", value: "2025-01-01" }],
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect((response.body as any).data).toEqual([
+        { countryCode: "US", revenue: 5000 },
+      ]);
+      expect(factory._calls['where']).toContainEqual(['created_at', 'gte', '2025-01-01']);
+    });
+
+    it("applies dataset order/limit/offset via builder methods", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+            orderBy: [{ field: "revenue", direction: "desc" }],
+            limit: 25,
+            offset: 10,
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory._calls['orderBy']).toContainEqual(['revenue', 'DESC']);
+      expect(factory._calls['limit']).toContainEqual([25]);
+      expect(factory._calls['offset']).toContainEqual([10]);
+    });
+
+    it("caps dataset limit to the endpoint max limit", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000 },
+      ]);
+      const api = createAPI({
+        datasets: {
+          orders: {
+            dataset: Orders,
+            maxLimit: 50,
+          },
+        },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+            limit: 500,
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory._calls['limit']).toContainEqual([50]);
+    });
+
+    it("includes dataset meta when X-Include-Meta header is set", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+          },
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect((response.body as any).meta).toBeDefined();
+      expect((response.body as any).meta.sql).toBeDefined();
+    });
+
+    it("injects tenant filter into dataset queries when tenant config is provided", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+        auth: async ({ request }) => {
+          const key = request.headers['x-api-key'];
+          if (key === 'valid') return { tenantId: 'tenant-123' };
+          return null;
+        },
+        tenant: {
+          extract: (auth) => auth.tenantId as string,
+          required: true,
+          column: 'tenant_id',
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+          },
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': 'valid',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+    });
+
+    it("returns a clear error for dataset tenant isolation without tenant.column", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+        auth: async ({ request }) => {
+          const key = request.headers['x-api-key'];
+          if (key === 'valid') return { tenantId: 'tenant-123' };
+          return null;
+        },
+        tenant: {
+          extract: (auth) => auth.tenantId as string,
+          required: true,
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+          },
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': 'valid',
+          },
+        })
+      );
+
+      expect(response.status).toBe(500);
+      expect((response.body as any).error.message).toContain('tenant.column');
+      expect(factory._calls['where']).toBeUndefined();
     });
 
     it("rejects empty dataset queries instead of falling back to raw table selection", async () => {

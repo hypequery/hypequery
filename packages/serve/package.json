@@ -20,6 +20,7 @@
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --project tsconfig.json --watch",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:types": "tsc --project tsconfig.type-tests.json",
     "test": "npm run test:types && vitest run",
     "types": "tsc --project tsconfig.json --noEmit"

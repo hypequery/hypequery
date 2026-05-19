@@ -34,7 +34,7 @@ const Orders = dataset("orders", {
   timeKey: "created_at",
   dimensions: {
     id: dimension.string(),
-    customerId: dimension.string(),
+    customerId: dimension.string({ column: "customer_id" }),
     country: dimension.string({ label: "Country" }),
     status: dimension.string({ label: "Order Status" }),
     amount: dimension.number({ label: "Amount" }),
@@ -43,6 +43,7 @@ const Orders = dataset("orders", {
   measures: {
     revenue: measure.sum('amount'),
     orderCount: measure.count('id'),
+    uniqueCustomers: measure.countDistinct('customerId'),
   },
   relationships: {
     customer: belongsTo(() => Customers, { from: "customerId", to: "id" }),
@@ -503,6 +504,9 @@ describe("MetricExecutor", () => {
     label: "Total Revenue",
   });
   const orderCount = Orders.metric("orderCount", { measure: "orderCount" });
+  const uniqueCustomers = Orders.metric("uniqueCustomers", {
+    measure: "uniqueCustomers",
+  });
   const avgOrderValue = Orders.metric("avgOrderValue", {
     uses: { totalRevenue, orderCount },
     formula: ({ totalRevenue, orderCount }) =>
@@ -554,6 +558,16 @@ describe("MetricExecutor", () => {
       expect(sql).toContain("ORDER BY totalRevenue DESC");
       expect(sql).toContain("LIMIT 100");
     });
+
+    it("resolves column aliases for countDistinct metrics", () => {
+      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
+      const sql = executor.toSQL(uniqueCustomers, {
+        dimensions: ["country"],
+      });
+
+      expect(sql).toContain("COUNT(DISTINCT customer_id) AS uniqueCustomers");
+      expect(sql).not.toContain("COUNT(DISTINCT customerId)");
+    });
   });
 
   describe("toSQL() — grained metrics", () => {
@@ -596,6 +610,7 @@ describe("MetricExecutor", () => {
       expect(sql).toContain("COUNT(id) AS orderCount");
       expect(sql).toContain("FROM base");
       expect(sql).toContain("(totalRevenue) / (NULLIF(orderCount, 0)) AS avgOrderValue");
+      expect(sql).not.toContain("SELECT country, (totalRevenue) / (NULLIF(orderCount, 0)) AS avgOrderValue, totalRevenue, orderCount FROM base");
     });
   });
 

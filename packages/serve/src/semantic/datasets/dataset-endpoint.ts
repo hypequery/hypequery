@@ -283,7 +283,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 
     for (const measureName of measures) {
       const definition = ds.measures[measureName];
-      builder = applyMeasureDefinition(builder, measureName, definition);
+      builder = applyMeasureDefinition(builder, ds, measureName, definition);
     }
 
     if (groupByParts.length > 0) {
