@@ -101,6 +101,7 @@ jobs:
           cat <<'EOF' > .changeset/canary-release.md
           ---
           "@hypequery/clickhouse": patch
+          "@hypequery/datasets": patch
           "@hypequery/serve": patch
           "@hypequery/cli": patch
           ---
@@ -113,6 +114,7 @@ jobs:
               pnpm-lock.yaml \
               packages/clickhouse/package.json \
               packages/clickhouse/CHANGELOG.md \
+              packages/datasets/package.json \
               packages/serve/package.json \
               packages/serve/CHANGELOG.md \
               packages/cli/package.json \
