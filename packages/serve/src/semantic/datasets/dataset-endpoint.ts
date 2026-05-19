@@ -5,7 +5,7 @@
  * - Accepts dimensions, measures, filters, orderBy, limit, offset, by
  * - Validates requested dimensions/measures/filters against the dataset contract
  * - Executes via QueryBuilderFactoryLike
- * - Auto-injects tenant filtering if dataset.tenantKey is set
+ * - Applies Serve-managed tenant filtering when configured
  * - Returns { data } or { data, meta } based on headers
  */
 
@@ -17,18 +17,27 @@ import type {
   EndpointMetadata,
   ServeEndpoint,
   ServeMiddleware,
+  TenantConfigOverride,
 } from '../../types.js';
 import type {
   DatasetInstance,
-  FieldType,
   MetricFilter,
-  MeasureDefinition,
   TimeGrain,
   QueryBuilderFactoryLike,
   ValidationResult,
-} from '@hypequery/semantic';
-import { validateFilterValue, matchesFieldType, GRAIN_FUNCTIONS } from '@hypequery/semantic';
+} from '@hypequery/datasets';
+import {
+  applyMeasureDefinition,
+  appendOrderLimitOffset,
+  buildDimensionSelectionPlan,
+  resolveFilterField,
+  validateFilterValue,
+} from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
+import {
+  resolveSemanticExecutionRuntime,
+  resolveSemanticQueryBuilder,
+} from '../query-builder-context.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for dataset query input / output
@@ -76,6 +85,7 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
   | {
       dataset: DatasetInstance;
       auth?: AuthStrategy<TAuth> | null;
+      tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;
       requiredRoles?: string[];
       requiredScopes?: string[];
@@ -87,6 +97,7 @@ function resolveDatasetEntry<TAuth extends AuthContext>(
 ): {
   dataset: DatasetInstance;
   auth?: AuthStrategy<TAuth> | null;
+  tenant?: TenantConfigOverride<TAuth>;
   cache?: number | null;
   requiredRoles?: string[];
   requiredScopes?: string[];
@@ -96,12 +107,13 @@ function resolveDatasetEntry<TAuth extends AuthContext>(
     return { dataset: entry as DatasetInstance };
   }
   return entry as {
-    dataset: DatasetInstance;
-    auth?: AuthStrategy<TAuth> | null;
-    cache?: number | null;
-    requiredRoles?: string[];
-    requiredScopes?: string[];
-    maxLimit?: number;
+      dataset: DatasetInstance;
+      auth?: AuthStrategy<TAuth> | null;
+      tenant?: TenantConfigOverride<TAuth>;
+      cache?: number | null;
+      requiredRoles?: string[];
+      requiredScopes?: string[];
+      maxLimit?: number;
   };
 }
 
@@ -202,47 +214,6 @@ function validateDatasetQuery(
   return { valid: errors.length === 0, errors };
 }
 
-function resolveDimensionExpression(
-  ds: DatasetInstance,
-  dimensionName: string,
-): string {
-  const definition = ds.dimensions[dimensionName];
-  return definition?.sql ?? definition?.column ?? dimensionName;
-}
-
-function resolveFilterField(
-  ds: DatasetInstance,
-  filterField: string,
-): string {
-  const resolvedField = ds.filters[filterField]?.field ?? filterField;
-  return resolveDimensionExpression(ds, resolvedField);
-}
-
-function applyMeasure(
-  builder: ReturnType<QueryBuilderFactoryLike['table']>,
-  name: string,
-  definition: MeasureDefinition,
-) {
-  const fieldOrExpr = definition.sql ?? definition.field;
-
-  switch (definition.aggregation) {
-    case 'sum':
-      return builder.sum(fieldOrExpr, name);
-    case 'count':
-      return builder.count(fieldOrExpr, name);
-    case 'countDistinct':
-      return builder.countDistinct(fieldOrExpr, name);
-    case 'avg':
-      return builder.avg(fieldOrExpr, name);
-    case 'min':
-      return builder.min(fieldOrExpr, name);
-    case 'max':
-      return builder.max(fieldOrExpr, name);
-    default:
-      throw new Error(`Unsupported measure aggregation: ${definition.aggregation}`);
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -271,7 +242,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     cacheTtlMs: resolved.cache,
     visibility: 'public',
     custom: {
-      tenantHandledInternally: true,
+      usesServeTenantRuntime: true,
     },
   };
 
@@ -290,30 +261,21 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     }
 
     // Build query
-    let builder = builderFactory.table(ds.source);
+    const runtimeBuilderFactory = resolveSemanticQueryBuilder(
+      ctx as Record<string, unknown>,
+      builderFactory,
+    );
+    const runtime = resolveSemanticExecutionRuntime(ctx as Record<string, unknown>);
+    let builder = runtimeBuilderFactory.table(ds.source);
 
     const dimensions = input.dimensions ?? [];
     const measures = input.measures ?? measureNames;
     const grain = input.by as TimeGrain | undefined;
-
-    const selectParts: string[] = [];
-    const groupByParts: string[] = [];
-
-    if (grain) {
-      const fn = GRAIN_FUNCTIONS[grain];
-      selectParts.push(`${fn}(${ds.timeKey}) AS period`);
-      groupByParts.push('period');
-    }
-
-    for (const dimensionName of dimensions) {
-      const expression = resolveDimensionExpression(ds, dimensionName);
-      if (expression === dimensionName) {
-        selectParts.push(dimensionName);
-      } else {
-        selectParts.push(`${expression} AS ${dimensionName}`);
-      }
-      groupByParts.push(dimensionName);
-    }
+    const { selectParts, groupByParts } = buildDimensionSelectionPlan(
+      ds,
+      dimensions,
+      grain,
+    );
 
     if (selectParts.length > 0) {
       builder = builder.select(selectParts);
@@ -321,7 +283,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 
     for (const measureName of measures) {
       const definition = ds.measures[measureName];
-      builder = applyMeasure(builder, measureName, definition);
+      builder = applyMeasureDefinition(builder, measureName, definition);
     }
 
     if (groupByParts.length > 0) {
@@ -329,8 +291,17 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     }
 
     // Tenant injection
-    if (ds.tenantKey && ctx.tenantId) {
-      builder = builder.where(ds.tenantKey, 'eq', ctx.tenantId);
+    if (ctx.tenantId) {
+      if (!runtime?.tenant) {
+        throw new ServeHttpError(
+          500,
+          'INTERNAL_SERVER_ERROR',
+          `Dataset endpoint "${name}" requires tenant.column in Serve tenant config when tenant isolation is enabled.`,
+        );
+      }
+      if (!runtime.tenant.handledByBuilder) {
+        builder = builder.where(runtime.tenant.column, 'eq', runtime.tenant.id);
+      }
     }
 
     // User filters
@@ -342,20 +313,14 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     }
 
     // Order
-    if (input.orderBy) {
-      for (const ob of input.orderBy) {
-        builder = builder.orderBy(ob.field, ob.direction.toUpperCase() as 'ASC' | 'DESC');
-      }
-    } else if (grain) {
-      builder = builder.orderBy('period', 'ASC');
-    }
-
-    // Pagination
     const limit = Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit);
-    builder = builder.limit(limit);
-    if (input.offset) {
-      builder = builder.offset(input.offset);
-    }
+    builder = appendOrderLimitOffset(
+      builder,
+      input.orderBy,
+      grain,
+      limit,
+      input.offset,
+    );
 
     // Execute
     const sqlInfo = builder.toSQLWithParams();
@@ -384,7 +349,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     query: undefined,
     middlewares: [] as ServeMiddleware<any, any, any, TAuth>[],
     auth: resolved.auth ?? null,
-    tenant: undefined,
+    tenant: resolved.tenant,
     metadata,
     cacheTtlMs: resolved.cache ?? null,
     defaultHeaders: undefined,
@@ -403,10 +368,6 @@ function buildDescription(ds: DatasetInstance, maxLimit: number): string {
     `**Measures:** ${measureNames.join(', ') || 'none'}`,
     `**Max limit:** ${maxLimit}`,
   ];
-
-  if (ds.tenantKey) {
-    lines.push(`**Tenant scoped:** yes (${ds.tenantKey})`);
-  }
 
   return lines.join('\n');
 }

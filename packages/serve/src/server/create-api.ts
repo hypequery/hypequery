@@ -19,8 +19,9 @@ import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { MetricExecutor } from "@hypequery/semantic";
+import { MetricExecutor } from "@hypequery/datasets";
 import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
+import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js";
 
 /**
  * Create a transport-agnostic API definition.
@@ -65,7 +66,21 @@ export const createAPI = <
   ];
   const authStrategies = ensureArray<AuthStrategy<TAuth>>(config.auth);
   const globalTenantConfig = config.tenant;
-  const contextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
+  const baseContextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
+  const contextFactory: ServeContextFactory<TContext, TAuth> | undefined = baseContextFactory || config.queryBuilder
+    ? async ({ request, auth }) => {
+        const baseContext = baseContextFactory
+          ? typeof baseContextFactory === "function"
+            ? await baseContextFactory({ request, auth })
+            : baseContextFactory
+          : ({} as TContext);
+
+        return attachSemanticQueryBuilder(
+          { ...(baseContext as TContext) },
+          config.queryBuilder,
+        ) as TContext;
+      }
+    : undefined;
   const hooks = (config.hooks ?? {}) as ServeLifecycleHooks<TAuth>;
   const queryLogger = new ServeQueryLogger();
 

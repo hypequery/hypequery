@@ -33,7 +33,13 @@ import type {
 
 import { validateSQLIdentifier } from './sql-utils.js';
 import { validateFilterValue, matchesFieldType, type ValidationResult } from './validation.js';
-import { GRAIN_FUNCTIONS } from './constants.js';
+import {
+  applyAggregationSpec,
+  appendOrderLimitOffset,
+  buildDimensionSelectionPlan,
+  resolveFilterField,
+  resolveTenantFilterColumn,
+} from './query-planner.js';
 
 // =============================================================================
 // VALIDATION
@@ -127,57 +133,6 @@ function validateQuery(
 }
 
 // =============================================================================
-// QUERY BUILDER HELPERS
-// =============================================================================
-
-function applyAggregation(qb: QueryBuilderLike, spec: AggregationSpec, alias: string): QueryBuilderLike {
-  switch (spec.aggregation) {
-    case 'sum': return qb.sum(spec.field, alias);
-    case 'count': return qb.count(spec.field, alias);
-    case 'countDistinct': return qb.countDistinct(spec.field, alias);
-    case 'avg': return qb.avg(spec.field, alias);
-    case 'min': return qb.min(spec.field, alias);
-    case 'max': return qb.max(spec.field, alias);
-    default: throw new Error(`Unknown aggregation type: ${(spec as AggregationSpec).aggregation}`);
-  }
-}
-
-function appendOrderLimitOffset(
-  qb: QueryBuilderLike,
-  query: MetricQuery,
-  grain: TimeGrain | undefined,
-): QueryBuilderLike {
-  if (query.orderBy && query.orderBy.length > 0) {
-    for (const o of query.orderBy) {
-      qb = qb.orderBy(o.field, o.direction.toUpperCase() as 'ASC' | 'DESC');
-    }
-  } else if (grain) {
-    qb = qb.orderBy('period', 'ASC');
-  }
-
-  if (query.limit != null) qb = qb.limit(query.limit);
-  if (query.offset != null) qb = qb.offset(query.offset);
-
-  return qb;
-}
-
-function resolveDimensionExpression(
-  ds: DatasetInstance,
-  dimensionName: string,
-): string {
-  const definition = ds.dimensions[dimensionName];
-  return definition?.sql ?? definition?.column ?? dimensionName;
-}
-
-function resolveFilterField(
-  ds: DatasetInstance,
-  filterField: string,
-): string {
-  const resolvedField = ds.filters[filterField]?.field ?? filterField;
-  return resolveDimensionExpression(ds, resolvedField);
-}
-
-// =============================================================================
 // METRIC EXECUTOR
 // =============================================================================
 
@@ -191,6 +146,10 @@ export class MetricExecutor {
 
   constructor(options: MetricExecutorOptions) {
     this.builderFactory = options.builderFactory;
+  }
+
+  getBuilderFactory(): QueryBuilderFactoryLike {
+    return this.builderFactory;
   }
 
   /**
@@ -253,13 +212,14 @@ export class MetricExecutor {
     const ref = metric.__type === 'grained_metric_ref' ? metric.metric : metric;
     const grain = metric.__type === 'grained_metric_ref' ? metric.grain : query.by ?? undefined;
     const spec = ref.spec;
+    const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
 
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
       const { sql, params } = this.buildDerivedSQLViaBuilder(ref, spec, query, grain, context);
-      const data = await this.builderFactory!.rawQuery<T>(sql, params);
+      const data = await activeBuilderFactory.rawQuery<T>(sql, params);
       const timingMs = Date.now() - start;
-      return { data, meta: { sql, timingMs, tenant: context?.tenantId } };
+      return { data, meta: { sql, timingMs, tenant: context?.runtime?.tenant?.id } };
     }
 
     // Base metrics: fully use the builder's execute()
@@ -267,7 +227,7 @@ export class MetricExecutor {
     const { sql } = builder.toSQLWithParams();
     const data = await builder.execute() as T[];
     const timingMs = Date.now() - start;
-    return { data, meta: { sql, timingMs, tenant: context?.tenantId } };
+    return { data, meta: { sql, timingMs, tenant: context?.runtime?.tenant?.id } };
   }
 
   private buildBaseQuery(
@@ -278,34 +238,20 @@ export class MetricExecutor {
     grain: TimeGrain | undefined,
     context?: ExecutionContext,
   ): QueryBuilderLike {
-    let qb: QueryBuilderLike = this.builderFactory!.table(ds.source);
-
-    // Build select + groupBy parts
-    const selectParts: string[] = [];
-    const groupByParts: string[] = [];
-
-    if (grain) {
-      const fn = GRAIN_FUNCTIONS[grain];
-      selectParts.push(`${fn}(${ds.timeKey}) AS period`);
-      groupByParts.push('period');
-    }
-
-    for (const dim of query.dimensions ?? []) {
-      const expression = resolveDimensionExpression(ds, dim);
-      if (expression === dim) {
-        selectParts.push(dim);
-      } else {
-        selectParts.push(`${expression} AS ${dim}`);
-      }
-      groupByParts.push(dim);
-    }
+    const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
+    let qb: QueryBuilderLike = activeBuilderFactory.table(ds.source);
+    const { selectParts, groupByParts } = buildDimensionSelectionPlan(
+      ds,
+      query.dimensions ?? [],
+      grain,
+    );
 
     if (selectParts.length > 0) {
       qb = qb.select(selectParts);
     }
 
     // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
-    qb = applyAggregation(qb, spec, ref.name);
+    qb = applyAggregationSpec(qb, spec, ref.name);
 
     // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
     if (groupByParts.length > 0) {
@@ -313,8 +259,11 @@ export class MetricExecutor {
     }
 
     // Tenant auto-injection
-    if (context?.tenantId && ds.tenantKey) {
-      qb = qb.where(ds.tenantKey, 'eq', context.tenantId);
+    const tenantColumn = resolveTenantFilterColumn(ds, context);
+    const tenantId = context?.runtime?.tenant?.id;
+    const tenantHandledByBuilder = context?.runtime?.tenant?.handledByBuilder === true;
+    if (tenantId && tenantColumn && !tenantHandledByBuilder) {
+      qb = qb.where(tenantColumn, 'eq', tenantId);
     }
 
     // User filters
@@ -324,7 +273,7 @@ export class MetricExecutor {
     }
 
     // Order, limit, offset
-    qb = appendOrderLimitOffset(qb, query, grain);
+    qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset);
 
     return qb;
   }
@@ -336,29 +285,16 @@ export class MetricExecutor {
     grain: TimeGrain | undefined,
     context?: ExecutionContext,
   ): { sql: string; params: unknown[] } {
+    const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
     const ds = ref.dataset;
 
     // Build the CTE inner query using the builder
-    let cteBuilder: QueryBuilderLike = this.builderFactory!.table(ds.source);
-
-    const selectParts: string[] = [];
-    const groupByParts: string[] = [];
-
-    if (grain) {
-      const fn = GRAIN_FUNCTIONS[grain];
-      selectParts.push(`${fn}(${ds.timeKey}) AS period`);
-      groupByParts.push('period');
-    }
-
-    for (const dim of query.dimensions ?? []) {
-      const expression = resolveDimensionExpression(ds, dim);
-      if (expression === dim) {
-        selectParts.push(dim);
-      } else {
-        selectParts.push(`${expression} AS ${dim}`);
-      }
-      groupByParts.push(dim);
-    }
+    let cteBuilder: QueryBuilderLike = activeBuilderFactory.table(ds.source);
+    const { selectParts, groupByParts } = buildDimensionSelectionPlan(
+      ds,
+      query.dimensions ?? [],
+      grain,
+    );
 
     if (selectParts.length > 0) {
       cteBuilder = cteBuilder.select(selectParts);
@@ -371,7 +307,7 @@ export class MetricExecutor {
       if (baseSpec.__type !== 'aggregation_spec') {
         throw new Error(`Derived metric "${ref.name}" references non-base metric "${alias}".`);
       }
-      cteBuilder = applyAggregation(cteBuilder, baseSpec, alias);
+      cteBuilder = applyAggregationSpec(cteBuilder, baseSpec, alias);
       refAliases[alias] = alias;
     }
 
@@ -380,8 +316,11 @@ export class MetricExecutor {
     }
 
     // Filters on CTE
-    if (context?.tenantId && ds.tenantKey) {
-      cteBuilder = cteBuilder.where(ds.tenantKey, 'eq', context.tenantId);
+    const tenantColumn = resolveTenantFilterColumn(ds, context);
+    const tenantId = context?.runtime?.tenant?.id;
+    const tenantHandledByBuilder = context?.runtime?.tenant?.handledByBuilder === true;
+    if (tenantId && tenantColumn && !tenantHandledByBuilder) {
+      cteBuilder = cteBuilder.where(tenantColumn, 'eq', tenantId);
     }
     for (const filter of query.filters ?? []) {
       const resolvedField = resolveFilterField(ds, filter.field);

@@ -1,6 +1,6 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
-import type { QueryBuilderFactoryLike } from "@hypequery/semantic";
+import type { QueryBuilderFactoryLike } from "@hypequery/datasets";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -536,6 +536,7 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
   | {
       metric: MetricHandle<any, any>;
       auth?: AuthStrategy<TAuth> | null;
+      tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;
       requiredRoles?: string[];
       requiredScopes?: string[];
@@ -549,7 +550,7 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
 // Dataset serve config types
 // ---------------------------------------------------------------------------
 
-import type { DatasetInstance, MetricHandle } from "@hypequery/semantic";
+import type { DatasetInstance, MetricHandle } from "@hypequery/datasets";
 import type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 
@@ -591,6 +592,10 @@ export interface ServeConfig<
    * Semantic dataset endpoints — auto-generated POST endpoints for each dataset.
    * Each dataset gets a `POST /api/analytics/datasets/:name/query` endpoint
    * that validates dimensions/measures/filters against the dataset definition.
+   *
+   * When Serve tenant isolation is enabled for semantic endpoints, set
+   * `tenant.column` in the Serve config or per-entry override so the runtime
+   * knows which column to enforce.
    *
    * Accepts either a DatasetsBlock (from `defineDatasets()`) or an inline map.
    *

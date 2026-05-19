@@ -5,7 +5,7 @@
 Preserve the implementation context for wiring query execution tracking across:
 
 1. `@hypequery/serve`
-2. `@hypequery/semantic`
+2. `@hypequery/datasets`
 3. `@hypequery/clickhouse`
 
 This is primarily about making logs and telemetry coherent across the request layer, semantic layer, and database execution layer, with a path to cloud tracing later.
@@ -29,7 +29,7 @@ Responsibilities today:
   - auth / tenant resolution
   - endpoint routing
   - request-level logging
-- `@hypequery/semantic`
+- `@hypequery/datasets`
   - semantic query validation
   - metric and dataset planning
   - SQL construction via a query-builder protocol
@@ -96,10 +96,10 @@ The semantic layer already depends on a protocol rather than directly depending 
 
 Relevant files:
 
-- [packages/semantic/src/query-builder-protocol.ts](/Users/lukereilly/repos/hypequery-core/packages/semantic/src/query-builder-protocol.ts)
-- [packages/semantic/src/executor.ts](/Users/lukereilly/repos/hypequery-core/packages/semantic/src/executor.ts)
+- [packages/datasets/src/query-builder-protocol.ts](/Users/lukereilly/repos/hypequery-core/packages/datasets/src/query-builder-protocol.ts)
+- [packages/datasets/src/executor.ts](/Users/lukereilly/repos/hypequery-core/packages/datasets/src/executor.ts)
 
-This is the correct architectural direction. `@hypequery/semantic` should depend on interfaces, not on the ClickHouse package itself.
+This is the correct architectural direction. `@hypequery/datasets` should depend on interfaces, not on the ClickHouse package itself.
 
 ## Main Observability Gap
 
@@ -157,7 +157,7 @@ That is still useful, but incomplete.
 
 ## Architectural Recommendation
 
-Do **not** make `@hypequery/semantic` depend directly on `@hypequery/clickhouse`.
+Do **not** make `@hypequery/datasets` depend directly on `@hypequery/clickhouse`.
 
 Do **not** import the concrete query builder package into the semantic package.
 
@@ -300,7 +300,7 @@ What should happen:
 This may require:
 
 - widening the public `rawQuery()` helper in `createQueryBuilder()`
-- widening the `QueryBuilderLike` protocol in `@hypequery/semantic`
+- widening the `QueryBuilderLike` protocol in `@hypequery/datasets`
 - optionally widening the adapter-side execution options if more than `queryId` is needed
 
 ## Logger Model Observations

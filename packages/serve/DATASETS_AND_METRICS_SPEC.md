@@ -115,7 +115,7 @@ const Orders = dataset("orders", {
 **Design notes:**
 
 - `source` is the physical table name. The dataset name (first arg) is the logical name.
-- `tenantKey` declares which physical column holds the tenant ID. Generated metric and dataset endpoints auto-inject tenant filters.
+- `tenantKey` declares tenant-related dataset metadata for semantic tooling. For served metric and dataset endpoints, tenant enforcement comes from Serve tenant config, especially `tenant.column`.
 - `timeKey` declares the physical time column used by `.by(grain)` and semantic dataset queries with `by`.
 - `dimension.*()` functions define the queryable/groupable public dimensions.
 - `measure.*()` functions define canonical aggregations that metrics and dataset queries reuse.
@@ -627,9 +627,9 @@ async run(metric, query, context) {
     .select(query.dimensions)              // .select(["country"])
     .sum("amount", "totalRevenue");        // .sum("amount", "totalRevenue")
 
-  // Auto-inject tenant
-  if (context?.tenantId && metric.dataset.tenantKey) {
-    builder = builder.where(metric.dataset.tenantKey, "eq", context.tenantId);
+  // Apply Serve-provided tenant runtime when present
+  if (context?.runtime?.tenant && !context.runtime.tenant.handledByBuilder) {
+    builder = builder.where(context.runtime.tenant.column, "eq", context.runtime.tenant.id);
   }
 
   // User filters
@@ -812,12 +812,12 @@ These are not afterthoughts — they are core to the runtime.
 
 ### 5.1 Tenant Isolation
 
-Tenant isolation for metrics works identically to existing query tenancy:
+Tenant isolation for metrics and semantic datasets follows the existing Serve tenancy model:
 
-- Datasets declare `tenantKey` (the column holding tenant ID)
 - Serve config declares `tenant.extract` (how to get tenant ID from auth)
-- `MetricExecutor` auto-injects `WHERE {tenantKey} = ?` for every metric query
-- `mode: 'auto-inject'` (default) vs `mode: 'manual'` controls behavior
+- Serve config or per-endpoint overrides declare `tenant.column`
+- Serve passes explicit tenant runtime into semantic execution
+- `mode: 'auto-inject'` scopes the builder; `mode: 'manual'` leaves enforcement to the endpoint/runtime contract
 - **Tenant context is never optional in production** — a missing tenant ID rejects the request
 
 ### 5.2 Auth & Authorization

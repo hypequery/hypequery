@@ -401,21 +401,90 @@ describe("MetricExecutor", () => {
     ];
 
     function createMockBuilder(): QueryBuilderLike {
+      const state = {
+        select: [] as string[],
+        where: [] as string[],
+        groupBy: [] as string[],
+        orderBy: [] as string[],
+        limit: undefined as number | undefined,
+        offset: undefined as number | undefined,
+      };
+
+      const buildSql = () => {
+        const select = state.select.length > 0
+          ? state.select.join(", ")
+          : "*";
+        let sql = `SELECT ${select} FROM orders`;
+        if (state.where.length > 0) {
+          sql += ` WHERE ${state.where.join(" AND ")}`;
+        }
+        if (state.groupBy.length > 0) {
+          sql += ` GROUP BY ${state.groupBy.join(", ")}`;
+        }
+        if (state.orderBy.length > 0) {
+          sql += ` ORDER BY ${state.orderBy.join(", ")}`;
+        }
+        if (state.limit != null) {
+          sql += ` LIMIT ${state.limit}`;
+        }
+        if (state.offset != null) {
+          sql += ` OFFSET ${state.offset}`;
+        }
+        return sql;
+      };
+
       const builder: QueryBuilderLike = {
-        select: (...args: any[]) => builder,
-        sum: (...args: any[]) => builder,
-        count: (...args: any[]) => builder,
-        countDistinct: (...args: any[]) => builder,
-        avg: (...args: any[]) => builder,
-        min: (...args: any[]) => builder,
-        max: (...args: any[]) => builder,
-        where: (...args: any[]) => builder,
-        groupBy: (...args: any[]) => builder,
-        orderBy: (...args: any[]) => builder,
-        limit: (...args: any[]) => builder,
-        offset: (...args: any[]) => builder,
+        select: (args: any) => {
+          state.select.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        sum: (column: string, alias?: string) => {
+          state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
+          return builder;
+        },
+        count: (column: string, alias?: string) => {
+          state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
+          return builder;
+        },
+        countDistinct: (column: string, alias?: string) => {
+          state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
+          return builder;
+        },
+        avg: (column: string, alias?: string) => {
+          state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
+          return builder;
+        },
+        min: (column: string, alias?: string) => {
+          state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
+          return builder;
+        },
+        max: (column: string, alias?: string) => {
+          state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
+          return builder;
+        },
+        where: (column: string, operator: string, _value: unknown) => {
+          const op = operator === 'eq' ? '=' : operator;
+          state.where.push(`${column} ${op} ?`);
+          return builder;
+        },
+        groupBy: (args: any) => {
+          state.groupBy.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        orderBy: (column: string, direction?: string) => {
+          state.orderBy.push(`${column} ${direction ?? 'ASC'}`);
+          return builder;
+        },
+        limit: (count: number) => {
+          state.limit = count;
+          return builder;
+        },
+        offset: (count: number) => {
+          state.offset = count;
+          return builder;
+        },
         toSQLWithParams: () => ({
-          sql: 'SELECT country, SUM(amount) AS totalRevenue FROM orders GROUP BY country',
+          sql: buildSql(),
           parameters: [],
         }),
         execute: vi.fn().mockResolvedValue(mockData),
@@ -455,7 +524,11 @@ describe("MetricExecutor", () => {
       const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const sql = executor.toSQL(totalRevenue, {
         dimensions: ["country"],
-      }, { tenantId: "t1" });
+      }, {
+        runtime: {
+          tenant: { id: "t1", column: "tenant_id", handledByBuilder: false },
+        },
+      });
 
       expect(sql).toContain("WHERE tenant_id = ?");
     });
@@ -546,10 +619,18 @@ describe("MetricExecutor", () => {
       const builderFactory = createMockBuilderFactory();
       const executor = new MetricExecutor({ builderFactory });
 
-      await executor.run(totalRevenue, {}, { tenantId: "t1" });
+      await executor.run(totalRevenue, {}, {
+        runtime: {
+          tenant: { id: "t1", column: "tenant_id", handledByBuilder: false },
+        },
+      });
 
       // Verify the SQL was generated (toSQL includes tenant filter)
-      const sql = executor.toSQL(totalRevenue, {}, { tenantId: "t1" });
+      const sql = executor.toSQL(totalRevenue, {}, {
+        runtime: {
+          tenant: { id: "t1", column: "tenant_id", handledByBuilder: false },
+        },
+      });
       expect(sql).toContain("tenant_id");
     });
   });

@@ -65,19 +65,19 @@ export class AggregationFeature<
 
   countDistinct(column: string, alias: string) {
     const aggregationSQL = `COUNT(DISTINCT ${column}) AS ${alias}`;
-    const config = this.builder.getConfig();
+    const query = this.builder.getQueryNode();
 
-    if (config.select) {
+    if (query.select) {
       return {
-        ...config,
-        select: [...(config.select || []).map(String), aggregationSQL],
-        groupBy: (config.select || []).map(String).filter(col => !col.includes(' AS '))
+        ...query,
+        select: [...query.select, { kind: 'selection' as const, selection: aggregationSQL }],
+        groupBy: query.groupBy || this.inferGroupBySelections(query.select),
       };
     }
 
     return {
-      ...config,
-      select: [aggregationSQL]
+      ...query,
+      select: [{ kind: 'selection' as const, selection: aggregationSQL }],
     };
   }
 }

@@ -11,7 +11,7 @@ import {
   nullIfZero,
   type QueryBuilderLike,
   type QueryBuilderFactoryLike,
-} from '@hypequery/semantic';
+} from '@hypequery/datasets';
 import type { ServeRequest } from '../../types.js';
 
 // =============================================================================
@@ -476,6 +476,7 @@ describe("Serve integration — metrics", () => {
         tenant: {
           extract: (auth) => auth.tenantId as string,
           required: true,
+          column: 'tenant_id',
         },
       });
 
@@ -495,6 +496,74 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
+    it("returns a clear error when tenant isolation is enabled without tenant.column", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+        auth: async ({ request }) => {
+          const key = request.headers['x-api-key'];
+          if (key === 'valid') return { tenantId: 'tenant-123' };
+          return null;
+        },
+        tenant: {
+          extract: (auth) => auth.tenantId as string,
+          required: true,
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': 'valid',
+          },
+        })
+      );
+
+      expect(response.status).toBe(500);
+      expect((response.body as any).error.message).toContain('tenant.column');
+      expect(factory._calls['where']).toBeUndefined();
+    });
+
+    it("prefers the Serve tenant column when auto-inject wraps the internal query builder", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+        auth: async ({ request }) => {
+          const key = request.headers['x-api-key'];
+          if (key === 'valid') return { tenantId: 'tenant-123' };
+          return null;
+        },
+        tenant: {
+          extract: (auth) => auth.tenantId as string,
+          required: true,
+          column: 'organization_id',
+          mode: 'auto-inject',
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': 'valid',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory._calls['where']).toContainEqual(['organization_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).not.toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+    });
+
     it("does not warn about manual tenant mode for generated metric endpoints", async () => {
       const factory = createMockBuilderFactory();
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -509,6 +578,7 @@ describe("Serve integration — metrics", () => {
         tenant: {
           extract: (auth) => auth.tenantId as string,
           required: true,
+          column: 'tenant_id',
         },
       });
 
@@ -589,6 +659,33 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(401);
+    });
+
+    it("applies per-metric tenant overrides", async () => {
+      const api = createAPI({
+        metrics: {
+          totalRevenue: {
+            metric: totalRevenue,
+            tenant: { required: false },
+          },
+        },
+        queryBuilder: createMockBuilderFactory(),
+        auth: async () => ({ userId: "user-123" }),
+        tenant: {
+          extract: (auth) => auth.tenantId as string | undefined,
+          required: true,
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: {},
+        })
+      );
+
+      expect(response.status).toBe(200);
     });
   });
 
@@ -834,6 +931,7 @@ describe("Serve integration — metrics", () => {
         tenant: {
           extract: (auth) => auth.tenantId as string,
           required: true,
+          column: 'tenant_id',
         },
       });
 

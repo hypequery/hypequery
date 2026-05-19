@@ -1,3 +1,5 @@
+import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
+
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
 export type DimensionType = FieldType;
 
@@ -152,8 +154,19 @@ export interface MetricResult<T = Record<string, unknown>> {
   meta?: MetricResultMeta;
 }
 
+export interface SemanticTenantRuntime {
+  id: string;
+  column: string;
+  handledByBuilder: boolean;
+}
+
+export interface SemanticExecutionRuntime {
+  builderFactory?: QueryBuilderFactoryLike;
+  tenant?: SemanticTenantRuntime;
+}
+
 export interface ExecutionContext {
-  tenantId?: string;
+  runtime?: SemanticExecutionRuntime;
 }
 
 export interface SemanticFilterDefinition {

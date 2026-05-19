@@ -16,10 +16,15 @@ import type {
   MetricEntry,
   ServeEndpoint,
   ServeMiddleware,
+  TenantConfigOverride,
 } from '../../types.js';
-import type { MetricContract, MetricHandle } from '@hypequery/semantic';
-import { MetricExecutor } from '@hypequery/semantic';
+import type { MetricContract, MetricHandle } from '@hypequery/datasets';
+import { MetricExecutor } from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
+import {
+  resolveSemanticExecutionRuntime,
+  resolveSemanticQueryBuilder,
+} from '../query-builder-context.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for metric query input / output
@@ -65,6 +70,7 @@ function resolveMetricEntry<TAuth extends AuthContext>(
 ): {
   metric: MetricHandle<any, any>;
   auth?: AuthStrategy<TAuth> | null;
+  tenant?: TenantConfigOverride<TAuth>;
   cache?: number | null;
   requiredRoles?: string[];
   requiredScopes?: string[];
@@ -78,11 +84,12 @@ function resolveMetricEntry<TAuth extends AuthContext>(
     return { metric: entry as MetricHandle<any, any> };
   }
   return entry as {
-    metric: MetricHandle<any, any>;
-    auth?: AuthStrategy<TAuth> | null;
-    cache?: number | null;
-    requiredRoles?: string[];
-    requiredScopes?: string[];
+      metric: MetricHandle<any, any>;
+      auth?: AuthStrategy<TAuth> | null;
+      tenant?: TenantConfigOverride<TAuth>;
+      cache?: number | null;
+      requiredRoles?: string[];
+      requiredScopes?: string[];
   };
 }
 
@@ -112,12 +119,17 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     cacheTtlMs: resolved.cache,
     visibility: 'public',
     custom: {
-      tenantHandledInternally: true,
+      usesServeTenantRuntime: true,
     },
   };
 
   const handler: EndpointHandler<any, any, any, TAuth> = async (ctx) => {
     const input = ctx.input ?? {};
+    const runtime = resolveSemanticExecutionRuntime(ctx as Record<string, unknown>);
+    const runtimeBuilderFactory = resolveSemanticQueryBuilder(
+      ctx as Record<string, unknown>,
+      executor.getBuilderFactory(),
+    );
 
     // Build the metric query
     const query = {
@@ -139,9 +151,20 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       );
     }
 
+    if (ctx.tenantId && !runtime?.tenant) {
+      throw new ServeHttpError(
+        500,
+        'INTERNAL_SERVER_ERROR',
+        `Metric endpoint "${name}" requires tenant.column in Serve tenant config when tenant isolation is enabled.`,
+      );
+    }
+
     // Execute with tenant context
     const result = await executor.run(metricRef, query, {
-      tenantId: ctx.tenantId,
+      runtime: {
+        ...runtime,
+        builderFactory: runtimeBuilderFactory,
+      },
     });
 
     // Decide whether to include meta
@@ -162,7 +185,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     query: undefined,
     middlewares: [] as ServeMiddleware<any, any, any, TAuth>[],
     auth: resolved.auth ?? null,
-    tenant: undefined,
+    tenant: resolved.tenant,
     metadata,
     cacheTtlMs: resolved.cache ?? null,
     defaultHeaders: undefined,

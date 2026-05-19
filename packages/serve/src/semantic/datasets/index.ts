@@ -1,5 +1,5 @@
-// Re-export everything from @hypequery/semantic
-export * from '@hypequery/semantic';
+// Re-export everything from @hypequery/datasets
+export * from '@hypequery/datasets';
 
 // Serve-specific endpoint integration
 export { createMetricEndpoint } from './metric-endpoint.js';
