@@ -1,5 +1,6 @@
 import type { ZodTypeAny } from "zod";
-import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
+import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
+import type { QueryBuilderFactoryLike } from "@hypequery/datasets";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -525,12 +526,108 @@ export interface OpenApiDocument {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Metric serve config types
+// ---------------------------------------------------------------------------
+
+/** Per-metric entry: shorthand (just the ref) or with overrides. */
+export type MetricEntry<TAuth extends AuthContext = AuthContext> =
+  | MetricHandle<any, any>
+  | {
+      metric: MetricHandle<any, any>;
+      auth?: AuthStrategy<TAuth> | null;
+      tenant?: TenantConfigOverride<TAuth>;
+      cache?: number | null;
+      requiredRoles?: string[];
+      requiredScopes?: string[];
+    };
+
+/** Map of metric names to entries. */
+export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
+  Record<string, MetricEntry<TAuth>>;
+
+// ---------------------------------------------------------------------------
+// Dataset serve config types
+// ---------------------------------------------------------------------------
+
+import type { DatasetInstance, MetricHandle } from "@hypequery/datasets";
+import type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
+export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
+
+/** Map of dataset names to entries. */
+export type DatasetsConfig<TAuth extends AuthContext = AuthContext> =
+  Record<string, DatasetEntry<TAuth>>;
+
+// ---------------------------------------------------------------------------
+// ServeConfig
+// ---------------------------------------------------------------------------
+
 export interface ServeConfig<
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
   TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
 > {
-  queries: TQueries;
+  queries?: TQueries;
+  /**
+   * Metrics: auto-generated POST endpoints for each metric.
+   * Each metric gets a `POST /api/analytics/metrics/:name` endpoint
+   * that validates dimensions/filters against the metric's contract.
+   *
+   * @example
+   * ```ts
+   * const api = createAPI({
+   *   metrics: {
+   *     totalRevenue,           // shorthand
+   *     profitMargin: {         // with overrides
+   *       metric: profitMargin,
+   *       auth: requireRole('finance'),
+   *       cache: 300_000,
+   *     },
+   *   },
+   * });
+   * ```
+   */
+  metrics?: MetricsConfig<TAuth>;
+  /**
+   * Semantic dataset endpoints — auto-generated POST endpoints for each dataset.
+   * Each dataset gets a `POST /api/analytics/datasets/:name/query` endpoint
+   * that validates dimensions/measures/filters against the dataset definition.
+   *
+   * When Serve tenant isolation is enabled for semantic endpoints, set
+   * `tenant.column` in the Serve config or per-entry override so the runtime
+   * knows which column to enforce.
+   *
+   * Accepts either a DatasetsBlock (from `defineDatasets()`) or an inline map.
+   *
+   * @example
+   * ```ts
+   * // Using defineDatasets (recommended)
+   * const datasets = defineDatasets({ orders, customers });
+   * const api = createAPI({ datasets, queryBuilder: qb });
+   *
+   * // Inline
+   * const api = createAPI({
+   *   datasets: { orders, customers },
+   *   queryBuilder: qb,
+   * });
+   * ```
+   */
+  datasets?: DatasetsConfig<TAuth>;
+  /**
+   * Query builder instance for metric/dataset execution.
+   * Required when `metrics` or `datasets` are provided.
+   * Pass the return value of `createQueryBuilder(config)` directly.
+   *
+   * @example
+   * ```ts
+   * const qb = createQueryBuilder<Schema>(config);
+   * const api = createAPI({
+   *   metrics: { totalRevenue },
+   *   queryBuilder: qb,
+   * });
+   * ```
+   */
+  queryBuilder?: QueryBuilderFactoryLike;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];
@@ -583,6 +680,31 @@ export interface ServeConfig<
    */
   security?: {
     verboseAuthErrors?: boolean;
+  };
+  /**
+   * Customize path prefixes for auto-generated semantic layer endpoints.
+   * Useful for avoiding route collisions or organizing API structure.
+   *
+   * @default { metrics: '/metrics', datasets: '/datasets' }
+   *
+   * @example
+   * ```ts
+   * const api = createAPI({
+   *   metrics: { totalRevenue },
+   *   datasets: { orders: Orders },
+   *   semanticPaths: {
+   *     metrics: '/api/metrics',
+   *     datasets: '/api/data',
+   *   },
+   * });
+   * // Generates:
+   * // POST /api/metrics/totalRevenue
+   * // POST /api/data/orders/query
+   * ```
+   */
+  semanticPaths?: {
+    metrics?: string;
+    datasets?: string;
   };
 }
 
@@ -686,6 +808,100 @@ export type ExecuteQueryFunction<
   }
 ) => Promise<ServeEndpointResult<TQueries[TKey]>>;
 
+/**
+ * A transport-agnostic API definition. Contains queries, auth, tenancy,
+ * and a handler — but no HTTP server. Pass to standalone transport functions:
+ *
+ * @example
+ * ```ts
+ * const api = createAPI({ queries: { ... }, auth: jwtStrategy });
+ *
+ * // Use with any transport:
+ * startServer(api, { port: 3000 });
+ * app.use('/analytics', toNodeHandler(api));
+ * export default toFetchHandler(api);
+ * ```
+ */
+export interface HypeQueryAPI<
+  TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
+    string,
+    ServeEndpoint<any, any, any, any>
+  >,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext
+> {
+  readonly queries: TQueries;
+  /** Serve-layer query logger for subscribing to endpoint execution events */
+  readonly queryLogger: ServeQueryLogger;
+  /** The underlying request handler. Can be passed directly to transport adapters. */
+  readonly handler: ServeHandler;
+  route<Path extends string, TKey extends keyof TQueries>(
+    path: Path,
+    endpoint: TQueries[TKey],
+    options?: Partial<RouteRegistrationOptions<TContext, TAuth>>
+  ): this;
+  use(middleware: ServeMiddleware<any, any, TContext, TAuth>): this;
+  useAuth(strategy: AuthStrategy<TAuth>): this;
+  execute<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  /** Alias of execute() for in-process execution. */
+  client<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  /** Alias of execute() for in-process execution. */
+  run<TKey extends keyof TQueries>(
+    key: TKey,
+    options?: {
+      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
+      context?: Partial<TContext>;
+      request?: Partial<ServeRequest>;
+    }
+  ): Promise<ServeEndpointResult<TQueries[TKey]>>;
+  describe(): ToolkitDescription;
+}
+
+/**
+ * Infer the API type from a HypeQueryAPI for use with @hypequery/react.
+ *
+ * @example
+ * ```ts
+ * const api = createAPI({ queries: { hello: ... } });
+ * type Api = InferAPIType<typeof api>;
+ * createHooks<Api>({ baseUrl: '/api' });
+ * ```
+ */
+export type InferAPIType<TTarget> = TTarget extends HypeQueryAPI<infer TQueries, any, any>
+  ? {
+      [K in keyof TQueries]: TQueries[K] extends ServeEndpoint<
+        infer TInputSchema,
+        infer TOutputSchema,
+        any,
+        any,
+        any
+      >
+        ? {
+            input: SchemaInput<TInputSchema>;
+            output: SchemaOutput<TOutputSchema>;
+          }
+        : never;
+    }
+  : never;
+
+/**
+ * @deprecated Use `HypeQueryAPI` and `createAPI()` instead. `ServeBuilder` adds
+ * transport concerns (`start()`) that should be handled separately.
+ */
 export interface ServeBuilder<
   TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
     string,

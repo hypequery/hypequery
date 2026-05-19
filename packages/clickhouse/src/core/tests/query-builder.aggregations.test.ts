@@ -88,6 +88,24 @@ describe('QueryBuilder - Aggregations', () => {
     expect(sql).toBe('SELECT COUNT(id) AS num_orders FROM test_table');
   });
 
+  it('should build query with COUNT DISTINCT', () => {
+    const sql = builder
+      .countDistinct('name', 'unique_names')
+      .toSQL();
+    expect(sql).toBe('SELECT COUNT(DISTINCT name) AS unique_names FROM test_table');
+  });
+
+  it('should infer GROUP BY for COUNT DISTINCT from aliased expressions', () => {
+    const sql = builder
+      .select([rawAs('toDate(created_at)', 'day')])
+      .countDistinct('name', 'unique_names')
+      .toSQL();
+
+    expect(sql).toBe(
+      'SELECT toDate(created_at) AS day, COUNT(DISTINCT name) AS unique_names FROM test_table GROUP BY day'
+    );
+  });
+
   it('should combine multiple aggregations with custom aliases', () => {
     const sql = builder
       .select(['category'])

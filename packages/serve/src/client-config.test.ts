@@ -4,6 +4,7 @@ import {
   defineClientConfig,
   type ApiClientConfig,
 } from "./client-config.js";
+import { defineServe } from "./server/define-serve.js";
 import type { ServeBuilder } from "./types.js";
 
 describe("Client Config Utilities", () => {
@@ -222,6 +223,45 @@ describe("Client Config Utilities", () => {
         const config = extractClientConfig(api);
 
         expect(config.patchData.method).toBe("PATCH");
+      });
+
+      it("extracts endpoint metadata paths", () => {
+        const api = {
+          queries: {
+            totalRevenue: {
+              method: "POST" as const,
+              metadata: {
+                path: "/api/analytics/metrics/totalRevenue",
+              },
+            },
+          },
+        } as unknown as ServeBuilder<any, any, any>;
+
+        const config = extractClientConfig(api);
+
+        expect(config.totalRevenue).toEqual({
+          method: "POST",
+          path: "/api/analytics/metrics/totalRevenue",
+        });
+      });
+
+      it("preserves route overrides for defineServe builders", () => {
+        const api = defineServe({
+          queries: {
+            hello: {
+              query: async () => ({ ok: true }),
+            },
+          },
+        });
+
+        api.route("/hello", api.queries.hello, { method: "POST" });
+
+        const config = extractClientConfig(api);
+
+        expect(config.hello).toEqual({
+          method: "POST",
+          path: "/queries/hello",
+        });
       });
     });
   });

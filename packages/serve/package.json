@@ -20,6 +20,7 @@
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --project tsconfig.json --watch",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:types": "tsc --project tsconfig.type-tests.json",
     "test": "npm run test:types && vitest run",
     "types": "tsc --project tsconfig.json --noEmit"
@@ -27,7 +28,8 @@
   "dependencies": {
     "openapi-typescript": "^7.13.0",
     "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.23.5"
+    "zod-to-json-schema": "^3.23.5",
+    "@hypequery/datasets": "workspace:*"
   },
   "peerDependencies": {
     "tsx": "^4.0.0"

@@ -21,6 +21,11 @@ import type {
   MaybePromise,
 } from './types.js';
 import { createTenantScope, warnTenantMisconfiguration } from './tenant.js';
+import {
+  attachSemanticRuntime,
+  attachSemanticTenantRuntime,
+  resolveSemanticExecutionRuntime,
+} from './semantic/query-builder-context.js';
 import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
@@ -424,6 +429,36 @@ export const executeEndpoint = async <
         context.tenantId = tenantId;
         const mode = activeTenantConfig.mode ?? 'manual';
         const column = activeTenantConfig.column;
+        const usesServeTenantRuntime = Boolean(
+          metadataWithAuth.custom && (metadataWithAuth.custom as Record<string, unknown>).usesServeTenantRuntime,
+        );
+        const semanticRuntime = resolveSemanticExecutionRuntime(context as Record<string, unknown>);
+
+        if (mode === 'auto-inject' && column && semanticRuntime?.builderFactory) {
+          Object.assign(
+            context,
+            attachSemanticRuntime(context as Record<string, unknown>, {
+              builderFactory: createTenantScope(semanticRuntime.builderFactory, {
+                tenantId,
+                column,
+              }),
+              tenant: {
+                id: tenantId,
+                column,
+                handledByBuilder: true,
+              },
+            }),
+          );
+        } else {
+          Object.assign(
+            context,
+            attachSemanticTenantRuntime(context as Record<string, unknown>, {
+              tenantId,
+              tenantColumn: column,
+              tenantHandledByBuilder: false,
+            }),
+          );
+        }
 
         if (mode === 'auto-inject' && column) {
           const contextValues = context as Record<string, unknown>;
@@ -436,7 +471,7 @@ export const executeEndpoint = async <
               });
             }
           }
-        } else if (mode === 'manual') {
+        } else if (mode === 'manual' && !usesServeTenantRuntime) {
           warnTenantMisconfiguration({
             queryKey: endpoint.key,
             hasTenantConfig: true,

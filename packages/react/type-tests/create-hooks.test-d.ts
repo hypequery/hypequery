@@ -1,4 +1,4 @@
-import { createHooks, queryOptions, type QueryInput, type QueryOutput } from '../src/index.js';
+import { createHooks, createAnalyticsHooks, queryOptions, type QueryInput, type QueryOutput } from '../src/index.js';
 import type { Expect, Equal } from '@type-challenges/utils';
 
 type Api = {
@@ -20,6 +20,19 @@ type Api = {
 };
 
 const hooks = createHooks<Api>({ baseUrl: 'https://api.example.com' });
+const semantic = createAnalyticsHooks<{
+  totalRevenue: {
+    input: { dimensions?: string[] };
+    output: { data: Array<{ totalRevenue: number }> };
+  };
+  'dataset:orders': {
+    input: { dimensions?: string[]; measures?: string[] };
+    output: { data: Array<{ country: string; revenue: number }> };
+  };
+}>({
+  baseUrl: 'https://api.example.com',
+  metrics: ['totalRevenue'] as const,
+});
 
 // QueryInput / QueryOutput helpers retain declared types
 export type _ListUsersInput = Expect<
@@ -36,6 +49,8 @@ hooks.useQuery('stats');
 hooks.useQuery('stats', undefined, queryOptions({ enabled: false, staleTime: 1_000 }));
 const mutation = hooks.useMutation('createUser');
 mutation.mutate({ name: 'Leia' });
+semantic.useMetric('totalRevenue', { dimensions: ['country'] });
+semantic.useDataset('orders', { dimensions: ['country'], measures: ['revenue'] });
 
 // Invalid usages should surface type errors
 // @ts-expect-error missing required input for listUsers
@@ -44,3 +59,7 @@ hooks.useQuery('listUsers');
 hooks.useQuery('listUsers', { search: 42 });
 // @ts-expect-error mutation input requires name
 mutation.mutate({});
+// @ts-expect-error unknown semantic metric
+semantic.useMetric('missingMetric');
+// @ts-expect-error wrong semantic dataset input shape
+semantic.useDataset('orders', { dimensions: 42 });

@@ -1,11 +1,18 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { ClickHouseConnection } from '../../connection.js';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { logger as hypeQueryLogger } from '../../utils/logger.js';
-// @ts-expect-error: raw JSON import for supplying fixture data
-import rawTestData from './test-data.json';
+import {
+  CLICKHOUSE_CONTAINER_NAME,
+  TEST_CONNECTION_CONFIG,
+  TEST_DATA,
+  detectComposeCommand,
+  ensureDockerDaemon,
+  isContainerRunning as sharedIsContainerRunning,
+  seedClickHouseDatabase,
+  startClickHouseContainer as sharedStartClickHouseContainer,
+  stopClickHouseContainer as sharedStopClickHouseContainer,
+  waitForClickHouse as sharedWaitForClickHouse,
+  // @ts-expect-error: shared test harness is plain JS
+} from '../../../../../../testing/clickhouse/harness.mjs';
 
 // Disable the hypequery logger to prevent "logs after tests" errors
 // This must be done early in the setup, before any queries run
@@ -30,23 +37,7 @@ const logger = {
   }
 };
 
-const execAsync = promisify(exec);
-
-// Create a path to the project root
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '../../../../../');
-
-// Connection configuration (with defaults that can be overridden by env variables)
-const CLICKHOUSE_TEST_PORT = process.env.CLICKHOUSE_TEST_PORT || '8123';
-const config = {
-  host: process.env.CLICKHOUSE_TEST_HOST || `http://localhost:${CLICKHOUSE_TEST_PORT}`,
-  user: process.env.CLICKHOUSE_TEST_USER || 'default',
-  password: process.env.CLICKHOUSE_TEST_PASSWORD || 'hypequery_test',
-  database: process.env.CLICKHOUSE_TEST_DB || 'test_db',
-};
-
-export const TEST_CONNECTION_CONFIG = config;
+const config = TEST_CONNECTION_CONFIG;
 
 // Initialize the ClickHouse connection
 export const initializeTestConnection = async () => {
@@ -95,93 +86,18 @@ export const ensureConnectionInitialized = () => {
 };
 
 // Check if Docker is installed
-export const isDockerAvailable = async (): Promise<boolean> => {
-  try {
-    await execAsync('docker --version');
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
-
-// Check if Docker Compose is installed
-export const isDockerComposeAvailable = async (): Promise<boolean> => {
-  try {
-    await execAsync('docker compose version');
-    return true;
-  } catch (error) {
-    try {
-      // Try the hyphenated version for older installations
-      await execAsync('docker-compose --version');
-      return true;
-    } catch {
-      return false;
-    }
-  }
-};
-
-// Check if a docker container is running
 export const isContainerRunning = async (containerName: string): Promise<boolean> => {
-  try {
-    const { stdout } = await execAsync(`docker ps --filter "name=${containerName}" --format "{{.Names}}"`);
-    return stdout.trim() === containerName;
-  } catch (error) {
-    return false;
-  }
-};
-
-// Check if ClickHouse is ready
-export const isClickHouseReady = async (): Promise<boolean> => {
-  try {
-    const client = ClickHouseConnection.getClient();
-    await client.ping();
-    return true;
-  } catch (error) {
-    return false;
-  }
+  return sharedIsContainerRunning(containerName);
 };
 
 // Start the ClickHouse container
 export const startClickHouseContainer = async (): Promise<void> => {
-  const dockerAvailable = await isDockerAvailable();
-  if (!dockerAvailable) {
-    throw new Error('Docker is not available. Please install Docker to run integration tests.');
-  }
-
-  const composeAvailable = await isDockerComposeAvailable();
-
-  // Use Docker Compose if available
-  if (composeAvailable) {
-    logger.info('Starting ClickHouse container with Docker Compose...');
-    try {
-      // Fix the path to the docker-compose.test.yml file
-      const composePath = path.resolve(projectRoot, 'packages/clickhouse/docker-compose.test.yml');
-      logger.info(`Using Docker Compose file at: ${composePath}`);
-
-      // Make sure we're executing the command from the correct directory
-      await execAsync(`docker compose -f "${composePath}" up -d`);
-    } catch (error) {
-      logger.error('Failed to start ClickHouse container with Docker Compose:', error);
-      throw error;
-    }
-  } else {
-    // Fallback to Docker run
-    logger.info('Starting ClickHouse container with Docker...');
-    try {
-      await execAsync(`
-        docker run -d --name hypequery-test-clickhouse 
-        -p 8123:8123 -p 9000:9000
-        -e CLICKHOUSE_USER=${config.user}
-        -e CLICKHOUSE_PASSWORD=${config.password}
-        -e CLICKHOUSE_DB=${config.database}
-        --ulimit nofile=262144:262144
-        clickhouse/clickhouse-server:latest
-      `);
-    } catch (error) {
-      logger.error('Failed to start ClickHouse container with Docker:', error);
-      throw error;
-    }
-  }
+  await ensureDockerDaemon();
+  const compose = await detectComposeCommand();
+  await sharedStartClickHouseContainer({
+    compose,
+    logger: (message: string) => logger.info(message),
+  });
 };
 
 // Wait for ClickHouse to be ready
@@ -189,46 +105,24 @@ export const waitForClickHouse = async (
   maxAttempts = 30,
   retryInterval = 1000
 ): Promise<void> => {
-  logger.info('Waiting for ClickHouse to be ready...');
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    if (await isClickHouseReady()) {
-      logger.info('ClickHouse is ready!');
-      return;
-    }
-    logger.info(`Waiting for ClickHouse... Attempt ${attempt}/${maxAttempts}`);
-    await new Promise(resolve => setTimeout(resolve, retryInterval));
-  }
-
-  throw new Error(`ClickHouse failed to start after ${maxAttempts} attempts`);
+  await sharedWaitForClickHouse({
+    config,
+    maxAttempts,
+    retryDelayMs: retryInterval,
+    logger: (message: string) => logger.info(message),
+  });
 };
 
 // Stop the ClickHouse container
 export const stopClickHouseContainer = async (): Promise<void> => {
-  const composeAvailable = await isDockerComposeAvailable();
-
-  if (composeAvailable) {
-    logger.info('Stopping ClickHouse container with Docker Compose...');
-    try {
-      // Fix the path to the docker-compose.test.yml file
-      const composePath = path.resolve(projectRoot, 'packages/clickhouse/docker-compose.test.yml');
-      logger.info(`Using Docker Compose file at: ${composePath}`);
-
-      // Make sure we're executing the command from the correct directory
-      await execAsync(`docker compose -f "${composePath}" down -v`);
-    } catch (error) {
-      logger.error('Failed to stop ClickHouse container with Docker Compose:', error);
-      // Log the error but don't throw, so the tests can complete
-      // This allows for manual cleanup if needed
-    }
-  } else {
-    logger.info('Stopping ClickHouse container with Docker...');
-    try {
-      await execAsync('docker stop hypequery-test-clickhouse && docker rm hypequery-test-clickhouse');
-    } catch (error) {
-      logger.error('Failed to stop ClickHouse container with Docker:', error);
-      // Log the error but don't throw, so the tests can complete
-    }
+  try {
+    const compose = await detectComposeCommand();
+    await sharedStopClickHouseContainer({
+      compose,
+      logger: (message: string) => logger.info(message),
+    });
+  } catch (error) {
+    logger.error('Failed to stop ClickHouse container:', error);
   }
 };
 
@@ -261,56 +155,7 @@ export interface TestSchemaType {
   }>;
 }
 
-function normalizeDateValue(value: string): string {
-  if (!value) {
-    return value;
-  }
-
-  if (value.includes('T')) {
-    return value.split('T')[0];
-  }
-
-  if (value.includes(' ')) {
-    return value.split(' ')[0];
-  }
-
-  return value;
-}
-
-function normalizeTestData() {
-  const testTable = (rawTestData.test_table ?? []).map(row => ({
-    id: row.id,
-    name: row.name,
-    category: row.category,
-    price: row.price,
-    created_at: normalizeDateValue(row.created_at),
-    is_active: row.is_active,
-    tags: row.tags ?? [],
-  }));
-
-  const users = (rawTestData.users ?? []).map(row => ({
-    id: row.id,
-    user_name: row.user_name,
-    email: row.email,
-    status: row.status,
-    created_at: normalizeDateValue(row.created_at)
-  }));
-
-  const orders = (rawTestData.orders ?? []).map(row => ({
-    id: row.id,
-    user_id: row.user_id,
-    product_id: row.product_id,
-    quantity: row.quantity,
-    total: row.total,
-    status: row.status,
-    created_at: normalizeDateValue(row.created_at)
-  }));
-
-  return { test_table: testTable, users, orders } satisfies TestSchemaType;
-}
-
-// Test data
-export const TEST_DATA: TestSchemaType = normalizeTestData();
+export { CLICKHOUSE_CONTAINER_NAME, TEST_CONNECTION_CONFIG, TEST_DATA };
 
 let hasSetupRun = false;
 
@@ -325,88 +170,12 @@ export const setupTestDatabase = async (): Promise<void> => {
     return;
   }
 
-  // Make sure connection is initialized before getting client
-  const client = ensureConnectionInitialized();
-
   try {
-    // Create and use database if it doesn't exist
-    await client.exec({ query: `CREATE DATABASE IF NOT EXISTS ${config.database}` });
-    await client.exec({ query: `USE ${config.database}` });
-
-    // Drop tables if they exist
-    await client.exec({ query: 'DROP TABLE IF EXISTS test_table' });
-    await client.exec({ query: 'DROP TABLE IF EXISTS users' });
-    await client.exec({ query: 'DROP TABLE IF EXISTS orders' });
-
-    // Create tables
-    await client.exec({
-      query: `
-        CREATE TABLE test_table (
-          id UInt32,
-          name String,
-          category String,
-          price Float64,
-          created_at Date,
-          is_active Boolean,
-          tags Array(String)
-        ) ENGINE = MergeTree()
-        ORDER BY id
-      `
+    await seedClickHouseDatabase({
+      config,
+      data: TEST_DATA,
+      logger: (message: string) => logger.info(message),
     });
-
-    await client.exec({
-      query: `
-        CREATE TABLE users (
-          id UInt32,
-          user_name String,
-          email String,
-          status String,
-          created_at Date
-        ) ENGINE = MergeTree()
-        ORDER BY id
-      `
-    });
-
-    await client.exec({
-      query: `
-        CREATE TABLE orders (
-          id UInt32,
-          user_id UInt32,
-          product_id UInt32,
-          quantity UInt32,
-          total Float64,
-          status String,
-          created_at Date
-        ) ENGINE = MergeTree()
-        ORDER BY id
-      `
-    });
-
-    // Insert test data
-    for (const row of TEST_DATA.test_table) {
-      await client.insert({
-        table: 'test_table',
-        values: [row],
-        format: 'JSONEachRow'
-      });
-    }
-
-    for (const row of TEST_DATA.users) {
-      await client.insert({
-        table: 'users',
-        values: [row],
-        format: 'JSONEachRow'
-      });
-    }
-
-    for (const row of TEST_DATA.orders) {
-      await client.insert({
-        table: 'orders',
-        values: [row],
-        format: 'JSONEachRow'
-      });
-    }
-
     hasSetupRun = true;
     logger.info('Test database setup complete');
   } catch (error) {

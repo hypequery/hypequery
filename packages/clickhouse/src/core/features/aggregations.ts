@@ -62,4 +62,22 @@ export class AggregationFeature<
   max(column: string, alias: string) {
     return this.createAggregation(column, 'MAX', alias);
   }
+
+  countDistinct(column: string, alias: string) {
+    const aggregationSQL = `COUNT(DISTINCT ${column}) AS ${alias}`;
+    const query = this.builder.getQueryNode();
+
+    if (query.select) {
+      return {
+        ...query,
+        select: [...query.select, { kind: 'selection' as const, selection: aggregationSQL }],
+        groupBy: query.groupBy || this.inferGroupBySelections(query.select),
+      };
+    }
+
+    return {
+      ...query,
+      select: [{ kind: 'selection' as const, selection: aggregationSQL }],
+    };
+  }
 }

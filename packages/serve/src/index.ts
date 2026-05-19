@@ -14,5 +14,7 @@ export * from "./utils.js";
 export * from "./adapters/node.js";
 export * from "./adapters/fetch.js";
 export * from "./adapters/vercel.js";
+export { startServer, toNodeHandler, toFetchHandler } from "./adapters/standalone.js";
 export * from "./dev.js";
 export * from "./serve.js";
+export * from "./semantic/index.js";

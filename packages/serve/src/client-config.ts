@@ -5,6 +5,7 @@ import type { ServeBuilder, HttpMethod, AuthContext } from "./types.js";
  */
 export interface QueryClientConfig {
   method: HttpMethod;
+  path?: string;
 }
 
 /**
@@ -44,6 +45,7 @@ export function extractClientConfig<
     for (const [key, routeConfig] of Object.entries(api._routeConfig)) {
       config[key] = {
         method: routeConfig.method,
+        path: api.queries[key as keyof typeof api.queries]?.metadata?.path,
       };
     }
   } else {
@@ -51,6 +53,7 @@ export function extractClientConfig<
     for (const [key, endpoint] of Object.entries(api.queries)) {
       config[key] = {
         method: endpoint.method,
+        path: endpoint.metadata?.path,
       };
     }
   }
@@ -64,8 +67,8 @@ export function extractClientConfig<
  *
  * @example
  * const config = defineClientConfig({
- *   hello: { method: 'GET' },
- *   createUser: { method: 'POST' },
+ *   hello: { method: 'GET', path: '/api/analytics/queries/hello' },
+ *   createUser: { method: 'POST', path: '/api/analytics/queries/createUser' },
  * });
  */
 export function defineClientConfig<T extends ApiClientConfig>(config: T): T {
