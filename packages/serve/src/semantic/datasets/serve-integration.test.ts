@@ -180,6 +180,18 @@ describe("Serve integration — metrics", () => {
 
       expect(api).toBeDefined();
     });
+
+    it("throws when a metric name collides with an existing query key", () => {
+      expect(() =>
+        createAPI({
+          queries: {
+            totalRevenue: { query: async () => ({ ok: true }) },
+          },
+          metrics: { totalRevenue },
+          queryBuilder: createMockBuilderFactory(),
+        })
+      ).toThrow('metric "totalRevenue" collides with an existing query key');
+    });
   });
 
   describe("metric endpoints", () => {
@@ -1020,6 +1032,18 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(400);
       expect((response.body as any).error.message).toContain("at least one dimension or measure");
+    });
+
+    it("throws when a dataset route key collides with an existing query key", () => {
+      expect(() =>
+        createAPI({
+          queries: {
+            "dataset:orders": { query: async () => ({ ok: true }) },
+          },
+          datasets: { orders: Orders },
+          queryBuilder: createMockBuilderFactory(),
+        })
+      ).toThrow('dataset "dataset:orders" collides with an existing query key');
     });
 
   });

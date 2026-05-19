@@ -817,7 +817,7 @@ export type ExecuteQueryFunction<
  * const api = createAPI({ queries: { ... }, auth: jwtStrategy });
  *
  * // Use with any transport:
- * serve(api, { port: 3000 });
+ * startServer(api, { port: 3000 });
  * app.use('/analytics', toNodeHandler(api));
  * export default toFetchHandler(api);
  * ```

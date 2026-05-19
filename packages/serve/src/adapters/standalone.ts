@@ -20,15 +20,20 @@ const extractHandler = (source: HandlerSource): ServeHandler => {
  * @example
  * ```ts
  * const api = createAPI({ queries: { ... } });
- * const { stop } = await serve(api, { port: 3000 });
+ * const { stop } = await startServer(api, { port: 3000 });
  * ```
  */
-export const serve = async (
+export const startServer = async (
   api: HandlerSource,
   options?: StartServerOptions,
 ): Promise<ServeStartResult> => {
   return startNodeServer(extractHandler(api), options);
 };
+
+/**
+ * @deprecated Use startServer(api, options) instead.
+ */
+export const serve = startServer;
 
 /**
  * Create a Node.js HTTP handler (req, res) from a HypeQueryAPI.

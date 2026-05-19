@@ -22,9 +22,9 @@ import { createAPI } from "./create-api.js";
  * api.start({ port: 3000 });
  *
  * // After (createAPI + serve)
- * import { createAPI, serve } from '@hypequery/serve';
+ * import { createAPI, startServer } from '@hypequery/serve';
  * const api = createAPI({ queries: { ... } });
- * serve(api, { port: 3000 });
+ * startServer(api, { port: 3000 });
  * ```
  */
 export const defineServe = <

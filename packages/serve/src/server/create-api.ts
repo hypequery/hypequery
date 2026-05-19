@@ -23,6 +23,19 @@ import { MetricExecutor } from "@hypequery/datasets";
 import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
 import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js";
 
+const assertSemanticKeyAvailable = (
+  queryEntries: Record<string, unknown>,
+  key: string,
+  kind: "metric" | "dataset",
+) => {
+  if (key in queryEntries) {
+    throw new Error(
+      `createAPI: ${kind} "${key}" collides with an existing query key. ` +
+      `Rename the ${kind} or the query to keep api.queries and api.execute() unambiguous.`,
+    );
+  }
+};
+
 /**
  * Create a transport-agnostic API definition.
  *
@@ -33,7 +46,7 @@ import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js
  * @example
  * ```ts
  * import { createAPI } from '@hypequery/serve';
- * import { serve, toFetchHandler, toNodeHandler } from '@hypequery/serve';
+ * import { startServer, toFetchHandler, toNodeHandler } from '@hypequery/serve';
  *
  * const api = createAPI({
  *   auth: jwtStrategy,
@@ -43,7 +56,7 @@ import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js
  * });
  *
  * // Standalone server
- * serve(api, { port: 3000 });
+ * startServer(api, { port: 3000 });
  *
  * // Express / Node.js middleware
  * app.use('/analytics', toNodeHandler(api));
@@ -153,6 +166,7 @@ export const createAPI = <
     const executor = new MetricExecutor({ builderFactory });
 
     for (const [name, entry] of Object.entries(metricsEntries)) {
+      assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, name, "metric");
       const metricEndpoint = createMetricEndpoint(name, entry, executor);
       const metricsPath = config.semanticPaths?.metrics ?? '/metrics';
       const routePath = normalizeRoutePath(`${metricsPath}/${name}`);
@@ -180,6 +194,7 @@ export const createAPI = <
     }
 
     for (const [name, entry] of Object.entries(datasetEntries)) {
+      assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, `dataset:${name}`, "dataset");
       const datasetEndpoint = createDatasetEndpoint(
         name,
         entry,
