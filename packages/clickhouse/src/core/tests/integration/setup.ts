@@ -1,6 +1,5 @@
 import { ClickHouseConnection } from '../../connection.js';
 import { logger as hypeQueryLogger } from '../../utils/logger.js';
-// @ts-expect-error: shared test harness is plain JS
 import {
   CLICKHOUSE_CONTAINER_NAME,
   TEST_CONNECTION_CONFIG,
@@ -12,6 +11,7 @@ import {
   startClickHouseContainer as sharedStartClickHouseContainer,
   stopClickHouseContainer as sharedStopClickHouseContainer,
   waitForClickHouse as sharedWaitForClickHouse,
+  // @ts-expect-error: shared test harness is plain JS
 } from '../../../../../../testing/clickhouse/harness.mjs';
 
 // Disable the hypequery logger to prevent "logs after tests" errors
