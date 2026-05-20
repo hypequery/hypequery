@@ -6,12 +6,25 @@ export class AggregationFeature<
   Schema extends SchemaDefinition<Schema>,
   State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
+  private static readonly TRAILING_ALIAS_PATTERN = /\s+AS\s+[A-Za-z_][A-Za-z0-9_]*$/i;
+  private static readonly LEADING_AGGREGATE_CALL_PATTERN = /^(COUNT|SUM|AVG|MIN|MAX)\s*\(/i;
+
   constructor(private builder: QueryBuilder<Schema, State>) { }
+
+  private stripTrailingAlias(selection: string) {
+    return selection.replace(AggregationFeature.TRAILING_ALIAS_PATTERN, '').trim();
+  }
+
+  private isAggregateSelection(selection: string) {
+    const expressionWithoutAlias = this.stripTrailingAlias(selection);
+    return AggregationFeature.LEADING_AGGREGATE_CALL_PATTERN.test(expressionWithoutAlias);
+  }
 
   private inferGroupBySelections(select: Array<{ selection: string }>) {
     return select
       .map(item => item.selection)
       .filter(selection => selection !== '*')
+      .filter(selection => !this.isAggregateSelection(selection))
       .map(selection => {
         const aliasMatch = selection.match(/\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
         return {

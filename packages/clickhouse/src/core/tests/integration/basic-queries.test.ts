@@ -58,6 +58,20 @@ describe('Integration Tests - Basic Queries', () => {
       expect(Number(result[0].average_price)).toBeCloseTo(expectedAvg, 2);
     });
 
+    test('should chain aggregations without inferring GROUP BY from aggregate aliases', async () => {
+      const result = await db.table('test_table')
+        .sum('price', 'revenue')
+        .count('id', 'order_count')
+        .execute();
+
+      expect(result).toHaveLength(1);
+      expect(Number(result[0].revenue)).toBeCloseTo(
+        TEST_DATA.test_table.reduce((sum, item) => sum + item.price, 0),
+        2
+      );
+      expect(Number(result[0].order_count)).toBe(TEST_DATA.test_table.length);
+    });
+
     test('should perform GROUP BY queries', async () => {
       const result = await db.table('test_table')
         .select(['category'])
