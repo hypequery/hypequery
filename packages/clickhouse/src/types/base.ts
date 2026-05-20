@@ -37,6 +37,7 @@ export interface CompiledQuery {
 export interface SelectionNode {
   kind: 'selection';
   selection: string;
+  isAggregate?: boolean;
 }
 
 export interface ValueNode {
