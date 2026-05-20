@@ -35,24 +35,31 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.3",
+    "eslint-config-next": "16.2.6",
     "fumadocs-mdx": "^14.2.6",
-    "next": "16.2.3",
+    "next": "16.2.6",
     "rehype-code-titles": "^1.2.1",
     "rehype-slug": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^50.44.0"
+    "vercel": "^54.2.0"
   },
   "overrides": {
+    "@tootallnate/once": "^3.0.0",
     "ajv": "^6.14.0",
     "brace-expansion": "^2.0.3",
+    "esbuild": "^0.25.0",
     "flatted": "^3.4.2",
+    "ip-address": "^10.2.0",
     "minimatch": "^10.2.3",
     "path-to-regexp": "^8.4.2",
     "picomatch": "^4.0.4",
+    "postcss": "^8.5.13",
+    "srvx": "^0.11.15",
     "tar": "^7.5.8",
-    "undici": "^6.25.0"
+    "undici": "^6.25.0",
+    "vite": "^6.4.2",
+    "ws": "^8.20.1"
   }
 }
