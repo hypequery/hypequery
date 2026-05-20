@@ -10,8 +10,7 @@
     "packages/schema",
     "packages/serve",
     "packages/tsconfig",
-    "examples/*",
-    "website-next"
+    "examples/*"
   ],
   "license": "Apache-2.0",
   "scripts": {
