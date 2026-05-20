@@ -49,6 +49,15 @@ describe('QueryBuilder - Aggregations', () => {
     expect(sql).toBe('SELECT SUM(price) AS revenue, COUNT(id) AS order_count FROM test_table');
   });
 
+  it('should not infer GROUP BY from raw aggregate selections when adding aggregations', () => {
+    const sql = builder
+      .select([rawAs('COUNT(*)', 'total_rows')])
+      .sum('price')
+      .toSQL();
+
+    expect(sql).toBe('SELECT COUNT(*) AS total_rows, SUM(price) AS price_sum FROM test_table');
+  });
+
   it('should preserve an explicit GROUP BY when adding aggregations later', () => {
     const sql = builder
       .select(['name'])

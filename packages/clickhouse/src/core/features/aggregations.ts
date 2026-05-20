@@ -1,6 +1,6 @@
 import type { BuilderState, SchemaDefinition } from '../types/builder-state.js';
 import { QueryBuilder } from '../query-builder.js';
-import type { SelectQueryNode } from '../../types/index.js';
+import type { SelectQueryNode, SelectionNode } from '../../types/index.js';
 
 export class AggregationFeature<
   Schema extends SchemaDefinition<Schema>,
@@ -20,11 +20,30 @@ export class AggregationFeature<
     return AggregationFeature.LEADING_AGGREGATE_CALL_PATTERN.test(expressionWithoutAlias);
   }
 
-  private inferGroupBySelections(select: Array<{ selection: string }>) {
+  private createAggregateSelection(selection: string): SelectionNode {
+    return {
+      kind: 'selection',
+      selection,
+      isAggregate: true,
+    };
+  }
+
+  private shouldInferGroupByFromSelection(item: SelectionNode) {
+    if (item.selection === '*') {
+      return false;
+    }
+
+    if (item.isAggregate === true) {
+      return false;
+    }
+
+    return !this.isAggregateSelection(item.selection);
+  }
+
+  private inferGroupBySelections(select: SelectionNode[]) {
     return select
+      .filter(item => this.shouldInferGroupByFromSelection(item))
       .map(item => item.selection)
-      .filter(selection => selection !== '*')
-      .filter(selection => !this.isAggregateSelection(selection))
       .map(selection => {
         const aliasMatch = selection.match(/\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
         return {
@@ -45,14 +64,14 @@ export class AggregationFeature<
     if (query.select) {
       return {
         ...query,
-        select: [...query.select, { kind: 'selection' as const, selection: aggregationSQL }],
+        select: [...query.select, this.createAggregateSelection(aggregationSQL)],
         groupBy: query.groupBy || this.inferGroupBySelections(query.select)
       };
     }
 
     return {
       ...query,
-      select: [{ kind: 'selection' as const, selection: aggregationSQL }]
+      select: [this.createAggregateSelection(aggregationSQL)]
     };
   }
 
@@ -83,14 +102,14 @@ export class AggregationFeature<
     if (query.select) {
       return {
         ...query,
-        select: [...query.select, { kind: 'selection' as const, selection: aggregationSQL }],
+        select: [...query.select, this.createAggregateSelection(aggregationSQL)],
         groupBy: query.groupBy || this.inferGroupBySelections(query.select),
       };
     }
 
     return {
       ...query,
-      select: [{ kind: 'selection' as const, selection: aggregationSQL }],
+      select: [this.createAggregateSelection(aggregationSQL)],
     };
   }
 }
