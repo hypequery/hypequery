@@ -5,12 +5,13 @@
   "workspaces": [
     "packages/cli",
     "packages/clickhouse",
-    "packages/create-app",
+    "packages/datasets",
     "packages/react",
+    "packages/schema",
     "packages/serve",
     "packages/tsconfig",
     "examples/*",
-    "website"
+    "website-next"
   ],
   "license": "Apache-2.0",
   "scripts": {
