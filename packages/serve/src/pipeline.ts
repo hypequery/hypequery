@@ -20,12 +20,8 @@ import type {
   TenantConfigOverride,
   MaybePromise,
 } from './types.js';
-import { createTenantScope, warnTenantMisconfiguration } from './tenant.js';
-import {
-  attachSemanticRuntime,
-  attachSemanticTenantRuntime,
-  resolveSemanticExecutionRuntime,
-} from './semantic/query-builder-context.js';
+import { warnTenantMisconfiguration } from './tenant.js';
+import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
 import { generateRequestId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
@@ -92,7 +88,7 @@ const resolveTenantConfig = <TAuth extends AuthContext>(
       500,
       'INTERNAL_SERVER_ERROR',
       '[hypequery/serve] Tenant override requires an extract function when no global tenant config is set. ' +
-        'If you are using tenantOptional(), define a global tenant config with extract or pass extract in the per-query override.',
+      'If you are using tenantOptional(), define a global tenant config with extract or pass extract in the per-query override.',
     );
   }
 
@@ -336,10 +332,10 @@ export const executeEndpoint = async <
     if (!authContext && requiresAuth) {
       const authErrorInfo = authResult.error
         ? {
-            reason: authResult.error.reason,
-            message: authResult.error.message,
-            details: authResult.error.details,
-          }
+          reason: authResult.error.reason,
+          message: authResult.error.message,
+          details: authResult.error.details,
+        }
         : undefined;
       await safeInvokeHook('onAuthFailure', hooks.onAuthFailure, {
         requestId,
@@ -429,56 +425,13 @@ export const executeEndpoint = async <
         context.tenantId = tenantId;
         const mode = activeTenantConfig.mode ?? 'manual';
         const column = activeTenantConfig.column;
-        const usesServeTenantRuntime = Boolean(
-          metadataWithAuth.custom && (metadataWithAuth.custom as Record<string, unknown>).usesServeTenantRuntime,
-        );
-        const semanticRuntime = resolveSemanticExecutionRuntime(context as Record<string, unknown>);
-
-        if (mode === 'auto-inject' && column && semanticRuntime?.builderFactory) {
-          Object.assign(
-            context,
-            attachSemanticRuntime(context as Record<string, unknown>, {
-              builderFactory: createTenantScope(semanticRuntime.builderFactory, {
-                tenantId,
-                column,
-              }),
-              tenant: {
-                id: tenantId,
-                column,
-                handledByBuilder: true,
-              },
-            }),
-          );
-        } else {
-          Object.assign(
-            context,
-            attachSemanticTenantRuntime(context as Record<string, unknown>, {
-              tenantId,
-              tenantColumn: column,
-              tenantHandledByBuilder: false,
-            }),
-          );
-        }
-
-        if (mode === 'auto-inject' && column) {
-          const contextValues = context as Record<string, unknown>;
-          for (const key of Object.keys(contextValues)) {
-            const value = contextValues[key];
-            if (value && typeof value === 'object' && 'table' in value && typeof (value as any).table === 'function') {
-              contextValues[key] = createTenantScope(value as { table: (name: string) => any }, {
-                tenantId,
-                column,
-              });
-            }
-          }
-        } else if (mode === 'manual' && !usesServeTenantRuntime) {
-          warnTenantMisconfiguration({
-            queryKey: endpoint.key,
-            hasTenantConfig: true,
-            hasTenantId: true,
-            mode: 'manual',
-          });
-        }
+        applySemanticTenantRuntime(context as Record<string, unknown> & { tenantId?: string }, {
+          queryKey: endpoint.key,
+          metadata: metadataWithAuth,
+          tenantId,
+          mode,
+          column,
+        });
       } else if (!tenantRequired) {
         warnTenantMisconfiguration({
           queryKey: endpoint.key,

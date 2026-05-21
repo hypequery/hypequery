@@ -39,13 +39,5 @@ const avgOrderValue = Orders.metric('avgOrderValue', {
 });
 const monthlyRevenue = totalRevenue.by('month');
 
-const semanticQuery = Orders.query({
-  dimensions: ['status', 'createdAt'],
-  measures: ['revenue', 'orderCount'],
-  by: 'month',
-});
-
 monthlyRevenue.contract();
 avgOrderValue.contract();
-semanticQuery.contract();
-
