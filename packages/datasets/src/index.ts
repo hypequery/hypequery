@@ -48,17 +48,6 @@ export { validateSQLIdentifier, isSafeSQLIdentifier, quoteSQLIdentifier } from '
 // Constants
 export { GRAIN_FUNCTIONS } from './constants.js';
 
-// Query planning helpers
-export {
-  resolveDimensionExpression,
-  resolveFilterField,
-  buildDimensionSelectionPlan,
-  applyAggregationSpec,
-  applyMeasureDefinition,
-  appendOrderLimitOffset,
-  resolveTenantFilterColumn,
-} from './query-planner.js';
-
 // Types
 export type {
   FieldType,
@@ -91,9 +80,6 @@ export type {
   SemanticFilterDefinition,
   SemanticFiltersDefinition,
   DatasetConfig,
-  DatasetQueryConfig,
-  DatasetQueryContract,
-  DatasetQueryRef,
   DatasetLimits,
   DatasetInstance,
   BaseMetricConfig,

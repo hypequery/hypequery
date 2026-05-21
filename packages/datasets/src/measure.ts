@@ -8,6 +8,7 @@ function createMeasureHelper(aggregation: MeasureAggregation) {
     sql: opts?.sql,
     label: opts?.label,
     description: opts?.description,
+    filters: opts?.filters,
   });
 }
 
