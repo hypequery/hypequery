@@ -1,6 +1,7 @@
 import type { QueryBuilderFactoryLike, SemanticExecutionRuntime } from "@hypequery/datasets";
 
 export const INTERNAL_SEMANTIC_RUNTIME_KEY = "__hypequerySemanticRuntime";
+export const INTERNAL_SEMANTIC_TENANT_HANDLED_BY_BUILDER_KEY = "__hypequerySemanticTenantHandledByBuilder";
 
 export function attachSemanticQueryBuilder<
   TContext extends Record<string, unknown>,
@@ -47,21 +48,25 @@ export function resolveSemanticQueryBuilder(
   return resolveSemanticExecutionRuntime(context)?.builderFactory ?? fallback;
 }
 
+export function resolveSemanticTenantHandledByBuilder(
+  context: Record<string, unknown>,
+): boolean {
+  return context[INTERNAL_SEMANTIC_TENANT_HANDLED_BY_BUILDER_KEY] === true;
+}
+
 export function attachSemanticTenantRuntime<TContext extends Record<string, unknown>>(
   context: TContext,
   options: {
     tenantId: string;
-    tenantColumn?: string;
     tenantHandledByBuilder?: boolean;
   },
 ): TContext {
-  return attachSemanticRuntime(context, {
-    tenant: options.tenantColumn
-      ? {
-          id: options.tenantId,
-          column: options.tenantColumn,
-          handledByBuilder: options.tenantHandledByBuilder === true,
-        }
-      : undefined,
-  });
+  return {
+    ...attachSemanticRuntime(context, {
+      tenant: {
+        id: options.tenantId,
+      },
+    }),
+    [INTERNAL_SEMANTIC_TENANT_HANDLED_BY_BUILDER_KEY]: options.tenantHandledByBuilder === true,
+  };
 }

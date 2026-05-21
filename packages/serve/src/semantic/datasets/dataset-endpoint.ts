@@ -12,32 +12,32 @@
 import { z } from 'zod';
 import type {
   AuthContext,
-  AuthStrategy,
   EndpointHandler,
   EndpointMetadata,
   ServeEndpoint,
   ServeMiddleware,
-  TenantConfigOverride,
 } from '../../types.js';
 import type {
-  DatasetInstance,
-  MetricFilter,
   TimeGrain,
   QueryBuilderFactoryLike,
-  ValidationResult,
-} from '@hypequery/datasets';
-import {
-  applyMeasureDefinition,
-  appendOrderLimitOffset,
-  buildDimensionSelectionPlan,
-  resolveFilterField,
-  validateFilterValue,
 } from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
   resolveSemanticQueryBuilder,
+  resolveSemanticTenantHandledByBuilder,
 } from '../query-builder-context.js';
+import {
+  applyMeasureDefinition,
+  appendOrderLimitOffset,
+  buildDimensionSelectionPlan,
+  resolveFilterField,
+} from './query-planner.js';
+import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
+import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
+import { validateDatasetQuery } from './utils/dataset-query-validation.js';
+
+export type { DatasetEntry } from './utils/dataset-entry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for dataset query input / output
@@ -76,145 +76,6 @@ const datasetResultSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Dataset entry types
-// ---------------------------------------------------------------------------
-
-/** Per-dataset entry: shorthand (just the instance) or with overrides. */
-export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
-  | DatasetInstance
-  | {
-      dataset: DatasetInstance;
-      auth?: AuthStrategy<TAuth> | null;
-      tenant?: TenantConfigOverride<TAuth>;
-      cache?: number | null;
-      requiredRoles?: string[];
-      requiredScopes?: string[];
-      maxLimit?: number;
-    };
-
-function resolveDatasetEntry<TAuth extends AuthContext>(
-  entry: DatasetEntry<TAuth>,
-): {
-  dataset: DatasetInstance;
-  auth?: AuthStrategy<TAuth> | null;
-  tenant?: TenantConfigOverride<TAuth>;
-  cache?: number | null;
-  requiredRoles?: string[];
-  requiredScopes?: string[];
-  maxLimit?: number;
-} {
-  if (entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'dataset') {
-    return { dataset: entry as DatasetInstance };
-  }
-  return entry as {
-      dataset: DatasetInstance;
-      auth?: AuthStrategy<TAuth> | null;
-      tenant?: TenantConfigOverride<TAuth>;
-      cache?: number | null;
-      requiredRoles?: string[];
-      requiredScopes?: string[];
-      maxLimit?: number;
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
-function validateDatasetQuery(
-  ds: DatasetInstance,
-  query: {
-    dimensions?: string[];
-    measures?: string[];
-    filters?: Array<{ field: string }>;
-    orderBy?: Array<{ field: string }>;
-    by?: TimeGrain;
-  },
-  maxLimit?: number,
-): ValidationResult {
-  const errors: string[] = [];
-  const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = Object.keys(ds.measures);
-  const selectedDimensions = query.dimensions ?? [];
-  const selectedMeasures = query.measures ?? measureNames;
-  const filterNames = Object.keys(ds.filters);
-  const orderableFields = new Set<string>([
-    ...selectedDimensions,
-    ...selectedMeasures,
-    ...(query.by ? ['period'] : []),
-  ]);
-
-  if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
-    errors.push(
-      `Dataset "${ds.name}" query must select at least one dimension or measure.`,
-    );
-  }
-
-  if (query.dimensions) {
-    const invalid = query.dimensions.filter(c => !dimensionNames.includes(c));
-    if (invalid.length > 0) {
-      errors.push(`Unknown dimensions: ${invalid.join(', ')}. Available: ${dimensionNames.join(', ')}`);
-    }
-  }
-
-  if (query.measures) {
-    const invalid = query.measures.filter(c => !measureNames.includes(c));
-    if (invalid.length > 0) {
-      errors.push(`Unknown measures: ${invalid.join(', ')}. Available: ${measureNames.join(', ')}`);
-    }
-  }
-
-  if (query.filters) {
-    const invalid = query.filters.filter(f => !filterNames.includes(f.field));
-    if (invalid.length > 0) {
-      errors.push(`Unknown filter fields: ${invalid.map(f => f.field).join(', ')}. Available: ${filterNames.join(', ')}`);
-    }
-
-    for (const filter of query.filters) {
-      const filterDefinition = ds.filters[filter.field];
-      if (filterDefinition?.operators && !filterDefinition.operators.includes((filter as MetricFilter).operator)) {
-        errors.push(
-          `Filter "${filter.field}" does not allow operator "${(filter as MetricFilter).operator}". Allowed: ${filterDefinition.operators.join(', ')}`,
-        );
-        continue;
-      }
-      const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
-      const fieldType = ds.dimensions[resolvedField]?.fieldType;
-      if (!fieldType) continue;
-      const filterError = validateFilterValue(filter as MetricFilter, fieldType);
-      if (filterError) {
-        errors.push(filterError);
-      }
-    }
-  }
-
-  if (query.orderBy) {
-    const invalid = query.orderBy.filter(o => !orderableFields.has(o.field));
-    if (invalid.length > 0) {
-      errors.push(`Unknown orderBy fields: ${invalid.map(o => o.field).join(', ')}. Available: ${Array.from(orderableFields).join(', ')}`);
-    }
-  }
-
-  if (query.by && !ds.timeKey) {
-    errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
-  }
-
-  if (ds.limits?.maxDimensions && query.dimensions && query.dimensions.length > ds.limits.maxDimensions) {
-    errors.push(`Too many dimensions: ${query.dimensions.length} (max ${ds.limits.maxDimensions})`);
-  }
-
-  if (ds.limits?.maxMeasures && query.measures && query.measures.length > ds.limits.maxMeasures) {
-    errors.push(`Too many measures: ${query.measures.length} (max ${ds.limits.maxMeasures})`);
-  }
-
-  if (ds.limits?.maxFilters && query.filters && query.filters.length > ds.limits.maxFilters) {
-    errors.push(`Too many filters: ${query.filters.length} (max ${ds.limits.maxFilters})`);
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
@@ -234,7 +95,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     method: 'POST',
     name: name,
     summary: `Query the "${name}" semantic dataset`,
-    description: buildDescription(ds, effectiveMaxLimit),
+    description: buildDatasetQueryDescription(ds, effectiveMaxLimit),
     tags: ['datasets'],
     requiresAuth: resolved.auth !== null ? undefined : false,
     requiredRoles: resolved.requiredRoles,
@@ -251,7 +112,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     const start = Date.now();
 
     // Validate
-    const validation = validateDatasetQuery(ds, input, effectiveMaxLimit);
+    const validation = validateDatasetQuery(ds, input);
     if (!validation.valid) {
       throw new ServeHttpError(
         400,
@@ -292,15 +153,15 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 
     // Tenant injection
     if (ctx.tenantId) {
-      if (!runtime?.tenant) {
+      if (!runtime?.tenant || !ds.tenantKey) {
         throw new ServeHttpError(
           500,
           'INTERNAL_SERVER_ERROR',
-          `Dataset endpoint "${name}" requires tenant.column in Serve tenant config when tenant isolation is enabled.`,
+          `Dataset endpoint "${name}" requires dataset tenantKey and serve tenant runtime when tenant isolation is enabled.`,
         );
       }
-      if (!runtime.tenant.handledByBuilder) {
-        builder = builder.where(runtime.tenant.column, 'eq', runtime.tenant.id);
+      if (!resolveSemanticTenantHandledByBuilder(ctx as Record<string, unknown>)) {
+        builder = builder.where(ds.tenantKey, 'eq', runtime.tenant.id);
       }
     }
 
@@ -356,18 +217,4 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     requiredRoles: resolved.requiredRoles,
     requiredScopes: resolved.requiredScopes,
   };
-}
-
-function buildDescription(ds: DatasetInstance, maxLimit: number): string {
-  const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = Object.keys(ds.measures);
-  const lines = [
-    `Query the ${ds.name} semantic dataset (source: ${ds.source}).`,
-    '',
-    `**Dimensions:** ${dimensionNames.join(', ') || 'none'}`,
-    `**Measures:** ${measureNames.join(', ') || 'none'}`,
-    `**Max limit:** ${maxLimit}`,
-  ];
-
-  return lines.join('\n');
 }

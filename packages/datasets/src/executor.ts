@@ -16,14 +16,11 @@ import type {
   MetricQuery,
   MetricResult,
   MetricFilter,
-  MetricContract,
   ExecutionContext,
   AggregationSpec,
   DerivedMetricSpec,
-  DatasetInstance,
+  AnyDatasetInstance,
   TimeGrain,
-  FormulaExpr,
-  FieldType,
 } from './types.js';
 
 import type {
@@ -32,7 +29,7 @@ import type {
 } from './query-builder-protocol.js';
 
 import { validateSQLIdentifier } from './sql-utils.js';
-import { validateFilterValue, matchesFieldType, type ValidationResult } from './validation.js';
+import { validateFilterValue, type ValidationResult } from './validation.js';
 import {
   applyAggregationSpec,
   appendOrderLimitOffset,
@@ -40,24 +37,28 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from './query-planner.js';
-
-// =============================================================================
-// VALIDATION
-// =============================================================================
-
+import {
+  assertMetricHandle,
+  getMetricGrain,
+  getMetricRef,
+  isTenantScopedFilter,
+  type MetricHandle,
+} from './utils/metric-handle.js';
+import { validateDerivedCteGrouping } from './utils/derived-cte-validation.js';
 
 function validateQuery(
-  metric: MetricRef | GrainedMetricRef,
+  metric: MetricHandle,
   query: MetricQuery,
+  context?: ExecutionContext,
 ): ValidationResult {
   const errors: string[] = [];
-  const ref = metric.__type === 'grained_metric_ref' ? metric.metric : metric;
+  const ref = getMetricRef(metric);
   const ds = ref.dataset;
   const dimensionNames = Object.keys(ds.dimensions);
   const filterNames = Object.keys(ds.filters).length > 0
     ? Object.keys(ds.filters)
     : dimensionNames;
-  const grain = metric.__type === 'grained_metric_ref' ? metric.grain : query.by;
+  const grain = getMetricGrain(metric, query);
   const orderableFields = new Set<string>([
     ...(query.dimensions ?? []),
     ref.name,
@@ -93,6 +94,13 @@ function validateQuery(
     }
 
     const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
+    if (isTenantScopedFilter(ds, filter, context)) {
+      errors.push(
+        `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
+      );
+      continue;
+    }
+
     const fieldType = ds.dimensions[resolvedField]?.fieldType;
     if (fieldType) {
       const filterError = validateFilterValue(filter, fieldType);
@@ -160,7 +168,8 @@ export class MetricExecutor {
     query: MetricQuery = {},
     context?: ExecutionContext,
   ): Promise<MetricResult<T>> {
-    const validation = this.validate(metric, query);
+    assertMetricHandle(metric);
+    const validation = this.validate(metric, query, context);
     if (!validation.valid) {
       throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
     }
@@ -177,8 +186,14 @@ export class MetricExecutor {
     query: MetricQuery = {},
     context?: ExecutionContext,
   ): string {
-    const ref = metric.__type === 'grained_metric_ref' ? metric.metric : metric;
-    const grain = metric.__type === 'grained_metric_ref' ? metric.grain : query.by ?? undefined;
+    assertMetricHandle(metric);
+    const validation = this.validate(metric, query, context);
+    if (!validation.valid) {
+      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+    }
+
+    const ref = getMetricRef(metric);
+    const grain = getMetricGrain(metric, query);
     const spec = ref.spec;
 
     if (spec.__type === 'derived_metric_spec') {
@@ -195,8 +210,32 @@ export class MetricExecutor {
   validate(
     metric: MetricRef | GrainedMetricRef,
     query: MetricQuery,
+    context?: ExecutionContext,
   ): ValidationResult {
-    return validateQuery(metric, query);
+    assertMetricHandle(metric);
+
+    const queryValidation = validateQuery(metric, query, context);
+    if (!queryValidation.valid) {
+      return queryValidation;
+    }
+
+    const ref = getMetricRef(metric);
+    const grain = getMetricGrain(metric, query);
+
+    try {
+      if (ref.spec.__type === 'derived_metric_spec') {
+        this.buildDerivedSQLViaBuilder(ref, ref.spec, query, grain, context);
+      } else {
+        this.buildBaseQuery(ref, ref.spec as AggregationSpec, ref.dataset, query, grain, context).toSQLWithParams();
+      }
+    } catch (error) {
+      return {
+        valid: false,
+        errors: [error instanceof Error ? error.message : String(error)],
+      };
+    }
+
+    return queryValidation;
   }
 
   // ---------------------------------------------------------------------------
@@ -209,8 +248,8 @@ export class MetricExecutor {
     context: ExecutionContext | undefined,
     start: number,
   ): Promise<MetricResult<T>> {
-    const ref = metric.__type === 'grained_metric_ref' ? metric.metric : metric;
-    const grain = metric.__type === 'grained_metric_ref' ? metric.grain : query.by ?? undefined;
+    const ref = getMetricRef(metric);
+    const grain = getMetricGrain(metric, query);
     const spec = ref.spec;
     const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
 
@@ -233,7 +272,7 @@ export class MetricExecutor {
   private buildBaseQuery(
     ref: MetricRef,
     spec: AggregationSpec,
-    ds: DatasetInstance,
+    ds: AnyDatasetInstance,
     query: MetricQuery,
     grain: TimeGrain | undefined,
     context?: ExecutionContext,
@@ -261,13 +300,17 @@ export class MetricExecutor {
     // Tenant auto-injection
     const tenantColumn = resolveTenantFilterColumn(ds, context);
     const tenantId = context?.runtime?.tenant?.id;
-    const tenantHandledByBuilder = context?.runtime?.tenant?.handledByBuilder === true;
-    if (tenantId && tenantColumn && !tenantHandledByBuilder) {
+    if (tenantId && tenantColumn) {
       qb = qb.where(tenantColumn, 'eq', tenantId);
     }
 
     // User filters
     for (const filter of query.filters ?? []) {
+      if (isTenantScopedFilter(ds, filter, context)) {
+        throw new Error(
+          `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
+        );
+      }
       const resolvedField = resolveFilterField(ds, filter.field);
       qb = qb.where(resolvedField, filter.operator, filter.value);
     }
@@ -302,6 +345,7 @@ export class MetricExecutor {
 
     // Base aggregations
     const refAliases: Record<string, string> = {};
+    const aggregateAliases: string[] = [];
     for (const [alias, baseMetric] of Object.entries(spec.uses)) {
       const baseSpec = baseMetric.spec;
       if (baseSpec.__type !== 'aggregation_spec') {
@@ -309,6 +353,7 @@ export class MetricExecutor {
       }
       cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias);
       refAliases[alias] = alias;
+      aggregateAliases.push(alias);
     }
 
     if (groupByParts.length > 0) {
@@ -318,16 +363,24 @@ export class MetricExecutor {
     // Filters on CTE
     const tenantColumn = resolveTenantFilterColumn(ds, context);
     const tenantId = context?.runtime?.tenant?.id;
-    const tenantHandledByBuilder = context?.runtime?.tenant?.handledByBuilder === true;
-    if (tenantId && tenantColumn && !tenantHandledByBuilder) {
+    if (tenantId && tenantColumn) {
       cteBuilder = cteBuilder.where(tenantColumn, 'eq', tenantId);
     }
     for (const filter of query.filters ?? []) {
+      if (isTenantScopedFilter(ds, filter, context)) {
+        throw new Error(
+          `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
+        );
+      }
       const resolvedField = resolveFilterField(ds, filter.field);
       cteBuilder = cteBuilder.where(resolvedField, filter.operator, filter.value);
     }
 
     const { sql: cteSql, parameters: cteParams } = cteBuilder.toSQLWithParams();
+    const groupingErrors = validateDerivedCteGrouping(cteSql, aggregateAliases, groupByParts);
+    if (groupingErrors.length > 0) {
+      throw new Error(groupingErrors.join('; '));
+    }
 
     // Outer query: trivial SELECT from the CTE — stays as string concat
     // because table('base') would fail schema typing
