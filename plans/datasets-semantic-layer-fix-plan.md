@@ -2,7 +2,7 @@
 
 Date: 2026-05-21
 Owner: TBD
-Status: Draft
+Status: In Progress
 
 ## Pre-Release Bias
 
@@ -28,6 +28,8 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - `@hypequery/clickhouse` query builder is the SQL construction and execution backend.
 - Planner correctness must not depend on query-builder inference behavior.
 - Public docs must match the published npm package exactly.
+- This is not a query-builder change.
+- The biggest residual architecture risk is duplicated planner logic between `@hypequery/datasets` and `@hypequery/serve`, not the tenant runtime simplification itself.
 
 ## Decisions Locked For This Pass
 
@@ -37,6 +39,32 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - Serve runtime owns tenancy. Datasets should not expose a public API that pushes tenant ownership decisions onto consumers.
 - Simplify the public tenancy runtime shape in this pass.
 - Focus helper typing work on the existing generic helpers only. Do not introduce additive dataset-aware helper variants in this pass.
+
+## Progress Snapshot
+
+### Completed
+
+- Fixed derived metric SQL generation so ungrouped derived metrics do not emit invalid grouping.
+- Added planner-level derived query validation before execution.
+- Added filtered measure support to `@hypequery/datasets`.
+- Removed `dataset.query(...)` from the datasets public API.
+- Simplified `SemanticTenantRuntime` to tenant identity only.
+- Rejected explicit tenant filters when runtime tenancy is active.
+- Cleaned the datasets root export surface.
+- Updated `@hypequery/serve` to stop depending on removed datasets planner exports.
+- Moved serve semantic/planner runtime helpers into `utils` files to reduce endpoint and pipeline bulk.
+
+### In Progress
+
+- Lock the intended datasets public surface with stronger type-test coverage.
+- Assess whether compile-time restrictions for derived metrics and generic helpers can be tightened without disproportionate type complexity.
+
+### Remaining
+
+- Broader type-safety tightening for derived metrics and generic helpers.
+- Docs and guide alignment across the repo.
+- Fresh-consumer smoke coverage.
+- Wider integration coverage for datasets and serve semantic endpoints.
 
 ## Workstreams
 
@@ -227,6 +255,7 @@ Add CI checks for:
 
 - Derived metric typing tightening
 - Query typing improvements
+- Current-surface type-test expansion
 - Docs and examples rewrite
 - Fresh-consumer smoke tests
 
@@ -258,6 +287,7 @@ Add CI checks for:
 
 - Tightening the export surface may break undocumented consumer usage.
 - Tightening derived metric typing may reject code that currently compiles.
+- Duplicated planner behavior across `datasets` and `serve` can drift over time unless we either centralize that logic behind a deliberate public contract or keep mirrored coverage strong in both packages.
 - Adding filtered measure support expands the semantic API and test matrix materially.
 - `dataset.query(...)` changes require a deliberate compatibility decision.
 

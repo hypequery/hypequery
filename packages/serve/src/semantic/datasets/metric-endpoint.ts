@@ -24,6 +24,7 @@ import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
   resolveSemanticQueryBuilder,
+  resolveSemanticTenantHandledByBuilder,
 } from '../query-builder-context.js';
 
 // ---------------------------------------------------------------------------
@@ -130,6 +131,8 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       ctx as Record<string, unknown>,
       executor.getBuilderFactory(),
     );
+    const tenantHandledByBuilder = resolveSemanticTenantHandledByBuilder(ctx as Record<string, unknown>)
+      || (ctx.tenantId != null && runtimeBuilderFactory !== executor.getBuilderFactory());
 
     // Build the metric query
     const query = {
@@ -155,8 +158,24 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       throw new ServeHttpError(
         500,
         'INTERNAL_SERVER_ERROR',
-        `Metric endpoint "${name}" requires tenant.column in Serve tenant config when tenant isolation is enabled.`,
+        `Metric endpoint "${name}" requires serve tenant runtime when tenant isolation is enabled.`,
       );
+    }
+
+    if (ctx.tenantId && runtime?.tenant) {
+      const tenantValidation = executor.validate(metricRef, query, {
+        runtime: {
+          tenant: runtime.tenant,
+        },
+      });
+
+      if (!tenantValidation.valid) {
+        throw new ServeHttpError(
+          400,
+          'VALIDATION_ERROR',
+          tenantValidation.errors.join('; ')
+        );
+      }
     }
 
     // Execute with tenant context
@@ -164,6 +183,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       runtime: {
         ...runtime,
         builderFactory: runtimeBuilderFactory,
+        tenant: tenantHandledByBuilder ? undefined : runtime?.tenant,
       },
     });
 

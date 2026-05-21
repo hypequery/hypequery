@@ -510,7 +510,7 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
-    it("returns a clear error when tenant isolation is enabled without tenant.column", async () => {
+    it("falls back to the dataset tenantKey when tenant isolation is enabled without tenant.column", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
@@ -538,9 +538,8 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      expect(response.status).toBe(500);
-      expect((response.body as any).error.message).toContain('tenant.column');
-      expect(factory._calls['where']).toBeUndefined();
+      expect(response.status).toBe(200);
+      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
     it("prefers the Serve tenant column when auto-inject wraps the internal query builder", async () => {
@@ -575,7 +574,6 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(factory._calls['where']).toContainEqual(['organization_id', 'eq', 'tenant-123']);
-      expect(factory._calls['where']).not.toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
     it("does not warn about manual tenant mode for generated metric endpoints", async () => {
@@ -1235,7 +1233,7 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
-    it("returns a clear error for dataset tenant isolation without tenant.column", async () => {
+    it("falls back to the dataset tenantKey for dataset tenant isolation without tenant.column", async () => {
       const factory = createMockBuilderFactory([
         { country: "US", revenue: 5000 },
       ]);
@@ -1268,9 +1266,8 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      expect(response.status).toBe(500);
-      expect((response.body as any).error.message).toContain('tenant.column');
-      expect(factory._calls['where']).toBeUndefined();
+      expect(response.status).toBe(200);
+      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
     it("rejects empty dataset queries instead of falling back to raw table selection", async () => {
