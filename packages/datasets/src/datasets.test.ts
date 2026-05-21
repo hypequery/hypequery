@@ -19,6 +19,7 @@ const Customers = dataset("customers", {
   tenantKey: "tenant_id",
   dimensions: {
     id: dimension.string(),
+    tenantId: dimension.string({ column: "tenant_id" }),
     name: dimension.string({ label: "Customer Name" }),
     country: dimension.string({ label: "Country" }),
     createdAt: dimension.timestamp(),
@@ -34,6 +35,7 @@ const Orders = dataset("orders", {
   timeKey: "created_at",
   dimensions: {
     id: dimension.string(),
+    tenantId: dimension.string({ column: "tenant_id" }),
     customerId: dimension.string({ column: "customer_id" }),
     country: dimension.string({ label: "Country" }),
     status: dimension.string({ label: "Order Status" }),
@@ -44,6 +46,9 @@ const Orders = dataset("orders", {
     revenue: measure.sum('amount'),
     orderCount: measure.count('id'),
     uniqueCustomers: measure.countDistinct('customerId'),
+    completedRevenue: measure.sum('amount', {
+      filters: [eq('status', 'completed')],
+    }),
   },
   relationships: {
     customer: belongsTo(() => Customers, { from: "customerId", to: "id" }),
@@ -238,41 +243,10 @@ describe("Dataset.metric()", () => {
   });
 });
 
-describe("Dataset.query()", () => {
-  it("creates a semantic dataset query from dimensions, measures, filters, and sort helpers", () => {
-    const queryRef = Orders.query({
-      dimensions: ['country'],
-      measures: ['revenue', 'orderCount'],
-      filters: [eq('status', 'completed'), between('createdAt', '2025-01-01', '2025-01-31')],
-      orderBy: [desc('revenue')],
-      by: 'month',
-      limit: 25,
-    });
-
-    expect(queryRef.__type).toBe('dataset_query_ref');
-    expect(queryRef.config.dimensions).toEqual(['country']);
-    expect(queryRef.config.filters).toEqual([
-      { field: 'status', operator: 'eq', value: 'completed' },
-      { field: 'createdAt', operator: 'between', value: ['2025-01-01', '2025-01-31'] },
-    ]);
-    expect(queryRef.config.orderBy).toEqual([{ field: 'revenue', direction: 'desc' }]);
-    expect(queryRef.contract()).toMatchObject({
-      dataset: 'orders',
-      tenantScoped: true,
-      grains: ['day', 'week', 'month', 'quarter', 'year'],
-    });
-  });
-
-  it("preserves relationship metadata without exposing related paths in current query contracts", () => {
-    const queryRef = Orders.query({
-      dimensions: ['country'],
-      measures: ['revenue'],
-    });
-
+describe("Dataset public surface", () => {
+  it("does not expose dataset.query()", () => {
+    expect('query' in (Orders as unknown as Record<string, unknown>)).toBe(false);
     expect(Orders.relationships.customer.target()).toBe(Customers);
-    expect(queryRef.contract().dimensions).toEqual(['country']);
-    expect(queryRef.contract().measures).toEqual(['revenue']);
-    expect(queryRef.contract().dimensions).not.toContain('customer.country');
   });
 });
 
@@ -395,6 +369,8 @@ describe("DatasetRegistry", () => {
 // =============================================================================
 
 describe("MetricExecutor", () => {
+  type BuilderColumnsInput = string[] | string;
+
   function createMockBuilderFactory(): QueryBuilderFactoryLike {
     const mockData = [
       { country: "US", totalRevenue: 5000 },
@@ -435,7 +411,7 @@ describe("MetricExecutor", () => {
       };
 
       const builder: QueryBuilderLike = {
-        select: (args: any) => {
+        select: (args: BuilderColumnsInput) => {
           state.select.push(...(Array.isArray(args) ? args : [args]));
           return builder;
         },
@@ -468,7 +444,7 @@ describe("MetricExecutor", () => {
           state.where.push(`${column} ${op} ?`);
           return builder;
         },
-        groupBy: (args: any) => {
+        groupBy: (args: BuilderColumnsInput) => {
           state.groupBy.push(...(Array.isArray(args) ? args : [args]));
           return builder;
         },
@@ -499,6 +475,89 @@ describe("MetricExecutor", () => {
     };
   }
 
+  function createBrokenDerivedGroupingBuilderFactory(): QueryBuilderFactoryLike {
+    function createBrokenBuilder(): QueryBuilderLike {
+      const state = {
+        select: [] as string[],
+        where: [] as string[],
+        groupBy: [] as string[],
+      };
+
+      const maybeInferBrokenGroupBy = () => {
+        if (state.select.length > 0 && state.groupBy.length === 0) {
+          const aliasMatch = state.select[0].match(/\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
+          if (aliasMatch) {
+            state.groupBy.push(aliasMatch[1]);
+          }
+        }
+      };
+
+      const builder: QueryBuilderLike = {
+        select: (args: BuilderColumnsInput) => {
+          state.select.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        sum: (column: string, alias?: string) => {
+          state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
+          return builder;
+        },
+        count: (column: string, alias?: string) => {
+          maybeInferBrokenGroupBy();
+          state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
+          return builder;
+        },
+        countDistinct: (column: string, alias?: string) => {
+          maybeInferBrokenGroupBy();
+          state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
+          return builder;
+        },
+        avg: (column: string, alias?: string) => {
+          maybeInferBrokenGroupBy();
+          state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
+          return builder;
+        },
+        min: (column: string, alias?: string) => {
+          maybeInferBrokenGroupBy();
+          state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
+          return builder;
+        },
+        max: (column: string, alias?: string) => {
+          maybeInferBrokenGroupBy();
+          state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
+          return builder;
+        },
+        where: (column: string, operator: string, _value: unknown) => {
+          const op = operator === 'eq' ? '=' : operator;
+          state.where.push(`${column} ${op} ?`);
+          return builder;
+        },
+        groupBy: (args: BuilderColumnsInput) => {
+          state.groupBy.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        orderBy: () => builder,
+        limit: () => builder,
+        offset: () => builder,
+        toSQLWithParams: () => ({
+          sql: [
+            `SELECT ${state.select.join(', ')} FROM orders`,
+            state.where.length > 0 ? `WHERE ${state.where.join(' AND ')}` : '',
+            state.groupBy.length > 0 ? `GROUP BY ${state.groupBy.join(', ')}` : '',
+          ].filter(Boolean).join(' '),
+          parameters: [],
+        }),
+        execute: vi.fn().mockResolvedValue([]),
+      };
+
+      return builder;
+    }
+
+    return {
+      table: () => createBrokenBuilder(),
+      rawQuery: vi.fn().mockResolvedValue([]),
+    };
+  }
+
   const totalRevenue = Orders.metric("totalRevenue", {
     measure: "revenue",
     label: "Total Revenue",
@@ -506,6 +565,9 @@ describe("MetricExecutor", () => {
   const orderCount = Orders.metric("orderCount", { measure: "orderCount" });
   const uniqueCustomers = Orders.metric("uniqueCustomers", {
     measure: "uniqueCustomers",
+  });
+  const completedRevenue = Orders.metric("completedRevenue", {
+    measure: "completedRevenue",
   });
   const avgOrderValue = Orders.metric("avgOrderValue", {
     uses: { totalRevenue, orderCount },
@@ -530,7 +592,7 @@ describe("MetricExecutor", () => {
         dimensions: ["country"],
       }, {
         runtime: {
-          tenant: { id: "t1", column: "tenant_id", handledByBuilder: false },
+          tenant: { id: "t1" },
         },
       });
 
@@ -557,6 +619,16 @@ describe("MetricExecutor", () => {
 
       expect(sql).toContain("ORDER BY totalRevenue DESC");
       expect(sql).toContain("LIMIT 100");
+    });
+
+    it("compiles filtered measures into aggregation expressions", () => {
+      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
+      const sql = executor.toSQL(completedRevenue, {
+        dimensions: ["country"],
+      });
+
+      expect(sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS completedRevenue");
+      expect(sql).toContain("GROUP BY country");
     });
 
     it("resolves column aliases for countDistinct metrics", () => {
@@ -612,6 +684,23 @@ describe("MetricExecutor", () => {
       expect(sql).toContain("(totalRevenue) / (NULLIF(orderCount, 0)) AS avgOrderValue");
       expect(sql).not.toContain("SELECT country, (totalRevenue) / (NULLIF(orderCount, 0)) AS avgOrderValue, totalRevenue, orderCount FROM base");
     });
+
+    it("does not emit GROUP BY for ungrouped derived metrics", () => {
+      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
+      const sql = executor.toSQL(avgOrderValue);
+
+      expect(sql).toContain("WITH base AS");
+      expect(sql).not.toContain("GROUP BY totalRevenue");
+      expect(sql).not.toContain("GROUP BY orderCount");
+    });
+
+    it("rejects derived plans that introduce aggregate aliases into GROUP BY", () => {
+      const executor = new MetricExecutor({ builderFactory: createBrokenDerivedGroupingBuilderFactory() });
+      const result = executor.validate(avgOrderValue, {});
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain("GROUP BY");
+    });
   });
 
   describe("run()", () => {
@@ -636,14 +725,14 @@ describe("MetricExecutor", () => {
 
       await executor.run(totalRevenue, {}, {
         runtime: {
-          tenant: { id: "t1", column: "tenant_id", handledByBuilder: false },
+          tenant: { id: "t1" },
         },
       });
 
       // Verify the SQL was generated (toSQL includes tenant filter)
       const sql = executor.toSQL(totalRevenue, {}, {
         runtime: {
-          tenant: { id: "t1", column: "tenant_id", handledByBuilder: false },
+          tenant: { id: "t1" },
         },
       });
       expect(sql).toContain("tenant_id");
@@ -729,6 +818,20 @@ describe("MetricExecutor", () => {
       });
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain("Too many dimensions");
+    });
+
+    it("rejects explicit tenant filters when runtime tenancy is active", () => {
+      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
+      const result = executor.validate(totalRevenue, {
+        filters: [{ field: "tenantId", operator: "eq", value: "t1" }],
+      }, {
+        runtime: {
+          tenant: { id: "t1" },
+        },
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('Cannot filter on tenant field "tenantId"');
     });
   });
 });

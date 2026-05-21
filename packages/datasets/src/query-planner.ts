@@ -1,6 +1,6 @@
 import type {
   AggregationSpec,
-  DatasetInstance,
+  AnyDatasetInstance,
   ExecutionContext,
   MeasureDefinition,
   MetricOrderBy,
@@ -8,9 +8,12 @@ import type {
 } from "./types.js";
 import type { QueryBuilderLike } from "./query-builder-protocol.js";
 import { GRAIN_FUNCTIONS } from "./constants.js";
+import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
+
+type DatasetShape = AnyDatasetInstance;
 
 export function resolveDimensionExpression(
-  ds: DatasetInstance,
+  ds: DatasetShape,
   dimensionName: string,
 ): string {
   const definition = ds.dimensions[dimensionName];
@@ -18,7 +21,7 @@ export function resolveDimensionExpression(
 }
 
 export function resolveFilterField(
-  ds: DatasetInstance,
+  ds: DatasetShape,
   filterField: string,
 ): string {
   const resolvedField = ds.filters[filterField]?.field ?? filterField;
@@ -26,17 +29,17 @@ export function resolveFilterField(
 }
 
 export function buildDimensionSelectionPlan(
-  ds: DatasetInstance,
+  ds: DatasetShape,
   dimensions: string[],
   grain: TimeGrain | undefined,
 ): { selectParts: string[]; groupByParts: string[] } {
   const selectParts: string[] = [];
-  const groupByParts: string[] = [];
+  const groupByParts = new Set<string>();
 
   if (grain) {
     const fn = GRAIN_FUNCTIONS[grain];
     selectParts.push(`${fn}(${ds.timeKey}) AS period`);
-    groupByParts.push("period");
+    groupByParts.add("period");
   }
 
   for (const dimensionName of dimensions) {
@@ -46,19 +49,23 @@ export function buildDimensionSelectionPlan(
     } else {
       selectParts.push(`${expression} AS ${dimensionName}`);
     }
-    groupByParts.push(dimensionName);
+    groupByParts.add(dimensionName);
   }
 
-  return { selectParts, groupByParts };
+  return { selectParts, groupByParts: Array.from(groupByParts) };
 }
 
 export function applyAggregationSpec(
   qb: QueryBuilderLike,
-  ds: DatasetInstance,
+  ds: DatasetShape,
   spec: AggregationSpec,
   alias: string,
 ): QueryBuilderLike {
-  const fieldOrExpr = resolveDimensionExpression(ds, spec.field);
+  const fieldOrExpr = applyFilteredAggregationExpression(
+    ds,
+    spec,
+    resolveDimensionExpression(ds, spec.field),
+  );
 
   switch (spec.aggregation) {
     case "sum":
@@ -80,7 +87,7 @@ export function applyAggregationSpec(
 
 export function applyMeasureDefinition(
   qb: QueryBuilderLike,
-  ds: DatasetInstance,
+  ds: DatasetShape,
   name: string,
   definition: MeasureDefinition,
 ): QueryBuilderLike {
@@ -130,8 +137,12 @@ export function appendOrderLimitOffset(
 }
 
 export function resolveTenantFilterColumn(
-  _ds: DatasetInstance,
+  ds: DatasetShape,
   context?: ExecutionContext,
 ): string | undefined {
-  return context?.runtime?.tenant?.column;
+  if (!context?.runtime?.tenant?.id) {
+    return undefined;
+  }
+
+  return ds.tenantKey;
 }
