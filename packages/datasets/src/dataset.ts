@@ -32,6 +32,7 @@
 import type {
   DatasetConfig,
   DatasetInstance,
+  AnyDatasetInstance,
   DimensionDefinition,
   MeasureDefinition,
   RelationshipDefinition,
@@ -43,13 +44,16 @@ import type {
   BaseMetricConfig,
   DerivedMetricConfig,
   TimeGrain,
-  DatasetQueryConfig,
-  DatasetQueryRef,
   SemanticFiltersDefinition,
 } from './types.js';
+import { validateFilterValue } from './validation.js';
 
 const ALL_GRAINS: TimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
 const NUMERIC_FIELD_TYPES = new Set(['number']);
+type AnyDimensions = Record<string, DimensionDefinition>;
+type AnyMeasures = Record<string, MeasureDefinition>;
+type AnyRelationships = Record<string, RelationshipDefinition>;
+type DatasetShape = AnyDatasetInstance;
 
 function isDerivedMetricConfig<
   TDimensions extends Record<string, DimensionDefinition>,
@@ -62,7 +66,7 @@ function isDerivedMetricConfig<
 
 function buildContract(
   metricName: string,
-  ds: DatasetInstance<any, any, any>,
+  ds: DatasetShape,
   spec: AggregationSpec | DerivedMetricSpec,
   label?: string,
   description?: string,
@@ -99,7 +103,7 @@ function buildContract(
 }
 
 function createMetricRef(
-  ds: DatasetInstance<any, any, any>,
+  ds: DatasetShape,
   name: string,
   spec: AggregationSpec | DerivedMetricSpec,
   label?: string,
@@ -140,7 +144,7 @@ function createMetricRef(
 }
 
 function validateBaseMetric(
-  ds: DatasetInstance<any, any, any>,
+  ds: DatasetShape,
   metricName: string,
   spec: AggregationSpec,
   options?: { allowHiddenField?: boolean },
@@ -161,10 +165,33 @@ function validateBaseMetric(
       `Invalid metric "${metricName}": ${spec.aggregation}() requires a numeric dimension, but "${spec.field}" is ${dimension.fieldType}.`,
     );
   }
+
+  for (const filter of spec.filters ?? []) {
+    const filterDefinition = ds.filters[filter.field];
+    const resolvedField = filterDefinition?.field ?? filter.field;
+    const fieldType = ds.dimensions[resolvedField]?.fieldType;
+
+    if (!fieldType) {
+      throw new Error(
+        `Invalid metric "${metricName}": measure filter field "${filter.field}" does not exist on dataset "${ds.name}".`,
+      );
+    }
+
+    if (filterDefinition?.operators && !filterDefinition.operators.includes(filter.operator)) {
+      throw new Error(
+        `Invalid metric "${metricName}": measure filter "${filter.field}" does not allow operator "${filter.operator}".`,
+      );
+    }
+
+    const filterError = validateFilterValue(filter, fieldType);
+    if (filterError) {
+      throw new Error(`Invalid metric "${metricName}": ${filterError}`);
+    }
+  }
 }
 
 function validateDerivedMetric(
-  ds: DatasetInstance<any, any, any>,
+  ds: DatasetShape,
   metricName: string,
   config: DerivedMetricConfig,
 ): void {
@@ -189,7 +216,7 @@ function validateDerivedMetric(
 }
 
 function normalizeDimensions<TDimensions extends Record<string, DimensionDefinition>>(
-  config: DatasetConfig<TDimensions, any, any>,
+  config: DatasetConfig<TDimensions, AnyMeasures, AnyRelationships>,
 ): TDimensions {
   return config.dimensions as TDimensions;
 }
@@ -226,20 +253,7 @@ function measureToAggregationSpec(
     __type: 'aggregation_spec',
     aggregation: definition.aggregation,
     field: definition.field,
-  };
-}
-
-function buildDatasetQueryContract(
-  ds: DatasetInstance<any, any, any>,
-  config: DatasetQueryConfig<any, any>,
-) {
-  return {
-    dataset: ds.name,
-    dimensions: config.dimensions ? [...config.dimensions] : Object.keys(ds.dimensions),
-    measures: config.measures ? [...config.measures] : Object.keys(ds.measures),
-    filters: Object.keys(ds.filters),
-    grains: ds.timeKey ? ALL_GRAINS : [],
-    tenantScoped: !!ds.tenantKey,
+    filters: definition.filters,
   };
 }
 
@@ -299,17 +313,6 @@ export function dataset<
         metricConfig.label ?? measure.label,
         metricConfig.description ?? measure.description,
       ) as MetricRef<string, TName>;
-    },
-
-    query(queryConfig: DatasetQueryConfig<TDimensions, TMeasures>): DatasetQueryRef<TDimensions, TMeasures> {
-      return {
-        __type: 'dataset_query_ref',
-        dataset: ds,
-        config: queryConfig,
-        contract() {
-          return buildDatasetQueryContract(ds, queryConfig);
-        },
-      };
     }
   };
 

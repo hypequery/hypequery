@@ -47,12 +47,14 @@ export interface AggregationSpec {
   __type: 'aggregation_spec';
   aggregation: AggregationType;
   field: string;
+  filters?: MetricFilter[];
 }
 
 export interface MeasureOptions {
   sql?: string;
   label?: string;
   description?: string;
+  filters?: MetricFilter[];
 }
 
 export interface MeasureDefinition {
@@ -62,6 +64,7 @@ export interface MeasureDefinition {
   sql?: string;
   label?: string;
   description?: string;
+  filters?: MetricFilter[];
 }
 
 export type FormulaExpr = {
@@ -79,7 +82,7 @@ export interface MetricRef<
   spec: AggregationSpec | DerivedMetricSpec;
   label?: string;
   description?: string;
-  dataset: DatasetInstance<any, any, any>;
+  dataset: DatasetInstance<Record<string, DimensionDefinition>, Record<string, MeasureDefinition>, Record<string, RelationshipDefinition>>;
   by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName>;
   contract(): MetricContract;
 }
@@ -156,8 +159,6 @@ export interface MetricResult<T = Record<string, unknown>> {
 
 export interface SemanticTenantRuntime {
   id: string;
-  column: string;
-  handledByBuilder: boolean;
 }
 
 export interface SemanticExecutionRuntime {
@@ -202,38 +203,6 @@ export interface DerivedMetricConfig {
   description?: string;
 }
 
-export interface DatasetQueryConfig<
-  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
-> {
-  dimensions?: Array<keyof TDimensions & string>;
-  measures?: Array<keyof TMeasures & string>;
-  filters?: MetricFilter[];
-  orderBy?: MetricOrderBy[];
-  limit?: number;
-  offset?: number;
-  by?: TimeGrain;
-}
-
-export interface DatasetQueryContract {
-  dataset: string;
-  dimensions: string[];
-  measures: string[];
-  filters: string[];
-  grains: TimeGrain[];
-  tenantScoped: boolean;
-}
-
-export interface DatasetQueryRef<
-  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
-> {
-  __type: 'dataset_query_ref';
-  dataset: DatasetInstance<TDimensions, TMeasures, any>;
-  config: DatasetQueryConfig<TDimensions, TMeasures>;
-  contract(): DatasetQueryContract;
-}
-
 export interface DatasetConfig<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
@@ -268,7 +237,6 @@ export interface DatasetInstance<
     metricName: TName,
     metricConfig: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig,
   ): MetricRef<string, TName>;
-  query(config: DatasetQueryConfig<TDimensions, TMeasures>): DatasetQueryRef<TDimensions, TMeasures>;
 }
 
 export interface DatasetRegistryInstance {
@@ -277,6 +245,12 @@ export interface DatasetRegistryInstance {
   getAll(): DatasetInstance[];
   has(name: string): boolean;
 }
+
+export type AnyDatasetInstance = DatasetInstance<
+  Record<string, DimensionDefinition>,
+  Record<string, MeasureDefinition>,
+  Record<string, RelationshipDefinition>
+>;
 
 export type DatasetFieldNames<TDataset extends DatasetInstance> =
   keyof TDataset['dimensions'] & string;
