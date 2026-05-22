@@ -108,6 +108,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   };
 
   const handler: EndpointHandler<any, any, any, TAuth> = async (ctx) => {
+    const semanticContext: Record<string, unknown> = ctx;
     const input = ctx.input ?? {};
     const start = Date.now();
 
@@ -123,10 +124,10 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 
     // Build query
     const runtimeBuilderFactory = resolveSemanticQueryBuilder(
-      ctx as Record<string, unknown>,
+      semanticContext,
       builderFactory,
     );
-    const runtime = resolveSemanticExecutionRuntime(ctx as Record<string, unknown>);
+    const runtime = resolveSemanticExecutionRuntime(semanticContext);
     let builder = runtimeBuilderFactory.table(ds.source);
 
     const dimensions = input.dimensions ?? [];
@@ -160,7 +161,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
           `Dataset endpoint "${name}" requires dataset tenantKey and serve tenant runtime when tenant isolation is enabled.`,
         );
       }
-      if (!resolveSemanticTenantHandledByBuilder(ctx as Record<string, unknown>)) {
+      if (!resolveSemanticTenantHandledByBuilder(semanticContext)) {
         builder = builder.where(ds.tenantKey, 'eq', runtime.tenant.id);
       }
     }

@@ -10,16 +10,17 @@ import type {
 import { resolveDimensionExpression, resolveFilterField, resolveTenantFilterColumn } from '../query-planner.js';
 type DatasetShape = AnyDatasetInstance;
 
+function isMetricHandleType(value: unknown): value is 'metric_ref' | 'grained_metric_ref' {
+  return value === 'metric_ref' || value === 'grained_metric_ref';
+}
+
 export type MetricHandle = MetricRef | GrainedMetricRef;
 
 export function isMetricHandle(value: unknown): value is MetricHandle {
   return typeof value === 'object'
     && value !== null
     && '__type' in value
-    && (
-      (value as { __type?: string }).__type === 'metric_ref'
-      || (value as { __type?: string }).__type === 'grained_metric_ref'
-    );
+    && isMetricHandleType(value.__type);
 }
 
 export function assertMetricHandle(value: unknown): asserts value is MetricHandle {

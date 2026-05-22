@@ -66,6 +66,25 @@ const metricResultSchema = z.object({
 // Helpers
 // ---------------------------------------------------------------------------
 
+type MetricEntryOptions<TAuth extends AuthContext> = Exclude<MetricEntry<TAuth>, MetricHandle<any, any>>;
+
+function isMetricHandleEntry<TAuth extends AuthContext>(
+  entry: MetricEntry<TAuth>,
+): entry is MetricHandle<any, any> {
+  return (
+    !!entry &&
+    typeof entry === 'object' &&
+    '__type' in entry &&
+    (entry.__type === 'metric_ref' || entry.__type === 'grained_metric_ref')
+  );
+}
+
+function isMetricEntryOptions<TAuth extends AuthContext>(
+  entry: MetricEntry<TAuth>,
+): entry is MetricEntryOptions<TAuth> {
+  return !!entry && typeof entry === 'object' && 'metric' in entry;
+}
+
 function resolveMetricEntry<TAuth extends AuthContext>(
   entry: MetricEntry<TAuth>,
 ): {
@@ -76,22 +95,15 @@ function resolveMetricEntry<TAuth extends AuthContext>(
   requiredRoles?: string[];
   requiredScopes?: string[];
 } {
-  if (
-    entry &&
-    typeof entry === 'object' &&
-    '__type' in entry &&
-    (entry.__type === 'metric_ref' || entry.__type === 'grained_metric_ref')
-  ) {
-    return { metric: entry as MetricHandle<any, any> };
+  if (isMetricHandleEntry(entry)) {
+    return { metric: entry };
   }
-  return entry as {
-      metric: MetricHandle<any, any>;
-      auth?: AuthStrategy<TAuth> | null;
-      tenant?: TenantConfigOverride<TAuth>;
-      cache?: number | null;
-      requiredRoles?: string[];
-      requiredScopes?: string[];
-  };
+
+  if (isMetricEntryOptions(entry)) {
+    return entry;
+  }
+
+  throw new Error('Invalid metric entry.');
 }
 
 // ---------------------------------------------------------------------------
@@ -125,13 +137,14 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   };
 
   const handler: EndpointHandler<any, any, any, TAuth> = async (ctx) => {
+    const semanticContext: Record<string, unknown> = ctx;
     const input = ctx.input ?? {};
-    const runtime = resolveSemanticExecutionRuntime(ctx as Record<string, unknown>);
+    const runtime = resolveSemanticExecutionRuntime(semanticContext);
     const runtimeBuilderFactory = resolveSemanticQueryBuilder(
-      ctx as Record<string, unknown>,
+      semanticContext,
       executor.getBuilderFactory(),
     );
-    const tenantHandledByBuilder = resolveSemanticTenantHandledByBuilder(ctx as Record<string, unknown>)
+    const tenantHandledByBuilder = resolveSemanticTenantHandledByBuilder(semanticContext)
       || (ctx.tenantId != null && runtimeBuilderFactory !== executor.getBuilderFactory());
 
     // Build the metric query

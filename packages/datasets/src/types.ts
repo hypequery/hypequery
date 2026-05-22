@@ -72,33 +72,50 @@ export type FormulaExpr = {
   toSQL: () => string;
 };
 
+export interface DerivedMetricSpec<TDatasetName extends string = string> {
+  __type: 'derived_metric_spec';
+  uses: Record<string, BaseMetricRef<TDatasetName>>;
+  formula: (inputs: Record<string, string>) => FormulaExpr;
+}
+
 export interface MetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
+  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
 > {
   __type: 'metric_ref';
   datasetName: TDatasetName;
   name: TMetricName;
-  spec: AggregationSpec | DerivedMetricSpec;
+  spec: TSpec;
   label?: string;
   description?: string;
-  dataset: DatasetInstance<Record<string, DimensionDefinition>, Record<string, MeasureDefinition>, Record<string, RelationshipDefinition>>;
-  by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName>;
+  dataset: DatasetInstance<
+    Record<string, DimensionDefinition>,
+    Record<string, MeasureDefinition>,
+    Record<string, RelationshipDefinition>,
+    TDatasetName
+  >;
+  by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec>;
   contract(): MetricContract;
 }
 
-export interface DerivedMetricSpec {
-  __type: 'derived_metric_spec';
-  uses: Record<string, MetricRef>;
-  formula: (inputs: Record<string, string>) => FormulaExpr;
-}
+export type BaseMetricRef<
+  TDatasetName extends string = string,
+  TMetricName extends string = string,
+> = MetricRef<TDatasetName, TMetricName, AggregationSpec>;
+
+export type DerivedMetricRef<
+  TDatasetName extends string = string,
+  TMetricName extends string = string,
+> = MetricRef<TDatasetName, TMetricName, DerivedMetricSpec<TDatasetName>>;
 
 export interface GrainedMetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
+  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
 > {
   __type: 'grained_metric_ref';
-  metric: MetricRef<TDatasetName, TMetricName>;
+  metric: MetricRef<TDatasetName, TMetricName, TSpec>;
   grain: TimeGrain;
   contract(): MetricContract;
 }
@@ -106,7 +123,8 @@ export interface GrainedMetricRef<
 export type MetricHandle<
   TDatasetName extends string = string,
   TMetricName extends string = string,
-> = MetricRef<TDatasetName, TMetricName> | GrainedMetricRef<TDatasetName, TMetricName>;
+  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
+> = MetricRef<TDatasetName, TMetricName, TSpec> | GrainedMetricRef<TDatasetName, TMetricName, TSpec>;
 
 export type TimeGrain = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
@@ -126,14 +144,17 @@ export interface MetricContract {
   tenantScoped: boolean;
 }
 
-export interface MetricFilter {
-  field: string;
+export interface MetricFilter<
+  TField extends string = string,
+  TValue = unknown,
+> {
+  field: TField;
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between' | 'like';
-  value: unknown;
+  value: TValue;
 }
 
-export interface MetricOrderBy {
-  field: string;
+export interface MetricOrderBy<TField extends string = string> {
+  field: TField;
   direction: 'asc' | 'desc';
 }
 
@@ -196,8 +217,8 @@ export interface BaseMetricConfig<
   description?: string;
 }
 
-export interface DerivedMetricConfig {
-  uses: Record<string, MetricRef>;
+export interface DerivedMetricConfig<TDatasetName extends string = string> {
+  uses: Record<string, BaseMetricRef<TDatasetName>>;
   formula: (inputs: Record<string, string>) => FormulaExpr;
   label?: string;
   description?: string;
@@ -222,9 +243,10 @@ export interface DatasetInstance<
   TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
   TRelationships extends Record<string, RelationshipDefinition> = Record<string, never>,
+  TDatasetName extends string = string,
 > {
   __type: 'dataset';
-  name: string;
+  name: TDatasetName;
   source: string;
   tenantKey?: string;
   timeKey?: string;
@@ -235,8 +257,12 @@ export interface DatasetInstance<
   limits?: DatasetLimits;
   metric<TName extends string>(
     metricName: TName,
-    metricConfig: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig,
-  ): MetricRef<string, TName>;
+    metricConfig: BaseMetricConfig<TDimensions, TMeasures>,
+  ): BaseMetricRef<TDatasetName, TName>;
+  metric<TName extends string>(
+    metricName: TName,
+    metricConfig: DerivedMetricConfig<TDatasetName>,
+  ): DerivedMetricRef<TDatasetName, TName>;
 }
 
 export interface DatasetRegistryInstance {
@@ -249,7 +275,8 @@ export interface DatasetRegistryInstance {
 export type AnyDatasetInstance = DatasetInstance<
   Record<string, DimensionDefinition>,
   Record<string, MeasureDefinition>,
-  Record<string, RelationshipDefinition>
+  Record<string, RelationshipDefinition>,
+  string
 >;
 
 export type DatasetFieldNames<TDataset extends DatasetInstance> =

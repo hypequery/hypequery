@@ -200,7 +200,7 @@ export class MetricExecutor {
       return this.buildDerivedSQLViaBuilder(ref, spec, query, grain, context).sql;
     }
 
-    const builder = this.buildBaseQuery(ref, spec as AggregationSpec, ref.dataset, query, grain, context);
+    const builder = this.buildBaseQuery(ref, spec, ref.dataset, query, grain, context);
     return builder.toSQLWithParams().sql;
   }
 
@@ -226,7 +226,7 @@ export class MetricExecutor {
       if (ref.spec.__type === 'derived_metric_spec') {
         this.buildDerivedSQLViaBuilder(ref, ref.spec, query, grain, context);
       } else {
-        this.buildBaseQuery(ref, ref.spec as AggregationSpec, ref.dataset, query, grain, context).toSQLWithParams();
+        this.buildBaseQuery(ref, ref.spec, ref.dataset, query, grain, context).toSQLWithParams();
       }
     } catch (error) {
       return {
@@ -262,7 +262,7 @@ export class MetricExecutor {
     }
 
     // Base metrics: fully use the builder's execute()
-    const builder = this.buildBaseQuery(ref, spec as AggregationSpec, ref.dataset, query, grain, context);
+    const builder = this.buildBaseQuery(ref, spec, ref.dataset, query, grain, context);
     const { sql } = builder.toSQLWithParams();
     const data = await builder.execute() as T[];
     const timingMs = Date.now() - start;

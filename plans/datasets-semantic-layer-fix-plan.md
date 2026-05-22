@@ -65,6 +65,7 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - Docs and guide alignment across the repo.
 - Fresh-consumer smoke coverage.
 - Wider integration coverage for datasets and serve semantic endpoints.
+- Add a schema-to-datasets compatibility layer so physical schema changes can be checked against semantic models before they break metrics or dataset execution.
 
 ## Workstreams
 
@@ -266,6 +267,15 @@ Add CI checks for:
 - Real integration tests
 - CI hardening
 
+### Phase 5: Schema Compatibility
+
+- Define a compatibility contract between `@hypequery/schema` and `@hypequery/datasets`
+- Add checks for:
+  - removed or renamed physical columns referenced by datasets
+  - incompatible type changes under dimensions or measures
+  - source/view changes that break semantic models
+- Decide whether this ships as validation tooling, CI diagnostics, or both
+
 ## Release Scoping
 
 ### Patch-suitable items
@@ -288,6 +298,7 @@ Add CI checks for:
 - Tightening the export surface may break undocumented consumer usage.
 - Tightening derived metric typing may reject code that currently compiles.
 - Duplicated planner behavior across `datasets` and `serve` can drift over time unless we either centralize that logic behind a deliberate public contract or keep mirrored coverage strong in both packages.
+- Schema evolution can silently invalidate semantic models unless `schema` and `datasets` gain an explicit compatibility check layer.
 - Adding filtered measure support expands the semantic API and test matrix materially.
 - `dataset.query(...)` changes require a deliberate compatibility decision.
 

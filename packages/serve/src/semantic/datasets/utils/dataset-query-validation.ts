@@ -1,6 +1,7 @@
 import type {
   DatasetInstance,
   MetricFilter,
+  MetricOrderBy,
   TimeGrain,
   ValidationResult,
 } from '@hypequery/datasets';
@@ -9,8 +10,8 @@ import { validateFilterValue } from '@hypequery/datasets';
 export type DatasetQueryValidationInput = {
   dimensions?: string[];
   measures?: string[];
-  filters?: Array<{ field: string }>;
-  orderBy?: Array<{ field: string }>;
+  filters?: MetricFilter[];
+  orderBy?: MetricOrderBy[];
   by?: TimeGrain;
 };
 
@@ -55,11 +56,10 @@ export function validateDatasetQuery(
     }
 
     for (const filter of query.filters) {
-      const typedFilter = filter as MetricFilter;
       const filterDefinition = ds.filters[filter.field];
-      if (filterDefinition?.operators && !filterDefinition.operators.includes(typedFilter.operator)) {
+      if (filterDefinition?.operators && !filterDefinition.operators.includes(filter.operator)) {
         errors.push(
-          `Filter "${filter.field}" does not allow operator "${typedFilter.operator}". Allowed: ${filterDefinition.operators.join(', ')}`,
+          `Filter "${filter.field}" does not allow operator "${filter.operator}". Allowed: ${filterDefinition.operators.join(', ')}`,
         );
         continue;
       }
@@ -70,7 +70,7 @@ export function validateDatasetQuery(
         continue;
       }
 
-      const filterError = validateFilterValue(typedFilter, fieldType);
+      const filterError = validateFilterValue(filter, fieldType);
       if (filterError) {
         errors.push(filterError);
       }

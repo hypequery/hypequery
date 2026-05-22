@@ -66,6 +66,8 @@ export type {
   DerivedMetricSpec,
   TimeGrain,
   MetricRef,
+  BaseMetricRef,
+  DerivedMetricRef,
   GrainedMetricRef,
   MetricContract,
   MetricFilter,

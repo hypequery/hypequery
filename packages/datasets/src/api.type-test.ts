@@ -1,5 +1,8 @@
-import { dataset, dimension, measure, eq, desc, MetricExecutor } from './index.js';
+import { add, dataset, dimension, measure, eq, between, desc, MetricExecutor } from './index.js';
 import type {
+  BaseMetricRef,
+  DerivedMetricConfig,
+  DerivedMetricRef,
   ExecutionContext,
   MeasureOptions,
   MetricFilter,
@@ -34,8 +37,27 @@ const Orders = dataset('orders', {
   },
 });
 
+const Customers = dataset('customers', {
+  source: 'customers',
+  dimensions: {
+    id: dimension.string(),
+    status: dimension.string(),
+  },
+  measures: {
+    customerCount: measure.count('id'),
+  },
+});
+
 const revenueMetric = Orders.metric('revenueMetric', { measure: 'revenue' });
 const completedRevenueMetric = Orders.metric('completedRevenueMetric', { measure: 'completedRevenue' });
+const averageRevenueMetric = Orders.metric('averageRevenueMetric', {
+  uses: { revenue: revenueMetric, completedRevenue: completedRevenueMetric },
+  formula: ({ revenue, completedRevenue }) => add(revenue, completedRevenue),
+});
+const customerCountMetric = Customers.metric('customerCountMetric', { measure: 'customerCount' });
+const statusFilter = eq('status', 'completed');
+const createdAtRange = between('createdAt', '2025-01-01', '2025-01-31');
+const revenueSort = desc('revenueMetric');
 
 type _MeasureOptionsIncludeFilters = Assert<
   Equal<HasKey<MeasureOptions, 'filters'>, true>
@@ -54,6 +76,36 @@ type _RootExportOmitsDatasetQueryRef = Assert<
 >;
 type _RootExportOmitsPlannerHelper = Assert<
   Equal<HasKey<DatasetModule, 'applyMeasureDefinition'>, false>
+>;
+type _DatasetNameLiteralIsPreserved = Assert<
+  Equal<typeof Orders.name, 'orders'>
+>;
+type _BaseMetricDatasetNameLiteral = Assert<
+  Equal<typeof revenueMetric['datasetName'], 'orders'>
+>;
+type _BaseMetricRefKind = Assert<
+  Equal<typeof revenueMetric, BaseMetricRef<'orders', 'revenueMetric'>>
+>;
+type _DerivedMetricRefKind = Assert<
+  Equal<typeof averageRevenueMetric, DerivedMetricRef<'orders', 'averageRevenueMetric'>>
+>;
+type _DerivedUsesRequireBaseMetricsFromSameDataset = Assert<
+  Equal<DerivedMetricConfig<'orders'>['uses'], Record<string, BaseMetricRef<'orders'>>>
+>;
+type _OtherDatasetBaseMetricDatasetName = Assert<
+  Equal<typeof customerCountMetric['datasetName'], 'customers'>
+>;
+type _EqPreservesFieldLiteral = Assert<
+  Equal<typeof statusFilter['field'], 'status'>
+>;
+type _EqPreservesValueLiteral = Assert<
+  Equal<typeof statusFilter['value'], string>
+>;
+type _BetweenPreservesTupleValue = Assert<
+  Equal<typeof createdAtRange['value'], [string, string]>
+>;
+type _DescPreservesFieldLiteral = Assert<
+  Equal<typeof revenueSort['field'], 'revenueMetric'>
 >;
 
 const runtimeContext: ExecutionContext = {
