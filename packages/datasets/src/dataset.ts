@@ -32,249 +32,30 @@
 import type {
   DatasetConfig,
   DatasetInstance,
-  AnyDatasetInstance,
   DimensionDefinition,
   MeasureDefinition,
   RelationshipDefinition,
-  MetricRef,
   BaseMetricRef,
   DerivedMetricRef,
-  MetricContract,
-  GrainedMetricRef,
-  AggregationSpec,
-  DerivedMetricSpec,
   BaseMetricConfig,
   DerivedMetricConfig,
-  TimeGrain,
-  SemanticFiltersDefinition,
 } from './types.js';
-import { validateFilterValue } from './validation.js';
-
-const ALL_GRAINS: TimeGrain[] = ['day', 'week', 'month', 'quarter', 'year'];
-const NUMERIC_FIELD_TYPES = new Set(['number']);
-type AnyDimensions = Record<string, DimensionDefinition>;
-type AnyMeasures = Record<string, MeasureDefinition>;
-type AnyRelationships = Record<string, RelationshipDefinition>;
-type DatasetShape = AnyDatasetInstance;
-
-function isDerivedMetricConfig<
-  TDimensions extends Record<string, DimensionDefinition>,
-  TMeasures extends Record<string, MeasureDefinition>,
-  TDatasetName extends string,
->(
-  config: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig<TDatasetName>,
-): config is DerivedMetricConfig<TDatasetName> {
-  return 'uses' in config && 'formula' in config;
-}
-
-function buildContract(
-  metricName: string,
-  ds: DatasetShape,
-  spec: AggregationSpec | DerivedMetricSpec,
-  label?: string,
-  description?: string,
-  grain?: TimeGrain,
-): MetricContract {
-  const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = Object.keys(ds.measures);
-  const filterNames = Object.keys(ds.filters).length > 0
-    ? Object.keys(ds.filters)
-    : dimensionNames.filter((name) => ds.dimensions[name]?.filterable !== false);
-  const kind = grain
-    ? 'grained_metric'
-    : spec.__type === 'derived_metric_spec'
-      ? 'derived_metric'
-      : 'metric';
-
-  return {
-    kind,
-    name: metricName,
-    dataset: ds.name,
-    valueType: 'number',
-    label,
-    description,
-    dimensions: dimensionNames,
-    measures: measureNames,
-    filters: filterNames,
-    grains: ds.timeKey ? ALL_GRAINS : [],
-    grain,
-    requires: spec.__type === 'derived_metric_spec'
-      ? Object.keys(spec.uses)
-      : undefined,
-    tenantScoped: !!ds.tenantKey,
-  };
-}
-
-function createMetricRef<
-  TDatasetName extends string,
-  TMetricName extends string,
-  TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName>,
->(
-  ds: DatasetInstance<AnyDimensions, AnyMeasures, AnyRelationships, TDatasetName>,
-  name: TMetricName,
-  spec: TSpec,
-  label?: string,
-  description?: string,
-): MetricRef<TDatasetName, TMetricName, TSpec> {
-  const ref: MetricRef<TDatasetName, TMetricName, TSpec> = {
-    __type: 'metric_ref',
-    datasetName: ds.name,
-    name,
-    spec,
-    label,
-    description,
-    dataset: ds,
-
-    by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec> {
-      if (!ds.timeKey) {
-        throw new Error(
-          `Cannot apply .by("${grain}") to metric "${name}" — ` +
-          `dataset "${ds.name}" has no timeKey defined.`,
-        );
-      }
-      return {
-        __type: 'grained_metric_ref',
-        metric: ref,
-        grain,
-        contract() {
-          return buildContract(name, ds, spec, label, description, grain);
-        },
-      };
-    },
-
-    contract() {
-      return buildContract(name, ds, spec, label, description);
-    },
-  };
-
-  return ref;
-}
-
-function validateBaseMetric(
-  ds: DatasetShape,
-  metricName: string,
-  spec: AggregationSpec,
-  options?: { allowHiddenField?: boolean },
-): void {
-  const dimension = ds.dimensions[spec.field];
-  if (!dimension && !options?.allowHiddenField) {
-    throw new Error(
-      `Invalid metric "${metricName}": dimension "${spec.field}" does not exist on dataset "${ds.name}".`,
-    );
-  }
-
-  if (
-    dimension &&
-    (spec.aggregation === 'sum' || spec.aggregation === 'avg') &&
-    !NUMERIC_FIELD_TYPES.has(dimension.fieldType)
-  ) {
-    throw new Error(
-      `Invalid metric "${metricName}": ${spec.aggregation}() requires a numeric dimension, but "${spec.field}" is ${dimension.fieldType}.`,
-    );
-  }
-
-  for (const filter of spec.filters ?? []) {
-    const filterDefinition = ds.filters[filter.field];
-    const resolvedField = filterDefinition?.field ?? filter.field;
-    const fieldType = ds.dimensions[resolvedField]?.fieldType;
-
-    if (!fieldType) {
-      throw new Error(
-        `Invalid metric "${metricName}": measure filter field "${filter.field}" does not exist on dataset "${ds.name}".`,
-      );
-    }
-
-    if (filterDefinition?.operators && !filterDefinition.operators.includes(filter.operator)) {
-      throw new Error(
-        `Invalid metric "${metricName}": measure filter "${filter.field}" does not allow operator "${filter.operator}".`,
-      );
-    }
-
-    const filterError = validateFilterValue(filter, fieldType);
-    if (filterError) {
-      throw new Error(`Invalid metric "${metricName}": ${filterError}`);
-    }
-  }
-}
-
-function validateDerivedMetric(
-  ds: DatasetShape,
-  metricName: string,
-  config: DerivedMetricConfig<string>,
-): void {
-  const usedMetrics = Object.entries(config.uses);
-  if (usedMetrics.length === 0) {
-    throw new Error(`Invalid metric "${metricName}": derived metrics must reference at least one base metric.`);
-  }
-
-  for (const [alias, metric] of usedMetrics) {
-    if (metric.datasetName !== ds.name) {
-      throw new Error(
-        `Invalid metric "${metricName}": referenced metric "${alias}" belongs to dataset "${metric.datasetName}", expected "${ds.name}".`,
-      );
-    }
-
-    if (metric.spec.__type !== 'aggregation_spec') {
-      throw new Error(
-        `Invalid metric "${metricName}": referenced metric "${alias}" must be a base aggregation on dataset "${ds.name}".`,
-      );
-    }
-  }
-}
-
-function normalizeDimensions<TDimensions extends Record<string, DimensionDefinition>>(
-  config: DatasetConfig<TDimensions, AnyMeasures, AnyRelationships>,
-): TDimensions {
-  return config.dimensions;
-}
-
-function normalizeFilters(
-  dimensions: Record<string, DimensionDefinition>,
-  filters?: SemanticFiltersDefinition,
-): SemanticFiltersDefinition {
-  if (filters) {
-    return filters;
-  }
-
-  return Object.fromEntries(
-    Object.entries(dimensions)
-      .filter(([, definition]) => definition.filterable !== false)
-      .map(([name]) => [
-        name,
-        {
-          __type: 'filter_definition' as const,
-          field: name,
-        },
-      ]),
-  );
-}
-
-function normalizeMeasures<TMeasures extends Record<string, MeasureDefinition>>(
-  measures: TMeasures | undefined,
-): TMeasures {
-  return (measures ?? {}) as TMeasures;
-}
-
-function normalizeRelationships<TRelationships extends Record<string, RelationshipDefinition>>(
-  relationships: TRelationships | undefined,
-): TRelationships {
-  return (relationships ?? {}) as TRelationships;
-}
-
-function measureToAggregationSpec(
-  measureName: string,
-  definition: MeasureDefinition,
-): AggregationSpec {
-  if (!definition.field) {
-    throw new Error(`Invalid measure "${measureName}": a backing field is required.`);
-  }
-  return {
-    __type: 'aggregation_spec',
-    aggregation: definition.aggregation,
-    field: definition.field,
-    filters: definition.filters,
-  };
-}
+import {
+  createDerivedMetricSpec,
+  createMetricRef,
+  isDerivedMetricConfig,
+} from './utils/dataset-metric-ref.js';
+import {
+  measureToAggregationSpec,
+  normalizeDimensions,
+  normalizeFilters,
+  normalizeMeasures,
+  normalizeRelationships,
+} from './utils/dataset-normalization.js';
+import {
+  validateBaseMetric,
+  validateDerivedMetric,
+} from './utils/dataset-validation.js';
 
 export function dataset<
   TDatasetName extends string,
@@ -304,11 +85,7 @@ export function dataset<
   ): BaseMetricRef<TDatasetName, TName> | DerivedMetricRef<TDatasetName, TName> {
     if (isDerivedMetricConfig(metricConfig)) {
       validateDerivedMetric(ds, metricName, metricConfig);
-      const derivedSpec: DerivedMetricSpec<TDatasetName> = {
-        __type: 'derived_metric_spec',
-        uses: metricConfig.uses,
-        formula: metricConfig.formula,
-      };
+      const derivedSpec = createDerivedMetricSpec(metricConfig);
       return createMetricRef(
         ds, metricName, derivedSpec,
         metricConfig.label, metricConfig.description,
