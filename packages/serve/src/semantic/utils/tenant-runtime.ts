@@ -10,6 +10,16 @@ type QueryBuilderLikeContext = {
   table: (name: string) => unknown;
 };
 
+function usesServeTenantRuntimeMetadata(metadata: EndpointMetadata): boolean {
+  return Boolean(
+    metadata.custom
+      && typeof metadata.custom === 'object'
+      && metadata.custom !== null
+      && 'usesServeTenantRuntime' in metadata.custom
+      && metadata.custom.usesServeTenantRuntime === true,
+  );
+}
+
 function hasTableFactory(value: unknown): value is QueryBuilderLikeContext {
   return !!value && typeof value === 'object' && 'table' in value && typeof value.table === 'function';
 }
@@ -24,10 +34,8 @@ export function applySemanticTenantRuntime<TContext extends Record<string, unkno
     column?: string;
   },
 ): void {
-  const mutableContext = context as Record<string, unknown>;
-  const usesServeTenantRuntime = Boolean(
-    options.metadata.custom && (options.metadata.custom as Record<string, unknown>).usesServeTenantRuntime,
-  );
+  const mutableContext: Record<string, unknown> = context;
+  const usesServeTenantRuntime = usesServeTenantRuntimeMetadata(options.metadata);
   const semanticRuntime = resolveSemanticExecutionRuntime(context);
 
   if (options.mode === 'auto-inject' && options.column && semanticRuntime?.builderFactory) {

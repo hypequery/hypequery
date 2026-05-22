@@ -12,6 +12,10 @@ import { applyFilteredAggregationExpression } from './utils/filtered-aggregation
 
 type DatasetShape = AnyDatasetInstance;
 
+function toOrderDirection(direction: MetricOrderBy['direction']): 'ASC' | 'DESC' {
+  return direction === 'asc' ? 'ASC' : 'DESC';
+}
+
 export function resolveDimensionExpression(
   ds: DatasetShape,
   dimensionName: string,
@@ -120,7 +124,7 @@ export function appendOrderLimitOffset(
 ): QueryBuilderLike {
   if (orderBy && orderBy.length > 0) {
     for (const order of orderBy) {
-      qb = qb.orderBy(order.field, order.direction.toUpperCase() as "ASC" | "DESC");
+      qb = qb.orderBy(order.field, toOrderDirection(order.direction));
     }
   } else if (grain) {
     qb = qb.orderBy("period", "ASC");

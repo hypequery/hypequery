@@ -3,6 +3,10 @@ import type { QueryBuilderFactoryLike, SemanticExecutionRuntime } from "@hypeque
 export const INTERNAL_SEMANTIC_RUNTIME_KEY = "__hypequerySemanticRuntime";
 export const INTERNAL_SEMANTIC_TENANT_HANDLED_BY_BUILDER_KEY = "__hypequerySemanticTenantHandledByBuilder";
 
+function isSemanticExecutionRuntime(value: unknown): value is SemanticExecutionRuntime {
+  return typeof value === 'object' && value !== null;
+}
+
 export function attachSemanticQueryBuilder<
   TContext extends Record<string, unknown>,
 >(
@@ -35,10 +39,10 @@ export function resolveSemanticExecutionRuntime(
   context: Record<string, unknown>,
 ): SemanticExecutionRuntime | undefined {
   const candidate = context[INTERNAL_SEMANTIC_RUNTIME_KEY];
-  if (!candidate || typeof candidate !== "object") {
+  if (!isSemanticExecutionRuntime(candidate)) {
     return undefined;
   }
-  return candidate as SemanticExecutionRuntime;
+  return candidate;
 }
 
 export function resolveSemanticQueryBuilder(
