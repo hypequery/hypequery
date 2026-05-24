@@ -2,6 +2,12 @@
 export { sql, isSQLExpression, toSQLString } from './utils/sql-tag.js';
 export type { SQLExpression } from './utils/sql-tag.js';
 
+// Schema ↔ datasets compatibility
+export {
+  checkDatasetsAgainstSchema,
+  createSemanticCompatibilityAnalyzer,
+} from './compat/index.js';
+
 // Migrations config
 export {
   defineConfig,
@@ -135,3 +141,17 @@ export type {
   SnapshotTable,
   SnapshotTableEngine,
 } from './snapshot/index.js';
+
+// Compatibility types
+export type {
+  CheckDatasetsAgainstSchemaInput,
+  CompatibilityDatasetInstance,
+  CompatibilityDimensionDefinition,
+  CompatibilityMeasureDefinition,
+  CompatibilityMetricFilter,
+  CompatibilitySemanticFilterDefinition,
+  DatasetSchemaCompatibilityDiagnostic,
+  DatasetSchemaCompatibilityDiagnosticCode,
+  DatasetSchemaCompatibilityReport,
+  SemanticCompatibilityPlanOptions,
+} from './compat/index.js';

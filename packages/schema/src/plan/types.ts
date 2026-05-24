@@ -1,4 +1,5 @@
 import type { MigrationOperation, SnapshotDiffResult } from '../diff/types.js';
+import type { SemanticCompatibilityPlanOptions } from '../compat/types.js';
 import type { Snapshot } from '../snapshot/types.js';
 
 export type MigrationOperationClassification =
@@ -110,6 +111,7 @@ export interface CreateMigrationPlanOptions {
   requireConfirmationForMutations?: boolean;
   analyzers?: MigrationPlanAnalyzer[];
   context?: ClickHouseMigrationPlanContext;
+  semanticCompatibility?: SemanticCompatibilityPlanOptions;
 }
 
 export type MigrationPlanInput = SnapshotDiffResult | MigrationPlan;
