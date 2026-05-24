@@ -21,6 +21,7 @@ import type {
   MigrationPlanInput,
   PlannedMigrationOperation,
 } from './types.js';
+import { createSemanticCompatibilityAnalyzer } from '../compat/check.js';
 
 /**
  * Converts a raw snapshot diff into an explicit migration plan.
@@ -33,6 +34,10 @@ export function createMigrationPlan(
   diff: SnapshotDiffResult,
   options: CreateMigrationPlanOptions = {},
 ): MigrationPlan {
+  const analyzers = [
+    ...(options.analyzers ?? []),
+    ...(options.semanticCompatibility ? [createSemanticCompatibilityAnalyzer(options.semanticCompatibility)] : []),
+  ];
   const plannedOperations = diff.operations.map((operation, operationIndex) =>
     planOperation(operation, operationIndex, diff, options),
   );
@@ -93,7 +98,7 @@ export function createMigrationPlan(
     requiredSyncSettings: recommendedSyncSettings,
   };
 
-  const analyzerResult = runAnalyzers(plan, diff, options.analyzers ?? [], options.context);
+  const analyzerResult = runAnalyzers(plan, diff, analyzers, options.context);
   if (
     analyzerResult.diagnostics.length === 0 &&
     analyzerResult.blockers.length === 0 &&

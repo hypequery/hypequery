@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { dataset, dimension, measure } from '../../../datasets/dist/index.js';
 import { diffSnapshots } from '../diff/index.js';
 import { column, defineSchema, defineTable } from '../schema/index.js';
 import { serializeSchemaToSnapshot } from '../snapshot/index.js';
@@ -219,6 +220,76 @@ describe('create migration plan', () => {
           kind: 'ForbiddenOperation',
           operationIndex: 0,
           message: expect.stringContaining('Recommended approach'),
+        }),
+      ]),
+    );
+  });
+
+  it('adds semantic compatibility diagnostics and blockers when a migration breaks datasets', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        id: dimension.number(),
+      },
+      measures: {
+        revenue: measure.sum('amount'),
+      },
+    });
+
+    const previousSnapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+              amount: column.Float64(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+    const nextSnapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    const plan = createMigrationPlan(diffSnapshots(previousSnapshot, nextSnapshot), {
+      semanticCompatibility: {
+        datasets: [Orders],
+      },
+    });
+
+    expect(plan.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: 'error',
+          kind: 'SemanticCompatibilityMissingMeasureField',
+          message: expect.stringContaining('Measure "revenue"'),
+        }),
+      ]),
+    );
+    expect(plan.blockers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'SemanticCompatibilityMissingMeasureField',
+          message: expect.stringContaining('Measure "revenue"'),
+          tableName: 'orders',
+          columnName: 'amount',
         }),
       ]),
     );
