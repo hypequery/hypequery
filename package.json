@@ -31,7 +31,8 @@
     "smoke:vite-starter": "bash scripts/smoke-vite-starter.sh",
     "smoke:node-embedded": "bash scripts/smoke-node-embedded.sh",
     "smoke:serve-adapters": "bash scripts/smoke-serve-adapters.sh",
-    "smoke:examples": "pnpm smoke:cli && pnpm smoke:next-starter && pnpm smoke:vite-starter && pnpm smoke:node-embedded && pnpm smoke:next-dashboard && pnpm smoke:serve-adapters",
+    "smoke:semantic-consumer": "bash scripts/smoke-semantic-consumer.sh",
+    "smoke:examples": "pnpm smoke:cli && pnpm smoke:next-starter && pnpm smoke:vite-starter && pnpm smoke:node-embedded && pnpm smoke:next-dashboard && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer",
     "changeset": "changeset",
     "release:version": "changeset version",
     "release:publish": "changeset publish"
