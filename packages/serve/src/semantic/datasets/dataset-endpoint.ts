@@ -18,8 +18,12 @@ import type {
   ServeMiddleware,
 } from '../../types.js';
 import type {
-  TimeGrain,
+  DatasetQuery,
   QueryBuilderFactoryLike,
+} from '@hypequery/datasets';
+import {
+  runDatasetQuery,
+  validateDatasetQuery,
 } from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
 import {
@@ -27,15 +31,8 @@ import {
   resolveSemanticQueryBuilder,
   resolveSemanticTenantHandledByBuilder,
 } from '../query-builder-context.js';
-import {
-  applyMeasureDefinition,
-  appendOrderLimitOffset,
-  buildDimensionSelectionPlan,
-  resolveFilterField,
-} from './query-planner.js';
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
-import { validateDatasetQuery } from './utils/dataset-query-validation.js';
 
 export type { DatasetEntry } from './utils/dataset-entry.js';
 
@@ -86,8 +83,6 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
 ): ServeEndpoint<typeof datasetQueryInputSchema, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
-  const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = Object.keys(ds.measures);
   const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
 
   const metadata: EndpointMetadata = {
@@ -111,9 +106,20 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     const semanticContext: Record<string, unknown> = ctx;
     const input = ctx.input ?? {};
     const start = Date.now();
+    const runtime = resolveSemanticExecutionRuntime(semanticContext);
 
     // Validate
-    const validation = validateDatasetQuery(ds, input);
+    const query: DatasetQuery = {
+      dimensions: input.dimensions,
+      measures: input.measures,
+      filters: input.filters,
+      orderBy: input.orderBy,
+      limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
+      offset: input.offset,
+      by: input.by,
+    };
+    const executionContext = runtime ? { runtime } : undefined;
+    const validation = validateDatasetQuery(ds, query, executionContext);
     if (!validation.valid) {
       throw new ServeHttpError(
         400,
@@ -127,32 +133,6 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       semanticContext,
       builderFactory,
     );
-    const runtime = resolveSemanticExecutionRuntime(semanticContext);
-    let builder = runtimeBuilderFactory.table(ds.source);
-
-    const dimensions = input.dimensions ?? [];
-    const measures = input.measures ?? measureNames;
-    const grain = input.by as TimeGrain | undefined;
-    const { selectParts, groupByParts } = buildDimensionSelectionPlan(
-      ds,
-      dimensions,
-      grain,
-    );
-
-    if (selectParts.length > 0) {
-      builder = builder.select(selectParts);
-    }
-
-    for (const measureName of measures) {
-      const definition = ds.measures[measureName];
-      builder = applyMeasureDefinition(builder, ds, measureName, definition);
-    }
-
-    if (groupByParts.length > 0) {
-      builder = builder.groupBy(groupByParts);
-    }
-
-    // Tenant injection
     if (ctx.tenantId) {
       if (!runtime?.tenant || !ds.tenantKey) {
         throw new ServeHttpError(
@@ -161,43 +141,22 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
           `Dataset endpoint "${name}" requires dataset tenantKey and serve tenant runtime when tenant isolation is enabled.`,
         );
       }
-      if (!resolveSemanticTenantHandledByBuilder(semanticContext)) {
-        builder = builder.where(ds.tenantKey, 'eq', runtime.tenant.id);
-      }
     }
-
-    // User filters
-    if (input.filters) {
-      for (const filter of input.filters) {
-        const resolvedField = resolveFilterField(ds, filter.field);
-        builder = builder.where(resolvedField, filter.operator, filter.value);
-      }
-    }
-
-    // Order
-    const limit = Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit);
-    builder = appendOrderLimitOffset(
-      builder,
-      input.orderBy,
-      grain,
-      limit,
-      input.offset,
-    );
-
-    // Execute
-    const sqlInfo = builder.toSQLWithParams();
-    const data = await builder.execute();
+    const result = await runDatasetQuery(ds, query, {
+      builderFactory: runtimeBuilderFactory,
+      context: executionContext,
+      tenantHandledByBuilder: resolveSemanticTenantHandledByBuilder(semanticContext),
+    });
     const timingMs = Date.now() - start;
 
     // Meta
     const includeMeta = ctx.request?.headers?.['x-include-meta'] === 'true';
 
     return {
-      data,
+      data: result.data,
       meta: includeMeta ? {
+        ...(result.meta ?? {}),
         timingMs,
-        sql: sqlInfo.sql,
-        tenant: ctx.tenantId,
       } : undefined,
     };
   };

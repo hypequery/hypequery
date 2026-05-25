@@ -95,7 +95,17 @@ export function applyMeasureDefinition(
   name: string,
   definition: MeasureDefinition,
 ): QueryBuilderLike {
-  const fieldOrExpr = definition.sql ?? resolveDimensionExpression(ds, definition.field);
+  const baseFieldOrExpr = definition.sql ?? resolveDimensionExpression(ds, definition.field);
+  const fieldOrExpr = applyFilteredAggregationExpression(
+    ds,
+    {
+      __type: 'aggregation_spec',
+      aggregation: definition.aggregation,
+      field: definition.field,
+      filters: definition.filters,
+    },
+    baseFieldOrExpr,
+  );
 
   switch (definition.aggregation) {
     case "sum":
