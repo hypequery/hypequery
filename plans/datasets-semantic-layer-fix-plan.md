@@ -55,10 +55,14 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - Updated `@hypequery/serve` to stop depending on removed datasets planner exports.
 - Moved serve semantic/planner runtime helpers into `utils` files to reduce endpoint and pipeline bulk.
 - Centralized dataset endpoint query planning in `@hypequery/datasets` so serve no longer maintains a duplicate semantic query planner.
-- Added dataset query helper APIs as the intentional datasets/serve planning boundary.
+- Added dataset query helper APIs under `@hypequery/datasets/internal` as the intentional datasets/serve planning boundary.
 - Added schema-to-datasets compatibility checks so physical schema changes can be checked against semantic models.
 - Added semantic architecture/spec notes for datasets, serve, and schema.
 - Removed new production casts from the dataset-query path and cleaned the touched serve semantic test helpers.
+- Locked the root datasets export surface so dataset-query helpers and types do not appear as public user-facing APIs.
+- Made the query-builder protocol execute path generic so metric execution does not need a result cast.
+- Removed file-level type suppression and response `any` casts from the serve live semantic integration spec.
+- Added types for the shared ClickHouse integration harness used by serve live tests.
 
 ### Verified In This Pass
 
@@ -66,13 +70,13 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - `npm test -- --run src/semantic/datasets/serve-integration.test.ts`
 - `pnpm build` in `packages/datasets`
 - `pnpm build` in `packages/serve`
+- `SKIP_INTEGRATION_TESTS=true pnpm exec vitest run --config vitest.integration.config.ts src/semantic/datasets/serve-live.integration.spec.ts`
 - `git diff --cached --check`
 
 ### In Progress
 
 - Lock the intended datasets/schema public surface with stronger type-test coverage.
 - Keep the semantic architecture spec current while implementation stabilizes.
-- Decide whether `buildDatasetQueryBuilder` and `runDatasetQuery` are documented as public APIs or explicitly positioned as package-internal serve integration APIs.
 
 ### Remaining
 
@@ -281,7 +285,6 @@ Add CI checks for:
 - Query typing improvements
 - Current-surface type-test expansion
 - Schema compatibility type-test expansion
-- Confirm dataset-query helper export positioning
 - Existing generic helper typing improvements where practical
 
 ### Phase 5: Docs and Consumer DX - After API Hardening
@@ -324,14 +327,14 @@ Add CI checks for:
 - Derived metric compile-time restriction overhaul
 - Existing generic helper typing tightening
 - Fresh-consumer smoke tests
-- Wider live ClickHouse semantic integration coverage
+- Live ClickHouse semantic integration execution in an environment with Docker access
 - Relationship-aware planning design
 
 ## Risks
 
 - Tightening the export surface may break undocumented consumer usage, but this is acceptable while the packages are pre-release.
 - Tightening derived metric typing may reject code that currently compiles.
-- Dataset-query helper exports may look like public user-facing APIs unless docs clearly position them.
+- The `@hypequery/datasets/internal` subpath is still technically importable, so docs should clearly position it as unsupported package-integration surface rather than user-facing API.
 - Schema compatibility can still miss deeper SQL-expression dependencies until the checker grows beyond direct column references.
 - Adding filtered measure support expands the semantic API and test matrix materially.
 - Relationship metadata remains non-executing until relationship-aware planning is deliberately designed.

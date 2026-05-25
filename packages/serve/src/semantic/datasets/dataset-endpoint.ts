@@ -18,13 +18,13 @@ import type {
   ServeMiddleware,
 } from '../../types.js';
 import type {
-  DatasetQuery,
   QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
+import type { DatasetQuery } from '@hypequery/datasets/internal';
 import {
   runDatasetQuery,
   validateDatasetQuery,
-} from '@hypequery/datasets';
+} from '@hypequery/datasets/internal';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,

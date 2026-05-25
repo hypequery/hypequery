@@ -34,7 +34,7 @@ export interface QueryBuilderLike {
 
   // Terminal operations
   toSQLWithParams(): { sql: string; parameters: unknown[] };
-  execute(): Promise<Record<string, unknown>[]>;
+  execute<T = Record<string, unknown>>(): Promise<T[]>;
 }
 
 /** A query builder factory (what `createQueryBuilder(config)` returns). */

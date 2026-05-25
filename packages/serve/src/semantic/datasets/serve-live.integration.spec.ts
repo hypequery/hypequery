@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAPI } from "../../server/create-api.js";
 import {
@@ -65,6 +64,30 @@ const avgOrderValue = Orders.metric("avgOrderValue", {
 const monthlyRevenue = totalRevenue.by("month");
 
 const BASE_PATH = "/api/analytics";
+
+type SemanticResponseBody = {
+  data: Record<string, unknown>[];
+  meta?: {
+    sql?: string;
+    timingMs?: number;
+  };
+};
+
+function isSemanticResponseBody(value: unknown): value is SemanticResponseBody {
+  return (
+    typeof value === "object"
+    && value !== null
+    && Array.isArray(Reflect.get(value, "data"))
+  );
+}
+
+function semanticBody(response: { body: unknown }): SemanticResponseBody {
+  if (!isSemanticResponseBody(response.body)) {
+    throw new Error("Expected semantic response body with data rows.");
+  }
+
+  return response.body;
+}
 
 function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
   const path = overrides.path ?? "/";
@@ -162,7 +185,8 @@ describe("Serve live integration — datasets", () => {
       );
 
       expect(response.status).toBe(200);
-      const rows = (response.body as any).data.map((row: Record<string, unknown>) => ({
+      const body = semanticBody(response);
+      const rows = body.data.map((row) => ({
         status: String(row.status),
         revenue: toNumber(row.revenue),
         orderCount: toNumber(row.orderCount),
@@ -174,7 +198,7 @@ describe("Serve live integration — datasets", () => {
         { status: "completed", revenue: 66, orderCount: 3, uniqueUsers: 2 },
         { status: "pending", revenue: 62.25, orderCount: 1, uniqueUsers: 1 },
       ]);
-      expect(Object.keys((response.body as any).data[0])).toEqual([
+      expect(Object.keys(body.data[0])).toEqual([
         "status",
         "revenue",
         "orderCount",
@@ -202,7 +226,8 @@ describe("Serve live integration — datasets", () => {
       );
 
       expect(response.status).toBe(200);
-      const rows = (response.body as any).data.map((row: Record<string, unknown>) => ({
+      const body = semanticBody(response);
+      const rows = body.data.map((row) => ({
         userId: toNumber(row.userId),
         revenue: toNumber(row.revenue),
         orderCount: toNumber(row.orderCount),
@@ -212,7 +237,7 @@ describe("Serve live integration — datasets", () => {
       expect(rows).toEqual([
         { userId: 1, revenue: 36, orderCount: 2, uniqueUsers: 1 },
       ]);
-      expect(Object.keys((response.body as any).data[0])).toEqual([
+      expect(Object.keys(body.data[0])).toEqual([
         "userId",
         "revenue",
         "orderCount",
@@ -242,7 +267,8 @@ describe("Serve live integration — datasets", () => {
       );
 
       expect(response.status).toBe(200);
-      const rows = (response.body as any).data.map((row: Record<string, unknown>) => ({
+      const body = semanticBody(response);
+      const rows = body.data.map((row) => ({
         period: toDateString(row.period),
         revenue: toNumber(row.revenue),
         orderCount: toNumber(row.orderCount),
@@ -252,16 +278,16 @@ describe("Serve live integration — datasets", () => {
       expect(rows).toEqual([
         { period: "2023-01-01", revenue: 144.75, orderCount: TEST_DATA.orders.length, uniqueUsers: 3 },
       ]);
-      expect(Object.keys((response.body as any).data[0])).toEqual([
+      expect(Object.keys(body.data[0])).toEqual([
         "period",
         "revenue",
         "orderCount",
         "uniqueUsers",
       ]);
-      expect((response.body as any).meta).toMatchObject({
+      expect(body.meta).toMatchObject({
         sql: expect.stringContaining("COUNT(DISTINCT"),
       });
-      expect(typeof (response.body as any).meta.timingMs).toBe("number");
+      expect(typeof body.meta?.timingMs).toBe("number");
     });
 
     it("executes base metric endpoints with real countDistinct aggregation", async () => {
@@ -281,7 +307,8 @@ describe("Serve live integration — datasets", () => {
       );
 
       expect(response.status).toBe(200);
-      const rows = (response.body as any).data.map((row: Record<string, unknown>) => ({
+      const body = semanticBody(response);
+      const rows = body.data.map((row) => ({
         status: String(row.status),
         uniqueUsers: toNumber(row.uniqueUsers),
       }));
@@ -291,7 +318,7 @@ describe("Serve live integration — datasets", () => {
         { status: "completed", uniqueUsers: 2 },
         { status: "pending", uniqueUsers: 1 },
       ]);
-      expect(Object.keys((response.body as any).data[0])).toEqual([
+      expect(Object.keys(body.data[0])).toEqual([
         "status",
         "uniqueUsers",
       ]);
@@ -314,7 +341,8 @@ describe("Serve live integration — datasets", () => {
       );
 
       expect(response.status).toBe(200);
-      const rows = (response.body as any).data.map((row: Record<string, unknown>) => ({
+      const body = semanticBody(response);
+      const rows = body.data.map((row) => ({
         status: String(row.status),
         avgOrderValue: toNumber(row.avgOrderValue),
       }));
@@ -324,7 +352,7 @@ describe("Serve live integration — datasets", () => {
         { status: "completed", avgOrderValue: 22 },
         { status: "pending", avgOrderValue: 62.25 },
       ]);
-      expect(Object.keys((response.body as any).data[0])).toEqual([
+      expect(Object.keys(body.data[0])).toEqual([
         "status",
         "avgOrderValue",
       ]);
@@ -348,7 +376,8 @@ describe("Serve live integration — datasets", () => {
       );
 
       expect(response.status).toBe(200);
-      const rows = (response.body as any).data.map((row: Record<string, unknown>) => ({
+      const body = semanticBody(response);
+      const rows = body.data.map((row) => ({
         period: toDateString(row.period),
         totalRevenue: toNumber(row.totalRevenue),
       }));
@@ -356,14 +385,14 @@ describe("Serve live integration — datasets", () => {
       expect(rows).toEqual([
         { period: "2023-01-01", totalRevenue: 144.75 },
       ]);
-      expect(Object.keys((response.body as any).data[0])).toEqual([
+      expect(Object.keys(body.data[0])).toEqual([
         "period",
         "totalRevenue",
       ]);
-      expect((response.body as any).meta).toMatchObject({
+      expect(body.meta).toMatchObject({
         sql: expect.stringContaining("toStartOfMonth"),
       });
-      expect(typeof (response.body as any).meta.timingMs).toBe("number");
+      expect(typeof body.meta?.timingMs).toBe("number");
     });
   });
 });

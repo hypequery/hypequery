@@ -34,12 +34,6 @@ export { createDatasetRegistry } from './registry.js';
 // Executor
 export { MetricExecutor } from './executor.js';
 export type { MetricExecutorOptions } from './executor.js';
-export {
-  buildDatasetQueryBuilder,
-  runDatasetQuery,
-  validateDatasetQuery,
-} from './dataset-query.js';
-export type { DatasetQueryExecutionOptions } from './dataset-query.js';
 
 // Validation
 export type { ValidationResult } from './validation.js';
@@ -79,10 +73,8 @@ export type {
   MetricFilter,
   MetricOrderBy,
   MetricQuery,
-  DatasetQuery,
   MetricResultMeta,
   MetricResult,
-  DatasetQueryResult,
   MetricHandle,
   ExecutionContext,
   SemanticExecutionRuntime,
