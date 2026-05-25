@@ -157,16 +157,6 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       by: input.by,
     };
 
-    // Validate against contract
-    const validation = executor.validate(metricRef, query);
-    if (!validation.valid) {
-      throw new ServeHttpError(
-        400,
-        'VALIDATION_ERROR',
-        validation.errors.join('; ')
-      );
-    }
-
     if (ctx.tenantId && !runtime?.tenant) {
       throw new ServeHttpError(
         500,
@@ -175,20 +165,20 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       );
     }
 
-    if (ctx.tenantId && runtime?.tenant) {
-      const tenantValidation = executor.validate(metricRef, query, {
-        runtime: {
-          tenant: runtime.tenant,
-        },
-      });
-
-      if (!tenantValidation.valid) {
-        throw new ServeHttpError(
-          400,
-          'VALIDATION_ERROR',
-          tenantValidation.errors.join('; ')
-        );
-      }
+    const validationContext = ctx.tenantId && runtime?.tenant
+      ? {
+          runtime: {
+            tenant: runtime.tenant,
+          },
+        }
+      : undefined;
+    const validation = executor.validate(metricRef, query, validationContext);
+    if (!validation.valid) {
+      throw new ServeHttpError(
+        400,
+        'VALIDATION_ERROR',
+        validation.errors.join('; ')
+      );
     }
 
     // Execute with tenant context

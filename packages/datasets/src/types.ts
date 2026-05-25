@@ -167,6 +167,16 @@ export interface MetricQuery {
   by?: TimeGrain;
 }
 
+export interface DatasetQuery {
+  dimensions?: string[];
+  measures?: string[];
+  filters?: MetricFilter[];
+  orderBy?: MetricOrderBy[];
+  limit?: number;
+  offset?: number;
+  by?: TimeGrain;
+}
+
 export interface MetricResultMeta {
   timingMs?: number;
   sql?: string;
@@ -174,6 +184,11 @@ export interface MetricResultMeta {
 }
 
 export interface MetricResult<T = Record<string, unknown>> {
+  data: T[];
+  meta?: MetricResultMeta;
+}
+
+export interface DatasetQueryResult<T = Record<string, unknown>> {
   data: T[];
   meta?: MetricResultMeta;
 }

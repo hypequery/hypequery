@@ -4,15 +4,14 @@ import {
   dataset,
   dimension,
   measure,
-  sum,
-  count,
-  countDistinct,
   divide,
   nullIfZero,
+  MetricExecutor,
   type QueryBuilderLike,
   type QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
 import type { ServeRequest } from '../../types.js';
+import type { ServeQueryEvent } from '../../query-logger.js';
 
 // =============================================================================
 // FIXTURES
@@ -59,6 +58,27 @@ const OrdersWithAliases = dataset("ordersWithAliases", {
   },
 });
 
+const OrdersWithTenantFilter = dataset("ordersWithTenantFilter", {
+  source: "orders",
+  tenantKey: "tenant_id",
+  timeKey: "created_at",
+  dimensions: {
+    id: dimension.string(),
+    tenantId: dimension.string({ column: "tenant_id" }),
+    amount: dimension.number(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+  filters: {
+    tenantId: {
+      __type: 'filter_definition',
+      field: 'tenantId',
+      operators: ['eq'],
+    },
+  },
+});
+
 const totalRevenue = Orders.metric("totalRevenue", {
   measure: "revenue",
   label: "Total Revenue",
@@ -81,9 +101,93 @@ const monthlyRevenue = totalRevenue.by("month");
 const aliasedRevenue = OrdersWithAliases.metric("aliasedRevenue", {
   measure: "revenue",
 });
+const tenantFilteredRevenue = OrdersWithTenantFilter.metric("tenantFilteredRevenue", {
+  measure: "revenue",
+});
 
 const BASE_PATH = "/api/analytics";
 
+type SemanticResponseBody = {
+  data?: unknown;
+  meta?: {
+    sql?: string;
+    timingMs?: number;
+    tenant?: string;
+  };
+  error?: {
+    type?: string;
+    message: string;
+  };
+};
+
+type OpenApiOperation = {
+  requestBody: {
+    content: Record<string, {
+      schema: {
+        properties: Record<string, unknown>;
+      };
+    }>;
+  };
+};
+
+type OpenApiDocument = {
+  paths: Record<string, {
+    post?: OpenApiOperation;
+  }>;
+};
+
+type TestAuth = {
+  tenantId?: string;
+  userId?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isSemanticResponseBody(value: unknown): value is SemanticResponseBody {
+  return isRecord(value);
+}
+
+function semanticBody(response: { body: unknown }): SemanticResponseBody {
+  if (!isSemanticResponseBody(response.body)) {
+    throw new Error('Expected response body to be an object.');
+  }
+
+  return response.body;
+}
+
+function isOpenApiDocument(value: unknown): value is OpenApiDocument {
+  return isRecord(value) && isRecord(value.paths);
+}
+
+function openApiDocument(response: { body: unknown }): OpenApiDocument {
+  if (!isOpenApiDocument(response.body)) {
+    throw new Error('Expected OpenAPI response body to contain paths.');
+  }
+
+  return response.body;
+}
+
+function stringValue(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new Error(`Expected string value, received ${typeof value}.`);
+  }
+
+  return value;
+}
+
+function requiredTenantId(auth: TestAuth): string {
+  if (!auth.tenantId) {
+    throw new Error('Expected tenantId in test auth context.');
+  }
+
+  return auth.tenantId;
+}
+
+function optionalTenantId(auth: TestAuth): string | undefined {
+  return auth.tenantId;
+}
 
 function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
   const path = overrides.path ?? "/";
@@ -101,9 +205,9 @@ function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
 
 function createMockBuilderFactory(
   mockDataOverride?: Array<Record<string, unknown>>,
-): QueryBuilderFactoryLike & { _calls: Record<string, any[][]> } {
-  const calls: Record<string, any[][]> = {};
-  const track = (name: string, ...args: any[]) => {
+): QueryBuilderFactoryLike & { _calls: Record<string, unknown[][]> } {
+  const calls: Record<string, unknown[][]> = {};
+  const track = (name: string, ...args: unknown[]) => {
     calls[name] = calls[name] || [];
     calls[name].push(args);
   };
@@ -113,22 +217,96 @@ function createMockBuilderFactory(
     { country: "DE", totalRevenue: 3000 },
   ];
 
-  function createMockBuilder(): QueryBuilderLike {
+  function createMockBuilder(source: string): QueryBuilderLike {
+    const state: {
+      source: string;
+      select: string[];
+      where: string[];
+      groupBy: string[];
+      orderBy: string[];
+      limit?: number;
+      offset?: number;
+    } = {
+      source,
+      select: [],
+      where: [],
+      groupBy: [],
+      orderBy: [],
+    };
+
+    const buildSql = () => [
+      `SELECT ${state.select.join(', ')} FROM ${state.source}`,
+      state.where.length > 0 ? `WHERE ${state.where.join(' AND ')}` : '',
+      state.groupBy.length > 0 ? `GROUP BY ${state.groupBy.join(', ')}` : '',
+      state.orderBy.length > 0 ? `ORDER BY ${state.orderBy.join(', ')}` : '',
+      state.limit != null ? `LIMIT ${state.limit}` : '',
+      state.offset != null ? `OFFSET ${state.offset}` : '',
+    ].filter(Boolean).join(' ');
+
     const builder: QueryBuilderLike = {
-      select: (...args: any[]) => { track('select', ...args); return builder; },
-      sum: (...args: any[]) => { track('sum', ...args); return builder; },
-      count: (...args: any[]) => { track('count', ...args); return builder; },
-      countDistinct: (...args: any[]) => { track('countDistinct', ...args); return builder; },
-      avg: (...args: any[]) => { track('avg', ...args); return builder; },
-      min: (...args: any[]) => { track('min', ...args); return builder; },
-      max: (...args: any[]) => { track('max', ...args); return builder; },
-      where: (...args: any[]) => { track('where', ...args); return builder; },
-      groupBy: (...args: any[]) => { track('groupBy', ...args); return builder; },
-      orderBy: (...args: any[]) => { track('orderBy', ...args); return builder; },
-      limit: (...args: any[]) => { track('limit', ...args); return builder; },
-      offset: (...args: any[]) => { track('offset', ...args); return builder; },
+      select: (columns: string[] | string) => {
+        track('select', columns);
+        state.select.push(...(Array.isArray(columns) ? columns : [columns]));
+        return builder;
+      },
+      sum: (column: string, alias?: string) => {
+        track('sum', column, alias);
+        state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
+        return builder;
+      },
+      count: (column: string, alias?: string) => {
+        track('count', column, alias);
+        state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
+        return builder;
+      },
+      countDistinct: (column: string, alias?: string) => {
+        track('countDistinct', column, alias);
+        state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
+        return builder;
+      },
+      avg: (column: string, alias?: string) => {
+        track('avg', column, alias);
+        state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
+        return builder;
+      },
+      min: (column: string, alias?: string) => {
+        track('min', column, alias);
+        state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
+        return builder;
+      },
+      max: (column: string, alias?: string) => {
+        track('max', column, alias);
+        state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
+        return builder;
+      },
+      where: (column: string, operator: string, value: unknown) => {
+        track('where', column, operator, value);
+        const sqlOperator = operator === 'eq' ? '=' : operator;
+        state.where.push(`${column} ${sqlOperator} ?`);
+        return builder;
+      },
+      groupBy: (columns: string | string[]) => {
+        track('groupBy', columns);
+        state.groupBy.push(...(Array.isArray(columns) ? columns : [columns]));
+        return builder;
+      },
+      orderBy: (column: string, direction?: 'ASC' | 'DESC') => {
+        track('orderBy', column, direction);
+        state.orderBy.push(`${column} ${direction ?? 'ASC'}`);
+        return builder;
+      },
+      limit: (count: number) => {
+        track('limit', count);
+        state.limit = count;
+        return builder;
+      },
+      offset: (count: number) => {
+        track('offset', count);
+        state.offset = count;
+        return builder;
+      },
       toSQLWithParams: () => ({
-        sql: 'SELECT country, SUM(amount) AS totalRevenue FROM orders GROUP BY country',
+        sql: buildSql(),
         parameters: [],
       }),
       execute: vi.fn().mockResolvedValue(mockData),
@@ -138,8 +316,14 @@ function createMockBuilderFactory(
 
   return {
     _calls: calls,
-    table: (name: string) => { track('table', name); return createMockBuilder(); },
-    rawQuery: vi.fn().mockResolvedValue(mockData),
+    table: (name: string) => {
+      track('table', name);
+      return createMockBuilder(name);
+    },
+    rawQuery: vi.fn((sql: string, params?: unknown[]) => {
+      track('rawQuery', sql, params);
+      return Promise.resolve(mockData);
+    }),
   };
 }
 
@@ -214,7 +398,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("data");
-      expect((response.body as any).data).toEqual([
+      expect(semanticBody(response).data).toEqual([
         { country: "US", totalRevenue: 5000 },
         { country: "DE", totalRevenue: 3000 },
       ]);
@@ -252,7 +436,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect((response.body as any).error.type).toBe("VALIDATION_ERROR");
+      expect(semanticBody(response).error.type).toBe("VALIDATION_ERROR");
     });
 
     it("returns 400 for disallowed metric filter operators", async () => {
@@ -272,7 +456,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect((response.body as any).error.message).toContain('does not allow operator "like"');
+      expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
     });
 
     it("passes dimensions and filters to the executor", async () => {
@@ -357,7 +541,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect((response.body as any).error.message).toContain('already grained by "month"');
+      expect(semanticBody(response).error.message).toContain('already grained by "month"');
     });
 
     it("works with derived metrics", async () => {
@@ -375,7 +559,7 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = stringValue(factory._calls['rawQuery'][0][0]);
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("NULLIF(orderCount, 0)");
     });
@@ -450,7 +634,7 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      expect((response.body as any).meta).toBeUndefined();
+      expect(semanticBody(response).meta).toBeUndefined();
     });
 
     it("includes meta when X-Include-Meta header is set", async () => {
@@ -471,8 +655,65 @@ describe("Serve integration — metrics", () => {
         })
       );
 
-      expect((response.body as any).meta).toBeDefined();
-      expect((response.body as any).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeDefined();
+    });
+
+    it("matches MetricExecutor.toSQL() for base metrics", async () => {
+      const factory = createMockBuilderFactory();
+      const executor = new MetricExecutor({ builderFactory: factory });
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: factory,
+      });
+      const query = {
+        dimensions: ["country"],
+        filters: [{ field: "status", operator: "eq", value: "completed" }] as const,
+        orderBy: [{ field: "totalRevenue", direction: "desc" }] as const,
+        limit: 10,
+      };
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: query,
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(semanticBody(response).meta.sql).toBe(executor.toSQL(totalRevenue, query));
+    });
+
+    it("matches MetricExecutor.toSQL() for derived metrics", async () => {
+      const factory = createMockBuilderFactory();
+      const executor = new MetricExecutor({ builderFactory: factory });
+      const api = createAPI({
+        metrics: { avgOrderValue },
+        queryBuilder: factory,
+      });
+      const query = {
+        dimensions: ["country"],
+      };
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/avgOrderValue",
+          method: "POST",
+          body: query,
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(semanticBody(response).meta.sql).toBe(executor.toSQL(avgOrderValue, query));
     });
   });
 
@@ -488,7 +729,7 @@ describe("Serve integration — metrics", () => {
           return null;
         },
         tenant: {
-          extract: (auth) => auth.tenantId as string,
+          extract: requiredTenantId,
           required: true,
           column: 'tenant_id',
         },
@@ -521,7 +762,7 @@ describe("Serve integration — metrics", () => {
           return null;
         },
         tenant: {
-          extract: (auth) => auth.tenantId as string,
+          extract: requiredTenantId,
           required: true,
         },
       });
@@ -542,6 +783,40 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
     });
 
+    it("rejects explicit tenant filters on metric endpoints when runtime tenancy is active", async () => {
+      const factory = createMockBuilderFactory();
+      const api = createAPI({
+        metrics: { tenantFilteredRevenue },
+        queryBuilder: factory,
+        auth: async ({ request }) => {
+          const key = request.headers['x-api-key'];
+          if (key === 'valid') return { tenantId: 'tenant-123' };
+          return null;
+        },
+        tenant: {
+          extract: requiredTenantId,
+          required: true,
+        },
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/tenantFilteredRevenue",
+          method: "POST",
+          body: {
+            filters: [{ field: "tenantId", operator: "eq", value: "tenant-123" }],
+          },
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': 'valid',
+          },
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect(semanticBody(response).error.message).toContain('Cannot filter on tenant field "tenantId"');
+    });
+
     it("prefers the Serve tenant column when auto-inject wraps the internal query builder", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
@@ -553,7 +828,7 @@ describe("Serve integration — metrics", () => {
           return null;
         },
         tenant: {
-          extract: (auth) => auth.tenantId as string,
+          extract: requiredTenantId,
           required: true,
           column: 'organization_id',
           mode: 'auto-inject',
@@ -578,7 +853,7 @@ describe("Serve integration — metrics", () => {
 
     it("does not warn about manual tenant mode for generated metric endpoints", async () => {
       const factory = createMockBuilderFactory();
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
       const api = createAPI({
         metrics: { totalRevenue },
         queryBuilder: factory,
@@ -588,7 +863,7 @@ describe("Serve integration — metrics", () => {
           return null;
         },
         tenant: {
-          extract: (auth) => auth.tenantId as string,
+          extract: requiredTenantId,
           required: true,
           column: 'tenant_id',
         },
@@ -684,7 +959,7 @@ describe("Serve integration — metrics", () => {
         queryBuilder: createMockBuilderFactory(),
         auth: async () => ({ userId: "user-123" }),
         tenant: {
-          extract: (auth) => auth.tenantId as string | undefined,
+          extract: optionalTenantId,
           required: true,
         },
       });
@@ -716,7 +991,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      const doc = response.body as any;
+      const doc = openApiDocument(response);
       const metricPath = Object.keys(doc.paths).find(p => p.includes("totalRevenue"));
       expect(metricPath).toBeDefined();
       expect(doc.paths[metricPath!].post).toBeDefined();
@@ -736,7 +1011,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      const doc = response.body as any;
+      const doc = openApiDocument(response);
       const baseSchema = doc.paths["/api/analytics/metrics/totalRevenue"].post.requestBody.content["application/json"].schema;
       const grainedSchema = doc.paths["/api/analytics/metrics/monthlyRevenue"].post.requestBody.content["application/json"].schema;
 
@@ -765,7 +1040,7 @@ describe("Serve integration — metrics", () => {
 
   describe("queryLogger", () => {
     it("emits events for metric endpoint execution", async () => {
-      const events: any[] = [];
+      const events: ServeQueryEvent[] = [];
       const api = createAPI({
         metrics: { totalRevenue },
         queryBuilder: createMockBuilderFactory(),
@@ -826,7 +1101,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect((response.body as any).data).toEqual([
+      expect(semanticBody(response).data).toEqual([
         { country: "US", totalRevenue: 5000 },
         { country: "DE", totalRevenue: 3000 },
       ]);
@@ -878,7 +1153,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect((response.body as any).error.message).toContain('does not allow operator "like"');
+      expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
       expect(factory._calls['where']).toBeUndefined();
     });
 
@@ -941,7 +1216,7 @@ describe("Serve integration — metrics", () => {
           return null;
         },
         tenant: {
-          extract: (auth) => auth.tenantId as string,
+          extract: requiredTenantId,
           required: true,
           column: 'tenant_id',
         },
@@ -983,7 +1258,7 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       // Derived metrics fall back to rawQuery for the outer CTE query
       expect(factory.rawQuery).toHaveBeenCalled();
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = stringValue(factory._calls['rawQuery'][0][0]);
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("NULLIF(orderCount, 0)");
     });
@@ -1005,7 +1280,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(factory.rawQuery).toHaveBeenCalled();
-      const sql = (factory.rawQuery as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+      const sql = stringValue(factory._calls['rawQuery'][0][0]);
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("period");
       expect(sql).toContain("NULLIF(orderCount, 0)");
@@ -1033,7 +1308,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect((response.body as any).data).toEqual([
+      expect(semanticBody(response).data).toEqual([
         { country: "US", revenue: 5000, count: 12 },
         { country: "DE", revenue: 3000, count: 8 },
       ]);
@@ -1067,7 +1342,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect((response.body as any).data).toEqual([
+      expect(semanticBody(response).data).toEqual([
         { period: "2025-01-01", countryCode: "US", revenue: 5000 },
         { period: "2025-01-01", countryCode: "DE", revenue: 3000 },
       ]);
@@ -1101,7 +1376,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect((response.body as any).data).toEqual([
+      expect(semanticBody(response).data).toEqual([
         { countryCode: "US", revenue: 5000 },
       ]);
       expect(factory._calls['where']).toContainEqual(['created_at', 'gte', '2025-01-01']);
@@ -1191,8 +1466,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect((response.body as any).meta).toBeDefined();
-      expect((response.body as any).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeDefined();
     });
 
     it("injects tenant filter into dataset queries when tenant config is provided", async () => {
@@ -1208,7 +1483,7 @@ describe("Serve integration — metrics", () => {
           return null;
         },
         tenant: {
-          extract: (auth) => auth.tenantId as string,
+          extract: requiredTenantId,
           required: true,
           column: 'tenant_id',
         },
@@ -1246,7 +1521,7 @@ describe("Serve integration — metrics", () => {
           return null;
         },
         tenant: {
-          extract: (auth) => auth.tenantId as string,
+          extract: requiredTenantId,
           required: true,
         },
       });
@@ -1290,7 +1565,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect((response.body as any).error.message).toContain("at least one dimension or measure");
+      expect(semanticBody(response).error.message).toContain("at least one dimension or measure");
     });
 
     it("throws when a dataset route key collides with an existing query key", () => {

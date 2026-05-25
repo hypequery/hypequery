@@ -7,6 +7,7 @@ import { divide, multiply, subtract, add, nullIfZero, coalesce, round, floor, ce
 import { eq, between, desc } from './query-helpers.js';
 import { measure } from './measure.js';
 import { createDatasetRegistry } from './registry.js';
+import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from './dataset-query.js';
 import { MetricExecutor } from './executor.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
@@ -247,6 +248,148 @@ describe("Dataset public surface", () => {
   it("does not expose dataset.query()", () => {
     expect('query' in (Orders as unknown as Record<string, unknown>)).toBe(false);
     expect(Orders.relationships.customer.target()).toBe(Customers);
+  });
+});
+
+describe("dataset query helpers", () => {
+  function createDatasetQueryBuilderFactory(mockData: Record<string, unknown>[] = []): QueryBuilderFactoryLike {
+    function createBuilder(): QueryBuilderLike {
+      const state = {
+        select: [] as string[],
+        where: [] as string[],
+        groupBy: [] as string[],
+        orderBy: [] as string[],
+        limit: undefined as number | undefined,
+        offset: undefined as number | undefined,
+      };
+
+      const buildSql = () => [
+        `SELECT ${state.select.join(', ')} FROM orders`,
+        state.where.length > 0 ? `WHERE ${state.where.join(' AND ')}` : '',
+        state.groupBy.length > 0 ? `GROUP BY ${state.groupBy.join(', ')}` : '',
+        state.orderBy.length > 0 ? `ORDER BY ${state.orderBy.join(', ')}` : '',
+        state.limit != null ? `LIMIT ${state.limit}` : '',
+        state.offset != null ? `OFFSET ${state.offset}` : '',
+      ].filter(Boolean).join(' ');
+
+      const builder: QueryBuilderLike = {
+        select: (args: string | string[]) => {
+          state.select.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        sum: (column: string, alias?: string) => {
+          state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
+          return builder;
+        },
+        count: (column: string, alias?: string) => {
+          state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
+          return builder;
+        },
+        countDistinct: (column: string, alias?: string) => {
+          state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
+          return builder;
+        },
+        avg: (column: string, alias?: string) => {
+          state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
+          return builder;
+        },
+        min: (column: string, alias?: string) => {
+          state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
+          return builder;
+        },
+        max: (column: string, alias?: string) => {
+          state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
+          return builder;
+        },
+        where: (column: string, operator: string, _value: unknown) => {
+          const op = operator === 'eq' ? '=' : operator;
+          state.where.push(`${column} ${op} ?`);
+          return builder;
+        },
+        groupBy: (args: string | string[]) => {
+          state.groupBy.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        orderBy: (column: string, direction?: string) => {
+          state.orderBy.push(`${column} ${direction ?? 'ASC'}`);
+          return builder;
+        },
+        limit: (count: number) => {
+          state.limit = count;
+          return builder;
+        },
+        offset: (count: number) => {
+          state.offset = count;
+          return builder;
+        },
+        toSQLWithParams: () => ({
+          sql: buildSql(),
+          parameters: [],
+        }),
+        execute: vi.fn().mockResolvedValue(mockData),
+      };
+
+      return builder;
+    }
+
+    return {
+      table: () => createBuilder(),
+      rawQuery: vi.fn().mockResolvedValue(mockData),
+    };
+  }
+
+  it("validates dataset queries and rejects explicit tenant filters under runtime tenancy", () => {
+    const validation = validateDatasetQuery(Orders, {
+      measures: ['revenue'],
+      filters: [eq('tenantId', 'tenant-123')],
+    }, {
+      runtime: {
+        tenant: {
+          id: 'tenant-123',
+        },
+      },
+    });
+
+    expect(validation.valid).toBe(false);
+    expect(validation.errors).toEqual([
+      'Cannot filter on tenant field "tenantId" when runtime tenancy enforcement is active.',
+    ]);
+  });
+
+  it("builds dataset query SQL through the shared datasets planner", () => {
+    const builder = buildDatasetQueryBuilder(Orders, {
+      dimensions: ['status'],
+      measures: ['completedRevenue'],
+      filters: [eq('country', 'ES')],
+      orderBy: [desc('completedRevenue')],
+      limit: 5,
+    }, {
+      builderFactory: createDatasetQueryBuilderFactory(),
+      context: {
+        runtime: {
+          tenant: {
+            id: 'tenant-123',
+          },
+        },
+      },
+    });
+
+    expect(builder.toSQLWithParams().sql).toContain('SELECT status, SUM(if((status = \'completed\'), amount, 0)) AS completedRevenue FROM orders');
+    expect(builder.toSQLWithParams().sql).toContain('WHERE tenant_id = ? AND country = ?');
+    expect(builder.toSQLWithParams().sql).toContain('GROUP BY status');
+    expect(builder.toSQLWithParams().sql).toContain('ORDER BY completedRevenue DESC');
+    expect(builder.toSQLWithParams().sql).toContain('LIMIT 5');
+  });
+
+  it("executes dataset queries and returns meta", async () => {
+    const result = await runDatasetQuery(Orders, {
+      measures: ['revenue'],
+    }, {
+      builderFactory: createDatasetQueryBuilderFactory([{ revenue: 42 }]),
+    });
+
+    expect(result.data).toEqual([{ revenue: 42 }]);
+    expect(result.meta?.sql).toContain('SUM(amount) AS revenue');
   });
 });
 

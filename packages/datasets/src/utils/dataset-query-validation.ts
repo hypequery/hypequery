@@ -1,23 +1,14 @@
 import type {
-  DatasetInstance,
-  MetricFilter,
-  MetricOrderBy,
-  TimeGrain,
-  ValidationResult,
-} from '@hypequery/datasets';
-import { validateFilterValue } from '@hypequery/datasets';
+  AnyDatasetInstance,
+  DatasetQuery,
+  ExecutionContext,
+} from '../types.js';
+import { validateFilterValue, type ValidationResult } from '../validation.js';
 
-export type DatasetQueryValidationInput = {
-  dimensions?: string[];
-  measures?: string[];
-  filters?: MetricFilter[];
-  orderBy?: MetricOrderBy[];
-  by?: TimeGrain;
-};
-
-export function validateDatasetQuery(
-  ds: DatasetInstance,
-  query: DatasetQueryValidationInput,
+export function validateDatasetQueryInput(
+  ds: AnyDatasetInstance,
+  query: DatasetQuery,
+  context?: ExecutionContext,
 ): ValidationResult {
   const errors: string[] = [];
   const dimensionNames = Object.keys(ds.dimensions);
@@ -36,14 +27,14 @@ export function validateDatasetQuery(
   }
 
   if (query.dimensions) {
-    const invalid = query.dimensions.filter(column => !dimensionNames.includes(column));
+    const invalid = query.dimensions.filter(dimension => !dimensionNames.includes(dimension));
     if (invalid.length > 0) {
       errors.push(`Unknown dimensions: ${invalid.join(', ')}. Available: ${dimensionNames.join(', ')}`);
     }
   }
 
   if (query.measures) {
-    const invalid = query.measures.filter(column => !measureNames.includes(column));
+    const invalid = query.measures.filter(measure => !measureNames.includes(measure));
     if (invalid.length > 0) {
       errors.push(`Unknown measures: ${invalid.join(', ')}. Available: ${measureNames.join(', ')}`);
     }
@@ -65,7 +56,18 @@ export function validateDatasetQuery(
       }
 
       const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
-      const fieldType = ds.dimensions[resolvedField]?.fieldType;
+      const resolvedDimension = ds.dimensions[resolvedField];
+      const resolvedColumn = resolvedDimension?.sql
+        ? undefined
+        : resolvedDimension?.column ?? resolvedField;
+      if (context?.runtime?.tenant?.id && ds.tenantKey && resolvedColumn === ds.tenantKey) {
+        errors.push(
+          `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
+        );
+        continue;
+      }
+
+      const fieldType = resolvedDimension?.fieldType;
       if (!fieldType) {
         continue;
       }

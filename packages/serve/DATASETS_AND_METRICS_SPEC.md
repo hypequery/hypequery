@@ -1,7 +1,45 @@
 # Semantic Datasets & Metrics API — Implementation Spec v3
 
-> **Status:** Draft v3 — unified semantic-layer architecture.
+> **Status:** Draft v3 — updated to match the current pre-release implementation direction.
 > **Prerequisite:** The `createAPI()` / transport-separation PR.
+
+## Docs Notes
+
+When these packages are ready for public docs, the first docs pass should focus on the implemented surface only:
+
+- `@hypequery/datasets`
+  - dataset definition
+  - measures
+  - filtered measures
+  - metrics
+  - derived metrics
+  - `.by(grain)`
+  - runtime tenancy shape
+  - `MetricExecutor`
+  - dataset query helpers used by serve-backed dataset endpoints
+- `@hypequery/serve`
+  - generated metric endpoints
+  - generated dataset endpoints
+  - auth / tenant runtime ownership
+  - `X-Include-Meta` behavior
+- `@hypequery/schema`
+  - schema ↔ datasets compatibility checks
+  - migration-plan integration via `semanticCompatibility`
+
+Docs should explicitly avoid presenting these as shipped until they are actually implemented:
+
+- `dataset.query(...)` as a public semantic API
+- relationship-aware execution
+- `.rolling(...)`
+- `.compare(...)`
+- deep SQL compatibility analysis beyond the current v1 checker
+
+Docs should also preserve the package ownership boundary:
+
+- `datasets` owns semantic planning
+- `serve` owns runtime delivery and policy
+- `schema` owns physical truth and compatibility checks
+- `clickhouse` owns relational query construction and execution
 
 ---
 
@@ -11,19 +49,22 @@ Hypequery's analytics layer is built on four primitives:
 
 | Layer | Purpose | Feel |
 |-------|---------|------|
-| **Dataset** | Semantic model over a physical source | Dimensions, measures, filters, relationships, tenant/time semantics |
+| **Dataset** | Semantic model over a physical source | Dimensions, measures, filtered measures, metrics, tenant/time semantics |
 | **Metric** | Canonical reusable business values | Derived from dataset measures and formulas |
-| **Query** | Semantic query composition | Dataset-attached dimensions/measures/filters |
+| **Schema** | Physical warehouse truth | Tables, views, snapshots, diffs, migration planning, semantic compatibility |
 | **Serve** | Execution/runtime surface | Auth, tenancy, caching, transport, OpenAPI |
 
 Key departures from the previous spec:
 - **One semantic surface.** There is no separate `defineModel` API. `dataset(...)` is the semantic model.
 - **Datasets use dimensions and measures.** `field` remains a compatibility alias of `dimension`, not a separate concept.
 - **Serve generation is optional.** The semantic layer is useful in-process even without generated HTTP endpoints.
+- **Datasets own semantic planning.** Serve should consume semantic planning and execution helpers from `@hypequery/datasets`, not re-implement planner behavior locally.
+- **Schema is the physical layer.** `@hypequery/schema` owns snapshots, diffs, migration planning, and schema ↔ datasets compatibility checks.
 - **React consumes real endpoint paths.** Client config now carries `method` and `path`, so generated metric and dataset endpoints can be consumed by hooks without flat-route assumptions.
 - **No `defineDashboard`.** Dashboard composition is a UI concern, not a server primitive.
 - **No materialization.** Out of scope — too much DDL lifecycle complexity.
 - **`query(...)` stays as-is.** Existing query-builder and serve query endpoints remain available unchanged.
+- **`dataset.query(...)` is not part of the public semantic API.** Dataset endpoints exist in serve, but the public semantic surface is dataset definition + metrics, not public dataset query refs.
 
 ---
 
@@ -44,14 +85,22 @@ Key departures from the previous spec:
 │  │  ↓                   │   │  Dataset                   │   │
 │  │  QueryBuilder        │   │   ├─ dimensions            │   │
 │  │  ↓                   │   │   ├─ measures              │   │
-│  │  adapter.execute()   │   │   ├─ relationships         │   │
-│  │                      │   │   ├─ dataset.query(...)    │   │
+│  │  adapter.execute()   │   │   ├─ filtered measures     │   │
+│  │                      │   │   ├─ relationships         │   │
 │  │                      │   │   └─ dataset.metric(...)   │   │
 │  └──────────────────────┘   └────────────────────────────┘   │
 │                                                               │
+│  MetricExecutor / dataset-query helpers ──→ QueryBuilder      │
 │  ServeHandler ──→ transports (serve, node, fetch)             │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+Current ownership boundary:
+
+- `@hypequery/datasets` owns semantic planning, validation, and execution composition
+- `@hypequery/clickhouse` owns relational query construction and execution
+- `@hypequery/serve` owns runtime concerns like auth, tenancy, caching, and transport
+- `@hypequery/schema` owns physical-schema truth and compatibility with datasets
 
 ---
 
@@ -115,13 +164,14 @@ const Orders = dataset("orders", {
 **Design notes:**
 
 - `source` is the physical table name. The dataset name (first arg) is the logical name.
-- `tenantKey` declares tenant-related dataset metadata for semantic tooling. For served metric and dataset endpoints, tenant enforcement comes from Serve tenant config, especially `tenant.column`.
-- `timeKey` declares the physical time column used by `.by(grain)` and semantic dataset queries with `by`.
+- `tenantKey` declares the dataset tenant column. Serve owns tenant identity at runtime and datasets uses `tenantKey` to apply semantic tenant filtering.
+- `timeKey` declares the physical time column used by `.by(grain)` and dataset endpoint queries with `by`.
 - `dimension.*()` functions define the queryable/groupable public dimensions.
-- `measure.*()` functions define canonical aggregations that metrics and dataset queries reuse.
+- `measure.*()` functions define canonical aggregations that metrics and dataset endpoint queries reuse.
 - `filters` lets you explicitly constrain and name the filter surface. If omitted, filterable dimensions are exposed by default.
 - Relationships use lazy thunks (`() => Customers`) to avoid circular import issues.
 - For this release, relationships are semantic model metadata only. They are stored on the dataset and available for introspection, but current query execution does not yet resolve joined dimensions, joined measures, or cross-dataset metrics.
+- Filtered measures are supported and are part of the stable pre-release surface.
 
 **Dimension helpers:**
 
@@ -189,6 +239,14 @@ Direct aggregation specs are still supported when you want an inline metric:
 ```ts
 const totalRevenue = Orders.metric("totalRevenue", {
   value: sum("amount"),
+});
+```
+
+This direct `value:` form is legacy/speculative and should not be treated as the primary public path. The implemented pre-release API centers on dataset measures:
+
+```ts
+const totalRevenue = Orders.metric("totalRevenue", {
+  measure: "revenue",
 });
 ```
 
@@ -337,6 +395,8 @@ ORDER BY period
 | `.rolling(window)` | — | Yes |
 | `.compare(previousPeriod)` | — | Yes |
 
+Only `.by(grain)` is implemented in the current pre-release surface. Rolling windows and previous-period comparison remain future design targets and should not be presented as shipped behavior yet.
+
 ### 3.5 Metric Filtering at Query Time
 
 Metrics define canonical values. Consumers can narrow them at query time by specifying dimensions and filters:
@@ -358,7 +418,7 @@ const { data } = useMetric(totalRevenue, {
 });
 ```
 
-The available dimensions and filters are constrained by the metric's dataset fields — both at the TypeScript level (autocomplete, compile errors) and at runtime (validation before SQL generation).
+The available dimensions and filters are constrained by the metric's dataset fields and declared filter surface. Runtime validation happens before SQL generation. When runtime tenancy is active, explicit tenant filters are rejected instead of being duplicated.
 
 ### 3.6 Contracts
 
@@ -458,10 +518,12 @@ POST /api/metrics/avgOrderValue
 
 Each metric endpoint:
 - Validates dimensions/filters against the metric's contract
-- Auto-injects tenant WHERE clause based on `tenant` config
+- Applies serve-owned tenant runtime and rejects explicit tenant filters when runtime tenancy is active
 - Inherits auth from global `auth` config
 - Respects `caching` config (metric config is serializable → natural cache key)
 - Returns `meta` only when explicitly opted in (via header or config)
+
+Dataset endpoints are also supported in serve, but they execute query payloads directly against a dataset definition. They do not rely on a public `dataset.query(...)` API.
 
 **Per-metric overrides:**
 
@@ -549,9 +611,7 @@ External behavior depends on configuration:
 
 ### 4.1 Key Decision: Delegate to QueryBuilder
 
-The MetricExecutor does **not** generate SQL strings directly. It composes the existing
-`@hypequery/clickhouse` QueryBuilder programmatically. This gives us parameterized queries,
-dialect handling, join resolution, CTE support, caching, and logging for free.
+The semantic layer does **not** generate SQL strings directly as its source of truth. `MetricExecutor` and the shared dataset-query helpers compose the existing `@hypequery/clickhouse` QueryBuilder programmatically. This gives us parameterized queries, dialect handling, CTE support, caching, and logging for free.
 
 The QueryBuilder exposes everything we need:
 - `.table(name)` — start from a physical table
@@ -566,9 +626,7 @@ The QueryBuilder exposes everything we need:
 - `.toSQL()` / `.toSQLWithParams()` — SQL output without executing
 - `.execute()` — execute with logging, caching, and parameterization
 
-The QueryBuilder is heavily generic-typed for user-facing fluent chains. The MetricExecutor
-works with `QueryBuilder<any, any>` internally — type safety lives at the metric definition
-and contract boundary, not inside the executor.
+The QueryBuilder is heavily generic-typed for user-facing fluent chains. The semantic execution layer works with the duck-typed builder protocol internally — type safety lives at the dataset/metric definition and contract boundary, not inside the executor.
 
 ### 4.2 MetricExecutor
 
@@ -610,6 +668,14 @@ class MetricExecutor {
 }
 ```
 
+Related implemented helper surface:
+
+```ts
+validateDatasetQuery(dataset, query, context?)
+buildDatasetQueryBuilder(dataset, query, options)
+runDatasetQuery(dataset, query, options)
+```
+
 ### 4.3 How MetricExecutor Builds Queries
 
 The executor translates metric definitions into QueryBuilder calls. Here's the
@@ -627,9 +693,9 @@ async run(metric, query, context) {
     .select(query.dimensions)              // .select(["country"])
     .sum("amount", "totalRevenue");        // .sum("amount", "totalRevenue")
 
-  // Apply Serve-provided tenant runtime when present
-  if (context?.runtime?.tenant && !context.runtime.tenant.handledByBuilder) {
-    builder = builder.where(context.runtime.tenant.column, "eq", context.runtime.tenant.id);
+  // Apply runtime tenant when present
+  if (context?.runtime?.tenant && dataset.tenantKey) {
+    builder = builder.where(dataset.tenantKey, "eq", context.runtime.tenant.id);
   }
 
   // User filters
@@ -815,10 +881,22 @@ These are not afterthoughts — they are core to the runtime.
 Tenant isolation for metrics and semantic datasets follows the existing Serve tenancy model:
 
 - Serve config declares `tenant.extract` (how to get tenant ID from auth)
-- Serve config or per-endpoint overrides declare `tenant.column`
-- Serve passes explicit tenant runtime into semantic execution
-- `mode: 'auto-inject'` scopes the builder; `mode: 'manual'` leaves enforcement to the endpoint/runtime contract
+- Serve config may declare `tenant.column` for builder-level auto-injection
+- Serve passes tenant identity into semantic execution as runtime context
+- `mode: 'auto-inject'` scopes the builder; `mode: 'manual'` leaves enforcement to the semantic runtime contract
 - **Tenant context is never optional in production** — a missing tenant ID rejects the request
+
+Public semantic runtime shape is intentionally narrow:
+
+```ts
+runtime: {
+  tenant: {
+    id: string
+  }
+}
+```
+
+Public semantic consumers do not provide `tenant.column` or `handledByBuilder`.
 
 ### 5.2 Auth & Authorization
 
@@ -906,6 +984,39 @@ const Orders = dataset("orders", {
 ```
 
 The executor validates these before generating SQL. Violations return a `400` with a clear error message.
+
+### 5.7 Schema Compatibility
+
+`@hypequery/schema` now provides a compatibility bridge for checking whether physical schema changes break semantic dataset definitions.
+
+Standalone:
+
+```ts
+checkDatasetsAgainstSchema({
+  snapshot,
+  datasets: [Orders],
+});
+```
+
+Migration planning:
+
+```ts
+createMigrationPlan(diffSnapshots(previousSnapshot, nextSnapshot), {
+  semanticCompatibility: {
+    datasets: [Orders],
+  },
+});
+```
+
+Current v1 checks include:
+
+- missing dataset sources
+- missing dimension columns
+- missing measure fields
+- missing `tenantKey`
+- missing `timeKey`
+- invalid filtered-measure fields
+- `sum` / `avg` on non-numeric physical columns
 
 ---
 

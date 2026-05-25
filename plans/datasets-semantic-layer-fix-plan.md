@@ -1,8 +1,8 @@
 # Datasets Semantic Layer Fix Plan
 
-Date: 2026-05-21
+Date: 2026-05-24
 Owner: TBD
-Status: In Progress
+Status: Implementation pass complete; follow-up hardening remains
 
 ## Pre-Release Bias
 
@@ -12,8 +12,9 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 
 - Fix broken derived metric SQL generation in `@hypequery/datasets`.
 - Catch invalid semantic plans before query execution.
-- Align the public docs with the actual published package surface.
 - Clarify the intended public API boundary for datasets.
+- Centralize semantic planning so `@hypequery/serve` delegates to `@hypequery/datasets`.
+- Connect `@hypequery/schema` physical truth to datasets compatibility checks.
 - Add enough type, unit, integration, and DX coverage to keep the surface stable.
 
 ## Non-Goals
@@ -50,22 +51,37 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - Removed `dataset.query(...)` from the datasets public API.
 - Simplified `SemanticTenantRuntime` to tenant identity only.
 - Rejected explicit tenant filters when runtime tenancy is active.
-- Cleaned the datasets root export surface.
+- Cleaned the datasets root export surface and removed accidental planner-internal exports.
 - Updated `@hypequery/serve` to stop depending on removed datasets planner exports.
 - Moved serve semantic/planner runtime helpers into `utils` files to reduce endpoint and pipeline bulk.
+- Centralized dataset endpoint query planning in `@hypequery/datasets` so serve no longer maintains a duplicate semantic query planner.
+- Added dataset query helper APIs as the intentional datasets/serve planning boundary.
+- Added schema-to-datasets compatibility checks so physical schema changes can be checked against semantic models.
+- Added semantic architecture/spec notes for datasets, serve, and schema.
+- Removed new production casts from the dataset-query path and cleaned the touched serve semantic test helpers.
+
+### Verified In This Pass
+
+- `pnpm exec vitest run --config vitest.config.ts src/datasets.test.ts`
+- `npm test -- --run src/semantic/datasets/serve-integration.test.ts`
+- `pnpm build` in `packages/datasets`
+- `pnpm build` in `packages/serve`
+- `git diff --cached --check`
 
 ### In Progress
 
-- Lock the intended datasets public surface with stronger type-test coverage.
-- Assess whether compile-time restrictions for derived metrics and generic helpers can be tightened without disproportionate type complexity.
+- Lock the intended datasets/schema public surface with stronger type-test coverage.
+- Keep the semantic architecture spec current while implementation stabilizes.
+- Decide whether `buildDatasetQueryBuilder` and `runDatasetQuery` are documented as public APIs or explicitly positioned as package-internal serve integration APIs.
 
 ### Remaining
 
-- Broader type-safety tightening for derived metrics and generic helpers.
+- Broader type-safety tightening for derived metrics and existing generic helpers where it remains understandable.
 - Docs and guide alignment across the repo.
 - Fresh-consumer smoke coverage.
 - Wider integration coverage for datasets and serve semantic endpoints.
-- Add a schema-to-datasets compatibility layer so physical schema changes can be checked against semantic models before they break metrics or dataset execution.
+- Deeper schema compatibility for SQL expressions and relationship join columns.
+- Relationship-aware semantic execution remains out of scope until the base semantic surface is stable.
 
 ## Workstreams
 
@@ -237,7 +253,7 @@ Add CI checks for:
 
 ## Proposed Sequencing
 
-### Phase 1: Critical Bug Fixes
+### Phase 1: Critical Bug Fixes - Complete
 
 - Derived metric planning fix
 - Planner invariants
@@ -245,62 +261,80 @@ Add CI checks for:
 - `DatasetQueryRef` removal / crash prevention
 - Tenant filter duplication handling
 
-### Phase 2: Surface Decisions
+### Phase 2: Surface Decisions - Complete For This Pass
 
 - Remove `dataset.query(...)` surface
 - Implement filtered measure support
 - Decide helper typing scope based on feasibility assessment
 - Trim root exports
 
-### Phase 3: Type Safety and Docs Alignment
+### Phase 3: Planner Ownership and Schema Compatibility - Complete For This Pass
+
+- Move dataset endpoint planning ownership into `@hypequery/datasets`
+- Remove duplicated serve semantic planner code
+- Add schema-to-datasets compatibility checks
+- Document the package ownership model in the draft spec
+
+### Phase 4: Type Safety and API Boundary Hardening - Next
 
 - Derived metric typing tightening
 - Query typing improvements
 - Current-surface type-test expansion
+- Schema compatibility type-test expansion
+- Confirm dataset-query helper export positioning
+- Existing generic helper typing improvements where practical
+
+### Phase 5: Docs and Consumer DX - After API Hardening
+
 - Docs and examples rewrite
 - Fresh-consumer smoke tests
+- Root import compile test
+- Unsupported subpath import rejection test
+- Node 22 ESM importability test
 
-### Phase 4: Coverage Expansion
+### Phase 6: Coverage Expansion
 
 - Dedicated type tests
 - Focused unit tests
 - Real integration tests
 - CI hardening
 
-### Phase 5: Schema Compatibility
+### Phase 7: Relationship-Aware Semantics
 
-- Define a compatibility contract between `@hypequery/schema` and `@hypequery/datasets`
-- Add checks for:
-  - removed or renamed physical columns referenced by datasets
-  - incompatible type changes under dimensions or measures
-  - source/view changes that break semantic models
-- Decide whether this ships as validation tooling, CI diagnostics, or both
+- Define how dataset relationships participate in planning.
+- Decide whether joins are query-time only, materialized/planned elsewhere, or initially metadata-only.
+- Add compatibility checks for relationship join columns before enabling relationship-aware execution.
 
 ## Release Scoping
 
-### Patch-suitable items
+### This PR
 
 - Derived metric SQL fix
 - Validation for invalid derived plans
-- `DatasetQueryRef` crash-to-error behavior
-- Tenant predicate rejection when runtime tenancy is active
+- `dataset.query(...)` public surface removal
+- Filtered measure support
+- Tenant runtime simplification and explicit tenant-filter rejection
+- Serve planner unification around datasets-owned planning
+- Schema-to-datasets compatibility checks
+- Semantic architecture/spec notes
+
+### Follow-up Hardening
+
 - Docs corrections for current published API
-
-### Likely minor-release items
-
-- `dataset.query(...)` public execution path
 - Derived metric compile-time restriction overhaul
-- Helper typing redesign
-- Export surface contraction if it removes previously exported APIs
+- Existing generic helper typing tightening
+- Fresh-consumer smoke tests
+- Wider live ClickHouse semantic integration coverage
+- Relationship-aware planning design
 
 ## Risks
 
-- Tightening the export surface may break undocumented consumer usage.
+- Tightening the export surface may break undocumented consumer usage, but this is acceptable while the packages are pre-release.
 - Tightening derived metric typing may reject code that currently compiles.
-- Duplicated planner behavior across `datasets` and `serve` can drift over time unless we either centralize that logic behind a deliberate public contract or keep mirrored coverage strong in both packages.
-- Schema evolution can silently invalidate semantic models unless `schema` and `datasets` gain an explicit compatibility check layer.
+- Dataset-query helper exports may look like public user-facing APIs unless docs clearly position them.
+- Schema compatibility can still miss deeper SQL-expression dependencies until the checker grows beyond direct column references.
 - Adding filtered measure support expands the semantic API and test matrix materially.
-- `dataset.query(...)` changes require a deliberate compatibility decision.
+- Relationship metadata remains non-executing until relationship-aware planning is deliberately designed.
 
 ## Open Questions
 
