@@ -9,6 +9,7 @@ export interface GenerateOptions {
   output?: string;
   tables?: string;
   database?: DatabaseType;
+  commandName?: string;
 }
 
 export async function generateCommand(options: GenerateOptions = {}) {
@@ -39,7 +40,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
   const dbType = requestedDbType ?? (await detectDatabase());
 
   logger.newline();
-  logger.header('hypequery generate');
+  logger.header(options.commandName ?? 'hypequery generate');
 
   const spinner = ora(`Connecting to ${dbType}...`).start();
 
