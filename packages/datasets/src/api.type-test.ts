@@ -122,14 +122,31 @@ type _EqPreservesFieldLiteral = Assert<
   Equal<typeof statusFilter['field'], 'status'>
 >;
 type _EqPreservesValueLiteral = Assert<
-  Equal<typeof statusFilter['value'], string>
+  Equal<typeof statusFilter['value'], 'completed'>
 >;
 type _BetweenPreservesTupleValue = Assert<
-  Equal<typeof createdAtRange['value'], [string, string]>
+  Equal<typeof createdAtRange['value'], ['2025-01-01', '2025-01-31']>
 >;
 type _DescPreservesFieldLiteral = Assert<
   Equal<typeof revenueSort['field'], 'revenueMetric'>
 >;
+
+Orders.metric('validDerivedMetric', {
+  uses: { revenue: revenueMetric },
+  formula: ({ revenue }) => add(revenue, revenue),
+});
+
+// @ts-expect-error derived metrics can only use base metrics from the same dataset.
+Orders.metric('invalidCrossDatasetDerivedMetric', {
+  uses: { customerCount: customerCountMetric },
+  formula: () => add('customerCount', 'customerCount'),
+});
+
+// @ts-expect-error derived metrics can only use base metrics, not derived metric refs.
+Orders.metric('invalidDerivedFromDerivedMetric', {
+  uses: { averageRevenue: averageRevenueMetric },
+  formula: () => add('averageRevenue', 'averageRevenue'),
+});
 
 const runtimeContext: ExecutionContext = {
   runtime: {
