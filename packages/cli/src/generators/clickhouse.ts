@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getClickHouseClient } from '../utils/clickhouse-client.js';
+import { splitTopLevelArgs, unwrapType } from '../utils/clickhouse-type-utils.js';
 
 export interface ClickHouseGeneratorOptions {
   outputPath: string;
@@ -22,51 +23,14 @@ const DEFAULT_WARNING =
 
 const capitalizeFirstLetter = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
-function splitTopLevelArgs(value: string): string[] {
-  const parts: string[] = [];
-  let current = '';
-  let depth = 0;
-
-  for (const char of value) {
-    if (char === '(') {
-      depth += 1;
-      current += char;
-      continue;
-    }
-
-    if (char === ')') {
-      depth -= 1;
-      current += char;
-      continue;
-    }
-
-    if (char === ',' && depth === 0) {
-      parts.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  if (current.trim()) {
-    parts.push(current.trim());
-  }
-
-  return parts;
-}
-
-function unwrapType(type: string, wrapperName: string): string | null {
-  const prefix = `${wrapperName}(`;
-  return type.startsWith(prefix) && type.endsWith(')') ? type.slice(prefix.length, -1) : null;
-}
-
 function getPrimitiveTsType(type: string): string | null {
   const lowerType = type.toLowerCase();
 
   switch (lowerType) {
     case 'string':
     case 'uuid':
+    case 'ipv4':
+    case 'ipv6':
       return 'string';
     case 'int8':
     case 'int16':
@@ -94,6 +58,8 @@ function getPrimitiveTsType(type: string): string | null {
     case 'bool':
     case 'boolean':
       return 'boolean';
+    case 'json':
+      return 'unknown';
     default:
       if (type.startsWith('FixedString(')) return 'string';
       if (type.startsWith('Decimal(')) return 'number';

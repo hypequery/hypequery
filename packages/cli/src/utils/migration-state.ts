@@ -79,6 +79,24 @@ export async function appendMigrationJournalEntry(
   await writeFile(journalPath, `${JSON.stringify(nextJournal, null, 2)}\n`, 'utf8');
 }
 
+export async function initializeMigrationJournal(
+  migrationsOutDir: string,
+  latestSnapshotHash: string,
+) {
+  const metaDir = path.join(migrationsOutDir, META_DIR_NAME);
+  await mkdir(metaDir, { recursive: true });
+  await writeFile(
+    path.join(metaDir, JOURNAL_FILE),
+    `${JSON.stringify({
+      version: 1,
+      dialect: 'clickhouse',
+      latestSnapshotHash,
+      migrations: [],
+    } satisfies MigrationJournal, null, 2)}\n`,
+    'utf8',
+  );
+}
+
 export async function writeCustomMigration(input: {
   outDir: string;
   migrationName: string;

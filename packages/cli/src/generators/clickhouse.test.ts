@@ -69,4 +69,18 @@ describe('clickhouseToTsType', () => {
       clickhouseToTsType('Map(String, Array(Tuple(UInt32, String)))')
     ).toBe('Record<string, Array<[number, string]>>');
   });
+
+  it('maps common scalar ClickHouse types used by migration pull', () => {
+    expect(clickhouseToTsType('Bool')).toBe('boolean');
+    expect(clickhouseToTsType('Boolean')).toBe('boolean');
+    expect(clickhouseToTsType('Date32')).toBe('string');
+    expect(clickhouseToTsType("DateTime('UTC')")).toBe('string');
+    expect(clickhouseToTsType("DateTime64(3, 'UTC')")).toBe('string');
+    expect(clickhouseToTsType('IPv4')).toBe('string');
+    expect(clickhouseToTsType('IPv6')).toBe('string');
+    expect(clickhouseToTsType('JSON')).toBe('unknown');
+    expect(clickhouseToTsType('FixedString(16)')).toBe('string');
+    expect(clickhouseToTsType('Decimal(10, 2)')).toBe('number');
+    expect(clickhouseToTsType("Enum8('a' = 1, 'b' = 2)")).toBe('string');
+  });
 });

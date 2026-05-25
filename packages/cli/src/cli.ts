@@ -3,6 +3,7 @@ import { initCommand } from './commands/init.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateMigrationCommand, type GenerateMigrationOptions } from './commands/generate-migration.js';
+import { pullCommand, type PullOptions } from './commands/pull.js';
 
 const program = new Command();
 
@@ -89,6 +90,17 @@ program
     await generateMigrationCommand(name, options);
   }));
 
+program
+  .command('pull')
+  .description('Pull the current ClickHouse schema into a baseline migration snapshot')
+  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
+  .option('--force', 'Overwrite the configured schema file')
+  .option('--tables <names>', 'Only pull specific tables (comma-separated)')
+  .option('--exclude-tables <names>', 'Exclude specific tables (comma-separated)')
+  .action(runCommand(async (options: PullOptions) => {
+    await pullCommand(options);
+  }));
+
 // Help command
 program
   .command('help [command]')
@@ -117,6 +129,7 @@ program.on('--help', () => {
   console.log('  hypequery generate --output analytics/schema.ts');
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:migration add_orders_table');
+  console.log('  hypequery pull');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

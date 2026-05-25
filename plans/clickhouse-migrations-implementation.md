@@ -904,6 +904,7 @@ Expand beyond the initial safe core after the product is stable.
 ### Possible additions
 
 - more engine variants
+- fuller ClickHouse type DSL coverage for complex types such as `Array`, `Tuple`, `Map`, `Enum`, `Nested`, `AggregateFunction`, and `SimpleAggregateFunction`
 - projections
 - skipping indices
 - TTL definitions

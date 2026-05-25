@@ -93,4 +93,45 @@ describe('migration schema DSL', () => {
       },
     ]);
   });
+
+  it('supports raw ClickHouse column types for introspected schemas', () => {
+    const table = defineTable('events', {
+      columns: {
+        tags: column.Raw('Array(String)'),
+      },
+      engine: {
+        type: 'MergeTree',
+        orderBy: ['tags'],
+      },
+    });
+
+    expect(table.columns[0]?.type).toEqual({
+      kind: 'named',
+      name: 'Array(String)',
+    });
+  });
+
+  it('supports common scalar ClickHouse types used by pulled schemas', () => {
+    const table = defineTable('events', {
+      columns: {
+        active: column.Bool(),
+        created_date32: column.Date32(),
+        ip4: column.IPv4(),
+        ip6: column.IPv6(),
+        payload: column.JSON(),
+      },
+      engine: {
+        type: 'MergeTree',
+        orderBy: ['created_date32'],
+      },
+    });
+
+    expect(table.columns.map(item => item.type)).toEqual([
+      { kind: 'named', name: 'Bool' },
+      { kind: 'named', name: 'Date32' },
+      { kind: 'named', name: 'IPv4' },
+      { kind: 'named', name: 'IPv6' },
+      { kind: 'named', name: 'JSON' },
+    ]);
+  });
 });

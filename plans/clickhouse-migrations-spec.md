@@ -140,6 +140,8 @@ Schema migrations change structure:
 
 This is the core v1 feature and should be generated automatically from TypeScript schema diffs.
 
+The initial schema DSL should cover the safe common type surface first. Broader ClickHouse type coverage, including complex types such as `Array`, `Tuple`, `Map`, `Enum`, `Nested`, `AggregateFunction`, and `SimpleAggregateFunction`, is a follow-up expansion. Until those types have first-class DSL builders, introspection should preserve them with raw type definitions rather than dropping or incorrectly rewriting them.
+
 ### Data migrations
 
 Data migrations change row contents:

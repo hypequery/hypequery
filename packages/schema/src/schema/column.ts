@@ -80,6 +80,7 @@ export class ClickHouseColumnBuilder implements ClickHouseColumnBuilderLike {
  * `column.DateTime('UTC')`.
  */
 export const column = {
+  Raw: (type: string) => named(type),
   Int8: () => named('Int8'),
   Int16: () => named('Int16'),
   Int32: () => named('Int32'),
@@ -95,13 +96,18 @@ export const column = {
   Float32: () => named('Float32'),
   Float64: () => named('Float64'),
   Decimal: (precision: number, scale: number) => named('Decimal', precision, scale),
+  Bool: () => named('Bool'),
+  Boolean: () => named('Boolean'),
   String: () => named('String'),
   FixedString: (length: number) => named('FixedString', length),
   Date: () => named('Date'),
+  Date32: () => named('Date32'),
   DateTime: (timezone?: string) => timezone ? named('DateTime', timezone) : named('DateTime'),
   DateTime64: (precision: number, timezone?: string) =>
     timezone ? named('DateTime64', precision, timezone) : named('DateTime64', precision),
   UUID: () => named('UUID'),
+  IPv4: () => named('IPv4'),
+  IPv6: () => named('IPv6'),
   JSON: () => named('JSON'),
   LowCardinality: (inner: NestedColumnTypeInput) =>
     new ClickHouseColumnBuilder({
