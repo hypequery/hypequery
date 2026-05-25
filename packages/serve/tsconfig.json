@@ -16,7 +16,8 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
   ],
   "references": [
     { "path": "../datasets" },

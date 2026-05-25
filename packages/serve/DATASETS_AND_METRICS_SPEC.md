@@ -16,7 +16,7 @@ When these packages are ready for public docs, the first docs pass should focus 
   - `.by(grain)`
   - runtime tenancy shape
   - `MetricExecutor`
-  - dataset query helpers used by serve-backed dataset endpoints
+  - intentional root exports only; serve-only helpers should stay under `@hypequery/datasets/internal`
 - `@hypequery/serve`
   - generated metric endpoints
   - generated dataset endpoints
@@ -668,13 +668,16 @@ class MetricExecutor {
 }
 ```
 
-Related implemented helper surface:
+Related implemented internal helper surface:
 
 ```ts
+// @hypequery/datasets/internal
 validateDatasetQuery(dataset, query, context?)
 buildDatasetQueryBuilder(dataset, query, options)
 runDatasetQuery(dataset, query, options)
 ```
+
+These helpers are for package integration, primarily serve-backed dataset endpoints. They should not be documented as the user-facing datasets API unless we deliberately promote them later.
 
 ### 4.3 How MetricExecutor Builds Queries
 

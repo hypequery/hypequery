@@ -17,6 +17,7 @@ type Equal<A, B> =
     : false;
 type HasKey<T, K extends PropertyKey> = K extends keyof T ? true : false;
 type DatasetModule = typeof import('./index.js');
+type DatasetInternalModule = typeof import('./internal.js');
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -73,6 +74,28 @@ type _DatasetHasNoQueryMethod = Assert<
 >;
 type _RootExportOmitsDatasetQueryRef = Assert<
   Equal<HasKey<DatasetModule, 'DatasetQueryRef'>, false>
+>;
+type _RootExportOmitsDatasetQuery = Assert<
+  Equal<HasKey<DatasetModule, 'DatasetQuery'>, false>
+>;
+type _RootExportOmitsDatasetQueryResult = Assert<
+  Equal<HasKey<DatasetModule, 'DatasetQueryResult'>, false>
+>;
+type _RootExportOmitsBuildDatasetQueryBuilder = Assert<
+  Equal<HasKey<DatasetModule, 'buildDatasetQueryBuilder'>, false>
+>;
+type _RootExportOmitsRunDatasetQuery = Assert<
+  Equal<HasKey<DatasetModule, 'runDatasetQuery'>, false>
+>;
+type _RootExportOmitsValidateDatasetQuery = Assert<
+  Equal<HasKey<DatasetModule, 'validateDatasetQuery'>, false>
+>;
+type _InternalDatasetQueryTypeCompiles = import('./internal.js').DatasetQuery;
+type _InternalExportIncludesBuildDatasetQueryBuilder = Assert<
+  Equal<HasKey<DatasetInternalModule, 'buildDatasetQueryBuilder'>, true>
+>;
+type _InternalExportIncludesRunDatasetQuery = Assert<
+  Equal<HasKey<DatasetInternalModule, 'runDatasetQuery'>, true>
 >;
 type _RootExportOmitsPlannerHelper = Assert<
   Equal<HasKey<DatasetModule, 'applyMeasureDefinition'>, false>

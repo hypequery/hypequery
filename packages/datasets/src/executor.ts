@@ -264,7 +264,7 @@ export class MetricExecutor {
     // Base metrics: fully use the builder's execute()
     const builder = this.buildBaseQuery(ref, spec, ref.dataset, query, grain, context);
     const { sql } = builder.toSQLWithParams();
-    const data = await builder.execute() as T[];
+    const data = await builder.execute<T>();
     const timingMs = Date.now() - start;
     return { data, meta: { sql, timingMs, tenant: context?.runtime?.tenant?.id } };
   }

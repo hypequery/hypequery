@@ -1,6 +1,6 @@
 # Datasets Semantic Layer Fix Plan
 
-Date: 2026-05-24
+Date: 2026-05-25
 Owner: TBD
 Status: Implementation pass complete; follow-up hardening remains
 
@@ -55,10 +55,14 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - Updated `@hypequery/serve` to stop depending on removed datasets planner exports.
 - Moved serve semantic/planner runtime helpers into `utils` files to reduce endpoint and pipeline bulk.
 - Centralized dataset endpoint query planning in `@hypequery/datasets` so serve no longer maintains a duplicate semantic query planner.
-- Added dataset query helper APIs as the intentional datasets/serve planning boundary.
+- Added dataset query helper APIs under `@hypequery/datasets/internal` as the intentional datasets/serve planning boundary.
 - Added schema-to-datasets compatibility checks so physical schema changes can be checked against semantic models.
 - Added semantic architecture/spec notes for datasets, serve, and schema.
 - Removed new production casts from the dataset-query path and cleaned the touched serve semantic test helpers.
+- Locked the root datasets export surface so dataset-query helpers and types do not appear as public user-facing APIs.
+- Made the query-builder protocol execute path generic so metric execution does not need a result cast.
+- Removed file-level type suppression and response `any` casts from the serve live semantic integration spec.
+- Added types for the shared ClickHouse integration harness used by serve live tests.
 
 ### Verified In This Pass
 
@@ -66,13 +70,13 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - `npm test -- --run src/semantic/datasets/serve-integration.test.ts`
 - `pnpm build` in `packages/datasets`
 - `pnpm build` in `packages/serve`
+- `SKIP_INTEGRATION_TESTS=true pnpm exec vitest run --config vitest.integration.config.ts src/semantic/datasets/serve-live.integration.spec.ts`
 - `git diff --cached --check`
 
 ### In Progress
 
-- Lock the intended datasets/schema public surface with stronger type-test coverage.
+- Prepare the next hardening pass around compile-time guarantees and consumer smoke coverage.
 - Keep the semantic architecture spec current while implementation stabilizes.
-- Decide whether `buildDatasetQueryBuilder` and `runDatasetQuery` are documented as public APIs or explicitly positioned as package-internal serve integration APIs.
 
 ### Remaining
 
@@ -83,64 +87,9 @@ This package is still pre-release. Breaking changes are encouraged in this imple
 - Deeper schema compatibility for SQL expressions and relationship join columns.
 - Relationship-aware semantic execution remains out of scope until the base semantic surface is stable.
 
-## Workstreams
+## Next Workstreams
 
-### 1. Derived Metric Planning and Validation
-
-Objective:
-Fix derived metric SQL generation and add planner-level safety checks.
-
-Implementation:
-- Patch `packages/datasets/src/executor.ts`.
-- Make `buildDerivedSQLViaBuilder()` compute the intended grouping shape explicitly.
-- Ensure ungrouped derived metrics emit no `GROUP BY`.
-- Ensure grouped and grained derived metrics only group by user-selected dimensions and `period`.
-- Add planner invariants before SQL execution:
-  - no aggregate alias may appear in `GROUP BY`
-  - no duplicate `GROUP BY` expressions
-  - no derived-metric CTE should contain grouping unless the user query groups or grains
-- Extend `MetricExecutor.validate()` so it validates the planned query shape, not just the input contract.
-- Fail invalid plans before execution and before `toSQL()` returns misleading SQL.
-
-Acceptance criteria:
-- `executor.toSQL(derivedMetric, {})` emits valid ungrouped SQL.
-- `executor.run(derivedMetric, {})` executes successfully for base-aggregation-derived metrics.
-- `executor.validate(...)` returns invalid for derived plans that violate planner invariants.
-
-### 2. Public API Boundary Cleanup
-
-Objective:
-Make the datasets package surface deliberate and coherent.
-
-Implementation:
-- Remove `query()` and `DatasetQueryRef` from the published surface for now.
-- Make unsupported query-ref-shaped inputs fail with explicit public errors instead of runtime crashes where defensive handling is still needed internally.
-- Tighten `packages/datasets/src/index.ts` and `packages/datasets/package.json` exports.
-- Stop exporting planner internals by default unless they are intentionally public and documented.
-
-Acceptance criteria:
-- No unsupported public API crashes with `TypeError`.
-- Root exports are intentional, documented, and covered by type tests.
-- Docs do not rely on unpublished deep imports.
-
-### 3. Measure Options and Filtered Measure Decision
-
-Objective:
-Resolve the docs/API mismatch around filtered measures.
-
-Implementation:
-- Support filtered measures in this pass.
-- Extend `MeasureOptions` in `packages/datasets/src/types.ts`.
-- Update `packages/datasets/src/measure.ts`.
-- Propagate measure-level filters through planning and execution.
-- Define merge semantics between measure-level filters, query-level filters, and runtime tenant filters.
-- Document the supported behavior and add tests.
-
-Acceptance criteria:
-- The docs match the shipped API.
-- Measure filters are fully typed, planned, and executed correctly.
-
-### 4. Derived Metric and Query Typing Tightening
+### 1. Derived Metric and Query Typing Tightening
 
 Objective:
 Move intended API guarantees from runtime checks into compile-time checks where practical.
@@ -159,33 +108,48 @@ Acceptance criteria:
 - Invalid query fields fail in type tests where the API intends strong typing.
 - If helper functions stay generic, docs clearly describe that limitation.
 
-### 5. Tenant Filter Semantics
+### 2. Fresh-Consumer DX Coverage
 
 Objective:
-Handle runtime tenant injection without duplicate predicates or ambiguous semantics.
+Make the published package boundary enforceable before writing public docs.
 
 Implementation:
-- Patch tenant handling in `packages/datasets/src/executor.ts`.
-- Make serve runtime tenancy authoritative.
-- Reject explicit tenant filters in semantic queries when runtime tenancy enforcement is active.
-- Simplify the public runtime tenant contract so consumers provide tenant identity, not tenant column policy.
-- Remove public reliance on `ExecutionContext.runtime.tenant.column` and `handledByBuilder`.
-- Derive tenant column behavior from dataset configuration plus serve-owned runtime semantics.
-- Document the chosen rule.
+- Add a temporary fresh project that installs/builds against local package artifacts.
+- Verify root imports compile for `@hypequery/datasets`, `@hypequery/schema`, and `@hypequery/serve`.
+- Verify unsupported deep/subpath imports fail except intentionally exported package-integration subpaths.
+- Verify Node 22 ESM importability.
+- Keep docs snippets out of this pass unless needed to define the smoke target.
 
 Acceptance criteria:
-- SQL does not emit duplicate tenant predicates.
-- Conflicting tenant assumptions are rejected consistently.
-- Tenant ownership is clear in the public API and docs.
+- A fresh consumer can import the intended root APIs without TypeScript or ESM failures.
+- Accidental internals are not reachable from documented root imports.
+- The smoke test can run in CI without live ClickHouse.
 
-### 6. Documentation and Fresh-Consumer DX Alignment
+### 3. Schema Compatibility Depth
 
 Objective:
-Make copy-paste docs work against the published package.
+Move schema compatibility beyond direct field references where it is practical.
+
+Implementation:
+- Extend compatibility checks for SQL-expression dimensions/measures where dependency extraction is safe.
+- Add checks for relationship join columns.
+- Add focused tests for removed/renamed join columns and unsupported SQL-expression cases.
+- Clearly report limitations instead of pretending full SQL lineage exists.
+
+Acceptance criteria:
+- Direct relationship join-column breakages are reported before migration application.
+- SQL-expression compatibility either reports known dependencies or emits an explicit limitation.
+
+### 4. Docs and Guide Alignment
+
+Objective:
+Make copy-paste docs work against the finalized package boundary.
 
 Implementation:
 - Update docs to import `MetricExecutor` from `@hypequery/datasets`.
 - Replace outdated measure execution examples with the current `dataset.metric(...)` flow.
+- Document filtered measures and runtime tenancy behavior.
+- Avoid documenting `@hypequery/datasets/internal` as user-facing API.
 - Remove or rewrite write-based setup instructions that imply native write support.
 - Prefer `url` over deprecated `host` in examples where applicable.
 - Add explicit fixture-seeding guidance using external tooling when writes are required.
@@ -281,25 +245,29 @@ Add CI checks for:
 - Query typing improvements
 - Current-surface type-test expansion
 - Schema compatibility type-test expansion
-- Confirm dataset-query helper export positioning
 - Existing generic helper typing improvements where practical
 
-### Phase 5: Docs and Consumer DX - After API Hardening
+### Phase 5: Fresh-Consumer DX Coverage - Next
 
-- Docs and examples rewrite
 - Fresh-consumer smoke tests
 - Root import compile test
 - Unsupported subpath import rejection test
 - Node 22 ESM importability test
 
-### Phase 6: Coverage Expansion
+### Phase 6: Docs and Guide Alignment - After API Hardening
+
+- Docs and examples rewrite
+- Guide snippet compile checks
+- Public positioning cleanup
+
+### Phase 7: Coverage Expansion
 
 - Dedicated type tests
 - Focused unit tests
 - Real integration tests
 - CI hardening
 
-### Phase 7: Relationship-Aware Semantics
+### Phase 8: Relationship-Aware Semantics
 
 - Define how dataset relationships participate in planning.
 - Decide whether joins are query-time only, materialized/planned elsewhere, or initially metadata-only.
@@ -324,14 +292,14 @@ Add CI checks for:
 - Derived metric compile-time restriction overhaul
 - Existing generic helper typing tightening
 - Fresh-consumer smoke tests
-- Wider live ClickHouse semantic integration coverage
+- Live ClickHouse semantic integration execution in an environment with Docker access
 - Relationship-aware planning design
 
 ## Risks
 
 - Tightening the export surface may break undocumented consumer usage, but this is acceptable while the packages are pre-release.
 - Tightening derived metric typing may reject code that currently compiles.
-- Dataset-query helper exports may look like public user-facing APIs unless docs clearly position them.
+- The `@hypequery/datasets/internal` subpath is still technically importable, so docs should clearly position it as unsupported package-integration surface rather than user-facing API.
 - Schema compatibility can still miss deeper SQL-expression dependencies until the checker grows beyond direct column references.
 - Adding filtered measure support expands the semantic API and test matrix materially.
 - Relationship metadata remains non-executing until relationship-aware planning is deliberately designed.
