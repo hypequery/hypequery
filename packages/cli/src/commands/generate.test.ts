@@ -79,6 +79,12 @@ describe('generate command', () => {
       expect(logger.header).toHaveBeenCalledWith('Types regenerated successfully!');
     });
 
+    it('uses an explicit command name for generate:types alias output', async () => {
+      await generateCommand({ commandName: 'hypequery generate:types' });
+
+      expect(logger.header).toHaveBeenCalledWith('hypequery generate:types');
+    });
+
     it('uses custom output path when provided', async () => {
       await generateCommand({ output: 'custom/schema.ts' });
 
