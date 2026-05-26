@@ -13,6 +13,7 @@ import { loadHypequeryConfig } from '../utils/load-hypequery-config.js';
 import { logger } from '../utils/logger.js';
 import { assertValidMigrationSlug, createMigrationTimestamp, formatMigrationName } from '../utils/migration-names.js';
 import { loadMigrationSchema } from '../utils/migration-schema.js';
+import { writeMigrationChecksumFile } from '../utils/migration-checksums.js';
 import {
   appendMigrationJournalEntry,
   assertMigrationDoesNotExist,
@@ -95,6 +96,7 @@ export async function generateMigrationCommand(
       `${snapshotToStableJson(nextSnapshot)}\n`,
       'utf8',
     );
+    const checksumFile = await writeMigrationChecksumFile(written.migrationDir);
     await writeLatestMigrationSnapshot(migrationsOutDir, nextSnapshot);
     await appendMigrationJournalEntry(migrationsOutDir, {
       name: migrationName,
@@ -102,6 +104,7 @@ export async function generateMigrationCommand(
       custom: false,
       sourceSnapshotHash: plan.sourceSnapshotHash,
       targetSnapshotHash: plan.targetSnapshotHash,
+      checksum: checksumFile.checksum,
     }, nextSnapshot.contentHash);
     writeSpinner.succeed('Wrote migration files');
 

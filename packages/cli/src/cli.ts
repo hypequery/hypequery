@@ -3,6 +3,8 @@ import { initCommand } from './commands/init.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateMigrationCommand, type GenerateMigrationOptions } from './commands/generate-migration.js';
+import { migrationCheckCommand, type MigrationCheckOptions } from './commands/migration-check.js';
+import { migrationStatusCommand, type MigrationStatusOptions } from './commands/migration-status.js';
 import { pullCommand, type PullOptions } from './commands/pull.js';
 
 const program = new Command();
@@ -101,6 +103,22 @@ program
     await pullCommand(options);
   }));
 
+program
+  .command('migrate:status')
+  .description('Show local ClickHouse migration status')
+  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
+  .action(runCommand(async (options: MigrationStatusOptions) => {
+    await migrationStatusCommand(options);
+  }));
+
+program
+  .command('migrate:check')
+  .description('Verify local ClickHouse migration checksums')
+  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
+  .action(runCommand(async (options: MigrationCheckOptions) => {
+    await migrationCheckCommand(options);
+  }));
+
 // Help command
 program
   .command('help [command]')
@@ -130,6 +148,8 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:migration add_orders_table');
   console.log('  hypequery pull');
+  console.log('  hypequery migrate:status');
+  console.log('  hypequery migrate:check');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });
