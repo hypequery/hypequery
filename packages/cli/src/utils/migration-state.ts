@@ -9,7 +9,9 @@ import {
   type Snapshot,
 } from '@hypequery/schema';
 import { verifyMigrationIntegrity, writeMigrationChecksumFile } from './migration-checksums.js';
-import { isRecord } from './runtime-guards.js';
+import type { AppliedMigrationRecord } from './migration-remote-state.js';
+import { isMigrationJournalEntry, isSnapshot } from './migration-metadata-guards.js';
+import { isNotFoundError, isRecord } from './runtime-guards.js';
 
 export interface MigrationJournalEntry {
   name: string;
@@ -30,8 +32,10 @@ export interface MigrationJournal {
 export interface LocalMigrationStatus {
   name: string;
   custom: boolean;
-  state: 'pending';
+  state: 'pending' | 'applied' | 'failed';
   checksum: 'ok' | 'missing' | 'mismatch';
+  remoteChecksum?: 'ok' | 'mismatch';
+  progress?: string;
 }
 
 const META_DIR_NAME = 'meta';
@@ -173,18 +177,27 @@ export async function assertMigrationDoesNotExist(migrationsOutDir: string, migr
   throw new Error(`Migration already exists: ${path.relative(process.cwd(), migrationDir)}`);
 }
 
-export async function getLocalMigrationStatuses(migrationsOutDir: string): Promise<LocalMigrationStatus[]> {
+export async function getLocalMigrationStatuses(
+  migrationsOutDir: string,
+  appliedMigrations: AppliedMigrationRecord[] = [],
+): Promise<LocalMigrationStatus[]> {
   const journal = await readMigrationJournal(migrationsOutDir);
   const integrityResults = await verifyMigrationIntegrity(migrationsOutDir);
   const integrityByName = new Map(integrityResults.map(result => [result.migrationName, result]));
+  const appliedByName = new Map(appliedMigrations.map(result => [result.name, result]));
 
   return journal.migrations.map(entry => {
     const integrity = integrityByName.get(entry.name);
+    const applied = appliedByName.get(entry.name);
     return {
       name: entry.name,
       custom: entry.custom,
-      state: 'pending',
+      state: applied?.status === 'applied' || applied?.status === 'failed' ? applied.status : 'pending',
       checksum: !integrity || integrity.missingChecksumFile ? 'missing' : integrity.ok ? 'ok' : 'mismatch',
+      ...(applied && entry.checksum
+        ? { remoteChecksum: applied.checksum === entry.checksum ? 'ok' as const : 'mismatch' as const }
+        : {}),
+      ...(applied ? { progress: `${applied.appliedStepCount}/${applied.totalSteps}` } : {}),
     };
   });
 }
@@ -220,28 +233,4 @@ async function readJournal(journalPath: string): Promise<MigrationJournal> {
     }
     throw error;
   }
-}
-
-function isSnapshot(value: unknown): value is Snapshot {
-  return isRecord(value) &&
-    value.version === 1 &&
-    value.dialect === 'clickhouse' &&
-    Array.isArray(value.tables) &&
-    Array.isArray(value.materializedViews) &&
-    Array.isArray(value.dependencies) &&
-    typeof value.contentHash === 'string';
-}
-
-function isMigrationJournalEntry(value: unknown): value is MigrationJournalEntry {
-  return isRecord(value) &&
-    typeof value.name === 'string' &&
-    typeof value.timestamp === 'string' &&
-    typeof value.custom === 'boolean' &&
-    typeof value.sourceSnapshotHash === 'string' &&
-    typeof value.targetSnapshotHash === 'string' &&
-    (value.checksum === undefined || typeof value.checksum === 'string');
-}
-
-function isNotFoundError(error: unknown) {
-  return isRecord(error) && error.code === 'ENOENT';
 }

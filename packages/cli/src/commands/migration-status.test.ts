@@ -15,6 +15,20 @@ vi.mock('../utils/load-api.js', () => ({
   loadModule: vi.fn(),
 }));
 
+const mockClient = vi.hoisted(() => ({
+  close: vi.fn(),
+}));
+
+const mockFetchAppliedMigrationsIfTableExists = vi.hoisted(() => vi.fn());
+
+vi.mock('../utils/clickhouse-migration-introspection.js', () => ({
+  createMigrationClickHouseClient: vi.fn(() => mockClient),
+}));
+
+vi.mock('../utils/migration-remote-state.js', () => ({
+  fetchAppliedMigrationsIfTableExists: mockFetchAppliedMigrationsIfTableExists,
+}));
+
 const mockLogger = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
@@ -54,6 +68,7 @@ describe('migrate:status command', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    mockFetchAppliedMigrationsIfTableExists.mockResolvedValue([]);
 
     previousCwd = process.cwd();
     tempDir = await mkdtemp(path.join(os.tmpdir(), 'hypequery-migration-status-'));
@@ -77,10 +92,44 @@ describe('migrate:status command', () => {
     await migrationStatusCommand();
 
     expect(mockLogger.table).toHaveBeenCalledWith(
-      ['Migration', 'Type', 'State', 'Checksum'],
-      [['20260525120000_add_events', 'generated', 'pending', 'ok']],
+      ['Migration', 'Type', 'State', 'Checksum', 'Remote', 'Steps'],
+      [['20260525120000_add_events', 'generated', 'pending', 'ok', '-', '-']],
     );
-    expect(mockLogger.info).toHaveBeenCalledWith(expect.stringContaining('Apply-state tracking is not implemented yet'));
+  });
+
+  it('shows applied remote migrations with step progress', async () => {
+    const checksum = await createJournaledMigration('20260525120000_add_events');
+    mockFetchAppliedMigrationsIfTableExists.mockResolvedValue([
+      {
+        name: '20260525120000_add_events',
+        checksum,
+        status: 'applied',
+        appliedStepCount: 2,
+        totalSteps: 2,
+      },
+    ]);
+    const { migrationStatusCommand } = await import('./migration-status.js');
+
+    await migrationStatusCommand();
+
+    expect(mockLogger.table).toHaveBeenCalledWith(
+      ['Migration', 'Type', 'State', 'Checksum', 'Remote', 'Steps'],
+      [['20260525120000_add_events', 'generated', 'applied', 'ok', 'ok', '2/2']],
+    );
+  });
+
+  it('falls back to local status when remote state is unavailable', async () => {
+    await createJournaledMigration('20260525120000_add_events');
+    mockFetchAppliedMigrationsIfTableExists.mockRejectedValue(new Error('connection refused'));
+    const { migrationStatusCommand } = await import('./migration-status.js');
+
+    await migrationStatusCommand();
+
+    expect(mockLogger.table).toHaveBeenCalledWith(
+      ['Migration', 'Type', 'State', 'Checksum', 'Remote', 'Steps'],
+      [['20260525120000_add_events', 'generated', 'pending', 'ok', '-', '-']],
+    );
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('showing local status only'));
   });
 
   it('reports no local migrations', async () => {
@@ -105,6 +154,7 @@ async function createJournaledMigration(name: string) {
     targetSnapshotHash: 'target',
     checksum: checksumFile.checksum,
   }, 'target');
+  return checksumFile.checksum;
 }
 
 function configFixture() {

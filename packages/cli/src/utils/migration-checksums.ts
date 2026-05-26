@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { isRecord } from './runtime-guards.js';
+import { isNotFoundError, isRecord } from './runtime-guards.js';
+import { sha256 } from './sha256.js';
 
 export interface MigrationChecksumFile {
   version: 1;
@@ -41,18 +41,18 @@ export async function calculateMigrationChecksum(migrationDir: string): Promise<
 
   for (const filePath of filePaths) {
     const contents = await readFile(path.join(migrationDir, filePath));
-    files[filePath] = createHash('sha256').update(contents).digest('hex');
+    files[filePath] = sha256(contents);
   }
 
-  const checksum = createHash('sha256');
+  let checksumInput = '';
   for (const [filePath, fileHash] of Object.entries(files).sort(([left], [right]) => left.localeCompare(right))) {
-    checksum.update(`${filePath}\0${fileHash}\0`);
+    checksumInput += `${filePath}\0${fileHash}\0`;
   }
 
   return {
     version: 1,
     algorithm: 'sha256',
-    checksum: checksum.digest('hex'),
+    checksum: sha256(checksumInput),
     files,
   };
 }
@@ -168,8 +168,4 @@ async function readMigrationChecksumFile(migrationDir: string): Promise<Migratio
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   return isRecord(value) && Object.values(value).every(item => typeof item === 'string');
-}
-
-function isNotFoundError(error: unknown) {
-  return isRecord(error) && error.code === 'ENOENT';
 }

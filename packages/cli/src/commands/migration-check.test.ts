@@ -11,6 +11,20 @@ vi.mock('../utils/load-api.js', () => ({
   loadModule: vi.fn(),
 }));
 
+const mockClient = vi.hoisted(() => ({
+  close: vi.fn(),
+}));
+
+const mockFetchAppliedMigrationsIfTableExists = vi.hoisted(() => vi.fn());
+
+vi.mock('../utils/clickhouse-migration-introspection.js', () => ({
+  createMigrationClickHouseClient: vi.fn(() => mockClient),
+}));
+
+vi.mock('../utils/migration-remote-state.js', () => ({
+  fetchAppliedMigrationsIfTableExists: mockFetchAppliedMigrationsIfTableExists,
+}));
+
 const mockLogger = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
@@ -50,6 +64,7 @@ describe('migrate:check command', () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
+    mockFetchAppliedMigrationsIfTableExists.mockResolvedValue([]);
 
     previousCwd = process.cwd();
     tempDir = await mkdtemp(path.join(os.tmpdir(), 'hypequery-migration-check-'));
@@ -75,8 +90,47 @@ describe('migrate:check command', () => {
     expect(mockLogger.success).toHaveBeenCalledWith('Verified 1 migration');
   });
 
+  it('exits when an applied remote checksum differs', async () => {
+    const { checksum } = await createMigration('20260525120000_add_events');
+    mockFetchAppliedMigrationsIfTableExists.mockResolvedValue([
+      {
+        name: '20260525120000_add_events',
+        checksum: `${checksum}-remote`,
+        status: 'applied',
+        appliedStepCount: 1,
+        totalSteps: 1,
+      },
+    ]);
+    const { initializeMigrationJournal, appendMigrationJournalEntry } = await import('../utils/migration-state.js');
+    await initializeMigrationJournal(path.join(tempDir, 'migrations'), 'snapshot-hash');
+    await appendMigrationJournalEntry(path.join(tempDir, 'migrations'), {
+      name: '20260525120000_add_events',
+      timestamp: '20260525120000',
+      custom: false,
+      sourceSnapshotHash: 'source',
+      targetSnapshotHash: 'target',
+      checksum,
+    }, 'target');
+    const { migrationCheckCommand } = await import('./migration-check.js');
+
+    await expect(migrationCheckCommand()).rejects.toBeInstanceOf(ProcessExitError);
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('applied checksum does not match'));
+  });
+
+  it('succeeds with local checks when remote state is unavailable', async () => {
+    await createMigration('20260525120000_add_events');
+    mockFetchAppliedMigrationsIfTableExists.mockRejectedValue(new Error('connection refused'));
+    const { migrationCheckCommand } = await import('./migration-check.js');
+
+    await migrationCheckCommand();
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('checked local files only'));
+    expect(mockLogger.success).toHaveBeenCalledWith('Verified 1 migration');
+  });
+
   it('exits when a migration file changed', async () => {
-    const migrationDir = await createMigration('20260525120000_add_events');
+    const { migrationDir } = await createMigration('20260525120000_add_events');
     await writeFile(path.join(migrationDir, 'up.sql'), 'SELECT 2;\n', 'utf8');
     const { migrationCheckCommand } = await import('./migration-check.js');
 
@@ -97,8 +151,8 @@ describe('migrate:check command', () => {
 
 async function createMigration(name: string) {
   const migrationDir = await createMigrationFilesFixture(tempDir, name);
-  await writeMigrationChecksumFile(migrationDir);
-  return migrationDir;
+  const checksum = await writeMigrationChecksumFile(migrationDir);
+  return { migrationDir, checksum: checksum.checksum };
 }
 
 function configFixture() {

@@ -4,6 +4,7 @@ import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateMigrationCommand, type GenerateMigrationOptions } from './commands/generate-migration.js';
 import { migrationCheckCommand, type MigrationCheckOptions } from './commands/migration-check.js';
+import { migrationDeployCommand, type MigrationDeployOptions } from './commands/migration-deploy.js';
 import { migrationStatusCommand, type MigrationStatusOptions } from './commands/migration-status.js';
 import { pullCommand, type PullOptions } from './commands/pull.js';
 
@@ -104,6 +105,14 @@ program
   }));
 
 program
+  .command('migrate:deploy')
+  .description('Apply pending ClickHouse migrations')
+  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
+  .action(runCommand(async (options: MigrationDeployOptions) => {
+    await migrationDeployCommand(options);
+  }));
+
+program
   .command('migrate:status')
   .description('Show local ClickHouse migration status')
   .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
@@ -148,6 +157,7 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:migration add_orders_table');
   console.log('  hypequery pull');
+  console.log('  hypequery migrate:deploy');
   console.log('  hypequery migrate:status');
   console.log('  hypequery migrate:check');
   console.log('');
