@@ -4,6 +4,7 @@ import type {
   CompatibilityDimensionDefinition,
   CompatibilityMeasureDefinition,
   CompatibilityMetricFilter,
+  CompatibilityRelationshipTarget,
   DatasetSchemaCompatibilityDiagnostic,
   DatasetSchemaCompatibilityReport,
   SemanticCompatibilityPlanOptions,
@@ -59,6 +60,33 @@ function findSnapshotColumn(table: SnapshotTable, columnName: string): SnapshotC
   return table.columns.find(column => column.name === columnName);
 }
 
+function extractSimpleSqlColumn(sql: string): string | undefined {
+  const identifier = String.raw`(?:[A-Za-z_][A-Za-z0-9_]*|` + '`[^`]+`' + String.raw`|"[^"]+")`;
+  const pattern = new RegExp(String.raw`^\s*(${identifier})(?:\.(${identifier}))?\s*$`);
+  const match = pattern.exec(sql);
+  if (!match) {
+    return undefined;
+  }
+
+  const rawIdentifier = match[2] ?? match[1];
+  return rawIdentifier.replace(/^`(.*)`$/, '$1').replace(/^"(.*)"$/, '$1');
+}
+
+function createSqlExpressionLimitationDiagnostic(
+  ds: CompatibilityDatasetInstance,
+  fieldName: string,
+  expressionKind: 'dimension' | 'measure',
+): DatasetSchemaCompatibilityDiagnostic {
+  return createDiagnostic({
+    level: 'warning',
+    code: 'LimitedSqlExpressionCompatibility',
+    datasetName: ds.name,
+    fieldName,
+    sourceName: ds.source,
+    message: `Schema compatibility for SQL-backed ${expressionKind} "${fieldName}" is limited; complex SQL lineage is not fully analyzed.`,
+  });
+}
+
 function resolveDimensionPhysicalColumn(
   dimensionName: string,
   definition: CompatibilityDimensionDefinition | undefined,
@@ -68,7 +96,7 @@ function resolveDimensionPhysicalColumn(
   }
 
   if (definition.sql) {
-    return undefined;
+    return extractSimpleSqlColumn(definition.sql);
   }
 
   return definition.column ?? dimensionName;
@@ -89,6 +117,13 @@ function resolveMeasureFilterPhysicalColumn(
   return resolveFieldPhysicalColumn(ds, resolvedField);
 }
 
+function resolveRelationshipTargetPhysicalColumn(
+  target: CompatibilityRelationshipTarget,
+  fieldName: string,
+): string | undefined {
+  return resolveDimensionPhysicalColumn(fieldName, target.dimensions?.[fieldName]);
+}
+
 function checkDimensionColumns(
   ds: CompatibilityDatasetInstance,
   sourceTable: SnapshotTable,
@@ -96,6 +131,10 @@ function checkDimensionColumns(
   const diagnostics: DatasetSchemaCompatibilityDiagnostic[] = [];
 
   for (const [dimensionName, definition] of Object.entries(ds.dimensions)) {
+    if (definition.sql) {
+      diagnostics.push(createSqlExpressionLimitationDiagnostic(ds, dimensionName, 'dimension'));
+    }
+
     const columnName = resolveDimensionPhysicalColumn(dimensionName, definition);
     if (!columnName) {
       continue;
@@ -149,7 +188,7 @@ function resolveMeasurePhysicalColumn(
   definition: CompatibilityMeasureDefinition,
 ): string | undefined {
   if (definition.sql) {
-    return undefined;
+    return extractSimpleSqlColumn(definition.sql);
   }
 
   return resolveFieldPhysicalColumn(ds, definition.field);
@@ -196,6 +235,10 @@ function checkMeasureDefinition(
   definition: CompatibilityMeasureDefinition,
 ): DatasetSchemaCompatibilityDiagnostic[] {
   const diagnostics = checkMeasureFilters(ds, sourceTable, measureName, definition.filters);
+  if (definition.sql) {
+    diagnostics.push(createSqlExpressionLimitationDiagnostic(ds, measureName, 'measure'));
+  }
+
   const columnName = resolveMeasurePhysicalColumn(ds, definition);
 
   if (!columnName) {
@@ -231,6 +274,69 @@ function checkMeasureDefinition(
   return diagnostics;
 }
 
+function checkRelationshipDefinitions(
+  snapshot: Snapshot,
+  ds: CompatibilityDatasetInstance,
+  sourceTable: SnapshotTable,
+): DatasetSchemaCompatibilityDiagnostic[] {
+  const diagnostics: DatasetSchemaCompatibilityDiagnostic[] = [];
+
+  for (const [relationshipName, relationship] of Object.entries(ds.relationships ?? {})) {
+    const sourceColumnName = resolveFieldPhysicalColumn(ds, relationship.from) ?? relationship.from;
+    if (!findSnapshotColumn(sourceTable, sourceColumnName)) {
+      diagnostics.push(createDiagnostic({
+        level: 'error',
+        code: 'MissingRelationshipSourceColumn',
+        datasetName: ds.name,
+        fieldName: `${relationshipName}.from`,
+        physicalColumnName: sourceColumnName,
+        sourceName: ds.source,
+        message: `Relationship "${relationshipName}" references missing source column "${sourceColumnName}" on dataset "${ds.name}" source "${ds.source}".`,
+      }));
+    }
+
+    const target = relationship.target();
+    if (!target.source) {
+      diagnostics.push(createDiagnostic({
+        level: 'error',
+        code: 'MissingRelationshipTargetSource',
+        datasetName: ds.name,
+        fieldName: `${relationshipName}.target`,
+        message: `Relationship "${relationshipName}" points to target dataset "${target.name}" without schema compatibility source metadata.`,
+      }));
+      continue;
+    }
+
+    const targetTable = resolveSourceTable(snapshot, target.source);
+    if (!targetTable) {
+      diagnostics.push(createDiagnostic({
+        level: 'error',
+        code: 'MissingRelationshipTargetSource',
+        datasetName: ds.name,
+        fieldName: `${relationshipName}.target`,
+        sourceName: target.source,
+        message: `Relationship "${relationshipName}" points to target dataset "${target.name}" with missing source "${target.source}".`,
+      }));
+      continue;
+    }
+
+    const targetColumnName = resolveRelationshipTargetPhysicalColumn(target, relationship.to) ?? relationship.to;
+    if (!findSnapshotColumn(targetTable, targetColumnName)) {
+      diagnostics.push(createDiagnostic({
+        level: 'error',
+        code: 'MissingRelationshipTargetColumn',
+        datasetName: ds.name,
+        fieldName: `${relationshipName}.to`,
+        physicalColumnName: targetColumnName,
+        sourceName: target.source,
+        message: `Relationship "${relationshipName}" references missing target column "${targetColumnName}" on dataset "${target.name}" source "${target.source}".`,
+      }));
+    }
+  }
+
+  return diagnostics;
+}
+
 function checkDatasetAgainstSchema(
   snapshot: Snapshot,
   ds: CompatibilityDatasetInstance,
@@ -256,6 +362,7 @@ function checkDatasetAgainstSchema(
     ...checkDimensionColumns(ds, sourceTable),
     ...checkKeyColumn(ds, sourceTable, ds.tenantKey, 'MissingTenantKey', 'tenantKey'),
     ...checkKeyColumn(ds, sourceTable, ds.timeKey, 'MissingTimeKey', 'timeKey'),
+    ...checkRelationshipDefinitions(snapshot, ds, sourceTable),
   ];
 
   for (const [measureName, definition] of Object.entries(ds.measures)) {
