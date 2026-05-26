@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dataset, dimension, eq, measure } from '../../../datasets/dist/index.js';
+import { belongsTo, dataset, dimension, eq, measure } from '../../../datasets/dist/index.js';
 import { checkDatasetsAgainstSchema } from './index.js';
 import { sql } from '../index.js';
 import { column, defineMaterializedView, defineSchema, defineTable } from '../schema/index.js';
@@ -325,5 +325,128 @@ describe('check datasets against schema', () => {
       valid: true,
       diagnostics: [],
     });
+  });
+
+  it('fails when relationship source or target join columns are missing', () => {
+    const Customers = dataset('customers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.number(),
+      },
+    });
+
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        id: dimension.number(),
+        customerId: dimension.number({ column: 'customer_id' }),
+      },
+      relationships: {
+        customer: belongsTo(() => Customers, { from: 'customerId', to: 'id' }),
+      },
+    });
+
+    const snapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+          defineTable('customers', {
+            columns: {
+              name: column.String(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['name'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    const report = checkDatasetsAgainstSchema({ snapshot, datasets: [Orders] });
+
+    expect(report.valid).toBe(false);
+    expect(report.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'MissingRelationshipSourceColumn',
+          fieldName: 'customer.from',
+          physicalColumnName: 'customer_id',
+        }),
+        expect.objectContaining({
+          code: 'MissingRelationshipTargetColumn',
+          fieldName: 'customer.to',
+          physicalColumnName: 'id',
+        }),
+      ]),
+    );
+  });
+
+  it('reports SQL-expression compatibility limitations and checks simple SQL column references', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        netAmount: dimension.number({ sql: 'missing_amount' }),
+        amountBucket: dimension.string({ sql: 'multiIf(amount > 100, "large", "small")' }),
+      },
+      measures: {
+        netRevenue: measure.sum('amount', { sql: 'missing_amount' }),
+        computedRevenue: measure.sum('amount', { sql: 'amount - discount' }),
+      },
+    });
+
+    const snapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+              amount: column.Float64(),
+              discount: column.Float64(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    const report = checkDatasetsAgainstSchema({ snapshot, datasets: [Orders] });
+
+    expect(report.valid).toBe(false);
+    expect(report.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'LimitedSqlExpressionCompatibility',
+          level: 'warning',
+          fieldName: 'netAmount',
+        }),
+        expect.objectContaining({
+          code: 'LimitedSqlExpressionCompatibility',
+          level: 'warning',
+          fieldName: 'amountBucket',
+        }),
+        expect.objectContaining({
+          code: 'MissingDimensionColumn',
+          fieldName: 'netAmount',
+          physicalColumnName: 'missing_amount',
+        }),
+        expect.objectContaining({
+          code: 'MissingMeasureField',
+          fieldName: 'netRevenue',
+          physicalColumnName: 'missing_amount',
+        }),
+      ]),
+    );
   });
 });

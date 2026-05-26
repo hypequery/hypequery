@@ -141,19 +141,35 @@ async function connectToDatabase(
   throw lastError;
 }
 
+async function clickHouseIsReachable(): Promise<boolean> {
+  try {
+    await waitForClickHouse({
+      config: TEST_CONNECTION_CONFIG,
+      maxAttempts: 3,
+      retryDelayMs: 500,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe("Serve live integration — datasets", () => {
   (SKIP_INTEGRATION_TESTS ? describe.skip : describe)("ClickHouse-backed dataset endpoints", () => {
     let db: Awaited<ReturnType<typeof initializeTestConnection>>;
     let startedContainer = false;
 
     beforeAll(async () => {
-      const containerRunning = await isContainerRunning(CLICKHOUSE_CONTAINER_NAME);
-      if (!containerRunning) {
-        await startClickHouseContainer();
-        startedContainer = true;
+      if (!await clickHouseIsReachable()) {
+        const containerRunning = await isContainerRunning(CLICKHOUSE_CONTAINER_NAME);
+        if (!containerRunning) {
+          await startClickHouseContainer();
+          startedContainer = true;
+        }
+
+        await waitForClickHouse({ config: TEST_CONNECTION_CONFIG });
       }
 
-      await waitForClickHouse({ config: TEST_CONNECTION_CONFIG });
       await seedClickHouseDatabase({
         config: TEST_CONNECTION_CONFIG,
         data: TEST_DATA,

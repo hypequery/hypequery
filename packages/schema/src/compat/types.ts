@@ -18,6 +18,19 @@ export interface CompatibilityMeasureDefinition {
   filters?: CompatibilityMetricFilter[];
 }
 
+export interface CompatibilityRelationshipTarget {
+  name: string;
+  source?: string;
+  dimensions?: Record<string, CompatibilityDimensionDefinition>;
+}
+
+export interface CompatibilityRelationshipDefinition {
+  kind: 'belongsTo' | 'hasMany' | 'hasOne';
+  target: () => CompatibilityRelationshipTarget;
+  from: string;
+  to: string;
+}
+
 export interface CompatibilitySemanticFilterDefinition {
   field: string;
 }
@@ -30,6 +43,7 @@ export interface CompatibilityDatasetInstance {
   dimensions: Record<string, CompatibilityDimensionDefinition>;
   measures: Record<string, CompatibilityMeasureDefinition>;
   filters: Record<string, CompatibilitySemanticFilterDefinition>;
+  relationships?: Record<string, CompatibilityRelationshipDefinition>;
 }
 
 export interface CheckDatasetsAgainstSchemaInput {
@@ -44,7 +58,11 @@ export type DatasetSchemaCompatibilityDiagnosticCode =
   | 'MissingTenantKey'
   | 'MissingTimeKey'
   | 'InvalidMeasureFilterField'
-  | 'IncompatibleNumericMeasureType';
+  | 'IncompatibleNumericMeasureType'
+  | 'MissingRelationshipSourceColumn'
+  | 'MissingRelationshipTargetSource'
+  | 'MissingRelationshipTargetColumn'
+  | 'LimitedSqlExpressionCompatibility';
 
 export interface DatasetSchemaCompatibilityDiagnostic {
   level: 'error' | 'warning';
