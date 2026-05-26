@@ -6,7 +6,7 @@ import { loadHypequeryConfig } from '../utils/load-hypequery-config.js';
 import { logger } from '../utils/logger.js';
 import { relativeSchemaPath, writeSchemaFileFromSnapshot } from '../utils/migration-schema-emitter.js';
 import { initializeMigrationJournal, writeLatestMigrationSnapshot } from '../utils/migration-state.js';
-import { isRecord } from '../utils/runtime-guards.js';
+import { isNotFoundError } from '../utils/runtime-guards.js';
 
 export interface PullOptions {
   config?: string;
@@ -93,8 +93,4 @@ function parseTableList(value: string | undefined) {
     ?.split(',')
     .map(table => table.trim())
     .filter(Boolean);
-}
-
-function isNotFoundError(error: unknown) {
-  return isRecord(error) && error.code === 'ENOENT';
 }

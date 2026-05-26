@@ -1,6 +1,7 @@
 import { createClient, type ClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseMigrationDbCredentials, Snapshot, SnapshotColumn, SnapshotTable } from '@hypequery/schema';
 import { hashSnapshot } from '@hypequery/schema';
+import { sqlString } from './clickhouse-sql.js';
 import { splitTopLevelArgs } from './clickhouse-type-utils.js';
 
 export interface IntrospectClickHouseSchemaOptions {
@@ -185,8 +186,4 @@ function parseEngineSettings(engineFull: string): Record<string, string> {
       .map(setting => setting.split(/\s*=\s*/, 2))
       .filter((entry): entry is [string, string] => entry.length === 2 && entry[0].length > 0),
   );
-}
-
-function sqlString(value: string) {
-  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
