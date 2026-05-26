@@ -8,6 +8,7 @@ import {
   type MigrationPlan,
   type Snapshot,
 } from '@hypequery/schema';
+import { verifyMigrationIntegrity, writeMigrationChecksumFile } from './migration-checksums.js';
 import { isRecord } from './runtime-guards.js';
 
 export interface MigrationJournalEntry {
@@ -16,13 +17,21 @@ export interface MigrationJournalEntry {
   custom: boolean;
   sourceSnapshotHash: string;
   targetSnapshotHash: string;
+  checksum?: string;
 }
 
-interface MigrationJournal {
+export interface MigrationJournal {
   version: 1;
   dialect: 'clickhouse';
   latestSnapshotHash: string;
   migrations: MigrationJournalEntry[];
+}
+
+export interface LocalMigrationStatus {
+  name: string;
+  custom: boolean;
+  state: 'pending';
+  checksum: 'ok' | 'missing' | 'mismatch';
 }
 
 const META_DIR_NAME = 'meta';
@@ -77,6 +86,10 @@ export async function appendMigrationJournalEntry(
   };
 
   await writeFile(journalPath, `${JSON.stringify(nextJournal, null, 2)}\n`, 'utf8');
+}
+
+export async function readMigrationJournal(migrationsOutDir: string) {
+  return readJournal(path.join(migrationsOutDir, META_DIR_NAME, JOURNAL_FILE));
 }
 
 export async function initializeMigrationJournal(
@@ -134,6 +147,7 @@ export async function writeCustomMigration(input: {
   await writeFile(path.join(migrationDir, 'down.sql'), '-- Write best-effort rollback SQL here.\n', 'utf8');
   await writeFile(path.join(migrationDir, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`, 'utf8');
   await writeFile(path.join(migrationDir, 'plan.json'), `${JSON.stringify(plan, null, 2)}\n`, 'utf8');
+  const checksumFile = await writeMigrationChecksumFile(migrationDir);
 
   await appendMigrationJournalEntry(input.outDir, {
     name: input.migrationName,
@@ -141,6 +155,7 @@ export async function writeCustomMigration(input: {
     custom: true,
     sourceSnapshotHash: input.previousSnapshot.contentHash,
     targetSnapshotHash: input.previousSnapshot.contentHash,
+    checksum: checksumFile.checksum,
   }, input.previousSnapshot.contentHash);
 }
 
@@ -156,6 +171,22 @@ export async function assertMigrationDoesNotExist(migrationsOutDir: string, migr
   }
 
   throw new Error(`Migration already exists: ${path.relative(process.cwd(), migrationDir)}`);
+}
+
+export async function getLocalMigrationStatuses(migrationsOutDir: string): Promise<LocalMigrationStatus[]> {
+  const journal = await readMigrationJournal(migrationsOutDir);
+  const integrityResults = await verifyMigrationIntegrity(migrationsOutDir);
+  const integrityByName = new Map(integrityResults.map(result => [result.migrationName, result]));
+
+  return journal.migrations.map(entry => {
+    const integrity = integrityByName.get(entry.name);
+    return {
+      name: entry.name,
+      custom: entry.custom,
+      state: 'pending',
+      checksum: !integrity || integrity.missingChecksumFile ? 'missing' : integrity.ok ? 'ok' : 'mismatch',
+    };
+  });
 }
 
 async function readJournal(journalPath: string): Promise<MigrationJournal> {
@@ -207,7 +238,8 @@ function isMigrationJournalEntry(value: unknown): value is MigrationJournalEntry
     typeof value.timestamp === 'string' &&
     typeof value.custom === 'boolean' &&
     typeof value.sourceSnapshotHash === 'string' &&
-    typeof value.targetSnapshotHash === 'string';
+    typeof value.targetSnapshotHash === 'string' &&
+    (value.checksum === undefined || typeof value.checksum === 'string');
 }
 
 function isNotFoundError(error: unknown) {

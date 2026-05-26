@@ -82,6 +82,7 @@ describe('generate:migration command', () => {
     await expect(readFile(path.join(migrationDir, 'up.sql'), 'utf8')).resolves.toContain('CREATE TABLE `events`');
     await expect(readFile(path.join(migrationDir, 'down.sql'), 'utf8')).resolves.toContain('DROP TABLE `events`');
     await expect(readFile(path.join(migrationDir, 'snapshot.json'), 'utf8')).resolves.toContain('"events"');
+    await expect(readFile(path.join(migrationDir, 'hypequery.sum'), 'utf8')).resolves.toContain('"algorithm": "sha256"');
 
     const meta = JSON.parse(await readFile(path.join(migrationDir, 'meta.json'), 'utf8'));
     expect(meta).toMatchObject({
@@ -102,6 +103,7 @@ describe('generate:migration command', () => {
       expect.objectContaining({
         name: '20260525120000_add_events',
         custom: false,
+        checksum: expect.any(String),
       }),
     ]);
   });
@@ -117,6 +119,7 @@ describe('generate:migration command', () => {
 
     const migrationDir = path.join(tempDir, 'migrations', '20260525120500_backfill_events');
     await expect(readFile(path.join(migrationDir, 'up.sql'), 'utf8')).resolves.toContain('custom migration SQL');
+    await expect(readFile(path.join(migrationDir, 'hypequery.sum'), 'utf8')).resolves.toContain('"algorithm": "sha256"');
 
     const meta = JSON.parse(await readFile(path.join(migrationDir, 'meta.json'), 'utf8'));
     expect(meta).toMatchObject({

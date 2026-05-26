@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { vi } from 'vitest';
 import type { Mock } from 'vitest';
 
@@ -136,4 +138,14 @@ export function mockProcessExit() {
       process.exit = originalExit;
     },
   };
+}
+
+export async function createMigrationFilesFixture(rootDir: string, name: string) {
+  const migrationDir = path.join(rootDir, 'migrations', name);
+  await mkdir(migrationDir, { recursive: true });
+  await writeFile(path.join(migrationDir, 'up.sql'), 'SELECT 1;\n', 'utf8');
+  await writeFile(path.join(migrationDir, 'down.sql'), 'SELECT 0;\n', 'utf8');
+  await writeFile(path.join(migrationDir, 'meta.json'), '{}\n', 'utf8');
+  await writeFile(path.join(migrationDir, 'plan.json'), '{}\n', 'utf8');
+  return migrationDir;
 }
