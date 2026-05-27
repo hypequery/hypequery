@@ -1,16 +1,16 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  column,
-  defineSchema,
-  defineTable,
-  serializeSchemaToSnapshot,
-  snapshotToStableJson,
-  type ClickHouseSchemaAst,
-} from '@hypequery/schema';
-import { mockProcessExit, ProcessExitError } from '../test-utils.js';
+  eventsMigrationSchema,
+  eventsMigrationSchemaWithNameColumn,
+  migrationConfigFixture,
+  mockConfigAndSchemaLoader,
+  mockProcessExit,
+  ProcessExitError,
+  writeLatestSnapshotFixture,
+} from '../test-utils.js';
 
 type LoadModule = typeof import('../utils/load-api.js')['loadModule'];
 
@@ -73,7 +73,7 @@ describe('generate:migration command', () => {
   });
 
   it('generates migration artifacts from a schema diff', async () => {
-    mockConfigAndSchema(eventsSchema());
+    mockConfigAndSchemaLoader(loadModule, eventsMigrationSchema());
 
     const { generateMigrationCommand } = await import('./generate-migration.js');
     await generateMigrationCommand('add_events', { timestamp: '20260525120000' });
@@ -109,7 +109,7 @@ describe('generate:migration command', () => {
   });
 
   it('creates custom SQL migrations without advancing the latest snapshot', async () => {
-    mockConfigAndSchema(eventsSchema());
+    mockConfigAndSchemaLoader(loadModule, eventsMigrationSchema());
 
     const { generateMigrationCommand } = await import('./generate-migration.js');
     await generateMigrationCommand('backfill_events', {
@@ -144,9 +144,9 @@ describe('generate:migration command', () => {
   });
 
   it('does not write migration files when the schema matches the latest snapshot', async () => {
-    const schema = eventsSchema();
-    mockConfigAndSchema(schema);
-    await writeLatestSnapshotFixture(schema);
+    const schema = eventsMigrationSchema();
+    mockConfigAndSchemaLoader(loadModule, schema);
+    await writeLatestSnapshotFixture(tempDir, schema);
 
     const { generateMigrationCommand } = await import('./generate-migration.js');
     await generateMigrationCommand('noop', { timestamp: '20260525121000' });
@@ -158,8 +158,8 @@ describe('generate:migration command', () => {
   });
 
   it('diffs against the latest saved snapshot for incremental migrations', async () => {
-    await writeLatestSnapshotFixture(eventsSchema());
-    mockConfigAndSchema(eventsSchemaWithNameColumn());
+    await writeLatestSnapshotFixture(tempDir, eventsMigrationSchema());
+    mockConfigAndSchemaLoader(loadModule, eventsMigrationSchemaWithNameColumn());
 
     const { generateMigrationCommand } = await import('./generate-migration.js');
     await generateMigrationCommand('add_event_name', { timestamp: '20260525121500' });
@@ -181,7 +181,7 @@ describe('generate:migration command', () => {
   it('exits when the schema module does not export a schema', async () => {
     loadModule.mockImplementation(async (modulePath) => {
       if (modulePath === 'hypequery.config.ts') {
-        return { default: configFixture() };
+        return { default: migrationConfigFixture() };
       }
 
       return { notSchema: true };
@@ -195,72 +195,3 @@ describe('generate:migration command', () => {
     expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining('Invalid schema module'));
   });
 });
-
-function mockConfigAndSchema(schema: ClickHouseSchemaAst) {
-  loadModule.mockImplementation(async (modulePath) => {
-    if (modulePath === 'hypequery.config.ts') {
-      return { default: configFixture() };
-    }
-
-    return { default: schema };
-  });
-}
-
-function configFixture() {
-  return {
-    dialect: 'clickhouse',
-    schema: './schema.ts',
-    migrations: { out: './migrations' },
-    dbCredentials: {
-      host: 'localhost',
-      username: 'default',
-      database: 'analytics',
-    },
-  };
-}
-
-async function writeLatestSnapshotFixture(schema: ClickHouseSchemaAst) {
-  const snapshot = serializeSchemaToSnapshot(schema);
-  const metaDir = path.join(tempDir, 'migrations', 'meta');
-  await mkdir(metaDir, { recursive: true });
-  await writeFile(
-    path.join(metaDir, 'latest_snapshot.json'),
-    `${snapshotToStableJson(snapshot)}\n`,
-    'utf8',
-  );
-}
-
-function eventsSchema() {
-  return defineSchema({
-    tables: [
-      defineTable('events', {
-        columns: {
-          id: column.UUID(),
-          created_at: column.DateTime(),
-        },
-        engine: {
-          type: 'MergeTree',
-          orderBy: ['created_at'],
-        },
-      }),
-    ],
-  });
-}
-
-function eventsSchemaWithNameColumn() {
-  return defineSchema({
-    tables: [
-      defineTable('events', {
-        columns: {
-          id: column.UUID(),
-          created_at: column.DateTime(),
-          name: column.String(),
-        },
-        engine: {
-          type: 'MergeTree',
-          orderBy: ['created_at'],
-        },
-      }),
-    ],
-  });
-}

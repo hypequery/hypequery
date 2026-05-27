@@ -1,5 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  column,
+  defineSchema,
+  defineTable,
+  serializeSchemaToSnapshot,
+  snapshotToStableJson,
+  type ClickHouseSchemaAst,
+} from '@hypequery/schema';
 import { vi } from 'vitest';
 import type { Mock } from 'vitest';
 
@@ -148,4 +156,81 @@ export async function createMigrationFilesFixture(rootDir: string, name: string)
   await writeFile(path.join(migrationDir, 'meta.json'), '{}\n', 'utf8');
   await writeFile(path.join(migrationDir, 'plan.json'), '{}\n', 'utf8');
   return migrationDir;
+}
+
+export function migrationConfigFixture() {
+  return {
+    dialect: 'clickhouse',
+    schema: './schema.ts',
+    migrations: { out: './migrations' },
+    dbCredentials: {
+      host: 'localhost',
+      username: 'default',
+      database: 'analytics',
+    },
+  };
+}
+
+export function mockConfigAndSchemaLoader(
+  loadModule: Mock,
+  schema: ClickHouseSchemaAst,
+  config = migrationConfigFixture(),
+) {
+  loadModule.mockImplementation(async (modulePath) => {
+    if (modulePath === 'hypequery.config.ts') {
+      return { default: config };
+    }
+
+    return { default: schema };
+  });
+}
+
+export async function writeLatestSnapshotFixture(rootDir: string, schema: ClickHouseSchemaAst) {
+  const snapshot = serializeSchemaToSnapshot(schema);
+  const metaDir = path.join(rootDir, 'migrations', 'meta');
+  await mkdir(metaDir, { recursive: true });
+  await writeFile(
+    path.join(metaDir, 'latest_snapshot.json'),
+    `${snapshotToStableJson(snapshot)}\n`,
+    'utf8',
+  );
+}
+
+export function emptyMigrationSchema() {
+  return defineSchema({ tables: [] });
+}
+
+export function eventsMigrationSchema() {
+  return defineSchema({
+    tables: [
+      defineTable('events', {
+        columns: {
+          id: column.UUID(),
+          created_at: column.DateTime(),
+        },
+        engine: {
+          type: 'MergeTree',
+          orderBy: ['created_at'],
+        },
+      }),
+    ],
+  });
+}
+
+export function eventsMigrationSchemaWithNameColumn() {
+  return defineSchema({
+    tables: [
+      defineTable('events', {
+        columns: {
+          id: column.UUID(),
+          created_at: column.DateTime(),
+          name: column.String(),
+        },
+        engine: {
+          type: 'MergeTree',
+          orderBy: ['created_at'],
+        },
+      }),
+    ],
+  });
 }
