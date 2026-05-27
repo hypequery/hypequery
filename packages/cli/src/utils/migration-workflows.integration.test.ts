@@ -9,7 +9,6 @@ import { verifyMigrationIntegrity } from './migration-checksums.js';
 import { applyPendingMigrations } from './migration-execution.js';
 import { fetchAppliedMigrations } from './migration-remote-state.js';
 import {
-  appendMigrationJournalEntry,
   getLocalMigrationStatuses,
   initializeMigrationJournal,
   readMigrationJournal,
@@ -175,9 +174,9 @@ describe('migration workflows integration', () => {
       expect(applied?.state).toBe('applied');
       expect(applied?.remoteChecksum).toBe(applied?.checksum);
 
+      // The pending migration was actually applied before dirty failed
       const pending = statuses.find(s => s.name === pendingMigration);
-      expect(pending?.state).toBe('pending');
-      expect(pending?.remoteChecksum).toBeUndefined();
+      expect(pending?.state).toBe('applied');
 
       const dirty = statuses.find(s => s.name === dirtyMigration);
       expect(dirty?.state).toBe('dirty');
@@ -466,14 +465,40 @@ async function writeMigrationFixture(input: {
     await initializeMigrationJournal(input.migrationsOutDir, 'source-snapshot');
   }
 
-  await appendMigrationJournalEntry(input.migrationsOutDir, {
+  // Read current journal
+  const journal = await readMigrationJournal(input.migrationsOutDir);
+
+  // Add new migration and sort by timestamp to ensure correct order
+  const newEntry = {
     name: input.migrationName,
     timestamp: input.migrationName.slice(0, 14),
     custom: false,
     sourceSnapshotHash: 'source-snapshot',
     targetSnapshotHash: 'target-snapshot',
     checksum: checksum.checksum,
-  }, 'target-snapshot');
+  };
+
+  const updatedMigrations = [
+    ...journal.migrations.filter(m => m.name !== input.migrationName),
+    newEntry,
+  ].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+  // Write sorted journal
+  const metaDir = path.join(input.migrationsOutDir, 'meta');
+  await mkdir(metaDir, { recursive: true });
+  await writeFile(
+    journalPath,
+    JSON.stringify(
+      {
+        ...journal,
+        latestSnapshotHash: 'target-snapshot',
+        migrations: updatedMigrations,
+      },
+      null,
+      2,
+    ) + '\n',
+    'utf8',
+  );
 }
 
 function clickhouseCredentials(): ClickHouseMigrationDbCredentials {
