@@ -21,7 +21,6 @@ import type { ClickHouseMigrationDbCredentials } from '@hypequery/schema';
 
 describe('migration workflows integration', () => {
   const suffix = `${Date.now()}_${process.pid}`;
-  const migrationTable = `_hq_migrations_wf_${suffix}`;
   let tempDir: string;
   let client: ReturnType<typeof createMigrationClickHouseClient>;
 
@@ -44,10 +43,12 @@ describe('migration workflows integration', () => {
   describe('pull/baseline workflow', () => {
     const baselineTable = `hq_baseline_test_${suffix}`;
     const baselineMV = `hq_baseline_mv_${suffix}`;
+    const migrationTable = `_hq_migrations_baseline_${suffix}`;
 
     afterAll(async () => {
       await client.command({ query: `DROP VIEW IF EXISTS ${quoteIdentifier(baselineMV)}` }).catch(ignoreError);
       await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(baselineTable)}` }).catch(ignoreError);
+      await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(migrationTable)}` }).catch(ignoreError);
     });
 
     it('introspects live schema and generates baseline files', async () => {
@@ -74,15 +75,17 @@ describe('migration workflows integration', () => {
         includeTables: [baselineTable, baselineMV],
       });
 
-      expect(snapshot.tables).toHaveLength(2);
+      expect(snapshot.tables).toHaveLength(1);
       const table = snapshot.tables.find(t => t.name === baselineTable);
-      const mv = snapshot.tables.find(t => t.name === baselineMV);
 
       expect(table).toBeDefined();
       expect(table?.columns).toHaveLength(3);
       expect(table?.columns.map(c => c.name)).toEqual(['id', 'name', 'created_at']);
 
+      expect(snapshot.materializedViews).toHaveLength(1);
+      const mv = snapshot.materializedViews.find(v => v.name === baselineMV);
       expect(mv).toBeDefined();
+      expect(mv?.from).toBe(baselineTable);
       expect(mv?.engine).toContain('MergeTree');
 
       // Write baseline files
@@ -106,9 +109,11 @@ describe('migration workflows integration', () => {
 
   describe('status workflow', () => {
     const statusTable = `hq_status_test_${suffix}`;
+    const migrationTable = `_hq_migrations_status_${suffix}`;
 
     afterAll(async () => {
       await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(statusTable)}` }).catch(ignoreError);
+      await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(migrationTable)}` }).catch(ignoreError);
     });
 
     it('reports applied, pending, and dirty migration states', async () => {
@@ -182,9 +187,11 @@ describe('migration workflows integration', () => {
 
   describe('check workflow', () => {
     const checkTable = `hq_check_test_${suffix}`;
+    const migrationTable = `_hq_migrations_check_${suffix}`;
 
     afterAll(async () => {
       await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(checkTable)}` }).catch(ignoreError);
+      await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(migrationTable)}` }).catch(ignoreError);
     });
 
     it('detects checksum mismatches between local and remote', async () => {
@@ -235,9 +242,11 @@ describe('migration workflows integration', () => {
 
   describe('multi-migration ordering', () => {
     const orderTable = `hq_order_test_${suffix}`;
+    const migrationTable = `_hq_migrations_order_${suffix}`;
 
     afterAll(async () => {
       await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(orderTable)}` }).catch(ignoreError);
+      await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(migrationTable)}` }).catch(ignoreError);
     });
 
     it('applies multiple pending migrations in timestamp order', async () => {
@@ -303,9 +312,11 @@ describe('migration workflows integration', () => {
 
   describe('idempotency', () => {
     const idempotentTable = `hq_idempotent_${suffix}`;
+    const migrationTable = `_hq_migrations_idempotent_${suffix}`;
 
     afterAll(async () => {
       await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(idempotentTable)}` }).catch(ignoreError);
+      await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(migrationTable)}` }).catch(ignoreError);
     });
 
     it('reports no pending migrations on second deploy', async () => {
@@ -351,10 +362,12 @@ describe('migration workflows integration', () => {
   describe('materialized view sequencing', () => {
     const mvSourceTable = `hq_mv_source_${suffix}`;
     const mvViewName = `hq_mv_view_${suffix}`;
+    const migrationTable = `_hq_migrations_mv_${suffix}`;
 
     afterAll(async () => {
       await client.command({ query: `DROP VIEW IF EXISTS ${quoteIdentifier(mvViewName)}` }).catch(ignoreError);
       await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(mvSourceTable)}` }).catch(ignoreError);
+      await client.command({ query: `DROP TABLE IF EXISTS ${quoteIdentifier(migrationTable)}` }).catch(ignoreError);
     });
 
     it('handles MV drop/recreate when altering source table', async () => {
