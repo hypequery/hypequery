@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { applyPendingMigrations } from './migration-execution.js';
 import { fetchAppliedMigrations } from './migration-remote-state.js';
 import { createMigrationClickHouseClient } from './clickhouse-migration-introspection.js';
@@ -102,12 +102,12 @@ testSuite('migration execution integration', () => {
       ].join('\n'),
     });
 
-    await expect(applyPendingMigrations({
+    await suppressExpectedClickHouseFailure(() => expect(applyPendingMigrations({
       migrationsOutDir,
       migrationTable,
       credentials: clickhouseCredentials(),
       appliedUser: 'integration-test',
-    })).rejects.toThrow('failed at statement 2/2');
+    })).rejects.toThrow('failed at statement 2/2'));
 
     const applied = await fetchAppliedMigrations({ client, migrationTable });
     expect(applied).toEqual(expect.arrayContaining([
@@ -163,4 +163,21 @@ function clickhouseCredentials(): ClickHouseMigrationDbCredentials {
 
 function ignoreCleanupError(error: unknown) {
   void error;
+}
+
+async function suppressExpectedClickHouseFailure(assertion: () => Promise<unknown>) {
+  const originalError = console.error.bind(console);
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    const message = args.map(String).join(' ');
+    if (message.includes('DUPLICATE_COLUMN') || message.includes('Cannot add column')) {
+      return;
+    }
+    originalError(...args);
+  });
+
+  try {
+    await assertion();
+  } finally {
+    errorSpy.mockRestore();
+  }
 }
