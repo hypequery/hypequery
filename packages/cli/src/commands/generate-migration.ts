@@ -26,6 +26,8 @@ export interface GenerateMigrationOptions {
   config?: string;
   custom?: boolean;
   timestamp?: string;
+  force?: boolean;
+  skipCostAnalysis?: boolean;
 }
 
 export async function generateMigrationCommand(
