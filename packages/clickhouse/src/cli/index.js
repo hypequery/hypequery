@@ -1,2 +1,2 @@
 // CLI module exports
-export { generateTypes } from './generate-types.js'; 
+export { clickhouseToTsType, generateTypeDefinitions, generateTypes } from './generate-types.js';

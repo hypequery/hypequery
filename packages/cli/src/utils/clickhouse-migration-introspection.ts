@@ -1,5 +1,11 @@
 import { createClient, type ClickHouseClient } from '@clickhouse/client';
-import type { ClickHouseMigrationDbCredentials, Snapshot, SnapshotColumn, SnapshotTable } from '@hypequery/schema';
+import type {
+  ClickHouseMigrationDbCredentials,
+  Snapshot,
+  SnapshotColumn,
+  SnapshotMaterializedView,
+  SnapshotTable,
+} from '@hypequery/schema';
 import { hashSnapshot } from '@hypequery/schema';
 import { sqlString } from './clickhouse-sql.js';
 import { splitTopLevelArgs } from './clickhouse-type-utils.js';
@@ -18,6 +24,8 @@ interface SystemTableRow {
   sorting_key: string;
   primary_key: string;
   partition_key: string;
+  create_table_query: string;
+  as_select: string;
 }
 
 interface SystemColumnRow {
@@ -42,6 +50,10 @@ export async function introspectClickHouseSchema(
     ]);
     const selectedTableNames = new Set(tables.map(table => table.name));
     const columnsByTable = groupColumnsByTable(columns.filter(column => selectedTableNames.has(column.table)));
+    const materializedViews = await fetchMaterializedViews(client, {
+      ...options,
+      selectedTableNames,
+    });
 
     const snapshotWithoutHash = {
       version: 1 as const,
@@ -57,8 +69,12 @@ export async function introspectClickHouseSchema(
         },
         settings: parseEngineSettings(table.engine_full),
       })),
-      materializedViews: [],
-      dependencies: [],
+      materializedViews,
+      dependencies: materializedViews.map(view => ({
+        from: view.from,
+        to: view.name,
+        kind: 'table_to_materialized_view' as const,
+      })),
     };
 
     return {
@@ -100,6 +116,7 @@ async function fetchTables(
   const result = await client.query({
     query: [
       'SELECT name, engine, engine_full, sorting_key, primary_key, partition_key',
+      ', create_table_query, as_select',
       'FROM system.tables',
       `WHERE database = ${sqlString(options.credentials.database)}`,
       "AND engine != 'MaterializedView'",
@@ -135,6 +152,60 @@ async function fetchColumns(
   });
 
   return result.json<SystemColumnRow>();
+}
+
+async function fetchMaterializedViews(
+  client: Pick<ClickHouseClient, 'query'>,
+  options: IntrospectClickHouseSchemaOptions & { selectedTableNames: Set<string> },
+): Promise<SnapshotMaterializedView[]> {
+  const result = await client.query({
+    query: [
+      'SELECT name, engine, engine_full, sorting_key, primary_key, partition_key',
+      ', create_table_query, as_select',
+      'FROM system.tables',
+      `WHERE database = ${sqlString(options.credentials.database)}`,
+      "AND engine = 'MaterializedView'",
+      'ORDER BY name',
+    ].join('\n'),
+    format: 'JSONEachRow',
+  });
+  const rows = await result.json<SystemTableRow>();
+
+  return rows
+    .map((row): SnapshotMaterializedView | null => {
+      const createTableQuery = row.create_table_query ?? '';
+      const select = normalizeSelect(row.as_select || extractSelect(createTableQuery));
+      const from = extractSourceTable(select);
+      const to = extractTargetTable(createTableQuery);
+
+      if (!from || !options.selectedTableNames.has(from)) {
+        return null;
+      }
+
+      if (
+        options.includeTables?.length &&
+        !options.includeTables.includes(row.name) &&
+        !options.includeTables.includes(from) &&
+        (!to || !options.includeTables.includes(to))
+      ) {
+        return null;
+      }
+
+      if (
+        options.excludeTables?.length &&
+        (options.excludeTables.includes(row.name) || options.excludeTables.includes(from) || options.excludeTables.includes(to))
+      ) {
+        return null;
+      }
+
+      return {
+        name: row.name,
+        from,
+        ...(to ? { to } : {}),
+        select,
+      };
+    })
+    .filter((view): view is SnapshotMaterializedView => view !== null);
 }
 
 function groupColumnsByTable(columns: SystemColumnRow[]) {
@@ -186,4 +257,34 @@ function parseEngineSettings(engineFull: string): Record<string, string> {
       .map(setting => setting.split(/\s*=\s*/, 2))
       .filter((entry): entry is [string, string] => entry.length === 2 && entry[0].length > 0),
   );
+}
+
+function extractSelect(createTableQuery: string) {
+  const match = createTableQuery.match(/\bAS\s+([\s\S]+)$/i);
+  return match?.[1] ?? '';
+}
+
+function normalizeSelect(select: string) {
+  return select.replace(/\s+$/g, '').trim();
+}
+
+function extractSourceTable(select: string) {
+  return extractTableIdentifierAfter('FROM', select);
+}
+
+function extractTargetTable(createTableQuery: string) {
+  return extractTableIdentifierAfter('TO', createTableQuery);
+}
+
+function extractTableIdentifierAfter(keyword: 'FROM' | 'TO', sql: string) {
+  const identifier = '(?:`[^`]+`|[A-Za-z_][A-Za-z0-9_]*)';
+  const match = sql.match(new RegExp(`\\b${keyword}\\s+(${identifier}(?:\\.${identifier})?)`, 'i'));
+  return match ? unquoteIdentifier(match[1].split('.').at(-1) ?? match[1]) : '';
+}
+
+function unquoteIdentifier(identifier: string) {
+  const trimmed = identifier.trim();
+  return trimmed.startsWith('`') && trimmed.endsWith('`')
+    ? trimmed.slice(1, -1).replace(/``/g, '`')
+    : trimmed;
 }
