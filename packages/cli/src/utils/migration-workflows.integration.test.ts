@@ -178,8 +178,9 @@ describe('migration workflows integration', () => {
       const pending = statuses.find(s => s.name === pendingMigration);
       expect(pending?.state).toBe('applied');
 
+      // Dirty migration should show as failed (partially applied)
       const dirty = statuses.find(s => s.name === dirtyMigration);
-      expect(dirty?.state).toBe('dirty');
+      expect(dirty?.state).toBe('failed');
       expect(dirty?.progress).toContain('1/2');
     });
   });
@@ -340,7 +341,7 @@ describe('migration workflows integration', () => {
       expect(firstResults[0].name).toBe(migrationName);
       expect(firstResults[0].state).toBe('applied');
 
-      // Second apply - should find nothing pending
+      // Second apply - should skip the already-applied migration
       const secondResults = await applyPendingMigrations({
         migrationsOutDir,
         migrationTable,
@@ -348,7 +349,9 @@ describe('migration workflows integration', () => {
         appliedUser: 'integration-test',
       });
 
-      expect(secondResults).toHaveLength(0);
+      expect(secondResults).toHaveLength(1);
+      expect(secondResults[0].name).toBe(migrationName);
+      expect(secondResults[0].state).toBe('skipped');
 
       // Verify remote state shows migration as applied
       const appliedRecords = await fetchAppliedMigrations({ client, migrationTable });
