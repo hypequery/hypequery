@@ -45,6 +45,8 @@ function getPrimitiveTsType(type) {
   switch (lowerType) {
     case 'string':
     case 'uuid':
+    case 'ipv4':
+    case 'ipv6':
       return 'string';
     case 'int8':
     case 'int16':
@@ -72,6 +74,8 @@ function getPrimitiveTsType(type) {
     case 'bool':
     case 'boolean':
       return 'boolean';
+    case 'json':
+      return 'unknown';
     default:
       if (type.startsWith('FixedString(')) return 'string';
       if (type.startsWith('Decimal(')) return 'number';

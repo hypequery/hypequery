@@ -13,12 +13,7 @@ import {
 import { quoteIdentifier } from './clickhouse-sql.js';
 import type { ClickHouseMigrationDbCredentials } from '@hypequery/schema';
 
-const shouldSkipIntegration = process.env.SKIP_INTEGRATION_TESTS === 'true' ||
-  (!process.env.CLICKHOUSE_TEST_HOST && !process.env.CLICKHOUSE_URL);
-
-const testSuite = shouldSkipIntegration ? describe.skip : describe;
-
-testSuite('migration execution integration', () => {
+describe('migration execution integration', () => {
   const suffix = `${Date.now()}_${process.pid}`;
   const migrationTable = `_hq_migrations_${suffix}`;
   const successTable = `hq_migration_success_${suffix}`;

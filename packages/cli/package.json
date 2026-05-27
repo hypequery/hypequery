@@ -15,7 +15,7 @@
     "dev": "tsc --project tsconfig.json --watch",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "node scripts/run-integration-tests.js"
   },
   "dependencies": {
     "@clickhouse/client": "^1.18.3",

@@ -13,6 +13,34 @@ describe('migration schema emitter', () => {
     expect(contents).toContain('index_granularity: "8192",');
   });
 
+  it('renders materialized views with SQL-preserved SELECT text', () => {
+    const contents = renderSchemaFile({
+      ...snapshotFixture(),
+      materializedViews: [
+        {
+          name: 'events_mv',
+          from: 'events',
+          to: 'events_daily',
+          select: 'SELECT toDate(created_at) AS date, count() AS total FROM events GROUP BY date',
+        },
+      ],
+      dependencies: [
+        {
+          from: 'events',
+          to: 'events_mv',
+          kind: 'table_to_materialized_view',
+        },
+      ],
+    });
+
+    expect(contents).toContain("import { column, defineSchema, defineTable, defineMaterializedView, sql } from '@hypequery/schema';");
+    expect(contents).toContain('materializedViews: [');
+    expect(contents).toContain('defineMaterializedView("events_mv", {');
+    expect(contents).toContain('from: "events",');
+    expect(contents).toContain('to: "events_daily",');
+    expect(contents).toContain('select: sql`SELECT toDate(created_at) AS date, count() AS total FROM events GROUP BY date`,');
+  });
+
   it('preserves unsupported types with column.Raw and TODO comments', () => {
     const contents = renderSchemaFile({
       ...snapshotFixture(),
