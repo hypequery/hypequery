@@ -1,4 +1,4 @@
-import type { SnapshotDiffResult, MigrationPlanContext, SnapshotOperation } from '@hypequery/schema';
+import type { SnapshotDiffResult, ClickHouseMigrationPlanContext, MigrationOperation } from '@hypequery/schema';
 import type { MigrationExecutionClient } from './migration-execution.js';
 
 /**
@@ -8,7 +8,7 @@ import type { MigrationExecutionClient } from './migration-execution.js';
 export async function gatherCostContext(
   client: MigrationExecutionClient,
   diff: SnapshotDiffResult,
-): Promise<MigrationPlanContext> {
+): Promise<ClickHouseMigrationPlanContext> {
   const tableNames = extractAffectedTables(diff);
 
   if (tableNames.length === 0) {
@@ -85,21 +85,25 @@ export function extractAffectedTables(diff: SnapshotDiffResult): string[] {
 /**
  * Get table name from operation (internal helper)
  */
-function getOperationTableName(operation: SnapshotOperation): string | null {
+function getOperationTableName(operation: MigrationOperation): string | null {
   switch (operation.kind) {
     case 'CreateTable':
+      return operation.table.name;
     case 'DropTable':
       return operation.tableName;
     case 'AddColumn':
     case 'DropColumn':
     case 'ModifyColumnType':
     case 'ModifyColumnDefault':
-      return operation.table;
+      return operation.tableName;
     case 'CreateMaterializedView':
+      return operation.view.name;
     case 'DropMaterializedView':
       return operation.viewName;
-    case 'AlterTableWithMaterializedViewRecreate':
-      return operation.targetTable;
+    case 'RecreateMaterializedView':
+      return operation.nextView.name;
+    case 'AlterTableWithDependentViews':
+      return operation.tableName;
     default:
       return null;
   }
