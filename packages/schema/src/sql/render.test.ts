@@ -163,7 +163,8 @@ GROUP BY day
     });
 
     expect(artifacts.upSql).toContain('ALTER TABLE `users` ON CLUSTER `main_cluster` MODIFY COLUMN `email` Nullable(String);');
-    expect(artifacts.downSql).toContain('-- MANUAL STEP REQUIRED: revert type change for "users.email" manually');
+    expect(artifacts.downSql).toContain('-- MANUAL STEP REQUIRED');
+    expect(artifacts.downSql).toContain('-- revert type change for "users.email" manually');
     expect(artifacts.meta.operations).toEqual([{ kind: 'ModifyColumnType', classification: 'mutation' }]);
     expect(artifacts.meta.unsafe).toBe(true);
     expect(artifacts.meta.containsManualSteps).toBe(true);
@@ -218,14 +219,12 @@ GROUP BY day
       timestamp: '20260422160000',
     });
 
-    expect(artifacts.upSql).toBe(
-      [
-        "ALTER TABLE `users` MODIFY COLUMN `notes` String DEFAULT 'line 1\\nline \\'2\\'\\t\\\\done';",
-        "ALTER TABLE `users` MODIFY COLUMN `numeric_code` UInt64 DEFAULT 123;",
-        "ALTER TABLE `users` MODIFY COLUMN `status` LowCardinality(String) DEFAULT 'pending';",
-        "ALTER TABLE `users` MODIFY COLUMN `string_code` String DEFAULT '123';",
-      ].join('\n\n'),
-    );
+    // Should contain warning banner for type change (LowCardinality mutation)
+    expect(artifacts.upSql).toContain('-- ⚠️  WARNING: This migration requires careful review');
+    expect(artifacts.upSql).toContain("ALTER TABLE `users` MODIFY COLUMN `notes` String DEFAULT 'line 1\\nline \\'2\\'\\t\\\\done';");
+    expect(artifacts.upSql).toContain("ALTER TABLE `users` MODIFY COLUMN `numeric_code` UInt64 DEFAULT 123;");
+    expect(artifacts.upSql).toContain("ALTER TABLE `users` MODIFY COLUMN `status` LowCardinality(String) DEFAULT 'pending';");
+    expect(artifacts.upSql).toContain("ALTER TABLE `users` MODIFY COLUMN `string_code` String DEFAULT '123';");
   });
 
   it('rejects unsupported diffs before rendering SQL', () => {

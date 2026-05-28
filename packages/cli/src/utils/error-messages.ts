@@ -1,4 +1,4 @@
-import type { MigrationPlanBlocker, UnsupportedOperation } from '@hypequery/schema';
+import type { MigrationPlanBlocker, UnsupportedChange } from '@hypequery/schema';
 import { logger } from './logger.js';
 
 /**
@@ -49,17 +49,16 @@ export function displayBlockedMigrationError(blockers: MigrationPlanBlocker[]): 
 
 /**
  * Display guidance for unsupported change types
- * @param operation - The unsupported operation that was detected
+ * @param change - The unsupported change that was detected
  */
-export function displayUnsupportedChangeError(operation: UnsupportedOperation): void {
-  logger.error(`Unsupported change detected: ${operation.kind}`);
+export function displayUnsupportedChangeError(change: UnsupportedChange): void {
+  logger.error(`Unsupported change detected: ${change.kind}`);
+  logger.newline();
+  logger.info(change.message);
   logger.newline();
 
-  switch (operation.kind) {
+  switch (change.kind) {
     case 'PossibleColumnRename':
-      logger.info('The diff engine detected a possible column rename:');
-      logger.indent(`${operation.oldColumn} → ${operation.newColumn}`);
-      logger.newline();
       logger.info('Column renames are not auto-detected to prevent accidental data loss.');
       logger.newline();
       logger.info('To rename a column:');

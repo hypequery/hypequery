@@ -62,8 +62,11 @@ export function renderMigrationArtifacts(
     containsManualSteps = containsManualSteps || renderedDown.manual;
   }
 
+  const banner = renderUnsafeMigrationBanner(plan.diagnostics);
+  const upSql = banner ? `${banner}\n${joinStatements(upStatements)}` : joinStatements(upStatements);
+
   return {
-    upSql: joinStatements(upStatements),
+    upSql,
     downSql: joinStatements(downStatements),
     meta: {
       name: options.name,
@@ -364,7 +367,31 @@ function getOperationViewName(
 }
 
 function manualDownComment(message: string): string {
-  return `-- MANUAL STEP REQUIRED: ${message}`;
+  return [
+    '-- MANUAL STEP REQUIRED',
+    `-- ${message}`,
+    '--',
+    '-- This change cannot be automatically reversed.',
+    '-- Review your backup and restore procedures before deploying this migration.',
+  ].join('\n');
+}
+
+function renderUnsafeMigrationBanner(diagnostics: Array<{ level: string; message: string }>): string {
+  const warnings = diagnostics.filter(d => d.level === 'warning');
+  if (warnings.length === 0) return '';
+
+  return [
+    '-- ⚠️  WARNING: This migration requires careful review',
+    '--',
+    ...warnings.map(d => `--    ${d.message}`),
+    '--',
+    '-- Ensure you have:',
+    '--   • Reviewed the operations below',
+    '--   • Tested on a staging environment',
+    '--   • Have a rollback plan',
+    '--   • Taken a backup',
+    '',
+  ].join('\n');
 }
 
 function joinStatements(statements: string[]): string {
