@@ -170,3 +170,31 @@ export async function promptContinueWithoutDb(): Promise<boolean> {
 
   return response.continue ?? false;
 }
+
+/**
+ * Confirm destructive operations (DROP TABLE, DROP COLUMN)
+ */
+export async function confirmDestructiveOperation(operations: string[]): Promise<boolean> {
+  const response = await prompts({
+    type: 'confirm',
+    name: 'confirm',
+    message: `This migration includes ${operations.length} destructive operation(s). Continue?`,
+    initial: false,
+  });
+
+  return response.confirm ?? false;
+}
+
+/**
+ * Confirm mutation operations (type changes that trigger ClickHouse mutations)
+ */
+export async function confirmMutationOperation(): Promise<boolean> {
+  const response = await prompts({
+    type: 'confirm',
+    name: 'confirm',
+    message: 'This migration will trigger ClickHouse mutations. Continue?',
+    initial: false,
+  });
+
+  return response.confirm ?? false;
+}

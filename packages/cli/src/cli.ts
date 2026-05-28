@@ -90,6 +90,8 @@ program
   .description('Generate a ClickHouse schema migration')
   .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
   .option('--custom', 'Create a custom SQL migration without advancing the schema snapshot')
+  .option('--force', 'Skip all confirmations (use in CI/CD)')
+  .option('--skip-cost-analysis', 'Skip database cost analysis for speed')
   .action(runCommand(async (name: string, options: GenerateMigrationOptions) => {
     await generateMigrationCommand(name, options);
   }));

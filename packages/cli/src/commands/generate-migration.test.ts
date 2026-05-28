@@ -76,7 +76,7 @@ describe('generate:migration command', () => {
     mockConfigAndSchemaLoader(loadModule, eventsMigrationSchema());
 
     const { generateMigrationCommand } = await import('./generate-migration.js');
-    await generateMigrationCommand('add_events', { timestamp: '20260525120000' });
+    await generateMigrationCommand('add_events', { timestamp: '20260525120000', force: true, skipCostAnalysis: true });
 
     const migrationDir = path.join(tempDir, 'migrations', '20260525120000_add_events');
     await expect(readFile(path.join(migrationDir, 'up.sql'), 'utf8')).resolves.toContain('CREATE TABLE `events`');
@@ -162,7 +162,7 @@ describe('generate:migration command', () => {
     mockConfigAndSchemaLoader(loadModule, eventsMigrationSchemaWithNameColumn());
 
     const { generateMigrationCommand } = await import('./generate-migration.js');
-    await generateMigrationCommand('add_event_name', { timestamp: '20260525121500' });
+    await generateMigrationCommand('add_event_name', { timestamp: '20260525121500', force: true, skipCostAnalysis: true });
 
     const migrationDir = path.join(tempDir, 'migrations', '20260525121500_add_event_name');
     const upSql = await readFile(path.join(migrationDir, 'up.sql'), 'utf8');

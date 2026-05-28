@@ -21,11 +21,17 @@ import {
   writeCustomMigration,
   writeLatestMigrationSnapshot,
 } from '../utils/migration-state.js';
+import { displayBlockedMigrationError, displayUnsupportedChangeError } from '../utils/error-messages.js';
+import { confirmDestructiveOperation, confirmMutationOperation } from '../utils/prompts.js';
+import { gatherCostContext } from '../utils/migration-cost-analysis.js';
+import { createMigrationClickHouseClient } from '../utils/clickhouse-migration-introspection.js';
 
 export interface GenerateMigrationOptions {
   config?: string;
   custom?: boolean;
   timestamp?: string;
+  force?: boolean;
+  skipCostAnalysis?: boolean;
 }
 
 export async function generateMigrationCommand(
@@ -69,13 +75,91 @@ export async function generateMigrationCommand(
 
     const planSpinner = ora('Planning migration...').start();
     const diff = diffSnapshots(previousSnapshot, nextSnapshot);
-    const plan = createMigrationPlan(diff);
 
-    if (plan.operations.length === 0) {
+    if (diff.operations.length === 0) {
       planSpinner.succeed('No schema changes detected');
       logger.info('No migration was generated.');
       logger.newline();
       return;
+    }
+
+    // Gather cost context from ClickHouse (opt-out)
+    let context;
+    if (config.dbCredentials && !options.skipCostAnalysis) {
+      try {
+        planSpinner.text = 'Analyzing table statistics...';
+        const client = createMigrationClickHouseClient(config.dbCredentials);
+        context = await gatherCostContext(client, diff);
+        await client.close();
+      } catch (error) {
+        // Graceful degradation - proceed without cost context
+        planSpinner.warn('Could not analyze costs - proceeding without context');
+      }
+    }
+
+    // Create plan with cost context and mutation confirmations enabled
+    const plan = createMigrationPlan(diff, {
+      context,
+      requireConfirmationForMutations: true,
+    });
+
+    planSpinner.succeed(`Planned ${plan.operations.length} operations`);
+
+    // Check for blockers that prevent migration generation
+    if (plan.blockers.length > 0) {
+      logger.newline();
+      displayBlockedMigrationError(plan.blockers);
+
+      // Show unsupported change guidance if applicable
+      for (const change of diff.unsupportedChanges) {
+        displayUnsupportedChangeError(change);
+      }
+
+      process.exit(1);
+    }
+
+    // Display detailed diagnostics for all warnings
+    if (plan.diagnostics.length > 0) {
+      logger.newline();
+      logger.warn('Migration contains operations that require review:');
+      logger.newline();
+
+      for (const diagnostic of plan.diagnostics) {
+        const icon = diagnostic.level === 'error' ? '✗' : '⚠';
+        logger.indent(`${icon} ${diagnostic.message}`);
+      }
+      logger.newline();
+    }
+
+    // Prompt for confirmation on destructive operations (unless --force)
+    const destructiveOps = plan.diagnostics.filter(
+      d => d.kind === 'DestructiveDropTable' || d.kind === 'DestructiveDropColumn',
+    );
+
+    if (destructiveOps.length > 0 && !options.force) {
+      const confirmed = await confirmDestructiveOperation(
+        destructiveOps.map(d => d.message),
+      );
+
+      if (!confirmed) {
+        logger.info('Migration generation cancelled');
+        logger.newline();
+        process.exit(0);
+      }
+    }
+
+    // Prompt for confirmation on mutation operations (unless --force)
+    if (
+      plan.requiredConfirmations.some(c => c.kind === 'MutationRequiresConfirmation') &&
+      !options.force
+    ) {
+      const confirmed = await confirmMutationOperation();
+
+      if (!confirmed) {
+        logger.info('Migration generation cancelled');
+        logger.newline();
+        process.exit(0);
+      }
     }
 
     const artifacts = renderMigrationArtifacts(plan, {
@@ -83,7 +167,6 @@ export async function generateMigrationCommand(
       timestamp,
       cluster: config.cluster?.name,
     });
-    planSpinner.succeed(`Planned ${plan.operations.length} operations`);
 
     const writeSpinner = ora('Writing migration files...').start();
     const written = await writeMigrationArtifacts({
@@ -109,9 +192,6 @@ export async function generateMigrationCommand(
     writeSpinner.succeed('Wrote migration files');
 
     logger.success(`Created migration ${path.relative(process.cwd(), written.migrationDir)}`);
-    if (artifacts.meta.unsafe || plan.requiredConfirmations.length > 0) {
-      logger.warn('Migration contains operations that require review before execution.');
-    }
     logger.newline();
   } catch (error) {
     logger.newline();
