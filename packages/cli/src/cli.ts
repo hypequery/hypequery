@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
+import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
 import { generateMigrationCommand, type GenerateMigrationOptions } from './commands/generate-migration.js';
 import { migrationCheckCommand, type MigrationCheckOptions } from './commands/migration-check.js';
 import { migrationDeployCommand, type MigrationDeployOptions } from './commands/migration-deploy.js';
@@ -83,6 +84,15 @@ addTypeGenerationOptions(program.command('generate'))
 addTypeGenerationOptions(program.command('generate:types'))
   .action(runCommand(async (options: GenerateOptions) => {
     await generateCommand({ ...options, commandName: 'hypequery generate:types' });
+  }));
+
+program
+  .command('generate:datasets')
+  .description('Generate dataset definitions from ClickHouse schema')
+  .option('-o, --output <path>', 'Output file (default: src/datasets/generated.ts)')
+  .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
+  .action(runCommand(async (options: GenerateDatasetsOptions) => {
+    await generateDatasetsCommand(options);
   }));
 
 program
