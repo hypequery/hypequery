@@ -4,11 +4,13 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { queryMetricTool } from './query-metric.js';
-import type { MetricExecutor } from '@hypequery/datasets';
+import type { SemanticExecutor } from '@hypequery/datasets';
 
 describe('queryMetricTool', () => {
-  const createMockExecutor = (mockResult: any): MetricExecutor => ({
-    run: vi.fn().mockResolvedValue(mockResult),
+  const createMockExecutor = (mockResult: any): SemanticExecutor => ({
+    metric: vi.fn().mockResolvedValue(mockResult),
+    dataset: vi.fn(),
+    run: vi.fn(),
     getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any);
 
@@ -79,7 +81,7 @@ describe('queryMetricTool', () => {
     expect(data.meta.timingMs).toBe(45);
     expect(data.meta.rowCount).toBe(1);
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(executor.metric).toHaveBeenCalledWith(
       { type: 'sum' },
       {
         dimensions: [],
@@ -126,7 +128,7 @@ describe('queryMetricTool', () => {
     expect(data.data).toHaveLength(2);
     expect(data.meta.rowCount).toBe(2);
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(executor.metric).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         dimensions: ['region'],
@@ -159,7 +161,7 @@ describe('queryMetricTool', () => {
       filters,
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(executor.metric).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         filters,
@@ -190,7 +192,7 @@ describe('queryMetricTool', () => {
       grain: 'month',
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(executor.metric).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         by: 'month',
@@ -227,7 +229,7 @@ describe('queryMetricTool', () => {
       limit: 10,
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(executor.metric).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         orderBy,
@@ -254,7 +256,7 @@ describe('queryMetricTool', () => {
       metric: 'revenue',
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(executor.metric).toHaveBeenCalledWith(
       { type: 'sum' },
       expect.anything(),
       expect.anything()
@@ -276,7 +278,7 @@ describe('queryMetricTool', () => {
       metric: 'totalRevenue',
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(executor.metric).toHaveBeenCalledWith(
       { type: 'sum' },
       expect.anything(),
       expect.anything()

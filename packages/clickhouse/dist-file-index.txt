@@ -167,6 +167,9 @@ dataset/sql-tag.js
 dataset/types.d.ts
 dataset/types.d.ts.map
 dataset/types.js
+datasets.d.ts
+datasets.d.ts.map
+datasets.js
 formatters/index.d.ts
 formatters/index.d.ts.map
 formatters/index.js

@@ -16,7 +16,7 @@ pnpm add @hypequery/datasets
 
 ```ts
 import {
-  MetricExecutor,
+  createExecutor,
   dataset,
   dimension,
   divide,
@@ -69,9 +69,9 @@ const builderFactory = createQueryBuilder({
   database: process.env.CLICKHOUSE_DATABASE,
 });
 
-const executor = new MetricExecutor({ builderFactory });
+const executor = createExecutor({ queryBuilder: builderFactory });
 
-const result = await executor.run(revenue, {
+const result = await executor.metric(revenue, {
   dimensions: ['country'],
   filters: [eq('status', 'completed')],
   orderBy: [{ field: 'revenue', direction: 'desc' }],
@@ -187,7 +187,7 @@ Use `.by(grain)` on a metric when the dataset has a `timeKey`.
 ```ts
 const monthlyRevenue = revenue.by('month');
 
-await executor.run(monthlyRevenue, {
+await executor.metric(monthlyRevenue, {
   dimensions: ['country'],
 });
 ```
@@ -199,7 +199,7 @@ Supported grains are `day`, `week`, `month`, `quarter`, and `year`.
 Runtime tenancy uses the dataset `tenantKey` and a runtime tenant identity.
 
 ```ts
-await executor.run(revenue, {}, {
+await executor.metric(revenue, {}, {
   runtime: {
     tenant: { id: 'tenant_123' },
   },
@@ -230,10 +230,10 @@ For this release, relationship-aware query execution is not shipped. Query execu
 
 ## Execution
 
-`MetricExecutor` accepts a query builder factory compatible with `@hypequery/clickhouse`.
+`createExecutor` accepts a query builder factory compatible with `@hypequery/clickhouse`.
 
 ```ts
-const executor = new MetricExecutor({ builderFactory });
+const executor = createExecutor({ queryBuilder: builderFactory });
 
 const validation = executor.validate(revenue, {
   dimensions: ['country'],
@@ -243,12 +243,33 @@ const sql = executor.toSQL(revenue, {
   dimensions: ['country'],
 });
 
-const result = await executor.run(revenue, {
+const result = await executor.metric(revenue, {
   dimensions: ['country'],
+});
+
+const datasetResult = await executor.dataset(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue'],
 });
 ```
 
 The executor validates dimensions, filters, order fields, limits, time grain requirements, tenant filtering, and derived metric plans before execution.
+
+For ClickHouse applications, `@hypequery/clickhouse/datasets` provides a
+datasets-first client that accepts ClickHouse connection config directly:
+
+```ts
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+await analytics.metric(revenue, { dimensions: ['country'] });
+```
 
 ## Serve Integration
 

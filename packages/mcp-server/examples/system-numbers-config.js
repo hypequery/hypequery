@@ -8,7 +8,7 @@
  *   node dist/bin.js --config examples/system-numbers-config.js
  */
 
-import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets';
+import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // Connect to local ClickHouse (defaults)
@@ -46,7 +46,7 @@ export const datasets = {
   },
 };
 
-export const executor = new MetricExecutor({ builderFactory });
+export const executor = createExecutor({ queryBuilder: builderFactory });
 
 /**
  * Test queries to try with Claude:

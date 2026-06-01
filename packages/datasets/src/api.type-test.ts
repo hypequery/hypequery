@@ -1,6 +1,8 @@
-import { add, dataset, dimension, measure, eq, between, desc, MetricExecutor } from './index.js';
+import { add, dataset, dimension, measure, eq, between, desc, createExecutor, SemanticExecutor } from './index.js';
 import type {
   BaseMetricRef,
+  DatasetQuery,
+  DatasetQueryResult,
   DerivedMetricConfig,
   DerivedMetricRef,
   ExecutionContext,
@@ -71,15 +73,6 @@ type _TenantRuntimeShape = Assert<
 >;
 type _DatasetHasNoQueryMethod = Assert<
   Equal<HasKey<typeof Orders, 'query'>, false>
->;
-type _RootExportOmitsDatasetQueryRef = Assert<
-  Equal<HasKey<DatasetModule, 'DatasetQueryRef'>, false>
->;
-type _RootExportOmitsDatasetQuery = Assert<
-  Equal<HasKey<DatasetModule, 'DatasetQuery'>, false>
->;
-type _RootExportOmitsDatasetQueryResult = Assert<
-  Equal<HasKey<DatasetModule, 'DatasetQueryResult'>, false>
 >;
 type _RootExportOmitsBuildDatasetQueryBuilder = Assert<
   Equal<HasKey<DatasetModule, 'buildDatasetQueryBuilder'>, false>
@@ -176,10 +169,15 @@ const builderFactory: QueryBuilderFactoryLike = {
   rawQuery: async () => [],
 };
 
-const executor = new MetricExecutor({ builderFactory });
+const executor = createExecutor({ queryBuilder: builderFactory });
+const explicitExecutor: SemanticExecutor = executor;
+const datasetQuery: DatasetQuery = { dimensions: ['status'], measures: ['revenue'] };
 
 executor.validate(revenueMetric, { dimensions: ['status'] }, runtimeContext);
 executor.toSQL(completedRevenueMetric, { dimensions: ['status'] }, runtimeContext);
 executor.toSQL(revenueMetric, { orderBy: [desc('revenueMetric')] }, runtimeContext);
+executor.validateDataset(Orders, datasetQuery, runtimeContext);
+void executor.dataset<DatasetQueryResult['data'][number]>(Orders, datasetQuery, runtimeContext);
 
 void runtimeContext;
+void explicitExecutor;

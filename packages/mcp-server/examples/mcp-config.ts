@@ -12,7 +12,7 @@
  */
 
 import { dataset, dimension, measure } from '@hypequery/datasets';
-import { MetricExecutor } from '@hypequery/datasets';
+import { createExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // =============================================================================
@@ -98,7 +98,7 @@ export const datasets = {
  * Create and export the metric executor
  * This handles query execution against ClickHouse
  */
-export const executor = new MetricExecutor({ builderFactory });
+export const executor = createExecutor({ queryBuilder: builderFactory });
 
 // =============================================================================
 // STEP 4: Claude Desktop Configuration

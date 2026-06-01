@@ -4,13 +4,12 @@
  * Executes an ad-hoc dataset query with custom dimensions and metrics.
  */
 
-import type { MetricExecutor } from '@hypequery/datasets';
-import { runDatasetQuery, type DatasetQuery } from '@hypequery/datasets/internal';
+import type { SemanticExecutor, DatasetQuery } from '@hypequery/datasets';
 import type { DatasetRegistry, QueryDatasetArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
-  executor: MetricExecutor,
+  executor: SemanticExecutor,
   args: unknown
 ): Promise<MCPToolResponse> {
   // Parse and validate args
@@ -49,12 +48,9 @@ export async function queryDatasetTool(
     query.limit = Math.min(limit, MAX_LIMIT);
   }
 
-  const result = await runDatasetQuery(dataset as any, query, {
-    builderFactory: executor.getBuilderFactory(),
-    context: {
-      runtime: {
-        tenant: undefined,
-      },
+  const result = await executor.dataset(dataset as any, query, {
+    runtime: {
+      tenant: undefined,
     },
   });
 

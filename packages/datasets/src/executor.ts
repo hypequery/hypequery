@@ -15,6 +15,8 @@ import type {
   GrainedMetricRef,
   MetricQuery,
   MetricResult,
+  DatasetQuery,
+  DatasetQueryResult,
   MetricFilter,
   ExecutionContext,
   AggregationSpec,
@@ -27,6 +29,10 @@ import type {
   QueryBuilderLike,
   QueryBuilderFactoryLike,
 } from './query-builder-protocol.js';
+import type {
+  PlanNode,
+  SemanticBackend,
+} from './semantic-plan.js';
 
 import { validateSQLIdentifier } from './sql-utils.js';
 import { validateFilterValue, type ValidationResult } from './validation.js';
@@ -45,6 +51,16 @@ import {
   type MetricHandle,
 } from './utils/metric-handle.js';
 import { validateDerivedCteGrouping } from './utils/derived-cte-validation.js';
+import {
+  buildDatasetQueryBuilder,
+  runDatasetQuery,
+  validateDatasetQuery,
+  type DatasetQueryExecutionOptions,
+} from './dataset-query.js';
+import {
+  buildDatasetPlan,
+  buildMetricPlan,
+} from './semantic-planner.js';
 
 function validateQuery(
   metric: MetricHandle,
@@ -147,6 +163,13 @@ function validateQuery(
 export interface MetricExecutorOptions {
   /** Query builder factory for executing metrics. */
   builderFactory: QueryBuilderFactoryLike;
+}
+
+export interface SemanticExecutorOptions {
+  /** Query builder factory for executing semantic metric and dataset queries. */
+  queryBuilder?: QueryBuilderFactoryLike;
+  /** Semantic backend for executing neutral semantic plans. */
+  backend?: SemanticBackend;
 }
 
 export class MetricExecutor {
@@ -422,3 +445,108 @@ export class MetricExecutor {
     return { sql, params: cteParams };
   }
 }
+
+export class SemanticExecutor extends MetricExecutor {
+  private backend?: SemanticBackend;
+
+  constructor(options: SemanticExecutorOptions) {
+    if (!options.queryBuilder && !options.backend) {
+      throw new Error('createExecutor requires either queryBuilder or backend.');
+    }
+    super({
+      builderFactory: options.queryBuilder ?? {
+        table() {
+          throw new Error('This executor was created with a semantic backend, not a query builder.');
+        },
+        async rawQuery() {
+          throw new Error('This executor was created with a semantic backend, not a query builder.');
+        },
+      },
+    });
+    this.backend = options.backend;
+  }
+
+  planMetric(
+    metric: MetricRef | GrainedMetricRef,
+    query: MetricQuery = {},
+    context?: ExecutionContext,
+  ): PlanNode {
+    assertMetricHandle(metric);
+    const validation = validateQuery(metric, query, context);
+    if (!validation.valid) {
+      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+    }
+    return buildMetricPlan(metric, query, context);
+  }
+
+  planDataset(
+    ds: AnyDatasetInstance,
+    query: DatasetQuery = {},
+    context?: ExecutionContext,
+  ): PlanNode {
+    return buildDatasetPlan(ds, query, context);
+  }
+
+  /**
+   * Execute a metric query.
+   */
+  metric<T = Record<string, unknown>>(
+    metric: MetricRef | GrainedMetricRef,
+    query: MetricQuery = {},
+    context?: ExecutionContext,
+  ): Promise<MetricResult<T>> {
+    if (this.backend) {
+      return this.backend.execute<T>(this.planMetric(metric, query, context)) as Promise<MetricResult<T>>;
+    }
+    return this.run<T>(metric, query, context);
+  }
+
+  /**
+   * Execute a same-dataset semantic query.
+   */
+  dataset<T = Record<string, unknown>>(
+    ds: AnyDatasetInstance,
+    query: DatasetQuery = {},
+    context?: ExecutionContext,
+  ): Promise<DatasetQueryResult<T>> {
+    if (this.backend) {
+      return this.backend.execute<T>(this.planDataset(ds, query, context)) as Promise<DatasetQueryResult<T>>;
+    }
+    return runDatasetQuery(ds, query, {
+      builderFactory: context?.runtime?.builderFactory ?? this.getBuilderFactory(),
+      context,
+    }) as Promise<DatasetQueryResult<T>>;
+  }
+
+  /**
+   * Generate SQL for a dataset query without executing it.
+   */
+  datasetSQL(
+    ds: AnyDatasetInstance,
+    query: DatasetQuery = {},
+    context?: ExecutionContext,
+  ): string {
+    const builder = buildDatasetQueryBuilder(ds, query, {
+      builderFactory: context?.runtime?.builderFactory ?? this.getBuilderFactory(),
+      context,
+    });
+    return builder.toSQLWithParams().sql;
+  }
+
+  /**
+   * Validate a dataset query against the dataset contract.
+   */
+  validateDataset(
+    ds: AnyDatasetInstance,
+    query: DatasetQuery = {},
+    context?: ExecutionContext,
+  ): ValidationResult {
+    return validateDatasetQuery(ds, query, context);
+  }
+}
+
+export function createExecutor(options: SemanticExecutorOptions): SemanticExecutor {
+  return new SemanticExecutor(options);
+}
+
+export type { DatasetQueryExecutionOptions };

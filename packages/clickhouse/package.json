@@ -14,6 +14,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     },
+    "./datasets": {
+      "types": "./dist/datasets.d.ts",
+      "import": "./dist/datasets.js",
+      "require": "./dist/datasets.js"
+    },
     "./cli": {
       "types": "./dist/cli/index.d.ts",
       "import": "./dist/cli/index.js",
@@ -52,14 +57,19 @@
     "dotenv": "^16.0.0"
   },
   "peerDependencies": {
-    "@clickhouse/client-web": "^0.2.0 || ^1.0.0"
+    "@clickhouse/client-web": "^0.2.0 || ^1.0.0",
+    "@hypequery/datasets": "^0.1.0"
   },
   "peerDependenciesMeta": {
     "@clickhouse/client-web": {
       "optional": true
+    },
+    "@hypequery/datasets": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@hypequery/datasets": "workspace:*",
     "@clickhouse/client": "^1.18.3",
     "@clickhouse/client-common": "^1.18.3",
     "@clickhouse/client-web": "^1.18.3",
