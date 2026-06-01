@@ -3,12 +3,6 @@ import { initCommand } from './commands/init.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
-import { generateMigrationCommand, type GenerateMigrationOptions } from './commands/generate-migration.js';
-import { migrationCheckCommand, type MigrationCheckOptions } from './commands/migration-check.js';
-import { migrationDeployCommand, type MigrationDeployOptions } from './commands/migration-deploy.js';
-import { migrationStatusCommand, type MigrationStatusOptions } from './commands/migration-status.js';
-import { pullCommand, type PullOptions } from './commands/pull.js';
-import { pushCommand, type PushOptions } from './commands/push.js';
 
 const program = new Command();
 
@@ -95,60 +89,6 @@ program
     await generateDatasetsCommand(options);
   }));
 
-program
-  .command('generate:migration <name>')
-  .description('Generate a ClickHouse schema migration')
-  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
-  .option('--custom', 'Create a custom SQL migration without advancing the schema snapshot')
-  .option('--force', 'Skip all confirmations (use in CI/CD)')
-  .option('--skip-cost-analysis', 'Skip database cost analysis for speed')
-  .action(runCommand(async (name: string, options: GenerateMigrationOptions) => {
-    await generateMigrationCommand(name, options);
-  }));
-
-program
-  .command('pull')
-  .description('Pull the current ClickHouse schema into a baseline migration snapshot')
-  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
-  .option('--force', 'Overwrite the configured schema file')
-  .option('--tables <names>', 'Only pull specific tables (comma-separated)')
-  .option('--exclude-tables <names>', 'Exclude specific tables (comma-separated)')
-  .action(runCommand(async (options: PullOptions) => {
-    await pullCommand(options);
-  }));
-
-program
-  .command('push')
-  .description('Apply schema changes directly to ClickHouse for development')
-  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
-  .action(runCommand(async (options: PushOptions) => {
-    await pushCommand(options);
-  }));
-
-program
-  .command('migrate:deploy')
-  .description('Apply pending ClickHouse migrations')
-  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
-  .action(runCommand(async (options: MigrationDeployOptions) => {
-    await migrationDeployCommand(options);
-  }));
-
-program
-  .command('migrate:status')
-  .description('Show local ClickHouse migration status')
-  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
-  .action(runCommand(async (options: MigrationStatusOptions) => {
-    await migrationStatusCommand(options);
-  }));
-
-program
-  .command('migrate:check')
-  .description('Verify local ClickHouse migration checksums')
-  .option('-c, --config <path>', 'Config file (default: hypequery.config.ts)')
-  .action(runCommand(async (options: MigrationCheckOptions) => {
-    await migrationCheckCommand(options);
-  }));
-
 // Help command
 program
   .command('help [command]')
@@ -176,12 +116,7 @@ program.on('--help', () => {
   console.log('  hypequery dev --port 3000');
   console.log('  hypequery generate --output analytics/schema.ts');
   console.log('  hypequery generate:types --output analytics/schema.ts');
-  console.log('  hypequery generate:migration add_orders_table');
-  console.log('  hypequery pull');
-  console.log('  hypequery push');
-  console.log('  hypequery migrate:deploy');
-  console.log('  hypequery migrate:status');
-  console.log('  hypequery migrate:check');
+  console.log('  hypequery generate:datasets');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });
