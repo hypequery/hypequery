@@ -184,7 +184,7 @@ It should not become a second schema/migrations package.
 Standalone execution:
 
 ```ts
-const executor = new MetricExecutor({ db });
+const executor = new MetricExecutor({ builderFactory });
 
 const result = await executor.run(avgOrderValueMetric, {
   dimensions: ['status'],

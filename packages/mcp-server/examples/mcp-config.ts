@@ -19,7 +19,7 @@ import { createQueryBuilder } from '@hypequery/clickhouse';
 // STEP 1: Configure ClickHouse Connection
 // =============================================================================
 
-const queryBuilder = createQueryBuilder({
+const builderFactory = createQueryBuilder({
   host: process.env.CLICKHOUSE_HOST || 'localhost',
   port: process.env.CLICKHOUSE_PORT ? parseInt(process.env.CLICKHOUSE_PORT) : 8123,
   username: process.env.CLICKHOUSE_USER || 'default',
@@ -46,7 +46,7 @@ export const OrdersDataset = dataset('orders', {
     createdAt: dimension.timestamp({ column: 'created_at', label: 'Created At' }),
   },
   measures: {
-    totalOrders: measure.count({ label: 'Total Orders' }),
+    totalOrders: measure.count('id', { label: 'Total Orders' }),
     totalRevenue: measure.sum('amount', { label: 'Total Revenue' }),
     avgOrderValue: measure.avg('amount', { label: 'Average Order Value' }),
   },
@@ -66,7 +66,7 @@ export const CustomersDataset = dataset('customers', {
     createdAt: dimension.timestamp({ column: 'created_at', label: 'Created At' }),
   },
   measures: {
-    totalCustomers: measure.count({ label: 'Total Customers' }),
+    totalCustomers: measure.count('id', { label: 'Total Customers' }),
     activeCustomers: measure.countDistinct('id', { label: 'Active Customers' }),
   },
 });
@@ -79,16 +79,26 @@ export const CustomersDataset = dataset('customers', {
  * Export all datasets as a registry
  * The MCP server will expose these to AI agents
  */
+const totalRevenue = OrdersDataset.metric('totalRevenue', { measure: 'totalRevenue' });
+const totalOrders = OrdersDataset.metric('totalOrders', { measure: 'totalOrders' });
+const totalCustomers = CustomersDataset.metric('totalCustomers', { measure: 'totalCustomers' });
+
 export const datasets = {
-  orders: OrdersDataset,
-  customers: CustomersDataset,
+  orders: {
+    ...OrdersDataset,
+    metrics: { totalRevenue, totalOrders },
+  },
+  customers: {
+    ...CustomersDataset,
+    metrics: { totalCustomers },
+  },
 };
 
 /**
  * Create and export the metric executor
  * This handles query execution against ClickHouse
  */
-export const executor = new MetricExecutor(queryBuilder);
+export const executor = new MetricExecutor({ builderFactory });
 
 // =============================================================================
 // STEP 4: Claude Desktop Configuration
@@ -105,7 +115,7 @@ export const executor = new MetricExecutor(queryBuilder);
  *     "hypequery": {
  *       "command": "node",
  *       "args": [
- *         "/absolute/path/to/node_modules/@hypequery/mcp-server/dist/bin.js",
+ *         "/absolute/path/to/node_modules/@hypequery/mcp/dist/bin.js",
  *         "--config",
  *         "/absolute/path/to/mcp-config.js"
  *       ],

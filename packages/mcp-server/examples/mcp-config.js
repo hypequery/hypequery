@@ -12,7 +12,7 @@ import { createQueryBuilder } from '@hypequery/clickhouse';
 // ClickHouse Connection
 // =============================================================================
 
-const queryBuilder = createQueryBuilder({
+const builderFactory = createQueryBuilder({
   host: process.env.CLICKHOUSE_HOST || 'localhost',
   port: process.env.CLICKHOUSE_PORT ? parseInt(process.env.CLICKHOUSE_PORT) : 8123,
   username: process.env.CLICKHOUSE_USER || 'default',
@@ -34,7 +34,7 @@ const OrdersDataset = dataset('orders', {
     createdAt: dimension.timestamp({ column: 'created_at', label: 'Created At' }),
   },
   measures: {
-    totalOrders: measure.count({ label: 'Total Orders' }),
+    totalOrders: measure.count('id', { label: 'Total Orders' }),
     revenue: measure.sum('amount', { label: 'Revenue' }),
     avgOrderValue: measure.avg('amount', { label: 'Avg Order Value' }),
   },
@@ -44,8 +44,14 @@ const OrdersDataset = dataset('orders', {
 // Exports for MCP Server
 // =============================================================================
 
+const totalRevenue = OrdersDataset.metric('totalRevenue', { measure: 'totalRevenue' });
+const totalOrders = OrdersDataset.metric('totalOrders', { measure: 'totalOrders' });
+
 export const datasets = {
-  orders: OrdersDataset,
+  orders: {
+    ...OrdersDataset,
+    metrics: { totalRevenue, totalOrders },
+  },
 };
 
-export const executor = new MetricExecutor(queryBuilder);
+export const executor = new MetricExecutor({ builderFactory });

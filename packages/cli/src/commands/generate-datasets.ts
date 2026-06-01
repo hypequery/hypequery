@@ -69,8 +69,9 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     logger.indent('import { datasets } from \'./datasets/generated\';');
     logger.indent('import { MetricExecutor } from \'@hypequery/datasets\';');
     logger.indent('');
-    logger.indent('const executor = new MetricExecutor(queryBuilder);');
-    logger.indent('const result = await executor.run(datasets.orders.revenue);');
+    logger.indent('const rowCount = datasets.orders.metric(\'rowCount\', { measure: \'totalCount\' });');
+    logger.indent('const executor = new MetricExecutor({ builderFactory: queryBuilder });');
+    logger.indent('const result = await executor.run(rowCount);');
     logger.newline();
 
   } catch (error) {

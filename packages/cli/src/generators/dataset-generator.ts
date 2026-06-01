@@ -175,7 +175,7 @@ async function generateDatasetForTable(
 
   if (numericColumns.length > 0) {
     measureLines.push(`    // Count measures`);
-    measureLines.push(`    totalCount: measure.count({ label: 'Total Count' }),`);
+    measureLines.push(`    totalCount: measure.count('${columnToCamelCase(columns[0].name)}', { label: 'Total Count' }),`);
     measureLines.push(``);
 
     for (const column of numericColumns) {
@@ -183,12 +183,12 @@ async function generateDatasetForTable(
       const label = generateLabel(column.name);
 
       measureLines.push(`    // ${label} measures`);
-      measureLines.push(`    total${tableToPascalCase(column.name)}: measure.sum('${column.name}', { label: 'Total ${label}' }),`);
-      measureLines.push(`    avg${tableToPascalCase(column.name)}: measure.avg('${column.name}', { label: 'Average ${label}' }),`);
+      measureLines.push(`    total${tableToPascalCase(column.name)}: measure.sum('${fieldName}', { label: 'Total ${label}' }),`);
+      measureLines.push(`    avg${tableToPascalCase(column.name)}: measure.avg('${fieldName}', { label: 'Average ${label}' }),`);
       measureLines.push(``);
     }
   } else {
-    measureLines.push(`    totalCount: measure.count({ label: 'Total Count' }),`);
+    measureLines.push(`    totalCount: measure.count('${columnToCamelCase(columns[0].name)}', { label: 'Total Count' }),`);
   }
 
   // Build the dataset definition

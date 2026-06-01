@@ -2,7 +2,7 @@
 
 ## Overview
 
-Comprehensive test suite for `@hypequery/mcp-server` with **65 passing tests** across 6 test files.
+Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6 test files.
 
 ## Test Coverage
 

@@ -5,6 +5,7 @@
  */
 
 import type { MetricExecutor } from '@hypequery/datasets';
+import { runDatasetQuery, type DatasetQuery } from '@hypequery/datasets/internal';
 import type { DatasetRegistry, QueryDatasetArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
 
 export async function queryDatasetTool(
@@ -31,9 +32,9 @@ export async function queryDatasetTool(
   }
 
   // Build the query with proper types
-  const query: Record<string, unknown> = {
+  const query: DatasetQuery = {
     dimensions: dimensions || [],
-    metrics: metrics || [],
+    measures: metrics || [],
     filters: filters || [],
     orderBy: orderBy || [],
   };
@@ -48,12 +49,12 @@ export async function queryDatasetTool(
     query.limit = Math.min(limit, MAX_LIMIT);
   }
 
-  // For ad-hoc dataset queries, we need to use the dataset executor
-  // This is a simplified implementation - you may need to adjust based on your actual dataset API
-  const result = await executor.run(dataset as any, query, {
-    runtime: {
-      builderFactory: executor.getBuilderFactory(),
-      tenant: undefined,
+  const result = await runDatasetQuery(dataset as any, query, {
+    builderFactory: executor.getBuilderFactory(),
+    context: {
+      runtime: {
+        tenant: undefined,
+      },
     },
   });
 

@@ -12,7 +12,7 @@ import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // Connect to local ClickHouse (defaults)
-const queryBuilder = createQueryBuilder({
+const builderFactory = createQueryBuilder({
   host: process.env.CLICKHOUSE_HOST || 'localhost',
   username: process.env.CLICKHOUSE_USER || 'default',
   password: process.env.CLICKHOUSE_PASSWORD || '',
@@ -26,19 +26,27 @@ const NumbersDataset = dataset('system_numbers', {
     number: dimension.number({ label: 'Number' }),
   },
   measures: {
-    count: measure.count({ label: 'Row Count' }),
+    count: measure.count('number', { label: 'Row Count' }),
     sum: measure.sum('number', { label: 'Sum of Numbers' }),
     avg: measure.avg('number', { label: 'Average Number' }),
     max: measure.max('number', { label: 'Max Number' }),
   },
 });
 
+const count = NumbersDataset.metric('count', { measure: 'count' });
+const sum = NumbersDataset.metric('sum', { measure: 'sum' });
+const avg = NumbersDataset.metric('avg', { measure: 'avg' });
+const max = NumbersDataset.metric('max', { measure: 'max' });
+
 // Export for MCP server
 export const datasets = {
-  numbers: NumbersDataset,
+  numbers: {
+    ...NumbersDataset,
+    metrics: { count, sum, avg, max },
+  },
 };
 
-export const executor = new MetricExecutor(queryBuilder);
+export const executor = new MetricExecutor({ builderFactory });
 
 /**
  * Test queries to try with Claude:

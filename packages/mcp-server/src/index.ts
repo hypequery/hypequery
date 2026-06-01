@@ -1,5 +1,5 @@
 /**
- * @hypequery/mcp-server
+ * @hypequery/mcp
  *
  * Model Context Protocol (MCP) server for Hypequery semantic layer.
  * Exposes datasets and metrics to AI agents via MCP tools.

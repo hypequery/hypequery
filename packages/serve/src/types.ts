@@ -597,15 +597,10 @@ export interface ServeConfig<
    * `tenant.column` in the Serve config or per-entry override so the runtime
    * knows which column to enforce.
    *
-   * Accepts either a DatasetsBlock (from `defineDatasets()`) or an inline map.
+   * Accepts an inline map of dataset instances.
    *
    * @example
    * ```ts
-   * // Using defineDatasets (recommended)
-   * const datasets = defineDatasets({ orders, customers });
-   * const api = createAPI({ datasets, queryBuilder: qb });
-   *
-   * // Inline
    * const api = createAPI({
    *   datasets: { orders, customers },
    *   queryBuilder: qb,

@@ -49,6 +49,8 @@
   },
   "pnpm": {
     "overrides": {
+      "@modelcontextprotocol/sdk>ajv": "^8.17.1",
+      "ajv-formats@3.0.1>ajv": "^8.17.1",
       "ajv": "^6.14.0",
       "brace-expansion": "^2.0.3",
       "esbuild": "^0.25.0",
