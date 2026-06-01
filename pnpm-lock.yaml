@@ -136,7 +136,7 @@ importers:
         version: 3.3.5
       '@hypequery/cli':
         specifier: '*'
-        version: 1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
+        version: 1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
       '@types/node':
         specifier: ^20.11.24
         version: 20.19.31
@@ -197,7 +197,7 @@ importers:
     devDependencies:
       '@hypequery/cli':
         specifier: '*'
-        version: 1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
+        version: 1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
       '@types/node':
         specifier: ^20
         version: 20.19.31
@@ -259,7 +259,7 @@ importers:
     devDependencies:
       '@hypequery/cli':
         specifier: '*'
-        version: 1.1.2(@hypequery/clickhouse@packages+clickhouse)(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
+        version: 1.1.2(@hypequery/clickhouse@packages+clickhouse)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.28
@@ -309,9 +309,6 @@ importers:
       '@hypequery/clickhouse':
         specifier: workspace:*
         version: link:../clickhouse
-      '@hypequery/schema':
-        specifier: workspace:*
-        version: link:../schema
       '@hypequery/serve':
         specifier: workspace:*
         version: link:../serve
@@ -5340,7 +5337,7 @@ snapshots:
 
   '@humanwhocodes/object-schema@2.0.3': {}
 
-  '@hypequery/cli@1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))':
+  '@hypequery/cli@1.1.2(@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3))(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))':
     dependencies:
       '@clickhouse/client': 1.18.3
       '@hypequery/serve': 0.2.1(tsx@4.21.0)(typescript@5.9.3)
@@ -5353,9 +5350,8 @@ snapshots:
       prompts: 2.4.2
     optionalDependencies:
       '@hypequery/clickhouse': 1.6.1(@clickhouse/client-web@1.18.3)
-      '@hypequery/schema': link:packages/schema
 
-  '@hypequery/cli@1.1.2(@hypequery/clickhouse@packages+clickhouse)(@hypequery/schema@packages+schema)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))':
+  '@hypequery/cli@1.1.2(@hypequery/clickhouse@packages+clickhouse)(@hypequery/serve@0.2.1(tsx@4.21.0)(typescript@5.9.3))':
     dependencies:
       '@clickhouse/client': 1.18.3
       '@hypequery/serve': 0.2.1(tsx@4.21.0)(typescript@5.9.3)
@@ -5368,7 +5364,6 @@ snapshots:
       prompts: 2.4.2
     optionalDependencies:
       '@hypequery/clickhouse': link:packages/clickhouse
-      '@hypequery/schema': link:packages/schema
 
   '@hypequery/clickhouse@1.6.1(@clickhouse/client-web@1.18.3)':
     dependencies:
