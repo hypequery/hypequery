@@ -11,3 +11,21 @@ export { getDatasetSchemaTool } from './tools/introspect.js';
 export { queryMetricTool } from './tools/query-metric.js';
 export { queryDatasetTool } from './tools/query-dataset.js';
 export { datasetGuidePrompt } from './prompts/dataset-guide.js';
+
+// Export types
+export type {
+  DatasetRegistry,
+  QueryMetricArgs,
+  QueryDatasetArgs,
+  GetDatasetSchemaArgs,
+  MCPToolResponse,
+  DatasetSchema,
+  DimensionSchema,
+  MetricSchema,
+  RelationshipSchema,
+  DatasetListItem,
+  DatasetsListResponse,
+  QueryResultResponse,
+  QueryResultMeta,
+} from './types.js';
+export { MAX_QUERY_LIMIT, DEFAULT_QUERY_LIMIT } from './types.js';

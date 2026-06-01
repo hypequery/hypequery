@@ -19,12 +19,13 @@ import { getDatasetSchemaTool } from './tools/introspect.js';
 import { queryMetricTool } from './tools/query-metric.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
+import type { DatasetRegistry } from './types.js';
 
 export interface MCPServerConfig {
   /**
    * Dataset registry - map of dataset names to instances
    */
-  datasets: Record<string, any>;
+  datasets: DatasetRegistry;
 
   /**
    * Metric executor for running queries

@@ -4,7 +4,9 @@
  * Provides natural language guidance for querying datasets.
  */
 
-export function datasetGuidePrompt(datasets: Record<string, any>, datasetName?: string) {
+import type { DatasetRegistry } from '../types.js';
+
+export function datasetGuidePrompt(datasets: DatasetRegistry, datasetName?: string) {
   if (datasetName) {
     const dataset = datasets[datasetName];
 
@@ -12,9 +14,10 @@ export function datasetGuidePrompt(datasets: Record<string, any>, datasetName?: 
       throw new Error(`Dataset not found: ${datasetName}`);
     }
 
+    const datasetAny = dataset as any;
     // Generate dataset-specific guide
-    const dimensions = dataset.dimensions ? Object.keys(dataset.dimensions) : [];
-    const metrics = dataset.metrics ? Object.keys(dataset.metrics) : [];
+    const dimensions = datasetAny.dimensions ? Object.keys(datasetAny.dimensions) : [];
+    const metrics = datasetAny.metrics ? Object.keys(datasetAny.metrics) : [];
 
     const guide = `# Querying the ${datasetName} dataset
 
