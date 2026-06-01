@@ -6,25 +6,34 @@ Use this package to define datasets, dimensions, measures, metrics, derived metr
 
 ## Install
 
+For ClickHouse applications:
+
+```bash
+npm install @hypequery/clickhouse
+```
+
+For semantic model packages or adapter development:
+
 ```bash
 npm install @hypequery/datasets
-# or
-pnpm add @hypequery/datasets
 ```
+
+`@hypequery/datasets` defines the semantic core. ClickHouse applications can
+use `@hypequery/clickhouse/datasets` for both the semantic helpers and the
+ClickHouse-backed execution client.
 
 ## Quick Start
 
 ```ts
 import {
-  createExecutor,
+  createDatasetClient,
   dataset,
   dimension,
   divide,
   eq,
   measure,
   nullIfZero,
-} from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+} from '@hypequery/clickhouse/datasets';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -62,14 +71,12 @@ const averageOrderValue = Orders.metric('averageOrderValue', {
     divide(revenue, nullIfZero(orderCount)),
 });
 
-const builderFactory = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST,
-  username: process.env.CLICKHOUSE_USER,
+const executor = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USERNAME,
   password: process.env.CLICKHOUSE_PASSWORD,
   database: process.env.CLICKHOUSE_DATABASE,
 });
-
-const executor = createExecutor({ queryBuilder: builderFactory });
 
 const result = await executor.metric(revenue, {
   dimensions: ['country'],
@@ -78,7 +85,7 @@ const result = await executor.metric(revenue, {
   limit: 10,
 });
 
-const monthlySql = executor.toSQL(revenue.by('month'), {
+const monthlyRevenue = await executor.metric(revenue.by('month'), {
   dimensions: ['country'],
 });
 ```
@@ -230,16 +237,21 @@ For this release, relationship-aware query execution is not shipped. Query execu
 
 ## Execution
 
-`createExecutor` accepts a query builder factory compatible with `@hypequery/clickhouse`.
+`createExecutor` accepts a neutral semantic backend. It is mainly for adapter
+authors and Hypequery package integrations. ClickHouse applications should use
+`createDatasetClient` from `@hypequery/clickhouse/datasets`.
 
 ```ts
-const executor = createExecutor({ queryBuilder: builderFactory });
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
-const validation = executor.validate(revenue, {
-  dimensions: ['country'],
+const executor = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USERNAME,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
 });
 
-const sql = executor.toSQL(revenue, {
+const validation = executor.validate(revenue, {
   dimensions: ['country'],
 });
 
@@ -263,13 +275,42 @@ import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
 const analytics = createDatasetClient({
   url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
+  username: process.env.CLICKHOUSE_USERNAME,
   password: process.env.CLICKHOUSE_PASSWORD,
   database: process.env.CLICKHOUSE_DATABASE,
 });
 
 await analytics.metric(revenue, { dimensions: ['country'] });
 ```
+
+If an application also uses the ClickHouse query builder, create the query
+builder once and enter datasets through it:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USERNAME,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+const analytics = db.datasets();
+
+await db
+  .table('orders')
+  .select(['country'])
+  .sum('amount', 'revenue')
+  .groupBy('country')
+  .execute();
+await analytics.metric(revenue, { dimensions: ['country'] });
+```
+
+`db.datasets()` shares the query builder's adapter, cache runtime, connection
+config, and execution settings. There is no separate datasets-level config;
+create another query builder only when semantic queries need a different
+connection or scope.
 
 ## Serve Integration
 

@@ -67,10 +67,10 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
 
     logger.info('Example usage:');
     logger.indent('import { datasets } from \'./datasets/generated\';');
-    logger.indent('import { createExecutor } from \'@hypequery/datasets\';');
+    logger.indent('import { createDatasetClient } from \'@hypequery/clickhouse/datasets\';');
     logger.indent('');
     logger.indent('const rowCount = datasets.orders.metric(\'rowCount\', { measure: \'totalCount\' });');
-    logger.indent('const executor = createExecutor({ queryBuilder });');
+    logger.indent('const executor = createDatasetClient({ /* ClickHouse config */ });');
     logger.indent('const result = await executor.metric(rowCount);');
     logger.newline();
 

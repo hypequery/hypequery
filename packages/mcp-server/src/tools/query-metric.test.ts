@@ -10,8 +10,6 @@ describe('queryMetricTool', () => {
   const createMockExecutor = (mockResult: any): SemanticExecutor => ({
     metric: vi.fn().mockResolvedValue(mockResult),
     dataset: vi.fn(),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any);
 
   it('should throw error when dataset parameter is missing', async () => {
@@ -87,12 +85,6 @@ describe('queryMetricTool', () => {
         dimensions: [],
         filters: [],
         orderBy: [],
-      },
-      {
-        runtime: {
-          builderFactory: {},
-          tenant: undefined,
-        },
       }
     );
   });
@@ -132,8 +124,7 @@ describe('queryMetricTool', () => {
       expect.anything(),
       expect.objectContaining({
         dimensions: ['region'],
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -165,8 +156,7 @@ describe('queryMetricTool', () => {
       expect.anything(),
       expect.objectContaining({
         filters,
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -196,8 +186,7 @@ describe('queryMetricTool', () => {
       expect.anything(),
       expect.objectContaining({
         by: 'month',
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -234,8 +223,7 @@ describe('queryMetricTool', () => {
       expect.objectContaining({
         orderBy,
         limit: 10,
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -258,7 +246,6 @@ describe('queryMetricTool', () => {
 
     expect(executor.metric).toHaveBeenCalledWith(
       { type: 'sum' },
-      expect.anything(),
       expect.anything()
     );
   });
@@ -280,7 +267,6 @@ describe('queryMetricTool', () => {
 
     expect(executor.metric).toHaveBeenCalledWith(
       { type: 'sum' },
-      expect.anything(),
       expect.anything()
     );
   });

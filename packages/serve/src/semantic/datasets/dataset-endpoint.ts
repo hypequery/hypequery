@@ -4,7 +4,7 @@
  * The generated endpoint is a POST handler that:
  * - Accepts dimensions, measures, filters, orderBy, limit, offset, by
  * - Validates requested dimensions/measures/filters against the dataset contract
- * - Executes via QueryBuilderFactoryLike
+ * - Executes via SemanticExecutor
  * - Applies Serve-managed tenant filtering when configured
  * - Returns { data } or { data, meta } based on headers
  */
@@ -17,19 +17,10 @@ import type {
   ServeEndpoint,
   ServeMiddleware,
 } from '../../types.js';
-import type {
-  QueryBuilderFactoryLike,
-} from '@hypequery/datasets';
-import type { DatasetQuery } from '@hypequery/datasets/internal';
-import {
-  runDatasetQuery,
-  validateDatasetQuery,
-} from '@hypequery/datasets/internal';
+import type { DatasetQuery, SemanticExecutor } from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
-  resolveSemanticQueryBuilder,
-  resolveSemanticTenantHandledByBuilder,
 } from '../query-builder-context.js';
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
@@ -79,7 +70,7 @@ const datasetResultSchema = z.object({
 export function createDatasetEndpoint<TAuth extends AuthContext>(
   name: string,
   entry: DatasetEntry<TAuth>,
-  builderFactory: QueryBuilderFactoryLike,
+  executor: SemanticExecutor,
 ): ServeEndpoint<typeof datasetQueryInputSchema, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
@@ -105,7 +96,6 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   const handler: EndpointHandler<any, any, any, TAuth> = async (ctx) => {
     const semanticContext: Record<string, unknown> = ctx;
     const input = ctx.input ?? {};
-    const start = Date.now();
     const runtime = resolveSemanticExecutionRuntime(semanticContext);
 
     // Validate
@@ -119,7 +109,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       by: input.by,
     };
     const executionContext = runtime ? { runtime } : undefined;
-    const validation = validateDatasetQuery(ds, query, executionContext);
+    const validation = executor.validateDataset(ds, query, executionContext);
     if (!validation.valid) {
       throw new ServeHttpError(
         400,
@@ -128,36 +118,23 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       );
     }
 
-    // Build query
-    const runtimeBuilderFactory = resolveSemanticQueryBuilder(
-      semanticContext,
-      builderFactory,
-    );
     if (ctx.tenantId) {
-      if (!runtime?.tenant || !ds.tenantKey) {
+      if (!runtime?.tenant || !(runtime.tenant.column ?? ds.tenantKey)) {
         throw new ServeHttpError(
           500,
           'INTERNAL_SERVER_ERROR',
-          `Dataset endpoint "${name}" requires dataset tenantKey and serve tenant runtime when tenant isolation is enabled.`,
+          `Dataset endpoint "${name}" requires a dataset tenantKey or serve tenant column when tenant isolation is enabled.`,
         );
       }
     }
-    const result = await runDatasetQuery(ds, query, {
-      builderFactory: runtimeBuilderFactory,
-      context: executionContext,
-      tenantHandledByBuilder: resolveSemanticTenantHandledByBuilder(semanticContext),
-    });
-    const timingMs = Date.now() - start;
+    const result = await executor.dataset(ds, query, executionContext);
 
     // Meta
     const includeMeta = ctx.request?.headers?.['x-include-meta'] === 'true';
 
     return {
       data: result.data,
-      meta: includeMeta ? {
-        ...(result.meta ?? {}),
-        timingMs,
-      } : undefined,
+      meta: includeMeta ? result.meta : undefined,
     };
   };
 

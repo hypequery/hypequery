@@ -32,8 +32,8 @@ export {
 export { createDatasetRegistry } from './registry.js';
 
 // Executor
-export { createExecutor, SemanticExecutor, MetricExecutor } from './executor.js';
-export type { SemanticExecutorOptions, MetricExecutorOptions } from './executor.js';
+export { createExecutor, SemanticExecutor } from './executor.js';
+export type { SemanticExecutorOptions } from './executor.js';
 export { createInMemoryBackend } from './in-memory-backend.js';
 export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';
 export type {
@@ -49,12 +49,6 @@ export type {
 // Validation
 export type { ValidationResult } from './validation.js';
 export { validateFilterValue, matchesFieldType } from './validation.js';
-
-// Query builder protocol (duck-typed interfaces for DB-agnostic builder usage)
-export type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-protocol.js';
-
-// SQL utilities
-export { validateSQLIdentifier, isSafeSQLIdentifier, quoteSQLIdentifier } from './sql-utils.js';
 
 // Constants
 export { GRAIN_FUNCTIONS } from './constants.js';

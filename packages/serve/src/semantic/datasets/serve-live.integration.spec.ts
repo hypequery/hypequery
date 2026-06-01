@@ -15,6 +15,7 @@ import {
   SETUP_TIMEOUT,
   SKIP_INTEGRATION_TESTS,
 } from "../../../../clickhouse/src/core/tests/integration/test-config.js";
+import { createDatasetClient } from "../../../../clickhouse/src/datasets.js";
 import {
   CLICKHOUSE_CONTAINER_NAME,
   TEST_DATA,
@@ -154,9 +155,17 @@ async function clickHouseIsReachable(): Promise<boolean> {
   }
 }
 
+function createLiveDatasetClient() {
+  return createDatasetClient({
+    host: TEST_CONNECTION_CONFIG.host,
+    username: TEST_CONNECTION_CONFIG.user,
+    password: TEST_CONNECTION_CONFIG.password,
+    database: TEST_CONNECTION_CONFIG.database,
+  });
+}
+
 describe("Serve live integration — datasets", () => {
   (SKIP_INTEGRATION_TESTS ? describe.skip : describe)("ClickHouse-backed dataset endpoints", () => {
-    let db: Awaited<ReturnType<typeof initializeTestConnection>>;
     let startedContainer = false;
 
     beforeAll(async () => {
@@ -174,7 +183,7 @@ describe("Serve live integration — datasets", () => {
         config: TEST_CONNECTION_CONFIG,
         data: TEST_DATA,
       });
-      db = await connectToDatabase();
+      await connectToDatabase();
     }, SETUP_TIMEOUT * 2);
 
     afterAll(async () => {
@@ -186,7 +195,7 @@ describe("Serve live integration — datasets", () => {
     it("executes grouped dataset queries with dimensions and multiple measures", async () => {
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: db,
+        semanticExecutor: createLiveDatasetClient(),
       });
 
       const response = await api.handler(
@@ -225,7 +234,7 @@ describe("Serve live integration — datasets", () => {
     it("applies filters, ordering, and limit against live data", async () => {
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: db,
+        semanticExecutor: createLiveDatasetClient(),
       });
 
       const response = await api.handler(
@@ -264,7 +273,7 @@ describe("Serve live integration — datasets", () => {
     it("returns grained dataset rows and execution meta from the live builder", async () => {
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: db,
+        semanticExecutor: createLiveDatasetClient(),
       });
 
       const response = await api.handler(
@@ -309,7 +318,7 @@ describe("Serve live integration — datasets", () => {
     it("executes base metric endpoints with real countDistinct aggregation", async () => {
       const api = createAPI({
         metrics: { uniqueUsers },
-        queryBuilder: db,
+        semanticExecutor: createLiveDatasetClient(),
       });
 
       const response = await api.handler(
@@ -343,7 +352,7 @@ describe("Serve live integration — datasets", () => {
     it("executes derived metric endpoints against live ClickHouse data", async () => {
       const api = createAPI({
         metrics: { avgOrderValue },
-        queryBuilder: db,
+        semanticExecutor: createLiveDatasetClient(),
       });
 
       const response = await api.handler(
@@ -377,7 +386,7 @@ describe("Serve live integration — datasets", () => {
     it("executes grained metric endpoints and returns live SQL meta", async () => {
       const api = createAPI({
         metrics: { monthlyRevenue },
-        queryBuilder: db,
+        semanticExecutor: createLiveDatasetClient(),
       });
 
       const response = await api.handler(

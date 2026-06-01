@@ -38,7 +38,6 @@ export {
   createDatasetRegistry,
   createExecutor,
   SemanticExecutor,
-  MetricExecutor,
 } from '@hypequery/datasets';
 
 export type {
@@ -71,7 +70,6 @@ export type {
   DatasetQueryResult,
   MetricHandle,
   SemanticExecutorOptions,
-  MetricExecutorOptions,
   ExecutionContext,
   SemanticExecutionRuntime,
   SemanticTenantRuntime,

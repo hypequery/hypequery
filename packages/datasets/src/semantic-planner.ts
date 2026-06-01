@@ -17,7 +17,7 @@ import {
   getMetricRef,
   type MetricHandle,
 } from './utils/metric-handle.js';
-import { validateDatasetQuery } from './dataset-query.js';
+import { validateDatasetQueryInput } from './utils/dataset-query-validation.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -78,10 +78,11 @@ function aggregationForMeasure(
 
 function tenantForContext(ds: AnyDatasetInstance, context?: ExecutionContext) {
   const tenantId = context?.runtime?.tenant?.id;
-  if (!tenantId || !ds.tenantKey) {
+  const tenantColumn = context?.runtime?.tenant?.column ?? ds.tenantKey;
+  if (!tenantId || !tenantColumn) {
     return undefined;
   }
-  return { field: ds.tenantKey, value: tenantId };
+  return { field: tenantColumn, value: tenantId };
 }
 
 function grainForQuery(ds: AnyDatasetInstance, unit: MetricQuery['by'] | undefined) {
@@ -123,7 +124,7 @@ export function buildDatasetPlan(
   query: DatasetQuery = {},
   context?: ExecutionContext,
 ): PlanNode {
-  const validation = validateDatasetQuery(ds, query, context);
+  const validation = validateDatasetQueryInput(ds, query, context);
   if (!validation.valid) {
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }

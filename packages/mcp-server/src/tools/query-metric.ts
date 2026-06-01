@@ -55,12 +55,7 @@ export async function queryMetricTool(
   }
 
   // Execute the query
-  const result = await executor.metric(metric, query, {
-    runtime: {
-      builderFactory: executor.getBuilderFactory(),
-      tenant: undefined,
-    },
-  });
+  const result = await executor.metric(metric, query);
 
   // Format the response with proper types
   const response: QueryResultResponse = {

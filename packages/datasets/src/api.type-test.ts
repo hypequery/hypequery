@@ -8,7 +8,7 @@ import type {
   ExecutionContext,
   MeasureOptions,
   MetricFilter,
-  QueryBuilderFactoryLike,
+  SemanticBackend,
 } from './index.js';
 
 type Assert<T extends true> = T;
@@ -19,7 +19,6 @@ type Equal<A, B> =
     : false;
 type HasKey<T, K extends PropertyKey> = K extends keyof T ? true : false;
 type DatasetModule = typeof import('./index.js');
-type DatasetInternalModule = typeof import('./internal.js');
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -69,7 +68,7 @@ type _MeasureFilterType = Assert<
   Equal<MeasureOptions['filters'], MetricFilter[] | undefined>
 >;
 type _TenantRuntimeShape = Assert<
-  Equal<keyof NonNullable<NonNullable<ExecutionContext['runtime']>['tenant']>, 'id'>
+  Equal<keyof NonNullable<NonNullable<ExecutionContext['runtime']>['tenant']>, 'id' | 'column'>
 >;
 type _DatasetHasNoQueryMethod = Assert<
   Equal<HasKey<typeof Orders, 'query'>, false>
@@ -83,12 +82,11 @@ type _RootExportOmitsRunDatasetQuery = Assert<
 type _RootExportOmitsValidateDatasetQuery = Assert<
   Equal<HasKey<DatasetModule, 'validateDatasetQuery'>, false>
 >;
-type _InternalDatasetQueryTypeCompiles = import('./internal.js').DatasetQuery;
-type _InternalExportIncludesBuildDatasetQueryBuilder = Assert<
-  Equal<HasKey<DatasetInternalModule, 'buildDatasetQueryBuilder'>, true>
+type _RootExportOmitsQueryBuilderProtocol = Assert<
+  Equal<HasKey<DatasetModule, 'QueryBuilderFactoryLike'>, false>
 >;
-type _InternalExportIncludesRunDatasetQuery = Assert<
-  Equal<HasKey<DatasetInternalModule, 'runDatasetQuery'>, true>
+type _RootExportOmitsMetricExecutor = Assert<
+  Equal<HasKey<DatasetModule, 'MetricExecutor'>, false>
 >;
 type _RootExportOmitsPlannerHelper = Assert<
   Equal<HasKey<DatasetModule, 'applyMeasureDefinition'>, false>
@@ -149,33 +147,15 @@ const runtimeContext: ExecutionContext = {
   },
 };
 
-const builderFactory: QueryBuilderFactoryLike = {
-  table: () => ({
-    select: () => builderFactory.table('orders'),
-    sum: () => builderFactory.table('orders'),
-    count: () => builderFactory.table('orders'),
-    countDistinct: () => builderFactory.table('orders'),
-    avg: () => builderFactory.table('orders'),
-    min: () => builderFactory.table('orders'),
-    max: () => builderFactory.table('orders'),
-    where: () => builderFactory.table('orders'),
-    groupBy: () => builderFactory.table('orders'),
-    orderBy: () => builderFactory.table('orders'),
-    limit: () => builderFactory.table('orders'),
-    offset: () => builderFactory.table('orders'),
-    toSQLWithParams: () => ({ sql: 'SELECT 1', parameters: [] }),
-    execute: async () => [],
-  }),
-  rawQuery: async () => [],
+const backend: SemanticBackend = {
+  execute: async () => ({ data: [] }),
 };
 
-const executor = createExecutor({ queryBuilder: builderFactory });
+const executor = createExecutor({ backend });
 const explicitExecutor: SemanticExecutor = executor;
 const datasetQuery: DatasetQuery = { dimensions: ['status'], measures: ['revenue'] };
 
 executor.validate(revenueMetric, { dimensions: ['status'] }, runtimeContext);
-executor.toSQL(completedRevenueMetric, { dimensions: ['status'] }, runtimeContext);
-executor.toSQL(revenueMetric, { orderBy: [desc('revenueMetric')] }, runtimeContext);
 executor.validateDataset(Orders, datasetQuery, runtimeContext);
 void executor.dataset<DatasetQueryResult['data'][number]>(Orders, datasetQuery, runtimeContext);
 

@@ -1,6 +1,6 @@
 import type { ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
-import type { QueryBuilderFactoryLike } from "@hypequery/datasets";
+import type { SemanticExecutor } from "@hypequery/datasets";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -603,26 +603,26 @@ export interface ServeConfig<
    * ```ts
    * const api = createAPI({
    *   datasets: { orders, customers },
-   *   queryBuilder: qb,
+   *   semanticExecutor,
    * });
    * ```
    */
   datasets?: DatasetsConfig<TAuth>;
   /**
-   * Query builder instance for metric/dataset execution.
+   * Semantic executor for metric/dataset execution.
    * Required when `metrics` or `datasets` are provided.
-   * Pass the return value of `createQueryBuilder(config)` directly.
+   * Pass `createExecutor({ backend })` or a database-specific dataset client.
    *
    * @example
    * ```ts
-   * const qb = createQueryBuilder<Schema>(config);
+   * const semanticExecutor = createDatasetClient<Schema>(config);
    * const api = createAPI({
    *   metrics: { totalRevenue },
-   *   queryBuilder: qb,
+   *   semanticExecutor,
    * });
    * ```
    */
-  queryBuilder?: QueryBuilderFactoryLike;
+  semanticExecutor?: SemanticExecutor;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];

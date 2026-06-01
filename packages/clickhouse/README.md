@@ -51,12 +51,16 @@ const recentOrders = await db
 
 ## Semantic Datasets
 
-For datasets-first analytics, use the datasets subpath so application code does
-not need to create a query builder directly.
+For datasets-first analytics, use the datasets subpath. This gives you one
+ClickHouse-backed semantic client without creating a query builder directly.
 
 ```ts
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
-import { dataset, dimension, measure } from '@hypequery/datasets';
+import {
+  createDatasetClient,
+  dataset,
+  dimension,
+  measure,
+} from '@hypequery/clickhouse/datasets';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -86,6 +90,41 @@ await analytics.dataset(Orders, {
   measures: ['revenue'],
 });
 ```
+
+If you use both the query builder and semantic datasets, make the query builder
+the root object and enter the semantic layer through `db.datasets()`. Using the
+`revenue` metric defined above:
+
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const analytics = db.datasets();
+
+await db
+  .table('orders')
+  .select(['country'])
+  .sum('total', 'revenue')
+  .groupBy('country')
+  .execute();
+
+await analytics.metric(revenue, {
+  dimensions: ['country'],
+});
+```
+
+`createDatasetClient(config)` is the datasets-only convenience form of
+`createQueryBuilder(config).datasets()`. `db.datasets()` shares the same
+ClickHouse adapter, cache runtime, connection config, and execution settings as
+`db`; it does not accept a second datasets-specific config object. Use a second
+`createQueryBuilder(...)` only when semantic queries need a different
+connection or scope.
 
 ## Common Patterns
 

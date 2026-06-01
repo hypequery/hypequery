@@ -12,14 +12,13 @@
  */
 
 import { dataset, dimension, measure } from '@hypequery/datasets';
-import { createExecutor } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
 // =============================================================================
 // STEP 1: Configure ClickHouse Connection
 // =============================================================================
 
-const builderFactory = createQueryBuilder({
+const executor = createDatasetClient({
   host: process.env.CLICKHOUSE_HOST || 'localhost',
   port: process.env.CLICKHOUSE_PORT ? parseInt(process.env.CLICKHOUSE_PORT) : 8123,
   username: process.env.CLICKHOUSE_USER || 'default',
@@ -95,10 +94,10 @@ export const datasets = {
 };
 
 /**
- * Create and export the metric executor
+ * Export the semantic executor
  * This handles query execution against ClickHouse
  */
-export const executor = createExecutor({ queryBuilder: builderFactory });
+export { executor };
 
 // =============================================================================
 // STEP 4: Claude Desktop Configuration

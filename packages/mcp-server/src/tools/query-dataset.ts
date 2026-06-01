@@ -48,11 +48,7 @@ export async function queryDatasetTool(
     query.limit = Math.min(limit, MAX_LIMIT);
   }
 
-  const result = await executor.dataset(dataset as any, query, {
-    runtime: {
-      tenant: undefined,
-    },
-  });
+  const result = await executor.dataset(dataset as any, query);
 
   // Format the response with proper types
   const response: QueryResultResponse = {

@@ -1,23 +1,9 @@
-import type { QueryBuilderFactoryLike, SemanticExecutionRuntime } from "@hypequery/datasets";
+import type { SemanticExecutionRuntime } from "@hypequery/datasets";
 
 export const INTERNAL_SEMANTIC_RUNTIME_KEY = "__hypequerySemanticRuntime";
-export const INTERNAL_SEMANTIC_TENANT_HANDLED_BY_BUILDER_KEY = "__hypequerySemanticTenantHandledByBuilder";
 
 function isSemanticExecutionRuntime(value: unknown): value is SemanticExecutionRuntime {
   return typeof value === 'object' && value !== null;
-}
-
-export function attachSemanticQueryBuilder<
-  TContext extends Record<string, unknown>,
->(
-  context: TContext,
-  builderFactory: QueryBuilderFactoryLike | undefined,
-): TContext {
-  if (!builderFactory) {
-    return context;
-  }
-
-  return attachSemanticRuntime(context, { builderFactory });
 }
 
 export function attachSemanticRuntime<TContext extends Record<string, unknown>>(
@@ -45,32 +31,17 @@ export function resolveSemanticExecutionRuntime(
   return candidate;
 }
 
-export function resolveSemanticQueryBuilder(
-  context: Record<string, unknown>,
-  fallback: QueryBuilderFactoryLike,
-): QueryBuilderFactoryLike {
-  return resolveSemanticExecutionRuntime(context)?.builderFactory ?? fallback;
-}
-
-export function resolveSemanticTenantHandledByBuilder(
-  context: Record<string, unknown>,
-): boolean {
-  return context[INTERNAL_SEMANTIC_TENANT_HANDLED_BY_BUILDER_KEY] === true;
-}
-
 export function attachSemanticTenantRuntime<TContext extends Record<string, unknown>>(
   context: TContext,
   options: {
     tenantId: string;
-    tenantHandledByBuilder?: boolean;
+    column?: string;
   },
 ): TContext {
-  return {
-    ...attachSemanticRuntime(context, {
-      tenant: {
-        id: options.tenantId,
-      },
-    }),
-    [INTERNAL_SEMANTIC_TENANT_HANDLED_BY_BUILDER_KEY]: options.tenantHandledByBuilder === true,
-  };
+  return attachSemanticRuntime(context, {
+    tenant: {
+      id: options.tenantId,
+      column: options.column,
+    },
+  });
 }

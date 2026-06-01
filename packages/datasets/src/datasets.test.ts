@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { belongsTo, hasMany, hasOne } from './relationships.js';
@@ -7,10 +7,8 @@ import { divide, multiply, subtract, add, nullIfZero, coalesce, round, floor, ce
 import { eq, between, desc } from './query-helpers.js';
 import { measure } from './measure.js';
 import { createDatasetRegistry } from './registry.js';
-import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from './dataset-query.js';
-import { createExecutor, MetricExecutor } from './executor.js';
+import { createExecutor } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
-import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 // =============================================================================
 // TEST FIXTURES
@@ -252,95 +250,13 @@ describe("Dataset public surface", () => {
   });
 });
 
-describe("dataset query helpers", () => {
-  function createDatasetQueryBuilderFactory(mockData: Record<string, unknown>[] = []): QueryBuilderFactoryLike {
-    function createBuilder(): QueryBuilderLike {
-      const state = {
-        select: [] as string[],
-        where: [] as string[],
-        groupBy: [] as string[],
-        orderBy: [] as string[],
-        limit: undefined as number | undefined,
-        offset: undefined as number | undefined,
-      };
+describe("dataset query validation", () => {
+  const executor = createExecutor({
+    backend: createInMemoryBackend({ orders: [] }),
+  });
 
-      const buildSql = () => [
-        `SELECT ${state.select.join(', ')} FROM orders`,
-        state.where.length > 0 ? `WHERE ${state.where.join(' AND ')}` : '',
-        state.groupBy.length > 0 ? `GROUP BY ${state.groupBy.join(', ')}` : '',
-        state.orderBy.length > 0 ? `ORDER BY ${state.orderBy.join(', ')}` : '',
-        state.limit != null ? `LIMIT ${state.limit}` : '',
-        state.offset != null ? `OFFSET ${state.offset}` : '',
-      ].filter(Boolean).join(' ');
-
-      const builder: QueryBuilderLike = {
-        select: (args: string | string[]) => {
-          state.select.push(...(Array.isArray(args) ? args : [args]));
-          return builder;
-        },
-        sum: (column: string, alias?: string) => {
-          state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
-          return builder;
-        },
-        count: (column: string, alias?: string) => {
-          state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
-          return builder;
-        },
-        countDistinct: (column: string, alias?: string) => {
-          state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
-          return builder;
-        },
-        avg: (column: string, alias?: string) => {
-          state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
-          return builder;
-        },
-        min: (column: string, alias?: string) => {
-          state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
-          return builder;
-        },
-        max: (column: string, alias?: string) => {
-          state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
-          return builder;
-        },
-        where: (column: string, operator: string, _value: unknown) => {
-          const op = operator === 'eq' ? '=' : operator;
-          state.where.push(`${column} ${op} ?`);
-          return builder;
-        },
-        groupBy: (args: string | string[]) => {
-          state.groupBy.push(...(Array.isArray(args) ? args : [args]));
-          return builder;
-        },
-        orderBy: (column: string, direction?: string) => {
-          state.orderBy.push(`${column} ${direction ?? 'ASC'}`);
-          return builder;
-        },
-        limit: (count: number) => {
-          state.limit = count;
-          return builder;
-        },
-        offset: (count: number) => {
-          state.offset = count;
-          return builder;
-        },
-        toSQLWithParams: () => ({
-          sql: buildSql(),
-          parameters: [],
-        }),
-        execute: vi.fn().mockResolvedValue(mockData),
-      };
-
-      return builder;
-    }
-
-    return {
-      table: () => createBuilder(),
-      rawQuery: vi.fn().mockResolvedValue(mockData),
-    };
-  }
-
-  it("validates dataset queries and rejects explicit tenant filters under runtime tenancy", () => {
-    const validation = validateDatasetQuery(Orders, {
+  it("rejects explicit tenant filters under runtime tenancy", () => {
+    const validation = executor.validateDataset(Orders, {
       measures: ['revenue'],
       filters: [eq('tenantId', 'tenant-123')],
     }, {
@@ -357,40 +273,16 @@ describe("dataset query helpers", () => {
     ]);
   });
 
-  it("builds dataset query SQL through the shared datasets planner", () => {
-    const builder = buildDatasetQueryBuilder(Orders, {
+  it("accepts valid dataset queries", () => {
+    const validation = executor.validateDataset(Orders, {
       dimensions: ['status'],
       measures: ['completedRevenue'],
       filters: [eq('country', 'ES')],
       orderBy: [desc('completedRevenue')],
       limit: 5,
-    }, {
-      builderFactory: createDatasetQueryBuilderFactory(),
-      context: {
-        runtime: {
-          tenant: {
-            id: 'tenant-123',
-          },
-        },
-      },
     });
 
-    expect(builder.toSQLWithParams().sql).toContain('SELECT status, SUM(if((status = \'completed\'), amount, 0)) AS completedRevenue FROM orders');
-    expect(builder.toSQLWithParams().sql).toContain('WHERE tenant_id = ? AND country = ?');
-    expect(builder.toSQLWithParams().sql).toContain('GROUP BY status');
-    expect(builder.toSQLWithParams().sql).toContain('ORDER BY completedRevenue DESC');
-    expect(builder.toSQLWithParams().sql).toContain('LIMIT 5');
-  });
-
-  it("executes dataset queries and returns meta", async () => {
-    const result = await runDatasetQuery(Orders, {
-      measures: ['revenue'],
-    }, {
-      builderFactory: createDatasetQueryBuilderFactory([{ revenue: 42 }]),
-    });
-
-    expect(result.data).toEqual([{ revenue: 42 }]);
-    expect(result.meta?.sql).toContain('SUM(amount) AS revenue');
+    expect(validation.valid).toBe(true);
   });
 });
 
@@ -444,45 +336,65 @@ describe("metric.contract()", () => {
 
 describe("formula helpers", () => {
   it("divide", () => {
-    expect(divide("a", "b").toSQL()).toBe("(a) / (b)");
+    expect(divide("a", "b").expression).toEqual({
+      kind: 'binary',
+      operator: 'divide',
+      left: { kind: 'ref', name: 'a' },
+      right: { kind: 'ref', name: 'b' },
+    });
   });
 
   it("multiply", () => {
-    expect(multiply("a", "b").toSQL()).toBe("(a) * (b)");
+    expect(multiply("a", "b").expression).toMatchObject({ kind: 'binary', operator: 'multiply' });
   });
 
   it("subtract", () => {
-    expect(subtract("a", "b").toSQL()).toBe("(a) - (b)");
+    expect(subtract("a", "b").expression).toMatchObject({ kind: 'binary', operator: 'subtract' });
   });
 
   it("add", () => {
-    expect(add("a", "b").toSQL()).toBe("(a) + (b)");
+    expect(add("a", "b").expression).toMatchObject({ kind: 'binary', operator: 'add' });
   });
 
   it("nullIfZero", () => {
-    expect(nullIfZero("x").toSQL()).toBe("NULLIF(x, 0)");
+    expect(nullIfZero("x").expression).toEqual({
+      kind: 'function',
+      name: 'nullIfZero',
+      args: [{ kind: 'ref', name: 'x' }],
+    });
   });
 
   it("coalesce", () => {
-    expect(coalesce("x", 0).toSQL()).toBe("COALESCE(x, 0)");
+    expect(coalesce("x", 0).expression).toEqual({
+      kind: 'function',
+      name: 'coalesce',
+      args: [{ kind: 'ref', name: 'x' }, { kind: 'literal', value: 0 }],
+    });
   });
 
   it("round", () => {
-    expect(round("x", 2).toSQL()).toBe("ROUND(x, 2)");
+    expect(round("x", 2).expression).toMatchObject({ kind: 'function', name: 'round' });
   });
 
   it("floor", () => {
-    expect(floor("x").toSQL()).toBe("FLOOR(x)");
+    expect(floor("x").expression).toMatchObject({ kind: 'function', name: 'floor' });
   });
 
   it("ceil", () => {
-    expect(ceil("x").toSQL()).toBe("CEIL(x)");
+    expect(ceil("x").expression).toMatchObject({ kind: 'function', name: 'ceil' });
   });
 
-  it("composition: divide(a, nullIfZero(b))", () => {
-    expect(divide("revenue", nullIfZero("orders")).toSQL()).toBe(
-      "(revenue) / (NULLIF(orders, 0))"
-    );
+  it("composes nested expression trees", () => {
+    expect(divide("revenue", nullIfZero("orders")).expression).toEqual({
+      kind: 'binary',
+      operator: 'divide',
+      left: { kind: 'ref', name: 'revenue' },
+      right: {
+        kind: 'function',
+        name: 'nullIfZero',
+        args: [{ kind: 'ref', name: 'orders' }],
+      },
+    });
   });
 });
 
@@ -509,199 +421,10 @@ describe("DatasetRegistry", () => {
 });
 
 // =============================================================================
-// METRIC EXECUTOR TESTS
+// SEMANTIC EXECUTOR TESTS
 // =============================================================================
 
-describe("MetricExecutor", () => {
-  type BuilderColumnsInput = string[] | string;
-
-  function createMockBuilderFactory(): QueryBuilderFactoryLike {
-    const mockData = [
-      { country: "US", totalRevenue: 5000 },
-      { country: "DE", totalRevenue: 3000 },
-    ];
-
-    function createMockBuilder(): QueryBuilderLike {
-      const state = {
-        select: [] as string[],
-        where: [] as string[],
-        groupBy: [] as string[],
-        orderBy: [] as string[],
-        limit: undefined as number | undefined,
-        offset: undefined as number | undefined,
-      };
-
-      const buildSql = () => {
-        const select = state.select.length > 0
-          ? state.select.join(", ")
-          : "*";
-        let sql = `SELECT ${select} FROM orders`;
-        if (state.where.length > 0) {
-          sql += ` WHERE ${state.where.join(" AND ")}`;
-        }
-        if (state.groupBy.length > 0) {
-          sql += ` GROUP BY ${state.groupBy.join(", ")}`;
-        }
-        if (state.orderBy.length > 0) {
-          sql += ` ORDER BY ${state.orderBy.join(", ")}`;
-        }
-        if (state.limit != null) {
-          sql += ` LIMIT ${state.limit}`;
-        }
-        if (state.offset != null) {
-          sql += ` OFFSET ${state.offset}`;
-        }
-        return sql;
-      };
-
-      const builder: QueryBuilderLike = {
-        select: (args: BuilderColumnsInput) => {
-          state.select.push(...(Array.isArray(args) ? args : [args]));
-          return builder;
-        },
-        sum: (column: string, alias?: string) => {
-          state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
-          return builder;
-        },
-        count: (column: string, alias?: string) => {
-          state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
-          return builder;
-        },
-        countDistinct: (column: string, alias?: string) => {
-          state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
-          return builder;
-        },
-        avg: (column: string, alias?: string) => {
-          state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
-          return builder;
-        },
-        min: (column: string, alias?: string) => {
-          state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
-          return builder;
-        },
-        max: (column: string, alias?: string) => {
-          state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
-          return builder;
-        },
-        where: (column: string, operator: string, _value: unknown) => {
-          const op = operator === 'eq' ? '=' : operator;
-          state.where.push(`${column} ${op} ?`);
-          return builder;
-        },
-        groupBy: (args: BuilderColumnsInput) => {
-          state.groupBy.push(...(Array.isArray(args) ? args : [args]));
-          return builder;
-        },
-        orderBy: (column: string, direction?: string) => {
-          state.orderBy.push(`${column} ${direction ?? 'ASC'}`);
-          return builder;
-        },
-        limit: (count: number) => {
-          state.limit = count;
-          return builder;
-        },
-        offset: (count: number) => {
-          state.offset = count;
-          return builder;
-        },
-        toSQLWithParams: () => ({
-          sql: buildSql(),
-          parameters: [],
-        }),
-        execute: vi.fn().mockResolvedValue(mockData),
-      };
-      return builder;
-    }
-
-    return {
-      table: (name: string) => createMockBuilder(),
-      rawQuery: vi.fn().mockResolvedValue(mockData),
-    };
-  }
-
-  function createBrokenDerivedGroupingBuilderFactory(): QueryBuilderFactoryLike {
-    function createBrokenBuilder(): QueryBuilderLike {
-      const state = {
-        select: [] as string[],
-        where: [] as string[],
-        groupBy: [] as string[],
-      };
-
-      const maybeInferBrokenGroupBy = () => {
-        if (state.select.length > 0 && state.groupBy.length === 0) {
-          const aliasMatch = state.select[0].match(/\s+AS\s+([A-Za-z_][A-Za-z0-9_]*)$/i);
-          if (aliasMatch) {
-            state.groupBy.push(aliasMatch[1]);
-          }
-        }
-      };
-
-      const builder: QueryBuilderLike = {
-        select: (args: BuilderColumnsInput) => {
-          state.select.push(...(Array.isArray(args) ? args : [args]));
-          return builder;
-        },
-        sum: (column: string, alias?: string) => {
-          state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
-          return builder;
-        },
-        count: (column: string, alias?: string) => {
-          maybeInferBrokenGroupBy();
-          state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
-          return builder;
-        },
-        countDistinct: (column: string, alias?: string) => {
-          maybeInferBrokenGroupBy();
-          state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
-          return builder;
-        },
-        avg: (column: string, alias?: string) => {
-          maybeInferBrokenGroupBy();
-          state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
-          return builder;
-        },
-        min: (column: string, alias?: string) => {
-          maybeInferBrokenGroupBy();
-          state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
-          return builder;
-        },
-        max: (column: string, alias?: string) => {
-          maybeInferBrokenGroupBy();
-          state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
-          return builder;
-        },
-        where: (column: string, operator: string, _value: unknown) => {
-          const op = operator === 'eq' ? '=' : operator;
-          state.where.push(`${column} ${op} ?`);
-          return builder;
-        },
-        groupBy: (args: BuilderColumnsInput) => {
-          state.groupBy.push(...(Array.isArray(args) ? args : [args]));
-          return builder;
-        },
-        orderBy: () => builder,
-        limit: () => builder,
-        offset: () => builder,
-        toSQLWithParams: () => ({
-          sql: [
-            `SELECT ${state.select.join(', ')} FROM orders`,
-            state.where.length > 0 ? `WHERE ${state.where.join(' AND ')}` : '',
-            state.groupBy.length > 0 ? `GROUP BY ${state.groupBy.join(', ')}` : '',
-          ].filter(Boolean).join(' '),
-          parameters: [],
-        }),
-        execute: vi.fn().mockResolvedValue([]),
-      };
-
-      return builder;
-    }
-
-    return {
-      table: () => createBrokenBuilder(),
-      rawQuery: vi.fn().mockResolvedValue([]),
-    };
-  }
-
+describe("SemanticExecutor", () => {
   const totalRevenue = Orders.metric("totalRevenue", {
     measure: "revenue",
     label: "Total Revenue",
@@ -717,170 +440,6 @@ describe("MetricExecutor", () => {
     uses: { totalRevenue, orderCount },
     formula: ({ totalRevenue, orderCount }) =>
       divide(totalRevenue, nullIfZero(orderCount)),
-  });
-
-  describe("toSQL() — base metrics", () => {
-    it("generates simple aggregate SQL", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
-        dimensions: ["country"],
-      });
-
-      expect(sql).toContain("SELECT country, SUM(amount) AS totalRevenue FROM orders");
-      expect(sql).toContain("GROUP BY country");
-    });
-
-    it("injects tenant WHERE clause", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
-        dimensions: ["country"],
-      }, {
-        runtime: {
-          tenant: { id: "t1" },
-        },
-      });
-
-      expect(sql).toContain("WHERE tenant_id = ?");
-    });
-
-    it("applies user filters", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
-        dimensions: ["country"],
-        filters: [{ field: "status", operator: "eq", value: "completed" }],
-      });
-
-      expect(sql).toContain("status = ?");
-    });
-
-    it("applies ORDER BY and LIMIT", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
-        dimensions: ["country"],
-        orderBy: [{ field: "totalRevenue", direction: "desc" }],
-        limit: 100,
-      });
-
-      expect(sql).toContain("ORDER BY totalRevenue DESC");
-      expect(sql).toContain("LIMIT 100");
-    });
-
-    it("compiles filtered measures into aggregation expressions", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(completedRevenue, {
-        dimensions: ["country"],
-      });
-
-      expect(sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS completedRevenue");
-      expect(sql).toContain("GROUP BY country");
-    });
-
-    it("resolves column aliases for countDistinct metrics", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(uniqueCustomers, {
-        dimensions: ["country"],
-      });
-
-      expect(sql).toContain("COUNT(DISTINCT customer_id) AS uniqueCustomers");
-      expect(sql).not.toContain("COUNT(DISTINCT customerId)");
-    });
-  });
-
-  describe("toSQL() — grained metrics", () => {
-    it("generates time-grained SQL with .by()", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const monthly = totalRevenue.by("month");
-      const sql = executor.toSQL(monthly);
-
-      expect(sql).toContain("toStartOfMonth(created_at) AS period");
-      expect(sql).toContain("GROUP BY period");
-      expect(sql).toContain("ORDER BY period");
-    });
-
-    it("supports grain via query.by", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, { by: "week" });
-
-      expect(sql).toContain("toStartOfWeek(created_at) AS period");
-    });
-
-    it("rejects conflicting query.by on grained metrics", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const monthly = totalRevenue.by("month");
-      const result = executor.validate(monthly, { by: "week" });
-
-      expect(result.valid).toBe(false);
-      expect(result.errors[0]).toContain('already grained by "month"');
-    });
-  });
-
-  describe("toSQL() — derived metrics", () => {
-    it("generates CTE-based SQL", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(avgOrderValue, {
-        dimensions: ["country"],
-      });
-
-      expect(sql).toContain("WITH base AS");
-      expect(sql).toContain("SUM(amount) AS totalRevenue");
-      expect(sql).toContain("COUNT(id) AS orderCount");
-      expect(sql).toContain("FROM base");
-      expect(sql).toContain("(totalRevenue) / (NULLIF(orderCount, 0)) AS avgOrderValue");
-      expect(sql).not.toContain("SELECT country, (totalRevenue) / (NULLIF(orderCount, 0)) AS avgOrderValue, totalRevenue, orderCount FROM base");
-    });
-
-    it("does not emit GROUP BY for ungrouped derived metrics", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(avgOrderValue);
-
-      expect(sql).toContain("WITH base AS");
-      expect(sql).not.toContain("GROUP BY totalRevenue");
-      expect(sql).not.toContain("GROUP BY orderCount");
-    });
-
-    it("rejects derived plans that introduce aggregate aliases into GROUP BY", () => {
-      const executor = new MetricExecutor({ builderFactory: createBrokenDerivedGroupingBuilderFactory() });
-      const result = executor.validate(avgOrderValue, {});
-
-      expect(result.valid).toBe(false);
-      expect(result.errors[0]).toContain("GROUP BY");
-    });
-  });
-
-  describe("run()", () => {
-    it("executes SQL and returns MetricResult", async () => {
-      const builderFactory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory });
-      const result = await executor.run(totalRevenue, {
-        dimensions: ["country"],
-      });
-
-      expect(result.data).toEqual([
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
-      ]);
-      expect(result.meta.sql).toBeDefined();
-      expect(result.meta.timingMs).toBeGreaterThanOrEqual(0);
-    });
-
-    it("passes tenant context to SQL", async () => {
-      const builderFactory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory });
-
-      await executor.run(totalRevenue, {}, {
-        runtime: {
-          tenant: { id: "t1" },
-        },
-      });
-
-      // Verify the SQL was generated (toSQL includes tenant filter)
-      const sql = executor.toSQL(totalRevenue, {}, {
-        runtime: {
-          tenant: { id: "t1" },
-        },
-      });
-      expect(sql).toContain("tenant_id");
-    });
   });
 
   describe("createExecutor()", () => {
@@ -927,59 +486,14 @@ describe("MetricExecutor", () => {
         { country: "DE", revenue: 75, orderCount: 1 },
       ]);
     });
-
-    it("executes metric queries through the semantic executor", async () => {
-      const builderFactory = createMockBuilderFactory();
-      const executor = createExecutor({ queryBuilder: builderFactory });
-
-      const result = await executor.metric(totalRevenue, {
-        dimensions: ["country"],
-      });
-
-      expect(result.data).toEqual([
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
-      ]);
-      expect(result.meta.sql).toContain("SUM(amount) AS totalRevenue");
-    });
-
-    it("executes dataset queries through the semantic executor", async () => {
-      const builderFactory = createMockBuilderFactory();
-      const executor = createExecutor({ queryBuilder: builderFactory });
-
-      const result = await executor.dataset(Orders, {
-        dimensions: ["country"],
-        measures: ["revenue"],
-      });
-
-      expect(result.data).toEqual([
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
-      ]);
-      expect(result.meta.sql).toContain("SELECT country, SUM(amount) AS revenue FROM orders");
-    });
-
-    it("generates and validates dataset queries", () => {
-      const builderFactory = createMockBuilderFactory();
-      const executor = createExecutor({ queryBuilder: builderFactory });
-
-      const validation = executor.validateDataset(Orders, {
-        dimensions: ["country"],
-        measures: ["revenue"],
-      });
-      const sql = executor.datasetSQL(Orders, {
-        dimensions: ["country"],
-        measures: ["revenue"],
-      });
-
-      expect(validation.valid).toBe(true);
-      expect(sql).toContain("GROUP BY country");
-    });
   });
 
   describe("validate()", () => {
+    const executor = createExecutor({
+      backend: createInMemoryBackend({ orders: [] }),
+    });
+
     it("accepts valid queries", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         dimensions: ["country", "status"],
       });
@@ -987,7 +501,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects unknown dimensions", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         dimensions: ["nonexistent"],
       });
@@ -996,7 +509,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects unknown filter fields", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         filters: [{ field: "nonexistent", operator: "eq", value: "x" }],
       });
@@ -1004,7 +516,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects incompatible filter values", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "eq", value: "not-a-number" }],
       });
@@ -1013,7 +524,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects empty arrays for in/notIn filters", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         filters: [{ field: "status", operator: "in", value: [] }],
       });
@@ -1022,7 +532,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects malformed between filters", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "between", value: [1] }],
       });
@@ -1031,7 +540,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects like on numeric fields", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "like", value: "%100%" }],
       });
@@ -1040,7 +548,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects unknown orderBy fields", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         dimensions: ["country"],
         orderBy: [{ field: "amount", direction: "desc" }],
@@ -1050,7 +557,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects exceeding dimension limits", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         dimensions: ["id", "customerId", "country", "status", "amount", "createdAt"],
       });
@@ -1059,7 +565,6 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects explicit tenant filters when runtime tenancy is active", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
       const result = executor.validate(totalRevenue, {
         filters: [{ field: "tenantId", operator: "eq", value: "t1" }],
       }, {

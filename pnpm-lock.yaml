@@ -333,6 +333,9 @@ importers:
       '@clickhouse/client':
         specifier: ^1.18.3
         version: 1.18.3
+      '@hypequery/datasets':
+        specifier: workspace:*
+        version: link:../datasets
       dotenv:
         specifier: ^16.0.0
         version: 16.6.1
@@ -343,9 +346,6 @@ importers:
       '@clickhouse/client-web':
         specifier: ^1.18.3
         version: 1.18.3
-      '@hypequery/datasets':
-        specifier: workspace:*
-        version: link:../datasets
       '@types/node':
         specifier: ^18.19.80
         version: 18.19.130

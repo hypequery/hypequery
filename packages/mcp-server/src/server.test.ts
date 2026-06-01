@@ -23,8 +23,6 @@ describe('HypequeryMCPServer', () => {
   const mockExecutor: SemanticExecutor = {
     metric: vi.fn(),
     dataset: vi.fn(),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any;
 
   const mockDatasets = {
@@ -133,8 +131,6 @@ describe('HypequeryMCPServer config validation', () => {
   const mockExecutor: SemanticExecutor = {
     metric: vi.fn(),
     dataset: vi.fn(),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any;
 
   it('should accept undefined datasets', () => {
@@ -180,8 +176,6 @@ describe('HypequeryMCPServer with complex datasets', () => {
   const mockExecutor: SemanticExecutor = {
     metric: vi.fn(),
     dataset: vi.fn(),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any;
 
   it('should handle dataset with relationships', () => {

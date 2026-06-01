@@ -41,7 +41,7 @@ async function main() {
     console.error('The config file should export { datasets, executor }:');
     console.error('');
     console.error('  export const datasets = { ... };');
-    console.error('  export const executor = createExecutor({ queryBuilder });');
+    console.error('  export const executor = createDatasetClient({ ...clickhouseConfig });');
     process.exit(1);
   }
 

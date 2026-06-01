@@ -8,11 +8,11 @@
  *   node dist/bin.js --config examples/system-numbers-config.js
  */
 
-import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
 // Connect to local ClickHouse (defaults)
-const builderFactory = createQueryBuilder({
+const executor = createDatasetClient({
   host: process.env.CLICKHOUSE_HOST || 'localhost',
   username: process.env.CLICKHOUSE_USER || 'default',
   password: process.env.CLICKHOUSE_PASSWORD || '',
@@ -46,7 +46,7 @@ export const datasets = {
   },
 };
 
-export const executor = createExecutor({ queryBuilder: builderFactory });
+export { executor };
 
 /**
  * Test queries to try with Claude:

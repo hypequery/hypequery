@@ -19,9 +19,7 @@ import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { createExecutor } from "@hypequery/datasets";
 import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
-import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js";
 
 const assertSemanticKeyAvailable = (
   queryEntries: Record<string, unknown>,
@@ -80,18 +78,13 @@ export const createAPI = <
   const authStrategies = ensureArray<AuthStrategy<TAuth>>(config.auth);
   const globalTenantConfig = config.tenant;
   const baseContextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
-  const contextFactory: ServeContextFactory<TContext, TAuth> | undefined = baseContextFactory || config.queryBuilder
+  const contextFactory: ServeContextFactory<TContext, TAuth> | undefined = baseContextFactory
     ? async ({ request, auth }) => {
-        const baseContext = baseContextFactory
+        return baseContextFactory
           ? typeof baseContextFactory === "function"
             ? await baseContextFactory({ request, auth })
             : baseContextFactory
           : ({} as TContext);
-
-        return attachSemanticQueryBuilder(
-          { ...(baseContext as TContext) },
-          config.queryBuilder,
-        ) as TContext;
       }
     : undefined;
   const hooks = (config.hooks ?? {}) as ServeLifecycleHooks<TAuth>;
@@ -154,20 +147,18 @@ export const createAPI = <
   // Process metrics — auto-generate POST endpoints
   if (config.metrics) {
     const metricsEntries = config.metrics;
-    const builderFactory = config.queryBuilder;
+    const semanticExecutor = config.semanticExecutor;
 
-    if (!builderFactory) {
+    if (!semanticExecutor) {
       throw new Error(
-        'createAPI: `queryBuilder` is required when `metrics` is provided. ' +
-        'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
+        'createAPI: `semanticExecutor` is required when `metrics` is provided. ' +
+        'Pass createExecutor({ backend }) or createDatasetClient(config).',
       );
     }
 
-    const executor = createExecutor({ queryBuilder: builderFactory });
-
     for (const [name, entry] of Object.entries(metricsEntries)) {
       assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, name, "metric");
-      const metricEndpoint = createMetricEndpoint(name, entry, executor);
+      const metricEndpoint = createMetricEndpoint(name, entry, semanticExecutor);
       const metricsPath = config.semanticPaths?.metrics ?? '/metrics';
       const routePath = normalizeRoutePath(`${metricsPath}/${name}`);
 
@@ -184,12 +175,12 @@ export const createAPI = <
   // Process datasets — auto-generate POST endpoints for semantic dataset queries
   if (config.datasets) {
     const datasetEntries = config.datasets;
-    const builderFactory = config.queryBuilder;
+    const semanticExecutor = config.semanticExecutor;
 
-    if (!builderFactory) {
+    if (!semanticExecutor) {
       throw new Error(
-        'createAPI: `queryBuilder` is required when `datasets` is provided. ' +
-        'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
+        'createAPI: `semanticExecutor` is required when `datasets` is provided. ' +
+        'Pass createExecutor({ backend }) or createDatasetClient(config).',
       );
     }
 
@@ -198,7 +189,7 @@ export const createAPI = <
       const datasetEndpoint = createDatasetEndpoint(
         name,
         entry,
-        builderFactory,
+        semanticExecutor,
       );
       const datasetsPath = config.semanticPaths?.datasets ?? '/datasets';
       const routePath = normalizeRoutePath(`${datasetsPath}/${name}/query`);

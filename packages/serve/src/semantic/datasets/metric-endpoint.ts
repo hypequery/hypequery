@@ -3,7 +3,7 @@
  *
  * The generated endpoint is a POST handler that:
  * - Validates dimensions/filters against the metric's contract
- * - Calls MetricExecutor.run() with the parsed query + tenant context
+ * - Calls SemanticExecutor.metric() with the parsed query + tenant context
  * - Returns { data } or { data, meta } based on headers
  */
 
@@ -18,13 +18,10 @@ import type {
   ServeMiddleware,
   TenantConfigOverride,
 } from '../../types.js';
-import type { MetricContract, MetricHandle } from '@hypequery/datasets';
-import { MetricExecutor } from '@hypequery/datasets';
+import type { MetricContract, MetricHandle, SemanticExecutor } from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
-  resolveSemanticQueryBuilder,
-  resolveSemanticTenantHandledByBuilder,
 } from '../query-builder-context.js';
 
 // ---------------------------------------------------------------------------
@@ -113,7 +110,7 @@ function resolveMetricEntry<TAuth extends AuthContext>(
 export function createMetricEndpoint<TAuth extends AuthContext>(
   name: string,
   entry: MetricEntry<TAuth>,
-  executor: MetricExecutor,
+  executor: SemanticExecutor,
 ): ServeEndpoint<typeof metricQueryInputSchema, typeof metricResultSchema, any, TAuth, any> {
   const resolved = resolveMetricEntry(entry);
   const metricRef = resolved.metric;
@@ -140,12 +137,6 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     const semanticContext: Record<string, unknown> = ctx;
     const input = ctx.input ?? {};
     const runtime = resolveSemanticExecutionRuntime(semanticContext);
-    const runtimeBuilderFactory = resolveSemanticQueryBuilder(
-      semanticContext,
-      executor.getBuilderFactory(),
-    );
-    const tenantHandledByBuilder = resolveSemanticTenantHandledByBuilder(semanticContext)
-      || (ctx.tenantId != null && runtimeBuilderFactory !== executor.getBuilderFactory());
 
     // Build the metric query
     const query = {
@@ -182,11 +173,10 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     }
 
     // Execute with tenant context
-    const result = await executor.run(metricRef, query, {
+    const result = await executor.metric(metricRef, query, {
       runtime: {
         ...runtime,
-        builderFactory: runtimeBuilderFactory,
-        tenant: tenantHandledByBuilder ? undefined : runtime?.tenant,
+        tenant: runtime?.tenant,
       },
     });
 

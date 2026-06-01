@@ -1,4 +1,5 @@
 import {
+  createQueryBuilder,
   toStartOfMinute,
   toStartOfHour,
   toStartOfDay,
@@ -36,6 +37,20 @@ describe('Public exports', () => {
 
     expect(typeof client.metric).toBe('function');
     expect(typeof client.dataset).toBe('function');
+  });
+
+  it('exposes datasets execution from the root query builder', () => {
+    const db = createQueryBuilder({
+      adapter: {
+        name: 'test',
+        query: async () => [],
+      },
+    });
+    const client = db.datasets();
+
+    expect(typeof client.metric).toBe('function');
+    expect(typeof client.dataset).toBe('function');
+    expect(db.datasets()).toBe(client);
   });
 
   it('renders semantic dataset plans through the ClickHouse datasets backend', async () => {

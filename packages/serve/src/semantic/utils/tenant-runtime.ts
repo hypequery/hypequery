@@ -1,12 +1,10 @@
 import { createTenantScope, warnTenantMisconfiguration } from '../../tenant.js';
 import type { EndpointMetadata } from '../../types.js';
 import {
-  attachSemanticRuntime,
   attachSemanticTenantRuntime,
-  resolveSemanticExecutionRuntime,
 } from '../query-builder-context.js';
 
-type QueryBuilderLikeContext = {
+type TableFactoryContext = {
   table: (name: string) => unknown;
 };
 
@@ -20,7 +18,7 @@ function usesServeTenantRuntimeMetadata(metadata: EndpointMetadata): boolean {
   );
 }
 
-function hasTableFactory(value: unknown): value is QueryBuilderLikeContext {
+function hasTableFactory(value: unknown): value is TableFactoryContext {
   return !!value && typeof value === 'object' && 'table' in value && typeof value.table === 'function';
 }
 
@@ -36,37 +34,14 @@ export function applySemanticTenantRuntime<TContext extends Record<string, unkno
 ): void {
   const mutableContext: Record<string, unknown> = context;
   const usesServeTenantRuntime = usesServeTenantRuntimeMetadata(options.metadata);
-  const semanticRuntime = resolveSemanticExecutionRuntime(context);
 
-  if (options.mode === 'auto-inject' && options.column && semanticRuntime?.builderFactory) {
-    Object.assign(
-      context,
-      attachSemanticRuntime(context, {
-        builderFactory: createTenantScope(semanticRuntime.builderFactory, {
-          tenantId: options.tenantId,
-          column: options.column,
-        }),
-        tenant: {
-          id: options.tenantId,
-        },
-      }),
-    );
-    Object.assign(
-      context,
-      attachSemanticTenantRuntime(context, {
-        tenantId: options.tenantId,
-        tenantHandledByBuilder: true,
-      }),
-    );
-  } else {
-    Object.assign(
-      context,
-      attachSemanticTenantRuntime(context, {
-        tenantId: options.tenantId,
-        tenantHandledByBuilder: false,
-      }),
-    );
-  }
+  Object.assign(
+    context,
+    attachSemanticTenantRuntime(context, {
+      tenantId: options.tenantId,
+      column: options.mode === 'auto-inject' ? options.column : undefined,
+    }),
+  );
 
   if (options.mode === 'auto-inject' && options.column) {
     for (const key of Object.keys(mutableContext)) {

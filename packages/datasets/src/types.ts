@@ -1,4 +1,3 @@
-import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
 import type { SemanticExpression } from './semantic-plan.js';
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
@@ -71,7 +70,6 @@ export interface MeasureDefinition {
 export type FormulaExpr = {
   __type: 'formula_expr';
   expression: SemanticExpression;
-  toSQL: () => string;
 };
 
 export interface DerivedMetricSpec<TDatasetName extends string = string> {
@@ -197,10 +195,10 @@ export interface DatasetQueryResult<T = Record<string, unknown>> {
 
 export interface SemanticTenantRuntime {
   id: string;
+  column?: string;
 }
 
 export interface SemanticExecutionRuntime {
-  builderFactory?: QueryBuilderFactoryLike;
   tenant?: SemanticTenantRuntime;
 }
 

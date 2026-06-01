@@ -10,8 +10,6 @@ describe('queryDatasetTool', () => {
   const createMockExecutor = (mockResult: any): SemanticExecutor => ({
     metric: vi.fn(),
     dataset: vi.fn().mockResolvedValue(mockResult),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any);
 
   it('should throw error when dataset parameter is missing', async () => {
@@ -74,11 +72,6 @@ describe('queryDatasetTool', () => {
         measures: [],
         filters: [],
         orderBy: [],
-      },
-      {
-        runtime: {
-          tenant: undefined,
-        },
       }
     );
   });
@@ -107,8 +100,7 @@ describe('queryDatasetTool', () => {
       expect.objectContaining({
         measures: ['revenue', 'count'],
         dimensions: [],
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -140,8 +132,7 @@ describe('queryDatasetTool', () => {
       expect.objectContaining({
         dimensions: ['region'],
         measures: ['revenue'],
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -172,8 +163,7 @@ describe('queryDatasetTool', () => {
       expect.anything(),
       expect.objectContaining({
         filters,
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -202,8 +192,7 @@ describe('queryDatasetTool', () => {
       expect.anything(),
       expect.objectContaining({
         by: 'week',
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -240,8 +229,7 @@ describe('queryDatasetTool', () => {
       expect.objectContaining({
         orderBy,
         limit: 5,
-      }),
-      expect.anything()
+      })
     );
   });
 
@@ -325,8 +313,7 @@ describe('queryDatasetTool', () => {
       expect.objectContaining({
         filters: [],
         orderBy: [],
-      }),
-      expect.anything()
+      })
     );
   });
 });

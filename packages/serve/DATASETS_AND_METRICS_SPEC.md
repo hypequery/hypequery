@@ -1,6 +1,6 @@
 # Semantic Datasets & Metrics API — Implementation Spec v3
 
-> **Status:** Draft v3 — updated to match the current pre-release implementation direction.
+> **Status:** Historical draft v3. The current implementation now routes serve semantic endpoints through `semanticExecutor` / `createDatasetClient`; older `MetricExecutor` and `queryBuilder` sections below are retained as design history and should not be treated as the current public DX.
 > **Prerequisite:** The `createAPI()` / transport-separation PR.
 
 ## Docs Notes
@@ -15,7 +15,7 @@ When these packages are ready for public docs, the first docs pass should focus 
   - derived metrics
   - `.by(grain)`
   - runtime tenancy shape
-  - `MetricExecutor`
+  - `SemanticExecutor`
   - intentional root exports only; serve-only helpers should stay under `@hypequery/datasets/internal`
 - `@hypequery/serve`
   - generated metric endpoints

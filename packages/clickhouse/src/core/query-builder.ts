@@ -1,3 +1,4 @@
+import { createExecutor, type SemanticExecutor } from '@hypequery/datasets';
 import type { DatabaseAdapter, QueryExecutionOptions } from './adapters/database-adapter.js';
 import { createClickHouseAdapter } from './adapters/clickhouse-adapter.js';
 import { ClickHouseDialect } from './dialects/clickhouse-dialect.js';
@@ -42,6 +43,7 @@ import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.
 import { normalizeFilterApplication } from './utils/filter-application.js';
 import { toLegacyQueryConfig } from './utils/query-config-compat.js';
 import { applyRelationPath, resolveRelationPath } from './utils/relation-application.js';
+import { createClickHouseSemanticBackendFromQueryBuilder } from '../semantic-backend.js';
 import type {
   BuilderState,
   AnyBuilderState,
@@ -1126,8 +1128,9 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
   const resolvedDialect = dialect ?? new ClickHouseDialect();
   const namespace = cacheConfig?.namespace || resolvedAdapter.namespace || resolvedAdapter.name;
   const { runtime, cacheController } = initializeCacheRuntime(cacheConfig, namespace);
+  let datasetsClient: SemanticExecutor | undefined;
 
-  return {
+  const root = {
     cache: cacheController,
     adapter: resolvedAdapter,
     dialect: resolvedDialect,
@@ -1161,6 +1164,14 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         resolvedAdapter,
         resolvedDialect,
       );
-    }
+    },
+    datasets(): SemanticExecutor {
+      datasetsClient ??= createExecutor({
+        backend: createClickHouseSemanticBackendFromQueryBuilder(root),
+      });
+      return datasetsClient;
+    },
   };
+
+  return root;
 }

@@ -6,9 +6,11 @@ import {
   measure,
   divide,
   nullIfZero,
-  MetricExecutor,
-  type QueryBuilderLike,
-  type QueryBuilderFactoryLike,
+  createExecutor,
+  type PlanNode,
+  type SemanticExpression,
+  type SemanticBackend,
+  type SemanticBackendResult,
 } from '@hypequery/datasets';
 import type { ServeRequest } from '../../types.js';
 import type { ServeQueryEvent } from '../../query-logger.js';
@@ -205,7 +207,10 @@ function createRequest(overrides: Partial<ServeRequest> = {}): ServeRequest {
 
 function createMockBuilderFactory(
   mockDataOverride?: Array<Record<string, unknown>>,
-): QueryBuilderFactoryLike & { _calls: Record<string, unknown[][]> } {
+): SemanticBackend & {
+  _calls: Record<string, unknown[][]>;
+  rawQuery: ReturnType<typeof vi.fn>;
+} {
   const calls: Record<string, unknown[][]> = {};
   const track = (name: string, ...args: unknown[]) => {
     calls[name] = calls[name] || [];
@@ -217,113 +222,113 @@ function createMockBuilderFactory(
     { country: "DE", totalRevenue: 3000 },
   ];
 
-  function createMockBuilder(source: string): QueryBuilderLike {
-    const state: {
-      source: string;
-      select: string[];
-      where: string[];
-      groupBy: string[];
-      orderBy: string[];
-      limit?: number;
-      offset?: number;
-    } = {
-      source,
-      select: [],
-      where: [],
-      groupBy: [],
-      orderBy: [],
-    };
-
-    const buildSql = () => [
-      `SELECT ${state.select.join(', ')} FROM ${state.source}`,
-      state.where.length > 0 ? `WHERE ${state.where.join(' AND ')}` : '',
-      state.groupBy.length > 0 ? `GROUP BY ${state.groupBy.join(', ')}` : '',
-      state.orderBy.length > 0 ? `ORDER BY ${state.orderBy.join(', ')}` : '',
-      state.limit != null ? `LIMIT ${state.limit}` : '',
-      state.offset != null ? `OFFSET ${state.offset}` : '',
-    ].filter(Boolean).join(' ');
-
-    const builder: QueryBuilderLike = {
-      select: (columns: string[] | string) => {
-        track('select', columns);
-        state.select.push(...(Array.isArray(columns) ? columns : [columns]));
-        return builder;
-      },
-      sum: (column: string, alias?: string) => {
-        track('sum', column, alias);
-        state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
-        return builder;
-      },
-      count: (column: string, alias?: string) => {
-        track('count', column, alias);
-        state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
-        return builder;
-      },
-      countDistinct: (column: string, alias?: string) => {
-        track('countDistinct', column, alias);
-        state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
-        return builder;
-      },
-      avg: (column: string, alias?: string) => {
-        track('avg', column, alias);
-        state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
-        return builder;
-      },
-      min: (column: string, alias?: string) => {
-        track('min', column, alias);
-        state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
-        return builder;
-      },
-      max: (column: string, alias?: string) => {
-        track('max', column, alias);
-        state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
-        return builder;
-      },
-      where: (column: string, operator: string, value: unknown) => {
-        track('where', column, operator, value);
-        const sqlOperator = operator === 'eq' ? '=' : operator;
-        state.where.push(`${column} ${sqlOperator} ?`);
-        return builder;
-      },
-      groupBy: (columns: string | string[]) => {
-        track('groupBy', columns);
-        state.groupBy.push(...(Array.isArray(columns) ? columns : [columns]));
-        return builder;
-      },
-      orderBy: (column: string, direction?: 'ASC' | 'DESC') => {
-        track('orderBy', column, direction);
-        state.orderBy.push(`${column} ${direction ?? 'ASC'}`);
-        return builder;
-      },
-      limit: (count: number) => {
-        track('limit', count);
-        state.limit = count;
-        return builder;
-      },
-      offset: (count: number) => {
-        track('offset', count);
-        state.offset = count;
-        return builder;
-      },
-      toSQLWithParams: () => ({
-        sql: buildSql(),
-        parameters: [],
-      }),
-      execute: vi.fn().mockResolvedValue(mockData),
-    };
-    return builder;
+  function grainSql(unit: string, field: string) {
+    const fn = {
+      day: 'toStartOfDay',
+      week: 'toStartOfWeek',
+      month: 'toStartOfMonth',
+      quarter: 'toStartOfQuarter',
+      year: 'toStartOfYear',
+    }[unit] ?? `toStartOf${unit}`;
+    return `${fn}(${field}) AS period`;
   }
+
+  function renderAggregate(plan: Extract<PlanNode, { kind: 'aggregate' }>): string {
+    track('table', plan.source);
+    const select = [
+      ...(plan.grain ? [grainSql(plan.grain.unit, plan.grain.field)] : []),
+      ...plan.dimensions.map((dimension) => (
+        dimension.field === dimension.name ? dimension.name : `${dimension.field} AS ${dimension.name}`
+      )),
+    ];
+    if (select.length > 0) {
+      track('select', select);
+    }
+
+    for (const aggregation of plan.aggregations) {
+      track(aggregation.aggregation, aggregation.field, aggregation.name);
+      select.push(`${aggregation.aggregation.toUpperCase()}(${aggregation.field}) AS ${aggregation.name}`);
+    }
+
+    const where: string[] = [];
+    if (plan.tenant) {
+      track('where', plan.tenant.field, 'eq', plan.tenant.value);
+      where.push(`${plan.tenant.field} = ?`);
+    }
+    for (const filter of plan.filters ?? []) {
+      track('where', filter.field, filter.operator, filter.value);
+      where.push(`${filter.field} ${filter.operator === 'eq' ? '=' : filter.operator} ?`);
+    }
+
+    const groupBy = [
+      ...(plan.grain ? [plan.grain.output] : []),
+      ...plan.dimensions.map((dimension) => dimension.name),
+    ];
+    if (groupBy.length > 0) {
+      track('groupBy', groupBy);
+    }
+
+    const effectiveOrderBy = plan.orderBy?.length
+      ? plan.orderBy
+      : plan.grain
+        ? [{ field: plan.grain.output, direction: 'asc' as const }]
+        : [];
+    const orderBy = effectiveOrderBy.map((order) => `${order.field} ${order.direction.toUpperCase()}`);
+    for (const order of effectiveOrderBy) {
+      track('orderBy', order.field, order.direction.toUpperCase());
+    }
+    if (plan.limit != null) track('limit', plan.limit);
+    if (plan.offset != null) track('offset', plan.offset);
+
+    return [
+      `SELECT ${select.join(', ')} FROM ${plan.source}`,
+      where.length > 0 ? `WHERE ${where.join(' AND ')}` : '',
+      groupBy.length > 0 ? `GROUP BY ${groupBy.join(', ')}` : '',
+      orderBy.length > 0 ? `ORDER BY ${orderBy.join(', ')}` : '',
+      plan.limit != null ? `LIMIT ${plan.limit}` : '',
+      plan.offset != null ? `OFFSET ${plan.offset}` : '',
+    ].filter(Boolean).join(' ');
+  }
+
+  function renderPlan(plan: PlanNode): string {
+    if (plan.kind === 'aggregate') {
+      return renderAggregate(plan);
+    }
+    const inputSql = plan.input.kind === 'aggregate' ? renderAggregate(plan.input) : 'SELECT *';
+    const renderExpression = (expression: SemanticExpression): string => {
+      if (expression.kind === 'ref') return expression.name;
+      if (expression.kind === 'literal') return String(expression.value);
+      if (expression.kind === 'binary') {
+        const operator = { add: '+', subtract: '-', multiply: '*', divide: '/' }[expression.operator];
+        return `(${renderExpression(expression.left)}) ${operator} (${renderExpression(expression.right)})`;
+      }
+      if (expression.name === 'nullIfZero') {
+        return `NULLIF(${renderExpression(expression.args[0])}, 0)`;
+      }
+      return `${String(expression.name).toUpperCase()}(${expression.args.map(renderExpression).join(', ')})`;
+    };
+    return `WITH base AS (${inputSql}) SELECT ${plan.metrics.map((metric) => `${renderExpression(metric.expression)} AS ${metric.name}`).join(', ')} FROM base`;
+  }
+
+  const rawQuery = vi.fn((sql: string, params?: unknown[]) => {
+    track('rawQuery', sql, params);
+    return Promise.resolve(mockData);
+  });
 
   return {
     _calls: calls,
-    table: (name: string) => {
-      track('table', name);
-      return createMockBuilder(name);
+    rawQuery,
+    async execute<T = Record<string, unknown>>(plan: PlanNode): Promise<SemanticBackendResult<T>> {
+      const sql = renderPlan(plan);
+      if (plan.kind === 'derive') {
+        await rawQuery(sql, []);
+      }
+      const tenant = plan.kind === 'aggregate' ? plan.tenant?.value : plan.input.kind === 'aggregate' ? plan.input.tenant?.value : undefined;
+      return {
+        data: mockData as T[],
+        meta: { sql, timingMs: 0, tenant },
+      };
     },
-    rawQuery: vi.fn((sql: string, params?: unknown[]) => {
-      track('rawQuery', sql, params);
-      return Promise.resolve(mockData);
-    }),
   };
 }
 
@@ -337,18 +342,18 @@ afterEach(() => {
 
 describe("Serve integration — metrics", () => {
   describe("createAPI with metrics", () => {
-    it("throws if queryBuilder is missing when metrics are provided", () => {
+    it("throws if semanticExecutor is missing when metrics are provided", () => {
       expect(() =>
         createAPI({
           metrics: { totalRevenue },
         })
-      ).toThrow("queryBuilder");
+      ).toThrow("semanticExecutor");
     });
 
     it("creates API with metric endpoints", () => {
       const api = createAPI({
         metrics: { totalRevenue, orderCount },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       expect(api).toBeDefined();
@@ -361,7 +366,7 @@ describe("Serve integration — metrics", () => {
           ping: { query: async () => ({ ok: true }) },
         },
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       expect(api).toBeDefined();
@@ -374,7 +379,7 @@ describe("Serve integration — metrics", () => {
             totalRevenue: { query: async () => ({ ok: true }) },
           },
           metrics: { totalRevenue },
-          queryBuilder: createMockBuilderFactory(),
+          semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
         })
       ).toThrow('metric "totalRevenue" collides with an existing query key');
     });
@@ -385,7 +390,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -407,7 +412,7 @@ describe("Serve integration — metrics", () => {
     it("returns 404 for unknown metric", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -424,7 +429,7 @@ describe("Serve integration — metrics", () => {
     it("returns 400 for invalid dimensions", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -442,7 +447,7 @@ describe("Serve integration — metrics", () => {
     it("returns 400 for disallowed metric filter operators", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -463,7 +468,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       await api.handler(
@@ -490,7 +495,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       await api.handler(
@@ -509,7 +514,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { monthlyRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       await api.handler(
@@ -529,7 +534,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { monthlyRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -548,7 +553,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { avgOrderValue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       await api.handler(
@@ -568,7 +573,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { monthlyRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -595,7 +600,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { aliasedRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -623,7 +628,7 @@ describe("Serve integration — metrics", () => {
     it("excludes meta by default", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -640,7 +645,7 @@ describe("Serve integration — metrics", () => {
     it("includes meta when X-Include-Meta header is set", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -659,12 +664,11 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).meta.sql).toBeDefined();
     });
 
-    it("matches MetricExecutor.toSQL() for base metrics", async () => {
+    it("returns backend meta for base metrics", async () => {
       const factory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory: factory });
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
       const query = {
         dimensions: ["country"],
@@ -686,15 +690,15 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(semanticBody(response).meta.sql).toBe(executor.toSQL(totalRevenue, query));
+      expect(semanticBody(response).meta.sql).toContain("SUM(amount) AS totalRevenue");
+      expect(semanticBody(response).meta.sql).toContain("ORDER BY totalRevenue DESC");
     });
 
-    it("matches MetricExecutor.toSQL() for derived metrics", async () => {
+    it("returns backend meta for derived metrics", async () => {
       const factory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory: factory });
       const api = createAPI({
         metrics: { avgOrderValue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
       const query = {
         dimensions: ["country"],
@@ -713,7 +717,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(semanticBody(response).meta.sql).toBe(executor.toSQL(avgOrderValue, query));
+      expect(semanticBody(response).meta.sql).toContain("WITH base AS");
+      expect(semanticBody(response).meta.sql).toContain("avgOrderValue");
     });
   });
 
@@ -722,7 +727,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -755,7 +760,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -787,7 +792,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { tenantFilteredRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -817,11 +822,11 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).error.message).toContain('Cannot filter on tenant field "tenantId"');
     });
 
-    it("prefers the Serve tenant column when auto-inject wraps the internal query builder", async () => {
+    it("prefers the Serve tenant column when auto-inject populates semantic runtime", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -856,7 +861,7 @@ describe("Serve integration — metrics", () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -890,7 +895,7 @@ describe("Serve integration — metrics", () => {
     it("accepts shorthand metric entry", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -912,7 +917,7 @@ describe("Serve integration — metrics", () => {
             cache: 60_000,
           },
         },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -934,7 +939,7 @@ describe("Serve integration — metrics", () => {
             auth: async () => null, // always reject
           },
         },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -956,7 +961,7 @@ describe("Serve integration — metrics", () => {
             tenant: { required: false },
           },
         },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
         auth: async () => ({ userId: "user-123" }),
         tenant: {
           extract: optionalTenantId,
@@ -980,7 +985,7 @@ describe("Serve integration — metrics", () => {
     it("includes metric endpoints in OpenAPI spec", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -1000,7 +1005,7 @@ describe("Serve integration — metrics", () => {
     it("documents metric request body fields in OpenAPI", async () => {
       const api = createAPI({
         metrics: { totalRevenue, monthlyRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -1029,7 +1034,7 @@ describe("Serve integration — metrics", () => {
     it("includes metric endpoints in describe output", () => {
       const api = createAPI({
         metrics: { totalRevenue, orderCount },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const description = api.describe();
@@ -1043,7 +1048,7 @@ describe("Serve integration — metrics", () => {
       const events: ServeQueryEvent[] = [];
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       api.queryLogger.on((event) => events.push(event));
@@ -1063,33 +1068,33 @@ describe("Serve integration — metrics", () => {
   });
 
   // ===========================================================================
-  // queryBuilder path (new)
+  // semanticExecutor path
   // ===========================================================================
 
-  describe("queryBuilder config path", () => {
+  describe("semanticExecutor config path", () => {
 
-    it("creates API with queryBuilder instead of metricAdapter", () => {
+    it("creates API with semanticExecutor", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       expect(api).toBeDefined();
       expect(api.handler).toBeDefined();
     });
 
-    it("throws if neither queryBuilder nor metricAdapter is provided", () => {
+    it("throws if semanticExecutor is not provided", () => {
       expect(() =>
         createAPI({ metrics: { totalRevenue } })
-      ).toThrow("queryBuilder");
+      ).toThrow("semanticExecutor");
     });
 
     it("executes base metric queries via builder.execute()", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1117,7 +1122,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       await api.handler(
@@ -1139,7 +1144,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1161,7 +1166,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       await api.handler(
@@ -1182,7 +1187,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       await api.handler(
@@ -1209,7 +1214,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -1244,7 +1249,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { avgOrderValue },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1267,7 +1272,7 @@ describe("Serve integration — metrics", () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { monthlyAverageOrderValue: avgOrderValue.by("month") },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1293,7 +1298,7 @@ describe("Serve integration — metrics", () => {
       ]);
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1326,7 +1331,7 @@ describe("Serve integration — metrics", () => {
       ]);
       const api = createAPI({
         datasets: { ordersWithAliases: OrdersWithAliases },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1360,7 +1365,7 @@ describe("Serve integration — metrics", () => {
       ]);
       const api = createAPI({
         datasets: { ordersWithAliases: OrdersWithAliases },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1388,7 +1393,7 @@ describe("Serve integration — metrics", () => {
       ]);
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1422,7 +1427,7 @@ describe("Serve integration — metrics", () => {
             maxLimit: 50,
           },
         },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1447,7 +1452,7 @@ describe("Serve integration — metrics", () => {
       ]);
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
       });
 
       const response = await api.handler(
@@ -1476,7 +1481,7 @@ describe("Serve integration — metrics", () => {
       ]);
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -1514,7 +1519,7 @@ describe("Serve integration — metrics", () => {
       ]);
       const api = createAPI({
         datasets: { orders: Orders },
-        queryBuilder: factory,
+        semanticExecutor: createExecutor({ backend: factory }),
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
           if (key === 'valid') return { tenantId: 'tenant-123' };
@@ -1553,7 +1558,7 @@ describe("Serve integration — metrics", () => {
       });
       const api = createAPI({
         datasets: { emptyDataset: EmptyDataset },
-        queryBuilder: createMockBuilderFactory(),
+        semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
       });
 
       const response = await api.handler(
@@ -1575,7 +1580,7 @@ describe("Serve integration — metrics", () => {
             "dataset:orders": { query: async () => ({ ok: true }) },
           },
           datasets: { orders: Orders },
-          queryBuilder: createMockBuilderFactory(),
+          semanticExecutor: createExecutor({ backend: createMockBuilderFactory() }),
         })
       ).toThrow('dataset "dataset:orders" collides with an existing query key');
     });

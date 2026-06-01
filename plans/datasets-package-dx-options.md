@@ -1,5 +1,12 @@
 # Datasets Package DX and Package Structure Options
 
+> Current implementation note: the legacy `createExecutor({ queryBuilder })` and
+> `MetricExecutor` datasets APIs have been removed. `@hypequery/datasets`
+> now accepts a neutral `SemanticBackend` via `createExecutor({ backend })`, and
+> ClickHouse users should use `createDatasetClient(...)` from
+> `@hypequery/clickhouse/datasets`. Older snippets in this planning note are
+> historical context, not the target public DX.
+
 ## Context
 
 `@hypequery/datasets` is pre-release, so we can still make breaking changes to its public API. The constraint is that the existing root `@hypequery/clickhouse` API should not break. Existing ClickHouse users should still be able to import and use:
