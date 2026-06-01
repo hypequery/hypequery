@@ -32,8 +32,19 @@ export {
 export { createDatasetRegistry } from './registry.js';
 
 // Executor
-export { MetricExecutor } from './executor.js';
-export type { MetricExecutorOptions } from './executor.js';
+export { createExecutor, SemanticExecutor, MetricExecutor } from './executor.js';
+export type { SemanticExecutorOptions, MetricExecutorOptions } from './executor.js';
+export { createInMemoryBackend } from './in-memory-backend.js';
+export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';
+export type {
+  PlanNode,
+  SemanticBackend,
+  SemanticBackendResult,
+  SemanticExpression,
+  SemanticAggregationPlan,
+  SemanticDimensionPlan,
+  SemanticGrainPlan,
+} from './semantic-plan.js';
 
 // Validation
 export type { ValidationResult } from './validation.js';
@@ -73,8 +84,10 @@ export type {
   MetricFilter,
   MetricOrderBy,
   MetricQuery,
+  DatasetQuery,
   MetricResultMeta,
   MetricResult,
+  DatasetQueryResult,
   MetricHandle,
   ExecutionContext,
   SemanticExecutionRuntime,

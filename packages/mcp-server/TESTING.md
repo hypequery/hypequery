@@ -33,7 +33,7 @@ cp examples/mcp-config.js ./my-mcp-config.js
 
 Edit `my-mcp-config.js` to match your ClickHouse schema:
 ```javascript
-import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets';
+import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const builderFactory = createQueryBuilder({
@@ -62,7 +62,7 @@ export const datasets = {
     metrics: { rowCount },
   },
 };
-export const executor = new MetricExecutor({ builderFactory });
+export const executor = createExecutor({ queryBuilder: builderFactory });
 ```
 
 ### Step 3: Test the MCP Server Standalone
@@ -299,7 +299,7 @@ If you encounter issues:
 Minimal working example:
 
 ```javascript
-import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets';
+import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const builderFactory = createQueryBuilder({
@@ -329,7 +329,7 @@ export const datasets = {
     metrics: { count, sum },
   },
 };
-export const executor = new MetricExecutor({ builderFactory });
+export const executor = createExecutor({ queryBuilder: builderFactory });
 ```
 
 This uses ClickHouse's built-in `system.numbers` table, so no setup needed!

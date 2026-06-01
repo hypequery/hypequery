@@ -8,7 +8,8 @@ import { eq, between, desc } from './query-helpers.js';
 import { measure } from './measure.js';
 import { createDatasetRegistry } from './registry.js';
 import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from './dataset-query.js';
-import { MetricExecutor } from './executor.js';
+import { createExecutor, MetricExecutor } from './executor.js';
+import { createInMemoryBackend } from './in-memory-backend.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 // =============================================================================
@@ -879,6 +880,100 @@ describe("MetricExecutor", () => {
         },
       });
       expect(sql).toContain("tenant_id");
+    });
+  });
+
+  describe("createExecutor()", () => {
+    it("can execute semantic plans against an in-memory backend without a query builder", async () => {
+      const executor = createExecutor({
+        backend: createInMemoryBackend({
+          orders: [
+            { id: "1", tenant_id: "t1", country: "US", status: "completed", amount: 100, created_at: "2026-01-02" },
+            { id: "2", tenant_id: "t1", country: "US", status: "pending", amount: 50, created_at: "2026-01-03" },
+            { id: "3", tenant_id: "t1", country: "DE", status: "completed", amount: 75, created_at: "2026-01-04" },
+            { id: "4", tenant_id: "t2", country: "US", status: "completed", amount: 999, created_at: "2026-01-05" },
+          ],
+        }),
+      });
+
+      const result = await executor.metric(avgOrderValue, {
+        dimensions: ["country"],
+        filters: [{ field: "status", operator: "eq", value: "completed" }],
+        orderBy: [{ field: "country", direction: "asc" }],
+      }, {
+        runtime: {
+          tenant: { id: "t1" },
+        },
+      });
+
+      expect(result.data).toEqual([
+        { country: "DE", avgOrderValue: 75 },
+        { country: "US", avgOrderValue: 100 },
+      ]);
+
+      const datasetResult = await executor.dataset(Orders, {
+        dimensions: ["country"],
+        measures: ["revenue", "orderCount"],
+        filters: [{ field: "status", operator: "eq", value: "completed" }],
+        orderBy: [{ field: "revenue", direction: "desc" }],
+      }, {
+        runtime: {
+          tenant: { id: "t1" },
+        },
+      });
+
+      expect(datasetResult.data).toEqual([
+        { country: "US", revenue: 100, orderCount: 1 },
+        { country: "DE", revenue: 75, orderCount: 1 },
+      ]);
+    });
+
+    it("executes metric queries through the semantic executor", async () => {
+      const builderFactory = createMockBuilderFactory();
+      const executor = createExecutor({ queryBuilder: builderFactory });
+
+      const result = await executor.metric(totalRevenue, {
+        dimensions: ["country"],
+      });
+
+      expect(result.data).toEqual([
+        { country: "US", totalRevenue: 5000 },
+        { country: "DE", totalRevenue: 3000 },
+      ]);
+      expect(result.meta.sql).toContain("SUM(amount) AS totalRevenue");
+    });
+
+    it("executes dataset queries through the semantic executor", async () => {
+      const builderFactory = createMockBuilderFactory();
+      const executor = createExecutor({ queryBuilder: builderFactory });
+
+      const result = await executor.dataset(Orders, {
+        dimensions: ["country"],
+        measures: ["revenue"],
+      });
+
+      expect(result.data).toEqual([
+        { country: "US", totalRevenue: 5000 },
+        { country: "DE", totalRevenue: 3000 },
+      ]);
+      expect(result.meta.sql).toContain("SELECT country, SUM(amount) AS revenue FROM orders");
+    });
+
+    it("generates and validates dataset queries", () => {
+      const builderFactory = createMockBuilderFactory();
+      const executor = createExecutor({ queryBuilder: builderFactory });
+
+      const validation = executor.validateDataset(Orders, {
+        dimensions: ["country"],
+        measures: ["revenue"],
+      });
+      const sql = executor.datasetSQL(Orders, {
+        dimensions: ["country"],
+        measures: ["revenue"],
+      });
+
+      expect(validation.valid).toBe(true);
+      expect(sql).toContain("GROUP BY country");
     });
   });
 

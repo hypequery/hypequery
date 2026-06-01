@@ -41,7 +41,7 @@ async function main() {
     console.error('The config file should export { datasets, executor }:');
     console.error('');
     console.error('  export const datasets = { ... };');
-    console.error('  export const executor = new MetricExecutor(...);');
+    console.error('  export const executor = createExecutor({ queryBuilder });');
     process.exit(1);
   }
 

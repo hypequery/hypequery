@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HypequeryMCPServer } from './server.js';
-import type { MetricExecutor } from '@hypequery/datasets';
+import type { SemanticExecutor } from '@hypequery/datasets';
 
 // Mock the MCP SDK
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
@@ -20,7 +20,9 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
 }));
 
 describe('HypequeryMCPServer', () => {
-  const mockExecutor: MetricExecutor = {
+  const mockExecutor: SemanticExecutor = {
+    metric: vi.fn(),
+    dataset: vi.fn(),
     run: vi.fn(),
     getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any;
@@ -128,7 +130,9 @@ describe('HypequeryMCPServer', () => {
 });
 
 describe('HypequeryMCPServer config validation', () => {
-  const mockExecutor: MetricExecutor = {
+  const mockExecutor: SemanticExecutor = {
+    metric: vi.fn(),
+    dataset: vi.fn(),
     run: vi.fn(),
     getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any;
@@ -173,7 +177,9 @@ describe('HypequeryMCPServer config validation', () => {
 });
 
 describe('HypequeryMCPServer with complex datasets', () => {
-  const mockExecutor: MetricExecutor = {
+  const mockExecutor: SemanticExecutor = {
+    metric: vi.fn(),
+    dataset: vi.fn(),
     run: vi.fn(),
     getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any;

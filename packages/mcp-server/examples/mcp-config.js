@@ -5,7 +5,7 @@
  * Copy this file and modify it for your ClickHouse schema.
  */
 
-import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets';
+import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // =============================================================================
@@ -54,4 +54,4 @@ export const datasets = {
   },
 };
 
-export const executor = new MetricExecutor({ builderFactory });
+export const executor = createExecutor({ queryBuilder: builderFactory });

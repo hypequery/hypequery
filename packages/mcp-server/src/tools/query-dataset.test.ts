@@ -2,25 +2,17 @@
  * Unit tests for query-dataset tool
  */
 
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { queryDatasetTool } from './query-dataset.js';
-import type { MetricExecutor } from '@hypequery/datasets';
-
-const mockRunDatasetQuery = vi.hoisted(() => vi.fn());
-
-vi.mock('@hypequery/datasets/internal', () => ({
-  runDatasetQuery: mockRunDatasetQuery,
-}));
+import type { SemanticExecutor } from '@hypequery/datasets';
 
 describe('queryDatasetTool', () => {
-  const createMockExecutor = (mockResult: any): MetricExecutor => ({
+  const createMockExecutor = (mockResult: any): SemanticExecutor => ({
+    metric: vi.fn(),
+    dataset: vi.fn().mockResolvedValue(mockResult),
     run: vi.fn(),
     getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any);
-
-  beforeEach(() => {
-    mockRunDatasetQuery.mockReset();
-  });
 
   it('should throw error when dataset parameter is missing', async () => {
     const executor = createMockExecutor({});
@@ -66,7 +58,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -76,7 +67,7 @@ describe('queryDatasetTool', () => {
     expect(data.data).toHaveLength(2);
     expect(data.meta.rowCount).toBe(2);
 
-    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
+    expect(executor.dataset).toHaveBeenCalledWith(
       {},
       {
         dimensions: ['region'],
@@ -85,11 +76,8 @@ describe('queryDatasetTool', () => {
         orderBy: [],
       },
       {
-        builderFactory: {},
-        context: {
-          runtime: {
-            tenant: undefined,
-          },
+        runtime: {
+          tenant: undefined,
         },
       }
     );
@@ -106,7 +94,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       metrics: ['revenue', 'count'],
@@ -115,7 +102,7 @@ describe('queryDatasetTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toEqual([{ revenue: 1000, count: 50 }]);
 
-    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
+    expect(executor.dataset).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         measures: ['revenue', 'count'],
@@ -139,7 +126,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -149,7 +135,7 @@ describe('queryDatasetTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toHaveLength(2);
 
-    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
+    expect(executor.dataset).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         dimensions: ['region'],
@@ -170,7 +156,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const filters = [
       { field: 'status', operator: 'eq', value: 'completed' },
       { field: 'amount', operator: 'gte', value: 100 },
@@ -183,7 +168,7 @@ describe('queryDatasetTool', () => {
       filters,
     });
 
-    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
+    expect(executor.dataset).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         filters,
@@ -206,7 +191,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['week'],
@@ -214,7 +198,7 @@ describe('queryDatasetTool', () => {
       grain: 'week',
     });
 
-    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
+    expect(executor.dataset).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         by: 'week',
@@ -238,7 +222,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const orderBy = [
       { field: 'revenue', direction: 'desc' },
       { field: 'region', direction: 'asc' },
@@ -252,7 +235,7 @@ describe('queryDatasetTool', () => {
       limit: 5,
     });
 
-    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
+    expect(executor.dataset).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         orderBy,
@@ -280,7 +263,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region', 'category'],
@@ -310,7 +292,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -332,7 +313,6 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
-    mockRunDatasetQuery.mockResolvedValue(mockResult);
     await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -340,7 +320,7 @@ describe('queryDatasetTool', () => {
       orderBy: [],
     });
 
-    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
+    expect(executor.dataset).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         filters: [],

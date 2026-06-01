@@ -13,7 +13,7 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { MetricExecutor } from '@hypequery/datasets';
+import type { SemanticExecutor } from '@hypequery/datasets';
 import { listDatasetsTool } from './tools/list-datasets.js';
 import { getDatasetSchemaTool } from './tools/introspect.js';
 import { queryMetricTool } from './tools/query-metric.js';
@@ -28,9 +28,9 @@ export interface MCPServerConfig {
   datasets: DatasetRegistry;
 
   /**
-   * Metric executor for running queries
+   * Semantic executor for running metric and dataset queries
    */
-  executor: MetricExecutor;
+  executor: SemanticExecutor;
 
   /**
    * Server name (shown in MCP client)

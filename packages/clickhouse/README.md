@@ -49,6 +49,44 @@ const recentOrders = await db
 3. Write and execute queries locally
 4. Promote important queries into `@hypequery/serve` when they need a shared contract or HTTP surface
 
+## Semantic Datasets
+
+For datasets-first analytics, use the datasets subpath so application code does
+not need to create a query builder directly.
+
+```ts
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    country: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('total'),
+  },
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+await analytics.metric(revenue, {
+  dimensions: ['country'],
+});
+
+await analytics.dataset(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue'],
+});
+```
+
 ## Common Patterns
 
 ### Aggregation

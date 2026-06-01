@@ -1,4 +1,5 @@
 import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
+import type { SemanticExpression } from './semantic-plan.js';
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
 export type DimensionType = FieldType;
@@ -69,6 +70,7 @@ export interface MeasureDefinition {
 
 export type FormulaExpr = {
   __type: 'formula_expr';
+  expression: SemanticExpression;
   toSQL: () => string;
 };
 

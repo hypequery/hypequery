@@ -14,9 +14,10 @@
  */
 
 import type { FormulaExpr } from './types.js';
+import type { SemanticExpression } from './semantic-plan.js';
 
-function expr(sqlFn: () => string): FormulaExpr {
-  return { __type: 'formula_expr', toSQL: sqlFn };
+function expr(expression: SemanticExpression, sqlFn: () => string): FormulaExpr {
+  return { __type: 'formula_expr', expression, toSQL: sqlFn };
 }
 
 /** Check if a value is a FormulaExpr. */
@@ -25,24 +26,53 @@ function resolveArg(a: string | FormulaExpr): string {
   return a.toSQL();
 }
 
+function isFormulaExpr(value: unknown): value is FormulaExpr {
+  return typeof value === 'object'
+    && value !== null
+    && '__type' in value
+    && value.__type === 'formula_expr';
+}
+
+function resolveExpression(a: string | number | boolean | null | FormulaExpr): SemanticExpression {
+  if (isFormulaExpr(a)) {
+    return a.expression;
+  }
+  if (typeof a === 'string') {
+    return { kind: 'ref', name: a };
+  }
+  return { kind: 'literal', value: a };
+}
+
 // ---------------------------------------------------------------------------
 // Arithmetic
 // ---------------------------------------------------------------------------
 
 export function divide(a: string | FormulaExpr, b: string | FormulaExpr): FormulaExpr {
-  return expr(() => `(${resolveArg(a)}) / (${resolveArg(b)})`);
+  return expr(
+    { kind: 'binary', operator: 'divide', left: resolveExpression(a), right: resolveExpression(b) },
+    () => `(${resolveArg(a)}) / (${resolveArg(b)})`,
+  );
 }
 
 export function multiply(a: string | FormulaExpr, b: string | FormulaExpr): FormulaExpr {
-  return expr(() => `(${resolveArg(a)}) * (${resolveArg(b)})`);
+  return expr(
+    { kind: 'binary', operator: 'multiply', left: resolveExpression(a), right: resolveExpression(b) },
+    () => `(${resolveArg(a)}) * (${resolveArg(b)})`,
+  );
 }
 
 export function subtract(a: string | FormulaExpr, b: string | FormulaExpr): FormulaExpr {
-  return expr(() => `(${resolveArg(a)}) - (${resolveArg(b)})`);
+  return expr(
+    { kind: 'binary', operator: 'subtract', left: resolveExpression(a), right: resolveExpression(b) },
+    () => `(${resolveArg(a)}) - (${resolveArg(b)})`,
+  );
 }
 
 export function add(a: string | FormulaExpr, b: string | FormulaExpr): FormulaExpr {
-  return expr(() => `(${resolveArg(a)}) + (${resolveArg(b)})`);
+  return expr(
+    { kind: 'binary', operator: 'add', left: resolveExpression(a), right: resolveExpression(b) },
+    () => `(${resolveArg(a)}) + (${resolveArg(b)})`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -50,12 +80,18 @@ export function add(a: string | FormulaExpr, b: string | FormulaExpr): FormulaEx
 // ---------------------------------------------------------------------------
 
 export function nullIfZero(a: string | FormulaExpr): FormulaExpr {
-  return expr(() => `NULLIF(${resolveArg(a)}, 0)`);
+  return expr(
+    { kind: 'function', name: 'nullIfZero', args: [resolveExpression(a)] },
+    () => `NULLIF(${resolveArg(a)}, 0)`,
+  );
 }
 
 export function coalesce(a: string | FormulaExpr, fallback: number | string | FormulaExpr): FormulaExpr {
   const fb = typeof fallback === 'number' ? String(fallback) : resolveArg(fallback);
-  return expr(() => `COALESCE(${resolveArg(a)}, ${fb})`);
+  return expr(
+    { kind: 'function', name: 'coalesce', args: [resolveExpression(a), resolveExpression(fallback)] },
+    () => `COALESCE(${resolveArg(a)}, ${fb})`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -63,13 +99,22 @@ export function coalesce(a: string | FormulaExpr, fallback: number | string | Fo
 // ---------------------------------------------------------------------------
 
 export function round(a: string | FormulaExpr, decimals: number = 0): FormulaExpr {
-  return expr(() => `ROUND(${resolveArg(a)}, ${decimals})`);
+  return expr(
+    { kind: 'function', name: 'round', args: [resolveExpression(a), resolveExpression(decimals)] },
+    () => `ROUND(${resolveArg(a)}, ${decimals})`,
+  );
 }
 
 export function floor(a: string | FormulaExpr): FormulaExpr {
-  return expr(() => `FLOOR(${resolveArg(a)})`);
+  return expr(
+    { kind: 'function', name: 'floor', args: [resolveExpression(a)] },
+    () => `FLOOR(${resolveArg(a)})`,
+  );
 }
 
 export function ceil(a: string | FormulaExpr): FormulaExpr {
-  return expr(() => `CEIL(${resolveArg(a)})`);
+  return expr(
+    { kind: 'function', name: 'ceil', args: [resolveExpression(a)] },
+    () => `CEIL(${resolveArg(a)})`,
+  );
 }

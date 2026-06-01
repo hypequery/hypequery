@@ -19,7 +19,7 @@ import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { MetricExecutor } from "@hypequery/datasets";
+import { createExecutor } from "@hypequery/datasets";
 import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
 import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js";
 
@@ -163,7 +163,7 @@ export const createAPI = <
       );
     }
 
-    const executor = new MetricExecutor({ builderFactory });
+    const executor = createExecutor({ queryBuilder: builderFactory });
 
     for (const [name, entry] of Object.entries(metricsEntries)) {
       assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, name, "metric");

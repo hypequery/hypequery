@@ -24,7 +24,7 @@ pnpm add @hypequery/mcp
 Create `mcp-config.ts`:
 
 ```typescript
-import { MetricExecutor } from '@hypequery/datasets';
+import { createExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { OrdersDataset, CustomersDataset } from './datasets/index.js';
 
@@ -52,7 +52,7 @@ const builderFactory = createQueryBuilder({
   password: process.env.CLICKHOUSE_PASSWORD,
 });
 
-export const executor = new MetricExecutor({ builderFactory });
+export const executor = createExecutor({ queryBuilder: builderFactory });
 ```
 
 ### 2. Run the MCP Server
@@ -204,11 +204,11 @@ You can also use the MCP server programmatically in your application:
 
 ```typescript
 import { createMCPServer } from '@hypequery/mcp';
-import { MetricExecutor } from '@hypequery/datasets';
+import { createExecutor } from '@hypequery/datasets';
 import { datasets } from './datasets/index.js';
 import { queryBuilder } from './db/index.js';
 
-const executor = new MetricExecutor({ builderFactory: queryBuilder });
+const executor = createExecutor({ queryBuilder });
 
 const server = await createMCPServer({
   datasets,
