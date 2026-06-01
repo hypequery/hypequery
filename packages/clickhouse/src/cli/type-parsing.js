@@ -33,10 +33,20 @@ function splitTopLevelArgs(value) {
 }
 
 function unwrapType(type, wrapperName) {
-  const prefix = `${wrapperName}(`;
-  return type.startsWith(prefix) && type.endsWith(')')
-    ? type.slice(prefix.length, -1)
-    : null;
+  // Trim whitespace and handle case-insensitive matching
+  const trimmedType = type.trim();
+  const lowerType = trimmedType.toLowerCase();
+  const lowerWrapper = wrapperName.toLowerCase();
+  const prefix = `${lowerWrapper}(`;
+
+  if (lowerType.startsWith(prefix) && trimmedType.endsWith(')')) {
+    // Extract inner type, preserving original case
+    const innerStart = trimmedType.indexOf('(') + 1;
+    const innerEnd = trimmedType.lastIndexOf(')');
+    return trimmedType.slice(innerStart, innerEnd).trim();
+  }
+
+  return null;
 }
 
 function getPrimitiveTsType(type) {
@@ -79,6 +89,10 @@ function getPrimitiveTsType(type) {
     default:
       if (type.startsWith('FixedString(')) return 'string';
       if (type.startsWith('Decimal(')) return 'number';
+      if (type.startsWith('Decimal32(')) return 'number';
+      if (type.startsWith('Decimal64(')) return 'number';
+      if (type.startsWith('Decimal128(')) return 'number';
+      if (type.startsWith('Decimal256(')) return 'number';
       if (type.startsWith('DateTime64(')) return 'string';
       if (type.startsWith('DateTime(')) return 'string';
       if (type.startsWith('Enum8(')) return 'string';
