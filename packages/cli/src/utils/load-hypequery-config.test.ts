@@ -38,6 +38,7 @@ describe('load-hypequery-config', () => {
     expect(config.migrations).toEqual({
       out: './migrations',
       table: '_hypequery_migrations',
+      lockTable: 'hypequery_migration_locks',
       prefix: 'timestamp',
     });
   });

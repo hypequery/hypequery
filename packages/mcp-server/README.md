@@ -1,4 +1,4 @@
-# @hypequery/mcp-server
+# @hypequery/mcp
 
 Model Context Protocol (MCP) server for Hypequery semantic layer. Exposes datasets and metrics to AI agents like Claude Desktop, Cursor, and other MCP-compatible tools.
 
@@ -12,9 +12,9 @@ Model Context Protocol (MCP) server for Hypequery semantic layer. Exposes datase
 ## Installation
 
 ```bash
-npm install @hypequery/mcp-server
+npm install @hypequery/mcp
 # or
-pnpm add @hypequery/mcp-server
+pnpm add @hypequery/mcp
 ```
 
 ## Quick Start
@@ -28,20 +28,31 @@ import { MetricExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { OrdersDataset, CustomersDataset } from './datasets/index.js';
 
+const revenue = OrdersDataset.metric('revenue', { measure: 'revenue' });
+const customerCount = CustomersDataset.metric('customerCount', {
+  measure: 'customerCount',
+});
+
 // Export your datasets
 export const datasets = {
-  orders: OrdersDataset,
-  customers: CustomersDataset,
+  orders: {
+    ...OrdersDataset,
+    metrics: { revenue },
+  },
+  customers: {
+    ...CustomersDataset,
+    metrics: { customerCount },
+  },
 };
 
 // Export your executor
-const queryBuilder = createQueryBuilder({
+const builderFactory = createQueryBuilder({
   host: process.env.CLICKHOUSE_HOST,
   username: process.env.CLICKHOUSE_USER,
   password: process.env.CLICKHOUSE_PASSWORD,
 });
 
-export const executor = new MetricExecutor(queryBuilder);
+export const executor = new MetricExecutor({ builderFactory });
 ```
 
 ### 2. Run the MCP Server
@@ -192,12 +203,12 @@ Executes an ad-hoc dataset query with custom dimensions and metrics.
 You can also use the MCP server programmatically in your application:
 
 ```typescript
-import { createMCPServer } from '@hypequery/mcp-server';
+import { createMCPServer } from '@hypequery/mcp';
 import { MetricExecutor } from '@hypequery/datasets';
 import { datasets } from './datasets/index.js';
 import { queryBuilder } from './db/index.js';
 
-const executor = new MetricExecutor(queryBuilder);
+const executor = new MetricExecutor({ builderFactory: queryBuilder });
 
 const server = await createMCPServer({
   datasets,

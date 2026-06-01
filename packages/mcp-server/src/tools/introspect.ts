@@ -42,7 +42,7 @@ export async function getDatasetSchemaTool(
   if (datasetAny.dimensions) {
     for (const [name, dimension] of Object.entries(datasetAny.dimensions)) {
       const dimSchema: DimensionSchema = {
-        type: (dimension as { type?: string }).type || 'unknown',
+        type: (dimension as { fieldType?: string; type?: string }).fieldType || (dimension as { type?: string }).type || 'unknown',
         column: (dimension as { column?: string }).column || name,
         label: (dimension as { label?: string }).label || name,
         description: (dimension as { description?: string }).description || '',
@@ -56,8 +56,8 @@ export async function getDatasetSchemaTool(
   if (datasetAny.metrics) {
     for (const [name, metric] of Object.entries(datasetAny.metrics)) {
       const metSchema: MetricSchema = {
-        type: (metric as { type?: string }).type || 'unknown',
-        aggregation: (metric as { aggregation?: string; type?: string }).aggregation || (metric as { type?: string }).type || '',
+        type: (metric as { spec?: { __type?: string }; type?: string }).spec?.__type || (metric as { type?: string }).type || 'unknown',
+        aggregation: (metric as { spec?: { aggregation?: string }; aggregation?: string; type?: string }).spec?.aggregation || (metric as { aggregation?: string; type?: string }).aggregation || (metric as { type?: string }).type || '',
         label: (metric as { label?: string }).label || name,
         description: (metric as { description?: string }).description || '',
         format: (metric as { format?: string }).format || null,

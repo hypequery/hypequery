@@ -36,7 +36,7 @@ Edit `my-mcp-config.js` to match your ClickHouse schema:
 import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
-const queryBuilder = createQueryBuilder({
+const builderFactory = createQueryBuilder({
   host: 'localhost',
   username: 'default',
   password: '',
@@ -47,15 +47,22 @@ const queryBuilder = createQueryBuilder({
 const MyDataset = dataset('my_table', {
   source: 'my_table',
   dimensions: {
-    // Add your dimensions
+    id: dimension.number(),
   },
   measures: {
-    // Add your measures
+    rowCount: measure.count('id'),
   },
 });
 
-export const datasets = { my_table: MyDataset };
-export const executor = new MetricExecutor(queryBuilder);
+const rowCount = MyDataset.metric('rowCount', { measure: 'rowCount' });
+
+export const datasets = {
+  my_table: {
+    ...MyDataset,
+    metrics: { rowCount },
+  },
+};
+export const executor = new MetricExecutor({ builderFactory });
 ```
 
 ### Step 3: Test the MCP Server Standalone
@@ -295,7 +302,7 @@ Minimal working example:
 import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
-const queryBuilder = createQueryBuilder({
+const builderFactory = createQueryBuilder({
   host: 'localhost',
   username: 'default',
   password: '',
@@ -308,13 +315,21 @@ const TestDataset = dataset('system.numbers', {
     number: dimension.number({ label: 'Number' }),
   },
   measures: {
-    count: measure.count({ label: 'Count' }),
+    count: measure.count('number', { label: 'Count' }),
     sum: measure.sum('number', { label: 'Sum' }),
   },
 });
 
-export const datasets = { numbers: TestDataset };
-export const executor = new MetricExecutor(queryBuilder);
+const count = TestDataset.metric('count', { measure: 'count' });
+const sum = TestDataset.metric('sum', { measure: 'sum' });
+
+export const datasets = {
+  numbers: {
+    ...TestDataset,
+    metrics: { count, sum },
+  },
+};
+export const executor = new MetricExecutor({ builderFactory });
 ```
 
 This uses ClickHouse's built-in `system.numbers` table, so no setup needed!

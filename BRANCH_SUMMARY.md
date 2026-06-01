@@ -175,7 +175,7 @@ All code added in this branch builds and works correctly.
    - Test dataset auto-generation
    - Test MCP server with Claude Desktop
    - Create demo video
-   - Publish `@hypequery/mcp-server` to npm
+   - Publish `@hypequery/mcp` to npm
 
 ---
 
@@ -189,7 +189,7 @@ All code added in this branch builds and works correctly.
 
 **Then:**
 - Merge to main
-- Tag release: `@hypequery/mcp-server@0.1.0`
+- Tag release: `@hypequery/mcp@0.1.0`
 - Publish to npm
 - Announce on HN/Twitter
 
@@ -233,7 +233,7 @@ git add BRANCH_SUMMARY.md
 
 git commit -m "feat: Phase 1 semantic layer launch - MCP server + dataset auto-gen
 
-- Add @hypequery/mcp-server package with full MCP protocol support
+- Add @hypequery/mcp package with full MCP protocol support
 - Implement 4 MCP tools for AI agents (list, introspect, query)
 - Add dataset auto-generation CLI command
 - Add 85 comprehensive type validation tests

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_MIGRATIONS_OUT_DIR,
+  DEFAULT_MIGRATIONS_LOCK_TABLE,
   DEFAULT_MIGRATIONS_PREFIX,
   DEFAULT_MIGRATIONS_TABLE,
   defineConfig,
@@ -37,6 +38,7 @@ describe('clickhouse migration config', () => {
     expect(resolved.migrations).toEqual({
       out: DEFAULT_MIGRATIONS_OUT_DIR,
       table: DEFAULT_MIGRATIONS_TABLE,
+      lockTable: DEFAULT_MIGRATIONS_LOCK_TABLE,
       prefix: DEFAULT_MIGRATIONS_PREFIX,
     });
   });

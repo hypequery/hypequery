@@ -192,8 +192,6 @@ interface DimensionOptions {
 }
 ```
 
-`field.*()` remains available as an alias of `dimension.*()`.
-
 **Measure helpers:**
 
 ```ts
@@ -1028,11 +1026,11 @@ Current v1 checks include:
 ### PR 1: Dataset & Field Primitives
 
 - `dataset()` function and return type
-- `field.*()` helpers
+- `dimension.*()` helpers
 - `belongsTo()`, `hasMany()`, `hasOne()` relationship helpers
 - `DatasetRegistry` — runtime registry of defined datasets
 - Type inference for dataset fields
-- Tests: dataset definition, field typing, relationship resolution
+- Tests: dataset definition, field typing, and relationship metadata
 
 ### PR 2: Base Metrics & Executor
 

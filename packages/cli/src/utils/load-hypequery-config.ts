@@ -7,6 +7,7 @@ import { loadModule } from './load-api.js';
 export const DEFAULT_HYPEQUERY_CONFIG_PATH = 'hypequery.config.ts';
 export const DEFAULT_MIGRATIONS_OUT_DIR = './migrations';
 export const DEFAULT_MIGRATIONS_TABLE = '_hypequery_migrations';
+export const DEFAULT_MIGRATIONS_LOCK_TABLE = 'hypequery_migration_locks';
 export const DEFAULT_MIGRATIONS_PREFIX = 'timestamp' as const;
 
 export async function loadHypequeryConfig(
@@ -50,6 +51,7 @@ export async function loadHypequeryConfig(
     migrations: {
       out: config.migrations?.out ?? DEFAULT_MIGRATIONS_OUT_DIR,
       table: config.migrations?.table ?? DEFAULT_MIGRATIONS_TABLE,
+      lockTable: config.migrations?.lockTable ?? DEFAULT_MIGRATIONS_LOCK_TABLE,
       prefix: config.migrations?.prefix ?? DEFAULT_MIGRATIONS_PREFIX,
     },
   };

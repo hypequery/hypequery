@@ -1,5 +1,5 @@
 {
-  "name": "@hypequery/mcp-server",
+  "name": "@hypequery/mcp",
   "version": "0.1.0",
   "description": "Model Context Protocol (MCP) server for Hypequery semantic layer",
   "license": "Apache-2.0",

@@ -13,8 +13,23 @@
 import { createMCPServer } from './server.js';
 import { pathToFileURL } from 'url';
 import { resolve } from 'path';
+import { format } from 'util';
+
+function routeConsoleOutputToStderr(): void {
+  const write = (...args: unknown[]) => {
+    process.stderr.write(`${format(...args)}\n`);
+  };
+
+  // MCP stdio transport owns stdout. Keep application and query logs off the
+  // protocol stream, including logs emitted while loading the user's config.
+  console.log = write;
+  console.info = write;
+  console.debug = write;
+}
 
 async function main() {
+  routeConsoleOutputToStderr();
+
   const args = process.argv.slice(2);
   const configIndex = args.indexOf('--config');
 

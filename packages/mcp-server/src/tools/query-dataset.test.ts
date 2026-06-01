@@ -2,15 +2,25 @@
  * Unit tests for query-dataset tool
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { queryDatasetTool } from './query-dataset.js';
 import type { MetricExecutor } from '@hypequery/datasets';
 
+const mockRunDatasetQuery = vi.hoisted(() => vi.fn());
+
+vi.mock('@hypequery/datasets/internal', () => ({
+  runDatasetQuery: mockRunDatasetQuery,
+}));
+
 describe('queryDatasetTool', () => {
   const createMockExecutor = (mockResult: any): MetricExecutor => ({
-    run: vi.fn().mockResolvedValue(mockResult),
+    run: vi.fn(),
     getBuilderFactory: vi.fn().mockReturnValue({}),
   } as any);
+
+  beforeEach(() => {
+    mockRunDatasetQuery.mockReset();
+  });
 
   it('should throw error when dataset parameter is missing', async () => {
     const executor = createMockExecutor({});
@@ -56,6 +66,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -65,18 +76,20 @@ describe('queryDatasetTool', () => {
     expect(data.data).toHaveLength(2);
     expect(data.meta.rowCount).toBe(2);
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
       {},
       {
         dimensions: ['region'],
-        metrics: [],
+        measures: [],
         filters: [],
         orderBy: [],
       },
       {
-        runtime: {
-          builderFactory: {},
-          tenant: undefined,
+        builderFactory: {},
+        context: {
+          runtime: {
+            tenant: undefined,
+          },
         },
       }
     );
@@ -93,6 +106,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       metrics: ['revenue', 'count'],
@@ -101,10 +115,10 @@ describe('queryDatasetTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toEqual([{ revenue: 1000, count: 50 }]);
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        metrics: ['revenue', 'count'],
+        measures: ['revenue', 'count'],
         dimensions: [],
       }),
       expect.anything()
@@ -125,6 +139,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -134,11 +149,11 @@ describe('queryDatasetTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toHaveLength(2);
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         dimensions: ['region'],
-        metrics: ['revenue'],
+        measures: ['revenue'],
       }),
       expect.anything()
     );
@@ -155,6 +170,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const filters = [
       { field: 'status', operator: 'eq', value: 'completed' },
       { field: 'amount', operator: 'gte', value: 100 },
@@ -167,7 +183,7 @@ describe('queryDatasetTool', () => {
       filters,
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         filters,
@@ -190,6 +206,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['week'],
@@ -197,7 +214,7 @@ describe('queryDatasetTool', () => {
       grain: 'week',
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         by: 'week',
@@ -221,6 +238,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const orderBy = [
       { field: 'revenue', direction: 'desc' },
       { field: 'region', direction: 'asc' },
@@ -234,7 +252,7 @@ describe('queryDatasetTool', () => {
       limit: 5,
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         orderBy,
@@ -262,6 +280,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region', 'category'],
@@ -291,6 +310,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     const result = await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -312,6 +332,7 @@ describe('queryDatasetTool', () => {
     };
 
     const executor = createMockExecutor(mockResult);
+    mockRunDatasetQuery.mockResolvedValue(mockResult);
     await queryDatasetTool(datasets, executor, {
       dataset: 'orders',
       dimensions: ['region'],
@@ -319,7 +340,7 @@ describe('queryDatasetTool', () => {
       orderBy: [],
     });
 
-    expect(executor.run).toHaveBeenCalledWith(
+    expect(mockRunDatasetQuery).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         filters: [],

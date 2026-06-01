@@ -6,7 +6,7 @@
 
 This plan addresses competitive gaps in `@hypequery/datasets` based on market analysis comparing against Cube, dbt metrics, and other semantic layer solutions. The goal is to close critical gaps before launch while avoiding over-engineering.
 
-**Key Finding:** Your datasets package is **further along than the market analysis suggested**. The core DSL, type safety, and execution engine are production-ready. The main gaps are around **acquisition fuel** (MCP server) and **quickstart friction** (dataset auto-generation).
+**Key Finding:** Your datasets package is **further along than the market analysis suggested**. The core DSL, type safety, execution engine, MCP package, dataset auto-generation path, and Docker-backed quickstart validation now exist. The remaining launch work is release packaging: finalize changesets, publish packages, and record a short demo.
 
 ---
 
@@ -40,8 +40,9 @@ This plan addresses competitive gaps in `@hypequery/datasets` based on market an
    - Fix needed: Semantic query signature hashing (Phase 2)
 
 2. **MCP server is highest-signal marketing** - TRUE
-   - No MCP implementation exists
-   - Every competitor has one
+   - MCP implementation now exists in `packages/mcp-server`
+   - Unit/type coverage passes
+   - Stdio protocol validation passes against a live ClickHouse-backed generated dataset
    - "Cheapest, highest-signal piece of fuel" per analysis
 
 3. **Advanced metric types missing** - TRUE
@@ -57,15 +58,13 @@ Beyond the market analysis, I found:
 
 1. **No dataset auto-generation from schema**
    - Type generation exists for query builder (`packages/clickhouse/src/cli/generate-types.js`)
-   - But NOT for dataset definitions
-   - Major quickstart friction: users hand-write all dataset DSL code
-   - Fix: New CLI command `npx hypequery generate datasets`
+   - Dataset generation now exists via `npx hypequery generate:datasets`
+   - Docker-backed quickstart validation proves generated output compiles and runs against ClickHouse
 
 2. **Edge-case type handling lacks test coverage**
    - Code handles `Nullable`, `LowCardinality`, `Enum`, `Map`, nested types
-   - But comprehensive test coverage missing
-   - Risk: Production ClickHouse schemas break type generation
-   - Fix: Add systematic edge-case tests
+   - Comprehensive edge-case test coverage now exists
+   - 85 parser tests pass for production ClickHouse type shapes
 
 3. **Row-level access is single-column only**
    - Current: `tenantKey` on dataset, single-column filtering
@@ -84,16 +83,15 @@ Beyond the market analysis, I found:
 
 ---
 
-## ✅ PHASE 1 PROGRESS UPDATE (Branch: `feat/working-on-mcp-package`)
+## ✅ PHASE 1 PROGRESS UPDATE
 
-**Status:** 3/4 Complete - Ready for Testing
-**Branch:** `feat/working-on-mcp-package`
-**Completion Date:** 2026-05-30
+**Status:** Must-have implementation and validation complete; release packaging remains
+**Updated:** 2026-06-01
 
 ### Completed Work
 
 #### ✅ 1.1 MCP Server Implementation [COMPLETE]
-**Status:** Built, tested, ready for Claude Desktop integration
+**Status:** Built, unit/type tested, stdio protocol validated against live ClickHouse
 **Effort:** Completed in 1 session
 **Files Created:** 11 files in `packages/mcp-server/`
 
@@ -111,19 +109,24 @@ Beyond the market analysis, I found:
   - `examples/mcp-config.js` - Full-featured example
   - `examples/mcp-config.ts` - TypeScript version
 
-**Build Status:** ✅ Compiles successfully, dist/ ready
-**Testing:** Ready for Claude Desktop integration testing
+**Build/Test Status:** ✅ `npm test --workspace=@hypequery/mcp`
+**Protocol Validation:** ✅ Raw MCP stdio client verified initialize, tools/list, list_datasets, get_dataset_schema, query_metric, and query_dataset
+
+**Release Fixes Made:**
+- ✅ Scoped MCP SDK dependency override to use `ajv@8`, fixing `ajv-formats@3` runtime crashes
+- ✅ Routed MCP binary `console.log`/`console.info`/`console.debug` output to stderr so query logs cannot corrupt stdout JSON-RPC
 
 **Next Steps for 1.1:**
-- [ ] Test with Claude Desktop using `system.numbers` config
-- [ ] Validate all 4 MCP tools work correctly
+- [x] Test MCP stdio transport using a live ClickHouse-backed config
+- [x] Validate all 4 MCP tools in automated unit tests
+- [x] Validate all 4 MCP tools through a real MCP client protocol check
 - [ ] Create demo video
 - [ ] Publish to npm
 
 ---
 
-#### ✅ 1.2 Dataset Auto-Generation [COMPLETE - Code Ready]
-**Status:** Code complete, blocked by pre-existing CLI build error
+#### ✅ 1.2 Dataset Auto-Generation [COMPLETE]
+**Status:** Code complete, CLI tests pass, generated output has compile smoke and live ClickHouse coverage
 **Effort:** Completed in 1 session
 **Files Created:** 3 files
 
@@ -149,17 +152,10 @@ npx hypequery generate:datasets --output ./datasets/index.ts
 npx hypequery generate:datasets --tables orders,customers
 ```
 
-**Blocking Issue:** Pre-existing CLI build error (not caused by this work)
-```
-Property 'lockTable' is missing in type '{ out: string; table: string; prefix: "timestamp"; }'
-Location: packages/cli/src/utils/load-hypequery-config.ts:50
-```
-
 **Next Steps for 1.2:**
-- [ ] Fix pre-existing CLI build error
-- [ ] Test dataset generation with real ClickHouse schemas
-- [ ] Validate generated code compiles
-- [ ] Add to quickstart documentation
+- [x] Test dataset generation with a real ClickHouse schema
+- [x] Validate generated code compiles against the public `@hypequery/datasets` API
+- [x] Add/refresh quickstart documentation with the generated dataset flow
 
 ---
 
@@ -204,17 +200,17 @@ Location: packages/cli/src/utils/load-hypequery-config.ts:50
 
 ---
 
-#### ⏸️ 1.3 Five-Minute Quickstart Validation [PENDING]
-**Status:** Blocked by CLI build error (1.2)
-**Dependencies:** Requires dataset auto-generation (1.2) to work
+#### ✅ 1.3 Five-Minute Quickstart Validation [COMPLETE]
+**Status:** Validated against a fresh temp project and Docker ClickHouse
+**Dependencies:** Docker ClickHouse harness
 
-**Planned Work:**
-- Test full init → query flow with fresh ClickHouse
-- Optimize CLI prompts and error messages
-- Create screencast/GIF for README
-- Validate < 5 minute time-to-first-query
-
-**Blocked Until:** CLI build error fixed
+**Validated Flow:**
+- Started and seeded the Docker ClickHouse test harness
+- Ran `hypequery init --no-interactive --path analytics --force`
+- Ran `hypequery generate:datasets --output src/datasets/generated.ts --tables orders`
+- Compiled the generated dataset in a clean consumer TypeScript project
+- Queried generated metrics with `MetricExecutor`
+- Verified MCP tools against the same generated dataset over stdio
 
 ---
 
@@ -222,30 +218,31 @@ Location: packages/cli/src/utils/load-hypequery-config.ts:50
 
 | Task | Status | Files | Tests | Notes |
 |------|--------|-------|-------|-------|
-| 1.1 MCP Server | ✅ Complete | 11 | Manual | Ready for testing |
-| 1.2 Dataset Gen | ✅ Code done | 3 | Blocked | Pre-existing build error |
-| 1.3 Quickstart | ⏸️ Pending | - | - | Depends on 1.2 |
+| 1.1 MCP Server | ✅ Complete | package | Unit/type + stdio ✅ | Ready for demo/publish |
+| 1.2 Dataset Gen | ✅ Complete | CLI + test | Compile smoke + live schema ✅ | Ready for release |
+| 1.3 Quickstart | ✅ Complete | docs/flow | Docker ClickHouse ✅ | Fresh temp project validated |
 | 1.4 Type Tests | ✅ Complete | 2 | 85 ✅ | Production-ready |
 
-**Overall:** 3/4 complete, 1 blocked by pre-existing issue
+**Overall:** Must-have implementation and validation are complete. Remaining launch work is release packaging, changesets, publishing, and demo assets.
 
 ---
 
 ## Three-Phase Implementation Plan
 
 ### Phase 1: Must-Haves for Launch
-**Timeline:** ~~5-7 days~~ **3/4 complete in 1 day**
+**Timeline:** Implementation and validation complete; release packaging remains
 **Goal:** Acquisition fuel + core correctness + quickstart friction removal
 
 #### 1.1 MCP Server Implementation [✅ COMPLETE]
 **Why:** "Cheapest, highest-signal piece of fuel" - gets HN/Twitter moment, inbound installs
 **Effort:** ~~2-3 days~~ **Completed**
-**Status:** Ready for Claude Desktop testing
+**Status:** Unit/type tested; raw MCP stdio client validated against live ClickHouse
 
 **Implementation:**
-- ✅ New package: `@hypequery/mcp-server`
+- ✅ New package: `@hypequery/mcp`
 - ✅ Expose datasets/metrics as MCP tools for Claude Desktop, Cursor, etc.
 - ✅ Protocol: Model Context Protocol (JSON-RPC over stdio/SSE)
+- ✅ MCP binary keeps stdout protocol-clean by routing console logs to stderr
 
 **Files Created:**
 ```
@@ -269,34 +266,34 @@ packages/mcp-server/
 - Introspection: `packages/clickhouse/src/dataset/introspection.ts` (schema metadata)
 - Execution: `packages/datasets/src/executor.ts` (query execution)
 
-**MCP Tools to Implement:**
+**MCP Tools Implemented:**
 1. `list_datasets` - Return available datasets with descriptions
 2. `get_dataset_schema` - Get dimensions/metrics/relationships for a dataset
 3. `query_metric` - Execute a metric query with filters/dimensions/grain
 4. `query_dataset` - Execute ad-hoc dataset query
 
 **Validation:**
-- Test with Claude Desktop MCP config
-- Test with Cursor MCP integration
-- Verify natural language → query → results flow
+- ✅ Verify raw MCP stdio initialize → tools/list → query flow
+- ✅ Verify all 4 tools against a generated ClickHouse-backed dataset
+- Optional demo check: open Claude Desktop/Cursor and record the flow
 
 ---
 
 #### 1.2 Dataset Auto-Generation from Schema
 **Why:** Major quickstart friction - users hand-write dataset definitions
-**Effort:** 3-4 days
-**Dependencies:** Must complete before 1.3 (quickstart validation)
+**Effort:** Completed
+**Dependencies:** Must be validated before 1.3 (quickstart validation)
 
 **Implementation:**
-- New CLI command: `npx hypequery generate datasets --output src/datasets/generated.ts`
+- New CLI command: `npx hypequery generate:datasets --output src/datasets/generated.ts`
 - Introspect ClickHouse schema → generate dataset DSL code
-- Pattern: Similar to `generateTypes()` but outputs dataset definitions
+- Generated output has a compile smoke test against the public `@hypequery/datasets` API
 
-**Files to Create:**
+**Files Created/Modified:**
 ```
 packages/cli/src/commands/generate-datasets.ts  # New command
 packages/cli/src/generators/dataset-generator.ts # Code generation logic
-packages/cli/src/templates/dataset-template.ts   # TypeScript AST generation
+packages/cli/src/generators/dataset-generator.test.ts # Compile smoke coverage
 ```
 
 **Files to Reference:**
@@ -320,7 +317,7 @@ export const OrdersDataset = dataset('orders', {
     createdAt: dimension.timestamp({ column: 'created_at', label: 'Created At' }),
   },
   measures: {
-    totalOrders: measure.count({ label: 'Total Orders' }),
+    totalOrders: measure.count('id', { label: 'Total Orders' }),
     totalRevenue: measure.sum('amount', { label: 'Total Revenue' }),
     avgOrderValue: measure.avg('amount', { label: 'Average Order Value' }),
   },
@@ -345,7 +342,7 @@ export const OrdersDataset = dataset('orders', {
 #### 1.3 Five-Minute Quickstart Validation
 **Why:** "Adoption dies at onboarding friction more than anywhere else"
 **Effort:** 2 days
-**Dependencies:** Requires 1.2 (dataset generation) to complete
+**Dependencies:** Requires 1.2 (dataset generation) and a reachable ClickHouse instance
 
 **Implementation:**
 - Test the full init → query flow with fresh ClickHouse instance
@@ -356,7 +353,7 @@ export const OrdersDataset = dataset('orders', {
 ```bash
 # User flow (< 5 minutes)
 npx hypequery init              # Scaffold project
-npx hypequery generate datasets # Auto-generate from schema
+npx hypequery generate:datasets # Auto-generate from schema
 # Edit src/index.ts with sample query (copy-paste from README)
 npm run dev                     # Execute query, see results
 ```
@@ -473,7 +470,7 @@ function generateCacheKey(signature: QuerySignature): string {
 
 **SWR Pattern:**
 ```typescript
-async function executeWithCache(query, options) {
+async function executeWithCache(metric, query, options) {
   const key = generateCacheKey(query);
   const cached = cache.get(key);
 
@@ -488,7 +485,7 @@ async function executeWithCache(query, options) {
   }
 
   // Cache miss, execute and cache
-  const result = await executeQuery(query);
+  const result = await executor.run(metric, query);
   cache.set(key, result, { ttl: options.cacheTtl });
   return result;
 }
@@ -793,7 +790,7 @@ packages/serve/DATASETS_AND_METRICS_SPEC.md
 - Owner: Engineer 1
 - Dependencies: None (can start immediately)
 - Blockers: None
-- Output: `@hypequery/mcp-server` package ready to publish
+- Output: `@hypequery/mcp` package ready to publish
 
 **Track B: Dataset Generation → Quickstart (3-4 days + 2 days)**
 - Owner: Engineer 2
@@ -856,18 +853,14 @@ Can be done in any order based on design partner feedback:
 
 ## Implementation Priorities (Today)
 
-If starting implementation immediately, sequence:
+Current release packaging sequence:
 
-**Week 1 (Parallel):**
-- Day 1-3: MCP server (Track A)
-- Day 1-4: Dataset auto-generation (Track B, part 1)
-- Day 1-2: Edge-case tests (Track C)
+1. Cut changesets for `@hypequery/cli`, `@hypequery/datasets`, `@hypequery/mcp`, and any docs/package updates that affect published artifacts.
+2. Run the final workspace build/test matrix.
+3. Record the MCP + generated dataset demo.
+4. Publish packages.
 
-**Week 2:**
-- Day 5-6: Quickstart validation (Track B, part 2)
-- Day 7: Integration testing, docs, launch prep
-
-**Week 3-4 (Post-Launch):**
+Post-launch:
 - Monitor design partner feedback
 - Prioritize Phase 2 work items based on demand
 
@@ -876,9 +869,10 @@ If starting implementation immediately, sequence:
 ## Success Metrics
 
 **Phase 1 (Launch):**
-- ✅ MCP server works in Claude Desktop + Cursor
-- ✅ New user can query their ClickHouse in < 5 minutes
-- ✅ Type generation works on 10+ real production schemas
+- ✅ MCP server works through raw MCP stdio protocol against live ClickHouse
+- ✅ New user can query their ClickHouse in the validated quickstart path
+- ✅ Edge-case parser suite covers production ClickHouse type shapes
+- ⏳ Validate against 10+ design-partner schemas as they become available
 - ✅ No edge-case type failures in first 100 installs
 
 **Phase 2 (Retention):**
@@ -894,9 +888,9 @@ If starting implementation immediately, sequence:
 
 ## Risk Mitigation
 
-**Risk 1: MCP server delays launch**
-- Mitigation: Track A is fully parallelizable, no dependencies
-- Fallback: Ship without MCP, add in patch release
+**Risk 1: MCP desktop-client demo delays launch**
+- Mitigation: raw MCP stdio validation covers the protocol and tool behavior
+- Fallback: ship package after package-level validation, then add demo assets in a patch release
 
 **Risk 2: Type generation breaks on exotic ClickHouse types**
 - Mitigation: Edge-case testing (Track C)

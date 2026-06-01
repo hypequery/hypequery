@@ -1,5 +1,6 @@
 export const DEFAULT_MIGRATIONS_OUT_DIR = './migrations';
 export const DEFAULT_MIGRATIONS_TABLE = '_hypequery_migrations';
+export const DEFAULT_MIGRATIONS_LOCK_TABLE = 'hypequery_migration_locks';
 export const DEFAULT_MIGRATIONS_PREFIX = 'timestamp' as const;
 
 export type MigrationFilePrefix = typeof DEFAULT_MIGRATIONS_PREFIX;
@@ -7,6 +8,7 @@ export type MigrationFilePrefix = typeof DEFAULT_MIGRATIONS_PREFIX;
 export interface ClickHouseMigrationDirectoryConfig {
   out: string;
   table: string;
+  lockTable: string;
   prefix: MigrationFilePrefix;
 }
 
@@ -60,6 +62,7 @@ export function resolveClickHouseConfig(
     migrations: {
       out: config.migrations?.out ?? DEFAULT_MIGRATIONS_OUT_DIR,
       table: config.migrations?.table ?? DEFAULT_MIGRATIONS_TABLE,
+      lockTable: config.migrations?.lockTable ?? DEFAULT_MIGRATIONS_LOCK_TABLE,
       prefix: config.migrations?.prefix ?? DEFAULT_MIGRATIONS_PREFIX,
     },
   };
