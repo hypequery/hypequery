@@ -12,16 +12,14 @@
  */
 
 import { dataset, dimension, measure } from '@hypequery/datasets';
-import { createExecutor } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
 // =============================================================================
 // STEP 1: Configure ClickHouse Connection
 // =============================================================================
 
-const builderFactory = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST || 'localhost',
-  port: process.env.CLICKHOUSE_PORT ? parseInt(process.env.CLICKHOUSE_PORT) : 8123,
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
   username: process.env.CLICKHOUSE_USER || 'default',
   password: process.env.CLICKHOUSE_PASSWORD || '',
   database: process.env.CLICKHOUSE_DATABASE || 'default',
@@ -72,7 +70,7 @@ export const CustomersDataset = dataset('customers', {
 });
 
 // =============================================================================
-// STEP 3: Export Datasets and Executor for MCP Server
+// STEP 3: Export Datasets and Semantic Runner for MCP Server
 // =============================================================================
 
 /**
@@ -95,10 +93,10 @@ export const datasets = {
 };
 
 /**
- * Create and export the metric executor
+ * Export the semantic runner consumed by the MCP server
  * This handles query execution against ClickHouse
  */
-export const executor = createExecutor({ queryBuilder: builderFactory });
+export { analytics };
 
 // =============================================================================
 // STEP 4: Claude Desktop Configuration

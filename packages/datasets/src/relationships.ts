@@ -2,7 +2,7 @@
  * Relationship helpers for dataset definitions.
  *
  * These helpers currently define semantic model metadata only. The shipped
- * executor does not yet resolve relationship paths into joined dataset queries
+ * semantic client does not yet resolve relationship paths into joined dataset queries
  * or cross-dataset metrics.
  *
  * @example

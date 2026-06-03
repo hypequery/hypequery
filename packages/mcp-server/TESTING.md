@@ -33,11 +33,11 @@ cp examples/mcp-config.js ./my-mcp-config.js
 
 Edit `my-mcp-config.js` to match your ClickHouse schema:
 ```javascript
-import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
-const builderFactory = createQueryBuilder({
-  host: 'localhost',
+const analytics = createDatasetClient({
+  url: 'http://localhost:8123',
   username: 'default',
   password: '',
   database: 'analytics',
@@ -62,7 +62,7 @@ export const datasets = {
     metrics: { rowCount },
   },
 };
-export const executor = createExecutor({ queryBuilder: builderFactory });
+export { analytics };
 ```
 
 ### Step 3: Test the MCP Server Standalone
@@ -299,11 +299,11 @@ If you encounter issues:
 Minimal working example:
 
 ```javascript
-import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
-const builderFactory = createQueryBuilder({
-  host: 'localhost',
+const analytics = createDatasetClient({
+  url: 'http://localhost:8123',
   username: 'default',
   password: '',
   database: 'default',
@@ -329,7 +329,7 @@ export const datasets = {
     metrics: { count, sum },
   },
 };
-export const executor = createExecutor({ queryBuilder: builderFactory });
+export { analytics };
 ```
 
 This uses ClickHouse's built-in `system.numbers` table, so no setup needed!

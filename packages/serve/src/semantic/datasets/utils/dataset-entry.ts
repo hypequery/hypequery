@@ -3,12 +3,12 @@ import type {
   AuthStrategy,
   TenantConfigOverride,
 } from '../../../types.js';
-import type { DatasetInstance } from '@hypequery/datasets';
+import type { AnyDatasetInstance } from '@hypequery/datasets';
 
 export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
-  | DatasetInstance
+  | AnyDatasetInstance
   | {
-      dataset: DatasetInstance;
+      dataset: AnyDatasetInstance;
       auth?: AuthStrategy<TAuth> | null;
       tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;
@@ -17,11 +17,11 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
       maxLimit?: number;
     };
 
-type DatasetEntryOptions<TAuth extends AuthContext> = Exclude<DatasetEntry<TAuth>, DatasetInstance>;
+type DatasetEntryOptions<TAuth extends AuthContext> = Exclude<DatasetEntry<TAuth>, AnyDatasetInstance>;
 
 function isDatasetInstance<TAuth extends AuthContext>(
   entry: DatasetEntry<TAuth>,
-): entry is DatasetInstance {
+): entry is AnyDatasetInstance {
   return !!entry && typeof entry === 'object' && '__type' in entry && entry.__type === 'dataset';
 }
 
@@ -34,7 +34,7 @@ function isDatasetEntryOptions<TAuth extends AuthContext>(
 export function resolveDatasetEntry<TAuth extends AuthContext>(
   entry: DatasetEntry<TAuth>,
 ): {
-  dataset: DatasetInstance;
+  dataset: AnyDatasetInstance;
   auth?: AuthStrategy<TAuth> | null;
   tenant?: TenantConfigOverride<TAuth>;
   cache?: number | null;

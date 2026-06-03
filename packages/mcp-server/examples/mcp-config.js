@@ -5,16 +5,15 @@
  * Copy this file and modify it for your ClickHouse schema.
  */
 
-import { dataset, dimension, measure, createExecutor } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
 // =============================================================================
 // ClickHouse Connection
 // =============================================================================
 
-const builderFactory = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST || 'localhost',
-  port: process.env.CLICKHOUSE_PORT ? parseInt(process.env.CLICKHOUSE_PORT) : 8123,
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
   username: process.env.CLICKHOUSE_USER || 'default',
   password: process.env.CLICKHOUSE_PASSWORD || '',
   database: process.env.CLICKHOUSE_DATABASE || 'default',
@@ -54,4 +53,4 @@ export const datasets = {
   },
 };
 
-export const executor = createExecutor({ queryBuilder: builderFactory });
+export { analytics };

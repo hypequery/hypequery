@@ -2,7 +2,7 @@
  * Formula helpers for derived metrics.
  *
  * These are symbolic — they build FormulaExpr objects that get compiled to SQL
- * by the MetricExecutor. They do not produce raw SQL strings directly.
+ * by the semantic query engine. They do not produce raw SQL strings directly.
  *
  * @example
  * ```ts

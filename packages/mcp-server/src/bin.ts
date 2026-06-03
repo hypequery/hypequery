@@ -4,7 +4,7 @@
  * MCP Server CLI
  *
  * This is a standalone executable that starts the MCP server.
- * Users can configure it by creating a config file that exports datasets and executor.
+ * Users can configure it by creating a config file that exports datasets and analytics.
  *
  * Usage:
  *   npx hypequery-mcp --config ./mcp-config.js
@@ -38,10 +38,10 @@ async function main() {
     console.error('');
     console.error('Usage: hypequery-mcp --config ./mcp-config.js');
     console.error('');
-    console.error('The config file should export { datasets, executor }:');
+    console.error('The config file should export { datasets, analytics }:');
     console.error('');
     console.error('  export const datasets = { ... };');
-    console.error('  export const executor = createExecutor({ queryBuilder });');
+    console.error('  export const analytics = createDatasetClient({ ... });');
     process.exit(1);
   }
 
@@ -51,20 +51,20 @@ async function main() {
     // Dynamic import of the config file
     const configModule = await import(pathToFileURL(configPath).href);
 
-    const { datasets, executor } = configModule;
+    const { datasets, analytics } = configModule;
 
     if (!datasets) {
       throw new Error('Config file must export "datasets"');
     }
 
-    if (!executor) {
-      throw new Error('Config file must export "executor"');
+    if (!analytics) {
+      throw new Error('Config file must export "analytics"');
     }
 
     // Create and start the MCP server
     await createMCPServer({
       datasets,
-      executor,
+      analytics,
       name: 'hypequery-mcp-server',
       version: '0.1.0',
     });

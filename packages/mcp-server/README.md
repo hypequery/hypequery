@@ -24,8 +24,7 @@ pnpm add @hypequery/mcp
 Create `mcp-config.ts`:
 
 ```typescript
-import { createExecutor } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 import { OrdersDataset, CustomersDataset } from './datasets/index.js';
 
 const revenue = OrdersDataset.metric('revenue', { measure: 'revenue' });
@@ -45,14 +44,13 @@ export const datasets = {
   },
 };
 
-// Export your executor
-const builderFactory = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST,
+// Export the semantic runner consumed by the MCP server
+export const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL,
   username: process.env.CLICKHOUSE_USER,
   password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
 });
-
-export const executor = createExecutor({ queryBuilder: builderFactory });
 ```
 
 ### 2. Run the MCP Server
@@ -204,15 +202,19 @@ You can also use the MCP server programmatically in your application:
 
 ```typescript
 import { createMCPServer } from '@hypequery/mcp';
-import { createExecutor } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 import { datasets } from './datasets/index.js';
-import { queryBuilder } from './db/index.js';
 
-const executor = createExecutor({ queryBuilder });
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
 
 const server = await createMCPServer({
   datasets,
-  executor,
+  analytics,
   name: 'my-analytics-mcp',
   version: '1.0.0',
 });
@@ -250,8 +252,8 @@ The MCP server also exposes a `dataset_guide` prompt that provides natural langu
 Your config file can use environment variables for database credentials:
 
 ```typescript
-const queryBuilder = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST || 'localhost',
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
   username: process.env.CLICKHOUSE_USER || 'default',
   password: process.env.CLICKHOUSE_PASSWORD,
   database: process.env.CLICKHOUSE_DATABASE || 'default',
@@ -263,7 +265,7 @@ const queryBuilder = createQueryBuilder({
 ### MCP server not connecting
 
 1. Check that the config file path is absolute, not relative
-2. Ensure the config file exports both `datasets` and `executor`
+2. Ensure the config file exports both `datasets` and `analytics`
 3. Check Claude Desktop logs for errors
 
 ### Queries failing

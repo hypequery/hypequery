@@ -1,10 +1,10 @@
 import {
-  createExecutor,
+  createDatasetClient as createSemanticDatasetClient,
   type MetricFilter,
   type PlanNode,
   type SemanticBackend,
   type SemanticBackendResult,
-  type SemanticExecutor,
+  type DatasetClient,
   type SemanticExpression,
 } from '@hypequery/datasets';
 export {
@@ -55,7 +55,7 @@ import { createQueryBuilder } from './core/query-builder.js';
 import type { CreateQueryBuilderConfig } from './core/query-builder.js';
 import type { SchemaDefinition } from './core/types/builder-state.js';
 
-export type ClickHouseDatasetClient = SemanticExecutor;
+export type ClickHouseDatasetClient = DatasetClient;
 export type CreateDatasetClientConfig = CreateQueryBuilderConfig;
 
 const GRAIN_FUNCTIONS = {
@@ -286,7 +286,7 @@ export function createClickHouseSemanticBackend<Schema extends SchemaDefinition<
 export function createDatasetClient<Schema extends SchemaDefinition<Schema>>(
   config: CreateDatasetClientConfig,
 ): ClickHouseDatasetClient {
-  return createExecutor({
+  return createSemanticDatasetClient({
     backend: createClickHouseSemanticBackend<Schema>(config),
   });
 }

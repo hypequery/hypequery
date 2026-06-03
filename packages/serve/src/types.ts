@@ -1,4 +1,4 @@
-import type { ZodTypeAny } from "zod";
+import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
 import type { QueryBuilderFactoryLike } from "@hypequery/datasets";
 
@@ -550,13 +550,56 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
 // Dataset serve config types
 // ---------------------------------------------------------------------------
 
-import type { DatasetInstance, MetricHandle } from "@hypequery/datasets";
+import type {
+  DatasetInstance,
+  DatasetQuery,
+  DatasetQueryResult,
+  MetricHandle,
+  MetricQuery,
+  MetricResult,
+} from "@hypequery/datasets";
 import type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 
 /** Map of dataset names to entries. */
 export type DatasetsConfig<TAuth extends AuthContext = AuthContext> =
   Record<string, DatasetEntry<TAuth>>;
+
+export type SemanticMetricEndpointMap<
+  TMetrics extends MetricsConfig<TAuth>,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext,
+> = {
+  [TKey in keyof TMetrics & string]: ServeEndpoint<
+    ZodType<MetricQuery>,
+    ZodType<MetricResult>,
+    TContext,
+    TAuth,
+    MetricResult
+  >;
+};
+
+export type SemanticDatasetEndpointMap<
+  TDatasets extends DatasetsConfig<TAuth>,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext,
+> = {
+  [TKey in keyof TDatasets & string as `dataset:${TKey}`]: ServeEndpoint<
+    ZodType<DatasetQuery>,
+    ZodType<DatasetQueryResult>,
+    TContext,
+    TAuth,
+    DatasetQueryResult
+  >;
+};
+
+export type ServeSemanticEndpointMap<
+  TMetrics extends MetricsConfig<TAuth>,
+  TDatasets extends DatasetsConfig<TAuth>,
+  TContext extends Record<string, unknown>,
+  TAuth extends AuthContext,
+> = SemanticMetricEndpointMap<TMetrics, TContext, TAuth>
+  & SemanticDatasetEndpointMap<TDatasets, TContext, TAuth>;
 
 // ---------------------------------------------------------------------------
 // ServeConfig
@@ -565,7 +608,9 @@ export type DatasetsConfig<TAuth extends AuthContext = AuthContext> =
 export interface ServeConfig<
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
-  TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
+  TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
+  TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
+  TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
 > {
   queries?: TQueries;
   /**
@@ -587,7 +632,7 @@ export interface ServeConfig<
    * });
    * ```
    */
-  metrics?: MetricsConfig<TAuth>;
+  metrics?: TMetrics;
   /**
    * Semantic dataset endpoints — auto-generated POST endpoints for each dataset.
    * Each dataset gets a `POST /api/analytics/datasets/:name/query` endpoint
@@ -607,7 +652,7 @@ export interface ServeConfig<
    * });
    * ```
    */
-  datasets?: DatasetsConfig<TAuth>;
+  datasets?: TDatasets;
   /**
    * Query builder instance for metric/dataset execution.
    * Required when `metrics` or `datasets` are provided.
@@ -956,12 +1001,30 @@ export interface ServeInitializer<
   readonly procedure: QueryProcedureBuilder<TContext, TAuth>;
   readonly query: QueryFactory<TContext, TAuth>;
   queries<TQueries extends ServeQueriesMap<TContext, TAuth>>(queries: TQueries): TQueries;
-  serve<TQueries extends ServeQueriesMap<TContext, TAuth>>(
-    config: Omit<ServeConfig<TContext, TAuth, TQueries>, "context">
-  ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
-  define<TQueries extends ServeQueriesMap<TContext, TAuth>>(
-    config: Omit<ServeConfig<TContext, TAuth, TQueries>, "context">
-  ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
+  serve<
+    TQueries extends ServeQueriesMap<TContext, TAuth>,
+    TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
+    TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
+  >(
+    config: Omit<ServeConfig<TContext, TAuth, TQueries, TMetrics, TDatasets>, "context">
+  ): ServeBuilder<
+    ServeEndpointMap<TQueries, TContext, TAuth>
+      & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,
+    TContext,
+    TAuth
+  >;
+  define<
+    TQueries extends ServeQueriesMap<TContext, TAuth>,
+    TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
+    TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
+  >(
+    config: Omit<ServeConfig<TContext, TAuth, TQueries, TMetrics, TDatasets>, "context">
+  ): ServeBuilder<
+    ServeEndpointMap<TQueries, TContext, TAuth>
+      & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,
+    TContext,
+    TAuth
+  >;
 }
 
 export type QueryFactory<

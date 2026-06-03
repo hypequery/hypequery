@@ -8,9 +8,9 @@
  * DO NOT import from this file in user code!
  */
 
-// Executor - used by serve to create metric/dataset endpoints
-export { createExecutor, SemanticExecutor, MetricExecutor } from './executor.js';
-export type { SemanticExecutorOptions, MetricExecutorOptions } from './executor.js';
+// Dataset client internals - used by serve to create metric/dataset endpoints
+export { createDatasetClient, DatasetClientImpl, MetricQueryEngine } from './executor.js';
+export type { DatasetClient, CreateDatasetClientOptions, MetricQueryEngineOptions } from './executor.js';
 export { createInMemoryBackend } from './in-memory-backend.js';
 export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';
 export type {

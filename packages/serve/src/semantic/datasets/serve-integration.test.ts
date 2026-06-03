@@ -6,10 +6,10 @@ import {
   measure,
   divide,
   nullIfZero,
-  MetricExecutor,
   type QueryBuilderLike,
   type QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
+import { MetricQueryEngine } from '@hypequery/datasets/internal';
 import type { ServeRequest } from '../../types.js';
 import type { ServeQueryEvent } from '../../query-logger.js';
 
@@ -459,7 +459,7 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
     });
 
-    it("passes dimensions and filters to the executor", async () => {
+    it("passes dimensions and filters to the semantic client", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
         metrics: { totalRevenue },
@@ -659,9 +659,9 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).meta.sql).toBeDefined();
     });
 
-    it("matches MetricExecutor.toSQL() for base metrics", async () => {
+    it("matches MetricQueryEngine.toSQL() for base metrics", async () => {
       const factory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory: factory });
+      const engine = new MetricQueryEngine({ builderFactory: factory });
       const api = createAPI({
         metrics: { totalRevenue },
         queryBuilder: factory,
@@ -686,12 +686,12 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(semanticBody(response).meta.sql).toBe(executor.toSQL(totalRevenue, query));
+      expect(semanticBody(response).meta.sql).toBe(engine.toSQL(totalRevenue, query));
     });
 
-    it("matches MetricExecutor.toSQL() for derived metrics", async () => {
+    it("matches MetricQueryEngine.toSQL() for derived metrics", async () => {
       const factory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory: factory });
+      const engine = new MetricQueryEngine({ builderFactory: factory });
       const api = createAPI({
         metrics: { avgOrderValue },
         queryBuilder: factory,
@@ -713,7 +713,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(semanticBody(response).meta.sql).toBe(executor.toSQL(avgOrderValue, query));
+      expect(semanticBody(response).meta.sql).toBe(engine.toSQL(avgOrderValue, query));
     });
   });
 

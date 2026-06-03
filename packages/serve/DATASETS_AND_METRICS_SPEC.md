@@ -15,7 +15,7 @@ When these packages are ready for public docs, the first docs pass should focus 
   - derived metrics
   - `.by(grain)`
   - runtime tenancy shape
-  - `MetricExecutor`
+  - semantic execution engine
   - intentional root exports only; serve-only helpers should stay under `@hypequery/datasets/internal`
 - `@hypequery/serve`
   - generated metric endpoints
@@ -90,7 +90,7 @@ Key departures from the previous spec:
 │  │                      │   │   └─ dataset.metric(...)   │   │
 │  └──────────────────────┘   └────────────────────────────┘   │
 │                                                               │
-│  MetricExecutor / dataset-query helpers ──→ QueryBuilder      │
+│  Semantic execution engine / dataset-query helpers ──→ QueryBuilder      │
 │  ServeHandler ──→ transports (serve, node, fetch)             │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -303,7 +303,7 @@ const marginPercent = Orders.metric("marginPercent", {
 
 **Execution model for derived metrics:**
 
-The executor wraps the base aggregations in a CTE and computes derived formulas in an outer SELECT:
+The semantic engine wraps the base aggregations in a CTE and computes derived formulas in an outer SELECT:
 
 ```sql
 WITH base AS (
@@ -400,8 +400,18 @@ Only `.by(grain)` is implemented in the current pre-release surface. Rolling win
 Metrics define canonical values. Consumers can narrow them at query time by specifying dimensions and filters:
 
 ```ts
-// Server-side (in-process)
-const result = await executor.run(totalRevenue, {
+// Served API (in-process)
+const result = await api.execute("totalRevenue", {
+  input: {
+    dimensions: ["country", "status"],
+    filters: [{ field: "status", operator: "eq", value: "completed" }],
+    orderBy: [{ field: "totalRevenue", direction: "desc" }],
+    limit: 100,
+  },
+});
+
+// Standalone semantic client
+const standaloneResult = await analytics.execute(totalRevenue, {
   dimensions: ["country", "status"],
   filters: [{ field: "status", operator: "eq", value: "completed" }],
   orderBy: [{ field: "totalRevenue", direction: "desc" }],
@@ -601,7 +611,7 @@ External behavior depends on configuration:
 | Default | `{ data: [...] }` — meta excluded |
 | `X-Include-Meta: true` header | `{ data: [...], meta: { ... } }` |
 | `envelope: true` in serve config | Always includes meta |
-| In-process `executor.run()` | Always returns full `MetricResult` |
+| Standalone `analytics.execute(metric, query)` | Always returns full `MetricResult` |
 
 ---
 
@@ -609,7 +619,7 @@ External behavior depends on configuration:
 
 ### 4.1 Key Decision: Delegate to QueryBuilder
 
-The semantic layer does **not** generate SQL strings directly as its source of truth. `MetricExecutor` and the shared dataset-query helpers compose the existing `@hypequery/clickhouse` QueryBuilder programmatically. This gives us parameterized queries, dialect handling, CTE support, caching, and logging for free.
+The semantic layer does **not** generate SQL strings directly as its source of truth. The semantic execution engine and the shared dataset-query helpers compose the existing `@hypequery/clickhouse` QueryBuilder programmatically. This gives us parameterized queries, dialect handling, CTE support, caching, and logging for free.
 
 The QueryBuilder exposes everything we need:
 - `.table(name)` — start from a physical table
@@ -624,12 +634,12 @@ The QueryBuilder exposes everything we need:
 - `.toSQL()` / `.toSQLWithParams()` — SQL output without executing
 - `.execute()` — execute with logging, caching, and parameterization
 
-The QueryBuilder is heavily generic-typed for user-facing fluent chains. The semantic execution layer works with the duck-typed builder protocol internally — type safety lives at the dataset/metric definition and contract boundary, not inside the executor.
+The QueryBuilder is heavily generic-typed for user-facing fluent chains. The semantic execution layer works with the duck-typed builder protocol internally — type safety lives at the dataset/metric definition and contract boundary, not inside the semantic engine.
 
-### 4.2 MetricExecutor
+### 4.2 Semantic Execution Engine
 
 ```ts
-class MetricExecutor {
+class DatasetClient {
   private qb: ReturnType<typeof createQueryBuilder<any>>;
 
   constructor(options: {
@@ -677,9 +687,9 @@ runDatasetQuery(dataset, query, options)
 
 These helpers are for package integration, primarily serve-backed dataset endpoints. They should not be documented as the user-facing datasets API unless we deliberately promote them later.
 
-### 4.3 How MetricExecutor Builds Queries
+### 4.3 How Semantic Execution Builds Queries
 
-The executor translates metric definitions into QueryBuilder calls. Here's the
+The semantic engine translates metric definitions into QueryBuilder calls. Here's the
 mapping for each case:
 
 **Base metrics — `.table().select().sum().where().groupBy().execute()`**
@@ -731,7 +741,7 @@ LIMIT 100
 
 ```ts
 // Metric: avgOrderValue = divide(totalRevenue, orderCount)
-// The executor collects all base metrics, builds a CTE, then wraps with formula.
+// The semantic engine collects all base metrics, builds a CTE, then wraps with formula.
 
 const baseBuilder = this.qb
   .table("orders")
@@ -848,7 +858,7 @@ GROUP BY customers.country
 
 ### 4.5 Aggregation Mapping
 
-The executor maps metric aggregation specs to QueryBuilder methods:
+The semantic engine maps metric aggregation specs to QueryBuilder methods:
 
 ```ts
 function applyAggregation(builder, spec, alias) {
@@ -984,7 +994,7 @@ const Orders = dataset("orders", {
 });
 ```
 
-The executor validates these before generating SQL. Violations return a `400` with a clear error message.
+The semantic engine validates these before generating SQL. Violations return a `400` with a clear error message.
 
 ### 5.7 Schema Compatibility
 
@@ -1036,7 +1046,7 @@ Current v1 checks include:
 
 - `Dataset.metric()` method
 - Aggregation helpers: `sum`, `count`, `countDistinct`, `avg`, `min`, `max`
-- `MetricExecutor` — SQL generation + execution for base metrics
+- Semantic execution engine — SQL generation + execution for base metrics
 - `MetricRef` type with `.contract()` method
 - Tenant auto-injection in generated SQL
 - Tests: SQL generation, parameterization, tenant injection, contract generation

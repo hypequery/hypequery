@@ -77,7 +77,7 @@ Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6
 - ✅ Server start lifecycle
 - ✅ Server stop lifecycle
 - ✅ Complete start/stop lifecycle
-- ✅ Config validation (datasets, executor)
+- ✅ Config validation (datasets, analytics)
 - ✅ Default name/version fallbacks
 - ✅ Datasets with relationships
 - ✅ Config structure support
@@ -109,7 +109,7 @@ Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6
 
 ### 🔄 Mocked
 - MCP SDK components (Server, StdioServerTransport)
-- MetricExecutor (query execution)
+- Semantic runner (query execution)
 - BuilderFactory
 
 ### 📝 Not Tested
@@ -154,15 +154,15 @@ it('should execute metric query with dimensions', async () => {
     meta: { sql: '...', timingMs: 60 },
   };
 
-  const executor = createMockExecutor(mockResult);
-  const result = await queryMetricTool(datasets, executor, {
+  const analytics = createMockExecutor(mockResult);
+  const result = await queryMetricTool(datasets, analytics, {
     dataset: 'orders',
     metric: 'revenue',
     dimensions: ['region'],
   });
 
   expect(data.data).toHaveLength(2);
-  expect(executor.run).toHaveBeenCalledWith(
+  expect(analytics.execute).toHaveBeenCalledWith(
     expect.anything(),
     expect.objectContaining({ dimensions: ['region'] }),
     expect.anything()

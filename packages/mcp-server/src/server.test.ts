@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HypequeryMCPServer } from './server.js';
-import type { SemanticExecutor } from '@hypequery/datasets';
+import type { DatasetClient } from '@hypequery/datasets';
 
 // Mock the MCP SDK
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
@@ -20,11 +20,8 @@ vi.mock('@modelcontextprotocol/sdk/server/stdio.js', () => ({
 }));
 
 describe('HypequeryMCPServer', () => {
-  const mockExecutor: SemanticExecutor = {
-    metric: vi.fn(),
-    dataset: vi.fn(),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
+  const mockAnalytics: DatasetClient = {
+    execute: vi.fn(),
   } as any;
 
   const mockDatasets = {
@@ -46,7 +43,7 @@ describe('HypequeryMCPServer', () => {
   it('should create server instance with default config', () => {
     const server = new HypequeryMCPServer({
       datasets: mockDatasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -55,7 +52,7 @@ describe('HypequeryMCPServer', () => {
   it('should create server instance with custom name and version', () => {
     const server = new HypequeryMCPServer({
       datasets: mockDatasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
       name: 'custom-mcp-server',
       version: '1.0.0',
     });
@@ -66,7 +63,7 @@ describe('HypequeryMCPServer', () => {
   it('should accept empty datasets', () => {
     const server = new HypequeryMCPServer({
       datasets: {},
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -81,7 +78,7 @@ describe('HypequeryMCPServer', () => {
 
     const server = new HypequeryMCPServer({
       datasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -90,7 +87,7 @@ describe('HypequeryMCPServer', () => {
   it('should start server successfully', async () => {
     const server = new HypequeryMCPServer({
       datasets: mockDatasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     // Mock console.error to verify logging
@@ -106,7 +103,7 @@ describe('HypequeryMCPServer', () => {
   it('should stop server successfully', async () => {
     const server = new HypequeryMCPServer({
       datasets: mockDatasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     await expect(server.stop()).resolves.toBeUndefined();
@@ -115,7 +112,7 @@ describe('HypequeryMCPServer', () => {
   it('should handle server lifecycle', async () => {
     const server = new HypequeryMCPServer({
       datasets: mockDatasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -130,28 +127,25 @@ describe('HypequeryMCPServer', () => {
 });
 
 describe('HypequeryMCPServer config validation', () => {
-  const mockExecutor: SemanticExecutor = {
-    metric: vi.fn(),
-    dataset: vi.fn(),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
+  const mockAnalytics: DatasetClient = {
+    execute: vi.fn(),
   } as any;
 
   it('should accept undefined datasets', () => {
     // Server doesn't validate config, it accepts whatever is passed
     const server = new HypequeryMCPServer({
       datasets: undefined as any,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
   });
 
-  it('should accept undefined executor', () => {
+  it('should accept undefined analytics', () => {
     // Server doesn't validate config, it accepts whatever is passed
     const server = new HypequeryMCPServer({
       datasets: {},
-      executor: undefined as any,
+      analytics: undefined as any,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -160,7 +154,7 @@ describe('HypequeryMCPServer config validation', () => {
   it('should use default name when not provided', () => {
     const server = new HypequeryMCPServer({
       datasets: {},
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -169,7 +163,7 @@ describe('HypequeryMCPServer config validation', () => {
   it('should use default version when not provided', () => {
     const server = new HypequeryMCPServer({
       datasets: {},
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -177,11 +171,8 @@ describe('HypequeryMCPServer config validation', () => {
 });
 
 describe('HypequeryMCPServer with complex datasets', () => {
-  const mockExecutor: SemanticExecutor = {
-    metric: vi.fn(),
-    dataset: vi.fn(),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
+  const mockAnalytics: DatasetClient = {
+    execute: vi.fn(),
   } as any;
 
   it('should handle dataset with relationships', () => {
@@ -204,7 +195,7 @@ describe('HypequeryMCPServer with complex datasets', () => {
 
     const server = new HypequeryMCPServer({
       datasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -226,7 +217,7 @@ describe('HypequeryMCPServer with complex datasets', () => {
 
     const server = new HypequeryMCPServer({
       datasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -256,7 +247,7 @@ describe('HypequeryMCPServer with complex datasets', () => {
 
     const server = new HypequeryMCPServer({
       datasets,
-      executor: mockExecutor,
+      analytics: mockAnalytics,
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);

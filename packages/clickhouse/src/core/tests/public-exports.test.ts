@@ -34,8 +34,8 @@ describe('Public exports', () => {
       },
     });
 
-    expect(typeof client.metric).toBe('function');
-    expect(typeof client.dataset).toBe('function');
+    expect(typeof client.execute).toBe('function');
+    expect(typeof client.toSQL).toBe('function');
   });
 
   it('renders semantic dataset plans through the ClickHouse datasets backend', async () => {
@@ -63,7 +63,7 @@ describe('Public exports', () => {
       },
     });
 
-    const result = await client.dataset(Orders, {
+    const result = await client.execute(Orders, {
       dimensions: ['country'],
       measures: ['revenue'],
     });
@@ -72,7 +72,7 @@ describe('Public exports', () => {
     expect(queries[0]).toContain('SELECT country, SUM(amount) AS revenue FROM orders');
     expect(queries[0]).toContain('GROUP BY country');
 
-    await client.dataset(Orders, {
+    await client.execute(Orders, {
       dimensions: ['country'],
       measures: ['completedRevenue'],
     });

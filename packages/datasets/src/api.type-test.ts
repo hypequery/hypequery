@@ -1,6 +1,7 @@
-import { add, dataset, dimension, measure, eq, between, desc, createExecutor, SemanticExecutor } from './index.js';
+import { add, dataset, dimension, measure, eq, between, desc, createDatasetClient } from './index.js';
 import type {
   BaseMetricRef,
+  DatasetClient,
   DatasetQuery,
   DatasetQueryResult,
   DerivedMetricConfig,
@@ -82,6 +83,18 @@ type _RootExportOmitsRunDatasetQuery = Assert<
 >;
 type _RootExportOmitsValidateDatasetQuery = Assert<
   Equal<HasKey<DatasetModule, 'validateDatasetQuery'>, false>
+>;
+type _RootExportIncludesCreateDatasetClient = Assert<
+  Equal<HasKey<DatasetModule, 'createDatasetClient'>, true>
+>;
+type _RootExportOmitsCreateExecutor = Assert<
+  Equal<HasKey<DatasetModule, 'createExecutor'>, false>
+>;
+type _RootExportOmitsSemanticExecutor = Assert<
+  Equal<HasKey<DatasetModule, 'SemanticExecutor'>, false>
+>;
+type _RootExportOmitsMetricExecutor = Assert<
+  Equal<HasKey<DatasetModule, 'MetricExecutor'>, false>
 >;
 type _InternalDatasetQueryTypeCompiles = import('./internal.js').DatasetQuery;
 type _InternalExportIncludesBuildDatasetQueryBuilder = Assert<
@@ -169,15 +182,16 @@ const builderFactory: QueryBuilderFactoryLike = {
   rawQuery: async () => [],
 };
 
-const executor = createExecutor({ queryBuilder: builderFactory });
-const explicitExecutor: SemanticExecutor = executor;
+const analytics = createDatasetClient({ queryBuilder: builderFactory });
+const explicitAnalytics: DatasetClient = analytics;
 const datasetQuery: DatasetQuery = { dimensions: ['status'], measures: ['revenue'] };
 
-executor.validate(revenueMetric, { dimensions: ['status'] }, runtimeContext);
-executor.toSQL(completedRevenueMetric, { dimensions: ['status'] }, runtimeContext);
-executor.toSQL(revenueMetric, { orderBy: [desc('revenueMetric')] }, runtimeContext);
-executor.validateDataset(Orders, datasetQuery, runtimeContext);
-void executor.dataset<DatasetQueryResult['data'][number]>(Orders, datasetQuery, runtimeContext);
+analytics.validate(revenueMetric, { dimensions: ['status'] }, runtimeContext);
+analytics.toSQL(completedRevenueMetric, { dimensions: ['status'] }, runtimeContext);
+analytics.toSQL(revenueMetric, { orderBy: [desc('revenueMetric')] }, runtimeContext);
+analytics.validate(Orders, datasetQuery, runtimeContext);
+analytics.toSQL(Orders, datasetQuery, runtimeContext);
+void analytics.execute<DatasetQueryResult['data'][number]>(Orders, datasetQuery, runtimeContext);
 
 void runtimeContext;
-void explicitExecutor;
+void explicitAnalytics;
