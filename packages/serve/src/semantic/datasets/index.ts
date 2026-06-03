@@ -36,9 +36,6 @@ export {
   filter,
   order,
   createDatasetRegistry,
-  createExecutor,
-  SemanticExecutor,
-  MetricExecutor,
 } from '@hypequery/datasets';
 
 export type {
@@ -70,8 +67,6 @@ export type {
   MetricResult,
   DatasetQueryResult,
   MetricHandle,
-  SemanticExecutorOptions,
-  MetricExecutorOptions,
   ExecutionContext,
   SemanticExecutionRuntime,
   SemanticTenantRuntime,

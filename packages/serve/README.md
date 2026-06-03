@@ -49,6 +49,41 @@ Now you can:
 - consume it from `@hypequery/react`
 - describe it for tools and agents
 
+The same `api.execute(...)` call works for configured metrics and datasets:
+
+```ts
+import { createAPI } from '@hypequery/serve';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    country: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const queryBuilder = createQueryBuilder({ url, username, password, database });
+
+const api = createAPI({
+  queryBuilder,
+  metrics: { revenue },
+  datasets: { orders: Orders },
+});
+
+await api.execute('revenue', {
+  input: { dimensions: ['country'] },
+});
+
+await api.execute('dataset:orders', {
+  input: { dimensions: ['country'], measures: ['revenue'] },
+});
+```
+
 ## Main Ideas
 
 ### `query({ ... })`
@@ -59,7 +94,27 @@ Defines a typed contract:
 - optional input schema
 - query implementation
 
-### `serve({ queries })`
+Standalone queries can execute without creating a served API:
+
+```ts
+const topCustomers = query({
+  input: z.object({ limit: z.number().int().positive() }),
+  query: async ({ input }) =>
+    db
+      .table('orders')
+      .select(['customer_id'])
+      .sum('total', 'revenue')
+      .groupBy('customer_id')
+      .limit(input.limit)
+      .execute(),
+});
+
+await topCustomers.execute({
+  input: { limit: 10 },
+});
+```
+
+### `serve({ queries, metrics, datasets })`
 
 Builds a runtime around those contracts:
 

@@ -77,11 +77,11 @@ const analytics = createDatasetClient({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-await analytics.metric(revenue, {
+await analytics.execute(revenue, {
   dimensions: ['country'],
 });
 
-await analytics.dataset(Orders, {
+await analytics.execute(Orders, {
   dimensions: ['country'],
   measures: ['revenue'],
 });

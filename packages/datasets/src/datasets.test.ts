@@ -8,7 +8,7 @@ import { eq, between, desc } from './query-helpers.js';
 import { measure } from './measure.js';
 import { createDatasetRegistry } from './registry.js';
 import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from './dataset-query.js';
-import { createExecutor, MetricExecutor } from './executor.js';
+import { createDatasetClient, MetricQueryEngine } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
@@ -509,10 +509,10 @@ describe("DatasetRegistry", () => {
 });
 
 // =============================================================================
-// METRIC EXECUTOR TESTS
+// METRIC QUERY ENGINE TESTS
 // =============================================================================
 
-describe("MetricExecutor", () => {
+describe("MetricQueryEngine", () => {
   type BuilderColumnsInput = string[] | string;
 
   function createMockBuilderFactory(): QueryBuilderFactoryLike {
@@ -721,8 +721,8 @@ describe("MetricExecutor", () => {
 
   describe("toSQL() — base metrics", () => {
     it("generates simple aggregate SQL", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(totalRevenue, {
         dimensions: ["country"],
       });
 
@@ -731,8 +731,8 @@ describe("MetricExecutor", () => {
     });
 
     it("injects tenant WHERE clause", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(totalRevenue, {
         dimensions: ["country"],
       }, {
         runtime: {
@@ -744,8 +744,8 @@ describe("MetricExecutor", () => {
     });
 
     it("applies user filters", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(totalRevenue, {
         dimensions: ["country"],
         filters: [{ field: "status", operator: "eq", value: "completed" }],
       });
@@ -754,8 +754,8 @@ describe("MetricExecutor", () => {
     });
 
     it("applies ORDER BY and LIMIT", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(totalRevenue, {
         dimensions: ["country"],
         orderBy: [{ field: "totalRevenue", direction: "desc" }],
         limit: 100,
@@ -766,8 +766,8 @@ describe("MetricExecutor", () => {
     });
 
     it("compiles filtered measures into aggregation expressions", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(completedRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(completedRevenue, {
         dimensions: ["country"],
       });
 
@@ -776,8 +776,8 @@ describe("MetricExecutor", () => {
     });
 
     it("resolves column aliases for countDistinct metrics", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(uniqueCustomers, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(uniqueCustomers, {
         dimensions: ["country"],
       });
 
@@ -788,9 +788,9 @@ describe("MetricExecutor", () => {
 
   describe("toSQL() — grained metrics", () => {
     it("generates time-grained SQL with .by()", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const monthly = totalRevenue.by("month");
-      const sql = executor.toSQL(monthly);
+      const sql = analytics.toSQL(monthly);
 
       expect(sql).toContain("toStartOfMonth(created_at) AS period");
       expect(sql).toContain("GROUP BY period");
@@ -798,16 +798,16 @@ describe("MetricExecutor", () => {
     });
 
     it("supports grain via query.by", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(totalRevenue, { by: "week" });
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(totalRevenue, { by: "week" });
 
       expect(sql).toContain("toStartOfWeek(created_at) AS period");
     });
 
     it("rejects conflicting query.by on grained metrics", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const monthly = totalRevenue.by("month");
-      const result = executor.validate(monthly, { by: "week" });
+      const result = analytics.validate(monthly, { by: "week" });
 
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('already grained by "month"');
@@ -816,8 +816,8 @@ describe("MetricExecutor", () => {
 
   describe("toSQL() — derived metrics", () => {
     it("generates CTE-based SQL", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(avgOrderValue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(avgOrderValue, {
         dimensions: ["country"],
       });
 
@@ -830,8 +830,8 @@ describe("MetricExecutor", () => {
     });
 
     it("does not emit GROUP BY for ungrouped derived metrics", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const sql = executor.toSQL(avgOrderValue);
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const sql = analytics.toSQL(avgOrderValue);
 
       expect(sql).toContain("WITH base AS");
       expect(sql).not.toContain("GROUP BY totalRevenue");
@@ -839,8 +839,8 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects derived plans that introduce aggregate aliases into GROUP BY", () => {
-      const executor = new MetricExecutor({ builderFactory: createBrokenDerivedGroupingBuilderFactory() });
-      const result = executor.validate(avgOrderValue, {});
+      const analytics = new MetricQueryEngine({ builderFactory: createBrokenDerivedGroupingBuilderFactory() });
+      const result = analytics.validate(avgOrderValue, {});
 
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain("GROUP BY");
@@ -850,8 +850,8 @@ describe("MetricExecutor", () => {
   describe("run()", () => {
     it("executes SQL and returns MetricResult", async () => {
       const builderFactory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory });
-      const result = await executor.run(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory });
+      const result = await analytics.run(totalRevenue, {
         dimensions: ["country"],
       });
 
@@ -865,16 +865,16 @@ describe("MetricExecutor", () => {
 
     it("passes tenant context to SQL", async () => {
       const builderFactory = createMockBuilderFactory();
-      const executor = new MetricExecutor({ builderFactory });
+      const analytics = new MetricQueryEngine({ builderFactory });
 
-      await executor.run(totalRevenue, {}, {
+      await analytics.run(totalRevenue, {}, {
         runtime: {
           tenant: { id: "t1" },
         },
       });
 
       // Verify the SQL was generated (toSQL includes tenant filter)
-      const sql = executor.toSQL(totalRevenue, {}, {
+      const sql = analytics.toSQL(totalRevenue, {}, {
         runtime: {
           tenant: { id: "t1" },
         },
@@ -883,9 +883,9 @@ describe("MetricExecutor", () => {
     });
   });
 
-  describe("createExecutor()", () => {
+  describe("createDatasetClient()", () => {
     it("can execute semantic plans against an in-memory backend without a query builder", async () => {
-      const executor = createExecutor({
+      const analytics = createDatasetClient({
         backend: createInMemoryBackend({
           orders: [
             { id: "1", tenant_id: "t1", country: "US", status: "completed", amount: 100, created_at: "2026-01-02" },
@@ -896,7 +896,7 @@ describe("MetricExecutor", () => {
         }),
       });
 
-      const result = await executor.metric(avgOrderValue, {
+      const result = await analytics.execute(avgOrderValue, {
         dimensions: ["country"],
         filters: [{ field: "status", operator: "eq", value: "completed" }],
         orderBy: [{ field: "country", direction: "asc" }],
@@ -911,7 +911,7 @@ describe("MetricExecutor", () => {
         { country: "US", avgOrderValue: 100 },
       ]);
 
-      const datasetResult = await executor.dataset(Orders, {
+      const datasetResult = await analytics.execute(Orders, {
         dimensions: ["country"],
         measures: ["revenue", "orderCount"],
         filters: [{ field: "status", operator: "eq", value: "completed" }],
@@ -928,11 +928,11 @@ describe("MetricExecutor", () => {
       ]);
     });
 
-    it("executes metric queries through the semantic executor", async () => {
+    it("executes metric queries through the semantic analytics", async () => {
       const builderFactory = createMockBuilderFactory();
-      const executor = createExecutor({ queryBuilder: builderFactory });
+      const analytics = createDatasetClient({ queryBuilder: builderFactory });
 
-      const result = await executor.metric(totalRevenue, {
+      const result = await analytics.execute(totalRevenue, {
         dimensions: ["country"],
       });
 
@@ -943,11 +943,11 @@ describe("MetricExecutor", () => {
       expect(result.meta.sql).toContain("SUM(amount) AS totalRevenue");
     });
 
-    it("executes dataset queries through the semantic executor", async () => {
+    it("executes dataset queries through the semantic analytics", async () => {
       const builderFactory = createMockBuilderFactory();
-      const executor = createExecutor({ queryBuilder: builderFactory });
+      const analytics = createDatasetClient({ queryBuilder: builderFactory });
 
-      const result = await executor.dataset(Orders, {
+      const result = await analytics.execute(Orders, {
         dimensions: ["country"],
         measures: ["revenue"],
       });
@@ -961,13 +961,13 @@ describe("MetricExecutor", () => {
 
     it("generates and validates dataset queries", () => {
       const builderFactory = createMockBuilderFactory();
-      const executor = createExecutor({ queryBuilder: builderFactory });
+      const analytics = createDatasetClient({ queryBuilder: builderFactory });
 
-      const validation = executor.validateDataset(Orders, {
+      const validation = analytics.validate(Orders, {
         dimensions: ["country"],
         measures: ["revenue"],
       });
-      const sql = executor.datasetSQL(Orders, {
+      const sql = analytics.toSQL(Orders, {
         dimensions: ["country"],
         measures: ["revenue"],
       });
@@ -979,16 +979,16 @@ describe("MetricExecutor", () => {
 
   describe("validate()", () => {
     it("accepts valid queries", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         dimensions: ["country", "status"],
       });
       expect(result.valid).toBe(true);
     });
 
     it("rejects unknown dimensions", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         dimensions: ["nonexistent"],
       });
       expect(result.valid).toBe(false);
@@ -996,16 +996,16 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects unknown filter fields", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         filters: [{ field: "nonexistent", operator: "eq", value: "x" }],
       });
       expect(result.valid).toBe(false);
     });
 
     it("rejects incompatible filter values", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "eq", value: "not-a-number" }],
       });
       expect(result.valid).toBe(false);
@@ -1013,8 +1013,8 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects empty arrays for in/notIn filters", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         filters: [{ field: "status", operator: "in", value: [] }],
       });
       expect(result.valid).toBe(false);
@@ -1022,8 +1022,8 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects malformed between filters", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "between", value: [1] }],
       });
       expect(result.valid).toBe(false);
@@ -1031,8 +1031,8 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects like on numeric fields", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "like", value: "%100%" }],
       });
       expect(result.valid).toBe(false);
@@ -1040,8 +1040,8 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects unknown orderBy fields", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         dimensions: ["country"],
         orderBy: [{ field: "amount", direction: "desc" }],
       });
@@ -1050,8 +1050,8 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects exceeding dimension limits", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         dimensions: ["id", "customerId", "country", "status", "amount", "createdAt"],
       });
       expect(result.valid).toBe(false);
@@ -1059,8 +1059,8 @@ describe("MetricExecutor", () => {
     });
 
     it("rejects explicit tenant filters when runtime tenancy is active", () => {
-      const executor = new MetricExecutor({ builderFactory: createMockBuilderFactory() });
-      const result = executor.validate(totalRevenue, {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
         filters: [{ field: "tenantId", operator: "eq", value: "t1" }],
       }, {
         runtime: {

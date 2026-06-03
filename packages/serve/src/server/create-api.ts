@@ -10,6 +10,9 @@ import type {
   ServeMiddleware,
   ServeQueriesMap,
   ServeConfig,
+  MetricsConfig,
+  DatasetsConfig,
+  ServeSemanticEndpointMap,
 } from "../types.js";
 import { createEndpoint } from "../endpoint.js";
 import { ServeRouter, applyBasePath, normalizeRoutePath } from "../router.js";
@@ -19,7 +22,7 @@ import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { createExecutor } from "@hypequery/datasets";
+import { createDatasetClient } from "@hypequery/datasets";
 import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
 import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js";
 
@@ -68,10 +71,17 @@ const assertSemanticKeyAvailable = (
 export const createAPI = <
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
-  TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
+  TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
+  TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
+  TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
 >(
-  config: ServeConfig<TContext, TAuth, TQueries>
-): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
+  config: ServeConfig<TContext, TAuth, TQueries, TMetrics, TDatasets>
+): HypeQueryAPI<
+  ServeEndpointMap<TQueries, TContext, TAuth>
+    & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,
+  TContext,
+  TAuth
+> => {
   const basePath = config.basePath ?? "/api/analytics";
   const router = new ServeRouter(basePath);
   const globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[] = [
@@ -163,11 +173,11 @@ export const createAPI = <
       );
     }
 
-    const executor = createExecutor({ queryBuilder: builderFactory });
+    const analytics = createDatasetClient({ queryBuilder: builderFactory });
 
     for (const [name, entry] of Object.entries(metricsEntries)) {
       assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, name, "metric");
-      const metricEndpoint = createMetricEndpoint(name, entry, executor);
+      const metricEndpoint = createMetricEndpoint(name, entry, analytics, builderFactory);
       const metricsPath = config.semanticPaths?.metrics ?? '/metrics';
       const routePath = normalizeRoutePath(`${metricsPath}/${name}`);
 
@@ -236,7 +246,7 @@ export const createAPI = <
   );
 
   const api = createAPImethods<TQueries, TContext, TAuth>(
-    queryEntries,
+    queryEntries as ServeEndpointMap<TQueries, TContext, TAuth>,
     queryLogger,
     router,
     authStrategies,
@@ -244,7 +254,12 @@ export const createAPI = <
     executeQuery,
     handler,
     basePath,
-  );
+  ) as HypeQueryAPI<
+    ServeEndpointMap<TQueries, TContext, TAuth>
+      & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,
+    TContext,
+    TAuth
+  >;
 
   if (openapiConfig.enabled) {
     const openapiEndpoint = createOpenApiEndpoint(

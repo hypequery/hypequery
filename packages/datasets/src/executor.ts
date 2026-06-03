@@ -1,13 +1,8 @@
 /**
- * MetricExecutor — resolves metrics to SQL and executes them.
+ * Semantic dataset client internals.
  *
- * Supports two modes:
- * 1. **Query builder** (recommended) — pass a `QueryBuilderFactoryLike` and the
- *    executor builds queries via the builder's fluent API, then calls `.execute()`.
- * 2. **Raw adapter** (deprecated) — pass a `MetricAdapter` with a `rawQuery` function
- *    and the executor generates SQL strings manually.
- *
- * The executor stays DB-agnostic via duck-typed protocol interfaces.
+ * Public callers use `createDatasetClient(...).execute(...)`. The implementation
+ * stays database-agnostic via query-builder and backend protocol interfaces.
  */
 
 import type {
@@ -156,30 +151,64 @@ function validateQuery(
   return { valid: errors.length === 0, errors };
 }
 
+function isDatasetInstance(target: unknown): target is AnyDatasetInstance {
+  return !!target && typeof target === 'object' && '__type' in target && target.__type === 'dataset';
+}
+
 // =============================================================================
-// METRIC EXECUTOR
+// DATASET CLIENT
 // =============================================================================
 
-export interface MetricExecutorOptions {
+export interface MetricQueryEngineOptions {
   /** Query builder factory for executing metrics. */
   builderFactory: QueryBuilderFactoryLike;
 }
 
-export interface SemanticExecutorOptions {
+export interface CreateDatasetClientOptions {
   /** Query builder factory for executing semantic metric and dataset queries. */
   queryBuilder?: QueryBuilderFactoryLike;
   /** Semantic backend for executing neutral semantic plans. */
   backend?: SemanticBackend;
 }
 
-export class MetricExecutor {
+export type SemanticTarget = MetricRef | GrainedMetricRef | AnyDatasetInstance;
+
+export type SemanticQuery<TTarget extends SemanticTarget> =
+  TTarget extends AnyDatasetInstance ? DatasetQuery : MetricQuery;
+
+export type SemanticResult<
+  TTarget extends SemanticTarget,
+  TRow = Record<string, unknown>,
+> = TTarget extends AnyDatasetInstance
+  ? DatasetQueryResult<TRow>
+  : MetricResult<TRow>;
+
+export interface DatasetClient {
+  execute<TRow = Record<string, unknown>, TTarget extends SemanticTarget = SemanticTarget>(
+    target: TTarget,
+    query?: SemanticQuery<TTarget>,
+    context?: ExecutionContext,
+  ): Promise<SemanticResult<TTarget, TRow>>;
+  toSQL<TTarget extends SemanticTarget>(
+    target: TTarget,
+    query?: SemanticQuery<TTarget>,
+    context?: ExecutionContext,
+  ): string;
+  validate<TTarget extends SemanticTarget>(
+    target: TTarget,
+    query?: SemanticQuery<TTarget>,
+    context?: ExecutionContext,
+  ): ValidationResult;
+}
+
+export class MetricQueryEngine {
   private builderFactory: QueryBuilderFactoryLike;
 
-  constructor(options: MetricExecutorOptions) {
+  constructor(options: MetricQueryEngineOptions) {
     this.builderFactory = options.builderFactory;
   }
 
-  getBuilderFactory(): QueryBuilderFactoryLike {
+  protected getBuilderFactory(): QueryBuilderFactoryLike {
     return this.builderFactory;
   }
 
@@ -446,20 +475,20 @@ export class MetricExecutor {
   }
 }
 
-export class SemanticExecutor extends MetricExecutor {
+export class DatasetClientImpl extends MetricQueryEngine implements DatasetClient {
   private backend?: SemanticBackend;
 
-  constructor(options: SemanticExecutorOptions) {
+  constructor(options: CreateDatasetClientOptions) {
     if (!options.queryBuilder && !options.backend) {
-      throw new Error('createExecutor requires either queryBuilder or backend.');
+      throw new Error('createDatasetClient requires either queryBuilder or backend.');
     }
     super({
       builderFactory: options.queryBuilder ?? {
         table() {
-          throw new Error('This executor was created with a semantic backend, not a query builder.');
+          throw new Error('This dataset client was created with a semantic backend, not a query builder.');
         },
         async rawQuery() {
-          throw new Error('This executor was created with a semantic backend, not a query builder.');
+          throw new Error('This dataset client was created with a semantic backend, not a query builder.');
         },
       },
     });
@@ -488,42 +517,86 @@ export class SemanticExecutor extends MetricExecutor {
   }
 
   /**
-   * Execute a metric query.
+   * Execute a semantic target.
    */
-  metric<T = Record<string, unknown>>(
-    metric: MetricRef | GrainedMetricRef,
-    query: MetricQuery = {},
+  execute<TRow = Record<string, unknown>, TTarget extends SemanticTarget = SemanticTarget>(
+    target: TTarget,
+    query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
-  ): Promise<MetricResult<T>> {
-    if (this.backend) {
-      return this.backend.execute<T>(this.planMetric(metric, query, context)) as Promise<MetricResult<T>>;
+  ): Promise<SemanticResult<TTarget, TRow>> {
+    if (isDatasetInstance(target)) {
+      return this.executeDataset<TRow>(
+        target,
+        query as DatasetQuery,
+        context,
+      ) as Promise<SemanticResult<TTarget, TRow>>;
     }
-    return this.run<T>(metric, query, context);
+
+    return this.executeMetric<TRow>(
+      target,
+      query as MetricQuery,
+      context,
+    ) as Promise<SemanticResult<TTarget, TRow>>;
   }
 
-  /**
-   * Execute a same-dataset semantic query.
-   */
-  dataset<T = Record<string, unknown>>(
-    ds: AnyDatasetInstance,
-    query: DatasetQuery = {},
+  toSQL<TTarget extends SemanticTarget>(
+    target: TTarget,
+    query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
     context?: ExecutionContext,
-  ): Promise<DatasetQueryResult<T>> {
-    if (this.backend) {
-      return this.backend.execute<T>(this.planDataset(ds, query, context)) as Promise<DatasetQueryResult<T>>;
+  ): string {
+    if (isDatasetInstance(target)) {
+      return this.toDatasetSQL(target, query as DatasetQuery, context);
     }
+
+    return super.toSQL(target, query as MetricQuery, context);
+  }
+
+  validate<TTarget extends SemanticTarget>(
+    target: TTarget,
+    query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,
+    context?: ExecutionContext,
+  ): ValidationResult {
+    if (isDatasetInstance(target)) {
+      return validateDatasetQuery(target, query as DatasetQuery, context);
+    }
+
+    return super.validate(target, query as MetricQuery, context);
+  }
+
+  private executeMetric<TRow>(
+    metric: MetricRef | GrainedMetricRef,
+    query: MetricQuery,
+    context?: ExecutionContext,
+  ): Promise<MetricResult<TRow>> {
+    if (this.backend) {
+      return this.backend.execute<TRow>(
+        this.planMetric(metric, query, context),
+      ) as Promise<MetricResult<TRow>>;
+    }
+
+    return this.run<TRow>(metric, query, context);
+  }
+
+  private executeDataset<TRow>(
+    ds: AnyDatasetInstance,
+    query: DatasetQuery,
+    context?: ExecutionContext,
+  ): Promise<DatasetQueryResult<TRow>> {
+    if (this.backend) {
+      return this.backend.execute<TRow>(
+        this.planDataset(ds, query, context),
+      ) as Promise<DatasetQueryResult<TRow>>;
+    }
+
     return runDatasetQuery(ds, query, {
       builderFactory: context?.runtime?.builderFactory ?? this.getBuilderFactory(),
       context,
-    }) as Promise<DatasetQueryResult<T>>;
+    }) as Promise<DatasetQueryResult<TRow>>;
   }
 
-  /**
-   * Generate SQL for a dataset query without executing it.
-   */
-  datasetSQL(
+  private toDatasetSQL(
     ds: AnyDatasetInstance,
-    query: DatasetQuery = {},
+    query: DatasetQuery,
     context?: ExecutionContext,
   ): string {
     const builder = buildDatasetQueryBuilder(ds, query, {
@@ -532,21 +605,10 @@ export class SemanticExecutor extends MetricExecutor {
     });
     return builder.toSQLWithParams().sql;
   }
-
-  /**
-   * Validate a dataset query against the dataset contract.
-   */
-  validateDataset(
-    ds: AnyDatasetInstance,
-    query: DatasetQuery = {},
-    context?: ExecutionContext,
-  ): ValidationResult {
-    return validateDatasetQuery(ds, query, context);
-  }
 }
 
-export function createExecutor(options: SemanticExecutorOptions): SemanticExecutor {
-  return new SemanticExecutor(options);
+export function createDatasetClient(options: CreateDatasetClientOptions): DatasetClient {
+  return new DatasetClientImpl(options);
 }
 
 export type { DatasetQueryExecutionOptions };

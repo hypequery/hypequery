@@ -1,7 +1,7 @@
 /**
  * DatasetRegistry — runtime registry of defined datasets.
  *
- * Used by MetricExecutor and serve() to discover datasets at startup.
+ * Used by serve() and semantic clients to discover datasets at startup.
  */
 
 import type { DatasetInstance, DatasetRegistryInstance } from './types.js';

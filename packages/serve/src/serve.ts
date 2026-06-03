@@ -9,9 +9,12 @@ import type {
   ServeConfig,
   ServeContextFactory,
   ServeEndpointMap,
+  ServeSemanticEndpointMap,
   ServeQueriesMap,
   ServeRequest,
   StandaloneQueryDefinition,
+  MetricsConfig,
+  DatasetsConfig,
 } from "./types.js";
 import type { ZodTypeAny } from "zod";
 import { defineServe } from "./server/define-serve.js";
@@ -147,7 +150,16 @@ export const query = createQueryFactory();
 export function serve<
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
-  TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
->(config: ServeConfig<TContext, TAuth, TQueries>): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> {
-  return defineServe<TContext, TAuth, TQueries>(config);
+  TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
+  TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
+  TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
+>(
+  config: ServeConfig<TContext, TAuth, TQueries, TMetrics, TDatasets>
+): ServeBuilder<
+  ServeEndpointMap<TQueries, TContext, TAuth>
+    & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,
+  TContext,
+  TAuth
+> {
+  return defineServe<TContext, TAuth, TQueries, TMetrics, TDatasets>(config);
 }

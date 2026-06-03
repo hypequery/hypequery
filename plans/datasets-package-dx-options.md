@@ -125,7 +125,7 @@ const executor = createExecutor({
   }),
 });
 
-await executor.dataset(Orders, {
+await executor.execute(Orders, {
   dimensions: ['country'],
   measures: ['revenue'],
 });
@@ -236,11 +236,11 @@ import { createExecutor } from '@hypequery/datasets';
 
 const executor = createExecutor({ queryBuilder });
 
-await executor.metric(revenue, {
+await executor.execute(revenue, {
   dimensions: ['country'],
 });
 
-await executor.dataset(Orders, {
+await executor.execute(Orders, {
   dimensions: ['country'],
   measures: ['revenue'],
 });
@@ -253,7 +253,7 @@ import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
 const analytics = createDatasetClient(clickhouseConfig);
 
-await analytics.metric(revenue, {
+await analytics.execute(revenue, {
   dimensions: ['country'],
 });
 ```
@@ -330,13 +330,13 @@ const analytics = createDatasetClient({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-const result = await analytics.metric(revenue, {
+const result = await analytics.execute(revenue, {
   dimensions: ['country'],
   filters: [eq('status', 'completed')],
   orderBy: [desc('revenue')],
 });
 
-const datasetResult = await analytics.dataset(Orders, {
+const datasetResult = await analytics.execute(Orders, {
   dimensions: ['country'],
   measures: ['revenue', 'orderCount'],
 });
@@ -610,8 +610,8 @@ Good for generic `@hypequery/datasets`:
 
 ```ts
 const executor = createExecutor({ queryBuilder });
-await executor.metric(revenue, query);
-await executor.dataset(Orders, query);
+await executor.execute(revenue, query);
+await executor.execute(Orders, query);
 ```
 
 Pros:
@@ -703,8 +703,8 @@ Usage:
 ```ts
 const executor = createExecutor({ queryBuilder });
 
-await executor.metric(revenue, query);
-await executor.dataset(Orders, query);
+await executor.execute(revenue, query);
+await executor.execute(Orders, query);
 ```
 
 ### `@hypequery/clickhouse/datasets`
@@ -725,8 +725,8 @@ Usage:
 ```ts
 const analytics = createDatasetClient(clickhouseConfig);
 
-await analytics.metric(revenue, query);
-await analytics.dataset(Orders, query);
+await analytics.execute(revenue, query);
+await analytics.execute(Orders, query);
 ```
 
 ## Migration Notes From Current Pre-Release API
@@ -752,7 +752,7 @@ import { createQueryBuilder } from '@hypequery/clickhouse';
 const queryBuilder = createQueryBuilder(config);
 const executor = createExecutor({ queryBuilder });
 
-await executor.metric(revenue, query);
+await executor.execute(revenue, query);
 ```
 
 Best ClickHouse replacement:
@@ -767,7 +767,7 @@ import {
 
 const analytics = createDatasetClient(config);
 
-await analytics.metric(revenue, query);
+await analytics.execute(revenue, query);
 ```
 
 ## Open Questions
@@ -782,7 +782,7 @@ await analytics.metric(revenue, query);
 
 3. Should the client method be `dataset(...)` or `query(...)`?
 
-   Recommendation: use `dataset(ds, query)` for symmetry with `metric(metric, query)`. Consider adding `queryDataset` only if user testing shows `dataset(...)` reads oddly.
+   Recommendation: use `execute(target, query)` for both metric refs and dataset instances so semantic execution matches `api.execute(...)`.
 
 4. Should the ClickHouse datasets subpath be documented as the default path?
 

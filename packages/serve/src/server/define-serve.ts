@@ -3,8 +3,11 @@ import type {
   ServeBuilder,
   ServeConfig,
   ServeEndpointMap,
+  ServeSemanticEndpointMap,
   ServeQueriesMap,
   StartServerOptions,
+  MetricsConfig,
+  DatasetsConfig,
 } from "../types.js";
 import { createAPI } from "./create-api.js";
 
@@ -30,11 +33,18 @@ import { createAPI } from "./create-api.js";
 export const defineServe = <
   TContext extends Record<string, unknown> = Record<string, unknown>,
   TAuth extends AuthContext = AuthContext,
-  TQueries extends ServeQueriesMap<TContext, TAuth> = ServeQueriesMap<TContext, TAuth>
+  TQueries extends ServeQueriesMap<TContext, TAuth> = Record<never, never>,
+  TMetrics extends MetricsConfig<TAuth> = Record<never, never>,
+  TDatasets extends DatasetsConfig<TAuth> = Record<never, never>
 >(
-  config: ServeConfig<TContext, TAuth, TQueries>
-): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
-  const api = createAPI<TContext, TAuth, TQueries>(config);
+  config: ServeConfig<TContext, TAuth, TQueries, TMetrics, TDatasets>
+): ServeBuilder<
+  ServeEndpointMap<TQueries, TContext, TAuth>
+    & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,
+  TContext,
+  TAuth
+> => {
+  const api = createAPI<TContext, TAuth, TQueries, TMetrics, TDatasets>(config);
 
   const loadNodeAdapter = async () => {
     if (typeof require !== "undefined") {
@@ -44,7 +54,12 @@ export const defineServe = <
   };
 
   // Extend the API with backwards-compatible ServeBuilder methods
-  const builder = api as unknown as ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth>;
+  const builder = api as unknown as ServeBuilder<
+    ServeEndpointMap<TQueries, TContext, TAuth>
+      & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,
+    TContext,
+    TAuth
+  >;
   const routeConfig: Record<string, { method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" }> = {};
 
   for (const [key, endpoint] of Object.entries(api.queries)) {

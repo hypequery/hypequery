@@ -31,9 +31,9 @@ export {
 // Registry
 export { createDatasetRegistry } from './registry.js';
 
-// Executor
-export { createExecutor, SemanticExecutor, MetricExecutor } from './executor.js';
-export type { SemanticExecutorOptions, MetricExecutorOptions } from './executor.js';
+// Dataset client
+export { createDatasetClient } from './executor.js';
+export type { DatasetClient, CreateDatasetClientOptions } from './executor.js';
 export { createInMemoryBackend } from './in-memory-backend.js';
 export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';
 export type {
@@ -97,6 +97,7 @@ export type {
   DatasetConfig,
   DatasetLimits,
   DatasetInstance,
+  AnyDatasetInstance,
   BaseMetricConfig,
   DerivedMetricConfig,
   DatasetRegistryInstance,

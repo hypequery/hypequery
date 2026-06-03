@@ -1,7 +1,7 @@
-import type { DatasetInstance } from '@hypequery/datasets';
+import type { AnyDatasetInstance } from '@hypequery/datasets';
 
 export function buildDatasetQueryDescription(
-  ds: DatasetInstance,
+  ds: AnyDatasetInstance,
   maxLimit: number,
 ): string {
   const dimensionNames = Object.keys(ds.dimensions);

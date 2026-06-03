@@ -26,7 +26,7 @@ export function isMetricHandle(value: unknown): value is MetricHandle {
 export function assertMetricHandle(value: unknown): asserts value is MetricHandle {
   if (!isMetricHandle(value)) {
     throw new Error(
-      'MetricExecutor only supports MetricRef and GrainedMetricRef. ' +
+      'Metric queries only support MetricRef and GrainedMetricRef. ' +
       'dataset.query(...) is not part of the public execution API.',
     );
   }

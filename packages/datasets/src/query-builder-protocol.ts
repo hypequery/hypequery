@@ -2,7 +2,7 @@
  * Duck-typed protocol interfaces for query builders.
  *
  * These interfaces define the minimal contract that a query builder must satisfy
- * to work with the MetricExecutor. The @hypequery/clickhouse `createQueryBuilder`
+ * to work with the semantic dataset client. The @hypequery/clickhouse `createQueryBuilder`
  * return value satisfies `QueryBuilderFactoryLike` structurally — no explicit
  * `implements` is needed.
  *

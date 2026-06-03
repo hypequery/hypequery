@@ -16,7 +16,6 @@ pnpm add @hypequery/datasets
 
 ```ts
 import {
-  createExecutor,
   dataset,
   dimension,
   divide,
@@ -24,7 +23,7 @@ import {
   measure,
   nullIfZero,
 } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -62,23 +61,21 @@ const averageOrderValue = Orders.metric('averageOrderValue', {
     divide(revenue, nullIfZero(orderCount)),
 });
 
-const builderFactory = createQueryBuilder({
-  host: process.env.CLICKHOUSE_HOST,
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL,
   username: process.env.CLICKHOUSE_USER,
   password: process.env.CLICKHOUSE_PASSWORD,
   database: process.env.CLICKHOUSE_DATABASE,
 });
 
-const executor = createExecutor({ queryBuilder: builderFactory });
-
-const result = await executor.metric(revenue, {
+const result = await analytics.execute(revenue, {
   dimensions: ['country'],
   filters: [eq('status', 'completed')],
   orderBy: [{ field: 'revenue', direction: 'desc' }],
   limit: 10,
 });
 
-const monthlySql = executor.toSQL(revenue.by('month'), {
+const monthlySql = analytics.toSQL(revenue.by('month'), {
   dimensions: ['country'],
 });
 ```
@@ -187,7 +184,7 @@ Use `.by(grain)` on a metric when the dataset has a `timeKey`.
 ```ts
 const monthlyRevenue = revenue.by('month');
 
-await executor.metric(monthlyRevenue, {
+await analytics.execute(monthlyRevenue, {
   dimensions: ['country'],
 });
 ```
@@ -199,7 +196,7 @@ Supported grains are `day`, `week`, `month`, `quarter`, and `year`.
 Runtime tenancy uses the dataset `tenantKey` and a runtime tenant identity.
 
 ```ts
-await executor.metric(revenue, {}, {
+await analytics.execute(revenue, {}, {
   runtime: {
     tenant: { id: 'tenant_123' },
   },
@@ -230,30 +227,28 @@ For this release, relationship-aware query execution is not shipped. Query execu
 
 ## Execution
 
-`createExecutor` accepts a query builder factory compatible with `@hypequery/clickhouse`.
+Use `createDatasetClient` from `@hypequery/clickhouse/datasets` to execute semantic targets against ClickHouse.
 
 ```ts
-const executor = createExecutor({ queryBuilder: builderFactory });
-
-const validation = executor.validate(revenue, {
+const validation = analytics.validate(revenue, {
   dimensions: ['country'],
 });
 
-const sql = executor.toSQL(revenue, {
+const sql = analytics.toSQL(revenue, {
   dimensions: ['country'],
 });
 
-const result = await executor.metric(revenue, {
+const result = await analytics.execute(revenue, {
   dimensions: ['country'],
 });
 
-const datasetResult = await executor.dataset(Orders, {
+const datasetResult = await analytics.execute(Orders, {
   dimensions: ['country'],
   measures: ['revenue'],
 });
 ```
 
-The executor validates dimensions, filters, order fields, limits, time grain requirements, tenant filtering, and derived metric plans before execution.
+The semantic client validates dimensions, filters, order fields, limits, time grain requirements, tenant filtering, and derived metric plans before execution.
 
 For ClickHouse applications, `@hypequery/clickhouse/datasets` provides a
 datasets-first client that accepts ClickHouse connection config directly:
@@ -268,7 +263,7 @@ const analytics = createDatasetClient({
   database: process.env.CLICKHOUSE_DATABASE,
 });
 
-await analytics.metric(revenue, { dimensions: ['country'] });
+await analytics.execute(revenue, { dimensions: ['country'] });
 ```
 
 ## Serve Integration

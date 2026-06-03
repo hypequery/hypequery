@@ -130,6 +130,57 @@ The same query can then be:
 - consumed from React with `@hypequery/react`
 - described for tools and agents
 
+If you do not need `serve`, a standalone query can execute itself:
+
+```ts
+const activeUsers = query({
+  input: z.object({ region: z.string() }),
+  query: ({ input }) =>
+    db
+      .table('users')
+      .where('status', 'eq', 'active')
+      .where('region', 'eq', input.region)
+      .execute(),
+});
+
+await activeUsers.execute({
+  input: { region: 'EMEA' },
+});
+```
+
+The same served execution API also works for semantic metrics:
+
+```ts
+import { createAPI } from '@hypequery/serve';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    region: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('total'),
+  },
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
+export const api = createAPI({
+  queryBuilder,
+  metrics: { revenue },
+  datasets: { orders: Orders },
+});
+
+await api.execute('revenue', {
+  input: { dimensions: ['region'] },
+});
+
+await api.execute('dataset:orders', {
+  input: { dimensions: ['region'], measures: ['revenue'] },
+});
+```
+
 ## CLI
 
 ```bash

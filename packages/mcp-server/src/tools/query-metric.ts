@@ -4,12 +4,12 @@
  * Executes a metric query with optional dimensions, filters, grain, and sorting.
  */
 
-import type { SemanticExecutor, MetricQuery } from '@hypequery/datasets';
+import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
 import type { DatasetRegistry, QueryMetricArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
-  executor: SemanticExecutor,
+  analytics: DatasetClient,
   args: unknown
 ): Promise<MCPToolResponse> {
   // Parse and validate args
@@ -55,9 +55,8 @@ export async function queryMetricTool(
   }
 
   // Execute the query
-  const result = await executor.metric(metric, query, {
+  const result = await analytics.execute(metric, query, {
     runtime: {
-      builderFactory: executor.getBuilderFactory(),
       tenant: undefined,
     },
   });

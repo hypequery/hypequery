@@ -4,29 +4,26 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { queryDatasetTool } from './query-dataset.js';
-import type { SemanticExecutor } from '@hypequery/datasets';
+import type { DatasetClient } from '@hypequery/datasets';
 
 describe('queryDatasetTool', () => {
-  const createMockExecutor = (mockResult: any): SemanticExecutor => ({
-    metric: vi.fn(),
-    dataset: vi.fn().mockResolvedValue(mockResult),
-    run: vi.fn(),
-    getBuilderFactory: vi.fn().mockReturnValue({}),
+  const createMockAnalytics = (mockResult: any): DatasetClient => ({
+    execute: vi.fn().mockResolvedValue(mockResult),
   } as any);
 
   it('should throw error when dataset parameter is missing', async () => {
-    const executor = createMockExecutor({});
+    const analytics = createMockAnalytics({});
 
     await expect(
-      queryDatasetTool({}, executor, { dimensions: ['region'] })
+      queryDatasetTool({}, analytics, { dimensions: ['region'] })
     ).rejects.toThrow('dataset parameter is required');
   });
 
   it('should throw error when dataset is not found', async () => {
-    const executor = createMockExecutor({});
+    const analytics = createMockAnalytics({});
 
     await expect(
-      queryDatasetTool({}, executor, { dataset: 'nonexistent', dimensions: ['region'] })
+      queryDatasetTool({}, analytics, { dataset: 'nonexistent', dimensions: ['region'] })
     ).rejects.toThrow('Dataset not found: nonexistent');
   });
 
@@ -34,10 +31,10 @@ describe('queryDatasetTool', () => {
     const datasets = {
       orders: {},
     };
-    const executor = createMockExecutor({});
+    const analytics = createMockAnalytics({});
 
     await expect(
-      queryDatasetTool(datasets, executor, { dataset: 'orders' })
+      queryDatasetTool(datasets, analytics, { dataset: 'orders' })
     ).rejects.toThrow('At least one dimension or metric must be specified');
   });
 
@@ -57,8 +54,8 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
-    const result = await queryDatasetTool(datasets, executor, {
+    const analytics = createMockAnalytics(mockResult);
+    const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
     });
@@ -67,7 +64,7 @@ describe('queryDatasetTool', () => {
     expect(data.data).toHaveLength(2);
     expect(data.meta.rowCount).toBe(2);
 
-    expect(executor.dataset).toHaveBeenCalledWith(
+    expect(analytics.execute).toHaveBeenCalledWith(
       {},
       {
         dimensions: ['region'],
@@ -93,8 +90,8 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
-    const result = await queryDatasetTool(datasets, executor, {
+    const analytics = createMockAnalytics(mockResult);
+    const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       metrics: ['revenue', 'count'],
     });
@@ -102,7 +99,7 @@ describe('queryDatasetTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toEqual([{ revenue: 1000, count: 50 }]);
 
-    expect(executor.dataset).toHaveBeenCalledWith(
+    expect(analytics.execute).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         measures: ['revenue', 'count'],
@@ -125,8 +122,8 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
-    const result = await queryDatasetTool(datasets, executor, {
+    const analytics = createMockAnalytics(mockResult);
+    const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
       metrics: ['revenue'],
@@ -135,7 +132,7 @@ describe('queryDatasetTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toHaveLength(2);
 
-    expect(executor.dataset).toHaveBeenCalledWith(
+    expect(analytics.execute).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         dimensions: ['region'],
@@ -155,20 +152,20 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
+    const analytics = createMockAnalytics(mockResult);
     const filters = [
       { field: 'status', operator: 'eq', value: 'completed' },
       { field: 'amount', operator: 'gte', value: 100 },
     ];
 
-    await queryDatasetTool(datasets, executor, {
+    await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
       metrics: ['revenue'],
       filters,
     });
 
-    expect(executor.dataset).toHaveBeenCalledWith(
+    expect(analytics.execute).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         filters,
@@ -190,15 +187,15 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
-    await queryDatasetTool(datasets, executor, {
+    const analytics = createMockAnalytics(mockResult);
+    await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['week'],
       metrics: ['revenue'],
       grain: 'week',
     });
 
-    expect(executor.dataset).toHaveBeenCalledWith(
+    expect(analytics.execute).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         by: 'week',
@@ -221,13 +218,13 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
+    const analytics = createMockAnalytics(mockResult);
     const orderBy = [
       { field: 'revenue', direction: 'desc' },
       { field: 'region', direction: 'asc' },
     ];
 
-    await queryDatasetTool(datasets, executor, {
+    await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
       metrics: ['revenue'],
@@ -235,7 +232,7 @@ describe('queryDatasetTool', () => {
       limit: 5,
     });
 
-    expect(executor.dataset).toHaveBeenCalledWith(
+    expect(analytics.execute).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         orderBy,
@@ -262,8 +259,8 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
-    const result = await queryDatasetTool(datasets, executor, {
+    const analytics = createMockAnalytics(mockResult);
+    const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region', 'category'],
       metrics: ['revenue', 'count'],
@@ -291,8 +288,8 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
-    const result = await queryDatasetTool(datasets, executor, {
+    const analytics = createMockAnalytics(mockResult);
+    const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
     });
@@ -312,15 +309,15 @@ describe('queryDatasetTool', () => {
       orders: {},
     };
 
-    const executor = createMockExecutor(mockResult);
-    await queryDatasetTool(datasets, executor, {
+    const analytics = createMockAnalytics(mockResult);
+    await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
       filters: [],
       orderBy: [],
     });
 
-    expect(executor.dataset).toHaveBeenCalledWith(
+    expect(analytics.execute).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         filters: [],

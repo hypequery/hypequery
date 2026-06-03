@@ -62,16 +62,16 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     logger.header('Next steps:');
     logger.indent('1. Review and customize the generated datasets');
     logger.indent('2. Import datasets in your application code');
-    logger.indent('3. Create an executor and start querying!');
+    logger.indent('3. Create an analytics client and start querying!');
     logger.newline();
 
     logger.info('Example usage:');
     logger.indent('import { datasets } from \'./datasets/generated\';');
-    logger.indent('import { createExecutor } from \'@hypequery/datasets\';');
+    logger.indent('import { createDatasetClient } from \'@hypequery/clickhouse/datasets\';');
     logger.indent('');
     logger.indent('const rowCount = datasets.orders.metric(\'rowCount\', { measure: \'totalCount\' });');
-    logger.indent('const executor = createExecutor({ queryBuilder });');
-    logger.indent('const result = await executor.metric(rowCount);');
+    logger.indent('const analytics = createDatasetClient({ url, username, password, database });');
+    logger.indent('const result = await analytics.execute(rowCount);');
     logger.newline();
 
   } catch (error) {
