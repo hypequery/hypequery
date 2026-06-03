@@ -273,8 +273,18 @@ body::before {
 
 /* Shiki code block styling */
 .shiki,
-.shiki code {
-  font-family: var(--font-geist-mono), 'Monaco', 'Courier New', monospace !important;
+.shiki code,
+.shiki pre,
+.shiki span,
+[data-rehype-pretty-code-figure],
+[data-rehype-pretty-code-figure] pre,
+[data-rehype-pretty-code-figure] code,
+[data-rehype-pretty-code-figure] span,
+[data-codeblock],
+[data-codeblock] pre,
+[data-codeblock] code,
+[data-codeblock] span {
+  font-family: var(--font-mono) !important;
 }
 
 .home-page .shiki,

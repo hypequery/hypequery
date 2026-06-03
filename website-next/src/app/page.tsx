@@ -7,7 +7,6 @@ import {
   Datasets,
   Stack,
   MCP,
-  Cloud,
   FinalCTA,
 } from '@/components/home';
 
@@ -22,7 +21,6 @@ export default function Home() {
         <Datasets />
         <Stack />
         <MCP />
-        <Cloud />
         <FinalCTA />
       </main>
       <Footer />
