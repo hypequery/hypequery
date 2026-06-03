@@ -36,6 +36,12 @@ TSC="$ROOT_DIR/packages/datasets/node_modules/typescript/bin/tsc"
     exit 1
   fi
 
+  if "$TSC" --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit invalid-root-executor.ts >/tmp/hq-invalid-executor.log 2>&1; then
+    cat /tmp/hq-invalid-executor.log
+    echo 'Expected root executor import to fail, but it compiled.'
+    exit 1
+  fi
+
   if "$TSC" --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit invalid-deep-import.ts >/tmp/hq-invalid-deep.log 2>&1; then
     cat /tmp/hq-invalid-deep.log
     echo 'Expected deep serve import to fail, but it compiled.'

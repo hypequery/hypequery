@@ -20,8 +20,8 @@ const files = {
   "include": ["valid-*.ts"]
 }
 `,
-  'valid-root-imports.ts': `import { dataset, dimension, measure, MetricExecutor } from '@hypequery/datasets';
-import type { MetricQuery } from '@hypequery/datasets';
+  'valid-root-imports.ts': `import { createDatasetClient, dataset, dimension, measure } from '@hypequery/datasets';
+import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
 import {
   checkDatasetsAgainstSchema,
   column,
@@ -64,10 +64,21 @@ const ordersTable = defineTable('orders', {
 const snapshot = serializeSchemaToSnapshot(defineSchema({ tables: [ordersTable] }));
 const compatibility = checkDatasetsAgainstSchema({ snapshot, datasets: [Orders] });
 const api = createAPI({});
+const analytics = createDatasetClient({
+  queryBuilder: {
+    table() {
+      throw new Error('not executed');
+    },
+    async rawQuery() {
+      return [];
+    },
+  },
+});
+const explicitAnalytics: DatasetClient = analytics;
 
 void revenue;
 void query;
-void MetricExecutor;
+void explicitAnalytics;
 void compatibility;
 void api;
 `,
@@ -82,6 +93,12 @@ void query;
   'invalid-root-dataset-query.ts': `import { runDatasetQuery } from '@hypequery/datasets';
 
 void runDatasetQuery;
+`,
+  'invalid-root-executor.ts': `import { createExecutor, MetricExecutor, SemanticExecutor } from '@hypequery/datasets';
+
+void createExecutor;
+void MetricExecutor;
+void SemanticExecutor;
 `,
   'invalid-deep-import.ts': `import { createAPI } from '@hypequery/serve/dist/server/create-api.js';
 
