@@ -1,0 +1,97 @@
+---
+title: Execution
+description: Validate, generate SQL, and execute dataset and metric queries.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Execution
+
+`createExecutor` accepts a query builder factory compatible with `@hypequery/clickhouse`.
+
+<CodeBlock>
+```typescript
+import { createExecutor } from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const executor = createExecutor({ queryBuilder: db });
+```
+</CodeBlock>
+
+## Validate
+
+<CodeBlock>
+```typescript
+const validation = executor.validate(revenue, {
+  dimensions: ['country'],
+});
+
+if (!validation.valid) {
+  console.error(validation.errors);
+}
+```
+</CodeBlock>
+
+## Generate SQL
+
+<CodeBlock>
+```typescript
+const sql = executor.toSQL(revenue, {
+  dimensions: ['country'],
+  filters: [eq('status', 'completed')],
+});
+```
+</CodeBlock>
+
+## Execute a metric
+
+<CodeBlock>
+```typescript
+const result = await executor.metric(revenue, {
+  dimensions: ['country'],
+  filters: [eq('status', 'completed')],
+  orderBy: [{ field: 'revenue', direction: 'desc' }],
+  limit: 10,
+});
+```
+</CodeBlock>
+
+## Execute a dataset
+
+<CodeBlock>
+```typescript
+const result = await executor.dataset(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue', 'orderCount'],
+  filters: [eq('status', 'completed')],
+});
+```
+</CodeBlock>
+
+The executor validates dimensions, filters, order fields, limits, time grain requirements, tenant filtering, and derived metric plans before execution.
+
+## Dataset client
+
+For ClickHouse applications, `@hypequery/clickhouse/datasets` provides a datasets-first client that accepts ClickHouse connection config directly.
+
+<CodeBlock>
+```typescript
+import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+
+const analytics = createDatasetClient({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+await analytics.metric(revenue, { dimensions: ['country'] });
+```
+</CodeBlock>

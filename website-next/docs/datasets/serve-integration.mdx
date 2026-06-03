@@ -1,0 +1,58 @@
+---
+title: Serve Integration
+description: Expose dataset and metric definitions through the serve runtime.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Serve Integration
+
+`@hypequery/serve` can expose metric and dataset endpoints from dataset definitions.
+
+## Dataset endpoints
+
+Pass datasets and a query builder to `serve`.
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+import { Orders } from './datasets/orders';
+
+const { serve } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = serve({
+  datasets: { orders: Orders },
+  queryBuilder: db,
+});
+```
+</CodeBlock>
+
+Each dataset gets a semantic query endpoint that validates dimensions, measures, filters, ordering, and limits against the dataset definition.
+
+## Query definitions plus datasets
+
+You can expose hand-authored query definitions and generated dataset endpoints from the same API.
+
+<CodeBlock>
+```typescript
+const activeOrders = query({
+  query: ({ ctx }) =>
+    ctx.db
+      .table('orders')
+      .where('status', 'eq', 'active')
+      .limit(10)
+      .execute(),
+});
+
+export const api = serve({
+  queries: { activeOrders },
+  datasets: { orders: Orders },
+  queryBuilder: db,
+});
+```
+</CodeBlock>
+
+For routing, auth, OpenAPI, and React hooks, see the [Serve docs](/docs/http-openapi) and [React docs](/docs/react/getting-started).

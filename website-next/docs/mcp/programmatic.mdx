@@ -1,0 +1,57 @@
+---
+title: Programmatic Usage
+description: Start the Hypequery MCP server from a Node process.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Programmatic Usage
+
+Use `createMCPServer` when you want to start the MCP server from your own Node process instead of using the CLI.
+
+<CodeBlock>
+```typescript
+import { createMCPServer } from '@hypequery/mcp';
+import { createExecutor } from '@hypequery/datasets';
+import { datasets } from './datasets/index.js';
+import { queryBuilder } from './db/index.js';
+
+const executor = createExecutor({ queryBuilder });
+
+const server = await createMCPServer({
+  datasets,
+  executor,
+  name: 'analytics-mcp',
+  version: '1.0.0',
+});
+
+// The server is now running over stdio.
+```
+</CodeBlock>
+
+`createMCPServer` returns the server instance after calling `start()`. The stdio transport is intended for MCP clients that launch and manage the process.
+
+## Stop the server
+
+If your application owns the lifecycle, call `stop()`.
+
+<CodeBlock>
+```typescript
+await server.stop();
+```
+</CodeBlock>
+
+## Config shape
+
+The programmatic API accepts the same core inputs as the CLI config.
+
+<CodeBlock>
+```typescript
+type MCPServerConfig = {
+  datasets: Record<string, Record<string, unknown>>;
+  executor: SemanticExecutor;
+  name?: string;
+  version?: string;
+};
+```
+</CodeBlock>

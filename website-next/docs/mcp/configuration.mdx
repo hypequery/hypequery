@@ -1,0 +1,77 @@
+---
+title: Configuration
+description: Configure the Hypequery MCP server with datasets and an executor.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# MCP Configuration
+
+The CLI loads a config file with dynamic `import()`. The config must export:
+
+- `datasets`: a registry of dataset names to dataset instances
+- `executor`: a semantic executor created with `createExecutor`
+
+## Minimal config
+
+<CodeBlock>
+```javascript
+// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createExecutor } from '@hypequery/datasets';
+import { Users } from './datasets/users.js';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+export const datasets = {
+  users: Users,
+};
+
+export const executor = createExecutor({ queryBuilder: db });
+```
+</CodeBlock>
+
+Run it:
+
+<CodeBlock>
+```bash
+npx hypequery-mcp --config ./mcp-config.mjs
+```
+</CodeBlock>
+
+## Expose named metrics
+
+The MCP server can query dataset measures directly through `query_dataset`. If you want agents to call named metrics through `query_metric`, add metric handles to the dataset registry.
+
+<CodeBlock>
+```javascript
+import { Orders } from './datasets/orders.js';
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
+
+export const datasets = {
+  orders: {
+    ...Orders,
+    metrics: {
+      revenue,
+      orderCount,
+    },
+  },
+};
+```
+</CodeBlock>
+
+## Config path
+
+Use an absolute path when configuring desktop clients. Relative paths depend on the client's launch directory and are a common source of connection failures.
+
+<Callout type="warn">
+  MCP stdio uses stdout for protocol messages. The Hypequery MCP CLI redirects `console.log`, `console.info`, and `console.debug` to stderr so your config logs do not corrupt the MCP stream.
+</Callout>

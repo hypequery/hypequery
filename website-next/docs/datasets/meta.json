@@ -1,0 +1,17 @@
+{
+  "title": "Datasets",
+  "pages": [
+    "overview",
+    "defining-datasets",
+    "dimensions",
+    "measures",
+    "metrics",
+    "time-grains",
+    "multi-tenancy",
+    "execution",
+    "serve-integration",
+    "relationships",
+    "filters",
+    "best-practices"
+  ]
+}

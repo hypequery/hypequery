@@ -1,0 +1,80 @@
+---
+title: Clients
+description: Connect Hypequery MCP to Claude Desktop, Cursor, and other MCP clients.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# MCP Clients
+
+Hypequery MCP runs over stdio. Your MCP client launches `hypequery-mcp` and passes a config path.
+
+## Claude Desktop
+
+Add a server entry to Claude Desktop's config file:
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "command": "npx",
+      "args": [
+        "hypequery-mcp",
+        "--config",
+        "/absolute/path/to/mcp-config.mjs"
+      ],
+      "env": {
+        "CLICKHOUSE_URL": "https://example.clickhouse.cloud:8443",
+        "CLICKHOUSE_USER": "default",
+        "CLICKHOUSE_PASSWORD": "password",
+        "CLICKHOUSE_DATABASE": "analytics"
+      }
+    }
+  }
+}
+```
+</CodeBlock>
+
+Restart Claude Desktop after changing the config.
+
+## Cursor
+
+Use the same command and arguments in Cursor's MCP configuration:
+
+<CodeBlock>
+```json
+{
+  "mcpServers": {
+    "hypequery": {
+      "command": "npx",
+      "args": [
+        "hypequery-mcp",
+        "--config",
+        "/absolute/path/to/mcp-config.mjs"
+      ]
+    }
+  }
+}
+```
+</CodeBlock>
+
+## Test the server directly
+
+Before connecting a client, run the server from a terminal:
+
+<CodeBlock>
+```bash
+npx hypequery-mcp --config /absolute/path/to/mcp-config.mjs
+```
+</CodeBlock>
+
+You should see startup logs on stderr. The process keeps running because the MCP client normally owns its lifecycle.
+
+<Callout type="info">
+  Use absolute paths in client config. Desktop clients often launch from a different working directory than your terminal.
+</Callout>

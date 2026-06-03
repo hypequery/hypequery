@@ -1,0 +1,61 @@
+---
+title: Multi-Tenancy
+description: Use dataset tenant keys and runtime tenant context to enforce tenant-scoped execution.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Multi-Tenancy
+
+Runtime tenancy uses the dataset `tenantKey` and a runtime tenant identity.
+
+## Declare the tenant key
+
+<CodeBlock>
+```typescript
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    tenantId: dimension.string({ column: 'tenant_id' }),
+    status: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+```
+</CodeBlock>
+
+## Provide tenant context at execution
+
+<CodeBlock>
+```typescript
+await executor.metric(revenue, {}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
+});
+```
+</CodeBlock>
+
+The executor injects the tenant predicate when runtime tenancy is active. Explicit filters on the tenant field are rejected to prevent duplicate or conflicting tenant predicates.
+
+## Serve tenant context
+
+When using `@hypequery/serve`, configure tenant extraction from auth/request context and require it for semantic endpoints.
+
+<CodeBlock>
+```typescript
+const api = serve({
+  datasets: { orders: Orders },
+  queryBuilder: db,
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    required: true,
+  },
+});
+```
+</CodeBlock>
+
+Tenant identity is runtime data from auth or request context. Dataset field names, dimensions, measures, and filters are type-checked by TypeScript.

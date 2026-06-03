@@ -1,0 +1,56 @@
+---
+title: Dimensions
+description: Define typed fields for selecting, grouping, and filtering dataset queries.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Dimensions
+
+Dimensions define the fields you can group by, filter on, and select in dataset queries.
+
+<CodeBlock>
+```typescript
+dimensions: {
+  id: dimension.number(),
+  status: dimension.string({ label: 'Status' }),
+  isTrial: dimension.boolean({ column: 'is_trial' }),
+  createdAt: dimension.timestamp({ column: 'created_at' }),
+}
+```
+</CodeBlock>
+
+## Dimension helpers
+
+- `dimension.string(opts?)`
+- `dimension.number(opts?)`
+- `dimension.boolean(opts?)`
+- `dimension.timestamp(opts?)`
+
+## Column mapping
+
+Use `opts.column` when the semantic field name differs from the physical column name.
+
+<CodeBlock>
+```typescript
+dimensions: {
+  userId: dimension.string({ column: 'user_id' }),
+  isActive: dimension.boolean({ column: 'is_active' }),
+  createdAt: dimension.timestamp({ column: 'created_at' }),
+}
+```
+</CodeBlock>
+
+## Labels
+
+Use `opts.label` for human-readable display names.
+
+<CodeBlock>
+```typescript
+dimensions: {
+  status: dimension.string({ label: 'Order Status' }),
+}
+```
+</CodeBlock>
+
+`opts.sql` exists for SQL-backed dimensions, but schema compatibility can only inspect simple column references and reports a warning for complex SQL expressions.

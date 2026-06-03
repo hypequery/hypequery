@@ -1,0 +1,83 @@
+---
+title: MCP
+description: Expose Hypequery datasets and metrics to AI agents through the Model Context Protocol.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# MCP
+
+`@hypequery/mcp` exposes your Hypequery semantic layer through the Model Context Protocol. Agents can list datasets, inspect schemas, query metrics, and query datasets without getting raw SQL access to your database.
+
+Use MCP when you want an agent to work inside a governed analytics vocabulary:
+
+- expose only the datasets you register
+- let agents discover dimensions, metrics, relationships, and time grains
+- keep query execution behind the same dataset executor used by the rest of your app
+- avoid handing an LLM a direct SQL console
+
+<Callout type="info">
+  MCP is a capability boundary, not an authentication layer. If your data is multi-tenant, read <a href="/docs/mcp/safety">Safety model</a> before exposing a server broadly.
+</Callout>
+
+## Install
+
+<CodeBlock>
+```bash
+npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+# or
+pnpm add @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+```
+</CodeBlock>
+
+## Quick start
+
+Create an ESM config file that exports `datasets` and `executor`.
+
+<CodeBlock>
+```javascript
+// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createExecutor } from '@hypequery/datasets';
+import { Orders } from './datasets/orders.js';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
+export const datasets = {
+  orders: {
+    ...Orders,
+    metrics: { revenue },
+  },
+};
+
+export const executor = createExecutor({ queryBuilder: db });
+```
+</CodeBlock>
+
+Run the MCP server:
+
+<CodeBlock>
+```bash
+npx hypequery-mcp --config ./mcp-config.mjs
+```
+</CodeBlock>
+
+Then configure an MCP-compatible client, such as Claude Desktop or Cursor, to launch that command.
+
+## What to read next
+
+| Topic | Description | Link |
+| --- | --- | --- |
+| Configuration | Export datasets and an executor for the MCP server | [Configuration →](/docs/mcp/configuration) |
+| Tools | Understand the tools exposed to agents | [Tools →](/docs/mcp/tools) |
+| Clients | Connect Claude Desktop, Cursor, or another MCP client | [Clients →](/docs/mcp/clients) |
+| Programmatic usage | Start the MCP server from your own Node process | [Programmatic usage →](/docs/mcp/programmatic) |
+| Safety model | Use MCP as a governed capability boundary | [Safety model →](/docs/mcp/safety) |

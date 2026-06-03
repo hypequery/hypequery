@@ -1,0 +1,55 @@
+---
+title: Metrics
+description: Attach named KPIs and derived calculations to datasets.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Metrics
+
+Metrics are attached to a dataset and are defined from measures. They represent the KPIs and calculations you want to expose.
+
+## Base metrics
+
+<CodeBlock>
+```typescript
+const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Total Revenue',
+});
+
+const orderCount = Orders.metric('orderCount', {
+  measure: 'orderCount',
+  label: 'Order Count',
+});
+```
+</CodeBlock>
+
+## Derived metrics
+
+Derived metrics compose base metrics from the same dataset using formulas.
+
+<CodeBlock>
+```typescript
+import { divide, nullIfZero } from '@hypequery/datasets';
+
+const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+  label: 'Average Order Value',
+});
+```
+</CodeBlock>
+
+Formula helpers include:
+
+- `divide(a, b)`
+- `multiply(a, b)`
+- `add(a, b)`
+- `subtract(a, b)`
+- `nullIfZero(value)`
+- `coalesce(...)`
+- `round(...)`
+
+Cross-dataset derived metrics and derived-from-derived metrics are intentionally rejected in the current public API.
