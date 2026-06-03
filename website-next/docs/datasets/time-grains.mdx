@@ -1,0 +1,31 @@
+---
+title: Time Grains
+description: Aggregate metrics by day, week, month, quarter, and year.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Time Grains
+
+When a dataset has a `timeKey`, you can use `.by(grain)` on metrics to aggregate by time periods.
+
+<CodeBlock>
+```typescript
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const monthlyRevenue = revenue.by('month');
+
+await executor.metric(monthlyRevenue, {
+  dimensions: ['country'],
+});
+```
+</CodeBlock>
+
+Supported grains:
+
+- `day`
+- `week`
+- `month`
+- `quarter`
+- `year`
+
+`timeKey` is a physical column name on the source table. Use a timestamp dimension with `column` mapping when you also want a semantic field name for query dimensions.

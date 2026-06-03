@@ -1,0 +1,57 @@
+---
+title: Measures
+description: Define aggregations such as revenue, counts, averages, minimums, and maximums.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Measures
+
+Measures define aggregations you can compute over your data.
+
+<CodeBlock>
+```typescript
+measures: {
+  revenue: measure.sum('amount'),
+  orderCount: measure.count('id'),
+  uniqueCustomers: measure.countDistinct('customerId'),
+  averageAmount: measure.avg('amount'),
+  minAmount: measure.min('amount'),
+  maxAmount: measure.max('amount'),
+}
+```
+</CodeBlock>
+
+## Aggregation helpers
+
+- `measure.sum(field, opts?)`
+- `measure.count(field, opts?)`
+- `measure.countDistinct(field, opts?)`
+- `measure.avg(field, opts?)`
+- `measure.min(field, opts?)`
+- `measure.max(field, opts?)`
+
+## Filtered measures
+
+Use filtered measures for common business states instead of repeating the same filters in every query.
+
+<CodeBlock>
+```typescript
+import { dataset, dimension, eq, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    status: dimension.string(),
+  },
+  measures: {
+    completedRevenue: measure.sum('amount', {
+      filters: [eq('status', 'completed')],
+    }),
+    refundedRevenue: measure.sum('amount', {
+      filters: [eq('status', 'refunded')],
+    }),
+  },
+});
+```
+</CodeBlock>

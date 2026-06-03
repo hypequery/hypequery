@@ -1,0 +1,31 @@
+---
+title: Relationships
+description: Store relationship metadata on datasets for introspection and compatibility checks.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Relationships
+
+Relationships can be stored as semantic metadata and exposed through introspection.
+
+<CodeBlock>
+```typescript
+import { belongsTo } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    customerId: dimension.string({ column: 'customer_id' }),
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customerId', to: 'id' }),
+  },
+});
+```
+</CodeBlock>
+
+<Callout type="info" title="Current execution support">
+  Relationship-aware query execution is not shipped in the current public API. Query execution is same-dataset only. Relationship metadata is useful for documentation, agents, and schema compatibility checks.
+</Callout>
