@@ -1,0 +1,51 @@
+---
+title: Filters
+description: Use typed filter helpers in metric and dataset queries.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Filters
+
+Filter helpers create structured filters for metric and dataset execution.
+
+<CodeBlock>
+```typescript
+import {
+  eq,
+  neq,
+  gt,
+  gte,
+  lt,
+  lte,
+  inList,
+  notInList,
+} from '@hypequery/datasets';
+
+eq('status', 'completed')
+neq('status', 'cancelled')
+gt('amount', 100)
+gte('amount', 100)
+lt('amount', 1000)
+lte('amount', 1000)
+inList('country', ['US', 'UK', 'CA'])
+notInList('status', ['cancelled', 'refunded'])
+```
+</CodeBlock>
+
+## Use filters in queries
+
+<CodeBlock>
+```typescript
+await executor.metric(revenue, {
+  dimensions: ['country'],
+  filters: [
+    eq('status', 'completed'),
+    gte('amount', 100),
+    inList('country', ['US', 'UK', 'CA']),
+  ],
+});
+```
+</CodeBlock>
+
+When runtime tenancy is active, explicit filters on the tenant field are rejected. Use runtime tenant context instead.

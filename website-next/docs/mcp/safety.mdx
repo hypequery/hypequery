@@ -1,0 +1,65 @@
+---
+title: Safety Model
+description: Use MCP as a governed capability boundary for agents.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Safety Model
+
+MCP should expose a governed analytics layer, not a database console.
+
+With Hypequery MCP, the agent can only use the datasets and metrics you register. It receives tools for discovery and semantic querying. It does not receive a raw SQL execution tool.
+
+## What MCP constrains
+
+- which datasets are visible
+- which dimensions and metrics are queryable
+- which relationships and time grains the agent can discover
+- which filter operators the tool schema accepts
+- query execution through the dataset executor
+
+## What MCP does not replace
+
+MCP does not replace authentication, authorization, or tenant identity. The stock stdio server receives tool calls from a local MCP client and executes them through the `executor` you provide.
+
+<Callout type="warn">
+  Do not expose a shared multi-tenant MCP server unless the process is already scoped to the tenant or your executor/config enforces tenant identity for every query.
+</Callout>
+
+## Safer patterns
+
+Prefer one of these patterns:
+
+- run MCP for local development or internal admin use only
+- expose only non-sensitive aggregate datasets
+- run a tenant-specific MCP process with tenant-scoped credentials or a tenant-bound executor
+- keep sensitive tables out of the exported `datasets` registry
+- inspect generated SQL with response metadata while testing
+
+## Registry boundary
+
+The registry is the main boundary.
+
+<CodeBlock>
+```javascript
+export const datasets = {
+  orders: Orders,
+  revenue: Revenue,
+};
+```
+</CodeBlock>
+
+If a dataset is not in this object, the MCP server cannot list it, introspect it, or query it.
+
+## Raw SQL boundary
+
+The MCP server exposes semantic tools:
+
+- `list_datasets`
+- `get_dataset_schema`
+- `query_dataset`
+- `query_metric`
+
+It does not expose a generic `run_sql` tool.

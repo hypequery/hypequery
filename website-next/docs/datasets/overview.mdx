@@ -1,0 +1,84 @@
+---
+title: Datasets
+description: Define ClickHouse tables once in TypeScript, then reuse typed semantic definitions across APIs, jobs, dashboards, and agents.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# Datasets
+
+Datasets are type-safe semantic analytics definitions for Hypequery. A dataset models a source table or view with dimensions, measures, metrics, tenant keys, and time keys in TypeScript.
+
+Use datasets when query logic has started to matter beyond one file:
+
+- define table semantics once
+- reuse dimensions and measures across endpoints
+- apply tenant and time context consistently
+- serve semantic dataset endpoints from the same definitions
+- keep the layer in your codebase instead of YAML or a separate platform
+
+`@hypequery/datasets` owns semantic meaning and planning. `@hypequery/clickhouse` owns query construction and execution. `@hypequery/serve` owns HTTP/runtime delivery.
+
+## Install
+
+<CodeBlock>
+```bash
+npm install @hypequery/datasets
+# or
+pnpm add @hypequery/datasets
+```
+</CodeBlock>
+
+## Quick start
+
+<CodeBlock>
+```typescript
+import { createExecutor, dataset, dimension, eq, measure } from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.number(),
+    tenantId: dimension.string({ column: 'tenant_id' }),
+    status: dimension.string(),
+    country: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+});
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const executor = createExecutor({ queryBuilder: db });
+
+const result = await executor.dataset(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue'],
+  filters: [eq('status', 'completed')],
+  limit: 10,
+});
+```
+</CodeBlock>
+
+## What to read next
+
+| Topic | Description | Link |
+| --- | --- | --- |
+| Defining datasets | Create the dataset object and map source tables | [Defining datasets →](/docs/datasets/defining-datasets) |
+| Dimensions | Define fields users can select, group, and filter | [Dimensions →](/docs/datasets/dimensions) |
+| Measures | Define aggregations like revenue, count, and averages | [Measures →](/docs/datasets/measures) |
+| Metrics | Attach named KPIs and derived formulas to a dataset | [Metrics →](/docs/datasets/metrics) |
+| Multi-tenancy | Apply tenant context from runtime execution | [Multi-tenancy →](/docs/datasets/multi-tenancy) |
+| Execution | Validate, generate SQL, and execute dataset queries | [Execution →](/docs/datasets/execution) |
+| Serve integration | Expose dataset endpoints through `@hypequery/serve` | [Serve integration →](/docs/datasets/serve-integration) |
