@@ -4,12 +4,26 @@ Type-safe semantic analytics definitions for Hypequery.
 
 Use this package to define datasets, dimensions, measures, metrics, derived metrics, and runtime validation rules in TypeScript. `@hypequery/datasets` owns semantic meaning and planning; `@hypequery/clickhouse` owns query construction and execution; `@hypequery/serve` owns HTTP/runtime delivery.
 
+`@hypequery/datasets` is the semantic layer. It is useful when you want analytics concepts in TypeScript rather than in YAML, raw SQL strings, or a separate BI server:
+
+- datasets map physical tables or views to typed business fields
+- dimensions and measures define the allowed query surface
+- metrics name reusable business calculations
+- derived metrics compose same-dataset metrics with symbolic formula helpers
+- runtime validation rejects invalid dimensions, filters, ordering, limits, tenant filters, and derived metric plans before SQL is executed
+
 ## Install
 
 ```bash
 npm install @hypequery/datasets
 # or
 pnpm add @hypequery/datasets
+```
+
+For ClickHouse execution, also install the ClickHouse backend package:
+
+```bash
+npm install @hypequery/clickhouse
 ```
 
 ## Quick Start
@@ -76,6 +90,12 @@ const result = await analytics.execute(revenue, {
   filters: [eq('status', 'completed')],
   orderBy: [{ field: 'revenue', direction: 'desc' }],
   limit: 10,
+});
+
+const datasetResult = await analytics.execute(Orders, {
+  dimensions: ['country', 'status'],
+  measures: ['revenue', 'orderCount'],
+  filters: [eq('status', 'completed')],
 });
 
 const monthlySql = analytics.toSQL(revenue.by('month'), {
@@ -180,6 +200,27 @@ const averageOrderValue = Orders.metric('averageOrderValue', {
 
 Cross-dataset derived metrics and derived-from-derived metrics are intentionally rejected in the current public surface.
 
+### Metric Queries vs Dataset Queries
+
+Metrics and datasets support two related access patterns:
+
+- Metric queries execute one named metric at a time. They are best for reusable product metrics such as `revenue`, `averageOrderValue`, or `monthlyRevenue`, while still allowing valid dimensions, filters, order fields, limits, and time grains.
+- Dataset queries execute an ad-hoc selection of dimensions and measures from one dataset. They are best when callers need Cube-style flexibility within the same dataset, such as grouping by `country` and `status` while selecting both `revenue` and `orderCount`.
+
+```ts
+await analytics.execute(revenue, {
+  dimensions: ['country'],
+  filters: [eq('status', 'completed')],
+});
+
+await analytics.execute(Orders, {
+  dimensions: ['country', 'status'],
+  measures: ['revenue', 'orderCount'],
+});
+```
+
+Both paths use the same dataset definition and validation rules. Metric queries provide named, reusable business contracts; dataset queries provide same-dataset exploration.
+
 ### Time Grains
 
 Use `.by(grain)` on a metric when the dataset has a `timeKey`.
@@ -277,11 +318,28 @@ await analytics.execute(revenue, { dimensions: ['country'] });
 
 The `SemanticBackend` interface enables support for other databases. Future packages like `@hypequery/duckdb` or `@hypequery/postgres` would follow the same pattern.
 
+## Integration Surfaces
+
+Dataset definitions can be reused in several places:
+
+- direct execution with `createDatasetClient(...)`
+- SQL inspection with `analytics.toSQL(...)`
+- runtime validation with `analytics.validate(...)`
+- HTTP metric and dataset endpoints through `@hypequery/serve`
+- agent-facing tools through `@hypequery/mcp`
+- schema compatibility checks through `@hypequery/schema`
+
 ## Serve Integration
 
 `@hypequery/serve` can expose metric and dataset endpoints from dataset definitions. Dataset endpoint planning uses `@hypequery/datasets/internal` as a package-integration boundary.
 
 Do not import `@hypequery/datasets/internal` in application code unless you are integrating Hypequery packages. It is intentionally not the public user-facing API.
+
+Metric endpoints expose named metrics. Dataset endpoints expose same-dataset ad-hoc dimensions and measures. Both surfaces are generated from dataset contracts, so invalid fields are rejected before execution.
+
+## Agent Integration
+
+`@hypequery/mcp` exposes dataset contracts, metric queries, and dataset queries over Model Context Protocol. This package does not run an MCP server directly; it provides the semantic definitions and execution client that the MCP package consumes.
 
 ## Schema Compatibility
 
@@ -302,13 +360,20 @@ if (!report.valid) {
 
 The checker validates source tables/views, dimension columns, measure fields, tenant/time keys, filtered measure fields, numeric measure types, and relationship join columns. Complex SQL expressions are reported with explicit limitation warnings.
 
-## What Is Not Public API
+## Current Scope And Limits
 
-- `dataset.query(...)`
-- Root exports for dataset endpoint execution helpers
-- Deep imports from package internals
-- Automatic relationship JOIN execution
-- Cross-dataset derived metrics
+The current semantic execution surface is intentionally scoped:
+
+- `dataset.query(...)` is not public API
+- Root exports for dataset endpoint execution helpers are not public API
+- Deep imports from package internals are not application API
+- Automatic relationship JOIN execution is not shipped
+- Cross-dataset derived metrics are rejected
+- Derived-from-derived metrics are rejected
+- Pre-aggregations or materialized rollups are not implemented
+- BI tool protocol compatibility is not implemented
+
+Relationship metadata is available for documentation, agents, and compatibility checks, but query execution is same-dataset only.
 
 ## License
 
