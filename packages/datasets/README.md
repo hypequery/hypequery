@@ -22,8 +22,9 @@ import {
   eq,
   measure,
   nullIfZero,
+  createDatasetClient,
 } from '@hypequery/datasets';
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { createBackend } from '@hypequery/clickhouse';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -62,10 +63,12 @@ const averageOrderValue = Orders.metric('averageOrderValue', {
 });
 
 const analytics = createDatasetClient({
-  url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
+  backend: createBackend({
+    url: process.env.CLICKHOUSE_URL,
+    username: process.env.CLICKHOUSE_USER,
+    password: process.env.CLICKHOUSE_PASSWORD,
+    database: process.env.CLICKHOUSE_DATABASE,
+  }),
 });
 
 const result = await analytics.execute(revenue, {
@@ -227,7 +230,7 @@ For this release, relationship-aware query execution is not shipped. Query execu
 
 ## Execution
 
-Use `createDatasetClient` from `@hypequery/clickhouse/datasets` to execute semantic targets against ClickHouse.
+Use `createDatasetClient` from `@hypequery/datasets` with a backend implementation to execute semantic targets.
 
 ```ts
 const validation = analytics.validate(revenue, {
@@ -250,21 +253,29 @@ const datasetResult = await analytics.execute(Orders, {
 
 The semantic client validates dimensions, filters, order fields, limits, time grain requirements, tenant filtering, and derived metric plans before execution.
 
-For ClickHouse applications, `@hypequery/clickhouse/datasets` provides a
-datasets-first client that accepts ClickHouse connection config directly:
+### ClickHouse Backend
+
+For ClickHouse databases, use `createBackend` from `@hypequery/clickhouse`:
 
 ```ts
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
+import { createBackend } from '@hypequery/clickhouse';
 
 const analytics = createDatasetClient({
-  url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
+  backend: createBackend({
+    url: process.env.CLICKHOUSE_URL,
+    username: process.env.CLICKHOUSE_USER,
+    password: process.env.CLICKHOUSE_PASSWORD,
+    database: process.env.CLICKHOUSE_DATABASE,
+  }),
 });
 
 await analytics.execute(revenue, { dimensions: ['country'] });
 ```
+
+### Other Backends
+
+The `SemanticBackend` interface enables support for other databases. Future packages like `@hypequery/duckdb` or `@hypequery/postgres` would follow the same pattern.
 
 ## Serve Integration
 
