@@ -24,7 +24,8 @@ pnpm add @hypequery/mcp
 Create `mcp-config.ts`:
 
 ```typescript
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
+import { createBackend } from '@hypequery/clickhouse';
 import { OrdersDataset, CustomersDataset } from './datasets/index.js';
 
 const revenue = OrdersDataset.metric('revenue', { measure: 'revenue' });
@@ -46,10 +47,12 @@ export const datasets = {
 
 // Export the semantic runner consumed by the MCP server
 export const analytics = createDatasetClient({
-  url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
+  backend: createBackend({
+    url: process.env.CLICKHOUSE_URL,
+    username: process.env.CLICKHOUSE_USER,
+    password: process.env.CLICKHOUSE_PASSWORD,
+    database: process.env.CLICKHOUSE_DATABASE,
+  }),
 });
 ```
 

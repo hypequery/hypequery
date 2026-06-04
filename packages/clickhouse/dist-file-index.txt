@@ -239,6 +239,9 @@ migrations/sql/types.js
 migrations/sql/write.d.ts
 migrations/sql/write.d.ts.map
 migrations/sql/write.js
+semantic-backend.d.ts
+semantic-backend.d.ts.map
+semantic-backend.js
 types/base.d.ts
 types/base.d.ts.map
 types/base.js

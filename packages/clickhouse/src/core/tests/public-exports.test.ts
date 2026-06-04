@@ -13,7 +13,8 @@ import {
   dimension,
   eq,
   measure,
-} from '../../datasets.js';
+} from '@hypequery/datasets';
+import { createBackend } from '../../datasets.js';
 
 describe('Public exports', () => {
   it('exports built-in ClickHouse start-of interval helpers from the package entrypoint', () => {
@@ -26,12 +27,14 @@ describe('Public exports', () => {
     expect(toStartOfYear('created_at').toSql()).toBe('toStartOfYear(created_at)');
   });
 
-  it('exports a datasets client from the datasets subpath', () => {
+  it('exports a datasets client from the datasets package', () => {
     const client = createDatasetClient({
-      adapter: {
-        name: 'test',
-        query: async () => [],
-      },
+      backend: createBackend({
+        adapter: {
+          name: 'test',
+          query: async () => [],
+        },
+      }),
     });
 
     expect(typeof client.execute).toBe('function');
@@ -41,13 +44,15 @@ describe('Public exports', () => {
   it('renders semantic dataset plans through the ClickHouse datasets backend', async () => {
     const queries: string[] = [];
     const client = createDatasetClient({
-      adapter: {
-        name: 'test',
-        query: async (sql) => {
-          queries.push(sql);
-          return [{ country: 'US', revenue: 100 }];
+      backend: createBackend({
+        adapter: {
+          name: 'test',
+          query: async (sql) => {
+            queries.push(sql);
+            return [{ country: 'US', revenue: 100 }];
+          },
         },
-      },
+      }),
     });
     const Orders = dataset('orders', {
       source: 'orders',

@@ -11,18 +11,20 @@
  * 4. Add to Claude Desktop config (see README)
  */
 
-import { dataset, dimension, measure } from '@hypequery/datasets';
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { dataset, dimension, measure, createDatasetClient } from '@hypequery/datasets';
+import { createBackend } from '@hypequery/clickhouse';
 
 // =============================================================================
 // STEP 1: Configure ClickHouse Connection
 // =============================================================================
 
 const analytics = createDatasetClient({
-  url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
-  username: process.env.CLICKHOUSE_USER || 'default',
-  password: process.env.CLICKHOUSE_PASSWORD || '',
-  database: process.env.CLICKHOUSE_DATABASE || 'default',
+  backend: createBackend({
+    url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+    username: process.env.CLICKHOUSE_USER || 'default',
+    password: process.env.CLICKHOUSE_PASSWORD || '',
+    database: process.env.CLICKHOUSE_DATABASE || 'default',
+  }),
 });
 
 // =============================================================================
