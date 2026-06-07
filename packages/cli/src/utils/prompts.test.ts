@@ -3,8 +3,10 @@ import prompts from 'prompts';
 import {
   promptClickHouseConnection,
   promptOutputDirectory,
+  promptInitStyle,
   promptGenerateExample,
   promptTableSelection,
+  promptDatasetTableSelection,
   confirmOverwrite,
   promptRetry,
   promptContinueWithoutDb,
@@ -162,6 +164,37 @@ describe('prompts', () => {
     });
   });
 
+  describe('promptInitStyle', () => {
+    it('should return selected style', async () => {
+      vi.mocked(prompts).mockResolvedValue({ style: 'datasets' });
+
+      const result = await promptInitStyle();
+
+      expect(result).toBe('datasets');
+    });
+
+    it('should default to query style when user cancels', async () => {
+      vi.mocked(prompts).mockResolvedValue({});
+
+      const result = await promptInitStyle();
+
+      expect(result).toBe('queries');
+    });
+
+    it('should default the prompt selection to query-builder routes', async () => {
+      vi.mocked(prompts).mockResolvedValue({ style: 'queries' });
+
+      await promptInitStyle();
+
+      expect(prompts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'style',
+          initial: 0,
+        }),
+      );
+    });
+  });
+
   describe('promptGenerateExample', () => {
     it('should return true when user confirms', async () => {
       vi.mocked(prompts).mockResolvedValue({ generate: true });
@@ -260,6 +293,60 @@ describe('prompts', () => {
           ]),
         })
       );
+    });
+  });
+
+  describe('promptDatasetTableSelection', () => {
+    it('should return selected dataset tables', async () => {
+      vi.mocked(prompts).mockResolvedValue({ tables: ['orders', 'customers'] });
+
+      const result = await promptDatasetTableSelection(['orders', 'customers', 'events']);
+
+      expect(result).toEqual(['orders', 'customers']);
+    });
+
+    it('should return an empty list if no tables provided', async () => {
+      const result = await promptDatasetTableSelection([]);
+
+      expect(result).toEqual([]);
+      expect(prompts).not.toHaveBeenCalled();
+    });
+
+    it('should preselect default tables', async () => {
+      vi.mocked(prompts).mockResolvedValue({ tables: ['orders'] });
+
+      await promptDatasetTableSelection(['orders', 'customers'], ['orders']);
+
+      expect(prompts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'multiselect',
+          choices: expect.arrayContaining([
+            expect.objectContaining({
+              title: 'orders',
+              selected: true,
+            }),
+          ]),
+        }),
+      );
+    });
+
+    it('should default to no tables when user cancels', async () => {
+      vi.mocked(prompts).mockResolvedValue({});
+
+      const result = await promptDatasetTableSelection(['orders']);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should warn and show the first 20 tables for large databases', async () => {
+      const tables = Array.from({ length: 25 }, (_, i) => `table_${i}`);
+      vi.mocked(prompts).mockResolvedValue({ tables: ['table_0'] });
+
+      await promptDatasetTableSelection(tables);
+
+      expect(logger.warn).toHaveBeenCalledWith('Showing first 20 of 25 tables');
+      const call = vi.mocked(prompts).mock.calls[0][0] as any;
+      expect(call.choices).toHaveLength(20);
     });
   });
 

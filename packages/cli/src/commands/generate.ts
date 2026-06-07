@@ -7,6 +7,7 @@ import { getTypeGenerator } from '../generators/index.js';
 
 export interface GenerateOptions {
   output?: string;
+  path?: string;
   tables?: string;
   database?: DatabaseType;
   commandName?: string;
@@ -18,6 +19,8 @@ export async function generateCommand(options: GenerateOptions = {}) {
 
   if (options.output) {
     outputPath = path.resolve(process.cwd(), options.output);
+  } else if (options.path) {
+    outputPath = path.resolve(process.cwd(), options.path, 'schema.ts');
   } else {
     // Try to find existing schema file
     const existingSchema = await findSchemaFile();

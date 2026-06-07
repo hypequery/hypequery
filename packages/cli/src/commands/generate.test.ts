@@ -94,6 +94,14 @@ describe('generate command', () => {
       expect(logger.success).toHaveBeenCalledWith(expect.stringContaining('custom/schema.ts'));
     });
 
+    it('derives schema output from path when provided', async () => {
+      await generateCommand({ path: 'custom' });
+
+      expect(mockGenerateTypes).toHaveBeenCalledWith(
+        expect.objectContaining({ outputPath: expect.stringContaining('custom/schema.ts') })
+      );
+    });
+
     it('uses existing schema file when found', async () => {
       vi.mocked(findFiles.findSchemaFile).mockResolvedValue('/app/src/schema.ts');
 
@@ -249,6 +257,14 @@ describe('generate command', () => {
 
       expect(mockGenerateTypes).toHaveBeenCalledWith(
         expect.objectContaining({ outputPath: expect.stringContaining('custom.ts') })
+      );
+    });
+
+    it('prefers output over path', async () => {
+      await generateCommand({ output: 'explicit.ts', path: 'custom' });
+
+      expect(mockGenerateTypes).toHaveBeenCalledWith(
+        expect.objectContaining({ outputPath: expect.stringContaining('explicit.ts') })
       );
     });
   });

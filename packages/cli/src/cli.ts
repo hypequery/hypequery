@@ -35,6 +35,7 @@ function addTypeGenerationOptions(command: Command) {
   return command
     .description('Regenerate types from ClickHouse')
     .option('-o, --output <path>', 'Output file (default: analytics/schema.ts)')
+    .option('--path <path>', 'Analytics directory (derives <path>/schema.ts)')
     .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
     .option('--database <type>', 'Database driver to use (default: auto-detect)');
 }
@@ -44,6 +45,10 @@ program
   .command('init')
   .description('Initialize a new hypequery project')
   .option('--path <path>', 'Output directory (default: analytics/)')
+  .option('--style <style>', 'Scaffold style: queries or datasets')
+  .option('--all-tables', 'Generate datasets for all discovered tables when using --style datasets')
+  .option('--tables <names>', 'Generate datasets for specific tables when using --style datasets (comma-separated)')
+  .option('--exclude-tables <names>', 'Exclude tables from dataset generation when using --style datasets (comma-separated)')
   .option('--no-example', 'Skip example query generation')
   .option('--no-interactive', 'Non-interactive mode (use env vars)')
   .option('--force', 'Overwrite existing files')
@@ -64,6 +69,7 @@ program
   .option('--redis-url <url>', 'Redis connection URL')
   .option('--open', 'Open browser automatically')
   .option('--cors', 'Enable CORS')
+  .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('-q, --quiet', 'Suppress startup messages')
   .action(runCommand(async (file: string | undefined, options: DevOptions) => {
     await devCommand(file, options);
@@ -84,7 +90,9 @@ program
   .command('generate:datasets')
   .description('Generate dataset definitions from ClickHouse schema')
   .option('-o, --output <path>', 'Output file (default: src/datasets/generated.ts)')
+  .option('--path <path>', 'Analytics directory (derives <path>/datasets.ts)')
   .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
+  .option('--exclude-tables <names>', 'Exclude specific tables (comma-separated)')
   .action(runCommand(async (options: GenerateDatasetsOptions) => {
     await generateDatasetsCommand(options);
   }));

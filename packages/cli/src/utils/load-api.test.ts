@@ -49,7 +49,7 @@ describe('load-api', () => {
     vi.mocked(access).mockResolvedValue(undefined);
     testGlobal.__hypequeryCliImportOverride = async (moduleUrl) => {
       if (moduleUrl.includes('hypequery-cli-') || moduleUrl.includes('.hypequery/tmp/')) {
-        return { api: { handler: () => {} } };
+        return { api: { handler: () => undefined } };
       }
 
       return import(/* @vite-ignore */ moduleUrl);

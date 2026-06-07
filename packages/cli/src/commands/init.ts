@@ -5,11 +5,14 @@ import { logger } from '../utils/logger.js';
 import {
   promptClickHouseConnection,
   promptOutputDirectory,
+  promptInitStyle,
   promptGenerateExample,
   promptTableSelection,
+  promptDatasetTableSelection,
   confirmOverwrite,
   promptRetry,
   promptContinueWithoutDb,
+  type InitStyle,
 } from '../utils/prompts.js';
 import {
   validateConnection,
@@ -20,16 +23,36 @@ import { hasEnvFile, hasGitignore } from '../utils/find-files.js';
 import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
 import { generateQueriesTemplate } from '../templates/queries.js';
+import { generateApiTemplate } from '../templates/api.js';
+import { generateDatasetsPlaceholderTemplate } from '../templates/datasets.js';
 import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
+import { generateDatasets } from '../generators/dataset-generator.js';
 import { installScaffoldDependencies } from '../utils/dependency-installer.js';
 
 export interface InitOptions {
   path?: string;
+  style?: InitStyle;
+  allTables?: boolean;
+  tables?: string;
+  excludeTables?: string;
   noExample?: boolean;
   noInteractive?: boolean;
   force?: boolean;
   skipConnection?: boolean;
+}
+
+function normalizeInitStyle(style: InitOptions['style']): InitStyle {
+  return style === 'datasets' ? 'datasets' : 'queries';
+}
+
+function parseTableList(value: string | undefined): string[] | undefined {
+  const parsed = value
+    ?.split(',')
+    .map((table) => table.trim())
+    .filter(Boolean);
+
+  return parsed && parsed.length > 0 ? parsed : undefined;
 }
 
 type ConnectionConfig = {
@@ -106,7 +129,6 @@ export async function initCommand(options: InitOptions = {}) {
   // Step 2: Get connection details
   let connectionConfig = await resolveConnectionConfig(options);
   let hasValidConnection = false;
-  let tableCount = 0;
 
   // Handle user skipping connection details
   if (!connectionConfig) {
@@ -116,9 +138,8 @@ export async function initCommand(options: InitOptions = {}) {
     logger.info('Skipping database connection test (requested).');
     logger.newline();
   } else {
-    const { hasValidConnection: valid, tableCount: count } = await testConnection(connectionConfig);
+    const { hasValidConnection: valid } = await testConnection(connectionConfig);
     hasValidConnection = valid;
-    tableCount = count;
 
     if (!hasValidConnection) {
       if (noInteractive) {
@@ -154,11 +175,23 @@ export async function initCommand(options: InitOptions = {}) {
 
   const resolvedOutputDir = path.resolve(process.cwd(), outputDir);
 
+  let style = normalizeInitStyle(options.style);
+  if (!options.style && !noInteractive) {
+    style = await promptInitStyle();
+  }
+
   // Step 5: Check for existing files
   const filesToCreate = [
     path.join(resolvedOutputDir, 'client.ts'),
     path.join(resolvedOutputDir, 'schema.ts'),
-    path.join(resolvedOutputDir, 'queries.ts'),
+    ...(style === 'datasets'
+      ? [
+          path.join(resolvedOutputDir, 'datasets.ts'),
+          path.join(resolvedOutputDir, 'api.ts'),
+        ]
+      : [
+          path.join(resolvedOutputDir, 'queries.ts'),
+        ]),
   ];
 
   const existingFiles: string[] = [];
@@ -185,15 +218,33 @@ export async function initCommand(options: InitOptions = {}) {
   // Step 6: Ask about example query (only if we have a valid connection)
   let generateExample = !options.noExample && hasValidConnection;
   let selectedTable: string | null = null;
+  let discoveredTables: string[] | null = null;
 
   if (generateExample && !noInteractive && hasValidConnection) {
     generateExample = await promptGenerateExample();
 
     if (generateExample) {
-      const tables = await getTables('clickhouse');
-      selectedTable = await promptTableSelection(tables);
+      discoveredTables = await getTables('clickhouse');
+      selectedTable = await promptTableSelection(discoveredTables);
       generateExample = selectedTable !== null;
     }
+  }
+
+  let datasetTables = parseTableList(options.tables);
+  const excludedDatasetTables = parseTableList(options.excludeTables);
+
+  if (
+    style === 'datasets' &&
+    hasValidConnection &&
+    !options.allTables &&
+    !datasetTables &&
+    !noInteractive
+  ) {
+    discoveredTables ??= await getTables('clickhouse');
+    datasetTables = await promptDatasetTableSelection(
+      discoveredTables,
+      selectedTable ? [selectedTable] : [],
+    );
   }
 
   logger.newline();
@@ -265,19 +316,53 @@ export interface IntrospectedSchema {
   await writeFile(clientPath, generateClientTemplate());
   logger.success(`Created ClickHouse client (${path.relative(process.cwd(), clientPath)})`);
 
-  // Step 11: Create queries.ts
-  const queriesPath = path.join(resolvedOutputDir, 'queries.ts');
-  await writeFile(
-    queriesPath,
-    generateQueriesTemplate({
-      hasExample: generateExample,
-      tableName: selectedTable || undefined,
-    })
-  );
-  logger.success(`Created queries file (${path.relative(process.cwd(), queriesPath)})`);
+  // Step 11: Create API entrypoint
+  let apiPath: string;
+  let generatedAnyDatasets = false;
+  let generatedSelectedDataset = false;
+  if (style === 'datasets') {
+    const datasetsPath = path.join(resolvedOutputDir, 'datasets.ts');
+    const shouldGenerateDatasets = hasValidConnection && (
+      options.allTables === true ||
+      (datasetTables !== undefined && datasetTables.length > 0)
+    );
 
-  if (generateExample && selectedTable) {
-    logger.success(`Created example query using '${selectedTable}' table`);
+    if (shouldGenerateDatasets) {
+      await generateDatasets({
+        outputPath: datasetsPath,
+        includeTables: options.allTables ? undefined : datasetTables,
+        excludeTables: excludedDatasetTables,
+      });
+      generatedAnyDatasets = true;
+      generatedSelectedDataset = selectedTable !== null && (
+        options.allTables === true ||
+        datasetTables?.includes(selectedTable) === true
+      );
+    } else {
+      await writeFile(datasetsPath, generateDatasetsPlaceholderTemplate());
+      if (hasValidConnection) {
+        logger.info('Skipped dataset generation. Run `hypequery generate:datasets --path ' + outputDir + ' --tables table1,table2` when ready.');
+      }
+    }
+    logger.success(`Created datasets file (${path.relative(process.cwd(), datasetsPath)})`);
+
+    apiPath = path.join(resolvedOutputDir, 'api.ts');
+    await writeFile(apiPath, generateApiTemplate());
+    logger.success(`Created API file (${path.relative(process.cwd(), apiPath)})`);
+  } else {
+    apiPath = path.join(resolvedOutputDir, 'queries.ts');
+    await writeFile(
+      apiPath,
+      generateQueriesTemplate({
+        hasExample: generateExample,
+        tableName: selectedTable || undefined,
+      })
+    );
+    logger.success(`Created queries file (${path.relative(process.cwd(), apiPath)})`);
+  }
+
+  if (generateExample && selectedTable && (style === 'queries' || generatedSelectedDataset)) {
+    logger.success(`Created example ${style === 'datasets' ? 'dataset' : 'query'} using '${selectedTable}' table`);
   }
 
   // Step 12: Update .gitignore
@@ -297,25 +382,39 @@ export interface IntrospectedSchema {
   }
 
   // Step 13: Ensure required hypequery packages are installed
-  await installScaffoldDependencies();
+  await installScaffoldDependencies(style);
 
   // Step 14: Success message
   logger.newline();
   logger.header('Setup complete!');
 
   if (hasValidConnection) {
-    logger.info('Try your first query:');
-    logger.newline();
-    logger.indent(`import { api } from './${path.relative(process.cwd(), queriesPath).replace(/\.ts$/, '.js')}'`);
-    const exampleQueryKey = generateExample && selectedTable
-      ? `${selectedTable.replace(/_([a-z])/g, (_, l) => l.toUpperCase())}Query`
-      : 'exampleMetric';
-    logger.indent(`const result = await api.execute('${exampleQueryKey}')`);
-    logger.newline();
+    if (style === 'datasets' && !generatedAnyDatasets) {
+      logger.info('Next:');
+      logger.indent(`hypequery generate:datasets --path ${outputDir} --tables table1,table2`);
+      logger.newline();
+    } else if (style === 'datasets' && !generatedSelectedDataset) {
+      logger.info('Next:');
+      logger.indent('npx hypequery dev          Start development server');
+      logger.newline();
+    } else {
+      logger.info('Try your first query:');
+      logger.newline();
+      logger.indent(`import { api } from './${path.relative(process.cwd(), apiPath).replace(/\.ts$/, '.js')}'`);
+      const exampleQueryKey = generateExample && selectedTable
+        ? `${selectedTable.replace(/_([a-z])/g, (_, l) => l.toUpperCase())}Query`
+        : 'exampleMetric';
+      if (style === 'datasets' && selectedTable) {
+        logger.indent(`const result = await api.execute('dataset:${selectedTable}', { input: {} })`);
+      } else {
+        logger.indent(`const result = await api.execute('${exampleQueryKey}')`);
+      }
+      logger.newline();
 
-    logger.info('Next:');
-    logger.indent('npx hypequery dev          Start development server');
-    logger.newline();
+      logger.info('Next:');
+      logger.indent('npx hypequery dev          Start development server');
+      logger.newline();
+    }
   } else {
     logger.info('Next steps:');
     logger.newline();

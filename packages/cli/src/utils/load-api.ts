@@ -39,23 +39,32 @@ export async function loadApiModule(modulePath: string) {
 
     throw new Error(
       `Invalid API module: ${relativePath}\n\n` +
-      `The module must export a 'defineServe' result as 'api'.\n\n` +
+      `The module must export a hypequery API as 'api'.\n\n` +
       (availableExports.length > 0
         ? `Found exports: ${availableExports.join(', ')}\n\n`
         : `No exports found in the module.\n\n`) +
       `Expected format:\n\n` +
       `  import { initServe } from '@hypequery/serve';\n` +
       `  \n` +
-      `  const { define, queries, query } = initServe({\n` +
+      `  const { query, serve } = initServe({\n` +
       `    context: () => ({ db }),\n` +
       `  });\n` +
       `  \n` +
-      `  export const api = define({\n` +
-      `    queries: queries({\n` +
-      `      myQuery: query.query(async ({ ctx }) => {\n` +
-      `        // ...\n` +
-      `      }),\n` +
-      `    }),\n` +
+      `  const myQuery = query({\n` +
+      `    query: async ({ ctx }) => ctx.db.table('events').select('*').limit(10).execute(),\n` +
+      `  });\n` +
+      `  \n` +
+      `  export const api = serve({\n` +
+      `    queries: { myQuery },\n` +
+      `  });\n\n` +
+      `Or the datasets semantic API:\n\n` +
+      `  import { createAPI } from '@hypequery/serve';\n` +
+      `  import { db } from './client.js';\n` +
+      `  import { datasets } from './datasets.js';\n` +
+      `  \n` +
+      `  export const api = createAPI({\n` +
+      `    queryBuilder: db,\n` +
+      `    datasets,\n` +
       `  });\n`
     );
   }

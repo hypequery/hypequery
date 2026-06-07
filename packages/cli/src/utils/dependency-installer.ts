@@ -7,6 +7,7 @@ import { logger } from './logger.js';
 
 const ZOD_SCAFFOLD_VERSION = '^3.23.8';
 const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', `zod@${ZOD_SCAFFOLD_VERSION}`] as const;
+type ScaffoldStyle = 'queries' | 'datasets';
 const CLI_PACKAGE_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
 
 type PackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun';
@@ -96,16 +97,22 @@ function formatManualCommand(manager: PackageManager, packages: string[]) {
   return `${MANUAL_COMMANDS[manager]} ${packages.join(' ')}`;
 }
 
-export function resolveScaffoldPackages(cliVersion: string | undefined): string[] {
+export function resolveScaffoldPackages(cliVersion: string | undefined, style: ScaffoldStyle = 'queries'): string[] {
+  const includeDatasets = style === 'datasets';
+
   if (cliVersion?.includes('canary')) {
     return [
       `@hypequery/clickhouse@${cliVersion}`,
       `@hypequery/serve@${cliVersion}`,
+      ...(includeDatasets ? [`@hypequery/datasets@${cliVersion}`] : []),
       `zod@${ZOD_SCAFFOLD_VERSION}`,
     ];
   }
 
-  return [...STABLE_SCAFFOLD_PACKAGES];
+  return [
+    ...STABLE_SCAFFOLD_PACKAGES,
+    ...(includeDatasets ? ['@hypequery/datasets'] : []),
+  ];
 }
 
 function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean {
@@ -128,7 +135,7 @@ function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean 
   return existingVersion !== desiredVersion;
 }
 
-export async function installScaffoldDependencies() {
+export async function installScaffoldDependencies(style: ScaffoldStyle = 'queries') {
   if (process.env.HYPEQUERY_SKIP_INSTALL === '1') {
     return;
   }
@@ -138,11 +145,12 @@ export async function installScaffoldDependencies() {
     readCliPackageJson(),
   ]);
   if (!pkgJson) {
-    logger.warn('package.json not found. Install @hypequery/clickhouse, @hypequery/serve, and zod manually.');
+    const extra = style === 'datasets' ? ', @hypequery/datasets' : '';
+    logger.warn(`package.json not found. Install @hypequery/clickhouse, @hypequery/serve${extra}, and zod manually.`);
     return;
   }
 
-  const requestedPackages = resolveScaffoldPackages(cliPkgJson?.version);
+  const requestedPackages = resolveScaffoldPackages(cliPkgJson?.version, style);
   const missing = requestedPackages.filter(pkg => shouldInstallPackage(pkgJson, pkg));
   if (missing.length === 0) {
     return;
