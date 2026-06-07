@@ -21,8 +21,12 @@ async function findFile(candidates: string[]): Promise<string | null> {
 /**
  * Common query file locations to check
  */
-const DEFAULT_QUERY_PATHS = [
+const DEFAULT_API_PATHS = [
   'hypequery.ts',
+  'analytics/api.ts',
+  'src/analytics/api.ts',
+  'api.ts',
+  'src/api.ts',
   'analytics/queries.ts',
   'src/analytics/queries.ts',
   'queries.ts',
@@ -45,18 +49,43 @@ export async function findQueriesFile(customPath?: string): Promise<string | nul
   }
 
   // Check default locations
-  return findFile(DEFAULT_QUERY_PATHS);
+  return findFile(DEFAULT_API_PATHS);
+}
+
+export async function findApiFileForPath(directory: string): Promise<string | null> {
+  return findFile([
+    path.join(directory, 'api.ts'),
+    path.join(directory, 'queries.ts'),
+  ]);
 }
 
 /**
  * Find the schema file (generated types)
  */
-export async function findSchemaFile(): Promise<string | null> {
+export async function findSchemaFile(directory?: string): Promise<string | null> {
+  if (directory) {
+    return path.resolve(process.cwd(), directory, 'schema.ts');
+  }
+
   return findFile([
     'analytics/schema.ts',
     'src/analytics/schema.ts',
     'schema.ts',
     'src/schema.ts',
+  ]);
+}
+
+export async function findDatasetsFile(directory?: string): Promise<string | null> {
+  if (directory) {
+    return path.resolve(process.cwd(), directory, 'datasets.ts');
+  }
+
+  return findFile([
+    'analytics/datasets.ts',
+    'src/analytics/datasets.ts',
+    'datasets.ts',
+    'src/datasets.ts',
+    'src/datasets/generated.ts',
   ]);
 }
 

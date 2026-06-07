@@ -55,10 +55,28 @@ describe('dependency installer', () => {
     ]);
   });
 
+  it('includes datasets package for datasets scaffold style', () => {
+    expect(resolveScaffoldPackages('1.1.1', 'datasets')).toEqual([
+      '@hypequery/clickhouse',
+      '@hypequery/serve',
+      'zod@^3.23.8',
+      '@hypequery/datasets',
+    ]);
+  });
+
   it('pins sibling packages to the same canary version', () => {
     expect(resolveScaffoldPackages('0.0.0-canary-20260506195711')).toEqual([
       '@hypequery/clickhouse@0.0.0-canary-20260506195711',
       '@hypequery/serve@0.0.0-canary-20260506195711',
+      'zod@^3.23.8',
+    ]);
+  });
+
+  it('pins datasets to the same canary version when needed', () => {
+    expect(resolveScaffoldPackages('0.0.0-canary-20260506195711', 'datasets')).toEqual([
+      '@hypequery/clickhouse@0.0.0-canary-20260506195711',
+      '@hypequery/serve@0.0.0-canary-20260506195711',
+      '@hypequery/datasets@0.0.0-canary-20260506195711',
       'zod@^3.23.8',
     ]);
   });

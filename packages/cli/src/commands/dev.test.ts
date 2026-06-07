@@ -92,7 +92,7 @@ describe('dev command', () => {
     it('should start dev server successfully', async () => {
       await devCommand(undefined, { watch: false });
 
-      expect(findFiles.findQueriesFile).toHaveBeenCalledWith(undefined);
+      expect(findFiles.findQueriesFile).toHaveBeenCalledWith();
       expect(loadApi.loadApiModule).toHaveBeenCalledWith('/app/queries.ts');
       expect(mockServeDev).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -111,6 +111,26 @@ describe('dev command', () => {
       await devCommand('/custom/queries.ts', { watch: false });
 
       expect(findFiles.findQueriesFile).toHaveBeenCalledWith('/custom/queries.ts');
+    });
+
+    it('should load api file from path option', async () => {
+      vi.mocked(findFiles.findApiFileForPath).mockResolvedValue('/app/custom/api.ts');
+
+      await devCommand(undefined, { watch: false, path: 'custom' });
+
+      expect(findFiles.findApiFileForPath).toHaveBeenCalledWith('custom');
+      expect(findFiles.findQueriesFile).not.toHaveBeenCalled();
+      expect(loadApi.loadApiModule).toHaveBeenCalledWith('/app/custom/api.ts');
+    });
+
+    it('should let positional file win over path option', async () => {
+      vi.mocked(findFiles.findQueriesFile).mockResolvedValue('/app/manual.ts');
+
+      await devCommand('manual.ts', { watch: false, path: 'custom' });
+
+      expect(findFiles.findQueriesFile).toHaveBeenCalledWith('manual.ts');
+      expect(findFiles.findApiFileForPath).not.toHaveBeenCalled();
+      expect(loadApi.loadApiModule).toHaveBeenCalledWith('/app/manual.ts');
     });
 
     it('should display table count when available', async () => {
@@ -194,9 +214,9 @@ describe('dev command', () => {
         expect((error as ProcessExitError).code).toBe(1);
       }
 
-      expect(logger.error).toHaveBeenCalledWith('Could not find queries file');
+      expect(logger.error).toHaveBeenCalledWith('Could not find hypequery API file');
       expect(logger.info).toHaveBeenCalledWith('Expected one of:');
-      expect(logger.indent).toHaveBeenCalledWith('• analytics/queries.ts');
+      expect(logger.indent).toHaveBeenCalledWith('• analytics/api.ts');
       expect(exitHandler.exitMock).toHaveBeenCalledWith(1);
     });
 

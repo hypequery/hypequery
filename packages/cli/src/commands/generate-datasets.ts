@@ -13,7 +13,18 @@ import { generateDatasets } from '../generators/dataset-generator.js';
 
 export interface GenerateDatasetsOptions {
   output?: string;
+  path?: string;
   tables?: string;
+  excludeTables?: string;
+}
+
+function parseTableList(value: string | undefined): string[] | undefined {
+  const parsed = value
+    ?.split(',')
+    .map((table) => table.trim())
+    .filter(Boolean);
+
+  return parsed && parsed.length > 0 ? parsed : undefined;
 }
 
 export async function generateDatasetsCommand(options: GenerateDatasetsOptions = {}) {
@@ -22,17 +33,15 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
 
   if (options.output) {
     outputPath = path.resolve(process.cwd(), options.output);
+  } else if (options.path) {
+    outputPath = path.resolve(process.cwd(), options.path, 'datasets.ts');
   } else {
     // Default to src/datasets/generated.ts
     outputPath = path.join(process.cwd(), 'src', 'datasets', 'generated.ts');
   }
 
-  const parsedTables = options.tables
-    ? options.tables
-        .split(',')
-        .map((table) => table.trim())
-        .filter(Boolean)
-    : undefined;
+  const parsedTables = parseTableList(options.tables);
+  const excludedTables = parseTableList(options.excludeTables);
 
   logger.newline();
   logger.header('hypequery generate datasets');
@@ -52,6 +61,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
     await generateDatasets({
       outputPath,
       includeTables: parsedTables,
+      excludeTables: excludedTables,
     });
 
     datasetSpinner.succeed(`Generated dataset definitions for ${parsedTables?.length || tableCount} tables`);

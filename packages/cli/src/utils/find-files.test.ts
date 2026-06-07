@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { access } from 'node:fs/promises';
 import {
   findQueriesFile,
+  findApiFileForPath,
   findSchemaFile,
+  findDatasetsFile,
   findClientFile,
   hasEnvFile,
   hasGitignore,
@@ -51,21 +53,25 @@ describe('find-files', () => {
       expect(access).toHaveBeenCalledWith('/test/project/hypequery.ts');
     });
 
-    it('should try analytics/queries.ts if hypequery.ts not found', async () => {
+    it('should prefer analytics/api.ts after hypequery.ts', async () => {
       vi.mocked(access)
         .mockRejectedValueOnce(new Error('ENOENT')) // hypequery.ts
-        .mockResolvedValueOnce(undefined); // analytics/queries.ts
+        .mockResolvedValueOnce(undefined); // analytics/api.ts
 
       const result = await findQueriesFile();
 
-      expect(result).toBe('/test/project/analytics/queries.ts');
+      expect(result).toBe('/test/project/analytics/api.ts');
       expect(access).toHaveBeenCalledWith('/test/project/hypequery.ts');
-      expect(access).toHaveBeenCalledWith('/test/project/analytics/queries.ts');
+      expect(access).toHaveBeenCalledWith('/test/project/analytics/api.ts');
     });
 
     it('should try all default paths in order', async () => {
       vi.mocked(access)
         .mockRejectedValueOnce(new Error('ENOENT')) // hypequery.ts
+        .mockRejectedValueOnce(new Error('ENOENT')) // analytics/api.ts
+        .mockRejectedValueOnce(new Error('ENOENT')) // src/analytics/api.ts
+        .mockRejectedValueOnce(new Error('ENOENT')) // api.ts
+        .mockRejectedValueOnce(new Error('ENOENT')) // src/api.ts
         .mockRejectedValueOnce(new Error('ENOENT')) // analytics/queries.ts
         .mockRejectedValueOnce(new Error('ENOENT')) // src/analytics/queries.ts
         .mockResolvedValueOnce(undefined); // queries.ts
@@ -73,7 +79,7 @@ describe('find-files', () => {
       const result = await findQueriesFile();
 
       expect(result).toBe('/test/project/queries.ts');
-      expect(access).toHaveBeenCalledTimes(4);
+      expect(access).toHaveBeenCalledTimes(8);
     });
 
     it('should return null if no default paths exist', async () => {
@@ -85,7 +91,35 @@ describe('find-files', () => {
     });
   });
 
+  describe('findApiFileForPath', () => {
+    it('should prefer api.ts before queries.ts in a provided directory', async () => {
+      vi.mocked(access).mockResolvedValue(undefined);
+
+      const result = await findApiFileForPath('custom');
+
+      expect(result).toBe('/test/project/custom/api.ts');
+      expect(access).toHaveBeenCalledWith('/test/project/custom/api.ts');
+    });
+
+    it('should fall back to queries.ts in a provided directory', async () => {
+      vi.mocked(access)
+        .mockRejectedValueOnce(new Error('ENOENT'))
+        .mockResolvedValueOnce(undefined);
+
+      const result = await findApiFileForPath('custom');
+
+      expect(result).toBe('/test/project/custom/queries.ts');
+    });
+  });
+
   describe('findSchemaFile', () => {
+    it('should derive schema.ts from a provided directory', async () => {
+      const result = await findSchemaFile('custom');
+
+      expect(result).toBe('/test/project/custom/schema.ts');
+      expect(access).not.toHaveBeenCalled();
+    });
+
     it('should find analytics/schema.ts first', async () => {
       vi.mocked(access).mockResolvedValue(undefined);
 
@@ -110,6 +144,23 @@ describe('find-files', () => {
       const result = await findSchemaFile();
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('findDatasetsFile', () => {
+    it('should derive datasets.ts from a provided directory', async () => {
+      const result = await findDatasetsFile('custom');
+
+      expect(result).toBe('/test/project/custom/datasets.ts');
+      expect(access).not.toHaveBeenCalled();
+    });
+
+    it('should find analytics/datasets.ts first', async () => {
+      vi.mocked(access).mockResolvedValue(undefined);
+
+      const result = await findDatasetsFile();
+
+      expect(result).toBe('/test/project/analytics/datasets.ts');
     });
   });
 

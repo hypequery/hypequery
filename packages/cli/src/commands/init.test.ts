@@ -32,6 +32,10 @@ const mockGetTypeGenerator = vi.fn(() => mockGenerateTypes);
 vi.mock('../generators/index.js', () => ({
   getTypeGenerator: mockGetTypeGenerator,
 }));
+const mockGenerateDatasets = vi.fn().mockResolvedValue(undefined);
+vi.mock('../generators/dataset-generator.js', () => ({
+  generateDatasets: mockGenerateDatasets,
+}));
 
 // Import after mocks
 let initCommand: any;
@@ -352,6 +356,178 @@ describe('init command - graceful failure handling', () => {
       await initCommand({});
 
       expect(installScaffoldDependencies).toHaveBeenCalled();
+    });
+  });
+
+  describe('Style scaffolds', () => {
+    it('prompts for style in interactive mode and defaults to query files', async () => {
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('queries');
+
+      await initCommand({});
+
+      expect(prompts.promptOutputDirectory).toHaveBeenCalled();
+      expect(prompts.promptInitStyle).toHaveBeenCalled();
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('analytics/queries.ts'),
+        expect.stringContaining('initServe'),
+      );
+    });
+
+    it('creates datasets scaffold under a custom path without generating all tables by default', async () => {
+      process.env.CLICKHOUSE_URL = 'http://test:8123';
+      delete process.env.CLICKHOUSE_HOST;
+      process.env.CLICKHOUSE_DATABASE = 'test_db';
+      process.env.CLICKHOUSE_USERNAME = 'test_user';
+      process.env.CLICKHOUSE_PASSWORD = 'test_pass';
+
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
+
+      await initCommand({
+        noInteractive: true,
+        force: true,
+        style: 'datasets',
+        path: 'custom',
+      });
+
+      expect(mockGenerateTypes).toHaveBeenCalledWith(
+        expect.objectContaining({ outputPath: expect.stringContaining('custom/schema.ts') }),
+      );
+      expect(mockGenerateDatasets).not.toHaveBeenCalled();
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('custom/datasets.ts'),
+        expect.stringContaining('exampleEvents'),
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('custom/client.ts'),
+        expect.any(String),
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('custom/api.ts'),
+        expect.stringContaining('createAPI'),
+      );
+      expect(writeFile).not.toHaveBeenCalledWith(
+        expect.stringContaining('custom/queries.ts'),
+        expect.any(String),
+      );
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('datasets');
+    });
+
+    it('generates selected datasets from explicit tables in non-interactive mode', async () => {
+      process.env.CLICKHOUSE_URL = 'http://test:8123';
+      delete process.env.CLICKHOUSE_HOST;
+      process.env.CLICKHOUSE_DATABASE = 'test_db';
+      process.env.CLICKHOUSE_USERNAME = 'test_user';
+      process.env.CLICKHOUSE_PASSWORD = 'test_pass';
+
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
+
+      await initCommand({
+        noInteractive: true,
+        force: true,
+        style: 'datasets',
+        path: 'custom',
+        tables: 'orders, customers',
+        excludeTables: 'customers_archive',
+      });
+
+      expect(mockGenerateDatasets).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outputPath: expect.stringContaining('custom/datasets.ts'),
+          includeTables: ['orders', 'customers'],
+          excludeTables: ['customers_archive'],
+        }),
+      );
+    });
+
+    it('generates all datasets only when allTables is explicit', async () => {
+      process.env.CLICKHOUSE_URL = 'http://test:8123';
+      delete process.env.CLICKHOUSE_HOST;
+      process.env.CLICKHOUSE_DATABASE = 'test_db';
+      process.env.CLICKHOUSE_USERNAME = 'test_user';
+      process.env.CLICKHOUSE_PASSWORD = 'test_pass';
+
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
+
+      await initCommand({
+        noInteractive: true,
+        force: true,
+        style: 'datasets',
+        path: 'custom',
+        allTables: true,
+      });
+
+      expect(mockGenerateDatasets).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outputPath: expect.stringContaining('custom/datasets.ts'),
+          includeTables: undefined,
+        }),
+      );
+    });
+
+    it('prompts for dataset tables in interactive datasets mode', async () => {
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue({
+        host: 'http://localhost:8123',
+        database: 'default',
+        username: 'default',
+        password: 'correct',
+      });
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(3);
+      vi.mocked(detectDb.getTables).mockResolvedValue(['orders', 'customers', 'events']);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptGenerateExample).mockResolvedValue(true);
+      vi.mocked(prompts.promptTableSelection).mockResolvedValue('orders');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('datasets');
+      vi.mocked(prompts.promptDatasetTableSelection).mockResolvedValue(['orders', 'customers']);
+
+      await initCommand({});
+
+      expect(prompts.promptDatasetTableSelection).toHaveBeenCalledWith(
+        ['orders', 'customers', 'events'],
+        ['orders'],
+      );
+      expect(mockGenerateDatasets).toHaveBeenCalledWith(
+        expect.objectContaining({
+          includeTables: ['orders', 'customers'],
+        }),
+      );
+    });
+
+    it('creates query scaffold under a custom path', async () => {
+      process.env.CLICKHOUSE_URL = 'http://test:8123';
+      delete process.env.CLICKHOUSE_HOST;
+      process.env.CLICKHOUSE_DATABASE = 'test_db';
+      process.env.CLICKHOUSE_USERNAME = 'test_user';
+      process.env.CLICKHOUSE_PASSWORD = 'test_pass';
+
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
+
+      await initCommand({
+        noInteractive: true,
+        force: true,
+        style: 'queries',
+        path: 'custom',
+      });
+
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('custom/client.ts'),
+        expect.any(String),
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('custom/queries.ts'),
+        expect.stringContaining('initServe'),
+      );
+      expect(writeFile).not.toHaveBeenCalledWith(
+        expect.stringContaining('custom/api.ts'),
+        expect.any(String),
+      );
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries');
     });
   });
 });

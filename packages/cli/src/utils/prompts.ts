@@ -84,6 +84,23 @@ export async function promptOutputDirectory(): Promise<string> {
   return response.directory;
 }
 
+export type InitStyle = 'queries' | 'datasets';
+
+export async function promptInitStyle(): Promise<InitStyle> {
+  const response = await prompts({
+    type: 'select',
+    name: 'style',
+    message: 'Choose your dev API style',
+    choices: [
+      { title: 'Query builder routes', value: 'queries' },
+      { title: 'Datasets semantic API', value: 'datasets' },
+    ],
+    initial: 0,
+  });
+
+  return response.style ?? 'queries';
+}
+
 /**
  * Prompt for example query generation
  */
@@ -127,6 +144,41 @@ export async function promptTableSelection(tables: string[]): Promise<string | n
   });
 
   return response.table;
+}
+
+/**
+ * Prompt for dataset table selection.
+ */
+export async function promptDatasetTableSelection(
+  tables: string[],
+  defaultTables: string[] = [],
+): Promise<string[]> {
+  if (tables.length === 0) {
+    return [];
+  }
+
+  // Warn if showing truncated list
+  if (tables.length > 20) {
+    logger.warn(`Showing first 20 of ${tables.length} tables`);
+    logger.indent('Use --tables or --all-tables for more control in larger databases');
+    logger.newline();
+  }
+
+  const defaults = new Set(defaultTables);
+  const response = await prompts({
+    type: 'multiselect',
+    name: 'tables',
+    message: 'Which tables should we scaffold as datasets?',
+    choices: tables.slice(0, 20).map(table => ({
+      title: table,
+      value: table,
+      selected: defaults.has(table),
+    })),
+    min: 0,
+    instructions: false,
+  });
+
+  return response.tables ?? [];
 }
 
 /**
