@@ -30,7 +30,6 @@ function toResultMeta(
 export interface DatasetQueryExecutionOptions {
   builderFactory: QueryBuilderFactoryLike;
   context?: ExecutionContext;
-  tenantHandledByBuilder?: boolean;
 }
 
 export function validateDatasetQuery(
@@ -69,7 +68,7 @@ export function buildDatasetQueryBuilder(
 
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
   const tenantId = options.context?.runtime?.tenant?.id;
-  if (tenantId && tenantColumn && !options.tenantHandledByBuilder) {
+  if (tenantId && tenantColumn) {
     qb = qb.where(tenantColumn, 'eq', tenantId);
   }
 

@@ -19,6 +19,33 @@ import type { ServeQueryEvent } from '../../query-logger.js';
 
 const Orders = dataset("orders", {
   source: "orders",
+  timeKey: "created_at",
+  dimensions: {
+    id: dimension.string(),
+    customerId: dimension.string(),
+    country: dimension.string({ label: "Country" }),
+    status: dimension.string({ label: "Order Status" }),
+    amount: dimension.number({ label: "Amount" }),
+    createdAt: dimension.timestamp(),
+  },
+  measures: {
+    revenue: measure.sum('amount', { label: "Revenue" }),
+    count: measure.count('id', { label: "Order Count" }),
+  },
+  filters: {
+    status: {
+      __type: 'filter_definition',
+      field: 'status',
+      operators: ['eq'],
+    },
+  },
+  limits: {
+    maxDimensions: 5,
+  },
+});
+
+const TenantOrders = dataset("tenantOrders", {
+  source: "orders",
   tenantKey: "tenant_id",
   timeKey: "created_at",
   dimensions: {
@@ -103,6 +130,11 @@ const aliasedRevenue = OrdersWithAliases.metric("aliasedRevenue", {
 });
 const tenantFilteredRevenue = OrdersWithTenantFilter.metric("tenantFilteredRevenue", {
   measure: "revenue",
+});
+const tenantScopedTotalRevenue = TenantOrders.metric("totalRevenue", {
+  measure: "revenue",
+  label: "Total Revenue",
+  description: "Sum of all order amounts",
 });
 
 const BASE_PATH = "/api/analytics";
@@ -721,7 +753,7 @@ describe("Serve integration — metrics", () => {
     it("injects tenant ID into metric queries when tenant config is provided", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
-        metrics: { totalRevenue },
+        metrics: { totalRevenue: tenantScopedTotalRevenue },
         queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
@@ -754,7 +786,7 @@ describe("Serve integration — metrics", () => {
     it("falls back to the dataset tenantKey when tenant isolation is enabled without tenant.column", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
-        metrics: { totalRevenue },
+        metrics: { totalRevenue: tenantScopedTotalRevenue },
         queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
@@ -817,10 +849,10 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).error.message).toContain('Cannot filter on tenant field "tenantId"');
     });
 
-    it("prefers the Serve tenant column when auto-inject wraps the internal query builder", async () => {
+    it("uses the dataset tenantKey for semantic metrics even when Serve auto-inject has a different column", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
-        metrics: { totalRevenue },
+        metrics: { totalRevenue: tenantScopedTotalRevenue },
         queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
@@ -848,14 +880,15 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['where']).toContainEqual(['organization_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).toContainEqual(['tenant_id', 'eq', 'tenant-123']);
+      expect(factory._calls['where']).not.toContainEqual(['organization_id', 'eq', 'tenant-123']);
     });
 
     it("does not warn about manual tenant mode for generated metric endpoints", async () => {
       const factory = createMockBuilderFactory();
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
       const api = createAPI({
-        metrics: { totalRevenue },
+        metrics: { totalRevenue: tenantScopedTotalRevenue },
         queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
@@ -1208,7 +1241,7 @@ describe("Serve integration — metrics", () => {
     it("injects tenant filter via builder.where()", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
-        metrics: { totalRevenue },
+        metrics: { totalRevenue: tenantScopedTotalRevenue },
         queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
@@ -1475,7 +1508,7 @@ describe("Serve integration — metrics", () => {
         { country: "US", revenue: 5000 },
       ]);
       const api = createAPI({
-        datasets: { orders: Orders },
+        datasets: { orders: TenantOrders },
         queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];
@@ -1513,7 +1546,7 @@ describe("Serve integration — metrics", () => {
         { country: "US", revenue: 5000 },
       ]);
       const api = createAPI({
-        datasets: { orders: Orders },
+        datasets: { orders: TenantOrders },
         queryBuilder: factory,
         auth: async ({ request }) => {
           const key = request.headers['x-api-key'];

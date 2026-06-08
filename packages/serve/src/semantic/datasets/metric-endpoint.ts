@@ -23,7 +23,6 @@ import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
   resolveSemanticQueryBuilder,
-  resolveSemanticTenantHandledByBuilder,
 } from '../query-builder-context.js';
 
 // ---------------------------------------------------------------------------
@@ -144,9 +143,6 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       semanticContext,
       defaultBuilderFactory,
     );
-    const tenantHandledByBuilder = resolveSemanticTenantHandledByBuilder(semanticContext)
-      || (ctx.tenantId != null && runtimeBuilderFactory !== defaultBuilderFactory);
-
     // Build the metric query
     const query = {
       dimensions: input.dimensions,
@@ -186,7 +182,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       runtime: {
         ...runtime,
         builderFactory: runtimeBuilderFactory,
-        tenant: tenantHandledByBuilder ? undefined : runtime?.tenant,
+        tenant: runtime?.tenant,
       },
     });
 

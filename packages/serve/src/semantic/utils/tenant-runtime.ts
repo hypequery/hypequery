@@ -42,20 +42,9 @@ export function applySemanticTenantRuntime<TContext extends Record<string, unkno
     Object.assign(
       context,
       attachSemanticRuntime(context, {
-        builderFactory: createTenantScope(semanticRuntime.builderFactory, {
-          tenantId: options.tenantId,
-          column: options.column,
-        }),
         tenant: {
           id: options.tenantId,
         },
-      }),
-    );
-    Object.assign(
-      context,
-      attachSemanticTenantRuntime(context, {
-        tenantId: options.tenantId,
-        tenantHandledByBuilder: true,
       }),
     );
   } else {
@@ -63,7 +52,6 @@ export function applySemanticTenantRuntime<TContext extends Record<string, unkno
       context,
       attachSemanticTenantRuntime(context, {
         tenantId: options.tenantId,
-        tenantHandledByBuilder: false,
       }),
     );
   }

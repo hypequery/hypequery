@@ -76,10 +76,18 @@ const result = await analytics.execute(revenue, {
   filters: [eq('status', 'completed')],
   orderBy: [{ field: 'revenue', direction: 'desc' }],
   limit: 10,
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
 });
 
 const monthlySql = analytics.toSQL(revenue.by('month'), {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
 });
 ```
 
@@ -105,6 +113,8 @@ const Orders = dataset('orders', {
 ```
 
 `source` is the physical table or view name. The first `dataset()` argument is the logical dataset name. `tenantKey` and `timeKey` are physical column names used for runtime tenant isolation and time graining.
+
+If `tenantKey` is set, queries against the dataset require runtime tenant context. This is fail-closed: Hypequery will reject metric and dataset queries that do not include `runtime.tenant.id`.
 
 ### Dimensions
 
@@ -189,6 +199,10 @@ const monthlyRevenue = revenue.by('month');
 
 await analytics.execute(monthlyRevenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
 });
 ```
 
@@ -199,6 +213,20 @@ Supported grains are `day`, `week`, `month`, `quarter`, and `year`.
 Runtime tenancy uses the dataset `tenantKey` and a runtime tenant identity.
 
 ```ts
+const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    tenantId: dimension.string({ column: 'tenant_id' }),
+    country: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
 await analytics.execute(revenue, {}, {
   runtime: {
     tenant: { id: 'tenant_123' },
@@ -206,7 +234,33 @@ await analytics.execute(revenue, {}, {
 });
 ```
 
-When runtime tenancy is active, explicit filters on the tenant field are rejected. This prevents duplicate or conflicting tenant predicates.
+Here `tenantKey` is the physical column and `tenant.id` is the trusted runtime value. Together they produce a tenant predicate equivalent to:
+
+```sql
+WHERE tenant_id = 'tenant_123'
+```
+
+If a dataset has `tenantKey`, runtime tenant context is required:
+
+```ts
+await analytics.execute(revenue);
+// Error: Dataset "orders" requires runtime tenant scoping.
+```
+
+When runtime tenancy is active, explicit filters on the tenant field are rejected. This prevents duplicate or conflicting tenant predicates:
+
+```ts
+await analytics.execute(revenue, {
+  filters: [eq('tenantId', 'tenant_123')],
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
+});
+// Error: Cannot filter on tenant field "tenantId" when runtime tenancy enforcement is active.
+```
+
+The runtime integration should provide tenant identity from trusted server/session state. Do not accept tenant ids from end-user query input. In `@hypequery/serve`, regular hand-written queries can use Serve tenant auto-injection, but semantic dataset and metric endpoints pass tenant identity to `@hypequery/datasets`, and datasets injects the filter from `tenantKey`.
 
 ### Relationships
 
@@ -235,19 +289,35 @@ Use `createDatasetClient` from `@hypequery/datasets` with a backend implementati
 ```ts
 const validation = analytics.validate(revenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
 });
 
 const sql = analytics.toSQL(revenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
 });
 
 const result = await analytics.execute(revenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
 });
 
 const datasetResult = await analytics.execute(Orders, {
   dimensions: ['country'],
   measures: ['revenue'],
+}, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
 });
 ```
 
@@ -270,7 +340,11 @@ const analytics = createDatasetClient({
   }),
 });
 
-await analytics.execute(revenue, { dimensions: ['country'] });
+await analytics.execute(revenue, { dimensions: ['country'] }, {
+  runtime: {
+    tenant: { id: 'tenant_123' },
+  },
+});
 ```
 
 ### Other Backends
