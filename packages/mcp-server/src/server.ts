@@ -148,6 +148,14 @@ export class HypequeryMCPServer {
                 type: 'number',
                 description: 'Maximum number of rows to return (optional)',
               },
+              offset: {
+                type: 'number',
+                description: 'Number of rows to skip before returning results (optional)',
+              },
+              tenant: {
+                type: 'string',
+                description: 'Tenant id used to scope the query when the dataset has tenant isolation (optional)',
+              },
             },
             required: ['dataset', 'metric'],
           },
@@ -208,6 +216,14 @@ export class HypequeryMCPServer {
               limit: {
                 type: 'number',
                 description: 'Maximum number of rows to return (optional)',
+              },
+              offset: {
+                type: 'number',
+                description: 'Number of rows to skip before returning results (optional)',
+              },
+              tenant: {
+                type: 'string',
+                description: 'Tenant id used to scope the query when the dataset has tenant isolation (optional)',
               },
             },
             required: ['dataset'],

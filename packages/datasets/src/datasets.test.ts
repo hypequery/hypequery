@@ -4,7 +4,7 @@ import { dimension } from './field.js';
 import { belongsTo, hasMany, hasOne } from './relationships.js';
 import { sum, count, countDistinct, avg, min, max } from './aggregations.js';
 import { divide, multiply, subtract, add, nullIfZero, coalesce, round, floor, ceil } from './formulas.js';
-import { eq, between, desc } from './query-helpers.js';
+import { eq, neq, gt, gte, lt, lte, inList, notInList, between, like, desc } from './query-helpers.js';
 import { measure } from './measure.js';
 import { createDatasetRegistry } from './registry.js';
 import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from './dataset-query.js';
@@ -1071,5 +1071,244 @@ describe("MetricQueryEngine", () => {
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('Cannot filter on tenant field "tenantId"');
     });
+  });
+});
+
+describe("dataset SQL generation matrix", () => {
+  type BuilderColumnsInput = string[] | string;
+
+  const MatrixOrders = dataset("matrixOrders", {
+    source: "orders",
+    tenantKey: "tenant_id",
+    timeKey: "created_at",
+    dimensions: {
+      id: dimension.string(),
+      tenantId: dimension.string({ column: "tenant_id" }),
+      country: dimension.string({ column: "country_code" }),
+      status: dimension.string(),
+      amount: dimension.number(),
+      customerId: dimension.string({ column: "customer_id" }),
+      createdAt: dimension.timestamp({ column: "created_at" }),
+      countryUpper: dimension.string({ sql: "upper(country_code)" }),
+    },
+    measures: {
+      revenue: measure.sum("amount"),
+      orderCount: measure.count("id"),
+      uniqueCustomers: measure.countDistinct("customerId"),
+      averageAmount: measure.avg("amount"),
+      minAmount: measure.min("amount"),
+      maxAmount: measure.max("amount"),
+      taxedRevenue: measure.sum("amount", { sql: "amount * 1.2" }),
+      completedRevenue: measure.sum("amount", {
+        filters: [eq("status", "completed"), gt("amount", 10)],
+      }),
+    },
+    limits: {
+      maxResultSize: 500,
+    },
+  });
+
+  function createSqlBuilderFactory(): QueryBuilderFactoryLike {
+    const operatorSql: Record<string, string> = {
+      eq: "=",
+      neq: "!=",
+      gt: ">",
+      gte: ">=",
+      lt: "<",
+      lte: "<=",
+      in: "IN",
+      notIn: "NOT IN",
+      between: "BETWEEN",
+      like: "LIKE",
+    };
+
+    function createBuilder(source: string): QueryBuilderLike {
+      const state = {
+        select: [] as string[],
+        where: [] as string[],
+        groupBy: [] as string[],
+        orderBy: [] as string[],
+        limit: undefined as number | undefined,
+        offset: undefined as number | undefined,
+      };
+
+      const renderWhere = (column: string, operator: string) => {
+        if (operator === "between") {
+          return `${column} BETWEEN ? AND ?`;
+        }
+        if (operator === "in" || operator === "notIn") {
+          return `${column} ${operatorSql[operator]} (?)`;
+        }
+        return `${column} ${operatorSql[operator] ?? operator} ?`;
+      };
+
+      const buildSql = () => [
+        `SELECT ${state.select.join(", ")} FROM ${source}`,
+        state.where.length > 0 ? `WHERE ${state.where.join(" AND ")}` : "",
+        state.groupBy.length > 0 ? `GROUP BY ${state.groupBy.join(", ")}` : "",
+        state.orderBy.length > 0 ? `ORDER BY ${state.orderBy.join(", ")}` : "",
+        state.limit != null ? `LIMIT ${state.limit}` : "",
+        state.offset != null ? `OFFSET ${state.offset}` : "",
+      ].filter(Boolean).join(" ");
+
+      const builder: QueryBuilderLike = {
+        select: (args: BuilderColumnsInput) => {
+          state.select.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        sum: (column: string, alias?: string) => {
+          state.select.push(`SUM(${column}) AS ${alias ?? `${column}_sum`}`);
+          return builder;
+        },
+        count: (column: string, alias?: string) => {
+          state.select.push(`COUNT(${column}) AS ${alias ?? `${column}_count`}`);
+          return builder;
+        },
+        countDistinct: (column: string, alias?: string) => {
+          state.select.push(`COUNT(DISTINCT ${column}) AS ${alias ?? `${column}_countDistinct`}`);
+          return builder;
+        },
+        avg: (column: string, alias?: string) => {
+          state.select.push(`AVG(${column}) AS ${alias ?? `${column}_avg`}`);
+          return builder;
+        },
+        min: (column: string, alias?: string) => {
+          state.select.push(`MIN(${column}) AS ${alias ?? `${column}_min`}`);
+          return builder;
+        },
+        max: (column: string, alias?: string) => {
+          state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
+          return builder;
+        },
+        where: (column: string, operator: string, _value: unknown) => {
+          state.where.push(renderWhere(column, operator));
+          return builder;
+        },
+        groupBy: (args: BuilderColumnsInput) => {
+          state.groupBy.push(...(Array.isArray(args) ? args : [args]));
+          return builder;
+        },
+        orderBy: (column: string, direction?: string) => {
+          state.orderBy.push(`${column} ${direction ?? "ASC"}`);
+          return builder;
+        },
+        limit: (count: number) => {
+          state.limit = count;
+          return builder;
+        },
+        offset: (count: number) => {
+          state.offset = count;
+          return builder;
+        },
+        toSQLWithParams: () => ({ sql: buildSql(), parameters: [] }),
+        execute: vi.fn().mockResolvedValue([]),
+      };
+
+      return builder;
+    }
+
+    return {
+      table: createBuilder,
+      rawQuery: vi.fn().mockResolvedValue([]),
+    };
+  }
+
+  it("generates all dataset aggregation types with aliases and custom SQL expressions", () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    const sql = analytics.toSQL(MatrixOrders, {
+      dimensions: ["country", "countryUpper"],
+      measures: [
+        "revenue",
+        "orderCount",
+        "uniqueCustomers",
+        "averageAmount",
+        "minAmount",
+        "maxAmount",
+        "taxedRevenue",
+      ],
+    });
+
+    expect(sql).toContain("SELECT country_code AS country, upper(country_code) AS countryUpper");
+    expect(sql).toContain("SUM(amount) AS revenue");
+    expect(sql).toContain("COUNT(id) AS orderCount");
+    expect(sql).toContain("COUNT(DISTINCT customer_id) AS uniqueCustomers");
+    expect(sql).toContain("AVG(amount) AS averageAmount");
+    expect(sql).toContain("MIN(amount) AS minAmount");
+    expect(sql).toContain("MAX(amount) AS maxAmount");
+    expect(sql).toContain("SUM(amount * 1.2) AS taxedRevenue");
+    expect(sql).toContain("GROUP BY country, countryUpper");
+  });
+
+  it("generates filtered measures, tenant scoping, time grain, ordering, limit, and offset together", () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    const sql = analytics.toSQL(MatrixOrders, {
+      dimensions: ["status"],
+      measures: ["completedRevenue"],
+      by: "month",
+      filters: [eq("country", "US")],
+      orderBy: [desc("completedRevenue")],
+      limit: 50,
+      offset: 10,
+    }, {
+      runtime: {
+        tenant: { id: "tenant-1" },
+      },
+    });
+
+    expect(sql).toContain("toStartOfMonth(created_at) AS period");
+    expect(sql).toContain("status");
+    expect(sql).toContain("SUM(if((status = 'completed') AND (amount > 10), amount, 0)) AS completedRevenue");
+    expect(sql).toContain("WHERE tenant_id = ? AND country_code = ?");
+    expect(sql).toContain("GROUP BY period, status");
+    expect(sql).toContain("ORDER BY completedRevenue DESC");
+    expect(sql).toContain("LIMIT 50 OFFSET 10");
+  });
+
+  it("forwards every dataset filter operator through resolved fields", () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    const sql = analytics.toSQL(MatrixOrders, {
+      dimensions: ["status"],
+      measures: ["revenue"],
+      filters: [
+        neq("status", "cancelled"),
+        gt("amount", 10),
+        gte("amount", 20),
+        lt("amount", 100),
+        lte("amount", 200),
+        inList("country", ["US", "DE"]),
+        notInList("status", ["fraud"]),
+        between("createdAt", "2026-01-01", "2026-01-31"),
+        like("status", "complete%"),
+      ],
+    });
+
+    expect(sql).toContain("status != ?");
+    expect(sql).toContain("amount > ?");
+    expect(sql).toContain("amount >= ?");
+    expect(sql).toContain("amount < ?");
+    expect(sql).toContain("amount <= ?");
+    expect(sql).toContain("country_code IN (?)");
+    expect(sql).toContain("status NOT IN (?)");
+    expect(sql).toContain("created_at BETWEEN ? AND ?");
+    expect(sql).toContain("status LIKE ?");
+  });
+
+  it("validates pagination and dataset max result limits before SQL generation", () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+
+    expect(analytics.validate(MatrixOrders, {
+      measures: ["revenue"],
+      limit: -1,
+    }).errors).toContain("Invalid limit: expected a non-negative integer.");
+
+    expect(analytics.validate(MatrixOrders, {
+      measures: ["revenue"],
+      offset: 1.5,
+    }).errors).toContain("Invalid offset: expected a non-negative integer.");
+
+    expect(analytics.validate(MatrixOrders, {
+      measures: ["revenue"],
+      limit: 501,
+    }).errors).toContain("Too many results requested: 501 (max 500)");
   });
 });

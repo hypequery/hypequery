@@ -135,6 +135,14 @@ function validateQuery(
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
 
+  if (query.limit != null && (!Number.isInteger(query.limit) || query.limit < 0)) {
+    errors.push(`Invalid limit: expected a non-negative integer.`);
+  }
+
+  if (query.offset != null && (!Number.isInteger(query.offset) || query.offset < 0)) {
+    errors.push(`Invalid offset: expected a non-negative integer.`);
+  }
+
   // Validate limits
   if (ds.limits) {
     if (ds.limits.maxDimensions && (query.dimensions?.length ?? 0) > ds.limits.maxDimensions) {
@@ -145,6 +153,9 @@ function validateQuery(
     }
     if (ds.limits.maxFilters && (query.filters?.length ?? 0) > ds.limits.maxFilters) {
       errors.push(`Too many filters (${query.filters?.length}). Max: ${ds.limits.maxFilters}`);
+    }
+    if (ds.limits.maxResultSize && query.limit != null && query.limit > ds.limits.maxResultSize) {
+      errors.push(`Too many results requested (${query.limit}). Max: ${ds.limits.maxResultSize}`);
     }
   }
 

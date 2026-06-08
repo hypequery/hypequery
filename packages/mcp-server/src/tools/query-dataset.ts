@@ -5,16 +5,17 @@
  */
 
 import type { DatasetClient, DatasetQuery } from '@hypequery/datasets';
-import type { DatasetRegistry, QueryDatasetArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
+import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
+import { parseToolArgs, queryDatasetArgsSchema, resolveTenantId } from './args.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
   analytics: DatasetClient,
   args: unknown
 ): Promise<MCPToolResponse> {
-  // Parse and validate args
-  const validatedArgs = args as QueryDatasetArgs;
-  const { dataset: datasetName, dimensions, metrics, filters, grain, orderBy, limit } = validatedArgs;
+  const validatedArgs = parseToolArgs(queryDatasetArgsSchema, 'query_dataset', args);
+  const { dataset: datasetName, dimensions, metrics, filters, grain, orderBy, limit, offset } = validatedArgs;
+  const tenantId = resolveTenantId(validatedArgs);
 
   if (!datasetName) {
     throw new Error('dataset parameter is required');
@@ -34,7 +35,7 @@ export async function queryDatasetTool(
   const query: DatasetQuery = {
     dimensions: dimensions || [],
     measures: metrics || [],
-    filters: filters || [],
+    filters: (filters || []) as DatasetQuery['filters'],
     orderBy: orderBy || [],
   };
 
@@ -47,10 +48,13 @@ export async function queryDatasetTool(
   if (limit !== undefined) {
     query.limit = Math.min(limit, MAX_LIMIT);
   }
+  if (offset !== undefined) {
+    query.offset = offset;
+  }
 
   const result = await analytics.execute(dataset as any, query, {
     runtime: {
-      tenant: undefined,
+      tenant: tenantId ? { id: tenantId } : undefined,
     },
   });
 
