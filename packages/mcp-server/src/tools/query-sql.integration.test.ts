@@ -141,7 +141,8 @@ describe('MCP query tools SQL integration', () => {
       orderBy: [desc('completedRevenue')],
       limit: 25,
       offset: 5,
-      tenant: 'tenant-1',
+    }, {
+      tenantId: 'tenant-1',
     });
 
     const response = parseToolResponse(result);
@@ -153,7 +154,7 @@ describe('MCP query tools SQL integration', () => {
     expect(response.meta.rowCount).toBe(1);
   });
 
-  it('returns metric SQL with tenant scoping from tenantId alias', async () => {
+  it('returns metric SQL with server-provided tenant scoping', async () => {
     const analytics = createDatasetClient({
       queryBuilder: createSqlBuilderFactory([{ country: 'US', totalRevenue: 100 }]),
     });
@@ -165,6 +166,7 @@ describe('MCP query tools SQL integration', () => {
       dataset: 'orders',
       metric: 'totalRevenue',
       dimensions: ['country'],
+    }, {
       tenantId: 'tenant-1',
     });
 
@@ -183,8 +185,26 @@ describe('MCP query tools SQL integration', () => {
       dataset: 'orders',
       metrics: ['revenue'],
       filters: [eq('tenantId', 'tenant-1')],
-      tenant: 'tenant-1',
+    }, {
+      tenantId: 'tenant-1',
     })).rejects.toThrow('Cannot filter on tenant field "tenantId"');
+  });
+
+  it('rejects tenant-keyed MCP queries without tenant scoping', async () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    const registry = {
+      orders: Object.assign(Orders, { totalRevenue }) as any,
+    };
+
+    await expect(queryDatasetTool(registry, analytics, {
+      dataset: 'orders',
+      metrics: ['revenue'],
+    })).rejects.toThrow('requires runtime tenant scoping');
+
+    await expect(queryMetricTool(registry, analytics, {
+      dataset: 'orders',
+      metric: 'totalRevenue',
+    })).rejects.toThrow('requires runtime tenant scoping');
   });
 
   it('rejects malformed MCP query arguments before execution', async () => {
@@ -200,5 +220,11 @@ describe('MCP query tools SQL integration', () => {
       metric: 'totalRevenue',
       limit: -1,
     })).rejects.toThrow('Invalid query_metric arguments');
+
+    await expect(queryDatasetTool({ orders: Orders as any }, analytics, {
+      dataset: 'orders',
+      metrics: ['revenue'],
+      tenantId: 'tenant-1',
+    })).rejects.toThrow('Invalid query_dataset arguments');
   });
 });

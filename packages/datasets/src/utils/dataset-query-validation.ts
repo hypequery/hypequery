@@ -22,6 +22,12 @@ export function validateDatasetQueryInput(
     ...(query.by ? ['period'] : []),
   ]);
 
+  if (ds.tenantKey && !context?.runtime?.tenant?.id) {
+    errors.push(
+      `Dataset "${ds.name}" requires runtime tenant scoping.`,
+    );
+  }
+
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
     errors.push(`Dataset "${ds.name}" query must select at least one dimension or measure.`);
   }

@@ -26,8 +26,6 @@ export interface QueryMetricArgs {
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
-  tenant?: string;
-  tenantId?: string;
 }
 
 /**
@@ -42,7 +40,9 @@ export interface QueryDatasetArgs {
   orderBy?: MetricOrderBy[];
   limit?: number;
   offset?: number;
-  tenant?: string;
+}
+
+export interface QueryToolOptions {
   tenantId?: string;
 }
 

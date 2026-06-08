@@ -61,6 +61,12 @@ const Orders = dataset("orders", {
   },
 });
 
+const TENANT_CONTEXT = {
+  runtime: {
+    tenant: { id: "tenant-1" },
+  },
+} as const;
+
 // =============================================================================
 // DATASET + FIELD TESTS
 // =============================================================================
@@ -357,6 +363,15 @@ describe("dataset query helpers", () => {
     ]);
   });
 
+  it("rejects tenant-keyed dataset queries without runtime tenant scoping", () => {
+    const validation = validateDatasetQuery(Orders, {
+      measures: ['revenue'],
+    });
+
+    expect(validation.valid).toBe(false);
+    expect(validation.errors[0]).toContain('Dataset "orders" requires runtime tenant scoping.');
+  });
+
   it("builds dataset query SQL through the shared datasets planner", () => {
     const builder = buildDatasetQueryBuilder(Orders, {
       dimensions: ['status'],
@@ -387,6 +402,7 @@ describe("dataset query helpers", () => {
       measures: ['revenue'],
     }, {
       builderFactory: createDatasetQueryBuilderFactory([{ revenue: 42 }]),
+      context: TENANT_CONTEXT,
     });
 
     expect(result.data).toEqual([{ revenue: 42 }]);
@@ -724,7 +740,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(totalRevenue, {
         dimensions: ["country"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(sql).toContain("SELECT country, SUM(amount) AS totalRevenue FROM orders");
       expect(sql).toContain("GROUP BY country");
@@ -748,7 +764,7 @@ describe("MetricQueryEngine", () => {
       const sql = analytics.toSQL(totalRevenue, {
         dimensions: ["country"],
         filters: [{ field: "status", operator: "eq", value: "completed" }],
-      });
+      }, TENANT_CONTEXT);
 
       expect(sql).toContain("status = ?");
     });
@@ -759,7 +775,7 @@ describe("MetricQueryEngine", () => {
         dimensions: ["country"],
         orderBy: [{ field: "totalRevenue", direction: "desc" }],
         limit: 100,
-      });
+      }, TENANT_CONTEXT);
 
       expect(sql).toContain("ORDER BY totalRevenue DESC");
       expect(sql).toContain("LIMIT 100");
@@ -769,7 +785,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(completedRevenue, {
         dimensions: ["country"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS completedRevenue");
       expect(sql).toContain("GROUP BY country");
@@ -779,7 +795,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(uniqueCustomers, {
         dimensions: ["country"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(sql).toContain("COUNT(DISTINCT customer_id) AS uniqueCustomers");
       expect(sql).not.toContain("COUNT(DISTINCT customerId)");
@@ -790,7 +806,7 @@ describe("MetricQueryEngine", () => {
     it("generates time-grained SQL with .by()", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const monthly = totalRevenue.by("month");
-      const sql = analytics.toSQL(monthly);
+      const sql = analytics.toSQL(monthly, {}, TENANT_CONTEXT);
 
       expect(sql).toContain("toStartOfMonth(created_at) AS period");
       expect(sql).toContain("GROUP BY period");
@@ -799,7 +815,7 @@ describe("MetricQueryEngine", () => {
 
     it("supports grain via query.by", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
-      const sql = analytics.toSQL(totalRevenue, { by: "week" });
+      const sql = analytics.toSQL(totalRevenue, { by: "week" }, TENANT_CONTEXT);
 
       expect(sql).toContain("toStartOfWeek(created_at) AS period");
     });
@@ -807,7 +823,7 @@ describe("MetricQueryEngine", () => {
     it("rejects conflicting query.by on grained metrics", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const monthly = totalRevenue.by("month");
-      const result = analytics.validate(monthly, { by: "week" });
+      const result = analytics.validate(monthly, { by: "week" }, TENANT_CONTEXT);
 
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('already grained by "month"');
@@ -819,7 +835,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const sql = analytics.toSQL(avgOrderValue, {
         dimensions: ["country"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(sql).toContain("WITH base AS");
       expect(sql).toContain("SUM(amount) AS totalRevenue");
@@ -831,7 +847,7 @@ describe("MetricQueryEngine", () => {
 
     it("does not emit GROUP BY for ungrouped derived metrics", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
-      const sql = analytics.toSQL(avgOrderValue);
+      const sql = analytics.toSQL(avgOrderValue, {}, TENANT_CONTEXT);
 
       expect(sql).toContain("WITH base AS");
       expect(sql).not.toContain("GROUP BY totalRevenue");
@@ -840,7 +856,7 @@ describe("MetricQueryEngine", () => {
 
     it("rejects derived plans that introduce aggregate aliases into GROUP BY", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createBrokenDerivedGroupingBuilderFactory() });
-      const result = analytics.validate(avgOrderValue, {});
+      const result = analytics.validate(avgOrderValue, {}, TENANT_CONTEXT);
 
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain("GROUP BY");
@@ -853,7 +869,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory });
       const result = await analytics.run(totalRevenue, {
         dimensions: ["country"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(result.data).toEqual([
         { country: "US", totalRevenue: 5000 },
@@ -934,7 +950,7 @@ describe("MetricQueryEngine", () => {
 
       const result = await analytics.execute(totalRevenue, {
         dimensions: ["country"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(result.data).toEqual([
         { country: "US", totalRevenue: 5000 },
@@ -950,7 +966,7 @@ describe("MetricQueryEngine", () => {
       const result = await analytics.execute(Orders, {
         dimensions: ["country"],
         measures: ["revenue"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(result.data).toEqual([
         { country: "US", totalRevenue: 5000 },
@@ -966,11 +982,11 @@ describe("MetricQueryEngine", () => {
       const validation = analytics.validate(Orders, {
         dimensions: ["country"],
         measures: ["revenue"],
-      });
+      }, TENANT_CONTEXT);
       const sql = analytics.toSQL(Orders, {
         dimensions: ["country"],
         measures: ["revenue"],
-      });
+      }, TENANT_CONTEXT);
 
       expect(validation.valid).toBe(true);
       expect(sql).toContain("GROUP BY country");
@@ -978,11 +994,21 @@ describe("MetricQueryEngine", () => {
   });
 
   describe("validate()", () => {
+    it("rejects tenant-keyed metric queries without runtime tenant scoping", () => {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = analytics.validate(totalRevenue, {
+        dimensions: ["country"],
+      });
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('Dataset "orders" requires runtime tenant scoping.');
+    });
+
     it("accepts valid queries", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         dimensions: ["country", "status"],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(true);
     });
 
@@ -990,7 +1016,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         dimensions: ["nonexistent"],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain("Unknown dimension");
     });
@@ -999,7 +1025,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         filters: [{ field: "nonexistent", operator: "eq", value: "x" }],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
     });
 
@@ -1007,7 +1033,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "eq", value: "not-a-number" }],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('expects a number value');
     });
@@ -1016,7 +1042,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         filters: [{ field: "status", operator: "in", value: [] }],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('expects a non-empty array');
     });
@@ -1025,7 +1051,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "between", value: [1] }],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('"between" expects a two-item array');
     });
@@ -1034,7 +1060,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         filters: [{ field: "amount", operator: "like", value: "%100%" }],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain('"like" is only supported');
     });
@@ -1044,7 +1070,7 @@ describe("MetricQueryEngine", () => {
       const result = analytics.validate(totalRevenue, {
         dimensions: ["country"],
         orderBy: [{ field: "amount", direction: "desc" }],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain("Unknown orderBy field");
     });
@@ -1053,7 +1079,7 @@ describe("MetricQueryEngine", () => {
       const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
       const result = analytics.validate(totalRevenue, {
         dimensions: ["id", "customerId", "country", "status", "amount", "createdAt"],
-      });
+      }, TENANT_CONTEXT);
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain("Too many dimensions");
     });
@@ -1226,7 +1252,7 @@ describe("dataset SQL generation matrix", () => {
         "maxAmount",
         "taxedRevenue",
       ],
-    });
+    }, TENANT_CONTEXT);
 
     expect(sql).toContain("SELECT country_code AS country, upper(country_code) AS countryUpper");
     expect(sql).toContain("SUM(amount) AS revenue");
@@ -1280,7 +1306,7 @@ describe("dataset SQL generation matrix", () => {
         between("createdAt", "2026-01-01", "2026-01-31"),
         like("status", "complete%"),
       ],
-    });
+    }, TENANT_CONTEXT);
 
     expect(sql).toContain("status != ?");
     expect(sql).toContain("amount > ?");

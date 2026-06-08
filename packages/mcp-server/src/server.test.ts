@@ -4,12 +4,17 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HypequeryMCPServer } from './server.js';
+import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { DatasetClient } from '@hypequery/datasets';
+
+const requestHandlers = vi.hoisted(() => new Map<unknown, (request: any) => unknown>());
 
 // Mock the MCP SDK
 vi.mock('@modelcontextprotocol/sdk/server/index.js', () => ({
   Server: vi.fn().mockImplementation(() => ({
-    setRequestHandler: vi.fn(),
+    setRequestHandler: vi.fn((schema, handler) => {
+      requestHandlers.set(schema, handler);
+    }),
     connect: vi.fn(),
     close: vi.fn(),
   })),
@@ -38,6 +43,7 @@ describe('HypequeryMCPServer', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    requestHandlers.clear();
   });
 
   it('should create server instance with default config', () => {
@@ -69,6 +75,19 @@ describe('HypequeryMCPServer', () => {
     expect(server).toBeInstanceOf(HypequeryMCPServer);
   });
 
+  it('should require server tenantId for tenant-scoped datasets', () => {
+    expect(() => new HypequeryMCPServer({
+      datasets: {
+        orders: {
+          tenantKey: 'tenant_id',
+          dimensions: {},
+          metrics: {},
+        },
+      },
+      analytics: mockAnalytics,
+    })).toThrow('tenantId is required for tenant-scoped datasets: orders');
+  });
+
   it('should accept multiple datasets', () => {
     const datasets = {
       orders: { dimensions: {}, metrics: {} },
@@ -79,6 +98,7 @@ describe('HypequeryMCPServer', () => {
     const server = new HypequeryMCPServer({
       datasets,
       analytics: mockAnalytics,
+      tenantId: 'company-1',
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -123,6 +143,56 @@ describe('HypequeryMCPServer', () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith('Hypequery MCP Server started');
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('should forward server tenantId through query_dataset tool calls', async () => {
+    const analytics: DatasetClient = {
+      execute: vi.fn().mockResolvedValue({
+        data: [{ region: 'US', revenue: 100 }],
+        meta: { sql: 'SELECT region, SUM(amount) AS revenue FROM orders', timingMs: 12 },
+      }),
+    } as any;
+    const orders = {
+      tenantKey: 'tenant_id',
+      dimensions: {},
+      metrics: {},
+    };
+
+    new HypequeryMCPServer({
+      datasets: { orders },
+      analytics,
+      tenantId: 'tenant-123',
+    });
+
+    const handler = requestHandlers.get(CallToolRequestSchema);
+    expect(handler).toBeDefined();
+
+    const result = await handler?.({
+      params: {
+        name: 'query_dataset',
+        arguments: {
+          dataset: 'orders',
+          metrics: ['revenue'],
+          dimensions: ['region'],
+        },
+      },
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      content: expect.any(Array),
+    }));
+    expect(analytics.execute).toHaveBeenCalledWith(
+      orders,
+      expect.objectContaining({
+        dimensions: ['region'],
+        measures: ['revenue'],
+      }),
+      {
+        runtime: {
+          tenant: { id: 'tenant-123' },
+        },
+      },
+    );
   });
 });
 
@@ -196,6 +266,7 @@ describe('HypequeryMCPServer with complex datasets', () => {
     const server = new HypequeryMCPServer({
       datasets,
       analytics: mockAnalytics,
+      tenantId: 'company-1',
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
@@ -218,6 +289,7 @@ describe('HypequeryMCPServer with complex datasets', () => {
     const server = new HypequeryMCPServer({
       datasets,
       analytics: mockAnalytics,
+      tenantId: 'company-1',
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);

@@ -19,8 +19,6 @@ const baseQuerySchema = z.object({
   orderBy: z.array(orderBySchema).optional(),
   limit: z.number().int().nonnegative().max(MAX_QUERY_LIMIT).optional(),
   offset: z.number().int().nonnegative().optional(),
-  tenant: z.string().min(1).optional(),
-  tenantId: z.string().min(1).optional(),
 }).strict();
 
 export const queryMetricArgsSchema = baseQuerySchema.extend({
@@ -48,11 +46,4 @@ export function parseToolArgs<T>(schema: z.ZodType<T>, toolName: string, args: u
     throw new Error(`Invalid ${toolName} arguments: ${formatZodError(result.error)}`);
   }
   return result.data;
-}
-
-export function resolveTenantId(args: { tenant?: string; tenantId?: string }): string | undefined {
-  if (args.tenant && args.tenantId && args.tenant !== args.tenantId) {
-    throw new Error('tenant and tenantId must match when both are provided');
-  }
-  return args.tenant ?? args.tenantId;
 }

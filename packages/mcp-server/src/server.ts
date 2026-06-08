@@ -41,6 +41,36 @@ export interface MCPServerConfig {
    * Server version
    */
   version?: string;
+
+  /**
+   * Trusted tenant id used to scope tenant-keyed datasets.
+   */
+  tenantId?: string;
+}
+
+function getTenantKey(dataset: Record<string, unknown>): string | undefined {
+  const config = dataset.config;
+  const configTenantKey = config && typeof config === 'object' && 'tenantKey' in config
+    ? (config as { tenantKey?: unknown }).tenantKey
+    : undefined;
+  const tenantKey = dataset.tenantKey ?? configTenantKey;
+  return typeof tenantKey === 'string' && tenantKey.length > 0 ? tenantKey : undefined;
+}
+
+function validateTenantConfig(config: MCPServerConfig) {
+  if (config.tenantId) {
+    return;
+  }
+
+  const tenantScopedDatasets = Object.entries(config.datasets ?? {})
+    .filter(([, ds]) => getTenantKey(ds))
+    .map(([name]) => name);
+
+  if (tenantScopedDatasets.length > 0) {
+    throw new Error(
+      `MCP server tenantId is required for tenant-scoped datasets: ${tenantScopedDatasets.join(', ')}`,
+    );
+  }
 }
 
 export class HypequeryMCPServer {
@@ -48,6 +78,7 @@ export class HypequeryMCPServer {
   private config: MCPServerConfig;
 
   constructor(config: MCPServerConfig) {
+    validateTenantConfig(config);
     this.config = config;
 
     this.server = new Server(
@@ -152,10 +183,6 @@ export class HypequeryMCPServer {
                 type: 'number',
                 description: 'Number of rows to skip before returning results (optional)',
               },
-              tenant: {
-                type: 'string',
-                description: 'Tenant id used to scope the query when the dataset has tenant isolation (optional)',
-              },
             },
             required: ['dataset', 'metric'],
           },
@@ -221,10 +248,6 @@ export class HypequeryMCPServer {
                 type: 'number',
                 description: 'Number of rows to skip before returning results (optional)',
               },
-              tenant: {
-                type: 'string',
-                description: 'Tenant id used to scope the query when the dataset has tenant isolation (optional)',
-              },
             },
             required: ['dataset'],
           },
@@ -248,14 +271,16 @@ export class HypequeryMCPServer {
             return await queryMetricTool(
               this.config.datasets,
               this.config.analytics,
-              args
+              args,
+              { tenantId: this.config.tenantId },
             );
 
           case 'query_dataset':
             return await queryDatasetTool(
               this.config.datasets,
               this.config.analytics,
-              args
+              args,
+              { tenantId: this.config.tenantId },
             );
 
           default:

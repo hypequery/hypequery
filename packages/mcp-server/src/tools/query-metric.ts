@@ -5,17 +5,17 @@
  */
 
 import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
-import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
-import { parseToolArgs, queryMetricArgsSchema, resolveTenantId } from './args.js';
+import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT, QueryToolOptions } from '../types.js';
+import { parseToolArgs, queryMetricArgsSchema } from './args.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
   analytics: DatasetClient,
-  args: unknown
+  args: unknown,
+  options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
   const validatedArgs = parseToolArgs(queryMetricArgsSchema, 'query_metric', args);
   const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy, limit, offset } = validatedArgs;
-  const tenantId = resolveTenantId(validatedArgs);
 
   if (!datasetName) {
     throw new Error('dataset parameter is required');
@@ -61,7 +61,7 @@ export async function queryMetricTool(
   // Execute the query
   const result = await analytics.execute(metric, query, {
     runtime: {
-      tenant: tenantId ? { id: tenantId } : undefined,
+      tenant: options.tenantId ? { id: options.tenantId } : undefined,
     },
   });
 

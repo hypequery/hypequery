@@ -76,6 +76,12 @@ function validateQuery(
     ...(grain ? ['period'] : []),
   ]);
 
+  if (ds.tenantKey && !context?.runtime?.tenant?.id) {
+    errors.push(
+      `Dataset "${ds.name}" requires runtime tenant scoping.`,
+    );
+  }
+
   if (metric.__type === 'grained_metric_ref' && query.by && query.by !== metric.grain) {
     errors.push(
       `Metric "${ref.name}" is already grained by "${metric.grain}" and cannot be queried with by="${query.by}".`,
