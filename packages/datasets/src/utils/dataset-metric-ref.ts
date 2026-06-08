@@ -20,11 +20,10 @@ type AnyMeasures = Record<string, MeasureDefinition>;
 type AnyRelationships = Record<string, RelationshipDefinition>;
 
 export function isDerivedMetricConfig<
-  TDimensions extends Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition>,
   TDatasetName extends string,
 >(
-  config: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig<TDatasetName>,
+  config: BaseMetricConfig<TMeasures> | DerivedMetricConfig<TDatasetName>,
 ): config is DerivedMetricConfig<TDatasetName> {
   return 'uses' in config && 'formula' in config;
 }
