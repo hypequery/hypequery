@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MetricFilter } from '@hypequery/datasets';
 import { MAX_QUERY_LIMIT } from '../types.js';
 
 const filterSchema = z.object({
@@ -46,4 +47,14 @@ export function parseToolArgs<T>(schema: z.ZodType<T>, toolName: string, args: u
     throw new Error(`Invalid ${toolName} arguments: ${formatZodError(result.error)}`);
   }
   return result.data;
+}
+
+export function toMetricFilters(
+  filters: Array<{ field: string; operator: MetricFilter['operator']; value?: unknown }> = [],
+): MetricFilter[] {
+  return filters.map(filter => ({
+    field: filter.field,
+    operator: filter.operator,
+    value: filter.value,
+  }));
 }

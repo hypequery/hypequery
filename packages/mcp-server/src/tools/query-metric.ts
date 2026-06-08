@@ -5,8 +5,8 @@
  */
 
 import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
-import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT, QueryToolOptions } from '../types.js';
-import { parseToolArgs, queryMetricArgsSchema } from './args.js';
+import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, QueryToolOptions } from '../types.js';
+import { parseToolArgs, queryMetricArgsSchema, toMetricFilters } from './args.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
@@ -41,7 +41,7 @@ export async function queryMetricTool(
   // Build the query with proper types
   const query: MetricQuery = {
     dimensions: dimensions || [],
-    filters: (filters || []) as MetricQuery['filters'],
+    filters: toMetricFilters(filters),
     orderBy: orderBy || [],
   };
 
@@ -49,10 +49,8 @@ export async function queryMetricTool(
     query.by = grain;
   }
 
-  // Apply limit with maximum cap
-  const MAX_LIMIT: typeof MAX_QUERY_LIMIT = 10000;
   if (limit !== undefined) {
-    query.limit = Math.min(limit, MAX_LIMIT);
+    query.limit = limit;
   }
   if (offset !== undefined) {
     query.offset = offset;
