@@ -4,56 +4,57 @@ import type { CompileQueryContext, SqlDialect } from './sql-dialect.js';
 
 export class ClickHouseDialect implements SqlDialect {
   readonly name = 'clickhouse';
-  private formatter = new SQLFormatter();
 
   compileQuery(query: SelectQueryNode<any, any>, context: CompileQueryContext): CompiledQuery {
+    // Create a new formatter for each query to reset parameter counter
+    const formatter = new SQLFormatter();
     const parts: string[] = [];
     const parameters: unknown[] = [];
 
     if (query.ctes?.length) {
-      parts.push(`WITH ${this.formatter.formatCtes(query)}`);
+      parts.push(`WITH ${formatter.formatCtes(query)}`);
     }
 
-    parts.push(`SELECT ${this.formatter.formatSelect(query)}`);
-    parts.push(`FROM ${this.formatter.formatFrom(query.from ?? { kind: 'table', name: context.tableName })}`);
+    parts.push(`SELECT ${formatter.formatSelect(query)}`);
+    parts.push(`FROM ${formatter.formatFrom(query.from ?? { kind: 'table', name: context.tableName })}`);
 
     if (query.arrayJoins?.length) {
-      parts.push(this.formatter.formatArrayJoins(query));
+      parts.push(formatter.formatArrayJoins(query));
     }
 
     if (query.joins?.length) {
-      parts.push(this.formatter.formatJoins(query));
+      parts.push(formatter.formatJoins(query));
     }
 
     if (query.prewhere) {
-      const compiled = this.formatter.compileExpr(query.prewhere);
+      const compiled = formatter.compileExpr(query.prewhere);
       parts.push(`PREWHERE ${compiled.query}`);
       parameters.push(...compiled.parameters);
     }
 
     if (query.where) {
-      const compiled = this.formatter.compileExpr(query.where);
+      const compiled = formatter.compileExpr(query.where);
       parts.push(`WHERE ${compiled.query}`);
       parameters.push(...compiled.parameters);
     }
 
     if (query.groupBy?.length) {
-      const groupByClause = `GROUP BY ${this.formatter.formatGroupBy(query)}`;
+      const groupByClause = `GROUP BY ${formatter.formatGroupBy(query)}`;
       parts.push(query.withTotals ? `${groupByClause} WITH TOTALS` : groupByClause);
     }
 
     if (query.having?.length) {
-      const compiled = this.formatter.compileHaving(query);
+      const compiled = formatter.compileHaving(query);
       parts.push(`HAVING ${compiled.query}`);
       parameters.push(...compiled.parameters);
     }
 
     if (query.orderBy?.length) {
-      parts.push(`ORDER BY ${this.formatter.formatOrderBy(query)}`);
+      parts.push(`ORDER BY ${formatter.formatOrderBy(query)}`);
     }
 
     if (query.limitBy) {
-      parts.push(`LIMIT ${this.formatter.formatLimitBy(query)}`);
+      parts.push(`LIMIT ${formatter.formatLimitBy(query)}`);
     }
 
     if (query.limit) {

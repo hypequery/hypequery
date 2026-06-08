@@ -3,7 +3,6 @@ import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/clien
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
 import type { ClickHouseConfig } from '../query-builder.js';
 import { isClientConfig } from '../query-builder.js';
-import { substituteParameters } from '../utils.js';
 import { getConnectionEndpoint } from '../utils/connection-endpoint.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 import { getAutoClientModule } from '../env/auto-client.js';
@@ -39,11 +38,37 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     this.client = createClickHouseClient(config);
   }
 
+  /**
+   * Builds a parameter map for ClickHouse native parameter binding.
+   * Extracts parameter names from SQL placeholders like {param_0:Int64}
+   * and maps them to their values.
+   */
+  private buildParameterMap(sql: string, params: unknown[]): Record<string, unknown> {
+    if (params.length === 0) {
+      return {};
+    }
+
+    const paramMap: Record<string, unknown> = {};
+    const regex = /\{(\w+):[^}]+\}/g;
+    let match;
+    let index = 0;
+
+    while ((match = regex.exec(sql)) !== null) {
+      const paramName = match[1];
+      if (index < params.length) {
+        paramMap[paramName] = params[index++];
+      }
+    }
+
+    return paramMap;
+  }
+
   async query<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<T[]> {
-    const finalSQL = substituteParameters(sql, params);
+    const paramMap = this.buildParameterMap(sql, params);
     const result = await this.client.query({
-      query: finalSQL,
+      query: sql,
       format: 'JSONEachRow',
+      query_params: paramMap,
       clickhouse_settings: options?.clickhouseSettings,
       query_id: options?.queryId,
     });
@@ -51,10 +76,11 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 
   async stream<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>> {
-    const finalSQL = substituteParameters(sql, params);
+    const paramMap = this.buildParameterMap(sql, params);
     const result = await this.client.query({
-      query: finalSQL,
+      query: sql,
       format: 'JSONEachRow',
+      query_params: paramMap,
       clickhouse_settings: options?.clickhouseSettings,
       query_id: options?.queryId,
     });
@@ -63,7 +89,37 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 
   render(sql: string, params: unknown[] = []): string {
-    return substituteParameters(sql, params);
+    if (params.length === 0) {
+      return sql;
+    }
+
+    // Replace {param_N:Type} placeholders with actual values for display
+    let result = sql;
+    let index = 0;
+    const regex = /\{(\w+):[^}]+\}/g;
+
+    result = result.replace(regex, () => {
+      if (index >= params.length) {
+        return '?';
+      }
+      const value = params[index++];
+
+      // Format value for display (similar to old escapeValue logic)
+      if (typeof value === 'boolean') {
+        return value ? 'true' : 'false';
+      } else if (typeof value === 'number') {
+        return value.toString();
+      } else if (typeof value === 'string') {
+        const escaped = value.replace(/\\/g, '\\\\').replace(/'/g, "''");
+        return `'${escaped}'`;
+      } else if (value instanceof Date) {
+        return `'${value.toISOString()}'`;
+      } else {
+        return `'${JSON.stringify(value)}'`;
+      }
+    });
+
+    return result;
   }
 }
 

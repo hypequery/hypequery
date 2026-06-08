@@ -1,6 +1,26 @@
 import { FilterOperator, type CompiledQuery, type ExprNode, type SelectQueryNode, type SourceNode, type ValueNode } from '../../types/index.js';
+import { inferClickHouseType } from '../utils/type-inference.js';
 
 export class SQLFormatter {
+  private paramCounter = 0;
+
+  /**
+   * Generates a unique parameter name for this query.
+   */
+  private generateParamName(): string {
+    return `param_${this.paramCounter++}`;
+  }
+
+  /**
+   * Generates a typed parameter placeholder for ClickHouse native params.
+   * Example: {param_0:Int64}
+   */
+  private generateTypedParam(value: unknown): string {
+    const paramName = this.generateParamName();
+    const paramType = inferClickHouseType(value);
+    return `{${paramName}:${paramType}}`;
+  }
+
   formatSelect(query: SelectQueryNode<any, any>): string {
     const distinctClause = query.distinct ? 'DISTINCT ' : '';
     if (!query.select?.length) return distinctClause + '*';
@@ -103,9 +123,11 @@ export class SQLFormatter {
       if (value.length === 0) {
         return { query: operator === 'in' ? '1 = 0' : '1 = 1', parameters: [] };
       }
+      const values = (value as ValueNode[]).map(item => item.value);
+      const placeholders = values.map(v => this.generateTypedParam(v)).join(', ');
       return {
-        query: `${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${value.map(() => '?').join(', ')})`,
-        parameters: (value as ValueNode[]).map(item => item.value),
+        query: `${column} ${operator === 'in' ? 'IN' : 'NOT IN'} (${placeholders})`,
+        parameters: values,
       };
     }
     if (operator === 'globalIn' || operator === 'globalNotIn') {
@@ -115,9 +137,11 @@ export class SQLFormatter {
       if (value.length === 0) {
         return { query: operator === 'globalIn' ? '1 = 0' : '1 = 1', parameters: [] };
       }
+      const values = (value as ValueNode[]).map(item => item.value);
+      const placeholders = values.map(v => this.generateTypedParam(v)).join(', ');
       return {
-        query: `${column} ${operator === 'globalIn' ? 'GLOBAL IN' : 'GLOBAL NOT IN'} (${value.map(() => '?').join(', ')})`,
-        parameters: (value as ValueNode[]).map(item => item.value),
+        query: `${column} ${operator === 'globalIn' ? 'GLOBAL IN' : 'GLOBAL NOT IN'} (${placeholders})`,
+        parameters: values,
       };
     }
     if (operator === 'inSubquery' || operator === 'globalInSubquery') {
@@ -149,29 +173,38 @@ export class SQLFormatter {
       if (tupleWidth === 0) {
         throw new Error(`Expected non-empty tuples for ${operator} operator`);
       }
-      const tuplePlaceholder = `(${Array.from({ length: tupleWidth }, () => '?').join(', ')})`;
+      const allValues = (value as ValueNode[][]).flatMap(tuple => tuple.map(item => item.value));
+      const tuples = (value as ValueNode[][]).map(tuple => {
+        const tupleValues = tuple.map(item => item.value);
+        const tuplePlaceholders = tupleValues.map(v => this.generateTypedParam(v)).join(', ');
+        return `(${tuplePlaceholders})`;
+      });
       return {
-        query: `${column} ${operator === 'inTuple' ? 'IN' : 'GLOBAL IN'} (${value.map(() => tuplePlaceholder).join(', ')})`,
-        parameters: (value as ValueNode[][]).flatMap(tuple => tuple.map(item => item.value)),
+        query: `${column} ${operator === 'inTuple' ? 'IN' : 'GLOBAL IN'} (${tuples.join(', ')})`,
+        parameters: allValues,
       };
     }
     if (operator === 'between') {
       const range = value as [ValueNode, ValueNode];
+      const param1 = this.generateTypedParam(range[0].value);
+      const param2 = this.generateTypedParam(range[1].value);
       return {
-        query: `${column} BETWEEN ? AND ?`,
+        query: `${column} BETWEEN ${param1} AND ${param2}`,
         parameters: [range[0].value, range[1].value],
       };
     }
     if (operator === 'like') {
       const parameter = value as ValueNode;
+      const placeholder = this.generateTypedParam(parameter.value);
       return {
-        query: `${column} LIKE ?`,
+        query: `${column} LIKE ${placeholder}`,
         parameters: [parameter.value],
       };
     }
     const parameter = value as ValueNode;
+    const placeholder = this.generateTypedParam(parameter.value);
     return {
-      query: `${column} ${this.getSqlOperator(operator)} ?`,
+      query: `${column} ${this.getSqlOperator(operator)} ${placeholder}`,
       parameters: [parameter.value],
     };
   }

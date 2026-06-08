@@ -48,7 +48,7 @@ describe('QueryBuilder - Basic Operations', () => {
       );
 
       const { sql, parameters } = query.toSQLWithParams();
-      expect(sql).toBe('SELECT id, total FROM test_table WHERE total >= ? AND status = ?');
+      expect(sql).toBe('SELECT id, total FROM test_table WHERE total >= {param_0:Int64} AND status = {param_1:String}');
       expect(parameters).toEqual([100, 'active']);
     });
   });

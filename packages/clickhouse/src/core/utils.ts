@@ -18,6 +18,27 @@ export function substituteParameters(sql: string, params: any[]): string {
   if (!params.length) {
     return sql;
   }
+
+  // Check if using new typed parameter format {param_N:Type}
+  const typedParamRegex = /\{(\w+):[^}]+\}/g;
+  const typedMatches = sql.match(typedParamRegex);
+
+  if (typedMatches && typedMatches.length > 0) {
+    // New format: replace {param_N:Type} with values
+    let result = sql;
+    let index = 0;
+
+    result = result.replace(typedParamRegex, () => {
+      if (index >= params.length) {
+        return '?';
+      }
+      return escapeValue(params[index++]);
+    });
+
+    return result;
+  }
+
+  // Old format: replace ? with values
   const parts = sql.split('?');
   if (parts.length - 1 !== params.length) {
     throw new Error(`Mismatch between placeholders and parameters. Found ${parts.length - 1} placeholders but ${params.length} parameters.`);
