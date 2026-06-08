@@ -226,7 +226,6 @@ export interface DatasetLimits {
 }
 
 export interface BaseMetricConfig<
-  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
 > {
   measure: keyof TMeasures & string;
@@ -274,7 +273,7 @@ export interface DatasetInstance<
   limits?: DatasetLimits;
   metric<TName extends string>(
     metricName: TName,
-    metricConfig: BaseMetricConfig<TDimensions, TMeasures>,
+    metricConfig: BaseMetricConfig<TMeasures>,
   ): BaseMetricRef<TDatasetName, TName>;
   metric<TName extends string>(
     metricName: TName,
