@@ -1,5 +1,11 @@
 # @hypequery/clickhouse Changelog
 
+## 2.0.2
+
+### Patch Changes
+
+- **SECURITY**: Fixed SQL injection vulnerability in parameter escaping. The `escapeValue()` function in `src/core/utils.ts` now properly escapes backslashes before single quotes, preventing attackers from using trailing backslashes to break out of string literals and inject arbitrary SQL. ClickHouse recognizes both SQL-standard (`''`) and C-style (`\`) escape sequences—a trailing backslash could escape the closing quote, allowing the second parameter to execute as raw SQL instead of being treated as a string literal. **All users should upgrade immediately.**
+
 ## 2.0.1
 
 ### Patch Changes
