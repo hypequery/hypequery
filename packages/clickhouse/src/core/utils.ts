@@ -5,7 +5,8 @@ export function escapeValue(value: any): string {
   else if (typeof value === 'number') {
     return value.toString();
   } else if (typeof value === 'string') {
-    return `'${value.replace(/'/g, "''")}'`;
+    const escaped = value.replace(/\\/g, '\\\\').replace(/'/g, "''");
+    return `'${escaped}'`;
   } else if (value instanceof Date) {
     return `'${value.toISOString()}'`;
   } else {
