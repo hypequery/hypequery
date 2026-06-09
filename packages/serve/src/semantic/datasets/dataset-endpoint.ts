@@ -29,7 +29,6 @@ import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
   resolveSemanticQueryBuilder,
-  resolveSemanticTenantHandledByBuilder,
 } from '../query-builder-context.js';
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
@@ -145,7 +144,6 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     const result = await runDatasetQuery(ds, query, {
       builderFactory: runtimeBuilderFactory,
       context: executionContext,
-      tenantHandledByBuilder: resolveSemanticTenantHandledByBuilder(semanticContext),
     });
     const timingMs = Date.now() - start;
 

@@ -25,6 +25,7 @@ export interface QueryMetricArgs {
   grain?: TimeGrain;
   orderBy?: MetricOrderBy[];
   limit?: number;
+  offset?: number;
 }
 
 /**
@@ -38,6 +39,11 @@ export interface QueryDatasetArgs {
   grain?: TimeGrain;
   orderBy?: MetricOrderBy[];
   limit?: number;
+  offset?: number;
+}
+
+export interface QueryToolOptions {
+  tenantId?: string;
 }
 
 /**

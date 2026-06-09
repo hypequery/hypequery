@@ -73,7 +73,7 @@ export function dataset<
 
   function metric<TName extends string>(
     metricName: TName,
-    metricConfig: BaseMetricConfig<TDimensions, TMeasures>,
+    metricConfig: BaseMetricConfig<TMeasures>,
   ): BaseMetricRef<TDatasetName, TName>;
   function metric<TName extends string>(
     metricName: TName,
@@ -81,7 +81,7 @@ export function dataset<
   ): DerivedMetricRef<TDatasetName, TName>;
   function metric<TName extends string>(
     metricName: TName,
-    metricConfig: BaseMetricConfig<TDimensions, TMeasures> | DerivedMetricConfig<TDatasetName>,
+    metricConfig: BaseMetricConfig<TMeasures> | DerivedMetricConfig<TDatasetName>,
   ): BaseMetricRef<TDatasetName, TName> | DerivedMetricRef<TDatasetName, TName> {
     if (isDerivedMetricConfig(metricConfig)) {
       validateDerivedMetric(ds, metricName, metricConfig);

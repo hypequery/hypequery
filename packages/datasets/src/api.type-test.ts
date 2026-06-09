@@ -70,7 +70,7 @@ type _MeasureFilterType = Assert<
   Equal<MeasureOptions['filters'], MetricFilter[] | undefined>
 >;
 type _TenantRuntimeShape = Assert<
-  Equal<keyof NonNullable<NonNullable<ExecutionContext['runtime']>['tenant']>, 'id'>
+  Equal<NonNullable<NonNullable<ExecutionContext['runtime']>['tenant']>, string | { id: string } | { in: string[] } | { scope: 'all' }>
 >;
 type _DatasetHasNoQueryMethod = Assert<
   Equal<HasKey<typeof Orders, 'query'>, false>
@@ -156,9 +156,25 @@ Orders.metric('invalidDerivedFromDerivedMetric', {
 
 const runtimeContext: ExecutionContext = {
   runtime: {
-    tenant: {
-      id: 'tenant-1',
-    },
+    tenant: 'tenant-1',
+  },
+};
+
+const legacyTenantRuntimeContext: ExecutionContext = {
+  runtime: {
+    tenant: { id: 'tenant-1' },
+  },
+};
+
+const tenantSetRuntimeContext: ExecutionContext = {
+  runtime: {
+    tenant: { in: ['tenant-1', 'tenant-2'] },
+  },
+};
+
+const crossTenantRuntimeContext: ExecutionContext = {
+  runtime: {
+    tenant: { scope: 'all' },
   },
 };
 

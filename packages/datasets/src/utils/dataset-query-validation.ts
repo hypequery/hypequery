@@ -4,6 +4,10 @@ import type {
   ExecutionContext,
 } from '../types.js';
 import { validateFilterValue, type ValidationResult } from '../validation.js';
+import {
+  getRuntimeTenantPredicate,
+  validateTenantRuntime,
+} from './tenant-runtime.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -21,6 +25,11 @@ export function validateDatasetQueryInput(
     ...selectedMeasures,
     ...(query.by ? ['period'] : []),
   ]);
+
+  const tenantRuntimeError = validateTenantRuntime(ds, context);
+  if (tenantRuntimeError) {
+    errors.push(tenantRuntimeError);
+  }
 
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
     errors.push(`Dataset "${ds.name}" query must select at least one dimension or measure.`);
@@ -60,7 +69,7 @@ export function validateDatasetQueryInput(
       const resolvedColumn = resolvedDimension?.sql
         ? undefined
         : resolvedDimension?.column ?? resolvedField;
-      if (context?.runtime?.tenant?.id && ds.tenantKey && resolvedColumn === ds.tenantKey) {
+      if (getRuntimeTenantPredicate(context) && ds.tenantKey && resolvedColumn === ds.tenantKey) {
         errors.push(
           `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
         );
@@ -90,6 +99,14 @@ export function validateDatasetQueryInput(
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
   }
 
+  if (query.limit != null && (!Number.isInteger(query.limit) || query.limit < 0)) {
+    errors.push(`Invalid limit: expected a non-negative integer.`);
+  }
+
+  if (query.offset != null && (!Number.isInteger(query.offset) || query.offset < 0)) {
+    errors.push(`Invalid offset: expected a non-negative integer.`);
+  }
+
   if (ds.limits?.maxDimensions && query.dimensions && query.dimensions.length > ds.limits.maxDimensions) {
     errors.push(`Too many dimensions: ${query.dimensions.length} (max ${ds.limits.maxDimensions})`);
   }
@@ -100,6 +117,10 @@ export function validateDatasetQueryInput(
 
   if (ds.limits?.maxFilters && query.filters && query.filters.length > ds.limits.maxFilters) {
     errors.push(`Too many filters: ${query.filters.length} (max ${ds.limits.maxFilters})`);
+  }
+
+  if (ds.limits?.maxResultSize && query.limit != null && query.limit > ds.limits.maxResultSize) {
+    errors.push(`Too many results requested: ${query.limit} (max ${ds.limits.maxResultSize})`);
   }
 
   return { valid: errors.length === 0, errors };

@@ -331,7 +331,7 @@ function buildAggregateQuery(queryBuilder: any, plan: Extract<PlanNode, { kind: 
 
   // Apply tenant filter (auto-injected)
   if (plan.tenant) {
-    qb = qb.where(plan.tenant.field, 'eq', plan.tenant.value);
+    qb = qb.where(plan.tenant.field, plan.tenant.operator, plan.tenant.value);
   }
 
   // Apply user filters
@@ -427,7 +427,7 @@ export function createBackend<Schema extends SchemaDefinition<Schema>>(
           meta: {
             sql,
             timingMs: Date.now() - start,
-            tenant: plan.tenant?.value,
+            tenant: plan.tenant?.operator === 'eq' ? plan.tenant.value : undefined,
           },
         };
       }
@@ -435,7 +435,9 @@ export function createBackend<Schema extends SchemaDefinition<Schema>>(
       // Derived metrics: CTE query with formulas
       const { sql, parameters } = buildDerivedSQL(queryBuilder, plan);
       const data = await queryBuilder.rawQuery<T>(sql, parameters);
-      const tenant = plan.input.kind === 'aggregate' ? plan.input.tenant?.value : undefined;
+      const tenant = plan.input.kind === 'aggregate' && plan.input.tenant?.operator === 'eq'
+        ? plan.input.tenant.value
+        : undefined;
 
       return {
         data,
@@ -458,4 +460,3 @@ export function createBackend<Schema extends SchemaDefinition<Schema>>(
     },
   };
 }
-

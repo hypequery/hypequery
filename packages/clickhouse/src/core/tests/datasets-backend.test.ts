@@ -42,7 +42,6 @@ import { createBackend } from '../../datasets.js';
 
 const Orders = dataset('orders', {
   source: 'orders',
-  tenantKey: 'tenant_id',
   timeKey: 'created_at',
   dimensions: {
     id: dimension.string(),
@@ -72,6 +71,25 @@ const Orders = dataset('orders', {
     highValueRevenue: measure.sum('amount', {
       filters: [gt('amount', 1000)],
     }),
+  },
+});
+
+const TenantOrders = dataset('tenantOrders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    tenantId: dimension.string({ column: 'tenant_id' }),
+    customerId: dimension.string({ column: 'customer_id' }),
+    country: dimension.string(),
+    status: dimension.string(),
+    amount: dimension.number(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
   },
 });
 
@@ -588,7 +606,7 @@ describe('ClickHouse Backend - Tenant Filtering', () => {
     const analytics = createDatasetClient({ backend });
 
     await analytics.execute(
-      Orders,
+      TenantOrders,
       {
         dimensions: ['country'],
         measures: ['revenue'],
@@ -608,7 +626,7 @@ describe('ClickHouse Backend - Tenant Filtering', () => {
     const analytics = createDatasetClient({ backend });
 
     await analytics.execute(
-      Orders,
+      TenantOrders,
       {
         dimensions: ['country'],
         measures: ['revenue'],
@@ -625,16 +643,14 @@ describe('ClickHouse Backend - Tenant Filtering', () => {
     expect(queries[0]).toContain('AND status = ?');
   });
 
-  it('does not inject tenant filter when no context provided', async () => {
-    const { backend, queries } = createTestBackend([]);
+  it('rejects tenant-keyed datasets when no tenant context is provided', async () => {
+    const { backend } = createTestBackend([]);
     const analytics = createDatasetClient({ backend });
 
-    await analytics.execute(Orders, {
+    expect(() => analytics.execute(TenantOrders, {
       dimensions: ['country'],
       measures: ['revenue'],
-    });
-
-    expect(queries[0]).not.toContain('tenant_id');
+    })).toThrow('requires runtime tenant scoping');
   });
 });
 
@@ -843,7 +859,7 @@ describe('ClickHouse Backend - Edge Cases', () => {
     const analytics = createDatasetClient({ backend });
 
     const result = await analytics.execute(
-      Orders,
+      TenantOrders,
       {
         dimensions: ['country'],
         measures: ['revenue'],

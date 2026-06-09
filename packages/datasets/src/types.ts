@@ -195,9 +195,11 @@ export interface DatasetQueryResult<T = Record<string, unknown>> {
   meta?: MetricResultMeta;
 }
 
-export interface SemanticTenantRuntime {
-  id: string;
-}
+export type SemanticTenantRuntime =
+  | string
+  | { id: string }
+  | { in: string[] }
+  | { scope: 'all' };
 
 export interface SemanticExecutionRuntime {
   builderFactory?: QueryBuilderFactoryLike;
@@ -226,7 +228,6 @@ export interface DatasetLimits {
 }
 
 export interface BaseMetricConfig<
-  TDimensions extends Record<string, DimensionDefinition> = Record<string, DimensionDefinition>,
   TMeasures extends Record<string, MeasureDefinition> = Record<string, MeasureDefinition>,
 > {
   measure: keyof TMeasures & string;
@@ -274,7 +275,7 @@ export interface DatasetInstance<
   limits?: DatasetLimits;
   metric<TName extends string>(
     metricName: TName,
-    metricConfig: BaseMetricConfig<TDimensions, TMeasures>,
+    metricConfig: BaseMetricConfig<TMeasures>,
   ): BaseMetricRef<TDatasetName, TName>;
   metric<TName extends string>(
     metricName: TName,

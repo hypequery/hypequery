@@ -90,6 +90,10 @@ const result = await analytics.execute(revenue, {
   filters: [eq('status', 'completed')],
   orderBy: [{ field: 'revenue', direction: 'desc' }],
   limit: 10,
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
 });
 
 const datasetResult = await analytics.execute(Orders, {
@@ -100,6 +104,10 @@ const datasetResult = await analytics.execute(Orders, {
 
 const monthlySql = analytics.toSQL(revenue.by('month'), {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
 });
 ```
 
@@ -125,6 +133,8 @@ const Orders = dataset('orders', {
 ```
 
 `source` is the physical table or view name. The first `dataset()` argument is the logical dataset name. `tenantKey` and `timeKey` are physical column names used for runtime tenant isolation and time graining.
+
+If `tenantKey` is set, queries against the dataset require runtime tenant context. This is fail-closed: Hypequery will reject metric and dataset queries that do not include a tenant runtime value or an explicitly enabled cross-tenant scope.
 
 ### Dimensions
 
@@ -230,6 +240,10 @@ const monthlyRevenue = revenue.by('month');
 
 await analytics.execute(monthlyRevenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
 });
 ```
 
@@ -240,14 +254,82 @@ Supported grains are `day`, `week`, `month`, `quarter`, and `year`.
 Runtime tenancy uses the dataset `tenantKey` and a runtime tenant identity.
 
 ```ts
+const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    tenantId: dimension.string({ column: 'tenant_id' }),
+    country: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
 await analytics.execute(revenue, {}, {
   runtime: {
-    tenant: { id: 'tenant_123' },
+    tenant: 'tenant_123',
   },
 });
 ```
 
-When runtime tenancy is active, explicit filters on the tenant field are rejected. This prevents duplicate or conflicting tenant predicates.
+Here `tenantKey` is the physical column and `runtime.tenant` is the trusted runtime value. Together they produce a tenant predicate equivalent to:
+
+```sql
+WHERE tenant_id = 'tenant_123'
+```
+
+If a dataset has `tenantKey`, runtime tenant context is required:
+
+```ts
+await analytics.execute(revenue);
+// Error: Dataset "orders" requires runtime tenant scoping.
+```
+
+You can also provide a trusted set of tenants for admin dashboards that are scoped to multiple accounts:
+
+```ts
+await analytics.execute(revenue, {}, {
+  runtime: {
+    tenant: { in: ['tenant_123', 'tenant_456'] },
+  },
+});
+```
+
+This produces a tenant predicate equivalent to:
+
+```sql
+WHERE tenant_id IN ('tenant_123', 'tenant_456')
+```
+
+When runtime tenancy is active, explicit filters on the tenant field are rejected. This prevents duplicate or conflicting tenant predicates:
+
+```ts
+await analytics.execute(revenue, {
+  filters: [eq('tenantId', 'tenant_123')],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
+});
+// Error: Cannot filter on tenant field "tenantId" when runtime tenancy enforcement is active.
+```
+
+The runtime integration should provide tenant identity from trusted server/session state. Do not accept tenant ids from end-user query input. In `@hypequery/serve`, regular hand-written queries can use Serve tenant auto-injection, but semantic dataset and metric endpoints pass tenant identity to `@hypequery/datasets`, and datasets injects the filter from `tenantKey`.
+
+For jobs, admin tools, or reporting surfaces that intentionally query across tenants, use `runtime.tenant: { scope: 'all' }`:
+
+```ts
+await analytics.execute(revenue, {}, {
+  runtime: {
+    tenant: { scope: 'all' },
+  },
+});
+```
+
+`scope: 'all'` omits the tenant predicate for every `tenantKey` dataset touched by the semantic query. Use this only in trusted contexts like background jobs or admin dashboards, not in request-facing clients or MCP servers.
 
 ### Relationships
 
@@ -276,19 +358,35 @@ Use `createDatasetClient` from `@hypequery/datasets` with a backend implementati
 ```ts
 const validation = analytics.validate(revenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
 });
 
 const sql = analytics.toSQL(revenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
 });
 
 const result = await analytics.execute(revenue, {
   dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
 });
 
 const datasetResult = await analytics.execute(Orders, {
   dimensions: ['country'],
   measures: ['revenue'],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
 });
 ```
 
@@ -311,7 +409,11 @@ const analytics = createDatasetClient({
   }),
 });
 
-await analytics.execute(revenue, { dimensions: ['country'] });
+await analytics.execute(revenue, { dimensions: ['country'] }, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
+});
 ```
 
 ### Other Backends

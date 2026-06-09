@@ -8,6 +8,7 @@ import type {
   TimeGrain,
 } from '../types.js';
 import { resolveDimensionExpression, resolveFilterField, resolveTenantFilterColumn } from '../query-planner.js';
+import { getRuntimeTenantPredicate } from './tenant-runtime.js';
 type DatasetShape = AnyDatasetInstance;
 
 function isMetricHandleType(value: unknown): value is 'metric_ref' | 'grained_metric_ref' {
@@ -44,7 +45,7 @@ export function getTenantRuntimeColumn(
   ds: DatasetShape,
   context?: ExecutionContext,
 ): string | undefined {
-  if (!context?.runtime?.tenant?.id) {
+  if (!getRuntimeTenantPredicate(context)) {
     return undefined;
   }
 
