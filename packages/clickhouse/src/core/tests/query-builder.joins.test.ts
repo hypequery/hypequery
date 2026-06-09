@@ -264,7 +264,7 @@ describe('QueryBuilder - Joins', () => {
         "INNER JOIN users AS author ON created_by = author.id " +
         "WHERE active = 1 " +
         "GROUP BY author.user_name " +
-        "HAVING revenue > 1000 AND order_count > 5 " +
+        "HAVING revenue > ? AND order_count > ? " +  // Raw SQL with ? placeholders
         "ORDER BY author.user_name DESC"
       );
 

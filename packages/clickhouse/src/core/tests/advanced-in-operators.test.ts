@@ -14,7 +14,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE id GLOBAL IN (?, ?, ?, ?)');
+      expect(sql).toContain('WHERE id GLOBAL IN ({param_0:Int64}, {param_1:Int64}, {param_2:Int64}, {param_3:Int64})');
       expect(parameters).toEqual([1, 2, 3, 4]);
     });
 
@@ -24,7 +24,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE id GLOBAL NOT IN (?, ?, ?)');
+      expect(sql).toContain('WHERE id GLOBAL NOT IN ({param_0:Int64}, {param_1:Int64}, {param_2:Int64})');
       expect(parameters).toEqual([5, 6, 7]);
     });
 
@@ -122,7 +122,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE id IN ((?), (?))');
+      expect(sql).toContain('WHERE id IN (({param_0:Int64}), ({param_1:Int64}))');
       expect(parameters).toEqual([1, 2]);
     });
 
@@ -132,7 +132,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE (id, created_by) IN ((?, ?), (?, ?))');
+      expect(sql).toContain('WHERE (id, created_by) IN (({param_0:Int64}, {param_1:Int64}), ({param_2:Int64}, {param_3:Int64}))');
       expect(parameters).toEqual([1, 123, 2, 456]);
     });
 
@@ -142,7 +142,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE (id, created_by) GLOBAL IN ((?, ?), (?, ?))');
+      expect(sql).toContain('WHERE (id, created_by) GLOBAL IN (({param_0:Int64}, {param_1:Int64}), ({param_2:Int64}, {param_3:Int64}))');
       expect(parameters).toEqual([1, 123, 2, 456]);
     });
 
@@ -162,7 +162,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE (id, created_by) IN ((?, ?))');
+      expect(sql).toContain('WHERE (id, created_by) IN (({param_0:Int64}, {param_1:Int64}))');
       expect(parameters).toEqual([1, 123]);
     });
 
@@ -172,7 +172,7 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE (id, created_by, updated_by) IN ((?, ?, ?), (?, ?, ?))');
+      expect(sql).toContain('WHERE (id, created_by, updated_by) IN (({param_0:Int64}, {param_1:Int64}, {param_2:Int64}), ({param_3:Int64}, {param_4:Int64}, {param_5:Int64}))');
       expect(parameters).toEqual([1, 123, 456, 2, 234, 567]);
     });
   });
@@ -187,8 +187,8 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE category IN (?, ?)');
-      expect(sql).toContain('AND id GLOBAL IN (?, ?, ?)');
+      expect(sql).toContain('WHERE category IN ({param_0:String}, {param_1:String})');
+      expect(sql).toContain('AND id GLOBAL IN ({param_2:Int64}, {param_3:Int64}, {param_4:Int64})');
       expect(sql).toContain('AND created_by IN (SELECT id FROM users WHERE active = 1)');
       expect(sql).toContain('AND updated_by IN users');
       expect(parameters).toEqual(['pending', 'processing', 1, 2, 3]);
@@ -202,8 +202,8 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE active = ?');
-      expect(sql).toContain('OR id GLOBAL IN (?, ?, ?)');
+      expect(sql).toContain('WHERE active = {param_0:Int64}');
+      expect(sql).toContain('OR id GLOBAL IN ({param_1:Int64}, {param_2:Int64}, {param_3:Int64})');
       expect(sql).toContain('OR created_by IN (SELECT id FROM users WHERE active = 1)');
       expect(parameters).toEqual([1, 1, 2, 3]);
     });
@@ -219,8 +219,8 @@ describe('Advanced IN Operators', () => {
 
       const { sql, parameters } = query.toSQLWithParams();
 
-      expect(sql).toContain('WHERE (id GLOBAL IN (?, ?, ?) OR created_by IN (SELECT id FROM users WHERE active = 1))');
-      expect(sql).toContain('AND active = ?');
+      expect(sql).toContain('WHERE (id GLOBAL IN ({param_0:Int64}, {param_1:Int64}, {param_2:Int64}) OR created_by IN (SELECT id FROM users WHERE active = 1))');
+      expect(sql).toContain('AND active = {param_3:Int64}');
       expect(parameters).toEqual([1, 2, 3, 1]);
     });
   });

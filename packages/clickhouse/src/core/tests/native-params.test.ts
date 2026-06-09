@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { inferClickHouseType } from '../utils/type-inference.js';
-import { QueryBuilder } from '../query-builder.js';
 import { ClickHouseDialect } from '../dialects/clickhouse-dialect.js';
+import { setupTestBuilder } from './test-utils.js';
 
 describe('Type Inference', () => {
   it('should infer Int64 for integers', () => {
@@ -61,59 +61,59 @@ describe('Native Parameter Binding - SQL Generation', () => {
   const dialect = new ClickHouseDialect();
 
   it('should generate typed placeholders for basic equality', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb.where('id', 'eq', 42);
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
-    expect(compiled.query).toContain('{param_0:Int64}');
+    expect(compiled.query).toContain('{param_0:Int64}');  // Int64 from test schema
     expect(compiled.parameters).toEqual([42]);
   });
 
   it('should generate typed placeholders for strings', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb.where('name', 'eq', 'Alice');
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
-    expect(compiled.query).toContain('{param_0:String}');
+    expect(compiled.query).toContain('{param_0:String}');  // String type matches
     expect(compiled.parameters).toEqual(['Alice']);
   });
 
   it('should generate typed placeholders for IN operator', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb.where('id', 'in', [1, 2, 3]);
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
-    expect(compiled.query).toContain('{param_0:Int64}');
+    expect(compiled.query).toContain('{param_0:Int64}');  // Int64 from test schema
     expect(compiled.query).toContain('{param_1:Int64}');
     expect(compiled.query).toContain('{param_2:Int64}');
     expect(compiled.parameters).toEqual([1, 2, 3]);
   });
 
   it('should generate typed placeholders for BETWEEN operator', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
-    const query = qb.where('age', 'between', [18, 65]);
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const qb = setupTestBuilder();
+    const query = qb.where('id', 'between', [18, 65]);
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
-    expect(compiled.query).toContain('BETWEEN {param_0:Int64} AND {param_1:Int64}');
+    expect(compiled.query).toContain('BETWEEN {param_0:Int64} AND {param_1:Int64}');  // Int64 from test schema
     expect(compiled.parameters).toEqual([18, 65]);
   });
 
   it('should generate typed placeholders for LIKE operator', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb.where('name', 'like', 'John%');
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     expect(compiled.query).toContain('LIKE {param_0:String}');
     expect(compiled.parameters).toEqual(['John%']);
   });
 
   it('should generate typed placeholders for multiple conditions', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb
       .where('id', 'eq', 42)
       .where('status', 'eq', 'active')
       .where('age', 'gt', 18);
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     expect(compiled.query).toContain('{param_0:Int64}');
     expect(compiled.query).toContain('{param_1:String}');
@@ -122,34 +122,34 @@ describe('Native Parameter Binding - SQL Generation', () => {
   });
 
   it('should handle boolean parameters', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb.where('active', 'eq', true);
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     expect(compiled.query).toContain('{param_0:Bool}');
     expect(compiled.parameters).toEqual([true]);
   });
 
   it('should handle Date parameters', () => {
-    const qb = new QueryBuilder({ tableName: 'events' });
+    const qb = setupTestBuilder();
     const date = new Date('2024-01-01T00:00:00Z');
     const query = qb.where('created_at', 'gt', date);
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'events' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     expect(compiled.query).toContain('{param_0:DateTime}');
     expect(compiled.parameters).toEqual([date]);
   });
 
   it('should reset parameter counter for each query', () => {
-    const qb1 = new QueryBuilder({ tableName: 'users' });
+    const qb1 = setupTestBuilder();
     const query1 = qb1.where('id', 'eq', 1);
-    const compiled1 = dialect.compileQuery(query1.getQueryNode(), { tableName: 'users' });
+    const compiled1 = dialect.compileQuery(query1.getQueryNode(), { tableName: 'test_table' });
 
-    const qb2 = new QueryBuilder({ tableName: 'users' });
+    const qb2 = setupTestBuilder();
     const query2 = qb2.where('id', 'eq', 2);
-    const compiled2 = dialect.compileQuery(query2.getQueryNode(), { tableName: 'users' });
+    const compiled2 = dialect.compileQuery(query2.getQueryNode(), { tableName: 'test_table' });
 
-    // Both should start with param_0
+    // Both should start with param_0 (each query gets a new formatter)
     expect(compiled1.query).toContain('{param_0:Int64}');
     expect(compiled2.query).toContain('{param_0:Int64}');
   });
@@ -159,9 +159,9 @@ describe('Security - Native Params', () => {
   const dialect = new ClickHouseDialect();
 
   it('should safely handle trailing backslash in string value', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb.where('value', 'eq', '\\');
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     // The backslash is passed as a parameter, not in the SQL string
     expect(compiled.query).toContain('{param_0:String}');
@@ -170,11 +170,11 @@ describe('Security - Native Params', () => {
   });
 
   it('should safely handle SQL injection attempts', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb
       .where('value1', 'eq', '\\')
       .where('value2', 'eq', ' OR 1=1 -- ');
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     // Both values passed as parameters - no SQL injection possible
     expect(compiled.query).toContain('{param_0:String}');
@@ -183,9 +183,9 @@ describe('Security - Native Params', () => {
   });
 
   it('should safely handle quotes in string values', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const query = qb.where('name', 'eq', "O'Reilly");
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     // Quote is passed as parameter, not in SQL
     expect(compiled.query).toContain('{param_0:String}');
@@ -193,10 +193,10 @@ describe('Security - Native Params', () => {
   });
 
   it('should safely handle mixed special characters', () => {
-    const qb = new QueryBuilder({ tableName: 'users' });
+    const qb = setupTestBuilder();
     const maliciousValue = "\\' OR 1=1 -- ";
     const query = qb.where('value', 'eq', maliciousValue);
-    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'users' });
+    const compiled = dialect.compileQuery(query.getQueryNode(), { tableName: 'test_table' });
 
     // Entire value passed as parameter - completely safe
     expect(compiled.query).toContain('{param_0:String}');

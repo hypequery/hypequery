@@ -26,7 +26,7 @@ describe('ClickHouseAdapter', () => {
     });
 
     const result = await adapter.query<{ id: number }>(
-      'SELECT ?',
+      'SELECT {param_0:Int64}',
       [1],
       {
         clickhouseSettings: { final: 1, max_execution_time: 10 },
@@ -36,10 +36,11 @@ describe('ClickHouseAdapter', () => {
 
     expect(result).toEqual([{ id: 1 }]);
     expect(clientQueryMock).toHaveBeenCalledWith({
-      query: 'SELECT 1',
+      query: 'SELECT {param_0:Int64}',
       format: 'JSONEachRow',
       clickhouse_settings: { final: 1, max_execution_time: 10 },
       query_id: 'query-123',
+      query_params: { param_0: 1 },
     });
     expect(jsonMock).toHaveBeenCalled();
   });
@@ -76,6 +77,7 @@ describe('ClickHouseAdapter', () => {
       format: 'JSONEachRow',
       clickhouse_settings: { final: 1, max_execution_time: 10 },
       query_id: 'query-456',
+      query_params: {},
     });
   });
 });

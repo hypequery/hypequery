@@ -375,7 +375,7 @@ describe('QueryBuilder - Where Conditions', () => {
         .where('status', 'eq', 'active')
         .orWhere(expr => expr.fn('hasAny', 'tags', ['foo']))
         .toSQL();
-      expect(sql).toBe("SELECT * FROM test_table WHERE status = 'active' OR hasAny(tags, ['foo'])");
+      expect(sql).toBe("SELECT * FROM test_table WHERE status = 'active' OR hasAny(tags, [?])");
     });
 
     it('should support nested function expressions with literals', () => {

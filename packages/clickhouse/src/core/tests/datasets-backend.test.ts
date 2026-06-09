@@ -315,7 +315,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [eq('status', 'completed')],
     });
 
-    expect(queries[0]).toContain('WHERE status = ?');
+    expect(queries[0]).toContain('WHERE status = {param_0:String}');
   });
 
   it('generates NEQ filter', async () => {
@@ -328,7 +328,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [neq('status', 'cancelled')],
     });
 
-    expect(queries[0]).toContain('WHERE status != ?');
+    expect(queries[0]).toContain('WHERE status != {param_0:String}');
   });
 
   it('generates GT filter', async () => {
@@ -341,7 +341,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [gt('amount', 100)],
     });
 
-    expect(queries[0]).toContain('WHERE amount > ?');
+    expect(queries[0]).toContain('WHERE amount > {param_0:Int64}');
   });
 
   it('generates GTE filter', async () => {
@@ -354,7 +354,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [gte('amount', 100)],
     });
 
-    expect(queries[0]).toContain('WHERE amount >= ?');
+    expect(queries[0]).toContain('WHERE amount >= {param_0:Int64}');
   });
 
   it('generates LT filter', async () => {
@@ -367,7 +367,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [lt('amount', 1000)],
     });
 
-    expect(queries[0]).toContain('WHERE amount < ?');
+    expect(queries[0]).toContain('WHERE amount < {param_0:Int64}');
   });
 
   it('generates LTE filter', async () => {
@@ -380,7 +380,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [lte('amount', 1000)],
     });
 
-    expect(queries[0]).toContain('WHERE amount <= ?');
+    expect(queries[0]).toContain('WHERE amount <= {param_0:Int64}');
   });
 
   it('generates IN filter', async () => {
@@ -393,7 +393,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [inList('country', ['US', 'CA', 'UK'])],
     });
 
-    expect(queries[0]).toContain('WHERE country IN (?, ?, ?)');
+    expect(queries[0]).toContain('WHERE country IN ({param_0:String}, {param_1:String}, {param_2:String})');
   });
 
   it('generates NOT IN filter', async () => {
@@ -406,7 +406,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [notInList('status', ['cancelled', 'refunded'])],
     });
 
-    expect(queries[0]).toContain('WHERE status NOT IN (?, ?)');
+    expect(queries[0]).toContain('WHERE status NOT IN ({param_0:String}, {param_1:String})');
   });
 
   it('generates LIKE filter', async () => {
@@ -419,7 +419,7 @@ describe('ClickHouse Backend - Filter Operators', () => {
       filters: [like('productCategory', '%electronics%')],
     });
 
-    expect(queries[0]).toContain('WHERE product_category LIKE ?');
+    expect(queries[0]).toContain('WHERE product_category LIKE {param_0:String}');
   });
 
   it('generates multiple filters with AND logic', async () => {
@@ -436,9 +436,9 @@ describe('ClickHouse Backend - Filter Operators', () => {
       ],
     });
 
-    expect(queries[0]).toContain('WHERE status = ?');
-    expect(queries[0]).toContain('AND amount > ?');
-    expect(queries[0]).toContain('AND country IN (?, ?)');
+    expect(queries[0]).toContain('WHERE status = {param_0:String}');
+    expect(queries[0]).toContain('AND amount > {param_1:Int64}');
+    expect(queries[0]).toContain('AND country IN ({param_2:String}, {param_3:String})');
   });
 });
 
@@ -618,7 +618,7 @@ describe('ClickHouse Backend - Tenant Filtering', () => {
       },
     );
 
-    expect(queries[0]).toContain('WHERE tenant_id = ?');
+    expect(queries[0]).toContain('WHERE tenant_id = {param_0:String}');
   });
 
   it('combines tenant filter with user filters', async () => {
@@ -639,8 +639,8 @@ describe('ClickHouse Backend - Tenant Filtering', () => {
       },
     );
 
-    expect(queries[0]).toContain('WHERE tenant_id = ?');
-    expect(queries[0]).toContain('AND status = ?');
+    expect(queries[0]).toContain('WHERE tenant_id = {param_0:String}');
+    expect(queries[0]).toContain('AND status = {param_1:String}');
   });
 
   it('rejects tenant-keyed datasets when no tenant context is provided', async () => {
