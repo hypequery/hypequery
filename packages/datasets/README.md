@@ -38,7 +38,7 @@ import {
   nullIfZero,
   createDatasetClient,
 } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse';
+import { createBackend } from '@hypequery/clickhouse/datasets';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -398,7 +398,7 @@ For ClickHouse databases, use `createBackend` from `@hypequery/clickhouse`:
 
 ```ts
 import { createDatasetClient } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse';
+import { createBackend } from '@hypequery/clickhouse/datasets';
 
 const analytics = createDatasetClient({
   backend: createBackend({

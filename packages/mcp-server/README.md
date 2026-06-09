@@ -25,7 +25,7 @@ Create `mcp-config.ts`:
 
 ```typescript
 import { createDatasetClient } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse';
+import { createBackend } from '@hypequery/clickhouse/datasets';
 import { OrdersDataset, CustomersDataset } from './datasets/index.js';
 
 const revenue = OrdersDataset.metric('revenue', { measure: 'revenue' });
@@ -205,7 +205,7 @@ You can also use the MCP server programmatically in your application:
 
 ```typescript
 import { createMCPServer } from '@hypequery/mcp';
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
 import { datasets } from './datasets/index.js';
 
 const analytics = createDatasetClient({

@@ -52,7 +52,7 @@ Now you can:
 The same `api.execute(...)` call works for configured metrics and datasets:
 
 ```ts
-import { createAPI } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { dataset, dimension, measure } from '@hypequery/datasets';
 
@@ -69,9 +69,12 @@ const Orders = dataset('orders', {
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
 const queryBuilder = createQueryBuilder({ url, username, password, database });
 
-const api = createAPI({
-  queryBuilder,
-  metrics: { revenue },
+const { serve } = initServe({
+  context: () => ({ db: queryBuilder }),  // ✅ Pass queryBuilder via context once
+});
+
+const api = serve({
+  metrics: { revenue },          // ✅ Auto-extracts queryBuilder from context
   datasets: { orders: Orders },
 });
 

@@ -6,6 +6,42 @@ function isSemanticExecutionRuntime(value: unknown): value is SemanticExecutionR
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Type guard to check if a value is a QueryBuilderFactoryLike.
+ * Uses duck-typing to detect the required methods.
+ */
+export function isQueryBuilderFactoryLike(value: unknown): value is QueryBuilderFactoryLike {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'table' in value &&
+    typeof value.table === 'function' &&
+    'rawQuery' in value &&
+    typeof value.rawQuery === 'function'
+  );
+}
+
+/**
+ * Extract queryBuilder from context.db if available.
+ * This allows users to pass queryBuilder via context instead of top-level config.
+ */
+export function extractQueryBuilderFromContext(
+  context: Record<string, unknown>
+): QueryBuilderFactoryLike | undefined {
+  // Check if context.db is a queryBuilder
+  if ('db' in context && isQueryBuilderFactoryLike(context.db)) {
+    return context.db as QueryBuilderFactoryLike;
+  }
+
+  // Check if it's already in the semantic runtime
+  const runtime = resolveSemanticExecutionRuntime(context);
+  if (runtime?.builderFactory) {
+    return runtime.builderFactory;
+  }
+
+  return undefined;
+}
+
 export function attachSemanticQueryBuilder<
   TContext extends Record<string, unknown>,
 >(

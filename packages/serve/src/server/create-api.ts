@@ -24,7 +24,7 @@ import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
 import { createDatasetClient } from "@hypequery/datasets";
 import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
-import { attachSemanticQueryBuilder } from "../semantic/query-builder-context.js";
+import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
 
 const assertSemanticKeyAvailable = (
   queryEntries: Record<string, unknown>,
@@ -90,7 +90,22 @@ export const createAPI = <
   const authStrategies = ensureArray<AuthStrategy<TAuth>>(config.auth);
   const globalTenantConfig = config.tenant;
   const baseContextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
-  const contextFactory: ServeContextFactory<TContext, TAuth> | undefined = baseContextFactory || config.queryBuilder
+
+  // Extract queryBuilder from context.db if not provided in config
+  let resolvedQueryBuilder = config.queryBuilder;
+  let extractedFromContext = false;
+
+  if (!resolvedQueryBuilder && baseContextFactory && (config.metrics || config.datasets)) {
+    // If context is a static object (not a function), we can extract queryBuilder synchronously
+    if (typeof baseContextFactory !== "function") {
+      resolvedQueryBuilder = extractQueryBuilderFromContext(baseContextFactory as Record<string, unknown>);
+      if (resolvedQueryBuilder) {
+        extractedFromContext = true;
+      }
+    }
+  }
+
+  const contextFactory: ServeContextFactory<TContext, TAuth> | undefined = baseContextFactory || resolvedQueryBuilder
     ? async ({ request, auth }) => {
         const baseContext = baseContextFactory
           ? typeof baseContextFactory === "function"
@@ -98,10 +113,28 @@ export const createAPI = <
             : baseContextFactory
           : ({} as TContext);
 
-        return attachSemanticQueryBuilder(
-          { ...(baseContext as TContext) },
-          config.queryBuilder,
-        ) as TContext;
+        // If queryBuilder was explicitly passed in config (not extracted from context),
+        // attach it to context for backward compatibility
+        if (config.queryBuilder) {
+          return attachSemanticQueryBuilder(
+            { ...(baseContext as TContext) },
+            config.queryBuilder,
+          ) as TContext;
+        }
+
+        // If context.db is a queryBuilder but we haven't extracted it yet,
+        // also check and attach it to the semantic runtime for consistency
+        if (!extractedFromContext && typeof baseContextFactory === "function") {
+          const maybeQueryBuilder = extractQueryBuilderFromContext(baseContext as Record<string, unknown>);
+          if (maybeQueryBuilder) {
+            return attachSemanticQueryBuilder(
+              { ...(baseContext as TContext) },
+              maybeQueryBuilder,
+            ) as TContext;
+          }
+        }
+
+        return baseContext as TContext;
       }
     : undefined;
   const hooks = (config.hooks ?? {}) as ServeLifecycleHooks<TAuth>;
@@ -164,12 +197,13 @@ export const createAPI = <
   // Process metrics — auto-generate POST endpoints
   if (config.metrics) {
     const metricsEntries = config.metrics;
-    const builderFactory = config.queryBuilder;
+    const builderFactory = resolvedQueryBuilder;
 
     if (!builderFactory) {
       throw new Error(
         'createAPI: `queryBuilder` is required when `metrics` is provided. ' +
-        'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
+        'Pass the createQueryBuilder(config) return value as `queryBuilder`, ' +
+        'or provide it via context as `context: () => ({ db: queryBuilder })`.',
       );
     }
 
@@ -194,12 +228,13 @@ export const createAPI = <
   // Process datasets — auto-generate POST endpoints for semantic dataset queries
   if (config.datasets) {
     const datasetEntries = config.datasets;
-    const builderFactory = config.queryBuilder;
+    const builderFactory = resolvedQueryBuilder;
 
     if (!builderFactory) {
       throw new Error(
         'createAPI: `queryBuilder` is required when `datasets` is provided. ' +
-        'Pass the createQueryBuilder(config) return value as `queryBuilder`.',
+        'Pass the createQueryBuilder(config) return value as `queryBuilder`, ' +
+        'or provide it via context as `context: () => ({ db: queryBuilder })`.',
       );
     }
 
