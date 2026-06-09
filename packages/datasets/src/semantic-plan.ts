@@ -56,7 +56,7 @@ export type PlanNode =
     orderBy?: MetricOrderBy[];
     limit?: number;
     offset?: number;
-    tenant?: { field: string; value: string };
+    tenant?: { field: string; operator: 'eq'; value: string } | { field: string; operator: 'in'; value: string[] };
   }
   | {
     kind: 'derive';

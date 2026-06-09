@@ -56,6 +56,11 @@ import {
   buildDatasetPlan,
   buildMetricPlan,
 } from './semantic-planner.js';
+import {
+  getRuntimeTenantId,
+  getRuntimeTenantPredicate,
+  validateTenantRuntime,
+} from './utils/tenant-runtime.js';
 
 function validateQuery(
   metric: MetricHandle,
@@ -76,10 +81,9 @@ function validateQuery(
     ...(grain ? ['period'] : []),
   ]);
 
-  if (ds.tenantKey && !context?.runtime?.tenant?.id) {
-    errors.push(
-      `Dataset "${ds.name}" requires runtime tenant scoping.`,
-    );
+  const tenantRuntimeError = validateTenantRuntime(ds, context);
+  if (tenantRuntimeError) {
+    errors.push(tenantRuntimeError);
   }
 
   if (metric.__type === 'grained_metric_ref' && query.by && query.by !== metric.grain) {
@@ -327,7 +331,7 @@ export class MetricQueryEngine {
       const { sql, params } = this.buildDerivedSQLViaBuilder(ref, spec, query, grain, context);
       const data = await activeBuilderFactory.rawQuery<T>(sql, params);
       const timingMs = Date.now() - start;
-      return { data, meta: { sql, timingMs, tenant: context?.runtime?.tenant?.id } };
+      return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context) } };
     }
 
     // Base metrics: fully use the builder's execute()
@@ -335,7 +339,7 @@ export class MetricQueryEngine {
     const { sql } = builder.toSQLWithParams();
     const data = await builder.execute<T>();
     const timingMs = Date.now() - start;
-    return { data, meta: { sql, timingMs, tenant: context?.runtime?.tenant?.id } };
+    return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context) } };
   }
 
   private buildBaseQuery(
@@ -368,9 +372,9 @@ export class MetricQueryEngine {
 
     // Tenant auto-injection
     const tenantColumn = resolveTenantFilterColumn(ds, context);
-    const tenantId = context?.runtime?.tenant?.id;
-    if (tenantId && tenantColumn) {
-      qb = qb.where(tenantColumn, 'eq', tenantId);
+    const tenantPredicate = getRuntimeTenantPredicate(context);
+    if (tenantPredicate && tenantColumn) {
+      qb = qb.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
     }
 
     // User filters
@@ -431,9 +435,9 @@ export class MetricQueryEngine {
 
     // Filters on CTE
     const tenantColumn = resolveTenantFilterColumn(ds, context);
-    const tenantId = context?.runtime?.tenant?.id;
-    if (tenantId && tenantColumn) {
-      cteBuilder = cteBuilder.where(tenantColumn, 'eq', tenantId);
+    const tenantPredicate = getRuntimeTenantPredicate(context);
+    if (tenantPredicate && tenantColumn) {
+      cteBuilder = cteBuilder.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
     }
     for (const filter of query.filters ?? []) {
       if (isTenantScopedFilter(ds, filter, context)) {
@@ -586,6 +590,10 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     context?: ExecutionContext,
   ): Promise<MetricResult<TRow>> {
     if (this.backend) {
+      const validation = validateQuery(metric, query, context);
+      if (!validation.valid) {
+        throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+      }
       return this.backend.execute<TRow>(
         this.planMetric(metric, query, context),
       ) as Promise<MetricResult<TRow>>;
@@ -600,11 +608,19 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     context?: ExecutionContext,
   ): Promise<DatasetQueryResult<TRow>> {
     if (this.backend) {
+      const validation = this.validate(ds, query, context);
+      if (!validation.valid) {
+        throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
+      }
       return this.backend.execute<TRow>(
         this.planDataset(ds, query, context),
       ) as Promise<DatasetQueryResult<TRow>>;
     }
 
+    const validation = this.validate(ds, query, context);
+    if (!validation.valid) {
+      throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
+    }
     return runDatasetQuery(ds, query, {
       builderFactory: context?.runtime?.builderFactory ?? this.getBuilderFactory(),
       context,

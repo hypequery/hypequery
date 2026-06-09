@@ -14,6 +14,10 @@ import {
 } from './query-planner.js';
 import { type ValidationResult } from './validation.js';
 import { validateDatasetQueryInput } from './utils/dataset-query-validation.js';
+import {
+  getRuntimeTenantId,
+  getRuntimeTenantPredicate,
+} from './utils/tenant-runtime.js';
 
 function toResultMeta(
   qb: QueryBuilderLike,
@@ -23,7 +27,7 @@ function toResultMeta(
   return {
     sql: qb.toSQLWithParams().sql,
     timingMs,
-    tenant: context?.runtime?.tenant?.id,
+    tenant: getRuntimeTenantId(context),
   };
 }
 
@@ -67,9 +71,9 @@ export function buildDatasetQueryBuilder(
   }
 
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
-  const tenantId = options.context?.runtime?.tenant?.id;
-  if (tenantId && tenantColumn) {
-    qb = qb.where(tenantColumn, 'eq', tenantId);
+  const tenantPredicate = getRuntimeTenantPredicate(options.context);
+  if (tenantPredicate && tenantColumn) {
+    qb = qb.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
   }
 
   for (const filter of query.filters ?? []) {

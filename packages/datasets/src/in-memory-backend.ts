@@ -54,9 +54,15 @@ function applyFilters(rows: InMemoryTable, filters: MetricFilter[]): InMemoryTab
   return rows.filter((row) => filters.every((filter) => compareFilter(valueForField(row, filter.field), filter)));
 }
 
-function applyTenant(rows: InMemoryTable, tenant?: { field: string; value: string }): InMemoryTable {
+function applyTenant(
+  rows: InMemoryTable,
+  tenant?: Extract<PlanNode, { kind: 'aggregate' }>['tenant'],
+): InMemoryTable {
   if (!tenant) {
     return rows;
+  }
+  if (tenant.operator === 'in') {
+    return rows.filter((row) => tenant.value.includes(String(row[tenant.field])));
   }
   return rows.filter((row) => row[tenant.field] === tenant.value);
 }

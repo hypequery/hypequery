@@ -351,9 +351,7 @@ describe("dataset query helpers", () => {
       filters: [eq('tenantId', 'tenant-123')],
     }, {
       runtime: {
-        tenant: {
-          id: 'tenant-123',
-        },
+        tenant: 'tenant-123',
       },
     });
 
@@ -370,6 +368,50 @@ describe("dataset query helpers", () => {
 
     expect(validation.valid).toBe(false);
     expect(validation.errors[0]).toContain('Dataset "orders" requires runtime tenant scoping.');
+  });
+
+  it("accepts shorthand runtime tenant strings", () => {
+    const validation = validateDatasetQuery(Orders, {
+      measures: ['revenue'],
+    }, {
+      runtime: {
+        tenant: 'tenant-123',
+      },
+    });
+
+    expect(validation.valid).toBe(true);
+  });
+
+  it("builds tenant set queries with an IN predicate", () => {
+    const builder = buildDatasetQueryBuilder(Orders, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+    }, {
+      builderFactory: createDatasetQueryBuilderFactory(),
+      context: {
+        runtime: {
+          tenant: { in: ['tenant-1', 'tenant-2'] },
+        },
+      },
+    });
+
+    expect(builder.toSQLWithParams().sql).toContain("tenant_id in ?");
+  });
+
+  it("allows cross-tenant scope and omits tenant predicates", () => {
+    const builder = buildDatasetQueryBuilder(Orders, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+    }, {
+      builderFactory: createDatasetQueryBuilderFactory(),
+      context: {
+        runtime: {
+          tenant: { scope: 'all' },
+        },
+      },
+    });
+
+    expect(builder.toSQLWithParams().sql).not.toContain("tenant_id");
   });
 
   it("builds dataset query SQL through the shared datasets planner", () => {
@@ -885,21 +927,66 @@ describe("MetricQueryEngine", () => {
 
       await analytics.run(totalRevenue, {}, {
         runtime: {
-          tenant: { id: "t1" },
+          tenant: "t1",
         },
       });
 
       // Verify the SQL was generated (toSQL includes tenant filter)
       const sql = analytics.toSQL(totalRevenue, {}, {
         runtime: {
-          tenant: { id: "t1" },
+          tenant: "t1",
         },
       });
       expect(sql).toContain("tenant_id");
     });
+
+    it("executes cross-tenant metrics and omits tenant predicates", async () => {
+      const analytics = new MetricQueryEngine({
+        builderFactory: createMockBuilderFactory(),
+      });
+
+      const result = await analytics.run(totalRevenue, {}, {
+        runtime: {
+          tenant: { scope: "all" },
+        },
+      });
+
+      expect(result.meta.tenant).toBeUndefined();
+      expect(analytics.toSQL(totalRevenue, {}, {
+        runtime: {
+          tenant: { scope: "all" },
+        },
+      })).not.toContain("tenant_id");
+    });
   });
 
   describe("createDatasetClient()", () => {
+    it("executes all-tenant dataset queries across tenants", async () => {
+      const analytics = createDatasetClient({
+        backend: createInMemoryBackend({
+          orders: [
+            { id: "1", tenant_id: "t1", country: "US", amount: 100 },
+            { id: "2", tenant_id: "t2", country: "DE", amount: 75 },
+          ],
+        }),
+      });
+
+      const result = await analytics.execute(Orders, {
+        dimensions: ["country"],
+        measures: ["revenue"],
+        orderBy: [{ field: "country", direction: "asc" }],
+      }, {
+        runtime: {
+          tenant: { scope: "all" },
+        },
+      });
+
+      expect(result.data).toEqual([
+        { country: "DE", revenue: 75 },
+        { country: "US", revenue: 100 },
+      ]);
+    });
+
     it("can execute semantic plans against an in-memory backend without a query builder", async () => {
       const analytics = createDatasetClient({
         backend: createInMemoryBackend({

@@ -4,6 +4,10 @@ import type {
   ExecutionContext,
 } from '../types.js';
 import { validateFilterValue, type ValidationResult } from '../validation.js';
+import {
+  getRuntimeTenantPredicate,
+  validateTenantRuntime,
+} from './tenant-runtime.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -22,10 +26,9 @@ export function validateDatasetQueryInput(
     ...(query.by ? ['period'] : []),
   ]);
 
-  if (ds.tenantKey && !context?.runtime?.tenant?.id) {
-    errors.push(
-      `Dataset "${ds.name}" requires runtime tenant scoping.`,
-    );
+  const tenantRuntimeError = validateTenantRuntime(ds, context);
+  if (tenantRuntimeError) {
+    errors.push(tenantRuntimeError);
   }
 
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {
@@ -66,7 +69,7 @@ export function validateDatasetQueryInput(
       const resolvedColumn = resolvedDimension?.sql
         ? undefined
         : resolvedDimension?.column ?? resolvedField;
-      if (context?.runtime?.tenant?.id && ds.tenantKey && resolvedColumn === ds.tenantKey) {
+      if (getRuntimeTenantPredicate(context) && ds.tenantKey && resolvedColumn === ds.tenantKey) {
         errors.push(
           `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
         );

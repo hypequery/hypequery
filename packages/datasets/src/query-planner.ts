@@ -9,6 +9,7 @@ import type {
 import type { QueryBuilderLike } from "./query-builder-protocol.js";
 import { GRAIN_FUNCTIONS } from "./constants.js";
 import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
+import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
 
 type DatasetShape = AnyDatasetInstance;
 
@@ -154,7 +155,7 @@ export function resolveTenantFilterColumn(
   ds: DatasetShape,
   context?: ExecutionContext,
 ): string | undefined {
-  if (!context?.runtime?.tenant?.id) {
+  if (!getRuntimeTenantPredicate(context)) {
     return undefined;
   }
 

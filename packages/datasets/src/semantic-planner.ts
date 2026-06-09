@@ -18,6 +18,7 @@ import {
   type MetricHandle,
 } from './utils/metric-handle.js';
 import { validateDatasetQuery } from './dataset-query.js';
+import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -77,11 +78,11 @@ function aggregationForMeasure(
 }
 
 function tenantForContext(ds: AnyDatasetInstance, context?: ExecutionContext) {
-  const tenantId = context?.runtime?.tenant?.id;
-  if (!tenantId || !ds.tenantKey) {
+  const tenantPredicate = getRuntimeTenantPredicate(context);
+  if (!tenantPredicate || !ds.tenantKey) {
     return undefined;
   }
-  return { field: ds.tenantKey, value: tenantId };
+  return { field: ds.tenantKey, ...tenantPredicate };
 }
 
 function grainForQuery(ds: AnyDatasetInstance, unit: MetricQuery['by'] | undefined) {

@@ -195,9 +195,11 @@ export interface DatasetQueryResult<T = Record<string, unknown>> {
   meta?: MetricResultMeta;
 }
 
-export interface SemanticTenantRuntime {
-  id: string;
-}
+export type SemanticTenantRuntime =
+  | string
+  | { id: string }
+  | { in: string[] }
+  | { scope: 'all' };
 
 export interface SemanticExecutionRuntime {
   builderFactory?: QueryBuilderFactoryLike;
