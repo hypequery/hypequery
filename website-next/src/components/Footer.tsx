@@ -56,7 +56,7 @@ export default function Footer() {
         <div className="max-w-[240px]" style={{ width: '240px', flexShrink: 0 }}>
           <div className="font-mono text-[15px] font-bold text-text tracking-tight">&gt; hypequery</div>
           <p className="mt-2 text-[13px] leading-snug text-text-muted">
-            The TypeScript layer for ClickHouse analytics.
+            The TypeScript semantic layer for ClickHouse.
           </p>
         </div>
 

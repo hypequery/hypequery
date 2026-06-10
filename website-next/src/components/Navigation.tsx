@@ -8,7 +8,7 @@ export default function Navigation() {
       <Link href="/" className="font-mono text-[15px] font-bold text-text tracking-tight">
         &gt; hypequery
       </Link>
-      <div className="flex items-center gap-7">
+      <div className="flex items-end gap-7">
         <Link href="/docs" className="text-[13.5px] font-medium text-text-muted hover:text-text transition">
           Docs
         </Link>
@@ -21,12 +21,6 @@ export default function Navigation() {
           GitHub
         </a>
       </div>
-      <Link
-        href="/docs/quick-start"
-        className="bg-text text-bg px-3.5 py-2 text-[13px] font-semibold rounded transition hover:opacity-85 hover:-translate-y-px lg:px-4"
-      >
-        Get started
-      </Link>
     </nav>
   );
 }
