@@ -35,7 +35,7 @@ import type {
 } from './semantic-plan.js';
 
 import { validateSQLIdentifier } from './sql-utils.js';
-import { validateFilterValue, type ValidationResult } from './validation.js';
+import { validateFilterValue, assertValid, type ValidationResult } from './validation.js';
 import {
   applyAggregationSpec,
   appendOrderLimitOffset,
@@ -193,9 +193,7 @@ export class MetricExecutor {
   ): Promise<MetricResult<T>> {
     assertMetricHandle(metric);
     const validation = this.validate(metric, query, context);
-    if (!validation.valid) {
-      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
-    }
+    assertValid(validation, 'metric');
 
     const start = Date.now();
     return this.runViaBuilder<T>(metric, query, context, start);
@@ -211,9 +209,7 @@ export class MetricExecutor {
   ): string {
     assertMetricHandle(metric);
     const validation = this.validate(metric, query, context);
-    if (!validation.valid) {
-      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
-    }
+    assertValid(validation, 'metric');
 
     const ref = getMetricRef(metric);
     const grain = getMetricGrain(metric, query);
@@ -473,9 +469,7 @@ export class SemanticExecutor extends MetricExecutor {
   ): PlanNode {
     assertMetricHandle(metric);
     const validation = validateQuery(metric, query, context);
-    if (!validation.valid) {
-      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
-    }
+    assertValid(validation, 'metric');
     return buildMetricPlan(metric, query, context);
   }
 

@@ -12,7 +12,7 @@ import {
   resolveFilterField,
   resolveTenantFilterColumn,
 } from './query-planner.js';
-import { type ValidationResult } from './validation.js';
+import { assertValid, type ValidationResult } from './validation.js';
 import { validateDatasetQueryInput } from './utils/dataset-query-validation.js';
 
 function toResultMeta(
@@ -47,9 +47,7 @@ export function buildDatasetQueryBuilder(
   options: DatasetQueryExecutionOptions,
 ): QueryBuilderLike {
   const validation = validateDatasetQuery(ds, query, options.context);
-  if (!validation.valid) {
-    throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
-  }
+  assertValid(validation, 'dataset');
 
   let qb = options.builderFactory.table(ds.source);
   const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by);

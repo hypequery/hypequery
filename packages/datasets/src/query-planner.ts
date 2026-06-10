@@ -9,6 +9,7 @@ import type {
 import type { QueryBuilderLike } from "./query-builder-protocol.js";
 import { GRAIN_FUNCTIONS } from "./constants.js";
 import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
+import { assertNever } from './utils/assert-never.js';
 
 type DatasetShape = AnyDatasetInstance;
 
@@ -121,7 +122,10 @@ export function applyMeasureDefinition(
     case "max":
       return qb.max(fieldOrExpr, name);
     default:
-      throw new Error(`Unsupported measure aggregation: ${definition.aggregation}`);
+      return assertNever(
+        definition.aggregation,
+        `Unsupported measure aggregation: ${String(definition.aggregation)}`,
+      );
   }
 }
 

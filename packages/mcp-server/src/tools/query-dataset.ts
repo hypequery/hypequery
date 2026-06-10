@@ -4,27 +4,18 @@
  * Executes an ad-hoc dataset query with custom dimensions and metrics.
  */
 
-import type { SemanticExecutor, DatasetQuery } from '@hypequery/datasets';
+import type { SemanticExecutor, DatasetQuery, DatasetInstance } from '@hypequery/datasets';
 import type { DatasetRegistry, QueryDatasetArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
+import { resolveDataset, textResponse } from './dataset-access.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
   executor: SemanticExecutor,
   args: unknown
 ): Promise<MCPToolResponse> {
-  // Parse and validate args
-  const validatedArgs = args as QueryDatasetArgs;
-  const { dataset: datasetName, dimensions, metrics, filters, grain, orderBy, limit } = validatedArgs;
+  const { dataset: datasetName, dimensions, metrics, filters, grain, orderBy, limit } = (args ?? {}) as QueryDatasetArgs;
 
-  if (!datasetName) {
-    throw new Error('dataset parameter is required');
-  }
-
-  const dataset = datasets[datasetName];
-
-  if (!dataset) {
-    throw new Error(`Dataset not found: ${datasetName}`);
-  }
+  const dataset = resolveDataset(datasets, datasetName);
 
   if (!dimensions?.length && !metrics?.length) {
     throw new Error('At least one dimension or metric must be specified');
@@ -48,7 +39,9 @@ export async function queryDatasetTool(
     query.limit = Math.min(limit, MAX_LIMIT);
   }
 
-  const result = await executor.dataset(dataset as any, query, {
+  // The registry is loosely typed; narrow to the executor's dataset instance
+  // shape at this single boundary.
+  const result = await executor.dataset(dataset as unknown as DatasetInstance, query, {
     runtime: {
       tenant: undefined,
     },
@@ -64,12 +57,5 @@ export async function queryDatasetTool(
     },
   };
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(response, null, 2),
-      },
-    ],
-  };
+  return textResponse(response);
 }

@@ -9,10 +9,69 @@ import type {
 } from '@hypequery/datasets';
 
 /**
- * Registry of datasets - maps dataset names to dataset instances
- * Using flexible type to accommodate actual dataset structure
+ * Loosely-typed view of a registered dataset.
+ *
+ * Datasets reach the MCP tools in one of two shapes and the introspection
+ * tools must read both without `any`:
+ *  - `@hypequery/datasets` DatasetInstance objects, which use `fieldType` on
+ *    dimensions, store metrics under `measures`, and expose relationship
+ *    targets as `target()` functions; and
+ *  - plain config objects, which use `type` on dimensions, store metrics under
+ *    `metrics`, and expose relationship targets as plain strings.
+ *
+ * The optional fields below capture the union of both shapes. The index
+ * signature allows metrics that are attached as top-level named properties.
  */
-export type DatasetRegistry = Record<string, Record<string, unknown>>;
+export interface RawField {
+  fieldType?: string;
+  type?: string;
+  column?: string;
+  label?: string;
+  description?: string;
+  examples?: string[];
+}
+
+export interface RawMetricDefinition {
+  spec?: { __type?: string; aggregation?: string };
+  type?: string;
+  aggregation?: string;
+  label?: string;
+  description?: string;
+  format?: string;
+}
+
+export interface RawRelationship {
+  type?: string;
+  kind?: string;
+  target?: string | (() => { name?: string } | null | undefined);
+  dataset?: { name?: string };
+  description?: string;
+}
+
+export interface RawDatasetConfig {
+  description?: string;
+  source?: string;
+  timeKey?: string;
+  tenantKey?: string;
+}
+
+export interface RawDataset {
+  description?: string;
+  source?: string;
+  timeKey?: string;
+  tenantKey?: string;
+  config?: RawDatasetConfig;
+  dimensions?: Record<string, RawField>;
+  measures?: Record<string, RawMetricDefinition>;
+  metrics?: Record<string, RawMetricDefinition>;
+  relationships?: Record<string, RawRelationship>;
+  [key: string]: unknown;
+}
+
+/**
+ * Registry of datasets - maps dataset names to dataset instances.
+ */
+export type DatasetRegistry = Record<string, RawDataset>;
 
 /**
  * Arguments for query_metric tool

@@ -10,6 +10,7 @@ import type {
   SemanticExpression,
   SemanticGrainPlan,
 } from './semantic-plan.js';
+import { assertNever } from './utils/assert-never.js';
 
 export type InMemoryTable = Array<Record<string, unknown>>;
 export type InMemoryTables = Record<string, InMemoryTable>;
@@ -115,7 +116,10 @@ function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan
     case 'max':
       return Math.max(...values.map((value) => Number(value)));
     default:
-      return 0;
+      return assertNever(
+        aggregation.aggregation,
+        `Unsupported aggregation: ${String(aggregation.aggregation)}`,
+      );
   }
 }
 
@@ -150,13 +154,24 @@ function evaluateExpression(expression: SemanticExpression, row: Record<string, 
   }
 }
 
+function compareValues(a: unknown, b: unknown): number {
+  if (a === b) return 0;
+  if (a === undefined || a === null) return -1;
+  if (b === undefined || b === null) return 1;
+  if (typeof a === 'number' && typeof b === 'number') {
+    return a < b ? -1 : 1;
+  }
+  if (typeof a === 'boolean' && typeof b === 'boolean') {
+    return a === b ? 0 : a ? 1 : -1;
+  }
+  return String(a) < String(b) ? -1 : 1;
+}
+
 function compareRows(orderBy: MetricOrderBy[]) {
   return (a: Record<string, unknown>, b: Record<string, unknown>) => {
     for (const order of orderBy) {
-      const av = a[order.field] as any;
-      const bv = b[order.field] as any;
-      if (av === bv) continue;
-      const result = av > bv ? 1 : -1;
+      const result = compareValues(a[order.field], b[order.field]);
+      if (result === 0) continue;
       return order.direction === 'desc' ? -result : result;
     }
     return 0;

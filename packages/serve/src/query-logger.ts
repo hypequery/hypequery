@@ -56,8 +56,10 @@ export class ServeQueryLogger {
     for (const listener of this.listeners) {
       try {
         listener(event);
-      } catch {
-        // Ignore listener errors
+      } catch (error) {
+        // A failing listener must not break the request lifecycle or other
+        // listeners, but it must not be silently swallowed either.
+        console.warn('[hypequery/serve] query event listener threw', error);
       }
     }
   }

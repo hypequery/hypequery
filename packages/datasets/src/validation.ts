@@ -13,6 +13,21 @@ export interface ValidationResult {
 }
 
 /**
+ * Throws a standard "Invalid <kind> query" error when validation failed.
+ *
+ * Centralizes the throw used by the executor and planners so the error
+ * message stays consistent across query kinds.
+ *
+ * @param validation - The validation result to check.
+ * @param queryKind - The query kind used in the message, e.g. 'metric' or 'dataset'.
+ */
+export function assertValid(validation: ValidationResult, queryKind: string): void {
+  if (!validation.valid) {
+    throw new Error(`Invalid ${queryKind} query: ${validation.errors.join('; ')}`);
+  }
+}
+
+/**
  * Checks if a value matches the expected field type.
  *
  * @param fieldType - The expected field type

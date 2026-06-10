@@ -5,14 +5,13 @@
  */
 
 import type { DatasetRegistry, MCPToolResponse, DatasetsListResponse, DatasetListItem } from '../types.js';
+import { textResponse } from './dataset-access.js';
 
 export async function listDatasetsTool(datasets: DatasetRegistry): Promise<MCPToolResponse> {
   const datasetList: DatasetListItem[] = Object.entries(datasets).map(([name, dataset]) => {
-    const datasetAny = dataset as any;
-    // Try to extract description from dataset instance
-    const description = datasetAny.description || datasetAny.config?.description || 'No description available';
-    const dimensionCount = datasetAny.dimensions ? Object.keys(datasetAny.dimensions).length : 0;
-    const metricCount = datasetAny.metrics ? Object.keys(datasetAny.metrics).length : 0;
+    const description = dataset.description || dataset.config?.description || 'No description available';
+    const dimensionCount = dataset.dimensions ? Object.keys(dataset.dimensions).length : 0;
+    const metricCount = dataset.metrics ? Object.keys(dataset.metrics).length : 0;
 
     return {
       name,
@@ -27,12 +26,5 @@ export async function listDatasetsTool(datasets: DatasetRegistry): Promise<MCPTo
     total: datasetList.length,
   };
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(response, null, 2),
-      },
-    ],
-  };
+  return textResponse(response);
 }

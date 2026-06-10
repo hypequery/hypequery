@@ -5,86 +5,78 @@
  * and relationships.
  */
 
-import type { DatasetRegistry, GetDatasetSchemaArgs, MCPToolResponse, DatasetSchema, DimensionSchema, MetricSchema, RelationshipSchema } from '../types.js';
+import type {
+  DatasetRegistry,
+  GetDatasetSchemaArgs,
+  MCPToolResponse,
+  DatasetSchema,
+  DimensionSchema,
+  MetricSchema,
+  RelationshipSchema,
+} from '../types.js';
+import { resolveDataset, textResponse } from './dataset-access.js';
 
 export async function getDatasetSchemaTool(
   datasets: DatasetRegistry,
   args: unknown
 ): Promise<MCPToolResponse> {
-  // Parse and validate args
-  const validatedArgs = args as GetDatasetSchemaArgs;
-  const datasetName = validatedArgs.dataset;
+  const { dataset: datasetName } = (args ?? {}) as GetDatasetSchemaArgs;
+  const dataset = resolveDataset(datasets, datasetName);
 
-  if (!datasetName) {
-    throw new Error('dataset parameter is required');
-  }
-
-  const dataset = datasets[datasetName];
-
-  if (!dataset) {
-    throw new Error(`Dataset not found: ${datasetName}`);
-  }
-
-  // Build schema response with proper types
-  const datasetAny = dataset as any;
   const schema: DatasetSchema = {
     name: datasetName,
-    description: datasetAny.description || datasetAny.config?.description || '',
-    source: datasetAny.source || datasetAny.config?.source || '',
-    timeKey: datasetAny.timeKey || datasetAny.config?.timeKey || null,
-    tenantKey: datasetAny.tenantKey || datasetAny.config?.tenantKey || null,
+    description: dataset.description || dataset.config?.description || '',
+    source: dataset.source || dataset.config?.source || '',
+    timeKey: dataset.timeKey || dataset.config?.timeKey || null,
+    tenantKey: dataset.tenantKey || dataset.config?.tenantKey || null,
     dimensions: {},
     metrics: {},
     relationships: {},
   };
 
-  // Extract dimensions with proper typing
-  if (datasetAny.dimensions) {
-    for (const [name, dimension] of Object.entries(datasetAny.dimensions)) {
+  if (dataset.dimensions) {
+    for (const [name, dimension] of Object.entries(dataset.dimensions)) {
       const dimSchema: DimensionSchema = {
-        type: (dimension as { fieldType?: string; type?: string }).fieldType || (dimension as { type?: string }).type || 'unknown',
-        column: (dimension as { column?: string }).column || name,
-        label: (dimension as { label?: string }).label || name,
-        description: (dimension as { description?: string }).description || '',
-        examples: (dimension as { examples?: string[] }).examples || [],
+        type: dimension.fieldType || dimension.type || 'unknown',
+        column: dimension.column || name,
+        label: dimension.label || name,
+        description: dimension.description || '',
+        examples: dimension.examples || [],
       };
       schema.dimensions[name] = dimSchema;
     }
   }
 
-  // Extract metrics with proper typing
-  if (datasetAny.metrics) {
-    for (const [name, metric] of Object.entries(datasetAny.metrics)) {
+  // DatasetInstance objects store metrics under `measures`; plain config
+  // objects use `metrics`. Read whichever is present.
+  const metrics = dataset.metrics ?? dataset.measures;
+  if (metrics) {
+    for (const [name, metric] of Object.entries(metrics)) {
       const metSchema: MetricSchema = {
-        type: (metric as { spec?: { __type?: string }; type?: string }).spec?.__type || (metric as { type?: string }).type || 'unknown',
-        aggregation: (metric as { spec?: { aggregation?: string }; aggregation?: string; type?: string }).spec?.aggregation || (metric as { aggregation?: string; type?: string }).aggregation || (metric as { type?: string }).type || '',
-        label: (metric as { label?: string }).label || name,
-        description: (metric as { description?: string }).description || '',
-        format: (metric as { format?: string }).format || null,
+        type: metric.spec?.__type || metric.type || 'unknown',
+        aggregation: metric.spec?.aggregation || metric.aggregation || metric.type || '',
+        label: metric.label || name,
+        description: metric.description || '',
+        format: metric.format || null,
       };
       schema.metrics[name] = metSchema;
     }
   }
 
-  // Extract relationships with proper typing
-  if (datasetAny.relationships) {
-    for (const [name, relationship] of Object.entries(datasetAny.relationships)) {
-      const rel = relationship as any;
+  if (dataset.relationships) {
+    for (const [name, rel] of Object.entries(dataset.relationships)) {
+      const target =
+        typeof rel.target === 'function'
+          ? rel.target()?.name || ''
+          : rel.target || rel.dataset?.name || '';
       const relSchema: RelationshipSchema = {
         type: rel.type || rel.kind || 'unknown',
-        target: typeof rel.target === 'function' ? rel.target()?.name || '' : rel.target || rel.dataset?.name || '',
+        target,
         description: rel.description || '',
       };
       schema.relationships[name] = relSchema;
     }
   }
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(schema, null, 2),
-      },
-    ],
-  };
+  return textResponse(schema);
 }

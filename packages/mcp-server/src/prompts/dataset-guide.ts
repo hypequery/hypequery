@@ -5,19 +5,15 @@
  */
 
 import type { DatasetRegistry } from '../types.js';
+import { resolveDataset } from '../tools/dataset-access.js';
 
 export function datasetGuidePrompt(datasets: DatasetRegistry, datasetName?: string) {
   if (datasetName) {
-    const dataset = datasets[datasetName];
+    const dataset = resolveDataset(datasets, datasetName);
 
-    if (!dataset) {
-      throw new Error(`Dataset not found: ${datasetName}`);
-    }
-
-    const datasetAny = dataset as any;
     // Generate dataset-specific guide
-    const dimensions = datasetAny.dimensions ? Object.keys(datasetAny.dimensions) : [];
-    const metrics = datasetAny.metrics ? Object.keys(datasetAny.metrics) : [];
+    const dimensions = dataset.dimensions ? Object.keys(dataset.dimensions) : [];
+    const metrics = dataset.metrics ? Object.keys(dataset.metrics) : [];
 
     const guide = `# Querying the ${datasetName} dataset
 

@@ -4,34 +4,25 @@
  * Executes a metric query with optional dimensions, filters, grain, and sorting.
  */
 
-import type { SemanticExecutor, MetricQuery } from '@hypequery/datasets';
+import type { SemanticExecutor, MetricQuery, MetricRef, GrainedMetricRef } from '@hypequery/datasets';
 import type { DatasetRegistry, QueryMetricArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
+import { resolveDataset, textResponse } from './dataset-access.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
   executor: SemanticExecutor,
   args: unknown
 ): Promise<MCPToolResponse> {
-  // Parse and validate args
-  const validatedArgs = args as QueryMetricArgs;
-  const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy, limit } = validatedArgs;
-
-  if (!datasetName) {
-    throw new Error('dataset parameter is required');
-  }
+  const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy, limit } = (args ?? {}) as QueryMetricArgs;
 
   if (!metricName) {
     throw new Error('metric parameter is required');
   }
 
-  const dataset = datasets[datasetName];
+  const dataset = resolveDataset(datasets, datasetName);
 
-  if (!dataset) {
-    throw new Error(`Dataset not found: ${datasetName}`);
-  }
-
-  // Get the metric from the dataset
-  const metric = (dataset as any)[metricName] || (dataset as any).metrics?.[metricName];
+  // Metrics may be attached as a top-level property or under `metrics`.
+  const metric = dataset[metricName] || dataset.metrics?.[metricName];
 
   if (!metric) {
     throw new Error(`Metric not found: ${metricName} in dataset ${datasetName}`);
@@ -54,8 +45,9 @@ export async function queryMetricTool(
     query.limit = Math.min(limit, MAX_LIMIT);
   }
 
-  // Execute the query
-  const result = await executor.metric(metric, query, {
+  // Execute the query. The metric is read from a loosely-typed registry, so
+  // narrow it to the executor's expected handle at this single boundary.
+  const result = await executor.metric(metric as MetricRef | GrainedMetricRef, query, {
     runtime: {
       builderFactory: executor.getBuilderFactory(),
       tenant: undefined,
@@ -72,12 +64,5 @@ export async function queryMetricTool(
     },
   };
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(response, null, 2),
-      },
-    ],
-  };
+  return textResponse(response);
 }

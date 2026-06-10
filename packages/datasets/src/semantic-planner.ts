@@ -18,6 +18,7 @@ import {
   type MetricHandle,
 } from './utils/metric-handle.js';
 import { validateDatasetQuery } from './dataset-query.js';
+import { assertValid } from './validation.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -124,9 +125,7 @@ export function buildDatasetPlan(
   context?: ExecutionContext,
 ): PlanNode {
   const validation = validateDatasetQuery(ds, query, context);
-  if (!validation.valid) {
-    throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
-  }
+  assertValid(validation, 'dataset');
 
   const measures = query.measures ?? Object.keys(ds.measures);
   return aggregatePlan(
