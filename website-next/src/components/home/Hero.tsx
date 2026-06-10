@@ -29,7 +29,7 @@ export function Hero() {
       </h1>
 
       <p className="mt-[22px] text-body-lg text-text-muted max-w-[680px] text-pretty">
-        Type-safe queries, semantic datasets, and instant APIs. Defined once in your codebase, never scattered across SQL strings and YAML.
+        Define metrics and dimensions once in TypeScript. Generate type-safe queries and APIs. Query from anywhere, including your AI agent.
       </p>
 
       <div className="flex gap-2.5 mt-7 flex-wrap justify-center">

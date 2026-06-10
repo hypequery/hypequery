@@ -106,7 +106,6 @@ export const QUERY_CODE = `const latestOrders = await db
 export const DATASET_CODE = `export const Orders = dataset('orders', {
   source: 'orders',
   tenantKey: 'tenant_id',
-  timeKey: 'created_at',
   dimensions: {
     plan: dimension.string(),
   },
@@ -115,12 +114,8 @@ export const DATASET_CODE = `export const Orders = dataset('orders', {
   },
 });
 
-const revenue = Orders.metric('revenue', { measure: 'revenue' });
 
-await executor.metric(revenue.by('month'), {
-  dimensions: ['plan'],
-}, { runtime: { tenant: { id: tenantId } } });
-// tenant + time logic inherited`;
+`;
 
 export const DATASETS_SECTION_CODE = `import {
   dataset,
@@ -160,19 +155,13 @@ const sql = executor.toSQL(averageOrderValue.by('month'), {
   dimensions: ['plan'],
 });`;
 
-export const SERVE_CODE = `const revenueByPlan = query({
-  query: ({ ctx }) =>
-    executor.metric(revenue.by('month'), {
-      dimensions: ['plan'],
-    }, ctx),
-});
-
+export const SERVE_CODE = `
 export const api = serve({
   queries: { revenueByPlan },
   datasets: { orders: Orders },
-  queryBuilder: db,
 });
-// typed HTTP route + React hook, from one definition`;
+// typed HTTP route + React hook
+// From one definition`;
 
 export const MCP_CODE = `import { createMCPServer } from '@hypequery/mcp';
 import { createExecutor } from '@hypequery/datasets';
