@@ -58,10 +58,10 @@ export function Capabilities() {
       <div className="mb-12">
         <p className="font-mono text-eyebrow text-accent mb-3.5">What you get</p>
         <h2 className="text-h2 text-text max-w-[780px] text-balance">
-          Type-safe queries. Datasets when metrics matter. APIs when you need them.
+          Type safe queries. Metrics and dimensions defined in code. Expose via APIs or MCP.
         </h2>
         <p className="mt-3.5 text-body text-text-muted max-w-[680px] text-pretty">
-          You don't adopt a platform. You install a library and use the layer you need — opt in across the stack, in the codebase you already have.
+          You don't adopt a platform. You install a library and use the layer you need. Opt in across the stack. In the codebase you already have.
         </p>
       </div>
 
@@ -79,8 +79,8 @@ export function Capabilities() {
           icon="D"
           label="Datasets"
           isNew
-          title="Define your table once. Every query inherits it."
-          desc="Declare the table, its tenant key, and its time key in one place. Runtime tenant context applies the row filter, and conflicting tenant filters are rejected at runtime. Change the definition once; everything downstream updates."
+          title="Model your analytics. Multi-tenancy comes as standard"
+          desc="Declare the table, it's dimensions and measures. Runtime tenant context applies the row filter, and conflicting tenant filters are rejected at runtime."
           code={DATASET_CODE}
           docsLink="/docs/datasets/overview"
           ctaText="Get started with datasets"
@@ -88,8 +88,8 @@ export function Capabilities() {
         <CapabilityCard
           icon="S"
           label="Serve"
-          title="Turn any query into a typed API."
-          desc="Pass a query or dataset to serve(). You get a typed REST route, an OpenAPI spec, and a React hook — generated from the definition you already wrote. No controllers, no client codegen step you maintain by hand."
+          title="Turn any query into a typed API or React Hook"
+          desc="Pass a query or dataset to serve(). You get a typed REST route, an OpenAPI spec, and a React hook."
           code={SERVE_CODE}
           docsLink="/docs/serve"
           ctaText="Get started with serve"
@@ -99,7 +99,7 @@ export function Capabilities() {
           label="MCP"
           isNew
           title="Query your datasets with an agent."
-          desc="Expose datasets as MCP tools. Agents query typed, governed data — never raw SQL. The dataset layer is the only thing they can touch."
+          desc="Expose datasets as MCP tools. Agents query typed, governed data, never raw SQL."
           code={MCP_CODE}
           docsLink="/docs/mcp/overview"
           ctaText="Explore MCP"
