@@ -8,7 +8,6 @@ import { HERO_SNIPPETS, HERO_TABS } from './constants';
 import { InstallCommand } from './InstallCommand';
 
 export function Hero() {
-  const [tab, setTab] = useState('dataset');
   const [aiContextCopied, setAiContextCopied] = useState(false);
 
   const handleCopyAiContext = () => {
@@ -19,17 +18,12 @@ export function Hero() {
 
   return (
     <section className="mx-auto max-w-[1280px] px-8 pt-[140px] pb-16 flex flex-col items-center text-center">
-      <span className="inline-flex items-center gap-2 px-3 py-1 mb-7 border border-border-strong rounded-[100px] bg-bg-card font-mono text-[11px] font-medium text-text-muted tracking-[0.04em]">
-        <span className="text-[9.5px] font-bold tracking-[0.12em] uppercase text-accent bg-accent-soft px-1.5 py-0.5 rounded-sm">New</span>
-        <span>Datasets. Model your data once, in code</span>
-      </span>
-
-      <h1 className="text-display text-text max-w-[950px] text-balance">
+      <h1 className="text-display text-text max-w-[1000px] text-balance">
         Ship type-safe analytics on <em className="not-italic text-accent">ClickHouse.</em>
       </h1>
 
-      <p className="mt-[22px] text-body-lg text-text-muted max-w-[680px] text-pretty">
-        Define metrics and dimensions once in TypeScript. Generate type-safe queries and APIs. Query from anywhere, including your AI agent.
+      <p className="mt-[22px] text-body-lg text-text-muted max-w-[660px] text-pretty">
+        Define queries, metrics, and dimensions inside the backend you already have. Expose them as typed APIs, React hooks, or MCP tools for your AI agents.
       </p>
 
       <div className="flex gap-2.5 mt-7 flex-wrap justify-center">

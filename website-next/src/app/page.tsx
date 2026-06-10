@@ -3,10 +3,10 @@ import Navigation from '@/components/Navigation';
 import {
   AnnouncementBanner,
   Hero,
+  DefineOnce,
   Capabilities,
-  Datasets,
   Stack,
-  MCP,
+  UseCases,
   FinalCTA,
 } from '@/components/home';
 
@@ -17,10 +17,10 @@ export default function Home() {
       <Navigation />
       <main className="pt-[98px]">
         <Hero />
+        <DefineOnce />
         <Capabilities />
-        <Datasets />
         <Stack />
-        <MCP />
+        <UseCases />
         <FinalCTA />
       </main>
       <Footer />

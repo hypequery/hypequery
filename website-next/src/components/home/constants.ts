@@ -163,6 +163,60 @@ export const api = serve({
 // typed HTTP route + React hook
 // From one definition`;
 
+/* ── Variant A — "All in on Datasets" ─────────────────────── */
+
+// "Define it once" — the one dataset definition everything inherits from
+export const DEFINE_ONCE_CODE = `export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    plan: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+});
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
+
+const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+});`;
+
+// D — Datasets: name reusable metrics, compose derived ones
+export const FEATURE_D_CODE = `const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
+
+const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+});
+
+// Run it from server code, jobs, APIs, hooks, or agents
+await executor.metric(averageOrderValue.by('month'), {
+  dimensions: ['plan'],
+});`;
+
+// S — Serve: one definition becomes a typed API
+export const FEATURE_S_CODE = `export const api = serve({
+  datasets: { orders: Orders },
+  queries: { revenueByPlan },
+});
+// → typed REST route + OpenAPI spec + React hook`;
+
+// M — MCP: expose the registry as governed agent tools
+export const FEATURE_M_CODE = `await createMCPServer({
+  datasets: { orders: Orders },
+  executor,
+});
+// agents query exposed datasets only — never raw SQL`;
+
 export const MCP_CODE = `import { createMCPServer } from '@hypequery/mcp';
 import { createExecutor } from '@hypequery/datasets';
 
