@@ -34,7 +34,7 @@ cp examples/mcp-config.js ./my-mcp-config.js
 Edit `my-mcp-config.js` to match your ClickHouse schema:
 ```javascript
 import { dataset, dimension, measure, createDatasetClient } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse';
+import { createBackend } from '@hypequery/clickhouse/datasets';
 
 const analytics = createDatasetClient({
   backend: createBackend({
@@ -302,7 +302,7 @@ Minimal working example:
 
 ```javascript
 import { dataset, dimension, measure } from '@hypequery/datasets';
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
 
 const analytics = createDatasetClient({
   url: 'http://localhost:8123',

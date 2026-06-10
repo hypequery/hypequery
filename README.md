@@ -151,7 +151,8 @@ await activeUsers.execute({
 The same served execution API also works for semantic metrics:
 
 ```ts
-import { createAPI } from '@hypequery/serve';
+import { initServe } from '@hypequery/serve';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 import { dataset, dimension, measure } from '@hypequery/datasets';
 
 const Orders = dataset('orders', {
@@ -165,10 +166,14 @@ const Orders = dataset('orders', {
 });
 
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const queryBuilder = createQueryBuilder({ url, username, password, database });
 
-export const api = createAPI({
-  queryBuilder,
-  metrics: { revenue },
+const { serve } = initServe({
+  context: () => ({ db: queryBuilder }),  // ✅ Pass queryBuilder via context once
+});
+
+export const api = serve({
+  metrics: { revenue },          // ✅ Auto-extracts queryBuilder from context
   datasets: { orders: Orders },
 });
 

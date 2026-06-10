@@ -56,14 +56,20 @@ export const initServe = <
   >(
     config: ServeInitializerDefinition<TContext, TAuth, TQueries, TMetrics, TDatasets>
   ) => {
-    return defineServe<TContext, TAuth, TQueries, TMetrics, TDatasets>({
+    // Auto-extract queryBuilder from context.db if metrics/datasets are used
+    // This is handled in createAPI since it needs to support both sync and async contexts
+    const finalConfig = {
       ...(staticOptions as Omit<
         ServeConfig<TContext, TAuth, TQueries, TMetrics, TDatasets>,
         "queries" | "context"
       >),
       ...config,
       context: (context ?? {}) as ServeContextFactory<TContext, TAuth>,
-    });
+    };
+
+    // Note: defineServe is deprecated for public use, but initServe uses it internally
+    // to provide the .start() method on the returned builder. This is intentional.
+    return defineServe<TContext, TAuth, TQueries, TMetrics, TDatasets>(finalConfig);
   };
   const queryFactory = createQueryFactory<TContext, TAuth>((context ?? {}) as ServeContextFactory<TContext, TAuth>);
   const query = new Proxy(queryFactory as QueryFactory<TContext, TAuth>, {
