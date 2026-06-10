@@ -7,7 +7,6 @@
 
 import type {
   DatasetRegistry,
-  GetDatasetSchemaArgs,
   MCPToolResponse,
   DatasetSchema,
   DimensionSchema,
@@ -15,12 +14,13 @@ import type {
   RelationshipSchema,
 } from '../types.js';
 import { resolveDataset, textResponse } from './dataset-access.js';
+import { parseGetDatasetSchemaArgs } from './args.js';
 
 export async function getDatasetSchemaTool(
   datasets: DatasetRegistry,
   args: unknown
 ): Promise<MCPToolResponse> {
-  const { dataset: datasetName } = (args ?? {}) as GetDatasetSchemaArgs;
+  const { dataset: datasetName } = parseGetDatasetSchemaArgs(args);
   const dataset = resolveDataset(datasets, datasetName);
 
   const schema: DatasetSchema = {

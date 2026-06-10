@@ -5,15 +5,16 @@
  */
 
 import type { SemanticExecutor, MetricQuery, MetricRef, GrainedMetricRef } from '@hypequery/datasets';
-import type { DatasetRegistry, QueryMetricArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
+import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
 import { resolveDataset, textResponse } from './dataset-access.js';
+import { parseQueryMetricArgs } from './args.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
   executor: SemanticExecutor,
   args: unknown
 ): Promise<MCPToolResponse> {
-  const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy, limit } = (args ?? {}) as QueryMetricArgs;
+  const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy, limit } = parseQueryMetricArgs(args);
 
   if (!metricName) {
     throw new Error('metric parameter is required');

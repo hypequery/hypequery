@@ -5,15 +5,16 @@
  */
 
 import type { SemanticExecutor, DatasetQuery, DatasetInstance } from '@hypequery/datasets';
-import type { DatasetRegistry, QueryDatasetArgs, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
+import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, MAX_QUERY_LIMIT } from '../types.js';
 import { resolveDataset, textResponse } from './dataset-access.js';
+import { parseQueryDatasetArgs } from './args.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
   executor: SemanticExecutor,
   args: unknown
 ): Promise<MCPToolResponse> {
-  const { dataset: datasetName, dimensions, metrics, filters, grain, orderBy, limit } = (args ?? {}) as QueryDatasetArgs;
+  const { dataset: datasetName, dimensions, metrics, filters, grain, orderBy, limit } = parseQueryDatasetArgs(args);
 
   const dataset = resolveDataset(datasets, datasetName);
 
