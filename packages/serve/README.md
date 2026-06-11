@@ -150,6 +150,34 @@ export const api = serve({
 api.route('/topCustomers', api.queries.topCustomers);
 ```
 
+## Authentication
+
+Pass an auth strategy (or array of strategies) to `serve({ auth })` / `createAPI({ auth })`.
+Built-in helpers: `createApiKeyStrategy`, `createBearerTokenStrategy`, and
+`createJwksStrategy` for verifying JWTs against a remote JWKS (Auth0/Clerk/Cognito/etc.).
+
+```ts
+import { createJwksStrategy } from '@hypequery/serve';
+
+const auth = createJwksStrategy({
+  jwksUri: 'https://example.auth0.com/.well-known/jwks.json',
+  issuer: 'https://example.auth0.com/',
+  audience: 'https://api.example.com',
+  algorithms: ['RS256'],
+  // optional: map verified claims to your auth context (defaults to sub/roles/scope)
+  mapClaims: (payload) => ({ userId: payload.sub as string, tenantId: payload.org as string }),
+});
+```
+
+`createJwksStrategy` lazily loads the optional `jose` peer dependency on first use and
+caches the key set (jose handles JWKS rotation), so it adds nothing to startup or to
+apps that don't use it. Install it with `npm install jose`. For offline/no-network
+deploys, pass a static `jwks` key set instead of `jwksUri`.
+
+> **Rate limiting:** the default `RateLimitStore` is in-memory and therefore
+> per-instance. Behind multiple instances, supply a shared store (e.g. Redis) by
+> implementing the `RateLimitStore` interface.
+
 ## Adapters And Runtimes
 
 `@hypequery/serve` can be used behind different runtimes and adapters, but most users should start with the standard `initServe(...).serve(...)` path and the CLI dev server.

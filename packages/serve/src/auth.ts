@@ -141,6 +141,144 @@ export const createBearerTokenStrategy = <TAuth extends AuthContext = AuthContex
   };
 };
 
+export interface JwksAuthStrategyOptions<TAuth extends AuthContext = AuthContext> {
+  /**
+   * JWKS endpoint, e.g. `https://issuer/.well-known/jwks.json`. Provide this or
+   * {@link jwks}.
+   */
+  jwksUri?: string;
+  /**
+   * A static JSON Web Key Set, used instead of fetching from {@link jwksUri}.
+   * Useful for offline/no-network deploys. Provide this or `jwksUri`.
+   */
+  jwks?: import("jose").JSONWebKeySet;
+  /** Expected token issuer(s). */
+  issuer?: string | string[];
+  /** Expected audience(s). */
+  audience?: string | string[];
+  /** Allowed signature algorithms, e.g. `['RS256']`. */
+  algorithms?: string[];
+  /** Header carrying the token. @default "authorization" */
+  header?: string;
+  /** Token prefix. @default "Bearer " */
+  prefix?: string;
+  /** When true, a missing token resolves to `null` instead of throwing. */
+  optional?: boolean;
+  /**
+   * Maps verified JWT claims to your auth context. Defaults to mapping
+   * `sub`→`userId`, `roles`→`roles`, and `scope`/`scopes`→`scopes`.
+   */
+  mapClaims?: (
+    payload: Record<string, unknown>,
+    request: ServeRequest,
+  ) => TAuth | null | Promise<TAuth | null>;
+}
+
+const defaultJwtClaimMapper = (payload: Record<string, unknown>): AuthContext => {
+  const scopeClaim = payload.scope ?? payload.scopes;
+  const scopes = typeof scopeClaim === "string"
+    ? scopeClaim.split(" ").filter(Boolean)
+    : Array.isArray(scopeClaim)
+      ? scopeClaim.filter((scope): scope is string => typeof scope === "string")
+      : undefined;
+  const roles = Array.isArray(payload.roles)
+    ? payload.roles.filter((role): role is string => typeof role === "string")
+    : undefined;
+  return {
+    userId: typeof payload.sub === "string" ? payload.sub : undefined,
+    roles,
+    scopes,
+    metadata: payload,
+  };
+};
+
+/**
+ * Verifies JWTs against a remote JWKS (Auth0/Clerk/Cognito/etc.). The key set
+ * and `jose` itself are loaded lazily on first use and cached (jose handles JWKS
+ * caching + rotation cooldown), so this adds nothing to startup or to consumers
+ * that don't use it. Requires the optional `jose` peer dependency.
+ *
+ * @example
+ * ```ts
+ * const api = createAPI({
+ *   auth: createJwksStrategy({
+ *     jwksUri: 'https://example.auth0.com/.well-known/jwks.json',
+ *     issuer: 'https://example.auth0.com/',
+ *     audience: 'https://api.example.com',
+ *     algorithms: ['RS256'],
+ *   }),
+ *   queries: { ... },
+ * });
+ * ```
+ */
+export const createJwksStrategy = <TAuth extends AuthContext = AuthContext>(
+  options: JwksAuthStrategyOptions<TAuth>
+): AuthStrategy<TAuth> => {
+  if (!options.jwksUri && !options.jwks) {
+    throw new Error("createJwksStrategy: provide either `jwksUri` or `jwks`.");
+  }
+
+  const headerName = options.header ?? "authorization";
+  const prefix = options.prefix ?? "Bearer ";
+  const mapClaims = options.mapClaims
+    ?? ((payload) => defaultJwtClaimMapper(payload) as TAuth);
+
+  type Jose = typeof import("jose");
+  type KeyResolver =
+    | ReturnType<Jose["createRemoteJWKSet"]>
+    | ReturnType<Jose["createLocalJWKSet"]>;
+  let setupPromise:
+    | Promise<{ jwtVerify: Jose["jwtVerify"]; jwks: KeyResolver }>
+    | undefined;
+  const setup = () => {
+    if (!setupPromise) {
+      setupPromise = import("jose")
+        .then(({ jwtVerify, createRemoteJWKSet, createLocalJWKSet }) => ({
+          jwtVerify,
+          jwks: options.jwks
+            ? createLocalJWKSet(options.jwks)
+            : createRemoteJWKSet(new URL(options.jwksUri!)),
+        }))
+        .catch((error) => {
+          // Allow a later request to retry transient import/URL failures.
+          setupPromise = undefined;
+          throw error;
+        });
+    }
+    return setupPromise;
+  };
+
+  return async ({ request }) => {
+    const raw = getHeader(request, headerName);
+    if (typeof raw !== "string" || !raw.startsWith(prefix)) {
+      if (options.optional) return null;
+      throw new AuthError("MISSING", `Missing bearer token in "${headerName}" header`, { header: headerName });
+    }
+    const token = raw.slice(prefix.length).trim();
+    if (!token) {
+      if (options.optional) return null;
+      throw new AuthError("MISSING", `Empty bearer token in "${headerName}" header`, { header: headerName });
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      const { jwtVerify, jwks } = await setup();
+      const verified = await jwtVerify(token, jwks, {
+        issuer: options.issuer,
+        audience: options.audience,
+        algorithms: options.algorithms,
+      });
+      payload = verified.payload as Record<string, unknown>;
+    } catch (error) {
+      throw new AuthError("INVALID", "JWT verification failed", {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return mapClaims(payload, request);
+  };
+};
+
 /**
  * Result of an authorization check.
  * Returns { ok: true } if authorization succeeds, or { ok: false, missing } with details.

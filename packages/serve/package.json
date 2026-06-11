@@ -32,9 +32,13 @@
     "@hypequery/datasets": "^0.1.0"
   },
   "peerDependencies": {
+    "jose": "^5.0.0 || ^6.0.0",
     "tsx": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "jose": {
+      "optional": true
+    },
     "tsx": {
       "optional": true
     }
@@ -42,6 +46,7 @@
   "devDependencies": {
     "@types/node": "^20.11.30",
     "@vitest/coverage-v8": "^2.1.9",
+    "jose": "^5.9.6",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "vitest": "^2.1.6"
