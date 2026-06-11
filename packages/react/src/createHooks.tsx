@@ -14,6 +14,19 @@ export interface QueryMethodConfig {
   path?: string;
 }
 
+/** A single route as produced by `@hypequery/serve`'s `api.manifest()`. */
+export interface RouteManifestEntry {
+  method?: string;
+  path?: string;
+}
+
+/**
+ * Map of query/metric/dataset keys to their HTTP method and full path. Pair
+ * with `InferAPIType` and `api.manifest()` from `@hypequery/serve` to resolve
+ * routes on the client without importing server code into the bundle.
+ */
+export type RouteManifest = Record<string, RouteManifestEntry>;
+
 type HeaderMap = Record<string, string | undefined>;
 type HeadersInput = HeaderMap | (() => HeaderMap);
 
@@ -22,6 +35,12 @@ export interface CreateHooksConfig<TApi = Record<string, { input: unknown; outpu
   fetchFn?: typeof fetch;
   headers?: HeadersInput;
   config?: Record<string, QueryMethodConfig>;
+  /**
+   * Route manifest from `@hypequery/serve`'s `api.manifest()`. Resolves the
+   * method and full path for each key — required for metric/dataset endpoints,
+   * which are POST routes whose paths differ from their map keys.
+   */
+  manifest?: RouteManifest;
   api?: TApi;
 }
 
@@ -41,6 +60,14 @@ const normalizeMethodConfig = (source?: Record<string, { method?: string; path?:
 const deriveMethodConfig = (api: unknown): Record<string, QueryMethodConfig> => {
   if (typeof api !== 'object' || api === null) {
     return {};
+  }
+
+  // Preferred: the serve API exposes a manifest() with full method + path.
+  if (typeof (api as Record<string, unknown>).manifest === 'function') {
+    const manifest = (api as { manifest: () => RouteManifest }).manifest();
+    if (manifest && typeof manifest === 'object') {
+      return normalizeMethodConfig(manifest);
+    }
   }
 
   if (
@@ -125,8 +152,13 @@ const resolveHeaders = (headers?: HeadersInput): Record<string, string> => {
 export function createHooks<Api extends Record<string, { input: any; output: any }>>(
   config: CreateHooksConfig<Api>
 ) {
-  const { baseUrl, fetchFn = fetch, headers = {}, config: explicitConfig = {}, api } = config;
-  const finalConfig = { ...deriveMethodConfig(api), ...explicitConfig };
+  const { baseUrl, fetchFn = fetch, headers = {}, config: explicitConfig = {}, manifest, api } = config;
+  // Precedence: explicit config > manifest > derived from a runtime api object.
+  const finalConfig = {
+    ...deriveMethodConfig(api),
+    ...(manifest ? normalizeMethodConfig(manifest) : {}),
+    ...explicitConfig,
+  };
 
   const fetchQuery = async (
     name: string,
@@ -134,6 +166,17 @@ export function createHooks<Api extends Record<string, { input: any; output: any
     defaultMethod: string = 'GET'
   ): Promise<unknown> => {
     const methodConfig = finalConfig[name];
+
+    // Semantic endpoints (dataset:<name>) live at paths that differ from their
+    // map key, so without a resolved path we'd call the wrong URL. Fail loudly
+    // instead of silently requesting `${baseUrl}/dataset:<name>`.
+    if (name.includes(':') && !methodConfig?.path) {
+      throw new Error(
+        `No route configured for "${name}". Pass \`manifest\` (from the serve ` +
+        `api.manifest()) or an explicit \`config\` entry to createHooks().`
+      );
+    }
+
     const url = buildUrl(baseUrl, name, methodConfig?.path);
     const method = methodConfig?.method ?? defaultMethod;
 

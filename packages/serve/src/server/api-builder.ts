@@ -3,6 +3,7 @@ import type {
   AuthStrategy,
   HypeQueryAPI,
   HttpMethod,
+  RouteManifest,
   ServeEndpoint,
   ServeEndpointMap,
   ServeMiddleware,
@@ -15,7 +16,7 @@ import type {
 import type { ServeRouter } from "../router.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
-import { normalizeRoutePath } from "../router.js";
+import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
 
 export const createAPImethods = <
@@ -35,6 +36,22 @@ export const createAPImethods = <
   const api: HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     queryLogger,
+
+    manifest: (): RouteManifest => {
+      const manifest: RouteManifest = {};
+      for (const [key, endpoint] of Object.entries(queryEntries) as [
+        string,
+        ServeEndpoint<any, any, TContext, TAuth>,
+      ][]) {
+        manifest[key] = {
+          method: endpoint.method,
+          // queryEntries store the pre-basePath route; re-apply so the manifest
+          // carries the full request path clients should call.
+          path: applyBasePath(basePath, endpoint.metadata.path),
+        };
+      }
+      return manifest;
+    },
 
     route: (path: string, endpoint: ServeEndpoint<any, any, TContext, TAuth>, options: Partial<RouteRegistrationOptions<TContext, TAuth>> = {}) => {
       if (!endpoint) {
