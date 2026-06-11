@@ -300,6 +300,10 @@ export type AnyDatasetInstance = DatasetInstance<
 export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any, any>> =
   keyof TDataset['dimensions'] & string;
 
+type NonNeverStringKeys<T extends Record<string, unknown>> = {
+  [K in keyof T]: [T[K]] extends [never] ? never : K;
+}[keyof T] & string;
+
 // ---------------------------------------------------------------------------
 // Typed query / result helpers for client codegen and React hooks
 //
@@ -311,11 +315,11 @@ export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any, an
 
 /** Dimension names declared by a dataset. */
 export type DatasetDimensionNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  keyof TDataset['dimensions'] & string;
+  NonNeverStringKeys<TDataset['dimensions']>;
 
 /** Measure names declared by a dataset. */
 export type DatasetMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  keyof TDataset['measures'] & string;
+  NonNeverStringKeys<TDataset['measures']>;
 
 /**
  * Fields a result can be ordered by. This is the selection-independent superset

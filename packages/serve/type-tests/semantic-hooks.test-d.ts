@@ -25,8 +25,15 @@ const Orders = dataset('orders', {
 
 const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
 
+const Countries = dataset('countries', {
+  source: 'countries',
+  dimensions: {
+    country: dimension.string(),
+  },
+});
+
 const api = createAPI({
-  datasets: { orders: Orders },
+  datasets: { orders: Orders, countries: Countries },
   metrics: { totalRevenue },
   // The query builder is irrelevant to the type-level assertions below.
   queryBuilder: {} as never,
@@ -63,6 +70,35 @@ void rowRevenue;
 
 // @ts-expect-error - field is not part of the dataset
 void datasetRow.nonexistent;
+
+// --- Datasets without measures do not widen measure fields to string ---------
+type CountriesInput = Api['dataset:countries']['input'];
+
+const okDimensionOnlyInput: CountriesInput = {
+  dimensions: ['country'],
+  orderBy: [{ field: 'country', direction: 'asc' }],
+};
+void okDimensionOnlyInput;
+
+// @ts-expect-error - dimension-only datasets do not accept arbitrary measures
+const badDimensionOnlyMeasure: CountriesInput = { measures: ['revenue'] };
+void badDimensionOnlyMeasure;
+
+const badDimensionOnlyOrderBy: CountriesInput = {
+  orderBy: [
+    // @ts-expect-error - orderBy cannot reference arbitrary measure fields
+    { field: 'revenue', direction: 'desc' },
+  ],
+};
+void badDimensionOnlyOrderBy;
+
+type CountriesRow = Api['dataset:countries']['output']['data'][number];
+const countriesRow: CountriesRow = {};
+const countryName: string | undefined = countriesRow.country;
+void countryName;
+
+// @ts-expect-error - no broad measure index should be present
+void countriesRow.revenue;
 
 // --- Metric input: intentionally loose (see SemanticMetricEndpointMap note) ---
 // `MetricRef` does not preserve its dataset's concrete dimension keys, so metric
