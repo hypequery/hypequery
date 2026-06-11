@@ -2,12 +2,13 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "./.type-tests",
     "composite": false
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "type-tests/**/*.ts"
   ],
   "exclude": [
     "src/**/*.test.ts",

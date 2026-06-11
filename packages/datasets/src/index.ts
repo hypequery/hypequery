@@ -102,4 +102,13 @@ export type {
   DerivedMetricConfig,
   DatasetRegistryInstance,
   DatasetFieldNames,
+  DatasetDimensionNames,
+  DatasetMeasureNames,
+  DatasetOrderableNames,
+  DatasetQueryFor,
+  DatasetRow,
+  DatasetQueryResultFor,
+  MetricQueryFor,
+  MetricRow,
+  MetricResultFor,
 } from './types.js';
