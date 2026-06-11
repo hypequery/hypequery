@@ -80,10 +80,24 @@ export interface DerivedMetricSpec<TDatasetName extends string = string> {
   formula: (inputs: Record<string, string>) => FormulaExpr;
 }
 
+/**
+ * The wide dataset instance used as the default `TDataset` for a metric ref.
+ * Refs created via `DatasetInstance.metric()` carry their dataset's concrete
+ * dimension/measure types instead, enabling field-level typing downstream.
+ */
+export type DefaultMetricDataset<TDatasetName extends string = string> =
+  DatasetInstance<
+    Record<string, DimensionDefinition>,
+    Record<string, MeasureDefinition>,
+    Record<string, RelationshipDefinition>,
+    TDatasetName
+  >;
+
 export interface MetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
   TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
+  TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
 > {
   __type: 'metric_ref';
   datasetName: TDatasetName;
@@ -91,33 +105,31 @@ export interface MetricRef<
   spec: TSpec;
   label?: string;
   description?: string;
-  dataset: DatasetInstance<
-    Record<string, DimensionDefinition>,
-    Record<string, MeasureDefinition>,
-    Record<string, RelationshipDefinition>,
-    TDatasetName
-  >;
-  by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec>;
+  dataset: TDataset;
+  by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
   contract(): MetricContract;
 }
 
 export type BaseMetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
-> = MetricRef<TDatasetName, TMetricName, AggregationSpec>;
+  TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
+> = MetricRef<TDatasetName, TMetricName, AggregationSpec, TDataset>;
 
 export type DerivedMetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
-> = MetricRef<TDatasetName, TMetricName, DerivedMetricSpec<TDatasetName>>;
+  TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
+> = MetricRef<TDatasetName, TMetricName, DerivedMetricSpec<TDatasetName>, TDataset>;
 
 export interface GrainedMetricRef<
   TDatasetName extends string = string,
   TMetricName extends string = string,
   TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
+  TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
 > {
   __type: 'grained_metric_ref';
-  metric: MetricRef<TDatasetName, TMetricName, TSpec>;
+  metric: MetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
   grain: TimeGrain;
   contract(): MetricContract;
 }
@@ -126,7 +138,8 @@ export type MetricHandle<
   TDatasetName extends string = string,
   TMetricName extends string = string,
   TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName> = AggregationSpec | DerivedMetricSpec<TDatasetName>,
-> = MetricRef<TDatasetName, TMetricName, TSpec> | GrainedMetricRef<TDatasetName, TMetricName, TSpec>;
+  TDataset extends DatasetInstance<any, any, any, TDatasetName> = DefaultMetricDataset<TDatasetName>,
+> = MetricRef<TDatasetName, TMetricName, TSpec, TDataset> | GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset>;
 
 export type TimeGrain = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
@@ -276,11 +289,11 @@ export interface DatasetInstance<
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
-  ): BaseMetricRef<TDatasetName, TName>;
+  ): BaseMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>>;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName>;
+  ): DerivedMetricRef<TDatasetName, TName, DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>>;
 }
 
 export interface DatasetRegistryInstance {

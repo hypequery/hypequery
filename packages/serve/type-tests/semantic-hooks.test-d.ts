@@ -100,21 +100,26 @@ void countryName;
 // @ts-expect-error - no broad measure index should be present
 void countriesRow.revenue;
 
-// --- Metric input: intentionally loose (see SemanticMetricEndpointMap note) ---
-// `MetricRef` does not preserve its dataset's concrete dimension keys, so metric
-// fields stay string-typed until the dataset generics are threaded through
-// `MetricRef`. These assertions document the current contract.
+// --- Metric input: dimensions narrowed; orderBy accepts the metric column -----
 type MetricInput = Api['totalRevenue']['input'];
 
 const okMetricInput: MetricInput = {
-  dimensions: ['country'],
+  dimensions: ['country', 'status'],
   orderBy: [{ field: 'totalRevenue', direction: 'desc' }],
   by: 'month',
 };
 void okMetricInput;
 
+// @ts-expect-error - unknown dimension name
+const badMetricDim: MetricInput = { dimensions: ['nope'] };
+void badMetricDim;
+
+// --- Metric output row carries dimensions + the metric value column -----------
 type MetricRowT = Api['totalRevenue']['output']['data'][number];
 const metricRow: MetricRowT = {};
-void metricRow.totalRevenue;
+const metricValue: number | undefined = metricRow.totalRevenue;
+const metricDimValue: string | undefined = metricRow.country;
+void metricValue;
+void metricDimValue;
 
 export {};

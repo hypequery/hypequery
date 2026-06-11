@@ -71,18 +71,19 @@ export function dataset<
   const filters = normalizeFilters(dimensions, config.filters);
   const relationships = normalizeRelationships(config.relationships);
 
+  type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,
-  ): BaseMetricRef<TDatasetName, TName>;
+  ): BaseMetricRef<TDatasetName, TName, ThisDataset>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: DerivedMetricConfig<TDatasetName>,
-  ): DerivedMetricRef<TDatasetName, TName>;
+  ): DerivedMetricRef<TDatasetName, TName, ThisDataset>;
   function metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures> | DerivedMetricConfig<TDatasetName>,
-  ): BaseMetricRef<TDatasetName, TName> | DerivedMetricRef<TDatasetName, TName> {
+  ): BaseMetricRef<TDatasetName, TName, ThisDataset> | DerivedMetricRef<TDatasetName, TName, ThisDataset> {
     if (isDerivedMetricConfig(metricConfig)) {
       validateDerivedMetric(ds, metricName, metricConfig);
       const derivedSpec = createDerivedMetricSpec(metricConfig);

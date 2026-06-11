@@ -32,14 +32,15 @@ export function createMetricRef<
   TDatasetName extends string,
   TMetricName extends string,
   TSpec extends AggregationSpec | DerivedMetricSpec<TDatasetName>,
+  TDataset extends DatasetInstance<AnyDimensions, AnyMeasures, AnyRelationships, TDatasetName>,
 >(
-  ds: DatasetInstance<AnyDimensions, AnyMeasures, AnyRelationships, TDatasetName>,
+  ds: TDataset,
   name: TMetricName,
   spec: TSpec,
   label?: string,
   description?: string,
-): MetricRef<TDatasetName, TMetricName, TSpec> {
-  const ref: MetricRef<TDatasetName, TMetricName, TSpec> = {
+): MetricRef<TDatasetName, TMetricName, TSpec, TDataset> {
+  const ref: MetricRef<TDatasetName, TMetricName, TSpec, TDataset> = {
     __type: 'metric_ref',
     datasetName: ds.name,
     name,
@@ -48,7 +49,7 @@ export function createMetricRef<
     description,
     dataset: ds,
 
-    by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec> {
+    by(grain: TimeGrain): GrainedMetricRef<TDatasetName, TMetricName, TSpec, TDataset> {
       if (!ds.timeKey) {
         throw new Error(
           `Cannot apply .by("${grain}") to metric "${name}" — dataset "${ds.name}" has no timeKey defined.`,

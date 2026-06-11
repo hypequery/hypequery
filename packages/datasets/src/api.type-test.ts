@@ -113,10 +113,10 @@ type _BaseMetricDatasetNameLiteral = Assert<
   Equal<typeof revenueMetric['datasetName'], 'orders'>
 >;
 type _BaseMetricRefKind = Assert<
-  Equal<typeof revenueMetric, BaseMetricRef<'orders', 'revenueMetric'>>
+  Equal<typeof revenueMetric, BaseMetricRef<'orders', 'revenueMetric', typeof Orders>>
 >;
 type _DerivedMetricRefKind = Assert<
-  Equal<typeof averageRevenueMetric, DerivedMetricRef<'orders', 'averageRevenueMetric'>>
+  Equal<typeof averageRevenueMetric, DerivedMetricRef<'orders', 'averageRevenueMetric', typeof Orders>>
 >;
 type _DerivedUsesRequireBaseMetricsFromSameDataset = Assert<
   Equal<DerivedMetricConfig<'orders'>['uses'], Record<string, BaseMetricRef<'orders'>>>
