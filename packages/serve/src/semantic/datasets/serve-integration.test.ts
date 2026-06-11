@@ -1056,6 +1056,51 @@ describe("Serve integration — metrics", () => {
       expect(baseSchema.properties).toHaveProperty("by");
       expect(grainedSchema.properties).toHaveProperty("by");
     });
+
+    it("enumerates metric dimension and filter fields from the dataset contract", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/openapi.json", method: "GET" }),
+      );
+
+      const doc = openApiDocument(response);
+      const schema = doc.paths["/api/analytics/metrics/totalRevenue"]
+        .post!.requestBody.content["application/json"].schema as any;
+
+      // dimensions: array of enum over every dataset dimension.
+      expect(schema.properties.dimensions.items.enum).toEqual(
+        expect.arrayContaining(["country", "status", "amount"]),
+      );
+      // filters reference the dataset's declared filter keys (Orders → status).
+      expect(schema.properties.filters.items.properties.field.enum).toEqual(["status"]);
+    });
+
+    it("enumerates dataset dimension, measure, and filter fields", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/openapi.json", method: "GET" }),
+      );
+
+      const doc = openApiDocument(response);
+      const schema = doc.paths["/api/analytics/datasets/orders/query"]
+        .post!.requestBody.content["application/json"].schema as any;
+
+      expect(schema.properties.dimensions.items.enum).toEqual(
+        expect.arrayContaining(["country", "status"]),
+      );
+      expect(schema.properties.measures.items.enum).toEqual(
+        expect.arrayContaining(["revenue", "count"]),
+      );
+      expect(schema.properties.filters.items.properties.field.enum).toEqual(["status"]);
+    });
   });
 
   describe("describe()", () => {

@@ -18,36 +18,17 @@ import type {
   ServeMiddleware,
   TenantConfigOverride,
 } from '../../types.js';
-import type { DatasetClient, MetricContract, MetricHandle, QueryBuilderFactoryLike } from '@hypequery/datasets';
+import type { AnyDatasetInstance, DatasetClient, MetricContract, MetricHandle, QueryBuilderFactoryLike } from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
   resolveSemanticQueryBuilder,
 } from '../query-builder-context.js';
+import { buildMetricInputSchema } from './utils/semantic-input-schema.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for metric query input / output
 // ---------------------------------------------------------------------------
-
-const metricFilterSchema = z.object({
-  field: z.string(),
-  operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like']),
-  value: z.unknown(),
-});
-
-const metricOrderBySchema = z.object({
-  field: z.string(),
-  direction: z.enum(['asc', 'desc']),
-});
-
-const metricQueryInputSchema = z.object({
-  dimensions: z.array(z.string()).optional(),
-  filters: z.array(metricFilterSchema).optional(),
-  orderBy: z.array(metricOrderBySchema).optional(),
-  limit: z.number().int().positive().optional(),
-  offset: z.number().int().nonnegative().optional(),
-  by: z.enum(['day', 'week', 'month', 'quarter', 'year']).optional(),
-});
 
 const metricResultMetaSchema = z.object({
   timingMs: z.number().optional(),
@@ -113,10 +94,15 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   entry: MetricEntry<TAuth>,
   analytics: DatasetClient,
   defaultBuilderFactory: QueryBuilderFactoryLike,
-): ServeEndpoint<typeof metricQueryInputSchema, typeof metricResultSchema, any, TAuth, any> {
+): ServeEndpoint<z.ZodTypeAny, typeof metricResultSchema, any, TAuth, any> {
   const resolved = resolveMetricEntry(entry);
   const metricRef = resolved.metric;
   const contract = metricRef.contract();
+  // The metric's underlying dataset, used to enumerate valid query fields.
+  const ds = (
+    metricRef.__type === 'metric_ref' ? metricRef.dataset : metricRef.metric.dataset
+  ) as AnyDatasetInstance;
+  const metricQueryInputSchema = buildMetricInputSchema(ds, contract.name);
 
   const metadata: EndpointMetadata = {
     path: '', // filled by router.register
