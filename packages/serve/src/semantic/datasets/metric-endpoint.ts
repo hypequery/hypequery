@@ -34,6 +34,7 @@ const metricResultMetaSchema = z.object({
   timingMs: z.number().optional(),
   sql: z.string().optional(),
   tenant: z.string().optional(),
+  rowCount: z.number().optional(),
   pagination: z.object({
     limit: z.number(),
     offset: z.number(),
@@ -182,8 +183,9 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       },
     });
 
-    // Decide whether to include meta
-    const includeMeta = ctx.request?.headers?.['x-include-meta'] === 'true';
+    // Decide whether to include meta — `includeMeta` input field or x-include-meta header.
+    const includeMeta = input.includeMeta === true
+      || ctx.request?.headers?.['x-include-meta'] === 'true';
 
     return {
       data: result.data,

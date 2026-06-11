@@ -336,7 +336,7 @@ export class MetricQueryEngine {
       const rows = await activeBuilderFactory.rawQuery<T>(sql, params);
       const timingMs = Date.now() - start;
       const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-      return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), pagination } };
+      return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), rowCount: data.length, pagination } };
     }
 
     // Base metrics: fully use the builder's execute()
@@ -345,7 +345,7 @@ export class MetricQueryEngine {
     const rows = await builder.execute<T>();
     const timingMs = Date.now() - start;
     const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-    return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), pagination } };
+    return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), rowCount: data.length, pagination } };
   }
 
   private buildBaseQuery(

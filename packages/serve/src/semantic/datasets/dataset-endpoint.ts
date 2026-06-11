@@ -44,6 +44,7 @@ const datasetResultMetaSchema = z.object({
   timingMs: z.number().optional(),
   sql: z.string().optional(),
   tenant: z.string().optional(),
+  rowCount: z.number().optional(),
   pagination: z.object({
     limit: z.number(),
     offset: z.number(),
@@ -135,8 +136,9 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     });
     const timingMs = Date.now() - start;
 
-    // Meta
-    const includeMeta = ctx.request?.headers?.['x-include-meta'] === 'true';
+    // Meta — opt in via the `includeMeta` input field or the x-include-meta header.
+    const includeMeta = input.includeMeta === true
+      || ctx.request?.headers?.['x-include-meta'] === 'true';
 
     return {
       data: result.data,

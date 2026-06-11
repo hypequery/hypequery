@@ -196,6 +196,8 @@ export interface MetricResultMeta {
   timingMs?: number;
   sql?: string;
   tenant?: string;
+  /** Number of rows returned in `data`. */
+  rowCount?: number;
   /**
    * Offset pagination state. Present when the query specified a `limit`.
    * `hasMore` is derived by over-fetching one row, so it is exact without a

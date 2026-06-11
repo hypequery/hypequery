@@ -111,6 +111,6 @@ export async function runDatasetQuery(
   const { data, pagination } = applyPagination(rows, query.limit, query.offset);
   return {
     data,
-    meta: { ...toResultMeta(qb, Date.now() - start, options.context), pagination },
+    meta: { ...toResultMeta(qb, Date.now() - start, options.context), rowCount: data.length, pagination },
   };
 }
