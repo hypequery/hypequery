@@ -18,6 +18,7 @@ import {
   getRuntimeTenantId,
   getRuntimeTenantPredicate,
 } from './utils/tenant-runtime.js';
+import { applyPagination, overfetchLimit } from './utils/pagination.js';
 
 function toResultMeta(
   qb: QueryBuilderLike,
@@ -34,6 +35,11 @@ function toResultMeta(
 export interface DatasetQueryExecutionOptions {
   builderFactory: QueryBuilderFactoryLike;
   context?: ExecutionContext;
+  /**
+   * Overrides the SQL `LIMIT` without affecting validation (which still uses
+   * `query.limit`). Used to over-fetch one row for pagination's `hasMore`.
+   */
+  executionLimit?: number;
 }
 
 export function validateDatasetQuery(
@@ -85,7 +91,7 @@ export function buildDatasetQueryBuilder(
     qb,
     query.orderBy,
     query.by,
-    query.limit,
+    options.executionLimit ?? query.limit,
     query.offset,
   );
 }
@@ -96,10 +102,15 @@ export async function runDatasetQuery(
   options: DatasetQueryExecutionOptions,
 ): Promise<DatasetQueryResult> {
   const start = Date.now();
-  const qb = buildDatasetQueryBuilder(ds, query, options);
-  const data = await qb.execute();
+  // Over-fetch one row so we can report `hasMore` without a count query.
+  const qb = buildDatasetQueryBuilder(ds, query, {
+    ...options,
+    executionLimit: overfetchLimit(query.limit),
+  });
+  const rows = await qb.execute();
+  const { data, pagination } = applyPagination(rows, query.limit, query.offset);
   return {
     data,
-    meta: toResultMeta(qb, Date.now() - start, options.context),
+    meta: { ...toResultMeta(qb, Date.now() - start, options.context), pagination },
   };
 }

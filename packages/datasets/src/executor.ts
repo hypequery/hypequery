@@ -61,6 +61,7 @@ import {
   getRuntimeTenantPredicate,
   validateTenantRuntime,
 } from './utils/tenant-runtime.js';
+import { applyPagination, overfetchLimit } from './utils/pagination.js';
 
 function validateQuery(
   metric: MetricHandle,
@@ -326,20 +327,25 @@ export class MetricQueryEngine {
     const spec = ref.spec;
     const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
 
+    // Over-fetch one row so we can report `hasMore` without a count query.
+    const buildQuery = { ...query, limit: overfetchLimit(query.limit) };
+
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
-      const { sql, params } = this.buildDerivedSQLViaBuilder(ref, spec, query, grain, context);
-      const data = await activeBuilderFactory.rawQuery<T>(sql, params);
+      const { sql, params } = this.buildDerivedSQLViaBuilder(ref, spec, buildQuery, grain, context);
+      const rows = await activeBuilderFactory.rawQuery<T>(sql, params);
       const timingMs = Date.now() - start;
-      return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context) } };
+      const { data, pagination } = applyPagination(rows, query.limit, query.offset);
+      return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), pagination } };
     }
 
     // Base metrics: fully use the builder's execute()
-    const builder = this.buildBaseQuery(ref, spec, ref.dataset, query, grain, context);
+    const builder = this.buildBaseQuery(ref, spec, ref.dataset, buildQuery, grain, context);
     const { sql } = builder.toSQLWithParams();
-    const data = await builder.execute<T>();
+    const rows = await builder.execute<T>();
     const timingMs = Date.now() - start;
-    return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context) } };
+    const { data, pagination } = applyPagination(rows, query.limit, query.offset);
+    return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), pagination } };
   }
 
   private buildBaseQuery(

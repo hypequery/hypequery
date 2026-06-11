@@ -1,6 +1,8 @@
 import type {
   UseQueryOptions as TanstackUseQueryOptions,
   UseQueryResult,
+  UseInfiniteQueryResult,
+  InfiniteData,
 } from '@tanstack/react-query';
 import { createHooks, type CreateHooksConfig } from './createHooks.js';
 import { HttpError } from './errors.js';
@@ -75,9 +77,31 @@ export function createAnalyticsHooks<
     return (hooks.useQuery as any)(key, ...rest);
   }
 
+  function useInfiniteMetric<Name extends MetricName>(
+    name: Name,
+    input: QueryInput<Api, Name>,
+    options?: Parameters<typeof hooks.useInfiniteQuery>[2],
+  ): UseInfiniteQueryResult<InfiniteData<QueryOutput<Api, Name>, number>, HttpError> {
+    return (hooks.useInfiniteQuery as any)(name, input, options);
+  }
+
+  function useInfiniteDataset<Name extends DatasetNamesFromApi<Api>>(
+    name: Name,
+    input: QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
+    options?: Parameters<typeof hooks.useInfiniteQuery>[2],
+  ): UseInfiniteQueryResult<
+    InfiniteData<QueryOutput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>, number>,
+    HttpError
+  > {
+    const key = `dataset:${String(name)}` as Extract<ExtractNames<Api>, DatasetKey<Name>>;
+    return (hooks.useInfiniteQuery as any)(key, input, options);
+  }
+
   return {
     ...hooks,
     useMetric,
     useDataset,
+    useInfiniteMetric,
+    useInfiniteDataset,
   } as const;
 }

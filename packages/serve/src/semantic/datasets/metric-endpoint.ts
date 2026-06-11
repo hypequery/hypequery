@@ -34,6 +34,11 @@ const metricResultMetaSchema = z.object({
   timingMs: z.number().optional(),
   sql: z.string().optional(),
   tenant: z.string().optional(),
+  pagination: z.object({
+    limit: z.number(),
+    offset: z.number(),
+    hasMore: z.boolean(),
+  }).optional(),
 }).optional();
 
 const metricResultSchema = z.object({

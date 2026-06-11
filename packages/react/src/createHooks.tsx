@@ -1,13 +1,25 @@
 import {
   useQuery as useTanstackQuery,
   useMutation as useTanstackMutation,
+  useInfiniteQuery as useTanstackInfiniteQuery,
   type UseQueryOptions as TanstackUseQueryOptions,
   type UseMutationOptions as TanstackUseMutationOptions,
+  type UseInfiniteQueryOptions as TanstackUseInfiniteQueryOptions,
   type UseMutationResult,
   type UseQueryResult,
+  type UseInfiniteQueryResult,
+  type InfiniteData,
 } from '@tanstack/react-query';
 import type { ExtractNames, QueryInput, QueryOutput } from './types.js';
 import { HttpError } from './errors.js';
+
+/** Shape of a paginated semantic response page (`{ data, meta.pagination }`). */
+interface PaginatedPage {
+  data?: unknown;
+  meta?: {
+    pagination?: { limit: number; offset: number; hasMore: boolean };
+  };
+}
 
 export interface QueryMethodConfig {
   method?: string;
@@ -163,7 +175,8 @@ export function createHooks<Api extends Record<string, { input: any; output: any
   const fetchQuery = async (
     name: string,
     input: unknown,
-    defaultMethod: string = 'GET'
+    defaultMethod: string = 'GET',
+    extraHeaders?: Record<string, string>,
   ): Promise<unknown> => {
     const methodConfig = finalConfig[name];
 
@@ -204,6 +217,7 @@ export function createHooks<Api extends Record<string, { input: any; output: any
       method,
       headers: {
         ...resolvedHeaders,
+        ...(extraHeaders ?? {}),
         ...(body ? { 'content-type': 'application/json' } : {}),
       },
       body,
@@ -286,8 +300,53 @@ export function createHooks<Api extends Record<string, { input: any; output: any
     });
   }
 
+  type InfiniteQueryOptions<Name extends ExtractNames<Api>> = Omit<
+    TanstackUseInfiniteQueryOptions<
+      QueryOutput<Api, Name>,
+      HttpError,
+      InfiniteData<QueryOutput<Api, Name>, number>,
+      QueryKey<Name>,
+      number
+    >,
+    'queryKey' | 'queryFn' | 'getNextPageParam' | 'initialPageParam'
+  >;
+
+  /**
+   * Offset-paginated query for semantic endpoints. Pages are advanced using the
+   * `meta.pagination` returned by the server (the request opts into meta via the
+   * `x-include-meta` header). `input.limit` is the page size; `input.offset`, if
+   * provided, is the starting offset.
+   */
+  function useInfiniteQuery<Name extends ExtractNames<Api>>(
+    name: Name,
+    input: QueryInput<Api, Name>,
+    options?: InfiniteQueryOptions<Name>
+  ): UseInfiniteQueryResult<InfiniteData<QueryOutput<Api, Name>, number>, HttpError> {
+    const initialOffset = (input as { offset?: number } | undefined)?.offset ?? 0;
+    const queryKey = ['hypequery', name, input] as QueryKey<Name>;
+
+    return useTanstackInfiniteQuery({
+      queryKey,
+      initialPageParam: initialOffset,
+      queryFn: ({ pageParam }) =>
+        fetchQuery(
+          name as string,
+          { ...(input as object), offset: pageParam },
+          'POST',
+          { 'x-include-meta': 'true' },
+        ) as Promise<QueryOutput<Api, Name>>,
+      getNextPageParam: (lastPage) => {
+        const pagination = (lastPage as PaginatedPage).meta?.pagination;
+        if (!pagination || !pagination.hasMore) return undefined;
+        return pagination.offset + pagination.limit;
+      },
+      ...(options ?? {}),
+    });
+  }
+
   return {
     useQuery,
     useMutation,
+    useInfiniteQuery,
   } as const;
 }

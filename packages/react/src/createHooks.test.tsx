@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PropsWithChildren } from 'react';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createHooks, queryOptions } from './createHooks.js';
 import { HttpError } from './errors.js';
@@ -1007,6 +1007,57 @@ describe('createHooks', () => {
       await expect(
         result.current.mutateAsync({ id: '123', name: 'John' })
       ).rejects.toThrow();
+    });
+  });
+
+  describe('useInfiniteQuery', () => {
+    const fetchMock = vi.fn();
+
+    beforeEach(() => {
+      fetchMock.mockReset();
+    });
+
+    it('paginates using meta.pagination and advances the offset', async () => {
+      fetchMock
+        .mockResolvedValueOnce(mockSuccessResponse({
+          data: [{ id: 'a' }],
+          meta: { pagination: { limit: 1, offset: 0, hasMore: true } },
+        }))
+        .mockResolvedValueOnce(mockSuccessResponse({
+          data: [{ id: 'b' }],
+          meta: { pagination: { limit: 1, offset: 1, hasMore: false } },
+        }));
+
+      const { useInfiniteQuery } = createHooks<TestApi>({
+        baseUrl: 'https://example.com/api',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        config: { listItems: { method: 'POST', path: '/datasets/items/query' } },
+      });
+
+      const { result } = renderHook(
+        () => useInfiniteQuery('listItems', { tags: [], limit: 1 }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      // First page requests offset 0 and opts into meta.
+      expect(fetchMock.mock.calls[0][1]?.headers['x-include-meta']).toBe('true');
+      expect(fetchMock.mock.calls[0][1]?.body).toBe(
+        JSON.stringify({ tags: [], limit: 1, offset: 0 }),
+      );
+      expect(result.current.hasNextPage).toBe(true);
+
+      await act(async () => {
+        await result.current.fetchNextPage();
+      });
+
+      await waitFor(() => expect(result.current.hasNextPage).toBe(false));
+      // Second page advances offset by the page size.
+      expect(fetchMock.mock.calls[1][1]?.body).toBe(
+        JSON.stringify({ tags: [], limit: 1, offset: 1 }),
+      );
+      expect(result.current.data?.pages).toHaveLength(2);
     });
   });
 });
