@@ -150,7 +150,8 @@ describe('MCP query tools SQL integration', () => {
     expect(response.meta.sql).toContain("SUM(if((status = 'completed'), amount, 0)) AS completedRevenue");
     expect(response.meta.sql).toContain('WHERE tenant_id = ? AND status = ?');
     expect(response.meta.sql).toContain('ORDER BY completedRevenue DESC');
-    expect(response.meta.sql).toContain('LIMIT 25 OFFSET 5');
+    // Dataset execution over-fetches one row to derive pagination.hasMore.
+    expect(response.meta.sql).toContain('LIMIT 26 OFFSET 5');
     expect(response.meta.rowCount).toBe(1);
   });
 
