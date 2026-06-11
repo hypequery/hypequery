@@ -450,6 +450,48 @@ describe("dataset query helpers", () => {
     expect(result.data).toEqual([{ revenue: 42 }]);
     expect(result.meta?.sql).toContain('SUM(amount) AS revenue');
   });
+
+  it("reports hasMore via over-fetch and trims the extra row", async () => {
+    const result = await runDatasetQuery(Orders, {
+      measures: ['revenue'],
+      limit: 2,
+    }, {
+      builderFactory: createDatasetQueryBuilderFactory([
+        { revenue: 1 }, { revenue: 2 }, { revenue: 3 },
+      ]),
+      context: TENANT_CONTEXT,
+    });
+
+    expect(result.data).toHaveLength(2);
+    expect(result.meta?.pagination).toEqual({ limit: 2, offset: 0, hasMore: true });
+    // The SQL over-fetches one extra row (LIMIT limit + 1).
+    expect(result.meta?.sql).toContain('LIMIT 3');
+  });
+
+  it("reports hasMore=false when fewer than limit+1 rows are returned", async () => {
+    const result = await runDatasetQuery(Orders, {
+      measures: ['revenue'],
+      limit: 5,
+      offset: 10,
+    }, {
+      builderFactory: createDatasetQueryBuilderFactory([{ revenue: 1 }, { revenue: 2 }]),
+      context: TENANT_CONTEXT,
+    });
+
+    expect(result.data).toHaveLength(2);
+    expect(result.meta?.pagination).toEqual({ limit: 5, offset: 10, hasMore: false });
+  });
+
+  it("omits pagination when no limit is set", async () => {
+    const result = await runDatasetQuery(Orders, {
+      measures: ['revenue'],
+    }, {
+      builderFactory: createDatasetQueryBuilderFactory([{ revenue: 1 }]),
+      context: TENANT_CONTEXT,
+    });
+
+    expect(result.meta?.pagination).toBeUndefined();
+  });
 });
 
 // =============================================================================
@@ -919,6 +961,38 @@ describe("MetricQueryEngine", () => {
       ]);
       expect(result.meta.sql).toBeDefined();
       expect(result.meta.timingMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("reports hasMore via over-fetch and trims to the limit", async () => {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = await analytics.run(totalRevenue, {
+        dimensions: ["country"],
+        limit: 1,
+      }, TENANT_CONTEXT);
+
+      // The mock returns 2 rows; an over-fetch of LIMIT 2 trims to 1 + hasMore.
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.pagination).toEqual({ limit: 1, offset: 0, hasMore: true });
+    });
+
+    it("reports hasMore=false when results fit within the limit", async () => {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = await analytics.run(totalRevenue, {
+        dimensions: ["country"],
+        limit: 5,
+      }, TENANT_CONTEXT);
+
+      expect(result.data).toHaveLength(2);
+      expect(result.meta.pagination).toEqual({ limit: 5, offset: 0, hasMore: false });
+    });
+
+    it("omits pagination when no limit is set", async () => {
+      const analytics = new MetricQueryEngine({ builderFactory: createMockBuilderFactory() });
+      const result = await analytics.run(totalRevenue, {
+        dimensions: ["country"],
+      }, TENANT_CONTEXT);
+
+      expect(result.meta.pagination).toBeUndefined();
     });
 
     it("passes tenant context to SQL", async () => {

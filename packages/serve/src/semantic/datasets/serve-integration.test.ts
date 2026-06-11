@@ -145,6 +145,11 @@ type SemanticResponseBody = {
     sql?: string;
     timingMs?: number;
     tenant?: string;
+    pagination?: {
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    };
   };
   error?: {
     type?: string;
@@ -557,6 +562,51 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
     });
 
+    it("clamps metric limit to maxLimit instead of rejecting", async () => {
+      const api = createAPI({
+        metrics: { revenue: { metric: totalRevenue, maxLimit: 50 } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/revenue",
+          method: "POST",
+          body: { dimensions: ["country"], limit: 5000 },
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(semanticBody(response).meta.pagination?.limit).toBe(50);
+    });
+
+    it("applies a default limit to unbounded metric queries", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      // No limit sent → defaults to 1000 (parity with dataset endpoints).
+      expect(semanticBody(response).meta.pagination?.limit).toBe(1000);
+    });
+
     it("passes dimensions and filters to the semantic client", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
@@ -784,7 +834,10 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(semanticBody(response).meta.sql).toBe(engine.toSQL(totalRevenue, query));
+      // run() over-fetches one row (LIMIT + 1) to derive pagination.hasMore.
+      expect(semanticBody(response).meta.sql).toBe(
+        engine.toSQL(totalRevenue, { ...query, limit: query.limit + 1 }),
+      );
     });
 
     it("matches MetricQueryEngine.toSQL() for derived metrics", async () => {
@@ -811,7 +864,11 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(semanticBody(response).meta.sql).toBe(engine.toSQL(avgOrderValue, query));
+      // No limit was sent, so the endpoint applies the default cap (1000) and
+      // over-fetches one row (1001) to derive pagination.hasMore.
+      expect(semanticBody(response).meta.sql).toBe(
+        engine.toSQL(avgOrderValue, { ...query, limit: 1001 }),
+      );
     });
   });
 
@@ -1578,7 +1635,8 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(factory._calls['orderBy']).toContainEqual(['revenue', 'DESC']);
-      expect(factory._calls['limit']).toContainEqual([25]);
+      // Over-fetches one extra row (LIMIT 25 + 1) to derive pagination.hasMore.
+      expect(factory._calls['limit']).toContainEqual([26]);
       expect(factory._calls['offset']).toContainEqual([10]);
     });
 
@@ -1609,7 +1667,9 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(factory._calls['limit']).toContainEqual([50]);
+      // Limit is capped to maxLimit (50); the executor over-fetches one extra
+      // row (51) for pagination, while returned data stays within the cap.
+      expect(factory._calls['limit']).toContainEqual([51]);
     });
 
     it("includes dataset meta when X-Include-Meta header is set", async () => {
@@ -1639,6 +1699,42 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       expect(semanticBody(response).meta).toBeDefined();
       expect(semanticBody(response).meta.sql).toBeDefined();
+    });
+
+    it("returns pagination meta with hasMore when a limit is set", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000 },
+        { country: "DE", revenue: 3000 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+            limit: 1,
+          },
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      // Mock returns 2 rows for an over-fetched LIMIT 2 → trimmed to 1 + hasMore.
+      expect(semanticBody(response).data).toHaveLength(1);
+      expect(semanticBody(response).meta.pagination).toEqual({
+        limit: 1,
+        offset: 0,
+        hasMore: true,
+      });
     });
 
     it("injects tenant filter into dataset queries when tenant config is provided", async () => {

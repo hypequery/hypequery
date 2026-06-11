@@ -540,6 +540,11 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
       cache?: number | null;
       requiredRoles?: string[];
       requiredScopes?: string[];
+      /**
+       * Caps the page size for this metric. Requests above it are clamped (not
+       * rejected). Defaults to the dataset's `limits.maxResultSize`, else 1000.
+       */
+      maxLimit?: number;
     };
 
 /** Map of metric names to entries. */

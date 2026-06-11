@@ -112,6 +112,39 @@ function Dashboard() {
 }
 ```
 
+## Pagination
+
+Semantic queries that set a `limit` return `meta.pagination = { limit, offset, hasMore }`
+(`hasMore` is exact — the server over-fetches one row rather than running a count query).
+`useInfiniteQuery`, and the `useInfiniteMetric` / `useInfiniteDataset` wrappers, build on
+this to page through results. They advance the offset automatically and request meta for you.
+
+```tsx
+function OrdersTable() {
+  const orders = useInfiniteDataset('orders', {
+    dimensions: ['status'],
+    measures: ['revenue'],
+    limit: 50,
+  });
+
+  return (
+    <>
+      {orders.data?.pages.flatMap((page) => page.data).map((row, i) => (
+        <Row key={i} row={row} />
+      ))}
+      <button
+        onClick={() => orders.fetchNextPage()}
+        disabled={!orders.hasNextPage || orders.isFetchingNextPage}
+      >
+        Load more
+      </button>
+    </>
+  );
+}
+```
+
+`input.limit` is the page size; `input.offset`, if provided, is the starting offset.
+
 ## Route Configuration
 
 Hooks need to know each endpoint's HTTP method and path. There are three ways to
