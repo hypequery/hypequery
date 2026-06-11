@@ -297,5 +297,88 @@ export type AnyDatasetInstance = DatasetInstance<
   string
 >;
 
-export type DatasetFieldNames<TDataset extends DatasetInstance> =
+export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any, any>> =
   keyof TDataset['dimensions'] & string;
+
+type NonNeverStringKeys<T extends Record<string, unknown>> = {
+  [K in keyof T]: [T[K]] extends [never] ? never : K;
+}[keyof T] & string;
+
+// ---------------------------------------------------------------------------
+// Typed query / result helpers for client codegen and React hooks
+//
+// These constrain a query's dimension/measure/orderBy fields to the names a
+// dataset or metric actually declares, and describe a best-effort typed result
+// row. Filter fields stay `string` because a dataset's `filters` map is widened
+// to `SemanticFiltersDefinition` and does not preserve literal keys.
+// ---------------------------------------------------------------------------
+
+/** Dimension names declared by a dataset. */
+export type DatasetDimensionNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  NonNeverStringKeys<TDataset['dimensions']>;
+
+/** Measure names declared by a dataset. */
+export type DatasetMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  NonNeverStringKeys<TDataset['measures']>;
+
+/**
+ * Fields a result can be ordered by. This is the selection-independent superset
+ * (every dimension + measure, plus the synthetic `period` column for grained
+ * queries); the runtime validator additionally requires the field to be selected.
+ */
+export type DatasetOrderableNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  | DatasetDimensionNames<TDataset>
+  | DatasetMeasureNames<TDataset>
+  | 'period';
+
+/** A dataset query whose fields are constrained to the dataset's contract. */
+export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any, any>> {
+  dimensions?: DatasetDimensionNames<TDataset>[];
+  measures?: DatasetMeasureNames<TDataset>[];
+  filters?: MetricFilter[];
+  orderBy?: MetricOrderBy<DatasetOrderableNames<TDataset>>[];
+  limit?: number;
+  offset?: number;
+  by?: TimeGrain;
+}
+
+/** A best-effort typed result row for a dataset query. */
+export type DatasetRow<TDataset extends DatasetInstance<any, any, any, any>> =
+  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in DatasetMeasureNames<TDataset>]?: number }
+  & { period?: string };
+
+export interface DatasetQueryResultFor<TDataset extends DatasetInstance<any, any, any, any>> {
+  data: DatasetRow<TDataset>[];
+  meta?: MetricResultMeta;
+}
+
+/** A metric query whose fields are constrained to the metric's dataset + value column. */
+export interface MetricQueryFor<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TMetricName extends string,
+> {
+  dimensions?: DatasetDimensionNames<TDataset>[];
+  filters?: MetricFilter[];
+  orderBy?: MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];
+  limit?: number;
+  offset?: number;
+  by?: TimeGrain;
+}
+
+/** A best-effort typed result row for a metric query (dimensions + the metric value). */
+export type MetricRow<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TMetricName extends string,
+> =
+  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in TMetricName]?: number }
+  & { period?: string };
+
+export interface MetricResultFor<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TMetricName extends string,
+> {
+  data: MetricRow<TDataset, TMetricName>[];
+  meta?: MetricResultMeta;
+}

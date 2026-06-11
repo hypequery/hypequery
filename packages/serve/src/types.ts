@@ -552,8 +552,8 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
 
 import type {
   DatasetInstance,
-  DatasetQuery,
-  DatasetQueryResult,
+  DatasetQueryFor,
+  DatasetQueryResultFor,
   MetricHandle,
   MetricQuery,
   MetricResult,
@@ -565,6 +565,26 @@ export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 export type DatasetsConfig<TAuth extends AuthContext = AuthContext> =
   Record<string, DatasetEntry<TAuth>>;
 
+// ---------------------------------------------------------------------------
+// Extract the concrete dataset instance from a config entry so the generated
+// endpoint map carries field-level types. When an entry has been widened (e.g.
+// annotated as `AnyDatasetInstance`), this resolves to the wide instance and
+// the map degrades gracefully to loose `string` fields.
+// ---------------------------------------------------------------------------
+
+/** The dataset instance behind a `DatasetEntry` (bare instance or `{ dataset }`). */
+type DatasetInstanceOfEntry<TEntry> =
+  TEntry extends { __type: 'dataset' }
+    ? TEntry
+    : TEntry extends { dataset: infer TDataset }
+      ? (TDataset extends DatasetInstance<any, any, any, any> ? TDataset : never)
+      : never;
+
+// NOTE: Metric endpoints stay on the loose `MetricQuery`/`MetricResult` types.
+// `MetricRef.dataset` is typed with the wide `Record<string, DimensionDefinition>`,
+// so a metric ref does not preserve its dataset's concrete dimension keys.
+// Field-level metric typing requires threading the dataset generics through
+// `MetricRef` in @hypequery/datasets — tracked as a follow-up.
 export type SemanticMetricEndpointMap<
   TMetrics extends MetricsConfig<TAuth>,
   TContext extends Record<string, unknown>,
@@ -585,11 +605,11 @@ export type SemanticDatasetEndpointMap<
   TAuth extends AuthContext,
 > = {
   [TKey in keyof TDatasets & string as `dataset:${TKey}`]: ServeEndpoint<
-    ZodType<DatasetQuery>,
-    ZodType<DatasetQueryResult>,
+    ZodType<DatasetQueryFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
+    ZodType<DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
     TContext,
     TAuth,
-    DatasetQueryResult
+    DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>
   >;
 };
 
