@@ -149,6 +149,12 @@ type SemanticResponseBody = {
   error?: {
     type?: string;
     message: string;
+    details?: {
+      issues?: Array<{
+        path?: Array<string | number>;
+        message?: string;
+      }>;
+    };
   };
 };
 
@@ -523,6 +529,12 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(400);
       expect(semanticBody(response).error.type).toBe("VALIDATION_ERROR");
+      expect(semanticBody(response).error.message).toBe("Request validation failed");
+      expect(semanticBody(response).error.details?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ["dimensions", 0] }),
+        ]),
+      );
     });
 
     it("returns 400 for disallowed metric filter operators", async () => {
@@ -1110,6 +1122,51 @@ describe("Serve integration — metrics", () => {
       expect(baseSchema.properties).toHaveProperty("by");
       expect(grainedSchema.properties).toHaveProperty("by");
     });
+
+    it("enumerates metric dimension and filter fields from the dataset contract", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/openapi.json", method: "GET" }),
+      );
+
+      const doc = openApiDocument(response);
+      const schema = doc.paths["/api/analytics/metrics/totalRevenue"]
+        .post!.requestBody.content["application/json"].schema as any;
+
+      // dimensions: array of enum over every dataset dimension.
+      expect(schema.properties.dimensions.items.enum).toEqual(
+        expect.arrayContaining(["country", "status", "amount"]),
+      );
+      // filters reference the dataset's declared filter keys (Orders → status).
+      expect(schema.properties.filters.items.properties.field.enum).toEqual(["status"]);
+    });
+
+    it("enumerates dataset dimension, measure, and filter fields", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/openapi.json", method: "GET" }),
+      );
+
+      const doc = openApiDocument(response);
+      const schema = doc.paths["/api/analytics/datasets/orders/query"]
+        .post!.requestBody.content["application/json"].schema as any;
+
+      expect(schema.properties.dimensions.items.enum).toEqual(
+        expect.arrayContaining(["country", "status"]),
+      );
+      expect(schema.properties.measures.items.enum).toEqual(
+        expect.arrayContaining(["revenue", "count"]),
+      );
+      expect(schema.properties.filters.items.properties.field.enum).toEqual(["status"]);
+    });
   });
 
   describe("describe()", () => {
@@ -1404,6 +1461,33 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
       expect(factory._calls['count']).toContainEqual(['id', 'count']);
       expect(factory._calls['groupBy'][0][0]).toContain('country');
+    });
+
+    it("returns request validation errors for invalid dataset fields", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["nonexistent_field"],
+            measures: ["revenue"],
+          },
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect(semanticBody(response).error.type).toBe("VALIDATION_ERROR");
+      expect(semanticBody(response).error.message).toBe("Request validation failed");
+      expect(semanticBody(response).error.details?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ["dimensions", 0] }),
+        ]),
+      );
     });
 
     it("executes dataset queries with aliases and time grain and preserves returned row shape", async () => {

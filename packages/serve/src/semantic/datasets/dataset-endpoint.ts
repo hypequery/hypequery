@@ -32,33 +32,13 @@ import {
 } from '../query-builder-context.js';
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
+import { buildDatasetInputSchema } from './utils/semantic-input-schema.js';
 
 export type { DatasetEntry } from './utils/dataset-entry.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for dataset query input / output
 // ---------------------------------------------------------------------------
-
-const datasetFilterSchema = z.object({
-  field: z.string(),
-  operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like']),
-  value: z.unknown(),
-});
-
-const datasetOrderBySchema = z.object({
-  field: z.string(),
-  direction: z.enum(['asc', 'desc']),
-});
-
-const datasetQueryInputSchema = z.object({
-  dimensions: z.array(z.string()).optional(),
-  measures: z.array(z.string()).optional(),
-  filters: z.array(datasetFilterSchema).optional(),
-  orderBy: z.array(datasetOrderBySchema).optional(),
-  limit: z.number().int().positive().optional(),
-  offset: z.number().int().nonnegative().optional(),
-  by: z.enum(['day', 'week', 'month', 'quarter', 'year']).optional(),
-}).strict();
 
 const datasetResultMetaSchema = z.object({
   timingMs: z.number().optional(),
@@ -79,10 +59,13 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   name: string,
   entry: DatasetEntry<TAuth>,
   builderFactory: QueryBuilderFactoryLike,
-): ServeEndpoint<typeof datasetQueryInputSchema, typeof datasetResultSchema, any, TAuth, any> {
+): ServeEndpoint<z.ZodTypeAny, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
   const ds = resolved.dataset;
   const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
+  // Build a schema whose dimension/measure/filter fields are enumerated from
+  // this dataset's contract, so OpenAPI/docs and clients see the valid fields.
+  const datasetQueryInputSchema = buildDatasetInputSchema(ds);
 
   const metadata: EndpointMetadata = {
     path: '', // filled by router.register
