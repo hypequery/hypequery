@@ -2,6 +2,7 @@ import type {
   AuthContext,
   AuthStrategy,
   HttpMethod,
+  RouteManifest,
   ServeBuilder,
   ServeEndpoint,
   ServeEndpointMap,
@@ -15,7 +16,7 @@ import type {
 import type { ServeRouter } from "../router.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
-import { normalizeRoutePath } from "../router.js";
+import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
 
 const loadNodeAdapter = async () => {
@@ -45,6 +46,20 @@ export const createBuilderMethods = <
     basePath: basePath || undefined,
     queryLogger,
     _routeConfig: routeConfig,
+
+    manifest: (): RouteManifest => {
+      const manifest: RouteManifest = {};
+      for (const [key, endpoint] of Object.entries(queryEntries) as [
+        string,
+        ServeEndpoint<any, any, TContext, TAuth>,
+      ][]) {
+        manifest[key] = {
+          method: routeConfig[key]?.method ?? endpoint.method,
+          path: applyBasePath(basePath, endpoint.metadata.path),
+        };
+      }
+      return manifest;
+    },
 
     route: (path: string, endpoint: ServeEndpoint<any, any, TContext, TAuth>, options: Partial<RouteRegistrationOptions<TContext, TAuth>> = {}) => {
       if (!endpoint) {

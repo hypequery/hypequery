@@ -862,6 +862,22 @@ export type ExecuteQueryFunction<
  * export default toFetchHandler(api);
  * ```
  */
+/** A single route in a {@link RouteManifest}. */
+export interface RouteManifestEntry {
+  method: HttpMethod;
+  /** Full request path including the API base path. */
+  path: string;
+}
+
+/**
+ * Serializable map of query/metric/dataset keys to their HTTP method and full
+ * path. Keys match {@link HypeQueryAPI.queries} (including `dataset:<name>`
+ * keys for datasets), so it can be paired with `InferAPIType` and handed to
+ * `@hypequery/react`'s `createHooks({ manifest })` to resolve client routes
+ * without importing server code into the browser bundle.
+ */
+export type RouteManifest = Record<string, RouteManifestEntry>;
+
 export interface HypeQueryAPI<
   TQueries extends Record<string, ServeEndpoint<any, any, any, any>> = Record<
     string,
@@ -875,6 +891,11 @@ export interface HypeQueryAPI<
   readonly queryLogger: ServeQueryLogger;
   /** The underlying request handler. Can be passed directly to transport adapters. */
   readonly handler: ServeHandler;
+  /**
+   * Build a serializable {@link RouteManifest} of every query/metric/dataset
+   * route (method + full path). Safe to JSON-serialize and ship to the client.
+   */
+  manifest(): RouteManifest;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],
@@ -957,6 +978,11 @@ export interface ServeBuilder<
   readonly queryLogger: ServeQueryLogger;
   /** Internal route configuration mapping query names to their HTTP methods */
   readonly _routeConfig?: Record<string, { method: HttpMethod }>;
+  /**
+   * Build a serializable {@link RouteManifest} of every query/metric/dataset
+   * route (method + full path). Safe to JSON-serialize and ship to the client.
+   */
+  manifest(): RouteManifest;
   route<Path extends string, TKey extends keyof TQueries>(
     path: Path,
     endpoint: TQueries[TKey],

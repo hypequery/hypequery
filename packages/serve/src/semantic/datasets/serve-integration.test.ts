@@ -412,6 +412,60 @@ describe("Serve integration — metrics", () => {
     });
   });
 
+  describe("manifest()", () => {
+    it("maps queries, metrics, and datasets to full method + path", () => {
+      const api = createAPI({
+        queries: {
+          ping: { query: async () => ({ ok: true }) },
+        },
+        metrics: { totalRevenue },
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const manifest = api.manifest();
+
+      // Plain queries default to GET under /queries.
+      expect(manifest.ping).toEqual({
+        method: "GET",
+        path: "/api/analytics/queries/ping",
+      });
+      // Metrics are POST under /metrics/<name>.
+      expect(manifest.totalRevenue).toEqual({
+        method: "POST",
+        path: "/api/analytics/metrics/totalRevenue",
+      });
+      // Datasets are keyed `dataset:<name>` and POST under /datasets/<name>/query.
+      expect(manifest["dataset:orders"]).toEqual({
+        method: "POST",
+        path: "/api/analytics/datasets/orders/query",
+      });
+    });
+
+    it("respects a custom basePath", () => {
+      const api = createAPI({
+        basePath: "/v1/analytics",
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      expect(api.manifest().totalRevenue).toEqual({
+        method: "POST",
+        path: "/v1/analytics/metrics/totalRevenue",
+      });
+    });
+
+    it("excludes internal openapi and docs routes", () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const keys = Object.keys(api.manifest());
+      expect(keys).toEqual(["totalRevenue"]);
+    });
+  });
+
   describe("metric endpoints", () => {
     it("responds to POST /metrics/:name", async () => {
       const factory = createMockBuilderFactory();

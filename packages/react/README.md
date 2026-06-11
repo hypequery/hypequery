@@ -83,9 +83,11 @@ function RevenuePanel() {
 import { createAnalyticsHooks } from '@hypequery/react';
 import type { AnalyticsApi } from '../server/api.js';
 
+import { manifest } from '../server/api.js'; // serve api.manifest(), serialized
+
 export const { useMetric, useDataset } = createAnalyticsHooks<AnalyticsApi>({
   baseUrl: '/api/analytics',
-  api: {} as AnalyticsApi,
+  manifest,
   metrics: ['revenue', 'averageOrderValue'] as const,
 });
 
@@ -112,7 +114,37 @@ function Dashboard() {
 
 ## Route Configuration
 
-If your API type is not available at runtime, pass route config explicitly.
+Hooks need to know each endpoint's HTTP method and path. There are three ways to
+supply that, in increasing precedence: a route manifest, a runtime `api` object,
+or explicit `config`.
+
+### Route manifest (recommended)
+
+`@hypequery/serve`'s `api.manifest()` returns a serializable map of every
+query/metric/dataset key to its `{ method, path }`. Export it from a server-only
+module and pass it to the hooks — this avoids importing server code into the
+browser bundle while keeping client routes in sync with the server.
+
+```ts
+// server side (server-only module)
+export const manifest = api.manifest();
+
+// client side
+const { useQuery } = createHooks<AnalyticsApi>({
+  baseUrl: '/api/analytics',
+  manifest,
+});
+```
+
+> Metric and dataset endpoints are POST routes whose paths differ from their map
+> keys (e.g. `dataset:orders` → `POST /api/analytics/datasets/orders/query`). They
+> require a `manifest` (or explicit `config`); calling them without one throws a
+> clear error rather than hitting the wrong URL.
+
+### Explicit config
+
+If a manifest is not available at runtime, pass route config explicitly. This
+overrides any manifest entry.
 
 ```ts
 const { useQuery } = createHooks<AnalyticsApi>({

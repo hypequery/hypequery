@@ -341,6 +341,104 @@ describe('createHooks', () => {
     });
   });
 
+  describe('Route manifest', () => {
+    const fetchMock = vi.fn();
+
+    beforeEach(() => {
+      fetchMock.mockReset();
+      fetchMock.mockResolvedValue(mockSuccessResponse({ success: true }));
+    });
+
+    it('resolves method and path from a manifest', async () => {
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://api.example.com',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        manifest: {
+          getUser: { method: 'POST', path: '/api/analytics/metrics/getUser' },
+        },
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '123' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.example.com/api/analytics/metrics/getUser',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ id: '123' }),
+        })
+      );
+    });
+
+    it('lets explicit config override the manifest', async () => {
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://api.example.com',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        manifest: {
+          getUser: { method: 'POST', path: '/manifest/getUser' },
+        },
+        config: {
+          getUser: { method: 'POST', path: '/override/getUser' },
+        },
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '123' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.example.com/override/getUser',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+
+    it('derives method config from an api object exposing manifest()', async () => {
+      const mockApi = {
+        manifest: () => ({
+          getUser: { method: 'PATCH', path: '/api/analytics/queries/getUser' },
+        }),
+      } as unknown as TestApi;
+
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://api.example.com',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        api: mockApi,
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '123' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.example.com/api/analytics/queries/getUser',
+        expect.objectContaining({ method: 'PATCH' })
+      );
+    });
+
+    it('throws for an unresolved semantic (dataset:) key', async () => {
+      const { useQuery } = createHooks<Record<string, { input: unknown; output: unknown }>>({
+        baseUrl: 'https://api.example.com',
+        fetchFn: fetchMock as unknown as typeof fetch,
+      });
+
+      const { result } = renderHook(
+        () => useQuery('dataset:orders' as never, { dimensions: ['country'] } as never),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(result.current.error?.message).toContain('No route configured for "dataset:orders"');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Query Parameter Serialization', () => {
     const fetchMock = vi.fn();
 
