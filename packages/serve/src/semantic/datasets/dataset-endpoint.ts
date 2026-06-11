@@ -156,7 +156,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     outputSchema: datasetResultSchema,
     handler,
     query: undefined,
-    middlewares: [] as ServeMiddleware<any, any, any, TAuth>[],
+    middlewares: (resolved.middlewares ?? []) as ServeMiddleware<any, any, any, TAuth>[],
     auth: resolved.auth ?? null,
     tenant: resolved.tenant,
     metadata,

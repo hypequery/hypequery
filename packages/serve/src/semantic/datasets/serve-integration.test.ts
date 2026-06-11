@@ -1786,6 +1786,37 @@ describe("Serve integration — metrics", () => {
       });
     });
 
+    it("runs per-endpoint middleware on a dataset endpoint", async () => {
+      const calls: string[] = [];
+      const api = createAPI({
+        datasets: {
+          orders: {
+            dataset: Orders,
+            middlewares: [
+              async (_ctx, next) => {
+                calls.push("before");
+                const result = await next();
+                calls.push("after");
+                return result;
+              },
+            ],
+          },
+        },
+        queryBuilder: createMockBuilderFactory([{ country: "US", revenue: 5000 }]),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: { dimensions: ["country"], measures: ["revenue"] },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(calls).toEqual(["before", "after"]);
+    });
+
     it("injects tenant filter into dataset queries when tenant config is provided", async () => {
       const factory = createMockBuilderFactory([
         { country: "US", revenue: 5000 },

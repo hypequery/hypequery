@@ -79,6 +79,7 @@ function resolveMetricEntry<TAuth extends AuthContext>(
   cache?: number | null;
   requiredRoles?: string[];
   requiredScopes?: string[];
+  middlewares?: ServeMiddleware<any, any, any, TAuth>[];
   maxLimit?: number;
 } {
   if (isMetricHandleEntry(entry)) {
@@ -200,7 +201,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     outputSchema: metricResultSchema,
     handler,
     query: undefined,
-    middlewares: [] as ServeMiddleware<any, any, any, TAuth>[],
+    middlewares: (resolved.middlewares ?? []) as ServeMiddleware<any, any, any, TAuth>[],
     auth: resolved.auth ?? null,
     tenant: resolved.tenant,
     metadata,
