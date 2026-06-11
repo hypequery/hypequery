@@ -141,6 +141,49 @@ const { useQuery } = createHooks<AnalyticsApi>({
 > require a `manifest` (or explicit `config`); calling them without one throws a
 > clear error rather than hitting the wrong URL.
 
+#### Generating the manifest at build time
+
+The cleanest way to keep server code out of the browser bundle is to generate a
+JSON file at build time and import that on the client. `api.manifest()` is pure —
+it reads the configured routes and never touches your database — so this step is
+cheap and safe to run in CI.
+
+```ts
+// scripts/gen-manifest.ts — run before your client build
+import { writeFileSync } from 'node:fs';
+import { api } from '../server/api.js';
+
+writeFileSync('src/generated/manifest.json', JSON.stringify(api.manifest(), null, 2));
+```
+
+```jsonc
+// package.json
+{
+  "scripts": {
+    "gen:manifest": "tsx scripts/gen-manifest.ts",
+    "build": "npm run gen:manifest && <your client build>"
+  }
+}
+```
+
+```ts
+// client side — imports plain JSON, no server code in the bundle
+import manifest from './generated/manifest.json';
+
+const { useQuery } = createHooks<AnalyticsApi>({
+  baseUrl: '/api/analytics',
+  manifest,
+});
+```
+
+The manifest is derived entirely from your serve config (`basePath`, route keys,
+and `semanticPaths`), so the generated file is deterministic and only changes when
+your API shape does — commit it or regenerate it on every build.
+
+> `baseUrl` supplies the origin/host; the per-endpoint path comes from the
+> manifest (it already includes the server's `basePath`), so there's no
+> double-prefixing. Keep `baseUrl` aligned with where the API is mounted.
+
 ### Explicit config
 
 If a manifest is not available at runtime, pass route config explicitly. This
