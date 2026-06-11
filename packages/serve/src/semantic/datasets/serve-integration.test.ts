@@ -562,6 +562,51 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
     });
 
+    it("clamps metric limit to maxLimit instead of rejecting", async () => {
+      const api = createAPI({
+        metrics: { revenue: { metric: totalRevenue, maxLimit: 50 } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/revenue",
+          method: "POST",
+          body: { dimensions: ["country"], limit: 5000 },
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(semanticBody(response).meta.pagination?.limit).toBe(50);
+    });
+
+    it("applies a default limit to unbounded metric queries", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"] },
+          headers: {
+            'content-type': 'application/json',
+            'x-include-meta': 'true',
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      // No limit sent → defaults to 1000 (parity with dataset endpoints).
+      expect(semanticBody(response).meta.pagination?.limit).toBe(1000);
+    });
+
     it("passes dimensions and filters to the semantic client", async () => {
       const factory = createMockBuilderFactory();
       const api = createAPI({
@@ -819,7 +864,11 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(semanticBody(response).meta.sql).toBe(engine.toSQL(avgOrderValue, query));
+      // No limit was sent, so the endpoint applies the default cap (1000) and
+      // over-fetches one row (1001) to derive pagination.hasMore.
+      expect(semanticBody(response).meta.sql).toBe(
+        engine.toSQL(avgOrderValue, { ...query, limit: 1001 }),
+      );
     });
   });
 

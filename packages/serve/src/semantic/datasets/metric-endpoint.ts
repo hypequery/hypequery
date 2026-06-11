@@ -78,6 +78,7 @@ function resolveMetricEntry<TAuth extends AuthContext>(
   cache?: number | null;
   requiredRoles?: string[];
   requiredScopes?: string[];
+  maxLimit?: number;
 } {
   if (isMetricHandleEntry(entry)) {
     return { metric: entry };
@@ -103,18 +104,22 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   const resolved = resolveMetricEntry(entry);
   const metricRef = resolved.metric;
   const contract = metricRef.contract();
-  // The metric's underlying dataset, used to enumerate valid query fields.
+  // The metric's underlying dataset, used to enumerate valid query fields and
+  // page-size defaults.
   const ds = (
     metricRef.__type === 'metric_ref' ? metricRef.dataset : metricRef.metric.dataset
   ) as AnyDatasetInstance;
   const metricQueryInputSchema = buildMetricInputSchema(ds, contract.name);
+  // Page-size cap, mirroring datasets: clamp (don't reject) and apply a default
+  // so a metric query is never unbounded.
+  const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
 
   const metadata: EndpointMetadata = {
     path: '', // filled by router.register
     method: 'POST',
     name: contract.label ?? name,
     summary: `Query the "${name}" metric`,
-    description: buildDescription(contract),
+    description: buildDescription(contract, effectiveMaxLimit),
     tags: ['metrics'],
     requiresAuth: resolved.auth !== null ? undefined : false,
     requiredRoles: resolved.requiredRoles,
@@ -139,7 +144,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       dimensions: input.dimensions,
       filters: input.filters,
       orderBy: input.orderBy,
-      limit: input.limit,
+      limit: Math.min(input.limit ?? effectiveMaxLimit, effectiveMaxLimit),
       offset: input.offset,
       by: input.by,
     };
@@ -204,13 +209,14 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   };
 }
 
-function buildDescription(contract: MetricContract): string {
+function buildDescription(contract: MetricContract, maxLimit: number): string {
   const lines = [
     contract.description ?? `${contract.name} metric on the ${contract.dataset} dataset.`,
     '',
     `**Type:** ${contract.kind}`,
     `**Dataset:** ${contract.dataset}`,
     `**Dimensions:** ${contract.dimensions.join(', ') || 'none'}`,
+    `**Max limit:** ${maxLimit}`,
   ];
 
   if (contract.grains.length > 0) {

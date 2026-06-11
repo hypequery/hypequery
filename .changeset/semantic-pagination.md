@@ -17,3 +17,8 @@ schema (surfaced when meta is requested via `x-include-meta`).
 query. They advance the offset using `meta.pagination`, automatically requesting
 meta, so paginating a dataset is just `fetchNextPage()` until `hasNextPage` is
 false.
+
+Metric endpoints now treat the page-size `limit` like dataset endpoints: a
+configurable `maxLimit` on the metric entry (defaulting to the dataset's
+`limits.maxResultSize`, else 1000), with over-limit requests **clamped** rather
+than rejected, and a default cap applied so a metric query is never unbounded.
