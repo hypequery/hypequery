@@ -149,6 +149,12 @@ type SemanticResponseBody = {
   error?: {
     type?: string;
     message: string;
+    details?: {
+      issues?: Array<{
+        path?: Array<string | number>;
+        message?: string;
+      }>;
+    };
   };
 };
 
@@ -469,6 +475,12 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(400);
       expect(semanticBody(response).error.type).toBe("VALIDATION_ERROR");
+      expect(semanticBody(response).error.message).toBe("Request validation failed");
+      expect(semanticBody(response).error.details?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ["dimensions", 0] }),
+        ]),
+      );
     });
 
     it("returns 400 for disallowed metric filter operators", async () => {
@@ -1395,6 +1407,33 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
       expect(factory._calls['count']).toContainEqual(['id', 'count']);
       expect(factory._calls['groupBy'][0][0]).toContain('country');
+    });
+
+    it("returns request validation errors for invalid dataset fields", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["nonexistent_field"],
+            measures: ["revenue"],
+          },
+        })
+      );
+
+      expect(response.status).toBe(400);
+      expect(semanticBody(response).error.type).toBe("VALIDATION_ERROR");
+      expect(semanticBody(response).error.message).toBe("Request validation failed");
+      expect(semanticBody(response).error.details?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ["dimensions", 0] }),
+        ]),
+      );
     });
 
     it("executes dataset queries with aliases and time grain and preserves returned row shape", async () => {
