@@ -555,8 +555,8 @@ import type {
   DatasetQueryFor,
   DatasetQueryResultFor,
   MetricHandle,
-  MetricQuery,
-  MetricResult,
+  MetricQueryFor,
+  MetricResultFor,
 } from "@hypequery/datasets";
 import type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
@@ -566,10 +566,11 @@ export type DatasetsConfig<TAuth extends AuthContext = AuthContext> =
   Record<string, DatasetEntry<TAuth>>;
 
 // ---------------------------------------------------------------------------
-// Extract the concrete dataset instance from a config entry so the generated
-// endpoint map carries field-level types. When an entry has been widened (e.g.
-// annotated as `AnyDatasetInstance`), this resolves to the wide instance and
-// the map degrades gracefully to loose `string` fields.
+// Extract the concrete dataset instance / metric name from a config entry so
+// the generated endpoint map carries field-level types. When an entry has been
+// widened (e.g. annotated as `AnyDatasetInstance` / `MetricHandle<any, any>`),
+// these resolve to the wide instance and the maps degrade gracefully to loose
+// `string` fields.
 // ---------------------------------------------------------------------------
 
 /** The dataset instance behind a `DatasetEntry` (bare instance or `{ dataset }`). */
@@ -580,22 +581,43 @@ type DatasetInstanceOfEntry<TEntry> =
       ? (TDataset extends DatasetInstance<any, any, any, any> ? TDataset : never)
       : never;
 
-// NOTE: Metric endpoints stay on the loose `MetricQuery`/`MetricResult` types.
-// `MetricRef.dataset` is typed with the wide `Record<string, DimensionDefinition>`,
-// so a metric ref does not preserve its dataset's concrete dimension keys.
-// Field-level metric typing requires threading the dataset generics through
-// `MetricRef` in @hypequery/datasets — tracked as a follow-up.
+/** The `MetricHandle` behind a `MetricEntry` (bare handle or `{ metric }`). */
+type MetricHandleOfEntry<TEntry> =
+  TEntry extends { __type: 'metric_ref' | 'grained_metric_ref' }
+    ? TEntry
+    : TEntry extends { metric: infer THandle }
+      ? THandle
+      : never;
+
+/** Unwrap a grained metric ref to its underlying base ref. */
+type BaseMetricRefOf<THandle> =
+  THandle extends { __type: 'grained_metric_ref'; metric: infer TRef }
+    ? TRef
+    : THandle;
+
+/** The concrete dataset instance a metric is defined on. */
+type MetricDatasetOfEntry<TEntry> =
+  BaseMetricRefOf<MetricHandleOfEntry<TEntry>> extends { dataset: infer TDataset }
+    ? (TDataset extends DatasetInstance<any, any, any, any> ? TDataset : never)
+    : never;
+
+/** The metric's output column name (used for typed rows and orderBy). */
+type MetricNameOfEntry<TEntry> =
+  BaseMetricRefOf<MetricHandleOfEntry<TEntry>> extends { name: infer TName }
+    ? (TName extends string ? TName : string)
+    : string;
+
 export type SemanticMetricEndpointMap<
   TMetrics extends MetricsConfig<TAuth>,
   TContext extends Record<string, unknown>,
   TAuth extends AuthContext,
 > = {
   [TKey in keyof TMetrics & string]: ServeEndpoint<
-    ZodType<MetricQuery>,
-    ZodType<MetricResult>,
+    ZodType<MetricQueryFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
+    ZodType<MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
     TContext,
     TAuth,
-    MetricResult
+    MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
   >;
 };
 
