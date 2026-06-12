@@ -540,6 +540,8 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
       cache?: number | null;
       requiredRoles?: string[];
       requiredScopes?: string[];
+      /** Middleware applied to this metric endpoint. */
+      middlewares?: ServeMiddleware<any, any, any, TAuth>[];
       /**
        * Caps the page size for this metric. Requests above it are clamped (not
        * rejected). Defaults to the dataset's `limits.maxResultSize`, else 1000.

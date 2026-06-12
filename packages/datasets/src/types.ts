@@ -196,6 +196,8 @@ export interface MetricResultMeta {
   timingMs?: number;
   sql?: string;
   tenant?: string;
+  /** Number of rows returned in `data`. */
+  rowCount?: number;
   /**
    * Offset pagination state. Present when the query specified a `limit`.
    * `hasMore` is derived by over-fetching one row, so it is exact without a
@@ -363,6 +365,7 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  includeMeta?: boolean;
 }
 
 /** A best-effort typed result row for a dataset query. */
@@ -387,6 +390,7 @@ export interface MetricQueryFor<
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  includeMeta?: boolean;
 }
 
 /** A best-effort typed result row for a metric query (dimensions + the metric value). */

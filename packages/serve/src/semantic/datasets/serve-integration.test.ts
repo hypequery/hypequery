@@ -145,6 +145,7 @@ type SemanticResponseBody = {
     sql?: string;
     timingMs?: number;
     tenant?: string;
+    rowCount?: number;
     pagination?: {
       limit: number;
       offset: number;
@@ -805,6 +806,26 @@ describe("Serve integration — metrics", () => {
 
       expect(semanticBody(response).meta).toBeDefined();
       expect(semanticBody(response).meta.sql).toBeDefined();
+    });
+
+    it("includes meta via the includeMeta input field and reports rowCount", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/totalRevenue",
+          method: "POST",
+          body: { dimensions: ["country"], includeMeta: true },
+        })
+      );
+
+      expect(semanticBody(response).meta).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeDefined();
+      // Mock returns 2 rows.
+      expect(semanticBody(response).meta.rowCount).toBe(2);
     });
 
     it("matches MetricQueryEngine.toSQL() for base metrics", async () => {
@@ -1699,6 +1720,34 @@ describe("Serve integration — metrics", () => {
       expect(response.status).toBe(200);
       expect(semanticBody(response).meta).toBeDefined();
       expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.rowCount).toBe(1);
+    });
+
+    it("includes meta via the includeMeta input field (no header)", async () => {
+      const factory = createMockBuilderFactory([
+        { country: "US", revenue: 5000 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+            includeMeta: true,
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(semanticBody(response).meta).toBeDefined();
+      expect(semanticBody(response).meta.sql).toBeDefined();
+      expect(semanticBody(response).meta.rowCount).toBe(1);
     });
 
     it("returns pagination meta with hasMore when a limit is set", async () => {
@@ -1735,6 +1784,37 @@ describe("Serve integration — metrics", () => {
         offset: 0,
         hasMore: true,
       });
+    });
+
+    it("runs per-endpoint middleware on a dataset endpoint", async () => {
+      const calls: string[] = [];
+      const api = createAPI({
+        datasets: {
+          orders: {
+            dataset: Orders,
+            middlewares: [
+              async (_ctx, next) => {
+                calls.push("before");
+                const result = await next();
+                calls.push("after");
+                return result;
+              },
+            ],
+          },
+        },
+        queryBuilder: createMockBuilderFactory([{ country: "US", revenue: 5000 }]),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: { dimensions: ["country"], measures: ["revenue"] },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(calls).toEqual(["before", "after"]);
     });
 
     it("injects tenant filter into dataset queries when tenant config is provided", async () => {

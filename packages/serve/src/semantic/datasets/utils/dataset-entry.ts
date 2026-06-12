@@ -1,6 +1,7 @@
 import type {
   AuthContext,
   AuthStrategy,
+  ServeMiddleware,
   TenantConfigOverride,
 } from '../../../types.js';
 import type { AnyDatasetInstance } from '@hypequery/datasets';
@@ -14,6 +15,8 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
       cache?: number | null;
       requiredRoles?: string[];
       requiredScopes?: string[];
+      /** Middleware applied to this dataset endpoint. */
+      middlewares?: ServeMiddleware<any, any, any, TAuth>[];
       maxLimit?: number;
     };
 
@@ -40,6 +43,7 @@ export function resolveDatasetEntry<TAuth extends AuthContext>(
   cache?: number | null;
   requiredRoles?: string[];
   requiredScopes?: string[];
+  middlewares?: ServeMiddleware<any, any, any, TAuth>[];
   maxLimit?: number;
 } {
   if (isDatasetInstance(entry)) {

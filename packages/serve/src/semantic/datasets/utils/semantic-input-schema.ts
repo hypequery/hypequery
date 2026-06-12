@@ -70,6 +70,7 @@ export function buildDatasetInputSchema(ds: AnyDatasetInstance) {
     limit: z.number().int().positive().optional(),
     offset: z.number().int().nonnegative().optional(),
     by: z.enum(GRAINS).optional(),
+    includeMeta: z.boolean().optional(),
   }).strict();
 }
 
@@ -93,5 +94,6 @@ export function buildMetricInputSchema(ds: AnyDatasetInstance, metricName: strin
     limit: z.number().int().positive().optional(),
     offset: z.number().int().nonnegative().optional(),
     by: z.enum(GRAINS).optional(),
+    includeMeta: z.boolean().optional(),
   });
 }

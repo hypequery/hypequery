@@ -34,6 +34,7 @@ const metricResultMetaSchema = z.object({
   timingMs: z.number().optional(),
   sql: z.string().optional(),
   tenant: z.string().optional(),
+  rowCount: z.number().optional(),
   pagination: z.object({
     limit: z.number(),
     offset: z.number(),
@@ -78,6 +79,7 @@ function resolveMetricEntry<TAuth extends AuthContext>(
   cache?: number | null;
   requiredRoles?: string[];
   requiredScopes?: string[];
+  middlewares?: ServeMiddleware<any, any, any, TAuth>[];
   maxLimit?: number;
 } {
   if (isMetricHandleEntry(entry)) {
@@ -182,8 +184,9 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       },
     });
 
-    // Decide whether to include meta
-    const includeMeta = ctx.request?.headers?.['x-include-meta'] === 'true';
+    // Decide whether to include meta — `includeMeta` input field or x-include-meta header.
+    const includeMeta = input.includeMeta === true
+      || ctx.request?.headers?.['x-include-meta'] === 'true';
 
     return {
       data: result.data,
@@ -198,7 +201,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     outputSchema: metricResultSchema,
     handler,
     query: undefined,
-    middlewares: [] as ServeMiddleware<any, any, any, TAuth>[],
+    middlewares: (resolved.middlewares ?? []) as ServeMiddleware<any, any, any, TAuth>[],
     auth: resolved.auth ?? null,
     tenant: resolved.tenant,
     metadata,
