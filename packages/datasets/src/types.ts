@@ -365,6 +365,7 @@ export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any,
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  includeMeta?: boolean;
 }
 
 /** A best-effort typed result row for a dataset query. */
@@ -389,6 +390,7 @@ export interface MetricQueryFor<
   limit?: number;
   offset?: number;
   by?: TimeGrain;
+  includeMeta?: boolean;
 }
 
 /** A best-effort typed result row for a metric query (dimensions + the metric value). */
