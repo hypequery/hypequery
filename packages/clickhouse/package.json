@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/clickhouse",
-  "version": "2.0.2",
+  "version": "3.0.0",
   "description": "ClickHouse typescript query builder",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -58,7 +58,7 @@
   },
   "peerDependencies": {
     "@clickhouse/client-web": "^0.2.0 || ^1.0.0",
-    "@hypequery/datasets": "^0.1.0"
+    "@hypequery/datasets": "^0.2.0"
   },
   "peerDependenciesMeta": {
     "@clickhouse/client-web": {
