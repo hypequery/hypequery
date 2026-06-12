@@ -141,6 +141,12 @@ export const createBearerTokenStrategy = <TAuth extends AuthContext = AuthContex
   };
 };
 
+export type JsonWebKey = Record<string, unknown>;
+
+export interface JsonWebKeySet {
+  keys: JsonWebKey[];
+}
+
 export interface JwksAuthStrategyOptions<TAuth extends AuthContext = AuthContext> {
   /**
    * JWKS endpoint, e.g. `https://issuer/.well-known/jwks.json`. Provide this or
@@ -151,7 +157,7 @@ export interface JwksAuthStrategyOptions<TAuth extends AuthContext = AuthContext
    * A static JSON Web Key Set, used instead of fetching from {@link jwksUri}.
    * Useful for offline/no-network deploys. Provide this or `jwksUri`.
    */
-  jwks?: import("jose").JSONWebKeySet;
+  jwks?: JsonWebKeySet;
   /** Expected token issuer(s). */
   issuer?: string | string[];
   /** Expected audience(s). */
@@ -224,6 +230,7 @@ export const createJwksStrategy = <TAuth extends AuthContext = AuthContext>(
     ?? ((payload) => defaultJwtClaimMapper(payload) as TAuth);
 
   type Jose = typeof import("jose");
+  type JoseJsonWebKeySet = Parameters<Jose["createLocalJWKSet"]>[0];
   type KeyResolver =
     | ReturnType<Jose["createRemoteJWKSet"]>
     | ReturnType<Jose["createLocalJWKSet"]>;
@@ -236,7 +243,7 @@ export const createJwksStrategy = <TAuth extends AuthContext = AuthContext>(
         .then(({ jwtVerify, createRemoteJWKSet, createLocalJWKSet }) => ({
           jwtVerify,
           jwks: options.jwks
-            ? createLocalJWKSet(options.jwks)
+            ? createLocalJWKSet(options.jwks as unknown as JoseJsonWebKeySet)
             : createRemoteJWKSet(new URL(options.jwksUri!)),
         }))
         .catch((error) => {
