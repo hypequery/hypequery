@@ -46,6 +46,7 @@ program
   .description('Initialize a new hypequery project')
   .option('--path <path>', 'Output directory (default: analytics/)')
   .option('--style <style>', 'Scaffold style: queries or datasets')
+  .option('--auth <mode>', 'Auth scaffold mode: none or context')
   .option('--all-tables', 'Generate datasets for all discovered tables when using --style datasets')
   .option('--tables <names>', 'Generate datasets for specific tables when using --style datasets (comma-separated)')
   .option('--exclude-tables <names>', 'Exclude tables from dataset generation when using --style datasets (comma-separated)')

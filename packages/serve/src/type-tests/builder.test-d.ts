@@ -1,4 +1,4 @@
-import { createJwtStrategy, initServe, type InferQueryResult } from '../index.js';
+import { createAnalyticsTokenIssuer, createJwtStrategy, initServe, type InferQueryResult } from '../index.js';
 import { z } from 'zod';
 import type { Equal, Expect } from '@type-challenges/utils';
 
@@ -51,3 +51,14 @@ createJwtStrategy({ secret: 'secret' });
 createJwtStrategy({ jwksUri: 'https://issuer.example.com/.well-known/jwks.json' });
 // @ts-expect-error exactly one key source is allowed
 createJwtStrategy({ secret: 'secret', jwksUri: 'https://issuer.example.com/.well-known/jwks.json' });
+// @ts-expect-error custom auth types require a mapper that proves required fields exist
+createJwtStrategy<{ userId: string; tenantId: string }>({ secret: 'secret' });
+createJwtStrategy<{ userId: string; tenantId: string }>({
+  secret: 'secret',
+  mapClaims: (payload) => ({
+    userId: String(payload.sub),
+    tenantId: String(payload.org_id),
+  }),
+});
+// @ts-expect-error token issuer supports symmetric HMAC JWT algorithms only
+createAnalyticsTokenIssuer({ secret: 'secret', algorithm: 'RS256' });

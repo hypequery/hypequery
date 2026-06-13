@@ -86,6 +86,12 @@ describe("createJwtStrategy", () => {
     expect(() => createJwtStrategy({} as never)).toThrow(/secret.*jwksUri/);
   });
 
+  it("throws for empty secret and JWKS key sources", () => {
+    expect(() => createJwtStrategy({ secret: "" })).toThrow(/secret.*empty/);
+    expect(() => createJwtStrategy({ secret: new Uint8Array() })).toThrow(/secret.*empty/);
+    expect(() => createJwtStrategy({ jwksUri: "   " })).toThrow(/jwksUri.*empty/);
+  });
+
   it("verifies a valid HS256 token and maps default claims", async () => {
     const strategy = createJwtStrategy({ secret: SECRET, issuer: ISSUER, audience: AUDIENCE });
     const token = await signHsToken({
@@ -201,6 +207,11 @@ describe("createJwtStrategy", () => {
 });
 
 describe("createAnalyticsTokenIssuer", () => {
+  it("throws for an empty secret", () => {
+    expect(() => createAnalyticsTokenIssuer({ secret: "" })).toThrow(/secret.*empty/);
+    expect(() => createAnalyticsTokenIssuer({ secret: new Uint8Array() })).toThrow(/secret.*empty/);
+  });
+
   it("mints tokens that round-trip through createJwtStrategy defaults", async () => {
     const issueToken = createAnalyticsTokenIssuer({
       secret: SECRET,

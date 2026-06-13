@@ -1,34 +1,45 @@
 /**
  * Generate queries.ts file
  */
+export type AuthTemplateMode = 'none' | 'context';
+
 export function generateQueriesTemplate(options: {
   hasExample: boolean;
   tableName?: string;
+  auth?: AuthTemplateMode;
 }): string {
-  const { hasExample, tableName } = options;
+  const { hasExample, tableName, auth = 'none' } = options;
   const metricKey = hasExample && tableName ? `${camelCase(tableName)}Query` : 'exampleMetric';
   const typeAlias = `${pascalCase(metricKey)}Result`;
   const routePath = `/metrics/${metricKey}`;
-
-  let template = `import { fromContext, initServe } from '@hypequery/serve';
-import type { InferApiType } from '@hypequery/serve';
-import { z } from 'zod';
-import { db } from './client.js';
-
+  const serveImports = auth === 'context' ? 'fromContext, initServe' : 'initServe';
+const authHelpers = auth === 'context'
+    ? `
 type HostUser = {
   id: string;
   orgId: string;
   roles?: string[];
 };
 
-const getUserFromRequest = (raw: unknown): HostUser | null => {
-  const request = raw as { user?: HostUser };
-  return request.user ?? null;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isHostUser = (value: unknown): value is HostUser => {
+  if (!isRecord(value)) return false;
+  const roles = value.roles;
+  return typeof value.id === 'string' &&
+    typeof value.orgId === 'string' &&
+    (roles === undefined || (Array.isArray(roles) && roles.every((role) => typeof role === 'string')));
 };
 
-const { query, serve } = initServe({
-  context: () => ({ db }),
-  auth: fromContext(({ request }) => {
+const getUserFromRequest = (raw: unknown): HostUser | null => {
+  const user = isRecord(raw) ? raw.user : null;
+  return isHostUser(user) ? user : null;
+};
+`
+    : '';
+  const authConfig = auth === 'context'
+    ? `  auth: fromContext(({ request }) => {
     const user = getUserFromRequest(request.raw);
     return user
       ? { userId: user.id, tenantId: user.orgId, roles: user.roles }
@@ -39,6 +50,18 @@ const { query, serve } = initServe({
     column: 'tenant_id',
     mode: 'auto-inject',
   },
+`
+    : '';
+
+  let template = `import { ${serveImports} } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
+import { z } from 'zod';
+import { db } from './client.js';
+${authHelpers}
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+${authConfig}
 });
 
 `;

@@ -15,4 +15,10 @@ describe('normalizeInitOptions', () => {
       noInteractive: true,
     });
   });
+
+  it('preserves auth scaffold mode', () => {
+    expect(normalizeInitOptions({ auth: 'context' })).toMatchObject({
+      auth: 'context',
+    });
+  });
 });
