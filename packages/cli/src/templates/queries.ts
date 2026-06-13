@@ -1,8 +1,14 @@
+import {
+  type AuthTemplateMode,
+  hostUserHelpers,
+  contextAuthConfig,
+} from './auth-scaffold.js';
+
+export type { AuthTemplateMode };
+
 /**
  * Generate queries.ts file
  */
-export type AuthTemplateMode = 'none' | 'context';
-
 export function generateQueriesTemplate(options: {
   hasExample: boolean;
   tableName?: string;
@@ -13,44 +19,11 @@ export function generateQueriesTemplate(options: {
   const typeAlias = `${pascalCase(metricKey)}Result`;
   const routePath = `/metrics/${metricKey}`;
   const serveImports = auth === 'context' ? 'fromContext, initServe' : 'initServe';
-const authHelpers = auth === 'context'
-    ? `
-type HostUser = {
-  id: string;
-  orgId: string;
-  roles?: string[];
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
-
-const isHostUser = (value: unknown): value is HostUser => {
-  if (!isRecord(value)) return false;
-  const roles = value.roles;
-  return typeof value.id === 'string' &&
-    typeof value.orgId === 'string' &&
-    (roles === undefined || (Array.isArray(roles) && roles.every((role) => typeof role === 'string')));
-};
-
-const getUserFromRequest = (raw: unknown): HostUser | null => {
-  const user = isRecord(raw) ? raw.user : null;
-  return isHostUser(user) ? user : null;
-};
-`
+  const authHelpers = auth === 'context'
+    ? `\n${hostUserHelpers}\n`
     : '';
   const authConfig = auth === 'context'
-    ? `  auth: fromContext(({ request }) => {
-    const user = getUserFromRequest(request.raw);
-    return user
-      ? { userId: user.id, tenantId: user.orgId, roles: user.roles }
-      : null;
-  }),
-  tenant: {
-    extract: (auth: { tenantId?: string }) => auth.tenantId,
-    column: 'tenant_id',
-    mode: 'auto-inject',
-  },
-`
+    ? `${contextAuthConfig}\n`
     : '';
 
   let template = `import { ${serveImports} } from '@hypequery/serve';
@@ -58,11 +31,9 @@ import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client.js';
 ${authHelpers}
-
 const { query, serve } = initServe({
   context: () => ({ db }),
-${authConfig}
-});
+${authConfig}});
 
 `;
 

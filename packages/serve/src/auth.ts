@@ -1,5 +1,7 @@
 import type {
   AuthContext,
+  AuthContextWithRoles,
+  AuthContextWithScopes,
   AuthStrategy,
   AuthStrategyContext,
   AuthErrorInfo,
@@ -426,4 +428,93 @@ export const checkScopeAuthorization = (
   return hasAllScopes
     ? { ok: true }
     : { ok: false, missing: requiredScopes, reason: 'MISSING_SCOPE' };
+};
+
+/**
+ * Configuration options for creating a typed auth system.
+ * Enables compile-time safety for roles and scopes.
+ */
+export interface CreateAuthSystemOptions<
+  TRoles extends string = string,
+  TScopes extends string = string,
+> {
+  /**
+   * List of valid roles for your application.
+   * @example
+   * ```ts
+   * roles: ['admin', 'editor', 'viewer'] as const
+   * ```
+   */
+  roles?: readonly TRoles[];
+
+  /**
+   * List of valid scopes for your application.
+   * @example
+   * ```ts
+   * scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const
+   * ```
+   */
+  scopes?: readonly TScopes[];
+}
+
+/**
+ * Result type from createAuthSystem.
+ * Combines role and scope constraints into a single auth context type.
+ */
+export type TypedAuthContext<
+  TRoles extends string,
+  TScopes extends string,
+> = AuthContextWithRoles<TRoles> & AuthContextWithScopes<TScopes>;
+
+/**
+ * Creates a typed auth system with compile-time role and scope safety.
+ *
+ * @deprecated Prefer typing your auth context directly and passing it to
+ *             `initServe<TContext, TAuth>(...)`. Define roles/scopes as a
+ *             union on your auth type and use `query.requireRole(...)` /
+ *             `query.requireScope(...)` guards. This helper is kept for
+ *             backwards compatibility and will be removed in a future release.
+ *
+ * This helper provides:
+ * - Type-safe auth context (combines AuthContextWithRoles and AuthContextWithScopes)
+ * - A `useAuth` wrapper for auth strategies
+ * - Helper to extract the typed auth type
+ *
+ * @example
+ * ```ts
+ * import { createAuthSystem, initServe } from '@hypequery/serve';
+ *
+ * // Define your roles and scopes up front
+ * const { useAuth, TypedAuth } = createAuthSystem({
+ *   roles: ['admin', 'editor', 'viewer'] as const,
+ *   scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,
+ * });
+ *
+ * // Extract the typed auth type for use with initServe
+ * type AppAuth = typeof TypedAuth;
+ *
+ * const { query, serve } = initServe<Record<string, never>, AppAuth>({
+ *   auth: useAuth(jwtStrategy),
+ * });
+ * ```
+ */
+export const createAuthSystem = <
+  TRoles extends string = string,
+  TScopes extends string = string,
+>() => {
+  return {
+    /**
+     * Type-safe wrapper for auth strategies.
+     * Ensures the strategy returns auth context with the correct role/scope types.
+     */
+    useAuth: <TAuth extends AuthContext>(
+      strategy: AuthStrategy<TAuth>
+    ): AuthStrategy<TAuth> => strategy,
+
+    /**
+     * The combined typed auth context type.
+     * Use this to type your initServe generic parameter.
+     */
+    TypedAuth: null as unknown as TypedAuthContext<TRoles, TScopes>,
+  };
 };
