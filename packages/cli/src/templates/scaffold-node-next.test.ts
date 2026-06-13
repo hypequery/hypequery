@@ -83,7 +83,8 @@ describe('generated scaffold NodeNext compatibility', () => {
         '.': './index.d.ts',
       },
     }, null, 2));
-    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function initServe(config: unknown): {
+    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function fromContext<T>(extract: (args: { request: { raw?: unknown } }) => T | null): unknown;
+export declare function initServe(config: unknown): {
   query: <TOutput>(definition: {
     description: string;
     output?: unknown;
@@ -168,9 +169,12 @@ export type InferQueryResult<TApi, TName extends string> = unknown;
         '.': './index.d.ts',
       },
     }, null, 2));
-    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function createAPI(config: {
+    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function fromContext<T>(extract: (args: { request: { raw?: unknown } }) => T | null): unknown;
+export declare function createAPI(config: {
   queryBuilder: unknown;
   datasets: Record<string, unknown>;
+  auth?: unknown;
+  tenant?: unknown;
 }): {
   execute(name: string, options?: unknown): Promise<unknown>;
 };

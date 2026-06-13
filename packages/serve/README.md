@@ -153,26 +153,77 @@ api.route('/topCustomers', api.queries.topCustomers);
 ## Authentication
 
 Pass an auth strategy (or array of strategies) to `serve({ auth })` / `createAPI({ auth })`.
-Built-in helpers: `createApiKeyStrategy`, `createBearerTokenStrategy`, and
-`createJwksStrategy` for verifying JWTs against a remote JWKS (Auth0/Clerk/Cognito/etc.).
+When auth is configured, endpoints require authentication by default. Mark exceptions
+with `query.public()`.
+
+For same-app APIs, prefer reading the host app's authenticated request context:
 
 ```ts
-import { createJwksStrategy } from '@hypequery/serve';
+import { createAPI, fromContext } from '@hypequery/serve';
 
-const auth = createJwksStrategy({
-  jwksUri: 'https://example.auth0.com/.well-known/jwks.json',
-  issuer: 'https://example.auth0.com/',
-  audience: 'https://api.example.com',
-  algorithms: ['RS256'],
-  // optional: map verified claims to your auth context (defaults to sub/roles/scope)
-  mapClaims: (payload) => ({ userId: payload.sub as string, tenantId: payload.org as string }),
+const api = createAPI({
+  queryBuilder: db,
+  datasets,
+  auth: fromContext(({ request }) => {
+    const user = getUserFromRequest(request.raw);
+    return user
+      ? { userId: user.id, tenantId: user.orgId, roles: user.roles }
+      : null;
+  }),
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
 });
 ```
 
-`createJwksStrategy` lazily loads the optional `jose` peer dependency on first use and
-caches the key set (jose handles JWKS rotation), so it adds nothing to startup or to
-apps that don't use it. Install it with `npm install jose`. For offline/no-network
-deploys, pass a static `jwks` key set instead of `jwksUri`.
+For cross-origin embedding, verify JWT bearer tokens with a shared secret or a
+provider JWKS:
+
+```ts
+import { createJwtStrategy } from '@hypequery/serve';
+
+const auth = createJwtStrategy({
+  // Use `secret` for HS256 tokens you mint yourself.
+  secret: process.env.HYPEQUERY_AUTH_SECRET!,
+  issuer: 'https://your-app.example.com',
+  audience: 'hypequery-analytics',
+});
+
+const providerAuth = createJwtStrategy({
+  // Use `jwksUri` for Auth0/Clerk/Cognito/etc.
+  jwksUri: 'https://example.auth0.com/.well-known/jwks.json',
+  issuer: 'https://example.auth0.com/',
+  audience: 'https://api.example.com',
+});
+```
+
+For signed embedding, mint short-lived analytics tokens server-side:
+
+```ts
+import { createAnalyticsTokenIssuer } from '@hypequery/serve';
+
+const issueAnalyticsToken = createAnalyticsTokenIssuer({
+  secret: process.env.HYPEQUERY_AUTH_SECRET!,
+  expiresIn: '15m',
+  issuer: 'https://your-app.example.com',
+  audience: 'hypequery-analytics',
+});
+
+app.get('/api/analytics/token', requireUser, async (req, res) => {
+  res.json({
+    token: await issueAnalyticsToken({
+      userId: req.user.id,
+      tenantId: req.user.orgId,
+      roles: req.user.roles,
+    }),
+  });
+});
+```
+
+`createApiKeyStrategy` and `createBearerTokenStrategy` remain available for custom
+authentication systems.
 
 > **Rate limiting:** the default `RateLimitStore` is in-memory and therefore
 > per-instance. Behind multiple instances, supply a shared store (e.g. Redis) by

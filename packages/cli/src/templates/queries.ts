@@ -10,13 +10,35 @@ export function generateQueriesTemplate(options: {
   const typeAlias = `${pascalCase(metricKey)}Result`;
   const routePath = `/metrics/${metricKey}`;
 
-  let template = `import { initServe } from '@hypequery/serve';
+  let template = `import { fromContext, initServe } from '@hypequery/serve';
 import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client.js';
 
+type HostUser = {
+  id: string;
+  orgId: string;
+  roles?: string[];
+};
+
+const getUserFromRequest = (raw: unknown): HostUser | null => {
+  const request = raw as { user?: HostUser };
+  return request.user ?? null;
+};
+
 const { query, serve } = initServe({
   context: () => ({ db }),
+  auth: fromContext(({ request }) => {
+    const user = getUserFromRequest(request.raw);
+    return user
+      ? { userId: user.id, tenantId: user.orgId, roles: user.roles }
+      : null;
+  }),
+  tenant: {
+    extract: (auth: { tenantId?: string }) => auth.tenantId,
+    column: 'tenant_id',
+    mode: 'auto-inject',
+  },
 });
 
 `;

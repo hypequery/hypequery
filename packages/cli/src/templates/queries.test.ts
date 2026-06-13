@@ -8,7 +8,7 @@ describe('queries template', () => {
       hasExample: false,
     });
 
-    expect(result).toContain('import { initServe }');
+    expect(result).toContain('import { fromContext, initServe }');
     expect(result).toContain('import { db } from \'./client.js\'');
     expect(result).toContain('exampleMetric');
     expect(result).toContain('ok: true');

@@ -1,4 +1,4 @@
-import { initServe, type InferQueryResult } from '../index.js';
+import { createJwtStrategy, initServe, type InferQueryResult } from '../index.js';
 import { z } from 'zod';
 import type { Equal, Expect } from '@type-challenges/utils';
 
@@ -46,3 +46,8 @@ type ExecutableResult = Awaited<typeof executableResultPromise>;
 const _executableResultIsTyped: ExecutableResult = { total: 10 };
 // @ts-expect-error total must be number
 const _executableResultRejectsString: ExecutableResult = { total: '10' };
+
+createJwtStrategy({ secret: 'secret' });
+createJwtStrategy({ jwksUri: 'https://issuer.example.com/.well-known/jwks.json' });
+// @ts-expect-error exactly one key source is allowed
+createJwtStrategy({ secret: 'secret', jwksUri: 'https://issuer.example.com/.well-known/jwks.json' });
