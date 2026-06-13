@@ -69,9 +69,6 @@ export function Cloud() {
             <p className="mt-3.5 text-body text-text-muted max-w-[640px] text-pretty">
               One command takes everything you&apos;ve defined and serves it from the cloud. Managed, hosted, no infrastructure to run.
             </p>
-            <p className="mt-3 text-body-sm text-text-dim max-w-[640px]">
-              The core is Apache 2.0 licensed and free forever. Cloud is for teams who&apos;d rather not run the infrastructure.
-            </p>
             <form
               action="https://formspree.io/f/mzdwnylk"
               method="POST"
