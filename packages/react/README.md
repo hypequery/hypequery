@@ -233,16 +233,30 @@ const { useQuery } = createHooks<AnalyticsApi>({
 
 `path` may be relative to `baseUrl`, absolute within the same origin, or an absolute HTTP URL.
 
-## Headers
+## Headers & auth
 
-Pass static headers or a function that returns headers.
+Pass static headers, or a function (sync or async) invoked per request — handy for
+attaching a fresh/short-lived token.
 
 ```ts
 const hooks = createHooks<AnalyticsApi>({
   baseUrl: '/api/analytics',
-  headers: () => ({
-    authorization: `Bearer ${localStorage.getItem('token')}`,
+  headers: async () => ({
+    authorization: `Bearer ${await getAccessToken()}`,
   }),
+});
+```
+
+Provide `onUnauthorized` to refresh credentials on a `401` and retry the request once
+with freshly resolved headers:
+
+```ts
+const hooks = createHooks<AnalyticsApi>({
+  baseUrl: '/api/analytics',
+  headers: () => ({ authorization: `Bearer ${tokenStore.access}` }),
+  onUnauthorized: async () => {
+    await tokenStore.refresh(); // throw to abort; resolve to retry once
+  },
 });
 ```
 

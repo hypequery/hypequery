@@ -24,6 +24,8 @@ packages/clickhouse/.env.test
 
 # Testing
 coverage
+packages/clickhouse/ci-diagnostics/
+packages/clickhouse/ci-diagnostics.zip
 
 # Misc
 .DS_Store

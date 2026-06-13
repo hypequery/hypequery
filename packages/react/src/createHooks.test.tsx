@@ -158,6 +158,71 @@ describe('createHooks', () => {
       expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ 'x-token': 'first' });
       expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ 'x-token': 'second' });
     });
+
+    it('supports an async header factory', async () => {
+      fetchMock.mockResolvedValue(mockSuccessResponse({ name: 'User' }));
+
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://example.com/api',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        headers: async () => ({ authorization: 'Bearer fresh-token' }),
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '1' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ authorization: 'Bearer fresh-token' });
+    });
+
+    it('calls onUnauthorized and retries once on 401', async () => {
+      fetchMock
+        .mockResolvedValueOnce(mockErrorResponse(401, { error: 'expired' }))
+        .mockResolvedValueOnce(mockSuccessResponse({ name: 'User' }));
+
+      let token = 'stale';
+      const onUnauthorized = vi.fn(async () => { token = 'refreshed'; });
+
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://example.com/api',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        headers: () => ({ authorization: `Bearer ${token}` }),
+        onUnauthorized,
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '1' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(onUnauthorized).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      // The retry uses freshly resolved headers.
+      expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ authorization: 'Bearer refreshed' });
+      expect(result.current.data).toEqual({ name: 'User' });
+    });
+
+    it('throws after a single 401 retry still fails', async () => {
+      fetchMock.mockResolvedValue(mockErrorResponse(401, { error: 'nope' }));
+      const onUnauthorized = vi.fn(async () => {});
+
+      const { useQuery } = createHooks<TestApi>({
+        baseUrl: 'https://example.com/api',
+        fetchFn: fetchMock as unknown as typeof fetch,
+        onUnauthorized,
+      });
+
+      const { result } = renderHook(() => useQuery('getUser', { id: '1' }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(onUnauthorized).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result.current.error?.status).toBe(401);
+    });
   });
 
   describe('HTTP Method Handling', () => {

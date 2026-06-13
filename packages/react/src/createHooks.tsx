@@ -40,11 +40,17 @@ export interface RouteManifestEntry {
 export type RouteManifest = Record<string, RouteManifestEntry>;
 
 type HeaderMap = Record<string, string | undefined>;
-type HeadersInput = HeaderMap | (() => HeaderMap);
+type HeadersInput =
+  | HeaderMap
+  | (() => HeaderMap | Promise<HeaderMap>);
 
 export interface CreateHooksConfig<TApi = Record<string, { input: unknown; output: unknown }>> {
   baseUrl: string;
   fetchFn?: typeof fetch;
+  /**
+   * Static headers, or a (optionally async) function returning headers. The
+   * function is invoked per request, so it can supply a fresh/short-lived token.
+   */
   headers?: HeadersInput;
   config?: Record<string, QueryMethodConfig>;
   /**
@@ -53,6 +59,12 @@ export interface CreateHooksConfig<TApi = Record<string, { input: unknown; outpu
    * which are POST routes whose paths differ from their map keys.
    */
   manifest?: RouteManifest;
+  /**
+   * Called when a request returns 401. Use it to refresh credentials (e.g. a
+   * token). If it resolves without throwing, the request is retried once with
+   * freshly resolved headers.
+   */
+  onUnauthorized?: () => void | Promise<void>;
   api?: TApi;
 }
 
@@ -153,9 +165,9 @@ const looksLikeQueryOptions = (value: unknown) => {
   return matches >= 2;
 };
 
-const resolveHeaders = (headers?: HeadersInput): Record<string, string> => {
+const resolveHeaders = async (headers?: HeadersInput): Promise<Record<string, string>> => {
   if (!headers) return {};
-  const raw = typeof headers === 'function' ? headers() : headers;
+  const raw = typeof headers === 'function' ? await headers() : headers;
   return Object.fromEntries(
     Object.entries(raw).filter(([, value]) => value !== undefined)
   ) as Record<string, string>;
@@ -164,7 +176,7 @@ const resolveHeaders = (headers?: HeadersInput): Record<string, string> => {
 export function createHooks<Api extends Record<string, { input: any; output: any }>>(
   config: CreateHooksConfig<Api>
 ) {
-  const { baseUrl, fetchFn = fetch, headers = {}, config: explicitConfig = {}, manifest, api } = config;
+  const { baseUrl, fetchFn = fetch, headers = {}, config: explicitConfig = {}, manifest, onUnauthorized, api } = config;
   // Precedence: explicit config > manifest > derived from a runtime api object.
   const finalConfig = {
     ...deriveMethodConfig(api),
@@ -212,16 +224,26 @@ export function createHooks<Api extends Record<string, { input: any; output: any
       body = JSON.stringify(input);
     }
 
-    const resolvedHeaders = resolveHeaders(headers);
-    const res = await fetchFn(finalUrl, {
-      method,
-      headers: {
-        ...resolvedHeaders,
-        ...(extraHeaders ?? {}),
-        ...(body ? { 'content-type': 'application/json' } : {}),
-      },
-      body,
-    });
+    const attempt = async () => {
+      const resolvedHeaders = await resolveHeaders(headers);
+      return fetchFn(finalUrl, {
+        method,
+        headers: {
+          ...resolvedHeaders,
+          ...(extraHeaders ?? {}),
+          ...(body ? { 'content-type': 'application/json' } : {}),
+        },
+        body,
+      });
+    };
+
+    let res = await attempt();
+
+    // On 401, give the caller a chance to refresh credentials and retry once.
+    if (res.status === 401 && onUnauthorized) {
+      await onUnauthorized();
+      res = await attempt();
+    }
 
     if (!res.ok) {
       const errorBody = await parseResponse(res);
