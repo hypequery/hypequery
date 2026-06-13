@@ -1,6 +1,7 @@
 export { Hero } from './Hero';
 export { InstallCommand } from './InstallCommand';
 export { Why } from './Why';
+export { Quickstart } from './Quickstart';
 export { DefineOnce } from './DefineOnce';
 export { Capabilities } from './Capabilities';
 export { UseCases } from './UseCases';

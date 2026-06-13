@@ -2,13 +2,19 @@
 
 import { useState } from 'react';
 
-const COMMAND = 'npx @hypequery/cli init';
+const DEFAULT_COMMAND = 'npx @hypequery/cli init';
 
-export function InstallCommand({ className = '' }: { className?: string }) {
+export function InstallCommand({
+  command = DEFAULT_COMMAND,
+  className = '',
+}: {
+  command?: string;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(COMMAND);
+    navigator.clipboard.writeText(command);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -19,7 +25,7 @@ export function InstallCommand({ className = '' }: { className?: string }) {
       className={`group relative inline-flex items-center gap-2.5 px-4 py-2.5 bg-bg-card border border-border-strong rounded-lg font-mono text-[14px] text-text hover:border-text transition hover:-translate-y-px ${className}`}
     >
       <span className="text-text-muted select-none">$</span>
-      <span className="font-medium">{COMMAND}</span>
+      <span className="font-medium">{command}</span>
       <svg
         className="w-4 h-4 text-text-dim group-hover:text-text transition"
         fill="none"

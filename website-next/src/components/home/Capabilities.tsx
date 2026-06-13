@@ -87,7 +87,7 @@ export function Capabilities() {
         <h2 className="text-h2 text-text mx-auto max-w-[760px] text-balance">
           One library, four layers. Opt-in across the stack        </h2>
         <p className="mt-3.5 text-body text-text-muted mx-auto max-w-[640px] text-pretty">
-          You don&apos;t adopt a platform. You install a library and use the layer you need — across the stack, in the codebase you already have.
+          You don&apos;t adopt a platform. You install a library and use the layer you need, in the codebase you already have.
         </p>
       </div>
 
@@ -96,18 +96,14 @@ export function Capabilities() {
         <FeatureRow
           icon="Q"
           label="Query builder"
-          kicker="The foundation"
+          kicker=""
           title="Type-safe queries, backed by your schema."
-          desc="Everything else is built on the query builder thousands of developers already use. Generate types from your schema and build queries with full autocomplete, reusable filters, joins, and strongly typed results."
+          desc="The ClickHouse-native query builder. Generate types from your schema and build queries with full autocomplete, reusable filters, joins, and strongly typed results."
           code={QUERY_CODE}
           fileName="query-builder.ts"
           docsLink="/docs/query-building/basics"
           ctaText="Get started with queries"
-        >
-          <p className="mt-4 text-body-sm text-text-muted text-pretty">
-            Don&apos;t need a semantic layer yet? Start here. Datasets are opt-in — adopt the layer you need, when you need it.
-          </p>
-        </FeatureRow>
+        />
 
         {/* D — Datasets */}
         <FeatureRow
@@ -115,7 +111,7 @@ export function Capabilities() {
           label="Datasets"
           isNew
           reverse
-          kicker="The semantic layer in code"
+          kicker=""
           title="Model your analytics. Multi-tenancy comes as standard."
           desc="Declare the table, its dimensions, and its measures. Name reusable metrics like revenue and orderCount, then compose derived metrics with formula helpers. Call toSQL when you want the exact ClickHouse query."
           code={FEATURE_D_CODE}
@@ -128,7 +124,7 @@ export function Capabilities() {
         <FeatureRow
           icon="S"
           label="Serve"
-          kicker="Now that it's a dataset, ship it as an API"
+          kicker=""
           title="A typed REST route, an OpenAPI spec, and a React hook."
           desc="Pass datasets or queries to serve(). You get a typed REST route, an OpenAPI spec, and a React hook — all from one definition."
           code={FEATURE_S_CODE}
@@ -143,7 +139,7 @@ export function Capabilities() {
           label="MCP"
           isNew
           reverse
-          kicker="Now that it's a dataset, let agents query it"
+          kicker=""
           title="Agents query your data, never your database."
           desc="Expose your dataset registry as MCP tools. Agents can inspect schemas and query datasets or metrics — they cannot write raw SQL or reach tables you didn't expose."
           code={FEATURE_M_CODE}
