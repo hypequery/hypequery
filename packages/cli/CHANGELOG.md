@@ -1,5 +1,17 @@
 # @hypequery/cli
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [e64d6f4]
+- Updated dependencies [2c1425f]
+- Updated dependencies [69b67c0]
+- Updated dependencies [2f3c293]
+- Updated dependencies [278924e]
+  - @hypequery/serve@0.3.0
+  - @hypequery/clickhouse@3.0.0
+
 ## 1.1.2
 
 ### Patch Changes
