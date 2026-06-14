@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
-import Newsletter from '@/components/Newsletter';
 import { absoluteUrl } from '@/lib/site';
 import { comparePageBySlug } from '@/data/compare-pages';
 
@@ -58,8 +57,6 @@ export default async function BlogPage({
           Deep dives, architecture notes, and product guidance from the hypequery team.
         </p>
       </div>
-
-      <Newsletter />
 
       <div className="space-y-12">
         {displayedPosts.map((post) => (

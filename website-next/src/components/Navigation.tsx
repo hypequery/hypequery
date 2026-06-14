@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 
-export default function Navigation() {
+export default function Navigation({ hasBanner = false }: { hasBanner?: boolean }) {
   return (
-    <nav className="fixed top-[36px] left-0 right-0 z-50 h-[62px] flex items-center justify-between px-5 lg:px-8 backdrop-blur-[14px] bg-bg/80 border-b border-border">
+    <nav className={`fixed ${hasBanner ? 'top-[42px]' : 'top-0'} left-0 right-0 z-50 h-[62px] flex items-center justify-between px-5 lg:px-8 backdrop-blur-[14px] bg-bg/80 border-b border-border`}>
       <Link href="/" className="font-mono text-[15px] font-bold text-text tracking-tight">
         &gt; hypequery
       </Link>

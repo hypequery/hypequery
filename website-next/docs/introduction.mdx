@@ -8,11 +8,7 @@ import { SiVite, SiNextdotjs, SiNodedotjs, SiX } from 'react-icons/si';
 
 ## What is hypequery?
 
-hypequery is a **code-first analytics backend for ClickHouse**, built for TypeScript teams who want scalable, type-safe analytics.
-
-At its core, hypequery is a ClickHouse-native TypeScript query builder, you generate types from your schema and then build ClickHouse queries with full type-safety.
-
-Beyond this, hypequery ships with with opt-in features for query reuse, caching, multi-tenancy, authentication, and HTTP endpoint generation.
+hypequery is a **code-first semantic layer for ClickHouse**, built for TypeScript teams who want scalable, type-safe analytics.
 
 Instead of scattering SQL across applications, dashboards, and scripts, hypequery gives you a single, versioned place where analytics logic lives. **In code.**
 
@@ -20,16 +16,34 @@ hypequery is a library, not a hosted platform. It integrates directly with your 
 
 ---
 
+hypequery consists of a number of small, opt-in packages for building type-safe analytics:
+
+* **Query builder** (`@hypequery/clickhouse`)
+  Write type-safe ClickHouse queries in TypeScript
+
+* **Datasets (semantic layer)** (`@hypequery/datasets`)
+  Define metrics, dimensions, and reusable analytics logic
+
+* **Runtime / APIs** (`@hypequery/serve`)
+  Expose queries and datasets via APIs with validation, auth, and multi-tenancy
+
+* **Extras**
+
+  * `@hypequery/mcp` → Query datasets from AI models
+  * `@hypequery/react` → Hooks for frontend apps
+
+
+---
+
 <div className="my-12">
 
 ## Choose your path
 
-hypequery has two common starting points:
+If you're new, follow this path:
 
-1. Start with the ClickHouse-native query builder for local typed queries
-2. Add `query({ ... })` and `serve({ queries })` when the query needs reuse, validation, routes, docs, or framework handlers
-
-If you are unsure, start with the query builder. The Quick Start page now shows both routes on one page.
+1. Start with the query builder to run type-safe queries locally
+2. Add datasets to define shared metrics and dimensions
+3. Use `serve()` when you want to expose queries as APIs
 
 ## Get Started
 
@@ -73,7 +87,7 @@ If you are unsure, start with the query builder. The Quick Start page now shows 
   </div>
 </a>
 
-<a href="/docs/nextjs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-foreground transition-colors bg-card/50 hover:bg-card cursor-pointer">
+<a href="/docs/nextjs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-black transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <SiNextdotjs className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
   <div>
     <div className="font-semibold text-foreground mb-1">Next.js</div>

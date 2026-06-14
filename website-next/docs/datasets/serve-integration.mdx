@@ -1,40 +1,100 @@
 ---
-title: Serve Integration
-description: Expose dataset and metric definitions through the serve runtime.
+title: Serve integration
+description: Expose dataset and metric definitions through the Serve runtime.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Serve Integration
+`@hypequery/serve` can expose semantic metric and dataset endpoints from the same definitions you use with `createDatasetClient`.
 
-`@hypequery/serve` can expose metric and dataset endpoints from dataset definitions.
+Use Serve when dataset logic needs an HTTP boundary, OpenAPI/docs, auth, tenancy, caching, middleware, or React integration.
 
-## Dataset endpoints
+## Register datasets and metrics
 
-Pass datasets and a query builder to `serve`.
+Pass a query builder plus the datasets and metrics you want to expose.
 
 <CodeBlock>
 ```typescript
 import { initServe } from '@hypequery/serve';
 import { db } from './client';
-import { Orders } from './datasets/orders';
+import { Orders, revenue } from './datasets/orders';
 
-const { serve } = initServe({
+const { query, serve } = initServe({
   context: () => ({ db }),
 });
 
 export const api = serve({
-  datasets: { orders: Orders },
   queryBuilder: db,
+  metrics: { revenue },
+  datasets: { orders: Orders },
 });
 ```
 </CodeBlock>
 
-Each dataset gets a semantic query endpoint that validates dimensions, measures, filters, ordering, and limits against the dataset definition.
+Metric endpoints validate dimensions, filters, time grains, ordering, and limits against the metric contract. Dataset endpoints validate dimensions, measures, filters, time grains, ordering, and limits against the dataset definition.
+
+## Endpoint shapes
+
+Semantic endpoints are generated as POST endpoints.
+
+| Config | Endpoint shape | Use it for |
+| --- | --- | --- |
+| `metrics: { revenue }` | `/metrics/revenue` | One named KPI contract |
+| `datasets: { orders: Orders }` | `/datasets/orders/query` | Flexible same-dataset rollups |
+
+The exact URL is prefixed by your Serve `basePath`.
+
+## Metric endpoint input
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "filters": [
+    { "field": "status", "operator": "eq", "value": "completed" }
+  ],
+  "orderBy": [
+    { "field": "revenue", "direction": "desc" }
+  ],
+  "limit": 10
+}
+```
+</CodeBlock>
+
+## Dataset endpoint input
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country", "status"],
+  "measures": ["revenue", "orderCount"],
+  "filters": [
+    { "field": "status", "operator": "eq", "value": "completed" }
+  ],
+  "limit": 10
+}
+```
+</CodeBlock>
+
+## Include result metadata
+
+Semantic endpoints return `{ data }` by default. Include metadata with either `includeMeta: true` in the request body or the `x-include-meta: true` header.
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "limit": 10,
+  "includeMeta": true
+}
+```
+</CodeBlock>
+
+Metadata can include generated SQL, timing, row count, tenant, and pagination.
 
 ## Query definitions plus datasets
 
-You can expose hand-authored query definitions and generated dataset endpoints from the same API.
+You can expose hand-authored query definitions and generated semantic endpoints from the same API.
 
 <CodeBlock>
 ```typescript
@@ -48,9 +108,40 @@ const activeOrders = query({
 });
 
 export const api = serve({
-  queries: { activeOrders },
-  datasets: { orders: Orders },
   queryBuilder: db,
+  queries: { activeOrders },
+  metrics: { revenue },
+  datasets: { orders: Orders },
+});
+```
+</CodeBlock>
+
+Use hand-authored queries for bespoke application endpoints. Use metrics and datasets for governed analytics endpoints generated from semantic definitions.
+
+## Per-entry options
+
+Datasets and metrics can be registered directly or with endpoint-specific options.
+
+<CodeBlock>
+```typescript
+export const api = serve({
+  queryBuilder: db,
+  metrics: {
+    revenue: {
+      metric: revenue,
+      requiredRoles: ['analytics'],
+      cache: 60_000,
+      maxLimit: 100,
+    },
+  },
+  datasets: {
+    orders: {
+      dataset: Orders,
+      requiredRoles: ['analytics'],
+      cache: 60_000,
+      maxLimit: 100,
+    },
+  },
 });
 ```
 </CodeBlock>

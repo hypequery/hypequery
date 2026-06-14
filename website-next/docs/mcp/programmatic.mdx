@@ -12,15 +12,15 @@ Use `createMCPServer` when you want to start the MCP server from your own Node p
 <CodeBlock>
 ```typescript
 import { createMCPServer } from '@hypequery/mcp';
-import { createExecutor } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
 import { datasets } from './datasets/index.js';
 import { queryBuilder } from './db/index.js';
 
-const executor = createExecutor({ queryBuilder });
+const analytics = createDatasetClient({ queryBuilder });
 
 const server = await createMCPServer({
   datasets,
-  executor,
+  analytics,
   name: 'analytics-mcp',
   version: '1.0.0',
 });
@@ -49,7 +49,7 @@ The programmatic API accepts the same core inputs as the CLI config.
 ```typescript
 type MCPServerConfig = {
   datasets: Record<string, Record<string, unknown>>;
-  executor: SemanticExecutor;
+  analytics: DatasetClient;
   name?: string;
   version?: string;
 };

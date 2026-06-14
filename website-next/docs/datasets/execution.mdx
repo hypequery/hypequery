@@ -5,13 +5,12 @@ description: Validate, generate SQL, and execute dataset and metric queries.
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Execution
 
-`createExecutor` accepts a query builder factory compatible with `@hypequery/clickhouse`.
+`createDatasetClient` is the execution surface for datasets and metrics. In a ClickHouse app, pass the same query builder instance you use for hand-written queries.
 
 <CodeBlock>
 ```typescript
-import { createExecutor } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const db = createQueryBuilder({
@@ -21,16 +20,33 @@ const db = createQueryBuilder({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-const executor = createExecutor({ queryBuilder: db });
+const analytics = createDatasetClient({ queryBuilder: db });
 ```
 </CodeBlock>
 
+Use `db.table(...)` for local typed queries and `analytics.execute(...)` for semantic dataset or metric queries. Both paths share the same ClickHouse connection.
+
+## Execution methods
+
+The dataset client exposes three main methods:
+
+| Method | Use it for |
+| --- | --- |
+| `analytics.validate(target, query, context?)` | Check a query without generating or executing SQL |
+| `analytics.toSQL(target, query, context?)` | Inspect generated SQL without executing it |
+| `analytics.execute(target, query, context?)` | Validate, generate SQL, execute, and return rows |
+
+The `target` can be a metric, a grained metric, or a dataset.
+
 ## Validate
+
+Use `validate` when you want errors as data instead of exceptions.
 
 <CodeBlock>
 ```typescript
-const validation = executor.validate(revenue, {
+const validation = analytics.validate(revenue, {
   dimensions: ['country'],
+  filters: [eq('status', 'completed')],
 });
 
 if (!validation.valid) {
@@ -39,22 +55,34 @@ if (!validation.valid) {
 ```
 </CodeBlock>
 
+Validation checks dimensions, measures, filters, order fields, limits, time grain requirements, tenant context, and derived metric plans.
+
 ## Generate SQL
+
+Use `toSQL` to inspect the generated query.
 
 <CodeBlock>
 ```typescript
-const sql = executor.toSQL(revenue, {
+const sql = analytics.toSQL(revenue, {
   dimensions: ['country'],
   filters: [eq('status', 'completed')],
+  orderBy: [{ field: 'revenue', direction: 'desc' }],
+  limit: 10,
 });
 ```
 </CodeBlock>
 
+`toSQL` validates first. Invalid queries throw with the same validation errors that `execute` would throw.
+
 ## Execute a metric
+
+Metric execution returns one named KPI, optionally grouped by dimensions or time.
 
 <CodeBlock>
 ```typescript
-const result = await executor.metric(revenue, {
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
+const result = await analytics.execute(revenue, {
   dimensions: ['country'],
   filters: [eq('status', 'completed')],
   orderBy: [{ field: 'revenue', direction: 'desc' }],
@@ -65,33 +93,64 @@ const result = await executor.metric(revenue, {
 
 ## Execute a dataset
 
+Dataset execution returns an ad hoc selection of dimensions and measures from one dataset.
+
 <CodeBlock>
 ```typescript
-const result = await executor.dataset(Orders, {
-  dimensions: ['country'],
+const result = await analytics.execute(Orders, {
+  dimensions: ['country', 'status'],
   measures: ['revenue', 'orderCount'],
   filters: [eq('status', 'completed')],
+  limit: 10,
 });
 ```
 </CodeBlock>
 
-The executor validates dimensions, filters, order fields, limits, time grain requirements, tenant filtering, and derived metric plans before execution.
+## Execution context
 
-## Dataset client
-
-For ClickHouse applications, `@hypequery/clickhouse/datasets` provides a datasets-first client that accepts ClickHouse connection config directly.
+Pass execution context as the third argument. This is where runtime tenant scope and per-call builder overrides live.
 
 <CodeBlock>
 ```typescript
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+await analytics.execute(revenue, {
+  dimensions: ['country'],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
+});
+```
+</CodeBlock>
 
-const analytics = createDatasetClient({
-  url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
+When a dataset has `tenantKey`, tenant context is required unless you explicitly use a trusted cross-tenant scope. Datasets auto-inject the tenant filter from `tenantKey`.
+
+## Result metadata
+
+`execute` returns rows plus metadata.
+
+<CodeBlock>
+```typescript
+const result = await analytics.execute(revenue, {
+  dimensions: ['country'],
+  limit: 25,
 });
 
-await analytics.metric(revenue, { dimensions: ['country'] });
+result.data;
+result.meta?.sql;
+result.meta?.timingMs;
+result.meta?.rowCount;
+result.meta?.pagination;
+```
+</CodeBlock>
+
+Pagination metadata is present when a query sets `limit`. Hypequery over-fetches one extra row to compute `hasMore` without issuing a separate count query.
+
+<CodeBlock>
+```typescript
+{
+  limit: 25,
+  offset: 0,
+  hasMore: true,
+}
 ```
 </CodeBlock>

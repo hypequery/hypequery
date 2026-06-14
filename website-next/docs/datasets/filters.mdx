@@ -1,27 +1,33 @@
 ---
 title: Filters
-description: Use typed filter helpers in metric and dataset queries.
+description: Use typed filter helpers in metric, dataset, and measure queries.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Filters
-
-Filter helpers create structured filters for metric and dataset execution.
+Filters are structured query objects. They are used by metric queries, dataset queries, and filtered measures.
 
 <CodeBlock>
 ```typescript
 import {
+  between,
   eq,
-  neq,
   gt,
   gte,
+  inList,
+  like,
   lt,
   lte,
-  inList,
+  neq,
   notInList,
 } from '@hypequery/datasets';
+```
+</CodeBlock>
 
+## Filter helpers
+
+<CodeBlock>
+```typescript
 eq('status', 'completed')
 neq('status', 'cancelled')
 gt('amount', 100)
@@ -30,14 +36,25 @@ lt('amount', 1000)
 lte('amount', 1000)
 inList('country', ['US', 'UK', 'CA'])
 notInList('status', ['cancelled', 'refunded'])
+between('createdAt', '2026-01-01', '2026-01-31')
+like('email', '%@example.com')
 ```
 </CodeBlock>
 
-## Use filters in queries
+Each helper returns a filter with a field, operator, and value.
 
 <CodeBlock>
 ```typescript
-await executor.metric(revenue, {
+eq('status', 'completed')
+// { field: 'status', operator: 'eq', value: 'completed' }
+```
+</CodeBlock>
+
+## Use filters in metric queries
+
+<CodeBlock>
+```typescript
+await analytics.execute(revenue, {
   dimensions: ['country'],
   filters: [
     eq('status', 'completed'),
@@ -48,4 +65,104 @@ await executor.metric(revenue, {
 ```
 </CodeBlock>
 
+## Use filters in dataset queries
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['country', 'status'],
+  measures: ['revenue', 'orderCount'],
+  filters: [
+    eq('status', 'completed'),
+    between('createdAt', '2026-01-01', '2026-01-31'),
+  ],
+});
+```
+</CodeBlock>
+
+## Use filters in measures
+
+Filtered measures are useful when a business state should always be part of the aggregation.
+
+<CodeBlock>
+```typescript
+import { dataset, dimension, eq, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    status: dimension.string(),
+  },
+  measures: {
+    completedRevenue: measure.sum('amount', {
+      filters: [eq('status', 'completed')],
+    }),
+    refundedRevenue: measure.sum('amount', {
+      filters: [eq('status', 'refunded')],
+    }),
+  },
+});
+```
+</CodeBlock>
+
+## Restrict filter operators
+
+By default, filterable dimensions become available as filters. Use the dataset `filters` map when you want a named filter contract or a restricted operator set.
+
+<CodeBlock>
+```typescript
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    status: dimension.string(),
+    country: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+  filters: {
+    status: {
+      __type: 'filter_definition',
+      field: 'status',
+      operators: ['eq', 'neq', 'in', 'notIn'],
+    },
+  },
+});
+```
+</CodeBlock>
+
+With this contract, `status` is the only exposed filter field, and only the listed operators are allowed.
+
+## Order helpers
+
+`asc` and `desc` create structured order clauses.
+
+<CodeBlock>
+```typescript
+import { asc, desc } from '@hypequery/datasets';
+
+await analytics.execute(revenue, {
+  dimensions: ['country'],
+  orderBy: [desc('revenue'), asc('country')],
+});
+```
+</CodeBlock>
+
+## Tenant filters
+
 When runtime tenancy is active, explicit filters on the tenant field are rejected. Use runtime tenant context instead.
+
+<CodeBlock>
+```typescript
+await analytics.execute(revenue, {
+  filters: [eq('tenantId', 'tenant_123')],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
+});
+// Error: Cannot filter on tenant field "tenantId" when runtime tenancy enforcement is active.
+```
+</CodeBlock>

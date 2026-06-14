@@ -1,88 +1,52 @@
 ---
-title: Core Concepts
-description: Understand the builder, reusable query definitions, and runtime layers in hypequery.
+title: Core concepts
+description: Understand the builder, datasets (semantic layer), and runtime in hypequery.
 ---
 
-import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-import { Pre } from 'fumadocs-ui/components/codeblock';
+hypequery is one query model that scales across three layers:
 
-hypequery has three layers:
+- a **ClickHouse query builder**
+- **datasets** for semantic analytics definitions
+- an **optional runtime** for APIs, docs, and integrations
 
-- a ClickHouse query builder
-- reusable query definitions
-- an optional runtime for routes, docs, auth, and framework integration
-
-## The three layers
-
-### 1. Query builder
-
-The builder is the lowest-level and most direct part of hypequery.
-
-This is where you:
-
-- connect to ClickHouse
-- generate a typed schema
-- build typed queries with `db.table(...)`
-- execute them directly in your application
-
-If your query only lives in one place, this may be all you need. 
-
-If you want to go deeper, see our [Inside the Query Builder](/docs/reference/inside-the-query-builder) and [ClickHouse Behavior](/docs/reference/clickhouse-behavior) pages in the reference section.
-
-### 2. Reusable query definitions
-
-The next layer turns local query logic into a reusable contract.
-
-This is where you add things like:
-
-- a stable name
-- input and output schemas
-- validation
-- metadata
-- per-query auth or tenant rules
-
-The important idea is that the SQL-building logic does not move somewhere else. You still write normal builder code. This layer just gives that logic a durable interface.
-
-### 3. Runtime
-
-The runtime is optional.
-
-It is the layer you add when reusable query definitions should also become part of a larger application surface, such as:
-
-- HTTP routes
-- generated docs
-- OpenAPI
-- middleware
-- authentication
-- framework handlers
-
-This is not a separate query language. It is a delivery layer around the same query definitions.
+You can adopt each layer independently and move between them as your needs grow.
 
 ## The mental model
 
 Start with a local typed query.
 
-Move to a reusable query definition when the same query needs a stable interface.
+Promote it into a dataset when dimensions, measures, or filters need reuse.
 
-Add the runtime when that interface should also be exposed through an application boundary such as HTTP or framework routing.
+Add the runtime when the same logic needs an application boundary.
 
-That progression looks like this:
+| Layer                     | Use it when                        | Adds                                              |
+| ------------------------- | ---------------------------------- | ------------------------------------------------- |
+| Query builder             | Query logic is local to one place  | Typed ClickHouse query construction and execution |
+| Datasets (semantic layer) | Logic needs reuse and consistency  | Dimensions, measures, metrics, shared filters     |
+| Runtime                   | Logic needs an application surface | Routes, validation, auth, docs, integrations      |
 
-| Layer | Use it when | Adds |
-| --- | --- | --- |
-| Query builder | Query logic is local to one place | Typed ClickHouse query construction and execution |
-| Reusable query definition | The query needs a stable contract | Validation, schemas, metadata, named execution, per-query rules |
-| Runtime | The contract needs an application surface | Routes, docs, OpenAPI, auth, middleware, framework integration |
+## 1. Query builder
 
-If you are unsure where to start, start with the builder.
+The builder is the foundation.
 
-## One example, three stages
+This is where you:
 
-### Stage 1: local builder query
+- connect to ClickHouse
+- generate a typed schema
+- build queries with `db.table(...)`
+- execute them directly
 
-<CodeBlock>
-<Pre>
-```typescript
+```ts
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import type { IntrospectedSchema } from './generated-schema';
+
+const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
 const latestUsers = await db
   .table('users')
   .select(['id', 'email', 'created_at'])
@@ -91,100 +55,185 @@ const latestUsers = await db
   .limit(10)
   .execute();
 ```
-</Pre>
-</CodeBlock>
 
-This is the simplest useful hypequery program: a typed ClickHouse query executing directly in your code.
+If your query only lives in one place, this is often enough.
 
-### Stage 2: reusable query definition
+## 2. Datasets (semantic layer)
 
-<CodeBlock>
-<Pre>
-```typescript
-const { query } = initServe({
-  context: () => ({ db }),
+Datasets turn table semantics into reusable analytics definitions.
+
+This is where you define:
+
+- **dimensions** such as `country`, `status`, and `created_at`
+- **measures** such as `userCount` and `activeUserCount`
+- shared filters, tenant keys, and time keys
+
+The key idea: datasets do not use `db.table(...)` directly. A dataset describes a source table, and a dataset client executes semantic queries against that definition.
+
+```ts
+import {
+  createDatasetClient,
+  dataset,
+  dimension,
+  eq,
+  measure,
+} from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-export const latestUsers = query({
-  description: 'Most recent active users',
-  input: z.object({
-    limit: z.number().min(1).max(100).default(10),
-  }),
-  query: ({ ctx, input }) =>
-    ctx.db
-      .table('users')
-      .select(['id', 'email', 'created_at'])
-      .where('status', 'eq', 'active')
-      .orderBy('created_at', 'DESC')
-      .limit(input.limit)
-      .execute(),
+const analytics = createDatasetClient({ queryBuilder: db });
+
+export const Users = dataset('users', {
+  source: 'users',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    email: dimension.string(),
+    status: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    userCount: measure.count('id'),
+    activeUserCount: measure.count('id', {
+      filters: [eq('status', 'active')],
+    }),
+  },
+});
+
+const result = await analytics.execute(Users, {
+  dimensions: ['status'],
+  measures: ['userCount', 'activeUserCount'],
+  limit: 10,
 });
 ```
-</Pre>
-</CodeBlock>
 
-The important change is not the SQL. The important change is that the query now has a defined interface with validation and metadata around the same builder logic.
+Now the same semantics can be reused across APIs, dashboards, background jobs, and agent-facing tools without rewriting SQL.
 
-### Stage 3: runtime exposure
+## 3. Runtime (optional)
 
-At this point the same reusable query can be mounted behind routes, docs, auth, middleware, or framework-specific handlers.
+The runtime is a delivery layer for datasets and query definitions.
 
-The runtime layer builds on the reusable query definition rather than replacing it.
+Add it when you need:
 
-<CodeBlock>
-<Pre>
-```typescript
-const { query, serve } = initServe({
+- HTTP routes
+- validation and input schemas
+- authentication or multi-tenancy
+- generated docs or OpenAPI
+- framework integrations
+
+```ts
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+import { Users } from './datasets/users';
+
+const { serve } = initServe({
   context: () => ({ db }),
-  basePath: '/api/analytics',
 });
 
-export const latestUsers = query({
-  description: 'Most recent active users',
-  input: z.object({
-    limit: z.number().min(1).max(100).default(10),
-  }),
-  query: ({ ctx, input }) =>
+export const api = serve({
+  datasets: { users: Users },
+  queryBuilder: db,
+});
+```
+
+The runtime does not introduce a new query language. It exposes the same dataset definitions and builder-backed query logic through an application surface.
+
+## One example, three stages
+
+### Stage 1 — local query
+
+```ts
+const activeUsers = await db
+  .table('users')
+  .select(['id', 'created_at'])
+  .where('status', 'eq', 'active')
+  .execute();
+```
+
+### Stage 2 — dataset
+
+```ts
+import { dataset, dimension, eq, measure } from '@hypequery/datasets';
+
+export const Users = dataset('users', {
+  source: 'users',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    activeUsers: measure.count('id', {
+      filters: [eq('status', 'active')],
+    }),
+  },
+});
+```
+
+### Stage 3 — runtime
+
+```ts
+export const api = serve({
+  datasets: { users: Users },
+  queryBuilder: db,
+});
+```
+
+You can also expose hand-authored builder queries through the same runtime:
+
+```ts
+const { query, serve } = initServe({
+  context: () => ({ db }),
+});
+
+const latestActiveUsers = query({
+  query: ({ ctx }) =>
     ctx.db
       .table('users')
       .select(['id', 'email', 'created_at'])
       .where('status', 'eq', 'active')
       .orderBy('created_at', 'DESC')
-      .limit(input.limit)
+      .limit(10)
       .execute(),
 });
 
 export const api = serve({
-  queries: { latestUsers },
+  queries: { latestActiveUsers },
+  datasets: { users: Users },
+  queryBuilder: db,
 });
 ```
-</Pre>
-</CodeBlock>
 
-## Common transitions
+## How to think about it
 
-Move from the builder to reusable query definitions when:
+hypequery is not separate systems stitched together.
 
-- the same query appears in more than one place
-- the query needs validation
-- the query needs metadata
-- the query should have a stable name or contract
+It is one model that evolves:
 
-Move from reusable query definitions to the runtime when:
+- start with **typed queries**
+- organize repeated analytics semantics into **datasets**
+- expose them via the **runtime** when needed
 
-- the query should be callable over HTTP
-- the query should appear in docs or OpenAPI
-- the query should participate in shared auth or middleware
-- the query should integrate with a framework surface
+The same underlying logic stays consistent across every layer.
 
-## What this means in practice
+## When to move between layers
 
-hypequery is not one thing pretending to be many things.
+**Move to datasets when:**
 
-It is one query model with three levels of use:
+- the same dimensions, measures, or filters appear in multiple places
+- metrics need a single definition
+- queries should be reusable and consistent
 
-- local typed query building
-- reusable query contracts
-- optional delivery and runtime integration
+**Add the runtime when:**
 
-That is why the same builder code remains central even as you move up the stack.
+- queries or datasets should be accessible over HTTP
+- you need validation or auth
+- you want generated docs or integrations
+
+If you are unsure where to start, start with the builder.

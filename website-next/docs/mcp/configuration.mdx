@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Configure the Hypequery MCP server with datasets and an executor.
+description: Configure the Hypequery MCP server with datasets and a dataset client.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -11,7 +11,7 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 The CLI loads a config file with dynamic `import()`. The config must export:
 
 - `datasets`: a registry of dataset names to dataset instances
-- `executor`: a semantic executor created with `createExecutor`
+- `analytics`: a dataset client created with `createDatasetClient`
 
 ## Minimal config
 
@@ -19,7 +19,7 @@ The CLI loads a config file with dynamic `import()`. The config must export:
 ```javascript
 // mcp-config.mjs
 import { createQueryBuilder } from '@hypequery/clickhouse';
-import { createExecutor } from '@hypequery/datasets';
+import { createDatasetClient } from '@hypequery/datasets';
 import { Users } from './datasets/users.js';
 
 const db = createQueryBuilder({
@@ -33,7 +33,7 @@ export const datasets = {
   users: Users,
 };
 
-export const executor = createExecutor({ queryBuilder: db });
+export const analytics = createDatasetClient({ queryBuilder: db });
 ```
 </CodeBlock>
 

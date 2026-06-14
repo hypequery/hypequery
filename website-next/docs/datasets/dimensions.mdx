@@ -5,14 +5,14 @@ description: Define typed fields for selecting, grouping, and filtering dataset 
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Dimensions
+Dimensions are the non-aggregated fields in a dataset. They are the fields callers can select, group by, filter on, and order by.
 
-Dimensions define the fields you can group by, filter on, and select in dataset queries.
+The object key is the semantic API name. The dimension helper tells hypequery the field type, and the options tell hypequery how that semantic field maps to ClickHouse.
 
 <CodeBlock>
 ```typescript
 dimensions: {
-  id: dimension.number(),
+  id: dimension.string(),
   status: dimension.string({ label: 'Status' }),
   isTrial: dimension.boolean({ column: 'is_trial' }),
   createdAt: dimension.timestamp({ column: 'created_at' }),
@@ -20,12 +20,64 @@ dimensions: {
 ```
 </CodeBlock>
 
+With that definition, callers use the semantic names:
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['status', 'createdAt'],
+  measures: ['revenue'],
+});
+```
+</CodeBlock>
+
+The generated SQL still uses the mapped ClickHouse columns, such as `created_at`.
+
 ## Dimension helpers
 
 - `dimension.string(opts?)`
 - `dimension.number(opts?)`
 - `dimension.boolean(opts?)`
 - `dimension.timestamp(opts?)`
+
+The helper should match the value type of the field. That type is used for query validation, generated contracts, and integration surfaces.
+
+These are semantic dimension types, not a full mirror of every ClickHouse physical type. Use the closest analytical type:
+
+| ClickHouse types | Dimension type |
+| --- | --- |
+| `String`, `LowCardinality(String)`, `Enum`, `UUID` | `dimension.string()` |
+| `UInt64`, `Int32`, `Float64`, `Decimal` | `dimension.number()` |
+| `Bool` or boolean-style `UInt8` flags | `dimension.boolean()` |
+| `Date`, `DateTime`, `DateTime64` | `dimension.timestamp()` |
+
+The query builder can still use precise generated ClickHouse schema types. Datasets expose a smaller semantic model for analytics, validation, docs, and integrations.
+
+## Options
+
+Every dimension helper accepts the same options object:
+
+<CodeBlock>
+```typescript
+type DimensionOptions = {
+  label?: string;
+  description?: string;
+  column?: string;
+  sql?: string;
+  filterable?: boolean;
+  groupable?: boolean;
+};
+```
+</CodeBlock>
+
+| Option | Use it for |
+| --- | --- |
+| `column` | Mapping a semantic field name to a physical ClickHouse column |
+| `sql` | Backing a dimension with a SQL expression instead of a simple column |
+| `label` | Human-readable display text for docs, UIs, and agents |
+| `description` | Longer metadata for generated docs, UIs, and agents |
+| `filterable` | Whether callers should be allowed to filter on the dimension. Defaults to `true` |
+| `groupable` | Whether callers should be allowed to group/select the dimension. Defaults to `true` in the semantic model |
 
 ## Column mapping
 
@@ -41,16 +93,64 @@ dimensions: {
 ```
 </CodeBlock>
 
-## Labels
+This keeps your public dataset API idiomatic while still targeting the real table columns:
 
-Use `opts.label` for human-readable display names.
+<CodeBlock>
+```typescript
+await analytics.execute(Users, {
+  dimensions: ['userId', 'createdAt'],
+});
+```
+</CodeBlock>
+
+## Labels and descriptions
+
+Use `label` and `description` for human-readable metadata. These do not change SQL generation, but they are exposed through generated docs and MCP schema introspection so agents and UIs can understand what a field means.
 
 <CodeBlock>
 ```typescript
 dimensions: {
-  status: dimension.string({ label: 'Order Status' }),
+  status: dimension.string({
+    label: 'Order Status',
+    description: 'Current lifecycle state for the order.',
+  }),
 }
 ```
 </CodeBlock>
 
-`opts.sql` exists for SQL-backed dimensions, but schema compatibility can only inspect simple column references and reports a warning for complex SQL expressions.
+For MCP, this metadata becomes part of `get_dataset_schema`, which helps agents choose the right fields without guessing from column names alone.
+
+## SQL-backed dimensions
+
+Use `sql` when the dimension is computed rather than stored as a single column.
+
+<CodeBlock>
+```typescript
+dimensions: {
+  countryCode: dimension.string({ column: 'country_code' }),
+  countryUpper: dimension.string({ sql: 'upper(country_code)' }),
+}
+```
+</CodeBlock>
+
+Use SQL-backed dimensions sparingly. Schema compatibility checks can inspect simple column references, but complex SQL expressions can only produce warnings because they cannot be fully verified from the table schema.
+
+## Filterable and groupable
+
+Use `filterable` and `groupable` when a field exists in the dataset contract but should not be available for every query operation.
+
+<CodeBlock>
+```typescript
+dimensions: {
+  email: dimension.string({
+    filterable: true,
+    groupable: false,
+    description: 'Allowed in filters, but not useful as a grouping key.',
+  }),
+}
+```
+</CodeBlock>
+
+Most dimensions can omit these options. By default, dimensions are available for filtering and grouping. Set `filterable: false` to remove a dimension from the automatically generated filter set.
+
+`groupable` records the intended grouping behavior on the dimension definition. Use it to communicate stricter query intent to generated docs, UIs, or integration layers.

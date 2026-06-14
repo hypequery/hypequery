@@ -1,18 +1,17 @@
 ---
-title: Datasets
+title: Overview
 description: Define ClickHouse tables once in TypeScript, then reuse typed semantic definitions across APIs, jobs, dashboards, and agents.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Datasets
 
-Datasets are type-safe semantic analytics definitions for Hypequery. A dataset models a source table or view with dimensions, measures, metrics, tenant keys, and time keys in TypeScript.
+Datasets are type-safe semantic analytics definitions. A dataset models a source table or view with dimensions, measures, metrics, tenant keys, and time keys in TypeScript.
 
 Use datasets when query logic has started to matter beyond one file:
 
 - define table semantics once
-- reuse dimensions and measures across endpoints
+- reuse dimensions and measures alongside normal query builder code
 - apply tenant and time context consistently
 - serve semantic dataset endpoints from the same definitions
 - keep the layer in your codebase instead of YAML or a separate platform
@@ -23,9 +22,9 @@ Use datasets when query logic has started to matter beyond one file:
 
 <CodeBlock>
 ```bash
-npm install @hypequery/datasets
+npm install @hypequery/datasets @hypequery/clickhouse
 # or
-pnpm add @hypequery/datasets
+pnpm add @hypequery/datasets @hypequery/clickhouse
 ```
 </CodeBlock>
 
@@ -33,8 +32,25 @@ pnpm add @hypequery/datasets
 
 <CodeBlock>
 ```typescript
-import { createExecutor, dataset, dimension, eq, measure } from '@hypequery/datasets';
+import {
+  createDatasetClient,
+  dataset,
+  dimension,
+  divide,
+  eq,
+  measure,
+  nullIfZero,
+} from '@hypequery/datasets';
 import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -53,32 +69,30 @@ const Orders = dataset('orders', {
   },
 });
 
-const db = createQueryBuilder({
-  url: process.env.CLICKHOUSE_URL!,
-  username: process.env.CLICKHOUSE_USER!,
-  password: process.env.CLICKHOUSE_PASSWORD!,
-  database: process.env.CLICKHOUSE_DATABASE!,
+// Execute a dataset query directly when you want multiple measures.
+const byCountry = await analytics.execute(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue', 'orderCount'],
+  filters: [eq('status', 'completed')],
+  limit: 10,
 });
 
-const executor = createExecutor({ queryBuilder: db });
+// Promote reusable KPIs into metrics.
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
 
-const result = await executor.dataset(Orders, {
+// Derived metrics compose base metrics from the same dataset.
+const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+});
+
+const aovByCountry = await analytics.execute(averageOrderValue, {
   dimensions: ['country'],
-  measures: ['revenue'],
   filters: [eq('status', 'completed')],
+  orderBy: [{ field: 'averageOrderValue', direction: 'desc' }],
   limit: 10,
 });
 ```
 </CodeBlock>
-
-## What to read next
-
-| Topic | Description | Link |
-| --- | --- | --- |
-| Defining datasets | Create the dataset object and map source tables | [Defining datasets →](/docs/datasets/defining-datasets) |
-| Dimensions | Define fields users can select, group, and filter | [Dimensions →](/docs/datasets/dimensions) |
-| Measures | Define aggregations like revenue, count, and averages | [Measures →](/docs/datasets/measures) |
-| Metrics | Attach named KPIs and derived formulas to a dataset | [Metrics →](/docs/datasets/metrics) |
-| Multi-tenancy | Apply tenant context from runtime execution | [Multi-tenancy →](/docs/datasets/multi-tenancy) |
-| Execution | Validate, generate SQL, and execute dataset queries | [Execution →](/docs/datasets/execution) |
-| Serve integration | Expose dataset endpoints through `@hypequery/serve` | [Serve integration →](/docs/datasets/serve-integration) |

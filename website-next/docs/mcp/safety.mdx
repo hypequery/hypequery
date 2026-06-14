@@ -18,14 +18,14 @@ With Hypequery MCP, the agent can only use the datasets and metrics you register
 - which dimensions and metrics are queryable
 - which relationships and time grains the agent can discover
 - which filter operators the tool schema accepts
-- query execution through the dataset executor
+- query execution through the dataset client
 
 ## What MCP does not replace
 
-MCP does not replace authentication, authorization, or tenant identity. The stock stdio server receives tool calls from a local MCP client and executes them through the `executor` you provide.
+MCP does not replace authentication, authorization, or tenant identity. The stock stdio server receives tool calls from a local MCP client and executes them through the `analytics` dataset client you provide.
 
 <Callout type="warn">
-  Do not expose a shared multi-tenant MCP server unless the process is already scoped to the tenant or your executor/config enforces tenant identity for every query.
+  Do not expose a shared multi-tenant MCP server unless the process is already scoped to the tenant or your dataset client/config enforces tenant identity for every query.
 </Callout>
 
 ## Safer patterns
@@ -34,7 +34,7 @@ Prefer one of these patterns:
 
 - run MCP for local development or internal admin use only
 - expose only non-sensitive aggregate datasets
-- run a tenant-specific MCP process with tenant-scoped credentials or a tenant-bound executor
+- run a tenant-specific MCP process with tenant-scoped credentials or a tenant-bound dataset client
 - keep sensitive tables out of the exported `datasets` registry
 - inspect generated SQL with response metadata while testing
 
