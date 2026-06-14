@@ -377,7 +377,7 @@ describe("defineServe", () => {
     expect(missingTenant.status).toBe(403);
     expect(missingTenant.body).toMatchObject({
       error: {
-        type: "UNAUTHORIZED",
+        type: "FORBIDDEN",
         message: expect.stringContaining("Tenant context is required"),
         details: {
           reason: "missing_tenant_context",

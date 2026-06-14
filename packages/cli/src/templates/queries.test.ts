@@ -90,4 +90,15 @@ describe('queries template', () => {
     expect(client).toContain("import type { IntrospectedSchema } from './schema.js';");
     expect(queries).toContain("import { db } from './client.js';");
   });
+
+  it('can generate context auth scaffolding when requested', () => {
+    const result = generateQueriesTemplate({
+      hasExample: false,
+      auth: 'context',
+    });
+
+    expect(result).toContain('import { fromContext, initServe }');
+    expect(result).toContain('auth: fromContext');
+    expect(result).toContain("mode: 'auto-inject'");
+  });
 });

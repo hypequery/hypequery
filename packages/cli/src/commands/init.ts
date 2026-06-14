@@ -22,7 +22,7 @@ import {
 import { hasEnvFile, hasGitignore } from '../utils/find-files.js';
 import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
-import { generateQueriesTemplate } from '../templates/queries.js';
+import { generateQueriesTemplate, type AuthTemplateMode } from '../templates/queries.js';
 import { generateApiTemplate } from '../templates/api.js';
 import { generateDatasetsPlaceholderTemplate } from '../templates/datasets.js';
 import { appendToGitignore } from '../templates/gitignore.js';
@@ -40,10 +40,21 @@ export interface InitOptions {
   noInteractive?: boolean;
   force?: boolean;
   skipConnection?: boolean;
+  auth?: AuthTemplateMode;
 }
 
 function normalizeInitStyle(style: InitOptions['style']): InitStyle {
   return style === 'datasets' ? 'datasets' : 'queries';
+}
+
+function normalizeAuthMode(auth: InitOptions['auth']): AuthTemplateMode {
+  if (!auth || auth === 'none') {
+    return 'none';
+  }
+  if (auth === 'context') {
+    return 'context';
+  }
+  throw new Error(`Unsupported auth mode "${auth}". Use "none" or "context".`);
 }
 
 function parseTableList(value: string | undefined): string[] | undefined {
@@ -176,6 +187,7 @@ export async function initCommand(options: InitOptions = {}) {
   const resolvedOutputDir = path.resolve(process.cwd(), outputDir);
 
   let style = normalizeInitStyle(options.style);
+  const auth = normalizeAuthMode(options.auth);
   if (!options.style && !noInteractive) {
     style = await promptInitStyle();
   }
@@ -347,7 +359,7 @@ export interface IntrospectedSchema {
     logger.success(`Created datasets file (${path.relative(process.cwd(), datasetsPath)})`);
 
     apiPath = path.join(resolvedOutputDir, 'api.ts');
-    await writeFile(apiPath, generateApiTemplate());
+    await writeFile(apiPath, generateApiTemplate({ auth }));
     logger.success(`Created API file (${path.relative(process.cwd(), apiPath)})`);
   } else {
     apiPath = path.join(resolvedOutputDir, 'queries.ts');
@@ -356,6 +368,7 @@ export interface IntrospectedSchema {
       generateQueriesTemplate({
         hasExample: generateExample,
         tableName: selectedTable || undefined,
+        auth,
       })
     );
     logger.success(`Created queries file (${path.relative(process.cwd(), apiPath)})`);

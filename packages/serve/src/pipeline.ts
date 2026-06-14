@@ -415,7 +415,7 @@ export const executeEndpoint = async <
           error: new Error(errorMessage),
         });
 
-        return createErrorResponse(403, 'UNAUTHORIZED', errorMessage, {
+        return createErrorResponse(403, 'FORBIDDEN', errorMessage, {
           reason: 'missing_tenant_context',
           tenant_required: true,
         }, { 'x-request-id': requestId });

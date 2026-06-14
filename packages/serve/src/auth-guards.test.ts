@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { initServe } from "./server";
 import {
-  requireAuthMiddleware,
-  requireRoleMiddleware,
-  requireScopeMiddleware,
-  createAuthSystem,
   checkRoleAuthorization,
   checkScopeAuthorization,
 } from "./auth";
@@ -484,78 +480,6 @@ describe("Auth Guards", () => {
     });
   });
 
-  describe("middleware helpers", () => {
-    describe("requireAuthMiddleware", () => {
-      it("throws for unauthenticated context", async () => {
-        const middleware = requireAuthMiddleware();
-        const ctx = { auth: null } as any;
-        const next = vi.fn();
-
-        await expect(middleware(ctx, next)).rejects.toThrow("Authentication required");
-        expect(next).not.toHaveBeenCalled();
-      });
-
-      it("passes for authenticated context", async () => {
-        const middleware = requireAuthMiddleware();
-        const ctx = { auth: { userId: "u1" } } as any;
-        const next = vi.fn().mockResolvedValue("result");
-
-        const result = await middleware(ctx, next);
-        expect(next).toHaveBeenCalled();
-        expect(result).toBe("result");
-      });
-    });
-
-    describe("requireRoleMiddleware", () => {
-      it("throws for missing role", async () => {
-        const middleware = requireRoleMiddleware("admin");
-        const ctx = { auth: { roles: ["viewer"] } } as any;
-        const next = vi.fn();
-
-        await expect(middleware(ctx, next)).rejects.toThrow(
-          "Missing required role",
-        );
-        expect(next).not.toHaveBeenCalled();
-      });
-
-      it("passes for matching role", async () => {
-        const middleware = requireRoleMiddleware("admin");
-        const ctx = { auth: { roles: ["admin"] } } as any;
-        const next = vi.fn().mockResolvedValue("ok");
-
-        const result = await middleware(ctx, next);
-        expect(next).toHaveBeenCalled();
-        expect(result).toBe("ok");
-      });
-    });
-
-    describe("requireScopeMiddleware", () => {
-      it("throws for missing scope", async () => {
-        const middleware = requireScopeMiddleware("read:metrics", "write:metrics");
-        const ctx = { auth: { scopes: ["read:metrics"] } } as any;
-        const next = vi.fn();
-
-        // Error message includes ALL required scopes, not just missing ones
-        await expect(middleware(ctx, next)).rejects.toThrow(
-          "Missing required scopes: read:metrics, write:metrics",
-        );
-        expect(next).not.toHaveBeenCalled();
-      });
-
-      it("passes when all scopes present", async () => {
-        const middleware = requireScopeMiddleware("read:metrics", "write:metrics");
-        const ctx = {
-          auth: { scopes: ["read:metrics", "write:metrics"] },
-        } as any;
-        const next = vi.fn().mockResolvedValue("ok");
-
-        const result = await middleware(ctx, next);
-        expect(next).toHaveBeenCalled();
-        expect(result).toBe("ok");
-      });
-    });
-  });
-
   describe("endpoint metadata", () => {
     it("includes requiredRoles and requiredScopes in metadata", async () => {
       const { define, query } = initServe({
@@ -699,35 +623,7 @@ describe("Auth Guards", () => {
     });
   });
 
-  describe("Typed Auth System", () => {
-    it("creates a typed auth system with roles and scopes", () => {
-      const { useAuth, TypedAuth } = createAuthSystem({
-        roles: ['admin', 'editor', 'viewer'] as const,
-        scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,
-      });
-
-      expect(useAuth).toBeDefined();
-      expect(typeof useAuth).toBe('function');
-      expect(TypedAuth).toBeDefined();
-    });
-
-    it("creates typed auth without roles or scopes", () => {
-      const { useAuth, TypedAuth } = createAuthSystem();
-
-      expect(useAuth).toBeDefined();
-      expect(TypedAuth).toBeDefined();
-    });
-
-    it("useAuth wrapper returns the auth strategy unchanged", () => {
-      const strategy = async () => ({ userId: 'test' });
-      const { useAuth } = createAuthSystem({
-        roles: ['admin'] as const,
-      });
-
-      const wrapped = useAuth(strategy);
-      expect(wrapped).toBe(strategy);
-    });
-
+  describe("Typed auth context types", () => {
     it("works with typed auth context and requireRole", async () => {
       type AppRole = 'admin' | 'editor' | 'viewer';
       type AppAuth = AuthContextWithRoles<AppRole>;
@@ -794,26 +690,6 @@ describe("Auth Guards", () => {
       }));
 
       expect(response.status).toBe(403); // Has 'read:metrics', not 'write:metrics'
-    });
-
-    it("combines roles and scopes with createAuthSystem", () => {
-      const { TypedAuth } = createAuthSystem({
-        roles: ['admin', 'editor', 'viewer'] as const,
-        scopes: ['read:metrics', 'write:metrics', 'delete:metrics'] as const,
-      });
-
-      // Extract the combined type
-      type AppAuth = typeof TypedAuth;
-
-      // This should work - the type combines both constraints
-      const authContext: AppAuth = {
-        userId: 'test',
-        roles: ['admin'], // ✅ Valid role
-        scopes: ['read:metrics'], // ✅ Valid scope
-      };
-
-      expect(authContext.roles).toEqual(['admin']);
-      expect(authContext.scopes).toEqual(['read:metrics']);
     });
 
     it("AuthContextWithRoles constrains role values", () => {

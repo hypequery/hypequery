@@ -465,6 +465,9 @@ importers:
       '@hypequery/datasets':
         specifier: ^0.1.0
         version: link:../datasets
+      jose:
+        specifier: ^5.9.6
+        version: 5.10.0
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@5.9.3)
@@ -481,9 +484,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^2.1.9
         version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
-      jose:
-        specifier: ^5.9.6
-        version: 5.10.0
       tsx:
         specifier: ^4.19.2
         version: 4.21.0

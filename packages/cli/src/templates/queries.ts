@@ -1,23 +1,39 @@
+import {
+  type AuthTemplateMode,
+  hostUserHelpers,
+  contextAuthConfig,
+} from './auth-scaffold.js';
+
+export type { AuthTemplateMode };
+
 /**
  * Generate queries.ts file
  */
 export function generateQueriesTemplate(options: {
   hasExample: boolean;
   tableName?: string;
+  auth?: AuthTemplateMode;
 }): string {
-  const { hasExample, tableName } = options;
+  const { hasExample, tableName, auth = 'none' } = options;
   const metricKey = hasExample && tableName ? `${camelCase(tableName)}Query` : 'exampleMetric';
   const typeAlias = `${pascalCase(metricKey)}Result`;
   const routePath = `/metrics/${metricKey}`;
+  const serveImports = auth === 'context' ? 'fromContext, initServe' : 'initServe';
+  const authHelpers = auth === 'context'
+    ? `\n${hostUserHelpers}\n`
+    : '';
+  const authConfig = auth === 'context'
+    ? `${contextAuthConfig}\n`
+    : '';
 
-  let template = `import { initServe } from '@hypequery/serve';
+  let template = `import { ${serveImports} } from '@hypequery/serve';
 import type { InferApiType } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client.js';
-
+${authHelpers}
 const { query, serve } = initServe({
   context: () => ({ db }),
-});
+${authConfig}});
 
 `;
 

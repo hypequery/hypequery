@@ -3,10 +3,16 @@ import type {
   AuthContextWithRoles,
   AuthContextWithScopes,
   AuthStrategy,
+  AuthStrategyContext,
   AuthErrorInfo,
-  ServeMiddleware,
   ServeRequest,
 } from "./types.js";
+import {
+  SignJWT,
+  createRemoteJWKSet,
+  jwtVerify,
+  type JWTPayload,
+} from "jose";
 
 const resolveHeaderValue = (value: unknown): string | undefined => {
   if (Array.isArray(value)) {
@@ -141,28 +147,16 @@ export const createBearerTokenStrategy = <TAuth extends AuthContext = AuthContex
   };
 };
 
-export type JsonWebKey = Record<string, unknown>;
+export const fromContext = <TAuth extends AuthContext = AuthContext>(
+  extract: (context: AuthStrategyContext) => Promise<TAuth | null> | TAuth | null,
+): AuthStrategy<TAuth> => async (context) => extract(context);
 
-export interface JsonWebKeySet {
-  keys: JsonWebKey[];
-}
-
-export interface JwksAuthStrategyOptions<TAuth extends AuthContext = AuthContext> {
-  /**
-   * JWKS endpoint, e.g. `https://issuer/.well-known/jwks.json`. Provide this or
-   * {@link jwks}.
-   */
-  jwksUri?: string;
-  /**
-   * A static JSON Web Key Set, used instead of fetching from {@link jwksUri}.
-   * Useful for offline/no-network deploys. Provide this or `jwksUri`.
-   */
-  jwks?: JsonWebKeySet;
+interface BaseJwtStrategyOptions<TAuth extends AuthContext = AuthContext> {
   /** Expected token issuer(s). */
   issuer?: string | string[];
   /** Expected audience(s). */
   audience?: string | string[];
-  /** Allowed signature algorithms, e.g. `['RS256']`. */
+  /** Allowed signature algorithms. Defaults to `['HS256']` for secrets and `['RS256']` for JWKS. */
   algorithms?: string[];
   /** Header carrying the token. @default "authorization" */
   header?: string;
@@ -172,15 +166,42 @@ export interface JwksAuthStrategyOptions<TAuth extends AuthContext = AuthContext
   optional?: boolean;
   /**
    * Maps verified JWT claims to your auth context. Defaults to mapping
-   * `sub`→`userId`, `roles`→`roles`, and `scope`/`scopes`→`scopes`.
+   * `sub`→`userId`, `org_id`→`tenantId`, `roles`→`roles`, and
+   * `scope`/`scopes`→`scopes`.
    */
   mapClaims?: (
-    payload: Record<string, unknown>,
+    payload: JWTPayload,
     request: ServeRequest,
   ) => TAuth | null | Promise<TAuth | null>;
 }
 
-const defaultJwtClaimMapper = (payload: Record<string, unknown>): AuthContext => {
+export interface SecretJwtStrategyOptions<TAuth extends AuthContext = AuthContext>
+  extends BaseJwtStrategyOptions<TAuth> {
+  /** Shared secret for symmetric JWT verification. Defaults algorithms to `['HS256']`. */
+  secret: string | Uint8Array;
+  jwksUri?: never;
+}
+
+export interface JwksJwtStrategyOptions<TAuth extends AuthContext = AuthContext>
+  extends BaseJwtStrategyOptions<TAuth> {
+  /** Remote JWKS endpoint for asymmetric JWT verification. Defaults algorithms to `['RS256']`. */
+  jwksUri: string;
+  secret?: never;
+}
+
+export type JwtStrategyOptions<TAuth extends AuthContext = AuthContext> =
+  | SecretJwtStrategyOptions<TAuth>
+  | JwksJwtStrategyOptions<TAuth>;
+
+type JwtStrategyOptionsWithMapper<TAuth extends AuthContext> =
+  JwtStrategyOptions<TAuth> & {
+    mapClaims: (
+      payload: JWTPayload,
+      request: ServeRequest,
+    ) => TAuth | null | Promise<TAuth | null>;
+  };
+
+const defaultJwtClaimMapper = (payload: JWTPayload): AuthContext => {
   const scopeClaim = payload.scope ?? payload.scopes;
   const scopes = typeof scopeClaim === "string"
     ? scopeClaim.split(" ").filter(Boolean)
@@ -192,68 +213,93 @@ const defaultJwtClaimMapper = (payload: Record<string, unknown>): AuthContext =>
     : undefined;
   return {
     userId: typeof payload.sub === "string" ? payload.sub : undefined,
+    tenantId: typeof payload.org_id === "string" ? payload.org_id : undefined,
     roles,
     scopes,
-    metadata: payload,
+    metadata: payload as Record<string, unknown>,
   };
 };
 
 /**
- * Verifies JWTs against a remote JWKS (Auth0/Clerk/Cognito/etc.). The key set
- * and `jose` itself are loaded lazily on first use and cached (jose handles JWKS
- * caching + rotation cooldown), so this adds nothing to startup or to consumers
- * that don't use it. Requires the optional `jose` peer dependency.
+ * Verifies JWT bearer tokens with either a shared secret (HS256 by default) or
+ * a remote JWKS (RS256 by default). Use shared secrets when you mint the token
+ * yourself, and JWKS when a provider such as Auth0, Clerk, or Cognito mints it.
  *
  * @example
  * ```ts
  * const api = createAPI({
- *   auth: createJwksStrategy({
+ *   auth: createJwtStrategy({
  *     jwksUri: 'https://example.auth0.com/.well-known/jwks.json',
  *     issuer: 'https://example.auth0.com/',
  *     audience: 'https://api.example.com',
- *     algorithms: ['RS256'],
  *   }),
  *   queries: { ... },
  * });
  * ```
  */
-export const createJwksStrategy = <TAuth extends AuthContext = AuthContext>(
-  options: JwksAuthStrategyOptions<TAuth>
-): AuthStrategy<TAuth> => {
-  if (!options.jwksUri && !options.jwks) {
-    throw new Error("createJwksStrategy: provide either `jwksUri` or `jwks`.");
+const resolveSecretKey = (secret: string | Uint8Array, helperName: string) => {
+  if (typeof secret === "string") {
+    if (secret.length === 0) {
+      throw new Error(`${helperName}: \`secret\` must not be empty.`);
+    }
+    return new TextEncoder().encode(secret);
+  }
+
+  if (secret.byteLength === 0) {
+    throw new Error(`${helperName}: \`secret\` must not be empty.`);
+  }
+  return secret;
+};
+
+const isSecretJwtOptions = <TAuth extends AuthContext>(
+  options: JwtStrategyOptions<TAuth>,
+): options is SecretJwtStrategyOptions<TAuth> =>
+  "secret" in options && options.secret != null;
+
+const isJwksJwtOptions = <TAuth extends AuthContext>(
+  options: JwtStrategyOptions<TAuth>,
+): options is JwksJwtStrategyOptions<TAuth> =>
+  "jwksUri" in options && options.jwksUri != null;
+
+export function createJwtStrategy(options: JwtStrategyOptions<AuthContext>): AuthStrategy<AuthContext>;
+export function createJwtStrategy<TAuth extends AuthContext>(
+  options: JwtStrategyOptionsWithMapper<TAuth>
+): AuthStrategy<TAuth>;
+export function createJwtStrategy<TAuth extends AuthContext>(
+  options: JwtStrategyOptions<TAuth>
+): AuthStrategy<AuthContext | TAuth> {
+  const hasSecret = isSecretJwtOptions(options);
+  const hasJwksUri = isJwksJwtOptions(options);
+  if (hasSecret === hasJwksUri) {
+    throw new Error("createJwtStrategy: provide exactly one of `secret` or `jwksUri`.");
   }
 
   const headerName = options.header ?? "authorization";
   const prefix = options.prefix ?? "Bearer ";
   const mapClaims = options.mapClaims
-    ?? ((payload) => defaultJwtClaimMapper(payload) as TAuth);
+    ?? defaultJwtClaimMapper;
 
-  type Jose = typeof import("jose");
-  type JoseJsonWebKeySet = Parameters<Jose["createLocalJWKSet"]>[0];
-  type KeyResolver =
-    | ReturnType<Jose["createRemoteJWKSet"]>
-    | ReturnType<Jose["createLocalJWKSet"]>;
-  let setupPromise:
-    | Promise<{ jwtVerify: Jose["jwtVerify"]; jwks: KeyResolver }>
-    | undefined;
-  const setup = () => {
-    if (!setupPromise) {
-      setupPromise = import("jose")
-        .then(({ jwtVerify, createRemoteJWKSet, createLocalJWKSet }) => ({
-          jwtVerify,
-          jwks: options.jwks
-            ? createLocalJWKSet(options.jwks as unknown as JoseJsonWebKeySet)
-            : createRemoteJWKSet(new URL(options.jwksUri!)),
-        }))
-        .catch((error) => {
-          // Allow a later request to retry transient import/URL failures.
-          setupPromise = undefined;
-          throw error;
-        });
+  let verify: (token: string) => Promise<{ payload: JWTPayload }>;
+  if (hasSecret) {
+    const key = resolveSecretKey(options.secret, "createJwtStrategy");
+    verify = (token) =>
+      jwtVerify(token, key, {
+        issuer: options.issuer,
+        audience: options.audience,
+        algorithms: options.algorithms ?? ["HS256"],
+      });
+  } else {
+    if (options.jwksUri.trim().length === 0) {
+      throw new Error("createJwtStrategy: `jwksUri` must not be empty.");
     }
-    return setupPromise;
-  };
+    const jwks = createRemoteJWKSet(new URL(options.jwksUri));
+    verify = (token) =>
+      jwtVerify(token, jwks, {
+        issuer: options.issuer,
+        audience: options.audience,
+        algorithms: options.algorithms ?? ["RS256"],
+      });
+  }
 
   return async ({ request }) => {
     const raw = getHeader(request, headerName);
@@ -267,15 +313,10 @@ export const createJwksStrategy = <TAuth extends AuthContext = AuthContext>(
       throw new AuthError("MISSING", `Empty bearer token in "${headerName}" header`, { header: headerName });
     }
 
-    let payload: Record<string, unknown>;
+    let payload: JWTPayload;
     try {
-      const { jwtVerify, jwks } = await setup();
-      const verified = await jwtVerify(token, jwks, {
-        issuer: options.issuer,
-        audience: options.audience,
-        algorithms: options.algorithms,
-      });
-      payload = verified.payload as Record<string, unknown>;
+      const verified = await verify(token);
+      payload = verified.payload;
     } catch (error) {
       throw new AuthError("INVALID", "JWT verification failed", {
         reason: error instanceof Error ? error.message : String(error),
@@ -283,6 +324,39 @@ export const createJwksStrategy = <TAuth extends AuthContext = AuthContext>(
     }
 
     return mapClaims(payload, request);
+  };
+}
+
+export interface AnalyticsTokenIssuerOptions {
+  secret: string | Uint8Array;
+  expiresIn?: string;
+  issuer?: string;
+  audience?: string;
+  algorithm?: "HS256" | "HS384" | "HS512";
+}
+
+export type AnalyticsTokenClaims = Pick<AuthContext, "tenantId" | "roles"> & {
+  userId: string;
+};
+
+export const createAnalyticsTokenIssuer = (options: AnalyticsTokenIssuerOptions) => {
+  const key = resolveSecretKey(options.secret, "createAnalyticsTokenIssuer");
+  const algorithm = options.algorithm ?? "HS256";
+
+  return async (claims: AnalyticsTokenClaims) => {
+    let jwt = new SignJWT({
+      ...(claims.tenantId ? { org_id: claims.tenantId } : {}),
+      ...(claims.roles ? { roles: claims.roles } : {}),
+    })
+      .setProtectedHeader({ alg: algorithm })
+      .setSubject(claims.userId)
+      .setIssuedAt()
+      .setExpirationTime(options.expiresIn ?? "15m");
+
+    if (options.issuer) jwt = jwt.setIssuer(options.issuer);
+    if (options.audience) jwt = jwt.setAudience(options.audience);
+
+    return jwt.sign(key);
   };
 };
 
@@ -357,87 +431,6 @@ export const checkScopeAuthorization = (
 };
 
 /**
- * Middleware that requires the user to be authenticated.
- * Returns 401 if no auth context is present.
- *
- * @deprecated Use `query.requireAuth()` instead for per-endpoint authentication.
- *             This middleware is kept for complex use cases where guards aren't suitable.
- *             See: https://hypequery.com/docs/authentication#middleware-helpers
- *
- * Use this as a global middleware via `api.use(requireAuthMiddleware())`.
- * For per-query guards, prefer `query.requireAuth()`.
- */
-export const requireAuthMiddleware = <
-  TContext extends Record<string, unknown> = Record<string, unknown>,
-  TAuth extends AuthContext = AuthContext,
->(): ServeMiddleware<any, any, TContext, TAuth> =>
-  async (ctx, next) => {
-    if (!ctx.auth) {
-      throw Object.assign(new Error("Authentication required"), {
-        status: 401,
-        type: "UNAUTHORIZED",
-      });
-    }
-    return next();
-  };
-
-/**
- * Middleware that requires the user to have at least one of the specified roles.
- * Returns 403 if the user lacks the required role.
- *
- * @deprecated Use `query.requireRole(...)` instead for per-endpoint authorization.
- *             This middleware is kept for complex use cases where guards aren't suitable.
- *             See: https://hypequery.com/docs/authentication#middleware-helpers
- *
- * Use this as a global or per-query middleware via `api.use(requireRoleMiddleware('admin'))`.
- * For per-query guards, prefer `query.requireRole('admin')`.
- */
-export const requireRoleMiddleware = <
-  TContext extends Record<string, unknown> = Record<string, unknown>,
-  TAuth extends AuthContext = AuthContext,
->(
-  ...roles: string[]
-): ServeMiddleware<any, any, TContext, TAuth> =>
-  async (ctx, next) => {
-    const result = checkRoleAuthorization(ctx.auth, roles);
-    if (!result.ok) {
-      throw Object.assign(
-        new Error(`Missing required role. Required one of: ${roles.join(", ")}`),
-        { status: 403, type: "FORBIDDEN" },
-      );
-    }
-    return next();
-  };
-
-/**
- * Middleware that requires the user to have all of the specified scopes.
- * Returns 403 if the user lacks a required scope.
- *
- * @deprecated Use `query.requireScope(...)` instead for per-endpoint authorization.
- *             This middleware is kept for complex use cases where guards aren't suitable.
- *             See: https://hypequery.com/docs/authentication#middleware-helpers
- *
- * Use this as a global or per-query middleware via `api.use(requireScopeMiddleware('read:metrics'))`.
- * For per-query guards, prefer `query.requireScope('read:metrics')`.
- */
-export const requireScopeMiddleware = <
-  TContext extends Record<string, unknown> = Record<string, unknown>,
-  TAuth extends AuthContext = AuthContext,
->(
-  ...scopes: string[]
-): ServeMiddleware<any, any, TContext, TAuth> =>
-  async (ctx, next) => {
-    const result = checkScopeAuthorization(ctx.auth, scopes);
-    if (!result.ok) {
-      throw Object.assign(
-        new Error(`Missing required scopes: ${result.missing.join(", ")}`),
-        { status: 403, type: "FORBIDDEN" },
-      );
-    }
-    return next();
-  };
-
-/**
  * Configuration options for creating a typed auth system.
  * Enables compile-time safety for roles and scopes.
  */
@@ -476,6 +469,12 @@ export type TypedAuthContext<
 /**
  * Creates a typed auth system with compile-time role and scope safety.
  *
+ * @deprecated Prefer typing your auth context directly and passing it to
+ *             `initServe<TContext, TAuth>(...)`. Define roles/scopes as a
+ *             union on your auth type and use `query.requireRole(...)` /
+ *             `query.requireScope(...)` guards. This helper is kept for
+ *             backwards compatibility and will be removed in a future release.
+ *
  * This helper provides:
  * - Type-safe auth context (combines AuthContextWithRoles and AuthContextWithScopes)
  * - A `useAuth` wrapper for auth strategies
@@ -492,31 +491,10 @@ export type TypedAuthContext<
  * });
  *
  * // Extract the typed auth type for use with initServe
- * type AppAuth = TypedAuth;
+ * type AppAuth = typeof TypedAuth;
  *
  * const { query, serve } = initServe<Record<string, never>, AppAuth>({
  *   auth: useAuth(jwtStrategy),
- * });
- *
- * const adminOnly = query({
- *   requiredRoles: ['admin'],
- *   query: async () => {
- *     // ✅ TypeScript autocomplete for 'admin'
- *     // ❌ Compile error on typo like 'admn'
- *     return { secret: true };
- *   },
- * });
- *
- * const writeData = query({
- *   requiredScopes: ['write:metrics'],
- *   query: async () => {
- *     // ✅ TypeScript autocomplete for 'write:metrics'
- *     return { success: true };
- *   },
- * });
- *
- * const api = serve({
- *   queries: { adminOnly, writeData },
  * });
  * ```
  */
@@ -528,24 +506,6 @@ export const createAuthSystem = <
     /**
      * Type-safe wrapper for auth strategies.
      * Ensures the strategy returns auth context with the correct role/scope types.
-     *
-     * @example
-     * ```ts
-     * const jwtStrategy: AuthStrategy<AppAuth> = async ({ request }) => {
-     *   const token = request.headers.authorization?.slice(7);
-     *   const payload = await verifyJwt(token);
-     *   return {
-     *     userId: payload.sub,
-     *     roles: payload.roles, // ✅ Type-checked against ['admin', 'editor', 'viewer']
-     *     scopes: payload.scopes, // ✅ Type-checked against ['read:metrics', 'write:metrics']
-     *   };
-     * };
-     *
-     * const api = defineServe<AppAuth>({
-     *   auth: useAuth(jwtStrategy),
-     *   // ...
-     * });
-     * ```
      */
     useAuth: <TAuth extends AuthContext>(
       strategy: AuthStrategy<TAuth>
@@ -553,12 +513,7 @@ export const createAuthSystem = <
 
     /**
      * The combined typed auth context type.
-     * Use this to type your defineServe generic parameter.
-     *
-     * @example
-     * ```ts
-     * type AppAuth = typeof TypedAuth;
-     * ```
+     * Use this to type your initServe generic parameter.
      */
     TypedAuth: null as unknown as TypedAuthContext<TRoles, TScopes>,
   };

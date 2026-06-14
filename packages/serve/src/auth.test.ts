@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   createApiKeyStrategy,
   createBearerTokenStrategy,
+  fromContext,
 } from "./auth.js";
 import type { ServeRequest } from "./types.js";
 
@@ -20,6 +21,32 @@ function createMockRequest(
 }
 
 describe("Authentication Strategies", () => {
+  describe("fromContext", () => {
+    it("extracts auth from the normalized serve request", async () => {
+      const raw = { user: { id: "user-1", orgId: "tenant-1" } };
+      const strategy = fromContext(({ request }) => {
+        const user = (request.raw as typeof raw).user;
+        return { userId: user.id, tenantId: user.orgId };
+      });
+      const request = createMockRequest();
+      request.raw = raw;
+
+      await expect(strategy({ request })).resolves.toEqual({
+        userId: "user-1",
+        tenantId: "tenant-1",
+      });
+    });
+
+    it("returns null when no host auth context is available", async () => {
+      const strategy = fromContext(({ request }) => {
+        const raw = request.raw as { user?: { id: string } } | undefined;
+        return raw?.user ? { userId: raw.user.id } : null;
+      });
+
+      await expect(strategy({ request: createMockRequest() })).resolves.toBeNull();
+    });
+  });
+
   describe("createApiKeyStrategy", () => {
     describe("Header extraction", () => {
       it("extracts from Authorization header with Bearer prefix", async () => {

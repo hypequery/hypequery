@@ -6,6 +6,9 @@ import { generateClientTemplate } from './client.js';
 import { generateQueriesTemplate } from './queries.js';
 import { generateApiTemplate } from './api.js';
 import { generateDatasetsPlaceholderTemplate } from './datasets.js';
+import type { AuthTemplateMode } from './auth-scaffold.js';
+
+const AUTH_MODES: AuthTemplateMode[] = ['none', 'context'];
 
 const tempDirs: string[] = [];
 
@@ -31,7 +34,7 @@ describe('generated scaffold NodeNext compatibility', () => {
     await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })));
   });
 
-  it('passes query scaffold tsc --noEmit with NodeNext imports and local module shims', async () => {
+  it.each(AUTH_MODES)('passes query scaffold tsc --noEmit with NodeNext imports and local module shims (auth: %s)', async (auth) => {
     const projectDir = await mkdtemp(path.join(os.tmpdir(), 'hypequery-cli-scaffold-'));
     tempDirs.push(projectDir);
 
@@ -83,7 +86,8 @@ describe('generated scaffold NodeNext compatibility', () => {
         '.': './index.d.ts',
       },
     }, null, 2));
-    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function initServe(config: unknown): {
+    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function fromContext<T>(extract: (args: { request: { raw?: unknown } }) => T | null): unknown;
+export declare function initServe(config: unknown): {
   query: <TOutput>(definition: {
     description: string;
     output?: unknown;
@@ -115,13 +119,13 @@ export type InferQueryResult<TApi, TName extends string> = unknown;
     await writeFile(path.join(analyticsDir, 'schema.ts'), `export interface IntrospectedSchema {}
 `);
     await writeFile(path.join(analyticsDir, 'client.ts'), generateClientTemplate());
-    await writeFile(path.join(analyticsDir, 'queries.ts'), generateQueriesTemplate({ hasExample: false }));
+    await writeFile(path.join(analyticsDir, 'queries.ts'), generateQueriesTemplate({ hasExample: false, auth }));
 
     const result = await runTypeCheck(projectDir);
     expect(result.code, result.stderr).toBe(0);
   });
 
-  it('passes datasets scaffold tsc --noEmit with NodeNext imports and local module shims', async () => {
+  it.each(AUTH_MODES)('passes datasets scaffold tsc --noEmit with NodeNext imports and local module shims (auth: %s)', async (auth) => {
     const projectDir = await mkdtemp(path.join(os.tmpdir(), 'hypequery-cli-scaffold-'));
     tempDirs.push(projectDir);
 
@@ -168,9 +172,12 @@ export type InferQueryResult<TApi, TName extends string> = unknown;
         '.': './index.d.ts',
       },
     }, null, 2));
-    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function createAPI(config: {
+    await writeFile(path.join(projectDir, 'node_modules/@hypequery/serve/index.d.ts'), `export declare function fromContext<T>(extract: (args: { request: { raw?: unknown } }) => T | null): unknown;
+export declare function createAPI(config: {
   queryBuilder: unknown;
   datasets: Record<string, unknown>;
+  auth?: unknown;
+  tenant?: unknown;
 }): {
   execute(name: string, options?: unknown): Promise<unknown>;
 };
@@ -201,7 +208,7 @@ export declare const measure: {
 `);
     await writeFile(path.join(analyticsDir, 'client.ts'), generateClientTemplate());
     await writeFile(path.join(analyticsDir, 'datasets.ts'), generateDatasetsPlaceholderTemplate());
-    await writeFile(path.join(analyticsDir, 'api.ts'), generateApiTemplate());
+    await writeFile(path.join(analyticsDir, 'api.ts'), generateApiTemplate({ auth }));
 
     const result = await runTypeCheck(projectDir);
     expect(result.code, result.stderr).toBe(0);
