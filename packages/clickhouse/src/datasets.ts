@@ -12,7 +12,7 @@
  * Usage:
  * ```ts
  * import { createDatasetClient } from '@hypequery/datasets';
- * import { createBackend } from '@hypequery/clickhouse';
+ * import { createBackend } from '@hypequery/clickhouse/datasets';
  *
  * const analytics = createDatasetClient({
  *   backend: createBackend({

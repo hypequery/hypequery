@@ -1,13 +1,16 @@
 ---
-title: Multi-Tenancy
+title: Multi-tenancy
 description: Use dataset tenant keys and runtime tenant context to enforce tenant-scoped execution.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# Multi-Tenancy
 
-Runtime tenancy uses the dataset `tenantKey` and a runtime tenant identity.
+Dataset multi-tenancy is fail-closed. If a dataset declares a `tenantKey`, metric and dataset queries require trusted tenant context at execution time.
+
+`tenantKey` is the physical column on the source table. `runtime.tenant` is the trusted tenant value supplied by your server, job, MCP process, or runtime integration.
+
+Like Serve tenant auto-injection for hand-written queries, datasets inject tenant filtering automatically. The difference is where the tenant column comes from: dataset queries use the dataset `tenantKey`, while Serve builder queries use the Serve tenant configuration.
 
 ## Declare the tenant key
 
@@ -19,31 +22,92 @@ export const Orders = dataset('orders', {
   dimensions: {
     tenantId: dimension.string({ column: 'tenant_id' }),
     status: dimension.string(),
+    country: dimension.string(),
   },
   measures: {
     revenue: measure.sum('amount'),
   },
 });
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
 ```
 </CodeBlock>
 
-## Provide tenant context at execution
+The `tenantKey` uses the ClickHouse column name. The optional `tenantId` dimension gives callers a semantic field name for schema introspection, but callers should not provide tenant filters when runtime tenancy is active.
+
+## Provide tenant context
 
 <CodeBlock>
 ```typescript
-await executor.metric(revenue, {}, {
+await analytics.execute(revenue, {}, {
   runtime: {
-    tenant: { id: 'tenant_123' },
+    tenant: 'tenant_123',
   },
 });
 ```
 </CodeBlock>
 
-The executor injects the tenant predicate when runtime tenancy is active. Explicit filters on the tenant field are rejected to prevent duplicate or conflicting tenant predicates.
+This automatically injects a tenant predicate equivalent to:
+
+<CodeBlock>
+```sql
+WHERE tenant_id = 'tenant_123'
+```
+</CodeBlock>
+
+If you omit tenant context for a tenant-scoped dataset, the query is rejected:
+
+<CodeBlock>
+```typescript
+await analytics.execute(revenue);
+// Error: Dataset "orders" requires runtime tenant scoping.
+```
+</CodeBlock>
+
+## Tenant runtime values
+
+`runtime.tenant` supports a single tenant, a set of tenants, or an explicit trusted cross-tenant mode.
+
+<CodeBlock>
+```typescript
+// Single tenant.
+{ runtime: { tenant: 'tenant_123' } }
+
+// Single tenant, object form.
+{ runtime: { tenant: { id: 'tenant_123' } } }
+
+// Trusted multi-tenant scope.
+{ runtime: { tenant: { in: ['tenant_123', 'tenant_456'] } } }
+
+// Trusted cross-tenant scope.
+{ runtime: { tenant: { scope: 'all' } } }
+```
+</CodeBlock>
+
+Use `{ in: [...] }` for admin or reporting surfaces scoped to a known set of tenants. Use `{ scope: 'all' }` only in trusted contexts like internal jobs or admin dashboards. Do not use cross-tenant scope in request-facing clients or MCP servers.
+
+## Tenant filters are rejected
+
+When runtime tenancy is active, explicit filters on the tenant field are rejected. This prevents duplicate or conflicting tenant predicates.
+
+<CodeBlock>
+```typescript
+await analytics.execute(revenue, {
+  filters: [eq('tenantId', 'tenant_123')],
+}, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
+});
+// Error: Cannot filter on tenant field "tenantId" when runtime tenancy enforcement is active.
+```
+</CodeBlock>
+
+Tenant identity should come from trusted runtime state, not end-user query input.
 
 ## Serve tenant context
 
-When using `@hypequery/serve`, configure tenant extraction from auth/request context and require it for semantic endpoints.
+With `@hypequery/serve`, configure tenant extraction from auth or request context. Semantic dataset and metric endpoints pass that tenant identity into `@hypequery/datasets`, and datasets auto-inject the filter from `tenantKey`.
 
 <CodeBlock>
 ```typescript
@@ -58,4 +122,10 @@ const api = serve({
 ```
 </CodeBlock>
 
-Tenant identity is runtime data from auth or request context. Dataset field names, dimensions, measures, and filters are type-checked by TypeScript.
+Serve tenant `column` configuration is useful for hand-written builder queries. Semantic dataset endpoints use the dataset `tenantKey` for tenant filtering.
+
+## MCP tenant context
+
+For MCP, run tenant-scoped servers with a trusted `tenantId`. The MCP server forwards that value as dataset runtime tenant context for `query_dataset` and `query_metric`.
+
+If registered datasets have `tenantKey`, the MCP server requires tenant scope at startup. This keeps agent calls inside the governed tenant boundary.

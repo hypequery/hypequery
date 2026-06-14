@@ -16,8 +16,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-bg text-text">
       <AnnouncementBanner />
-      <Navigation />
-      <main className="pt-[98px]">
+      <Navigation hasBanner />
+      <main className="pt-[104px]">
         <Hero />
         <Quickstart />
         <DefineOnce />

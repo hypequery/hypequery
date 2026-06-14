@@ -394,7 +394,7 @@ The semantic client validates dimensions, filters, order fields, limits, time gr
 
 ### ClickHouse Backend
 
-For ClickHouse databases, use `createBackend` from `@hypequery/clickhouse`:
+For ClickHouse databases, use `createBackend` from `@hypequery/clickhouse/datasets`:
 
 ```ts
 import { createDatasetClient } from '@hypequery/datasets';

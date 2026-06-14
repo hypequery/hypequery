@@ -14,7 +14,7 @@
       "seoDescription": "dbt and TypeScript query builders both help you build on top of ClickHouse, but they solve different problems. This guide explains the trade-offs and when to use each.",
       "publishedAt": "2026-05-18T00:00:00.000Z",
       "createdAt": "2026-05-25T12:33:11.619Z",
-      "updatedAt": "2026-05-25T12:33:11.619Z",
+      "updatedAt": "2026-06-14T12:40:24.139Z",
       "source": "seed"
     },
     {
@@ -30,7 +30,7 @@
       "seoDescription": "Learn how to build fast, secure multi-tenant embedded analytics with ClickHouse using shared tables, row policies, typed query layers, projections, quotas, and tenant-aware operations.",
       "publishedAt": "2026-04-30T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.706Z",
-      "updatedAt": "2026-05-25T12:33:11.619Z",
+      "updatedAt": "2026-06-14T12:40:24.139Z",
       "source": "seed"
     },
     {
@@ -46,7 +46,7 @@
       "seoDescription": "ARRAY JOIN in ClickHouse flattens array columns into rows. Learn how to use it in TypeScript with hypequery for tag explosion, event properties, and nested data.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.615Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -62,7 +62,7 @@
       "seoDescription": "ClickHouse uses HTTP — there is no traditional connection pool. Learn the right connection management patterns for Node.js and TypeScript with ClickHouse.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.616Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -78,7 +78,7 @@
       "seoDescription": "Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.616Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -94,7 +94,7 @@
       "seoDescription": "Looking for executeTakeFirst in ClickHouse? If you're coming from Kysely, here's how hypequery handles single-row queries and what the equivalent patterns look like.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.616Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -110,7 +110,7 @@
       "seoDescription": "How to express ClickHouse filters in TypeScript with query_params in @clickhouse/client and typed where-chains in hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.616Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -126,7 +126,7 @@
       "seoDescription": "How ClickHouse handles RIGHT JOIN, LEFT JOIN, INNER JOIN, and ARRAY JOIN — with performance notes and TypeScript examples using hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.617Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -142,7 +142,7 @@
       "seoDescription": "ClickHouse materialized views pre-aggregate data as it's inserted. This guide explains how they work, when to use them, and how to query them with TypeScript and hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.617Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -158,7 +158,7 @@
       "seoDescription": "Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Code examples with hypequery and the raw @clickhouse/client.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.617Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -174,7 +174,7 @@
       "seoDescription": "PREWHERE in ClickHouse can reduce reads and improve query performance. Learn when to use PREWHERE vs WHERE, with practical examples and TypeScript context.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.617Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -190,7 +190,7 @@
       "seoDescription": "Build a real-time analytics dashboard on ClickHouse using React, hypequery, and typed HTTP APIs. Polling, live updates, and typed chart components.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.617Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -206,7 +206,7 @@
       "seoDescription": "ClickHouse does not have native RLS like Postgres. Learn the three patterns for tenant isolation in ClickHouse with TypeScript — column filtering, user profiles, and context injection.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.617Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -222,7 +222,7 @@
       "seoDescription": "Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local ClickHouse instance, and integration testing with hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.618Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -238,7 +238,7 @@
       "seoDescription": "How to use toStartOfInterval with GROUP BY and column aliases in ClickHouse. TypeScript examples using hypequery and raw SQL — DateTime bucketing for time-series analytics.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.618Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -254,7 +254,7 @@
       "seoDescription": "Cube is a full semantic layer. hypequery is a lightweight TypeScript-first alternative. Compare both for ClickHouse analytics and find the right fit.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.618Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -270,7 +270,7 @@
       "seoDescription": "Drizzle ORM does not support ClickHouse. hypequery is the TypeScript-first alternative — schema generation, composable queries, and typed HTTP APIs built specifically for ClickHouse.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-05-25T12:33:11.618Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -286,7 +286,7 @@
       "seoDescription": "Prisma does not support ClickHouse. hypequery gives you the schema-first, TypeScript-first experience for ClickHouse analytics — without the wrong abstractions.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.706Z",
-      "updatedAt": "2026-05-25T12:33:11.618Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -302,7 +302,7 @@
       "seoDescription": "Tinybird manages your ClickHouse infrastructure. hypequery gives you TypeScript-first control over your own ClickHouse. Compare both for analytics API use cases.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.706Z",
-      "updatedAt": "2026-05-25T12:33:11.618Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -318,7 +318,7 @@
       "seoDescription": "Build a ClickHouse MCP server around named analytics queries instead of raw SQL so tenant scope and response shapes stay under control.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-05-25T12:33:11.615Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -334,7 +334,7 @@
       "seoDescription": "Comparing ClickHouse query builders for TypeScript? See where @clickhouse/client, Kysely, Cube, and hypequery fit, and where each option stops helping.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-05-25T12:33:11.615Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -350,7 +350,7 @@
       "seoDescription": "Use typed React hooks on top of your ClickHouse API instead of rebuilding fetch logic and response types in every component.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.615Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -366,7 +366,7 @@
       "seoDescription": "Define a ClickHouse query once, execute it inline, and expose the same definition over HTTP instead of rewriting it for every context.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-05-25T12:33:11.615Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -382,7 +382,7 @@
       "seoDescription": "Using ClickHouse with TypeScript? Learn the real runtime mappings for DateTime, UInt64, Nullable, Decimal, and other types, and how to avoid silent bugs.",
       "publishedAt": "2026-04-14T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-05-25T12:33:11.613Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -398,7 +398,7 @@
       "seoDescription": "Compare hypequery and @clickhouse/client for ClickHouse TypeScript apps. See what you gain with generated schema types, reusable queries, and typed HTTP APIs.",
       "publishedAt": "2026-04-14T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-05-25T12:33:11.614Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -414,7 +414,7 @@
       "seoDescription": "Compare hypequery and Kysely for ClickHouse projects. Learn where Kysely shines, where ClickHouse type mapping gets tricky, and when hypequery is the better fit.",
       "publishedAt": "2026-04-14T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-05-25T12:33:11.614Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -430,7 +430,7 @@
       "seoDescription": "Fast ClickHouse queries are not the hard part anymore. Learn why reusable typed APIs and query definitions matter more once analytics reaches apps, dashboards, and AI agents.",
       "publishedAt": "2026-02-09T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-05-25T12:33:11.613Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -446,7 +446,7 @@
       "seoDescription": "Generate ClickHouse schema types, build typed queries, and turn them into a reusable backend API layer in TypeScript.",
       "publishedAt": "2026-01-30T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-05-25T12:33:11.612Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -462,7 +462,7 @@
       "seoDescription": null,
       "publishedAt": "2026-01-11T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-05-25T12:33:11.613Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -478,7 +478,7 @@
       "seoDescription": null,
       "publishedAt": "2026-01-01T17:08:36.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-05-25T12:33:11.612Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -494,7 +494,7 @@
       "seoDescription": "Prevent schema drift in ClickHouse TypeScript code by generating schema types and keeping query code aligned with the live database.",
       "publishedAt": "2025-07-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.701Z",
-      "updatedAt": "2026-05-25T12:33:11.612Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -510,7 +510,7 @@
       "seoDescription": "Build ClickHouse dashboards in Next.js with shared backend queries, typed delivery, and a cleaner split between server execution and React consumption.",
       "publishedAt": "2025-07-22T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.701Z",
-      "updatedAt": "2026-05-25T12:33:11.611Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -526,7 +526,7 @@
       "seoDescription": "Why raw SQL and manual row types still fail in TypeScript, and what a safer query workflow looks like for ClickHouse-heavy codebases.",
       "publishedAt": "2025-07-04T11:10:00.000Z",
       "createdAt": "2026-04-30T19:40:32.700Z",
-      "updatedAt": "2026-05-25T12:33:11.611Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     }
   ]

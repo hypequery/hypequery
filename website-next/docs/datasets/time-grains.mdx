@@ -1,11 +1,9 @@
 ---
-title: Time Grains
+title: Time grains
 description: Aggregate metrics by day, week, month, quarter, and year.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-
-# Time Grains
 
 When a dataset has a `timeKey`, you can use `.by(grain)` on metrics to aggregate by time periods.
 
@@ -14,7 +12,7 @@ When a dataset has a `timeKey`, you can use `.by(grain)` on metrics to aggregate
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
 const monthlyRevenue = revenue.by('month');
 
-await executor.metric(monthlyRevenue, {
+await analytics.execute(monthlyRevenue, {
   dimensions: ['country'],
 });
 ```
@@ -28,4 +26,26 @@ Supported grains:
 - `quarter`
 - `year`
 
-`timeKey` is a physical column name on the source table. Use a timestamp dimension with `column` mapping when you also want a semantic field name for query dimensions.
+## Time key and timestamp dimensions
+
+`timeKey` names the physical timestamp column used for time bucketing. It does not create a selectable dimension by itself.
+
+If you also want callers to select, filter, or group by that timestamp through the dataset API, add a timestamp dimension that maps a semantic name to the same column:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: {
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+    country: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+```
+</CodeBlock>
+
+With that setup, `.by('month')` buckets on `created_at`, while dataset queries can still use the semantic dimension name `createdAt`.
