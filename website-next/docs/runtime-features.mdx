@@ -60,12 +60,34 @@ console.log(description.queries);
 ```
 </CodeBlock>
 
+`description.queries` lists every registered endpoint, including auto-generated semantic ones. Metric endpoints appear under their metric name and dataset endpoints under the `dataset:<name>` key, each with its method, path, auth requirements, and contract metadata.
+
 This is useful for:
 
 - internal tooling
 - AI and agent surfaces
 - generated clients
 - runtime introspection in tests
+
+## Semantic endpoints share the runtime
+
+`metrics` and `datasets` registered with `serve({ ... })` flow through the same runtime as queries. Global middleware added with `api.use(...)` wraps them, `api.describe()` reports them, and `api.run('<metric>')` / `api.run('dataset:<name>')` executes them in-process.
+
+To attach middleware to a single semantic endpoint, use the per-entry `middlewares` option instead of `api.use(...)`:
+
+<CodeBlock>
+```typescript
+export const api = serve({
+  queryBuilder: db,
+  metrics: {
+    revenue: {
+      metric: revenue,
+      middlewares: [auditLog],
+    },
+  },
+});
+```
+</CodeBlock>
 
 ## Observability belongs one layer over
 

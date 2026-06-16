@@ -6,8 +6,6 @@ description: Connect Hypequery MCP to Claude Desktop, Cursor, and other MCP clie
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# MCP Clients
-
 Hypequery MCP runs over stdio. Your MCP client launches `hypequery-mcp` and passes a config path.
 
 ## Claude Desktop
@@ -24,7 +22,8 @@ Add a server entry to Claude Desktop's config file:
     "hypequery": {
       "command": "npx",
       "args": [
-        "hypequery-mcp",
+        "-y",
+        "@hypequery/mcp",
         "--config",
         "/absolute/path/to/mcp-config.mjs"
       ],
@@ -53,10 +52,17 @@ Use the same command and arguments in Cursor's MCP configuration:
     "hypequery": {
       "command": "npx",
       "args": [
-        "hypequery-mcp",
+        "-y",
+        "@hypequery/mcp",
         "--config",
         "/absolute/path/to/mcp-config.mjs"
-      ]
+      ],
+      "env": {
+        "CLICKHOUSE_URL": "https://example.clickhouse.cloud:8443",
+        "CLICKHOUSE_USER": "default",
+        "CLICKHOUSE_PASSWORD": "password",
+        "CLICKHOUSE_DATABASE": "analytics"
+      }
     }
   }
 }
@@ -69,7 +75,7 @@ Before connecting a client, run the server from a terminal:
 
 <CodeBlock>
 ```bash
-npx hypequery-mcp --config /absolute/path/to/mcp-config.mjs
+npx -y @hypequery/mcp --config /absolute/path/to/mcp-config.mjs
 ```
 </CodeBlock>
 

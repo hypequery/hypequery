@@ -31,7 +31,7 @@ export const api = serve({
 ```
 </CodeBlock>
 
-Metric endpoints validate dimensions, filters, time grains, ordering, and limits against the metric contract. Dataset endpoints validate dimensions, measures, filters, time grains, ordering, and limits against the dataset definition.
+Metric endpoints validate dimensions, filters, time grains, and ordering against the metric contract. Dataset endpoints validate dimensions, measures, filters, time grains, and ordering against the dataset definition. A `limit` above the endpoint's `maxLimit` is clamped to `maxLimit` rather than rejected.
 
 ## Endpoint shapes
 
@@ -75,6 +75,23 @@ The exact URL is prefixed by your Serve `basePath`.
 }
 ```
 </CodeBlock>
+
+## Pagination
+
+Both endpoint types support offset pagination. Send `limit` and `offset`; the response reports the served `offset` and a `hasMore` flag so clients know whether another page exists.
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "measures": ["revenue"],
+  "limit": 50,
+  "offset": 50
+}
+```
+</CodeBlock>
+
+In React, `useInfiniteMetric` and `useInfiniteDataset` handle `offset`/`hasMore` for you.
 
 ## Include result metadata
 

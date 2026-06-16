@@ -4,6 +4,7 @@ title: Serve Runtime
 description: Reference for serve({ queries }) and the exported api surface.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 
@@ -28,8 +29,23 @@ export const api = serve({
   type={{
     queries: {
       type: 'Record<string, QueryDefinition>',
-      required: true,
       description: 'Map of named query definitions created with `query({ ... })`.',
+    },
+    metrics: {
+      type: 'Record<string, MetricEntry>',
+      description: 'Named metrics. Each generates `POST /metrics/:name`. Entry is a metric ref or `{ metric, auth, requiredRoles, requiredScopes, cache, maxLimit, middlewares, tenant }`.',
+    },
+    datasets: {
+      type: 'Record<string, DatasetEntry>',
+      description: 'Semantic datasets. Each generates `POST /datasets/:name/query`. Entry is a dataset instance or `{ dataset, auth, requiredRoles, requiredScopes, cache, maxLimit, middlewares, tenant }`.',
+    },
+    queryBuilder: {
+      type: 'QueryBuilderFactoryLike',
+      description: 'Query builder used to execute metric/dataset endpoints. Required when `metrics` or `datasets` are provided (or supply it via `context`).',
+    },
+    semanticPaths: {
+      type: "{ metrics?: string; datasets?: string }",
+      description: "Override the path prefixes for semantic endpoints. Defaults to `{ metrics: '/metrics', datasets: '/datasets' }`.",
     },
     basePath: {
       type: 'string',
@@ -75,8 +91,16 @@ export const api = serve({
       type: 'number',
       description: 'Optional threshold for slow query warnings.',
     },
+    security: {
+      type: '{ verboseAuthErrors?: boolean }',
+      description: 'Optional security options. `verboseAuthErrors` controls whether auth/authorization errors name the missing roles/scopes (default `false`).',
+    },
   }}
 />
+
+<Callout type="info">
+  Either `queries`, `metrics`, or `datasets` (or any combination) can be registered. Metric and dataset endpoints are generated automatically — you do not call `api.route(...)` for them — and appear in OpenAPI and `/docs`. See [Serve integration](/docs/datasets/serve-integration).
+</Callout>
 
 ## Returned `api`
 
@@ -88,6 +112,8 @@ It also exposes:
 - `basePath`
 - `queryLogger`
 - `_routeConfig`
+
+`api.queries` includes auto-generated semantic endpoints: a metric is keyed by its name, and a dataset is keyed as `dataset:<name>`. Those same keys are used by `api.run(...)`, e.g. `api.run('revenue')` or `api.run('dataset:orders')`.
 
 ### `api.route(path, endpoint, options?)`
 
@@ -169,7 +195,19 @@ Appends an auth strategy to the runtime.
 
 ### `api.describe()`
 
-Returns a runtime description object for docs/client tooling.
+Returns a runtime description object for docs/client tooling. `describe().queries` lists every endpoint, including semantic ones (keyed by metric name or `dataset:<name>`).
+
+### `api.manifest()`
+
+Returns a serializable `RouteManifest` mapping every query/metric/dataset key to its HTTP method and full path. Pass it to `@hypequery/react`'s `createHooks`/`createAnalyticsHooks` as `manifest` so the client can resolve routes without importing server code. This is required for metric/dataset endpoints, whose paths differ from their map keys.
+
+<CodeBlock>
+```typescript
+const manifest = api.manifest();
+// { revenue: { method: 'POST', path: '/metrics/revenue' },
+//   'dataset:orders': { method: 'POST', path: '/datasets/orders/query' }, ... }
+```
+</CodeBlock>
 
 ## `api.queries`
 

@@ -1,20 +1,19 @@
 ---
-title: MCP
+title: Overview
 description: Expose Hypequery datasets and metrics to AI agents through the Model Context Protocol.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# MCP
+`@hypequery/mcp` exposes your Hypequery semantic layer through the Model Context Protocol. Agents can discover datasets, inspect schema metadata, query named metrics, and run governed dataset queries without receiving raw SQL access.
 
-`@hypequery/mcp` exposes your Hypequery semantic layer through the Model Context Protocol. Agents can list datasets, inspect schemas, query metrics, and query datasets without getting raw SQL access to your database.
-
-Use MCP when you want an agent to work inside a governed analytics vocabulary:
+Use MCP when you want an agent to work inside a constrained analytics vocabulary:
 
 - expose only the datasets you register
-- let agents discover dimensions, metrics, relationships, and time grains
-- keep query execution behind the same dataset client used by the rest of your app
+- expose only named metrics you attach to those datasets
+- let agents inspect dimensions, labels, descriptions, filters, tenant keys, and time keys
+- execute through the same `createDatasetClient` path used by the rest of your app
 - avoid handing an LLM a direct SQL console
 
 <Callout type="info">
@@ -49,7 +48,11 @@ const db = createQueryBuilder({
   database: process.env.CLICKHOUSE_DATABASE,
 });
 
-const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Revenue',
+  description: 'Total order revenue.',
+});
 
 export const datasets = {
   orders: {
@@ -62,7 +65,7 @@ export const analytics = createDatasetClient({ queryBuilder: db });
 ```
 </CodeBlock>
 
-Run the MCP server:
+Run the MCP server with the config file path:
 
 <CodeBlock>
 ```bash
@@ -70,14 +73,3 @@ npx hypequery-mcp --config ./mcp-config.mjs
 ```
 </CodeBlock>
 
-Then configure an MCP-compatible client, such as Claude Desktop or Cursor, to launch that command.
-
-## What to read next
-
-| Topic | Description | Link |
-| --- | --- | --- |
-| Configuration | Export datasets and a dataset client for the MCP server | [Configuration →](/docs/mcp/configuration) |
-| Tools | Understand the tools exposed to agents | [Tools →](/docs/mcp/tools) |
-| Clients | Connect Claude Desktop, Cursor, or another MCP client | [Clients →](/docs/mcp/clients) |
-| Programmatic usage | Start the MCP server from your own Node process | [Programmatic usage →](/docs/mcp/programmatic) |
-| Safety model | Use MCP as a governed capability boundary | [Safety model →](/docs/mcp/safety) |

@@ -4,14 +4,15 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import CodeHighlight from '@/components/CodeHighlight';
 import { trackUmamiEvent } from '@/lib/umami';
-import { HERO_SNIPPETS, HERO_TABS } from './constants';
+import { AI_CONTEXT, HERO_SNIPPETS, HERO_TABS } from './constants';
 import { InstallCommand } from './InstallCommand';
 
 export function Hero() {
   const [aiContextCopied, setAiContextCopied] = useState(false);
 
   const handleCopyAiContext = () => {
-    navigator.clipboard.writeText(''); // Blank for now
+    navigator.clipboard.writeText(AI_CONTEXT);
+    trackUmamiEvent('copy_ai_context', { location: 'hero', page: '/' });
     setAiContextCopied(true);
     setTimeout(() => setAiContextCopied(false), 2000);
   };

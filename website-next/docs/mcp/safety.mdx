@@ -1,12 +1,10 @@
 ---
-title: Safety Model
+title: Safety model
 description: Use MCP as a governed capability boundary for agents.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-
-# Safety Model
 
 MCP should expose a governed analytics layer, not a database console.
 
@@ -15,17 +13,20 @@ With Hypequery MCP, the agent can only use the datasets and metrics you register
 ## What MCP constrains
 
 - which datasets are visible
-- which dimensions and metrics are queryable
-- which relationships and time grains the agent can discover
+- which named metrics are callable
+- which dimensions and measures can be requested
 - which filter operators the tool schema accepts
 - query execution through the dataset client
+- tenant scoping when the server is configured with a trusted `tenantId`
+
+MCP can also expose relationship metadata through schema introspection, but current dataset execution is still same-dataset.
 
 ## What MCP does not replace
 
 MCP does not replace authentication, authorization, or tenant identity. The stock stdio server receives tool calls from a local MCP client and executes them through the `analytics` dataset client you provide.
 
 <Callout type="warn">
-  Do not expose a shared multi-tenant MCP server unless the process is already scoped to the tenant or your dataset client/config enforces tenant identity for every query.
+  Do not expose a shared multi-tenant MCP server unless the process is already scoped to one tenant. Treat MCP clients as powerful local operators, not public end-user clients.
 </Callout>
 
 ## Safer patterns
@@ -34,24 +35,47 @@ Prefer one of these patterns:
 
 - run MCP for local development or internal admin use only
 - expose only non-sensitive aggregate datasets
-- run a tenant-specific MCP process with tenant-scoped credentials or a tenant-bound dataset client
+- attach only the named metrics agents should call
+- run a tenant-specific MCP process with `tenantId`
 - keep sensitive tables out of the exported `datasets` registry
-- inspect generated SQL with response metadata while testing
+- inspect generated SQL in tool response metadata while testing
 
 ## Registry boundary
 
-The registry is the main boundary.
+The exported `datasets` registry is the main boundary.
 
 <CodeBlock>
 ```javascript
 export const datasets = {
-  orders: Orders,
-  revenue: Revenue,
+  orders: {
+    ...Orders,
+    metrics: { revenue },
+  },
 };
 ```
 </CodeBlock>
 
 If a dataset is not in this object, the MCP server cannot list it, introspect it, or query it.
+
+If a metric is not attached to the dataset registry, the agent cannot call it through `query_metric`.
+
+## Tenant boundary
+
+If registered datasets have `tenantKey`, the MCP server requires a trusted tenant scope. In the programmatic API, pass `tenantId`.
+
+<CodeBlock>
+```typescript
+await createMCPServer({
+  datasets,
+  analytics,
+  tenantId: 'tenant_123',
+});
+```
+</CodeBlock>
+
+The server forwards that value into dataset execution as runtime tenant context. Agents should not choose tenant ids through filters.
+
+The `hypequery-mcp` CLI does not accept a `tenantId`, so it cannot serve tenant-keyed datasets — startup fails with `MCP server tenantId is required for tenant-scoped datasets`. Serve multi-tenant datasets through the programmatic `createMCPServer({ ..., tenantId })` instead, one process per tenant.
 
 ## Raw SQL boundary
 

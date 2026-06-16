@@ -8,16 +8,18 @@
  *   node dist/bin.js --config examples/system-numbers-config.js
  */
 
-import { dataset, dimension, measure } from '@hypequery/datasets';
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { createDatasetClient, dataset, dimension, measure } from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // Connect to local ClickHouse (defaults)
-const analytics = createDatasetClient({
+const db = createQueryBuilder({
   url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
   username: process.env.CLICKHOUSE_USER || 'default',
   password: process.env.CLICKHOUSE_PASSWORD || '',
   database: 'default',
 });
+
+const analytics = createDatasetClient({ queryBuilder: db });
 
 // Define a dataset over system.numbers (built-in ClickHouse table)
 const NumbersDataset = dataset('system_numbers', {

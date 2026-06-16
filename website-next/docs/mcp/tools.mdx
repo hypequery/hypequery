@@ -5,13 +5,11 @@ description: Tools exposed by the Hypequery MCP server.
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-# MCP Tools
-
-The MCP server exposes a small set of tools over your dataset registry. Agents do not receive a SQL tool.
+The MCP server exposes semantic tools over your dataset registry. Agents do not receive a SQL tool.
 
 ## `list_datasets`
 
-Lists available datasets.
+Lists registered datasets with description, dimension count, and metric count.
 
 <CodeBlock>
 ```json
@@ -41,7 +39,7 @@ Example response:
 
 ## `get_dataset_schema`
 
-Returns dimensions, metrics, relationships, tenant key, and time key metadata for one dataset.
+Returns metadata for one dataset, including dimensions, named metrics, tenant key, time key, and relationship metadata when present.
 
 <CodeBlock>
 ```json
@@ -54,31 +52,11 @@ Returns dimensions, metrics, relationships, tenant key, and time key metadata fo
 ```
 </CodeBlock>
 
-## `query_dataset`
-
-Runs an ad hoc semantic query with dimensions, metrics, filters, time grain, ordering, and limit.
-
-<CodeBlock>
-```json
-{
-  "name": "query_dataset",
-  "arguments": {
-    "dataset": "orders",
-    "dimensions": ["region", "status"],
-    "metrics": ["revenue", "orderCount"],
-    "filters": [
-      { "field": "status", "operator": "eq", "value": "completed" }
-    ],
-    "grain": "month",
-    "limit": 100
-  }
-}
-```
-</CodeBlock>
+Labels and descriptions from your dataset definitions are included here, so they matter for agent behavior.
 
 ## `query_metric`
 
-Runs a named metric handle attached to a dataset.
+Runs one named metric handle attached to a dataset.
 
 <CodeBlock>
 ```json
@@ -87,7 +65,7 @@ Runs a named metric handle attached to a dataset.
   "arguments": {
     "dataset": "orders",
     "metric": "revenue",
-    "dimensions": ["region"],
+    "dimensions": ["country"],
     "filters": [
       { "field": "status", "operator": "eq", "value": "completed" }
     ],
@@ -99,6 +77,38 @@ Runs a named metric handle attached to a dataset.
 }
 ```
 </CodeBlock>
+
+Use `query_metric` when the agent should ask for a stable KPI such as `revenue`, `averageOrderValue`, or `monthlyRevenue`.
+
+## `query_dataset`
+
+Runs an ad hoc dataset query with selected dimensions and measures.
+
+<CodeBlock>
+```json
+{
+  "name": "query_dataset",
+  "arguments": {
+    "dataset": "orders",
+    "dimensions": ["country", "status"],
+    "metrics": ["revenue", "orderCount"],
+    "filters": [
+      { "field": "status", "operator": "eq", "value": "completed" }
+    ],
+    "grain": "month",
+    "limit": 100
+  }
+}
+```
+</CodeBlock>
+
+The MCP argument is called `metrics` for agent ergonomics. It maps to dataset measures when calling `analytics.execute(Orders, ...)`, so it resolves raw measures only. Derived or named metrics (such as `averageOrderValue`) are not measures and can only be queried through `query_metric`.
+
+At least one dimension or metric must be specified, otherwise the query is rejected.
+
+## Pagination
+
+`query_metric` and `query_dataset` both accept `limit` and `offset` for paging through large result sets. `offset` skips the given number of rows before returning results.
 
 ## Prompt
 

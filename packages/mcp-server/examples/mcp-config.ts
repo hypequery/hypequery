@@ -12,20 +12,20 @@
  */
 
 import { dataset, dimension, measure, createDatasetClient } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // =============================================================================
 // STEP 1: Configure ClickHouse Connection
 // =============================================================================
 
-const analytics = createDatasetClient({
-  backend: createBackend({
-    url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
-    username: process.env.CLICKHOUSE_USER || 'default',
-    password: process.env.CLICKHOUSE_PASSWORD || '',
-    database: process.env.CLICKHOUSE_DATABASE || 'default',
-  }),
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
+  username: process.env.CLICKHOUSE_USER || 'default',
+  password: process.env.CLICKHOUSE_PASSWORD || '',
+  database: process.env.CLICKHOUSE_DATABASE || 'default',
 });
+
+const analytics = createDatasetClient({ queryBuilder: db });
 
 // =============================================================================
 // STEP 2: Define Your Datasets
@@ -117,7 +117,7 @@ export { analytics };
  *       "args": [
  *         "/absolute/path/to/node_modules/@hypequery/mcp/dist/bin.js",
  *         "--config",
- *         "/absolute/path/to/mcp-config.js"
+ *         "/absolute/path/to/mcp-config.mjs"
  *       ],
  *       "env": {
  *         "CLICKHOUSE_HOST": "localhost",

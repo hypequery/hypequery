@@ -1,11 +1,9 @@
 ---
-title: Programmatic Usage
+title: Programmatic usage
 description: Start the Hypequery MCP server from a Node process.
 ---
 
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-
-# Programmatic Usage
 
 Use `createMCPServer` when you want to start the MCP server from your own Node process instead of using the CLI.
 
@@ -13,10 +11,17 @@ Use `createMCPServer` when you want to start the MCP server from your own Node p
 ```typescript
 import { createMCPServer } from '@hypequery/mcp';
 import { createDatasetClient } from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 import { datasets } from './datasets/index.js';
-import { queryBuilder } from './db/index.js';
 
-const analytics = createDatasetClient({ queryBuilder });
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
 
 const server = await createMCPServer({
   datasets,
@@ -31,6 +36,22 @@ const server = await createMCPServer({
 
 `createMCPServer` returns the server instance after calling `start()`. The stdio transport is intended for MCP clients that launch and manage the process.
 
+## Tenant-scoped servers
+
+If registered datasets have `tenantKey`, pass a trusted `tenantId` when creating the MCP server.
+
+<CodeBlock>
+```typescript
+const server = await createMCPServer({
+  datasets,
+  analytics,
+  tenantId: 'tenant_123',
+});
+```
+</CodeBlock>
+
+The server forwards that value as dataset runtime tenant context for `query_dataset` and `query_metric`.
+
 ## Stop the server
 
 If your application owns the lifecycle, call `stop()`.
@@ -43,7 +64,7 @@ await server.stop();
 
 ## Config shape
 
-The programmatic API accepts the same core inputs as the CLI config.
+The programmatic API accepts the same core inputs as the CLI config, plus optional server metadata and tenant scope.
 
 <CodeBlock>
 ```typescript
@@ -52,6 +73,7 @@ type MCPServerConfig = {
   analytics: DatasetClient;
   name?: string;
   version?: string;
+  tenantId?: string;
 };
 ```
 </CodeBlock>

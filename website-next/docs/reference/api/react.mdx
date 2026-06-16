@@ -121,9 +121,11 @@ Mutations share the same typed `input`/`output` data.
 interface CreateHooksConfig<TApi> {
   baseUrl: string;                           // Required: base URL for your serve routes
   fetchFn?: typeof fetch;                    // Optional: custom fetch (e.g., auth/tenant headers)
-  headers?: Record<string, string> | (() => Record<string, string>); // Optional: default headers or a resolver function
-  config?: Record<string, { method?: string }>; // Optional: per-route HTTP method overrides
-  api?: TApi;                                // Optional: API object to infer HTTP methods automatically
+  headers?: HeaderMap | (() => HeaderMap | Promise<HeaderMap>); // Optional: static headers or a (optionally async) resolver, called per request
+  config?: Record<string, { method?: string; path?: string }>; // Optional: per-route HTTP method/path overrides
+  manifest?: RouteManifest;                  // Optional: route manifest from `api.manifest()`; required for metric/dataset endpoints
+  onUnauthorized?: () => void | Promise<void>; // Optional: called on 401; refresh creds, then the request retries once
+  api?: TApi;                                // Optional: API object to infer routes automatically (reads `manifest()`)
 }
 ```
 </CodeBlock>
@@ -141,6 +143,41 @@ const { useQuery, useMutation } = createHooks<Api>({
 });
 ```
 </CodeBlock>
+
+## `createAnalyticsHooks` API
+
+When your API registers `metrics` or `datasets`, use `createAnalyticsHooks`. It returns everything `createHooks` returns, plus four semantic hooks:
+
+- `useMetric(name, input?, options?)` — query a named metric
+- `useDataset(name, input?, options?)` — query a dataset (maps to the `dataset:<name>` route)
+- `useInfiniteMetric(name, input, options?)` — offset-paginated metric query
+- `useInfiniteDataset(name, input, options?)` — offset-paginated dataset query
+
+`CreateAnalyticsHooksConfig` extends `CreateHooksConfig` with an optional `metrics` array that narrows the keys accepted by `useMetric`.
+
+<CodeBlock>
+```ts
+import { createAnalyticsHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+export const {
+  useQuery,
+  useMutation,
+  useMetric,
+  useDataset,
+  useInfiniteMetric,
+  useInfiniteDataset,
+} = createAnalyticsHooks<Api>({
+  baseUrl: '/api',
+  manifest: api.manifest(), // required to resolve metric/dataset routes
+});
+```
+</CodeBlock>
+
+Semantic endpoints return `{ data, meta }`, so read rows from `result.data`. The infinite hooks advance pages using `meta.pagination` (requested via the `x-include-meta` header); set `limit` as the page size. Without a `manifest` or matching `config` entry, the semantic hooks throw rather than request a wrong URL.
 
 ## HTTP Method Configuration
 

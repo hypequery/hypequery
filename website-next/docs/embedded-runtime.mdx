@@ -3,15 +3,10 @@ title: Embedded Runtime
 description: Run hypequery definitions directly inside your application runtime
 ---
 
-import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 import { Pre } from 'fumadocs-ui/components/codeblock';
 
 # Embedded Runtime
-
-<Callout type="info">
-  We've simplified the serve API in v0.2. If you're looking for the older builder-first API, see <a href="/docs/migrate-legacy-serve-api">Migrate from v0.1.x Serve API</a> and <a href="/docs/legacy-serve/query-definitions">v0.1.x Serve API</a>.
-</Callout>
 
 You don't need HTTP to execute hypequery metrics. Every `serve({ queries })` export exposes an embedded runtime so you can call queries directly from SSR routes, cron jobs, queues, or AI agents.
 
@@ -91,6 +86,30 @@ describe('activeUsers metric', () => {
 </CodeBlock>
 
 Embedding metrics directly makes automated tests trivial: no HTTP servers to spin up, yet you still exercise the entire hypequery stack.
+
+## Semantic datasets and metrics
+
+Auto-generated `metrics` and `datasets` endpoints are part of the same runtime, so they run embedded too. Reference them by key with `api.run(...)`: a metric uses its name, and a dataset uses the `dataset:<name>` key.
+
+<CodeBlock>
+<Pre>
+```typescript
+import { api } from '../analytics/queries';
+
+// Metric endpoint, keyed by metric name.
+const revenueByCountry = await api.run('revenue', {
+  input: { dimensions: ['country'], limit: 10 },
+});
+
+// Dataset endpoint, keyed as `dataset:<name>`.
+const ordersRollup = await api.run('dataset:orders', {
+  input: { dimensions: ['country'], measures: ['revenue', 'orderCount'] },
+});
+```
+</Pre>
+</CodeBlock>
+
+Running them through `api.run(...)` keeps middleware, auth, tenant enforcement, and hooks consistent with their HTTP behavior. If you only need direct semantic execution without the Serve runtime around it, call `createDatasetClient(...).execute(target, query, context)` from `@hypequery/datasets` instead — see [Dataset execution](/docs/datasets/execution).
 
 ## Safety Checklist
 
