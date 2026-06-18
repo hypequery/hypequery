@@ -13,7 +13,7 @@ the "share the server module" path.
 
 > The hooks talk HTTP to a serve API. Stand up the backend from
 > **`serve-testing-spec.md`** (`hq-serve-test/`, exporting `api` with `queries`,
-> `metrics: { revenue, averageOrderValue }`, `datasets: { orders: Orders }`). Run it on
+> `metrics: { total, avgPerRow }`, `datasets: { target: TargetPublic }`). Run it on
 > `http://localhost:4000` with `basePath: '/api/analytics'` and **`cors: true`** (browser
 > calls a different origin), or use the Vite proxy in §0.4.
 
@@ -48,11 +48,11 @@ hq-react-test/
     analytics.ts         # createHooks / createAnalyticsHooks (manifest wired)
     manifest.json        # copied from the serve app (api.manifest())
     components/
-      ActiveUsers.tsx     # useQuery('activeUsers')
+      RecentRows.tsx     # useQuery('recentRows')
       RebuildButton.tsx   # useMutation(...)
-      RevenueMetric.tsx   # useMetric('revenue')
-      OrdersDataset.tsx   # useDataset('orders')
-      InfiniteOrders.tsx  # useInfiniteDataset('orders')
+      TotalMetric.tsx     # useMetric('total')
+      TargetDataset.tsx   # useDataset('target')
+      InfiniteTarget.tsx  # useInfiniteDataset('target')
     App.tsx              # renders all components
     typecheck.ts         # compile-only assertions for InferApiType
 ```
@@ -98,14 +98,14 @@ export const { useQuery, useMutation, useMetric, useDataset, useInfiniteMetric, 
 **Pass:** all six hooks returned.
 
 ### R1.4 — Missing manifest throws (not wrong URL)
-Build analytics hooks **without** `manifest` and without a matching `config` entry; call `useMetric('revenue')`. **Pass:** it throws a clear error rather than requesting a wrong URL. (Docs guarantee.)
+Build analytics hooks **without** `manifest` and without a matching `config` entry; call `useMetric('total')`. **Pass:** it throws a clear error rather than requesting a wrong URL. (Docs guarantee.)
 
 ---
 
 ## 2. `useQuery` (`reference/api/react.mdx`)
 
 ### R2.1 — Basic query render
-`ActiveUsers.tsx`: `const { data, error, isLoading } = useQuery('activeUsers', { limit: 5 })`. **Pass:** loading → rows render in the browser; `data` is typed to the query output.
+`RecentRows.tsx`: `const { data, error, isLoading } = useQuery('recentRows', { limit: 5 })`. **Pass:** loading → rows render in the browser; `data` is typed to the query output.
 
 ### R2.2 — Typed input/key
 TS: `useQuery('notARoute', ...)` is a type error; wrong input shape is a type error. Verify in `typecheck.ts`.
@@ -114,7 +114,7 @@ TS: `useQuery('notARoute', ...)` is a type error; wrong input shape is a type er
 Pass `{ staleTime, enabled: false, retry }` as the options arg; confirm `enabled:false` defers the request until toggled.
 
 ### R2.4 — Default GET vs method override
-By default hooks issue GET. Since `activeUsers` is POST-only on the server (registered POST), wire `config: { activeUsers: { method: 'POST' } }` and confirm the request succeeds; without it, record the failure (GET to a POST route).
+By default hooks issue GET. Since `recentRows` is POST-only on the server (registered POST), wire `config: { recentRows: { method: 'POST' } }` and confirm the request succeeds; without it, record the failure (GET to a POST route).
 
 ---
 
@@ -131,16 +131,16 @@ Trigger a validation error (bad input) → `m.error` is populated; structured JS
 ## 4. Semantic hooks (`createAnalyticsHooks`)
 
 ### R4.1 — `useMetric`
-`RevenueMetric.tsx`: `const { data } = useMetric('revenue', { dimensions:['country'], limit:10 })`. **Pass:** rows render; result is `{ data, meta }` so read rows from `result.data`.
+`TotalMetric.tsx`: `const { data } = useMetric('total', { dimensions:['category'], limit:10 })`. **Pass:** rows render; result is `{ data, meta }` so read rows from `result.data`.
 
 ### R4.2 — `useDataset`
-`OrdersDataset.tsx`: `useDataset('orders', { dimensions:['country','status'], measures:['revenue','orderCount'] })` → maps to `POST /datasets/orders/query` via manifest. **Pass:** rows render.
+`TargetDataset.tsx`: `useDataset('target', { dimensions:['category'], measures:['total','rows'] })` → maps to `POST /datasets/target/query` via manifest. **Pass:** rows render.
 
 ### R4.3 — `useInfiniteMetric` / `useInfiniteDataset`
-`InfiniteOrders.tsx`: `useInfiniteDataset('orders', { dimensions:['country'], measures:['revenue'], limit:2 })`. **Pass:** first page renders; `fetchNextPage()` advances using `meta.pagination` (requested via `x-include-meta`); `hasNextPage` reflects `hasMore`. Click "Load more" and confirm new rows append.
+`InfiniteTarget.tsx`: `useInfiniteDataset('target', { dimensions:['category'], measures:['total'], limit:2 })`. **Pass:** first page renders; `fetchNextPage()` advances using `meta.pagination` (requested via `x-include-meta`); `hasNextPage` reflects `hasMore`. Click "Load more" and confirm new rows append.
 
 ### R4.4 — `metrics` key narrowing
-`createAnalyticsHooks<Api>({ ..., metrics: ['revenue','averageOrderValue'] as const })` — `useMetric('notAMetric')` becomes a type error. Verify in `typecheck.ts`.
+`createAnalyticsHooks<Api>({ ..., metrics: ['total','avgPerRow'] as const })` — `useMetric('notAMetric')` becomes a type error. Verify in `typecheck.ts`.
 
 ### R4.5 — Wrong-route guard
 With manifest present, `useDataset('ghost')` (unknown) → throws clear error, not a malformed request.
@@ -190,7 +190,7 @@ Scaffold Next.js App Router. Add `app/api/hypequery/[...hq]/route.ts` mounting `
 ---
 
 ## 8. End-to-end inspectable artifact
-1. `npm run dev` (Vite) with the serve backend running. Open the app — **all components render live data**: active users list, revenue-by-country table, orders rollup, and an infinite orders list with a working "Load more".
+1. `npm run dev` (Vite) with the serve backend running. Open the app — **all components render live data**: recent rows list, a total-by-category table, a target rollup, and an infinite target list with a working "Load more".
 2. Screenshot the running page (inspectable artifact).
 3. `npx tsc --noEmit` passes, including the negative type assertions in `typecheck.ts` (commented `// @ts-expect-error` lines for R2.2, R4.4).
 4. Note the chosen CORS/proxy approach and the `baseUrl` used.

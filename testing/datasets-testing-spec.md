@@ -1,13 +1,18 @@
 # @hypequery/datasets — Manual Testing Spec
 
 A self-contained test plan for `@hypequery/datasets`, written so it can be handed to an
-agent/model and executed end-to-end **against a real ClickHouse instance you set up**.
+agent/model and executed end-to-end **against a real, already-populated ClickHouse
+instance you provide**. There is **no data seeding** — the model **introspects your
+schema, picks suitable tables/columns, defines dimensions and measures over them**, and
+verifies dataset output against **ground truth computed from raw ClickHouse SQL**. That
+keeps the tests data-agnostic: they pass on whatever real data you point them at.
+
 It builds **one real, inspectable app** under `hq-datasets-test/` that you can open and
-read afterwards, plus a battery of scenarios covering every documented feature.
+read afterwards (dataset definitions + a `sql/` dump + a vitest suite).
 
 - **Package under test:** `@hypequery/datasets` (`v0.1.0`)
 - **Companion:** `@hypequery/clickhouse` (query builder + execution)
-- **Primary backend:** **ClickHouse** via `createDatasetClient({ queryBuilder: db })`. Every behavioral, SQL, and execution test runs against your real ClickHouse, seeded with fixed rows (§0.4) so result assertions are exact.
+- **Primary backend:** **ClickHouse** via `createDatasetClient({ queryBuilder: db })`.
 - **Docs covered:** `datasets/overview`, `defining-datasets`, `dimensions`, `measures`, `metrics`, `filters`, `execution`, `time-grains`, `multi-tenancy`, `serve-integration`
 - **Public API (verified against `src/index.ts`):**
   - `dataset`, `dimension`, `measure`
@@ -18,342 +23,313 @@ read afterwards, plus a battery of scenarios covering every documented feature.
   - clients/backends: `createDatasetClient`, `createInMemoryBackend`, `createDatasetRegistry`
   - validation/sql utils: `validateFilterValue`, `matchesFieldType`, `validateSQLIdentifier`, `isSafeSQLIdentifier`, `quoteSQLIdentifier`, `GRAIN_FUNCTIONS`
 
-> The in-memory backend (`createInMemoryBackend`) is **optional** here. It is used only in
-> §12 to cross-check the one documented backend-specific behavior (SQL-backed measures
-> are rejected by generic semantic plans) and as a DB-free smoke option. Everything else
-> runs on ClickHouse so you exercise real SQL generation and execution.
+> **Ground-truth method.** For every value assertion, the test runs the equivalent
+> hand-written query through the query builder (`db.table(...)` / `db.rawQuery(...)`) and
+> compares it to the dataset/metric result. The dataset layer is correct iff its output
+> matches the raw query over the **same** table. No magic numbers.
 
 ---
 
-## 0. Prerequisites & the app skeleton
+## 0. Prerequisites & schema discovery
 
-### 0.1 Tooling
-- Node ≥ 18, `tsx` (or `ts-node`) to run TS scripts directly, `vitest` for assertions.
-- A real ClickHouse you control. Reuse the container from **`cli-testing-spec.md` §0.2**, but this app uses its **own dedicated database `ds_test`** and **its own seed** (§0.4) so it never collides with the CLI spec's tables.
+### 0.1 Tooling & connection
+- Node ≥ 18, `tsx`, `vitest`.
+- **Your real ClickHouse.** Set `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD` to point at the database you want tested. The tests only **read** — they never create or modify tables.
 
 ### 0.2 Create the app
 ```bash
 mkdir hq-datasets-test && cd hq-datasets-test
-npm init -y
-npm pkg set type=module
+npm init -y && npm pkg set type=module
 npm install @hypequery/datasets @hypequery/clickhouse
-npm install -D typescript tsx vitest @types/node
+npm install -D typescript tsx vitest @types/node dotenv
 npx tsc --init --module nodenext --moduleResolution nodenext --target es2022 --strict
+# .env with your CLICKHOUSE_* connection details
 ```
 
-Create `.env` (loaded by your scripts via `import 'dotenv/config'` or shell export):
-```bash
-CLICKHOUSE_URL=http://localhost:8123
-CLICKHOUSE_DATABASE=ds_test
-CLICKHOUSE_USER=cli_user
-CLICKHOUSE_PASSWORD=super-secret
-```
-
-### 0.3 Files to create (these are your inspectable artifacts)
+### 0.3 Files to create (your inspectable artifacts)
 ```
 hq-datasets-test/
-  seed.sql              # dedicated ds_test.orders table + fixed rows (§0.4)
   src/
-    client.ts           # createQueryBuilder (ClickHouse), exported as `db`
-    datasets/orders.ts   # the canonical Orders dataset + metrics (exported)
-    sql-dump.ts          # prints toSQL() for every scenario into sql/ for inspection
+    client.ts            # createQueryBuilder against YOUR ClickHouse, exported as `db`
+    discover.ts          # introspects the schema, prints tables/columns + a picked target
+    datasets/target.ts    # the dataset you build over a chosen real table (exported)
+    truth.ts             # helpers that compute ground truth via raw builder queries
+    sql-dump.ts          # writes analytics.toSQL() for every scenario into sql/
   tests/
-    clickhouse.test.ts   # ALL behavioral assertions, run live against ClickHouse
+    clickhouse.test.ts   # behavioral assertions vs ground truth, run live
     backend.test.ts      # optional in-memory cross-check (§12)
   sql/                   # generated .sql files you can read
 ```
 
-### 0.4 Seed (fixed rows so assertions are exact) — `seed.sql`
-Run via: `docker exec -i hq-ch clickhouse-client --user cli_user --password super-secret < seed.sql`
-```sql
-CREATE DATABASE IF NOT EXISTS ds_test;
+### 0.4 Discover the schema and choose a target table (`src/discover.ts`)
+Introspect the live database and **choose a "fact-like" table** to model. Print the
+result so the choice is inspectable.
 
-CREATE TABLE ds_test.orders (
-  id          UInt64,
-  tenant_id   String,
-  customer_id String,
-  status      String,
-  country     String,
-  email       String,
-  amount      Float64,
-  created_at  DateTime
-) ENGINE = MergeTree ORDER BY (created_at, id);
+```typescript
+import 'dotenv/config';
+import { db } from './client.js';
 
-INSERT INTO ds_test.orders
-  (id, tenant_id, customer_id, status, country, email, amount, created_at) VALUES
-  (1, 't1', 'c1', 'completed', 'US', 'a@example.com', 100, '2026-01-05 00:00:00'),
-  (2, 't1', 'c1', 'completed', 'US', 'b@example.com',  50, '2026-01-20 00:00:00'),
-  (3, 't1', 'c2', 'refunded',  'UK', 'c@example.com',  30, '2026-02-02 00:00:00'),
-  (4, 't2', 'c3', 'completed', 'CA', 'd@example.com', 200, '2026-02-10 00:00:00');
-
--- Used by the serve/react specs' `activeUsers` query-builder example.
-CREATE TABLE ds_test.users (
-  id          String,
-  email       String,
-  status      String,
-  created_at  DateTime
-) ENGINE = MergeTree ORDER BY (created_at, id);
-
-INSERT INTO ds_test.users (id, email, status, created_at) VALUES
-  ('u1', 'a@example.com', 'active',   '2026-01-01 00:00:00'),
-  ('u2', 'b@example.com', 'active',   '2026-01-02 00:00:00'),
-  ('u3', 'c@example.com', 'inactive', '2026-01-03 00:00:00');
+// List tables + columns from the connected database.
+const rows = await db.rawQuery<{ table: string; name: string; type: string }>(
+  `SELECT table, name, type FROM system.columns
+   WHERE database = {db:String} ORDER BY table, position`,
+  { db: process.env.CLICKHOUSE_DATABASE },
+);
+console.table(rows);
 ```
 
-> **Shared seed.** This `ds_test` database (orders + users) is the canonical seed reused
-> by the **serve**, **MCP**, and **React** specs too, since they all build on the same
-> `Orders` dataset. Point `CLICKHOUSE_DATABASE=ds_test` in those apps.
+From the output, the model selects:
+- **Target table** `T` — prefer a table with at least one numeric column and a timestamp.
+- **Numeric column(s)** `Nᵢ` → `sum`/`avg`/`min`/`max`.
+- **An id/high-cardinality column** → `count` / `countDistinct`.
+- **A low-cardinality string column** `C` (e.g. status/country/type) → a groupable, filterable dimension.
+- **A timestamp column** `TS` (if any) → `timeKey` + a `timestamp` dimension.
+- **A low-cardinality column** `K` to act as the **tenant key** for the fail-closed tests (its real meaning doesn't matter — we're testing the enforcement mechanism).
 
-**Derived expected values (used throughout):**
-| Quantity | Value |
-| --- | --- |
-| `revenue` = sum(amount) | 380 |
-| `orderCount` = count(id) | 4 |
-| `uniqueCountries` = countDistinct(country) | 3 (US, UK, CA) |
-| `avgAmount` | 95 |
-| `minAmount` / `maxAmount` | 30 / 200 |
-| `completedRevenue` (status=completed) | 350 (100+50+200) |
-| `taxedRevenue` = sum(amount*1.2) | 456 |
-| revenue by country | US 150, UK 30, CA 200 |
-| AOV by country (revenue/orderCount) | US 75, UK 30, CA 200 |
-| revenue, filter completed + amount≥100 | US 100, CA 200 |
-| revenue desc, limit 2 | CA 200, US 150 |
-| revenue by month | 2026-01 = 150, 2026-02 = 230 |
-| revenue, tenant `t1` | US 150, UK 30 |
-| revenue, tenant `t2` | CA 200 |
-| `uniqueCustomers` = countDistinct(customer_id) | 3 (c1, c2, c3) |
+Record the chosen names in the report; everything below refers to them as `T`, `Nᵢ`, `C`, `TS`, `K`.
 
 ### 0.5 Client (`src/client.ts`)
 ```typescript
+import 'dotenv/config';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 export const db = createQueryBuilder({
   url: process.env.CLICKHOUSE_URL!,
-  username: process.env.CLICKHOUSE_USER!,
+  username: process.env.CLICKHOUSE_USERNAME!,
   password: process.env.CLICKHOUSE_PASSWORD!,
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 ```
 
-### 0.6 Canonical dataset (`src/datasets/orders.ts`)
-Build this once; every scenario reuses it. It exercises column mapping, SQL-backed
-fields, filtered measures, labels/descriptions, a restricted filter contract, base +
-derived metrics, `tenantKey`, and `timeKey`.
+### 0.6 Build the target dataset (`src/datasets/target.ts`)
+Fill this template using the columns chosen in §0.4. It must exercise: column mapping,
+a SQL-backed dimension, a SQL-backed measure, a filtered measure, labels/descriptions, a
+restricted filter contract, base + derived metrics, `tenantKey`, and `timeKey`.
 
 ```typescript
 import { dataset, dimension, measure, eq, divide, nullIfZero } from '@hypequery/datasets';
 
-export const Orders = dataset('orders', {
-  source: 'orders',                 // ds_test.orders
-  tenantKey: 'tenant_id',
-  timeKey: 'created_at',
+export const Target = dataset('target', {
+  source: 'T',                 // your chosen table
+  tenantKey: 'K',              // a low-cardinality column used to test fail-closed tenancy
+  timeKey: 'TS',               // a timestamp column (omit timeKey if the table has none)
   dimensions: {
-    id: dimension.number(),
-    tenantId: dimension.string({ column: 'tenant_id' }),
-    customerId: dimension.string({ column: 'customer_id' }),
-    status: dimension.string({ label: 'Order Status', description: 'Lifecycle state.' }),
-    country: dimension.string(),
-    countryUpper: dimension.string({ sql: 'upper(country)' }),    // SQL-backed
-    email: dimension.string({ filterable: true, groupable: false }),
-    createdAt: dimension.timestamp({ column: 'created_at' }),
+    key: dimension.string({ column: 'K' }),          // column-mapped dimension
+    category: dimension.string({ column: 'C' }),
+    categoryUpper: dimension.string({ sql: 'upper(C)' }), // SQL-backed dimension
+    ts: dimension.timestamp({ column: 'TS' }),
+    // add an id dimension if useful for countDistinct mapping
   },
   measures: {
-    revenue: measure.sum('amount', { label: 'Revenue', description: 'Order amount.' }),
-    orderCount: measure.count('id'),
-    uniqueCountries: measure.countDistinct('country'),
-    uniqueCustomers: measure.countDistinct('customerId'),
-    avgAmount: measure.avg('amount'),
-    minAmount: measure.min('amount'),
-    maxAmount: measure.max('amount'),
-    taxedRevenue: measure.sum('amount', { sql: 'amount * 1.2' }),           // SQL-backed
-    completedRevenue: measure.sum('amount', { filters: [eq('status', 'completed')] }), // filtered
+    total: measure.sum('N1', { label: 'Total', description: 'Sum of N1.' }),
+    rows: measure.count('N1'),
+    distinctKeys: measure.countDistinct('key'),       // mapped through the dimension
+    avgN1: measure.avg('N1'),
+    minN1: measure.min('N1'),
+    maxN1: measure.max('N1'),
+    scaledTotal: measure.sum('N1', { sql: 'N1 * 1.2' }),            // SQL-backed
+    // pick a real value V that exists in column C for the filtered measure:
+    filteredTotal: measure.sum('N1', { filters: [eq('category', 'V')] }),
   },
   filters: {
-    status: { __type: 'filter_definition', field: 'status', operators: ['eq', 'neq', 'in', 'notIn'] },
+    category: { __type: 'filter_definition', field: 'category', operators: ['eq', 'neq', 'in', 'notIn'] },
   },
 });
 
-export const revenue = Orders.metric('revenue', { measure: 'revenue', label: 'Total Revenue' });
-export const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
-export const averageOrderValue = Orders.metric('averageOrderValue', {
-  uses: { revenue, orderCount },
-  formula: ({ revenue, orderCount }) => divide(revenue, nullIfZero(orderCount)),
-  label: 'Average Order Value',
-  description: 'Revenue divided by order count.',
+export const total = Target.metric('total', { measure: 'total', label: 'Total' });
+export const rows = Target.metric('rows', { measure: 'rows' });
+export const avgPerRow = Target.metric('avgPerRow', {
+  uses: { total, rows },
+  formula: ({ total, rows }) => divide(total, nullIfZero(rows)),
+  label: 'Average per row',
+  description: 'total / rows.',
 });
 ```
 
-### 0.7 Client construction (used by all tests)
+### 0.7 Ground-truth helpers (`src/truth.ts`)
+Compute expected values with the **builder** (or `db.rawQuery`) over the same table, so
+assertions are derived from live data, not hardcoded:
+```typescript
+import { db } from './client.js';
+export const sumN1 = async (allTenants = true) =>
+  (await db.table('T').sum('N1', 'v').execute())[0]?.v;
+export const sumN1ByCategory = async () =>
+  db.table('T').select(['C']).sum('N1', 'v').groupBy('C').execute();
+// ...add per-scenario truth helpers as needed.
+```
+
+### 0.8 Client construction (used by all tests)
 ```typescript
 import { createDatasetClient } from '@hypequery/datasets';
 import { db } from './client.js';
 const analytics = createDatasetClient({ queryBuilder: db });
 ```
-> Because `Orders` has `tenantKey`, tenant-scoped targets need a `runtime.tenant` (see §8).
-> For non-tenant assertions on the full dataset, pass a trusted `{ runtime: { tenant: { scope: 'all' } } }` context, OR query a tenant explicitly. Each scenario states which.
+> Because `Target` has `tenantKey`, tenant-scoped targets need a `runtime.tenant`.
+> For non-tenant assertions across the whole table, pass `{ runtime: { tenant: { scope: 'all' } } }`.
+> Compute ground truth with the matching scope (whole table → no tenant predicate).
 
 ---
 
 ## 1. Definition & client construction
 
 ### D1.1 — Build the dataset
-**Run** a script importing `Orders`. **Expect:** loads without throw; `Orders.name === 'orders'`; `Orders.metric` is a function.
+Import `Target`. **Pass:** loads without throw; `Target.name === 'target'`; `Target.metric` is a function.
 
 ### D1.2 — `createDatasetClient` requires a backend
 - `createDatasetClient({})` → throws `createDatasetClient requires either queryBuilder or backend.`
 - `createDatasetClient({ queryBuilder: db })` → ok.
-**Pass:** error text matches; the builder form constructs a client.
 
 ### D1.3 — Connectivity smoke
-`await analytics.execute(revenue, { dimensions: ['country'] }, { runtime: { tenant: { scope: 'all' } } })` returns rows. If it fails, fix ClickHouse/env before continuing.
+`await analytics.execute(total, { dimensions: ['category'] }, { runtime: { tenant: { scope: 'all' } } })` returns rows. If it fails, fix ClickHouse/env before continuing.
 
 ---
 
 ## 2. Dimensions (`dimensions.mdx`)
 
-All ClickHouse-backed. Use `{ runtime: { tenant: { scope: 'all' } } }` unless a tenant is specified.
+Use `{ runtime: { tenant: { scope: 'all' } } }` unless a tenant is specified.
 
 ### D2.1 — Helper types
 Define a scratch dataset using each of `dimension.string/number/boolean/timestamp`. **Pass:** all construct without error.
 
 ### D2.2 — Column mapping
-`execute(Orders, { dimensions: ['tenantId'], measures: ['revenue'] }, allTenants)` →
-- `toSQL` references `tenant_id`, not `tenantId`
-- rows: t1 = 180, t2 = 200.
+`execute(Target, { dimensions: ['key'], measures: ['total'] }, allTenants)` →
+- `toSQL` references the physical column `K`, not the semantic name `key`
+- rows **equal** the ground truth `db.table('T').select(['K']).sum('N1','v').groupBy('K')`.
 
-### D2.3 — SQL-backed dimension (`countryUpper`)
-`toSQL` for `dimensions: ['countryUpper']` contains `upper(country)`; executes (US/UK/CA uppercased). Record whether a schema-compat **warning** is emitted (docs: complex SQL only warns).
+### D2.3 — SQL-backed dimension (`categoryUpper`)
+`toSQL` for `dimensions: ['categoryUpper']` contains `upper(C)`; executes and matches `SELECT upper(C) ...` ground truth. Record whether a schema-compat **warning** is emitted (docs: complex SQL only warns).
 
 ### D2.4 — `groupable: false`
-`email` is `groupable: false`. Run `execute(Orders, { dimensions: ['email'], measures: ['revenue'] }, allTenants)` and **record** whether it's rejected or allowed (docs say `groupable` "records intended behavior" — note actual enforcement).
+Add a scratch dimension with `groupable: false`; **record** whether selecting it as a dimension is rejected or merely flagged (docs say `groupable` "records intended behavior").
 
 ### D2.5 — `filterable` default + `filterable:false`
 Add a scratch dimension with `filterable: false`; confirm `validate` rejects a filter on it. Default dimensions accept filters.
 
 ### D2.6 — Labels/descriptions are metadata only
-`toSQL` is byte-identical whether or not `label`/`description` are set. (They surface in schema introspection — tested via the MCP/serve specs.)
+`toSQL` is byte-identical whether or not `label`/`description` are set.
 
 ---
 
 ## 3. Measures (`measures.mdx`)
 
-Query each measure with no dimensions (one aggregate row), tenant `{ scope: 'all' }`, and assert exact values from §0.4:
+Each measure with no dimensions (one aggregate row), tenant `{ scope: 'all' }`, compared to the matching raw aggregate over `T`:
 
 ### D3.1 — All aggregation helpers
-- `revenue` = 380, `orderCount` = 4, `uniqueCountries` = 3, `avgAmount` = 95, `minAmount` = 30, `maxAmount` = 200.
+`total` == `sum(N1)`, `rows` == `count(N1)`, `distinctKeys` == `uniqExact(K)`/`count(distinct K)`, `avgN1` == `avg(N1)`, `minN1` == `min(N1)`, `maxN1` == `max(N1)`. Assert equality to ground truth.
 
 ### D3.2 — Filtered measure
-`completedRevenue` = 350.
+`filteredTotal` == `sum(N1) WHERE C = 'V'` (ground truth with the same predicate).
 
 ### D3.3 — SQL-backed measure (builder path)
-`taxedRevenue`: `toSQL` contains `sum(amount * 1.2)`; executes = 456. (Rejection on a generic semantic backend is cross-checked in §12.)
+`scaledTotal`: `toSQL` contains `sum(N1 * 1.2)`; result == raw `sum(N1*1.2)`. (Rejection on a generic semantic backend is cross-checked in §12.)
 
 ### D3.4 — Measure field mapping through a dimension
-`uniqueCustomers` (= `countDistinct('customerId')`): `toSQL` counts distinct `customer_id`; executes = 3.
+`distinctKeys` (= `countDistinct('key')`): `toSQL` counts distinct physical `K`; result == raw `count(distinct K)`.
 
 ---
 
 ## 4. Metrics (`metrics.mdx`)
 
 ### D4.1 — Base metric execution
-`execute(revenue, { dimensions: ['country'] }, allTenants)` → US 150, UK 30, CA 200.
+`execute(total, { dimensions: ['category'] }, allTenants)` **equals** `sumN1ByCategory()` ground truth (same rows/values, order-insensitive).
 
 ### D4.2 — Metric inherits measure label
-`orderCount` metric omits `label`; confirm it inherits from the measure (inspect via `validate`/describe surfaces, or MCP `get_dataset_schema`). Record.
+`rows` metric omits `label`; confirm it inherits from the measure (inspect via schema/`describe`, or MCP `get_dataset_schema`). Record.
 
-### D4.3 — Derived metric (`averageOrderValue`)
-`execute(averageOrderValue, { dimensions: ['country'] }, allTenants)` → US 75, UK 30, CA 200. Inspect `toSQL` — expect a CTE/formula structure dividing the two aggregates.
+### D4.3 — Derived metric (`avgPerRow`)
+`execute(avgPerRow, { dimensions: ['category'] }, allTenants)` equals, per category, `sum(N1)/count(N1)` from ground truth. Inspect `toSQL` — expect a CTE/formula dividing the two aggregates.
 
 ### D4.4 — Derived-metric guardrails (negative)
 - `uses` referencing a metric from a **different** dataset → throws at definition time.
 - Deriving from another **derived** metric → throws.
 
 ### D4.5 — Formula helpers
-Build scratch derived metrics using `multiply`, `add`, `subtract`, `coalesce`, `round` (e.g. `round(divide(revenue, nullIfZero(orderCount)))`). Confirm each plans + executes against ClickHouse.
+Build scratch derived metrics using `multiply`, `add`, `subtract`, `coalesce`, `round` (e.g. `round(divide(total, nullIfZero(rows)))`). Confirm each plans + executes; compare to the equivalent raw expression.
 
 ### D4.6 — `orderBy` on a metric
-`execute(revenue, { dimensions: ['country'], orderBy: [desc('revenue')], limit: 2 }, allTenants)` → CA 200, US 150. Confirm `[{ field:'revenue', direction:'desc' }]` object form is equivalent.
+`execute(total, { dimensions:['category'], orderBy:[desc('total')], limit:2 }, allTenants)` returns the top-2 categories by `total`, matching a raw `ORDER BY sum(N1) DESC LIMIT 2`. Confirm `[{ field:'total', direction:'desc' }]` object form is equivalent.
 
 ---
 
 ## 5. Filters & ordering (`filters.mdx`)
 
 ### D5.1 — Each filter helper shape
-`eq('status','completed')` deep-equals `{ field:'status', operator:'eq', value:'completed' }`. Spot-check `gt`, `inList`, `between`, `like`, `notInList`.
+`eq('category','V')` deep-equals `{ field:'category', operator:'eq', value:'V' }`. Spot-check `gt`, `inList`, `between`, `like`, `notInList`.
 
 ### D5.2 — Filters in metric queries
-`execute(revenue, { dimensions:['country'], filters:[eq('status','completed'), gte('amount',100)] }, allTenants)` → US 100, CA 200 (the 50 row excluded).
+`execute(total, { dimensions:['category'], filters:[eq('category','V')] }, allTenants)` matches raw `... WHERE C='V' GROUP BY C`. Add a numeric filter `gte('N1', X)` for a real `X` and compare.
 
 ### D5.3 — Filters in dataset queries
-`execute(Orders, { dimensions:['country','status'], measures:['revenue','orderCount'], filters:[eq('status','completed')] }, allTenants)` → assert rows (US: revenue 150/count 2; CA: 200/1).
+`execute(Target, { dimensions:['category'], measures:['total','rows'], filters:[eq('category','V')] }, allTenants)` matches the equivalent raw query.
 
 ### D5.4 — Restricted filter contract
-`filters.status` allows only `['eq','neq','in','notIn']`.
-- `validate(revenue, { filters:[eq('status','x')] })` → valid.
-- `validate(revenue, { filters:[like('status','%x%')] })` → **invalid** (operator not allowed). Record error.
-- A filter on `country` (not in the `filters` map) — record whether allowed (docs imply `status` becomes the only exposed filter field).
+`filters.category` allows only `['eq','neq','in','notIn']`.
+- `validate(total, { filters:[eq('category','V')] })` → valid.
+- `validate(total, { filters:[like('category','%x%')] })` → **invalid** (operator not allowed). Record error.
+- A filter on another dimension (not in the `filters` map) — record whether allowed (docs imply the listed field becomes the only exposed filter field).
 
 ### D5.5 — Order helpers
-`orderBy: [desc('revenue'), asc('country')]` validates + orders correctly; `toSQL` shows `ORDER BY ... DESC, ... ASC`.
+`orderBy: [desc('total'), asc('category')]` validates; `toSQL` shows `ORDER BY ... DESC, ... ASC`.
 
 ---
 
 ## 6. Execution surface (`execution.mdx`)
 
 ### D6.1 — `validate` returns data, not throws
-`analytics.validate(revenue, { dimensions: ['country'] })` → `{ valid: true, errors: [] }`. Unknown dimension `nope` → `{ valid:false, errors:[...] }` **without throwing**.
+`analytics.validate(total, { dimensions: ['category'] })` → `{ valid: true, errors: [] }`. Unknown dimension `nope` → `{ valid:false, errors:[...] }` **without throwing**.
 
 ### D6.2 — `toSQL` inspects + validates first
-`analytics.toSQL(revenue, { dimensions:['country'], orderBy:[desc('revenue')], limit:10 })` contains `sum(amount)`, `GROUP BY`, `ORDER BY ... DESC`, `LIMIT`. Invalid query → `toSQL` **throws** the same validation errors. Dump all scenario SQL into `sql/`.
+`analytics.toSQL(total, { dimensions:['category'], orderBy:[desc('total')], limit:10 })` contains `sum(N1)`, `GROUP BY`, `ORDER BY ... DESC`, `LIMIT`. Invalid query → `toSQL` **throws** the same validation errors. Dump all scenario SQL into `sql/`.
 
 ### D6.3 — `execute` returns rows + meta
-`const r = await analytics.execute(revenue, { dimensions:['country'], limit:25 }, allTenants)`:
+`const r = await analytics.execute(total, { dimensions:['category'], limit:25 }, allTenants)`:
 - `r.data` array; `r.meta?.sql`, `r.meta?.timingMs`, `r.meta?.rowCount` present
-- `r.meta?.pagination` present because `limit` set: `{ limit:25, offset:0, hasMore:false }` (only 3 country rows).
+- `r.meta?.pagination` present because `limit` set (`{ limit:25, offset, hasMore }`).
 
 ### D6.4 — Pagination over-fetch / `hasMore`
-`execute(revenue, { dimensions:['country'], limit:2 }, allTenants)` → 2 rows, `hasMore: true`. Confirm `meta.sql` shows an over-fetch (`LIMIT 3` / limit+1) and **no** separate COUNT query.
+Choose `limit` smaller than the distinct count of `C`. `execute(total, { dimensions:['category'], limit:L })` → `L` rows, `hasMore: true`. Confirm `meta.sql` over-fetches one row (`LIMIT L+1`) and issues **no** separate COUNT. With `limit` ≥ distinct count → `hasMore: false`.
 
 ### D6.5 — Dataset (ad hoc) execution
-`execute(Orders, { dimensions:['country','status'], measures:['revenue','orderCount'] }, allTenants)` returns combined rows; `meta.sql` selects both aggregations.
+`execute(Target, { dimensions:['category'], measures:['total','rows'] }, allTenants)` matches the equivalent raw multi-aggregate query.
 
 ---
 
 ## 7. Time grains (`time-grains.mdx`)
 
+Requires a `timeKey` (`TS`). If your chosen table has no timestamp, note it and skip the live parts (still verify `.by` is rejected without `timeKey`).
+
 ### D7.1 — `.by(grain)` requires `timeKey`
-`revenue.by('month')` works (Orders has `timeKey`). A scratch dataset **without** `timeKey` → `.by(...)`/execution rejected. Record.
+`total.by('month')` works (Target has `timeKey`). A scratch dataset **without** `timeKey` → `.by(...)`/execution rejected. Record.
 
 ### D7.2 — Each supported grain
-For `day`, `week`, `month`, `quarter`, `year`: `analytics.toSQL(revenue.by(grain), { dimensions:['country'] })` contains the grain bucketing on `created_at` (cross-check `GRAIN_FUNCTIONS`).
-- ClickHouse execute for `month` (tenant `{ scope:'all' }`, no extra dims): 2026-01 = 150, 2026-02 = 230.
+For `day`, `week`, `month`, `quarter`, `year`: `analytics.toSQL(total.by(grain), { dimensions:['category'] })` buckets on `TS` (cross-check `GRAIN_FUNCTIONS`). For `month`, the result equals raw `SELECT toStartOfMonth(TS) AS bucket, sum(N1) ... GROUP BY bucket` (use the actual grain function the layer emits as ground truth).
 
 ### D7.3 — Unsupported grain
-`revenue.by('hour' as any)` → rejected. Record message.
+`total.by('hour' as any)` → rejected. Record message.
 
 ### D7.4 — `timeKey` is not a selectable dimension by itself
-Selecting raw `created_at` fails unless the `createdAt` timestamp dimension (mapped to `created_at`) is used.
+Selecting the raw `TS` column fails unless the `ts` timestamp dimension (mapped to `TS`) is used.
 
 ---
 
 ## 8. Multi-tenancy (`multi-tenancy.mdx`) — fail-closed
 
-Orders has `tenantKey: 'tenant_id'`.
+`Target` has `tenantKey: 'K'`. Pick a real value `K0` present in column `K`.
 
 ### D8.1 — Missing tenant context is rejected
-`await analytics.execute(revenue)` → throws `Dataset "orders" requires runtime tenant scoping.`
+`await analytics.execute(total)` → throws `Dataset "target" requires runtime tenant scoping.`
 
 ### D8.2 — Single tenant injects predicate
-`execute(revenue, { dimensions:['country'] }, { runtime: { tenant: 't1' } })`:
-- `toSQL` contains `tenant_id = 't1'` (or parameterized equivalent)
-- rows: US 150, UK 30 (CA excluded).
+`execute(total, { dimensions:['category'] }, { runtime: { tenant: 'K0' } })`:
+- `toSQL` contains `K = 'K0'` (or parameterized equivalent)
+- result equals raw `... WHERE K='K0' GROUP BY C`.
 
 ### D8.3 — Tenant runtime value forms
-- `tenant: 't1'` and `tenant: { id: 't1' }` → identical (t1 rows).
-- `tenant: { in: ['t1','t2'] }` → all rows (US 150, UK 30, CA 200).
-- `tenant: { scope: 'all' }` → all rows; trusted-only.
+- `tenant: 'K0'` and `tenant: { id: 'K0' }` → identical.
+- `tenant: { in: ['K0','K1'] }` → equals raw `WHERE K IN ('K0','K1')` (pick a second real value `K1`).
+- `tenant: { scope: 'all' }` → equals whole-table ground truth (no tenant predicate).
 
 ### D8.4 — Explicit tenant filter is rejected
-`execute(revenue, { filters:[eq('tenantId','t1')] }, { runtime: { tenant: 't1' } })` → throws `Cannot filter on tenant field "tenantId" when runtime tenancy enforcement is active.`
+`execute(total, { filters:[eq('key','K0')] }, { runtime: { tenant: 'K0' } })` → throws `Cannot filter on tenant field "key" when runtime tenancy enforcement is active.`
 
 ---
 
@@ -372,48 +348,45 @@ Returns a backtick-quoted identifier. Confirm shape.
 
 ## 10. Relationships (definition-level)
 
-The docs note dataset execution is currently same-dataset, but `belongsTo`/`hasMany`/`hasOne` exist and surface in schema introspection.
+Docs note execution is currently same-dataset, but `belongsTo`/`hasMany`/`hasOne` exist and surface in schema introspection.
 
 ### D10.1 — Define relationships
-Add a `relationships` block to a scratch dataset using `belongsTo`/`hasMany`/`hasOne`. **Pass:** dataset constructs; relationship metadata is present on the instance (inspect, or verify later via MCP `get_dataset_schema`). Record whether any execution path consumes them yet.
+Add a `relationships` block to a scratch dataset using `belongsTo`/`hasMany`/`hasOne` (reference a second real table). **Pass:** dataset constructs; relationship metadata is present (inspect, or verify later via MCP `get_dataset_schema`). Record whether any execution path consumes them yet.
 
 ---
 
 ## 11. End-to-end inspectable artifact
 
-**Goal:** leave a readable app + SQL dumps + a green live test run.
-1. `src/sql-dump.ts` iterates every scenario target (metric/dataset/grained) and writes `analytics.toSQL(...)` to `sql/<name>.sql`. Run it; keep the `sql/` folder — these are human-inspectable generated queries (sums, group-bys, time grains, tenant predicates, filtered/SQL-backed measures).
-2. `tests/clickhouse.test.ts` encodes the exact assertions above (§3, §4, §5.2–5.3, §6, §7.2, §8) against your seeded ClickHouse. Run `npx vitest run` → all green with the exact numbers from §0.4.
+1. `src/sql-dump.ts` writes `analytics.toSQL(...)` for every scenario target into `sql/<name>.sql`. Keep the folder — human-inspectable generated SQL (sums, group-bys, time grains, tenant predicates, filtered/SQL-backed measures).
+2. `tests/clickhouse.test.ts` encodes §2–§8 as **dataset-result vs raw-builder ground truth** comparisons against your live ClickHouse. Run `npx vitest run` → all green.
 
-**Pass:** `sql/` contains correct SQL; live tests pass with the documented values.
+**Pass:** `sql/` contains correctly shaped SQL; live tests pass because dataset output matches the equivalent hand-written queries over the same tables.
 
 ---
 
 ## 12. Optional: in-memory backend cross-check
 
-Only to verify backend-specific behavior and offer a DB-free smoke path. Build
-`createInMemoryBackend(tables)` with rows mirroring §0.4, then:
+Only to verify the one backend-specific behavior and offer a DB-free smoke path. Build
+`createInMemoryBackend(tables)` with a handful of rows you define inline (this is a unit
+fixture for the adapter, **not** a seed of your real DB):
 
-### D12.1 — Same numbers, no DB
-Re-run a subset of §3/§4 assertions against the in-memory client; results match the ClickHouse numbers. (Sanity that semantics are backend-consistent.)
+### D12.1 — SQL-backed measures rejected by generic semantic backend
+`execute(..., 'scaledTotal', ...)` on the **in-memory** client → **throws** (docs: generic semantic plans reject SQL-backed measures). Record the message. This is the one place backend choice changes behavior.
 
-### D12.2 — SQL-backed measures rejected by generic semantic backend
-`execute(..., 'taxedRevenue', ...)` on the **in-memory** client → **throws** (docs: generic semantic plans reject SQL-backed measures because cross-backend adapters can't assume SQL syntax). Record the message. This is the one place the backend choice changes behavior.
-
-### D12.3 — Backend/builder guard
+### D12.2 — Backend/builder guard
 A backend-only client calling a builder-only path → throws `This dataset client was created with a semantic backend, not a query builder.`
 
 ---
 
 ## 13. Reporting template
-Per scenario: target + query JSON, expected vs actual (numbers or SQL snippet), PASS/FAIL, notes. Attach the `sql/` dump and the vitest output. Flag any deviation, and confirm/deny Appendix A.
+Record the chosen `T/Nᵢ/C/TS/K` first. Per scenario: target + query JSON, expected (ground-truth query + value/shape) vs actual, PASS/FAIL, notes. Attach the `sql/` dump and vitest output. Confirm/deny Appendix A.
 
 ---
 
 ## Appendix A — Things to confirm against docs
-- **CLI `generate:datasets` example (FIXED).** The CLI's success message previously printed `createDatasetClient({ backend: createBackend({...}) })` with `import { createBackend } from '@hypequery/clickhouse'` — but `createBackend` is only exported from the `@hypequery/clickhouse/datasets` **subpath**, not the root, so that import failed. The message now uses the documented `createQueryBuilder` + `createDatasetClient({ queryBuilder: db })` form. (`createBackend` still exists at `@hypequery/clickhouse/datasets` if you specifically want the semantic-backend path.)
-- **`groupable` enforcement:** docs say `groupable: false` "records intended behavior" rather than hard-blocking. Record whether selecting a `groupable:false` dimension is actually rejected (D2.4).
+- **CLI `generate:datasets` example (FIXED).** The CLI's success message previously printed `createDatasetClient({ backend: createBackend({...}) })` with `import { createBackend } from '@hypequery/clickhouse'` — but `createBackend` is only exported from the `@hypequery/clickhouse/datasets` **subpath**, not the root. The message now uses `createQueryBuilder` + `createDatasetClient({ queryBuilder: db })`.
+- **`groupable` enforcement:** docs say `groupable: false` "records intended behavior" rather than hard-blocking. Record actual enforcement (D2.4).
 - **Restricted-filter map scope:** docs imply adding a `filters` map makes the listed field the only exposed filter field. Confirm filters on other dimensions are then rejected (D5.4).
-- **SQL-backed measures on generic semantic backend:** confirm rejection on the in-memory backend but success on the ClickHouse builder (D3.3 vs D12.2).
+- **SQL-backed measures on generic semantic backend:** confirm rejection on the in-memory backend but success on the ClickHouse builder (D3.3 vs D12.1).
 - **Pagination metadata:** confirm `meta.pagination` only appears when `limit` is set and that `hasMore` uses over-fetch, not a COUNT (D6.3–D6.4).
 - **Relationships:** confirm whether any execution path consumes `belongsTo`/`hasMany`/`hasOne` yet, or they're introspection-only for now (D10.1).

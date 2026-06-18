@@ -23,67 +23,34 @@ flag-by-flag coverage.
 - One package manager to test with: `npm` (default). Optionally repeat key flows with `pnpm`/`yarn`/`bun` — the CLI auto-detects the manager from lockfile / `packageManager` / `npm_config_user_agent`.
 - `curl` for hitting the dev server.
 
-### 0.2 A real ClickHouse you control
-Use ClickHouse Cloud **or** a local container. Local container (recommended for repeatable tests):
+### 0.2 A real, already-populated ClickHouse
+Connect to **your real ClickHouse** (Cloud or self-hosted) that already contains tables.
+**No seeding** — `init`/`generate` only introspect existing tables. The CLI never writes
+data. Before starting, record the **ground-truth facts** the tests assert against by
+running, against your target database:
 
-```bash
-docker run -d --name hq-ch -p 8123:8123 -p 9000:9000 \
-  -e CLICKHOUSE_USER=cli_user \
-  -e CLICKHOUSE_PASSWORD=super-secret \
-  -e CLICKHOUSE_DB=analytics \
-  clickhouse/clickhouse-server:latest
-```
-
-### 0.3 Seed data (gives `init`/`generate` real tables to introspect)
 ```sql
--- run via: docker exec -i hq-ch clickhouse-client --user cli_user --password super-secret < seed.sql
-CREATE DATABASE IF NOT EXISTS analytics;
-
-CREATE TABLE analytics.users (
-  id          String,
-  email       String,
-  status      String,
-  created_at  DateTime
-) ENGINE = MergeTree ORDER BY (created_at, id);
-
-CREATE TABLE analytics.events (
-  id          String,
-  user_id     String,
-  name        String,
-  created_at  DateTime,
-  value       Float64
-) ENGINE = MergeTree ORDER BY (created_at, id);
-
-CREATE TABLE analytics.orders (
-  id          String,
-  user_id     String,
-  total       Decimal(18,2),
-  created_at  DateTime
-) ENGINE = MergeTree ORDER BY (created_at, id);
-
-INSERT INTO analytics.users VALUES
-  ('u1','a@x.com','active', now()), ('u2','b@x.com','inactive', now());
-INSERT INTO analytics.events VALUES
-  ('e1','u1','signup', now(), 1), ('e2','u1','purchase', now(), 42.5);
-INSERT INTO analytics.orders VALUES
-  ('o1','u1', 42.50, now());
+SELECT count() FROM system.tables WHERE database = '<your-db>' AND engine NOT LIKE '%View%';
+SELECT name FROM system.tables WHERE database = '<your-db>' ORDER BY name;   -- pick a few table names to reference below
 ```
+Note the **table count** `T` and choose a representative table `E` (and a second `E2`)
+to use in scenarios. The tests refer to these as `T`, `E`, `E2` instead of fixed names.
 
-### 0.4 Connection env vars
+### 0.3 Connection env vars
 `CLICKHOUSE_URL` is preferred. Aliases the CLI also accepts: `CLICKHOUSE_HOST` (URL),
 `CLICKHOUSE_USER`/`CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD`, `CLICKHOUSE_DATABASE`.
 
 ```bash
-export CLICKHOUSE_URL=http://localhost:8123
-export CLICKHOUSE_DATABASE=analytics
-export CLICKHOUSE_USERNAME=cli_user
-export CLICKHOUSE_PASSWORD=super-secret
+export CLICKHOUSE_URL=<your clickhouse url>
+export CLICKHOUSE_DATABASE=<your-db>
+export CLICKHOUSE_USERNAME=<user>
+export CLICKHOUSE_PASSWORD=<password>
 ```
 
-### 0.5 Useful test-only env vars
+### 0.4 Useful test-only env vars
 - `HYPEQUERY_SKIP_INSTALL=1` — skips the automatic `npm/pnpm/yarn/bun add` step in `init`. Set it to make `init` fast and deterministic when network/registry isn't desired, then install manually. (Undocumented; verify it works — see T1.7.)
 
-### 0.6 How to invoke the CLI under test
+### 0.5 How to invoke the CLI under test
 Pick ONE and note it in the report:
 - Published: `npx @hypequery/cli@<version> <cmd>`
 - Local build (this repo): `node /path/to/packages/cli/dist/bin/cli.js <cmd>` after `pnpm --filter @hypequery/cli build`
@@ -106,16 +73,16 @@ Real-world goal: "scaffold an analytics layer in my project."
 ### T1.1 — Interactive happy path (queries style)
 **Pre:** empty repo with a `package.json` (`npm init -y`), env vars **unset** (force prompts).
 **Run:** `hq init`
-**Walk the prompts:** ClickHouse URL → database → username → password → output dir (`analytics/`) → style (`Query builder routes`) → "Generate an example query?" yes → pick `users`.
+**Walk the prompts:** ClickHouse URL → database → username → password → output dir (`analytics/`) → style (`Query builder routes`) → "Generate an example query?" yes → pick a table `E` from the list.
 **Expect:**
-- Spinner: `Testing connection...` → `Connected successfully (3 tables found)`.
+- Spinner: `Testing connection...` → `Connected successfully (T tables found)` where `T` matches your database (§0.2).
 - Files created at repo root: `.env`, `.gitignore` (created or updated).
 - Files in `analytics/`: `schema.ts` (real introspected types, not placeholder), `client.ts`, `queries.ts`.
-- `queries.ts` contains a `usersQuery` example selecting from `users`, exports `api`, and `api.route('/metrics/usersQuery', ...)`.
+- `queries.ts` contains an example query named `<camelCase(E)>Query` selecting from `E`, exports `api`, and `api.route('/metrics/<camelCase(E)>Query', ...)`.
 - Dependency install runs: `@hypequery/clickhouse`, `@hypequery/serve`, `zod` added to `package.json` (unless already present / `HYPEQUERY_SKIP_INSTALL=1`).
 - `.env` has `CLICKHOUSE_URL/DATABASE/USERNAME/PASSWORD` populated.
 - Final "Setup complete!" with a "Try your first query" snippet and `npx hypequery dev` next step.
-**Pass:** all files exist, `schema.ts` contains interfaces for `users`/`events`/`orders`, `queries.ts` typechecks.
+**Pass:** all files exist, `schema.ts` contains a TypeScript interface for `E` (and your other tables), `queries.ts` typechecks.
 
 ### T1.2 — Non-interactive from env vars
 **Pre:** env vars from §0.4 set; fresh dir with `package.json`.
@@ -140,10 +107,10 @@ Real-world goal: "scaffold an analytics layer in my project."
 
 ### T1.6 — Datasets style + table selection
 **Pre:** valid connection.
-**Run:** `hq init --no-interactive --style datasets --tables users,orders --path analytics`
-**Expect:** creates `analytics/datasets.ts` (generated from `users` + `orders`, not the placeholder) and `analytics/api.ts` (uses `createAPI({ queryBuilder: db, datasets })`). Also installs `@hypequery/datasets` in addition to clickhouse/serve/zod. "Setup complete!" next-step references dev server.
+**Run:** `hq init --no-interactive --style datasets --tables E,E2 --path analytics`
+**Expect:** creates `analytics/datasets.ts` (generated from `E` + `E2`, not the placeholder) and `analytics/api.ts` (uses `createAPI({ queryBuilder: db, datasets })`). Also installs `@hypequery/datasets` in addition to clickhouse/serve/zod. "Setup complete!" next-step references dev server.
 **Variants:**
-- `--style datasets --all-tables` → datasets generated for all 3 tables.
+- `--style datasets --all-tables` → datasets generated for all `T` tables.
 - `--style datasets` with no `--tables`/`--all-tables` in non-interactive → writes the **placeholder** `datasets.ts` and prints `Skipped dataset generation. Run hypequery generate:datasets ...`.
 - Interactive datasets: confirm the multiselect "Which tables should we scaffold as datasets?" appears.
 
@@ -178,8 +145,8 @@ Real-world goal: "my ClickHouse schema changed — refresh my types."
 ### T2.1 — Generate into existing project
 **Pre:** project from T1.1 (so `analytics/schema.ts` exists), env vars set.
 **Run:** `hq generate`
-**Expect:** header `hypequery generate`; spinner `Connecting to clickhouse...` → `Connected to ClickHouse`; `Found 3 tables`; `Generating types...` → `Generated types for 3 tables`; `Updated analytics/schema.ts`. Auto-discovers existing `analytics/schema.ts` as output. Exit 0.
-**Pass:** `schema.ts` regenerated with interfaces for all 3 tables.
+**Expect:** header `hypequery generate`; spinner `Connecting to clickhouse...` → `Connected to ClickHouse`; `Found T tables`; `Generating types...` → `Generated types for T tables`; `Updated analytics/schema.ts`. Auto-discovers existing `analytics/schema.ts` as output. Exit 0.
+**Pass:** `schema.ts` regenerated with an interface per table (count matches `T`).
 
 ### T2.2 — Greenfield (no existing schema)
 **Pre:** empty dir, only `.env`/env vars, no `analytics/`.
@@ -193,8 +160,8 @@ Real-world goal: "my ClickHouse schema changed — refresh my types."
 **Run:** `hq generate --path src/analytics` → writes `src/analytics/schema.ts`. (This flag is **undocumented** — verify it works.)
 
 ### T2.5 — `--tables` subset
-**Run:** `hq generate --tables users,events`
-**Expect:** only `users` and `events` interfaces present in output; `orders` absent. Note the `Found N tables` count reflects total tables, while generation is restricted.
+**Run:** `hq generate --tables E,E2`
+**Expect:** only `E` and `E2` interfaces present in output; a third table is absent. Note the `Found N tables` count reflects total tables, while generation is restricted.
 
 ### T2.6 — Connection error guidance
 **Pre:** point `CLICKHOUSE_URL` at a dead port, e.g. `http://localhost:9` .
@@ -216,15 +183,15 @@ Real-world goal: "scaffold a semantic dataset layer from my schema."
 ### T3.1 — Default output
 **Pre:** valid connection; ensure `@hypequery/datasets` resolvable (run from a project that installed it, or after T1.6).
 **Run:** `hq generate:datasets`
-**Expect:** header `hypequery generate datasets`; `Connected to ClickHouse`; `Found 3 tables`; `Generated dataset definitions for 3 tables`; `Created src/datasets/generated.ts` (note default is `src/datasets/generated.ts`, NOT `analytics/`). Prints "Next steps" + an example-usage block. Exit 0.
+**Expect:** header `hypequery generate datasets`; `Connected to ClickHouse`; `Found T tables`; `Generated dataset definitions for T tables`; `Created src/datasets/generated.ts` (note default is `src/datasets/generated.ts`, NOT `analytics/`). Prints "Next steps" + an example-usage block. Exit 0.
 
 ### T3.2 — `--path` and `--output`
 - `hq generate:datasets --path analytics` → writes `analytics/datasets.ts`.
 - `hq generate:datasets --output ds/all.ts` → writes `ds/all.ts`.
 
 ### T3.3 — `--tables` / `--exclude-tables`
-- `hq generate:datasets --tables orders` → only `orders` dataset; success line says `for 1 tables`.
-- `hq generate:datasets --exclude-tables events` → `users` + `orders` only.
+- `hq generate:datasets --tables E` → only the `E` dataset; success line says `for 1 tables`.
+- `hq generate:datasets --exclude-tables E2` → all tables except `E2`.
 
 ### T3.4 — No matching tables
 **Run:** `hq generate:datasets --tables does_not_exist`
@@ -247,7 +214,7 @@ Real-world goal: "run my queries locally with docs + hot reload."
 **Run:** `hq dev`
 **Expect (stdout):**
 - `Found: analytics/queries.ts`
-- spinners `Compiling queries...` → `Compiled queries`, `Connecting to ClickHouse...` → `Connected to ClickHouse (3 tables)`
+- spinners `Compiling queries...` → `Compiled queries`, `Connecting to ClickHouse...` → `Connected to ClickHouse (T tables)`
 - `Registered 1 query`
 - a boxed block listing `Docs: http://localhost:4000/docs` and `OpenAPI: http://localhost:4000/openapi.json`
 - `Ready in <n>ms`, then `Watching for changes...`
@@ -256,9 +223,9 @@ Real-world goal: "run my queries locally with docs + hot reload."
 curl -s http://localhost:4000/openapi.json | head
 curl -s http://localhost:4000/docs | head
 # execute the example route:
-curl -s http://localhost:4000/metrics/usersQuery
+curl -s http://localhost:4000/metrics/<camelCase(E)>Query
 ```
-**Pass:** server responds; OpenAPI JSON returned; the route returns rows from `users`.
+**Pass:** server responds; OpenAPI JSON returned; the route returns rows from `E`.
 **Teardown:** send SIGINT; expect `Shutting down dev server...` and clean exit 0.
 
 ### T4.2 — Explicit file argument
@@ -352,15 +319,19 @@ Run these as ordered scripts; they're the highest-signal "does the product work"
 1. `npm init -y`
 2. `npm install @hypequery/clickhouse @hypequery/serve zod && npm install -D @hypequery/cli`
 3. `hq init --no-interactive` (env set) → scaffolds `analytics/`
-4. Edit `analytics/queries.ts` to add an `activeUsers` query with zod input/output (per quick-start docs).
+4. Edit `analytics/queries.ts` to add a query over table `E` with zod input/output (per quick-start docs).
 5. `hq dev analytics/queries.ts`
 6. `curl -X POST http://localhost:4000/<route> -H 'Content-Type: application/json' -d '{"limit":10}'` → rows returned.
 **Pass:** full loop works; types compile; route returns live data.
 
-### J2 — Schema-change refresh loop
-1. From J1's project, `ALTER TABLE analytics.users ADD COLUMN country String`.
-2. `hq generate`
-3. **Pass:** `analytics/schema.ts` now includes `country` on the `users` interface.
+### J2 — Schema-change refresh loop (needs DDL privileges; uses a disposable table)
+This is the **only** scenario that writes to ClickHouse. Use a clearly-named throwaway
+table you create and drop, so your real tables are untouched. Skip if you lack DDL rights.
+1. `CREATE TABLE <db>.hq_test_refresh (id String, created_at DateTime) ENGINE = MergeTree ORDER BY id;`
+2. `hq generate` → `schema.ts` includes an `hq_test_refresh` interface with `id`, `created_at`.
+3. `ALTER TABLE <db>.hq_test_refresh ADD COLUMN country String;`
+4. `hq generate` again → **Pass:** `schema.ts` now includes `country` on the `hq_test_refresh` interface.
+5. Clean up: `DROP TABLE <db>.hq_test_refresh;`
 
 ### J3 — Datasets semantic layer
 1. `hq init --no-interactive --style datasets --all-tables --path analytics`

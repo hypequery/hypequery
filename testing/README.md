@@ -15,22 +15,29 @@ responses, or a running web UI) you can open and read afterward.
 | [`mcp-testing-spec.md`](./mcp-testing-spec.md) | `@hypequery/mcp` | `hq-mcp-test/` — MCP config + registry + stdio driver writing tool responses to `out/` |
 | [`react-testing-spec.md`](./react-testing-spec.md) | `@hypequery/react` | `hq-react-test/` (Vite+React, + optional Next.js) — live-rendering hooks |
 
-## Shared ClickHouse setup
+## Real ClickHouse — no seeding
 
-All specs share one ClickHouse instance with **two databases**:
+All specs run against **your own, already-populated ClickHouse**. There is **no seed**;
+the tests only **read**. Set `CLICKHOUSE_URL` / `CLICKHOUSE_DATABASE` /
+`CLICKHOUSE_USERNAME` / `CLICKHOUSE_PASSWORD` to point at the database you want exercised.
 
-- **`analytics`** — created in `cli-testing-spec.md` §0.2–0.3 (tables `users`, `events`, `orders`). Used only by the CLI spec.
-- **`ds_test`** — the canonical seed in `datasets-testing-spec.md` §0.4 (tables `orders` + `users`). Reused by the **datasets, serve, MCP, and React** specs, because they all build on the same `Orders` dataset. Those apps set `CLICKHOUSE_DATABASE=ds_test`.
+The model **introspects your schema and picks suitable tables/columns** (see
+`datasets-testing-spec.md` §0.4), then:
+- builds dimensions/measures over a chosen fact-like table `T` (numeric `Nᵢ`, low-cardinality `C`, timestamp `TS`, a column `K` used as tenant key);
+- verifies dataset/metric output against **ground truth computed from raw ClickHouse SQL** over the same table — so assertions hold on whatever real data you point at, with no magic numbers.
 
-> Start the container once (CLI spec §0.2), then apply both seeds. The CLI spec's
-> `analytics.orders` and the shared `ds_test.orders` have **different schemas** — don't
-> point a dataset-based app at `analytics.orders`.
+The serve, MCP, and React specs reuse that same `Target` dataset, so define it once
+(datasets spec §0.6) and import/rebuild it in the others.
+
+> The **only** scenario that writes to ClickHouse is the CLI schema-refresh journey
+> (`cli-testing-spec.md` J2), which creates and drops a clearly-named throwaway table and
+> requires DDL privileges. Skip it if you can't create tables.
 
 ## Recommended run order
 
-1. **CLI** — verifies scaffolding/codegen/dev server. Standalone (`analytics` DB).
-2. **Datasets** — seeds `ds_test`; verifies the semantic layer + SQL generation. Establishes the exact expected numbers reused downstream.
-3. **Serve** — exposes the datasets/metrics over HTTP; emits `out/manifest.json` and `out/openapi.json`.
+1. **CLI** — verifies scaffolding/codegen/dev server against your real schema.
+2. **Datasets** — introspects your schema, builds the `Target` dataset, verifies the semantic layer + SQL generation vs raw-SQL ground truth. Establishes the dataset definition reused downstream.
+3. **Serve** — exposes that dataset's metrics over HTTP; emits `out/manifest.json` and `out/openapi.json`.
 4. **MCP** — exposes the same datasets to agents over stdio.
 5. **React** — consumes the running serve API (needs the serve app from step 3 alive, and its `manifest.json`).
 

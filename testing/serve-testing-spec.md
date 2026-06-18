@@ -22,9 +22,10 @@ agent/model and executed end-to-end. It builds **two real, inspectable apps**:
 
 ## 0. Prerequisites & app skeleton
 
-### 0.1 Tooling
+### 0.1 Tooling & connection
 - Node ≥ 18, `tsx`, `curl`, `jq`.
-- ClickHouse seeded with the **shared `ds_test` database** from **`datasets-testing-spec.md` §0.4** (tables `orders` + `users`). The `Orders` dataset and the `activeUsers` query both target `ds_test`, so set `CLICKHOUSE_DATABASE=ds_test`. (Do **not** use the CLI spec's `analytics.orders` table — its schema differs from what the `Orders` dataset expects.)
+- **Your real ClickHouse** — set `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, `CLICKHOUSE_PASSWORD`. **No seeding**; tests only read.
+- This spec reuses the dataset built in **`datasets-testing-spec.md` §0.4–0.6**: introspect your schema, pick a fact-like table `T` with columns `Nᵢ` (numeric), `C` (low-cardinality string), `TS` (timestamp), `K` (a column used as tenant key), and build the `Target` dataset over it. Pick a real value `V` present in column `C` for filter examples, and two real values `K0`/`K1` from `K` for tenancy.
 - `start` servers are long-running: launch backgrounded, poll, then SIGINT.
 
 ### 0.2 Create the app
@@ -32,18 +33,18 @@ agent/model and executed end-to-end. It builds **two real, inspectable apps**:
 mkdir hq-serve-test && cd hq-serve-test
 npm init -y && npm pkg set type=module
 npm install @hypequery/serve @hypequery/clickhouse @hypequery/datasets zod
-npm install -D typescript tsx @types/node @hypequery/cli
+npm install -D typescript tsx @types/node @hypequery/cli dotenv
 npx tsc --init --module nodenext --moduleResolution nodenext --target es2022 --strict
-# .env: CLICKHOUSE_URL, CLICKHOUSE_DATABASE=ds_test, CLICKHOUSE_USERNAME, CLICKHOUSE_PASSWORD
+# .env with your CLICKHOUSE_* connection details
 ```
 
 ### 0.3 Inspectable files
 ```
 hq-serve-test/
   src/
-    client.ts            # createQueryBuilder (CLICKHOUSE_DATABASE=ds_test)
-    datasets/orders.ts    # OrdersPublic (no tenantKey) + metrics — used by §1–§5, §8–§12
-    datasets/orders-tenant.ts # the tenant-keyed Orders from datasets-testing-spec §0.4 — used by §6
+    client.ts            # createQueryBuilder against YOUR ClickHouse
+    datasets/target.ts    # TargetPublic (no tenantKey) + metrics — used by §1–§5, §8–§12
+    datasets/target-tenant.ts # the tenant-keyed Target (tenantKey: 'K') — used by §6
     queries.ts           # initServe + query + serve  → exports `api`
     server.ts            # api.start({ port: 4000 })
     embedded.ts          # api.run / api.execute / api.client demos
@@ -54,52 +55,52 @@ hq-serve-test/
 
 ### 0.4 Datasets for the serve app
 
-`src/datasets/orders.ts` defines **`OrdersPublic`** — identical to the datasets spec's
-`Orders` (same `ds_test.orders` source, dimensions, measures, metrics) **but with no
-`tenantKey`** — so the general semantic-endpoint tests (§4) don't each require tenant
-context. Export `OrdersPublic`, `revenue`, `averageOrderValue` from it. (Copy §0.6 of the
-datasets spec, delete the `tenantKey` line, rename `Orders` → `OrdersPublic`.)
+`src/datasets/target.ts` defines **`TargetPublic`** — the datasets spec's `Target`
+(`src/datasets/target.ts`, §0.6 there) **but with no `tenantKey`** — so the general
+semantic-endpoint tests (§4) don't each require tenant context. Export `TargetPublic` plus
+the metrics `total` and `avgPerRow`.
 
-`src/datasets/orders-tenant.ts` re-exports the **tenant-keyed `Orders`** (with
-`tenantKey: 'tenant_id'`) for §6 only.
+`src/datasets/target-tenant.ts` re-exports the **tenant-keyed `Target`** (`tenantKey: 'K'`)
+for §6 only.
 
 > Because a tenant-keyed dataset is fail-closed, its endpoints reject calls without tenant
 > identity. §6 configures `tenant: { extract, required: true }` so requests carrying a
-> tenant succeed; §4 uses `OrdersPublic` to keep the basic flows credential-free.
+> tenant succeed; §4 uses `TargetPublic` to keep the basic flows credential-free.
 
 ### 0.5 Base `src/queries.ts`
 ```typescript
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
 import { db } from './client.js';
-import { OrdersPublic, revenue, averageOrderValue } from './datasets/orders.js';
+import { TargetPublic, total, avgPerRow } from './datasets/target.js';
 
 const { query, serve } = initServe({
   context: () => ({ db }),
   basePath: '/api/analytics',
 });
 
-export const activeUsers = query({
-  description: 'Most recent active users',
-  summary: 'List active users',
-  tags: ['users'],
+// A hand-written query over your chosen table `T`. Replace col1/col2 with real columns,
+// and adjust the output schema (or use z.array(z.record(z.unknown())) if you prefer).
+export const recentRows = query({
+  description: 'Recent rows from T',
+  summary: 'List recent rows',
+  tags: ['rows'],
   input: z.object({ limit: z.number().min(1).max(500).default(50) }),
-  output: z.array(z.object({ id: z.string(), email: z.string(), created_at: z.string() })),
+  output: z.array(z.record(z.unknown())),
   query: ({ ctx, input }) =>
-    ctx.db.table('users').select(['id','email','created_at'])
-      .where('status','eq','active').orderBy('created_at','DESC').limit(input.limit).execute(),
+    ctx.db.table('T').select(['col1','col2']).orderBy('TS','DESC').limit(input.limit).execute(),
 });
 
 export const health = query({ requiresAuth: false, query: async () => ({ ok: true }) });
 
 export const api = serve({
   queryBuilder: db,
-  queries: { activeUsers, health },
-  metrics: { revenue, averageOrderValue },
-  datasets: { orders: OrdersPublic },
+  queries: { recentRows, health },
+  metrics: { total, avgPerRow },
+  datasets: { target: TargetPublic },
 });
 
-api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
+api.route('/recent-rows', api.queries.recentRows, { method: 'POST' });
 ```
 
 ---
@@ -107,13 +108,13 @@ api.route('/active-users', api.queries.activeUsers, { method: 'POST' });
 ## 1. `query({ ... })` — reusable definitions (`re-using-queries.mdx`)
 
 ### S1.1 — Local execution before HTTP
-`await activeUsers.execute({ input: { limit: 10 } })` returns up to 10 rows **without** starting a server. **Pass:** array result; respects `limit`.
+`await recentRows.execute({ input: { limit: 10 } })` returns up to 10 rows **without** starting a server. **Pass:** array result; respects `limit`.
 
 ### S1.2 — Input validation
-`activeUsers.execute({ input: { limit: 0 } })` → throws with zod issue (min 1). `{ limit: 999 }` → throws (max 500). Omitting `limit` → defaults to 50.
+`recentRows.execute({ input: { limit: 0 } })` → throws with zod issue (min 1). `{ limit: 999 }` → throws (max 500). Omitting `limit` → defaults to 50.
 
 ### S1.3 — Output validation
-Make the resolver return a row missing `email` (temporarily) → execution throws an output-validation error. Restore after.
+Temporarily tighten `output` to require a field the rows don't have (e.g. `z.array(z.object({ __missing: z.string() }))`) → execution throws an output-validation error. Restore after.
 
 ### S1.4 — Metadata fields
 A `query({ description, summary, tags, requiredRoles, input, output })` definition carries all of those into `api.describe()` (see S3).
@@ -126,17 +127,17 @@ A `query({ description, summary, tags, requiredRoles, input, output })` definiti
 Start `api.start({ port: 4000 })`. Without any `api.route(...)`, every query is reachable at `POST /queries/<key>` under `basePath`. Verify:
 ```bash
 curl -s -X POST http://localhost:4000/api/analytics/queries/health        # {"ok":true}
-curl -s -X POST http://localhost:4000/api/analytics/queries/activeUsers -H 'content-type: application/json' -d '{"limit":5}'
+curl -s -X POST http://localhost:4000/api/analytics/queries/recentRows -H 'content-type: application/json' -d '{"limit":5}'
 ```
 
 ### S2.2 — Custom `api.route`
-`/active-users` (registered in §0.5) responds to POST; GET to it → 404/405. Record.
+`/recent-rows` (registered in §0.5) responds to POST; GET to it → 404/405. Record.
 
 ### S2.3 — `api.run` / `api.execute` / `api.client` (aliases)
-In `embedded.ts`: all three return identical results for `api.run('activeUsers', { input: { limit: 3 } })`. Confirm `execute` and `client` are aliases.
+In `embedded.ts`: all three return identical results for `api.run('recentRows', { input: { limit: 3 } })`. Confirm `execute` and `client` are aliases.
 
 ### S2.4 — Semantic keys in `api.run`
-`api.run('revenue', { input: { dimensions:['country'], limit:10 } })` and `api.run('dataset:orders', { input: { dimensions:['country'], measures:['revenue','orderCount'] } })` both execute in-process. **Pass:** rows returned; dataset key is `dataset:orders`.
+`api.run('total', { input: { dimensions:['category'], limit:10 } })` and `api.run('dataset:target', { input: { dimensions:['category'], measures:['total','rows'] } })` both execute in-process. **Pass:** rows returned; dataset key is `dataset:target`.
 
 ### S2.5 — `api.start` options
 `api.start({ port, hostname, quiet, requestTimeout, bodyLimit, gracefulShutdownTimeout })` returns a handle with `stop()`. Confirm `stop()` shuts the server (subsequent curl fails).
@@ -145,10 +146,10 @@ In `embedded.ts`: all three return identical results for `api.run('activeUsers',
 `typeof api.handler === 'function'`. Used by adapters (§7).
 
 ### S2.7 — `api.describe()`
-Writes to `out/describe.json`. **Pass:** `.queries` lists `activeUsers`, `health`, the metric `revenue`/`averageOrderValue`, and `dataset:orders`, each with method, path, auth requirements, contract metadata.
+Writes to `out/describe.json`. **Pass:** `.queries` lists `recentRows`, `health`, the metric `total`/`avgPerRow`, and `dataset:target`, each with method, path, auth requirements, contract metadata.
 
 ### S2.8 — `api.manifest()`
-Writes `out/manifest.json`. **Pass:** keys map to `{ method, path }`, e.g. `revenue → { method:'POST', path:'/metrics/revenue' }`, `dataset:orders → { method:'POST', path:'/datasets/orders/query' }`. JSON-serializable.
+Writes `out/manifest.json`. **Pass:** keys map to `{ method, path }`, e.g. `total → { method:'POST', path:'/metrics/total' }`, `dataset:target → { method:'POST', path:'/datasets/target/query' }`. JSON-serializable.
 
 ### S2.9 — `api.use` / `api.useAuth`
 `api.use(mw)` adds global middleware (see S8). `api.useAuth(strategy)` appends a strategy after creation (see S5).
@@ -158,7 +159,7 @@ Writes `out/manifest.json`. **Pass:** keys map to `{ method, path }`, e.g. `reve
 ## 3. HTTP + OpenAPI + docs (`http-openapi.mdx`)
 
 ### S3.1 — `/openapi.json`
-`curl .../api/analytics/openapi.json | jq` → valid OpenAPI; includes paths for queries AND semantic endpoints (`/metrics/revenue`, `/datasets/orders/query`). Save to `out/openapi.json`.
+`curl .../api/analytics/openapi.json | jq` → valid OpenAPI; includes paths for queries AND semantic endpoints (`/metrics/total`, `/datasets/target/query`). Save to `out/openapi.json`.
 
 ### S3.2 — OpenAPI customization
 A `serve({ openapi: { title, version, servers } })` variant reflects the custom title/version/servers in the document.
@@ -174,29 +175,29 @@ A `serve({ openapi: { title, version, servers } })` variant reflects the custom 
 ## 4. Semantic metric/dataset endpoints (`datasets/serve-integration.mdx`)
 
 ### S4.1 — Generated endpoints
-`POST /metrics/revenue` and `POST /datasets/orders/query` exist (no `api.route` needed) and appear in OpenAPI/docs.
+`POST /metrics/total` and `POST /datasets/target/query` exist (no `api.route` needed) and appear in OpenAPI/docs.
 
 ### S4.2 — Metric endpoint input
 ```bash
-curl -X POST .../api/analytics/metrics/revenue -H 'content-type: application/json' \
-  -d '{"dimensions":["country"],"filters":[{"field":"status","operator":"eq","value":"completed"}],"orderBy":[{"field":"revenue","direction":"desc"}],"limit":10}'
+curl -X POST .../api/analytics/metrics/total -H 'content-type: application/json' \
+  -d '{"dimensions":["category"],"filters":[{"field":"category","operator":"eq","value":"V"}],"orderBy":[{"field":"total","direction":"desc"}],"limit":10}'
 ```
 **Pass:** `{ data: [...] }` rows; validated against the metric contract.
 
 ### S4.3 — Dataset endpoint input
-`POST /datasets/orders/query` with `dimensions`+`measures` returns `{ data }`.
+`POST /datasets/target/query` with `dimensions`+`measures` returns `{ data }`.
 
 ### S4.4 — Validation
 Unknown dimension / disallowed filter operator → 4xx with validation error body.
 
 ### S4.5 — `maxLimit` clamping (not rejection)
-Register `metrics: { revenue: { metric: revenue, maxLimit: 5 } }`. Request `limit: 1000` → response clamps to 5 rows (not a 4xx). Confirm.
+Register `metrics: { total: { metric: total, maxLimit: 5 } }`. Request `limit: 1000` → response clamps to 5 rows (not a 4xx). Confirm.
 
 ### S4.6 — `semanticPaths` override
-`serve({ semanticPaths: { metrics: '/api/metrics', datasets: '/api/data' } })` → endpoints move to `POST /api/metrics/revenue` and `POST /api/data/orders/query`.
+`serve({ semanticPaths: { metrics: '/api/metrics', datasets: '/api/data' } })` → endpoints move to `POST /api/metrics/total` and `POST /api/data/target/query`.
 
 ### S4.7 — Pagination
-`POST /datasets/orders/query` with `{ limit:50, offset:50 }` → response reports served `offset` and `hasMore`.
+`POST /datasets/target/query` with `{ limit:50, offset:50 }` → response reports served `offset` and `hasMore`.
 
 ### S4.8 — `includeMeta`
 Body `includeMeta: true` OR header `x-include-meta: true` switches response to `{ data, meta }` with generated SQL, timing, rowCount, tenant, pagination.
@@ -205,7 +206,7 @@ Body `includeMeta: true` OR header `x-include-meta: true` switches response to `
 A `serve({ metrics })` with **no** `queryBuilder` and no `db` in context → construction/first-call error. Confirm the requirement; supplying via `context: () => ({ db })` also satisfies it.
 
 ### S4.10 — Per-entry options
-`metrics: { revenue: { metric, requiredRoles, cache, maxLimit, middlewares } }` and `datasets: { orders: { dataset, ... } }` register with those options (auth tested §5, cache observable via timing/`meta`, middleware §8).
+`metrics: { total: { metric, requiredRoles, cache, maxLimit, middlewares } }` and `datasets: { target: { dataset, ... } }` register with those options (auth tested §5, cache observable via timing/`meta`, middleware §8).
 
 ---
 
@@ -244,7 +245,7 @@ Confirm `verboseAuthErrors` toggles whether the 403 body names the missing role/
 `query.use(...)`, `.requireAuth()`, `.requireRole(...)`, `.requireScope(...)`, `.public()` behave equivalently to the object-style fields.
 
 ### S5.10 — Auth on semantic endpoints
-`datasets: { orders: { dataset: Orders, requiredRoles:['analytics'], requiredScopes:['read:data'] } }` → endpoint enforces the same OR/AND semantics. `auth: null` on an entry makes it public; an `auth` on the entry overrides the global strategy.
+`datasets: { target: { dataset: Target, requiredRoles:['analytics'], requiredScopes:['read:data'] } }` → endpoint enforces the same OR/AND semantics. `auth: null` on an entry makes it public; an `auth` on the entry overrides the global strategy.
 
 ### S5.11 — Auth hooks
 `onAuthFailure` / `onAuthorizationFailure` fire (see §9) with `event.queryKey` and `event.reason`/`event.required`.
@@ -253,15 +254,15 @@ Confirm `verboseAuthErrors` toggles whether the 403 body names the missing role/
 
 ## 6. Multi-tenancy (`multi-tenancy.mdx`)
 
-For this section, build an `api` variant that registers the **tenant-keyed `Orders`**
-(`src/datasets/orders-tenant.ts`, `tenantKey: 'tenant_id'`) and configures tenant
-extraction. Use an auth strategy that resolves a tenant (e.g. `x-tenant` header → `auth.tenantId`).
+For this section, build an `api` variant that registers the **tenant-keyed `Target`**
+(`src/datasets/target-tenant.ts`, `tenantKey: 'K'`) and configures tenant extraction. Use
+an auth strategy that resolves a tenant (e.g. `x-tenant` header → `auth.tenantId`).
 
 ### S6.1 — Tenant extraction + injection (builder queries)
-`serve({ tenant: { extract: (auth) => auth.tenantId, required: true, column: 'tenant_id' } })`. A query with a tenant in auth auto-injects `tenant_id = <tenant>`; missing tenant when `required: true` → rejected.
+`serve({ tenant: { extract: (auth) => auth.tenantId, required: true, column: 'K' } })`. A query with a tenant in auth auto-injects `K = <tenant>`; missing tenant when `required: true` → rejected.
 
 ### S6.2 — Semantic endpoints use dataset `tenantKey`
-With the tenant-keyed `Orders` (`tenantKey: 'tenant_id'`) registered, the metric/dataset endpoints pull tenant identity from auth (via serve `tenant.extract`) and inject the dataset's `tenantKey` predicate. Drive `POST /metrics/revenue` as tenant `t1` (→ US 150, UK 30) and `t2` (→ CA 200); confirm disjoint rows. A request with no tenant → rejected (fail-closed).
+With the tenant-keyed `Target` (`tenantKey: 'K'`) registered, the metric/dataset endpoints pull tenant identity from auth (via serve `tenant.extract`) and inject the dataset's `tenantKey` predicate. Drive `POST /metrics/total` as tenant `K0` and `K1`; each response must equal the raw `SELECT sum(N1) ... WHERE K='K0'`/`'K1'` ground truth and be disjoint. A request with no tenant → rejected (fail-closed).
 
 ### S6.3 — Per-query `tenant` override
 A `query({ tenant: ... })` overrides global tenant rules for that endpoint (e.g. a trusted job query). Confirm.
@@ -280,7 +281,7 @@ npx hypequery dev src/queries.ts --port 4000
 # or, since src/queries.ts is an auto-detected entry, just:
 npx hypequery dev --port 4000
 ```
-**Expect:** `Found: src/queries.ts`, `Compiled queries`, `Connected to ClickHouse (… tables)`, `Registered N queries`, a box with `Docs`/`OpenAPI` URLs under `basePath`, `Watching for changes...`. Hit the same endpoints as §3–§4 (`/api/analytics/docs`, `/metrics/revenue`, `/datasets/orders/query`). Edit `queries.ts` and confirm hot reload (`File changed, restarting...`). SIGINT → clean shutdown.
+**Expect:** `Found: src/queries.ts`, `Compiled queries`, `Connected to ClickHouse (… tables)`, `Registered N queries`, a box with `Docs`/`OpenAPI` URLs under `basePath`, `Watching for changes...`. Hit the same endpoints as §3–§4 (`/api/analytics/docs`, `/metrics/total`, `/datasets/target/query`). Edit `queries.ts` and confirm hot reload (`File changed, restarting...`). SIGINT → clean shutdown.
 **Pass:** the CLI boots the identical runtime your `api.handler`/`api.start` serve, with docs + hot reload. (Full `dev` flag matrix — `--no-watch`, `--open`, `--path`, `-q`, error paths — lives in `cli-testing-spec.md` §4.)
 
 ### S7.2 — Fetch adapter
@@ -302,7 +303,7 @@ Create `app/api/hypequery/[...hq]/route.ts` exporting `GET/POST/OPTIONS = create
 Add a timing middleware that logs `durationMs`. Hit any endpoint → log appears, response unchanged. Confirm it also wraps semantic endpoints.
 
 ### S8.2 — Per-entry middleware
-`metrics: { revenue: { metric, middlewares: [auditLog] } }` → `auditLog` runs only for `/metrics/revenue`, not other endpoints.
+`metrics: { total: { metric, middlewares: [auditLog] } }` → `auditLog` runs only for `/metrics/total`, not other endpoints.
 
 ### S8.3 — `api.describe()` for tooling
 Already in S2.7 — confirm semantic endpoints included with contract metadata.
@@ -340,7 +341,7 @@ Already in S2.7 — confirm semantic endpoints included with contract metadata.
 Exercise `store` (custom `RateLimitStore` — implement `increment`/`getTtl`/`reset`; also `MemoryRateLimitStore` default), `failOpen` (store throws → request proceeds vs fails), `message`, `headers` on/off.
 
 ### S10.5 — Per-entry on semantic endpoints
-`datasets: { orders: { dataset, middlewares: [rateLimit({ windowMs:60_000, max:30 })] } }` limits just that endpoint.
+`datasets: { target: { dataset, middlewares: [rateLimit({ windowMs:60_000, max:30 })] } }` limits just that endpoint.
 
 ---
 
@@ -357,10 +358,10 @@ Preflight `OPTIONS` to an endpoint returns permissive `Access-Control-Allow-*` h
 ## 12. Embedded runtime (`embedded-runtime.mdx`)
 
 ### S12.1 — Background job pattern
-`api.run('activeUsers', { input:{ limit:10 }, context:{ jobId } })` runs with full validation/middleware/hooks, no HTTP. Confirm `context` is readable in middleware/resolver.
+`api.run('recentRows', { input:{ limit:10 }, context:{ jobId } })` runs with full validation/middleware/hooks, no HTTP. Confirm `context` is readable in middleware/resolver.
 
 ### S12.2 — Semantic embedded
-`api.run('revenue', { input:{ dimensions:['country'], limit:10 } })` and `api.run('dataset:orders', { input:{ dimensions:['country'], measures:['revenue','orderCount'] } })`.
+`api.run('total', { input:{ dimensions:['category'], limit:10 } })` and `api.run('dataset:target', { input:{ dimensions:['category'], measures:['total','rows'] } })`.
 
 ### S12.3 — Errors throw
 `api.run` with bad input throws containing validation issues (wrap in try/catch).

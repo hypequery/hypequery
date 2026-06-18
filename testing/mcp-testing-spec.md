@@ -18,9 +18,9 @@ that calls every tool and writes each response to `out/` for inspection.
 
 ## 0. Prerequisites & app skeleton
 
-### 0.1 Tooling
+### 0.1 Tooling & connection
 - Node ≥ 18, `tsx`.
-- ClickHouse seeded with the **shared `ds_test` database** from **`datasets-testing-spec.md` §0.4** (the inline `Orders` dataset below targets `ds_test.orders`). Set `CLICKHOUSE_DATABASE=ds_test`.
+- **Your real ClickHouse** (no seeding). Introspect the schema first (see `datasets-testing-spec.md` §0.4) and pick: a fact-like table `T`, a numeric column `N1`, a low-cardinality string column `C`, a timestamp `TS`, and a low-cardinality column `K` to use as a tenant key. Pick a real value `V` in `C` and a real value `K0` in `K`. Set `CLICKHOUSE_*` to your DB.
 - MCP client SDK for the driver: `@modelcontextprotocol/sdk` (provides `Client` + `StdioClientTransport`). Alternatively drive with `npx @modelcontextprotocol/inspector` for manual/visual inspection.
 
 ### 0.2 Create the app
@@ -28,17 +28,14 @@ that calls every tool and writes each response to `out/` for inspection.
 mkdir hq-mcp-test && cd hq-mcp-test
 npm init -y && npm pkg set type=module
 npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
-npm install -D @modelcontextprotocol/sdk tsx typescript @types/node
-# .env / exported CLICKHOUSE_* with CLICKHOUSE_DATABASE=ds_test (datasets spec §0.4)
+npm install -D @modelcontextprotocol/sdk tsx typescript @types/node dotenv
+# .env / exported CLICKHOUSE_* pointing at your database
 ```
 
 ### 0.3 Inspectable files
 ```
 hq-mcp-test/
-  datasets/
-    orders.ts            # NON-tenant Orders (for CLI happy path) + metrics
-    orders-tenant.ts     # tenant-keyed Orders (for tenant tests)
-  mcp-config.mjs         # exports { datasets, analytics }  (no tenantKey datasets)
+  mcp-config.mjs         # exports { datasets, analytics } — NON-tenant Target (for CLI happy path)
   mcp-config-tenant.mjs  # exports a tenant-keyed registry (CLI must reject this)
   programmatic.ts        # createMCPServer({ ..., tenantId }) for tenant-scoped run
   driver.ts              # stdio MCP client: calls every tool, writes out/*.json
@@ -46,7 +43,10 @@ hq-mcp-test/
 ```
 
 ### 0.4 `mcp-config.mjs` (CLI happy path — no tenantKey)
+Build a dataset over your real table `T`. The `mcp-config-tenant.mjs` variant is identical
+but adds `tenantKey: 'K'`.
 ```javascript
+import 'dotenv/config';
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import { createDatasetClient, dataset, dimension, measure, divide, nullIfZero } from '@hypequery/datasets';
 
@@ -57,31 +57,29 @@ const db = createQueryBuilder({
   database: process.env.CLICKHOUSE_DATABASE,
 });
 
-const Orders = dataset('orders', {
-  source: 'orders',
-  timeKey: 'created_at',                       // NOTE: no tenantKey for CLI use
+const Target = dataset('target', {
+  source: 'T',
+  timeKey: 'TS',                               // NOTE: no tenantKey for CLI use
   dimensions: {
-    id: dimension.number(),
-    status: dimension.string({ label: 'Order Status', description: 'Lifecycle state.' }),
-    country: dimension.string({ label: 'Country' }),
-    createdAt: dimension.timestamp({ column: 'created_at' }),
+    category: dimension.string({ column: 'C', label: 'Category', description: 'Low-cardinality grouping field.' }),
+    ts: dimension.timestamp({ column: 'TS' }),
   },
   measures: {
-    revenue: measure.sum('amount', { label: 'Revenue', description: 'Total order revenue.' }),
-    orderCount: measure.count('id'),
+    total: measure.sum('N1', { label: 'Total', description: 'Sum of N1.' }),
+    rows: measure.count('N1'),
   },
 });
 
-const revenue = Orders.metric('revenue', { measure: 'revenue', label: 'Revenue', description: 'Total order revenue.' });
-const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
-const averageOrderValue = Orders.metric('averageOrderValue', {
-  uses: { revenue, orderCount },
-  formula: ({ revenue, orderCount }) => divide(revenue, nullIfZero(orderCount)),
-  label: 'Average Order Value',
+const total = Target.metric('total', { measure: 'total', label: 'Total', description: 'Sum of N1.' });
+const rows = Target.metric('rows', { measure: 'rows' });
+const avgPerRow = Target.metric('avgPerRow', {
+  uses: { total, rows },
+  formula: ({ total, rows }) => divide(total, nullIfZero(rows)),
+  label: 'Average per row',
 });
 
 export const datasets = {
-  orders: { ...Orders, metrics: { revenue, orderCount, averageOrderValue } },
+  target: { ...Target, metrics: { total, rows, avgPerRow } },
 };
 export const analytics = createDatasetClient({ queryBuilder: db });
 ```
@@ -130,17 +128,17 @@ Includes `dataset_guide`. `getPrompt('dataset_guide')` returns guidance text. Sa
 ## 3. `list_datasets`
 
 ### M3.1 — Lists registry
-`callTool({ name:'list_datasets' })` → `{ datasets:[{ name:'orders', description, dimensionCount, metricCount }], total:1 }`. **Pass:** `metricCount` reflects the 3 attached metrics; `dimensionCount` = 4.
+`callTool({ name:'list_datasets' })` → `{ datasets:[{ name:'target', description, dimensionCount, metricCount }], total:1 }`. **Pass:** `metricCount` = 3 (attached metrics); `dimensionCount` = 2 (matches your dataset definition).
 
 ### M3.2 — Registry boundary
-Remove `orders` from the registry → `list_datasets` returns `total:0`. (A dataset not in the export cannot be listed/queried.)
+Remove `target` from the registry → `list_datasets` returns `total:0`. (A dataset not in the export cannot be listed/queried.)
 
 ---
 
 ## 4. `get_dataset_schema`
 
 ### M4.1 — Schema for a dataset
-`callTool({ name:'get_dataset_schema', arguments:{ dataset:'orders' } })` → dimensions (with labels/descriptions), named metrics, `timeKey`, and `tenantKey`/relationships when present. **Pass:** `status` dimension shows `label:'Order Status'` and its description; metrics include `revenue`, `orderCount`, `averageOrderValue`. Save to `out/schema-orders.json` — these labels/descriptions are the agent-facing metadata.
+`callTool({ name:'get_dataset_schema', arguments:{ dataset:'target' } })` → dimensions (with labels/descriptions), named metrics, `timeKey`, and `tenantKey`/relationships when present. **Pass:** `category` dimension shows `label:'Category'` and its description; metrics include `total`, `rows`, `avgPerRow`. Save to `out/schema-target.json` — these labels/descriptions are the agent-facing metadata.
 
 ### M4.2 — Unknown dataset
 `dataset:'ghost'` → error response (not a crash). Record message.
@@ -151,18 +149,18 @@ Remove `orders` from the registry → `list_datasets` returns `total:0`. (A data
 
 ### M5.1 — Named metric
 ```json
-{ "name":"query_metric","arguments":{ "dataset":"orders","metric":"revenue",
-  "dimensions":["country"],
-  "filters":[{"field":"status","operator":"eq","value":"completed"}],
-  "orderBy":[{"field":"revenue","direction":"desc"}],"limit":10 }}
+{ "name":"query_metric","arguments":{ "dataset":"target","metric":"total",
+  "dimensions":["category"],
+  "filters":[{"field":"category","operator":"eq","value":"V"}],
+  "orderBy":[{"field":"total","direction":"desc"}],"limit":10 }}
 ```
-**Pass:** rows of `{country, revenue}` returned; ordered desc. Save `out/query_metric-revenue.json`.
+**Pass:** rows of `{category, total}` returned; ordered desc. Save `out/query_metric-total.json`.
 
 ### M5.2 — Derived metric
-`metric:'averageOrderValue'` with `dimensions:['country']` → returns AOV per country. (Derived/named metrics are only reachable here, **not** via `query_dataset` — see M6.4.)
+`metric:'avgPerRow'` with `dimensions:['category']` → returns `total/rows` per category, matching the raw `sum(N1)/count(N1)` ground truth. (Derived/named metrics are only reachable here, **not** via `query_dataset` — see M6.4.)
 
 ### M5.3 — Time grain
-`metric:'revenue', grain:'month', dimensions:['country']` → monthly buckets on `created_at`.
+`metric:'total', grain:'month', dimensions:['category']` → monthly buckets on `TS`.
 
 ### M5.4 — Unknown metric
 `metric:'nope'` → error response. Record.
@@ -173,9 +171,9 @@ Remove `orders` from the registry → `list_datasets` returns `total:0`. (A data
 
 ### M6.1 — Ad hoc rollup
 ```json
-{ "name":"query_dataset","arguments":{ "dataset":"orders",
-  "dimensions":["country","status"],"metrics":["revenue","orderCount"],
-  "filters":[{"field":"status","operator":"eq","value":"completed"}],"limit":100 }}
+{ "name":"query_dataset","arguments":{ "dataset":"target",
+  "dimensions":["category"],"metrics":["total","rows"],
+  "filters":[{"field":"category","operator":"eq","value":"V"}],"limit":100 }}
 ```
 **Pass:** combined rows; note the arg is `metrics` but maps to dataset **measures**.
 
@@ -183,10 +181,10 @@ Remove `orders` from the registry → `list_datasets` returns `total:0`. (A data
 Add `"grain":"month"` → monthly buckets.
 
 ### M6.3 — At least one dimension or metric required
-`{ dataset:'orders' }` with neither → rejected. Record the error.
+`{ dataset:'target' }` with neither → rejected. Record the error.
 
 ### M6.4 — Derived metric NOT allowed as a measure
-`metrics:['averageOrderValue']` in `query_dataset` → rejected/empty (it's not a measure). Confirm it only works through `query_metric` (M5.2).
+`metrics:['avgPerRow']` in `query_dataset` → rejected/empty (it's not a measure). Confirm it only works through `query_metric` (M5.2).
 
 ---
 
@@ -209,10 +207,10 @@ Through `query_metric`/`query_dataset` filters, exercise each: `eq`, `neq`, `gt`
 `programmatic.ts`: `const server = await createMCPServer({ datasets, analytics, name:'analytics-mcp', version:'1.0.0' })` starts over stdio and returns the instance. Drive it the same way (spawn `tsx programmatic.ts`). `await server.stop()` shuts it down.
 
 ### M8.2 — CLI rejects tenant-keyed datasets
-Point the CLI at `mcp-config-tenant.mjs` (registry whose `orders` has `tenantKey:'tenant_id'`). **Pass:** startup **fails** with `MCP server tenantId is required for tenant-scoped datasets`. (The CLI accepts no `tenantId`.)
+Point the CLI at `mcp-config-tenant.mjs` (registry whose `target` has `tenantKey:'K'`). **Pass:** startup **fails** with `MCP server tenantId is required for tenant-scoped datasets`. (The CLI accepts no `tenantId`.)
 
 ### M8.3 — Tenant-scoped programmatic server
-`createMCPServer({ datasets: tenantRegistry, analytics, tenantId:'t1' })` starts successfully; `query_metric`/`query_dataset` results are scoped to `t1` (tenant predicate injected from the dataset `tenantKey`). A second process with `tenantId:'t2'` sees disjoint rows. Agents cannot pick a tenant via filters.
+`createMCPServer({ datasets: tenantRegistry, analytics, tenantId:'K0' })` starts successfully; `query_metric`/`query_dataset` results are scoped to `K0` (tenant predicate injected from the dataset `tenantKey`) and match the raw `... WHERE K='K0'` ground truth. A second process with `tenantId:'K1'` sees disjoint rows. Agents cannot pick a tenant via filters.
 
 ### M8.4 — Safety: no raw SQL
 Re-confirm M2.1 — no `run_sql`; the capability boundary is the exported `datasets` registry + attached metrics.
