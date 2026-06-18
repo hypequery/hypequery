@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { initCommand } from './commands/init.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
@@ -5,6 +7,17 @@ import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
 
 const program = new Command();
+
+function getCliVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'),
+    ) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+}
 
 export function normalizeInitOptions(options: Record<string, unknown>) {
   return {
@@ -16,7 +29,7 @@ export function normalizeInitOptions(options: Record<string, unknown>) {
 program
   .name('hypequery')
   .description('Type-safe analytics layer for ClickHouse')
-  .version('0.0.1');
+  .version(getCliVersion());
 
 function runCommand<TArgs extends unknown[]>(
   action: (...args: TArgs) => Promise<void>,

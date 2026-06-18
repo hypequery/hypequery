@@ -153,19 +153,19 @@ await api.start({ port: 4000 });
 
 `api.start()` starts the default Node server and returns a `{ stop() }` handle for shutdown. If you need custom app routes, mount `api.handler` inside your own Express, Hono, or Next.js server instead of expecting an app object from `start()`.
 
-Or use the CLI:
+For local development, use the CLI:
 
 <CodeBlock>
 <Pre>
 ```bash
-# Development
 npx hypequery dev src/analytics/queries.ts --port 4000
-
-# Production
-npx hypequery serve src/analytics/queries.ts --port 8080
 ```
 </Pre>
 </CodeBlock>
+
+In production, start the server yourself with `api.start({ port })` (above) or mount
+`api.handler` inside your own framework — the CLI's `dev` command is for local
+development, not production serving.
 
 ### Edge/Fetch Runtimes
 
