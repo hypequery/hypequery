@@ -31,8 +31,6 @@ const readRequestBody = async (
     totalLength += buf.length;
 
     if (bodyLimit > 0 && totalLength > bodyLimit) {
-      // Destroy the stream to stop reading
-      req.destroy();
       const error = new Error("Request body too large");
       (error as any).code = "PAYLOAD_TOO_LARGE";
       throw error;
