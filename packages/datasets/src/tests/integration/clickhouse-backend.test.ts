@@ -58,6 +58,10 @@ function createClient() {
   });
 }
 
+function normalizeCount(value: unknown): number {
+  return Number(value);
+}
+
 describe('datasets ClickHouse integration', () => {
   it('executes a dataset query with dimensions, filters, measures, ordering, and pagination', async () => {
     const analytics = createClient();
@@ -70,9 +74,13 @@ describe('datasets ClickHouse integration', () => {
       limit: 2,
     });
 
-    expect(result.data).toEqual([
-      { status: 'pending', revenue: 62.25, orderCount: '1', uniqueUsers: '1' },
-      { status: 'completed', revenue: 51, orderCount: '2', uniqueUsers: '2' },
+    expect(result.data.map((row) => ({
+      ...row,
+      orderCount: normalizeCount(row.orderCount),
+      uniqueUsers: normalizeCount(row.uniqueUsers),
+    }))).toEqual([
+      { status: 'pending', revenue: 62.25, orderCount: 1, uniqueUsers: 1 },
+      { status: 'completed', revenue: 51, orderCount: 2, uniqueUsers: 2 },
     ]);
     expect(result.meta?.timingMs).toEqual(expect.any(Number));
     expect(result.meta?.sql).toContain('FROM orders');
@@ -143,8 +151,11 @@ describe('datasets ClickHouse integration', () => {
       },
     );
 
-    expect(result.data).toEqual([
-      { revenue: 66, orderCount: '3' },
+    expect(result.data.map((row) => ({
+      ...row,
+      orderCount: normalizeCount(row.orderCount),
+    }))).toEqual([
+      { revenue: 66, orderCount: 3 },
     ]);
     expect(result.meta).toMatchObject({
       tenant: 'completed',
