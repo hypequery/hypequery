@@ -88,13 +88,25 @@ async function runVitest() {
 }
 
 async function main() {
+  const usesExplicitHost = Boolean(process.env.CLICKHOUSE_TEST_HOST);
+  if (usesExplicitHost) {
+    const config = currentClickHouseConfig();
+    await waitForClickHouse({ config });
+
+    if (!cliOptions.skipSeed) {
+      await seedClickHouseDatabase({ config });
+    } else {
+      logIntegrationMessage('Skipping database seed step.');
+    }
+
+    const code = await runVitest();
+    return { code, compose: null, startedContainer: false };
+  }
+
   await ensureDockerDaemon();
   const resolvedPort = await ensurePort('CLICKHOUSE_TEST_PORT', '8123');
-  if (!process.env.CLICKHOUSE_TEST_HOST) {
-    process.env.CLICKHOUSE_TEST_HOST = `http://localhost:${resolvedPort}`;
-  }
+  process.env.CLICKHOUSE_TEST_HOST = `http://localhost:${resolvedPort}`;
   await ensurePort('CLICKHOUSE_TEST_NATIVE_PORT', '9000');
-
   const compose = await detectComposeCommand();
   const containerRunning = await isContainerRunning(CLICKHOUSE_CONTAINER_NAME);
   let startedContainer = false;
