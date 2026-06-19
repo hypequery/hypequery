@@ -1,7 +1,8 @@
+import { request as httpRequest } from "http";
 import { Readable } from "stream";
 import { describe, expect, it } from "vitest";
 
-import { createNodeHandler } from "./node";
+import { createNodeHandler, startNodeServer } from "./node";
 import type { ServeHandler } from "../types";
 
 type MockHeaders = Record<string, string | string[] | undefined>;
@@ -56,6 +57,63 @@ class MockResponse {
     this.body = payload ?? "";
   }
 }
+
+const serverUrl = (server: Awaited<ReturnType<typeof startNodeServer>>["server"]) => {
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Expected server to listen on a TCP address");
+  }
+  return `http://127.0.0.1:${address.port}`;
+};
+
+const requestWithNodeHttp = (
+  url: string,
+  options: {
+    method?: string;
+    body?: string;
+    headers?: Record<string, string>;
+  } = {},
+) => new Promise<{ status: number; body: string; headers: Record<string, string | string[] | undefined> }>((resolve, reject) => {
+  const body = options.body ?? "";
+  const headers: Record<string, string> = {
+    connection: "close",
+    ...options.headers,
+  };
+  if (body) {
+    headers["content-length"] = String(Buffer.byteLength(body));
+  }
+
+  const req = httpRequest(url, {
+    method: options.method ?? "GET",
+    headers,
+  }, (res) => {
+    let responseBody = "";
+    res.setEncoding("utf8");
+    res.on("data", (chunk) => {
+      responseBody += chunk;
+    });
+    res.on("end", () => {
+      resolve({
+        status: res.statusCode ?? 0,
+        body: responseBody,
+        headers: res.headers,
+      });
+    });
+  });
+  req.on("error", reject);
+  req.end(body);
+});
+
+const postWithNodeHttp = (
+  url: string,
+  body: string,
+  headers: Record<string, string> = {},
+): Promise<{ status: number; body: string; headers: Record<string, string | string[] | undefined> }> =>
+  requestWithNodeHttp(url, {
+    method: "POST",
+    body,
+    headers,
+  });
 
 describe("createNodeHandler", () => {
   it("adapts Node HTTP requests to the serve handler", async () => {
@@ -252,5 +310,112 @@ describe("createNodeHandler", () => {
       const result = JSON.parse(response.body);
       expect(result.size).toBeGreaterThan(10000);
     });
+  });
+});
+
+describe("startNodeServer", () => {
+  it("returns 413 when a request body exceeds the configured limit", async () => {
+    const handler: ServeHandler = async () => ({
+      status: 200,
+      body: { ok: true },
+    });
+    const started = await startNodeServer(handler, {
+      port: 0,
+      hostname: "127.0.0.1",
+      bodyLimit: 4,
+      quiet: true,
+    });
+
+    try {
+      const response = await postWithNodeHttp(
+        `${serverUrl(started.server)}/too-large`,
+        JSON.stringify({ data: "too large" }),
+        { "content-type": "application/json" },
+      );
+
+      expect(response.status).toBe(413);
+      expect(JSON.parse(response.body)).toEqual({
+        error: {
+          type: "PAYLOAD_TOO_LARGE",
+          message: "Request body exceeds the configured size limit",
+        },
+      });
+    } finally {
+      await started.stop();
+    }
+  });
+
+  it("returns 504 when the request handler exceeds the timeout", async () => {
+    const handler: ServeHandler = async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return {
+        status: 200,
+        body: { ok: true },
+      };
+    };
+    const started = await startNodeServer(handler, {
+      port: 0,
+      hostname: "127.0.0.1",
+      requestTimeout: 10,
+      quiet: true,
+    });
+
+    try {
+      const response = await requestWithNodeHttp(`${serverUrl(started.server)}/slow`);
+      expect(JSON.parse(response.body)).toEqual({
+        error: {
+          type: "GATEWAY_TIMEOUT",
+          message: "Request timed out after 10ms",
+        },
+      });
+      expect(response.status).toBe(504);
+    } finally {
+      await started.stop();
+    }
+  });
+
+  it("stop waits for an in-flight request before resolving", async () => {
+    let releaseHandler!: () => void;
+    let handlerStarted!: () => void;
+    const startedPromise = new Promise<void>((resolve) => {
+      handlerStarted = resolve;
+    });
+    const releasePromise = new Promise<void>((resolve) => {
+      releaseHandler = resolve;
+    });
+    const handler: ServeHandler = async () => {
+      handlerStarted();
+      await releasePromise;
+      return {
+        status: 200,
+        body: { ok: true },
+      };
+    };
+    const started = await startNodeServer(handler, {
+      port: 0,
+      hostname: "127.0.0.1",
+      gracefulShutdownTimeout: 1000,
+      quiet: true,
+    });
+
+    const responsePromise = requestWithNodeHttp(`${serverUrl(started.server)}/drain`);
+    await startedPromise;
+
+    let stopResolved = false;
+    const stopPromise = started.stop().then(() => {
+      stopResolved = true;
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(stopResolved).toBe(false);
+
+    releaseHandler();
+
+    const response = await responsePromise;
+    await stopPromise;
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({ ok: true });
+    expect(stopResolved).toBe(true);
   });
 });

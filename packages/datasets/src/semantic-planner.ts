@@ -193,7 +193,17 @@ function buildDerivedMetricPlan(
 
   return {
     kind: 'derive',
-    input: aggregatePlan(metric.dataset, query, inputAggregations, context),
+    input: aggregatePlan(
+      metric.dataset,
+      {
+        ...query,
+        orderBy: undefined,
+        limit: undefined,
+        offset: undefined,
+      },
+      inputAggregations,
+      context,
+    ),
     metrics: [{ name: metric.name, expression }],
     orderBy: query.orderBy,
     limit: query.limit,

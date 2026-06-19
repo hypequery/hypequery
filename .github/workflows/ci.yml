@@ -67,6 +67,12 @@ jobs:
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run Datasets integration tests
         run: pnpm --filter @hypequery/datasets test:integration
+        env:
+          CLICKHOUSE_TEST_HOST: http://localhost:8123
+          CLICKHOUSE_TEST_USER: default
+          CLICKHOUSE_TEST_PASSWORD: hypequery_test
+          CLICKHOUSE_TEST_DB: test_db
+          NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run Serve semantic live integration tests
         run: pnpm --filter @hypequery/serve test:integration
         env:
