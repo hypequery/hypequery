@@ -20,6 +20,7 @@ import { ensureArray } from "../utils.js";
 import { ServeQueryLogger, formatQueryEvent, formatQueryEventJSON } from "../query-logger.js";
 import { createServeHandler } from "../pipeline.js";
 import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
+import { resolveCorsConfig } from "../cors.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
 import { createDatasetClient } from "@hypequery/datasets";
@@ -258,6 +259,8 @@ export const createAPI = <
     }
   }
 
+  const corsConfig = resolveCorsConfig(config.cors);
+
   const handler: ServeHandler = createServeHandler<TContext, TAuth>({
     router,
     globalMiddlewares,
@@ -267,6 +270,7 @@ export const createAPI = <
     hooks,
     queryLogger,
     verboseAuthErrors: config.security?.verboseAuthErrors ?? false,
+    corsConfig,
   });
 
   const executeQuery = createExecuteQuery<TContext, TAuth>(

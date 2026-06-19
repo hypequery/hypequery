@@ -136,6 +136,15 @@ export interface QueryResultMeta {
   sql?: string;
   timingMs?: number;
   rowCount: number;
+  /**
+   * Offset pagination state. Present when the query specified a `limit`.
+   * `hasMore` lets callers know whether to request the next `offset` page.
+   */
+  pagination?: {
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
 }
 
 /**

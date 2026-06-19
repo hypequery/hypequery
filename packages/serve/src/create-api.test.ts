@@ -77,6 +77,60 @@ describe("createAPI", () => {
     expect(received[0]).toEqual({ from: "2024-01-01" });
   });
 
+  it("handles CORS preflight and injects headers when cors is configured", async () => {
+    const api = createAPI({
+      cors: true,
+      queries: {
+        ping: { query: async () => ({ ok: true }) },
+      },
+    });
+
+    // Preflight OPTIONS gets a 204 with Access-Control-* headers (not a 404)
+    const preflight = await api.handler(
+      createRequest({
+        method: "OPTIONS",
+        path: "/queries/ping",
+        headers: { origin: "https://app.example.com" },
+      })
+    );
+
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers["access-control-allow-origin"]).toBe("*");
+    expect(preflight.headers["access-control-allow-methods"]).toBeDefined();
+    expect(preflight.headers["access-control-allow-headers"]).toBeDefined();
+
+    // Actual requests echo CORS headers onto the response
+    const actual = await api.handler(
+      createRequest({
+        path: "/queries/ping",
+        headers: { origin: "https://app.example.com" },
+      })
+    );
+
+    expect(actual.status).toBe(200);
+    expect(actual.headers["access-control-allow-origin"]).toBe("*");
+  });
+
+  it("omits CORS handling when cors is not configured", async () => {
+    const api = createAPI({
+      queries: {
+        ping: { query: async () => ({ ok: true }) },
+      },
+    });
+
+    const preflight = await api.handler(
+      createRequest({
+        method: "OPTIONS",
+        path: "/queries/ping",
+        headers: { origin: "https://app.example.com" },
+      })
+    );
+
+    // No CORS config → OPTIONS is not a registered route → 404, no CORS headers
+    expect(preflight.status).toBe(404);
+    expect(preflight.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+
   it("enforces auth strategies and populates auth context", async () => {
     const authContexts: Array<Record<string, unknown> | null> = [];
     const api = createAPI({

@@ -63,6 +63,7 @@ export async function queryDatasetTool(
       sql: result.meta?.sql,
       timingMs: result.meta?.timingMs,
       rowCount: result.data.length,
+      ...(result.meta?.pagination ? { pagination: result.meta.pagination } : {}),
     },
   };
 
