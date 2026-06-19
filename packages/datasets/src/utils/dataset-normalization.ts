@@ -61,6 +61,7 @@ export function measureToAggregationSpec(
     __type: 'aggregation_spec',
     aggregation: definition.aggregation,
     field: definition.field,
+    sql: definition.sql,
     filters: definition.filters,
   };
 }

@@ -43,6 +43,9 @@ export function buildDimensionSelectionPlan(
 
   if (grain) {
     const fn = GRAIN_FUNCTIONS[grain];
+    if (!fn) {
+      throw new Error(`Unsupported time grain "${grain}".`);
+    }
     selectParts.push(`${fn}(${ds.timeKey}) AS period`);
     groupByParts.add("period");
   }
@@ -69,7 +72,7 @@ export function applyAggregationSpec(
   const fieldOrExpr = applyFilteredAggregationExpression(
     ds,
     spec,
-    resolveDimensionExpression(ds, spec.field),
+    spec.sql ?? resolveDimensionExpression(ds, spec.field),
   );
 
   switch (spec.aggregation) {

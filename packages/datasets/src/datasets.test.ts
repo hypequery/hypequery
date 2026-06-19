@@ -10,6 +10,7 @@ import { createDatasetRegistry } from './registry.js';
 import { buildDatasetQueryBuilder, runDatasetQuery, validateDatasetQuery } from './dataset-query.js';
 import { createDatasetClient, MetricQueryEngine } from './executor.js';
 import { createInMemoryBackend } from './in-memory-backend.js';
+import { quoteSQLIdentifier } from './sql-utils.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 
 // =============================================================================
@@ -1497,5 +1498,62 @@ describe("dataset SQL generation matrix", () => {
       measures: ["revenue"],
       limit: 501,
     }).errors).toContain("Too many results requested: 501 (max 500)");
+  });
+
+  it("carries a SQL-backed measure override through the metric (builder) path", () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+    const taxedRevenue = MatrixOrders.metric("taxedRevenue", { measure: "taxedRevenue" });
+
+    const sql = analytics.toSQL(taxedRevenue, { dimensions: ["country"] }, TENANT_CONTEXT);
+
+    expect(sql).toContain("SUM(amount * 1.2) AS taxedRevenue");
+  });
+
+  it("rejects an unsupported time grain before SQL generation", () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+
+    const result = analytics.validate(MatrixOrders, {
+      measures: ["revenue"],
+      by: "hour" as never,
+    }, TENANT_CONTEXT);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      "Unsupported time grain \"hour\". Supported: day, week, month, quarter, year",
+    );
+  });
+
+  it("rejects SQL-backed measures on the semantic backend rather than silently dropping them", async () => {
+    const analytics = createDatasetClient({
+      backend: createInMemoryBackend({ orders: [] }),
+    });
+
+    await expect((async () => analytics.execute(MatrixOrders, {
+      measures: ["taxedRevenue"],
+    }, TENANT_CONTEXT))()).rejects.toThrow(
+      'Semantic backend plans do not support SQL-backed measure "taxedRevenue".',
+    );
+  });
+
+  it("rejects SQL-backed metrics on the semantic backend", async () => {
+    const analytics = createDatasetClient({
+      backend: createInMemoryBackend({ orders: [] }),
+    });
+    const taxedRevenue = MatrixOrders.metric("taxedRevenue", { measure: "taxedRevenue" });
+
+    await expect((async () => analytics.execute(taxedRevenue, {}, TENANT_CONTEXT))()).rejects.toThrow(
+      'Semantic backend plans do not support SQL-backed metric "taxedRevenue".',
+    );
+  });
+});
+
+describe("quoteSQLIdentifier()", () => {
+  it("quotes identifiers with backticks for ClickHouse", () => {
+    expect(quoteSQLIdentifier("col")).toBe("`col`");
+    expect(quoteSQLIdentifier("tenant_id")).toBe("`tenant_id`");
+  });
+
+  it("escapes embedded backticks by doubling them", () => {
+    expect(quoteSQLIdentifier("we`ird")).toBe("`we``ird`");
   });
 });

@@ -4,6 +4,7 @@ import type {
   ExecutionContext,
 } from '../types.js';
 import { validateFilterValue, type ValidationResult } from '../validation.js';
+import { SUPPORTED_TIME_GRAINS, isSupportedTimeGrain } from '../constants.js';
 import {
   getRuntimeTenantPredicate,
   validateTenantRuntime,
@@ -97,6 +98,10 @@ export function validateDatasetQueryInput(
 
   if (query.by && !ds.timeKey) {
     errors.push(`Cannot use "by" grain — dataset "${ds.name}" has no timeKey.`);
+  }
+
+  if (query.by && !isSupportedTimeGrain(query.by)) {
+    errors.push(`Unsupported time grain "${query.by}". Supported: ${SUPPORTED_TIME_GRAINS.join(', ')}`);
   }
 
   if (query.limit != null && (!Number.isInteger(query.limit) || query.limit < 0)) {
