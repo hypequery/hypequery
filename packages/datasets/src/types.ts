@@ -48,6 +48,7 @@ export interface AggregationSpec {
   __type: 'aggregation_spec';
   aggregation: AggregationType;
   field: string;
+  sql?: string;
   filters?: MetricFilter[];
 }
 

@@ -18,6 +18,7 @@ import {
   type MetricHandle,
 } from './utils/metric-handle.js';
 import { validateDatasetQuery } from './dataset-query.js';
+import { isSupportedTimeGrain } from './constants.js';
 import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
@@ -92,6 +93,9 @@ function grainForQuery(ds: AnyDatasetInstance, unit: MetricQuery['by'] | undefin
   if (!ds.timeKey) {
     throw new Error(`Cannot use grain "${unit}" because dataset "${ds.name}" has no timeKey.`);
   }
+  if (!isSupportedTimeGrain(unit)) {
+    throw new Error(`Unsupported time grain "${unit}".`);
+  }
   return {
     field: ds.timeKey,
     unit,
@@ -147,6 +151,12 @@ function buildBaseMetricPlan(
   if (spec.__type !== 'aggregation_spec') {
     throw new Error(`Metric "${metric.name}" is not a base metric.`);
   }
+  if (spec.sql) {
+    throw new Error(
+      `Semantic backend plans do not support SQL-backed metric "${metric.name}". ` +
+      'Use a backend-specific query builder for raw SQL expressions.',
+    );
+  }
 
   return aggregatePlan(
     metric.dataset,
@@ -179,6 +189,12 @@ function buildDerivedMetricPlan(
     const baseSpec = baseMetric.spec;
     if (baseSpec.__type !== 'aggregation_spec') {
       throw new Error(`Derived metric "${metric.name}" references non-base metric "${alias}".`);
+    }
+    if (baseSpec.sql) {
+      throw new Error(
+        `Semantic backend plans do not support SQL-backed metric "${alias}" used by derived metric "${metric.name}". ` +
+        'Use a backend-specific query builder for raw SQL expressions.',
+      );
     }
     return {
       name: alias,

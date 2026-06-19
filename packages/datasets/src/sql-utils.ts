@@ -31,13 +31,13 @@ export function validateSQLIdentifier(identifier: string, context: string): void
 
 /**
  * Quotes a SQL identifier for safe use in queries.
- * Uses double quotes which is standard SQL.
+ * Uses backticks, which is how ClickHouse quotes identifiers.
  *
  * @param identifier - The identifier to quote
  * @returns Quoted identifier
  */
 export function quoteSQLIdentifier(identifier: string): string {
-  // Escape any existing double quotes by doubling them
-  const escaped = identifier.replace(/"/g, '""');
-  return `"${escaped}"`;
+  // Escape any existing backticks by doubling them
+  const escaped = identifier.replace(/`/g, '``');
+  return `\`${escaped}\``;
 }

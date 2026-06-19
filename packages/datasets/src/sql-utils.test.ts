@@ -33,9 +33,9 @@ describe('sql-utils', () => {
     expect(() => validateSQLIdentifier('order_id', 'dimension name')).not.toThrow();
   });
 
-  it('quotes identifiers and escapes embedded quotes', () => {
-    expect(quoteSQLIdentifier('orders')).toBe('"orders"');
-    expect(quoteSQLIdentifier('bad"name')).toBe('"bad""name"');
+  it('quotes identifiers with backticks and escapes embedded backticks', () => {
+    expect(quoteSQLIdentifier('orders')).toBe('`orders`');
+    expect(quoteSQLIdentifier('bad`name')).toBe('`bad``name`');
   });
 });
 
