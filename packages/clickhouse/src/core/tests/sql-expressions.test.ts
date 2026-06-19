@@ -55,12 +55,34 @@ describe('SQL Expressions', () => {
       expect(aliasedExprWithTz.toSql()).toBe('formatDateTime(created_at, \'Y-m-d\', \'UTC\') AS formatted_date');
     });
 
+    it('should escape formatDateTime string literals', () => {
+      const expr = formatDateTime('created_at', "Y-m-d'); DROP TABLE x --", {
+        timezone: "UTC'); DROP TABLE y --",
+      });
+
+      expect(expr.toSql()).toBe(
+        "formatDateTime(created_at, 'Y-m-d''); DROP TABLE x --', 'UTC''); DROP TABLE y --')"
+      );
+    });
+
     it('should provide helper for toStartOfInterval function', () => {
       const expr = toStartOfInterval('created_at', '1 day');
-      expect(expr.toSql()).toBe('toStartOfInterval(created_at, INTERVAL 1 day)');
+      expect(expr.toSql()).toBe('toStartOfInterval(created_at, INTERVAL 1 DAY)');
 
       const aliasedExpr = toStartOfInterval('created_at', '1 day', 'day_start');
-      expect(aliasedExpr.toSql()).toBe('toStartOfInterval(created_at, INTERVAL 1 day) AS day_start');
+      expect(aliasedExpr.toSql()).toBe('toStartOfInterval(created_at, INTERVAL 1 DAY) AS day_start');
+    });
+
+    it('should canonicalize and validate toStartOfInterval intervals', () => {
+      expect(toStartOfInterval('created_at', '15 Minutes').toSql()).toBe(
+        'toStartOfInterval(created_at, INTERVAL 15 MINUTE)'
+      );
+      expect(toStartOfInterval('created_at', '500 milliseconds').toSql()).toBe(
+        'toStartOfInterval(created_at, INTERVAL 500 MILLISECOND)'
+      );
+      expect(() => toStartOfInterval('created_at', '1 DAY); DROP TABLE x --')).toThrow(
+        /Invalid time interval/
+      );
     });
 
     it('should provide helpers for built-in start-of time buckets', () => {
@@ -145,7 +167,7 @@ describe('SQL Expressions', () => {
       type Expected = { day: Date; month: number }[];
       type _Assert = Expect<Equal<Result, Expected>>;
 
-      expect(query.toSQL()).toBe('SELECT toStartOfInterval(created_at, INTERVAL 1 day) AS day, toMonth(created_at) AS month FROM test_table GROUP BY day, month');
+      expect(query.toSQL()).toBe('SELECT toStartOfInterval(created_at, INTERVAL 1 DAY) AS day, toMonth(created_at) AS month FROM test_table GROUP BY day, month');
     });
 
     it('should handle complex expressions with joins', () => {

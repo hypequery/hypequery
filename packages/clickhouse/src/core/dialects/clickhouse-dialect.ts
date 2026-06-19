@@ -1,5 +1,6 @@
 import type { CompiledQuery, SelectQueryNode } from '../../types/index.js';
 import { SQLFormatter } from '../formatters/sql-formatter.js';
+import { formatIntervalLiteral } from '../utils/sql-literals.js';
 import type { CompileQueryContext, SqlDialect } from './sql-dialect.js';
 
 export class ClickHouseDialect implements SqlDialect {
@@ -69,7 +70,7 @@ export class ClickHouseDialect implements SqlDialect {
 
   formatTimeInterval(column: string, interval: string, method: string): string {
     if (method === 'toStartOfInterval') {
-      return `${method}(${column}, INTERVAL ${interval})`;
+      return `${method}(${column}, INTERVAL ${formatIntervalLiteral(interval)})`;
     }
 
     return `${method}(${column})`;
