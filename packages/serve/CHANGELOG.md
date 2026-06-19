@@ -1,5 +1,95 @@
 # @hypequery/serve
 
+## 0.3.0
+
+### Minor Changes
+
+- e64d6f4: Add a route manifest to bridge serve and react for metric/dataset endpoints.
+
+  `@hypequery/serve` now exposes `api.manifest()` (and `ServeBuilder.manifest()`),
+  a serializable map of every query/metric/dataset key to its `{ method, path }`
+  (full path, including the base path; datasets keyed as `dataset:<name>`).
+
+  `@hypequery/react`'s `createHooks`/`createAnalyticsHooks` accept a `manifest`
+  option to resolve client routes without importing server code into the bundle.
+  This fixes metric/dataset hooks (POST routes whose paths differ from their map
+  keys) silently defaulting to `GET {baseUrl}/{key}`. Hooks now also derive routes
+  from a runtime `api` object via `api.manifest()`, and throw a clear error when a
+  semantic (`dataset:`) key has no resolved route instead of calling the wrong URL.
+
+- 2c1425f: Generate per-dataset/per-metric request schemas with enumerated fields.
+
+  Metric and dataset endpoints previously typed their request body as
+  `dimensions: string[]` / `filters[].field: string`, so the OpenAPI spec (and
+  `hypequery dev` docs) advertised "array of arbitrary strings" and clients could
+  not be code-generated with valid field names.
+
+  Endpoints now build their Zod input schema from the dataset/metric contract:
+  `dimensions`, `measures`, `filters[].field`, and `orderBy[].field` are emitted as
+  enums of the valid field names, and array sizes are bounded by the dataset's
+  declared `limits`. The enums are a superset-safe mirror of the runtime
+  validators — they never reject a field the validator would accept — so behavior
+  is unchanged while docs and codegen become precise.
+
+- 69b67c0: Add offset pagination with reliable `hasMore` and infinite-query hooks.
+
+  Metric and dataset queries that specify a `limit` now return
+  `meta.pagination = { limit, offset, hasMore }`. `hasMore` is exact: the executor
+  over-fetches one row (`LIMIT n + 1`) and trims it, so no separate count query is
+  needed. The extra field is included in the serve endpoints' OpenAPI response
+  schema (surfaced when meta is requested via `x-include-meta`).
+
+  `@hypequery/react` adds `useInfiniteQuery` (and `useInfiniteMetric` /
+  `useInfiniteDataset` on `createAnalyticsHooks`) built on TanStack Query's infinite
+  query. They advance the offset using `meta.pagination`, automatically requesting
+  meta, so paginating a dataset is just `fetchNextPage()` until `hasNextPage` is
+  false.
+
+  Metric endpoints now treat the page-size `limit` like dataset endpoints: a
+  configurable `maxLimit` on the metric entry (defaulting to the dataset's
+  `limits.maxResultSize`, else 1000), with over-limit requests **clamped** rather
+  than rejected, and a default cap applied so a metric query is never unbounded.
+
+- 2f3c293: Thread dataset field types through the generated API type for typed React hooks.
+
+  `@hypequery/datasets` now exports typed query/result helpers
+  (`DatasetQueryFor`, `DatasetRow`, `DatasetQueryResultFor`, and the
+  `DatasetDimensionNames`/`DatasetMeasureNames`/`DatasetOrderableNames` name
+  helpers, plus the metric equivalents).
+
+  `@hypequery/serve`'s `SemanticDatasetEndpointMap` now specializes each dataset
+  endpoint to its concrete instance, so `InferAPIType` carries field-level types.
+  With `@hypequery/react`, `useDataset(name, input)` gets autocomplete and
+  type-checking for `dimensions`/`measures`/`orderBy`, and result rows are typed
+  by the dataset's dimensions and measures.
+
+  Metric endpoints remain on the loose `MetricQuery`/`MetricResult` types for now:
+  `MetricRef` does not preserve its dataset's concrete dimension keys, so
+  field-level metric typing requires threading the dataset generics through
+  `MetricRef` — tracked as a follow-up.
+
+- 278924e: Carry a metric's dataset type through `MetricRef` for field-level metric hooks.
+
+  `MetricRef` / `GrainedMetricRef` / `MetricHandle` (and `BaseMetricRef` /
+  `DerivedMetricRef`) gain an optional `TDataset` type parameter that defaults to
+  the previous wide instance, so existing usages are unchanged. `DatasetInstance.metric()`
+  now returns a ref carrying its dataset's concrete dimension/measure types.
+
+  `@hypequery/serve`'s `SemanticMetricEndpointMap` uses this to specialize each
+  metric endpoint, so via `@hypequery/react` `useMetric(name, input)` gets
+  autocomplete and type-checking for `dimensions`/`orderBy`, and result rows are
+  typed by the dataset's dimensions plus the metric's value column. This completes
+  the typed-hooks work started for datasets; metric endpoints degrade gracefully to
+  loose `string` fields when a ref has been widened.
+
+### Patch Changes
+
+- Updated dependencies [ad42b98]
+- Updated dependencies [69b67c0]
+- Updated dependencies [2f3c293]
+- Updated dependencies [278924e]
+  - @hypequery/datasets@0.2.0
+
 ## 0.2.1
 
 ### Patch Changes
