@@ -1,3 +1,5 @@
+import { formatIntervalLiteral, quoteStringLiteral } from './sql-literals.js';
+
 /**
  * Represents a raw SQL expression that can be used in queries
  */
@@ -103,10 +105,10 @@ export function formatDateTime(
 ): SqlExpression<string> | AliasedExpression<string> {
   const { timezone, alias } = options;
 
-  let sql = `formatDateTime(${field}, '${format}'`;
+  let sql = `formatDateTime(${field}, ${quoteStringLiteral(format)}`;
 
   if (timezone) {
-    sql += `, '${timezone}'`;
+    sql += `, ${quoteStringLiteral(timezone)}`;
   }
 
   sql += ')';
@@ -124,9 +126,10 @@ export function formatDateTime(
 export function toStartOfInterval(field: string, interval: string): SqlExpression<Date>;
 export function toStartOfInterval<T extends string>(field: string, interval: string, alias: T): AliasedExpression<Date, T>;
 export function toStartOfInterval(field: string, interval: string, alias?: string): SqlExpression<Date> | AliasedExpression<Date> {
+  const sql = `toStartOfInterval(${field}, INTERVAL ${formatIntervalLiteral(interval)})`;
   return alias
-    ? rawAs<Date>(`toStartOfInterval(${field}, INTERVAL ${interval})`, alias)
-    : raw<Date>(`toStartOfInterval(${field}, INTERVAL ${interval})`);
+    ? rawAs<Date>(sql, alias)
+    : raw<Date>(sql);
 }
 
 function toStartOfUnit<T = Date>(functionName: string, field: string): SqlExpression<T>;

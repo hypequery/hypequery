@@ -18,7 +18,7 @@ describe('QueryBuilder Analytics Features', () => {
 
       expect(sql).toBe(
         'SELECT * FROM test_table ' +
-        'GROUP BY toStartOfInterval(created_at, INTERVAL 1 day)'
+        'GROUP BY toStartOfInterval(created_at, INTERVAL 1 DAY)'
       );
     });
 
@@ -55,8 +55,38 @@ describe('QueryBuilder Analytics Features', () => {
       expect(sql).toBe(
         'SELECT created_at, name FROM test_table ' +
         `WHERE active = 'true' ` +
-        'GROUP BY toStartOfInterval(created_at, INTERVAL 1 hour)'
+        'GROUP BY toStartOfInterval(created_at, INTERVAL 1 HOUR)'
       );
+    });
+
+    it('should accept plural and mixed-case interval units', () => {
+      const sql = queryBuilder
+        .groupByTimeInterval('created_at', '15 Minutes')
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT * FROM test_table ' +
+        'GROUP BY toStartOfInterval(created_at, INTERVAL 15 MINUTE)'
+      );
+    });
+
+    it('should support documented sub-second interval units', () => {
+      const sql = queryBuilder
+        .groupByTimeInterval('created_at', '500 milliseconds')
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT * FROM test_table ' +
+        'GROUP BY toStartOfInterval(created_at, INTERVAL 500 MILLISECOND)'
+      );
+    });
+
+    it('should reject an interval that is not a "<number> <unit>" literal (SQL injection guard)', () => {
+      expect(() =>
+        queryBuilder
+          .groupByTimeInterval('created_at', '1 DAY); DROP TABLE x --')
+          .toSQL()
+      ).toThrow(/Invalid time interval/);
     });
   });
 
