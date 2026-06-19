@@ -1,5 +1,15 @@
 # @hypequery/clickhouse Changelog
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [ad42b98]
+- Updated dependencies [69b67c0]
+- Updated dependencies [2f3c293]
+- Updated dependencies [278924e]
+  - @hypequery/datasets@0.2.0
+
 ## 2.0.2
 
 ### Patch Changes
