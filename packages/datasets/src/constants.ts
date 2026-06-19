@@ -25,5 +25,5 @@ export const SUPPORTED_TIME_GRAINS = Object.keys(GRAIN_FUNCTIONS) as TimeGrain[]
  * Narrowing guard for a runtime-provided grain value.
  */
 export function isSupportedTimeGrain(grain: unknown): grain is TimeGrain {
-  return typeof grain === 'string' && grain in GRAIN_FUNCTIONS;
+  return typeof grain === 'string' && Object.hasOwn(GRAIN_FUNCTIONS, grain);
 }

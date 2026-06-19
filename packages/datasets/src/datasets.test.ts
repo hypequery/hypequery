@@ -1523,6 +1523,20 @@ describe("dataset SQL generation matrix", () => {
     );
   });
 
+  it("rejects inherited object properties as unsupported time grains", () => {
+    const analytics = createDatasetClient({ queryBuilder: createSqlBuilderFactory() });
+
+    const result = analytics.validate(MatrixOrders, {
+      measures: ["revenue"],
+      by: "toString" as never,
+    }, TENANT_CONTEXT);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(
+      "Unsupported time grain \"toString\". Supported: day, week, month, quarter, year",
+    );
+  });
+
   it("rejects SQL-backed measures on the semantic backend rather than silently dropping them", async () => {
     const analytics = createDatasetClient({
       backend: createInMemoryBackend({ orders: [] }),
