@@ -58,7 +58,7 @@
   },
   "peerDependencies": {
     "@clickhouse/client-web": "^0.2.0 || ^1.0.0",
-    "@hypequery/datasets": "^0.1.0"
+    "@hypequery/datasets": "^0.1.0 || ^0.2.0"
   },
   "peerDependenciesMeta": {
     "@clickhouse/client-web": {
