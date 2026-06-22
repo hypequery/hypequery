@@ -38,7 +38,7 @@ import {
   nullIfZero,
   createDatasetClient,
 } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -76,14 +76,14 @@ const averageOrderValue = Orders.metric('averageOrderValue', {
     divide(revenue, nullIfZero(orderCount)),
 });
 
-const analytics = createDatasetClient({
-  backend: createBackend({
-    url: process.env.CLICKHOUSE_URL,
-    username: process.env.CLICKHOUSE_USER,
-    password: process.env.CLICKHOUSE_PASSWORD,
-    database: process.env.CLICKHOUSE_DATABASE,
-  }),
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
 });
+
+const analytics = createDatasetClient({ queryBuilder: db });
 
 const result = await analytics.execute(revenue, {
   dimensions: ['country'],
@@ -392,9 +392,33 @@ const datasetResult = await analytics.execute(Orders, {
 
 The semantic client validates dimensions, filters, order fields, limits, time grain requirements, tenant filtering, and derived metric plans before execution.
 
-### ClickHouse Backend
+### ClickHouse
 
-For ClickHouse databases, use `createBackend` from `@hypequery/clickhouse/datasets`:
+For ClickHouse, pass a query builder from `@hypequery/clickhouse`. This is the recommended path: the dataset client reuses the same connection and builder you use for hand-written queries.
+
+```ts
+import { createDatasetClient } from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
+
+await analytics.execute(revenue, { dimensions: ['country'] }, {
+  runtime: {
+    tenant: 'tenant_123',
+  },
+});
+```
+
+### Advanced: SemanticBackend protocol
+
+`createDatasetClient` also accepts a `backend` implementing the database-agnostic `SemanticBackend` interface. For ClickHouse, `createBackend` from `@hypequery/clickhouse/datasets` builds one from connection config — use it when you want a standalone backend instance instead of sharing a query builder.
 
 ```ts
 import { createDatasetClient } from '@hypequery/datasets';
@@ -408,17 +432,9 @@ const analytics = createDatasetClient({
     database: process.env.CLICKHOUSE_DATABASE,
   }),
 });
-
-await analytics.execute(revenue, { dimensions: ['country'] }, {
-  runtime: {
-    tenant: 'tenant_123',
-  },
-});
 ```
 
-### Other Backends
-
-The `SemanticBackend` interface enables support for other databases. Future packages like `@hypequery/duckdb` or `@hypequery/postgres` would follow the same pattern.
+The same `SemanticBackend` interface enables support for other databases. Future packages like `@hypequery/duckdb` or `@hypequery/postgres` would follow the same pattern.
 
 ## Integration Surfaces
 
