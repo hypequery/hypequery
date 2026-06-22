@@ -23,7 +23,6 @@ const footerColumns = [
       { label: 'ClickHouse Node.js', href: '/clickhouse-nodejs' },
       { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
       { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
-      { label: 'Discord', href: 'https://github.com/hypequery/hypequery/discussions', external: true },
     ],
   },
   {
@@ -42,7 +41,6 @@ const footerColumns = [
       { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
       { label: 'X / Twitter', href: 'https://x.com/hypequery', external: true },
       { label: 'LinkedIn', href: 'https://www.linkedin.com/company/110435355/', external: true },
-      { label: 'Discord', href: 'https://github.com/hypequery/hypequery/discussions', external: true },
     ],
   },
 ];
