@@ -8,7 +8,6 @@ import {
   Capabilities,
   Stack,
   UseCases,
-  Cloud,
   FinalCTA,
 } from '@/components/home';
 
@@ -24,7 +23,6 @@ export default function Home() {
         <Capabilities />
         <Stack />
         <UseCases />
-        <Cloud />
         <FinalCTA />
       </main>
       <Footer />
