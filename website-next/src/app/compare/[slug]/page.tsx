@@ -3,8 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import PageWrapper from '@/components/PageWrapper';
 import CodeHighlight from '@/components/CodeHighlight';
 import RelatedContent from '@/components/RelatedContent';
 import { getPostBySlug } from '@/lib/blog';
@@ -129,9 +128,7 @@ export default async function ComparePage({
   ];
 
   return (
-    <>
-      <Navigation />
-      <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
+    <PageWrapper>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }} />
         <section className="border-b border-slate-800/80">
@@ -342,8 +339,6 @@ export default async function ComparePage({
             </div>
           </div>
         </section>
-      </main>
-      <Footer />
-    </>
+    </PageWrapper>
   );
 }

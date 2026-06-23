@@ -45,10 +45,17 @@ It will:
 Options:
 
 - `--path <path>`: output directory, default `analytics/`
+- `--style <style>`: `queries` (default) or `datasets`
+- `--auth <mode>`: `none` (default) or `context`
+- `--all-tables`: with `--style datasets`, scaffold every table
+- `--tables <names>`: with `--style datasets`, scaffold these comma-separated tables
+- `--exclude-tables <names>`: with `--style datasets`, exclude these comma-separated tables
 - `--no-example`: skip the example query
 - `--no-interactive`: read connection details from env vars
 - `--force`: overwrite existing scaffold files
 - `--skip-connection`: skip testing the ClickHouse connection before scaffolding
+
+Set `HYPEQUERY_SKIP_INSTALL=1` to skip the automatic dependency install.
 
 ### `hypequery dev`
 
@@ -62,10 +69,9 @@ Options:
 
 - `--port <port>`: default `4000`
 - `--hostname <host>`: default `localhost`
+- `--path <path>`: analytics directory to load (`<path>/api.ts` or `<path>/queries.ts`)
 - `--no-watch`: disable file watching
-- `--cache <provider>`: `memory`, `redis`, or `none`
 - `--open`: open the browser automatically
-- `--cors`: enable CORS
 - `--quiet`: reduce startup output
 
 The CLI understands TypeScript entry files directly, so `analytics/queries.ts` works without an extra runner.
@@ -81,8 +87,26 @@ npx hypequery generate
 Options:
 
 - `--output <path>`: default `analytics/schema.ts`
+- `--path <path>`: analytics directory (derives `<path>/schema.ts`)
 - `--tables <names>`: comma-separated table list
 - `--database <type>`: currently `clickhouse`
+
+`hypequery generate:types` is an alias for `hypequery generate`.
+
+### `hypequery generate:datasets`
+
+Generates dataset (semantic layer) definitions from ClickHouse.
+
+```bash
+npx hypequery generate:datasets
+```
+
+Options:
+
+- `--output <path>`: default `src/datasets/generated.ts`
+- `--path <path>`: analytics directory (derives `<path>/datasets.ts`)
+- `--tables <names>`: comma-separated table list
+- `--exclude-tables <names>`: comma-separated tables to exclude
 
 ## Non-interactive Setup
 

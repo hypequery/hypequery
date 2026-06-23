@@ -1,0 +1,138 @@
+---
+title: Tools
+description: Tools exposed by the Hypequery MCP server.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The MCP server exposes semantic tools over your dataset registry. Agents do not receive a SQL tool.
+
+## `list_datasets`
+
+Lists registered datasets with description, dimension count, and metric count.
+
+<CodeBlock>
+```json
+{
+  "name": "list_datasets"
+}
+```
+</CodeBlock>
+
+Example response:
+
+<CodeBlock>
+```json
+{
+  "datasets": [
+    {
+      "name": "orders",
+      "description": "Customer orders and revenue data",
+      "dimensionCount": 5,
+      "metricCount": 2
+    }
+  ],
+  "total": 1
+}
+```
+</CodeBlock>
+
+## `get_dataset_schema`
+
+Returns metadata for one dataset, including dimensions, named metrics, tenant key, time key, and relationship metadata when present.
+
+<CodeBlock>
+```json
+{
+  "name": "get_dataset_schema",
+  "arguments": {
+    "dataset": "orders"
+  }
+}
+```
+</CodeBlock>
+
+Labels and descriptions from your dataset definitions are included here, so they matter for agent behavior.
+
+## `query_metric`
+
+Runs one named metric handle attached to a dataset.
+
+<CodeBlock>
+```json
+{
+  "name": "query_metric",
+  "arguments": {
+    "dataset": "orders",
+    "metric": "revenue",
+    "dimensions": ["country"],
+    "filters": [
+      { "field": "status", "operator": "eq", "value": "completed" }
+    ],
+    "orderBy": [
+      { "field": "revenue", "direction": "desc" }
+    ],
+    "limit": 10
+  }
+}
+```
+</CodeBlock>
+
+Use `query_metric` when the agent should ask for a stable KPI such as `revenue`, `averageOrderValue`, or `monthlyRevenue`.
+
+## `query_dataset`
+
+Runs an ad hoc dataset query with selected dimensions and measures.
+
+<CodeBlock>
+```json
+{
+  "name": "query_dataset",
+  "arguments": {
+    "dataset": "orders",
+    "dimensions": ["country", "status"],
+    "metrics": ["revenue", "orderCount"],
+    "filters": [
+      { "field": "status", "operator": "eq", "value": "completed" }
+    ],
+    "grain": "month",
+    "limit": 100
+  }
+}
+```
+</CodeBlock>
+
+The MCP argument is called `metrics` for agent ergonomics. It maps to dataset measures when calling `analytics.execute(Orders, ...)`, so it resolves raw measures only. Derived or named metrics (such as `averageOrderValue`) are not measures and can only be queried through `query_metric`.
+
+At least one dimension or metric must be specified, otherwise the query is rejected.
+
+## Pagination
+
+`query_metric` and `query_dataset` both accept `limit` and `offset` for paging through large result sets. `offset` skips the given number of rows before returning results.
+
+## Prompt
+
+The server also exposes a `dataset_guide` prompt that helps an MCP client explain how to query the registered datasets.
+
+## Operators and grains
+
+Supported filter operators:
+
+- `eq`
+- `neq`
+- `gt`
+- `gte`
+- `lt`
+- `lte`
+- `in`
+- `notIn`
+- `between`
+- `like`
+
+Supported time grains:
+
+- `day`
+- `week`
+- `month`
+- `quarter`
+- `year`

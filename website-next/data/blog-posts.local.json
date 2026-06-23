@@ -2,6 +2,22 @@
   "version": 1,
   "posts": [
     {
+      "id": "0f920a4f-e5f0-4b55-aeee-b42427324a04",
+      "slug": "typescript-vs-dbt-clickhouse",
+      "title": "TypeScript vs dbt for ClickHouse: Choosing the Right Analytics Layer",
+      "description": "dbt and TypeScript solve overlapping but different problems on top of ClickHouse. Here's how to think about which one belongs in your stack — and when you need both.",
+      "body": "\ndbt and TypeScript are not natural competitors — but if you're building an analytics product on ClickHouse, you'll eventually have to decide how much work belongs in each layer. The answer isn't obvious, and it depends heavily on what you're actually building.\n\nThis post breaks down what each tool actually does on top of ClickHouse, where they overlap, where they don't, and how teams typically combine them.\n\n## What dbt does\n\ndbt (data build tool) is a transformation layer. You write SQL `SELECT` statements, dbt compiles them into ClickHouse-compatible SQL, runs them, and materialises the results as tables or views. It also handles dependency ordering between models, incremental loads, and test assertions on your data.\n\nThe core value proposition is **repeatability and documentation for SQL transformations**. dbt makes it easy to build a DAG of data transformations that multiple people can understand, run, and maintain. It's strong on:\n\n- Defining and versioning your data models in SQL\n- Running scheduled or triggered transformations\n- Generating data documentation automatically\n- Testing that your transformations produce expected shapes\n\ndbt's relationship with ClickHouse is functional but imperfect. The [dbt-clickhouse adapter](https://github.com/ClickHouse/dbt-clickhouse) handles most common materialization patterns, but ClickHouse's data model — no transactions, append-optimised, MergeTree engine semantics — means some dbt patterns that work cleanly on Postgres don't translate directly.\n\n## What TypeScript gives you\n\nA TypeScript analytics layer — whether that's raw `@clickhouse/client`, a query builder like hypequery, or a custom abstraction — handles a different job: **query execution at runtime**.\n\nYour application code needs to query ClickHouse in response to user requests. It needs typed results. It needs to pass user-provided parameters safely. It needs to compose queries based on runtime conditions (filters, date ranges, tenant IDs). None of this is what dbt is for — dbt runs on a schedule or trigger, not in response to an API call.\n\nWhat a TypeScript query layer gives you:\n\n- Type-safe query construction that catches mistakes at compile time\n- Schema-derived types that match what ClickHouse actually returns at runtime\n- Composable query logic that can respond to user input\n- HTTP endpoints that expose your queries as a typed API\n\n## Where they overlap: defining queries twice\n\nThe tension point is that both tools end up with representations of your ClickHouse tables. dbt has its schema definitions. Your TypeScript codebase has its types. When ClickHouse schema changes, both need updating — and they can drift independently.\n\nThis is the core problem a type-safe TypeScript layer solves: **generate types from the live schema** rather than maintaining them by hand. hypequery's CLI connects to your ClickHouse instance and generates TypeScript types from your real tables, including correct runtime type mappings for ClickHouse-specific types like `UInt64` (returned as string), `DateTime` (returned as formatted string), and `Nullable` variants.\n\n```bash\nnpx hypequery init\n# connects to ClickHouse, introspects schema, generates types\n```\n\nThe generated types reflect the actual state of your database — not a manually-maintained approximation.\n\n## A practical breakdown\n\n**Use dbt when:**\n\n- You're building and scheduling data transformations — moving data between tables, aggregating raw events into analytics tables, maintaining materialized views at scale\n- You have a data engineering team that thinks in SQL and wants version control, CI, and documentation for their transformation logic\n- You need to build a reliable data pipeline where transformations run on a schedule independently of your application\n\n**Use a TypeScript query layer when:**\n\n- You're building application features that query ClickHouse at runtime — dashboards, reports, analytics APIs\n- You need user-parameterised queries: filter by date, tenant, region, and so on\n- You're serving query results over HTTP to a frontend or other service\n- You want compile-time safety on query construction and result shapes\n\n**Use both when:**\n\nThis is the most common setup for product analytics:\n\n- dbt handles the transformation pipeline: raw events → cleaned events → aggregated metrics tables\n- TypeScript (hypequery) handles the application layer: queries against the dbt-produced tables, serving results to dashboards, exposing typed HTTP routes\n\nThe two tools are complementary. dbt produces the tables. hypequery queries them safely from your application.\n\n```ts\n// hypequery queries the tables that dbt built and maintains\nconst db = createQueryBuilder<IntrospectedSchema>({ /* connection */ });\n\nconst dailyRevenue = await db\n  .table('fct_orders_daily')    // a dbt model\n  .select(['date', 'region'])\n  .where('date', 'gte', startDate)\n  .sum('revenue', 'total_revenue')\n  .groupBy(['date', 'region'])\n  .orderBy('date', 'DESC')\n  .execute();\n// fully typed — date: string, region: string, total_revenue: string\n```\n\n## The TypeScript-only path\n\nNot every team uses dbt. Many TypeScript teams handle their transformation logic directly — using ClickHouse materialized views, scheduled queries, or application-level aggregations instead of dbt models.\n\nThis works well when:\n\n- The team is TypeScript-first and doesn't want a Python/SQL tool in the stack\n- The transformation logic is simple enough to manage without dbt's DAG runner\n- You want a single language and toolchain for both transformations and application queries\n\nhypequery supports this path: you can express both your transformation queries and your application queries in TypeScript, with the same type-safe query builder.\n\n## The dbt-only path (and why it falls short for application queries)\n\nSome teams try to handle everything in dbt — pre-computing all possible query shapes as materialized views and exposing them via ClickHouse's HTTP interface. This can work for a small, fixed set of metrics.\n\nIt falls apart when:\n\n- Users need to filter, slice, or parameterise queries dynamically\n- The number of query shapes grows beyond what you can reasonably pre-compute\n- You need to serve query results through a typed API with input validation\n\ndbt doesn't do runtime query parameterisation. That's what your application layer is for.\n\n## Summary\n\n| | dbt | TypeScript (hypequery) |\n|---|---|---|\n| **Primary job** | Data transformation | Runtime query execution |\n| **Runs when** | Scheduled / triggered | Per request |\n| **Parameterised queries** | No | Yes |\n| **Type-safe results** | No | Yes |\n| **HTTP API** | No | Yes (via @hypequery/serve) |\n| **ClickHouse runtime types** | N/A | Correct mappings generated |\n| **Best for** | Data engineers | TypeScript application teams |\n\nIf you're choosing between them, you're probably asking the wrong question — most production analytics stacks use both. dbt owns the transformation pipeline; your TypeScript layer owns the application queries.\n\nIf your team is TypeScript-first and the transformation logic is manageable, you can skip dbt entirely and handle everything in TypeScript. If you have a data engineering team and a complex transformation DAG, dbt and hypequery complement each other cleanly.\n\n---\n\n**Related reading:**\n- [hypequery vs @clickhouse/client: what you actually gain](/blog/hypequery-vs-clickhouse-client)\n- [Building a real-time dashboard with ClickHouse and React](/blog/clickhouse-real-time-dashboard-react)\n- [Type-safe schema management for ClickHouse](/blog/type-safe-schema-management-clickhouse)\n",
+      "status": "published",
+      "author": null,
+      "tags": [],
+      "seoTitle": "TypeScript vs dbt for ClickHouse Analytics — What to Use and When",
+      "seoDescription": "dbt and TypeScript query builders both help you build on top of ClickHouse, but they solve different problems. This guide explains the trade-offs and when to use each.",
+      "publishedAt": "2026-05-18T00:00:00.000Z",
+      "createdAt": "2026-05-25T12:33:11.619Z",
+      "updatedAt": "2026-06-14T12:40:24.139Z",
+      "source": "seed"
+    },
+    {
       "id": "c308d721-ec79-421a-816c-74fcc9abdcea",
       "slug": "embedded-analytics-clickhouse-multi-tenant-dashboards",
       "title": "Embedded Analytics with ClickHouse: A Practical Guide to Multi-Tenant Dashboards",
@@ -14,7 +30,7 @@
       "seoDescription": "Learn how to build fast, secure multi-tenant embedded analytics with ClickHouse using shared tables, row policies, typed query layers, projections, quotas, and tenant-aware operations.",
       "publishedAt": "2026-04-30T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.706Z",
-      "updatedAt": "2026-04-30T19:59:03.872Z",
+      "updatedAt": "2026-06-14T12:40:24.139Z",
       "source": "seed"
     },
     {
@@ -30,7 +46,7 @@
       "seoDescription": "ARRAY JOIN in ClickHouse flattens array columns into rows. Learn how to use it in TypeScript with hypequery for tag explosion, event properties, and nested data.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.870Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -46,7 +62,7 @@
       "seoDescription": "ClickHouse uses HTTP — there is no traditional connection pool. Learn the right connection management patterns for Node.js and TypeScript with ClickHouse.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.870Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -62,7 +78,7 @@
       "seoDescription": "Practical guide to ClickHouse date bucketing functions in TypeScript — toStartOfDay, toStartOfWeek, toStartOfMonth, toStartOfQuarter, and toStartOfInterval.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.870Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -78,7 +94,7 @@
       "seoDescription": "Looking for executeTakeFirst in ClickHouse? If you're coming from Kysely, here's how hypequery handles single-row queries and what the equivalent patterns look like.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -94,7 +110,7 @@
       "seoDescription": "How to express ClickHouse filters in TypeScript with query_params in @clickhouse/client and typed where-chains in hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -110,7 +126,7 @@
       "seoDescription": "How ClickHouse handles RIGHT JOIN, LEFT JOIN, INNER JOIN, and ARRAY JOIN — with performance notes and TypeScript examples using hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -126,7 +142,7 @@
       "seoDescription": "ClickHouse materialized views pre-aggregate data as it's inserted. This guide explains how they work, when to use them, and how to query them with TypeScript and hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -142,7 +158,7 @@
       "seoDescription": "Three pagination patterns for ClickHouse in TypeScript — offset/limit, cursor-based, and keyset. Code examples with hypequery and the raw @clickhouse/client.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -158,7 +174,7 @@
       "seoDescription": "PREWHERE in ClickHouse can reduce reads and improve query performance. Learn when to use PREWHERE vs WHERE, with practical examples and TypeScript context.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -174,7 +190,7 @@
       "seoDescription": "Build a real-time analytics dashboard on ClickHouse using React, hypequery, and typed HTTP APIs. Polling, live updates, and typed chart components.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -190,7 +206,7 @@
       "seoDescription": "ClickHouse does not have native RLS like Postgres. Learn the three patterns for tenant isolation in ClickHouse with TypeScript — column filtering, user profiles, and context injection.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -206,7 +222,7 @@
       "seoDescription": "Three strategies for testing ClickHouse queries in TypeScript — mocking the client, using a local ClickHouse instance, and integration testing with hypequery.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.871Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -222,7 +238,7 @@
       "seoDescription": "How to use toStartOfInterval with GROUP BY and column aliases in ClickHouse. TypeScript examples using hypequery and raw SQL — DateTime bucketing for time-series analytics.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.872Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -238,7 +254,7 @@
       "seoDescription": "Cube is a full semantic layer. hypequery is a lightweight TypeScript-first alternative. Compare both for ClickHouse analytics and find the right fit.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.872Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -254,7 +270,7 @@
       "seoDescription": "Drizzle ORM does not support ClickHouse. hypequery is the TypeScript-first alternative — schema generation, composable queries, and typed HTTP APIs built specifically for ClickHouse.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.705Z",
-      "updatedAt": "2026-04-30T19:59:03.872Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -270,7 +286,7 @@
       "seoDescription": "Prisma does not support ClickHouse. hypequery gives you the schema-first, TypeScript-first experience for ClickHouse analytics — without the wrong abstractions.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.706Z",
-      "updatedAt": "2026-04-30T19:59:03.872Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -286,7 +302,7 @@
       "seoDescription": "Tinybird manages your ClickHouse infrastructure. hypequery gives you TypeScript-first control over your own ClickHouse. Compare both for analytics API use cases.",
       "publishedAt": "2026-04-25T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.706Z",
-      "updatedAt": "2026-04-30T19:59:03.872Z",
+      "updatedAt": "2026-06-14T12:40:24.138Z",
       "source": "seed"
     },
     {
@@ -302,7 +318,7 @@
       "seoDescription": "Build a ClickHouse MCP server around named analytics queries instead of raw SQL so tenant scope and response shapes stay under control.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-04-30T19:59:03.870Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -318,7 +334,7 @@
       "seoDescription": "Comparing ClickHouse query builders for TypeScript? See where @clickhouse/client, Kysely, Cube, and hypequery fit, and where each option stops helping.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-04-30T19:59:03.870Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -334,7 +350,7 @@
       "seoDescription": "Use typed React hooks on top of your ClickHouse API instead of rebuilding fetch logic and response types in every component.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.870Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -350,7 +366,7 @@
       "seoDescription": "Define a ClickHouse query once, execute it inline, and expose the same definition over HTTP instead of rewriting it for every context.",
       "publishedAt": "2026-04-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.704Z",
-      "updatedAt": "2026-04-30T19:59:03.870Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -366,7 +382,7 @@
       "seoDescription": "Using ClickHouse with TypeScript? Learn the real runtime mappings for DateTime, UInt64, Nullable, Decimal, and other types, and how to avoid silent bugs.",
       "publishedAt": "2026-04-14T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-04-30T19:59:03.869Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -382,7 +398,7 @@
       "seoDescription": "Compare hypequery and @clickhouse/client for ClickHouse TypeScript apps. See what you gain with generated schema types, reusable queries, and typed HTTP APIs.",
       "publishedAt": "2026-04-14T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-04-30T19:59:03.869Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -398,7 +414,7 @@
       "seoDescription": "Compare hypequery and Kysely for ClickHouse projects. Learn where Kysely shines, where ClickHouse type mapping gets tricky, and when hypequery is the better fit.",
       "publishedAt": "2026-04-14T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.703Z",
-      "updatedAt": "2026-04-30T19:59:03.869Z",
+      "updatedAt": "2026-06-14T12:40:24.137Z",
       "source": "seed"
     },
     {
@@ -414,7 +430,7 @@
       "seoDescription": "Fast ClickHouse queries are not the hard part anymore. Learn why reusable typed APIs and query definitions matter more once analytics reaches apps, dashboards, and AI agents.",
       "publishedAt": "2026-02-09T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-04-30T19:59:03.868Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -430,7 +446,7 @@
       "seoDescription": "Generate ClickHouse schema types, build typed queries, and turn them into a reusable backend API layer in TypeScript.",
       "publishedAt": "2026-01-30T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-04-30T19:59:03.868Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -446,7 +462,7 @@
       "seoDescription": null,
       "publishedAt": "2026-01-11T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-04-30T19:59:03.868Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -462,7 +478,7 @@
       "seoDescription": null,
       "publishedAt": "2026-01-01T17:08:36.000Z",
       "createdAt": "2026-04-30T19:40:32.702Z",
-      "updatedAt": "2026-04-30T19:59:03.868Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -478,7 +494,7 @@
       "seoDescription": "Prevent schema drift in ClickHouse TypeScript code by generating schema types and keeping query code aligned with the live database.",
       "publishedAt": "2025-07-23T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.701Z",
-      "updatedAt": "2026-04-30T19:59:03.868Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -494,7 +510,7 @@
       "seoDescription": "Build ClickHouse dashboards in Next.js with shared backend queries, typed delivery, and a cleaner split between server execution and React consumption.",
       "publishedAt": "2025-07-22T00:00:00.000Z",
       "createdAt": "2026-04-30T19:40:32.701Z",
-      "updatedAt": "2026-04-30T19:59:03.867Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     },
     {
@@ -510,7 +526,7 @@
       "seoDescription": "Why raw SQL and manual row types still fail in TypeScript, and what a safer query workflow looks like for ClickHouse-heavy codebases.",
       "publishedAt": "2025-07-04T11:10:00.000Z",
       "createdAt": "2026-04-30T19:40:32.700Z",
-      "updatedAt": "2026-04-30T19:59:03.867Z",
+      "updatedAt": "2026-06-14T12:40:24.136Z",
       "source": "seed"
     }
   ]

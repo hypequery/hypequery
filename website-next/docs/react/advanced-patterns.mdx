@@ -3,6 +3,7 @@ title: Advanced Patterns
 description: Advanced React hooks configuration, HTTP methods, and cache management
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 
 # Advanced Patterns
@@ -69,6 +70,10 @@ export const { useQuery, useMutation } = createHooks<Api>({
 </CodeBlock>
 
 The `api` object contains method metadata from your route definitions. This keeps client and server configuration in sync automatically.
+
+<Callout type="info">
+  Passing `api` (or `manifest: api.manifest()`) is **required** when you use semantic `metrics`/`datasets` endpoints with `useMetric`/`useDataset`. Their POST paths differ from their map keys, so the hooks need the resolved routes. `extractClientConfig(api)` in Option B includes these routes too.
+</Callout>
 
 ### Option B: Config Endpoint (SPAs / Vite)
 
@@ -239,37 +244,53 @@ function Dashboard() {
 </Pre>
 </CodeBlock>
 
-## Custom Query Keys
+## Query Keys
 
-By default, query keys are `[queryName, input]`. Override for advanced cache control:
+hypequery hooks use a fixed query-key structure: `['hypequery', name]`, or `['hypequery', name, input]` when the query has input. Dataset hooks key on their resolved name (`dataset:<name>`). Use these keys with TanStack's cache APIs:
+
+<CodeBlock>
+<Pre>
+```tsx
+// Invalidate one query (must match name + input).
+queryClient.invalidateQueries({ queryKey: ['hypequery', 'weeklyRevenue'] });
+
+// Invalidate every hypequery cache entry by prefix.
+queryClient.invalidateQueries({ queryKey: ['hypequery'] });
+```
+</Pre>
+</CodeBlock>
+
+The key structure is not configurable — relying on the stable `'hypequery'` prefix lets you target hypequery caches without colliding with other TanStack queries.
+
+## Auth headers and token refresh
+
+Add auth tokens with the `headers` option. It accepts a static object or a (optionally async) function that runs per request, so it can supply a fresh short-lived token. Pair it with `onUnauthorized` to refresh credentials and retry once on a `401`:
 
 <CodeBlock>
 <Pre>
 ```tsx
 export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
-  getQueryKey: (name, input) => {
-    // Custom key structure
-    return ['analytics', name, input];
+  headers: async () => ({
+    Authorization: `Bearer ${await getAuthToken()}`,
+  }),
+  onUnauthorized: async () => {
+    // Runs on a 401; refresh the token, then the request retries once.
+    await refreshSession();
   },
 });
 ```
 </Pre>
 </CodeBlock>
 
-This is useful when sharing cache with non-hypequery queries or integrating with existing TanStack Query setups.
-
-## Request Interceptors
-
-Modify requests before they're sent (for auth tokens, headers, etc.):
+If you need full control over the request, override the fetch implementation with `fetchFn`:
 
 <CodeBlock>
 <Pre>
 ```tsx
 export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api',
-  fetch: async (url, options) => {
-    // Add auth token
+  fetchFn: async (url, options) => {
     const token = getAuthToken();
 
     return fetch(url, {
@@ -287,19 +308,25 @@ export const { useQuery, useMutation } = createHooks<Api>({
 
 ## Suspense Mode
 
+<Callout type="info">
+  TanStack Query v5 removed the per-call `suspense: true` flag in favor of dedicated `useSuspenseQuery`/`useSuspenseInfiniteQuery` hooks. hypequery's hooks wrap the non-suspense hooks, so handle loading with `isLoading` (shown elsewhere on this page). If you need Suspense, read the endpoint with your own `useSuspenseQuery` call against the same route.
+</Callout>
+
 Use React Suspense for declarative loading states:
 
 <CodeBlock>
 <Pre>
 ```tsx
 import { Suspense } from 'react';
+import { useSuspenseQuery } from '@tanstack/react-query';
 
 function MetricsChart() {
-  // Throws promise while loading
-  const { data } = useQuery('weeklyRevenue',
-    { startDate: '2025-01-01' },
-    { suspense: true }
-  );
+  // Throws a promise while loading, so the parent <Suspense> shows its fallback.
+  const { data } = useSuspenseQuery({
+    queryKey: ['hypequery', 'weeklyRevenue', { startDate: '2025-01-01' }],
+    queryFn: () =>
+      fetch('/api/weeklyRevenue?startDate=2025-01-01').then((res) => res.json()),
+  });
 
   return <div>Total: ${data.total}</div>;
 }
@@ -351,7 +378,7 @@ const { data, refetch, isFetching } = useQuery(
   {
     // Caching
     staleTime: 5 * 60 * 1000, // 5 minutes
-    cacheTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (was `cacheTime` before TanStack v5)
 
     // Refetching
     refetchOnMount: true,
@@ -364,15 +391,15 @@ const { data, refetch, isFetching } = useQuery(
     // Retries
     retry: 3,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-
-    // Callbacks
-    onSuccess: (data) => console.log('Data loaded:', data),
-    onError: (error) => console.error('Query failed:', error),
   }
 );
 ```
 </Pre>
 </CodeBlock>
+
+<Callout type="info">
+  Per-query `onSuccess`/`onError` callbacks were removed from `useQuery` in TanStack Query v5. Use `useMutation` callbacks for writes, or subscribe via the global `QueryCache` if you need query-level side effects.
+</Callout>
 
 ## Background Refetching
 
@@ -436,39 +463,32 @@ function Dashboard() {
 
 ## Infinite Queries
 
-For paginated data that loads more as you scroll:
+hypequery hooks include offset-paginated `useInfiniteQuery`, `useInfiniteMetric`, and `useInfiniteDataset`. You don't wire up `getNextPageParam` yourself — the hooks advance pages using the `meta.pagination` the server returns (requested automatically via the `x-include-meta` header). Set `limit` as the page size; `offset`, if provided, is the starting offset.
 
 <CodeBlock>
 <Pre>
 ```tsx
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteDataset } from '@/lib/analytics';
 
-function InfiniteUserList() {
+function InfiniteOrders() {
   const {
     data,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: ['users', 'infinite'],
-    queryFn: async ({ pageParam = 0 }) => {
-      const res = await fetch(
-        `/api/users?offset=${pageParam}&limit=20`
-      );
-      return res.json();
-    },
-    getNextPageParam: (lastPage, pages) => {
-      if (lastPage.length < 20) return undefined;
-      return pages.length * 20;
-    },
+  } = useInfiniteDataset('orders', {
+    dimensions: ['country', 'status'],
+    measures: ['revenue'],
+    limit: 20, // page size
   });
 
   return (
     <div>
       {data?.pages.map((page, i) => (
         <div key={i}>
-          {page.map((user: any) => (
-            <div key={user.id}>{user.name}</div>
+          {/* Each page is the endpoint response: `{ data, meta }`. */}
+          {page.data.map((row, j) => (
+            <div key={j}>{row.country}: {row.revenue}</div>
           ))}
         </div>
       ))}
@@ -483,3 +503,5 @@ function InfiniteUserList() {
 ```
 </Pre>
 </CodeBlock>
+
+`useInfiniteMetric` works the same way for a named metric, and `useInfiniteQuery` for a plain query whose endpoint returns `meta.pagination`.

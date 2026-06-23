@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import PageWrapper from '@/components/PageWrapper';
 import { comparePages } from '@/data/compare-pages';
 import { absoluteUrl } from '@/lib/site';
 
@@ -36,9 +35,7 @@ export default function CompareIndexPage() {
   };
 
   return (
-    <>
-      <Navigation />
-      <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
+    <PageWrapper>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <section className="border-b border-slate-800/80">
           <div className="mx-auto max-w-7xl px-4 py-20 lg:px-6">
@@ -141,8 +138,6 @@ export default function CompareIndexPage() {
             </div>
           </div>
         </section>
-      </main>
-      <Footer />
-    </>
+    </PageWrapper>
   );
 }

@@ -5,8 +5,8 @@ Complete user-facing guide to testing datasets, metrics, and semantic queries.
 ## Table of Contents
 
 1. [Quick Start](#quick-start)
-2. [Pattern A: Using createBackend (Recommended)](#pattern-a-using-createbackend-recommended)
-3. [Pattern B: Using queryBuilder](#pattern-b-using-querybuilder)
+2. [Pattern A: Using queryBuilder (Recommended)](#pattern-a-using-querybuilder-recommended)
+3. [Pattern B: Using createBackend](#pattern-b-using-createbackend)
 4. [Testing Datasets](#testing-datasets)
 5. [Testing Metrics](#testing-metrics)
 6. [Testing Derived Metrics](#testing-derived-metrics)
@@ -29,24 +29,24 @@ npm install @clickhouse/client
 
 ---
 
-## Pattern A: Using createBackend (Recommended)
+## Pattern A: Using queryBuilder (Recommended)
 
-This is the **recommended pattern** for most use cases. It provides a higher-level abstraction over the query builder.
+This is the **recommended pattern** for most use cases. The dataset client reuses the same query builder you use for hand-written queries, sharing one connection.
 
 ### Setup
 
 ```typescript
 import { createDatasetClient } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
-const analytics = createDatasetClient({
-  backend: createBackend({
-    url: 'http://localhost:8123',
-    username: 'default',
-    password: '',
-    database: 'analytics',
-  }),
+const queryBuilder = createQueryBuilder({
+  url: 'http://localhost:8123',
+  username: 'default',
+  password: '',
+  database: 'analytics',
 });
+
+const analytics = createDatasetClient({ queryBuilder });
 ```
 
 ### Test 1: Execute a Simple Dataset Query
@@ -106,25 +106,23 @@ console.log('Metric result:', result);
 
 ---
 
-## Pattern B: Using queryBuilder
+## Pattern B: Using createBackend
 
-This pattern gives you more control but requires understanding the query builder API.
+This pattern uses the database-agnostic `SemanticBackend` protocol directly, building a standalone backend from connection config instead of sharing a query builder. Reach for it when you don't already have a query builder to pass.
 
 ### Setup
 
 ```typescript
 import { createDatasetClient } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
-
-const queryBuilder = createQueryBuilder({
-  url: 'http://localhost:8123',
-  username: 'default',
-  password: '',
-  database: 'analytics',
-});
+import { createBackend } from '@hypequery/clickhouse/datasets';
 
 const analytics = createDatasetClient({
-  queryBuilder,
+  backend: createBackend({
+    url: 'http://localhost:8123',
+    username: 'default',
+    password: '',
+    database: 'analytics',
+  }),
 });
 ```
 
@@ -607,14 +605,14 @@ Error: createDatasetClient requires either queryBuilder or backend.
 
 **Solution:** Provide one of the two options:
 ```typescript
-// Option 1: Use backend (recommended)
-const analytics = createDatasetClient({
-  backend: createBackend({ ... })
-});
-
-// Option 2: Use queryBuilder
+// Option 1: Use queryBuilder (recommended)
 const analytics = createDatasetClient({
   queryBuilder: createQueryBuilder({ ... })
+});
+
+// Option 2: Use backend
+const analytics = createDatasetClient({
+  backend: createBackend({ ... })
 });
 ```
 
@@ -627,11 +625,11 @@ Create a test file `datasets.test.ts`:
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { createDatasetClient } from '@hypequery/datasets';
-import { createBackend } from '@hypequery/clickhouse/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 import { dataset, dimension, measure, divide, nullIfZero } from '@hypequery/datasets';
 
 const analytics = createDatasetClient({
-  backend: createBackend({
+  queryBuilder: createQueryBuilder({
     url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
     username: process.env.CLICKHOUSE_USER || 'default',
     password: process.env.CLICKHOUSE_PASSWORD || '',

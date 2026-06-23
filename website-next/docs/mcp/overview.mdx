@@ -1,0 +1,75 @@
+---
+title: Overview
+description: Expose Hypequery datasets and metrics to AI agents through the Model Context Protocol.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`@hypequery/mcp` exposes your Hypequery semantic layer through the Model Context Protocol. Agents can discover datasets, inspect schema metadata, query named metrics, and run governed dataset queries without receiving raw SQL access.
+
+Use MCP when you want an agent to work inside a constrained analytics vocabulary:
+
+- expose only the datasets you register
+- expose only named metrics you attach to those datasets
+- let agents inspect dimensions, labels, descriptions, filters, tenant keys, and time keys
+- execute through the same `createDatasetClient` path used by the rest of your app
+- avoid handing an LLM a direct SQL console
+
+<Callout type="info">
+  MCP is a capability boundary, not an authentication layer. If your data is multi-tenant, read <a href="/docs/mcp/safety">Safety model</a> before exposing a server broadly.
+</Callout>
+
+## Install
+
+<CodeBlock>
+```bash
+npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+# or
+pnpm add @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
+```
+</CodeBlock>
+
+## Quick start
+
+Create an ESM config file that exports `datasets` and `analytics`.
+
+<CodeBlock>
+```javascript
+// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/datasets';
+import { Orders } from './datasets/orders.js';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Revenue',
+  description: 'Total order revenue.',
+});
+
+export const datasets = {
+  orders: {
+    ...Orders,
+    metrics: { revenue },
+  },
+};
+
+export const analytics = createDatasetClient({ queryBuilder: db });
+```
+</CodeBlock>
+
+Run the MCP server with the config file path:
+
+<CodeBlock>
+```bash
+npx hypequery-mcp --config ./mcp-config.mjs
+```
+</CodeBlock>
+

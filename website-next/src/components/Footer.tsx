@@ -1,118 +1,98 @@
 import Link from 'next/link';
-import { seoFooterGroups } from '@/data/seo-links';
+import ThemeToggle from '@/components/ThemeToggle';
 
-const navigation = {
-  social: [
-    {
-      name: 'GitHub',
-      href: 'https://github.com/hypequery/hypequery',
-      icon: 'github',
-    },
-    {
-      name: 'X',
-      href: 'https://x.com/hypequery',
-      icon: 'x',
-    },
-    {
-      name: 'LinkedIn',
-      href: 'https://www.linkedin.com/company/110435355/',
-      icon: 'linkedin',
-    },
-  ],
-};
+const footerColumns = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Home', href: '/' },
+      { label: 'Docs', href: '/docs' },
+      { label: 'Quick Start', href: '/docs/quick-start' },
+      { label: 'Query builder', href: '/clickhouse-query-builder' },
+      { label: 'Semantic Layer', href: '/clickhouse-semantic-layer' },
+      { label: 'Schema Types', href: '/clickhouse-schema' },
+      { label: 'Compare', href: '/compare' },
+    ],
+  },
+  {
+    title: 'Developers',
+    links: [
+      { label: 'ClickHouse API', href: '/clickhouse-api' },
+      { label: 'ClickHouse Next.js', href: '/clickhouse-nextjs' },
+      { label: 'ClickHouse React', href: '/clickhouse-react' },
+      { label: 'ClickHouse Node.js', href: '/clickhouse-nodejs' },
+      { label: 'ClickHouse MCP', href: '/clickhouse-mcp' },
+      { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'Blog', href: '/blog' },
+      { label: 'Use Cases', href: '/use-cases' },
+      { label: 'Internal Product APIs', href: '/use-cases/internal-product-apis' },
+      { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },
+      { label: 'Contact', href: 'https://x.com/hypequery', external: true },
+    ],
+  },
+  {
+    title: 'Social',
+    links: [
+      { label: 'GitHub', href: 'https://github.com/hypequery/hypequery', external: true },
+      { label: 'X / Twitter', href: 'https://x.com/hypequery', external: true },
+      { label: 'LinkedIn', href: 'https://www.linkedin.com/company/110435355/', external: true },
+    ],
+  },
+];
 
 export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
-    <footer className="border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900">
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="grid gap-10 lg:grid-cols-[1fr_2fr]">
-          <div>
-            <span className="font-mono text-xl font-bold text-indigo-600 dark:text-indigo-400">
-              &gt; hypequery
-            </span>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              The Type-Safe Query Builder for ClickHouse
-            </p>
-          </div>
-          <div className="grid gap-8 text-sm text-gray-600 sm:grid-cols-2 lg:grid-cols-4 dark:text-gray-400">
-            {seoFooterGroups.map((group) => (
-              <div key={group.title}>
-                <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-gray-500">
-                  {group.title}
-                </h2>
-                <div className="mt-4 flex flex-col gap-3">
-                  {group.links.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="hover:text-indigo-600 dark:hover:text-indigo-400"
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+    <footer className="border-t border-border px-8 pt-[60px] pb-9 bg-bg">
+      <div className="mx-auto max-w-[1280px] footer-grid">
+        <div className="max-w-[240px]" style={{ width: '240px', flexShrink: 0 }}>
+          <div className="font-mono text-[15px] font-bold text-text tracking-tight">&gt; hypequery</div>
+          <p className="mt-2 text-[13px] leading-snug text-text-muted">
+            The TypeScript analytics layer for ClickHouse.
+          </p>
         </div>
-        <div className="mt-8 flex flex-col gap-6 text-sm text-gray-600 dark:text-gray-400">
-            <div className="text-gray-600 dark:text-gray-400 font-medium">
-              Feedback?{' '}
-              <a
-                className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                href="https://github.com/hypequery/hypequery/issues"
-                target="_blank"
-                rel="noopener"
-              >
-                Open an issue
-              </a>{' '}
-              or DM{' '}
-              <a
-                className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                href="https://x.com/hypequery"
-                target="_blank"
-                rel="noopener"
-              >
-                @hypequery
-              </a>{' '}
-              on X.
+
+        {footerColumns.map((column) => (
+          <div key={column.title} className="min-w-0" style={{ width: '160px', flexShrink: 0 }}>
+            <div className="mb-3.5 font-mono text-[11.5px] font-bold uppercase tracking-[0.12em] text-text-dim">
+              {column.title}
             </div>
-        </div>
-        <div className="mt-8 flex flex-col gap-4 text-xs text-gray-500 md:flex-row md:items-center md:justify-between dark:text-gray-400">
-          <p>&copy; {new Date().getFullYear()} hypequery. All rights reserved.</p>
-          <div className="flex items-center gap-4 text-gray-400 dark:text-gray-500">
-            {navigation.social.map((item) => (
-              <a
-                key={item.name}
-                href={item.href}
-                className="hover:text-gray-600 dark:hover:text-gray-300"
-                rel="noopener"
-                target="_blank"
-              >
-                <span className="sr-only">{item.name}</span>
-                {item.icon === 'github' && (
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      fillRule="evenodd"
-                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )}
-                {item.icon === 'x' && (
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-                    <path d="M18.244 3H21.5l-7.5 8.568L22 21h-5.156l-4.03-4.888L8.113 21H4.856l7.938-9.06L2.5 3h5.289l3.64 4.523L18.244 3zm-1.804 16.2h1.402L7.56 4.695H6.07l10.37 14.505z" />
-                  </svg>
-                )}
-                {item.icon === 'linkedin' && (
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
-                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.026-3.037-1.852-3.037-1.853 0-2.137 1.447-2.137 2.943v5.663H9.354V9h3.414v1.561h.047c.476-.9 1.637-1.85 3.37-1.85 3.604 0 4.27 2.372 4.27 5.456v6.285zM5.337 7.433a2.062 2.062 0 01-2.063-2.058A2.062 2.062 0 015.337 3.32a2.062 2.062 0 012.062 2.055 2.062 2.062 0 01-2.062 2.058zM3.56 20.452h3.553V9H3.56v11.452z" />
-                  </svg>
-                )}
-              </a>
-            ))}
+            <div className="flex flex-col items-start gap-2">
+              {column.links.map((link) =>
+                link.external ? (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-[13.5px] text-text-muted transition hover:text-text"
+                  >
+                    {link.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    className="block text-[13.5px] text-text-muted transition hover:text-text"
+                  >
+                    {link.label}
+                  </Link>
+                ),
+              )}
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
+
+      <div className="mx-auto mt-12 max-w-[1280px] footer-bottom border-t border-border pt-6 text-xs text-text-dim">
+        <span>© {year} hypequery. All rights reserved.</span>
+        <ThemeToggle />
       </div>
     </footer>
   );

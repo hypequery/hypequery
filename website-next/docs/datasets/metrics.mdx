@@ -1,0 +1,175 @@
+---
+title: Metrics
+description: Attach named KPIs and derived calculations to datasets.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Metrics are named KPI handles attached to a dataset. They are the reusable values you expose to APIs, dashboards, agents, and MCP clients.
+
+Measures define raw aggregations inside a dataset. Metrics promote those measures into named business concepts.
+
+<CodeBlock>
+```typescript
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
+await analytics.execute(revenue, {
+  dimensions: ['country'],
+  filters: [eq('status', 'completed')],
+  limit: 10,
+});
+```
+</CodeBlock>
+
+## Base metrics
+
+Base metrics point at one measure from the same dataset.
+
+<CodeBlock>
+```typescript
+const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Total Revenue',
+  description: 'Total order amount before refunds.',
+});
+
+const orderCount = Orders.metric('orderCount', {
+  measure: 'orderCount',
+  label: 'Order Count',
+});
+```
+</CodeBlock>
+
+If `label` or `description` are omitted, the metric inherits them from the referenced measure when available.
+
+## Base metric options
+
+<CodeBlock>
+```typescript
+type BaseMetricConfig = {
+  measure: string;
+  label?: string;
+  description?: string;
+};
+```
+</CodeBlock>
+
+| Option | Use it for |
+| --- | --- |
+| `measure` | The dataset measure this metric exposes |
+| `label` | Human-readable display text for docs, UIs, and agents |
+| `description` | Longer metadata for generated docs, UIs, and agents |
+
+## Derived metrics
+
+Derived metrics compose base metrics from the same dataset using formulas.
+
+<CodeBlock>
+```typescript
+import { divide, nullIfZero } from '@hypequery/datasets';
+
+const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+  label: 'Average Order Value',
+});
+```
+</CodeBlock>
+
+Derived metrics can only use base metrics from the same dataset. They cannot reference metrics from another dataset, and they cannot be derived from another derived metric.
+
+## Derived metric options
+
+<CodeBlock>
+```typescript
+type DerivedMetricConfig = {
+  uses: Record<string, BaseMetricRef>;
+  formula: (inputs: Record<string, string>) => FormulaExpr;
+  label?: string;
+  description?: string;
+};
+```
+</CodeBlock>
+
+| Option | Use it for |
+| --- | --- |
+| `uses` | The base metric refs available to the formula |
+| `formula` | A symbolic formula that combines those base metrics |
+| `label` | Human-readable display text for docs, UIs, and agents |
+| `description` | Longer metadata for generated docs, UIs, and agents |
+
+Formula helpers include:
+
+- `divide(a, b)`
+- `multiply(a, b)`
+- `add(a, b)`
+- `subtract(a, b)`
+- `nullIfZero(value)`
+- `coalesce(...)`
+- `round(...)`
+
+Formula helpers are symbolic. They build expressions that hypequery can plan and execute; they are not raw SQL strings.
+
+## Metric queries vs dataset queries
+
+Use metric queries when you want to expose one named KPI contract.
+
+<CodeBlock>
+```typescript
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+
+await analytics.execute(revenue, {
+  dimensions: ['country'],
+  filters: [eq('status', 'completed')],
+  orderBy: [{ field: 'revenue', direction: 'desc' }],
+  limit: 10,
+});
+```
+</CodeBlock>
+
+Use dataset queries when callers need an ad hoc selection of dimensions and measures from the same dataset.
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['country', 'status'],
+  measures: ['revenue', 'orderCount'],
+  filters: [eq('status', 'completed')],
+});
+```
+</CodeBlock>
+
+Both paths use the same dataset definition and validation rules. Metrics are better for reusable product concepts; dataset queries are better for same-dataset exploration.
+
+## Time grains
+
+When the dataset has a `timeKey`, metrics can be grained by time.
+
+<CodeBlock>
+```typescript
+const monthlyRevenue = revenue.by('month');
+
+await analytics.execute(monthlyRevenue, {
+  dimensions: ['country'],
+});
+```
+</CodeBlock>
+
+Supported grains are `day`, `week`, `month`, `quarter`, and `year`.
+
+## MCP metadata
+
+Named metrics are exposed through MCP `get_dataset_schema`. Use `label` and `description` to make metric intent clear to agents and UIs.
+
+<CodeBlock>
+```typescript
+const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+  label: 'Average Order Value',
+  description: 'Revenue divided by order count.',
+});
+```
+</CodeBlock>

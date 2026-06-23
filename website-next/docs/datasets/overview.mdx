@@ -1,0 +1,98 @@
+---
+title: Overview
+description: Define ClickHouse tables once in TypeScript, then reuse typed semantic definitions across APIs, jobs, dashboards, and agents.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+
+Datasets are type-safe semantic analytics definitions. A dataset models a source table or view with dimensions, measures, metrics, tenant keys, and time keys in TypeScript.
+
+Use datasets when query logic has started to matter beyond one file:
+
+- define table semantics once
+- reuse dimensions and measures alongside normal query builder code
+- apply tenant and time context consistently
+- serve semantic dataset endpoints from the same definitions
+- keep the layer in your codebase instead of YAML or a separate platform
+
+`@hypequery/datasets` owns semantic meaning and planning. `@hypequery/clickhouse` owns query construction and execution. `@hypequery/serve` owns HTTP/runtime delivery.
+
+## Install
+
+<CodeBlock>
+```bash
+npm install @hypequery/datasets @hypequery/clickhouse
+# or
+pnpm add @hypequery/datasets @hypequery/clickhouse
+```
+</CodeBlock>
+
+## Quick start
+
+<CodeBlock>
+```typescript
+import {
+  createDatasetClient,
+  dataset,
+  dimension,
+  divide,
+  eq,
+  measure,
+  nullIfZero,
+} from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USER!,
+  password: process.env.CLICKHOUSE_PASSWORD!,
+  database: process.env.CLICKHOUSE_DATABASE!,
+});
+
+const analytics = createDatasetClient({ queryBuilder: db });
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.number(),
+    tenantId: dimension.string({ column: 'tenant_id' }),
+    status: dimension.string(),
+    country: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+});
+
+// Execute a dataset query directly when you want multiple measures.
+const byCountry = await analytics.execute(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue', 'orderCount'],
+  filters: [eq('status', 'completed')],
+  limit: 10,
+});
+
+// Promote reusable KPIs into metrics.
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
+
+// Derived metrics compose base metrics from the same dataset.
+const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+});
+
+const aovByCountry = await analytics.execute(averageOrderValue, {
+  dimensions: ['country'],
+  filters: [eq('status', 'completed')],
+  orderBy: [{ field: 'averageOrderValue', direction: 'desc' }],
+  limit: 10,
+});
+```
+</CodeBlock>

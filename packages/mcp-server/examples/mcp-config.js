@@ -5,19 +5,21 @@
  * Copy this file and modify it for your ClickHouse schema.
  */
 
-import { dataset, dimension, measure } from '@hypequery/datasets';
-import { createDatasetClient } from '@hypequery/clickhouse/datasets';
+import { createDatasetClient, dataset, dimension, measure } from '@hypequery/datasets';
+import { createQueryBuilder } from '@hypequery/clickhouse';
 
 // =============================================================================
 // ClickHouse Connection
 // =============================================================================
 
-const analytics = createDatasetClient({
+const db = createQueryBuilder({
   url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
   username: process.env.CLICKHOUSE_USER || 'default',
   password: process.env.CLICKHOUSE_PASSWORD || '',
   database: process.env.CLICKHOUSE_DATABASE || 'default',
 });
+
+const analytics = createDatasetClient({ queryBuilder: db });
 
 // =============================================================================
 // Dataset Definitions

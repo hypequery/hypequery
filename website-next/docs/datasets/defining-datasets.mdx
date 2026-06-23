@@ -1,0 +1,67 @@
+---
+title: Definition
+description: Create typed dataset definitions over ClickHouse tables and views.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+A dataset is a typed semantic model over a source table or view.
+
+<CodeBlock>
+```typescript
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.number(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+```
+</CodeBlock>
+
+`source` is the physical table or view name. The first `dataset()` argument is the logical dataset name. `tenantKey` and `timeKey` are physical column names used for runtime tenant isolation and time graining.
+
+## Module pattern
+
+Define datasets at the module level and export them from dedicated files.
+
+<CodeBlock>
+```typescript
+// datasets/orders.ts
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.number(),
+    status: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+});
+```
+</CodeBlock>
+
+## Public shape
+
+A dataset can include:
+
+- `source`
+- `tenantKey`
+- `timeKey`
+- `dimensions`
+- `measures`
+- `filters`
+- `relationships`
+- `limits`
+
+See [Dimensions](/docs/datasets/dimensions), [Measures](/docs/datasets/measures), and [Metrics](/docs/datasets/metrics) for the main building blocks.

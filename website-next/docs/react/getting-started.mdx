@@ -8,11 +8,9 @@ import { CodeBlock, Pre } from 'fumadocs-ui/components/codeblock';
 
 # React Hooks - Getting Started
 
-<Callout type="info">
-  We've simplified the serve API in v0.2. If you're looking for the older builder-first API, see <a href="/docs/migrate-legacy-serve-api">Migrate from v0.1.x Serve API</a> and <a href="/docs/legacy-serve/query-definitions">v0.1.x Serve API</a>.
-</Callout>
-
 Use `@hypequery/react` to generate type-safe hooks (`useQuery`, `useMutation`) backed by TanStack Query. Bring your exported `serve({ queries })` API type into your React app without duplicating schemas.
+
+For semantic `metrics` and `datasets` endpoints, use `createAnalyticsHooks`, which adds `useMetric` and `useDataset` on top of the base hooks. See [Analytics hooks for metrics and datasets](#analytics-hooks-for-metrics-and-datasets) below.
 
 ## Installation
 
@@ -76,6 +74,42 @@ export const { useQuery, useMutation } = createHooks<Api>({
 ```
 </Pre>
 </CodeBlock>
+
+## Analytics hooks for metrics and datasets
+
+When your API registers `metrics` or `datasets`, use `createAnalyticsHooks` instead of `createHooks`. It returns everything `createHooks` does, plus `useMetric`, `useDataset`, `useInfiniteMetric`, and `useInfiniteDataset`.
+
+Semantic endpoints are POST routes whose paths differ from their map keys (e.g. the `orders` dataset lives at `POST /datasets/orders/query`). Pass a `manifest` from the serve API's `api.manifest()` so the hooks can resolve those routes:
+
+<CodeBlock>
+<Pre>
+```ts
+// lib/analytics.ts
+import { createAnalyticsHooks } from '@hypequery/react';
+import { InferApiType } from '@hypequery/serve';
+import { api } from '@/analytics/queries';
+
+type Api = InferApiType<typeof api>;
+
+export const {
+  useQuery,
+  useMutation,
+  useMetric,
+  useDataset,
+  useInfiniteMetric,
+  useInfiniteDataset,
+} = createAnalyticsHooks<Api>({
+  baseUrl: '/api',
+  // Required for metric/dataset endpoints — resolves each key's method + path.
+  manifest: api.manifest(),
+});
+```
+</Pre>
+</CodeBlock>
+
+<Callout type="info">
+  `api.manifest()` is safe to JSON-serialize, so you can also fetch it from a small endpoint at runtime when your client can't import the server module — see <a href="/docs/react/advanced-patterns#auto-config-from-server">Auto-config from server</a>. Without a manifest (or an explicit <code>config</code> entry), `useMetric`/`useDataset` throw a clear error rather than calling the wrong URL.
+</Callout>
 
 ## Provider Setup
 

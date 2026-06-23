@@ -152,6 +152,78 @@ const updateMetric = useMutation('updateMetric', {
 </Pre>
 </CodeBlock>
 
+## `useMetric` and `useDataset`
+
+When you set up hooks with `createAnalyticsHooks`, use `useMetric` and `useDataset` for semantic endpoints. They take the same TanStack options as `useQuery`, and the input is the metric or dataset query (dimensions, measures, filters, ordering, limits).
+
+`useMetric` runs a named metric. Reference it by metric name:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { useMetric } from '@/lib/analytics';
+
+function RevenueByCountry() {
+  const { data, isLoading } = useMetric('revenue', {
+    dimensions: ['country'],
+    filters: [{ field: 'status', operator: 'eq', value: 'completed' }],
+    orderBy: [{ field: 'revenue', direction: 'desc' }],
+    limit: 10,
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+
+  // Semantic endpoints return `{ data, meta }`.
+  return (
+    <ul>
+      {data?.data.map((row) => (
+        <li key={row.country}>{row.country}: {row.revenue}</li>
+      ))}
+    </ul>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+`useDataset` runs an ad hoc dataset query. Reference it by dataset name — the hook maps it to the `dataset:<name>` route for you:
+
+<CodeBlock>
+<Pre>
+```tsx
+import { useDataset } from '@/lib/analytics';
+
+function OrdersRollup() {
+  const { data, isLoading } = useDataset('orders', {
+    dimensions: ['country', 'status'],
+    measures: ['revenue', 'orderCount'],
+    filters: [{ field: 'status', operator: 'eq', value: 'completed' }],
+    limit: 25,
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <table>
+      <tbody>
+        {data?.data.map((row, i) => (
+          <tr key={i}>
+            <td>{row.country}</td>
+            <td>{row.status}</td>
+            <td>{row.revenue}</td>
+            <td>{row.orderCount}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+```
+</Pre>
+</CodeBlock>
+
+Both hooks validate against the server-side contract: an invalid dimension, measure, or filter returns a `400` error you can handle the same way as any other query. For cursor-free pagination, see [`useInfiniteDataset`](/docs/react/advanced-patterns#infinite-queries).
+
 ## Error Handling
 
 Errors from your hypequery API are structured:

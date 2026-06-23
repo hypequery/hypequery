@@ -67,9 +67,12 @@ npx hypequery dev
 
 | Command | Purpose |
 | --- | --- |
-| `hypequery init` | Scaffold the `analytics/` folder, collect ClickHouse credentials, and optionally create an example query |
-| `hypequery dev [queries-file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
+| `hypequery init` | Scaffold the `analytics/` folder, collect ClickHouse credentials, and optionally create an example query or dataset |
+| `hypequery dev [file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
+| `hypequery generate:types` | Alias for `hypequery generate` |
+| `hypequery generate:datasets` | Generate dataset (semantic layer) definitions from your ClickHouse schema |
+| `hypequery help [command]` | Show help for the CLI or a specific command |
 
 The sections below expand on the supported options and expected behavior for each command.
 
@@ -86,21 +89,29 @@ npx hypequery init [options]
 </CodeBlock>
 
 **Options:**
-- **`--database <type>`** – Database type (currently only `clickhouse`)
-- **`--path <dir>`** – Target directory for `client.ts`, `schema.ts`, and `queries.ts`. Defaults to `analytics/`
+- **`--path <dir>`** – Target directory for the scaffold (`client.ts`, `schema.ts`, and either `queries.ts` or `datasets.ts`/`api.ts`). Defaults to `analytics/`
+- **`--style <style>`** – Scaffold style: `queries` (default — query-builder routes) or `datasets` (semantic datasets API)
+- **`--auth <mode>`** – Auth scaffold mode: `none` (default) or `context` (adds host/user context auth helpers)
+- **`--all-tables`** – With `--style datasets`, generate dataset definitions for every discovered table
+- **`--tables <names>`** – With `--style datasets`, generate datasets only for these comma-separated tables
+- **`--exclude-tables <names>`** – With `--style datasets`, exclude these comma-separated tables from generation
 - **`--no-example`** – Skip generating the sample query
 - **`--no-interactive`** – Skip prompts and read the ClickHouse URL/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing
 - **`--force`** – Overwrite existing files without asking
 - **`--skip-connection`** – Skip the initial ClickHouse connectivity test and scaffold files without validating the connection first
 
+`init` always targets ClickHouse — there is no `--database` flag (use `--database` on `generate` once other drivers are available).
+
 **What it does:**
 
 During the flow the CLI tests your ClickHouse connection immediately using the credentials you provide. On success it:
 - Writes `.env` with your connection details
-- Generates `client.ts`, `schema.ts`, and `queries.ts` in the selected directory
+- Generates `client.ts`, `schema.ts`, and `queries.ts` (or `datasets.ts` + `api.ts` with `--style datasets`) in the selected directory
 - Creates or updates `.gitignore` to protect secrets
-- Installs the scaffold dependencies the generated files expect
+- Installs the scaffold dependencies the generated files expect (`@hypequery/clickhouse`, `@hypequery/serve`, `zod`, plus `@hypequery/datasets` for the datasets style) using the package manager detected in your project
 - Prints follow-up instructions for `hypequery dev`
+
+The example query is only generated in interactive mode with a valid connection. To skip the automatic dependency install (for example in CI), set `HYPEQUERY_SKIP_INSTALL=1` and install the packages yourself.
 
 The generated scaffold is written for modern ESM and NodeNext-style resolution, so local relative imports include the `.js` extension where needed.
 
@@ -115,6 +126,12 @@ npx @hypequery/cli init
 
 # Non-interactive with custom path
 npx @hypequery/cli init --path src/analytics --no-interactive
+
+# Scaffold the datasets semantic API for specific tables
+npx @hypequery/cli init --style datasets --tables users,orders
+
+# Scaffold datasets for every table, with context-based auth helpers
+npx @hypequery/cli init --style datasets --all-tables --auth context
 ```
 </CodeBlock>
 
@@ -131,7 +148,8 @@ npx hypequery dev [path/to/queries.ts] [options]
 </CodeBlock>
 
 **Options:**
-- **`[file]`** – Optional path to your `queries.ts`. Defaults to `analytics/queries.ts`, `src/analytics/queries.ts`, or the nearest `hypequery.ts`
+- **`[file]`** – Optional path to your entry file. When omitted, the CLI searches, in order: `hypequery.ts`, `analytics/api.ts`, `src/analytics/api.ts`, `api.ts`, `src/api.ts`, `analytics/queries.ts`, `src/analytics/queries.ts`, `queries.ts`, `src/queries.ts`
+- **`--path <path>`** – Analytics directory to load from (resolves `<path>/api.ts`, falling back to `<path>/queries.ts`)
 - **`-p, --port <port>`** – Desired port (default: `4000`)
 - **`-h, --hostname <host>`** – Bind address (default: `localhost`)
 - **`--no-watch`** – Run once without watching for file changes
@@ -187,9 +205,12 @@ npx hypequery generate [options]
 This is the command most users want after initial setup. Run it whenever your ClickHouse schema changes and you need to refresh the generated TypeScript types.
 
 **Options:**
-- **`--output <file>`** – Where to write the generated types. Defaults to your existing `analytics/schema.ts` or `analytics/schema.ts` if not found
+- **`-o, --output <file>`** – Where to write the generated types. When omitted, the CLI reuses an existing schema file (searching `analytics/schema.ts`, `src/analytics/schema.ts`, `schema.ts`, `src/schema.ts`) and otherwise defaults to `analytics/schema.ts`
+- **`--path <dir>`** – Analytics directory to write into (derives `<dir>/schema.ts`). Takes effect when `--output` is not set
 - **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected
 - **`--database <type>`** – Override the detected database driver (currently only `clickhouse`)
+
+`hypequery generate:types` is an alias for `hypequery generate` and accepts the same options.
 
 **What it does:**
 
@@ -213,6 +234,42 @@ npx @hypequery/cli generate
 # Generate specific tables only
 npx @hypequery/cli generate --tables users,events
 
+```
+</CodeBlock>
+
+## `hypequery generate:datasets`
+
+<CodeBlock>
+```bash
+# Without installation
+npx @hypequery/cli generate:datasets [options]
+
+# With installation
+npx hypequery generate:datasets [options]
+```
+</CodeBlock>
+
+Scaffolds [dataset (semantic layer)](/docs/datasets/overview) definitions from your ClickHouse schema, so you don't have to hand-write dimensions and measures for every table. This is the standalone version of what `hypequery init --style datasets` does during scaffolding.
+
+**Options:**
+- **`-o, --output <file>`** – Where to write the generated datasets. Defaults to `src/datasets/generated.ts`
+- **`--path <dir>`** – Analytics directory to write into (derives `<dir>/datasets.ts`). Takes effect when `--output` is not set
+- **`--tables <names>`** – Comma-separated list of tables to include. By default all tables are scaffolded
+- **`--exclude-tables <names>`** – Comma-separated list of tables to exclude
+
+**What it does:**
+
+The generator connects to ClickHouse with your `CLICKHOUSE_*` env vars, introspects the matching tables, and writes a `datasets` export containing a `dataset(...)` definition per table with inferred dimensions and measures. Review and customize the output, then import it into your application or `api.ts`.
+
+**Example:**
+
+<CodeBlock>
+```bash
+# Generate datasets for all tables (writes src/datasets/generated.ts)
+npx @hypequery/cli generate:datasets
+
+# Generate into your analytics folder for specific tables
+npx @hypequery/cli generate:datasets --path analytics --tables users,orders
 ```
 </CodeBlock>
 
@@ -263,11 +320,11 @@ npx @hypequery/cli dev src/analytics/queries.js
 
 If the CLI reports that your file doesn't export an API properly:
 
-1. Ensure your queries file exports an `api` variable created from `serve({ queries })`
+1. Ensure your entry file exports the hypequery API as `api` (a `default` export also works)
 2. Check the error message for the list of exports found
 3. See the expected format in the error message
 
-Example of correct format:
+The CLI accepts either entry style. Query-builder routes use `serve({ queries })`:
 <CodeBlock>
 ```typescript
 import { initServe } from '@hypequery/serve';
@@ -284,6 +341,20 @@ const myQuery = query({
 
 export const api = serve({
   queries: { myQuery },
+});
+```
+</CodeBlock>
+
+The datasets semantic API uses `createAPI`:
+<CodeBlock>
+```typescript
+import { createAPI } from '@hypequery/serve';
+import { db } from './client.js';
+import { datasets } from './datasets.js';
+
+export const api = createAPI({
+  queryBuilder: db,
+  datasets,
 });
 ```
 </CodeBlock>

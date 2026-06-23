@@ -1,0 +1,166 @@
+---
+title: Serve integration
+description: Expose dataset and metric definitions through the Serve runtime.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`@hypequery/serve` can expose semantic metric and dataset endpoints from the same definitions you use with `createDatasetClient`.
+
+Use Serve when dataset logic needs an HTTP boundary, OpenAPI/docs, auth, tenancy, caching, middleware, or React integration.
+
+## Register datasets and metrics
+
+Pass a query builder plus the datasets and metrics you want to expose.
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+import { Orders, revenue } from './datasets/orders';
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = serve({
+  queryBuilder: db,
+  metrics: { revenue },
+  datasets: { orders: Orders },
+});
+```
+</CodeBlock>
+
+Metric endpoints validate dimensions, filters, time grains, and ordering against the metric contract. Dataset endpoints validate dimensions, measures, filters, time grains, and ordering against the dataset definition. A `limit` above the endpoint's `maxLimit` is clamped to `maxLimit` rather than rejected.
+
+## Endpoint shapes
+
+Semantic endpoints are generated as POST endpoints.
+
+| Config | Endpoint shape | Use it for |
+| --- | --- | --- |
+| `metrics: { revenue }` | `/metrics/revenue` | One named KPI contract |
+| `datasets: { orders: Orders }` | `/datasets/orders/query` | Flexible same-dataset rollups |
+
+The exact URL is prefixed by your Serve `basePath`.
+
+## Metric endpoint input
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "filters": [
+    { "field": "status", "operator": "eq", "value": "completed" }
+  ],
+  "orderBy": [
+    { "field": "revenue", "direction": "desc" }
+  ],
+  "limit": 10
+}
+```
+</CodeBlock>
+
+## Dataset endpoint input
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country", "status"],
+  "measures": ["revenue", "orderCount"],
+  "filters": [
+    { "field": "status", "operator": "eq", "value": "completed" }
+  ],
+  "limit": 10
+}
+```
+</CodeBlock>
+
+## Pagination
+
+Both endpoint types support offset pagination. Send `limit` and `offset`; the response reports the served `offset` and a `hasMore` flag so clients know whether another page exists.
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "measures": ["revenue"],
+  "limit": 50,
+  "offset": 50
+}
+```
+</CodeBlock>
+
+In React, `useInfiniteMetric` and `useInfiniteDataset` handle `offset`/`hasMore` for you.
+
+## Include result metadata
+
+Semantic endpoints return `{ data }` by default. Include metadata with either `includeMeta: true` in the request body or the `x-include-meta: true` header.
+
+<CodeBlock>
+```json
+{
+  "dimensions": ["country"],
+  "limit": 10,
+  "includeMeta": true
+}
+```
+</CodeBlock>
+
+Metadata can include generated SQL, timing, row count, tenant, and pagination.
+
+## Query definitions plus datasets
+
+You can expose hand-authored query definitions and generated semantic endpoints from the same API.
+
+<CodeBlock>
+```typescript
+const activeOrders = query({
+  query: ({ ctx }) =>
+    ctx.db
+      .table('orders')
+      .where('status', 'eq', 'active')
+      .limit(10)
+      .execute(),
+});
+
+export const api = serve({
+  queryBuilder: db,
+  queries: { activeOrders },
+  metrics: { revenue },
+  datasets: { orders: Orders },
+});
+```
+</CodeBlock>
+
+Use hand-authored queries for bespoke application endpoints. Use metrics and datasets for governed analytics endpoints generated from semantic definitions.
+
+## Per-entry options
+
+Datasets and metrics can be registered directly or with endpoint-specific options.
+
+<CodeBlock>
+```typescript
+export const api = serve({
+  queryBuilder: db,
+  metrics: {
+    revenue: {
+      metric: revenue,
+      requiredRoles: ['analytics'],
+      cache: 60_000,
+      maxLimit: 100,
+    },
+  },
+  datasets: {
+    orders: {
+      dataset: Orders,
+      requiredRoles: ['analytics'],
+      cache: 60_000,
+      maxLimit: 100,
+    },
+  },
+});
+```
+</CodeBlock>
+
+For routing, auth, OpenAPI, and React hooks, see the [Serve docs](/docs/http-openapi) and [React docs](/docs/react/getting-started).

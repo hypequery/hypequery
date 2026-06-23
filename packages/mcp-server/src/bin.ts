@@ -7,7 +7,7 @@
  * Users can configure it by creating a config file that exports datasets and analytics.
  *
  * Usage:
- *   npx hypequery-mcp --config ./mcp-config.js
+ *   npx hypequery-mcp --config ./mcp-config.mjs
  */
 
 import { createMCPServer } from './server.js';
@@ -36,7 +36,7 @@ async function main() {
   if (configIndex === -1 || !args[configIndex + 1]) {
     console.error('Error: --config flag is required');
     console.error('');
-    console.error('Usage: hypequery-mcp --config ./mcp-config.js');
+    console.error('Usage: hypequery-mcp --config ./mcp-config.mjs');
     console.error('');
     console.error('The config file should export { datasets, analytics }:');
     console.error('');

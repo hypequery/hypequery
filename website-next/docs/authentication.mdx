@@ -10,16 +10,126 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 Authentication in hypequery starts at the runtime layer. You attach auth strategies to `initServe(...)` or `serve({ ... })`, and the resolved auth object is made available as `ctx.auth` inside your query definitions.
 
-## Model
+## Choose a strategy
 
-- define an auth strategy that reads request credentials
-- return an auth object or `null`
-- access the resolved auth object through `ctx.auth`
-- optionally use `createAuthSystem(...)` for typed roles and scopes
-- add per-query auth requirements directly in `query({ ... })`
-- reuse the same runtime for local execution, routes, docs, and framework handlers
+Most apps don't need to hand-roll credential parsing. Pick the built-in strategy that matches how your runtime is deployed:
 
-## API key example
+| Deployment | Strategy | Use when |
+| --- | --- | --- |
+| Same app | `fromContext(...)` | hypequery runs inside an app that already authenticates the request |
+| Cross-origin / embedded | `createJwtStrategy(...)` | a separate client sends a JWT (your own HS256 secret or a provider's JWKS) |
+| Signed embedding | `createAnalyticsTokenIssuer(...)` | you mint short-lived analytics tokens server-side |
+| Custom systems | `createApiKeyStrategy(...)` / `createBearerTokenStrategy(...)` | you need bespoke credential handling |
+
+Whichever you choose, the resolved auth object is exposed as `ctx.auth`. When `auth` is configured, endpoints require authentication by default — mark exceptions with `requiresAuth: false` (or `query.public()`).
+
+## Same-app auth with `fromContext` (recommended)
+
+If hypequery runs inside an app that already authenticates requests, reuse that session instead of validating credentials again. `fromContext` hands you the request so you can read the user your framework already resolved.
+
+<CodeBlock>
+```typescript
+import { fromContext, initServe } from '@hypequery/serve';
+import { db } from './client';
+// Your app's existing session helper — reads the cookie/token and returns the user.
+import { getUserFromRequest } from './auth';
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+  auth: fromContext(({ request }) => {
+    const user = getUserFromRequest(request.raw);
+    return user
+      ? { userId: user.id, tenantId: user.orgId, roles: user.roles }
+      : null;
+  }),
+  basePath: '/api/analytics',
+});
+
+const tenantUsers = query({
+  requiresAuth: true,
+  query: ({ ctx }) =>
+    ctx.db
+      .table('users')
+      .select(['id', 'email', 'last_seen_at'])
+      .where('tenant_id', 'eq', ctx.auth!.tenantId)
+      .orderBy('last_seen_at', 'DESC')
+      .limit(50)
+      .execute(),
+});
+
+export const api = serve({
+  queries: { tenantUsers },
+});
+```
+</CodeBlock>
+
+`request.raw` is the underlying framework request (the Node/Fetch object), so you can call whatever session helper you already use.
+
+## Cross-origin auth with `createJwtStrategy`
+
+When a separate client calls your runtime, verify a JWT bearer token. Use a shared `secret` for tokens you mint yourself (HS256), or `jwksUri` for tokens from a provider like Auth0, Clerk, or Cognito (RS256).
+
+<CodeBlock>
+```typescript
+import { createJwtStrategy, initServe } from '@hypequery/serve';
+import { db } from './client';
+
+// Tokens you mint yourself (HS256).
+const secretAuth = createJwtStrategy({
+  secret: process.env.HYPEQUERY_AUTH_SECRET!,
+  issuer: 'https://your-app.example.com',
+  audience: 'hypequery-analytics',
+});
+
+// Tokens from a provider via JWKS (RS256).
+const providerAuth = createJwtStrategy({
+  jwksUri: 'https://example.auth0.com/.well-known/jwks.json',
+  issuer: 'https://example.auth0.com/',
+  audience: 'https://api.example.com',
+});
+
+const { query, serve } = initServe({
+  context: () => ({ db }),
+  auth: secretAuth,
+});
+```
+</CodeBlock>
+
+By default the verified claims are mapped to `ctx.auth` as `sub → userId`, `org_id → tenantId`, `roles → roles`, and `scope`/`scopes → scopes`. Override that with `mapClaims(payload, request)` when your tokens use different claim names.
+
+## Signed embedding with `createAnalyticsTokenIssuer`
+
+For embedded dashboards, mint short-lived analytics tokens on your server and verify them with `createJwtStrategy({ secret })`.
+
+<CodeBlock>
+```typescript
+import { createAnalyticsTokenIssuer } from '@hypequery/serve';
+
+const issueAnalyticsToken = createAnalyticsTokenIssuer({
+  secret: process.env.HYPEQUERY_AUTH_SECRET!,
+  expiresIn: '15m',
+  issuer: 'https://your-app.example.com',
+  audience: 'hypequery-analytics',
+});
+
+// In an authenticated route on your own server:
+app.get('/api/analytics/token', requireUser, async (req, res) => {
+  res.json({
+    token: await issueAnalyticsToken({
+      userId: req.user.id,
+      tenantId: req.user.orgId,
+      roles: req.user.roles,
+    }),
+  });
+});
+```
+</CodeBlock>
+
+## Custom strategies
+
+When you need bespoke credential handling, `createApiKeyStrategy` and `createBearerTokenStrategy` give you a `validate` hook that returns your auth object or `null`.
+
+### API key
 
 <CodeBlock>
 ```typescript
@@ -45,26 +155,10 @@ const { query, serve } = initServe({
   auth: apiKeyAuth,
   basePath: '/api/analytics',
 });
-
-const tenantUsers = query({
-  requiresAuth: true,
-  query: ({ ctx }) =>
-    ctx.db
-      .table('users')
-      .select(['id', 'email', 'last_seen_at'])
-      .where('tenant_id', 'eq', ctx.auth!.tenantId)
-      .orderBy('last_seen_at', 'DESC')
-      .limit(50)
-      .execute(),
-});
-
-export const api = serve({
-  queries: { tenantUsers },
-});
 ```
 </CodeBlock>
 
-## Bearer token example
+### Bearer token
 
 <CodeBlock>
 ```typescript
@@ -88,20 +182,10 @@ const { query, serve } = initServe({
   context: () => ({ db }),
   auth: bearerAuth,
 });
-
-const recentOrders = query({
-  requiresAuth: true,
-  query: ({ ctx }) =>
-    ctx.db
-      .table('orders')
-      .select(['id', 'status', 'total', 'created_at'])
-      .where('user_id', 'eq', ctx.auth!.userId)
-      .orderBy('created_at', 'DESC')
-      .limit(25)
-      .execute(),
-});
 ```
 </CodeBlock>
+
+Prefer `createJwtStrategy` over a hand-written bearer `validate` when you're verifying standard JWTs — it handles signature verification, issuer/audience checks, and claim mapping for you.
 
 ## Where auth lives
 
@@ -244,8 +328,48 @@ The query builder-compatible auth guards are still current and supported:
 
 Use object-style auth fields by default on `query({ ... })`. Use the chainable guard methods when you prefer the builder-style query surface or need backwards compatibility with existing guard-heavy definitions.
 
+## Auth on semantic endpoints
+
+Auto-generated `metrics` and `datasets` endpoints are protected the same way as queries, but you declare the requirements on the per-entry config object instead of inside a `query({ ... })` definition. Each entry accepts `auth`, `requiredRoles`, and `requiredScopes`.
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+import { Orders, revenue } from './datasets/orders';
+
+const { serve } = initServe({
+  context: () => ({ db }),
+  auth: authStrategy,
+});
+
+export const api = serve({
+  queryBuilder: db,
+  metrics: {
+    // Shorthand: inherits the global auth strategy with no extra requirements.
+    revenue,
+  },
+  datasets: {
+    orders: {
+      dataset: Orders,
+      requiredRoles: ['analytics'],
+      requiredScopes: ['read:data'],
+    },
+  },
+});
+```
+</CodeBlock>
+
+The semantics match `query({ ... })`:
+
+- `requiredRoles` uses OR semantics (any listed role grants access)
+- `requiredScopes` uses AND semantics (all listed scopes required)
+- declaring either one implies authentication
+- `auth` on an entry overrides the global strategy for that endpoint; `auth: null` makes it public
+
+Metrics use the same shape via `{ metric, requiredRoles, requiredScopes, auth }`. See [Serve integration](/docs/datasets/serve-integration) for the full set of per-entry options.
+
 ## See Also
 
 - [Serve Runtime Reference](/docs/reference/api/runtime)
 - [Query Definition Reference](/docs/reference/api/query)
-- [v0.1.x Authentication](/docs/legacy-serve/authentication)

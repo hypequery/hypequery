@@ -10,10 +10,12 @@ hypequery ships a small set of focused packages. Use this page as a quick refere
 
 | Package | Purpose |
 | --- | --- |
-| `@hypequery/serve` | Core runtime for authoring queries/metrics with `initServe`, exposing them via HTTP, and executing them in-process (cron, SSR, agents). Includes middleware, auth, OpenAPI/docs, and adapters. |
+| `@hypequery/serve` | Core runtime for authoring queries with `initServe`, registering semantic `metrics`/`datasets`, exposing them via HTTP, and executing them in-process (cron, SSR, agents). Includes middleware, auth, OpenAPI/docs, and adapters. |
 | `@hypequery/clickhouse` | Fluent, type-safe ClickHouse client used inside `ctx.db`. Exposes the query builder, expression helpers, caching utilities, and logging APIs you can also use directly on `db`. |
+| `@hypequery/datasets` | Type-safe semantic layer. Define datasets, dimensions, measures, and metrics once with `dataset()`/`createDatasetClient()`, then reuse them across the query builder, Serve endpoints, MCP, and jobs. |
 | `@hypequery/cli` | Developer tooling (`hypequery init`, `hypequery dev`, `hypequery generate`). Handles scaffolding, schema introspection, and local docs. |
-| `@hypequery/react` | TanStack Query-powered hooks (`useQuery`, `useMutation`) generated from your serve catalog (`define()` result / exported `api`) so React apps can call metrics with full typing. |
+| `@hypequery/react` | TanStack Query-powered hooks (`useQuery`, `useMutation`, plus `useMetric`/`useDataset` via `createAnalyticsHooks`) generated from your exported `api` so React apps can call queries, metrics, and datasets with full typing. |
+| `@hypequery/mcp` | Model Context Protocol server that exposes your datasets and metrics to AI agents through governed tools, without handing out raw SQL access. |
 
 ## Typical project setup
 

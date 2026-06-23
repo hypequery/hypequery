@@ -5,28 +5,28 @@ export function baseOptions() {
   return {
     nav: {
       title: (
-        <div className="px-3 font-mono text-lg font-bold text-indigo-300 flex items-center">
+        <div className="flex items-center px-3 font-mono text-lg font-bold text-text">
           &gt; hypequery
         </div>
       ),
     },
     sidebar: {
       defaultOpenLevel: 0,
-      tabs: [
-        {
-          title: 'Documentation',
-          description: 'Framework guide and getting started',
-          url: '/docs',
-          icon: <Book className="w-4 h-4 text-indigo-400" />,
-        },
-        {
-          title: 'v0.1.x Serve API',
-          description: 'Builder-first serve docs for v0.1.x integrations',
-          url: '/docs/legacy-serve/query-definitions',
-          icon: <History className="w-4 h-4 text-amber-400" />,
-          urls: legacyTabUrls,
-        },
-      ],
+      // tabs: [
+      //   {
+      //     title: 'Documentation',
+      //     description: 'Framework guide and getting started',
+      //     url: '/docs',
+      //     icon: <Book className="w-4 h-4 text-indigo-400" />,
+      //   },
+      //   {
+      //     title: 'v0.1.x Serve API',
+      //     description: 'Builder-first serve docs for v0.1.x integrations',
+      //     url: '/docs/legacy-serve/query-definitions',
+      //     icon: <History className="w-4 h-4 text-amber-400" />,
+      //     urls: legacyTabUrls,
+      //   },
+      // ],
       search: {
         enabled: true,
       },

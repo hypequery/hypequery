@@ -42,6 +42,18 @@ type Api = {
 
 This is the type you typically pass into `@hypequery/react`.
 
+When the API registers `metrics` or `datasets`, the inferred type also includes those endpoints: a metric appears under its name, and a dataset under the `dataset:<name>` key. The same `Infer*` helpers below work with these keys.
+
+<CodeBlock>
+```typescript
+// Metric endpoint input/output.
+type RevenueInput = InferQueryInput<typeof api, 'revenue'>;
+
+// Dataset endpoint, keyed as `dataset:<name>`.
+type OrdersInput = InferQueryInput<typeof api, 'dataset:orders'>;
+```
+</CodeBlock>
+
 ## `InferQueryInput`
 
 Extract the input type for one query key from an exported `api` or query map.

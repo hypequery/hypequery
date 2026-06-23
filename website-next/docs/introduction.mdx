@@ -8,11 +8,7 @@ import { SiVite, SiNextdotjs, SiNodedotjs, SiX } from 'react-icons/si';
 
 ## What is hypequery?
 
-hypequery is a **code-first analytics backend for ClickHouse**, built for TypeScript teams who want scalable, type-safe analytics.
-
-At its core, hypequery is a ClickHouse-native TypeScript query builder, you generate types from your schema and then build ClickHouse queries with full type-safety.
-
-Beyond this, hypequery ships with with opt-in features for query reuse, caching, multi-tenancy, authentication, and HTTP endpoint generation.
+hypequery is a **code-first semantic layer for ClickHouse**, built for TypeScript teams who want scalable, type-safe analytics.
 
 Instead of scattering SQL across applications, dashboards, and scripts, hypequery gives you a single, versioned place where analytics logic lives. **In code.**
 
@@ -20,42 +16,60 @@ hypequery is a library, not a hosted platform. It integrates directly with your 
 
 ---
 
+hypequery consists of a number of small, opt-in packages for building type-safe analytics:
+
+* **Query builder** (`@hypequery/clickhouse`)
+  Write type-safe ClickHouse queries in TypeScript
+
+* **Datasets (semantic layer)** (`@hypequery/datasets`)
+  Define metrics, dimensions, and reusable analytics logic
+
+* **Runtime / APIs** (`@hypequery/serve`)
+  Expose queries and datasets via APIs with validation, auth, and multi-tenancy
+
+* **Extras**
+
+  * `@hypequery/mcp` → Query datasets from AI models
+  * `@hypequery/react` → Hooks for frontend apps
+
+
+---
+
 <div className="my-12">
 
 ## Choose your path
 
-hypequery has two common starting points:
+If you're new, follow this path:
 
-1. Start with the ClickHouse-native query builder for local typed queries
-2. Add `query({ ... })` and `serve({ queries })` when the query needs reuse, validation, routes, docs, or framework handlers
-
-If you are unsure, start with the query builder. The Quick Start page now shows both routes on one page.
+1. Start with the query builder to run type-safe queries locally
+2. Add datasets to define shared metrics and dimensions
+3. Use `serve()` when you want to expose queries as APIs
 
 ## Get Started
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
 
-<a href="/docs/quick-start" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-indigo-500 transition-colors bg-gray-900/50 cursor-pointer">
-  <Zap className="w-5 h-5 text-indigo-500 mt-0.5 flex-shrink-0" />
+<a href="/docs/quick-start" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-accent transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Zap className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Quick Start</div>
-    <p className="text-sm text-gray-400">Start with either the builder-first route or the reusable-query runtime route</p>
+    <div className="font-semibold text-foreground mb-1">Quick Start</div>
+    <p className="text-sm text-muted-foreground">Start with either the builder-first route or the reusable-query runtime route</p>
   </div>
 </a>
 
-<a href="/docs/reference/connection" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors bg-gray-900/50 cursor-pointer">
+<a href="/docs/reference/connection" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-purple-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <Book className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Connection Reference</div>
-    <p className="text-sm text-gray-400">Look up connection options, client setup, and ClickHouse configuration details</p>
+    <div className="font-semibold text-foreground mb-1">Connection Reference</div>
+    <p className="text-sm text-muted-foreground">Look up connection options, client setup, and ClickHouse configuration details</p>
   </div>
 </a>
 
-<a href="https://github.com/hypequery/hypequery-examples" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-cyan-500 transition-colors bg-gray-900/50 cursor-pointer">
-  <Github className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+<a href="https://github.com/hypequery/hypequery-examples" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Github className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Example Apps</div>
-    <p className="text-sm text-gray-400">Browse full working apps and framework examples in the examples repo</p>
+    <div className="font-semibold text-foreground mb-1">Example Apps</div>
+    <p className="text-sm text-muted-foreground">Browse full working apps and framework examples in the examples repo</p>
   </div>
 </a>
 
@@ -65,27 +79,27 @@ If you are unsure, start with the query builder. The Quick Start page now shows 
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
 
-<a href="/docs/vite" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-purple-500 transition-colors bg-gray-900/50 cursor-pointer">
+<a href="/docs/vite" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-purple-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <SiVite className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Vite</div>
-    <p className="text-sm text-gray-400">See how the query-and-serve path fits into a Vite app</p>
+    <div className="font-semibold text-foreground mb-1">Vite</div>
+    <p className="text-sm text-muted-foreground">See how the query-and-serve path fits into a Vite app</p>
   </div>
 </a>
 
-<a href="/docs/nextjs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-gray-400 transition-colors bg-gray-900/50 cursor-pointer">
-  <SiNextdotjs className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+<a href="/docs/nextjs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-black transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <SiNextdotjs className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Next.js</div>
-    <p className="text-sm text-gray-400">Mount the runtime inside a Next.js App Router project</p>
+    <div className="font-semibold text-foreground mb-1">Next.js</div>
+    <p className="text-sm text-muted-foreground">Mount the runtime inside a Next.js App Router project</p>
   </div>
 </a>
 
-<a href="/docs/nodejs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-green-500 transition-colors bg-gray-900/50 cursor-pointer">
+<a href="/docs/nodejs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-green-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <SiNodedotjs className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Node.js</div>
-    <p className="text-sm text-gray-400">Run the runtime behind a dedicated Node.js server</p>
+    <div className="font-semibold text-foreground mb-1">Node.js</div>
+    <p className="text-sm text-muted-foreground">Run the runtime behind a dedicated Node.js server</p>
   </div>
 </a>
 
@@ -97,27 +111,27 @@ Use these once you are ready to mount the runtime inside an app or server.
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
 
-<a href="/docs/query-building/basics" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-orange-500 transition-colors bg-gray-900/50 cursor-pointer">
+<a href="/docs/query-building/basics" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-orange-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <Braces className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Query Building</div>
-    <p className="text-sm text-gray-400">Build and compose queries with the fluent API</p>
+    <div className="font-semibold text-foreground mb-1">Query Building</div>
+    <p className="text-sm text-muted-foreground">Build and compose queries with the fluent API</p>
   </div>
 </a>
 
-<a href="/docs/reference/api/query" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-yellow-500 transition-colors bg-gray-900/50 cursor-pointer">
+<a href="/docs/reference/api/query" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-yellow-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <Code2 className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">API Reference</div>
-    <p className="text-sm text-gray-400">Look up the detailed API docs</p>
+    <div className="font-semibold text-foreground mb-1">API Reference</div>
+    <p className="text-sm text-muted-foreground">Look up the detailed API docs</p>
   </div>
 </a>
 
-<a href="/docs/reference/clickhouse-behavior" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-cyan-500 transition-colors bg-gray-900/50 cursor-pointer">
+<a href="/docs/reference/clickhouse-behavior" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <Book className="w-5 h-5 text-cyan-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">ClickHouse Behavior</div>
-    <p className="text-sm text-gray-400">Read the ClickHouse-specific behavior that matters when using the builder and runtime</p>
+    <div className="font-semibold text-foreground mb-1">ClickHouse Behavior</div>
+    <p className="text-sm text-muted-foreground">Read the ClickHouse-specific behavior that matters when using the builder and runtime</p>
   </div>
 </a>
 
@@ -127,27 +141,27 @@ Use these once you are ready to mount the runtime inside an app or server.
 
 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8">
 
-<a href="https://cal.com/luke-reilly-jdi9su/hypequery-chat" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-indigo-500 transition-colors bg-gray-900/50 cursor-pointer">
-  <Calendar className="w-5 h-5 text-indigo-500 mt-0.5 flex-shrink-0" />
+<a href="https://cal.com/luke-reilly-jdi9su/hypequery-chat" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-accent transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Calendar className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">15 mins call</div>
-    <p className="text-sm text-gray-400">Book a 15-minute call with the team</p>
+    <div className="font-semibold text-foreground mb-1">15 mins call</div>
+    <p className="text-sm text-muted-foreground">Book a 15-minute call with the team</p>
   </div>
 </a>
 
-<a href="https://github.com/hypequery/hypequery/issues" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-gray-400 transition-colors bg-gray-900/50 cursor-pointer">
-  <Github className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+<a href="https://github.com/hypequery/hypequery/issues" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-foreground transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Github className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Raise an issue</div>
-    <p className="text-sm text-gray-400">Report bugs or request features</p>
+    <div className="font-semibold text-foreground mb-1">Raise an issue</div>
+    <p className="text-sm text-muted-foreground">Report bugs or request features</p>
   </div>
 </a>
 
-<a href="https://twitter.com/hypequery" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-gray-700 hover:border-cyan-500 transition-colors bg-gray-900/50 cursor-pointer">
-  <SiX className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
+<a href="https://twitter.com/hypequery" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <SiX className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-white mb-1">Follow us on Twitter</div>
-    <p className="text-sm text-gray-400">Stay updated with latest news</p>
+    <div className="font-semibold text-foreground mb-1">Follow us on Twitter</div>
+    <p className="text-sm text-muted-foreground">Stay updated with latest news</p>
   </div>
 </a>
 

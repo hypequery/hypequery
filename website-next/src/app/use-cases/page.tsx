@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import PageWrapper from '@/components/PageWrapper';
 import { absoluteUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -62,43 +61,41 @@ export default function UseCasesPage() {
   };
 
   return (
-    <>
-      <Navigation />
-      <main className="min-h-screen bg-[#020617] pt-28 text-gray-100">
+    <PageWrapper>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-        <section className="relative overflow-hidden border-b border-slate-800/80">
+        <section className="relative overflow-hidden border-b border-border">
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
               Use Cases
             </p>
-            <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight text-white sm:text-6xl">
+            <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight text-text sm:text-6xl">
               ClickHouse analytics use cases for product APIs and SaaS
             </h1>
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
               These are the two adoption paths that show up most often: teams layering analytics into an existing backend, and teams shipping customer-facing analytics with tenant boundaries that need to hold up in production.
             </p>
             <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              <div className="border border-slate-700/80 bg-slate-950/70 p-5">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Adoption path</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-100">Incremental</p>
+              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Adoption path</p>
+                <p className="mt-2 text-2xl font-semibold text-text">Incremental</p>
               </div>
-              <div className="border border-slate-700/80 bg-slate-950/70 p-5">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Source of truth</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-100">Typed queries</p>
+              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Source of truth</p>
+                <p className="mt-2 text-2xl font-semibold text-text">Typed queries</p>
               </div>
-              <div className="border border-slate-700/80 bg-slate-950/70 p-5">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Runtime model</p>
-                <p className="mt-2 text-2xl font-semibold text-slate-100">In-process or HTTP</p>
+              <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
+                <p className="text-xs uppercase tracking-[0.2em] text-text-dim">Runtime model</p>
+                <p className="mt-2 text-2xl font-semibold text-text">In-process or HTTP</p>
               </div>
             </div>
           </div>
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-20 lg:px-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-sky-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
             Use Cases
           </p>
-          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-text sm:text-4xl">
             Start with the path closest to the codebase you already have
           </h2>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
@@ -106,22 +103,22 @@ export default function UseCasesPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="group border border-slate-700 bg-slate-900/70 p-8 transition duration-200 hover:-translate-y-1 hover:border-indigo-400 hover:bg-slate-900"
+                className="group rounded-lg border border-border bg-bg-card p-8 transition duration-200 hover:-translate-y-1 hover:border-border-strong hover:shadow-card"
               >
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
                   {item.label}
                 </p>
-                <h3 className="font-display mt-3 text-2xl font-semibold text-slate-100">{item.title}</h3>
-                <p className="mt-4 text-base leading-7 text-slate-300">{item.description}</p>
-                <ul className="mt-6 space-y-2 text-sm text-slate-200">
+                <h3 className="font-display mt-3 text-2xl font-semibold text-text">{item.title}</h3>
+                <p className="mt-4 text-base leading-7 text-text-muted">{item.description}</p>
+                <ul className="mt-6 space-y-2 text-sm text-text">
                   {item.points.map((point) => (
                     <li key={point} className="flex gap-3">
-                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                       <span>{point}</span>
                     </li>
                   ))}
                 </ul>
-	                <p className="mt-7 text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300 transition group-hover:text-cyan-200">
+	                <p className="mt-7 text-sm font-semibold uppercase tracking-[0.2em] text-accent transition group-hover:opacity-70">
 	                  Open use case
 	                </p>
 	              </Link>
@@ -129,26 +126,26 @@ export default function UseCasesPage() {
 	          </div>
 	        </section>
 
-	        <section className="border-y border-slate-800 bg-slate-950/60">
+	        <section className="border-y border-border bg-bg-alt/60">
 	          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 lg:grid-cols-3 lg:px-6">
 	            <div>
-	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 01</p>
-	              <h3 className="font-display mt-3 text-xl font-semibold text-white">Pick one repeated query</h3>
-	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 01</p>
+	              <h3 className="font-display mt-3 text-xl font-semibold text-text">Pick one repeated query</h3>
+	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Start with analytics logic that already appears in more than one place in your codebase.
 	              </p>
 	            </div>
 	            <div>
-	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 02</p>
-	              <h3 className="font-display mt-3 text-xl font-semibold text-white">Put it on a shared path</h3>
-	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 02</p>
+	              <h3 className="font-display mt-3 text-xl font-semibold text-text">Put it on a shared path</h3>
+	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Either call it in-process from the backend you already run or expose it under a controlled internal API path.
 	              </p>
 	            </div>
 	            <div>
-	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Step 03</p>
-	              <h3 className="font-display mt-3 text-xl font-semibold text-white">Expand only after it proves useful</h3>
-	              <p className="mt-3 text-sm leading-7 text-slate-300">
+	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 03</p>
+	              <h3 className="font-display mt-3 text-xl font-semibold text-text">Expand only after it proves useful</h3>
+	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Let more consumers depend on the same definition instead of minting new one-off query copies.
 	              </p>
 	            </div>
@@ -156,30 +153,28 @@ export default function UseCasesPage() {
 	        </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <div className="border border-indigo-500/40 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
+          <div className="rounded-lg border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                 Next step
               </p>
-	              <h3 className="font-display mt-3 text-2xl font-semibold text-white">
+	              <h3 className="font-display mt-3 text-2xl font-semibold text-text">
 	                Start with the use case closest to your current architecture
 	              </h3>
-	              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+	              <p className="mt-3 max-w-2xl text-sm leading-7 text-text-muted">
 	                Do not start by adopting everything at once. Pick the path that matches your existing backend shape and replace one real query first.
 	              </p>
 	            </div>
             <div className="mt-6 md:mt-0">
               <Link
                 href="/docs/quick-start"
-                className="inline-flex items-center bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                className="inline-flex items-center bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Open quick start
               </Link>
             </div>
           </div>
         </section>
-      </main>
-      <Footer />
-    </>
+    </PageWrapper>
   );
 }

@@ -1,0 +1,89 @@
+---
+title: Configuration
+description: Configure the Hypequery MCP server with datasets and a dataset client.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The CLI loads a config file with dynamic `import()`. The config must export:
+
+- `datasets`: a registry of dataset names to dataset instances
+- `analytics`: a dataset client created with `createDatasetClient`
+
+## Minimal config
+
+<CodeBlock>
+```javascript
+// mcp-config.mjs
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { createDatasetClient } from '@hypequery/datasets';
+import { Users } from './datasets/users.js';
+
+const db = createQueryBuilder({
+  url: process.env.CLICKHOUSE_URL,
+  username: process.env.CLICKHOUSE_USER,
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: process.env.CLICKHOUSE_DATABASE,
+});
+
+export const datasets = {
+  users: Users,
+};
+
+export const analytics = createDatasetClient({ queryBuilder: db });
+```
+</CodeBlock>
+
+Run it:
+
+<CodeBlock>
+```bash
+npx hypequery-mcp --config ./mcp-config.mjs
+```
+</CodeBlock>
+
+## Expose named metrics
+
+The MCP server can query dataset measures through `query_dataset`. If you want agents to call stable named KPIs through `query_metric`, attach metric handles to the dataset registry.
+
+<CodeBlock>
+```javascript
+import { Orders } from './datasets/orders.js';
+
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
+
+export const datasets = {
+  orders: {
+    ...Orders,
+    metrics: {
+      revenue,
+      orderCount,
+    },
+  },
+};
+```
+</CodeBlock>
+
+## Metadata for agents
+
+MCP schema introspection exposes dataset, dimension, and metric metadata. Add labels and descriptions where field names alone are ambiguous.
+
+<CodeBlock>
+```javascript
+const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Revenue',
+  description: 'Total completed order revenue.',
+});
+```
+</CodeBlock>
+
+## Config path
+
+Use an absolute path when configuring desktop clients. Relative paths depend on the client's launch directory and are a common source of connection failures.
+
+<Callout type="warn">
+  MCP stdio uses stdout for protocol messages. The Hypequery MCP CLI redirects `console.log`, `console.info`, and `console.debug` to stderr so config logs do not corrupt the MCP stream.
+</Callout>

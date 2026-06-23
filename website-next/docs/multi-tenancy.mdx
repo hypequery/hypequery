@@ -8,10 +8,6 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # Multi-Tenancy Isolation
 
-<Callout type="info">
-If you need the older builder-chained tenant APIs such as `.tenant(...)` and `.tenantOptional()`, see <a href="/docs/legacy-serve/multi-tenancy">v0.1.x Multi-Tenancy</a>.
-</Callout>
-
 Tenant configuration is enforced by the `serve({ queries })` runtime and applies to the query definitions you expose there.
 
 ## Model
@@ -191,8 +187,48 @@ Use per-query overrides when one query needs different tenant behavior than the 
 
 Standalone `query.execute(...)` does not run the tenant pipeline. Use `api.execute(...)`, `api.run(...)`, or an HTTP route when tenant enforcement matters.
 
+## Semantic dataset and metric endpoints
+
+When you register `datasets` or `metrics` with `serve({ ... })`, tenant enforcement works differently than it does for hand-written builder queries. Semantic endpoints do **not** read the serve `tenant.column`. Instead:
+
+- serve `tenant.extract` and `tenant.required` supply the **trusted tenant identity** from auth
+- the **filter column comes from the dataset's own `tenantKey`**, declared on `dataset(...)`
+- datasets auto-inject the tenant predicate from `tenantKey`, just like `createDatasetClient` does outside Serve
+
+In other words, `tenant.column` governs builder queries, while a dataset's `tenantKey` governs its semantic endpoint.
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+import { db } from './client';
+import { Orders, revenue } from './datasets/orders';
+
+const { serve } = initServe({
+  auth: authStrategy,
+  context: () => ({ db }),
+});
+
+export const api = serve({
+  queryBuilder: db,
+  metrics: { revenue },
+  datasets: { orders: Orders },
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    required: true,
+    // `column` is only used for builder queries. Dataset/metric endpoints
+    // filter on the dataset's own `tenantKey` instead.
+  },
+});
+```
+</CodeBlock>
+
+If a registered dataset declares a `tenantKey` and a request carries a tenant identity, the endpoint requires both the serve tenant runtime and the dataset `tenantKey`. Missing either one is a configuration error rather than a silently unscoped query.
+
+<Callout type="info">
+  Tenant identity for semantic endpoints must come from trusted runtime state via `tenant.extract`. Callers cannot pass tenant filters in the request body — explicit filters on the tenant field are rejected. See <a href="/docs/datasets/multi-tenancy">Dataset multi-tenancy</a> for the full dataset-side model.
+</Callout>
+
 ## See Also
 
 - [Authentication](/docs/authentication)
 - [Serve Runtime Reference](/docs/reference/api/runtime)
-- [v0.1.x Multi-Tenancy](/docs/legacy-serve/multi-tenancy)

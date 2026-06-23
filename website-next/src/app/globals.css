@@ -3,44 +3,232 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ════════════════════════════════════════════════════════════
+   THEME TOKENS — hypequery design system
+   ════════════════════════════════════════════════════════════ */
+html[data-theme="light"],
+html.light,
 :root {
+  --bg:          #f5f3ee;
+  --bg-alt:      #ebe7df;
+  --bg-card:     #ffffff;
+  --bg-code:     #0c0e14;
+  --code-text:   #e8eaf0;
+
+  --border:        rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.14);
+
+  --text:        #1a1a1a;
+  --text-muted:  #5a5d63;
+  --text-dim:    #8b8d92;
+
+  --accent:      #3a3f8c;
+  --accent-soft: rgba(58, 63, 140, 0.08);
+  --accent-hi:   rgba(58, 63, 140, 0.40);
+
+  --status-green:      #22a06b;
+  --status-green-soft: rgba(34, 160, 107, 0.12);
+
+  --noise-opacity: 0.04;
+
+  /* Fumadocs CSS variables for light mode */
   --background: #ffffff;
   --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #3a3f8c;
+  --primary-foreground: #ffffff;
+  --secondary: #ebe7df;
+  --secondary-foreground: #1a1a1a;
+  --muted: #ebe7df;
+  --muted-foreground: #5a5d63;
+  --accent-fumadocs: #ebe7df;
+  --accent-foreground: #1a1a1a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border-fumadocs: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.08);
+  --ring: #3a3f8c;
+  --radius: 0.5rem;
 }
 
-:root[data-theme="dark"] {
+html[data-theme="dark"],
+html.dark {
+  --bg:          #0c0e14;
+  --bg-alt:      #13161f;
+  --bg-card:     #161922;
+  --bg-code:     #0a0c12;
+  --code-text:   #e8eaf0;
+
+  --border:        rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+
+  --text:        #f5f3ee;
+  --text-muted:  #a0a3ad;
+  --text-dim:    #6a6e78;
+
+  --accent:      #a5b4fc;
+  --accent-soft: rgba(165, 180, 252, 0.10);
+  --accent-hi:   rgba(165, 180, 252, 0.40);
+
+  --status-green:      #34d399;
+  --status-green-soft: rgba(52, 211, 153, 0.12);
+
+  --noise-opacity: 0.03;
+
+  /* Fumadocs CSS variables for dark mode */
   --background: #0a0a0a;
   --foreground: #ededed;
+  --card: #161922;
+  --card-foreground: #ededed;
+  --popover: #161922;
+  --popover-foreground: #ededed;
+  --primary: #a5b4fc;
+  --primary-foreground: #0a0a0a;
+  --secondary: #13161f;
+  --secondary-foreground: #ededed;
+  --muted: #13161f;
+  --muted-foreground: #a0a3ad;
+  --accent-fumadocs: #13161f;
+  --accent-foreground: #ededed;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border-fumadocs: rgba(255, 255, 255, 0.07);
+  --input: rgba(255, 255, 255, 0.07);
+  --ring: #a5b4fc;
 }
 
-:root.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+/* ════════════════════════════════════════════════════════════
+   TAILWIND v4 — @theme block
+   ════════════════════════════════════════════════════════════ */
+@theme {
+  --color-bg:           var(--bg);
+  --color-bg-alt:       var(--bg-alt);
+  --color-bg-card:      var(--bg-card);
+  --color-bg-code:      var(--bg-code);
+  --color-border:       var(--border);
+  --color-border-strong:var(--border-strong);
+  --color-text:         var(--text);
+  --color-text-muted:   var(--text-muted);
+  --color-text-dim:     var(--text-dim);
+  --color-accent:       var(--accent);
+  --color-accent-soft:  var(--accent-soft);
+  --color-accent-hi:    var(--accent-hi);
+  --color-success:      var(--status-green);
+  --color-success-soft: var(--status-green-soft);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius:    4px;
+  --radius-sm: 3px;
+  --radius-lg: 8px;
+  --radius-pill: 100px;
+
+  --text-display: clamp(42px, 6.2vw, 84px);
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.04em;
+  --text-display--font-weight: 800;
+
+  --text-h1: clamp(32px, 4.4vw, 58px);
+  --text-h1--line-height: 1.05;
+  --text-h1--letter-spacing: -0.034em;
+  --text-h1--font-weight: 800;
+
+  --text-h2: clamp(30px, 3.4vw, 46px);
+  --text-h2--line-height: 1.08;
+  --text-h2--letter-spacing: -0.032em;
+  --text-h2--font-weight: 800;
+
+  --text-h3: 26px;
+  --text-h3--line-height: 1.18;
+  --text-h3--letter-spacing: -0.022em;
+  --text-h3--font-weight: 700;
+
+  --text-h4: 18px;
+  --text-h4--line-height: 1.3;
+  --text-h4--letter-spacing: -0.018em;
+  --text-h4--font-weight: 700;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 1.65;
+
+  --text-body: 16px;
+  --text-body--line-height: 1.65;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.55;
+
+  --text-meta: 13px;
+  --text-meta--line-height: 1.5;
+
+  --text-eyebrow: 11px;
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--letter-spacing: 0.22em;
+  --text-eyebrow--font-weight: 600;
+
+  --text-micro: 10.5px;
+  --text-micro--line-height: 1;
+  --text-micro--letter-spacing: 0.12em;
+  --text-micro--font-weight: 500;
+
+  --spacing-section: 96px;
+  --spacing-4\\.5: 18px;
+  --spacing-5\\.5: 22px;
+  --spacing-15: 60px;
+
+  --container-container: 1280px;
+  --container-prose: 560px;
+  --container-headline: 680px;
+
+  --breakpoint-sm: 40rem;
+  --breakpoint-md: 48rem;
+  --breakpoint-lg: 64rem;
+  --breakpoint-xl: 80rem;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 12px 40px rgba(0, 0, 0, 0.06);
+  --shadow-glow: 0 0 6px var(--status-green, #22a06b);
+
+  --blur-nav: 14px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* ════════════════════════════════════════════════════════════
+   BASELINE — body, paper noise
+   ════════════════════════════════════════════════════════════ */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 300ms cubic-bezier(0.4,0,0.2,1), color 300ms cubic-bezier(0.4,0,0.2,1);
 }
+
+/* paper-noise overlay — part of the brand feel */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: -1;
+  opacity: var(--noise-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* highlight.js — strip its bg, keep our token */
+.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+  color: var(--code-text);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+::-webkit-scrollbar       { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-alt); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 
 .font-display {
-  font-family: var(--font-display);
+  font-family: var(--font-display), 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 .hero-link {
@@ -85,8 +273,18 @@ body {
 
 /* Shiki code block styling */
 .shiki,
-.shiki code {
-  font-family: var(--font-geist-mono), 'Monaco', 'Courier New', monospace !important;
+.shiki code,
+.shiki pre,
+.shiki span,
+[data-rehype-pretty-code-figure],
+[data-rehype-pretty-code-figure] pre,
+[data-rehype-pretty-code-figure] code,
+[data-rehype-pretty-code-figure] span,
+[data-codeblock],
+[data-codeblock] pre,
+[data-codeblock] code,
+[data-codeblock] span {
+  font-family: var(--font-mono) !important;
 }
 
 .home-page .shiki,
@@ -102,7 +300,11 @@ body {
 
 /* Ensure homepage code blocks in dark mode have proper styling */
 .dark .home-page .shiki,
-.dark .home-page .shiki code {
+.dark .home-page .shiki code,
+html.dark .home-page .shiki,
+html.dark .home-page .shiki code,
+html[data-theme="dark"] .home-page .shiki,
+html[data-theme="dark"] .home-page .shiki code {
   color: inherit;
 }
 
@@ -159,4 +361,162 @@ body {
 
 .behiiv-embed body {
   background-color: red !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   MARQUEE ANIMATION
+   ════════════════════════════════════════════════════════════ */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+@utility text-display {
+  font-size: clamp(42px, 6.2vw, 84px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-weight: 800;
+}
+
+@utility text-h1 {
+  font-size: clamp(32px, 4.4vw, 58px);
+  line-height: 1.05;
+  letter-spacing: -0.034em;
+  font-weight: 800;
+}
+
+@utility text-h2 {
+  font-size: clamp(30px, 3.4vw, 46px);
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+  font-weight: 800;
+}
+
+@utility text-h3 {
+  font-size: 26px;
+  line-height: 1.18;
+  letter-spacing: -0.022em;
+  font-weight: 700;
+}
+
+@utility text-h4 {
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: -0.018em;
+  font-weight: 700;
+}
+
+@utility text-body-lg {
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+@utility text-body {
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+@utility text-body-sm {
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+@utility text-eyebrow {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  font-weight: 600;
+}
+
+@utility text-micro {
+  font-size: 10.5px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+}
+
+@utility shadow-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+@utility shadow-glow {
+  box-shadow: 0 0 6px var(--status-green, #22a06b);
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility text-pretty {
+  text-wrap: pretty;
+}
+
+/* ════════════════════════════════════════════════════════════
+   RESPONSIVE GRID UTILITIES
+   ════════════════════════════════════════════════════════════ */
+.grid-responsive-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.875rem; /* 3.5 in Tailwind scale */
+}
+
+@media (min-width: 640px) {
+  .grid-responsive-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.grid-responsive-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+}
+
+@media (min-width: 640px) {
+  .grid-responsive-stack {
+    grid-template-columns: 1.05fr 1.25fr;
+  }
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2.5rem 3rem;
+}
+
+@media (min-width: 768px) {
+  .footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .footer-grid {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 3rem;
+  }
+}
+
+.footer-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .footer-bottom {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 }

@@ -15,23 +15,41 @@ That creates a few predictable problems:
 - type safety usually stops at the application boundary and does not extend into analytics queries
 - analytics definitions are harder to review, version, and evolve with confidence
 
+Semantic layers try to solve this, but often introduce a new system to learn, deploy, and keep in sync with your application.
+
+## The idea
+
+hypequery takes a different approach:
+
+analytics should live in your application code.
+
+Not in a separate platform. Not in YAML configs. Not in dashboards.
+
+If your backend is TypeScript, your analytics layer should be too.
+
 ## What hypequery is
 
-hypequery is a ClickHouse-first TypeScript toolkit for building reusable analytics queries in code.
+hypequery is a ClickHouse-first, TypeScript-native semantic layer that runs inside your application.
 
-It starts with a typed query builder and can grow into reusable query definitions and optional runtime delivery when you need them.
+It starts as a typed query builder and scales into reusable query definitions and optional runtime delivery — without forcing you into a separate system.
 
-That means you can:
+With hypequery, you can:
 
-- build typed ClickHouse queries directly in your application
-- turn important queries into reusable contracts
-- expose those contracts through routes, docs, auth, and framework integrations only when needed
+build typed ClickHouse queries directly in your codebase
+define reusable metrics and dimensions as stable contracts
+expose those contracts via APIs, docs, and auth — only when needed
 
-hypequery is not:
+All without introducing another service to deploy or maintain.
 
-- an ORM
-- a generic multi-database abstraction
-- a hosted platform
+What hypequery is not
+
+hypequery is intentionally narrow in scope:
+
+not an ORM
+not a generic multi-database abstraction
+not a hosted platform
+
+It is designed specifically for ClickHouse analytics in TypeScript applications.
 
 ## When hypequery fits well
 

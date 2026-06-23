@@ -105,6 +105,28 @@ const redisStore: RateLimitStore = {
 ```
 </CodeBlock>
 
+## Semantic endpoints
+
+Global rate limiting added through `initServe({ middlewares })` or `serve({ middlewares })` also covers auto-generated `metrics` and `datasets` endpoints — they run through the same middleware chain as queries.
+
+To limit a single metric or dataset endpoint, pass `rateLimit(...)` in that entry's `middlewares` array:
+
+<CodeBlock>
+```typescript
+import { rateLimit } from '@hypequery/serve';
+
+export const api = serve({
+  queryBuilder: db,
+  datasets: {
+    orders: {
+      dataset: Orders,
+      middlewares: [rateLimit({ windowMs: 60_000, max: 30 })],
+    },
+  },
+});
+```
+</CodeBlock>
+
 ## See Also
 
 - [Authentication](/docs/authentication)

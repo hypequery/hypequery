@@ -44,11 +44,14 @@ const api = serve({
 ```
 </CodeBlock>
 
+CORS is a runtime-wide setting, so it applies to every endpoint the runtime serves — hand-written queries as well as auto-generated `metrics` and `datasets` endpoints.
+
 ## When to use it
 
 - use CORS when your browser app calls a separate hypequery server
 - you usually do not need it when hypequery is mounted inside the same app origin
 - React hooks calling a different origin will typically need it
+- browser clients calling semantic `/metrics/*` or `/datasets/*` endpoints need it too
 
 ## See Also
 

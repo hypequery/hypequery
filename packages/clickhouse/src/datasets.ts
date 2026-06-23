@@ -9,18 +9,30 @@
  * - @hypequery/datasets: Owns semantic planning, validation, and execution protocol
  * - @hypequery/clickhouse: Implements SQL translation and execution for ClickHouse
  *
- * Usage:
+ * Usage (recommended): pass the query builder you already use for
+ * hand-written queries, so semantic and ad hoc queries share one connection.
  * ```ts
  * import { createDatasetClient } from '@hypequery/datasets';
- * import { createBackend } from '@hypequery/clickhouse';
+ * import { createQueryBuilder } from '@hypequery/clickhouse';
+ *
+ * const db = createQueryBuilder({
+ *   url: process.env.CLICKHOUSE_URL,
+ *   username: process.env.CLICKHOUSE_USER,
+ *   password: process.env.CLICKHOUSE_PASSWORD,
+ *   database: process.env.CLICKHOUSE_DATABASE,
+ * });
+ *
+ * const analytics = createDatasetClient({ queryBuilder: db });
+ * ```
+ *
+ * Advanced: `createBackend` exposes the database-agnostic SemanticBackend
+ * protocol directly. Reach for it when you want a standalone backend instance
+ * rather than sharing a query builder.
+ * ```ts
+ * import { createBackend } from '@hypequery/clickhouse/datasets';
  *
  * const analytics = createDatasetClient({
- *   backend: createBackend({
- *     url: process.env.CLICKHOUSE_URL,
- *     username: process.env.CLICKHOUSE_USER,
- *     password: process.env.CLICKHOUSE_PASSWORD,
- *     database: process.env.CLICKHOUSE_DATABASE,
- *   })
+ *   backend: createBackend({ url, username, password, database }),
  * });
  * ```
  */

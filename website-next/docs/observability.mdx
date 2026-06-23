@@ -74,6 +74,8 @@ Lifecycle hooks currently support:
 - `onAuthorizationFailure`
 - `onError`
 
+Hooks and query logging fire for auto-generated `metrics` and `datasets` endpoints too, since they share the runtime with queries. In hook events, `event.queryKey` carries the endpoint key: the metric name for metric endpoints, and `dataset:<name>` for dataset endpoints. That makes it easy to attribute timing, auth failures, and errors back to a specific semantic endpoint.
+
 ## Builder-level query logging
 
 Use the ClickHouse logger when you want SQL-level visibility into the query builder itself.

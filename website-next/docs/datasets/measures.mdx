@@ -1,0 +1,157 @@
+---
+title: Measures
+description: Define aggregations such as revenue, counts, averages, minimums, and maximums.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Measures are aggregations over fields in a dataset. They are the numeric values callers can request in dataset queries, such as revenue, order count, average order amount, minimum value, or maximum value.
+
+The object key is the semantic API name. The first argument is the backing field to aggregate. If that field is a dimension, hypequery uses the dimension mapping to resolve the ClickHouse column.
+
+<CodeBlock>
+```typescript
+measures: {
+  revenue: measure.sum('amount', {
+    label: 'Revenue',
+    description: 'Total order amount before refunds.',
+  }),
+  orderCount: measure.count('id'),
+  uniqueCustomers: measure.countDistinct('customerId'),
+  averageAmount: measure.avg('amount'),
+  minAmount: measure.min('amount'),
+  maxAmount: measure.max('amount'),
+}
+```
+</CodeBlock>
+
+With that definition, callers use the semantic measure names:
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['country'],
+  measures: ['revenue', 'orderCount'],
+});
+```
+</CodeBlock>
+
+## Aggregation helpers
+
+- `measure.sum(field, opts?)`
+- `measure.count(field, opts?)`
+- `measure.countDistinct(field, opts?)`
+- `measure.avg(field, opts?)`
+- `measure.min(field, opts?)`
+- `measure.max(field, opts?)`
+
+The helper determines the aggregation. The field should be the semantic field name when it exists in `dimensions`, or the physical column name when you are aggregating a raw table column.
+
+## Options
+
+Every measure helper accepts the same options object:
+
+<CodeBlock>
+```typescript
+type MeasureOptions = {
+  sql?: string;
+  label?: string;
+  description?: string;
+  filters?: MetricFilter[];
+};
+```
+</CodeBlock>
+
+| Option | Use it for |
+| --- | --- |
+| `sql` | Aggregating a SQL expression instead of a simple field |
+| `label` | Human-readable display text for docs, UIs, metrics, and agents |
+| `description` | Longer metadata for generated docs, UIs, metrics, and agents |
+| `filters` | Applying measure-local filters before the aggregation is computed |
+
+## Field mapping
+
+Measures reference fields by name. When the field is a dimension with a `column` mapping, the measure follows that mapping.
+
+<CodeBlock>
+```typescript
+dimensions: {
+  customerId: dimension.string({ column: 'customer_id' }),
+  amount: dimension.number(),
+},
+measures: {
+  uniqueCustomers: measure.countDistinct('customerId'),
+  revenue: measure.sum('amount'),
+}
+```
+</CodeBlock>
+
+In this example, callers use `uniqueCustomers`, and the generated SQL counts distinct `customer_id`.
+
+## Labels and descriptions
+
+Use `label` and `description` for human-readable metadata. These do not change SQL generation.
+
+<CodeBlock>
+```typescript
+measures: {
+  revenue: measure.sum('amount', {
+    label: 'Revenue',
+    description: 'Total order amount before refunds.',
+  }),
+}
+```
+</CodeBlock>
+
+When you promote a measure into a base metric, the metric inherits the measure label and description unless you override them on the metric.
+
+<CodeBlock>
+```typescript
+const revenue = Orders.metric('revenue', { measure: 'revenue' });
+```
+</CodeBlock>
+
+For MCP, named metrics are exposed through `get_dataset_schema`, so measure metadata becomes especially useful once measures are promoted into metrics for agent-facing analytics.
+
+## SQL-backed measures
+
+Use `sql` when the aggregation should operate on an expression rather than a simple field.
+
+<CodeBlock>
+```typescript
+measures: {
+  taxedRevenue: measure.sum('amount', {
+    sql: 'amount * 1.2',
+  }),
+}
+```
+</CodeBlock>
+
+The `field` argument still names the logical backing field, while `sql` provides the expression to aggregate. Use SQL-backed measures sparingly. Schema compatibility checks can inspect simple fields, but complex SQL expressions can only produce warnings because they cannot be fully verified from the table schema.
+
+SQL-backed measures require builder-backed execution. Generic semantic backend plans reject SQL-backed measures because cross-backend adapters cannot assume the same SQL expression syntax.
+
+## Filtered measures
+
+Use filtered measures for common business states instead of repeating the same filters in every query.
+
+<CodeBlock>
+```typescript
+import { dataset, dimension, eq, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    status: dimension.string(),
+  },
+  measures: {
+    completedRevenue: measure.sum('amount', {
+      filters: [eq('status', 'completed')],
+    }),
+    refundedRevenue: measure.sum('amount', {
+      filters: [eq('status', 'refunded')],
+    }),
+  },
+});
+```
+</CodeBlock>
