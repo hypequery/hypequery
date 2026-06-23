@@ -74,7 +74,7 @@ If you only need typed ClickHouse queries in your application code, start here:
       ```bash
       CLICKHOUSE_URL=https://example.clickhouse.cloud:8443
       CLICKHOUSE_DATABASE=default
-      CLICKHOUSE_USER=cli_user
+      CLICKHOUSE_USERNAME=cli_user
       CLICKHOUSE_PASSWORD=super-secret
       ```
     </CodeBlock>
@@ -93,7 +93,7 @@ If you only need typed ClickHouse queries in your application code, start here:
       ```
     </CodeBlock>
 
-    This creates the generated schema type you import into the builder. Re-run it anytime your ClickHouse schema changes.
+    This writes `analytics/schema.ts`, matching the CLI default and the import below. Re-run it anytime your ClickHouse schema changes.
   </Step>
 
   <Step>
@@ -101,12 +101,13 @@ If you only need typed ClickHouse queries in your application code, start here:
 
     <CodeBlock>
       ```typescript
+      // analytics/client.ts
       import { createQueryBuilder } from '@hypequery/clickhouse';
-      import type { IntrospectedSchema } from './generated-schema';
+      import type { IntrospectedSchema } from './schema.js';
 
-      const db = createQueryBuilder<IntrospectedSchema>({
+      export const db = createQueryBuilder<IntrospectedSchema>({
         url: process.env.CLICKHOUSE_URL!,
-        username: process.env.CLICKHOUSE_USER,
+        username: process.env.CLICKHOUSE_USERNAME,
         password: process.env.CLICKHOUSE_PASSWORD,
         database: process.env.CLICKHOUSE_DATABASE,
       });
@@ -183,7 +184,7 @@ This is the right route when query logic should be shared: when the same table s
       ```bash
       CLICKHOUSE_URL=https://example.clickhouse.cloud:8443
       CLICKHOUSE_DATABASE=default
-      CLICKHOUSE_USER=cli_user
+      CLICKHOUSE_USERNAME=cli_user
       CLICKHOUSE_PASSWORD=super-secret
       ```
     </CodeBlock>
@@ -198,11 +199,11 @@ This is the right route when query logic should be shared: when the same table s
       ```typescript
       // analytics/client.ts
       import { createQueryBuilder } from '@hypequery/clickhouse';
-      import { xf } from '@hypequery/datasets';
+      import { createDatasetClient } from '@hypequery/datasets';
 
       export const db = createQueryBuilder({
         url: process.env.CLICKHOUSE_URL!,
-        username: process.env.CLICKHOUSE_USER!,
+        username: process.env.CLICKHOUSE_USERNAME!,
         password: process.env.CLICKHOUSE_PASSWORD!,
         database: process.env.CLICKHOUSE_DATABASE!,
       });
@@ -249,8 +250,8 @@ This is the right route when query logic should be shared: when the same table s
     <CodeBlock>
       ```typescript
       import { eq } from '@hypequery/datasets';
-      import { analytics } from './client';
-      import { Orders } from './datasets/orders';
+      import { analytics } from './client.js';
+      import { Orders } from './datasets/orders.js';
 
       const byCountry = await analytics.execute(Orders, {
         dimensions: ['country'],
@@ -272,8 +273,10 @@ This is the right route when query logic should be shared: when the same table s
 
     <CodeBlock>
       ```typescript
-      import { divide, nullIfZero } from '@hypequery/datasets';
-      import { Orders } from './datasets/orders';
+      // analytics/metrics.ts
+      import { divide, eq, nullIfZero } from '@hypequery/datasets';
+      import { analytics } from './client.js';
+      import { Orders } from './datasets/orders.js';
 
       export const revenue = Orders.metric('revenue', { measure: 'revenue' });
       export const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
@@ -341,9 +344,10 @@ Wrap a builder query with `query({ ... })` to turn it into a validated, named co
 
 <CodeBlock>
 ```typescript
+// analytics/queries.ts
 import { initServe } from '@hypequery/serve';
 import { z } from 'zod';
-import { db } from './client';
+import { db } from './client.js';
 
 const { query, serve } = initServe({
   context: () => ({ db }),
@@ -386,10 +390,11 @@ Pass your query builder plus the datasets and metrics you want to expose. Serve 
 
 <CodeBlock>
 ```typescript
+// analytics/api.ts
 import { initServe } from '@hypequery/serve';
-import { db } from './client';
-import { Orders } from './datasets/orders';
-import { revenue } from './datasets/metrics';
+import { db } from './client.js';
+import { Orders } from './datasets/orders.js';
+import { revenue } from './metrics.js';
 
 const { serve } = initServe({
   context: () => ({ db }),
@@ -408,11 +413,15 @@ This generates `POST /metrics/revenue` for the named KPI and `POST /datasets/ord
 
 ### Preview docs and routes [#preview-docs-and-routes]
 
-Start the dev server against your serve file:
+Start the dev server against the serve file for the route you chose:
 
 <CodeBlock>
 ```bash
+# Route 1: named queries
 npx hypequery dev analytics/queries.ts
+
+# Route 2: datasets and metrics
+npx hypequery dev analytics/api.ts
 ```
 </CodeBlock>
 
@@ -421,4 +430,3 @@ With `basePath: '/api/analytics'`, the runtime exposes:
 * docs at `http://localhost:4000/api/analytics/docs`
 * OpenAPI at `http://localhost:4000/api/analytics/openapi.json`
 * your routes under `http://localhost:4000/api/analytics`
-
