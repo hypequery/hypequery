@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { dataset, dimension, measure } from '@hypequery/datasets';
 import { listDatasetsTool } from './list-datasets.js';
 
 describe('listDatasetsTool', () => {
@@ -74,6 +75,28 @@ describe('listDatasetsTool', () => {
       dimensionCount: 1,
       measureCount: 2,
       metricCount: 1,
+    });
+  });
+
+  it('should count real dataset instances through the shared catalog', async () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        status: dimension.string(),
+      },
+      measures: {
+        revenue: measure.sum('amount'),
+      },
+    });
+
+    const result = await listDatasetsTool({ orders: Orders });
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.datasets[0]).toMatchObject({
+      name: 'orders',
+      dimensionCount: 1,
+      measureCount: 1,
+      metricCount: 0,
     });
   });
 

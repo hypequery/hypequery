@@ -12,13 +12,12 @@
  */
 
 import { z } from 'zod';
-import type { AnyDatasetInstance } from '@hypequery/datasets';
-
-const OPERATORS = [
-  'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like',
-] as const;
-
-const GRAINS = ['day', 'week', 'month', 'quarter', 'year'] as const;
+import {
+  getDatasetCatalog,
+  SEMANTIC_FILTER_OPERATORS,
+  type AnyDatasetInstance,
+  type DatasetCatalog,
+} from '@hypequery/datasets';
 
 /** An enum over the given field names, or a plain string when none are known. */
 function fieldEnum(values: string[]): z.ZodTypeAny {
@@ -28,10 +27,15 @@ function fieldEnum(values: string[]): z.ZodTypeAny {
     : z.string();
 }
 
-function filterSchema(fieldNames: string[]) {
+function grainEnum(catalog: DatasetCatalog): z.ZodTypeAny {
+  return fieldEnum(catalog.supportedGrains);
+}
+
+function filterSchema(catalog: DatasetCatalog) {
+  const fieldNames = Object.keys(catalog.filters);
   return z.object({
     field: fieldEnum(fieldNames),
-    operator: z.enum(OPERATORS),
+    operator: z.enum(SEMANTIC_FILTER_OPERATORS),
     value: z.unknown(),
   });
 }
@@ -54,22 +58,18 @@ function boundedArray(item: z.ZodTypeAny, max?: number) {
  * `validateDatasetQueryInput`.
  */
 export function buildDatasetInputSchema(ds: AnyDatasetInstance) {
-  const dimensionNames = Object.keys(ds.dimensions);
-  const measureNames = Object.keys(ds.measures);
-  // Dataset filters are keyed by filter-definition name (no dimension fallback).
-  const filterNames = Object.keys(ds.filters);
-  // orderBy is query-dependent at runtime; the static superset is every
-  // dimension/measure plus the synthetic `period` column when grained.
-  const orderableNames = [...dimensionNames, ...measureNames, 'period'];
+  const catalog = getDatasetCatalog(ds);
+  const dimensionNames = Object.keys(catalog.dimensions);
+  const measureNames = Object.keys(catalog.measures);
 
   return z.object({
     dimensions: boundedArray(fieldEnum(dimensionNames), ds.limits?.maxDimensions),
     measures: boundedArray(fieldEnum(measureNames), ds.limits?.maxMeasures),
-    filters: boundedArray(filterSchema(filterNames), ds.limits?.maxFilters),
-    orderBy: z.array(orderBySchema(orderableNames)).optional(),
+    filters: boundedArray(filterSchema(catalog), ds.limits?.maxFilters),
+    orderBy: z.array(orderBySchema(catalog.orderableFields)).optional(),
     limit: z.number().int().positive().optional(),
     offset: z.number().int().nonnegative().optional(),
-    by: z.enum(GRAINS).optional(),
+    by: grainEnum(catalog).optional(),
     includeMeta: z.boolean().optional(),
   }).strict();
 }
@@ -80,20 +80,21 @@ export function buildDatasetInputSchema(ds: AnyDatasetInstance) {
  * reference the metric's own output column (`metricName`).
  */
 export function buildMetricInputSchema(ds: AnyDatasetInstance, metricName: string) {
-  const dimensionNames = Object.keys(ds.dimensions);
-  // Metric validator falls back to dimension names when no filters are declared.
-  const filterNames = Object.keys(ds.filters).length > 0
-    ? Object.keys(ds.filters)
-    : dimensionNames;
-  const orderableNames = [...dimensionNames, metricName, 'period'];
+  const catalog = getDatasetCatalog(ds);
+  const dimensionNames = Object.keys(catalog.dimensions);
+  const orderableNames = [
+    ...dimensionNames,
+    metricName,
+    ...(catalog.timeKey ? ['period'] : []),
+  ];
 
   return z.object({
     dimensions: boundedArray(fieldEnum(dimensionNames), ds.limits?.maxDimensions),
-    filters: boundedArray(filterSchema(filterNames), ds.limits?.maxFilters),
+    filters: boundedArray(filterSchema(catalog), ds.limits?.maxFilters),
     orderBy: z.array(orderBySchema(orderableNames)).optional(),
     limit: z.number().int().positive().optional(),
     offset: z.number().int().nonnegative().optional(),
-    by: z.enum(GRAINS).optional(),
+    by: grainEnum(catalog).optional(),
     includeMeta: z.boolean().optional(),
   });
 }

@@ -2,7 +2,7 @@
  * Shared constants for semantic layer implementation.
  */
 
-import type { TimeGrain } from './types.js';
+import type { MetricFilter, TimeGrain } from './types.js';
 
 /**
  * Maps time grain to ClickHouse date truncation functions.
@@ -20,6 +20,22 @@ export const GRAIN_FUNCTIONS: Record<TimeGrain, string> = {
  * {@link GRAIN_FUNCTIONS} so the two never drift apart.
  */
 export const SUPPORTED_TIME_GRAINS = Object.keys(GRAIN_FUNCTIONS) as TimeGrain[];
+
+/**
+ * The filter operators accepted by semantic dataset and metric inputs.
+ */
+export const SEMANTIC_FILTER_OPERATORS = [
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'notIn',
+  'between',
+  'like',
+] as const satisfies readonly MetricFilter['operator'][];
 
 /**
  * Narrowing guard for a runtime-provided grain value.
