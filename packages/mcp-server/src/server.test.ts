@@ -172,7 +172,7 @@ describe('HypequeryMCPServer', () => {
         name: 'query_dataset',
         arguments: {
           dataset: 'orders',
-          metrics: ['revenue'],
+          measures: ['revenue'],
           dimensions: ['region'],
         },
       },

@@ -109,32 +109,7 @@ describe('queryDatasetTool', () => {
     );
   });
 
-  it('should accept metrics as a backwards-compatible alias for measures', async () => {
-    const mockResult = {
-      data: [{ revenue: 1000 }],
-      meta: {},
-    };
-
-    const datasets = {
-      orders: {},
-    };
-
-    const analytics = createMockAnalytics(mockResult);
-    await queryDatasetTool(datasets, analytics, {
-      dataset: 'orders',
-      metrics: ['revenue'],
-    });
-
-    expect(analytics.execute).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        measures: ['revenue'],
-      }),
-      expect.anything()
-    );
-  });
-
-  it('should reject ambiguous measures and metrics arguments', async () => {
+  it('should reject metrics as a dataset query argument', async () => {
     const datasets = {
       orders: {},
     };
@@ -143,13 +118,12 @@ describe('queryDatasetTool', () => {
     await expect(
       queryDatasetTool(datasets, analytics, {
         dataset: 'orders',
-        measures: ['revenue'],
         metrics: ['revenue'],
       }),
-    ).rejects.toThrow('Use measures or metrics, not both');
+    ).rejects.toThrow('Invalid query_dataset arguments');
   });
 
-  it('should execute query with dimensions and metrics', async () => {
+  it('should execute query with dimensions and measures', async () => {
     const mockResult = {
       data: [
         { region: 'US', revenue: 1000 },
@@ -166,7 +140,7 @@ describe('queryDatasetTool', () => {
     const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
     });
 
     const data = JSON.parse(result.content[0].text);
@@ -201,7 +175,7 @@ describe('queryDatasetTool', () => {
     await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
       filters,
     });
 
@@ -231,7 +205,7 @@ describe('queryDatasetTool', () => {
     await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['week'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
       grain: 'week',
     });
 
@@ -267,7 +241,7 @@ describe('queryDatasetTool', () => {
     await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
       orderBy,
       limit: 5,
     });
@@ -303,7 +277,7 @@ describe('queryDatasetTool', () => {
     const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region', 'category'],
-      metrics: ['revenue', 'count'],
+      measures: ['revenue', 'count'],
       filters: [{ field: 'status', operator: 'eq', value: 'completed' }],
       orderBy: [{ field: 'revenue', direction: 'desc' }],
       limit: 10,

@@ -15,7 +15,7 @@ export async function queryDatasetTool(
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
   const validatedArgs = parseToolArgs(queryDatasetArgsSchema, 'query_dataset', args);
-  const { dataset: datasetName, dimensions, measures, metrics, filters, grain, orderBy, limit, offset } = validatedArgs;
+  const { dataset: datasetName, dimensions, measures, filters, grain, orderBy, limit, offset } = validatedArgs;
 
   if (!datasetName) {
     throw new Error('dataset parameter is required');
@@ -27,20 +27,14 @@ export async function queryDatasetTool(
     throw new Error(`Dataset not found: ${datasetName}`);
   }
 
-  if (measures?.length && metrics?.length) {
-    throw new Error('Use measures or metrics, not both');
-  }
-
-  const selectedMeasures = measures ?? metrics;
-
-  if (!dimensions?.length && !selectedMeasures?.length) {
+  if (!dimensions?.length && !measures?.length) {
     throw new Error('At least one dimension or measure must be specified');
   }
 
   // Build the query with proper types
   const query: DatasetQuery = {
     dimensions: dimensions || [],
-    measures: selectedMeasures || [],
+    measures: measures || [],
     filters: toMetricFilters(filters),
     orderBy: orderBy || [],
   };

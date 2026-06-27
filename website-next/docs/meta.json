@@ -27,6 +27,7 @@
     "datasets/measures",
     "datasets/metrics",
     "datasets/catalog",
+    "datasets/api-considerations",
     "datasets/time-grains",
     "datasets/multi-tenancy",
     "datasets/execution",

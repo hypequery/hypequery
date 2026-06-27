@@ -135,7 +135,7 @@ describe('MCP query tools SQL integration', () => {
     const result = await queryDatasetTool({ orders: Orders as any }, analytics, {
       dataset: 'orders',
       dimensions: ['country'],
-      metrics: ['completedRevenue'],
+      measures: ['completedRevenue'],
       grain: 'month',
       filters: [eq('status', 'completed')],
       orderBy: [desc('completedRevenue')],
@@ -184,7 +184,7 @@ describe('MCP query tools SQL integration', () => {
 
     await expect(queryDatasetTool({ orders: Orders as any }, analytics, {
       dataset: 'orders',
-      metrics: ['revenue'],
+      measures: ['revenue'],
       filters: [eq('tenantId', 'tenant-1')],
     }, {
       tenantId: 'tenant-1',
@@ -199,7 +199,7 @@ describe('MCP query tools SQL integration', () => {
 
     await expect(queryDatasetTool(registry, analytics, {
       dataset: 'orders',
-      metrics: ['revenue'],
+      measures: ['revenue'],
     })).rejects.toThrow('requires runtime tenant scoping');
 
     await expect(queryMetricTool(registry, analytics, {
@@ -224,7 +224,7 @@ describe('MCP query tools SQL integration', () => {
 
     await expect(queryDatasetTool({ orders: Orders as any }, analytics, {
       dataset: 'orders',
-      metrics: ['revenue'],
+      measures: ['revenue'],
       tenantId: 'tenant-1',
     })).rejects.toThrow('Invalid query_dataset arguments');
   });

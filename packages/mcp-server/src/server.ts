@@ -213,11 +213,6 @@ export class HypequeryMCPServer {
                 items: { type: 'string' },
                 description: 'Measures to calculate',
               },
-              metrics: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Deprecated alias for measures',
-              },
               filters: {
                 type: 'array',
                 items: {

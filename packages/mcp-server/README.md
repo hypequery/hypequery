@@ -189,7 +189,7 @@ Executes a pre-defined metric query.
 
 ### `query_dataset`
 
-Executes an ad-hoc dataset query with custom dimensions and measures. The older `metrics` argument is still accepted as a compatibility alias for `measures`.
+Executes an ad-hoc dataset query with custom dimensions and measures.
 
 **Example:**
 ```typescript

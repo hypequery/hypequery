@@ -30,8 +30,6 @@ export const queryMetricArgsSchema = baseQuerySchema.extend({
 export const queryDatasetArgsSchema = baseQuerySchema.extend({
   dataset: z.string().min(1).optional(),
   measures: z.array(z.string().min(1)).optional(),
-  /** Backward-compatible alias for measures. */
-  metrics: z.array(z.string().min(1)).optional(),
 });
 
 function formatZodError(error: z.ZodError): string {

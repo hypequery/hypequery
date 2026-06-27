@@ -34,7 +34,7 @@ export interface QueryMetricArgs {
 export interface QueryDatasetArgs {
   dataset: string;
   dimensions?: string[];
-  metrics?: string[];
+  measures?: string[];
   filters?: MetricFilter[];
   grain?: TimeGrain;
   orderBy?: MetricOrderBy[];
