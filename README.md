@@ -6,7 +6,7 @@
   <h3 align="center">The type-safe analytics backend for ClickHouse</h3>
 </p>
 
-<h4 align="center">Build ClickHouse queries once, run them inline, over HTTP, in React, or from agents.</h4>
+<h4 align="center">Define ClickHouse analytics once, then run them inline, over HTTP, in React, or from agents.</h4>
 
 <p align="center">
   <a href="https://github.com/hypequery/hypequery/blob/main/LICENSE">
@@ -17,6 +17,9 @@
   </a>
   <a href="https://www.npmjs.com/package/@hypequery/clickhouse">
     <img alt="npm @hypequery/clickhouse" src="https://img.shields.io/npm/v/%40hypequery%2Fclickhouse?style=for-the-badge&label=%40hypequery%2Fclickhouse" />
+  </a>
+  <a href="https://www.npmjs.com/package/@hypequery/datasets">
+    <img alt="npm @hypequery/datasets" src="https://img.shields.io/npm/v/%40hypequery%2Fdatasets?style=for-the-badge&label=%40hypequery%2Fdatasets" />
   </a>
   <a href="https://www.npmjs.com/package/@hypequery/serve">
     <img alt="npm @hypequery/serve" src="https://img.shields.io/npm/v/%40hypequery%2Fserve?style=for-the-badge&label=%40hypequery%2Fserve" />
@@ -40,7 +43,9 @@
 
 ## The problem
 
-Querying ClickHouse from TypeScript with the official client means writing raw SQL strings, casting results to `any`, and maintaining hand-rolled types that drift from your real schema:
+Querying ClickHouse from TypeScript with the official client means writing raw SQL strings, casting results to `any`, and maintaining hand-rolled types that drift from your real schema.
+
+As analytics features grow, the business meaning drifts too. `revenue`, `active users`, tenant scope, and time grain rules get copied across dashboards, API handlers, jobs, and agent tools until the product has several answers to the same question:
 
 ```ts
 // Raw @clickhouse/client — no types, no safety, breaks silently
@@ -58,7 +63,10 @@ const rows = await result.json(); // typed as any[]
 
 ## The solution
 
-hypequery generates TypeScript types directly from your live ClickHouse schema, then gives you a fluent query builder where every table name, column, filter, and result is fully typed:
+hypequery gives TypeScript teams two layers that work together:
+
+- `@hypequery/clickhouse` generates TypeScript types from your live ClickHouse schema and gives you a fluent query builder where every table name, column, filter, and result is fully typed.
+- `@hypequery/datasets` adds a code-first semantic layer so dimensions, measures, metrics, tenant rules, and time semantics are defined once and reused everywhere.
 
 ```ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -77,20 +85,51 @@ const revenueByRegion = await db
 // revenueByRegion is fully typed — no casting, no surprises
 ```
 
+When the calculation needs to be shared, promote it into a dataset:
+
+```ts
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    region: dimension.string(),
+    status: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('total'),
+    orderCount: measure.count('id'),
+  },
+});
+
+export const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Revenue',
+});
+```
+
 If this saves you from hand-writing ClickHouse types, a ⭐ helps other TypeScript devs find it.
 
 ## Why hypequery
 
 - Build on top of your real ClickHouse schema instead of hand-maintained query types
+- Keep shared analytics meaning in TypeScript instead of YAML, raw SQL strings, or a separate BI server
 - Reuse the same query definition across scripts, APIs, React apps, and agents
+- Make tenant isolation and time semantics part of the model instead of per-query conventions
 - Start local with the query builder, then add HTTP routes only when you need them
 - Keep inputs, outputs, and SQL behavior explicit enough to test and reason about
 
 ## Packages
 
 - `@hypequery/clickhouse`: typed ClickHouse query builder
+- `@hypequery/datasets`: code-first semantic layer for dimensions, measures, metrics, tenant scope, and time grains
 - `@hypequery/serve`: code-first runtime for query contracts, HTTP routes, docs, and adapters
 - `@hypequery/react`: thin TanStack Query hooks for hypequery APIs
+- `@hypequery/mcp`: MCP server for exposing governed analytics tools to agents
+- `@hypequery/schema`: ClickHouse schema definitions, migrations, and dataset compatibility checks
 - `@hypequery/cli`: scaffolding, schema generation, and local dev tooling
 
 ## Quick Start
@@ -104,7 +143,14 @@ That gives you the main path:
 
 1. Generate schema types from ClickHouse
 2. Write typed queries locally
-3. Expose the queries over HTTP when you need a shared contract
+3. Promote shared analytics concepts into datasets and metrics
+4. Expose the queries, datasets, or metrics over HTTP when you need a shared contract
+
+For the semantic layer directly:
+
+```bash
+npm install @hypequery/datasets @hypequery/clickhouse
+```
 
 ## Add Contracts And HTTP When Needed
 
@@ -161,7 +207,7 @@ await activeUsers.execute({
 });
 ```
 
-The same served execution API also works for semantic metrics:
+The same served execution API also works for datasets and semantic metrics:
 
 ```ts
 import { initServe } from '@hypequery/serve';
@@ -199,6 +245,8 @@ await api.execute('dataset:orders', {
 });
 ```
 
+Dataset endpoints accept validated dimensions, measures, filters, ordering, time grains, and runtime tenant context. Metric endpoints expose one named KPI with the dimensions and filters allowed by its dataset.
+
 ## CLI
 
 ```bash
@@ -216,6 +264,8 @@ npx hypequery generate
 
 - [Quick start](https://hypequery.com/docs/quick-start)
 - [Core concepts](https://hypequery.com/docs/core-concepts)
+- [Datasets](https://hypequery.com/docs/datasets/overview)
+- [Metrics](https://hypequery.com/docs/datasets/metrics)
 - [Query building](https://hypequery.com/docs/query-building/basics)
 - [CLI reference](https://hypequery.com/docs/reference/api/cli)
 
