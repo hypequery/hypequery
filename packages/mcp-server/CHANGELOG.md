@@ -1,5 +1,18 @@
 # @hypequery/mcp
 
+## 0.3.0
+
+### Minor Changes
+
+- e6734be: Add dataset catalog metadata for measures, filters, relationships, limits, and attached named metrics. Update MCP dataset introspection and dataset querying metadata to distinguish measures from named metrics.
+
+  Breaking MCP change: `query_dataset` now accepts `measures` only. The previous `metrics` argument for dataset queries has been removed so named metrics remain reserved for `query_metric`.
+
+### Patch Changes
+
+- Updated dependencies [e6734be]
+  - @hypequery/datasets@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
