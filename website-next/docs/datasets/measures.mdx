@@ -111,7 +111,7 @@ const revenue = Orders.metric('revenue', { measure: 'revenue' });
 ```
 </CodeBlock>
 
-For MCP, named metrics are exposed through `get_dataset_schema`, so measure metadata becomes especially useful once measures are promoted into metrics for agent-facing analytics.
+For MCP, measures are exposed through `get_dataset_schema` for ad hoc dataset queries. When you promote a measure into a named metric, the metric can inherit the measure label and description for agent-facing KPI queries.
 
 ## SQL-backed measures
 

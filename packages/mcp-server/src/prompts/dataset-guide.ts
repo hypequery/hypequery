@@ -17,12 +17,16 @@ export function datasetGuidePrompt(datasets: DatasetRegistry, datasetName?: stri
     const datasetAny = dataset as any;
     // Generate dataset-specific guide
     const dimensions = datasetAny.dimensions ? Object.keys(datasetAny.dimensions) : [];
+    const measures = datasetAny.measures ? Object.keys(datasetAny.measures) : [];
     const metrics = datasetAny.metrics ? Object.keys(datasetAny.metrics) : [];
 
     const guide = `# Querying the ${datasetName} dataset
 
 ## Available Dimensions
 ${dimensions.map((d) => `- ${d}`).join('\n')}
+
+## Available Measures
+${measures.map((m) => `- ${m}`).join('\n')}
 
 ## Available Metrics
 ${metrics.map((m) => `- ${m}`).join('\n')}
@@ -52,7 +56,7 @@ Show "${metrics[0] || 'revenue'}" by month for the last year
 ## Tips
 - Use natural language to describe what you want to see
 - The system will translate your query into the appropriate dataset query
-- You can filter, group, and aggregate data using the available dimensions and metrics
+- You can filter, group, and aggregate data using the available dimensions, measures, and metrics
 `;
 
     return {
@@ -79,9 +83,9 @@ ${datasetList.map((name) => `- ${name}`).join('\n')}
 ## How to Query
 
 1. **List datasets**: Use the \`list_datasets\` tool to see all available datasets
-2. **Get schema**: Use the \`get_dataset_schema\` tool to see dimensions and metrics for a dataset
+2. **Get schema**: Use the \`get_dataset_schema\` tool to see dimensions, measures, and metrics for a dataset
 3. **Query metric**: Use the \`query_metric\` tool to execute a pre-defined metric
-4. **Query dataset**: Use the \`query_dataset\` tool for ad-hoc queries with custom dimensions and metrics
+4. **Query dataset**: Use the \`query_dataset\` tool for ad-hoc queries with custom dimensions and measures
 
 ## Example Workflow
 

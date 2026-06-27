@@ -26,6 +26,7 @@
     "datasets/dimensions",
     "datasets/measures",
     "datasets/metrics",
+    "datasets/catalog",
     "datasets/time-grains",
     "datasets/multi-tenancy",
     "datasets/execution",

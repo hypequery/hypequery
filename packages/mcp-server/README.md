@@ -108,6 +108,7 @@ Lists all available datasets with their descriptions.
       "name": "orders",
       "description": "Customer orders and revenue data",
       "dimensionCount": 5,
+      "measureCount": 4,
       "metricCount": 4
     }
   ],
@@ -137,8 +138,12 @@ Gets the complete schema for a dataset.
     "region": { "type": "string", "label": "Region" },
     "status": { "type": "string", "label": "Order Status" }
   },
+  "measures": {
+    "revenue": { "aggregation": "sum", "field": "amount", "label": "Revenue" },
+    "orderCount": { "aggregation": "count", "field": "id", "label": "Order Count" }
+  },
   "metrics": {
-    "revenue": { "type": "sum", "label": "Total Revenue", "format": "currency" }
+    "totalRevenue": { "type": "metric", "aggregation": "revenue", "label": "Total Revenue" }
   }
 }
 ```
@@ -184,7 +189,7 @@ Executes a pre-defined metric query.
 
 ### `query_dataset`
 
-Executes an ad-hoc dataset query with custom dimensions and metrics.
+Executes an ad-hoc dataset query with custom dimensions and measures. The older `metrics` argument is still accepted as a compatibility alias for `measures`.
 
 **Example:**
 ```typescript
@@ -193,7 +198,7 @@ Executes an ad-hoc dataset query with custom dimensions and metrics.
   "arguments": {
     "dataset": "orders",
     "dimensions": ["region", "status"],
-    "metrics": ["revenue", "orderCount"],
+    "measures": ["revenue", "orderCount"],
     "limit": 100
   }
 }

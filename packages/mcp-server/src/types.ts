@@ -3,6 +3,7 @@
  */
 
 import type {
+  AnyDatasetInstance,
   MetricFilter,
   TimeGrain,
   MetricOrderBy,
@@ -10,9 +11,8 @@ import type {
 
 /**
  * Registry of datasets - maps dataset names to dataset instances
- * Using flexible type to accommodate actual dataset structure
  */
-export type DatasetRegistry = Record<string, Record<string, unknown>>;
+export type DatasetRegistry = Record<string, AnyDatasetInstance | Record<string, unknown>>;
 
 /**
  * Arguments for query_metric tool
@@ -76,8 +76,16 @@ export interface DatasetSchema {
   timeKey: string | null;
   tenantKey: string | null;
   dimensions: Record<string, DimensionSchema>;
+  measures: Record<string, MeasureSchema>;
   metrics: Record<string, MetricSchema>;
+  filters: Record<string, FilterSchema>;
   relationships: Record<string, RelationshipSchema>;
+  limits?: {
+    maxDimensions?: number;
+    maxMeasures?: number;
+    maxFilters?: number;
+    maxResultSize?: number;
+  };
 }
 
 /**
@@ -85,10 +93,34 @@ export interface DatasetSchema {
  */
 export interface DimensionSchema {
   type: string;
-  column: string;
+  column: string | null;
+  sql: string | null;
   label: string;
   description: string;
   examples: string[];
+  filterable: boolean;
+  groupable: boolean;
+}
+
+/**
+ * Measure schema in response
+ */
+export interface MeasureSchema {
+  aggregation: string;
+  field: string;
+  sql: string | null;
+  label: string;
+  description: string;
+}
+
+/**
+ * Filter schema in response
+ */
+export interface FilterSchema {
+  field: string;
+  label: string;
+  description: string;
+  operators: string[] | null;
 }
 
 /**
@@ -108,6 +140,9 @@ export interface MetricSchema {
 export interface RelationshipSchema {
   type: string;
   target: string;
+  from?: string;
+  to?: string;
+  execution?: string;
   description: string;
 }
 
@@ -118,6 +153,7 @@ export interface DatasetListItem {
   name: string;
   description: string;
   dimensionCount: number;
+  measureCount?: number;
   metricCount: number;
 }
 

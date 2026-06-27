@@ -12,12 +12,14 @@ export async function listDatasetsTool(datasets: DatasetRegistry): Promise<MCPTo
     // Try to extract description from dataset instance
     const description = datasetAny.description || datasetAny.config?.description || 'No description available';
     const dimensionCount = datasetAny.dimensions ? Object.keys(datasetAny.dimensions).length : 0;
-    const metricCount = datasetAny.metrics ? Object.keys(datasetAny.metrics).length : 0;
+    const measureCount = datasetAny.measures ? Object.keys(datasetAny.measures).length : 0;
+    const metricCount = datasetAny.metrics ? Object.keys(datasetAny.metrics).length : measureCount;
 
     return {
       name,
       description,
       dimensionCount,
+      measureCount,
       metricCount,
     };
   });

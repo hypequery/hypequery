@@ -27,7 +27,7 @@ describe('queryDatasetTool', () => {
     ).rejects.toThrow('Dataset not found: nonexistent');
   });
 
-  it('should throw error when no dimensions or metrics specified', async () => {
+  it('should throw error when no dimensions or measures specified', async () => {
     const datasets = {
       orders: {},
     };
@@ -35,7 +35,7 @@ describe('queryDatasetTool', () => {
 
     await expect(
       queryDatasetTool(datasets, analytics, { dataset: 'orders' })
-    ).rejects.toThrow('At least one dimension or metric must be specified');
+    ).rejects.toThrow('At least one dimension or measure must be specified');
   });
 
   it('should execute query with dimensions only', async () => {
@@ -80,7 +80,7 @@ describe('queryDatasetTool', () => {
     );
   });
 
-  it('should execute query with metrics only', async () => {
+  it('should execute query with measures only', async () => {
     const mockResult = {
       data: [{ revenue: 1000, count: 50 }],
       meta: {},
@@ -93,7 +93,7 @@ describe('queryDatasetTool', () => {
     const analytics = createMockAnalytics(mockResult);
     const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
-      metrics: ['revenue', 'count'],
+      measures: ['revenue', 'count'],
     });
 
     const data = JSON.parse(result.content[0].text);
@@ -107,6 +107,46 @@ describe('queryDatasetTool', () => {
       }),
       expect.anything()
     );
+  });
+
+  it('should accept metrics as a backwards-compatible alias for measures', async () => {
+    const mockResult = {
+      data: [{ revenue: 1000 }],
+      meta: {},
+    };
+
+    const datasets = {
+      orders: {},
+    };
+
+    const analytics = createMockAnalytics(mockResult);
+    await queryDatasetTool(datasets, analytics, {
+      dataset: 'orders',
+      metrics: ['revenue'],
+    });
+
+    expect(analytics.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        measures: ['revenue'],
+      }),
+      expect.anything()
+    );
+  });
+
+  it('should reject ambiguous measures and metrics arguments', async () => {
+    const datasets = {
+      orders: {},
+    };
+    const analytics = createMockAnalytics({});
+
+    await expect(
+      queryDatasetTool(datasets, analytics, {
+        dataset: 'orders',
+        measures: ['revenue'],
+        metrics: ['revenue'],
+      }),
+    ).rejects.toThrow('Use measures or metrics, not both');
   });
 
   it('should execute query with dimensions and metrics', async () => {

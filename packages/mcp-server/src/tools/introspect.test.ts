@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { dataset, dimension, measure } from '@hypequery/datasets';
 import { getDatasetSchemaTool } from './introspect.js';
 
 describe('getDatasetSchemaTool', () => {
@@ -107,6 +108,106 @@ describe('getDatasetSchemaTool', () => {
       type: 'many-to-one',
       target: 'customers',
       description: 'Related customer',
+    });
+  });
+
+  it('should return measures and filters for real @hypequery/datasets instances', async () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      tenantKey: 'tenant_id',
+      timeKey: 'created_at',
+      dimensions: {
+        status: dimension.string({ label: 'Status' }),
+        createdAt: dimension.timestamp({ column: 'created_at' }),
+        amount: dimension.number(),
+      },
+      measures: {
+        revenue: measure.sum('amount', { label: 'Revenue' }),
+        orderCount: measure.count('status', { label: 'Order Count' }),
+      },
+      filters: {
+        status: {
+          __type: 'filter_definition',
+          field: 'status',
+          operators: ['eq', 'in'],
+        },
+      },
+      limits: {
+        maxMeasures: 3,
+      },
+    });
+
+    const result = await getDatasetSchemaTool({ orders: Orders }, { dataset: 'orders' });
+    const schema = JSON.parse(result.content[0].text);
+
+    expect(schema.source).toBe('orders');
+    expect(schema.timeKey).toBe('created_at');
+    expect(schema.tenantKey).toBe('tenant_id');
+    expect(schema.dimensions.status).toMatchObject({
+      type: 'string',
+      column: 'status',
+      label: 'Status',
+      filterable: true,
+      groupable: true,
+    });
+    expect(schema.dimensions.createdAt).toMatchObject({
+      type: 'timestamp',
+      column: 'created_at',
+    });
+    expect(schema.measures.revenue).toMatchObject({
+      aggregation: 'sum',
+      field: 'amount',
+      label: 'Revenue',
+    });
+    expect(schema.measures.orderCount).toMatchObject({
+      aggregation: 'count',
+      field: 'status',
+      label: 'Order Count',
+    });
+    expect(schema.filters.status).toMatchObject({
+      field: 'status',
+      operators: ['eq', 'in'],
+    });
+    expect(schema.metrics).toEqual({});
+    expect(schema.limits).toMatchObject({ maxMeasures: 3 });
+  });
+
+  it('should return named metrics attached to real @hypequery/datasets instances', async () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        status: dimension.string(),
+      },
+      measures: {
+        revenue: measure.sum('amount', { label: 'Revenue' }),
+      },
+    });
+    const totalRevenue = Orders.metric('totalRevenue', {
+      measure: 'revenue',
+      label: 'Total Revenue',
+    });
+
+    const result = await getDatasetSchemaTool(
+      {
+        orders: {
+          ...Orders,
+          metrics: { totalRevenue },
+        },
+      },
+      { dataset: 'orders' },
+    );
+    const schema = JSON.parse(result.content[0].text);
+
+    expect(schema.measures.revenue).toMatchObject({
+      aggregation: 'sum',
+      field: 'amount',
+      label: 'Revenue',
+    });
+    expect(schema.metrics.totalRevenue).toMatchObject({
+      type: 'metric',
+      aggregation: 'revenue',
+      label: 'Total Revenue',
+      format: null,
     });
   });
 
