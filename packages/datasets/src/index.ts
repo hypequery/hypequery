@@ -31,6 +31,18 @@ export {
 // Registry
 export { createDatasetRegistry } from './registry.js';
 
+// Catalog
+export { getDatasetCatalog, getDatasetCatalogs } from './catalog.js';
+export type {
+  DatasetCatalog,
+  DatasetCatalogMap,
+  DimensionCatalogEntry,
+  MeasureCatalogEntry,
+  MetricCatalogEntry,
+  FilterCatalogEntry,
+  RelationshipCatalogEntry,
+} from './catalog.js';
+
 // Dataset client
 export { createDatasetClient } from './executor.js';
 export type { DatasetClient, CreateDatasetClientOptions } from './executor.js';

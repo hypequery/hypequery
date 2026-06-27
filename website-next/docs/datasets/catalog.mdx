@@ -1,0 +1,120 @@
+---
+title: Catalog
+description: Export normalized dataset metadata for tools, docs, and agents.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+The dataset catalog is a normalized metadata view of a dataset definition. Use it when another runtime needs to inspect the semantic model without reaching into dataset internals.
+
+Catalog metadata includes:
+
+- source table or view
+- tenant and time keys
+- dimensions and their labels, descriptions, columns, SQL expressions, and filter/group flags
+- measures and their aggregation metadata
+- attached named metrics
+- filters and allowed operators
+- relationship metadata
+- dataset limits
+
+## Dataset catalog
+
+<CodeBlock>
+```typescript
+import { getDatasetCatalog } from '@hypequery/datasets';
+import { Orders } from './datasets/orders.js';
+
+const catalog = getDatasetCatalog(Orders);
+
+console.log(catalog.dimensions.status);
+console.log(catalog.measures.revenue);
+```
+</CodeBlock>
+
+The returned object is plain JSON-compatible metadata.
+
+<CodeBlock>
+```json
+{
+  "name": "orders",
+  "source": "orders",
+  "tenantKey": "tenant_id",
+  "timeKey": "created_at",
+  "dimensions": {
+    "status": {
+      "type": "string",
+      "column": "status",
+      "label": "Status",
+      "filterable": true,
+      "groupable": true
+    }
+  },
+  "measures": {
+    "revenue": {
+      "aggregation": "sum",
+      "field": "amount",
+      "label": "Revenue"
+    }
+  },
+  "metrics": {},
+  "filters": {
+    "status": {
+      "field": "status",
+      "operators": ["eq", "in"]
+    }
+  },
+  "relationships": {},
+  "limits": {
+    "maxMeasures": 3
+  }
+}
+```
+</CodeBlock>
+
+## Catalog maps
+
+Use `getDatasetCatalogs` when you already have a dataset registry.
+
+<CodeBlock>
+```typescript
+import { getDatasetCatalogs } from '@hypequery/datasets';
+import { Customers, Orders } from './datasets/index.js';
+
+const catalogs = getDatasetCatalogs({
+  orders: Orders,
+  customers: Customers,
+});
+```
+</CodeBlock>
+
+## Measures vs metrics
+
+Measures are raw aggregations available in dataset queries. Metrics are named KPI handles created with `dataset.metric(...)`.
+
+By default, a dataset instance has measures but does not store every metric ref created from it. If a registry attaches named metric refs, the catalog includes them separately.
+
+<CodeBlock>
+```typescript
+const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Revenue',
+});
+
+const catalog = getDatasetCatalog({
+  ...Orders,
+  metrics: { revenue },
+});
+
+console.log(catalog.measures.revenue);
+console.log(catalog.metrics.revenue);
+```
+</CodeBlock>
+
+This is the same registry shape used by the MCP server. It lets `get_dataset_schema` show both the exploratory dataset measures and the named metrics that agents should use for stable KPIs.
+
+## Current consumers
+
+The catalog is public in `@hypequery/datasets`. MCP introspection uses it today to keep agent-facing schema metadata aligned with real dataset definitions.
+
+Serve metadata, OpenAPI generation, React metadata, and CLI-generated labels are planned follow-up work.

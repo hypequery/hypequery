@@ -27,7 +27,7 @@ describe('queryDatasetTool', () => {
     ).rejects.toThrow('Dataset not found: nonexistent');
   });
 
-  it('should throw error when no dimensions or metrics specified', async () => {
+  it('should throw error when no dimensions or measures specified', async () => {
     const datasets = {
       orders: {},
     };
@@ -35,7 +35,7 @@ describe('queryDatasetTool', () => {
 
     await expect(
       queryDatasetTool(datasets, analytics, { dataset: 'orders' })
-    ).rejects.toThrow('At least one dimension or metric must be specified');
+    ).rejects.toThrow('At least one dimension or measure must be specified');
   });
 
   it('should execute query with dimensions only', async () => {
@@ -80,7 +80,7 @@ describe('queryDatasetTool', () => {
     );
   });
 
-  it('should execute query with metrics only', async () => {
+  it('should execute query with measures only', async () => {
     const mockResult = {
       data: [{ revenue: 1000, count: 50 }],
       meta: {},
@@ -93,7 +93,7 @@ describe('queryDatasetTool', () => {
     const analytics = createMockAnalytics(mockResult);
     const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
-      metrics: ['revenue', 'count'],
+      measures: ['revenue', 'count'],
     });
 
     const data = JSON.parse(result.content[0].text);
@@ -109,7 +109,21 @@ describe('queryDatasetTool', () => {
     );
   });
 
-  it('should execute query with dimensions and metrics', async () => {
+  it('should reject metrics as a dataset query argument', async () => {
+    const datasets = {
+      orders: {},
+    };
+    const analytics = createMockAnalytics({});
+
+    await expect(
+      queryDatasetTool(datasets, analytics, {
+        dataset: 'orders',
+        metrics: ['revenue'],
+      }),
+    ).rejects.toThrow('Invalid query_dataset arguments');
+  });
+
+  it('should execute query with dimensions and measures', async () => {
     const mockResult = {
       data: [
         { region: 'US', revenue: 1000 },
@@ -126,7 +140,7 @@ describe('queryDatasetTool', () => {
     const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
     });
 
     const data = JSON.parse(result.content[0].text);
@@ -161,7 +175,7 @@ describe('queryDatasetTool', () => {
     await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
       filters,
     });
 
@@ -191,7 +205,7 @@ describe('queryDatasetTool', () => {
     await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['week'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
       grain: 'week',
     });
 
@@ -227,7 +241,7 @@ describe('queryDatasetTool', () => {
     await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region'],
-      metrics: ['revenue'],
+      measures: ['revenue'],
       orderBy,
       limit: 5,
     });
@@ -263,7 +277,7 @@ describe('queryDatasetTool', () => {
     const result = await queryDatasetTool(datasets, analytics, {
       dataset: 'orders',
       dimensions: ['region', 'category'],
-      metrics: ['revenue', 'count'],
+      measures: ['revenue', 'count'],
       filters: [{ field: 'status', operator: 'eq', value: 'completed' }],
       orderBy: [{ field: 'revenue', direction: 'desc' }],
       limit: 10,

@@ -52,7 +52,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object';
 }
 
-function getTenantKey(dataset: Record<string, unknown>): string | undefined {
+function getTenantKey(dataset: unknown): string | undefined {
+  if (!isRecord(dataset)) {
+    return undefined;
+  }
+
   const config = dataset.config;
   const configTenantKey = isRecord(config) ? config.tenantKey : undefined;
   const tenantKey = dataset.tenantKey ?? configTenantKey;
@@ -113,7 +117,7 @@ export class HypequeryMCPServer {
         },
         {
           name: 'get_dataset_schema',
-          description: 'Get the schema (dimensions, metrics, relationships) for a specific dataset',
+          description: 'Get the schema (dimensions, measures, named metrics, filters, relationships) for a specific dataset',
           inputSchema: {
             type: 'object',
             properties: {
@@ -191,7 +195,7 @@ export class HypequeryMCPServer {
         },
         {
           name: 'query_dataset',
-          description: 'Execute an ad-hoc dataset query with custom dimensions and metrics',
+          description: 'Execute an ad-hoc dataset query with custom dimensions and measures',
           inputSchema: {
             type: 'object',
             properties: {
@@ -204,10 +208,10 @@ export class HypequeryMCPServer {
                 items: { type: 'string' },
                 description: 'Dimensions to select',
               },
-              metrics: {
+              measures: {
                 type: 'array',
                 items: { type: 'string' },
-                description: 'Metrics to calculate',
+                description: 'Measures to calculate',
               },
               filters: {
                 type: 'array',

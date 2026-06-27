@@ -42,6 +42,7 @@ describe('listDatasetsTool', () => {
       name: 'orders',
       description: 'Order data',
       dimensionCount: 2,
+      measureCount: 0,
       metricCount: 2,
     });
 
@@ -50,6 +51,28 @@ describe('listDatasetsTool', () => {
       name: 'customers',
       description: 'Customer data',
       dimensionCount: 1,
+      measureCount: 0,
+      metricCount: 1,
+    });
+  });
+
+  it('should count measures separately from named metrics', async () => {
+    const datasets = {
+      orders: {
+        description: 'Order data',
+        dimensions: { region: {} },
+        measures: { revenue: {}, orderCount: {} },
+        metrics: { totalRevenue: {} },
+      },
+    };
+
+    const result = await listDatasetsTool(datasets);
+    const data = JSON.parse(result.content[0].text);
+
+    expect(data.datasets[0]).toMatchObject({
+      name: 'orders',
+      dimensionCount: 1,
+      measureCount: 2,
       metricCount: 1,
     });
   });
@@ -99,6 +122,7 @@ describe('listDatasetsTool', () => {
       name: 'minimal',
       description: 'Minimal dataset',
       dimensionCount: 0,
+      measureCount: 0,
       metricCount: 0,
     });
   });

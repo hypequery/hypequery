@@ -1,7 +1,7 @@
 /**
  * Query Dataset Tool
  *
- * Executes an ad-hoc dataset query with custom dimensions and metrics.
+ * Executes an ad-hoc dataset query with custom dimensions and measures.
  */
 
 import type { DatasetClient, DatasetQuery } from '@hypequery/datasets';
@@ -15,7 +15,7 @@ export async function queryDatasetTool(
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
   const validatedArgs = parseToolArgs(queryDatasetArgsSchema, 'query_dataset', args);
-  const { dataset: datasetName, dimensions, metrics, filters, grain, orderBy, limit, offset } = validatedArgs;
+  const { dataset: datasetName, dimensions, measures, filters, grain, orderBy, limit, offset } = validatedArgs;
 
   if (!datasetName) {
     throw new Error('dataset parameter is required');
@@ -27,14 +27,14 @@ export async function queryDatasetTool(
     throw new Error(`Dataset not found: ${datasetName}`);
   }
 
-  if (!dimensions?.length && !metrics?.length) {
-    throw new Error('At least one dimension or metric must be specified');
+  if (!dimensions?.length && !measures?.length) {
+    throw new Error('At least one dimension or measure must be specified');
   }
 
   // Build the query with proper types
   const query: DatasetQuery = {
     dimensions: dimensions || [],
-    measures: metrics || [],
+    measures: measures || [],
     filters: toMetricFilters(filters),
     orderBy: orderBy || [],
   };

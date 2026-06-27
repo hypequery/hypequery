@@ -9,7 +9,7 @@ The MCP server exposes semantic tools over your dataset registry. Agents do not 
 
 ## `list_datasets`
 
-Lists registered datasets with description, dimension count, and metric count.
+Lists registered datasets with description, dimension count, measure count, and metric count.
 
 <CodeBlock>
 ```json
@@ -29,6 +29,7 @@ Example response:
       "name": "orders",
       "description": "Customer orders and revenue data",
       "dimensionCount": 5,
+      "measureCount": 4,
       "metricCount": 2
     }
   ],
@@ -39,7 +40,7 @@ Example response:
 
 ## `get_dataset_schema`
 
-Returns metadata for one dataset, including dimensions, named metrics, tenant key, time key, and relationship metadata when present.
+Returns metadata for one dataset, including dimensions, measures, named metrics, filters, tenant key, time key, limits, and relationship metadata when present.
 
 <CodeBlock>
 ```json
@@ -91,7 +92,7 @@ Runs an ad hoc dataset query with selected dimensions and measures.
   "arguments": {
     "dataset": "orders",
     "dimensions": ["country", "status"],
-    "metrics": ["revenue", "orderCount"],
+    "measures": ["revenue", "orderCount"],
     "filters": [
       { "field": "status", "operator": "eq", "value": "completed" }
     ],
@@ -102,9 +103,9 @@ Runs an ad hoc dataset query with selected dimensions and measures.
 ```
 </CodeBlock>
 
-The MCP argument is called `metrics` for agent ergonomics. It maps to dataset measures when calling `analytics.execute(Orders, ...)`, so it resolves raw measures only. Derived or named metrics (such as `averageOrderValue`) are not measures and can only be queried through `query_metric`.
+The MCP argument is called `measures`, matching dataset queries in `@hypequery/datasets`. Derived or named metrics such as `averageOrderValue` are not measures and can only be queried through `query_metric`.
 
-At least one dimension or metric must be specified, otherwise the query is rejected.
+At least one dimension or measure must be specified, otherwise the query is rejected.
 
 ## Pagination
 
