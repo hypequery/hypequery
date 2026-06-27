@@ -157,6 +157,10 @@ type DatasetCatalog = {
   filters: Record<string, FilterCatalogEntry>;
   relationships: Record<string, RelationshipCatalogEntry>;
   limits?: DatasetLimits;
+  requiresTenant: boolean;
+  supportedGrains: TimeGrain[];
+  orderableFields: string[];
+  maxLimit?: number;
 };
 ```
 
@@ -199,7 +203,9 @@ Example output:
 - Done in this PR: Make MCP introspection consume the catalog.
 - Done in this PR: Distinguish raw measures from named metrics in the datasets catalog and MCP schema output.
 - Done in this PR: Add tests using real `@hypequery/datasets` instances for catalog and MCP introspection.
-- Deferred to follow-up PR: Make Serve endpoint metadata and OpenAPI generation consume the catalog.
+- Done in this PR: Add dashboard/tool metadata to the catalog: default filter operators, filter value types, supported time grains, tenant requirement, orderable fields, max result limit, and measure filter counts.
+- Done in this PR: Make Serve endpoint descriptions and OpenAPI input schemas consume the catalog for dataset fields, filters, order fields, grains, tenant state, and relationship metadata.
+- Done in this PR: Add catalog-backed AI tool generation helpers for catalog, per-dataset, and per-metric tools, with OpenAI, AI SDK, and MCP metadata adapters.
 - Deferred to follow-up PR: Update CLI generation to emit catalog-friendly labels/descriptions.
 - Deferred to follow-up PR: Add cross-package contract tests to prevent catalog/OpenAPI/MCP drift.
 
@@ -1225,6 +1231,11 @@ Includes:
 3. Dashboard-builder metadata.
 4. AI tool generation.
 5. CLI generation improvements.
+
+Status:
+
+- Done: catalog/introspection unification, MCP measures/metrics schema fix, dashboard-builder metadata, Serve/OpenAPI catalog consumption, and initial AI tool generation.
+- Remaining: CLI generation improvements and broader cross-package drift tests.
 
 Why first: this creates one shared semantic contract for docs, Serve, MCP, generated tools, and dashboard UIs. It also produces visible product value without changing the SQL planner.
 

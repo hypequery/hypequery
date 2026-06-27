@@ -60,6 +60,9 @@ describe('dataset catalog', () => {
       tenantKey: 'tenant_id',
       timeKey: 'created_at',
       limits: { maxMeasures: 2 },
+      requiresTenant: true,
+      supportedGrains: ['day', 'week', 'month', 'quarter', 'year'],
+      orderableFields: ['id', 'customerId', 'status', 'createdAt', 'amount', 'revenue', 'orderCount', 'period'],
     });
     expect(catalog.dimensions.status).toMatchObject({
       type: 'string',
@@ -75,11 +78,13 @@ describe('dataset catalog', () => {
       aggregation: 'sum',
       field: 'amount',
       label: 'Revenue',
+      filterCount: 0,
     });
     expect(catalog.metrics).toEqual({});
     expect(catalog.filters.status).toMatchObject({
       field: 'status',
       operators: ['eq', 'in'],
+      valueType: 'string',
     });
     expect(catalog.relationships.customer).toMatchObject({
       kind: 'belongsTo',

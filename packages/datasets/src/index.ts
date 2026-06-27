@@ -43,6 +43,24 @@ export type {
   RelationshipCatalogEntry,
 } from './catalog.js';
 
+// Agent/tool metadata
+export {
+  generateDatasetTools,
+  toOpenAITools,
+  toAISDKTools,
+  toMcpTools,
+} from './tools.js';
+export type {
+  AISDKToolDefinition,
+  DatasetToolAnalytics,
+  DatasetToolMode,
+  GenerateDatasetToolsOptions,
+  JsonSchema,
+  McpToolDefinition,
+  OpenAIToolDefinition,
+  SemanticToolDefinition,
+} from './tools.js';
+
 // Dataset client
 export { createDatasetClient } from './executor.js';
 export type { DatasetClient, CreateDatasetClientOptions } from './executor.js';
@@ -69,7 +87,7 @@ export type { QueryBuilderLike, QueryBuilderFactoryLike } from './query-builder-
 export { validateSQLIdentifier, isSafeSQLIdentifier, quoteSQLIdentifier } from './sql-utils.js';
 
 // Constants
-export { GRAIN_FUNCTIONS } from './constants.js';
+export { GRAIN_FUNCTIONS, SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
 
 // Types
 export type {
