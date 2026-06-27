@@ -1,0 +1,111 @@
+name: Issue
+description: Report a bug, request a feature, or suggest a documentation improvement.
+title: "[Issue]: "
+labels: ["needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to open an issue. Clear reproduction steps and version details help us respond faster.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      description: What kind of issue is this?
+      options:
+        - Bug
+        - Feature request
+        - Documentation
+        - Question
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package or area
+      description: Which part of hypequery is affected?
+      options:
+        - "@hypequery/cli"
+        - "@hypequery/clickhouse"
+        - "@hypequery/datasets"
+        - "@hypequery/mcp"
+        - "@hypequery/react"
+        - "@hypequery/schema"
+        - "@hypequery/serve"
+        - Documentation website
+        - Examples
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the issue or request in a few sentences.
+      placeholder: What happened, what should happen, or what should be added?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: For bugs, include the smallest code sample, commands, config, or repository link that reproduces the issue.
+      placeholder: |
+        1. Install ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include error messages or logs when useful.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Which hypequery package version are you using?
+      placeholder: "Example: @hypequery/datasets@0.2.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Share relevant runtime details.
+      placeholder: |
+        Node:
+        Package manager:
+        TypeScript:
+        Framework:
+        ClickHouse:
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, links, related issues, or anything else that may help.
+    validations:
+      required: false
