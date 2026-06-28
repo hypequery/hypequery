@@ -44,6 +44,11 @@ export interface QueryDatasetArgs {
 
 export interface QueryToolOptions {
   tenantId?: string;
+  includeSql?: boolean;
+}
+
+export interface SchemaToolOptions {
+  includeSql?: boolean;
 }
 
 /**

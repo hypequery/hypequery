@@ -18,6 +18,7 @@ export type {
   QueryMetricArgs,
   QueryDatasetArgs,
   QueryToolOptions,
+  SchemaToolOptions,
   GetDatasetSchemaArgs,
   MCPToolResponse,
   DatasetSchema,

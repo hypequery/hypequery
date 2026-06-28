@@ -16,6 +16,7 @@ import type {
   FilterSchema,
   MetricSchema,
   RelationshipSchema,
+  SchemaToolOptions,
 } from '../types.js';
 
 function isDatasetInstance(value: unknown): value is Parameters<typeof getDatasetCatalog>[0] {
@@ -24,7 +25,8 @@ function isDatasetInstance(value: unknown): value is Parameters<typeof getDatase
 
 export async function getDatasetSchemaTool(
   datasets: DatasetRegistry,
-  args: unknown
+  args: unknown,
+  options: SchemaToolOptions = {},
 ): Promise<MCPToolResponse> {
   // Parse and validate args
   const validatedArgs = args as GetDatasetSchemaArgs;
@@ -66,7 +68,7 @@ export async function getDatasetSchemaTool(
       const dimSchema: DimensionSchema = {
         type: dimension.type,
         column: dimension.column ?? name,
-        sql: dimension.sql ?? null,
+        sql: options.includeSql ? dimension.sql ?? null : null,
         label: dimension.label || name,
         description: dimension.description || '',
         examples: [],
@@ -80,7 +82,7 @@ export async function getDatasetSchemaTool(
       const measureSchema: MeasureSchema = {
         aggregation: measure.aggregation,
         field: measure.field,
-        sql: measure.sql ?? null,
+        sql: options.includeSql ? measure.sql ?? null : null,
         label: measure.label || name,
         description: measure.description || '',
       };
@@ -126,7 +128,7 @@ export async function getDatasetSchemaTool(
         const dimSchema: DimensionSchema = {
           type: (dimension as { fieldType?: string; type?: string }).fieldType || (dimension as { type?: string }).type || 'unknown',
           column: (dimension as { column?: string }).column || name,
-          sql: (dimension as { sql?: string }).sql || null,
+          sql: options.includeSql ? (dimension as { sql?: string }).sql || null : null,
           label: (dimension as { label?: string }).label || name,
           description: (dimension as { description?: string }).description || '',
           examples: (dimension as { examples?: string[] }).examples || [],
@@ -142,7 +144,7 @@ export async function getDatasetSchemaTool(
         const measureSchema: MeasureSchema = {
           aggregation: (measure as { aggregation?: string; type?: string }).aggregation || (measure as { type?: string }).type || 'unknown',
           field: (measure as { field?: string }).field || name,
-          sql: (measure as { sql?: string }).sql || null,
+          sql: options.includeSql ? (measure as { sql?: string }).sql || null : null,
           label: (measure as { label?: string }).label || name,
           description: (measure as { description?: string }).description || '',
         };

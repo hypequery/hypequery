@@ -303,4 +303,46 @@ describe('getDatasetSchemaTool', () => {
 
     expect(schema.dimensions.field.examples).toEqual([]);
   });
+
+  it('should redact SQL-backed field expressions by default', async () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        countryUpper: dimension.string({ sql: 'upper(country_code)' }),
+        amount: dimension.number(),
+      },
+      measures: {
+        taxedRevenue: measure.sum('amount', { sql: 'amount * 1.2' }),
+      },
+    });
+
+    const result = await getDatasetSchemaTool({ orders: Orders }, { dataset: 'orders' });
+    const schema = JSON.parse(result.content[0].text);
+
+    expect(schema.dimensions.countryUpper.sql).toBeNull();
+    expect(schema.measures.taxedRevenue.sql).toBeNull();
+  });
+
+  it('should include SQL-backed field expressions when explicitly enabled', async () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        countryUpper: dimension.string({ sql: 'upper(country_code)' }),
+        amount: dimension.number(),
+      },
+      measures: {
+        taxedRevenue: measure.sum('amount', { sql: 'amount * 1.2' }),
+      },
+    });
+
+    const result = await getDatasetSchemaTool(
+      { orders: Orders },
+      { dataset: 'orders' },
+      { includeSql: true },
+    );
+    const schema = JSON.parse(result.content[0].text);
+
+    expect(schema.dimensions.countryUpper.sql).toBe('upper(country_code)');
+    expect(schema.measures.taxedRevenue.sql).toBe('amount * 1.2');
+  });
 });

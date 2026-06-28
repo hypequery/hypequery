@@ -3,6 +3,7 @@ title: Dimensions
 description: Define typed fields for selecting, grouping, and filtering dataset queries.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 Dimensions are the non-aggregated fields in a dataset. They are the fields callers can select, group by, filter on, and order by.
@@ -134,6 +135,10 @@ dimensions: {
 </CodeBlock>
 
 Use SQL-backed dimensions sparingly. Schema compatibility checks can inspect simple column references, but complex SQL expressions can only produce warnings because they cannot be fully verified from the table schema.
+
+<Callout type="warn" title="Trusted model code">
+  The `sql` option is authored in your dataset definition. Runtime callers should only reference the semantic dimension name, not provide SQL. See [Trust Boundaries](/docs/reference/trust-boundaries).
+</Callout>
 
 ## Filterable and groupable
 

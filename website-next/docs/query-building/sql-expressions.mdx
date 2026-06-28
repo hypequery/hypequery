@@ -12,6 +12,10 @@ The fluent query builder covers most workflows, but you can always run raw SQL o
   These examples use a typed standalone `db` client so the query builder stays the focus.
 </Callout>
 
+<Callout type="warn" title="Trusted code only">
+  Raw SQL helpers are escape hatches for developer-authored SQL. Do not expose them as a public query language or build raw fragments from user or agent input. For public analytics input, expose semantic dataset or metric APIs instead. See [Trust Boundaries](/docs/reference/trust-boundaries).
+</Callout>
+
 ## Raw SQL Queries
 
 Execute raw SQL when you need complete control:
@@ -184,3 +188,4 @@ const rows = await db.rawQuery<{ day: string; signups: number }>(sql, [accountId
 - **Prefer fluent API**: Use expression helpers only when the fluent API doesn't support your use case
 - **Alias all expressions**: Computed columns need aliases for type safety
 - **Type raw queries**: Always provide type arguments to `rawQuery()`
+- **Use semantic APIs for runtime input**: Dataset, metric, Serve, MCP, and generated tool schemas are the constrained public surfaces

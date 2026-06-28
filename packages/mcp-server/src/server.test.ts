@@ -194,6 +194,59 @@ describe('HypequeryMCPServer', () => {
       },
     );
   });
+
+  it('should only include generated SQL when server config enables it', async () => {
+    const analytics: DatasetClient = {
+      execute: vi.fn().mockResolvedValue({
+        data: [{ revenue: 100 }],
+        meta: { sql: 'SELECT SUM(amount) AS revenue FROM orders', timingMs: 12 },
+      }),
+    } as any;
+    const orders = {
+      dimensions: {},
+      metrics: {},
+    };
+
+    new HypequeryMCPServer({
+      datasets: { orders },
+      analytics,
+    });
+
+    let handler = requestHandlers.get(CallToolRequestSchema);
+    const redactedResult = await handler?.({
+      params: {
+        name: 'query_dataset',
+        arguments: {
+          dataset: 'orders',
+          measures: ['revenue'],
+        },
+      },
+    });
+
+    const redactedBody = JSON.parse((redactedResult as any).content[0].text);
+    expect(redactedBody.meta.sql).toBeUndefined();
+
+    requestHandlers.clear();
+    new HypequeryMCPServer({
+      datasets: { orders },
+      analytics,
+      includeSql: true,
+    });
+
+    handler = requestHandlers.get(CallToolRequestSchema);
+    const debugResult = await handler?.({
+      params: {
+        name: 'query_dataset',
+        arguments: {
+          dataset: 'orders',
+          measures: ['revenue'],
+        },
+      },
+    });
+
+    const debugBody = JSON.parse((debugResult as any).content[0].text);
+    expect(debugBody.meta.sql).toBe('SELECT SUM(amount) AS revenue FROM orders');
+  });
 });
 
 describe('HypequeryMCPServer config validation', () => {

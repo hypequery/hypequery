@@ -74,7 +74,7 @@ describe('queryMetricTool', () => {
     const data = JSON.parse(result.content[0].text);
 
     expect(data.data).toEqual([{ revenue: 1000 }]);
-    expect(data.meta.sql).toBe('SELECT SUM(amount) as revenue FROM orders');
+    expect(data.meta.sql).toBeUndefined();
     expect(data.meta.timingMs).toBe(45);
     expect(data.meta.rowCount).toBe(1);
 
@@ -91,6 +91,36 @@ describe('queryMetricTool', () => {
         },
       }
     );
+  });
+
+  it('should include generated SQL only when explicitly enabled', async () => {
+    const mockResult = {
+      data: [{ revenue: 1000 }],
+      meta: {
+        sql: 'SELECT SUM(amount) as revenue FROM orders',
+        timingMs: 45,
+      },
+    };
+
+    const datasets = {
+      orders: {
+        revenue: { type: 'sum' },
+      },
+    };
+
+    const analytics = createMockAnalytics(mockResult);
+    const result = await queryMetricTool(
+      datasets,
+      analytics,
+      {
+        dataset: 'orders',
+        metric: 'revenue',
+      },
+      { includeSql: true },
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.meta.sql).toBe('SELECT SUM(amount) as revenue FROM orders');
   });
 
   it('should execute metric query with dimensions', async () => {

@@ -1,0 +1,110 @@
+---
+title: Trust Boundaries
+description: Understand which hypequery APIs are safe for public semantic input and which APIs execute trusted developer-authored SQL.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+hypequery has two different API surfaces:
+
+- **Semantic query APIs** accept constrained dataset and metric requests from users, dashboards, and agents.
+- **Query builder and raw SQL APIs** execute trusted developer-authored SQL.
+
+Keep those surfaces separate. Semantic endpoints are the public input boundary. Raw SQL helpers are for application code you control.
+
+## Public semantic input
+
+Dataset and metric requests are designed for public-facing runtime input:
+
+<CodeBlock>
+```typescript
+await analytics.execute(Orders, {
+  dimensions: ['status'],
+  measures: ['revenue'],
+  filters: [{ field: 'status', operator: 'eq', value: 'completed' }],
+  limit: 100,
+});
+```
+</CodeBlock>
+
+Callers choose from declared semantic fields. Validation rejects unknown dimensions, measures, filters, order fields, time grains, and limits before SQL is generated.
+
+This is the surface Serve, OpenAPI schemas, MCP tools, and generated dataset tools should expose.
+
+## Trusted developer code
+
+The ClickHouse query builder is a developer API. It intentionally exposes escape hatches for ClickHouse features that are not modeled by the fluent builder:
+
+<CodeBlock>
+```typescript
+await db.rawQuery(
+  `SELECT count() AS signups FROM signups WHERE account_id = ?`,
+  [accountId],
+);
+
+db.table('events')
+  .select([rawAs('JSONExtractString(metadata, \'country\')', 'country')]);
+```
+</CodeBlock>
+
+Raw SQL fragments, raw queries, table names, aliases, and custom expressions are not a safe public query language. Do not assemble those strings from user or agent input.
+
+<Callout type="warn" title="Raw SQL is a trusted-code escape hatch">
+  Use raw SQL only in code you own. If an end user or agent needs analytics access, expose a semantic dataset, metric, Serve endpoint, MCP tool, or generated tool schema instead.
+</Callout>
+
+## SQL-backed semantic fields
+
+Datasets also support SQL-backed dimensions and measures:
+
+<CodeBlock>
+```typescript
+dimensions: {
+  countryUpper: dimension.string({ sql: 'upper(country_code)' }),
+},
+measures: {
+  taxedRevenue: measure.sum('amount', { sql: 'amount * 1.2' }),
+}
+```
+</CodeBlock>
+
+These expressions are part of the semantic model and should be authored by trusted application code. Runtime callers can reference `countryUpper` or `taxedRevenue`, but they should not provide the SQL expression itself.
+
+Schema compatibility checks can validate simple column references more deeply than complex SQL expressions. Treat SQL-backed fields as reviewed model code.
+
+## Agent access
+
+Agents should receive semantic tools, not generic SQL execution:
+
+- expose dataset and metric names through a catalog
+- constrain field names and operators with JSON Schema enums
+- hide tenant selection from tool input
+- redact generated SQL unless debugging in a trusted environment
+- keep raw query APIs out of MCP and function-calling tool definitions
+
+## CLI and module loading
+
+CLI workflows that load a project API module execute application code. They are useful for local development, generation, and CI, but they are not static analysis of untrusted files.
+
+Only run model-loading CLI commands against code you trust, such as your repository in CI or a reviewed local checkout.
+
+## Checklist
+
+- Public request bodies should use semantic field names, not SQL strings.
+- Raw query builder helpers should stay in server-side code.
+- Generated tools should be built from catalog metadata.
+- Tenant context should come from trusted auth/runtime state, not user filters.
+- SQL-backed dataset fields should be reviewed like application code.
+
+## Current Audit
+
+The current trusted-code escape hatches are:
+
+- `db.rawQuery(...)`
+- query builder `raw(...)`, `rawAs(...)`, and `selectExpr(...)`
+- predicate builder `expr.raw(...)`
+- dataset `dimension.*({ sql })` and `measure.*(..., { sql })`
+- internal semantic planner calls to `rawQuery(...)` for derived metric SQL assembled from validated model definitions
+
+The public semantic surfaces do not expose a generic SQL execution tool. Serve returns generated SQL only through opt-in metadata (`includeMeta` or `x-include-meta`). MCP tools redact generated SQL and SQL-backed field expressions by default, and require programmatic `includeSql: true` for trusted debugging.
