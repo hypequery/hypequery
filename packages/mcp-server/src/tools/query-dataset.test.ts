@@ -62,6 +62,7 @@ describe('queryDatasetTool', () => {
 
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toHaveLength(2);
+    expect(data.meta.sql).toBeUndefined();
     expect(data.meta.rowCount).toBe(2);
 
     expect(analytics.execute).toHaveBeenCalledWith(
@@ -78,6 +79,34 @@ describe('queryDatasetTool', () => {
         },
       }
     );
+  });
+
+  it('should include generated SQL only when explicitly enabled', async () => {
+    const mockResult = {
+      data: [{ region: 'US' }],
+      meta: {
+        sql: 'SELECT DISTINCT region FROM orders',
+        timingMs: 30,
+      },
+    };
+
+    const datasets = {
+      orders: {},
+    };
+
+    const analytics = createMockAnalytics(mockResult);
+    const result = await queryDatasetTool(
+      datasets,
+      analytics,
+      {
+        dataset: 'orders',
+        dimensions: ['region'],
+      },
+      { includeSql: true },
+    );
+
+    const data = JSON.parse(result.content[0].text);
+    expect(data.meta.sql).toBe('SELECT DISTINCT region FROM orders');
   });
 
   it('should execute query with measures only', async () => {

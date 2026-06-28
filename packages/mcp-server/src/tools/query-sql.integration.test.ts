@@ -143,6 +143,7 @@ describe('MCP query tools SQL integration', () => {
       offset: 5,
     }, {
       tenantId: 'tenant-1',
+      includeSql: true,
     });
 
     const response = parseToolResponse(result);
@@ -169,6 +170,7 @@ describe('MCP query tools SQL integration', () => {
       dimensions: ['country'],
     }, {
       tenantId: 'tenant-1',
+      includeSql: true,
     });
 
     const response = JSON.parse(result.content[0].text) as {

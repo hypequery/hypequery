@@ -64,6 +64,7 @@
     "reference/connection",
     "reference/inside-the-query-builder",
     "reference/clickhouse-behavior",
+    "reference/trust-boundaries",
     "---Resources---",
     "changelog",
     "roadmap",

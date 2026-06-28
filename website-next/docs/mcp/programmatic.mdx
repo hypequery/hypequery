@@ -74,6 +74,9 @@ type MCPServerConfig = {
   name?: string;
   version?: string;
   tenantId?: string;
+  includeSql?: boolean;
 };
 ```
 </CodeBlock>
+
+Set `includeSql: true` only in trusted debugging contexts. Query tools redact generated SQL by default.

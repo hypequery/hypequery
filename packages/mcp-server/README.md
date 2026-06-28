@@ -280,7 +280,7 @@ const analytics = createDatasetClient({
 
 1. Verify your ClickHouse connection is working
 2. Check that dataset definitions match your database schema
-3. Use the `meta.sql` field in responses to debug generated SQL
+3. For trusted local debugging, start the programmatic server with `includeSql: true` and inspect `meta.sql` in responses
 
 ## Related Packages
 

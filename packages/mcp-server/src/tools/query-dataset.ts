@@ -60,7 +60,7 @@ export async function queryDatasetTool(
   const response: QueryResultResponse = {
     data: result.data,
     meta: {
-      sql: result.meta?.sql,
+      ...(options.includeSql ? { sql: result.meta?.sql } : {}),
       timingMs: result.meta?.timingMs,
       rowCount: result.data.length,
       ...(result.meta?.pagination ? { pagination: result.meta.pagination } : {}),

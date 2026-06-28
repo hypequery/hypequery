@@ -3,6 +3,7 @@ title: Measures
 description: Define aggregations such as revenue, counts, averages, minimums, and maximums.
 ---
 
+import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 Measures are aggregations over fields in a dataset. They are the numeric values callers can request in dataset queries, such as revenue, order count, average order amount, minimum value, or maximum value.
@@ -130,6 +131,10 @@ measures: {
 The `field` argument still names the logical backing field, while `sql` provides the expression to aggregate. Use SQL-backed measures sparingly. Schema compatibility checks can inspect simple fields, but complex SQL expressions can only produce warnings because they cannot be fully verified from the table schema.
 
 SQL-backed measures require builder-backed execution. Generic semantic backend plans reject SQL-backed measures because cross-backend adapters cannot assume the same SQL expression syntax.
+
+<Callout type="warn" title="Trusted model code">
+  The `sql` option is authored in your dataset definition. Runtime callers should only request the semantic measure name, not provide SQL. See [Trust Boundaries](/docs/reference/trust-boundaries).
+</Callout>
 
 ## Filtered measures
 

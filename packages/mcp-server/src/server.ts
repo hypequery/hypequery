@@ -46,6 +46,14 @@ export interface MCPServerConfig {
    * Trusted tenant id used to scope tenant-keyed datasets.
    */
   tenantId?: string;
+
+  /**
+   * Include generated SQL in query tool responses.
+   *
+   * Defaults to false so agent-facing responses do not expose SQL text unless
+   * explicitly enabled for trusted debugging.
+   */
+  includeSql?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -271,14 +279,18 @@ export class HypequeryMCPServer {
             return await listDatasetsTool(this.config.datasets);
 
           case 'get_dataset_schema':
-            return await getDatasetSchemaTool(this.config.datasets, args);
+            return await getDatasetSchemaTool(
+              this.config.datasets,
+              args,
+              { includeSql: this.config.includeSql },
+            );
 
           case 'query_metric':
             return await queryMetricTool(
               this.config.datasets,
               this.config.analytics,
               args,
-              { tenantId: this.config.tenantId },
+              { tenantId: this.config.tenantId, includeSql: this.config.includeSql },
             );
 
           case 'query_dataset':
@@ -286,7 +298,7 @@ export class HypequeryMCPServer {
               this.config.datasets,
               this.config.analytics,
               args,
-              { tenantId: this.config.tenantId },
+              { tenantId: this.config.tenantId, includeSql: this.config.includeSql },
             );
 
           default:

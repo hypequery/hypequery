@@ -38,7 +38,7 @@ Prefer one of these patterns:
 - attach only the named metrics agents should call
 - run a tenant-specific MCP process with `tenantId`
 - keep sensitive tables out of the exported `datasets` registry
-- inspect generated SQL in tool response metadata while testing
+- enable `includeSql` only in trusted debugging sessions
 
 ## Registry boundary
 
@@ -87,3 +87,7 @@ The MCP server exposes semantic tools:
 - `query_metric`
 
 It does not expose a generic `run_sql` tool.
+
+Generated SQL and SQL-backed field expressions are also redacted from MCP responses by default. Programmatic servers can opt in with `includeSql: true` for trusted local debugging.
+
+For the broader application boundary between semantic runtime input and trusted raw SQL APIs, see [Trust Boundaries](/docs/reference/trust-boundaries).
