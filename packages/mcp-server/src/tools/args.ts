@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import type { MetricFilter } from '@hypequery/datasets';
+import { SEMANTIC_FILTER_OPERATORS, type MetricFilter } from '@hypequery/datasets';
 import { MAX_QUERY_LIMIT } from '../types.js';
 
 const filterSchema = z.object({
   field: z.string().min(1),
-  operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like']),
+  operator: z.enum(SEMANTIC_FILTER_OPERATORS),
   value: z.any().refine(value => value !== undefined, 'Required'),
 }).strict();
 

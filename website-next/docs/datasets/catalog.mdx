@@ -14,9 +14,9 @@ Catalog metadata includes:
 - dimensions and their labels, descriptions, columns, SQL expressions, and filter/group flags
 - measures and their aggregation metadata
 - attached named metrics
-- filters and allowed operators
-- relationship metadata
-- dataset limits
+- filters, allowed operators, and filter value types
+- relationship metadata and current execution support
+- dataset limits, maximum result limit, supported time grains, and orderable fields
 
 ## Dataset catalog
 
@@ -54,21 +54,39 @@ The returned object is plain JSON-compatible metadata.
     "revenue": {
       "aggregation": "sum",
       "field": "amount",
-      "label": "Revenue"
+      "label": "Revenue",
+      "filterCount": 0
     }
   },
   "metrics": {},
   "filters": {
     "status": {
       "field": "status",
-      "operators": ["eq", "in"]
+      "operators": ["eq", "in"],
+      "valueType": "string"
     }
   },
   "relationships": {},
   "limits": {
-    "maxMeasures": 3
-  }
+    "maxMeasures": 3,
+    "maxResultSize": 1000
+  },
+  "requiresTenant": true,
+  "supportedGrains": ["day", "week", "month", "quarter", "year"],
+  "orderableFields": ["status", "revenue", "period"],
+  "maxLimit": 1000
 }
+```
+</CodeBlock>
+
+When a filter definition does not specify `operators`, the catalog exposes the default semantic operators from `SEMANTIC_FILTER_OPERATORS`:
+
+<CodeBlock>
+```typescript
+import { SEMANTIC_FILTER_OPERATORS } from '@hypequery/datasets';
+
+console.log(SEMANTIC_FILTER_OPERATORS);
+// ["eq", "neq", "gt", "gte", "lt", "lte", "in", "notIn", "between", "like"]
 ```
 </CodeBlock>
 
@@ -115,6 +133,8 @@ This is the same registry shape used by the MCP server. It lets `get_dataset_sch
 
 ## Current consumers
 
-The catalog is public in `@hypequery/datasets`. MCP introspection uses it today to keep agent-facing schema metadata aligned with real dataset definitions.
+The catalog is public in `@hypequery/datasets`. MCP introspection, MCP dataset listing, Serve endpoint descriptions, Serve OpenAPI input schemas, and generated dataset tools use it today to keep metadata aligned with real dataset definitions.
 
-Serve metadata, OpenAPI generation, React metadata, and CLI-generated labels are planned follow-up work.
+React metadata, CLI-generated labels, and broader cross-package drift tests are planned follow-up work.
+
+For agent and function-calling schemas built from the same catalog, see [Tool Generation](/docs/datasets/tool-generation).

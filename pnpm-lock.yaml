@@ -393,7 +393,7 @@ importers:
   packages/mcp-server:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.2.0
+        specifier: ^0.2.1
         version: link:../datasets
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0

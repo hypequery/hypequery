@@ -1,0 +1,147 @@
+---
+title: Tool Generation
+description: Generate catalog-backed dataset tools for agents and function-calling runtimes.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+`@hypequery/datasets` can generate tool metadata from the same catalog used by Serve and MCP. Use this when an agent runtime needs constrained schemas for dataset queries instead of direct access to SQL.
+
+Generated tools expose declared datasets, dimensions, measures, filters, order fields, time grains, and limits. They do not expose tenant selection by default, and SQL is removed from tool results unless `includeSql` is enabled.
+
+## Catalog Tool
+
+Catalog mode creates one generic `query_dataset` tool.
+
+<CodeBlock>
+```typescript
+import {
+  createDatasetClient,
+  generateDatasetTools,
+  toOpenAITools,
+} from '@hypequery/datasets';
+import { Orders } from './datasets/orders.js';
+import { db } from './db.js';
+
+const analytics = createDatasetClient({ queryBuilder: db });
+
+const tools = generateDatasetTools({
+  datasets: { orders: Orders },
+  analytics,
+  mode: 'catalog',
+});
+
+const openaiTools = toOpenAITools(tools);
+```
+</CodeBlock>
+
+The generated schema includes enums derived from the dataset catalog.
+
+<CodeBlock>
+```json
+{
+  "name": "query_dataset",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "dataset": { "type": "string", "enum": ["orders"] },
+      "dimensions": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["status", "createdAt"] }
+      },
+      "measures": {
+        "type": "array",
+        "items": { "type": "string", "enum": ["revenue", "orderCount"] }
+      }
+    },
+    "required": ["dataset"],
+    "additionalProperties": false
+  }
+}
+```
+</CodeBlock>
+
+## Per-Dataset Tools
+
+Per-dataset mode creates one tool per dataset, such as `query_orders`.
+
+<CodeBlock>
+```typescript
+const tools = generateDatasetTools({
+  datasets: {
+    orders: Orders,
+    customers: Customers,
+  },
+  analytics,
+  mode: 'per-dataset',
+});
+```
+</CodeBlock>
+
+## Per-Metric Tools
+
+Per-metric mode creates one tool per attached named metric. Attach metric refs to the dataset registry shape so the catalog can see them.
+
+<CodeBlock>
+```typescript
+const totalRevenue = Orders.metric('totalRevenue', {
+  measure: 'revenue',
+  label: 'Total Revenue',
+});
+
+const tools = generateDatasetTools({
+  datasets: {
+    orders: {
+      ...Orders,
+      metrics: { totalRevenue },
+    },
+  },
+  analytics,
+  mode: 'per-metric',
+});
+```
+</CodeBlock>
+
+Per-metric tools do not include a `measures` input. They accept dimensions, filters, order, limits, offsets, and time grains that are valid for that metric's dataset.
+
+## Adapters
+
+Use adapters when a runtime needs a specific metadata shape.
+
+<CodeBlock>
+```typescript
+import {
+  toAISDKTools,
+  toMcpTools,
+  toOpenAITools,
+} from '@hypequery/datasets';
+
+const openaiTools = toOpenAITools(tools);
+const aiSdkTools = toAISDKTools(tools);
+const mcpTools = toMcpTools(tools);
+```
+</CodeBlock>
+
+`toAISDKTools()` returns plain tool objects with `description`, `parameters`, and `execute`. If your AI SDK version expects a wrapper such as `tool(...)`, wrap the returned entries in your application.
+
+## SQL Redaction
+
+Generated tools redact `meta.sql` by default.
+
+<CodeBlock>
+```typescript
+const tools = generateDatasetTools({
+  datasets: { orders: Orders },
+  analytics,
+  includeSql: false,
+});
+```
+</CodeBlock>
+
+Set `includeSql: true` only for trusted debugging contexts.
+
+## Validation
+
+Tool execution performs catalog-level validation before calling `analytics.execute(...)`. Invalid datasets, fields, filter operators, order fields, grains, and limits fail with errors that agents can repair.
+
+The dataset client remains the authoritative validator and executor. Tool generation is a constrained metadata and execution wrapper around the same semantic query path.

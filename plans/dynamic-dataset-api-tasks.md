@@ -157,6 +157,10 @@ type DatasetCatalog = {
   filters: Record<string, FilterCatalogEntry>;
   relationships: Record<string, RelationshipCatalogEntry>;
   limits?: DatasetLimits;
+  requiresTenant: boolean;
+  supportedGrains: TimeGrain[];
+  orderableFields: string[];
+  maxLimit?: number;
 };
 ```
 
@@ -199,7 +203,9 @@ Example output:
 - Done in this PR: Make MCP introspection consume the catalog.
 - Done in this PR: Distinguish raw measures from named metrics in the datasets catalog and MCP schema output.
 - Done in this PR: Add tests using real `@hypequery/datasets` instances for catalog and MCP introspection.
-- Deferred to follow-up PR: Make Serve endpoint metadata and OpenAPI generation consume the catalog.
+- Done in this PR: Add dashboard/tool metadata to the catalog: default filter operators, filter value types, supported time grains, tenant requirement, orderable fields, max result limit, and measure filter counts.
+- Done in this PR: Make Serve endpoint descriptions and OpenAPI input schemas consume the catalog for dataset fields, filters, order fields, grains, tenant state, and relationship metadata.
+- Done in this PR: Add catalog-backed AI tool generation helpers for catalog, per-dataset, and per-metric tools, with OpenAI, AI SDK, and MCP metadata adapters.
 - Deferred to follow-up PR: Update CLI generation to emit catalog-friendly labels/descriptions.
 - Deferred to follow-up PR: Add cross-package contract tests to prevent catalog/OpenAPI/MCP drift.
 
@@ -1226,6 +1232,11 @@ Includes:
 4. AI tool generation.
 5. CLI generation improvements.
 
+Status:
+
+- Complete in this PR: catalog/introspection unification, MCP measures/metrics schema fix, dashboard-builder metadata, Serve/OpenAPI catalog consumption, and initial AI tool generation.
+- Remaining: CLI generation improvements and broader cross-package drift tests.
+
 Why first: this creates one shared semantic contract for docs, Serve, MCP, generated tools, and dashboard UIs. It also produces visible product value without changing the SQL planner.
 
 ### Phase 2: Enterprise Safety Baseline
@@ -1293,16 +1304,16 @@ Includes:
 
 ## Suggested First PRs
 
-| PR | Scope | Packages | Change Size | Reason |
-|---|---|---|---:|---|
-| 1 | Catalog export and MCP introspection fix | `datasets`, `mcp-server`, `serve` | Medium | Fixes agent/dashboard metadata and removes measures/metrics drift. |
-| 2 | Trust-boundary docs and unsafe SQL audit | `website-next`, `datasets`, `clickhouse`, `cli` | Minor | Low-risk enterprise/security foundation. |
-| 3 | Semantic contract JSON export | `datasets`, `serve` | Medium | Enables validation, snapshots, docs, MCP, and codegen to share one source. |
-| 4 | `hypequery semantic validate` CLI | `cli`, `datasets`, `schema` | Medium | Immediate CI value. |
-| 5 | Semantic audit event hooks | `serve`, `datasets`, `mcp-server` | Medium | Required for enterprise deployment. |
-| 6 | Field/dataset/metric access metadata | `datasets`, `serve` | Major | Starts governance before relationship complexity. |
-| 7 | Safe expression primitives MVP | `datasets`, `clickhouse` | Major | Reduces SQL safety risk before expanding planner. |
-| 8 | `belongsTo` relationship traversal MVP | `datasets`, `clickhouse`, `serve`, `react` | Major | First visible cross-dataset semantic capability. |
+| PR | Status | Scope | Packages | Change Size | Reason |
+|---|---|---|---|---:|---|
+| 1 | Complete in this PR | Catalog export, MCP introspection fix, Serve/OpenAPI catalog metadata, dashboard/tool metadata, and initial AI tool generation | `datasets`, `mcp-server`, `serve`, `website-next` | Medium | Fixes agent/dashboard metadata, removes measures/metrics drift, and gives agents catalog-backed tool schemas. |
+| 2 | Next | Trust-boundary docs and unsafe SQL audit | `website-next`, `datasets`, `clickhouse`, `cli` | Minor | Low-risk enterprise/security foundation. |
+| 3 | Next | Semantic contract JSON export | `datasets`, `serve` | Medium | Enables validation, snapshots, docs, MCP, and codegen to share one source. |
+| 4 | Next | `hypequery semantic validate` CLI | `cli`, `datasets`, `schema` | Medium | Immediate CI value. |
+| 5 | Planned | Semantic audit event hooks | `serve`, `datasets`, `mcp-server` | Medium | Required for enterprise deployment. |
+| 6 | Planned | Field/dataset/metric access metadata | `datasets`, `serve` | Major | Starts governance before relationship complexity. |
+| 7 | Planned | Safe expression primitives MVP | `datasets`, `clickhouse` | Major | Reduces SQL safety risk before expanding planner. |
+| 8 | Planned | `belongsTo` relationship traversal MVP | `datasets`, `clickhouse`, `serve`, `react` | Major | First visible cross-dataset semantic capability. |
 
 ## Key Risks
 

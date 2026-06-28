@@ -6,7 +6,9 @@ import type {
   RelationshipDefinition,
   SemanticFilterDefinition,
   DatasetLimits,
+  TimeGrain,
 } from './types.js';
+import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
 
 export interface DimensionCatalogEntry {
   type: DimensionDefinition['fieldType'];
@@ -24,13 +26,15 @@ export interface MeasureCatalogEntry {
   sql?: string;
   label?: string;
   description?: string;
+  filterCount: number;
 }
 
 export interface FilterCatalogEntry {
   field: string;
   label?: string;
   description?: string;
-  operators?: SemanticFilterDefinition['operators'];
+  operators: SemanticFilterDefinition['operators'];
+  valueType?: DimensionDefinition['fieldType'];
 }
 
 export interface MetricCatalogEntry {
@@ -66,6 +70,10 @@ export interface DatasetCatalog {
   filters: Record<string, FilterCatalogEntry>;
   relationships: Record<string, RelationshipCatalogEntry>;
   limits?: DatasetLimits;
+  requiresTenant: boolean;
+  supportedGrains: TimeGrain[];
+  orderableFields: string[];
+  maxLimit?: number;
 }
 
 export type DatasetCatalogMap = Record<string, DatasetCatalog>;
@@ -92,15 +100,20 @@ function measureToCatalog(measure: MeasureDefinition): MeasureCatalogEntry {
     sql: measure.sql,
     label: measure.label,
     description: measure.description,
+    filterCount: measure.filters?.length ?? 0,
   };
 }
 
-function filterToCatalog(filter: SemanticFilterDefinition): FilterCatalogEntry {
+function filterToCatalog(
+  filter: SemanticFilterDefinition,
+  dimensions: AnyDatasetInstance['dimensions'],
+): FilterCatalogEntry {
   return {
     field: filter.field,
     label: filter.label,
     description: filter.description,
-    operators: filter.operators,
+    operators: filter.operators ? [...filter.operators] : [...SEMANTIC_FILTER_OPERATORS],
+    valueType: dimensions[filter.field]?.fieldType,
   };
 }
 
@@ -132,6 +145,12 @@ function relationshipToCatalog(relationship: RelationshipDefinition): Relationsh
 }
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {
+  const dimensionNames = Object.keys(dataset.dimensions);
+  const measureNames = Object.keys(dataset.measures);
+  const metricNames = Object.keys(dataset.metrics ?? {});
+  const supportedGrains = dataset.timeKey ? [...SUPPORTED_TIME_GRAINS] : [];
+  const maxLimit = dataset.limits?.maxResultSize;
+
   return {
     name: dataset.name,
     source: dataset.source,
@@ -158,7 +177,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
     filters: Object.fromEntries(
       Object.entries(dataset.filters).map(([name, filter]) => [
         name,
-        filterToCatalog(filter),
+        filterToCatalog(filter, dataset.dimensions),
       ]),
     ),
     relationships: Object.fromEntries(
@@ -168,6 +187,15 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
       ]),
     ),
     limits: dataset.limits,
+    requiresTenant: !!dataset.tenantKey,
+    supportedGrains,
+    orderableFields: [
+      ...dimensionNames,
+      ...measureNames,
+      ...metricNames,
+      ...(dataset.timeKey ? ['period'] : []),
+    ],
+    maxLimit,
   };
 }
 
