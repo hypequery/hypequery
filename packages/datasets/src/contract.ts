@@ -120,7 +120,7 @@ function datasetToContract(catalog: DatasetCatalog): ContractDataset {
     ...(catalog.tenantKey !== undefined ? { tenantKey: catalog.tenantKey } : {}),
     ...(catalog.timeKey !== undefined ? { timeKey: catalog.timeKey } : {}),
     requiresTenant: catalog.requiresTenant,
-    supportedGrains: [...catalog.supportedGrains].sort(),
+    supportedGrains: uniqueSorted(catalog.supportedGrains),
     dimensions: sortedRecord(
       Object.entries(catalog.dimensions).map(([name, entry]) => [name, dimensionToContract(entry)]),
     ),
@@ -136,7 +136,21 @@ function datasetToContract(catalog: DatasetCatalog): ContractDataset {
     relationships: sortedRecord(
       Object.entries(catalog.relationships).map(([name, entry]) => [name, relationshipToContract(entry)]),
     ),
-    ...(catalog.limits !== undefined ? { limits: catalog.limits } : {}),
+    ...(catalog.limits !== undefined ? { limits: limitsToContract(catalog.limits) } : {}),
+  };
+}
+
+/**
+ * Emits dataset limits with a fixed key order. The source object's key order is
+ * author-controlled, so normalizing it keeps the contract hash stable for
+ * logically identical limits.
+ */
+function limitsToContract(limits: DatasetLimits): DatasetLimits {
+  return {
+    ...(limits.maxDimensions !== undefined ? { maxDimensions: limits.maxDimensions } : {}),
+    ...(limits.maxFilters !== undefined ? { maxFilters: limits.maxFilters } : {}),
+    ...(limits.maxMeasures !== undefined ? { maxMeasures: limits.maxMeasures } : {}),
+    ...(limits.maxResultSize !== undefined ? { maxResultSize: limits.maxResultSize } : {}),
   };
 }
 
@@ -168,12 +182,12 @@ function metricToContract(entry: MetricCatalogEntry): ContractMetric {
     valueType: entry.valueType,
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
-    dimensions: [...entry.dimensions].sort(),
-    ...(entry.measures !== undefined ? { measures: [...entry.measures].sort() } : {}),
-    filters: [...entry.filters].sort(),
-    grains: [...entry.grains].sort(),
+    dimensions: uniqueSorted(entry.dimensions),
+    ...(entry.measures !== undefined ? { measures: uniqueSorted(entry.measures) } : {}),
+    filters: uniqueSorted(entry.filters),
+    grains: uniqueSorted(entry.grains),
     ...(entry.grain !== undefined ? { grain: entry.grain } : {}),
-    ...(entry.requires !== undefined ? { requires: [...entry.requires].sort() } : {}),
+    ...(entry.requires !== undefined ? { requires: uniqueSorted(entry.requires) } : {}),
   };
 }
 
@@ -182,7 +196,7 @@ function filterToContract(entry: FilterCatalogEntry): ContractFilter {
     field: entry.field,
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
-    operators: [...(entry.operators ?? [])].sort(),
+    operators: uniqueSorted(entry.operators ?? []),
     ...(entry.valueType !== undefined ? { valueType: entry.valueType } : {}),
   };
 }
@@ -214,11 +228,25 @@ export function hashContract(
   return createHash('sha256').update(contractToStableJson(contract)).digest('hex');
 }
 
+/**
+ * Locale-independent string comparison by UTF-16 code unit. Used everywhere the
+ * contract sorts, so the content hash is stable across environments (CI ICU
+ * versions, locales) rather than depending on `localeCompare`.
+ */
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 /** Builds an object whose keys are inserted in sorted order for stable JSON. */
 function sortedRecord<T>(entries: [string, T][]): Record<string, T> {
   return Object.fromEntries(
-    [...entries].sort(([left], [right]) => left.localeCompare(right)),
+    [...entries].sort(([left], [right]) => compareStrings(left, right)),
   );
+}
+
+/** Deduplicates and sorts a list so logically-equal sets serialize identically. */
+function uniqueSorted(values: readonly string[]): string[] {
+  return Array.from(new Set(values)).sort(compareStrings);
 }
 
 /** Normalizes SQL escape-hatch whitespace so equivalent SQL hashes identically. */

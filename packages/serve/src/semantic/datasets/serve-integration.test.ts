@@ -6,6 +6,7 @@ import {
   measure,
   divide,
   nullIfZero,
+  serializeSemanticContract,
   type QueryBuilderLike,
   type QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
@@ -1981,6 +1982,57 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(404);
+    });
+
+    it("matches the library serialization (endpoint does not mangle the contract)", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+      const served = response.body as { contentHash: string };
+
+      const expected = serializeSemanticContract({
+        orders: { ...Orders, metrics: { totalRevenue } },
+      } as any);
+
+      expect(served.contentHash).toBe(expected.contentHash);
+    });
+
+    it("honors a custom semanticPaths.contract path", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        semanticPaths: { contract: "/semantic-contract" },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const custom = await api.handler(
+        createRequest({ path: "/semantic-contract", method: "GET" })
+      );
+      const defaulted = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+
+      expect(custom.status).toBe(200);
+      expect(defaulted.status).toBe(404);
+    });
+
+    it("returns a stable hash across repeated requests (cached)", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const first = await api.handler(createRequest({ path: "/contract", method: "GET" }));
+      const second = await api.handler(createRequest({ path: "/contract", method: "GET" }));
+
+      expect((first.body as { contentHash: string }).contentHash).toBe(
+        (second.body as { contentHash: string }).contentHash,
+      );
     });
   });
 });
