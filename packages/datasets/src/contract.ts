@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+import { sha256 } from '@noble/hashes/sha2';
+import { bytesToHex } from '@noble/hashes/utils';
 import {
   getDatasetCatalogs,
   type DatasetCatalog,
@@ -234,11 +235,14 @@ export function contractToStableJson(
 
 /**
  * Computes the SHA-256 content hash for a normalized contract.
+ *
+ * Uses `@noble/hashes` (audited, isomorphic, synchronous) rather than
+ * `node:crypto` so the contract stays usable in browser/edge runtimes.
  */
 export function hashContract(
   contract: SemanticContract | SemanticContractWithoutHash,
 ): string {
-  return createHash('sha256').update(contractToStableJson(contract)).digest('hex');
+  return bytesToHex(sha256(contractToStableJson(contract)));
 }
 
 /**

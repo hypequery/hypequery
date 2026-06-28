@@ -320,13 +320,13 @@ importers:
         version: 2.4.9
       '@vitest/coverage-v8':
         specifier: ^2.1.6
-        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
       vitest:
         specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/clickhouse:
     dependencies:
@@ -351,7 +351,7 @@ importers:
         version: 18.19.130
       '@vitest/coverage-v8':
         specifier: ^2.1.6
-        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
       glob:
         specifier: ^10.5.0
         version: 10.5.0
@@ -369,10 +369,13 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/datasets:
     dependencies:
+      '@noble/hashes':
+        specifier: ^1.8.0
+        version: 1.8.0
       zod:
         specifier: ^3.22.4
         version: 3.25.76
@@ -382,13 +385,13 @@ importers:
         version: 18.19.130
       '@vitest/coverage-v8':
         specifier: ^2.1.6
-        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
       vitest:
         specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/mcp-server:
     dependencies:
@@ -410,7 +413,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/react:
     devDependencies:
@@ -428,10 +431,10 @@ importers:
         version: 18.3.7(@types/react@18.3.28)
       '@vitest/coverage-v8':
         specifier: ^2.1.6
-        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
       jsdom:
         specifier: ^27.4.0
-        version: 27.4.0
+        version: 27.4.0(@noble/hashes@1.8.0)
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -443,7 +446,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/schema:
     devDependencies:
@@ -452,13 +455,13 @@ importers:
         version: 18.19.130
       '@vitest/coverage-v8':
         specifier: ^2.1.6
-        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
       vitest:
         specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/serve:
     dependencies:
@@ -483,7 +486,7 @@ importers:
         version: 20.19.31
       '@vitest/coverage-v8':
         specifier: ^2.1.9
-        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
+        version: 2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
       tsx:
         specifier: ^4.19.2
         version: 4.21.0
@@ -492,7 +495,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.6
-        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+        version: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
 packages:
 
@@ -1267,6 +1270,10 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@noble/hashes@1.8.0':
+    resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
+    engines: {node: ^14.21.3 || >=16}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -5272,7 +5279,9 @@ snapshots:
 
   '@eslint/js@8.57.1': {}
 
-  '@exodus/bytes@1.11.0': {}
+  '@exodus/bytes@1.11.0(@noble/hashes@1.8.0)':
+    optionalDependencies:
+      '@noble/hashes': 1.8.0
 
   '@floating-ui/core@1.7.4':
     dependencies:
@@ -5604,6 +5613,8 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@15.5.18':
     optional: true
+
+  '@noble/hashes@1.8.0': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -6405,7 +6416,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))':
+  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 0.2.3
@@ -6419,11 +6430,11 @@ snapshots:
       std-env: 3.10.0
       test-exclude: 7.0.1
       tinyrainbow: 1.2.0
-      vitest: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+      vitest: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))':
+  '@vitest/coverage-v8@2.1.9(vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 0.2.3
@@ -6437,7 +6448,7 @@ snapshots:
       std-env: 3.10.0
       test-exclude: 7.0.1
       tinyrainbow: 1.2.0
-      vitest: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+      vitest: 2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -7677,9 +7688,9 @@ snapshots:
 
   hono@4.12.23: {}
 
-  html-encoding-sniffer@6.0.0:
+  html-encoding-sniffer@6.0.0(@noble/hashes@1.8.0):
     dependencies:
-      '@exodus/bytes': 1.11.0
+      '@exodus/bytes': 1.11.0(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - '@noble/hashes'
 
@@ -7951,15 +7962,15 @@ snapshots:
     dependencies:
       argparse: 2.0.1
 
-  jsdom@27.4.0:
+  jsdom@27.4.0(@noble/hashes@1.8.0):
     dependencies:
       '@acemir/cssom': 0.9.31
       '@asamuzakjp/dom-selector': 6.7.7
-      '@exodus/bytes': 1.11.0
+      '@exodus/bytes': 1.11.0(@noble/hashes@1.8.0)
       cssstyle: 5.3.7
       data-urls: 6.0.1
       decimal.js: 10.6.0
-      html-encoding-sniffer: 6.0.0
+      html-encoding-sniffer: 6.0.0(@noble/hashes@1.8.0)
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.6(supports-color@10.2.2)
       is-potential-custom-element-name: 1.0.1
@@ -9380,7 +9391,7 @@ snapshots:
       tsx: 4.21.0
       yaml: 2.8.3
 
-  vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3):
+  vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@6.4.2(@types/node@18.19.130)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
@@ -9405,7 +9416,7 @@ snapshots:
     optionalDependencies:
       '@edge-runtime/vm': 3.2.0
       '@types/node': 18.19.130
-      jsdom: 27.4.0
+      jsdom: 27.4.0(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - jiti
       - less
@@ -9420,7 +9431,7 @@ snapshots:
       - tsx
       - yaml
 
-  vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3):
+  vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(vite@6.4.2(@types/node@20.19.31)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))
@@ -9445,7 +9456,7 @@ snapshots:
     optionalDependencies:
       '@edge-runtime/vm': 3.2.0
       '@types/node': 20.19.31
-      jsdom: 27.4.0
+      jsdom: 27.4.0(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - jiti
       - less
