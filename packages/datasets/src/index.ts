@@ -36,12 +36,30 @@ export { getDatasetCatalog, getDatasetCatalogs } from './catalog.js';
 export type {
   DatasetCatalog,
   DatasetCatalogMap,
+  DatasetCatalogSource,
   DimensionCatalogEntry,
   MeasureCatalogEntry,
   MetricCatalogEntry,
   FilterCatalogEntry,
   RelationshipCatalogEntry,
 } from './catalog.js';
+
+// Semantic contract (stable, hashable export for snapshots/diffs/validation)
+export {
+  serializeSemanticContract,
+  contractToStableJson,
+  hashContract,
+  SEMANTIC_CONTRACT_VERSION,
+} from './contract.js';
+export type {
+  SemanticContract,
+  ContractDataset,
+  ContractDimension,
+  ContractMeasure,
+  ContractMetric,
+  ContractFilter,
+  ContractRelationship,
+} from './contract.js';
 
 // Agent/tool metadata
 export {

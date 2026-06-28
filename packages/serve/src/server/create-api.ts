@@ -23,8 +23,15 @@ import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { resolveCorsConfig } from "../cors.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { createDatasetClient } from "@hypequery/datasets";
-import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
+import { createDatasetClient, serializeSemanticContract } from "@hypequery/datasets";
+import type { DatasetCatalogSource } from "@hypequery/datasets";
+import {
+  createMetricEndpoint,
+  createDatasetEndpoint,
+  createSemanticContractEndpoint,
+  resolveDatasetEntry,
+  resolveMetricEntry,
+} from "../semantic/datasets/index.js";
 import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
 
 const assertSemanticKeyAvailable = (
@@ -257,6 +264,37 @@ export const createAPI = <
       (queryEntries as Record<string, any>)[`dataset:${name}`] = registeredEndpoint;
       router.register(registeredEndpoint);
     }
+  }
+
+  // Process semantic contract — expose a stable, hashed JSON contract for the
+  // registered datasets (with named metrics grouped onto their datasets).
+  if (config.datasets) {
+    const datasetEntries = config.datasets;
+
+    // Group named metrics by their dataset name so the contract includes them.
+    const metricsByDatasetName: Record<string, Record<string, any>> = {};
+    for (const [metricName, entry] of Object.entries(config.metrics ?? {})) {
+      const metric = resolveMetricEntry(entry).metric;
+      const datasetName = metric.contract().dataset;
+      (metricsByDatasetName[datasetName] ??= {})[metricName] = metric;
+    }
+
+    const contractSource: Record<string, DatasetCatalogSource> = {};
+    for (const [name, entry] of Object.entries(datasetEntries)) {
+      const ds = resolveDatasetEntry(entry).dataset;
+      contractSource[name] = {
+        ...ds,
+        metrics: metricsByDatasetName[ds.name],
+      } as DatasetCatalogSource;
+    }
+
+    const contractPath = config.semanticPaths?.contract ?? '/contract';
+    const routePath = normalizeRoutePath(contractPath);
+    const contractEndpoint = createSemanticContractEndpoint(
+      routePath,
+      () => serializeSemanticContract(contractSource),
+    );
+    router.register(contractEndpoint);
   }
 
   const corsConfig = resolveCorsConfig(config.cors);

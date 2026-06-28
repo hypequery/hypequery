@@ -70,7 +70,7 @@ function isMetricEntryOptions<TAuth extends AuthContext>(
   return !!entry && typeof entry === 'object' && 'metric' in entry;
 }
 
-function resolveMetricEntry<TAuth extends AuthContext>(
+export function resolveMetricEntry<TAuth extends AuthContext>(
   entry: MetricEntry<TAuth>,
 ): {
   metric: MetricHandle<any, any>;
