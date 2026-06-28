@@ -272,6 +272,24 @@ describe('semantic contract — SQL normalization', () => {
 
     expect(hashOf({ orders: A })).not.toBe(hashOf({ orders: B }));
   });
+
+  it('includes SQL by default and omits it when includeSql is false', () => {
+    const A = dataset('orders', {
+      source: 'orders',
+      dimensions: { bucket: dimension.string({ sql: 'upper(status)' }) },
+      measures: { revenue: measure.sum('amount', { sql: 'sum(amount)' }) },
+    });
+
+    const withSql = serializeSemanticContract({ orders: A });
+    expect(withSql.datasets.orders.dimensions.bucket.sql).toBe('upper(status)');
+    expect(withSql.datasets.orders.measures.revenue.sql).toBe('sum(amount)');
+
+    const redacted = serializeSemanticContract({ orders: A }, { includeSql: false });
+    expect(redacted.datasets.orders.dimensions.bucket).not.toHaveProperty('sql');
+    expect(redacted.datasets.orders.measures.revenue).not.toHaveProperty('sql');
+    // Redaction changes the hash (different serialized surface).
+    expect(redacted.contentHash).not.toBe(withSql.contentHash);
+  });
 });
 
 // ---------------------------------------------------------------------------

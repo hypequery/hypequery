@@ -82,8 +82,10 @@ export type {
 } from '@hypequery/datasets';
 
 // Serve-specific endpoint integration
-export { createMetricEndpoint, resolveMetricEntry } from './metric-endpoint.js';
+export { createMetricEndpoint } from './metric-endpoint.js';
 export { createDatasetEndpoint } from './dataset-endpoint.js';
-export { resolveDatasetEntry } from './utils/dataset-entry.js';
-export { createSemanticContractEndpoint } from './contract-endpoint.js';
+export {
+  createSemanticContractEndpoint,
+  buildSemanticContractSource,
+} from './contract-endpoint.js';
 export type { DatasetEntry } from './dataset-endpoint.js';

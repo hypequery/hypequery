@@ -86,6 +86,17 @@ export interface SemanticContract {
 
 type SemanticContractWithoutHash = Omit<SemanticContract, 'contentHash'>;
 
+export interface SerializeSemanticContractOptions {
+  /**
+   * Include raw `sql` escape-hatch expressions for dimensions/measures.
+   *
+   * Defaults to `true` for trusted contexts (snapshots, CI, codegen) where the
+   * SQL already lives in the developer's source. Set to `false` when serving the
+   * contract to untrusted consumers so internal SQL is not exposed.
+   */
+  includeSql?: boolean;
+}
+
 /**
  * Builds a deterministic semantic contract from dataset instances.
  *
@@ -97,13 +108,15 @@ type SemanticContractWithoutHash = Omit<SemanticContract, 'contentHash'>;
  */
 export function serializeSemanticContract(
   datasets: Record<string, DatasetCatalogSource>,
+  options: SerializeSemanticContractOptions = {},
 ): SemanticContract {
+  const includeSql = options.includeSql ?? true;
   const catalogs = getDatasetCatalogs(datasets);
 
   const contract: SemanticContractWithoutHash = {
     version: SEMANTIC_CONTRACT_VERSION,
     datasets: sortedRecord(
-      Object.entries(catalogs).map(([name, catalog]) => [name, datasetToContract(catalog)]),
+      Object.entries(catalogs).map(([name, catalog]) => [name, datasetToContract(catalog, includeSql)]),
     ),
   };
 
@@ -113,7 +126,7 @@ export function serializeSemanticContract(
   };
 }
 
-function datasetToContract(catalog: DatasetCatalog): ContractDataset {
+function datasetToContract(catalog: DatasetCatalog, includeSql: boolean): ContractDataset {
   return {
     name: catalog.name,
     source: catalog.source,
@@ -122,10 +135,10 @@ function datasetToContract(catalog: DatasetCatalog): ContractDataset {
     requiresTenant: catalog.requiresTenant,
     supportedGrains: uniqueSorted(catalog.supportedGrains),
     dimensions: sortedRecord(
-      Object.entries(catalog.dimensions).map(([name, entry]) => [name, dimensionToContract(entry)]),
+      Object.entries(catalog.dimensions).map(([name, entry]) => [name, dimensionToContract(entry, includeSql)]),
     ),
     measures: sortedRecord(
-      Object.entries(catalog.measures).map(([name, entry]) => [name, measureToContract(entry)]),
+      Object.entries(catalog.measures).map(([name, entry]) => [name, measureToContract(entry, includeSql)]),
     ),
     metrics: sortedRecord(
       Object.entries(catalog.metrics).map(([name, entry]) => [name, metricToContract(entry)]),
@@ -154,11 +167,11 @@ function limitsToContract(limits: DatasetLimits): DatasetLimits {
   };
 }
 
-function dimensionToContract(entry: DimensionCatalogEntry): ContractDimension {
+function dimensionToContract(entry: DimensionCatalogEntry, includeSql: boolean): ContractDimension {
   return {
     type: entry.type,
     ...(entry.column !== undefined ? { column: entry.column } : {}),
-    ...(entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
+    ...(includeSql && entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
     filterable: entry.filterable,
@@ -166,11 +179,11 @@ function dimensionToContract(entry: DimensionCatalogEntry): ContractDimension {
   };
 }
 
-function measureToContract(entry: MeasureCatalogEntry): ContractMeasure {
+function measureToContract(entry: MeasureCatalogEntry, includeSql: boolean): ContractMeasure {
   return {
     aggregation: entry.aggregation,
     field: entry.field,
-    ...(entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
+    ...(includeSql && entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),
   };

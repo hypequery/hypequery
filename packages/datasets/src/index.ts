@@ -53,6 +53,7 @@ export {
 } from './contract.js';
 export type {
   SemanticContract,
+  SerializeSemanticContractOptions,
   ContractDataset,
   ContractDimension,
   ContractMeasure,
