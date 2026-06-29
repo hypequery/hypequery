@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/datasets",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Semantic layer for defining datasets, metrics, and semantic queries",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
