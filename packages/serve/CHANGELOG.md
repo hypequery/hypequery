@@ -1,5 +1,27 @@
 # @hypequery/serve
 
+## 0.5.0
+
+### Minor Changes
+
+- 12ee5e6: Add a stable, hashable semantic contract export.
+
+  `@hypequery/datasets`:
+
+  - Add `serializeSemanticContract`, `contractToStableJson`, `hashContract`, and `SEMANTIC_CONTRACT_VERSION`. The contract is a deterministic, sorted projection of the dataset catalog (dimensions, measures, metrics, filters, relationships, tenant/time policy, limits) with a version marker and SHA-256 content hash, so logically equal models produce identical JSON and hashes. This is the shared source for snapshots, diffs, CI validation, docs, and codegen.
+  - `serializeSemanticContract` accepts `{ includeSql }` (default `true`) to omit raw SQL escape hatches for untrusted consumers.
+  - Export the `DatasetCatalogSource` type.
+  - Adds a dependency on `@noble/hashes` for the contract content hash, keeping the package isomorphic (no `node:crypto`).
+
+  `@hypequery/serve`:
+
+  - Expose the contract via a `GET /contract` endpoint (configurable through `semanticPaths.contract`) that serializes the registered datasets with their named metrics grouped onto each dataset. Raw SQL is redacted on this public endpoint by default.
+
+### Patch Changes
+
+- Updated dependencies [12ee5e6]
+  - @hypequery/datasets@0.4.0
+
 ## 0.4.0
 
 ### Minor Changes
