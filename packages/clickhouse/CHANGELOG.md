@@ -1,9 +1,11 @@
 # @hypequery/clickhouse Changelog
 
-## 3.0.0
+## 2.1.1
 
 ### Patch Changes
 
+- Widened the `@hypequery/datasets` peer dependency range to `>=0.1.0` so future
+  datasets releases no longer force a clickhouse version bump.
 - Updated dependencies [236ce16]
   - @hypequery/datasets@0.3.0
 
