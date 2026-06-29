@@ -794,6 +794,8 @@ export interface ServeConfig<
   semanticPaths?: {
     metrics?: string;
     datasets?: string;
+    /** Path for the GET semantic-contract endpoint. Defaults to `/contract`. */
+    contract?: string;
   };
 }
 

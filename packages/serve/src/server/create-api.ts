@@ -23,8 +23,13 @@ import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { resolveCorsConfig } from "../cors.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { createDatasetClient } from "@hypequery/datasets";
-import { createMetricEndpoint, createDatasetEndpoint } from "../semantic/datasets/index.js";
+import { createDatasetClient, serializeSemanticContract } from "@hypequery/datasets";
+import {
+  createMetricEndpoint,
+  createDatasetEndpoint,
+  createSemanticContractEndpoint,
+  buildSemanticContractSource,
+} from "../semantic/datasets/index.js";
 import { attachSemanticQueryBuilder, extractQueryBuilderFromContext } from "../semantic/query-builder-context.js";
 
 const assertSemanticKeyAvailable = (
@@ -257,6 +262,20 @@ export const createAPI = <
       (queryEntries as Record<string, any>)[`dataset:${name}`] = registeredEndpoint;
       router.register(registeredEndpoint);
     }
+  }
+
+  // Process semantic contract — expose a stable, hashed JSON contract for the
+  // registered datasets (with named metrics grouped onto their datasets).
+  if (config.datasets) {
+    const contractSource = buildSemanticContractSource(config.datasets, config.metrics);
+    const routePath = normalizeRoutePath(config.semanticPaths?.contract ?? '/contract');
+    const contractEndpoint = createSemanticContractEndpoint(
+      routePath,
+      // Redact raw SQL on this public, unauthenticated surface; the contract is
+      // still served for snapshots/docs/codegen without exposing internal SQL.
+      () => serializeSemanticContract(contractSource, { includeSql: false }),
+    );
+    router.register(contractEndpoint);
   }
 
   const corsConfig = resolveCorsConfig(config.cors);

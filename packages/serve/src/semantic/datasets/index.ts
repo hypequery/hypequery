@@ -84,4 +84,8 @@ export type {
 // Serve-specific endpoint integration
 export { createMetricEndpoint } from './metric-endpoint.js';
 export { createDatasetEndpoint } from './dataset-endpoint.js';
+export {
+  createSemanticContractEndpoint,
+  buildSemanticContractSource,
+} from './contract-endpoint.js';
 export type { DatasetEntry } from './dataset-endpoint.js';

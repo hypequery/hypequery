@@ -6,6 +6,7 @@ import {
   measure,
   divide,
   nullIfZero,
+  serializeSemanticContract,
   type QueryBuilderLike,
   type QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
@@ -1927,5 +1928,135 @@ describe("Serve integration — metrics", () => {
       ).toThrow('dataset "dataset:orders" collides with an existing query key');
     });
 
+  });
+
+  describe("semantic contract endpoint", () => {
+    it("serves a stable, hashed contract for registered datasets", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+
+      expect(response.status).toBe(200);
+      const body = response.body as {
+        version: number;
+        contentHash: string;
+        datasets: Record<string, { source: string; dimensions: Record<string, unknown> }>;
+      };
+      expect(body.version).toBe(1);
+      expect(body.contentHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(body.datasets.orders.source).toBe("orders");
+      expect(Object.keys(body.datasets.orders.dimensions)).toContain("country");
+    });
+
+    it("includes named metrics grouped onto their dataset", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+
+      expect(response.status).toBe(200);
+      const body = response.body as {
+        datasets: Record<string, { metrics: Record<string, unknown> }>;
+      };
+      expect(Object.keys(body.datasets.orders.metrics)).toContain("totalRevenue");
+    });
+
+    it("is not registered when no datasets are configured", async () => {
+      const api = createAPI({
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+
+      expect(response.status).toBe(404);
+    });
+
+    it("matches the library serialization (endpoint does not mangle the contract)", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        metrics: { totalRevenue },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+      const served = response.body as { contentHash: string };
+
+      // Endpoint redacts SQL on the public surface, so compare with the same option.
+      const expected = serializeSemanticContract(
+        { orders: { ...Orders, metrics: { totalRevenue } } } as any,
+        { includeSql: false },
+      );
+
+      expect(served.contentHash).toBe(expected.contentHash);
+    });
+
+    it("redacts raw SQL from the public contract endpoint", async () => {
+      const SqlOrders = dataset("sqlOrders", {
+        source: "orders",
+        dimensions: { bucket: dimension.string({ sql: "upper(status)" }) },
+        measures: { c: measure.count("bucket") },
+      });
+      const api = createAPI({
+        datasets: { sqlOrders: SqlOrders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+
+      const body = response.body as {
+        datasets: Record<string, { dimensions: Record<string, { sql?: string }> }>;
+      };
+      expect(response.status).toBe(200);
+      expect(body.datasets.sqlOrders.dimensions.bucket).not.toHaveProperty("sql");
+    });
+
+    it("honors a custom semanticPaths.contract path", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        semanticPaths: { contract: "/semantic-contract" },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const custom = await api.handler(
+        createRequest({ path: "/semantic-contract", method: "GET" })
+      );
+      const defaulted = await api.handler(
+        createRequest({ path: "/contract", method: "GET" })
+      );
+
+      expect(custom.status).toBe(200);
+      expect(defaulted.status).toBe(404);
+    });
+
+    it("returns a stable hash across repeated requests (cached)", async () => {
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const first = await api.handler(createRequest({ path: "/contract", method: "GET" }));
+      const second = await api.handler(createRequest({ path: "/contract", method: "GET" }));
+
+      expect((first.body as { contentHash: string }).contentHash).toBe(
+        (second.body as { contentHash: string }).contentHash,
+      );
+    });
   });
 });

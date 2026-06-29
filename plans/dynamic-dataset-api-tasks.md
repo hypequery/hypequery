@@ -397,8 +397,8 @@ hypequery semantic doctor
 
 ### Implementation Work
 
-- Define a stable semantic contract JSON format.
-- Export contracts from datasets and metric refs.
+- Done in this PR: Define a stable semantic contract JSON format (`serializeSemanticContract`, versioned + content-hashed).
+- Done in this PR: Export contracts from datasets and metric refs (`@hypequery/datasets`) and expose over HTTP (`@hypequery/serve` `GET /contract`).
 - Compare snapshots in CI.
 - Detect breaking changes:
   - removed dataset
@@ -1306,9 +1306,9 @@ Includes:
 
 | PR | Status | Scope | Packages | Change Size | Reason |
 |---|---|---|---|---:|---|
-| 1 | Complete | Catalog export, MCP introspection fix, Serve/OpenAPI catalog metadata, dashboard/tool metadata, and initial AI tool generation | `datasets`, `mcp-server`, `serve`, `website-next` | Medium | Fixes agent/dashboard metadata, removes measures/metrics drift, and gives agents catalog-backed tool schemas. |
-| 2 | Complete in this PR | Trust-boundary docs and unsafe SQL audit | `website-next`, `datasets`, `clickhouse`, `cli` | Minor | Low-risk enterprise/security foundation. |
-| 3 | Next | Semantic contract JSON export | `datasets`, `serve` | Medium | Enables validation, snapshots, docs, MCP, and codegen to share one source. |
+| 1 | Complete in this PR | Catalog export, MCP introspection fix, Serve/OpenAPI catalog metadata, dashboard/tool metadata, and initial AI tool generation | `datasets`, `mcp-server`, `serve`, `website-next` | Medium | Fixes agent/dashboard metadata, removes measures/metrics drift, and gives agents catalog-backed tool schemas. |
+| 2 | Next | Trust-boundary docs and unsafe SQL audit | `website-next`, `datasets`, `clickhouse`, `cli` | Minor | Low-risk enterprise/security foundation. |
+| 3 | Complete in this PR | Semantic contract JSON export (`serializeSemanticContract` + Serve `GET /contract`) | `datasets`, `serve` | Medium | Enables validation, snapshots, docs, MCP, and codegen to share one source. |
 | 4 | Next | `hypequery semantic validate` CLI | `cli`, `datasets`, `schema` | Medium | Immediate CI value. |
 | 5 | Planned | Semantic audit event hooks | `serve`, `datasets`, `mcp-server` | Medium | Required for enterprise deployment. |
 | 6 | Planned | Field/dataset/metric access metadata | `datasets`, `serve` | Major | Starts governance before relationship complexity. |
