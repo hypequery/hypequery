@@ -14,6 +14,10 @@ export type {
   ExecuteOptions
 } from './core/query-builder.js';
 export { isClientConfig } from './core/query-builder.js';
+
+// SQL rendering used by the built-in adapter; exported so third-party DatabaseAdapter
+// implementations (e.g. embedded engines) reproduce identical ?-param rendering.
+export { substituteParameters, escapeValue } from './core/utils.js';
 export type {
   CacheOptions,
   CacheConfig,
