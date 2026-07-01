@@ -47,7 +47,7 @@ export class SQLFormatter {
           query: expr.expression,
           parameters: expr.parameters.map(parameter => parameter.value),
         };
-      case 'group':
+      case 'group': {
         if (!expr.expression) {
           return { query: '', parameters: [] };
         }
@@ -59,6 +59,7 @@ export class SQLFormatter {
           query: `(${compiledGroup.query})`,
           parameters: compiledGroup.parameters,
         };
+      }
       case 'sequence':
         return this.combineCompiled(
           expr.items

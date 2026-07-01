@@ -63,7 +63,7 @@ const Orders = makeOrders();
 
 /** Serializes and strips the content hash for structural comparisons. */
 function contractBody(datasets: Record<string, DatasetCatalogSource>) {
-  const { contentHash, ...rest } = serializeSemanticContract(datasets);
+  const { contentHash: _contentHash, ...rest } = serializeSemanticContract(datasets);
   return rest;
 }
 

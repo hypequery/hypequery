@@ -715,7 +715,7 @@ describe("MetricQueryEngine", () => {
     }
 
     return {
-      table: (name: string) => createMockBuilder(),
+      table: (_name: string) => createMockBuilder(),
       rawQuery: vi.fn().mockResolvedValue(mockData),
     };
   }

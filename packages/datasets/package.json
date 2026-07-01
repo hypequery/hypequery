@@ -33,7 +33,8 @@
     "test:integration": "node scripts/run-integration-tests.js",
     "test:types": "tsc --project tsconfig.type-tests.json",
     "test:watch": "vitest watch",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint --ext .ts \"src/**/*.ts\""
   },
   "files": [
     "dist"

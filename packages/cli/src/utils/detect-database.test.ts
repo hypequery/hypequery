@@ -9,7 +9,6 @@ import {
 
 vi.mock('node:fs/promises');
 
-const mockQuery = vi.hoisted(() => vi.fn());
 const mockGetClickHouseClient = vi.hoisted(() => vi.fn());
 
 vi.mock('./clickhouse-client.js', () => ({

@@ -13,8 +13,6 @@ import {
 vi.mock('node:fs/promises');
 
 describe('find-files', () => {
-  const originalCwd = process.cwd();
-
   beforeEach(() => {
     vi.clearAllMocks();
     // Mock cwd to return a consistent path

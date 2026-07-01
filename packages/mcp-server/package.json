@@ -25,6 +25,7 @@
     "test": "npm run test:types && npm run test:unit",
     "test:unit": "vitest run",
     "test:types": "tsc --project tsconfig.json --noEmit",
+    "lint": "eslint --ext .ts \"src/**/*.ts\"",
     "start": "node dist/bin.js"
   },
   "dependencies": {

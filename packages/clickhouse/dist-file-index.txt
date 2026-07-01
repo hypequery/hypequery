@@ -134,6 +134,9 @@ core/utils/relation-validation.js
 core/utils/sql-expressions.d.ts
 core/utils/sql-expressions.d.ts.map
 core/utils/sql-expressions.js
+core/utils/sql-literals.d.ts
+core/utils/sql-literals.d.ts.map
+core/utils/sql-literals.js
 core/utils/streaming-helpers.d.ts
 core/utils/streaming-helpers.d.ts.map
 core/utils/streaming-helpers.js

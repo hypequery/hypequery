@@ -273,7 +273,7 @@ describe('dev command', () => {
 
       try {
         await devCommand(undefined, { watch: false });
-      } catch (error) {
+      } catch {
         // Expected to exit
       }
 
@@ -286,7 +286,7 @@ describe('dev command', () => {
 
       try {
         await devCommand(undefined, { watch: false });
-      } catch (error) {
+      } catch {
         // Expected to exit
       }
 

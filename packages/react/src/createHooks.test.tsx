@@ -790,7 +790,7 @@ describe('createHooks', () => {
       fetchMock.mockClear();
 
       // Options object should disable the query
-      const { result: result2 } = renderHook(
+      renderHook(
         () => useQuery('noInput', { enabled: false, staleTime: 1000 }),
         { wrapper: createWrapper() }
       );

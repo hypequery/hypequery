@@ -1,5 +1,5 @@
 import type { ZodType, ZodTypeAny } from "zod";
-import type { ServeQueryLogger, ServeQueryEventCallback, ServeQueryEvent } from "./query-logger.js";
+import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 import type { QueryBuilderFactoryLike } from "@hypequery/datasets";
 
 /** Supported HTTP verbs for serve-managed endpoints. */

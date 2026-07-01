@@ -71,7 +71,7 @@ export const ensureConnectionInitialized = () => {
   // If connection hasn't been initialized yet, initialize it
   try {
     ClickHouseConnection.getClient();
-  } catch (error) {
+  } catch {
     // If we get "not initialized" error, initialize the connection
     logger.info('Initializing ClickHouse connection...');
     ClickHouseConnection.initialize({
