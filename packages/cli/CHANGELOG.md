@@ -1,5 +1,11 @@
 # @hypequery/cli
 
+## 1.2.1
+
+### Patch Changes
+
+- b116f9d: Improve `generate:datasets` measure heuristics so ID and coordinate columns are emitted as dimensions but not nonsensical sum/avg measures.
+
 ## 1.2.0
 
 ### Minor Changes
