@@ -191,6 +191,20 @@ This is the right route when query logic should be shared: when the same table s
   </Step>
 
   <Step>
+    Generate dataset definitions
+
+    Use the CLI to introspect ClickHouse and scaffold dataset definitions from your live schema:
+
+    <CodeBlock>
+      ```bash
+      npx hypequery generate:datasets
+      ```
+    </CodeBlock>
+
+    This writes `analytics/datasets.ts` by default. Generated exports use names like `OrdersDataset`; the examples below alias or rename that export to `Orders` after curation. Re-run generation when your schema changes, then curate the generated dimensions and measures so the semantic names match your product language.
+  </Step>
+
+  <Step>
     Connect a query builder and dataset client
 
     `@hypequery/datasets` plans and validates semantic queries; `@hypequery/clickhouse` constructs and executes them. The dataset client wraps the same query builder you would use for hand-written queries.
@@ -214,9 +228,9 @@ This is the right route when query logic should be shared: when the same table s
   </Step>
 
   <Step>
-    Define a dataset
+    Review or customize a dataset
 
-    A dataset maps a source table to typed dimensions and measures, plus optional tenant and time keys.
+    The generated file gives you a starting point. A curated dataset maps a source table to typed dimensions and measures, plus optional tenant and time keys:
 
     <CodeBlock>
       ```typescript
@@ -251,7 +265,7 @@ This is the right route when query logic should be shared: when the same table s
       ```typescript
       import { eq } from '@hypequery/datasets';
       import { analytics } from './client.js';
-      import { Orders } from './datasets/orders.js';
+      import { Orders } from './datasets.js';
 
       const byCountry = await analytics.execute(Orders, {
         dimensions: ['country'],
@@ -276,7 +290,7 @@ This is the right route when query logic should be shared: when the same table s
       // analytics/metrics.ts
       import { divide, eq, nullIfZero } from '@hypequery/datasets';
       import { analytics } from './client.js';
-      import { Orders } from './datasets/orders.js';
+      import { Orders } from './datasets.js';
 
       export const revenue = Orders.metric('revenue', { measure: 'revenue' });
       export const orderCount = Orders.metric('orderCount', { measure: 'orderCount' });
@@ -302,13 +316,14 @@ If that is all you need, continue with the [Datasets Overview](/docs/datasets/ov
 
 ## Optional: expose over HTTP with serve
 
-Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/serve` when the same logic should have a stable URL, input validation, docs, OpenAPI, auth, or React hooks.
+Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/serve` when the same logic should have a stable URL, input validation, docs, OpenAPI, auth, or React hooks. Add `@hypequery/react` when a React or Next.js UI should call those served endpoints through typed TanStack Query hooks.
 
 <Tabs items={['npm', 'pnpm', 'yarn', 'bun']} defaultIndex={0}>
   <Tab value="npm" label="npm">
     <CodeBlock>
       ```bash
       npm install @hypequery/serve zod
+      npm install @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
   </Tab>
@@ -317,6 +332,7 @@ Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/ser
     <CodeBlock>
       ```bash
       pnpm add @hypequery/serve zod
+      pnpm add @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
   </Tab>
@@ -325,6 +341,7 @@ Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/ser
     <CodeBlock>
       ```bash
       yarn add @hypequery/serve zod
+      yarn add @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
   </Tab>
@@ -333,6 +350,7 @@ Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/ser
     <CodeBlock>
       ```bash
       bun add @hypequery/serve zod
+      bun add @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
   </Tab>
@@ -410,6 +428,27 @@ export const api = serve({
 </CodeBlock>
 
 This generates `POST /metrics/revenue` for the named KPI and `POST /datasets/orders/query` for flexible same-dataset rollups, each prefixed by your `basePath`. Endpoints validate dimensions, measures, filters, time grains, and ordering against the definition. See [Serve integration](/docs/datasets/serve-integration) for per-endpoint auth, caching, and limits.
+
+### Consume served datasets from React
+
+Use `@hypequery/react` when a React or Next.js app should call those endpoints from components:
+
+<CodeBlock>
+```typescript
+import { createAnalyticsHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import { api } from './analytics/api';
+
+type Api = InferApiType<typeof api>;
+
+export const { useMetric, useDataset } = createAnalyticsHooks<Api>({
+  baseUrl: '/api/analytics',
+  manifest: api.manifest(),
+});
+```
+</CodeBlock>
+
+For setup with `QueryClientProvider`, see the [React guide](/docs/react/getting-started).
 
 ### Preview docs and routes [#preview-docs-and-routes]
 
