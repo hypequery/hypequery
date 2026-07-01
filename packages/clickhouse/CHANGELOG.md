@@ -1,5 +1,11 @@
 # @hypequery/clickhouse Changelog
 
+## 2.1.2
+
+### Patch Changes
+
+- 6efb2e3: Export `substituteParameters` and `escapeValue` from the package entrypoint so third-party adapters can reuse the same SQL parameter rendering as the built-in ClickHouse adapter.
+
 ## 2.1.1
 
 ### Patch Changes
