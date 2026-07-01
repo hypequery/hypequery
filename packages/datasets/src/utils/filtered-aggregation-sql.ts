@@ -1,5 +1,5 @@
 import type { AggregationSpec, AnyDatasetInstance, MetricFilter } from '../types.js';
-import { resolveDimensionExpression, resolveFilterField } from '../query-planner.js';
+import { resolveFilterField } from '../query-planner.js';
 
 type DatasetShape = AnyDatasetInstance;
 

@@ -59,9 +59,9 @@ const averageRevenueMetric = Orders.metric('averageRevenueMetric', {
   formula: ({ revenue, completedRevenue }) => add(revenue, completedRevenue),
 });
 const customerCountMetric = Customers.metric('customerCountMetric', { measure: 'customerCount' });
-const statusFilter = eq('status', 'completed');
-const createdAtRange = between('createdAt', '2025-01-01', '2025-01-31');
-const revenueSort = desc('revenueMetric');
+const _statusFilter = eq('status', 'completed');
+const _createdAtRange = between('createdAt', '2025-01-01', '2025-01-31');
+const _revenueSort = desc('revenueMetric');
 
 type _MeasureOptionsIncludeFilters = Assert<
   Equal<HasKey<MeasureOptions, 'filters'>, true>
@@ -125,16 +125,16 @@ type _OtherDatasetBaseMetricDatasetName = Assert<
   Equal<typeof customerCountMetric['datasetName'], 'customers'>
 >;
 type _EqPreservesFieldLiteral = Assert<
-  Equal<typeof statusFilter['field'], 'status'>
+  Equal<typeof _statusFilter['field'], 'status'>
 >;
 type _EqPreservesValueLiteral = Assert<
-  Equal<typeof statusFilter['value'], 'completed'>
+  Equal<typeof _statusFilter['value'], 'completed'>
 >;
 type _BetweenPreservesTupleValue = Assert<
-  Equal<typeof createdAtRange['value'], ['2025-01-01', '2025-01-31']>
+  Equal<typeof _createdAtRange['value'], ['2025-01-01', '2025-01-31']>
 >;
 type _DescPreservesFieldLiteral = Assert<
-  Equal<typeof revenueSort['field'], 'revenueMetric'>
+  Equal<typeof _revenueSort['field'], 'revenueMetric'>
 >;
 
 Orders.metric('validDerivedMetric', {
@@ -160,19 +160,19 @@ const runtimeContext: ExecutionContext = {
   },
 };
 
-const legacyTenantRuntimeContext: ExecutionContext = {
+const _legacyTenantRuntimeContext: ExecutionContext = {
   runtime: {
     tenant: { id: 'tenant-1' },
   },
 };
 
-const tenantSetRuntimeContext: ExecutionContext = {
+const _tenantSetRuntimeContext: ExecutionContext = {
   runtime: {
     tenant: { in: ['tenant-1', 'tenant-2'] },
   },
 };
 
-const crossTenantRuntimeContext: ExecutionContext = {
+const _crossTenantRuntimeContext: ExecutionContext = {
   runtime: {
     tenant: { scope: 'all' },
   },

@@ -69,7 +69,7 @@ import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
         .table('nonexistent_table')
         .select(['id'])
         .execute();
-    } catch (error) {
+    } catch {
       // Expected error
     }
 

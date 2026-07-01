@@ -38,7 +38,7 @@ describe("serve() supports all Serve features", () => {
     });
 
     const authStrategy = createApiKeyStrategy({
-      validate: async (key) => ({ userId: "123" }),
+      validate: async (_key) => ({ userId: "123" }),
     });
 
     const api = serve({
@@ -52,7 +52,7 @@ describe("serve() supports all Serve features", () => {
 
   it("should support multi-tenancy", () => {
     const revenue = query({
-      query: async ({ ctx }: any) => {
+      query: async () => {
         // ctx.auth.tenantId is injected from tenant config
         return { total: 100 };
       },
@@ -72,13 +72,13 @@ describe("serve() supports all Serve features", () => {
 
   it("should support all ServeConfig options", () => {
     const revenue = query({
-      query: async ({ ctx }: any) => {
+      query: async () => {
         return { total: 100 };
       },
     });
 
     const authStrategy = createApiKeyStrategy({
-      validate: async (key) => ({ userId: "123" }),
+      validate: async (_key) => ({ userId: "123" }),
     });
 
     const api = serve({
@@ -118,7 +118,7 @@ describe("serve() supports all Serve features", () => {
 
   it("should support middleware", () => {
     const revenue = query({
-      query: async ({ ctx }: any) => {
+      query: async () => {
         return { total: 100 };
       },
     });
@@ -141,7 +141,7 @@ describe("serve() supports all Serve features", () => {
 
   it("should support hooks", () => {
     const revenue = query({
-      query: async ({ ctx }: any) => {
+      query: async () => {
         return { total: 100 };
       },
     });
@@ -149,7 +149,7 @@ describe("serve() supports all Serve features", () => {
     const api = serve({
       context: () => ({ db: {} }),
       hooks: {
-        onRequest: async ({ request }) => {
+        onRequest: async ({ request: _request }) => {
           console.log("Request received");
         },
       },
@@ -168,7 +168,7 @@ describe("serve() supports all Serve features", () => {
       output: z.object({
         total: z.number(),
       }),
-      query: async ({ input, ctx }: any) => {
+      query: async () => {
         return { total: 100 };
       },
     });

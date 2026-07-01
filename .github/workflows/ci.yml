@@ -42,6 +42,8 @@ jobs:
         run: |
           rm -rf packages/clickhouse/dist
           find packages -name '*.tsbuildinfo' -delete
+      - name: Run lint
+        run: pnpm lint
       - name: Build all hypequery packages
         run: pnpm turbo run build --filter='@hypequery/*'
       - name: Verify bin.js file exists

@@ -1,8 +1,7 @@
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 import { FilterOperator } from "./filters.js";
-import type { TableColumn } from './schema.js';
 
-export interface QueryConfig<T, Schema> {
+export interface QueryConfig<_T, _Schema> {
   select?: SelectionNode[];
   from?: SourceNode;
   arrayJoins?: ArrayJoinNode[];

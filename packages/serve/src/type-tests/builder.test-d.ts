@@ -38,11 +38,11 @@ const executableQuery = query({
   },
 });
 
-const executableResultPromise = executableQuery.execute({
+const _executableResultPromise = executableQuery.execute({
   input: { startDate: '2024-01-01' },
 });
 
-type ExecutableResult = Awaited<typeof executableResultPromise>;
+type ExecutableResult = Awaited<typeof _executableResultPromise>;
 const _executableResultIsTyped: ExecutableResult = { total: 10 };
 // @ts-expect-error total must be number
 const _executableResultRejectsString: ExecutableResult = { total: '10' };

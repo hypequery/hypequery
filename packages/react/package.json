@@ -19,6 +19,7 @@
     "types": "tsc -b --noEmit",
     "test:types": "tsc --project tsconfig.type-tests.json",
     "test": "npm run test:types && vitest run",
+    "lint": "eslint --ext .ts,.tsx \"src/**/*.ts\" \"src/**/*.tsx\"",
     "prepack": "pnpm build"
   },
   "peerDependencies": {

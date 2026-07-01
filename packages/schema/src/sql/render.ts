@@ -422,7 +422,7 @@ function escapeStringLiteral(value: string): string {
   return value
     .replace(/\\/g, '\\\\')
     .replace(/\0/g, '\\0')
-    .replace(/\x08/g, '\\b')
+    .split(String.fromCharCode(8)).join('\\b')
     .replace(/\f/g, '\\f')
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r')

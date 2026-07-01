@@ -30,7 +30,7 @@ describe('QueryBuilder - Joins', () => {
     });
 
     it('should maintain types when joining on same column name', () => {
-      const query = builder
+      const _query = builder
         .select(['id'])
         .innerJoin(
           'users',
@@ -38,7 +38,7 @@ describe('QueryBuilder - Joins', () => {
           'users.id'
         );
 
-      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Result = Awaited<ReturnType<typeof _query.execute>>;
       type Expected = { id: number }[];
       type _Assert = Expect<Equal<Result, Expected>>;
     });
@@ -55,11 +55,11 @@ describe('QueryBuilder - Joins', () => {
     });
 
     it('requires aliases when selecting duplicate leaf column names from joined tables', () => {
-      const query = builder
+      const _query = builder
         .innerJoin('users', 'created_by', 'users.id')
         .select(['test_table.id', 'users.id']);
 
-      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Result = Awaited<ReturnType<typeof _query.execute>>;
       type Expected = { id: number }[];
       type _Assert = Expect<Equal<Result, Expected>>;
     });
@@ -67,7 +67,7 @@ describe('QueryBuilder - Joins', () => {
 
   describe('type safety', () => {
     it('should maintain column types from joined tables', () => {
-      const query = builder
+      const _query = builder
         .innerJoin(
           'users',
           'created_by',
@@ -75,7 +75,7 @@ describe('QueryBuilder - Joins', () => {
         )
         .select(['name', 'users.user_name', 'users.email']);
 
-      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Result = Awaited<ReturnType<typeof _query.execute>>;
       type Expected = {
         name: string;
         user_name: string;
@@ -150,12 +150,12 @@ describe('QueryBuilder - Joins', () => {
     });
 
     it('should handle multiple joins with column selection', () => {
-      const query = builder
+      const _query = builder
         .innerJoin('users', 'created_by', 'users.id', 'u1')
         .leftJoin('users', 'updated_by', 'users.id', 'u2')
         .select(['test_table.name', 'u1.user_name as creator', 'u2.user_name as updater']);
 
-      type Result = Awaited<ReturnType<typeof query.execute>>;
+      type Result = Awaited<ReturnType<typeof _query.execute>>;
       type Expected = {
         name: string;
         creator: string;
@@ -163,7 +163,7 @@ describe('QueryBuilder - Joins', () => {
       }[];
       type _Assert = Expect<Equal<Result, Expected>>;
 
-      const sql = query.toSQL();
+      const sql = _query.toSQL();
       expect(sql).toBe(
         'SELECT test_table.name, u1.user_name as creator, u2.user_name as updater ' +
         'FROM test_table ' +
@@ -174,7 +174,7 @@ describe('QueryBuilder - Joins', () => {
 
     describe('type safety for column selection', () => {
     it('should maintain correct types for joined table columns', () => {
-      const query = builder
+      const _query = builder
         .innerJoin(
           'users',
           'created_by',
@@ -182,7 +182,7 @@ describe('QueryBuilder - Joins', () => {
           )
           .select(['test_table.price', 'users.user_name'] as const);
 
-        type Result = Awaited<ReturnType<typeof query.execute>>;
+        type Result = Awaited<ReturnType<typeof _query.execute>>;
         type Expected = {
           price: number;
           user_name: string;
@@ -192,13 +192,13 @@ describe('QueryBuilder - Joins', () => {
       });
 
       it('should allow aggregating qualified columns from joined tables', () => {
-        const query = builder
+        const _query = builder
           .innerJoin('users', 'created_by', 'users.id')
           .select(['users.user_name'])
           .count('users.id', 'user_count')
           .groupBy('users.user_name');
 
-        type Result = Awaited<ReturnType<typeof query.execute>>;
+        type Result = Awaited<ReturnType<typeof _query.execute>>;
         type Expected = {
           user_name: string;
           user_count: string;
@@ -206,7 +206,7 @@ describe('QueryBuilder - Joins', () => {
 
         type _Assert = Expect<Equal<Result, Expected>>;
 
-        expect(query.toSQL()).toBe(
+        expect(_query.toSQL()).toBe(
           'SELECT users.user_name, COUNT(users.id) AS user_count FROM test_table INNER JOIN users ON created_by = users.id GROUP BY users.user_name'
         );
       });
@@ -214,11 +214,11 @@ describe('QueryBuilder - Joins', () => {
 
     describe('join chain type safety', () => {
       it('should maintain types through multiple joins', () => {
-        const query = builder
+        const _query = builder
           .innerJoin('users', 'created_by', 'users.id')
           .select(['test_table.price', 'users.user_name']);
 
-        type Result = Awaited<ReturnType<typeof query.execute>>;
+        type Result = Awaited<ReturnType<typeof _query.execute>>;
         type Expected = {
           price: number;
           user_name: string;

@@ -53,7 +53,7 @@ export interface CreateAnalyticsHooksConfig<
 
 export function createAnalyticsHooks<
   Api extends Record<string, { input: any; output: any }>,
-  const TMetrics extends readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[] = readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[],
+  TMetrics extends readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[] = readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[],
 >(config: CreateAnalyticsHooksConfig<Api, TMetrics>) {
   const hooks = createHooks<Api>(config);
   type MetricName = TMetrics extends readonly (infer U)[]

@@ -4,18 +4,10 @@ import { z } from "zod";
 
 describe("query() and serve()", () => {
   it("should create a query object with query()", () => {
-    const mockDb = {
-      table: (tableName: string) => ({
-        select: () => ({
-          execute: async () => [{ total: 100 }],
-        }),
-      }),
-    };
-
     const revenue = query({
       name: "revenue",
       input: z.object({ startDate: z.string() }),
-      query: async ({ input, ctx }: any) => {
+      query: async ({ ctx }: any) => {
         const result = await ctx.db.table("orders").select().execute();
         return { total: result[0].total };
       },
@@ -28,7 +20,7 @@ describe("query() and serve()", () => {
 
   it("should run query independently with .execute()", async () => {
     const mockDb = {
-      table: (tableName: string) => ({
+      table: (_tableName: string) => ({
         select: () => ({
           execute: async () => [{ total: 100 }],
         }),
@@ -53,7 +45,7 @@ describe("query() and serve()", () => {
 
   it("should serve query objects with serve()", async () => {
     const mockDb = {
-      table: (tableName: string) => ({
+      table: (_tableName: string) => ({
         select: () => ({
           execute: async () => [{ total: 100 }],
         }),
@@ -81,7 +73,7 @@ describe("query() and serve()", () => {
 
   it("should serve multiple query objects", () => {
     const mockDb = {
-      table: (tableName: string) => ({
+      table: (_tableName: string) => ({
         select: () => ({
           execute: async () => [{ total: 100 }],
         }),
@@ -117,7 +109,7 @@ describe("query() and serve()", () => {
 
   it("should work with queries object syntax", () => {
     const mockDb = {
-      table: (tableName: string) => ({
+      table: (_tableName: string) => ({
         select: () => ({
           execute: async () => [{ total: 100 }],
         }),
@@ -143,14 +135,6 @@ describe("query() and serve()", () => {
   });
 
   it("should support optional metadata on query objects", () => {
-    const mockDb = {
-      table: () => ({
-        select: () => ({
-          execute: async () => [{ total: 100 }],
-        }),
-      }),
-    };
-
     const revenue = query({
       name: "revenue",
       description: "Calculate total revenue",

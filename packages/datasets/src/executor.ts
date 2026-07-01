@@ -12,7 +12,6 @@ import type {
   MetricResult,
   DatasetQuery,
   DatasetQueryResult,
-  MetricFilter,
   ExecutionContext,
   AggregationSpec,
   DerivedMetricSpec,

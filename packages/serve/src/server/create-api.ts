@@ -2,7 +2,6 @@ import type {
   AuthContext,
   AuthStrategy,
   HypeQueryAPI,
-  HttpMethod,
   ServeContextFactory,
   ServeEndpointMap,
   ServeHandler,
