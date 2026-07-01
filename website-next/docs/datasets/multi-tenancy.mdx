@@ -124,6 +124,32 @@ const api = serve({
 
 Serve tenant `column` configuration is useful for hand-written builder queries. Semantic dataset endpoints use the dataset `tenantKey` for tenant filtering.
 
+For simple internal or first-party apps, the auth strategy can read a tenant header and expose it as auth context:
+
+<CodeBlock>
+```typescript
+import { initServe } from '@hypequery/serve';
+
+const { serve } = initServe({
+  auth: async ({ request }) => ({
+    tenantId: request.headers['x-tenant-id'],
+  }),
+  tenant: {
+    extract: (auth) => auth.tenantId,
+    required: true,
+  },
+});
+
+export const api = serve({
+  queryBuilder: db,
+  datasets: { orders: Orders },
+  metrics: { revenue },
+});
+```
+</CodeBlock>
+
+Only trust tenant headers at a boundary you control, such as a server-to-server call, reverse proxy, or authenticated application route. Public clients should derive tenant identity from verified auth instead of accepting arbitrary header values.
+
 ## MCP tenant context
 
 For MCP, run tenant-scoped servers with a trusted `tenantId`. The MCP server forwards that value as dataset runtime tenant context for `query_dataset` and `query_metric`.

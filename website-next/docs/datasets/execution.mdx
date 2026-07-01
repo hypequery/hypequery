@@ -91,6 +91,17 @@ const result = await analytics.execute(revenue, {
 ```
 </CodeBlock>
 
+Use `by` for time bucketing. It is a flat grain value, not an object:
+
+<CodeBlock>
+```typescript
+const result = await analytics.execute(revenue, {
+  by: 'month',
+  dimensions: ['country'],
+});
+```
+</CodeBlock>
+
 ## Execute a dataset
 
 Dataset execution returns an ad hoc selection of dimensions and measures from one dataset.
@@ -102,6 +113,18 @@ const result = await analytics.execute(Orders, {
   measures: ['revenue', 'orderCount'],
   filters: [eq('status', 'completed')],
   limit: 10,
+});
+```
+</CodeBlock>
+
+Dataset queries use the same `by` field when the dataset declares a `timeKey`:
+
+<CodeBlock>
+```typescript
+const result = await analytics.execute(Orders, {
+  by: 'day',
+  dimensions: ['status'],
+  measures: ['revenue', 'orderCount'],
 });
 ```
 </CodeBlock>
