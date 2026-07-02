@@ -1,8 +1,8 @@
 # Datasets Semantic Layer Fix Plan
 
-Date: 2026-05-25
+Date: 2026-05-25 (status updated 2026-07-02)
 Owner: TBD
-Status: Semantic API boundary and first type-hardening pass complete; schema depth, live CI, and docs remain
+Status: Items 1–3 of Next Work are complete (schema compatibility depth, docs + guide snippet compile checks, live CI). Item 4 (relationship-aware semantics) is designed in `relationship-aware-semantics-design.md` and awaits implementation.
 
 ## Pre-Release Bias
 
@@ -54,65 +54,33 @@ Live ClickHouse execution has not been run in this environment because Docker so
 
 ## Next Work
 
-### 1. Schema Compatibility Depth
+### 1. Schema Compatibility Depth — DONE
 
-Objective:
-Make schema compatibility catch more semantic breakage before migrations ship.
+Completed in `packages/schema/src/compat/check.ts`: relationship join-column checks
+(`MissingRelationshipSourceColumn`, `MissingRelationshipTargetColumn`,
+`MissingRelationshipTargetSource`), simple SQL-column extraction, and
+`LimitedSqlExpressionCompatibility` diagnostics for complex SQL expressions, with tests.
 
-Implementation:
-- Add compatibility checks for relationship join columns.
-- Add safe dependency extraction for simple SQL-expression dimensions/measures where practical.
-- Report explicit limitations for complex SQL expressions instead of pretending full SQL lineage exists.
-- Add focused tests for removed/renamed join columns and SQL-expression limitations.
+### 2. Docs and Guide Alignment — DONE
 
-Acceptance criteria:
-- Broken relationship join columns produce compatibility diagnostics.
-- SQL-expression compatibility is either checked safely or reported as limited.
+Datasets guides shipped to the website (`website-next/docs/datasets/`, PR #223).
+Guide snippet compile checks added 2026-07-02: `pnpm smoke:docs-snippets`
+(`scripts/smoke-docs-snippets.sh`) extracts every TypeScript block from the datasets
+guides and type-checks them against the built packages; wired into `smoke:examples`
+so CI runs it.
 
-### 2. Docs and Guide Alignment
+### 3. Live Integration and CI Hardening — DONE
 
-Objective:
-Make public docs match the finalized package boundary.
+CI (`.github/workflows/ci.yml`) runs a ClickHouse service container with live
+integration suites for `@hypequery/clickhouse`, `@hypequery/datasets`, and
+`@hypequery/serve`, plus `smoke:examples` (which includes `smoke:semantic-consumer`).
 
-Implementation:
-- Document dataset definition, measures, filtered measures, metrics, derived metrics, `.by(grain)`, and `MetricExecutor`.
-- Document serve-generated metric and dataset endpoints.
-- Document runtime tenancy behavior and tenant-filter rejection.
-- Avoid documenting `@hypequery/datasets/internal` as user-facing API.
-- Remove write-based setup assumptions or move fixture seeding to external tooling such as `@clickhouse/client`.
-- Add guide snippet compile checks after docs examples stabilize.
+### 4. Relationship-Aware Semantics — DESIGNED, not implemented
 
-Acceptance criteria:
-- Copy-paste examples compile from a fresh consumer project.
-- Docs do not rely on removed root exports or unsupported deep imports.
-- Docs do not imply Hypequery provides native write support.
-
-### 3. Live Integration and CI Hardening
-
-Objective:
-Make semantic behavior continuously verifiable beyond unit tests.
-
-Implementation:
-- Run the live ClickHouse semantic integration suite in Docker-capable CI.
-- Add CI coverage for `pnpm smoke:semantic-consumer`.
-- Keep fast unit/type checks separate from Docker-backed integration checks.
-
-Acceptance criteria:
-- CI catches public API drift.
-- CI catches live ClickHouse regressions for base, derived, grouped, grained, and filtered semantic queries.
-
-### 4. Relationship-Aware Semantics
-
-Objective:
-Decide how dataset relationships participate in planning and execution.
-
-Implementation:
-- Define whether relationships are metadata-only, query-time joins, or a separate planned feature.
-- Decide join semantics for dimensions, measures, filters, and derived metrics.
-- Extend schema compatibility around relationship join columns before enabling execution.
-
-Acceptance criteria:
-- Relationship behavior is explicitly designed before being exposed as executable semantics.
+Design finalized in `plans/relationship-aware-semantics-design.md` (2026-07-02):
+to-one relationships (`belongsTo`, `hasOne`) become query-time LEFT JOINs for
+dimensions/filters/orderBy, one hop deep; `hasMany` stays metadata-only until a
+fan-out-safe design exists. Implementation is sequenced in that document.
 
 ## Release Scoping
 
