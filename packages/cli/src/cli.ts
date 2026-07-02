@@ -5,6 +5,7 @@ import { initCommand } from './commands/init.js';
 import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
+import { generateManifestCommand, type GenerateManifestOptions } from './commands/generate-manifest.js';
 
 const program = new Command();
 
@@ -111,6 +112,14 @@ program
     await generateDatasetsCommand(options);
   }));
 
+program
+  .command('generate:manifest <api>')
+  .description('Generate a static React hook manifest from a hypequery API module')
+  .option('-o, --output <path>', 'Output JSON file (default: analytics/hypequery-manifest.json)')
+  .action(runCommand(async (api: string, options: GenerateManifestOptions) => {
+    await generateManifestCommand(api, options);
+  }));
+
 // Help command
 program
   .command('help [command]')
@@ -139,6 +148,7 @@ program.on('--help', () => {
   console.log('  hypequery generate --output analytics/schema.ts');
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
+  console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

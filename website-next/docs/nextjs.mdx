@@ -38,6 +38,8 @@ export const OPTIONS = handler;
 ```
 </CodeBlock>
 
+`createFetchHandler` is exported from the root `@hypequery/serve` package, so you do not need to import from an adapter subpath.
+
 </Step>
 
 <Step>
@@ -49,6 +51,8 @@ Use the same definition without HTTP in server components, actions, and jobs:
 <CodeBlock>
 ```typescript
 import { api } from '@/analytics/queries';
+
+export const dynamic = 'force-dynamic';
 
 export default async function Page() {
   const stats = await api.run('dailyStats', {
@@ -62,6 +66,8 @@ export default async function Page() {
 }
 ```
 </CodeBlock>
+
+Use `force-dynamic` on Server Components or pages that query ClickHouse during render. Without it, Next.js may try to prerender the page at build time and fail or time out when the database is unavailable.
 
 </Step>
 

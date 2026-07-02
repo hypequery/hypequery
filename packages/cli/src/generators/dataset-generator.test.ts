@@ -37,8 +37,13 @@ describe('generateDatasets', () => {
             { name: 'id', type: 'UInt64', default_type: '', default_expression: '' },
             { name: 'tenant_id', type: 'String', default_type: '', default_expression: '' },
             { name: 'product_id', type: 'UInt64', default_type: '', default_expression: '' },
+            { name: 'trip_id', type: 'UInt64', default_type: '', default_expression: '' },
             { name: 'created_at', type: 'DateTime', default_type: '', default_expression: '' },
+            { name: 'latitude', type: 'Float64', default_type: '', default_expression: '' },
+            { name: 'longitude', type: 'Float64', default_type: '', default_expression: '' },
             { name: 'amount', type: 'Float64', default_type: '', default_expression: '' },
+            { name: 'duration_seconds', type: 'UInt32', default_type: '', default_expression: '' },
+            { name: 'payment_type', type: "Enum8('card' = 1, 'cash' = 2)", default_type: '', default_expression: '' },
             { name: 'status', type: 'LowCardinality(String)', default_type: '', default_expression: '' },
           ],
         };
@@ -56,8 +61,21 @@ describe('generateDatasets', () => {
 
     const generated = await readFile(outputPath, 'utf8');
     expect(generated).toContain("totalCount: measure.count('id'");
-    expect(generated).toContain("totalProductId: measure.sum('productId'");
     expect(generated).toContain("totalAmount: measure.sum('amount'");
+    expect(generated).toContain("avgAmount: measure.avg('amount'");
+    expect(generated).toContain("totalDurationSeconds: measure.sum('durationSeconds'");
+    expect(generated).toContain("avgDurationSeconds: measure.avg('durationSeconds'");
+    expect(generated).toContain("paymentType: dimension.string({ column: 'payment_type'");
+    expect(generated).toContain("status: dimension.string({ label: 'Status' })");
+    expect(generated).not.toContain("totalProductId: measure.sum('productId'");
+    expect(generated).not.toContain("avgProductId: measure.avg('productId'");
+    expect(generated).not.toContain("totalTripId: measure.sum('tripId'");
+    expect(generated).not.toContain("avgTripId: measure.avg('tripId'");
+    expect(generated).not.toContain("totalLatitude: measure.sum('latitude'");
+    expect(generated).not.toContain("avgLatitude: measure.avg('latitude'");
+    expect(generated).not.toContain("totalLongitude: measure.sum('longitude'");
+    expect(generated).not.toContain("avgLongitude: measure.avg('longitude'");
+    expect(generated).not.toContain("PaymentType measures");
     expect(generated).not.toContain('measure.count({');
 
     await writeFile(

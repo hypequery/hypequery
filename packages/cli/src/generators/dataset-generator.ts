@@ -104,6 +104,47 @@ function isNumericColumn(column: ColumnInfo): boolean {
 }
 
 /**
+ * Check if a numeric column is more likely an identifier than an additive value.
+ */
+function isIdentifierColumn(column: ColumnInfo): boolean {
+  const originalName = column.name;
+  const name = column.name.toLowerCase();
+
+  return (
+    name === 'id' ||
+    name === 'uuid' ||
+    name.endsWith('_id') ||
+    originalName.endsWith('Id') ||
+    name.includes('uuid') ||
+    isTenantColumn(column)
+  );
+}
+
+/**
+ * Check if a numeric column is a coordinate that should not be summed or averaged.
+ */
+function isCoordinateColumn(column: ColumnInfo): boolean {
+  const name = column.name.toLowerCase();
+
+  return (
+    name === 'lat' ||
+    name === 'lng' ||
+    name === 'lon' ||
+    name === 'latitude' ||
+    name === 'longitude' ||
+    name.endsWith('_lat') ||
+    name.endsWith('_lng') ||
+    name.endsWith('_lon') ||
+    name.endsWith('_latitude') ||
+    name.endsWith('_longitude')
+  );
+}
+
+function isMeasureCandidate(column: ColumnInfo): boolean {
+  return isNumericColumn(column) && !isIdentifierColumn(column) && !isCoordinateColumn(column);
+}
+
+/**
  * Convert table name to PascalCase for dataset variable name
  */
 function tableToPascalCase(tableName: string): string {
@@ -169,8 +210,9 @@ async function generateDatasetForTable(
     }
   }
 
-  // Generate measures (for numeric columns only)
-  const numericColumns = columns.filter(isNumericColumn).filter((c) => !isTenantColumn(c));
+  // Generate measures for numeric value columns only. IDs and coordinates stay
+  // dimensions because summing or averaging them is usually noise.
+  const numericColumns = columns.filter(isMeasureCandidate);
   const measureLines: string[] = [];
 
   if (numericColumns.length > 0) {

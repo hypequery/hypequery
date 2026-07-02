@@ -6,7 +6,7 @@ import type {
 } from '@tanstack/react-query';
 import { createHooks, type CreateHooksConfig } from './createHooks.js';
 import { HttpError } from './errors.js';
-import type { ExtractNames, QueryInput, QueryOutput } from './types.js';
+import type { ExtractNames, QueryInput, QueryOutput, QueryOutputForInput } from './types.js';
 
 type DatasetKey<Name extends string> = `dataset:${Name}`;
 type DatasetNamesFromApi<Api> =
@@ -30,20 +30,6 @@ type QueryOptions<Api, Key extends ExtractNames<Api>> = Omit<
   'queryKey' | 'queryFn'
 >;
 
-type MetricQueryParams<Api, Key extends ExtractNames<Api>> =
-  QueryInput<Api, Key> extends never
-    ? [name: Key, options?: QueryOptions<Api, Key>]
-    : [name: Key, input: QueryInput<Api, Key>, options?: QueryOptions<Api, Key>];
-
-type DatasetQueryParams<Api, Name extends DatasetNamesFromApi<Api>> =
-  QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>> extends never
-    ? [name: Name, options?: QueryOptions<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>]
-    : [
-        name: Name,
-        input: QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
-        options?: QueryOptions<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
-      ];
-
 export interface CreateAnalyticsHooksConfig<
   Api extends Record<string, { input: any; output: any }>,
   TMetrics extends readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[] = readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[],
@@ -63,17 +49,38 @@ export function createAnalyticsHooks<
     : Exclude<ExtractNames<Api>, `dataset:${string}`>;
 
   function useMetric<Name extends MetricName>(
-    ...args: MetricQueryParams<Api, Name>
-  ): UseQueryResult<QueryOutput<Api, Name>, HttpError> {
-    const [name, ...rest] = args as [Name, ...unknown[]];
+    ...args: QueryInput<Api, Name> extends never ? [name: Name, options?: QueryOptions<Api, Name>] : never
+  ): UseQueryResult<QueryOutput<Api, Name>, HttpError>;
+  function useMetric<Name extends MetricName, const TInput extends QueryInput<Api, Name>>(
+    name: Name,
+    input: TInput,
+    options?: QueryOptions<Api, Name>,
+  ): UseQueryResult<QueryOutputForInput<Api, Name, TInput>, HttpError>;
+  function useMetric(
+    ...args: any[]
+  ): UseQueryResult<any, HttpError> {
+    const [name, ...rest] = args as [string, ...unknown[]];
     return (hooks.useQuery as any)(name, ...rest);
   }
 
   function useDataset<Name extends DatasetNamesFromApi<Api>>(
-    ...args: DatasetQueryParams<Api, Name>
-  ): UseQueryResult<QueryOutput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>, HttpError> {
-    const [name, ...rest] = args as [Name, ...unknown[]];
-    const key = `dataset:${String(name)}` as Extract<ExtractNames<Api>, DatasetKey<Name>>;
+    ...args: QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>> extends never
+      ? [name: Name, options?: QueryOptions<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>]
+      : never
+  ): UseQueryResult<QueryOutput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>, HttpError>;
+  function useDataset<
+    Name extends DatasetNamesFromApi<Api>,
+    const TInput extends QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
+  >(
+    name: Name,
+    input: TInput,
+    options?: QueryOptions<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
+  ): UseQueryResult<QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>, HttpError>;
+  function useDataset(
+    ...args: any[]
+  ): UseQueryResult<any, HttpError> {
+    const [name, ...rest] = args as [string, ...unknown[]];
+    const key = `dataset:${String(name)}` as Extract<ExtractNames<Api>, DatasetKey<string>>;
     return (hooks.useQuery as any)(key, ...rest);
   }
 

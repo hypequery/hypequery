@@ -330,6 +330,15 @@ type NonNeverStringKeys<T extends Record<string, unknown>> = {
   [K in keyof T]: [T[K]] extends [never] ? never : K;
 }[keyof T] & string;
 
+export type KnownStringKeys<T> = {
+  [K in keyof T]: string extends K ? never : K extends string ? K : never;
+}[keyof T];
+
+type KnownStringKeysOrFallback<T extends Record<string, unknown>> =
+  [KnownStringKeys<T>] extends [never]
+    ? NonNeverStringKeys<T>
+    : KnownStringKeys<T> & NonNeverStringKeys<T>;
+
 // ---------------------------------------------------------------------------
 // Typed query / result helpers for client codegen and React hooks
 //
@@ -341,11 +350,11 @@ type NonNeverStringKeys<T extends Record<string, unknown>> = {
 
 /** Dimension names declared by a dataset. */
 export type DatasetDimensionNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  NonNeverStringKeys<TDataset['dimensions']>;
+  KnownStringKeysOrFallback<TDataset['dimensions']>;
 
 /** Measure names declared by a dataset. */
 export type DatasetMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  NonNeverStringKeys<TDataset['measures']>;
+  KnownStringKeysOrFallback<TDataset['measures']>;
 
 /**
  * Fields a result can be ordered by. This is the selection-independent superset
@@ -359,24 +368,54 @@ export type DatasetOrderableNames<TDataset extends DatasetInstance<any, any, any
 
 /** A dataset query whose fields are constrained to the dataset's contract. */
 export interface DatasetQueryFor<TDataset extends DatasetInstance<any, any, any, any>> {
-  dimensions?: DatasetDimensionNames<TDataset>[];
-  measures?: DatasetMeasureNames<TDataset>[];
-  filters?: MetricFilter[];
-  orderBy?: MetricOrderBy<DatasetOrderableNames<TDataset>>[];
+  dimensions?: readonly DatasetDimensionNames<TDataset>[];
+  measures?: readonly DatasetMeasureNames<TDataset>[];
+  filters?: readonly MetricFilter[];
+  orderBy?: readonly MetricOrderBy<DatasetOrderableNames<TDataset>>[];
   limit?: number;
   offset?: number;
   by?: TimeGrain;
   includeMeta?: boolean;
 }
 
-/** A best-effort typed result row for a dataset query. */
+type SelectedDimensions<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TQuery,
+> = TQuery extends { dimensions: readonly (infer TName)[] }
+  ? Extract<TName, DatasetDimensionNames<TDataset>>
+  : never;
+
+type SelectedDatasetMeasures<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TQuery,
+> = TQuery extends { measures: readonly (infer TName)[] }
+  ? Extract<TName, DatasetMeasureNames<TDataset>>
+  : DatasetMeasureNames<TDataset>;
+
+type PeriodSelection<TQuery> = TQuery extends { by: TimeGrain }
+  ? { period?: string }
+  : {};
+
+/** A broad typed result row for a dataset, independent of projection. */
 export type DatasetRow<TDataset extends DatasetInstance<any, any, any, any>> =
   & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<TDataset['dimensions'][K]> }
   & { [K in DatasetMeasureNames<TDataset>]?: number }
   & { period?: string };
 
-export interface DatasetQueryResultFor<TDataset extends DatasetInstance<any, any, any, any>> {
-  data: DatasetRow<TDataset>[];
+/** A projection-aware typed result row for a dataset query. */
+export type DatasetRowFor<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TQuery = DatasetQueryFor<TDataset>,
+> =
+  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in SelectedDatasetMeasures<TDataset, TQuery>]?: number }
+  & PeriodSelection<TQuery>;
+
+export interface DatasetQueryResultFor<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TQuery = DatasetQueryFor<TDataset>,
+> {
+  data: DatasetRowFor<TDataset, TQuery>[];
   meta?: MetricResultMeta;
 }
 
@@ -385,9 +424,9 @@ export interface MetricQueryFor<
   TDataset extends DatasetInstance<any, any, any, any>,
   TMetricName extends string,
 > {
-  dimensions?: DatasetDimensionNames<TDataset>[];
-  filters?: MetricFilter[];
-  orderBy?: MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];
+  dimensions?: readonly DatasetDimensionNames<TDataset>[];
+  filters?: readonly MetricFilter[];
+  orderBy?: readonly MetricOrderBy<DatasetDimensionNames<TDataset> | TMetricName | 'period'>[];
   limit?: number;
   offset?: number;
   by?: TimeGrain;
@@ -403,10 +442,21 @@ export type MetricRow<
   & { [K in TMetricName]?: number }
   & { period?: string };
 
+/** A projection-aware typed result row for a metric query. */
+export type MetricRowFor<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TMetricName extends string,
+  TQuery = MetricQueryFor<TDataset, TMetricName>,
+> =
+  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in TMetricName]?: number }
+  & PeriodSelection<TQuery>;
+
 export interface MetricResultFor<
   TDataset extends DatasetInstance<any, any, any, any>,
   TMetricName extends string,
+  TQuery = MetricQueryFor<TDataset, TMetricName>,
 > {
-  data: MetricRow<TDataset, TMetricName>[];
+  data: MetricRowFor<TDataset, TMetricName, TQuery>[];
   meta?: MetricResultMeta;
 }
