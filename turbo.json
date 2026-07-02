@@ -17,10 +17,15 @@
         "build"
       ],
       "inputs": [
+        "tsconfig*.json",
         "src/**/*.tsx",
         "src/**/*.ts",
+        "src/**/*.d.ts",
         "test/**/*.ts",
-        "test/**/*.tsx"
+        "test/**/*.tsx",
+        "type-tests/**/*.ts",
+        "type-tests/**/*.tsx",
+        "type-tests/**/*.d.ts"
       ]
     },
     "lint": {},

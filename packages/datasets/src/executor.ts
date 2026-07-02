@@ -9,13 +9,18 @@ import type {
   MetricRef,
   GrainedMetricRef,
   MetricQuery,
+  MetricQueryFor,
   MetricResult,
+  MetricResultFor,
   DatasetQuery,
+  DatasetQueryFor,
   DatasetQueryResult,
+  DatasetQueryResultFor,
   ExecutionContext,
   AggregationSpec,
   DerivedMetricSpec,
   AnyDatasetInstance,
+  DatasetInstance,
   TimeGrain,
 } from './types.js';
 
@@ -210,7 +215,50 @@ export type SemanticResult<
   ? DatasetQueryResult<TRow>
   : MetricResult<TRow>;
 
+type TypedDataset<TDatasetName extends string = string> =
+  DatasetInstance<any, any, any, TDatasetName>;
+
+type TypedMetricRef<
+  TDatasetName extends string,
+  TMetricName extends string,
+  TDataset extends TypedDataset<TDatasetName>,
+> = MetricRef<TDatasetName, TMetricName, any, TDataset>;
+
+type TypedGrainedMetricRef<
+  TDatasetName extends string,
+  TMetricName extends string,
+  TDataset extends TypedDataset<TDatasetName>,
+> = GrainedMetricRef<TDatasetName, TMetricName, any, TDataset>;
+
 export interface DatasetClient {
+  execute<
+    TDataset extends TypedDataset,
+    const TQuery extends DatasetQueryFor<TDataset> = DatasetQueryFor<TDataset>,
+  >(
+    target: TDataset,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<DatasetQueryResultFor<TDataset, TQuery>>;
+  execute<
+    TDatasetName extends string,
+    TMetricName extends string,
+    TDataset extends TypedDataset<TDatasetName>,
+    const TQuery extends MetricQueryFor<TDataset, TMetricName> = MetricQueryFor<TDataset, TMetricName>,
+  >(
+    target: TypedMetricRef<TDatasetName, TMetricName, TDataset>,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<MetricResultFor<TDataset, TMetricName, TQuery>>;
+  execute<
+    TDatasetName extends string,
+    TMetricName extends string,
+    TDataset extends TypedDataset<TDatasetName>,
+    const TQuery extends MetricQueryFor<TDataset, TMetricName> = MetricQueryFor<TDataset, TMetricName>,
+  >(
+    target: TypedGrainedMetricRef<TDatasetName, TMetricName, TDataset>,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<MetricResultFor<TDataset, TMetricName, TQuery>>;
   execute<TRow = Record<string, unknown>, TTarget extends SemanticTarget = SemanticTarget>(
     target: TTarget,
     query?: SemanticQuery<TTarget>,
@@ -551,6 +599,34 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   /**
    * Execute a semantic target.
    */
+  execute<
+    TDataset extends DatasetInstance<any, any, any, any>,
+    const TQuery extends DatasetQueryFor<TDataset> = DatasetQueryFor<TDataset>,
+  >(
+    target: TDataset,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<DatasetQueryResultFor<TDataset, TQuery>>;
+  execute<
+    TDatasetName extends string,
+    TMetricName extends string,
+    TDataset extends DatasetInstance<any, any, any, TDatasetName>,
+    const TQuery extends MetricQueryFor<TDataset, TMetricName> = MetricQueryFor<TDataset, TMetricName>,
+  >(
+    target: MetricRef<TDatasetName, TMetricName, any, TDataset>,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<MetricResultFor<TDataset, TMetricName, TQuery>>;
+  execute<
+    TDatasetName extends string,
+    TMetricName extends string,
+    TDataset extends DatasetInstance<any, any, any, TDatasetName>,
+    const TQuery extends MetricQueryFor<TDataset, TMetricName> = MetricQueryFor<TDataset, TMetricName>,
+  >(
+    target: GrainedMetricRef<TDatasetName, TMetricName, any, TDataset>,
+    query?: TQuery,
+    context?: ExecutionContext,
+  ): Promise<MetricResultFor<TDataset, TMetricName, TQuery>>;
   execute<TRow = Record<string, unknown>, TTarget extends SemanticTarget = SemanticTarget>(
     target: TTarget,
     query: SemanticQuery<TTarget> = {} as SemanticQuery<TTarget>,

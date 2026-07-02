@@ -14,6 +14,7 @@ responses, or a running web UI) you can open and read afterward.
 | [`serve-testing-spec.md`](./serve-testing-spec.md) | `@hypequery/serve` | `hq-serve-test/` (+ optional Next.js) — runtime with queries/metrics/datasets, auth, CORS, rate limiting, observability |
 | [`mcp-testing-spec.md`](./mcp-testing-spec.md) | `@hypequery/mcp` | `hq-mcp-test/` — MCP config + registry + stdio driver writing tool responses to `out/` |
 | [`react-testing-spec.md`](./react-testing-spec.md) | `@hypequery/react` | `hq-react-test/` (Vite+React, + optional Next.js) — live-rendering hooks |
+| [`semantic-type-safety-manifest-testing.md`](./semantic-type-safety-manifest-testing.md) | PR #245 | focused checklist for semantic type inference, static manifests, and Turbo type-test invalidation |
 
 ## Real ClickHouse — no seeding
 
