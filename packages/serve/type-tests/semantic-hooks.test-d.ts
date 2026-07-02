@@ -6,7 +6,7 @@
  */
 
 import { createAPI } from '../src/server/create-api.js';
-import type { InferAPIType } from '../src/types.js';
+import type { InferAPIType, InferApiType } from '../src/types.js';
 import { dataset, dimension, measure } from '@hypequery/datasets';
 
 const Orders = dataset('orders', {
@@ -40,6 +40,14 @@ const api = createAPI({
 });
 
 type Api = InferAPIType<typeof api>;
+type ApiAlias = InferApiType<typeof api>;
+type ApiKeys = keyof ApiAlias;
+const knownDatasetKey: ApiKeys = 'dataset:orders';
+void knownDatasetKey;
+
+// @ts-expect-error literal keys should not widen to arbitrary strings
+const unknownKey: ApiKeys = 'dataset:missing';
+void unknownKey;
 
 // --- Dataset input: dimensions/measures narrowed to the dataset's fields -----
 type OrdersInput = Api['dataset:orders']['input'];
@@ -63,13 +71,11 @@ void badDatasetMeasure;
 // --- Dataset output rows are typed by dimension/measure -----------------------
 type OrdersRow = Api['dataset:orders']['output']['data'][number];
 const datasetRow: OrdersRow = {};
-const rowCountry: string | undefined = datasetRow.country;
 const rowRevenue: number | undefined = datasetRow.revenue;
-void rowCountry;
 void rowRevenue;
 
-// @ts-expect-error - field is not part of the dataset
-void datasetRow.nonexistent;
+// @ts-expect-error - dimensions are projection-dependent and omitted by default
+void datasetRow.country;
 
 // --- Datasets without measures do not widen measure fields to string ---------
 type CountriesInput = Api['dataset:countries']['input'];
@@ -94,9 +100,9 @@ void badDimensionOnlyOrderBy;
 
 type CountriesRow = Api['dataset:countries']['output']['data'][number];
 const countriesRow: CountriesRow = {};
-const countryName: string | undefined = countriesRow.country;
-void countryName;
 
+// @ts-expect-error - dimensions are projection-dependent and omitted by default
+void countriesRow.country;
 // @ts-expect-error - no broad measure index should be present
 void countriesRow.revenue;
 
@@ -118,8 +124,9 @@ void badMetricDim;
 type MetricRowT = Api['totalRevenue']['output']['data'][number];
 const metricRow: MetricRowT = {};
 const metricValue: number | undefined = metricRow.totalRevenue;
-const metricDimValue: string | undefined = metricRow.country;
 void metricValue;
-void metricDimValue;
+
+// @ts-expect-error - dimensions are projection-dependent and omitted by default
+void metricRow.country;
 
 export {};

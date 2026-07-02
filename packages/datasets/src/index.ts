@@ -156,8 +156,11 @@ export type {
   DatasetOrderableNames,
   DatasetQueryFor,
   DatasetRow,
+  DatasetRowFor,
   DatasetQueryResultFor,
   MetricQueryFor,
   MetricRow,
+  MetricRowFor,
   MetricResultFor,
+  KnownStringKeys,
 } from './types.js';

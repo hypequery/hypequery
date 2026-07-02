@@ -108,6 +108,17 @@ Options:
 - `--tables <names>`: comma-separated table list
 - `--exclude-tables <names>`: comma-separated tables to exclude
 
+### `hypequery generate:manifest`
+
+Generates a static React hook route manifest from an exported HypeQuery API.
+
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+
+The output is the exact serializable JSON returned by `api.manifest()`, including
+semantic keys such as `dataset:orders`.
+
 ## Non-interactive Setup
 
 `hypequery init --no-interactive` reads:

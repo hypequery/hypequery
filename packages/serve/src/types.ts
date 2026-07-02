@@ -223,6 +223,51 @@ export type SchemaOutput<T extends ZodTypeAny | undefined> = T extends ZodTypeAn
   ? T["_output"]
   : unknown;
 
+type InferApiEntry<TEndpoint> = TEndpoint extends ServeEndpoint<
+  infer TInputSchema,
+  any,
+  any,
+  any,
+  infer TResult
+>
+  ? {
+      input: SchemaInput<TInputSchema>;
+      output: TResult;
+    } & InferSemanticMetadata<TEndpoint>
+  : never;
+
+type InferSemanticMetadata<TEndpoint> =
+  TEndpoint extends ServeEndpoint<
+    ZodType<MetricQueryFor<infer TDataset, infer TMetricName>>,
+    any,
+    any,
+    any,
+    any
+  >
+    ? {
+        readonly __hypequerySemantic?: {
+          kind: 'metric';
+          dimensions: TDataset['dimensions'];
+          measures: TDataset['measures'];
+          metricName: TMetricName;
+        };
+      }
+    : TEndpoint extends ServeEndpoint<
+        ZodType<DatasetQueryFor<infer TDataset>>,
+        any,
+        any,
+        any,
+        any
+      >
+        ? {
+            readonly __hypequerySemantic?: {
+              kind: 'dataset';
+              dimensions: TDataset['dimensions'];
+              measures: TDataset['measures'];
+            };
+          }
+        : {};
+
 type ExtractServeQueries<
   TTarget,
   TContext extends Record<string, unknown> = Record<string, unknown>,
@@ -272,19 +317,12 @@ export type InferQueryResult<
  */
 export type InferApiType<TTarget> = TTarget extends ServeBuilder<infer TQueries, any, any>
   ? {
-      [K in keyof TQueries]: TQueries[K] extends ServeEndpoint<
-        infer TInputSchema,
-        infer TOutputSchema,
-        any,
-        any,
-        any
-      >
-        ? {
-            input: SchemaInput<TInputSchema>;
-            output: SchemaOutput<TOutputSchema>;
-          }
-        : never;
+      [K in InferKnownStringKeys<TQueries>]: InferApiEntry<TQueries[K]>;
     }
+  : TTarget extends HypeQueryAPI<infer TQueries, any, any>
+    ? {
+        [K in InferKnownStringKeys<TQueries>]: InferApiEntry<TQueries[K]>;
+      }
   : never;
 
 export type QueryRuntimeContext<
@@ -560,10 +598,8 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
 import type {
   DatasetInstance,
   DatasetQueryFor,
-  DatasetQueryResultFor,
   MetricHandle,
   MetricQueryFor,
-  MetricResultFor,
 } from "@hypequery/datasets";
 import type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
@@ -614,6 +650,45 @@ type MetricNameOfEntry<TEntry> =
     ? (TName extends string ? TName : string)
     : string;
 
+type KnownStringKeys<T> = {
+  [K in keyof T]: string extends K ? never : K extends string ? K : never;
+}[keyof T];
+
+type InferKnownStringKeys<T> = [KnownStringKeys<T>] extends [never]
+  ? Extract<keyof T, string>
+  : KnownStringKeys<T>;
+
+type SemanticMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  KnownStringKeys<TDataset['measures']>;
+
+type SemanticDatasetRow<TDataset extends DatasetInstance<any, any, any, any>> =
+  & { [K in SemanticMeasureNames<TDataset>]?: number };
+
+type SemanticMetricRow<TMetricName extends string> = { [K in TMetricName]?: number };
+
+type SemanticDatasetResult<TDataset extends DatasetInstance<any, any, any, any>> = {
+  data: SemanticDatasetRow<TDataset>[];
+  meta?: {
+    timingMs?: number;
+    sql?: string;
+    tenant?: string;
+    rowCount?: number;
+    pagination?: {
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    };
+  };
+};
+
+type SemanticMetricResult<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TMetricName extends string,
+> = {
+  data: SemanticMetricRow<TMetricName>[];
+  meta?: SemanticDatasetResult<TDataset>['meta'];
+};
+
 export type SemanticMetricEndpointMap<
   TMetrics extends MetricsConfig<TAuth>,
   TContext extends Record<string, unknown>,
@@ -621,10 +696,10 @@ export type SemanticMetricEndpointMap<
 > = {
   [TKey in keyof TMetrics & string]: ServeEndpoint<
     ZodType<MetricQueryFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
-    ZodType<MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
+    ZodType<SemanticMetricResult<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
     TContext,
     TAuth,
-    MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
+    SemanticMetricResult<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
   >;
 };
 
@@ -635,10 +710,10 @@ export type SemanticDatasetEndpointMap<
 > = {
   [TKey in keyof TDatasets & string as `dataset:${TKey}`]: ServeEndpoint<
     ZodType<DatasetQueryFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
-    ZodType<DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
+    ZodType<SemanticDatasetResult<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
     TContext,
     TAuth,
-    DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>
+    SemanticDatasetResult<DatasetInstanceOfEntry<TDatasets[TKey]>>
   >;
 };
 
@@ -995,19 +1070,12 @@ export interface HypeQueryAPI<
  */
 export type InferAPIType<TTarget> = TTarget extends HypeQueryAPI<infer TQueries, any, any>
   ? {
-      [K in keyof TQueries]: TQueries[K] extends ServeEndpoint<
-        infer TInputSchema,
-        infer TOutputSchema,
-        any,
-        any,
-        any
-      >
-        ? {
-            input: SchemaInput<TInputSchema>;
-            output: SchemaOutput<TOutputSchema>;
-          }
-        : never;
+      [K in InferKnownStringKeys<TQueries>]: InferApiEntry<TQueries[K]>;
     }
+  : TTarget extends ServeBuilder<infer TQueries, any, any>
+    ? {
+        [K in InferKnownStringKeys<TQueries>]: InferApiEntry<TQueries[K]>;
+      }
   : never;
 
 /**

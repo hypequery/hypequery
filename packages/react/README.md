@@ -81,9 +81,12 @@ function RevenuePanel() {
 
 ```tsx
 import { createAnalyticsHooks } from '@hypequery/react';
-import type { AnalyticsApi } from '../server/api.js';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '../server/api.js';
 
-import { manifest } from '../server/api.js'; // serve api.manifest(), serialized
+import manifest from './hypequery-manifest.json';
+
+type AnalyticsApi = InferApiType<typeof api>;
 
 export const { useMetric, useDataset } = createAnalyticsHooks<AnalyticsApi>({
   baseUrl: '/api/analytics',
@@ -177,23 +180,17 @@ const { useQuery } = createHooks<AnalyticsApi>({
 #### Generating the manifest at build time
 
 The cleanest way to keep server code out of the browser bundle is to generate a
-JSON file at build time and import that on the client. `api.manifest()` is pure —
-it reads the configured routes and never touches your database — so this step is
-cheap and safe to run in CI.
+JSON file at build time and import that on the client.
 
-```ts
-// scripts/gen-manifest.ts — run before your client build
-import { writeFileSync } from 'node:fs';
-import { api } from '../server/api.js';
-
-writeFileSync('src/generated/manifest.json', JSON.stringify(api.manifest(), null, 2));
+```bash
+npx hypequery generate:manifest analytics/api.ts --output src/generated/hypequery-manifest.json
 ```
 
 ```jsonc
 // package.json
 {
   "scripts": {
-    "gen:manifest": "tsx scripts/gen-manifest.ts",
+    "gen:manifest": "hypequery generate:manifest analytics/api.ts --output src/generated/hypequery-manifest.json",
     "build": "npm run gen:manifest && <your client build>"
   }
 }
@@ -201,9 +198,14 @@ writeFileSync('src/generated/manifest.json', JSON.stringify(api.manifest(), null
 
 ```ts
 // client side — imports plain JSON, no server code in the bundle
-import manifest from './generated/manifest.json';
+import { createAnalyticsHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '../analytics/api.js';
+import manifest from './generated/hypequery-manifest.json';
 
-const { useQuery } = createHooks<AnalyticsApi>({
+type AnalyticsApi = InferApiType<typeof api>;
+
+const { useMetric, useDataset } = createAnalyticsHooks<AnalyticsApi>({
   baseUrl: '/api/analytics',
   manifest,
 });
