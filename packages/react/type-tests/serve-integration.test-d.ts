@@ -79,6 +79,51 @@ void metricCountry;
 // @ts-expect-error unselected dimensions are not exposed
 void metricRow?.status;
 
+// --- Infinite hooks follow the same projection ---------------------------------
+const infiniteDatasetResult = hooks.useInfiniteDataset('orders', {
+  dimensions: ['country'] as const,
+  measures: ['revenue'] as const,
+  limit: 50,
+});
+const infiniteDatasetRow = infiniteDatasetResult.data?.pages[0]?.data[0];
+const infiniteDatasetCountry: string | undefined = infiniteDatasetRow?.country;
+const infiniteDatasetRevenue: number | undefined = infiniteDatasetRow?.revenue;
+void infiniteDatasetCountry;
+void infiniteDatasetRevenue;
+
+// @ts-expect-error unselected dimensions are not exposed on infinite pages
+void infiniteDatasetRow?.status;
+// @ts-expect-error unselected measures are not exposed on infinite pages
+void infiniteDatasetRow?.orderCount;
+
+const infiniteGrainedResult = hooks.useInfiniteDataset('orders', {
+  measures: ['revenue'] as const,
+  by: 'month',
+  limit: 50,
+});
+const infiniteGrainedPeriod: string | undefined =
+  infiniteGrainedResult.data?.pages[0]?.data[0]?.period;
+void infiniteGrainedPeriod;
+
+const infiniteMetricResult = hooks.useInfiniteMetric('totalRevenue', {
+  dimensions: ['country'] as const,
+  limit: 50,
+});
+const infiniteMetricRow = infiniteMetricResult.data?.pages[0]?.data[0];
+const infiniteMetricValue: number | undefined = infiniteMetricRow?.totalRevenue;
+const infiniteMetricCountry: string | undefined = infiniteMetricRow?.country;
+void infiniteMetricValue;
+void infiniteMetricCountry;
+
+// @ts-expect-error unselected dimensions are not exposed on infinite metric pages
+void infiniteMetricRow?.status;
+
+// @ts-expect-error unknown infinite dataset dimensions should be rejected
+hooks.useInfiniteDataset('orders', { dimensions: ['missing'] as const });
+
+// @ts-expect-error unknown infinite metric names should be rejected
+hooks.useInfiniteMetric('missing', {});
+
 // --- Unknown names and fields are rejected -------------------------------------
 // @ts-expect-error unknown metric names should be rejected
 hooks.useMetric('missing');
