@@ -1,6 +1,12 @@
 # Plan: Production-Ready Datasets → Serve → React Integration
 
-> Status: proposed. Source of analysis: `packages/datasets`, `packages/serve`, `packages/react`.
+> Status: COMPLETE (verified 2026-07-02). All six phases have landed: Phase 1 route
+> manifest (`api.manifest()` in `serve/src/server/api-builder.ts`), Phase 2 per-dataset
+> input schemas (`serve/src/semantic/datasets/utils/semantic-input-schema.ts`), Phase 3
+> typed metric fields (PR #208), Phase 4 offset pagination with `hasMore` + infinite
+> hooks (PR #209), Phase 5 JWKS auth and first-class auth paths (PRs #212, #214),
+> Phase 6 meta caching, `includeMeta`, CORS wiring (PRs #211, #221). Kept for reference.
+> Source of analysis: `packages/datasets`, `packages/serve`, `packages/react`.
 > Created 2026-06-11.
 
 ## Background / gap analysis

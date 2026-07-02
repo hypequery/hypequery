@@ -29,7 +29,7 @@ type ServeInitializerOptions<
     Record<never, never>
   >,
   "queries" | "context"
-> & { context: TFactory };
+> & { context?: TFactory };
 
 type ServeInitializerDefinition<
   TContext extends Record<string, unknown>,
@@ -40,7 +40,7 @@ type ServeInitializerDefinition<
 > = Omit<ServeConfig<TContext, TAuth, TQueries, TMetrics, TDatasets>, "context">;
 
 export const initServe = <
-  TFactory extends ServeContextFactory<any, TAuth>,
+  TFactory extends ServeContextFactory<any, TAuth> = ServeContextFactory<Record<string, unknown>, any>,
   TAuth extends AuthContext = AuthContext
 >(options: ServeInitializerOptions<TFactory, TAuth>): ServeInitializer<
   InferInitializerContext<TFactory, TAuth>,

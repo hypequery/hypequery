@@ -16,8 +16,8 @@ Pass a query builder plus the datasets and metrics you want to expose.
 <CodeBlock>
 ```typescript
 import { initServe } from '@hypequery/serve';
-import { db } from './client';
-import { Orders, revenue } from './datasets/orders';
+import { db } from './client.js';
+import { Orders, revenue } from './datasets/orders.js';
 
 const { query, serve } = initServe({
   context: () => ({ db }),
