@@ -28,6 +28,8 @@
     "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
+    "@hypequery/datasets": "workspace:*",
+    "@hypequery/serve": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "@testing-library/react": "^14.2.1",
     "@types/react": "^18.2.43",

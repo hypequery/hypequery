@@ -49,6 +49,25 @@ void knownDatasetKey;
 const unknownKey: ApiKeys = 'dataset:missing';
 void unknownKey;
 
+// --- Semantic metadata keeps dataset and metric endpoints distinguishable -----
+// Metric and dataset query shapes are all-optional and mutually assignable, so
+// these literals guard against one branch shadowing the other.
+type OrdersSemantic = NonNullable<Api['dataset:orders']['__hypequerySemantic']>;
+type TotalRevenueSemantic = NonNullable<Api['totalRevenue']['__hypequerySemantic']>;
+
+const ordersKind: OrdersSemantic['kind'] = 'dataset';
+const totalRevenueKind: TotalRevenueSemantic['kind'] = 'metric';
+const totalRevenueName: TotalRevenueSemantic extends { metricName: infer TName }
+  ? TName
+  : never = 'totalRevenue';
+void ordersKind;
+void totalRevenueKind;
+void totalRevenueName;
+
+// @ts-expect-error dataset endpoints must not be classified as metrics
+const ordersMisclassified: OrdersSemantic['kind'] = 'metric';
+void ordersMisclassified;
+
 // --- Dataset input: dimensions/measures narrowed to the dataset's fields -----
 type OrdersInput = Api['dataset:orders']['input'];
 

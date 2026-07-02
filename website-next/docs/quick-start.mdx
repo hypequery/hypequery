@@ -431,24 +431,31 @@ This generates `POST /metrics/revenue` for the named KPI and `POST /datasets/ord
 
 ### Consume served datasets from React
 
-Use `@hypequery/react` when a React or Next.js app should call those endpoints from components:
+Use `@hypequery/react` when a React or Next.js app should call those endpoints from components. Generate the route manifest as static JSON so the hooks module never imports server code into the client bundle:
+
+<CodeBlock>
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+</CodeBlock>
 
 <CodeBlock>
 ```typescript
 import { createAnalyticsHooks } from '@hypequery/react';
 import type { InferApiType } from '@hypequery/serve';
-import { api } from './analytics/api';
+import type { api } from './analytics/api';
+import manifest from './analytics/hypequery-manifest.json';
 
 type Api = InferApiType<typeof api>;
 
 export const { useMetric, useDataset } = createAnalyticsHooks<Api>({
   baseUrl: '/api/analytics',
-  manifest: api.manifest(),
+  manifest,
 });
 ```
 </CodeBlock>
 
-For setup with `QueryClientProvider`, see the [React guide](/docs/react/getting-started).
+The `api` import is type-only, so it is erased at build time; the manifest JSON is the only runtime dependency on the server module. For setup with `QueryClientProvider`, see the [React guide](/docs/react/getting-started).
 
 ### Preview docs and routes [#preview-docs-and-routes]
 

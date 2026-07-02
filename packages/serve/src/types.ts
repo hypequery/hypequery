@@ -245,37 +245,40 @@ type InferApiEntry<TEndpoint> = TEndpoint extends ServeEndpoint<
     } & InferSemanticMetadata<TEndpoint>
   : never;
 
+/**
+ * Phantom compile-time markers attached to semantic endpoint types by
+ * `SemanticMetricEndpointMap` / `SemanticDatasetEndpointMap` so clients such
+ * as `@hypequery/react` can recover dataset/metric shapes structurally.
+ * Matching on the marker (rather than on the Zod input schema) is what keeps
+ * metric and dataset endpoints distinguishable: their query shapes are
+ * all-optional and mutually assignable. The property never exists at runtime.
+ */
+interface MetricEndpointSemantic<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TMetricName extends string,
+> {
+  readonly __hypequerySemantic?: {
+    kind: 'metric';
+    dimensions: TDataset['dimensions'];
+    measures: TDataset['measures'];
+    metricName: TMetricName;
+  };
+}
+
+interface DatasetEndpointSemantic<TDataset extends DatasetInstance<any, any, any, any>> {
+  readonly __hypequerySemantic?: {
+    kind: 'dataset';
+    dimensions: TDataset['dimensions'];
+    measures: TDataset['measures'];
+  };
+}
+
 type InferSemanticMetadata<TEndpoint> =
-  TEndpoint extends ServeEndpoint<
-    ZodType<MetricQueryFor<infer TDataset, infer TMetricName>>,
-    any,
-    any,
-    any,
-    any
-  >
-    ? {
-        readonly __hypequerySemantic?: {
-          kind: 'metric';
-          dimensions: TDataset['dimensions'];
-          measures: TDataset['measures'];
-          metricName: TMetricName;
-        };
-      }
-    : TEndpoint extends ServeEndpoint<
-        ZodType<DatasetQueryFor<infer TDataset>>,
-        any,
-        any,
-        any,
-        any
-      >
-        ? {
-            readonly __hypequerySemantic?: {
-              kind: 'dataset';
-              dimensions: TDataset['dimensions'];
-              measures: TDataset['measures'];
-            };
-          }
-        : {};
+  TEndpoint extends { readonly __hypequerySemantic?: infer TInfo }
+    ? NonNullable<TInfo> extends { kind: 'metric' } | { kind: 'dataset' }
+      ? { readonly __hypequerySemantic?: NonNullable<TInfo> }
+      : {}
+    : {};
 
 type ExtractServeQueries<
   TTarget,
@@ -668,7 +671,7 @@ export type SemanticMetricEndpointMap<
     TContext,
     TAuth,
     MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
-  >;
+  > & MetricEndpointSemantic<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>;
 };
 
 export type SemanticDatasetEndpointMap<
@@ -682,7 +685,7 @@ export type SemanticDatasetEndpointMap<
     TContext,
     TAuth,
     DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>
-  >;
+  > & DatasetEndpointSemantic<DatasetInstanceOfEntry<TDatasets[TKey]>>;
 };
 
 export type ServeSemanticEndpointMap<

@@ -1,0 +1,95 @@
+/**
+ * Integration checks for the serve→react seam: the Api type inferred from a
+ * real `createAPI()` (not a hand-written fixture) must drive name and
+ * projection inference in `createAnalyticsHooks`. This is what catches
+ * regressions in serve's `__hypequerySemantic` metadata that
+ * `semantic-infer.test-d.ts` cannot, because its fixture spells the metadata
+ * out by hand. Compiled by `tsc` via `tsconfig.type-tests.json`;
+ * `@ts-expect-error` lines must remain errors.
+ */
+
+import { createAnalyticsHooks } from '../src/index.js';
+import { createAPI, type InferApiType } from '@hypequery/serve';
+import { dataset, dimension, measure } from '@hypequery/datasets';
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: {
+    country: dimension.string(),
+    status: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+});
+
+const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
+
+const api = createAPI({
+  datasets: { orders: Orders },
+  metrics: { totalRevenue },
+  // The query builder is irrelevant to the type-level assertions below.
+  queryBuilder: {} as never,
+});
+
+type Api = InferApiType<typeof api>;
+
+const hooks = createAnalyticsHooks<Api>({
+  baseUrl: '/api/analytics',
+});
+
+// --- Dataset rows follow the literal projection -------------------------------
+const datasetResult = hooks.useDataset('orders', {
+  dimensions: ['country'] as const,
+  measures: ['revenue'] as const,
+});
+const datasetRow = datasetResult.data?.data[0];
+const datasetCountry: string | undefined = datasetRow?.country;
+const datasetRevenue: number | undefined = datasetRow?.revenue;
+void datasetCountry;
+void datasetRevenue;
+
+// @ts-expect-error unselected dimensions are not exposed
+void datasetRow?.status;
+// @ts-expect-error unselected measures are not exposed
+void datasetRow?.orderCount;
+// @ts-expect-error period is only exposed for grained queries
+void datasetRow?.period;
+
+// --- Grained dataset queries expose period ------------------------------------
+const grainedResult = hooks.useDataset('orders', {
+  measures: ['revenue'] as const,
+  by: 'month',
+});
+const grainedPeriod: string | undefined = grainedResult.data?.data[0]?.period;
+void grainedPeriod;
+
+// --- Metric rows carry the metric value plus selected dimensions ---------------
+const metricResult = hooks.useMetric('totalRevenue', {
+  dimensions: ['country'] as const,
+});
+const metricRow = metricResult.data?.data[0];
+const metricValue: number | undefined = metricRow?.totalRevenue;
+const metricCountry: string | undefined = metricRow?.country;
+void metricValue;
+void metricCountry;
+
+// @ts-expect-error unselected dimensions are not exposed
+void metricRow?.status;
+
+// --- Unknown names and fields are rejected -------------------------------------
+// @ts-expect-error unknown metric names should be rejected
+hooks.useMetric('missing');
+
+// @ts-expect-error unknown dataset names should be rejected
+hooks.useDataset('missing', {});
+
+// @ts-expect-error unknown dataset dimensions should be rejected
+hooks.useDataset('orders', { dimensions: ['missing'] as const });
+
+// @ts-expect-error unknown metric dimensions should be rejected
+hooks.useMetric('totalRevenue', { dimensions: ['missing'] as const });
+
+export {};

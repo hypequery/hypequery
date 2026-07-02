@@ -38,6 +38,7 @@ Review these files before relying on the test run:
 
 - `packages/datasets/type-tests/projection-types.test-d.ts`
 - `packages/react/type-tests/semantic-infer.test-d.ts`
+- `packages/react/type-tests/serve-integration.test-d.ts`
 - `packages/serve/type-tests/semantic-hooks.test-d.ts`
 
 They should cover:
@@ -50,17 +51,24 @@ They should cover:
 - Unknown metric and dataset names are type errors with plain
   `InferApiType<typeof api>`.
 - `useMetric()` and `useDataset()` infer result rows from literal input objects.
+- Dataset endpoints inferred from a real `createAPI()` carry
+  `__hypequerySemantic.kind: 'dataset'` (not `'metric'`), and hook projection
+  inference holds against that inferred Api, not only against hand-written
+  Api fixtures.
 
 ## Negative Type-Test Sanity Check
 
 To prove type-test-only edits are caught by the root test pipeline, temporarily add a
 bad assertion to one type-test file, then run `pnpm test`.
 
-Example temporary edit:
+Example temporary edit (the type-test files are plain `tsc`-compiled assignments,
+not vitest `expectTypeOf` suites):
 
 ```ts
 // packages/datasets/type-tests/projection-types.test-d.ts
-expectTypeOf(selectedOnly.data[0].status).toEqualTypeOf<string>();
+// Inside assertDatasetProjection(): `status` was not selected, so this must fail.
+const bad: string | undefined = row.status;
+void bad;
 ```
 
 Expected result:
