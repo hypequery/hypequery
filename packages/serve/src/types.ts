@@ -1,6 +1,15 @@
 import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
-import type { QueryBuilderFactoryLike } from "@hypequery/datasets";
+import type {
+  DatasetInstance,
+  DatasetQueryFor,
+  DatasetQueryResultFor,
+  KnownStringKeys,
+  MetricHandle,
+  MetricQueryFor,
+  MetricResultFor,
+  QueryBuilderFactoryLike,
+} from "@hypequery/datasets";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
@@ -595,12 +604,6 @@ export type MetricsConfig<TAuth extends AuthContext = AuthContext> =
 // Dataset serve config types
 // ---------------------------------------------------------------------------
 
-import type {
-  DatasetInstance,
-  DatasetQueryFor,
-  MetricHandle,
-  MetricQueryFor,
-} from "@hypequery/datasets";
 import type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 export type { DatasetEntry } from "./semantic/datasets/dataset-endpoint.js";
 
@@ -650,44 +653,9 @@ type MetricNameOfEntry<TEntry> =
     ? (TName extends string ? TName : string)
     : string;
 
-type KnownStringKeys<T> = {
-  [K in keyof T]: string extends K ? never : K extends string ? K : never;
-}[keyof T];
-
 type InferKnownStringKeys<T> = [KnownStringKeys<T>] extends [never]
   ? Extract<keyof T, string>
   : KnownStringKeys<T>;
-
-type SemanticMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  KnownStringKeys<TDataset['measures']>;
-
-type SemanticDatasetRow<TDataset extends DatasetInstance<any, any, any, any>> =
-  & { [K in SemanticMeasureNames<TDataset>]?: number };
-
-type SemanticMetricRow<TMetricName extends string> = { [K in TMetricName]?: number };
-
-type SemanticDatasetResult<TDataset extends DatasetInstance<any, any, any, any>> = {
-  data: SemanticDatasetRow<TDataset>[];
-  meta?: {
-    timingMs?: number;
-    sql?: string;
-    tenant?: string;
-    rowCount?: number;
-    pagination?: {
-      limit: number;
-      offset: number;
-      hasMore: boolean;
-    };
-  };
-};
-
-type SemanticMetricResult<
-  TDataset extends DatasetInstance<any, any, any, any>,
-  TMetricName extends string,
-> = {
-  data: SemanticMetricRow<TMetricName>[];
-  meta?: SemanticDatasetResult<TDataset>['meta'];
-};
 
 export type SemanticMetricEndpointMap<
   TMetrics extends MetricsConfig<TAuth>,
@@ -696,10 +664,10 @@ export type SemanticMetricEndpointMap<
 > = {
   [TKey in keyof TMetrics & string]: ServeEndpoint<
     ZodType<MetricQueryFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
-    ZodType<SemanticMetricResult<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
+    ZodType<MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>>,
     TContext,
     TAuth,
-    SemanticMetricResult<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
+    MetricResultFor<MetricDatasetOfEntry<TMetrics[TKey]>, MetricNameOfEntry<TMetrics[TKey]>>
   >;
 };
 
@@ -710,10 +678,10 @@ export type SemanticDatasetEndpointMap<
 > = {
   [TKey in keyof TDatasets & string as `dataset:${TKey}`]: ServeEndpoint<
     ZodType<DatasetQueryFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
-    ZodType<SemanticDatasetResult<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
+    ZodType<DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>>,
     TContext,
     TAuth,
-    SemanticDatasetResult<DatasetInstanceOfEntry<TDatasets[TKey]>>
+    DatasetQueryResultFor<DatasetInstanceOfEntry<TDatasets[TKey]>>
   >;
 };
 
