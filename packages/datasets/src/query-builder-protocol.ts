@@ -42,3 +42,34 @@ export interface QueryBuilderFactoryLike {
   table(name: string): QueryBuilderLike;
   rawQuery<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
 }
+
+/**
+ * Acceptance shape for query builder factories at public entry points.
+ *
+ * Schema-typed builders (e.g. `createQueryBuilder<Schema>` from
+ * `@hypequery/clickhouse`) narrow column parameters to literal unions, type
+ * `execute()` rows concretely, and overload `where`, so they cannot
+ * structurally satisfy `QueryBuilderFactoryLike` even though they honor its
+ * runtime contract. This looser shape admits both protocol-shaped and
+ * schema-typed builders; entry points adapt with `toQueryBuilderFactory`.
+ */
+export interface QueryBuilderFactoryCompatible {
+  table(name: never): unknown;
+  rawQuery(sql: string, params?: never): Promise<unknown>;
+}
+
+/** Any query builder factory accepted by public entry points. */
+export type QueryBuilderFactoryInput =
+  | QueryBuilderFactoryLike
+  | QueryBuilderFactoryCompatible;
+
+/**
+ * Adapts an accepted factory to the internal `QueryBuilderFactoryLike` call
+ * contract. Safe because the semantic layer only calls protocol methods with
+ * plain strings, which schema-typed builders handle at runtime.
+ */
+export function toQueryBuilderFactory(
+  factory: QueryBuilderFactoryInput,
+): QueryBuilderFactoryLike {
+  return factory as QueryBuilderFactoryLike;
+}

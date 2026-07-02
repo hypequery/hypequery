@@ -1,4 +1,5 @@
 import type { QueryBuilderFactoryLike, SemanticExecutionRuntime } from "@hypequery/datasets";
+import { toQueryBuilderFactory } from "@hypequery/datasets";
 
 export const INTERNAL_SEMANTIC_RUNTIME_KEY = "__hypequerySemanticRuntime";
 
@@ -36,7 +37,7 @@ export function extractQueryBuilderFromContext(
   // Check if it's already in the semantic runtime
   const runtime = resolveSemanticExecutionRuntime(context);
   if (runtime?.builderFactory) {
-    return runtime.builderFactory;
+    return toQueryBuilderFactory(runtime.builderFactory);
   }
 
   return undefined;
@@ -84,7 +85,8 @@ export function resolveSemanticQueryBuilder(
   context: Record<string, unknown>,
   fallback: QueryBuilderFactoryLike,
 ): QueryBuilderFactoryLike {
-  return resolveSemanticExecutionRuntime(context)?.builderFactory ?? fallback;
+  const override = resolveSemanticExecutionRuntime(context)?.builderFactory;
+  return override ? toQueryBuilderFactory(override) : fallback;
 }
 
 export function attachSemanticTenantRuntime<TContext extends Record<string, unknown>>(

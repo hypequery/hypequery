@@ -211,3 +211,58 @@ void analytics.execute<DatasetQueryResult['data'][number]>(Orders, datasetQuery,
 
 void runtimeContext;
 void explicitAnalytics;
+
+// -----------------------------------------------------------------------------
+// Schema-typed builder acceptance (QueryBuilderFactoryInput)
+//
+// Simulates the shape of a schema-typed builder (e.g. createQueryBuilder<S>
+// from @hypequery/clickhouse): literal column params, overloaded `where` with
+// an expression-builder first overload, and a concrete `execute()` row type.
+// Such builders cannot satisfy QueryBuilderFactoryLike structurally, but must
+// be accepted by the public entry points. The real-builder counterpart lives
+// in packages/clickhouse/type-tests/datasets-protocol.test.ts.
+// -----------------------------------------------------------------------------
+
+interface SimulatedTypedRow { id: number; status: string; amount: number }
+
+interface SimulatedTypedBuilder {
+  select(columns: ReadonlyArray<'id' | 'status' | 'amount'>): SimulatedTypedBuilder;
+  sum<C extends 'amount' | 'id'>(column: C, alias?: string): SimulatedTypedBuilder;
+  count(column: 'id' | 'status' | 'amount', alias?: string): SimulatedTypedBuilder;
+  countDistinct(column: 'id' | 'status' | 'amount', alias?: string): SimulatedTypedBuilder;
+  avg(column: 'amount', alias?: string): SimulatedTypedBuilder;
+  min(column: 'amount', alias?: string): SimulatedTypedBuilder;
+  max(column: 'amount', alias?: string): SimulatedTypedBuilder;
+  where(expressionBuilder: (expr: { col: 'id' | 'status' | 'amount' }) => boolean): SimulatedTypedBuilder;
+  where<C extends 'id' | 'status' | 'amount'>(column: C, operator: 'eq' | 'gt', value: SimulatedTypedRow[C]): SimulatedTypedBuilder;
+  groupBy(columns: 'id' | 'status' | 'amount' | Array<'id' | 'status' | 'amount'>): SimulatedTypedBuilder;
+  orderBy(column: 'id' | 'status' | 'amount', direction?: 'ASC' | 'DESC'): SimulatedTypedBuilder;
+  limit(count: number): SimulatedTypedBuilder;
+  offset(count: number): SimulatedTypedBuilder;
+  toSQLWithParams(): { sql: string; parameters: unknown[] };
+  execute(): Promise<SimulatedTypedRow[]>;
+}
+
+interface SimulatedTypedFactory {
+  table<T extends 'orders'>(name: T): SimulatedTypedBuilder;
+  rawQuery<T = SimulatedTypedRow>(sql: string, params?: unknown[]): Promise<T[]>;
+}
+
+declare const simulatedTypedFactory: SimulatedTypedFactory;
+
+// Sanity: the simulated shape reproduces the original incompatibility.
+// @ts-expect-error a schema-typed builder does not satisfy the strict protocol
+const strictRejection: QueryBuilderFactoryLike = simulatedTypedFactory;
+
+const typedAccepted: import('./index.js').QueryBuilderFactoryInput = simulatedTypedFactory;
+const typedClient = createDatasetClient({ queryBuilder: simulatedTypedFactory });
+const typedRuntime: ExecutionContext = { runtime: { builderFactory: simulatedTypedFactory } };
+
+// @ts-expect-error non-builder objects are still rejected
+const rejectedFactory: import('./index.js').QueryBuilderFactoryInput = { notABuilder: true };
+
+void strictRejection;
+void typedAccepted;
+void typedClient;
+void typedRuntime;
+void rejectedFactory;

@@ -1,4 +1,4 @@
-import type { QueryBuilderFactoryLike } from './query-builder-protocol.js';
+import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
 import type { SemanticExpression } from './semantic-plan.js';
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
@@ -228,7 +228,7 @@ export type SemanticTenantRuntime =
   | { scope: 'all' };
 
 export interface SemanticExecutionRuntime {
-  builderFactory?: QueryBuilderFactoryLike;
+  builderFactory?: QueryBuilderFactoryInput;
   tenant?: SemanticTenantRuntime;
 }
 
