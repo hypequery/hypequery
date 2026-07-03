@@ -119,6 +119,8 @@ jobs:
           "@hypequery/serve": patch
           "@hypequery/cli": patch
           "@hypequery/mcp": patch
+          "@hypequery/react": patch
+          "@hypequery/schema": patch
           ---
 
           Temporary canary snapshot release.
@@ -135,7 +137,11 @@ jobs:
               packages/cli/package.json \
               packages/cli/CHANGELOG.md \
               packages/mcp-server/package.json \
-              packages/mcp-server/CHANGELOG.md 2>/dev/null || true
+              packages/mcp-server/CHANGELOG.md \
+              packages/react/package.json \
+              packages/react/CHANGELOG.md \
+              packages/schema/package.json \
+              packages/schema/CHANGELOG.md 2>/dev/null || true
             git checkout -- \
               examples/auth-playground/package.json \
               examples/next-dashboard/package.json \
