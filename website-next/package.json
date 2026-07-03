@@ -46,20 +46,27 @@
     "vercel": "^54.2.0"
   },
   "overrides": {
+    "@babel/core": "^7.29.6",
     "@tootallnate/once": "^3.0.0",
     "ajv": "^6.14.0",
     "brace-expansion": "^2.0.3",
     "esbuild": "^0.25.0",
     "flatted": "^3.4.2",
+    "form-data": "^4.0.6",
+    "gray-matter": {
+      "js-yaml": "^3.15.0"
+    },
     "ip-address": "^10.2.0",
+    "js-yaml": "^4.2.0",
     "minimatch": "^10.2.3",
     "path-to-regexp": "^8.4.2",
     "picomatch": "^4.0.4",
     "postcss": "^8.5.13",
+    "smol-toml": "^1.6.1",
     "srvx": "^0.11.15",
-    "tar": "^7.5.8",
-    "undici": "^6.25.0",
-    "vite": "^6.4.2",
-    "ws": "^8.20.1"
+    "tar": "^7.5.16",
+    "undici": "^6.27.0",
+    "vite": "^6.4.3",
+    "ws": "^8.21.0"
   }
 }
