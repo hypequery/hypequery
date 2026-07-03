@@ -1,6 +1,7 @@
 import type {
   UseQueryOptions as TanstackUseQueryOptions,
   UseQueryResult,
+  UseInfiniteQueryOptions as TanstackUseInfiniteQueryOptions,
   UseInfiniteQueryResult,
   InfiniteData,
 } from '@tanstack/react-query';
@@ -28,6 +29,18 @@ type QueryOptions<Api, Key extends ExtractNames<Api>> = Omit<
     QueryKey<Key, QueryInput<Api, Key>>
   >,
   'queryKey' | 'queryFn'
+>;
+
+/** Infinite-query options parameterized by the projected page type. */
+type InfiniteQueryOptions<Api, Key extends ExtractNames<Api>, TPage> = Omit<
+  TanstackUseInfiniteQueryOptions<
+    TPage,
+    HttpError,
+    InfiniteData<TPage, number>,
+    QueryKey<Key, QueryInput<Api, Key>>,
+    number
+  >,
+  'queryKey' | 'queryFn' | 'getNextPageParam' | 'initialPageParam'
 >;
 
 export interface CreateAnalyticsHooksConfig<
@@ -84,20 +97,33 @@ export function createAnalyticsHooks<
     return (hooks.useQuery as any)(key, ...rest);
   }
 
-  function useInfiniteMetric<Name extends MetricName>(
+  function useInfiniteMetric<Name extends MetricName, const TInput extends QueryInput<Api, Name>>(
     name: Name,
-    input: QueryInput<Api, Name>,
-    options?: Parameters<typeof hooks.useInfiniteQuery>[2],
-  ): UseInfiniteQueryResult<InfiniteData<QueryOutput<Api, Name>, number>, HttpError> {
+    input: TInput,
+    options?: InfiniteQueryOptions<Api, Name, QueryOutputForInput<Api, Name, TInput>>,
+  ): UseInfiniteQueryResult<
+    InfiniteData<QueryOutputForInput<Api, Name, TInput>, number>,
+    HttpError
+  > {
     return (hooks.useInfiniteQuery as any)(name, input, options);
   }
 
-  function useInfiniteDataset<Name extends DatasetNamesFromApi<Api>>(
+  function useInfiniteDataset<
+    Name extends DatasetNamesFromApi<Api>,
+    const TInput extends QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
+  >(
     name: Name,
-    input: QueryInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>,
-    options?: Parameters<typeof hooks.useInfiniteQuery>[2],
+    input: TInput,
+    options?: InfiniteQueryOptions<
+      Api,
+      Extract<ExtractNames<Api>, DatasetKey<Name>>,
+      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>
+    >,
   ): UseInfiniteQueryResult<
-    InfiniteData<QueryOutput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>>, number>,
+    InfiniteData<
+      QueryOutputForInput<Api, Extract<ExtractNames<Api>, DatasetKey<Name>>, TInput>,
+      number
+    >,
     HttpError
   > {
     const key = `dataset:${String(name)}` as Extract<ExtractNames<Api>, DatasetKey<Name>>;
