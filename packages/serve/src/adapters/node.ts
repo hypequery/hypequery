@@ -131,6 +131,10 @@ export const createNodeHandler = (
 
   return async (req: IncomingMessage, res: ServerResponse) => {
     try {
+      if (options.mount && (await options.mount(req, res))) {
+        return;
+      }
+
       const request = await buildServeRequest(req, bodyLimit);
 
       if (requestTimeout > 0) {
