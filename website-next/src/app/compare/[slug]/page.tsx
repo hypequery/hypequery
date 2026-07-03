@@ -2,9 +2,8 @@ import { Fragment } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import ReactMarkdown from 'react-markdown';
 import PageWrapper from '@/components/PageWrapper';
-import CodeHighlight from '@/components/CodeHighlight';
+import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
 import { getPostBySlug } from '@/lib/blog';
 import { absoluteUrl } from '@/lib/site';
@@ -247,26 +246,7 @@ export default async function ComparePage({
             </div>
 
             <div className="prose prose-invert max-w-none">
-              <ReactMarkdown
-                components={{
-                  code({ className, children, ...props }) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const code = String(children).replace(/\n$/, '');
-
-                    if (!match) {
-                      return (
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      );
-                    }
-
-                    return <CodeHighlight code={code} language={match[1]} />;
-                  },
-                }}
-              >
-                {post.content}
-              </ReactMarkdown>
+              <MarkdownContent content={post.content} />
             </div>
 	            <div className="mt-10 border border-slate-700 bg-slate-900/70 p-6">
 	              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Decision checkpoint</p>

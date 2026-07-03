@@ -3,15 +3,9 @@ import { getPosts } from '@/lib/blog';
 import { source } from '@/lib/meta';
 import { absoluteUrl } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment } from '@/data/clickhouse-functions';
+import { comparePages } from '@/data/compare-pages';
 
-const redirectedBlogSlugs = new Set([
-  'hypequery-vs-clickhouse-client',
-  'hypequery-vs-kysely',
-  'hypequery-vs-drizzle',
-  'hypequery-vs-prisma',
-  'hypequery-vs-cube',
-  'hypequery-vs-tinybird',
-]);
+const redirectedBlogSlugs = new Set<string>(comparePages.map((page) => page.slug));
 
 const staticRoutes = [
   '/clickhouse/functions',
@@ -47,12 +41,10 @@ const staticRoutes = [
   '/use-cases',
   '/use-cases/internal-product-apis',
   '/use-cases/multi-tenant-saas',
-  '/compare/hypequery-vs-clickhouse-client',
-  '/compare/hypequery-vs-kysely',
-  '/compare/hypequery-vs-drizzle',
-  '/compare/hypequery-vs-prisma',
-  '/compare/hypequery-vs-cube',
-  '/compare/hypequery-vs-tinybird',
+  '/cube-js-alternative',
+  '/tinybird-alternative',
+  '/moosestack-alternative',
+  ...comparePages.map((page) => page.href),
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

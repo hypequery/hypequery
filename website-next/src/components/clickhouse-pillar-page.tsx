@@ -45,6 +45,15 @@ type Cta = {
   label: string;
 };
 
+type ComparisonTable = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  competitorLabel: string;
+  rows: Array<{ label: string; competitor: string; hypequery: string }>;
+  footnote?: string;
+};
+
 export type ClickhousePillarPageProps = {
   eyebrow: string;
   title: string;
@@ -55,6 +64,7 @@ export type ClickhousePillarPageProps = {
   problems: Card[];
   solutionSection: Section;
   implementationSection: Section;
+  comparisonTable?: ComparisonTable;
   searchIntentCards: Card[];
   readingLinks: ReadingLink[];
   relatedPillars: LinkItem[];
@@ -77,6 +87,7 @@ export function ClickhousePillarPage({
   problems,
   solutionSection,
   implementationSection,
+  comparisonTable,
   searchIntentCards,
   readingLinks,
   relatedPillars,
@@ -224,6 +235,45 @@ export function ClickhousePillarPage({
             ) : null}
           </div>
         </section>
+
+        {comparisonTable ? (
+          <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
+              {comparisonTable.eyebrow}
+            </p>
+            <h2 className="font-display mt-3 text-3xl font-semibold text-text">{comparisonTable.title}</h2>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-text-muted">{comparisonTable.description}</p>
+            <div className="mt-8 overflow-x-auto rounded-lg border border-border bg-bg-card shadow-card">
+              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-bg-alt/60">
+                    <th className="w-[22%] px-5 py-4" aria-label="Dimension" />
+                    <th className="w-[39%] px-5 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-text-dim">
+                      {comparisonTable.competitorLabel}
+                    </th>
+                    <th className="w-[39%] bg-accent-soft px-5 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+                      hypequery
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisonTable.rows.map((row) => (
+                    <tr key={row.label} className="border-b border-border last:border-b-0">
+                      <td className="px-5 py-4 align-top text-sm font-semibold text-text">{row.label}</td>
+                      <td className="px-5 py-4 align-top text-sm leading-6 text-text-muted">{row.competitor}</td>
+                      <td className="bg-accent-soft px-5 py-4 align-top text-sm leading-6 text-text">
+                        {row.hypequery}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {comparisonTable.footnote ? (
+              <p className="mt-4 text-xs leading-6 text-text-dim">{comparisonTable.footnote}</p>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="border-y border-border bg-bg-alt/60">
           <div className="mx-auto max-w-7xl px-4 py-16 lg:px-6">

@@ -2,8 +2,7 @@ import { getPostBySlug } from '@/lib/blog';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import CodeHighlight from '@/components/CodeHighlight';
+import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent, { type RelatedContentLink } from '@/components/RelatedContent';
 import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
@@ -236,31 +235,7 @@ export default async function BlogPostPage({
         </div>
 
         <div className="prose prose-gray dark:prose-invert max-w-none">
-          <ReactMarkdown
-            components={{
-              code({ className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                const code = String(children).replace(/\n$/, '');
-
-                if (!match) {
-                  return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                }
-
-                return (
-                  <CodeHighlight
-                    code={code}
-                    language={match[1]}
-                  />
-                );
-              },
-            }}
-          >
-            {content}
-          </ReactMarkdown>
+          <MarkdownContent content={content} />
         </div>
         <RelatedContent links={relatedLinks} />
       </article >

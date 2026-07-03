@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { notFound, redirect } from 'next/navigation';
-import ReactMarkdown from 'react-markdown';
-import CodeHighlight from '@/components/CodeHighlight';
+import MarkdownContent from '@/components/MarkdownContent';
 import { getAdminPostById } from '@/lib/blog-cms';
 import { isCmsAuthenticated } from '@/lib/cms-auth';
 
@@ -62,31 +61,7 @@ export default async function CmsPreviewPostPage({
         </div>
 
         <div className="prose prose-invert max-w-none">
-          <ReactMarkdown
-            components={{
-              code({ className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                const code = String(children).replace(/\n$/, '');
-
-                if (!match) {
-                  return (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                }
-
-                return (
-                  <CodeHighlight
-                    code={code}
-                    language={match[1]}
-                  />
-                );
-              },
-            }}
-          >
-            {post.body}
-          </ReactMarkdown>
+          <MarkdownContent content={post.body} />
         </div>
       </article>
     </div>

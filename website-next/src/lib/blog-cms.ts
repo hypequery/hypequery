@@ -169,10 +169,13 @@ function createSeedPosts(): BlogPostRecord[] {
     const { data, content } = matter(fileContent);
     const now = new Date().toISOString();
 
+    const slug = getSlugFromFilename(filename, data.slug);
+
     return {
-      id: crypto.randomUUID(),
-      slug: getSlugFromFilename(filename, data.slug),
-      title: typeof data.title === 'string' ? data.title : getSlugFromFilename(filename, data.slug),
+      // deterministic id so seed posts merged at read time keep a stable identity
+      id: `seed-${slug}`,
+      slug,
+      title: typeof data.title === 'string' ? data.title : slug,
       description: typeof data.description === 'string' ? data.description : null,
       body: content,
       status: normalizeStatus(data.status ?? 'published'),
@@ -349,7 +352,9 @@ async function writeBlobStore(posts: BlogPostRecord[]) {
 async function getAllPostsInternal(): Promise<BlogPostRecord[]> {
   if (hasBlobStorage()) {
     try {
-      return sortPosts(await readBlobStore());
+      // merge seed markdown added after the blob store was first created;
+      // CMS-managed posts (source !== 'seed') always win over seed content
+      return mergeSeedPosts(await readBlobStore(), createSeedPosts());
     } catch (error) {
       warnBlobFallbackOnce(error);
       return sortPosts(createSeedPosts());
