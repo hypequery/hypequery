@@ -8,7 +8,7 @@ import type {
   MetricHandle,
   MetricQueryFor,
   MetricResultFor,
-  QueryBuilderFactoryLike,
+  QueryBuilderFactoryInput,
 } from "@hypequery/datasets";
 
 /** Supported HTTP verbs for serve-managed endpoints. */
@@ -762,7 +762,7 @@ export interface ServeConfig<
    * });
    * ```
    */
-  queryBuilder?: QueryBuilderFactoryLike;
+  queryBuilder?: QueryBuilderFactoryInput;
   basePath?: string;
   middlewares?: ServeMiddleware<any, any, TContext, TAuth>[];
   auth?: AuthStrategy<TAuth> | AuthStrategy<TAuth>[];

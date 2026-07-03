@@ -22,7 +22,7 @@ import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { resolveCorsConfig } from "../cors.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
-import { createDatasetClient, serializeSemanticContract } from "@hypequery/datasets";
+import { createDatasetClient, serializeSemanticContract, toQueryBuilderFactory } from "@hypequery/datasets";
 import {
   createMetricEndpoint,
   createDatasetEndpoint,
@@ -96,8 +96,12 @@ export const createAPI = <
   const globalTenantConfig = config.tenant;
   const baseContextFactory = config.context as ServeContextFactory<TContext, TAuth> | undefined;
 
-  // Extract queryBuilder from context.db if not provided in config
-  let resolvedQueryBuilder = config.queryBuilder;
+  // Extract queryBuilder from context.db if not provided in config.
+  // Schema-typed builders are accepted and adapted to the call contract.
+  const explicitQueryBuilder = config.queryBuilder
+    ? toQueryBuilderFactory(config.queryBuilder)
+    : undefined;
+  let resolvedQueryBuilder = explicitQueryBuilder;
   let extractedFromContext = false;
 
   if (!resolvedQueryBuilder && baseContextFactory && (config.metrics || config.datasets)) {
@@ -120,10 +124,10 @@ export const createAPI = <
 
         // If queryBuilder was explicitly passed in config (not extracted from context),
         // attach it to context for backward compatibility
-        if (config.queryBuilder) {
+        if (explicitQueryBuilder) {
           return attachSemanticQueryBuilder(
             { ...(baseContext as TContext) },
-            config.queryBuilder,
+            explicitQueryBuilder,
           ) as TContext;
         }
 

@@ -27,7 +27,9 @@ import type {
 import type {
   QueryBuilderLike,
   QueryBuilderFactoryLike,
+  QueryBuilderFactoryInput,
 } from './query-builder-protocol.js';
+import { toQueryBuilderFactory } from './query-builder-protocol.js';
 import type {
   PlanNode,
   SemanticBackend,
@@ -193,14 +195,23 @@ function isDatasetInstance(target: unknown): target is AnyDatasetInstance {
 
 export interface MetricQueryEngineOptions {
   /** Query builder factory for executing metrics. */
-  builderFactory: QueryBuilderFactoryLike;
+  builderFactory: QueryBuilderFactoryInput;
 }
 
 export interface CreateDatasetClientOptions {
   /** Query builder factory for executing semantic metric and dataset queries. */
-  queryBuilder?: QueryBuilderFactoryLike;
+  queryBuilder?: QueryBuilderFactoryInput;
   /** Semantic backend for executing neutral semantic plans. */
   backend?: SemanticBackend;
+}
+
+/** Resolves the per-call builder override, adapted to the call contract. */
+function resolveBuilderFactory(
+  context: ExecutionContext | undefined,
+  fallback: QueryBuilderFactoryLike,
+): QueryBuilderFactoryLike {
+  const override = context?.runtime?.builderFactory;
+  return override ? toQueryBuilderFactory(override) : fallback;
 }
 
 export type SemanticTarget = MetricRef | GrainedMetricRef | AnyDatasetInstance;
@@ -280,7 +291,7 @@ export class MetricQueryEngine {
   private builderFactory: QueryBuilderFactoryLike;
 
   constructor(options: MetricQueryEngineOptions) {
-    this.builderFactory = options.builderFactory;
+    this.builderFactory = toQueryBuilderFactory(options.builderFactory);
   }
 
   protected getBuilderFactory(): QueryBuilderFactoryLike {
@@ -378,7 +389,7 @@ export class MetricQueryEngine {
     const ref = getMetricRef(metric);
     const grain = getMetricGrain(metric, query);
     const spec = ref.spec;
-    const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
+    const activeBuilderFactory = resolveBuilderFactory(context, this.builderFactory);
 
     // Over-fetch one row so we can report `hasMore` without a count query.
     const buildQuery = { ...query, limit: overfetchLimit(query.limit) };
@@ -409,7 +420,7 @@ export class MetricQueryEngine {
     grain: TimeGrain | undefined,
     context?: ExecutionContext,
   ): QueryBuilderLike {
-    const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
+    const activeBuilderFactory = resolveBuilderFactory(context, this.builderFactory);
     let qb: QueryBuilderLike = activeBuilderFactory.table(ds.source);
     const { selectParts, groupByParts } = buildDimensionSelectionPlan(
       ds,
@@ -460,7 +471,7 @@ export class MetricQueryEngine {
     grain: TimeGrain | undefined,
     context?: ExecutionContext,
   ): { sql: string; params: unknown[] } {
-    const activeBuilderFactory = context?.runtime?.builderFactory ?? this.builderFactory;
+    const activeBuilderFactory = resolveBuilderFactory(context, this.builderFactory);
     const ds = ref.dataset;
 
     // Build the CTE inner query using the builder
@@ -709,7 +720,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
     }
     return runDatasetQuery(ds, query, {
-      builderFactory: context?.runtime?.builderFactory ?? this.getBuilderFactory(),
+      builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
       context,
     }) as Promise<DatasetQueryResult<TRow>>;
   }
@@ -720,7 +731,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     context?: ExecutionContext,
   ): string {
     const builder = buildDatasetQueryBuilder(ds, query, {
-      builderFactory: context?.runtime?.builderFactory ?? this.getBuilderFactory(),
+      builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
       context,
     });
     return builder.toSQLWithParams().sql;
