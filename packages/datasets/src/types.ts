@@ -1,4 +1,5 @@
 import type { QueryBuilderFactoryInput } from './query-builder-protocol.js';
+import type { SemanticCacheRuntime } from './cache/semantic-query-cache.js';
 import type { SemanticExpression } from './semantic-plan.js';
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'timestamp';
@@ -209,6 +210,14 @@ export interface MetricResultMeta {
     offset: number;
     hasMore: boolean;
   };
+  /** Result-cache observability. Present when the call went through the cache. */
+  cache?: {
+    hit: boolean;
+    /** Milliseconds since the entry was stored; only on hits. */
+    ageMs?: number;
+    /** True when served from the stale-while-revalidate window. */
+    stale?: boolean;
+  };
 }
 
 export interface MetricResult<T = Record<string, unknown>> {
@@ -234,6 +243,11 @@ export interface SemanticExecutionRuntime {
 
 export interface ExecutionContext {
   runtime?: SemanticExecutionRuntime;
+  /**
+   * Per-call result-cache controls. `false` bypasses the cache entirely;
+   * `{ ttlMs }` opts this call into caching (or overrides the client default).
+   */
+  cache?: SemanticCacheRuntime | false;
 }
 
 export interface SemanticFilterDefinition {

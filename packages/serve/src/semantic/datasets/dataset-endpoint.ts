@@ -4,7 +4,7 @@
  * The generated endpoint is a POST handler that:
  * - Accepts dimensions, measures, filters, orderBy, limit, offset, by
  * - Validates requested dimensions/measures/filters against the dataset contract
- * - Executes via QueryBuilderFactoryLike
+ * - Executes via the shared DatasetClient (result cache included)
  * - Applies Serve-managed tenant filtering when configured
  * - Returns { data } or { data, meta } based on headers
  */
@@ -18,13 +18,10 @@ import type {
   ServeMiddleware,
 } from '../../types.js';
 import type {
+  DatasetClient,
   QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
 import type { DatasetQuery } from '@hypequery/datasets/internal';
-import {
-  runDatasetQuery,
-  validateDatasetQuery,
-} from '@hypequery/datasets/internal';
 import { ServeHttpError } from '../../errors.js';
 import {
   resolveSemanticExecutionRuntime,
@@ -50,6 +47,11 @@ const datasetResultMetaSchema = z.object({
     offset: z.number(),
     hasMore: z.boolean(),
   }).optional(),
+  cache: z.object({
+    hit: z.boolean(),
+    ageMs: z.number().optional(),
+    stale: z.boolean().optional(),
+  }).optional(),
 }).optional();
 
 const datasetResultSchema = z.object({
@@ -64,6 +66,7 @@ const datasetResultSchema = z.object({
 export function createDatasetEndpoint<TAuth extends AuthContext>(
   name: string,
   entry: DatasetEntry<TAuth>,
+  analytics: DatasetClient,
   builderFactory: QueryBuilderFactoryLike,
 ): ServeEndpoint<z.ZodTypeAny, typeof datasetResultSchema, any, TAuth, any> {
   const resolved = resolveDatasetEntry(entry);
@@ -106,8 +109,8 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       offset: input.offset,
       by: input.by,
     };
-    const executionContext = runtime ? { runtime } : undefined;
-    const validation = validateDatasetQuery(ds, query, executionContext);
+    const validationContext = runtime ? { runtime } : undefined;
+    const validation = analytics.validate(ds, query, validationContext);
     if (!validation.valid) {
       throw new ServeHttpError(
         400,
@@ -116,7 +119,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       );
     }
 
-    // Build query
+    // Execute through the shared client so per-entry cache TTLs apply.
     const runtimeBuilderFactory = resolveSemanticQueryBuilder(
       semanticContext,
       builderFactory,
@@ -130,9 +133,15 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
         );
       }
     }
-    const result = await runDatasetQuery(ds, query, {
-      builderFactory: runtimeBuilderFactory,
-      context: executionContext,
+    const result = await analytics.execute(ds, query, {
+      runtime: {
+        ...runtime,
+        builderFactory: runtimeBuilderFactory,
+        tenant: runtime?.tenant,
+      },
+      cache: typeof resolved.cache === 'number' && resolved.cache > 0
+        ? { ttlMs: resolved.cache }
+        : undefined,
     });
     const timingMs = Date.now() - start;
 
