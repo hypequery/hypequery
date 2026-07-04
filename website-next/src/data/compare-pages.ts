@@ -5,7 +5,11 @@ export type ComparePageConfig = {
     | 'hypequery-vs-drizzle'
     | 'hypequery-vs-prisma'
     | 'hypequery-vs-cube'
-    | 'hypequery-vs-tinybird';
+    | 'hypequery-vs-tinybird'
+    | 'cube-vs-tinybird-vs-hypequery'
+    | 'hypequery-vs-moose'
+    | 'hypequery-vs-dbt'
+    | 'hypequery-vs-propel';
   href: string;
   title: string;
   verdict: string;
@@ -237,6 +241,190 @@ export const comparePages: ComparePageConfig[] = [
         question: 'When should I choose Tinybird over hypequery?',
         answer:
           'Choose Tinybird when you have no ops team to manage ClickHouse, need a fast path from raw data to a public API, and data residency or vendor lock-in are not concerns. It is also a good fit when your team is more SQL-fluent than TypeScript-fluent and you want built-in rate limiting and caching without writing any middleware.',
+      },
+    ],
+  },
+  {
+    slug: 'cube-vs-tinybird-vs-hypequery',
+    href: '/compare/cube-vs-tinybird-vs-hypequery',
+    title: 'Cube vs Tinybird vs hypequery',
+    verdict:
+      'Cube, Tinybird, and hypequery all put an API layer between ClickHouse and applications, but they have different shapes: semantic layer platform, managed analytics service, and open-source TypeScript library.',
+    rows: [
+      {
+        label: 'Shape',
+        hypequery: 'Open-source TypeScript library inside your app',
+        alternative: 'Cube is a semantic layer platform; Tinybird is a managed analytics backend',
+      },
+      {
+        label: 'Data ownership',
+        hypequery: 'Uses the ClickHouse you already run',
+        alternative: 'Cube queries your databases; Tinybird typically runs the ClickHouse platform for you',
+      },
+      {
+        label: 'TypeScript workflow',
+        hypequery: 'Queries and response types live in your repo, generated from your schema',
+        alternative: 'Cube and Tinybird expose platform APIs that your app consumes',
+      },
+      {
+        label: 'Best fit',
+        hypequery: 'TypeScript product teams with an existing ClickHouse',
+        alternative: 'Cube for shared BI semantics; Tinybird for zero-ops hosted analytics APIs',
+      },
+    ],
+    faq: [
+      {
+        question: 'When should I choose Cube?',
+        answer:
+          'Choose Cube when multiple consumers, especially BI tools, need the same metric definitions and pre-aggregations from a central semantic layer.',
+      },
+      {
+        question: 'When should I choose Tinybird?',
+        answer:
+          'Choose Tinybird when you want the fastest managed path from data ingestion to hosted analytics APIs and are comfortable with the platform owning that serving layer.',
+      },
+      {
+        question: 'When should I choose hypequery?',
+        answer:
+          'Choose hypequery when you already run ClickHouse and want schema-generated TypeScript types, query definitions, and served endpoints inside your own application codebase.',
+      },
+    ],
+  },
+  {
+    slug: 'hypequery-vs-moose',
+    href: '/compare/hypequery-vs-moose',
+    title: 'hypequery vs Moose (MooseStack)',
+    verdict:
+      'Moose is a full framework that wants to own your analytical backend — schema, streaming, workflows, and a local dev runtime. hypequery is a library you add to an existing ClickHouse setup for typed queries and APIs without changing how you run infrastructure.',
+    rows: [
+      {
+        label: 'Best for',
+        hypequery: 'Adding typed queries and APIs to a ClickHouse you already run',
+        alternative: 'Greenfield analytical backends built inside one framework',
+      },
+      {
+        label: 'Schema source',
+        hypequery: 'Introspected from your live ClickHouse schema',
+        alternative: 'Defined in code and migrated into ClickHouse',
+      },
+      {
+        label: 'Footprint',
+        hypequery: 'npm library in your app — no runtime or dev server',
+        alternative: 'Framework with dev runtime, optional Redpanda and Temporal',
+      },
+      {
+        label: 'Scope',
+        hypequery: 'Query builder, HTTP serving, OpenAPI, React hooks',
+        alternative: 'OLAP tables, streaming ingest, workflows, ingest and query APIs',
+      },
+    ],
+    faq: [
+      {
+        question: 'Are hypequery and Moose solving the same problem?',
+        answer:
+          'They overlap on typed ClickHouse queries and APIs in TypeScript, but they take opposite positions on ownership. Moose defines your schema in code and manages migrations, streaming, and workflows as a framework. hypequery treats your existing ClickHouse as the source of truth and adds a typed query and serving layer on top.',
+      },
+      {
+        question: 'When should I choose Moose instead of hypequery?',
+        answer:
+          'Choose Moose when you are building an analytical backend from scratch and want one framework to manage ClickHouse schema, streaming ingestion with Redpanda, and orchestration with Temporal — and you are comfortable adopting its project structure and dev runtime.',
+      },
+      {
+        question: 'When is hypequery the better fit?',
+        answer:
+          'When ClickHouse already exists in your stack with its own ingestion and migration story, and what you need is typed queries, typed HTTP endpoints, and React hooks inside the application you already have — without adopting a framework.',
+      },
+    ],
+  },
+  {
+    slug: 'hypequery-vs-dbt',
+    href: '/compare/hypequery-vs-dbt',
+    title: 'hypequery vs dbt',
+    verdict:
+      'dbt transforms data inside ClickHouse on a schedule. hypequery serves ClickHouse data to applications at request time with generated TypeScript types. Most teams comparing them are really deciding where the transformation boundary sits — and many end up using both.',
+    rows: [
+      {
+        label: 'Job',
+        hypequery: 'Runtime queries and typed APIs for application code',
+        alternative: 'Scheduled SQL transformations inside the warehouse',
+      },
+      {
+        label: 'Language',
+        hypequery: 'TypeScript with schema-generated types',
+        alternative: 'SQL with Jinja templating',
+      },
+      {
+        label: 'Runs',
+        hypequery: 'In your app, in response to user requests',
+        alternative: 'On a schedule or trigger via dbt run',
+      },
+      {
+        label: 'Output',
+        hypequery: 'Typed query results, REST endpoints, React hooks',
+        alternative: 'Materialised tables and views in ClickHouse',
+      },
+    ],
+    faq: [
+      {
+        question: 'Does dbt support ClickHouse?',
+        answer:
+          'Yes — the dbt-clickhouse adapter covers the common materialisation patterns, though ClickHouse semantics (no transactions, MergeTree engines) mean some dbt patterns from Postgres do not translate directly.',
+      },
+      {
+        question: 'Do hypequery and dbt compete?',
+        answer:
+          'Mostly no. dbt prepares data inside ClickHouse; hypequery serves it to applications with type safety. A common stack is dbt for modelling raw events into analytics tables and hypequery for querying those tables from product code.',
+      },
+      {
+        question: 'When would hypequery replace dbt?',
+        answer:
+          'If your only use of dbt is preparing a handful of tables that feed application APIs, a typed TypeScript layer querying the source tables directly — or ClickHouse materialized views — can be simpler than maintaining a separate transformation project.',
+      },
+    ],
+  },
+  {
+    slug: 'hypequery-vs-propel',
+    href: '/compare/hypequery-vs-propel',
+    title: 'hypequery vs Propel',
+    verdict:
+      'Propel is a serverless analytics platform: managed APIs, a semantic layer, and embeddable UI components on top of ClickHouse. hypequery is the code-first version of the same idea — you keep the ClickHouse you run, and the API layer lives in your TypeScript repo instead of a platform.',
+    rows: [
+      {
+        label: 'Best for',
+        hypequery: 'TypeScript teams who want to own the analytics layer as code',
+        alternative: 'Teams who want managed APIs and drop-in dashboard components',
+      },
+      {
+        label: 'Model',
+        hypequery: 'Open-source library inside your app',
+        alternative: 'Serverless platform with GraphQL and SQL APIs',
+      },
+      {
+        label: 'TypeScript types',
+        hypequery: 'Generated from your live ClickHouse schema',
+        alternative: 'GraphQL codegen against Propel’s API schema',
+      },
+      {
+        label: 'Pricing',
+        hypequery: 'Free — you pay for your own infrastructure',
+        alternative: 'Usage-based platform pricing',
+      },
+    ],
+    faq: [
+      {
+        question: 'Is Propel the same thing as Tinybird?',
+        answer:
+          'They compete in the same space — managed analytics APIs over ClickHouse — but Propel leans harder into embedded analytics: a semantic layer, multi-tenant access policies, and embeddable React UI components. Tinybird leans into ingestion and SQL Pipes. hypequery differs from both by being a library rather than a platform.',
+      },
+      {
+        question: 'When should I choose Propel over hypequery?',
+        answer:
+          'Choose Propel when speed to a customer-facing dashboard matters more than owning the stack — its managed APIs and prebuilt UI components get embedded analytics live very quickly, and it can connect to your existing ClickHouse rather than requiring ingestion.',
+      },
+      {
+        question: 'When is hypequery the better fit?',
+        answer:
+          'When you want analytics queries versioned in your own repo, response types generated from your actual schema, no per-query platform pricing, and no dependency on a third-party serving layer between your app and your ClickHouse.',
       },
     ],
   },

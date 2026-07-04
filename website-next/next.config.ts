@@ -1,22 +1,22 @@
 import type { NextConfig } from "next";
 import { createMDX } from "fumadocs-mdx/next";
+import { comparePages } from "./src/data/compare-pages";
 
 const withMDX = createMDX();
 
 const nextConfig: NextConfig = {
   trailingSlash: false,
+  turbopack: {
+    root: __dirname,
+  },
   async redirects() {
     return [
-      {
-        source: '/blog/hypequery-vs-clickhouse-client',
-        destination: '/compare/hypequery-vs-clickhouse-client',
+      // every compare page also exists as a seed blog post; canonical home is /compare
+      ...comparePages.map((page) => ({
+        source: `/blog/${page.slug}`,
+        destination: page.href,
         permanent: true,
-      },
-      {
-        source: '/blog/hypequery-vs-kysely',
-        destination: '/compare/hypequery-vs-kysely',
-        permanent: true,
-      },
+      })),
       {
         source: '/docs/installation',
         destination: '/docs/quick-start',

@@ -111,6 +111,52 @@ export default function CompareIndexPage() {
           </div>
         </section>
 
+        <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">Switching tools?</p>
+          <h2 className="font-display mt-3 text-3xl font-semibold text-white">Alternative guides</h2>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-300">
+            If you are moving away from a platform rather than evaluating from scratch, these guides cover why teams switch, what the migration looks like, and where the incumbent is still the right call.
+          </p>
+          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Link
+              href="/cube-js-alternative"
+              className="group border border-slate-700 bg-slate-900/70 p-8 transition hover:-translate-y-1 hover:border-indigo-400 hover:bg-slate-900"
+            >
+              <h3 className="font-display text-2xl font-semibold text-slate-100">Cube.js alternative</h3>
+              <p className="mt-4 text-sm leading-7 text-slate-300">
+                Replace the Cube server, cache layer, and YAML modelling with a typed TypeScript library that lives in your own codebase.
+              </p>
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300 group-hover:text-cyan-200">
+                Open guide
+              </p>
+            </Link>
+            <Link
+              href="/tinybird-alternative"
+              className="group border border-slate-700 bg-slate-900/70 p-8 transition hover:-translate-y-1 hover:border-indigo-400 hover:bg-slate-900"
+            >
+              <h3 className="font-display text-2xl font-semibold text-slate-100">Tinybird alternative</h3>
+              <p className="mt-4 text-sm leading-7 text-slate-300">
+                Keep your data in your own ClickHouse and build the typed API layer in TypeScript — no ingestion into a third-party platform, no usage-based pricing.
+              </p>
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300 group-hover:text-cyan-200">
+                Open guide
+              </p>
+            </Link>
+            <Link
+              href="/moosestack-alternative"
+              className="group border border-slate-700 bg-slate-900/70 p-8 transition hover:-translate-y-1 hover:border-indigo-400 hover:bg-slate-900"
+            >
+              <h3 className="font-display text-2xl font-semibold text-slate-100">MooseStack alternative</h3>
+              <p className="mt-4 text-sm leading-7 text-slate-300">
+                Take the typed query and API layer without the framework — no dev runtime, no scaffold, no streaming stack you didn&apos;t ask for.
+              </p>
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300 group-hover:text-cyan-200">
+                Open guide
+              </p>
+            </Link>
+          </div>
+        </section>
+
         <section className="mx-auto max-w-7xl px-4 pb-20 lg:px-6">
           <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
             <div>

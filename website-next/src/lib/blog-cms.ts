@@ -167,12 +167,17 @@ function createSeedPosts(): BlogPostRecord[] {
     const filePath = path.join(seedBlogDir, filename);
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const { data, content } = matter(fileContent);
-    const now = new Date().toISOString();
+
+    const slug = getSlugFromFilename(filename, data.slug);
+    const publishedAt = normalizeDate(data.date ?? data.pubDate);
+    const createdAt = publishedAt ?? '1970-01-01T00:00:00.000Z';
+    const updatedAt = normalizeDate(data.updatedAt ?? data.updated ?? data.modifiedAt) ?? createdAt;
 
     return {
-      id: crypto.randomUUID(),
-      slug: getSlugFromFilename(filename, data.slug),
-      title: typeof data.title === 'string' ? data.title : getSlugFromFilename(filename, data.slug),
+      // deterministic id so seed posts merged at read time keep a stable identity
+      id: `seed-${slug}`,
+      slug,
+      title: typeof data.title === 'string' ? data.title : slug,
       description: typeof data.description === 'string' ? data.description : null,
       body: content,
       status: normalizeStatus(data.status ?? 'published'),
@@ -180,9 +185,9 @@ function createSeedPosts(): BlogPostRecord[] {
       tags: Array.isArray(data.tags) ? data.tags.filter((item): item is string => typeof item === 'string') : [],
       seoTitle: typeof data.seoTitle === 'string' ? data.seoTitle : null,
       seoDescription: typeof data.seoDescription === 'string' ? data.seoDescription : null,
-      publishedAt: normalizeDate(data.date ?? data.pubDate) ?? now,
-      createdAt: now,
-      updatedAt: now,
+      publishedAt: publishedAt ?? createdAt,
+      createdAt,
+      updatedAt,
       source: 'seed',
     };
   });
@@ -349,7 +354,9 @@ async function writeBlobStore(posts: BlogPostRecord[]) {
 async function getAllPostsInternal(): Promise<BlogPostRecord[]> {
   if (hasBlobStorage()) {
     try {
-      return sortPosts(await readBlobStore());
+      // merge seed markdown added after the blob store was first created;
+      // CMS-managed posts (source !== 'seed') always win over seed content
+      return mergeSeedPosts(await readBlobStore(), createSeedPosts());
     } catch (error) {
       warnBlobFallbackOnce(error);
       return sortPosts(createSeedPosts());
