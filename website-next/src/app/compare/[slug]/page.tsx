@@ -7,7 +7,18 @@ import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
 import { getPostBySlug } from '@/lib/blog';
 import { absoluteUrl } from '@/lib/site';
+import { compareArticles } from '@/data/compare-articles';
 import { comparePageBySlug, comparePages } from '@/data/compare-pages';
+
+type CompareArticleView = {
+  title: string;
+  description?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  date?: string;
+  tags?: string[];
+  content: string;
+};
 
 export async function generateStaticParams() {
   return comparePages.map((page) => ({ slug: page.slug }));
@@ -25,9 +36,19 @@ export async function generateMetadata({
     return {};
   }
 
-  const post = await getPostBySlug(slug);
-  const title = post?.data.seoTitle ?? post?.data.title ?? comparePage.title;
-  const description = post?.data.seoDescription ?? post?.data.description ?? comparePage.verdict;
+  const promotedArticle = compareArticles[slug];
+  const post = promotedArticle ? null : await getPostBySlug(slug);
+  const article: CompareArticleView | null = promotedArticle ?? (post ? {
+    title: post.data.title,
+    description: post.data.description,
+    seoTitle: post.data.seoTitle,
+    seoDescription: post.data.seoDescription,
+    date: post.data.date,
+    tags: post.data.tags,
+    content: post.content,
+  } : null);
+  const title = article?.seoTitle ?? article?.title ?? comparePage.title;
+  const description = article?.seoDescription ?? article?.description ?? comparePage.verdict;
   const url = absoluteUrl(comparePage.href);
 
   return {
@@ -41,8 +62,8 @@ export async function generateMetadata({
       url,
       title,
       description,
-      publishedTime: post?.data.date,
-      tags: post?.data.tags,
+      publishedTime: article?.date,
+      tags: article?.tags,
     },
     twitter: {
       card: 'summary_large_image',
@@ -64,13 +85,23 @@ export default async function ComparePage({
     notFound();
   }
 
-  const post = await getPostBySlug(slug);
+  const promotedArticle = compareArticles[slug];
+  const post = promotedArticle ? null : await getPostBySlug(slug);
+  const article: CompareArticleView | null = promotedArticle ?? (post ? {
+    title: post.data.title,
+    description: post.data.description,
+    seoTitle: post.data.seoTitle,
+    seoDescription: post.data.seoDescription,
+    date: post.data.date,
+    tags: post.data.tags,
+    content: post.content,
+  } : null);
 
-  if (!post) {
+  if (!article) {
     notFound();
   }
 
-  const publishDate = post.data.date;
+  const publishDate = article.date;
   const pageUrl = absoluteUrl(comparePage.href).toString();
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
@@ -85,7 +116,7 @@ export default async function ComparePage({
       {
         '@type': 'ListItem',
         position: 2,
-        name: post.data.title,
+        name: article.title,
         item: pageUrl,
       },
     ],
@@ -93,8 +124,8 @@ export default async function ComparePage({
   const articleSchema = {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: post.data.title,
-    description: post.data.description ?? comparePage.verdict,
+    headline: article.title,
+    description: article.description ?? comparePage.verdict,
     datePublished: publishDate ?? undefined,
     dateModified: publishDate ?? undefined,
     mainEntityOfPage: pageUrl,
@@ -134,10 +165,10 @@ export default async function ComparePage({
           <div className="mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">Compare</p>
             <h1 className="font-display mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
-              {post.data.title}
+              {article.title}
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-              {post.data.description ?? comparePage.verdict}
+              {article.description ?? comparePage.verdict}
             </p>
 	            <div className="mt-8 flex flex-wrap gap-4">
               <Link
@@ -246,7 +277,7 @@ export default async function ComparePage({
             </div>
 
             <div className="prose prose-invert max-w-none">
-              <MarkdownContent content={post.content} />
+              <MarkdownContent content={article.content} />
             </div>
 	            <div className="mt-10 border border-slate-700 bg-slate-900/70 p-6">
 	              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Decision checkpoint</p>

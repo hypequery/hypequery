@@ -58,6 +58,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'vs Moose', href: '/compare/hypequery-vs-moose' },
       { label: 'vs dbt', href: '/compare/hypequery-vs-dbt' },
       { label: 'vs Propel', href: '/compare/hypequery-vs-propel' },
+      { label: 'ClickHouse Query Builders', href: '/blog/clickhouse-query-builder-typescript' },
     ],
   },
   {
@@ -66,8 +67,7 @@ export const seoFooterGroups: SeoLinkGroup[] = [
       { label: 'Cube.js Alternative', href: '/cube-js-alternative' },
       { label: 'Tinybird Alternative', href: '/tinybird-alternative' },
       { label: 'MooseStack Alternative', href: '/moosestack-alternative' },
-      { label: 'Cube vs Tinybird vs hypequery', href: '/blog/cube-vs-tinybird-vs-hypequery' },
-      { label: 'ClickHouse Query Builders', href: '/blog/clickhouse-query-builder-typescript' },
+      { label: 'Cube vs Tinybird vs hypequery', href: '/compare/cube-vs-tinybird-vs-hypequery' },
     ],
   },
   {

@@ -6,6 +6,7 @@ export type ComparePageConfig = {
     | 'hypequery-vs-prisma'
     | 'hypequery-vs-cube'
     | 'hypequery-vs-tinybird'
+    | 'cube-vs-tinybird-vs-hypequery'
     | 'hypequery-vs-moose'
     | 'hypequery-vs-dbt'
     | 'hypequery-vs-propel';
@@ -240,6 +241,52 @@ export const comparePages: ComparePageConfig[] = [
         question: 'When should I choose Tinybird over hypequery?',
         answer:
           'Choose Tinybird when you have no ops team to manage ClickHouse, need a fast path from raw data to a public API, and data residency or vendor lock-in are not concerns. It is also a good fit when your team is more SQL-fluent than TypeScript-fluent and you want built-in rate limiting and caching without writing any middleware.',
+      },
+    ],
+  },
+  {
+    slug: 'cube-vs-tinybird-vs-hypequery',
+    href: '/compare/cube-vs-tinybird-vs-hypequery',
+    title: 'Cube vs Tinybird vs hypequery',
+    verdict:
+      'Cube, Tinybird, and hypequery all put an API layer between ClickHouse and applications, but they have different shapes: semantic layer platform, managed analytics service, and open-source TypeScript library.',
+    rows: [
+      {
+        label: 'Shape',
+        hypequery: 'Open-source TypeScript library inside your app',
+        alternative: 'Cube is a semantic layer platform; Tinybird is a managed analytics backend',
+      },
+      {
+        label: 'Data ownership',
+        hypequery: 'Uses the ClickHouse you already run',
+        alternative: 'Cube queries your databases; Tinybird typically runs the ClickHouse platform for you',
+      },
+      {
+        label: 'TypeScript workflow',
+        hypequery: 'Queries and response types live in your repo, generated from your schema',
+        alternative: 'Cube and Tinybird expose platform APIs that your app consumes',
+      },
+      {
+        label: 'Best fit',
+        hypequery: 'TypeScript product teams with an existing ClickHouse',
+        alternative: 'Cube for shared BI semantics; Tinybird for zero-ops hosted analytics APIs',
+      },
+    ],
+    faq: [
+      {
+        question: 'When should I choose Cube?',
+        answer:
+          'Choose Cube when multiple consumers, especially BI tools, need the same metric definitions and pre-aggregations from a central semantic layer.',
+      },
+      {
+        question: 'When should I choose Tinybird?',
+        answer:
+          'Choose Tinybird when you want the fastest managed path from data ingestion to hosted analytics APIs and are comfortable with the platform owning that serving layer.',
+      },
+      {
+        question: 'When should I choose hypequery?',
+        answer:
+          'Choose hypequery when you already run ClickHouse and want schema-generated TypeScript types, query definitions, and served endpoints inside your own application codebase.',
       },
     ],
   },
