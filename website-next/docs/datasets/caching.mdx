@@ -111,18 +111,23 @@ Repeated identical requests within the TTL are served from the cache without que
 
 ## Custom stores
 
-The default store is an in-process LRU (500 entries). For multi-instance deployments, provide a shared store implementing `SemanticCacheStore` — three methods, sync or async. Here is a complete Redis-backed store using [ioredis](https://github.com/redis/ioredis):
+The default store is an in-process LRU (500 entries). For multi-instance deployments, provide a shared store implementing `SemanticCacheStore` — three methods, sync or async. Here is a Redis-backed store using a Redis client such as [ioredis](https://github.com/redis/ioredis):
 
 <CodeBlock>
 ```typescript
-import Redis from 'ioredis';
 import {
   createDatasetClient,
   type SemanticCacheEntry,
   type SemanticCacheStore,
 } from '@hypequery/datasets';
 
-const redis = new Redis(process.env.REDIS_URL!);
+interface RedisLike {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, mode: 'PX', ttlMs: number): Promise<unknown>;
+  del(key: string): Promise<unknown>;
+}
+
+declare const redis: RedisLike;
 
 const TTL_MS = 60_000;
 const SWR_MS = 300_000;
@@ -168,6 +173,16 @@ A cache key describes the query, not the connection it runs against. When the sa
 
 <CodeBlock>
 ```typescript
+import {
+  createDatasetClient,
+  type QueryBuilderFactoryLike,
+  type SemanticCacheStore,
+} from '@hypequery/datasets';
+
+declare const euDb: QueryBuilderFactoryLike;
+declare const replicaDb: QueryBuilderFactoryLike;
+declare const redisStore: SemanticCacheStore;
+
 // Client-level: namespace clients that share one store (e.g. one Redis
 // serving several warehouses), so identical queries never collide.
 const euAnalytics = createDatasetClient({
