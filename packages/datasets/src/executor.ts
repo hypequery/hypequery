@@ -586,6 +586,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   private backend?: SemanticBackend;
   private readonly queryCache: SemanticQueryCache;
   private readonly cacheEnabledByDefault: boolean;
+  private readonly defaultCacheScope?: string;
 
   constructor(options: CreateDatasetClientOptions) {
     if (!options.queryBuilder && !options.backend) {
@@ -604,6 +605,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     this.backend = options.backend;
     this.queryCache = new SemanticQueryCache(options.cache);
     this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
+    this.defaultCacheScope = options.cache?.scope;
   }
 
   /**
@@ -615,10 +617,41 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     if (context?.cache === false || context?.cache?.mode === 'bypass') {
       return false;
     }
+    const builderOverride = context?.runtime?.builderFactory;
+    if (
+      builderOverride &&
+      toQueryBuilderFactory(builderOverride) !== this.getBuilderFactory() &&
+      context.cache?.scope == null
+    ) {
+      // A per-call builder override can point at a different data source; the
+      // query signature alone cannot tell them apart, so caching is unsafe
+      // unless the caller partitions entries with an explicit `cache.scope`.
+      // Passing the client's own factory back in is not an override.
+      return false;
+    }
+    if (context?.cache?.mode === 'refresh') {
+      // Always reach the cache: it warns if refresh has no TTL to write under.
+      return true;
+    }
     if (context?.cache?.ttlMs != null) {
       return context.cache.ttlMs > 0;
     }
     return this.cacheEnabledByDefault;
+  }
+
+  /**
+   * Context used for cache-key building: fills in the client-level default
+   * `cache.scope` unless the call sets its own, so clients sharing a custom
+   * store can be namespaced apart.
+   */
+  private signatureContext(context?: ExecutionContext): ExecutionContext | undefined {
+    if (this.defaultCacheScope === undefined) {
+      return context;
+    }
+    if (context?.cache === false || context?.cache?.scope != null) {
+      return context;
+    }
+    return { ...context, cache: { ...context?.cache, scope: this.defaultCacheScope } };
   }
 
   planMetric(
@@ -740,14 +773,17 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       return run();
     }
 
-    // Validate before touching the cache so invalid queries always throw.
-    const validation = this.validate(metric, query, context);
+    // Validate semantic rules before cache lookup so invalid queries and
+    // missing tenant runtime cannot be served from cache. Avoid this.validate()
+    // here because it dry-builds SQL, which is unnecessary on cache hits and
+    // invalid for backend-only clients.
+    const validation = validateQuery(metric, query, context);
     if (!validation.valid) {
       throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
     }
 
     return this.queryCache.through(
-      buildMetricQuerySignature(metric, query, context),
+      buildMetricQuerySignature(metric, query, this.signatureContext(context)),
       run,
       context?.cache,
     );
@@ -780,7 +816,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     }
 
     return this.queryCache.through(
-      buildDatasetQuerySignature(ds, query, context),
+      buildDatasetQuerySignature(ds, query, this.signatureContext(context)),
       run,
       context?.cache,
     );

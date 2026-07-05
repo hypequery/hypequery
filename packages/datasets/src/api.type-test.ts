@@ -10,6 +10,8 @@ import type {
   MeasureOptions,
   MetricFilter,
   QueryBuilderFactoryLike,
+  SemanticCacheOptions,
+  SemanticCacheRuntime,
 } from './index.js';
 
 type Assert<T extends true> = T;
@@ -71,6 +73,15 @@ type _MeasureFilterType = Assert<
 >;
 type _TenantRuntimeShape = Assert<
   Equal<NonNullable<NonNullable<ExecutionContext['runtime']>['tenant']>, string | { id: string } | { in: string[] } | { scope: 'all' }>
+>;
+type _CacheRuntimeIncludesScope = Assert<
+  Equal<NonNullable<ExecutionContext['cache']>, false | SemanticCacheRuntime>
+>;
+type _CacheRuntimeScopeType = Assert<
+  Equal<SemanticCacheRuntime['scope'], string | undefined>
+>;
+type _CacheOptionsScopeType = Assert<
+  Equal<SemanticCacheOptions['scope'], string | undefined>
 >;
 type _DatasetHasNoQueryMethod = Assert<
   Equal<HasKey<typeof Orders, 'query'>, false>

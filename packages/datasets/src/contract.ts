@@ -11,6 +11,7 @@ import {
   type RelationshipCatalogEntry,
 } from './catalog.js';
 import type { DatasetLimits } from './types.js';
+import { sortedRecord, uniqueSorted } from './utils/canonical-json.js';
 
 /**
  * Version of the semantic contract format. Bump when the serialized shape
@@ -243,27 +244,6 @@ export function hashContract(
   contract: SemanticContract | SemanticContractWithoutHash,
 ): string {
   return bytesToHex(sha256(contractToStableJson(contract)));
-}
-
-/**
- * Locale-independent string comparison by UTF-16 code unit. Used everywhere the
- * contract sorts, so the content hash is stable across environments (CI ICU
- * versions, locales) rather than depending on `localeCompare`.
- */
-function compareStrings(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
-/** Builds an object whose keys are inserted in sorted order for stable JSON. */
-function sortedRecord<T>(entries: [string, T][]): Record<string, T> {
-  return Object.fromEntries(
-    [...entries].sort(([left], [right]) => compareStrings(left, right)),
-  );
-}
-
-/** Deduplicates and sorts a list so logically-equal sets serialize identically. */
-function uniqueSorted(values: readonly string[]): string[] {
-  return Array.from(new Set(values)).sort(compareStrings);
 }
 
 /** Normalizes SQL escape-hatch whitespace so equivalent SQL hashes identically. */

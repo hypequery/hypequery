@@ -3,11 +3,12 @@
  *
  * A signature captures everything that changes a query's result set: the
  * target (dataset or metric), selected dimensions/measures, filters, ordering,
- * pagination, time grain, and the effective tenant scope. Two calls with the
+ * pagination, time grain, the effective tenant scope, and any explicit cache
+ * scope (see `SemanticCacheRuntime.scope`). Two calls with the
  * same signature are guaranteed to produce the same rows against the same
  * underlying data, so the signature is safe to use as a result-cache key.
  *
- * Keys are readable canonical JSON rather than hashes so stores can inspect
+ * Keys are readable canonical strings rather than hashes so stores can inspect
  * them and tests can assert on them; stores are free to hash internally.
  */
 
@@ -23,22 +24,20 @@ import type {
 } from '../types.js';
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
 import { getRuntimeTenantPredicate } from '../utils/tenant-runtime.js';
+import { stableStringify } from '../utils/canonical-json.js';
+
+export { stableStringify };
 
 const SIGNATURE_VERSION = 1;
 
-/** JSON.stringify with recursively sorted object keys, so key order never matters. */
-export function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') {
-    return JSON.stringify(value) ?? 'null';
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(stableStringify).join(',')}]`;
-  }
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, entryValue]) => entryValue !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`);
-  return `{${entries.join(',')}}`;
+/**
+ * Explicit cache partition. Callers set `cache.scope` when the same semantic
+ * query can resolve against different data sources (per-call builder
+ * overrides, multiple clients sharing one store).
+ */
+function scopeSignature(context?: ExecutionContext): string | null {
+  const cache = context?.cache;
+  return cache ? cache.scope ?? null : null;
 }
 
 function filterSignature(filters: MetricFilter[] | undefined) {
@@ -92,6 +91,7 @@ export function buildDatasetQuerySignature(
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ds, context),
+    scope: scopeSignature(context),
   });
 }
 
@@ -115,5 +115,6 @@ export function buildMetricQuerySignature(
     limit: query.limit ?? null,
     offset: query.offset ?? null,
     tenant: tenantSignature(ref.dataset, context),
+    scope: scopeSignature(context),
   });
 }

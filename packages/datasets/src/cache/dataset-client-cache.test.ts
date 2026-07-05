@@ -12,6 +12,8 @@ import {
   buildMetricQuerySignature,
   stableStringify,
 } from './query-signature.js';
+import { createMemoryCacheStore } from './semantic-query-cache.js';
+import { createInMemoryBackend } from '../in-memory-backend.js';
 
 function createCountingFactory(rows: Array<Record<string, unknown>> = [{ revenue: 100 }]) {
   const executions = vi.fn();
@@ -150,6 +152,95 @@ describe('DatasetClient result caching', () => {
     expect(executions).toHaveBeenCalledTimes(2);
   });
 
+  it('bypasses the cache when the call overrides the query builder without a scope', async () => {
+    const { factory, executions } = createCountingFactory();
+    const { factory: override, executions: overrideExecutions } =
+      createCountingFactory([{ revenue: 999 }]);
+    const analytics = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+
+    const query = { measures: ['revenue'] };
+    await analytics.execute(Orders, query);
+    // Same signature, different data source: must not serve the cached rows.
+    const overridden = await analytics.execute(Orders, query, {
+      runtime: { builderFactory: override },
+    });
+
+    expect(executions).toHaveBeenCalledTimes(1);
+    expect(overrideExecutions).toHaveBeenCalledTimes(1);
+    expect(overridden.data).toEqual([{ revenue: 999 }]);
+    expect(overridden.meta?.cache).toBeUndefined();
+  });
+
+  it('caches builder-override calls when partitioned with cache.scope', async () => {
+    const { factory } = createCountingFactory();
+    const { factory: replicaA, executions: replicaAExecutions } =
+      createCountingFactory([{ revenue: 1 }]);
+    const { factory: replicaB, executions: replicaBExecutions } =
+      createCountingFactory([{ revenue: 2 }]);
+    const analytics = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+
+    const query = { measures: ['revenue'] };
+    const onReplica = (builderFactory: QueryBuilderFactoryLike, scope: string) =>
+      analytics.execute(Orders, query, { runtime: { builderFactory }, cache: { scope } });
+
+    await onReplica(replicaA, 'replica-a');
+    const hitA = await onReplica(replicaA, 'replica-a');
+    expect(replicaAExecutions).toHaveBeenCalledTimes(1);
+    expect(hitA.meta?.cache).toMatchObject({ hit: true });
+    expect(hitA.data).toEqual([{ revenue: 1 }]);
+
+    // A different scope never sees replica A's entries.
+    const missB = await onReplica(replicaB, 'replica-b');
+    expect(replicaBExecutions).toHaveBeenCalledTimes(1);
+    expect(missB.data).toEqual([{ revenue: 2 }]);
+  });
+
+  it('client-level cache.scope separates clients sharing one store', async () => {
+    const store = createMemoryCacheStore();
+    const { factory: factoryA, executions: executionsA } =
+      createCountingFactory([{ revenue: 1 }]);
+    const { factory: factoryB, executions: executionsB } =
+      createCountingFactory([{ revenue: 2 }]);
+    const clientA = createDatasetClient({
+      queryBuilder: factoryA,
+      cache: { ttlMs: 60_000, store, scope: 'warehouse-a' },
+    });
+    const clientB = createDatasetClient({
+      queryBuilder: factoryB,
+      cache: { ttlMs: 60_000, store, scope: 'warehouse-b' },
+    });
+
+    const query = { measures: ['revenue'] };
+    await clientA.execute(Orders, query);
+    const fromB = await clientB.execute(Orders, query);
+
+    expect(executionsA).toHaveBeenCalledTimes(1);
+    expect(executionsB).toHaveBeenCalledTimes(1);
+    expect(fromB.data).toEqual([{ revenue: 2 }]);
+  });
+
+  it('caches metric and dataset queries on backend-only clients', async () => {
+    // Regression: the pre-cache validation must not dry-build SQL through the
+    // throwing placeholder builder that backend clients are constructed with.
+    const backend = createInMemoryBackend({
+      orders: [
+        { country: 'ES', amount: 10 },
+        { country: 'DE', amount: 20 },
+      ],
+    });
+    const analytics = createDatasetClient({ backend, cache: { ttlMs: 60_000 } });
+
+    const metricFirst = await analytics.execute(revenue, { dimensions: ['country'] });
+    const metricSecond = await analytics.execute(revenue, { dimensions: ['country'] });
+    expect(metricFirst.data.length).toBeGreaterThan(0);
+    expect(metricSecond.meta?.cache).toMatchObject({ hit: true });
+
+    const datasetFirst = await analytics.execute(Orders, { measures: ['revenue'] });
+    const datasetSecond = await analytics.execute(Orders, { measures: ['revenue'] });
+    expect(datasetFirst.data.length).toBeGreaterThan(0);
+    expect(datasetSecond.meta?.cache).toMatchObject({ hit: true });
+  });
+
   it('never caches invalid queries', () => {
     const { factory } = createCountingFactory();
     const analytics = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
@@ -181,6 +272,30 @@ describe('query signatures', () => {
     })).not.toBe(base);
     expect(buildDatasetQuerySignature(Orders, { measures: ['revenue'], limit: 10 })).not.toBe(base);
     expect(buildDatasetQuerySignature(Orders, { measures: ['revenue'], offset: 10 })).not.toBe(base);
+  });
+
+  it('distinguishes Date and bigint filter values', () => {
+    // Regression: Dates used to serialize as '{}', collapsing every date
+    // filter onto one cache key.
+    const sig = (value: unknown) =>
+      buildDatasetQuerySignature(Orders, {
+        measures: ['revenue'],
+        filters: [{ field: 'status', operator: 'gte', value }],
+      });
+    expect(sig(new Date('2026-01-01'))).not.toBe(sig(new Date('2026-06-01')));
+    expect(sig(new Date('2026-01-01'))).toBe(sig(new Date('2026-01-01')));
+    expect(sig(new Date('2026-01-01'))).toBe(sig('2026-01-01T00:00:00.000Z'));
+    expect(sig(1n)).not.toBe(sig(2n));
+    expect(sig(1n)).not.toBe(sig(1));
+    expect(sig(1n)).not.toBe(sig('1n'));
+  });
+
+  it('embeds the explicit cache scope', () => {
+    const scoped = (scope?: string) =>
+      buildDatasetQuerySignature(Orders, { measures: ['revenue'] }, scope ? { cache: { scope } } : {});
+    expect(scoped('a')).not.toBe(scoped('b'));
+    expect(scoped('a')).not.toBe(scoped());
+    expect(scoped()).toBe(buildDatasetQuerySignature(Orders, { measures: ['revenue'] }));
   });
 
   it('embeds the tenant scope for tenant-keyed datasets only', () => {

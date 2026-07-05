@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createMemoryCacheStore,
   SemanticQueryCache,
+  type SemanticCacheEntry,
+  type SemanticCacheStore,
 } from './semantic-query-cache.js';
 
 interface TestResult {
@@ -166,6 +168,74 @@ describe('SemanticQueryCache.through', () => {
     expect(hit.meta?.cache).toMatchObject({ hit: true });
   });
 
+  it('refresh mode does not piggyback on an in-flight miss', async () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000 });
+    const resolvers: Array<(value: TestResult) => void> = [];
+    const run = vi.fn(
+      () => new Promise<TestResult>((resolve) => { resolvers.push(resolve); }),
+    );
+
+    const miss = cache.through('k', run);
+    const refresh = cache.through('k', run, { mode: 'refresh' });
+    expect(run).toHaveBeenCalledTimes(2);
+
+    resolvers[0]({ data: [{ v: 'miss' }] });
+    resolvers[1]({ data: [{ v: 'refresh' }] });
+
+    expect((await miss).data).toEqual([{ v: 'miss' }]);
+    expect((await refresh).data).toEqual([{ v: 'refresh' }]);
+  });
+
+  it('refresh mode without any TTL executes uncached and warns once', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const cache = new SemanticQueryCache();
+      const run = makeRunner();
+
+      const result = await cache.through('k', run, { mode: 'refresh' });
+      await cache.through('k', run, { mode: 'refresh' });
+
+      expect(run).toHaveBeenCalledTimes(2);
+      expect(result.meta?.cache).toBeUndefined();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toMatch(/refresh.*no TTL/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('treats a failing store read as a miss', async () => {
+    const store = createMemoryCacheStore();
+    const failingStore: SemanticCacheStore = {
+      ...store,
+      get: vi.fn(async () => {
+        throw new Error('store down');
+      }),
+    };
+    const cache = new SemanticQueryCache({ ttlMs: 1000, store: failingStore });
+    const run = makeRunner([{ data: [{ v: 'fresh' }] }]);
+
+    const result = await cache.through('k', run);
+    expect(result.data).toEqual([{ v: 'fresh' }]);
+    expect(result.meta?.cache).toEqual({ hit: false });
+  });
+
+  it('returns the fresh result when the store write fails', async () => {
+    const store = createMemoryCacheStore();
+    const failingStore = {
+      ...store,
+      set: vi.fn(async () => {
+        throw new Error('store down');
+      }),
+    };
+    const cache = new SemanticQueryCache({ ttlMs: 1000, store: failingStore });
+    const run = makeRunner([{ data: [{ v: 'fresh' }] }]);
+
+    const result = await cache.through('k', run);
+    expect(result.data).toEqual([{ v: 'fresh' }]);
+    expect(failingStore.set).toHaveBeenCalled();
+  });
+
   it('per-call TTL enables caching without client defaults', async () => {
     const cache = new SemanticQueryCache();
     const run = makeRunner();
@@ -192,7 +262,76 @@ describe('SemanticQueryCache.through', () => {
     expect(run).toHaveBeenCalledTimes(1);
     expect(a.data).toEqual([{ v: 'shared' }]);
     expect(b.data).toEqual([{ v: 'shared' }]);
-    // Concurrent callers never share row objects.
+    // Concurrent callers never share row objects — nor meta.cache objects.
+    expect(a.data[0]).not.toBe(b.data[0]);
+    expect(a.meta?.cache).not.toBe(b.meta?.cache);
+  });
+
+  it('dedupes concurrent misses through an async store', async () => {
+    // Models a Redis-style store: the value is snapshotted when get() is
+    // issued, and the response arrives only when the test releases it.
+    const entries = new Map<string, SemanticCacheEntry>();
+    const reads: Array<() => void> = [];
+    const store: SemanticCacheStore = {
+      get(key) {
+        const snapshot = entries.get(key);
+        return new Promise((resolve) => {
+          reads.push(() => resolve(snapshot));
+        });
+      },
+      async set(key, entry) {
+        entries.set(key, entry);
+      },
+      async delete(key) {
+        entries.delete(key);
+      },
+    };
+    const cache = new SemanticQueryCache({ ttlMs: 1000, store });
+    const run = makeRunner();
+
+    const first = cache.through('k', run);
+    const second = cache.through('k', run);
+
+    // Only the first caller reads the store; the second piggybacks on the
+    // in-flight lookup instead of racing its own read against the write.
+    expect(reads).toHaveLength(1);
+    reads[0]();
+
+    const [a, b] = await Promise.all([first, second]);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(a.data).toEqual(b.data);
+    expect(a.data[0]).not.toBe(b.data[0]);
+  });
+
+  it('piggybacked concurrent callers receive hit metadata when the lookup hits', async () => {
+    const entries = new Map<string, SemanticCacheEntry>();
+    const reads: Array<() => void> = [];
+    const store: SemanticCacheStore = {
+      get(key) {
+        const snapshot = entries.get(key);
+        return new Promise((resolve) => {
+          reads.push(() => resolve(snapshot));
+        });
+      },
+      async set(key, entry) {
+        entries.set(key, entry);
+      },
+      async delete(key) {
+        entries.delete(key);
+      },
+    };
+    const cache = new SemanticQueryCache({ ttlMs: 1000, store });
+    const run = makeRunner();
+
+    entries.set('k', { value: { data: [{ v: 'stored' }] }, storedAt: Date.now() });
+    const first = cache.through('k', run);
+    const second = cache.through('k', run);
+    reads[0]();
+
+    const [a, b] = await Promise.all([first, second]);
+    expect(run).not.toHaveBeenCalled();
+    expect(a.meta?.cache).toMatchObject({ hit: true });
+    expect(b.meta?.cache).toMatchObject({ hit: true });
     expect(a.data[0]).not.toBe(b.data[0]);
   });
 

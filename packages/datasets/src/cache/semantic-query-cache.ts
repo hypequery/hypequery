@@ -4,8 +4,10 @@
  * Sits between `DatasetClient.execute()` and the underlying query builder /
  * backend, keyed by the canonical query signature (see query-signature.ts).
  * Supports TTL freshness, an optional stale-while-revalidate window, and
- * deduplication of concurrent identical misses so a burst of the same query
- * executes once.
+ * deduplication of concurrent identical lookups so a burst of the same query
+ * executes once — including against async stores, where the in-flight lookup
+ * is registered before the store read. Piggybacked callers inherit the
+ * initiating caller's TTL resolution.
  *
  * Values are cloned on write and on read: callers can mutate results freely
  * without contaminating the cache, and cached hits never alias each other.
@@ -21,6 +23,10 @@ export interface SemanticCacheEntry {
  * (e.g. Redis-backed) for multi-instance deployments. Stores hold opaque
  * entries — freshness is decided by the cache from `storedAt` and the
  * effective TTL, so per-call TTLs work against shared entries.
+ *
+ * Store errors are non-fatal: a failed read is treated as a miss and a failed
+ * write is dropped, so a store outage degrades to uncached execution rather
+ * than failing queries.
  */
 export interface SemanticCacheStore {
   get(key: string): SemanticCacheEntry | undefined | Promise<SemanticCacheEntry | undefined>;
@@ -42,6 +48,12 @@ export interface SemanticCacheOptions {
   maxEntries?: number;
   /** Custom store; defaults to an in-process LRU. */
   store?: SemanticCacheStore;
+  /**
+   * Default cache partition included in every key. Set this when multiple
+   * clients pointing at different data sources share one store (e.g. Redis),
+   * so identical queries against different backends never collide.
+   */
+  scope?: string;
 }
 
 /** Per-call cache controls, passed via `ExecutionContext.cache`. */
@@ -52,9 +64,18 @@ export interface SemanticCacheRuntime {
   staleWhileRevalidateMs?: number;
   /**
    * `bypass` skips the cache entirely (no read, no write);
-   * `refresh` skips the read but stores the fresh result.
+   * `refresh` skips the read but stores the fresh result. Refresh needs a
+   * TTL (per-call or client-level) to store under; when neither is
+   * configured it executes uncached and logs a one-time warning.
    */
   mode?: 'bypass' | 'refresh';
+  /**
+   * Cache partition for this call, mixed into the query signature. Required
+   * to cache calls that override the query builder via `runtime.builderFactory`
+   * — without it such calls bypass the cache, because the key alone cannot
+   * tell two data sources apart.
+   */
+  scope?: string;
 }
 
 /** Cache observability attached to `meta.cache` on cached-path results. */
@@ -109,6 +130,12 @@ interface ResolvedCacheConfig {
   mode: 'read-write' | 'refresh';
 }
 
+/** Result of one deduplicated lookup-or-execute, shared by concurrent callers. */
+interface LookupOutcome {
+  value: unknown;
+  info: SemanticCacheMetaInfo;
+}
+
 type CacheableResult = { meta?: object };
 
 function isPromise<T>(value: T | Promise<T>): value is Promise<T> {
@@ -122,15 +149,18 @@ function cloneValue<T>(value: T): T {
 function annotate<T extends CacheableResult>(result: T, info: SemanticCacheMetaInfo): T {
   return {
     ...result,
-    meta: { ...(result.meta ?? {}), cache: info },
+    // Copy `info`: the same outcome is annotated onto every concurrent
+    // caller's result, and results must never alias each other.
+    meta: { ...(result.meta ?? {}), cache: { ...info } },
   } as T;
 }
 
 export class SemanticQueryCache {
   private readonly store: SemanticCacheStore;
   private readonly defaults: SemanticCacheOptions;
-  private readonly pending = new Map<string, Promise<CacheableResult>>();
+  private readonly pending = new Map<string, Promise<LookupOutcome>>();
   private readonly refreshing = new Set<string>();
+  private warnedRefreshWithoutTtl = false;
 
   constructor(options: SemanticCacheOptions = {}) {
     this.defaults = options;
@@ -148,6 +178,15 @@ export class SemanticQueryCache {
     }
     const ttlMs = runtime?.ttlMs ?? this.defaults.ttlMs ?? 0;
     if (ttlMs <= 0) {
+      // A misconfigured refresh must not fail the request — the fresh result
+      // is still correct — but it should not go undiagnosed either.
+      if (runtime?.mode === 'refresh' && !this.warnedRefreshWithoutTtl) {
+        this.warnedRefreshWithoutTtl = true;
+        console.warn(
+          "[hypequery/cache] mode 'refresh' has no TTL to store under; executing uncached. " +
+            'Pass ttlMs on the call or configure cache.ttlMs on the client.',
+        );
+      }
       return undefined;
     }
     return {
@@ -172,42 +211,70 @@ export class SemanticQueryCache {
       return execute();
     }
 
-    if (config.mode !== 'refresh') {
-      // Avoid awaiting synchronous stores so the pending-map registration
-      // below happens before control returns to the caller — that is what
-      // makes back-to-back identical calls share one execution.
-      const read = this.store.get(key);
-      const entry = isPromise(read) ? await read : read;
-      if (entry) {
-        const ageMs = Date.now() - entry.storedAt;
-        if (ageMs <= config.ttlMs) {
-          return annotate(cloneValue(entry.value) as T, { hit: true, ageMs });
-        }
-        if (ageMs <= config.ttlMs + config.staleWhileRevalidateMs) {
-          this.refreshInBackground(key, execute);
-          return annotate(cloneValue(entry.value) as T, { hit: true, ageMs, stale: true });
-        }
-      }
+    if (config.mode === 'refresh') {
+      // Refresh callers asked for an isolated fresh read: never piggyback on
+      // an in-flight miss, just execute and repopulate the entry.
+      const value = await execute();
+      await this.writeEntry(key, value);
+      return annotate(value as T, { hit: false });
     }
 
     const inFlight = this.pending.get(key);
     if (inFlight) {
-      // Piggyback on the identical in-flight execution; clone so concurrent
-      // callers never share a result object.
-      return annotate(cloneValue(await inFlight) as T, { hit: false });
+      // Piggyback on the identical in-flight lookup; clone so concurrent
+      // callers never share a result object. The outcome (hit, staleness) was
+      // resolved with the initiating caller's TTL configuration.
+      const shared = await inFlight;
+      return annotate(cloneValue(shared.value) as T, shared.info);
     }
 
-    const promise = (async () => {
+    // The pending registration below happens synchronously, before the store
+    // read inside the IIFE — that is what makes concurrent identical calls
+    // share one execution even with an async store (e.g. Redis), where a
+    // read snapshot taken before our write would otherwise miss and re-run.
+    const promise = (async (): Promise<LookupOutcome> => {
+      let entry: SemanticCacheEntry | undefined;
+      try {
+        // Avoid the extra microtask when the store answers synchronously.
+        const read = this.store.get(key);
+        entry = isPromise(read) ? await read : read;
+      } catch {
+        // Read failed; treat it as a miss so a store outage degrades to
+        // "no caching" instead of failing the query.
+      }
+      if (entry) {
+        const ageMs = Date.now() - entry.storedAt;
+        if (ageMs <= config.ttlMs) {
+          return { value: entry.value, info: { hit: true, ageMs } };
+        }
+        if (ageMs <= config.ttlMs + config.staleWhileRevalidateMs) {
+          this.refreshInBackground(key, execute);
+          return { value: entry.value, info: { hit: true, ageMs, stale: true } };
+        }
+      }
       const value = await execute();
-      await this.store.set(key, { value: cloneValue(value), storedAt: Date.now() });
-      return value;
+      await this.writeEntry(key, value);
+      return { value, info: { hit: false } };
     })();
 
     this.pending.set(key, promise);
     try {
-      return annotate((await promise) as T, { hit: false });
+      const outcome = await promise;
+      // Hits alias the stored entry and must be cloned; a freshly executed
+      // result is owned by this caller.
+      const value = outcome.info.hit ? cloneValue(outcome.value) : outcome.value;
+      return annotate(value as T, outcome.info);
     } finally {
       this.pending.delete(key);
+    }
+  }
+
+  /** Best-effort write: a failing store degrades to "no caching", never a failed call. */
+  private async writeEntry(key: string, value: unknown): Promise<void> {
+    try {
+      await this.store.set(key, { value: cloneValue(value), storedAt: Date.now() });
+    } catch {
+      // Cache write failed; the fresh result is still returned to the caller.
     }
   }
 
@@ -217,7 +284,7 @@ export class SemanticQueryCache {
     }
     this.refreshing.add(key);
     void execute()
-      .then((value) => this.store.set(key, { value: cloneValue(value), storedAt: Date.now() }))
+      .then((value) => this.writeEntry(key, value))
       .catch(() => {
         // Stale entry stays; the next caller past the SWR window re-executes.
       })
