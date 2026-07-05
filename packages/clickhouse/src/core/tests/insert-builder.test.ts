@@ -1,5 +1,5 @@
 import { createQueryBuilder } from '../../index.js';
-import { normalizeInsertRows } from '../insert-builder.js';
+import { normalizeInsertRows } from '../features/insert-executor.js';
 import type {
   DatabaseAdapter,
   InsertExecutionOptions,

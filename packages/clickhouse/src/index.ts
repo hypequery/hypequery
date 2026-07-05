@@ -1,6 +1,7 @@
 export { createQueryBuilder, QueryBuilder } from './core/query-builder.js';
-export { InsertBuilder, normalizeInsertRows } from './core/insert-builder.js';
-export type { InsertExecuteOptions } from './core/insert-builder.js';
+export { InsertBuilder } from './core/insert-builder.js';
+export type { InsertExecuteOptions, InsertQB } from './core/insert-builder.js';
+export { normalizeInsertRows } from './core/features/insert-executor.js';
 export { ClickHouseConnection } from './core/connection.js';
 export { JoinRelationships } from './core/join-relationships.js';
 export { createClickHouseAdapter, ClickHouseAdapter } from './core/adapters/clickhouse-adapter.js';

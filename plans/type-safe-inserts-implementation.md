@@ -231,33 +231,50 @@ Typing note: `this.client` is the node/web union; the `insert` signatures differ
 
 ### 5.3 `InsertBuilder` (`src/core/insert-builder.ts`)
 
-Immutable, matching the QueryBuilder convention (every mutator returns a new instance):
+Follow the QueryBuilder design exactly — a phantom state object plus a runtime
+query node, immutable transitions, and execution delegated to a feature class:
+
+- **State** (`core/types/builder-state.ts`): `InsertState<Schema, Table, Row>` with
+  `AnyInsertState`, `InitialInsertState` (row = `InsertRow<Schema[Table]>`), and
+  `UpdateInsertRow` transition helpers, mirroring `BuilderState`/`InitialState`/`UpdateOutput`.
+- **Query node** (`types/base.ts` + `core/query-node.ts`): `InsertQueryNode`
+  (`kind: 'insert-query'`, `rows`, `columns?`, `settings?`) with
+  `createInsertQueryNode`/`cloneInsertQueryNode`, mirroring `SelectQueryNode`.
+- **Executor feature** (`core/features/insert-executor.ts`): `InsertExecutorFeature`
+  holds `execute()` (validation, normalization, logging, adapter call) and reads the
+  builder through `getTableName()`/`getAdapter()`/`getQueryNode()` accessors, mirroring
+  `ExecutorFeature`. `normalizeInsertRows` lives here too.
 
 ```ts
 export class InsertBuilder<
   Schema extends SchemaDefinition<Schema>,
-  Table extends Extract<keyof Schema, string>,
-  Row extends Record<string, unknown> = InsertRow<Schema[Table]>
+  State extends InsertState<Schema, keyof Schema, any>
 > {
-  // ctor: (tableName: string, adapter: DatabaseAdapter)
-  // private: rows: Row[], columnList?: string[], clickhouseSettings?: ClickHouseSettings
+  // ctor: (tableName: string, state: State, adapter: DatabaseAdapter)
+  // private: query: InsertQueryNode, state, executor, adapter
+  // private fork(state, query) / cloneMutable() / updateQuery(updater) — as in QueryBuilder
 
-  columns<K extends Extract<keyof Schema[Table], string>>(
+  columns<K extends Extract<keyof Schema[State['table']], string>>(
     columns: readonly K[]
-  ): InsertBuilder<Schema, Table, InsertRowForColumns<Schema[Table], K>>;
+  ): InsertBuilder<Schema, UpdateInsertRow<State, InsertRowForColumns<Schema[State['table']], K>>>;
   // Must be called before values(); throw if rows already set.
-  // Stores columnList for the adapter (ClickHouse fills DEFAULTs for omitted cols).
+  // Stores columns on the query node (ClickHouse fills DEFAULTs for omitted cols).
 
-  values(rows: Row | Row[]): InsertBuilder<Schema, Table, Row>;
+  values(rows: State['row'] | ReadonlyArray<State['row']>): this;
   // Accumulates (concat) so .values(a).values(b) works; normalize to array.
 
-  settings(settings: ClickHouseSettings): InsertBuilder<Schema, Table, Row>;
+  settings(opts: ClickHouseSettings): this;
 
-  async execute(options?: { queryId?: string }): Promise<InsertResultSummary>;
+  getTableName(); getAdapter(); getQueryNode();   // feature accessors
+
+  execute(options?: { queryId?: string }): Promise<InsertResultSummary>;
+  // Delegates to InsertExecutorFeature.
 }
+
+export type InsertQB<Schema, Table> = InsertBuilder<Schema, InitialInsertState<Schema, Table>>;
 ```
 
-`execute()` behavior:
+`execute()` behavior (in `InsertExecutorFeature`):
 
 1. Throw if no rows: `Error('No values provided. Call .values() before .execute().')`
 2. Throw if `!adapter.insert` (message in §5.1).
@@ -277,8 +294,13 @@ In the object returned by `createQueryBuilder` (after `rawQuery`, before `table`
 ```ts
 insertInto<TableName extends Extract<keyof Schema, string>>(
   tableName: TableName
-): InsertBuilder<Schema, TableName> {
-  return new InsertBuilder<Schema, TableName>(tableName, resolvedAdapter);
+): InsertQB<Schema, TableName> {
+  const state = {
+    schema: {} as Schema,
+    table: tableName,
+    row: {} as InitialInsertState<Schema, TableName>['row'],
+  } as InitialInsertState<Schema, TableName>;
+  return new InsertBuilder<Schema, InitialInsertState<Schema, TableName>>(tableName, state, resolvedAdapter);
 },
 ```
 

@@ -1,6 +1,7 @@
 import type {
   ConditionValueNode,
   ExprNode,
+  InsertQueryNode,
   QueryConfig,
   SelectQueryNode,
 } from '../types/index.js';
@@ -88,6 +89,21 @@ export function cloneSelectQueryNode<TOutput, TSchema>(
   query: SelectQueryNode<TOutput, TSchema>
 ): SelectQueryNode<TOutput, TSchema> {
   return createSelectQueryNode(query);
+}
+
+export function createInsertQueryNode(
+  config: Partial<Omit<InsertQueryNode, 'kind'>> = {}
+): InsertQueryNode {
+  return {
+    kind: 'insert-query',
+    rows: config.rows ? config.rows.map(row => ({ ...row })) : [],
+    columns: config.columns ? [...config.columns] : undefined,
+    settings: config.settings ? { ...config.settings } : undefined,
+  };
+}
+
+export function cloneInsertQueryNode(query: InsertQueryNode): InsertQueryNode {
+  return createInsertQueryNode(query);
 }
 
 export type QueryNodeTransform<TOutput, TSchema> = (

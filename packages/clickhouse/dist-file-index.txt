@@ -70,6 +70,9 @@ core/features/executor.js
 core/features/filtering.d.ts
 core/features/filtering.d.ts.map
 core/features/filtering.js
+core/features/insert-executor.d.ts
+core/features/insert-executor.d.ts.map
+core/features/insert-executor.js
 core/features/joins.d.ts
 core/features/joins.d.ts.map
 core/features/joins.js

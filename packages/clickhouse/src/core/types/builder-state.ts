@@ -1,4 +1,5 @@
 import type { ColumnType, InferColumnType, TableRecord } from '../../types/schema.js';
+import type { InsertRow } from '../../types/insert.js';
 import type { Simplify } from './type-helpers.js';
 
 export type SchemaDefinition<Schema extends Record<string, any> = Record<string, any>> = {
@@ -101,6 +102,28 @@ export type AddScalar<
   State['aliases'],
   State['scalars'] & Record<Alias, Value>
 >;
+
+export type InsertState<
+  Schema extends SchemaDefinition<Schema>,
+  Table extends keyof Schema,
+  Row
+> = {
+  schema: Schema;
+  table: Table;
+  row: Row;
+};
+
+export type AnyInsertState = InsertState<any, any, any>;
+
+export type InitialInsertState<
+  Schema extends SchemaDefinition<Schema>,
+  Table extends keyof Schema
+> = InsertState<Schema, Table, InsertRow<Schema[Table]>>;
+
+export type UpdateInsertRow<
+  State extends AnyInsertState,
+  Row
+> = InsertState<State['schema'], State['table'], Row>;
 
 export type ResolveTableSchema<
   State extends AnyBuilderState,
