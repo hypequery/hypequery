@@ -24,8 +24,9 @@ import type {
 import type { DatasetQuery } from '@hypequery/datasets/internal';
 import { ServeHttpError } from '../../errors.js';
 import {
+  buildEndpointCacheRuntime,
   resolveSemanticExecutionRuntime,
-  resolveSemanticQueryBuilder,
+  resolveSemanticQueryBuilderOverride,
 } from '../query-builder-context.js';
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
@@ -119,8 +120,11 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
       );
     }
 
-    // Execute through the shared client so per-entry cache TTLs apply.
-    const runtimeBuilderFactory = resolveSemanticQueryBuilder(
+    // Execute through the shared client so per-entry cache TTLs apply. Only
+    // genuine per-request overrides reach the execution context; the shared
+    // client already executes with the configured builder, and a non-override
+    // would disable result caching.
+    const builderFactoryOverride = resolveSemanticQueryBuilderOverride(
       semanticContext,
       builderFactory,
     );
@@ -135,13 +139,10 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     }
     const result = await analytics.execute(ds, query, {
       runtime: {
-        ...runtime,
-        builderFactory: runtimeBuilderFactory,
+        builderFactory: builderFactoryOverride,
         tenant: runtime?.tenant,
       },
-      cache: typeof resolved.cache === 'number' && resolved.cache > 0
-        ? { ttlMs: resolved.cache }
-        : undefined,
+      cache: buildEndpointCacheRuntime(resolved.cache, runtime?.cacheScope),
     });
     const timingMs = Date.now() - start;
 

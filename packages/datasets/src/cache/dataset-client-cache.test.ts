@@ -152,23 +152,52 @@ describe('DatasetClient result caching', () => {
     expect(executions).toHaveBeenCalledTimes(2);
   });
 
-  it('bypasses the cache when the call overrides the query builder without a scope', async () => {
-    const { factory, executions } = createCountingFactory();
-    const { factory: override, executions: overrideExecutions } =
-      createCountingFactory([{ revenue: 999 }]);
-    const analytics = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+  it('bypasses the cache and warns once when the call overrides the query builder without a scope', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { factory, executions } = createCountingFactory();
+      const { factory: override, executions: overrideExecutions } =
+        createCountingFactory([{ revenue: 999 }]);
+      const analytics = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
 
-    const query = { measures: ['revenue'] };
-    await analytics.execute(Orders, query);
-    // Same signature, different data source: must not serve the cached rows.
-    const overridden = await analytics.execute(Orders, query, {
-      runtime: { builderFactory: override },
-    });
+      const query = { measures: ['revenue'] };
+      await analytics.execute(Orders, query);
+      // Same signature, different data source: must not serve the cached rows.
+      const overridden = await analytics.execute(Orders, query, {
+        runtime: { builderFactory: override },
+      });
 
-    expect(executions).toHaveBeenCalledTimes(1);
-    expect(overrideExecutions).toHaveBeenCalledTimes(1);
-    expect(overridden.data).toEqual([{ revenue: 999 }]);
-    expect(overridden.meta?.cache).toBeUndefined();
+      expect(executions).toHaveBeenCalledTimes(1);
+      expect(overrideExecutions).toHaveBeenCalledTimes(1);
+      expect(overridden.data).toEqual([{ revenue: 999 }]);
+      expect(overridden.meta?.cache).toBeUndefined();
+
+      // The silent bypass is diagnosed once, not per call.
+      await analytics.execute(Orders, query, { runtime: { builderFactory: override } });
+      expect(overrideExecutions).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain('cache.scope');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('does not warn about unscoped overrides when caching was never requested', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { factory } = createCountingFactory();
+      const { factory: override } = createCountingFactory([{ revenue: 999 }]);
+      // No client TTL and no per-call TTL: nothing to cache, nothing to warn about.
+      const analytics = createDatasetClient({ queryBuilder: factory });
+
+      await analytics.execute(Orders, { measures: ['revenue'] }, {
+        runtime: { builderFactory: override },
+      });
+
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('caches builder-override calls when partitioned with cache.scope', async () => {

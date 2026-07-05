@@ -622,6 +622,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   private readonly queryCache: SemanticQueryCache;
   private readonly cacheEnabledByDefault: boolean;
   private readonly defaultCacheScope?: string;
+  private warnedUnscopedOverride = false;
 
   constructor(options: CreateDatasetClientOptions) {
     if (!options.queryBuilder && !options.backend) {
@@ -662,6 +663,17 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       // query signature alone cannot tell them apart, so caching is unsafe
       // unless the caller partitions entries with an explicit `cache.scope`.
       // Passing the client's own factory back in is not an override.
+      const cacheRequested =
+        context.cache?.mode === 'refresh' ||
+        (context.cache?.ttlMs != null ? context.cache.ttlMs > 0 : this.cacheEnabledByDefault);
+      if (cacheRequested && !this.warnedUnscopedOverride) {
+        this.warnedUnscopedOverride = true;
+        console.warn(
+          '[hypequery/cache] Result caching is disabled for calls that override ' +
+            'runtime.builderFactory, because the cache key cannot tell data sources apart. ' +
+            "Set cache.scope to a stable identifier for the override's data source to cache these calls.",
+        );
+      }
       return false;
     }
     if (context?.cache?.mode === 'refresh') {

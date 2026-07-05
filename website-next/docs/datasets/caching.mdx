@@ -199,3 +199,38 @@ await analytics.execute(revenue, { dimensions: ['country'] }, {
 });
 ```
 </CodeBlock>
+
+An unscoped builder override with caching configured executes uncached and logs a one-time warning, so per-request routing never serves rows from the wrong source — but a silently disabled cache does not go undiagnosed.
+
+### Cache scopes in serve
+
+Serve middleware that routes requests to different warehouses attaches the override — and its scope — to the request context with `attachSemanticRuntime`. Without `cacheScope`, entry-level caching is bypassed for those requests, exactly like the per-call case above.
+
+<CodeBlock>
+```typescript
+import { serve, attachSemanticRuntime } from '@hypequery/serve';
+
+export const api = serve({
+  queryBuilder: primaryDb,
+  datasets: {
+    orders: {
+      dataset: Orders,
+      cache: 60_000,
+      middlewares: [
+        async (ctx, next) => {
+          if (ctx.auth?.region === 'eu') {
+            Object.assign(ctx, attachSemanticRuntime(ctx, {
+              builderFactory: euReplicaDb,
+              cacheScope: 'replica-eu',
+            }));
+          }
+          return next();
+        },
+      ],
+    },
+  },
+});
+```
+</CodeBlock>
+
+Use `attachSemanticCacheScope(ctx, scope)` to partition entries without overriding the builder — for example when several serve instances with different data share one Redis store.

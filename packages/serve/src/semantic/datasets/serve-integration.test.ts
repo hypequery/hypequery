@@ -11,6 +11,10 @@ import {
   type QueryBuilderFactoryLike,
 } from '@hypequery/datasets';
 import { MetricQueryEngine } from '@hypequery/datasets/internal';
+import {
+  attachSemanticCacheScope,
+  attachSemanticRuntime,
+} from '../query-builder-context.js';
 import type { ServeRequest } from '../../types.js';
 import type { ServeQueryEvent } from '../../query-logger.js';
 
@@ -2071,8 +2075,10 @@ describe("semantic endpoint result caching", () => {
    * validation also builds queries via table(), so table() counts would
    * overstate executions.
    */
-  function createExecutionCountingFactory() {
-    const inner = createMockBuilderFactory();
+  function createExecutionCountingFactory(
+    mockDataOverride?: Array<Record<string, unknown>>,
+  ) {
+    const inner = createMockBuilderFactory(mockDataOverride);
     let executions = 0;
 
     const factory: QueryBuilderFactoryLike = {
@@ -2196,6 +2202,141 @@ describe("semantic endpoint result caching", () => {
       })
     );
 
+    expect(getExecutions()).toBe(2);
+  });
+
+  it("bypasses the cache and warns when middleware overrides the query builder without a cache scope", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const primary = createExecutionCountingFactory();
+      const replica = createExecutionCountingFactory([{ country: "EU", revenue: 1 }]);
+      const api = createAPI({
+        datasets: {
+          orders: {
+            dataset: Orders,
+            cache: 60_000,
+            middlewares: [
+              async (ctx, next) => {
+                Object.assign(
+                  ctx,
+                  attachSemanticRuntime(ctx, { builderFactory: replica.factory }),
+                );
+                return next();
+              },
+            ],
+          },
+        },
+        queryBuilder: primary.factory,
+      });
+
+      const request = () => api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: { dimensions: ["country"], measures: ["revenue"] },
+        })
+      );
+
+      const first = await request();
+      const second = await request();
+
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      // Every request executes against the override; nothing is cached and
+      // the primary source is never queried.
+      expect(replica.getExecutions()).toBe(2);
+      expect(primary.getExecutions()).toBe(0);
+      expect(semanticBody(second).data).toEqual([{ country: "EU", revenue: 1 }]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain("cache.scope");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("caches per-request builder overrides that set a cache scope", async () => {
+    const primary = createExecutionCountingFactory();
+    const replica = createExecutionCountingFactory([{ country: "EU", revenue: 1 }]);
+    const api = createAPI({
+      datasets: {
+        orders: {
+          dataset: Orders,
+          cache: 60_000,
+          middlewares: [
+            async (ctx, next) => {
+              Object.assign(
+                ctx,
+                attachSemanticRuntime(ctx, {
+                  builderFactory: replica.factory,
+                  cacheScope: "replica-eu",
+                }),
+              );
+              return next();
+            },
+          ],
+        },
+      },
+      queryBuilder: primary.factory,
+    });
+
+    const request = () => api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["country"], measures: ["revenue"], includeMeta: true },
+      })
+    );
+
+    const first = await request();
+    const second = await request();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(replica.getExecutions()).toBe(1);
+    expect(primary.getExecutions()).toBe(0);
+    expect(semanticBody(second).data).toEqual(semanticBody(first).data);
+
+    const secondMeta = semanticBody(second).meta as { cache?: { hit: boolean } } | undefined;
+    expect(secondMeta?.cache).toMatchObject({ hit: true });
+  });
+
+  it("partitions cache entries by cache scope", async () => {
+    const { factory, getExecutions } = createExecutionCountingFactory();
+    const api = createAPI({
+      metrics: {
+        totalRevenue: {
+          metric: totalRevenue,
+          cache: 60_000,
+          middlewares: [
+            async (ctx, next) => {
+              const scope = ctx.request?.headers?.["x-warehouse"];
+              if (typeof scope === "string") {
+                Object.assign(ctx, attachSemanticCacheScope(ctx, scope));
+              }
+              return next();
+            },
+          ],
+        },
+      },
+      queryBuilder: factory,
+    });
+
+    const request = (warehouse: string) => api.handler(
+      createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: { dimensions: ["country"] },
+        headers: { "content-type": "application/json", "x-warehouse": warehouse },
+      })
+    );
+
+    await request("warehouse-a");
+    await request("warehouse-a");
+    // Same scope shares the entry.
+    expect(getExecutions()).toBe(1);
+
+    // A different scope never sees the other scope's entries.
+    await request("warehouse-b");
     expect(getExecutions()).toBe(2);
   });
 });

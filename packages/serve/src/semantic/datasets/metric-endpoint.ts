@@ -21,8 +21,9 @@ import type {
 import type { AnyDatasetInstance, DatasetClient, MetricContract, MetricHandle, QueryBuilderFactoryLike } from '@hypequery/datasets';
 import { ServeHttpError } from '../../errors.js';
 import {
+  buildEndpointCacheRuntime,
   resolveSemanticExecutionRuntime,
-  resolveSemanticQueryBuilder,
+  resolveSemanticQueryBuilderOverride,
 } from '../query-builder-context.js';
 import { buildMetricInputSchema } from './utils/semantic-input-schema.js';
 
@@ -142,7 +143,10 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     const semanticContext: Record<string, unknown> = ctx;
     const input = ctx.input ?? {};
     const runtime = resolveSemanticExecutionRuntime(semanticContext);
-    const runtimeBuilderFactory = resolveSemanticQueryBuilder(
+    // Only genuine per-request overrides reach the execution context; the
+    // shared client already executes with `defaultBuilderFactory`, and a
+    // non-override would disable result caching.
+    const builderFactoryOverride = resolveSemanticQueryBuilderOverride(
       semanticContext,
       defaultBuilderFactory,
     );
@@ -180,16 +184,14 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       );
     }
 
-    // Execute with tenant context; per-entry cache TTL applies server-side.
+    // Execute with tenant context; per-entry cache TTL applies server-side,
+    // partitioned by any middleware-attached cache scope.
     const result = await analytics.execute(metricRef, query, {
       runtime: {
-        ...runtime,
-        builderFactory: runtimeBuilderFactory,
+        builderFactory: builderFactoryOverride,
         tenant: runtime?.tenant,
       },
-      cache: typeof resolved.cache === 'number' && resolved.cache > 0
-        ? { ttlMs: resolved.cache }
-        : undefined,
+      cache: buildEndpointCacheRuntime(resolved.cache, runtime?.cacheScope),
     });
 
     // Decide whether to include meta — `includeMeta` input field or x-include-meta header.

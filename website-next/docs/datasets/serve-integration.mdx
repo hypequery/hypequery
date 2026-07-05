@@ -163,4 +163,41 @@ export const api = serve({
 ```
 </CodeBlock>
 
+`cache` caches results server-side for that TTL, keyed by the full query signature (see [Caching](/docs/datasets/caching)).
+
+## Per-request warehouse routing
+
+Middleware can route individual requests to a different data source by attaching a query-builder override to the request context. When the endpoint also caches, pair the override with a `cacheScope`: the cache key describes the query, not the connection, so an unscoped override bypasses the result cache (with a one-time warning) to avoid serving rows from the wrong source.
+
+<CodeBlock>
+```typescript
+import { serve, attachSemanticRuntime } from '@hypequery/serve';
+
+export const api = serve({
+  queryBuilder: primaryDb,
+  datasets: {
+    orders: {
+      dataset: Orders,
+      cache: 60_000,
+      middlewares: [
+        async (ctx, next) => {
+          if (ctx.auth?.region === 'eu') {
+            Object.assign(ctx, attachSemanticRuntime(ctx, {
+              builderFactory: euReplicaDb,
+              // Partitions cache entries per data source, keeping the
+              // entry-level cache enabled for routed requests.
+              cacheScope: 'replica-eu',
+            }));
+          }
+          return next();
+        },
+      ],
+    },
+  },
+});
+```
+</CodeBlock>
+
+To partition cache entries without overriding the builder — for example when several deployments share one cache store — use `attachSemanticCacheScope(ctx, scope)`.
+
 For routing, auth, OpenAPI, and React hooks, see the [Serve docs](/docs/http-openapi) and [React docs](/docs/react/getting-started).
