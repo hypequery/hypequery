@@ -69,6 +69,14 @@ import {
   validateTenantRuntime,
 } from './utils/tenant-runtime.js';
 import { applyPagination, overfetchLimit } from './utils/pagination.js';
+import {
+  SemanticQueryCache,
+  type SemanticCacheOptions,
+} from './cache/semantic-query-cache.js';
+import {
+  buildDatasetQuerySignature,
+  buildMetricQuerySignature,
+} from './cache/query-signature.js';
 
 function validateQuery(
   metric: MetricHandle,
@@ -203,6 +211,14 @@ export interface CreateDatasetClientOptions {
   queryBuilder?: QueryBuilderFactoryInput;
   /** Semantic backend for executing neutral semantic plans. */
   backend?: SemanticBackend;
+  /**
+   * Result-cache defaults for this client. Results are keyed by the canonical
+   * query signature (target, dimensions, measures, filters, ordering,
+   * pagination, grain, and tenant scope). Individual calls can override or
+   * bypass via `ExecutionContext.cache`; per-call `{ cache: { ttlMs } }` works
+   * even when this option is omitted.
+   */
+  cache?: SemanticCacheOptions;
 }
 
 /** Resolves the per-call builder override, adapted to the call contract. */
@@ -568,6 +584,9 @@ export class MetricQueryEngine {
 
 export class DatasetClientImpl extends MetricQueryEngine implements DatasetClient {
   private backend?: SemanticBackend;
+  private readonly queryCache: SemanticQueryCache;
+  private readonly cacheEnabledByDefault: boolean;
+  private readonly defaultCacheScope?: string;
 
   constructor(options: CreateDatasetClientOptions) {
     if (!options.queryBuilder && !options.backend) {
@@ -584,6 +603,55 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       },
     });
     this.backend = options.backend;
+    this.queryCache = new SemanticQueryCache(options.cache);
+    this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
+    this.defaultCacheScope = options.cache?.scope;
+  }
+
+  /**
+   * True when this call can hit the cache — either the client has a default
+   * TTL or the call opts in via `context.cache`. Skips signature building for
+   * the common uncached path.
+   */
+  private isCacheable(context?: ExecutionContext): boolean {
+    if (context?.cache === false || context?.cache?.mode === 'bypass') {
+      return false;
+    }
+    const builderOverride = context?.runtime?.builderFactory;
+    if (
+      builderOverride &&
+      toQueryBuilderFactory(builderOverride) !== this.getBuilderFactory() &&
+      context.cache?.scope == null
+    ) {
+      // A per-call builder override can point at a different data source; the
+      // query signature alone cannot tell them apart, so caching is unsafe
+      // unless the caller partitions entries with an explicit `cache.scope`.
+      // Passing the client's own factory back in is not an override.
+      return false;
+    }
+    if (context?.cache?.mode === 'refresh') {
+      // Always reach the cache: it warns if refresh has no TTL to write under.
+      return true;
+    }
+    if (context?.cache?.ttlMs != null) {
+      return context.cache.ttlMs > 0;
+    }
+    return this.cacheEnabledByDefault;
+  }
+
+  /**
+   * Context used for cache-key building: fills in the client-level default
+   * `cache.scope` unless the call sets its own, so clients sharing a custom
+   * store can be namespaced apart.
+   */
+  private signatureContext(context?: ExecutionContext): ExecutionContext | undefined {
+    if (this.defaultCacheScope === undefined) {
+      return context;
+    }
+    if (context?.cache === false || context?.cache?.scope != null) {
+      return context;
+    }
+    return { ...context, cache: { ...context?.cache, scope: this.defaultCacheScope } };
   }
 
   planMetric(
@@ -687,17 +755,38 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: MetricQuery,
     context?: ExecutionContext,
   ): Promise<MetricResult<TRow>> {
-    if (this.backend) {
-      const validation = validateQuery(metric, query, context);
-      if (!validation.valid) {
-        throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+    const run = (): Promise<MetricResult<TRow>> => {
+      if (this.backend) {
+        const validation = validateQuery(metric, query, context);
+        if (!validation.valid) {
+          throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+        }
+        return this.backend.execute<TRow>(
+          this.planMetric(metric, query, context),
+        ) as Promise<MetricResult<TRow>>;
       }
-      return this.backend.execute<TRow>(
-        this.planMetric(metric, query, context),
-      ) as Promise<MetricResult<TRow>>;
+
+      return this.run<TRow>(metric, query, context);
+    };
+
+    if (!this.isCacheable(context)) {
+      return run();
     }
 
-    return this.run<TRow>(metric, query, context);
+    // Validate semantic rules before cache lookup so invalid queries and
+    // missing tenant runtime cannot be served from cache. Avoid this.validate()
+    // here because it dry-builds SQL, which is unnecessary on cache hits and
+    // invalid for backend-only clients.
+    const validation = validateQuery(metric, query, context);
+    if (!validation.valid) {
+      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+    }
+
+    return this.queryCache.through(
+      buildMetricQuerySignature(metric, query, this.signatureContext(context)),
+      run,
+      context?.cache,
+    );
   }
 
   private executeDataset<TRow>(
@@ -705,24 +794,32 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: DatasetQuery,
     context?: ExecutionContext,
   ): Promise<DatasetQueryResult<TRow>> {
-    if (this.backend) {
-      const validation = this.validate(ds, query, context);
-      if (!validation.valid) {
-        throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
-      }
-      return this.backend.execute<TRow>(
-        this.planDataset(ds, query, context),
-      ) as Promise<DatasetQueryResult<TRow>>;
-    }
-
     const validation = this.validate(ds, query, context);
     if (!validation.valid) {
       throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
     }
-    return runDatasetQuery(ds, query, {
-      builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
-      context,
-    }) as Promise<DatasetQueryResult<TRow>>;
+
+    const run = (): Promise<DatasetQueryResult<TRow>> => {
+      if (this.backend) {
+        return this.backend.execute<TRow>(
+          this.planDataset(ds, query, context),
+        ) as Promise<DatasetQueryResult<TRow>>;
+      }
+      return runDatasetQuery(ds, query, {
+        builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
+        context,
+      }) as Promise<DatasetQueryResult<TRow>>;
+    };
+
+    if (!this.isCacheable(context)) {
+      return run();
+    }
+
+    return this.queryCache.through(
+      buildDatasetQuerySignature(ds, query, this.signatureContext(context)),
+      run,
+      context?.cache,
+    );
   }
 
   private toDatasetSQL(

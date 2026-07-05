@@ -29,6 +29,7 @@
     "datasets/filters",
     "datasets/time-grains",
     "datasets/execution",
+    "datasets/caching",
     "datasets/multi-tenancy",
     "datasets/serve-integration",
     "datasets/catalog",

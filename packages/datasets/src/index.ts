@@ -83,6 +83,20 @@ export type {
 // Dataset client
 export { createDatasetClient } from './executor.js';
 export type { DatasetClient, CreateDatasetClientOptions } from './executor.js';
+
+// Semantic query result cache
+export { createMemoryCacheStore } from './cache/semantic-query-cache.js';
+export type {
+  SemanticCacheEntry,
+  SemanticCacheMetaInfo,
+  SemanticCacheOptions,
+  SemanticCacheRuntime,
+  SemanticCacheStore,
+} from './cache/semantic-query-cache.js';
+export {
+  buildDatasetQuerySignature,
+  buildMetricQuerySignature,
+} from './cache/query-signature.js';
 export { createInMemoryBackend } from './in-memory-backend.js';
 export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';
 export type {

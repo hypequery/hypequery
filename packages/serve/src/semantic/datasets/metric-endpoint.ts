@@ -40,6 +40,11 @@ const metricResultMetaSchema = z.object({
     offset: z.number(),
     hasMore: z.boolean(),
   }).optional(),
+  cache: z.object({
+    hit: z.boolean(),
+    ageMs: z.number().optional(),
+    stale: z.boolean().optional(),
+  }).optional(),
 }).optional();
 
 const metricResultSchema = z.object({
@@ -175,13 +180,16 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
       );
     }
 
-    // Execute with tenant context
+    // Execute with tenant context; per-entry cache TTL applies server-side.
     const result = await analytics.execute(metricRef, query, {
       runtime: {
         ...runtime,
         builderFactory: runtimeBuilderFactory,
         tenant: runtime?.tenant,
       },
+      cache: typeof resolved.cache === 'number' && resolved.cache > 0
+        ? { ttlMs: resolved.cache }
+        : undefined,
     });
 
     // Decide whether to include meta — `includeMeta` input field or x-include-meta header.
