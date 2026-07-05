@@ -1,0 +1,127 @@
+import { createQueryBuilder } from '../src/index.js';
+import type { InsertRow, InsertResultSummary } from '../src/index.js';
+import type { TestSchema } from '../src/core/tests/test-utils.js';
+import type { Equal, Expect } from '@type-challenges/utils';
+
+const db = createQueryBuilder<TestSchema>({
+  adapter: {
+    name: 'type-test',
+    query: async () => [],
+  },
+});
+
+// --- Full-width row shape: Nullable columns optional, others required, widened inputs.
+
+type UsersInsert = InsertRow<TestSchema['users']>;
+type ExpectedUsersInsert = {
+  id: number;
+  user_name: string;
+  email: string;
+  created_at: string | Date | number;
+  profile: Record<string, string>;
+  roles: string[];
+  is_active: boolean;
+  preferences?: Record<string, string> | null;
+};
+type AssertUsersInsert = Expect<Equal<UsersInsert, ExpectedUsersInsert>>;
+
+// Large integers accept string | number | bigint on the insert side.
+type EventsSchema = {
+  events: {
+    id: 'Int64';
+    ts: 'DateTime';
+    note: 'Nullable(String)';
+  };
+};
+type EventsInsert = InsertRow<EventsSchema['events']>;
+type ExpectedEventsInsert = {
+  id: string | number | bigint;
+  ts: string | Date | number;
+  note?: string | null;
+};
+type AssertEventsInsert = Expect<Equal<EventsInsert, ExpectedEventsInsert>>;
+
+// --- Valid inserts.
+
+const fullInsert = db.insertInto('users').values({
+  id: 1,
+  user_name: 'ada',
+  email: 'ada@example.com',
+  created_at: new Date(),
+  profile: { plan: 'pro' },
+  roles: ['admin'],
+  is_active: true,
+});
+type ExecuteResult = Awaited<ReturnType<typeof fullInsert.execute>>;
+type AssertExecuteResult = Expect<Equal<ExecuteResult, InsertResultSummary>>;
+
+// Nullable columns can be set explicitly to null.
+db.insertInto('users').values({
+  id: 2,
+  user_name: 'grace',
+  email: 'grace@example.com',
+  created_at: '2026-01-01',
+  profile: {},
+  roles: [],
+  is_active: false,
+  preferences: null,
+});
+
+// Full test_table row: Date accepted for DateTime64, maps/arrays typed, optional columns omitted.
+db.insertInto('test_table').values({
+  id: 1,
+  name: 'widget',
+  price: 9.99,
+  created_at: new Date(),
+  category: 'tools',
+  active: 1,
+  created_by: 1,
+  updated_by: 1,
+  status: 'new',
+  brand: 'acme',
+  total: 10,
+  priority: 'high',
+  is_premium: true,
+  metadata: { source: 'test' },
+  tags: ['a', 'b'],
+  settings: { theme: 'dark' },
+  categories: ['tools'],
+  feature_flags: [{ beta: 'on' }],
+  permissions: { admin: ['read', 'write'] },
+  created_timestamp: new Date(),
+});
+
+// --- Column subsets.
+
+const subset = db.insertInto('users').columns(['id', 'user_name']);
+subset.values({ id: 1, user_name: 'ada' });
+subset.values([{ id: 1, user_name: 'ada' }, { id: 2, user_name: 'grace' }]);
+
+// Nullable columns stay optional inside a subset.
+db.insertInto('users').columns(['id', 'user_name', 'preferences']).values({ id: 1, user_name: 'ada' });
+
+// --- Compile-time failures.
+
+// @ts-expect-error - unknown table
+db.insertInto('nope');
+
+// @ts-expect-error - missing required columns
+db.insertInto('users').values({ id: 1 });
+
+// @ts-expect-error - wrong value type for a column
+db.insertInto('users').values({ id: 'not-a-number', user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true });
+
+// @ts-expect-error - unknown column in the row literal
+db.insertInto('users').values({ id: 1, user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true, nope: 1 });
+
+// @ts-expect-error - non-nullable column rejects null
+db.insertInto('users').values({ id: null, user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true });
+
+// @ts-expect-error - unknown column in columns()
+db.insertInto('users').columns(['nope']);
+
+// @ts-expect-error - column outside the selected subset
+subset.values({ id: 1, user_name: 'ada', email: 'a@b.c' });
+
+// @ts-expect-error - subset makes unselected required columns unacceptable, not optional
+subset.values({ id: 1 });

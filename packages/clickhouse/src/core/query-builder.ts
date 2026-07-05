@@ -39,6 +39,7 @@ import type { CacheOptions, CacheConfig } from './cache/types.js';
 import type { QueryRuntimeContext } from './cache/runtime-context.js';
 import { executeWithCache } from './cache/cache-manager.js';
 import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.js';
+import { InsertBuilder } from './insert-builder.js';
 import { normalizeFilterApplication } from './utils/filter-application.js';
 import { toLegacyQueryConfig } from './utils/query-config-compat.js';
 import { applyRelationPath, resolveRelationPath } from './utils/relation-application.js';
@@ -1137,6 +1138,24 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
       options?: QueryExecutionOptions
     ) {
       return resolvedAdapter.query<TResult>(sql, params, options);
+    },
+    /**
+     * Starts a type-safe insert into the given table.
+     *
+     * Row shapes are derived from the schema: `Nullable(...)` columns are
+     * optional, every other column is required.
+     *
+     * @example
+     * ```ts
+     * await db.insertInto('events')
+     *   .values([{ id: 1, name: 'signup', created_at: new Date() }])
+     *   .execute();
+     * ```
+     */
+    insertInto<TableName extends Extract<keyof Schema, string>>(
+      tableName: TableName
+    ): InsertBuilder<Schema, TableName> {
+      return new InsertBuilder<Schema, TableName>(tableName, resolvedAdapter);
     },
     table<TableName extends Extract<keyof Schema, string>>(tableName: TableName): SelectQB<
       Schema,
