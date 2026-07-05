@@ -83,10 +83,16 @@ the built UI — lives in one dev-only package; serve gains only a mount hook.
    The AI SDK, storage code, and SSE machinery do NOT enter serve's dependency tree.
    The serve-layer cache (`src/cache/`) does land in serve — it is a runtime feature
    useful in production, not playground bloat.
-2. **`@hypequery/playground`** (dev-only, dependency of the CLI): the dev handler
-   (`/__dev/*` API) + brotli-compressed built UI assets. `hypequery dev` wires it into
-   `serveDev` automatically; without it installed, `serveDev` still works as the plain
-   thin server with an install hint. Prod installs of serve never download it.
+2. **`@hypequery/playground`** (dev-only, dependency of the CLI): the local *gateway* —
+   implements the gateway contract (`plans/gateway-contract.md`) against serve's
+   `DevIntegrationApi` and serves the studio's built assets same-origin at `/__dev`.
+   `hypequery dev` wires it into `serveDev` via the mount option; without it installed,
+   `serveDev` still works as the plain thin server with an install hint. Prod installs
+   of serve never download it.
+2b. **`@hypequery/studio`** (OSS, publishable): the embeddable React UI core — components
+   render against a `gatewayBaseUrl` + `/meta` capabilities. Ships source *and* a
+   prebuilt dist that the gateway serves locally. The future Cloud app imports this
+   package and wraps it with Cloud-only screens — one frontend, no fork.
 3. **UI stack is plain React 18** — not Preact. The assets are served locally from disk,
    so framework size is nearly irrelevant there; the donor components port unchanged;
    and it keeps a straight path to the hosted cloud workspace (website-next is already
@@ -99,25 +105,55 @@ the built UI — lives in one dev-only package; serve gains only a mount hook.
 ```
 packages/serve                 runtime; exports "." (unchanged) and "./dev" (mount hook,
   src/cache/                   integration interface); serve-layer cache (donor, reconciled)
-packages/playground            dev handler (/__dev API, storage, SSE, AI proxy) + built UI
-  ui/                          React 18 + Vite source (pnpm — no npm lockfile)
-packages/cli                   `hypequery dev` gains --no-ui; depends on playground
+packages/playground            local gateway: contract impl (/__dev API, storage, SSE,
+                               AI proxy) + serves studio assets same-origin
+packages/studio                embeddable React 18 UI core (Vite; pnpm — no npm lockfile);
+                               ships source + prebuilt dist
+packages/cli                   `hypequery dev` gains --no-ui; depends on playground+studio
 ```
 
-### Dev API surface (all under `/__dev`, dev-only)
+### Delivery model (DECIDED 2026-07-05: Prisma model with embeddable core)
+
+Three models were evaluated: bundled-local (Prisma), hosted UI + local API (Drizzle,
+whose remote origin causes mixed-content/cert pain and trust objections), and a hybrid
+(same-origin serving of a privately-developed UI via CLI fetch-and-cache). Final call:
+**Prisma model** — UI fully OSS in this repo, shipped in the CLI dependency tree, served
+same-origin, works offline/air-gapped, zero network fetches ever.
+
+Chosen because: weeks-faster to ship (no private repo, no publish pipeline, no
+version-pinning matrix); best trust posture for infra teams ("read the source, it's all
+local"); version coherence (UI+gateway ship together); and the donor UI is already
+public in git history. The known cost, accepted deliberately: **permanent loss of
+license control over the UI** (anyone may embed it). hypequery's moat is the semantic
+layer + Cloud control plane, not UI widgets; pre-adoption, distribution beats protection.
+
+What preserves cloud-convertibility (non-negotiable design rules):
+- The UI is an **embeddable core** (`@hypequery/studio`) speaking only the gateway
+  contract, feature-gated by `/meta` capabilities — Cloud imports it, never forks it.
+- Assets ship in the **CLI**, never in serve.
+- Future premium screens may be closed *wrappers* around the open core in the Cloud repo.
+
+Standard answer to "why not host the UI like Drizzle?": we serve same-origin so there is
+no mixed-content dance and no third-party origin touching your database; and the gateway
+contract is open — anyone can build their own UI against it.
+
+### Gateway API surface (all under `/__dev`, dev-only)
+
+Normative spec: `plans/gateway-contract.md` (contract v0). Summary:
 
 ```
-GET  /__dev/registry        queries + datasets + metrics from the semantic contract:
-                            schemas, tags, source
+GET  /__dev/meta            contractVersion, mode, capabilities[], project, clickhouse status
+GET  /__dev/registry        queries + datasets + metrics from the semantic contract
 POST /__dev/execute         run any endpoint via the REAL pipeline (auth/tenant/rate-limit)
-GET  /__dev/history, /__dev/history/:id, /__dev/sse
-GET  /__dev/cache           POST /__dev/cache/clear
-GET  /__dev/schema          ClickHouse introspection (system.tables / system.columns)
-POST /__dev/ai/chat         streaming AI proxy (Phase 3)
-GET  /__dev/health          ClickHouse reachable? which host? AI configured?
+GET  /__dev/history         (+ /history/:queryId, DELETE /history) — renamed from donor /queries
+GET  /__dev/events          SSE: query lifecycle incl. generated SQL; heartbeat
+GET  /__dev/cache           POST /__dev/cache/clear      (capability "cache")
+GET  /__dev/schema          ClickHouse introspection     (capability "schema")
+POST /__dev/ai/chat         streaming AI proxy           (capability "ai", Phase 3)
 ```
 
 UI served at `/__dev` (root `/` stays prod-identical). SSE drives live history/cache.
+CORS: same-origin default, explicit allowlist only — never `*` (replaces donor wildcard).
 
 ### Execution and security
 
@@ -198,8 +234,9 @@ Local dev server ships first; a hosted playground is the natural SaaS wedge afte
 deployed serve instance). The architecture keeps that door open cheaply, and these
 boundaries must be preserved as such:
 
-- The UI speaks only the `/__dev` REST+SSE API — never Node internals — so the same UI
-  can front a hosted control plane later.
+- The UI speaks only the gateway contract (REST+SSE) — never Node internals — and ships
+  as the embeddable `@hypequery/studio` core, so the Cloud app imports the same frontend
+  and mounts it against a hosted gateway implementation.
 - `HYPEQUERY_DEV_TOKEN` auth on `/__dev/*` generalizes to session auth.
 - `QueryHistoryStore` is an interface; the cloud version backs it with Postgres/ClickHouse.
 - The server-side AI proxy becomes the metered team feature.
@@ -218,5 +255,23 @@ workspace should contain.
   dependabot cadence; one lockfile.
 - **AI demo-ware risk** → AI phase is explicitly the MCP showcase; if chat usage is low,
   the contract/tool-schema investment still pays off through MCP.
-- **Scope vs maintenance budget** → UI stays thin (Preact, no design system beyond the
+- **Scope vs maintenance budget** → UI stays thin (React 18, no design system beyond the
   donor's primitives); anything not serving builder/integrator jobs goes to Phase 4.
+- **Open-UI embedding by third parties** → accepted cost of the Prisma model (see
+  Delivery model); moat is the semantic layer + Cloud control plane.
+
+## PR landing sequence (Phase 0–1)
+
+Donor-branch salvage split into reviewable PRs. Sizes approximate; bugs found in review
+are fixed during the split, not ported.
+
+| # | PR | Contents | Depends on |
+|---|---|---|---|
+| 0 | Repo hygiene | gitignore `.hypequery/`; remove committed `.hypequery/tmp` artifacts & `dist-file-index.txt` (straight to main) | — |
+| 1 | Serve-layer cache | `packages/serve/src/cache/*` reconciled with main's rewritten `pipeline.ts`; fix `deletePattern()` regex-escape (pattern comes from request body); decide+document whether `api.execute()` honors cache | 0 |
+| 2 | serve mount hook | already on branch (c01b51e): `StartServerOptions.mount`, `DevIntegrationApi`, `./dev` subpath, `@deprecated` root re-export | — |
+| 3 | Gateway storage | `packages/playground/src/storage/*` on `node:sqlite` + dev query logger; per-project `.hypequery/dev.db`; donor tests ported | 1 (cache fields on events) |
+| 4 | Gateway API + SSE | contract v0 impl: `/meta`, `/registry` + `/execute` written fresh against `DevIntegrationApi` (donor tip deleted these), `/history` rename, `/events`; loopback/token guard; CORS allowlist; fix `query:completed` vs `query:complete` mismatch; delete dead `lastEventId` plumbing (replay later if needed); `serveDev` return shape does NOT change (composition lives in CLI) | 2, 3 |
+| 5 | `@hypequery/studio` | embeddable React core (donor serve-ui as seed); `gatewayBaseUrl` + capability gating; fix `useSSE` 500ms polling → `onStateChange`, `useSSEEvent` effect-dep churn, debounced search; prebuilt dist + size budget CI | 4's contract only (parallel) |
+| 6 | CLI wiring | `hypequery dev` composes gateway+studio via mount; `--no-ui`; fix stale `getTableCount` assertion in dev tests; evaluate donor `sync.ts` separately before porting | 4, 5 |
+| 7 | Examples | node-embedded dev-server example rewritten for mount composition; next-dashboard fixes | all |
