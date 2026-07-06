@@ -4,6 +4,7 @@ import {
   dataset,
   dimension,
   measure,
+  belongsTo,
   eq,
   neq,
   gt,
@@ -877,6 +878,200 @@ describe('ClickHouse Backend - Edge Cases', () => {
 // =============================================================================
 // SQL Generation via explain()
 // =============================================================================
+
+// =============================================================================
+// Relationship Join Fixtures + Tests
+// =============================================================================
+
+const Customers = dataset('customers', {
+  source: 'customers',
+  dimensions: {
+    id: dimension.string(),
+    country: dimension.string({ column: 'country_code' }),
+    tier: dimension.string(),
+  },
+});
+
+const OrdersWithCustomer = dataset('ordersWithCustomer', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    status: dimension.string(),
+    amount: dimension.number(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+    completedRevenue: measure.sum('amount', { filters: [eq('status', 'completed')] }),
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+  },
+});
+
+const TenantCustomers = dataset('tenantCustomers', {
+  source: 'customers',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    id: dimension.string(),
+    country: dimension.string({ column: 'country_code' }),
+    tenantId: dimension.string({ column: 'tenant_id' }),
+  },
+});
+
+const TenantOrdersWithCustomer = dataset('tenantOrdersWithCustomer', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    id: dimension.string(),
+    amount: dimension.number(),
+    tenantId: dimension.string({ column: 'tenant_id' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+  relationships: {
+    customer: belongsTo(() => TenantCustomers, { from: 'customer_id', to: 'id' }),
+  },
+});
+
+describe('ClickHouse Backend - Relationship Joins', () => {
+  it('emits a LEFT JOIN with qualified base columns and quoted joined aliases', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(OrdersWithCustomer, {
+      dimensions: ['status', 'customer.country'],
+      measures: ['revenue'],
+    });
+
+    const sql = queries[0];
+    expect(sql).toContain('LEFT JOIN customers AS customer ON orders.customer_id = customer.id');
+    expect(sql).toContain('orders.status AS status');
+    expect(sql).toContain('customer.country_code AS `customer.country`');
+    expect(sql).toContain('SUM(orders.amount) AS revenue');
+    expect(sql).toContain('GROUP BY status, `customer.country`');
+  });
+
+  it('filters on a joined dimension', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(OrdersWithCustomer, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+      filters: [eq('customer.tier', 'enterprise')],
+    });
+
+    expect(queries[0]).toContain('LEFT JOIN customers AS customer');
+    expect(queries[0]).toContain('customer.tier = ?');
+  });
+
+  it('qualifies base filters with the source when joins are in scope', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(OrdersWithCustomer, {
+      dimensions: ['customer.country'],
+      measures: ['revenue'],
+      filters: [gt('amount', 100)],
+    });
+
+    expect(queries[0]).toContain('orders.amount > ?');
+  });
+
+  it('qualifies filtered-measure conditions across a join', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(OrdersWithCustomer, {
+      dimensions: ['customer.country'],
+      measures: ['completedRevenue'],
+    });
+
+    expect(queries[0]).toContain("SUM(if((orders.status = 'completed'), orders.amount, 0)) AS completedRevenue");
+  });
+
+  it('qualifies the grain field across a join', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+    const revenue = OrdersWithCustomer.metric('revenue', { measure: 'revenue' });
+
+    await analytics.execute(revenue, {
+      dimensions: ['customer.country'],
+      by: 'month',
+    });
+
+    expect(queries[0]).toContain('toStartOfMonth(orders.created_at) AS period');
+    expect(queries[0]).toContain('customer.country_code AS `customer.country`');
+  });
+
+  it('orders by a joined dimension using its quoted alias', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(OrdersWithCustomer, {
+      dimensions: ['customer.country'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'customer.country', direction: 'asc' }],
+    });
+
+    expect(queries[0]).toContain('ORDER BY `customer.country` ASC');
+  });
+
+  it('scopes the joined target by tenant under runtime tenancy', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(
+      TenantOrdersWithCustomer,
+      { dimensions: ['customer.country'], measures: ['revenue'] },
+      { runtime: { tenant: { id: 'tenant_123' } } },
+    );
+
+    const sql = queries[0];
+    expect(sql).toContain('LEFT JOIN customers AS customer ON orders.customer_id = customer.id');
+    expect(sql).toContain('orders.tenant_id = ?');
+    expect(sql).toContain('customer.tenant_id = ?');
+  });
+
+  it('supports derived metrics over a joined dimension', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+    const revenue = OrdersWithCustomer.metric('revenue', { measure: 'revenue' });
+    const orderCount = OrdersWithCustomer.metric('orderCount', { measure: 'orderCount' });
+    const avgOrderValue = OrdersWithCustomer.metric('avgOrderValue', {
+      uses: { rev: revenue, cnt: orderCount },
+      formula: ({ rev, cnt }) => divide(rev, nullIfZero(cnt)),
+    });
+
+    await analytics.execute(avgOrderValue, {
+      dimensions: ['customer.country'],
+    });
+
+    const sql = queries[0];
+    expect(sql).toContain('LEFT JOIN customers AS customer');
+    expect(sql).toContain('customer.country_code AS `customer.country`');
+    // Outer CTE query references the joined column by its quoted alias.
+    expect(sql).toMatch(/SELECT `customer\.country`, .* AS avgOrderValue FROM base/);
+  });
+
+  it('leaves non-join queries unqualified (no regression)', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(OrdersWithCustomer, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+    });
+
+    expect(queries[0]).toContain('SELECT status, SUM(amount) AS revenue FROM orders');
+    expect(queries[0]).not.toContain('LEFT JOIN');
+    expect(queries[0]).not.toContain('orders.status');
+  });
+});
 
 describe('ClickHouse Backend - SQL Generation via Explain', () => {
   it('backend supports explain() to generate SQL without execution', async () => {
