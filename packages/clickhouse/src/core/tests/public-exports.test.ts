@@ -34,7 +34,7 @@ describe('Public exports', () => {
     const db = createQueryBuilder({
       adapter: { name: 'test', query: async () => [] },
     });
-    expect(db.insertInto('any_table')).toBeInstanceOf(InsertBuilder);
+    expect(db.insert('any_table')).toBeInstanceOf(InsertBuilder);
     expect(normalizeInsertRows([{ at: new Date('2026-01-01T00:00:00.000Z') }]))
       .toEqual([{ at: '2026-01-01T00:00:00.000Z' }]);
   });

@@ -1148,12 +1148,12 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
      *
      * @example
      * ```ts
-     * await db.insertInto('events')
+     * await db.insert('events')
      *   .values([{ id: 1, name: 'signup', created_at: new Date() }])
      *   .execute();
      * ```
      */
-    insertInto<TableName extends Extract<keyof Schema, string>>(
+    insert<TableName extends Extract<keyof Schema, string>>(
       tableName: TableName
     ): InsertQB<Schema, TableName> {
       const state = {

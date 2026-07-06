@@ -10,14 +10,14 @@ import { Pre } from 'fumadocs-ui/components/codeblock';
 
 # Inserts
 
-The `insertInto()` method starts a type-safe insert. Row shapes are derived from your schema: `Nullable(...)` columns are optional, every other column is required, and value types are checked at compile time.
+The `insert()` method starts a type-safe insert. Row shapes are derived from your schema: `Nullable(...)` columns are optional, every other column is required, and value types are checked at compile time.
 
 ## Basic Usage
 
 <CodeBlock>
 
 ```typescript
-const result = await db.insertInto('events')
+const result = await db.insert('events')
   .values({
     id: 1,
     name: 'signup',
@@ -36,7 +36,7 @@ Pass an array to insert multiple rows in one request, or chain `values()` calls 
 <CodeBlock>
 
 ```typescript
-await db.insertInto('events')
+await db.insert('events')
   .values([
     { id: 1, name: 'signup', created_at: new Date() },
     { id: 2, name: 'login', created_at: new Date() },
@@ -53,10 +53,10 @@ TypeScript rejects invalid inserts before they run:
 <CodeBlock>
 
 ```typescript
-db.insertInto('bad_table');                        // ✗ unknown table
-db.insertInto('events').values({ id: 'x' });       // ✗ wrong value type
-db.insertInto('events').values({ id: 1 });         // ✗ missing required columns
-db.insertInto('events').values({ nope: 1, ... });  // ✗ unknown column
+db.insert('bad_table');                        // ✗ unknown table
+db.insert('events').values({ id: 'x' });       // ✗ wrong value type
+db.insert('events').values({ id: 1 });         // ✗ missing required columns
+db.insert('events').values({ nope: 1, ... });  // ✗ unknown column
 ```
 
 </CodeBlock>
@@ -75,7 +75,7 @@ Use `columns()` to insert only some columns and let ClickHouse fill table `DEFAU
 <CodeBlock>
 
 ```typescript
-await db.insertInto('events')
+await db.insert('events')
   .columns(['id', 'name'])
   .values([
     { id: 1, name: 'signup' },
@@ -98,7 +98,7 @@ Apply per-insert ClickHouse settings with `settings()` — useful for async inse
 <CodeBlock>
 
 ```typescript
-await db.insertInto('events')
+await db.insert('events')
   .values(rows)
   .settings({ async_insert: 1, wait_for_async_insert: 1 })
   .execute();

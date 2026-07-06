@@ -45,7 +45,7 @@ const userRow = {
 describe('InsertBuilder', () => {
   it('inserts a single row through the adapter', async () => {
     const { db, calls } = createDb();
-    const result = await db.insertInto('users').values(userRow).execute();
+    const result = await db.insert('users').values(userRow).execute();
 
     expect(calls).toHaveLength(1);
     expect(calls[0].table).toBe('users');
@@ -56,7 +56,7 @@ describe('InsertBuilder', () => {
   it('accepts arrays and accumulates chained values calls', async () => {
     const { db, calls } = createDb();
     await db
-      .insertInto('users')
+      .insert('users')
       .values([userRow, { ...userRow, id: 2 }])
       .values({ ...userRow, id: 3 })
       .execute();
@@ -67,7 +67,7 @@ describe('InsertBuilder', () => {
   it('normalizes Date and bigint values before they reach the adapter', async () => {
     const { db, calls } = createDb();
     const createdAt = new Date('2026-01-02T03:04:05.000Z');
-    await db.insertInto('users').values({ ...userRow, created_at: createdAt }).execute();
+    await db.insert('users').values({ ...userRow, created_at: createdAt }).execute();
 
     expect(calls[0].rows[0].created_at).toBe('2026-01-02T03:04:05.000Z');
   });
@@ -75,7 +75,7 @@ describe('InsertBuilder', () => {
   it('forwards the column subset, settings, and queryId', async () => {
     const { db, calls } = createDb();
     await db
-      .insertInto('users')
+      .insert('users')
       .columns(['id', 'user_name'])
       .values({ id: 1, user_name: 'ada' })
       .settings({ async_insert: 1 })
@@ -90,14 +90,14 @@ describe('InsertBuilder', () => {
 
   it('throws when executed without values', async () => {
     const { db } = createDb();
-    await expect(db.insertInto('users').execute()).rejects.toThrow(
+    await expect(db.insert('users').execute()).rejects.toThrow(
       'No values provided. Call .values() before .execute().'
     );
   });
 
   it('throws when columns() is called after values()', () => {
     const { db } = createDb();
-    const withValues = db.insertInto('users').values(userRow);
+    const withValues = db.insert('users').values(userRow);
     expect(() => withValues.columns(['id'])).toThrow('Call .columns() before .values().');
   });
 
@@ -107,14 +107,14 @@ describe('InsertBuilder', () => {
       query: async () => [],
     };
     const db = createQueryBuilder<TestSchema>({ adapter });
-    await expect(db.insertInto('users').values(userRow).execute()).rejects.toThrow(
+    await expect(db.insert('users').values(userRow).execute()).rejects.toThrow(
       'Inserts are not supported by adapter "read-only". Implement DatabaseAdapter.insert to enable them.'
     );
   });
 
   it('is immutable: deriving builders does not mutate the base', async () => {
     const { db, calls } = createDb();
-    const base = db.insertInto('users');
+    const base = db.insert('users');
     const first = base.values(userRow);
     first.values({ ...userRow, id: 2 }).settings({ async_insert: 1 });
 
@@ -133,7 +133,7 @@ describe('InsertBuilder', () => {
       },
     };
     const db = createQueryBuilder<TestSchema>({ adapter });
-    await expect(db.insertInto('users').values(userRow).execute()).rejects.toThrow('insert failed');
+    await expect(db.insert('users').values(userRow).execute()).rejects.toThrow('insert failed');
   });
 });
 

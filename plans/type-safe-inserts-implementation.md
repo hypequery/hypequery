@@ -14,7 +14,7 @@ Add a type-safe insert API to the query builder returned by `createQueryBuilder<
 const db = createQueryBuilder<IntrospectedSchema>({ url: '...' });
 
 // Single row or array of rows — fully typed from the schema
-await db.insertInto('events').values({
+await db.insert('events').values({
   id: 1,
   name: 'signup',
   created_at: new Date(),        // DateTime columns accept string | Date
@@ -22,13 +22,13 @@ await db.insertInto('events').values({
 }).execute();
 
 // Column subset (lets ClickHouse fill DEFAULTs for omitted columns)
-await db.insertInto('events')
+await db.insert('events')
   .columns(['id', 'name'])
   .values([{ id: 1, name: 'a' }, { id: 2, name: 'b' }])
   .execute();
 
 // Per-insert ClickHouse settings
-await db.insertInto('events')
+await db.insert('events')
   .values(rows)
   .settings({ async_insert: 1, wait_for_async_insert: 1 })
   .execute();
@@ -36,17 +36,17 @@ await db.insertInto('events')
 
 `execute()` resolves to `{ queryId: string; executed: boolean; summary?: unknown }` (mapped from the ClickHouse client's `InsertResult`).
 
-Naming: use **`insertInto`** (Kysely-style). It sits beside the existing `table()` method on the object returned by `createQueryBuilder` and avoids overloading `table()`.
+Naming: use **`insert`** (Drizzle-style; decided in PR #255 review — see the design comment there). It matches hypequery's terse house style (`table()`, `rawQuery()`), leaves symmetric room for future `update`/`delete` mutation builders, and sits beside the existing `table()` method without overloading it. `insertInto` (Kysely-style) was considered and rejected: hypequery never adopted Kysely's verb naming (`table()`, not `selectFrom()`), so SQL-verb symmetry bought nothing.
 
 ### Compile-time errors we must produce (the actual feature)
 
 ```ts
-db.insertInto('bad_table')                          // ✗ unknown table
-db.insertInto('events').values({ id: 'x', ... })    // ✗ wrong value type
-db.insertInto('events').values({ id: 1 })           // ✗ missing required (non-Nullable) column
-db.insertInto('events').values({ ..., nope: 1 })    // ✗ unknown column (excess property check)
-db.insertInto('events').columns(['nope'])           // ✗ unknown column
-db.insertInto('events').columns(['id']).values({ id: 1, name: 'x' }) // ✗ column not in subset
+db.insert('bad_table')                          // ✗ unknown table
+db.insert('events').values({ id: 'x', ... })    // ✗ wrong value type
+db.insert('events').values({ id: 1 })           // ✗ missing required (non-Nullable) column
+db.insert('events').values({ ..., nope: 1 })    // ✗ unknown column (excess property check)
+db.insert('events').columns(['nope'])           // ✗ unknown column
+db.insert('events').columns(['id']).values({ id: 1, name: 'x' }) // ✗ column not in subset
 ```
 
 ### Explicitly out of scope for v1
@@ -62,7 +62,7 @@ db.insertInto('events').columns(['id']).values({ id: 1, name: 'x' }) // ✗ colu
 
 | File | Why it matters |
 |---|---|
-| `packages/clickhouse/src/core/query-builder.ts` | `createQueryBuilder` factory (line ~1117) — where `insertInto` gets added. Also `ClickHouseConfig` types. |
+| `packages/clickhouse/src/core/query-builder.ts` | `createQueryBuilder` factory (line ~1117) — where `insert` gets added. Also `ClickHouseConfig` types. |
 | `packages/clickhouse/src/core/adapters/database-adapter.ts` | `DatabaseAdapter` interface (query/stream/render). Insert needs a new optional method here. |
 | `packages/clickhouse/src/core/adapters/clickhouse-adapter.ts` | The built-in adapter wrapping `@clickhouse/client` / `client-web`. Holds the `client` privately. |
 | `packages/clickhouse/src/types/clickhouse-types.ts` | `ClickHouseType` string-literal union and `InferClickHouseType<T>` (read-side inference). Insert types mirror this. |
@@ -99,7 +99,7 @@ Modified files:
 ```
 packages/clickhouse/src/core/adapters/database-adapter.ts   # + optional insert() and InsertExecutionOptions
 packages/clickhouse/src/core/adapters/clickhouse-adapter.ts # + insert() implementation
-packages/clickhouse/src/core/query-builder.ts               # + insertInto() on createQueryBuilder return
+packages/clickhouse/src/core/query-builder.ts               # + insert() on createQueryBuilder return
 packages/clickhouse/src/index.ts                            # + exports
 packages/clickhouse/src/core/tests/public-exports.test.ts   # + new export names
 website-next/docs/  (see §8)
@@ -292,7 +292,7 @@ No caching involvement — inserts bypass `executeWithCache` entirely. (Delibera
 In the object returned by `createQueryBuilder` (after `rawQuery`, before `table`):
 
 ```ts
-insertInto<TableName extends Extract<keyof Schema, string>>(
+insert<TableName extends Extract<keyof Schema, string>>(
   tableName: TableName
 ): InsertQB<Schema, TableName> {
   const state = {
@@ -332,7 +332,7 @@ Use `TEST_SCHEMAS` / `TestSchema` from `src/core/tests/test-utils.js` and the `E
 
 - `InsertRow<TestSchema['test_table']>` marks `optional_name` and `optional_tags` optional, everything else required.
 - Value widening: `created_at` (Date col) accepts `string | Date`; `created_timestamp` (`DateTime64(9)`) accepts `Date`; `is_premium` accepts `boolean` only; `metadata` requires `Record<string, string>`; `tags` requires `string[]`.
-- `@ts-expect-error` cases: unknown table in `insertInto`, missing required column, wrong value type, unknown column in literal, `columns(['nope'])`, value containing a column outside the `columns()` subset.
+- `@ts-expect-error` cases: unknown table in `insert`, missing required column, wrong value type, unknown column in literal, `columns(['nope'])`, value containing a column outside the `columns()` subset.
 - `Awaited<ReturnType<...execute>>` equals `InsertResultSummary`.
 
 Note: `test-utils.ts` is inside `src/core/tests/`, which `tsconfig.type-tests.json` *excludes* from `include` but type-tests already import from it (see existing `query-builder-types.test.ts` line 4) — so this works as-is; don't fight it.
@@ -366,7 +366,7 @@ Cases:
 
 ### 7.3 Integration test (optional but recommended)
 
-There is an integration harness (`npm run test:integration`, `vitest.integration.config.ts`, `testing/clickhouse/harness.mjs`). Add one test: create a table with a Nullable column and a DEFAULT column, insert via `insertInto` (full row + `columns()` subset), select back and assert values/defaults/null handling, and a `DateTime64` round-trip from a `Date` object. Follow the setup/teardown pattern of the existing integration specs (look in the integration config's include glob to find them).
+There is an integration harness (`npm run test:integration`, `vitest.integration.config.ts`, `testing/clickhouse/harness.mjs`). Add one test: create a table with a Nullable column and a DEFAULT column, insert via `insert` (full row + `columns()` subset), select back and assert values/defaults/null handling, and a `DateTime64` round-trip from a `Date` object. Follow the setup/teardown pattern of the existing integration specs (look in the integration config's include glob to find them).
 
 Run order for verification: `npm run test:types && npm run test:unit` in `packages/clickhouse`, then `npm run build` (the build runs a verify step). Run integration only if a local ClickHouse is available (the script skips/fails gracefully — check `scripts/run-integration-tests.js` behavior before assuming).
 
@@ -374,9 +374,9 @@ Run order for verification: `npm run test:types && npm run test:unit` in `packag
 
 ## 8. Docs & changeset
 
-- **Changeset:** `.changeset/<name>.md`, `"@hypequery/clickhouse": minor`, summary: "Add type-safe insert API: `db.insertInto(table).values(rows).execute()`".
+- **Changeset:** `.changeset/<name>.md`, `"@hypequery/clickhouse": minor`, summary: "Add type-safe insert API: `db.insert(table).values(rows).execute()`".
 - **Docs page:** add `website-next/docs/inserts.mdx` (match frontmatter/format of e.g. `website-next/docs/schemas.mdx`; register it wherever the docs nav is defined — search `website-next` for how `schemas` is listed, likely a `meta.json`). Content: quick start, nullable-vs-required semantics, `columns()` + DEFAULTs, Date/bigint handling, async_insert settings example, cache-not-invalidated note, "adapter must implement insert" note for custom adapters.
-- Mention the new method in the query-builder API docs if there's a generated/typedoc surface (`npm run docs:api` uses typedoc — TSDoc comments on the public methods are the input, so write proper TSDoc with `@example` blocks on `insertInto`, `InsertBuilder` methods).
+- Mention the new method in the query-builder API docs if there's a generated/typedoc surface (`npm run docs:api` uses typedoc — TSDoc comments on the public methods are the input, so write proper TSDoc with `@example` blocks on `insert`, `InsertBuilder` methods).
 
 ---
 
@@ -384,7 +384,7 @@ Run order for verification: `npm run test:types && npm run test:unit` in `packag
 
 1. **Defaulted columns are still required** unless `.columns()` is used — schema literals don't carry DEFAULT metadata. Phase 2: extend `generate-types` to emit e.g. `{ __defaults?: 'col1' | 'col2' }` or a parallel `IntrospectedInsertSchema`, and make those keys optional.
 2. **Streaming inserts** (`values: Readable`) — node-only; add `insertStream` later rather than complicating `values()`.
-3. **`INSERT INTO ... SELECT`** — `insertInto(t).fromSelect(qb)` compiling the select via the existing dialect; clean fit later because the select side already compiles to SQL text.
+3. **`INSERT INTO ... SELECT`** — `insert(t).fromSelect(qb)` compiling the select via the existing dialect; clean fit later because the select side already compiles to SQL text.
 4. **SQL-fallback inserts for adapters without native insert** — would require a real ClickHouse literal formatter (current `escapeValue` is wrong for arrays/maps — see §2.3). Only worth it if an embedded-engine adapter needs it.
 5. **Cache invalidation on insert** — deliberately skipped (TTL-based cache).
 
@@ -392,7 +392,7 @@ Run order for verification: `npm run test:types && npm run test:unit` in `packag
 
 ## 10. Acceptance checklist
 
-- [ ] `db.insertInto('t').values(row).execute()` inserts via native client `JSONEachRow` with `date_time_input_format: 'best_effort'` defaulted.
+- [ ] `db.insert('t').values(row).execute()` inserts via native client `JSONEachRow` with `date_time_input_format: 'best_effort'` defaulted.
 - [ ] All compile-time error cases in §1 fail type-check (proven by `@ts-expect-error` type tests).
 - [ ] `Nullable(...)` and `LowCardinality(Nullable(...))` columns optional; all others required.
 - [ ] `Date` and `bigint` values normalized before hitting the client (JSON.stringify would otherwise throw on bigint).

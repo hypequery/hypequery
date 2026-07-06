@@ -28,7 +28,7 @@ export interface InsertExecuteOptions {
  *
  * @example
  * ```ts
- * await db.insertInto('events')
+ * await db.insert('events')
  *   .values([{ id: 1, name: 'signup', created_at: new Date() }])
  *   .execute();
  * ```
@@ -79,7 +79,7 @@ export class InsertBuilder<
    *
    * @example
    * ```ts
-   * await db.insertInto('events')
+   * await db.insert('events')
    *   .columns(['id', 'name'])
    *   .values([{ id: 1, name: 'a' }])
    *   .execute();

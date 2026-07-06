@@ -43,7 +43,7 @@ type AssertEventsInsert = Expect<Equal<EventsInsert, ExpectedEventsInsert>>;
 
 // --- Valid inserts.
 
-const fullInsert = db.insertInto('users').values({
+const fullInsert = db.insert('users').values({
   id: 1,
   user_name: 'ada',
   email: 'ada@example.com',
@@ -56,7 +56,7 @@ type ExecuteResult = Awaited<ReturnType<typeof fullInsert.execute>>;
 type AssertExecuteResult = Expect<Equal<ExecuteResult, InsertResultSummary>>;
 
 // Nullable columns can be set explicitly to null.
-db.insertInto('users').values({
+db.insert('users').values({
   id: 2,
   user_name: 'grace',
   email: 'grace@example.com',
@@ -68,7 +68,7 @@ db.insertInto('users').values({
 });
 
 // Full test_table row: Date accepted for DateTime64, maps/arrays typed, optional columns omitted.
-db.insertInto('test_table').values({
+db.insert('test_table').values({
   id: 1,
   name: 'widget',
   price: 9.99,
@@ -93,32 +93,32 @@ db.insertInto('test_table').values({
 
 // --- Column subsets.
 
-const subset = db.insertInto('users').columns(['id', 'user_name']);
+const subset = db.insert('users').columns(['id', 'user_name']);
 subset.values({ id: 1, user_name: 'ada' });
 subset.values([{ id: 1, user_name: 'ada' }, { id: 2, user_name: 'grace' }]);
 
 // Nullable columns stay optional inside a subset.
-db.insertInto('users').columns(['id', 'user_name', 'preferences']).values({ id: 1, user_name: 'ada' });
+db.insert('users').columns(['id', 'user_name', 'preferences']).values({ id: 1, user_name: 'ada' });
 
 // --- Compile-time failures.
 
 // @ts-expect-error - unknown table
-db.insertInto('nope');
+db.insert('nope');
 
 // @ts-expect-error - missing required columns
-db.insertInto('users').values({ id: 1 });
+db.insert('users').values({ id: 1 });
 
 // @ts-expect-error - wrong value type for a column
-db.insertInto('users').values({ id: 'not-a-number', user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true });
+db.insert('users').values({ id: 'not-a-number', user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true });
 
 // @ts-expect-error - unknown column in the row literal
-db.insertInto('users').values({ id: 1, user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true, nope: 1 });
+db.insert('users').values({ id: 1, user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true, nope: 1 });
 
 // @ts-expect-error - non-nullable column rejects null
-db.insertInto('users').values({ id: null, user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true });
+db.insert('users').values({ id: null, user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true });
 
 // @ts-expect-error - unknown column in columns()
-db.insertInto('users').columns(['nope']);
+db.insert('users').columns(['nope']);
 
 // @ts-expect-error - column outside the selected subset
 subset.values({ id: 1, user_name: 'ada', email: 'a@b.c' });
