@@ -39,3 +39,4 @@ examples/basic-dashboard/src/generated/clickhouse-schema.ts
 
 # Generated website artifacts
 website-next/.source/
+dist-file-index.txt
