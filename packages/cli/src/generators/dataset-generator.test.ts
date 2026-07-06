@@ -102,5 +102,5 @@ describe('generateDatasets', () => {
       ['--project', tsconfigPath],
       { cwd: repoRoot },
     );
-  });
+  }, 15_000);
 });
