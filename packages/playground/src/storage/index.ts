@@ -121,11 +121,11 @@ export async function createStore(options: StorageOptions = {}): Promise<QueryHi
   } catch (error) {
     const err = error as Error;
     const isModuleNotFound = err.message?.includes('Cannot find module') ||
-                             err.message?.includes('better-sqlite3');
+                             err.message?.includes('node:sqlite');
 
     if (isModuleNotFound) {
-      warn(`SQLite not available (better-sqlite3 not installed). Using in-memory storage.`);
-      warn(`To enable persistent storage, install: npm install better-sqlite3`);
+      warn(`node:sqlite unavailable (requires Node >= 22.5). Query history will NOT persist across restarts.`);
+      warn(`Upgrade to Node >= 22.5 to enable persistent query history.`);
     } else {
       warn(`SQLite initialization failed, using in-memory storage:`, err);
     }
