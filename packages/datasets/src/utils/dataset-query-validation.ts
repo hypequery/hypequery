@@ -9,6 +9,11 @@ import {
   getRuntimeTenantPredicate,
   validateTenantRuntime,
 } from './tenant-runtime.js';
+import {
+  isQualifiedField,
+  resolveQualifiedField,
+} from './relationship-fields.js';
+import { validateQualifiedFilter } from './relationship-validation.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -37,26 +42,49 @@ export function validateDatasetQueryInput(
   }
 
   if (query.dimensions) {
-    const invalid = query.dimensions.filter(dimension => !dimensionNames.includes(dimension));
-    if (invalid.length > 0) {
-      errors.push(`Unknown dimensions: ${invalid.join(', ')}. Available: ${dimensionNames.join(', ')}`);
+    for (const dimension of query.dimensions) {
+      if (isQualifiedField(dimension)) {
+        const resolution = resolveQualifiedField(ds, dimension);
+        if (resolution?.error) {
+          errors.push(resolution.error);
+        }
+        continue;
+      }
+      if (!dimensionNames.includes(dimension)) {
+        errors.push(`Unknown dimensions: ${dimension}. Available: ${dimensionNames.join(', ')}`);
+      }
     }
   }
 
   if (query.measures) {
-    const invalid = query.measures.filter(measure => !measureNames.includes(measure));
-    if (invalid.length > 0) {
-      errors.push(`Unknown measures: ${invalid.join(', ')}. Available: ${measureNames.join(', ')}`);
+    for (const measure of query.measures) {
+      if (isQualifiedField(measure)) {
+        errors.push(
+          `Measure "${measure}" is relationship-qualified. Measures can only be defined on the base dataset "${ds.name}", not traversed through relationships.`,
+        );
+        continue;
+      }
+      if (!measureNames.includes(measure)) {
+        errors.push(`Unknown measures: ${measure}. Available: ${measureNames.join(', ')}`);
+      }
     }
   }
 
   if (query.filters) {
-    const invalid = query.filters.filter(filter => !filterNames.includes(filter.field));
-    if (invalid.length > 0) {
-      errors.push(`Unknown filter fields: ${invalid.map(filter => filter.field).join(', ')}. Available: ${filterNames.join(', ')}`);
-    }
-
     for (const filter of query.filters) {
+      if (isQualifiedField(filter.field)) {
+        const filterError = validateQualifiedFilter(ds, filter, context);
+        if (filterError) {
+          errors.push(filterError);
+        }
+        continue;
+      }
+
+      if (!filterNames.includes(filter.field)) {
+        errors.push(`Unknown filter fields: ${filter.field}. Available: ${filterNames.join(', ')}`);
+        continue;
+      }
+
       const filterDefinition = ds.filters[filter.field];
       if (filterDefinition?.operators && !filterDefinition.operators.includes(filter.operator)) {
         errors.push(

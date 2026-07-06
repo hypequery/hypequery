@@ -10,6 +10,13 @@ import type { QueryBuilderLike } from "./query-builder-protocol.js";
 import { GRAIN_FUNCTIONS } from "./constants.js";
 import { applyFilteredAggregationExpression } from './utils/filtered-aggregation-sql.js';
 import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
+import { quoteSQLIdentifier } from './sql-utils.js';
+import { isQualifiedField } from './utils/relationship-fields.js';
+import {
+  qualifyBaseColumn,
+  resolveQualifiedColumn,
+  type RelationshipBuilderContext,
+} from './utils/relationship-builder-plan.js';
 
 type DatasetShape = AnyDatasetInstance;
 
@@ -20,23 +27,35 @@ function toOrderDirection(direction: MetricOrderBy['direction']): 'ASC' | 'DESC'
 export function resolveDimensionExpression(
   ds: DatasetShape,
   dimensionName: string,
+  joinCtx?: RelationshipBuilderContext,
 ): string {
+  if (joinCtx && isQualifiedField(dimensionName)) {
+    return resolveQualifiedColumn(ds, dimensionName);
+  }
   const definition = ds.dimensions[dimensionName];
-  return definition?.sql ?? definition?.column ?? dimensionName;
+  if (definition?.sql) {
+    return definition.sql;
+  }
+  return qualifyBaseColumn(joinCtx, definition?.column ?? dimensionName);
 }
 
 export function resolveFilterField(
   ds: DatasetShape,
   filterField: string,
+  joinCtx?: RelationshipBuilderContext,
 ): string {
+  if (joinCtx && isQualifiedField(filterField)) {
+    return resolveQualifiedColumn(ds, filterField);
+  }
   const resolvedField = ds.filters[filterField]?.field ?? filterField;
-  return resolveDimensionExpression(ds, resolvedField);
+  return resolveDimensionExpression(ds, resolvedField, joinCtx);
 }
 
 export function buildDimensionSelectionPlan(
   ds: DatasetShape,
   dimensions: string[],
   grain: TimeGrain | undefined,
+  joinCtx?: RelationshipBuilderContext,
 ): { selectParts: string[]; groupByParts: string[] } {
   const selectParts: string[] = [];
   const groupByParts = new Set<string>();
@@ -46,18 +65,28 @@ export function buildDimensionSelectionPlan(
     if (!fn) {
       throw new Error(`Unsupported time grain "${grain}".`);
     }
-    selectParts.push(`${fn}(${ds.timeKey}) AS period`);
+    selectParts.push(`${fn}(${qualifyBaseColumn(joinCtx, String(ds.timeKey))}) AS period`);
     groupByParts.add("period");
   }
 
   for (const dimensionName of dimensions) {
-    const expression = resolveDimensionExpression(ds, dimensionName);
-    if (expression === dimensionName) {
+    const expression = resolveDimensionExpression(ds, dimensionName, joinCtx);
+
+    if (joinCtx) {
+      // With joins in scope, every selection is table-qualified and aliased so
+      // grouping/ordering can reference the alias unambiguously.
+      const alias = isQualifiedField(dimensionName)
+        ? quoteSQLIdentifier(dimensionName)
+        : dimensionName;
+      selectParts.push(`${expression} AS ${alias}`);
+      groupByParts.add(alias);
+    } else if (expression === dimensionName) {
       selectParts.push(dimensionName);
+      groupByParts.add(dimensionName);
     } else {
       selectParts.push(`${expression} AS ${dimensionName}`);
+      groupByParts.add(dimensionName);
     }
-    groupByParts.add(dimensionName);
   }
 
   return { selectParts, groupByParts: Array.from(groupByParts) };
@@ -68,11 +97,13 @@ export function applyAggregationSpec(
   ds: DatasetShape,
   spec: AggregationSpec,
   alias: string,
+  joinCtx?: RelationshipBuilderContext,
 ): QueryBuilderLike {
   const fieldOrExpr = applyFilteredAggregationExpression(
     ds,
     spec,
-    spec.sql ?? resolveDimensionExpression(ds, spec.field),
+    spec.sql ?? resolveDimensionExpression(ds, spec.field, joinCtx),
+    joinCtx,
   );
 
   switch (spec.aggregation) {
@@ -98,8 +129,9 @@ export function applyMeasureDefinition(
   ds: DatasetShape,
   name: string,
   definition: MeasureDefinition,
+  joinCtx?: RelationshipBuilderContext,
 ): QueryBuilderLike {
-  const baseFieldOrExpr = definition.sql ?? resolveDimensionExpression(ds, definition.field);
+  const baseFieldOrExpr = definition.sql ?? resolveDimensionExpression(ds, definition.field, joinCtx);
   const fieldOrExpr = applyFilteredAggregationExpression(
     ds,
     {
@@ -109,6 +141,7 @@ export function applyMeasureDefinition(
       filters: definition.filters,
     },
     baseFieldOrExpr,
+    joinCtx,
   );
 
   switch (definition.aggregation) {
@@ -135,10 +168,14 @@ export function appendOrderLimitOffset(
   grain: TimeGrain | undefined,
   limit?: number,
   offset?: number,
+  joinCtx?: RelationshipBuilderContext,
 ): QueryBuilderLike {
   if (orderBy && orderBy.length > 0) {
     for (const order of orderBy) {
-      qb = qb.orderBy(order.field, toOrderDirection(order.direction));
+      const column = joinCtx && isQualifiedField(order.field)
+        ? quoteSQLIdentifier(order.field)
+        : order.field;
+      qb = qb.orderBy(column, toOrderDirection(order.direction));
     }
   } else if (grain) {
     qb = qb.orderBy("period", "ASC");

@@ -9,6 +9,7 @@ import type {
   SemanticBackendResult,
   SemanticExpression,
   SemanticGrainPlan,
+  SemanticJoinPlan,
 } from './semantic-plan.js';
 
 export type InMemoryTable = Array<Record<string, unknown>>;
@@ -65,6 +66,47 @@ function applyTenant(
     return rows.filter((row) => tenant.value.includes(String(row[tenant.field])));
   }
   return rows.filter((row) => row[tenant.field] === tenant.value);
+}
+
+/**
+ * Enriches base rows with columns from to-one joined targets, keyed by the
+ * qualified name `<relationship>.<column>`. Mirrors a query-time LEFT JOIN:
+ * base rows without a matching target keep the joined columns undefined.
+ */
+function applyJoins(
+  rows: InMemoryTable,
+  joins: SemanticJoinPlan[] | undefined,
+  tables: InMemoryTables,
+): InMemoryTable {
+  if (!joins || joins.length === 0) {
+    return rows;
+  }
+
+  const indexes = joins.map((join) => {
+    const targetRows = applyTenant(tables[join.source] ?? [], join.tenant);
+    const index = new Map<string, Record<string, unknown>>();
+    for (const row of targetRows) {
+      const key = String(row[join.to]);
+      // To-one: first matching target wins; a mis-declared to-many still won't fan out.
+      if (!index.has(key)) {
+        index.set(key, row);
+      }
+    }
+    return { join, index };
+  });
+
+  return rows.map((row) => {
+    const enriched: Record<string, unknown> = { ...row };
+    for (const { join, index } of indexes) {
+      const match = index.get(String(row[join.from]));
+      if (match) {
+        for (const [column, value] of Object.entries(match)) {
+          enriched[`${join.relationship}.${column}`] = value;
+        }
+      }
+    }
+    return enriched;
+  });
 }
 
 function periodForValue(value: unknown, grain: SemanticGrainPlan): string {
@@ -211,7 +253,8 @@ function serializeMeasures(rows: InMemoryTable, measures: string[]): InMemoryTab
 export function createInMemoryBackend(tables: InMemoryTables): SemanticBackend {
   function executeAggregate(plan: Extract<PlanNode, { kind: 'aggregate' }>): InMemoryTable {
     const table = tables[plan.source] ?? [];
-    const filteredRows = applyFilters(applyTenant(table, plan.tenant), plan.filters);
+    const joinedRows = applyJoins(table, plan.joins, tables);
+    const filteredRows = applyFilters(applyTenant(joinedRows, plan.tenant), plan.filters);
     const groups = new Map<string, InMemoryTable>();
 
     for (const row of filteredRows) {

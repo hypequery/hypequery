@@ -24,6 +24,14 @@ export interface QueryBuilderLike {
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
 
+  // Joins (to-one relationship traversal)
+  leftJoin(
+    table: string,
+    leftColumn: string,
+    rightColumn: string,
+    alias?: string,
+  ): QueryBuilderLike;
+
   // Grouping
   groupBy(columns: string | string[]): QueryBuilderLike;
 

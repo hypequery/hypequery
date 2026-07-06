@@ -1,7 +1,23 @@
 # Relationship-Aware Semantics Design
 
 Date: 2026-07-02
-Status: proposed (resolves "Next Work #4" in `datasets-semantic-layer-fix-plan.md`)
+Status: PR 1 landed 2026-07-06 (resolves "Next Work #4" in `datasets-semantic-layer-fix-plan.md`)
+
+## Implementation status
+
+- **PR 1 — DONE (2026-07-06).** Validation (dataset + metric paths), builder-path
+  join planning, `QueryBuilderLike.leftJoin`, `PlanNode.joins` + semantic-planner
+  emission, and the in-memory backend hash join. 19 new unit tests in
+  `packages/datasets/src/relationships-query.test.ts`; full datasets/serve/mcp
+  suites green. `PlanNode.joins` was pulled forward from PR 2 because the
+  in-memory backend consumes it.
+- **PR 2 — TODO.** `@hypequery/clickhouse` `createBackend` translation of
+  `PlanNode.joins` (base columns qualified with `source`, joined with the
+  relationship alias) + live ClickHouse integration specs for joined base,
+  derived, grouped, grained, filtered, and tenant-scoped queries.
+- **PR 3 — TODO.** Catalog/contract `queryable` + `fields`, serve
+  `semantic-input-schema` enums, React field-name types, docs page.
+
 Sources: `packages/datasets/src` (relationships, planners, validation, catalog, contract),
 `packages/clickhouse/src` (query builder joins, semantic backend), `packages/schema/src/compat`,
 `packages/serve/src/semantic/datasets`.

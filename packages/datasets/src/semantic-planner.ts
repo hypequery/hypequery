@@ -11,6 +11,7 @@ import type {
   PlanNode,
   SemanticAggregationPlan,
   SemanticDimensionPlan,
+  SemanticJoinPlan,
 } from './semantic-plan.js';
 import {
   getMetricGrain,
@@ -20,6 +21,7 @@ import {
 import { validateDatasetQuery } from './dataset-query.js';
 import { isSupportedTimeGrain } from './constants.js';
 import { getRuntimeTenantPredicate } from './utils/tenant-runtime.js';
+import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
 
 function resolveField(ds: AnyDatasetInstance, field: string): string {
   const dimension = ds.dimensions[field];
@@ -32,15 +34,38 @@ function resolveField(ds: AnyDatasetInstance, field: string): string {
   return dimension?.column ?? field;
 }
 
+/**
+ * Resolves a relationship-qualified field to its plan field name
+ * (`<relationship>.<targetColumn>`). Validation runs before planning, so an
+ * unresolved qualified name here is a programming error.
+ */
+function resolveQualifiedPlanField(ds: AnyDatasetInstance, name: string) {
+  const resolution = resolveQualifiedField(ds, name);
+  if (!resolution || !resolution.resolved) {
+    throw new Error(resolution?.error ?? `Cannot resolve relationship field "${name}".`);
+  }
+  return resolution.resolved;
+}
+
 function dimensionsForQuery(
   ds: AnyDatasetInstance,
   dimensions: string[] = [],
 ): SemanticDimensionPlan[] {
-  return dimensions.map((name) => ({
-    name,
-    field: resolveField(ds, name),
-    fieldType: ds.dimensions[name]?.fieldType,
-  }));
+  return dimensions.map((name) => {
+    if (isQualifiedField(name)) {
+      const { relationshipName, targetColumn, targetDimension } = resolveQualifiedPlanField(ds, name);
+      return {
+        name,
+        field: `${relationshipName}.${targetColumn}`,
+        fieldType: targetDimension.fieldType,
+      };
+    }
+    return {
+      name,
+      field: resolveField(ds, name),
+      fieldType: ds.dimensions[name]?.fieldType,
+    };
+  });
 }
 
 function normalizeFilters(
@@ -48,12 +73,56 @@ function normalizeFilters(
   filters: MetricFilter[] = [],
 ): MetricFilter[] {
   return filters.map((filter) => {
+    if (isQualifiedField(filter.field)) {
+      const { relationshipName, targetColumn } = resolveQualifiedPlanField(ds, filter.field);
+      return { ...filter, field: `${relationshipName}.${targetColumn}` };
+    }
     const resolvedField = ds.filters[filter.field]?.field ?? filter.field;
     return {
       ...filter,
       field: resolveField(ds, resolvedField),
     };
   });
+}
+
+/**
+ * Collects deduped to-one LEFT JOINs for every relationship referenced by the
+ * query's dimensions or filters, scoping each joined target with the runtime
+ * tenant predicate when the target declares a `tenantKey`.
+ */
+function collectJoins(
+  ds: AnyDatasetInstance,
+  dimensions: string[] = [],
+  filters: MetricFilter[] = [],
+  context?: ExecutionContext,
+): SemanticJoinPlan[] | undefined {
+  const referenced = [
+    ...dimensions,
+    ...filters.map((filter) => filter.field),
+  ].filter(isQualifiedField);
+  if (referenced.length === 0) {
+    return undefined;
+  }
+
+  const tenantPredicate = getRuntimeTenantPredicate(context);
+  const joins = new Map<string, SemanticJoinPlan>();
+  for (const name of referenced) {
+    const { relationshipName, relationship, target } = resolveQualifiedPlanField(ds, name);
+    if (joins.has(relationshipName)) {
+      continue;
+    }
+    joins.set(relationshipName, {
+      relationship: relationshipName,
+      source: target.source,
+      from: relationship.from,
+      to: relationship.to,
+      type: 'left',
+      tenant: tenantPredicate && target.tenantKey
+        ? { field: target.tenantKey, ...tenantPredicate }
+        : undefined,
+    });
+  }
+  return Array.from(joins.values());
 }
 
 function aggregationForMeasure(
@@ -120,6 +189,7 @@ function aggregatePlan(
     limit: query.limit,
     offset: query.offset,
     tenant: tenantForContext(ds, context),
+    joins: collectJoins(ds, query.dimensions, query.filters, context),
   };
 }
 
