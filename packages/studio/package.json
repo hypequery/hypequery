@@ -1,13 +1,19 @@
 {
-  "name": "@hypequery/serve-ui",
+  "name": "@hypequery/studio",
   "version": "0.1.0",
-  "private": true,
+  "description": "Embeddable hypequery studio UI — renders against a gateway contract endpoint",
+  "license": "Apache-2.0",
   "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./dist/*": "./dist/*"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -28,7 +34,10 @@
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.3.3",
+    "typescript": "^5.7.3",
     "vite": "^5.0.12"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
