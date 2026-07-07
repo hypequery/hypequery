@@ -48,12 +48,14 @@ type WithTypedData<TOutput, TRow> = Omit<TOutput, 'data'> & {
   data: TRow[];
 };
 
+// Measure/metric values are `string`: ClickHouse serializes aggregate results
+// (UInt64, Decimal, ...) as strings over JSON, matching @hypequery/datasets.
 type DatasetOutputForInput<TInfo, TInput, TFallback> =
   TInfo extends { kind: 'dataset'; dimensions: infer TDimensions; measures: infer TMeasures }
     ? WithTypedData<
         TFallback,
         & { [K in SelectedDimensions<TDimensions, TInput>]?: DimensionValue<TDimensions[K]> }
-        & { [K in SelectedMeasures<TMeasures, TInput>]?: number }
+        & { [K in SelectedMeasures<TMeasures, TInput>]?: string }
         & PeriodSelection<TInput>
       >
     : TFallback;
@@ -67,7 +69,7 @@ type MetricOutputForInput<TInfo, TInput, TFallback> =
     ? WithTypedData<
         TFallback,
         & { [K in SelectedDimensions<TDimensions, TInput>]?: DimensionValue<TDimensions[K]> }
-        & { [K in TMetricName]?: number }
+        & { [K in TMetricName]?: string }
         & PeriodSelection<TInput>
       >
     : TFallback;

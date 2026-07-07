@@ -47,9 +47,14 @@ const datasetResult = hooks.useDataset('orders', {
 });
 const datasetRow = datasetResult.data?.data[0];
 const datasetCountry: string | undefined = datasetRow?.country;
-const datasetRevenue: number | undefined = datasetRow?.revenue;
+// Measure values are strings: ClickHouse serializes aggregates as strings over JSON.
+const datasetRevenue: string | undefined = datasetRow?.revenue;
 void datasetCountry;
 void datasetRevenue;
+
+// @ts-expect-error measure values are strings, not numbers
+const datasetRevenueAsNumber: number | undefined = datasetRow?.revenue;
+void datasetRevenueAsNumber;
 
 // @ts-expect-error unselected dimensions are not exposed
 void datasetRow?.status;
@@ -71,7 +76,7 @@ const metricResult = hooks.useMetric('totalRevenue', {
   dimensions: ['country'] as const,
 });
 const metricRow = metricResult.data?.data[0];
-const metricValue: number | undefined = metricRow?.totalRevenue;
+const metricValue: string | undefined = metricRow?.totalRevenue;
 const metricCountry: string | undefined = metricRow?.country;
 void metricValue;
 void metricCountry;
@@ -87,7 +92,7 @@ const infiniteDatasetResult = hooks.useInfiniteDataset('orders', {
 });
 const infiniteDatasetRow = infiniteDatasetResult.data?.pages[0]?.data[0];
 const infiniteDatasetCountry: string | undefined = infiniteDatasetRow?.country;
-const infiniteDatasetRevenue: number | undefined = infiniteDatasetRow?.revenue;
+const infiniteDatasetRevenue: string | undefined = infiniteDatasetRow?.revenue;
 void infiniteDatasetCountry;
 void infiniteDatasetRevenue;
 
@@ -110,7 +115,7 @@ const infiniteMetricResult = hooks.useInfiniteMetric('totalRevenue', {
   limit: 50,
 });
 const infiniteMetricRow = infiniteMetricResult.data?.pages[0]?.data[0];
-const infiniteMetricValue: number | undefined = infiniteMetricRow?.totalRevenue;
+const infiniteMetricValue: string | undefined = infiniteMetricRow?.totalRevenue;
 const infiniteMetricCountry: string | undefined = infiniteMetricRow?.country;
 void infiniteMetricValue;
 void infiniteMetricCountry;
