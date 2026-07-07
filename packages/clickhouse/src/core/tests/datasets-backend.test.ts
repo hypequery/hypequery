@@ -878,6 +878,99 @@ describe('ClickHouse Backend - Edge Cases', () => {
 // SQL Generation via explain()
 // =============================================================================
 
+// =============================================================================
+// Analytical Aggregation Tests
+// =============================================================================
+
+const AnalyticalOrders = dataset('analyticalOrders', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    country: dimension.string(),
+    status: dimension.string(),
+    amount: dimension.number(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    p95Amount: measure.percentile('amount', 0.95),
+    medianAmount: measure.median('amount'),
+    latestAmount: measure.argMax('amount', 'createdAt'),
+    firstAmount: measure.argMin('amount', 'createdAt'),
+    amountStddev: measure.stddev('amount'),
+    amountVariance: measure.variance('amount'),
+    completedP95: measure.percentile('amount', 0.95, {
+      filters: [eq('status', 'completed')],
+    }),
+  },
+});
+
+describe('ClickHouse Backend - Analytical Aggregations', () => {
+  it('generates quantile SQL for percentile and median measures', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(AnalyticalOrders, {
+      dimensions: ['country'],
+      measures: ['p95Amount', 'medianAmount'],
+    });
+
+    expect(queries[0]).toContain('quantile(0.95)(amount) AS p95Amount');
+    expect(queries[0]).toContain('quantile(0.5)(amount) AS medianAmount');
+    expect(queries[0]).toContain('GROUP BY country');
+  });
+
+  it('generates argMax/argMin SQL with the resolved by-column', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(AnalyticalOrders, {
+      dimensions: ['country'],
+      measures: ['latestAmount', 'firstAmount'],
+    });
+
+    expect(queries[0]).toContain('argMax(amount, created_at) AS latestAmount');
+    expect(queries[0]).toContain('argMin(amount, created_at) AS firstAmount');
+  });
+
+  it('generates stddevSamp and varSamp SQL', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(AnalyticalOrders, {
+      dimensions: ['country'],
+      measures: ['amountStddev', 'amountVariance'],
+    });
+
+    expect(queries[0]).toContain('stddevSamp(amount) AS amountStddev');
+    expect(queries[0]).toContain('varSamp(amount) AS amountVariance');
+  });
+
+  it('wraps filtered percentile measures with a NULL fallback', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(AnalyticalOrders, {
+      dimensions: ['country'],
+      measures: ['completedP95'],
+    });
+
+    expect(queries[0]).toContain("quantile(0.95)(if((status = 'completed'), amount, NULL)) AS completedP95");
+  });
+
+  it('supports analytical metrics with time grains', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+    const p95 = AnalyticalOrders.metric('p95Amount', { measure: 'p95Amount' });
+
+    await analytics.execute(p95, { by: 'month' });
+
+    expect(queries[0]).toContain('toStartOfMonth(created_at) AS period');
+    expect(queries[0]).toContain('quantile(0.95)(amount) AS p95Amount');
+    expect(queries[0]).toContain('GROUP BY period');
+  });
+});
+
 describe('ClickHouse Backend - SQL Generation via Explain', () => {
   it('backend supports explain() to generate SQL without execution', async () => {
     const { backend, queries } = createTestBackend([]);

@@ -7,6 +7,12 @@ import { validateFilterValue } from '../validation.js';
 
 const NUMERIC_FIELD_TYPES = new Set(['number']);
 
+// Aggregations whose output tracks the input field's type, so a metric
+// (contract valueType: 'number') needs a numeric input dimension.
+const NUMERIC_INPUT_AGGREGATIONS = new Set([
+  'sum', 'avg', 'percentile', 'stddev', 'variance', 'argMax', 'argMin',
+]);
+
 export function validateBaseMetric(
   ds: AnyDatasetInstance,
   metricName: string,
@@ -22,7 +28,7 @@ export function validateBaseMetric(
 
   if (
     dimension &&
-    (spec.aggregation === 'sum' || spec.aggregation === 'avg') &&
+    NUMERIC_INPUT_AGGREGATIONS.has(spec.aggregation) &&
     !NUMERIC_FIELD_TYPES.has(dimension.fieldType)
   ) {
     throw new Error(

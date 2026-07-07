@@ -37,6 +37,20 @@ const Orders = dataset('orders', {
   },
 });
 
+const AnalyticalOrders = dataset('analyticalOrders', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: Orders.dimensions,
+  measures: {
+    latestTotal: measure.argMax('total', 'createdAt'),
+    firstTotal: measure.argMin('total', 'createdAt'),
+    medianTotal: measure.median('total'),
+    p95Total: measure.percentile('total', 0.95),
+    totalStddev: measure.stddev('total'),
+    totalVariance: measure.variance('total'),
+  },
+});
+
 const TenantOrders = dataset('tenantOrders', {
   source: 'orders',
   tenantKey: 'status',
@@ -161,5 +175,51 @@ describe('datasets ClickHouse integration', () => {
       tenant: 'completed',
     });
     expect(result.meta?.sql).toContain('WHERE status = ?');
+  });
+
+  it('executes argMax/argMin measures against real ClickHouse rows', async () => {
+    const analytics = createClient();
+
+    const result = await analytics.execute(AnalyticalOrders, {
+      measures: ['latestTotal', 'firstTotal'],
+    });
+
+    // Latest order (2023-01-14) has total 16.5; earliest (2023-01-10) has 21.
+    expect(result.data).toEqual([{ latestTotal: 16.5, firstTotal: 21 }]);
+    expect(result.meta?.sql).toContain('argMax(total, created_at) AS latestTotal');
+    expect(result.meta?.sql).toContain('argMin(total, created_at) AS firstTotal');
+  });
+
+  it('executes percentile, stddev, and variance measures against real ClickHouse rows', async () => {
+    const analytics = createClient();
+
+    const result = await analytics.execute(AnalyticalOrders, {
+      measures: ['medianTotal', 'p95Total', 'totalStddev', 'totalVariance'],
+    });
+
+    // totals [15, 16.5, 21, 30, 62.25]
+    const row = result.data[0] as Record<string, number>;
+    expect(row.medianTotal).toBe(21);
+    expect(row.p95Total).toBeCloseTo(55.8, 2);
+    expect(row.totalVariance).toBeCloseTo(380.7, 2);
+    expect(row.totalStddev).toBeCloseTo(Math.sqrt(380.7), 2);
+    expect(result.meta?.sql).toContain('quantile(0.5)(total) AS medianTotal');
+    expect(result.meta?.sql).toContain('stddevSamp(total) AS totalStddev');
+  });
+
+  it('groups analytical measures by dimension against real ClickHouse rows', async () => {
+    const analytics = createClient();
+
+    const result = await analytics.execute(AnalyticalOrders, {
+      dimensions: ['status'],
+      measures: ['latestTotal'],
+      orderBy: [{ field: 'status', direction: 'asc' }],
+    });
+
+    expect(result.data).toEqual([
+      { status: 'cancelled', latestTotal: 16.5 },
+      { status: 'completed', latestTotal: 30 },
+      { status: 'pending', latestTotal: 62.25 },
+    ]);
   });
 });
