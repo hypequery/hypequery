@@ -32,10 +32,6 @@ export interface ContractDimension {
 export interface ContractMeasure {
   aggregation: MeasureCatalogEntry['aggregation'];
   field: string;
-  /** Second column for argMax/argMin. */
-  argField?: string;
-  /** Percentile level in [0, 1]. */
-  level?: number;
   sql?: string;
   label?: string;
   description?: string;
@@ -189,8 +185,6 @@ function measureToContract(entry: MeasureCatalogEntry, includeSql: boolean): Con
   return {
     aggregation: entry.aggregation,
     field: entry.field,
-    ...(entry.argField !== undefined ? { argField: entry.argField } : {}),
-    ...(entry.level !== undefined ? { level: entry.level } : {}),
     ...(includeSql && entry.sql !== undefined ? { sql: normalizeSql(entry.sql) } : {}),
     ...(entry.label !== undefined ? { label: entry.label } : {}),
     ...(entry.description !== undefined ? { description: entry.description } : {}),

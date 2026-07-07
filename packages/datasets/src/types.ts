@@ -42,28 +42,13 @@ export interface RelationshipDefinition {
   to: string;
 }
 
-export type AggregationType =
-  | 'sum'
-  | 'count'
-  | 'countDistinct'
-  | 'avg'
-  | 'min'
-  | 'max'
-  | 'argMax'
-  | 'argMin'
-  | 'percentile'
-  | 'stddev'
-  | 'variance';
+export type AggregationType = 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max';
 export type MeasureAggregation = AggregationType;
 
 export interface AggregationSpec {
   __type: 'aggregation_spec';
   aggregation: AggregationType;
   field: string;
-  /** Second column for argMax/argMin: the field whose extreme selects the row. */
-  argField?: string;
-  /** Percentile level in [0, 1]. Required when aggregation is 'percentile'. */
-  level?: number;
   sql?: string;
   filters?: MetricFilter[];
 }
@@ -79,10 +64,6 @@ export interface MeasureDefinition {
   __type: 'measure_definition';
   aggregation: MeasureAggregation;
   field: string;
-  /** Second column for argMax/argMin: the field whose extreme selects the row. */
-  argField?: string;
-  /** Percentile level in [0, 1]. Required when aggregation is 'percentile'. */
-  level?: number;
   sql?: string;
   label?: string;
   description?: string;
