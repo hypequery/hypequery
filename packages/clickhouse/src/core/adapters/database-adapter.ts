@@ -1,4 +1,4 @@
-import type { ClickHouseSettings } from '@clickhouse/client-common';
+import type { ClickHouseSettings, ClickHouseSummary } from '@clickhouse/client-common';
 
 export interface QueryExecutionOptions {
   clickhouseSettings?: ClickHouseSettings;
@@ -13,10 +13,11 @@ export interface InsertExecutionOptions {
 }
 
 export interface InsertResultSummary {
+  /** Empty string when {@link executed} is false (no request was sent). */
   queryId: string;
   executed: boolean;
   /** Server-side insert summary when the client provides one (e.g. written_rows). */
-  summary?: unknown;
+  summary?: ClickHouseSummary;
 }
 
 export interface DatabaseAdapter {

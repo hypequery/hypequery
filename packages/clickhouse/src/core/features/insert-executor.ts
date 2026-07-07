@@ -14,6 +14,12 @@ function normalizeInsertValue(value: unknown): unknown {
   if (typeof value === 'bigint') {
     return String(value);
   }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    // JSON.stringify would silently coerce NaN/Infinity to null.
+    throw new Error(
+      `Cannot insert non-finite number ${value}: JSON serialization would coerce it to null.`
+    );
+  }
   if (Array.isArray(value)) {
     return value.map(normalizeInsertValue);
   }
@@ -49,7 +55,7 @@ export class InsertExecutorFeature<
 
   async execute(options?: InsertExecutorRunOptions): Promise<InsertResultSummary> {
     const queryNode = this.builder.getQueryNode();
-    if (queryNode.rows.length === 0) {
+    if (!this.builder.hasValues()) {
       throw new Error('No values provided. Call .values() before .execute().');
     }
 
@@ -58,6 +64,11 @@ export class InsertExecutorFeature<
       throw new Error(
         `Inserts are not supported by adapter "${adapter.name}". Implement DatabaseAdapter.insert to enable them.`
       );
+    }
+
+    if (queryNode.rows.length === 0) {
+      // An explicit empty batch sends no request, mirroring the native client.
+      return { queryId: '', executed: false };
     }
 
     // Synthetic statement for logs only — row data is never serialized into logs.

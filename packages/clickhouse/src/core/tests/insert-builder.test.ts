@@ -65,11 +65,21 @@ describe('InsertBuilder', () => {
   });
 
   it('normalizes Date and bigint values before they reach the adapter', async () => {
-    const { db, calls } = createDb();
-    const createdAt = new Date('2026-01-02T03:04:05.000Z');
-    await db.insert('users').values({ ...userRow, created_at: createdAt }).execute();
+    type EventsSchema = { events: { id: 'Int64'; at: 'DateTime64(3)'; day: 'Date' } };
+    const { adapter, calls } = createCapturingAdapter();
+    const db = createQueryBuilder<EventsSchema>({ adapter });
 
-    expect(calls[0].rows[0].created_at).toBe('2026-01-02T03:04:05.000Z');
+    await db.insert('events').values({
+      id: 9007199254740993n,
+      at: new Date('2026-01-02T03:04:05.000Z'),
+      day: '2026-01-02',
+    }).execute();
+
+    expect(calls[0].rows[0]).toEqual({
+      id: '9007199254740993',
+      at: '2026-01-02T03:04:05.000Z',
+      day: '2026-01-02',
+    });
   });
 
   it('forwards the column subset, settings, and queryId', async () => {
@@ -93,6 +103,22 @@ describe('InsertBuilder', () => {
     await expect(db.insert('users').execute()).rejects.toThrow(
       'No values provided. Call .values() before .execute().'
     );
+  });
+
+  it('treats an explicit empty batch as a no-op instead of throwing', async () => {
+    const { db, calls } = createDb();
+    const result = await db.insert('users').values([]).execute();
+
+    expect(result).toEqual({ queryId: '', executed: false });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects non-finite numbers instead of silently inserting null', async () => {
+    const { db, calls } = createDb();
+    await expect(
+      db.insert('users').values({ ...userRow, id: Number.NaN }).execute()
+    ).rejects.toThrow('Cannot insert non-finite number NaN');
+    expect(calls).toHaveLength(0);
   });
 
   it('throws when columns() is called after values()', () => {
@@ -156,6 +182,12 @@ describe('normalizeInsertRows', () => {
       timestamps: ['2026-01-01T00:00:00.000Z'],
       map: { seen_at: '2026-01-01T00:00:00.000Z', ids: ['1'] },
     });
+  });
+
+  it('throws on NaN and Infinity, including nested occurrences', () => {
+    expect(() => normalizeInsertRows([{ x: Number.NaN }])).toThrow('non-finite number NaN');
+    expect(() => normalizeInsertRows([{ x: Number.POSITIVE_INFINITY }])).toThrow('non-finite number Infinity');
+    expect(() => normalizeInsertRows([{ x: { nested: [Number.NEGATIVE_INFINITY] } }])).toThrow('non-finite number -Infinity');
   });
 
   it('leaves primitives, null, and non-plain objects untouched', () => {

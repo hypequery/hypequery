@@ -17,7 +17,7 @@ type ExpectedUsersInsert = {
   id: number;
   user_name: string;
   email: string;
-  created_at: string | Date | number;
+  created_at: string; // Date columns take 'YYYY-MM-DD' strings only — JSONEachRow rejects datetime strings
   profile: Record<string, string>;
   roles: string[];
   is_active: boolean;
@@ -25,11 +25,12 @@ type ExpectedUsersInsert = {
 };
 type AssertUsersInsert = Expect<Equal<UsersInsert, ExpectedUsersInsert>>;
 
-// Large integers accept string | number | bigint on the insert side.
+// Large integers accept string | number | bigint; DateTime stays wide, Date stays string-only.
 type EventsSchema = {
   events: {
     id: 'Int64';
     ts: 'DateTime';
+    day: 'Date';
     note: 'Nullable(String)';
   };
 };
@@ -37,6 +38,7 @@ type EventsInsert = InsertRow<EventsSchema['events']>;
 type ExpectedEventsInsert = {
   id: string | number | bigint;
   ts: string | Date | number;
+  day: string;
   note?: string | null;
 };
 type AssertEventsInsert = Expect<Equal<EventsInsert, ExpectedEventsInsert>>;
@@ -47,7 +49,7 @@ const fullInsert = db.insert('users').values({
   id: 1,
   user_name: 'ada',
   email: 'ada@example.com',
-  created_at: new Date(),
+  created_at: '2026-01-01',
   profile: { plan: 'pro' },
   roles: ['admin'],
   is_active: true,
@@ -67,12 +69,12 @@ db.insert('users').values({
   preferences: null,
 });
 
-// Full test_table row: Date accepted for DateTime64, maps/arrays typed, optional columns omitted.
+// Full test_table row: Date object accepted for DateTime64, maps/arrays typed, optional columns omitted.
 db.insert('test_table').values({
   id: 1,
   name: 'widget',
   price: 9.99,
-  created_at: new Date(),
+  created_at: '2026-01-01',
   category: 'tools',
   active: 1,
   created_by: 1,
@@ -116,6 +118,9 @@ db.insert('users').values({ id: 1, user_name: 'ada', email: 'a@b.c', created_at:
 
 // @ts-expect-error - non-nullable column rejects null
 db.insert('users').values({ id: null, user_name: 'ada', email: 'a@b.c', created_at: '2026-01-01', profile: {}, roles: [], is_active: true });
+
+// @ts-expect-error - Date objects are rejected for Date columns (JSONEachRow only parses 'YYYY-MM-DD')
+db.insert('users').values({ id: 1, user_name: 'ada', email: 'a@b.c', created_at: new Date(), profile: {}, roles: [], is_active: true });
 
 // @ts-expect-error - unknown column in columns()
 db.insert('users').columns(['nope']);

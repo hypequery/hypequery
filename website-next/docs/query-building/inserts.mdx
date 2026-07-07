@@ -31,7 +31,7 @@ const result = await db.insert('events')
 
 </CodeBlock>
 
-Pass an array to insert multiple rows in one request, or chain `values()` calls — rows accumulate:
+Pass an array to insert multiple rows in one request, or chain `values()` calls — rows accumulate. An explicit empty array is a valid no-op: no request is sent and `execute()` resolves `{ executed: false }`, so batch jobs don't need to special-case empty batches.
 
 <CodeBlock>
 
@@ -63,10 +63,13 @@ db.insert('events').values({ nope: 1, ... });  // ✗ unknown column
 
 Value types are widened where ClickHouse accepts more than one input format:
 
-- **Date / DateTime columns** accept `string | Date` (`Date` values are converted to ISO-8601 strings before sending).
+- **DateTime / DateTime64 columns** accept `string | Date | number` (`Date` values are converted to ISO-8601 strings; numbers are epoch seconds).
+- **Date / Date32 columns** accept `'YYYY-MM-DD'` strings only — ClickHouse's JSONEachRow parser rejects datetime strings for Date columns, so the types don't permit `Date` objects there. This also avoids the classic timezone bug where a `Date` created at local midnight lands on a different UTC calendar day.
 - **Int64 and larger integers** accept `string | number | bigint` (`bigint` values are converted to decimal strings).
 - **Decimals** accept `number | string`.
 - **Enums** accept the name or the numeric value.
+
+`NaN` and `Infinity` are rejected with an error before the request is sent — JSON serialization would otherwise silently coerce them to `null`.
 
 ## Inserting a Subset of Columns
 
@@ -111,6 +114,8 @@ You can also pass a `queryId` for tracing: `.execute({ queryId: 'my-insert' })`.
 ## How It Works
 
 Inserts run through the ClickHouse client's native insert path using the `JSONEachRow` format — values are never interpolated into SQL text. `date_time_input_format: 'best_effort'` is set by default so ISO-8601 timestamps parse into `DateTime` columns (your settings take precedence).
+
+All rows in a `values()` call are buffered and sent as a single request. For very large volumes, insert in batches (streaming inserts are planned).
 
 <Callout type="warn" title="Custom adapters">
   Inserts require the adapter to implement the optional <code>DatabaseAdapter.insert</code> method.

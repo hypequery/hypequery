@@ -20,7 +20,11 @@ type Add1<T extends number> = T extends 0 ? 1 : T extends 1 ? 2 : T extends 2 ? 
  *
  * Mirrors the structure of `InferClickHouseType` (the read side) but accepts a
  * wider set of inputs where the JSONEachRow insert path tolerates them:
- * - Date/DateTime columns accept `string | Date | number`
+ * - DateTime columns accept `string | Date | number`
+ * - Date/Date32 columns accept `string` only ('YYYY-MM-DD'): the JSONEachRow
+ *   Date parser is strict and rejects anything after the date part, and
+ *   `date_time_input_format: 'best_effort'` does not apply to Date columns
+ *   (verified against a live server)
  * - 64-bit and larger integers accept `string | number | bigint`
  * - Decimals accept `number | string`
  * - Enums accept the name or the numeric value
@@ -42,6 +46,7 @@ type InsertValueOf<T extends string, Depth extends number> =
   : T extends ClickHouseJsUnsafeInteger ? string | number | bigint
   : T extends ClickHouseFloat ? number
   : T extends ClickHouseDecimal ? number | string
+  : T extends 'Date' | 'Date32' ? string
   : T extends ClickHouseDateTime ? string | Date | number
   : T extends ClickHouseString ? string
   : T extends ClickHouseEnum ? string | number

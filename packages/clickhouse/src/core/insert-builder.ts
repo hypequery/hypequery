@@ -42,6 +42,7 @@ export class InsertBuilder<
   private state: State;
   private executor: InsertExecutorFeature<Schema, State>;
   private adapter: DatabaseAdapter;
+  private valuesProvided = false;
 
   constructor(tableName: string, state: State, adapter: DatabaseAdapter) {
     this.tableName = tableName;
@@ -57,6 +58,7 @@ export class InsertBuilder<
   ): InsertBuilder<Schema, NextState> {
     const builder = new InsertBuilder<Schema, NextState>(this.tableName, state, this.adapter);
     builder.query = cloneInsertQueryNode(query);
+    builder.valuesProvided = this.valuesProvided;
     return builder;
   }
 
@@ -103,13 +105,18 @@ export class InsertBuilder<
 
   /**
    * Adds one row or an array of rows to insert. Can be chained; rows accumulate.
+   *
+   * An explicit empty array is a valid no-op batch: `execute()` sends no
+   * request and resolves `{ executed: false }`, mirroring the native client.
    */
   values(rows: State['row'] | ReadonlyArray<State['row']>): this {
     const added = (Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[];
-    return this.updateQuery(query => ({
+    const next = this.updateQuery(query => ({
       ...query,
       rows: [...query.rows, ...added],
     }));
+    next.valuesProvided = true;
+    return next;
   }
 
   /**
@@ -134,6 +141,10 @@ export class InsertBuilder<
 
   getQueryNode(): InsertQueryNode {
     return cloneInsertQueryNode(this.query);
+  }
+
+  hasValues(): boolean {
+    return this.valuesProvided;
   }
 
   /**
