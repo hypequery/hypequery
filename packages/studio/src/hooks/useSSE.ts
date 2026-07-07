@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSSEConnection, type ConnectionState, type SSEEventHandler } from '@/lib/sse';
 import type { SSEEventType } from '@/lib/types';
 
@@ -18,15 +18,10 @@ export function useSSEConnection() {
       connection.connect();
     }
 
-    // Poll for state changes since we can't access the internal callback
-    const interval = setInterval(() => {
-      const currentState = connection.getState();
-      setState((prev) => (currentState !== prev ? currentState : prev));
-    }, 500);
+    // Subscribe to state changes (no polling).
+    const unsubscribe = connection.onState(setState);
 
-    return () => {
-      clearInterval(interval);
-    };
+    return unsubscribe;
   }, [connection]);
 
   const connect = useCallback(() => {
@@ -54,10 +49,15 @@ export function useSSEEvent<T = unknown>(
   type: SSEEventType | '*',
   handler: SSEEventHandler<T>
 ) {
+  // Keep the latest handler in a ref so an inline handler does not cause the
+  // effect to re-subscribe on every render.
+  const handlerRef = useRef(handler);
+  handlerRef.current = handler;
+
   useEffect(() => {
     const connection = getSSEConnection();
-    const unsubscribe = connection.on(type, handler);
+    const unsubscribe = connection.on<T>(type, (event) => handlerRef.current(event));
 
     return unsubscribe;
-  }, [type, handler]);
+  }, [type]);
 }

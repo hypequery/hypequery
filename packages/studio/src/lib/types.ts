@@ -106,11 +106,10 @@ export interface QueryFilters {
  * SSE event types from the server.
  */
 export type SSEEventType =
-  | 'query:start'
-  | 'query:complete'
+  | 'query:started'
+  | 'query:completed'
   | 'query:error'
-  | 'cache:hit'
-  | 'cache:invalidate'
+  | 'cache:updated'
   | 'connected'
   | 'heartbeat';
 
@@ -122,6 +121,61 @@ export interface SSEEvent<T = unknown> {
   data: T;
   timestamp: number;
   id?: string;
+}
+
+/** Capability strings advertised by the gateway via /meta. */
+export type GatewayCapability =
+  | 'registry'
+  | 'execute'
+  | 'history'
+  | 'events'
+  | 'cache'
+  | 'schema'
+  | 'ai';
+
+/** Response of GET /meta. */
+export interface GatewayMeta {
+  contractVersion: string;
+  mode: 'local' | 'cloud';
+  capabilities: GatewayCapability[];
+  project: { name: string };
+  clickhouse?: { connected: boolean; database?: string; host?: string };
+}
+
+/** One endpoint in the registry. */
+export interface RegistryEntry {
+  key: string;
+  name?: string;
+  path: string;
+  method: string;
+  description?: string;
+  tags: string[];
+  hasInput: boolean;
+  hasTenant: boolean;
+  requiresAuth: boolean;
+  requiredRoles?: string[];
+  requiredScopes?: string[];
+  visibility?: string;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  custom?: Record<string, unknown>;
+}
+
+/** Response of GET /registry. */
+export interface RegistryResult {
+  basePath?: string;
+  endpoints: RegistryEntry[];
+  total: number;
+}
+
+/** Response of POST /execute. */
+export interface ExecuteResult {
+  success: boolean;
+  key?: string;
+  result?: unknown;
+  durationMs: number;
+  timestamp: number;
+  error?: { type?: string; message: string; details?: unknown };
 }
 
 /**

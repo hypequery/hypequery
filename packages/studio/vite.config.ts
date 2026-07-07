@@ -28,6 +28,17 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // No sourcemaps in the shipped dist — this package rides in the CLI
+    // dependency tree (Prisma delivery model), so tarball size matters.
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Split the heavy SQL-formatting/highlighting libs into their own
+        // chunk so they can load lazily on first SQL view.
+        manualChunks: {
+          sql: ['prismjs', 'sql-formatter'],
+        },
+      },
+    },
   },
 });

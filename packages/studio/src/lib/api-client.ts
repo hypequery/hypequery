@@ -3,12 +3,27 @@ import type {
   QueryListResult,
   QueryFilters,
   LoggerStats,
+  GatewayMeta,
+  RegistryResult,
+  ExecuteResult,
 } from './types';
 
 /**
- * Base URL for the dev API.
+ * Base path for the gateway contract. Overridable so the same studio bundle
+ * can front the local gateway (same-origin `/__dev`) or a hosted Cloud gateway
+ * (an absolute origin). Set once at boot via {@link setGatewayBaseUrl}.
  */
-const BASE_URL = '/__dev';
+let BASE_URL = '/__dev';
+
+/** Point the studio at a specific gateway (e.g. Cloud). Defaults to `/__dev`. */
+export function setGatewayBaseUrl(baseUrl: string): void {
+  BASE_URL = baseUrl.replace(/\/$/, '');
+}
+
+/** The SSE endpoint for the configured gateway. */
+export function gatewayEventsUrl(): string {
+  return `${BASE_URL}/events`;
+}
 
 /**
  * API client error.
@@ -80,6 +95,24 @@ async function request<T>(
  * API client for the dev server.
  */
 export const apiClient = {
+  /** Discovery: contract version + advertised capabilities. */
+  async getMeta(): Promise<GatewayMeta> {
+    return request<GatewayMeta>('/meta');
+  },
+
+  /** Endpoint catalog (queries + semantic dataset/metric routes). */
+  async getRegistry(): Promise<RegistryResult> {
+    return request<RegistryResult>('/registry');
+  },
+
+  /** Run an endpoint through the serve pipeline. */
+  async execute(key: string, input?: unknown): Promise<ExecuteResult> {
+    return request<ExecuteResult>('/execute', {
+      method: 'POST',
+      body: JSON.stringify({ key, input }),
+    });
+  },
+
   /**
    * Get list of queries with optional filters.
    */
@@ -94,21 +127,21 @@ export const apiClient = {
     if (filters.offset) params.set('offset', String(filters.offset));
 
     const query = params.toString();
-    return request<QueryListResult>(`/queries${query ? `?${query}` : ''}`);
+    return request<QueryListResult>(`/history${query ? `?${query}` : ''}`);
   },
 
   /**
    * Get a single query by ID.
    */
   async getQuery(queryId: string): Promise<QueryHistoryEntry> {
-    return request<QueryHistoryEntry>(`/queries/${encodeURIComponent(queryId)}`);
+    return request<QueryHistoryEntry>(`/history/${encodeURIComponent(queryId)}`);
   },
 
   /**
    * Clear query history.
    */
   async clearHistory(): Promise<{ cleared: number }> {
-    return request<{ cleared: number }>('/queries', { method: 'DELETE' });
+    return request<{ cleared: number }>('/history', { method: 'DELETE' });
   },
 
   /**
@@ -122,7 +155,7 @@ export const apiClient = {
    * Export query history.
    */
   async exportHistory(): Promise<QueryHistoryEntry[]> {
-    const response = await fetch(`${BASE_URL}/export`);
+    const response = await fetch(`${BASE_URL}/history/export`);
     if (!response.ok) {
       throw new APIError('Export failed', response.status);
     }
@@ -133,7 +166,7 @@ export const apiClient = {
    * Import query history.
    */
   async importHistory(data: QueryHistoryEntry[]): Promise<{ imported: number }> {
-    return request<{ imported: number }>('/import', {
+    return request<{ imported: number }>('/history/import', {
       method: 'POST',
       body: JSON.stringify(data),
     });

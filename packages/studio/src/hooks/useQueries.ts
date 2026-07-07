@@ -52,7 +52,7 @@ export function useQueries(initialFilters: QueryFilters = {}) {
             ...data,
           };
           return updated;
-        } else if (event.type === 'query:start') {
+        } else if (event.type === 'query:started') {
           // Add new query at the beginning
           const newQuery: QueryHistoryEntry = {
             queryId: data.queryId,

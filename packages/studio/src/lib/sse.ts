@@ -33,7 +33,8 @@ export class SSEConnection {
   private state: ConnectionState = 'disconnected';
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-  private lastEventId: string | null = null;
+
+  private stateListeners: Set<(state: ConnectionState) => void> = new Set();
 
   private readonly url: string;
   private readonly reconnectDelay: number;
@@ -64,14 +65,9 @@ export class SSEConnection {
 
     this.setState('connecting');
 
-    // Add last event ID to URL for reconnection
-    let url = this.url;
-    if (this.lastEventId) {
-      const separator = url.includes('?') ? '&' : '?';
-      url += `${separator}lastEventId=${encodeURIComponent(this.lastEventId)}`;
-    }
-
-    this.eventSource = new EventSource(url);
+    // No Last-Event-ID replay in contract v0 — clients refetch history on
+    // reconnect, so the endpoint is used as-is.
+    this.eventSource = new EventSource(this.url);
 
     this.eventSource.onopen = () => {
       this.setState('connected');
@@ -88,11 +84,10 @@ export class SSEConnection {
 
     // Add specific event listeners for typed events
     const eventTypes: SSEEventType[] = [
-      'query:start',
-      'query:complete',
+      'query:started',
+      'query:completed',
       'query:error',
-      'cache:hit',
-      'cache:invalidate',
+      'cache:updated',
       'connected',
       'heartbeat',
     ];
@@ -140,8 +135,8 @@ export class SSEConnection {
    * Subscribe to query events specifically.
    */
   onQuery(handler: SSEEventHandler<QueryEventData>): () => void {
-    const unsubStart = this.on('query:start', handler);
-    const unsubComplete = this.on('query:complete', handler);
+    const unsubStart = this.on('query:started', handler);
+    const unsubComplete = this.on('query:completed', handler);
     const unsubError = this.on('query:error', handler);
 
     return () => {
@@ -157,6 +152,18 @@ export class SSEConnection {
   private setState(state: ConnectionState): void {
     this.state = state;
     this.onStateChange?.(state);
+    for (const listener of this.stateListeners) listener(state);
+  }
+
+  /**
+   * Subscribe to connection-state changes. Returns an unsubscribe function.
+   * Lets consumers react to state without polling.
+   */
+  onState(listener: (state: ConnectionState) => void): () => void {
+    this.stateListeners.add(listener);
+    return () => {
+      this.stateListeners.delete(listener);
+    };
   }
 
   /**
@@ -190,9 +197,6 @@ export class SSEConnection {
   private handleMessage(event: MessageEvent): void {
     try {
       const data = JSON.parse(event.data);
-      if (event.lastEventId) {
-        this.lastEventId = event.lastEventId;
-      }
 
       const sseEvent: SSEEvent = {
         type: data.type ?? 'message',
@@ -212,10 +216,6 @@ export class SSEConnection {
    */
   private handleTypedEvent(type: SSEEventType, event: MessageEvent): void {
     try {
-      if (event.lastEventId) {
-        this.lastEventId = event.lastEventId;
-      }
-
       let data: unknown;
       try {
         data = JSON.parse(event.data);
