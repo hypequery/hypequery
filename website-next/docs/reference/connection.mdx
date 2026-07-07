@@ -64,6 +64,25 @@ const db = createQueryBuilder({
 </CodeBlock>
 
 
+## Embedded ClickHouse (chDB)
+
+You don't need a ClickHouse server at all: [chDB](https://github.com/chdb-io/chdb) runs the ClickHouse engine inside your Node process, and the chDB team maintains a hypequery adapter (`chdb/hypequery`). Same builder code, no server — ideal for local development, CI tests, and serverless:
+
+<CodeBlock>
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { Session } from 'chdb';
+import { chdbAdapter } from 'chdb/hypequery';
+
+const session = new Session('./analytics.chdb');   // or new Session() for in-memory
+const db = createQueryBuilder<Schema>({ adapter: chdbAdapter({ session }) });
+```
+</CodeBlock>
+
+Swap to remote ClickHouse for production by handing `createQueryBuilder` your connection details instead of the adapter — nothing else changes. See [chDB (Embedded ClickHouse)](/docs/chdb) for the full guide.
+
+More generally, `createQueryBuilder({ adapter })` accepts any implementation of the [`DatabaseAdapter` contract](/docs/reference/custom-adapters), so the builder can run against any engine that speaks ClickHouse SQL.
+
 ## Connection Options
 
 hypequery supports all connection options provided by the official ClickHouse JavaScript client with full type safety:

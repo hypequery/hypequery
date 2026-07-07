@@ -124,6 +124,12 @@ If you only need typed ClickHouse queries in your application code, start here:
   </Step>
 </Steps>
 
+<Callout type="info" title="No ClickHouse server? Run embedded with chDB">
+  You can run the exact same builder code on [chDB](/docs/chdb) — ClickHouse embedded in your
+  Node process — by passing its adapter: `createQueryBuilder({ adapter: chdbAdapter({ session }) })`.
+  Great for local development and CI, then swap to your real connection for production.
+</Callout>
+
 If that is all you need, continue with [Query Basics](/docs/query-building/basics). Or read more about [connecting to ClickHouse](/docs/reference/connection).
 
 ## Route 2: Datasets
