@@ -9,6 +9,7 @@ import {
   ensureDockerDaemon,
   ensurePort,
   detectComposeCommand,
+  getContainerHostPort,
   isContainerRunning,
   logIntegrationMessage,
   seedClickHouseDatabase,
@@ -78,19 +79,35 @@ async function runVitest() {
 
 async function main() {
   await ensureDockerDaemon();
-  const resolvedPort = await ensurePort('CLICKHOUSE_TEST_PORT', '8123');
+  const containerRunning = await isContainerRunning(CLICKHOUSE_CONTAINER_NAME);
+  const reuseRunningContainer = cliOptions.reuseContainer && containerRunning;
+
+  let resolvedPort;
+  if (reuseRunningContainer) {
+    // The reused container already holds the ports, so ensurePort would see
+    // them as occupied and remap to a random free port. Read the container's
+    // actual published ports instead.
+    resolvedPort = await getContainerHostPort(CLICKHOUSE_CONTAINER_NAME, '8123')
+      ?? Number(process.env.CLICKHOUSE_TEST_PORT ?? '8123');
+    process.env.CLICKHOUSE_TEST_PORT = String(resolvedPort);
+    const nativePort = await getContainerHostPort(CLICKHOUSE_CONTAINER_NAME, '9000');
+    if (nativePort) {
+      process.env.CLICKHOUSE_TEST_NATIVE_PORT = String(nativePort);
+    }
+  } else {
+    resolvedPort = await ensurePort('CLICKHOUSE_TEST_PORT', '8123');
+    await ensurePort('CLICKHOUSE_TEST_NATIVE_PORT', '9000');
+  }
   if (!process.env.CLICKHOUSE_TEST_HOST) {
     process.env.CLICKHOUSE_TEST_HOST = `http://localhost:${resolvedPort}`;
   }
-  await ensurePort('CLICKHOUSE_TEST_NATIVE_PORT', '9000');
 
   const compose = await detectComposeCommand();
-  const containerRunning = await isContainerRunning(CLICKHOUSE_CONTAINER_NAME);
   let startedContainer = false;
 
   if (containerRunning) {
     if (cliOptions.reuseContainer) {
-      logIntegrationMessage('Reusing existing ClickHouse container.');
+      logIntegrationMessage(`Reusing existing ClickHouse container on port ${resolvedPort}.`);
     } else {
       logIntegrationMessage('Existing ClickHouse container detected. Restarting for a clean state...');
       await stopClickHouseContainer({ compose, composeFile: DEFAULT_COMPOSE_PATH, logger: logIntegrationMessage });

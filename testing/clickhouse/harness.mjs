@@ -204,6 +204,20 @@ export async function isContainerRunning(containerName = CLICKHOUSE_CONTAINER_NA
   }
 }
 
+export async function getContainerHostPort(containerName, containerPort) {
+  try {
+    const { stdout } = await runCommand(
+      'docker',
+      ['port', containerName, `${containerPort}/tcp`],
+      { capture: true },
+    );
+    const match = stdout.match(/:(\d+)\s*$/m);
+    return match ? Number(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function startClickHouseContainer({
   compose,
   composeFile = DEFAULT_COMPOSE_PATH,
