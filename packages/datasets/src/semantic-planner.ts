@@ -146,6 +146,8 @@ function aggregationForMeasure(
     name,
     aggregation: measure.aggregation,
     field: resolveField(ds, measure.field),
+    argField: measure.argField != null ? resolveField(ds, measure.argField) : undefined,
+    level: measure.level,
     filters: normalizeFilters(ds, measure.filters),
   };
 }
@@ -242,6 +244,8 @@ function buildBaseMetricPlan(
       name: metric.name,
       aggregation: spec.aggregation,
       field: resolveField(metric.dataset, spec.field),
+      argField: spec.argField != null ? resolveField(metric.dataset, spec.argField) : undefined,
+      level: spec.level,
       filters: normalizeFilters(metric.dataset, spec.filters),
     }],
     context,
@@ -273,6 +277,8 @@ function buildDerivedMetricPlan(
       name: alias,
       aggregation: baseSpec.aggregation,
       field: resolveField(metric.dataset, baseSpec.field),
+      argField: baseSpec.argField != null ? resolveField(metric.dataset, baseSpec.argField) : undefined,
+      level: baseSpec.level,
       filters: baseSpec.filters,
     };
   });

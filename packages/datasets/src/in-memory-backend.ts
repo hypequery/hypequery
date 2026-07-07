@@ -143,9 +143,67 @@ function groupKey(row: Record<string, unknown>, plan: Extract<PlanNode, { kind: 
   return JSON.stringify(parts);
 }
 
-function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan): number {
+/**
+ * Percentile by linear interpolation over sorted values. Approximate parity
+ * with ClickHouse's sampling-based `quantile`; exact only for clean inputs.
+ */
+function percentileOf(values: number[], level: number): number {
+  if (values.length === 0) {
+    return 0;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const position = (sorted.length - 1) * level;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) {
+    return sorted[lower];
+  }
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
+}
+
+/** Sample variance; fewer than two values yields 0. */
+function sampleVarianceOf(values: number[]): number {
+  if (values.length < 2) {
+    return 0;
+  }
+  const mean = values.reduce((total, value) => total + value, 0) / values.length;
+  const squaredDeviations = values.reduce((total, value) => total + (value - mean) ** 2, 0);
+  return squaredDeviations / (values.length - 1);
+}
+
+/** Value of `field` on the row where `argField` is most extreme; empty → null. */
+function argExtremeOf(
+  rows: InMemoryTable,
+  field: string,
+  argField: string,
+  extreme: 'max' | 'min',
+): unknown {
+  let best: Record<string, unknown> | undefined;
+  for (const row of rows) {
+    if (row[argField] == null) {
+      continue;
+    }
+    if (
+      best === undefined
+      || (extreme === 'max' ? (row[argField] as any) > (best[argField] as any) : (row[argField] as any) < (best[argField] as any))
+    ) {
+      best = row;
+    }
+  }
+  return best?.[field] ?? null;
+}
+
+function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan): unknown {
+  if (
+    (aggregation.aggregation === 'argMax' || aggregation.aggregation === 'argMin')
+    && aggregation.filters?.length
+  ) {
+    throw new Error(`Measure filters are not supported on ${aggregation.aggregation} aggregations.`);
+  }
+
   const filteredRows = applyFilters(rows, aggregation.filters ?? []);
   const values = filteredRows.map((row) => row[aggregation.field]);
+  const numericValues = () => values.filter((value) => value != null).map((value) => Number(value));
 
   switch (aggregation.aggregation) {
     case 'sum':
@@ -162,6 +220,28 @@ function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan
       return Math.min(...values.map((value) => Number(value)));
     case 'max':
       return Math.max(...values.map((value) => Number(value)));
+    case 'argMax':
+    case 'argMin': {
+      if (!aggregation.argField) {
+        throw new Error(`Aggregation "${aggregation.aggregation}" for "${aggregation.name}" requires an argField.`);
+      }
+      return argExtremeOf(
+        filteredRows,
+        aggregation.field,
+        aggregation.argField,
+        aggregation.aggregation === 'argMax' ? 'max' : 'min',
+      );
+    }
+    case 'percentile': {
+      if (aggregation.level == null) {
+        throw new Error(`Aggregation "percentile" for "${aggregation.name}" requires a level.`);
+      }
+      return percentileOf(numericValues(), aggregation.level);
+    }
+    case 'stddev':
+      return Math.sqrt(sampleVarianceOf(numericValues()));
+    case 'variance':
+      return sampleVarianceOf(numericValues());
     default:
       return 0;
   }

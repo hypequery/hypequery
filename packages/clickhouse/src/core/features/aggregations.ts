@@ -53,12 +53,12 @@ export class AggregationFeature<
       });
   }
 
-  private createAggregation(
-    column: string,
-    fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
-    alias: string
-  ): SelectQueryNode<State['output'], Schema> {
-    const aggregationSQL = `${fn}(${column}) AS ${alias}`;
+  /**
+   * Appends an aggregate selection (marked `isAggregate`, so GROUP BY
+   * inference never treats it as a grouping key) and infers GROUP BY from any
+   * plain selections already present.
+   */
+  private appendAggregateSelection(aggregationSQL: string): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
 
     if (query.select) {
@@ -73,6 +73,14 @@ export class AggregationFeature<
       ...query,
       select: [this.createAggregateSelection(aggregationSQL)]
     };
+  }
+
+  private createAggregation(
+    column: string,
+    fn: 'COUNT' | 'SUM' | 'AVG' | 'MIN' | 'MAX',
+    alias: string
+  ): SelectQueryNode<State['output'], Schema> {
+    return this.appendAggregateSelection(`${fn}(${column}) AS ${alias}`);
   }
 
   sum(column: string, alias: string) {
@@ -96,20 +104,29 @@ export class AggregationFeature<
   }
 
   countDistinct(column: string, alias: string) {
-    const aggregationSQL = `COUNT(DISTINCT ${column}) AS ${alias}`;
-    const query = this.builder.getQueryNode();
+    return this.appendAggregateSelection(`COUNT(DISTINCT ${column}) AS ${alias}`);
+  }
 
-    if (query.select) {
-      return {
-        ...query,
-        select: [...query.select, this.createAggregateSelection(aggregationSQL)],
-        groupBy: query.groupBy || this.inferGroupBySelections(query.select),
-      };
+  argMax(column: string, argColumn: string, alias: string) {
+    return this.appendAggregateSelection(`argMax(${column}, ${argColumn}) AS ${alias}`);
+  }
+
+  argMin(column: string, argColumn: string, alias: string) {
+    return this.appendAggregateSelection(`argMin(${column}, ${argColumn}) AS ${alias}`);
+  }
+
+  quantile(column: string, level: number, alias: string) {
+    if (typeof level !== 'number' || !Number.isFinite(level) || level < 0 || level > 1) {
+      throw new Error(`Invalid quantile level ${level}: expected a number between 0 and 1.`);
     }
+    return this.appendAggregateSelection(`quantile(${level})(${column}) AS ${alias}`);
+  }
 
-    return {
-      ...query,
-      select: [this.createAggregateSelection(aggregationSQL)],
-    };
+  stddev(column: string, alias: string) {
+    return this.appendAggregateSelection(`stddevSamp(${column}) AS ${alias}`);
+  }
+
+  variance(column: string, alias: string) {
+    return this.appendAggregateSelection(`varSamp(${column}) AS ${alias}`);
   }
 }
