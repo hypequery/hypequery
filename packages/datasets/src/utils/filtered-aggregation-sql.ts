@@ -83,21 +83,12 @@ export function applyFilteredAggregationExpression(
   switch (spec.aggregation) {
     case 'sum':
       return `if(${combinedCondition}, ${fieldOrExpr}, 0)`;
-    // Aggregate functions skip NULLs, so the NULL fallback excludes
-    // non-matching rows from percentile/stddev/variance too.
     case 'count':
     case 'countDistinct':
     case 'avg':
     case 'min':
     case 'max':
-    case 'percentile':
-    case 'stddev':
-    case 'variance':
       return `if(${combinedCondition}, ${fieldOrExpr}, NULL)`;
-    case 'argMax':
-    case 'argMin':
-      // NULL handling under argMax/argMin varies across ClickHouse versions.
-      throw new Error(`Measure filters are not supported on ${spec.aggregation} aggregations.`);
     default:
       return fieldOrExpr;
   }

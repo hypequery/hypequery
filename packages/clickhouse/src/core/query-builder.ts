@@ -549,59 +549,6 @@ export class QueryBuilder<
     );
   }
 
-  /** Value of `column` on the row where `argColumn` is greatest (ClickHouse `argMax`). */
-  argMax<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_argMax`>(
-    column: Column,
-    argColumn: SelectableColumn<State>,
-    alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'argMax', (col, finalAlias) =>
-      this.aggregations.argMax(col, String(argColumn), finalAlias)
-    );
-  }
-
-  /** Value of `column` on the row where `argColumn` is smallest (ClickHouse `argMin`). */
-  argMin<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_argMin`>(
-    column: Column,
-    argColumn: SelectableColumn<State>,
-    alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'argMin', (col, finalAlias) =>
-      this.aggregations.argMin(col, String(argColumn), finalAlias)
-    );
-  }
-
-  /** Approximate percentile of `column` at `level` in [0, 1] (ClickHouse `quantile(level)`). */
-  quantile<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_quantile`>(
-    column: Column,
-    level: number,
-    alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'quantile', (col, finalAlias) =>
-      this.aggregations.quantile(col, level, finalAlias)
-    );
-  }
-
-  /** Sample standard deviation of `column` (ClickHouse `stddevSamp`). */
-  stddev<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_stddev`>(
-    column: Column,
-    alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'stddev', (col, finalAlias) =>
-      this.aggregations.stddev(col, finalAlias)
-    );
-  }
-
-  /** Sample variance of `column` (ClickHouse `varSamp`). */
-  variance<Column extends SelectableColumn<State>, Alias extends string = `${Column & string}_variance`>(
-    column: Column,
-    alias?: Alias
-  ): QueryBuilder<Schema, AppendToOutput<State, Record<Alias, string>>> {
-    return this.applyAggregation(column, alias, 'variance', (col, finalAlias) =>
-      this.aggregations.variance(col, finalAlias)
-    );
-  }
-
   private applyAggregation<Column extends keyof BaseRow<State>, Alias extends string>(
     column: Column,
     alias: Alias | undefined,

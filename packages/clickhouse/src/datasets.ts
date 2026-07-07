@@ -171,20 +171,13 @@ function renderFilteredAggregationField(
     return aggregation.field;
   }
 
-  // NULL handling under argMax/argMin varies across ClickHouse versions, so
-  // the if(cond, field, NULL) wrapper is unsafe there. Rejected upstream too.
-  if (aggregation.aggregation === 'argMax' || aggregation.aggregation === 'argMin') {
-    throw new Error(`Measure filters are not supported on ${aggregation.aggregation} aggregations.`);
-  }
-
   // Combine multiple filters with AND
   const condition = aggregation.filters
     .map(renderFilterCondition)
     .map((part) => `(${part})`)
     .join(' AND ');
 
-  // Use appropriate fallback: 0 for SUM, NULL for others (aggregate functions
-  // skip NULLs, which also covers quantile/stddevSamp/varSamp)
+  // Use appropriate fallback: 0 for SUM, NULL for others
   const fallback = aggregation.aggregation === 'sum' ? '0' : 'NULL';
 
   return `if(${condition}, ${aggregation.field}, ${fallback})`;
@@ -278,29 +271,6 @@ function applyAggregations(builder: any, plan: Extract<PlanNode, { kind: 'aggreg
         break;
       case 'max':
         qb = qb.max(field, name);
-        break;
-      case 'argMax':
-      case 'argMin': {
-        if (!aggregation.argField) {
-          throw new Error(`Aggregation "${aggType}" for "${name}" requires an argField.`);
-        }
-        qb = aggType === 'argMax'
-          ? qb.argMax(field, aggregation.argField, name)
-          : qb.argMin(field, aggregation.argField, name);
-        break;
-      }
-      case 'percentile': {
-        if (aggregation.level == null) {
-          throw new Error(`Aggregation "percentile" for "${name}" requires a level.`);
-        }
-        qb = qb.quantile(field, aggregation.level, name);
-        break;
-      }
-      case 'stddev':
-        qb = qb.stddev(field, name);
-        break;
-      case 'variance':
-        qb = qb.variance(field, name);
         break;
     }
   }
