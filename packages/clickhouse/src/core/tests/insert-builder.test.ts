@@ -1,5 +1,5 @@
 import { createQueryBuilder } from '../../index.js';
-import { normalizeInsertRows } from '../features/insert-executor.js';
+import { normalizeInsertRows, buildJsonEachRowInsert } from '../features/insert-executor.js';
 import type {
   DatabaseAdapter,
   InsertExecutionOptions,
@@ -198,5 +198,37 @@ describe('normalizeInsertRows', () => {
     ]);
     expect(row).toEqual({ n: 1.5, s: 'text', b: true, empty: null, custom });
     expect(row.custom).toBe(custom);
+  });
+});
+
+describe('buildJsonEachRowInsert', () => {
+  it('renders a complete statement with best_effort defaulted', () => {
+    const statement = buildJsonEachRowInsert('events', [
+      { id: 1, name: 'a' },
+      { id: 2, name: 'b' },
+    ]);
+    expect(statement).toBe(
+      "INSERT INTO events SETTINGS date_time_input_format='best_effort' FORMAT JSONEachRow\n" +
+      '{"id":1,"name":"a"}\n{"id":2,"name":"b"}'
+    );
+  });
+
+  it('renders column subsets and merges settings with proper quoting', () => {
+    const statement = buildJsonEachRowInsert('events', [{ id: 1 }], {
+      columns: ['id'],
+      clickhouseSettings: { async_insert: 1, insert_deduplication_token: "tok'en" },
+    });
+    expect(statement).toBe(
+      "INSERT INTO events (id) SETTINGS date_time_input_format='best_effort', async_insert=1, insert_deduplication_token='tok''en' FORMAT JSONEachRow\n" +
+      '{"id":1}'
+    );
+  });
+
+  it('normalizes rows the same way as the built-in adapter path', () => {
+    const statement = buildJsonEachRowInsert('events', [
+      { at: new Date('2026-01-02T03:04:05.000Z'), big: 1n },
+    ]);
+    expect(statement.endsWith('{"at":"2026-01-02T03:04:05.000Z","big":"1"}')).toBe(true);
+    expect(() => buildJsonEachRowInsert('events', [{ x: Number.NaN }])).toThrow('non-finite number');
   });
 });

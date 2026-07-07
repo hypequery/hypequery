@@ -386,7 +386,7 @@ Run order for verification: `npm run test:types && npm run test:unit` in `packag
 1. **Defaulted columns are still required** unless `.columns()` is used — schema literals don't carry DEFAULT metadata. Phase 2: extend `generate-types` to emit e.g. `{ __defaults?: 'col1' | 'col2' }` or a parallel `IntrospectedInsertSchema`, and make those keys optional.
 2. **Streaming inserts** (`values: Readable`) — node-only; add `insertStream` later rather than complicating `values()`.
 3. **`INSERT INTO ... SELECT`** — `insert(t).fromSelect(qb)` compiling the select via the existing dialect; clean fit later because the select side already compiles to SQL text.
-4. **SQL-fallback inserts for adapters without native insert** — would require a real ClickHouse literal formatter (current `escapeValue` is wrong for arrays/maps — see §2.3). Only worth it if an embedded-engine adapter needs it.
+4. ~~**SQL-fallback inserts for adapters without native insert**~~ — resolved differently: `buildJsonEachRowInsert` (exported) renders the complete `INSERT ... FORMAT JSONEachRow` statement with inline NDJSON payload and SETTINGS clause. Unlike a `VALUES` renderer this is byte-safe (payload is plain JSON), and embedded engines (chDB) can implement `DatabaseAdapter.insert` in a few lines with it. Verified against live ClickHouse in the integration suite.
 5. **Cache invalidation on insert** — deliberately skipped (TTL-based cache).
 
 ---

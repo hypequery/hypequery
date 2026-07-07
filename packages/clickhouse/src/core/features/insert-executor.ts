@@ -1,3 +1,4 @@
+import type { ClickHouseSettings } from '@clickhouse/client-common';
 import type { AnyInsertState, SchemaDefinition } from '../types/builder-state.js';
 import type { InsertResultSummary } from '../adapters/database-adapter.js';
 import { InsertBuilder } from '../insert-builder.js';
@@ -45,6 +46,60 @@ export function normalizeInsertRows<T extends Record<string, unknown>>(
   rows: T[]
 ): Record<string, unknown>[] {
   return rows.map(row => normalizeInsertValue(row) as Record<string, unknown>);
+}
+
+export interface JsonEachRowInsertOptions {
+  /** Explicit column subset; omitted columns take table DEFAULTs. */
+  columns?: string[];
+  /** Merged over the default `date_time_input_format: 'best_effort'`. */
+  clickhouseSettings?: ClickHouseSettings;
+}
+
+function renderSettingValue(value: unknown): string {
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  if (typeof value === 'boolean') {
+    return value ? '1' : '0';
+  }
+  const escaped = String(value).replace(/\\/g, '\\\\').replace(/'/g, "''");
+  return `'${escaped}'`;
+}
+
+/**
+ * Renders a complete `INSERT INTO ... FORMAT JSONEachRow` statement with the
+ * row payload inlined as newline-delimited JSON.
+ *
+ * Exported for `DatabaseAdapter` authors (e.g. embedded engines like chDB) so
+ * a custom `insert` implementation stays byte-identical with the built-in
+ * adapter: rows are normalized the same way (see {@link normalizeInsertRows})
+ * and `date_time_input_format='best_effort'` is inlined in the SETTINGS clause
+ * by default so DateTime columns accept the normalized ISO timestamps.
+ *
+ * @example
+ * ```ts
+ * async insert(table, rows, options) {
+ *   await runSql(buildJsonEachRowInsert(table, rows, options));
+ *   return { queryId: '', executed: true };
+ * }
+ * ```
+ */
+export function buildJsonEachRowInsert(
+  table: string,
+  rows: ReadonlyArray<Record<string, unknown>>,
+  options?: JsonEachRowInsertOptions
+): string {
+  const normalized = normalizeInsertRows([...rows]);
+  const columnsSql = options?.columns?.length ? ` (${options.columns.join(', ')})` : '';
+  const settings: Record<string, unknown> = {
+    date_time_input_format: 'best_effort',
+    ...options?.clickhouseSettings,
+  };
+  const settingsSql = Object.entries(settings)
+    .map(([key, value]) => `${key}=${renderSettingValue(value)}`)
+    .join(', ');
+  const payload = normalized.map(row => JSON.stringify(row)).join('\n');
+  return `INSERT INTO ${table}${columnsSql} SETTINGS ${settingsSql} FORMAT JSONEachRow\n${payload}`;
 }
 
 export class InsertExecutorFeature<

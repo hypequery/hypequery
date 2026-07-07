@@ -1,7 +1,7 @@
 import { ClickHouseConnection } from '../../connection.js';
 import { ensureConnectionInitialized, TEST_CONNECTION_CONFIG } from './setup';
 import { SKIP_INTEGRATION_TESTS, SETUP_TIMEOUT } from './test-config.js';
-import { createQueryBuilder } from '../../../index.js';
+import { createQueryBuilder, buildJsonEachRowInsert } from '../../../index.js';
 
 interface InsertTestSchema {
   insert_test: {
@@ -142,6 +142,33 @@ describe('Integration Tests - Inserts', () => {
     test('an explicit empty batch is a no-op', async () => {
       const result = await db.insert('insert_test').values([]).execute();
       expect(result).toEqual({ queryId: '', executed: false });
+    });
+
+    test('buildJsonEachRowInsert renders a statement that runs verbatim (embedded-engine path)', async () => {
+      // Mirrors how an embedded-engine adapter (e.g. chdb/hypequery) implements
+      // DatabaseAdapter.insert: render the full statement, run it as SQL text.
+      const statement = buildJsonEachRowInsert('insert_test', [{
+        id: 20,
+        name: 'helper',
+        amount: 1.5,
+        big: 123n,
+        happened_at: new Date('2026-03-07T01:02:03.456Z'),
+        day: '2026-03-07',
+        tags: ['x'],
+        attributes: { via: 'helper' },
+        note: null,
+        status: 'helper',
+      }]);
+
+      const client = ClickHouseConnection.getClient();
+      await client.command({ query: statement });
+
+      const [row] = await db.table('insert_test').select('*').where('id', 'eq', 20).execute();
+      expect(row.name).toBe('helper');
+      expect(row.big).toBe('123');
+      expect(row.attributes).toEqual({ via: 'helper' });
+      expect(new Date(`${row.happened_at.replace(' ', 'T')}Z`).getTime())
+        .toBe(new Date('2026-03-07T01:02:03.456Z').getTime());
     });
   });
 });
