@@ -14,6 +14,10 @@ The dataset/metric result row types (`DatasetRow`, `DatasetRowFor`, `MetricRow`,
 row claimed `revenue: number` while the runtime handed back `"1234.56"`. The
 types now match runtime.
 
+`createInMemoryBackend` now serializes measure/metric values as strings too, so
+it stays a faithful double of the ClickHouse backend (values are still computed
+and ordered numerically — only the emitted columns are stringified).
+
 **Breaking (types only):** code that assigned a measure or metric value
 straight into a `number` — e.g. `const revenue: number = row.revenue` — will no
 longer compile. Parse at the edge instead: `Number(row.revenue)` (or
