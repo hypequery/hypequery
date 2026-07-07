@@ -42,7 +42,7 @@ describe('createInMemoryBackend aggregate plans', () => {
         aggregations: [{ name: 'count', aggregation: 'count', field: 'id' }],
       }));
 
-      expect(result.data).toEqual([{ count: testCase.expected }]);
+      expect(result.data).toEqual([{ count: String(testCase.expected) }]);
     }
   });
 
@@ -60,9 +60,9 @@ describe('createInMemoryBackend aggregate plans', () => {
     }));
 
     expect(result.data).toEqual([
-      { category: 'hardware', revenue: 50, completedRevenue: 0, orders: 1 },
-      { category: 'services', revenue: 0, completedRevenue: 0, orders: 1 },
-      { category: 'software', revenue: 300, completedRevenue: 300, orders: 2 },
+      { category: 'hardware', revenue: '50', completedRevenue: '0', orders: '1' },
+      { category: 'services', revenue: '0', completedRevenue: '0', orders: '1' },
+      { category: 'software', revenue: '300', completedRevenue: '300', orders: '2' },
     ]);
   });
 
@@ -81,7 +81,7 @@ describe('createInMemoryBackend aggregate plans', () => {
     }));
 
     expect(result.data).toEqual([
-      { sum: 350, count: 4, distinctCustomers: 3, avg: 87.5, min: 0, max: 200 },
+      { sum: '350', count: '4', distinctCustomers: '3', avg: '87.5', min: '0', max: '200' },
     ]);
   });
 
@@ -97,8 +97,8 @@ describe('createInMemoryBackend aggregate plans', () => {
       aggregations: [{ name: 'revenue', aggregation: 'sum', field: 'amount' }],
     }));
 
-    expect(eqResult.data).toEqual([{ revenue: 150 }]);
-    expect(inResult.data).toEqual([{ revenue: 200 }]);
+    expect(eqResult.data).toEqual([{ revenue: '150' }]);
+    expect(inResult.data).toEqual([{ revenue: '200' }]);
   });
 
   it('buckets date grains and passes through non-date values', async () => {
@@ -110,16 +110,16 @@ describe('createInMemoryBackend aggregate plans', () => {
       grain: { field: 'created_at', unit: 'year', output: 'period' },
       aggregations: [{ name: 'orders', aggregation: 'count', field: 'id' }],
       orderBy: [{ field: 'period', direction: 'asc' }],
-    }))).resolves.toMatchObject({ data: [{ period: '2024-01-01', orders: 4 }, { period: 'not-a-date', orders: 1 }] });
+    }))).resolves.toMatchObject({ data: [{ period: '2024-01-01', orders: '4' }, { period: 'not-a-date', orders: '1' }] });
 
     await expect(backend.execute(aggregatePlan({
       grain: { field: 'created_at', unit: 'quarter', output: 'period' },
       aggregations: [{ name: 'orders', aggregation: 'count', field: 'id' }],
       orderBy: [{ field: 'period', direction: 'asc' }],
     }))).resolves.toMatchObject({ data: [
-      { period: '2024-01-01', orders: 3 },
-      { period: '2024-04-01', orders: 1 },
-      { period: 'not-a-date', orders: 1 },
+      { period: '2024-01-01', orders: '3' },
+      { period: '2024-04-01', orders: '1' },
+      { period: 'not-a-date', orders: '1' },
     ] });
 
     await expect(backend.execute(aggregatePlan({
@@ -127,10 +127,10 @@ describe('createInMemoryBackend aggregate plans', () => {
       aggregations: [{ name: 'orders', aggregation: 'count', field: 'id' }],
       orderBy: [{ field: 'period', direction: 'asc' }],
     }))).resolves.toMatchObject({ data: [
-      { period: '2024-01-01', orders: 2 },
-      { period: '2024-02-01', orders: 1 },
-      { period: '2024-04-01', orders: 1 },
-      { period: 'not-a-date', orders: 1 },
+      { period: '2024-01-01', orders: '2' },
+      { period: '2024-02-01', orders: '1' },
+      { period: '2024-04-01', orders: '1' },
+      { period: 'not-a-date', orders: '1' },
     ] });
 
     await expect(backend.execute(aggregatePlan({
@@ -138,11 +138,11 @@ describe('createInMemoryBackend aggregate plans', () => {
       aggregations: [{ name: 'orders', aggregation: 'count', field: 'id' }],
       orderBy: [{ field: 'period', direction: 'asc' }],
     }))).resolves.toMatchObject({ data: [
-      { period: '2023-12-31', orders: 1 },
-      { period: '2024-01-07', orders: 1 },
-      { period: '2024-02-11', orders: 1 },
-      { period: '2024-03-31', orders: 1 },
-      { period: 'not-a-date', orders: 1 },
+      { period: '2023-12-31', orders: '1' },
+      { period: '2024-01-07', orders: '1' },
+      { period: '2024-02-11', orders: '1' },
+      { period: '2024-03-31', orders: '1' },
+      { period: 'not-a-date', orders: '1' },
     ] });
 
     await expect(backend.execute(aggregatePlan({
@@ -150,7 +150,7 @@ describe('createInMemoryBackend aggregate plans', () => {
       aggregations: [{ name: 'orders', aggregation: 'count', field: 'id' }],
       orderBy: [{ field: 'period', direction: 'asc' }],
       limit: 1,
-    }))).resolves.toMatchObject({ data: [{ period: '2024-01-02', orders: 1 }] });
+    }))).resolves.toMatchObject({ data: [{ period: '2024-01-02', orders: '1' }] });
   });
 
   it('applies order, offset, and limit', async () => {
@@ -164,7 +164,7 @@ describe('createInMemoryBackend aggregate plans', () => {
       limit: 1,
     }));
 
-    expect(result.data).toEqual([{ category: 'hardware', revenue: 50 }]);
+    expect(result.data).toEqual([{ category: 'hardware', revenue: '50' }]);
   });
 
   it('returns one aggregate row for empty global groups', async () => {
@@ -174,7 +174,7 @@ describe('createInMemoryBackend aggregate plans', () => {
       aggregations: [{ name: 'orders', aggregation: 'count', field: 'id' }],
     }));
 
-    expect(result.data).toEqual([{ orders: 0 }]);
+    expect(result.data).toEqual([{ orders: '0' }]);
   });
 });
 
@@ -206,14 +206,14 @@ describe('createInMemoryBackend derive plans', () => {
     });
 
     expect(result.data).toEqual([{
-      profit: 175,
-      doubleRevenue: 700,
-      revenuePlusCost: 525,
-      average: 87.5,
+      profit: '175',
+      doubleRevenue: '700',
+      revenuePlusCost: '525',
+      average: '87.5',
       divideByZero: null,
-      coalesced: 99,
-      floor: 3,
-      ceil: 4,
+      coalesced: '99',
+      floor: '3',
+      ceil: '4',
     }]);
   });
 
@@ -237,8 +237,8 @@ describe('createInMemoryBackend derive plans', () => {
     });
 
     expect(result.data).toEqual([
-      { period: '2024-01-01', category: 'software', revenue: 100, revenueRounded: 100 },
-      { period: '2024-01-01', category: 'hardware', revenue: 50, revenueRounded: 50 },
+      { period: '2024-01-01', category: 'software', revenue: '100', revenueRounded: '100' },
+      { period: '2024-01-01', category: 'hardware', revenue: '50', revenueRounded: '50' },
     ]);
   });
 
@@ -269,6 +269,6 @@ describe('createInMemoryBackend derive plans', () => {
       limit: 1,
     });
 
-    expect(result.data).toEqual([{ category: 'software', averageRevenue: 150 }]);
+    expect(result.data).toEqual([{ category: 'software', averageRevenue: '150' }]);
   });
 });

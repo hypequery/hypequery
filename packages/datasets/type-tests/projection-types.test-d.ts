@@ -1,4 +1,20 @@
-import { createDatasetClient, dataset, dimension, measure, type AnyDatasetInstance, type DatasetQueryFor } from '../src/index.js';
+import {
+  createDatasetClient,
+  dataset,
+  dimension,
+  measure,
+  type AnyDatasetInstance,
+  type DatasetQueryFor,
+  type DatasetRow,
+  type MetricRow,
+} from '../src/index.js';
+
+type Assert<T extends true> = T;
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends
+  (<T>() => T extends B ? 1 : 2)
+    ? true
+    : false;
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -6,10 +22,15 @@ const Orders = dataset('orders', {
   dimensions: {
     country: dimension.string(),
     status: dimension.string(),
+    amount: dimension.number(),
   },
   measures: {
     revenue: measure.sum('amount'),
     orderCount: measure.count('id'),
+    uniqueCustomers: measure.countDistinct('customer_id'),
+    averageOrderValue: measure.avg('amount'),
+    smallestOrder: measure.min('amount'),
+    largestOrder: measure.max('amount'),
   },
 });
 
@@ -29,10 +50,16 @@ async function assertDatasetProjection() {
     measures: ['revenue'] as const,
   });
   const row = result.data[0]!;
-  const country: string | undefined = row.country;
-  const revenue: number | undefined = row.revenue;
-  void country;
-  void revenue;
+
+  // Dimensions keep their declared type; measure values are strings because
+  // ClickHouse serializes aggregate results (UInt64, Decimal, ...) as strings
+  // over JSON — matching the query builder's AggregationType.
+  type _Country = Assert<Equal<typeof row.country, string | undefined>>;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
+
+  // @ts-expect-error measure values are strings, not numbers
+  const revenueAsNumber: number | undefined = row.revenue;
+  void revenueAsNumber;
 
   // @ts-expect-error unselected dimensions are not exposed
   void row.status;
@@ -42,13 +69,33 @@ async function assertDatasetProjection() {
   void row.period;
 }
 
+async function assertEveryAggregationEmitsString() {
+  const result = await analytics.execute(Orders, {
+    measures: [
+      'revenue',
+      'orderCount',
+      'uniqueCustomers',
+      'averageOrderValue',
+      'smallestOrder',
+      'largestOrder',
+    ] as const,
+  });
+  const row = result.data[0]!;
+
+  type _Sum = Assert<Equal<typeof row.revenue, string | undefined>>;
+  type _Count = Assert<Equal<typeof row.orderCount, string | undefined>>;
+  type _CountDistinct = Assert<Equal<typeof row.uniqueCustomers, string | undefined>>;
+  type _Avg = Assert<Equal<typeof row.averageOrderValue, string | undefined>>;
+  type _Min = Assert<Equal<typeof row.smallestOrder, string | undefined>>;
+  type _Max = Assert<Equal<typeof row.largestOrder, string | undefined>>;
+}
+
 async function assertMeasuresOnlyProjection() {
   const result = await analytics.execute(Orders, {
     measures: ['revenue'] as const,
   });
   const row = result.data[0]!;
-  const revenue: number | undefined = row.revenue;
-  void revenue;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
 
   // @ts-expect-error dimensions are not exposed when omitted
   void row.country;
@@ -59,10 +106,8 @@ async function assertOmittedMeasuresExposeAllMeasures() {
     dimensions: ['country'] as const,
   });
   const row = result.data[0]!;
-  const revenue: number | undefined = row.revenue;
-  const orderCount: number | undefined = row.orderCount;
-  void revenue;
-  void orderCount;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
+  type _OrderCount = Assert<Equal<typeof row.orderCount, string | undefined>>;
 }
 
 async function assertPeriodProjection() {
@@ -71,8 +116,7 @@ async function assertPeriodProjection() {
     by: 'month',
   });
   const row = result.data[0]!;
-  const period: string | undefined = row.period;
-  void period;
+  type _Period = Assert<Equal<typeof row.period, string | undefined>>;
 }
 
 async function assertMetricProjection() {
@@ -80,10 +124,12 @@ async function assertMetricProjection() {
     dimensions: ['country'] as const,
   });
   const row = result.data[0]!;
-  const country: string | undefined = row.country;
-  const revenue: number | undefined = row.revenue;
-  void country;
-  void revenue;
+  type _Country = Assert<Equal<typeof row.country, string | undefined>>;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
+
+  // @ts-expect-error metric values are strings, not numbers
+  const revenueAsNumber: number | undefined = row.revenue;
+  void revenueAsNumber;
 
   // @ts-expect-error unselected dimensions are not exposed
   void row.status;
@@ -97,13 +143,27 @@ async function assertMetricPeriodProjection() {
     by: 'month',
   });
   const row = result.data[0]!;
-  const period: string | undefined = row.period;
-  void period;
+  type _Period = Assert<Equal<typeof row.period, string | undefined>>;
+}
+
+// The projection-independent row types make the same string choice.
+function assertBroadRowTypes() {
+  const datasetRow = {} as DatasetRow<typeof Orders>;
+  type _NumberDimension = Assert<Equal<typeof datasetRow.amount, number | undefined>>;
+  type _Revenue = Assert<Equal<typeof datasetRow.revenue, string | undefined>>;
+  type _OrderCount = Assert<Equal<typeof datasetRow.orderCount, string | undefined>>;
+  type _Period = Assert<Equal<typeof datasetRow.period, string | undefined>>;
+
+  const metricRow = {} as MetricRow<typeof Orders, 'revenue'>;
+  type _MetricValue = Assert<Equal<typeof metricRow.revenue, string | undefined>>;
+  type _MetricCountry = Assert<Equal<typeof metricRow.country, string | undefined>>;
 }
 
 void assertDatasetProjection;
+void assertEveryAggregationEmitsString;
 void assertMeasuresOnlyProjection;
 void assertOmittedMeasuresExposeAllMeasures;
 void assertPeriodProjection;
 void assertMetricProjection;
 void assertMetricPeriodProjection;
+void assertBroadRowTypes;

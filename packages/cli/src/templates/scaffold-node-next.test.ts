@@ -10,6 +10,10 @@ import type { AuthTemplateMode } from './auth-scaffold.js';
 
 const AUTH_MODES: AuthTemplateMode[] = ['none', 'context'];
 
+// Each case spawns `tsc --noEmit` on a generated project, which takes several
+// seconds and can exceed Vitest's 5s default on a loaded CI runner.
+const TSC_TIMEOUT_MS = 30_000;
+
 const tempDirs: string[] = [];
 
 async function runTypeCheck(projectDir: string): Promise<{ code: number | null; stderr: string }> {
@@ -123,7 +127,7 @@ export type InferQueryResult<TApi, TName extends string> = unknown;
 
     const result = await runTypeCheck(projectDir);
     expect(result.code, result.stderr).toBe(0);
-  });
+  }, TSC_TIMEOUT_MS);
 
   it.each(AUTH_MODES)('passes datasets scaffold tsc --noEmit with NodeNext imports and local module shims (auth: %s)', async (auth) => {
     const projectDir = await mkdtemp(path.join(os.tmpdir(), 'hypequery-cli-scaffold-'));
@@ -212,5 +216,5 @@ export declare const measure: {
 
     const result = await runTypeCheck(projectDir);
     expect(result.code, result.stderr).toBe(0);
-  });
+  }, TSC_TIMEOUT_MS);
 });
