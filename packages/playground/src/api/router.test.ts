@@ -2,13 +2,14 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
 import { DevAPIRouter, createDevRouter } from './router.js';
 import { MemoryStore } from '../storage/index.js';
+import type { DevIntegrationApi } from '../types.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 
-// Mock request
 class MockRequest extends EventEmitter {
   public url: string;
   public method: string;
   public headers: Record<string, string>;
+  public socket = { remoteAddress: '127.0.0.1' };
 
   constructor(url = '/', method = 'GET', headers: Record<string, string> = {}) {
     super();
@@ -23,7 +24,6 @@ class MockRequest extends EventEmitter {
   }
 }
 
-// Mock response
 class MockResponse extends EventEmitter {
   public statusCode = 200;
   public headers: Record<string, string> = {};
@@ -34,284 +34,141 @@ class MockResponse extends EventEmitter {
     this.statusCode = status;
     this.headers = { ...this.headers, ...headers };
   }
-
   setHeader(key: string, value: string) {
     this.headers[key] = value;
   }
-
   write(data: string): boolean {
     this.body += data;
     return true;
   }
-
   end(data?: string) {
     if (data) this.body += data;
     this.ended = true;
   }
-
   getBody<T>(): T {
     return JSON.parse(this.body) as T;
   }
 }
 
-describe('DevAPIRouter', () => {
+/** Minimal DevIntegrationApi stub. */
+function makeApi(overrides: Partial<DevIntegrationApi> = {}): DevIntegrationApi {
+  return {
+    queryLogger: { on: () => () => {} } as unknown as DevIntegrationApi['queryLogger'],
+    describe: () => ({
+      basePath: '/api',
+      queries: [
+        {
+          key: 'listUsers',
+          path: '/api/users',
+          method: 'GET',
+          name: 'List Users',
+          tags: ['users'],
+          visibility: 'public',
+          requiresAuth: false,
+          inputSchema: { type: 'object' },
+          outputSchema: { type: 'array' }
+        }
+      ]
+    }),
+    execute: async () => ({ rows: [] }),
+    ...overrides
+  } as DevIntegrationApi;
+}
+
+const req = (url: string, method = 'GET', headers: Record<string, string> = {}) =>
+  new MockRequest(url, method, headers) as unknown as IncomingMessage;
+const res = () => new MockResponse() as unknown as ServerResponse;
+
+describe('DevAPIRouter (gateway contract v0)', () => {
   let store: MemoryStore;
   let router: DevAPIRouter;
 
   beforeEach(async () => {
     store = new MemoryStore(1000);
     await store.initialize();
-    router = createDevRouter({ store });
-  });
-
-  afterEach(() => {
-    router.shutdown();
-  });
-
-  describe('routing', () => {
-    it('returns false for non-dev routes', async () => {
-      const req = new MockRequest('/api/users') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(false);
-    });
-
-    it('handles CORS preflight', async () => {
-      const req = new MockRequest('/__dev/queries', 'OPTIONS') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(204);
-      expect(mockRes.headers['Access-Control-Allow-Origin']).toBe('*');
-    });
-
-    it('sets CORS headers on all dev requests', async () => {
-      const req = new MockRequest('/__dev/queries') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      await router.handleRequest(req, res);
-
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.headers['Access-Control-Allow-Origin']).toBe('*');
-    });
-
-    it('routes GET /__dev/queries', async () => {
-      const req = new MockRequest('/__dev/queries') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(200);
-      expect(mockRes.getBody<{ queries: unknown[] }>().queries).toBeDefined();
-    });
-
-    it('routes GET /__dev/queries/:id', async () => {
-      await store.addQuery({
-        queryId: 'test-123',
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed'
-      });
-
-      const req = new MockRequest('/__dev/queries/test-123') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(200);
-      expect(mockRes.getBody<{ queryId: string }>().queryId).toBe('test-123');
-    });
-
-    it('routes GET /__dev/queries/available', async () => {
-      const req = new MockRequest('/__dev/queries/available') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(200);
-    });
-
-    it('routes DELETE /__dev/queries', async () => {
-      await store.addQuery({
-        queryId: 'to-delete',
-        query: 'SELECT 1',
-        startTime: Date.now(),
-        status: 'completed'
-      });
-
-      const req = new MockRequest('/__dev/queries', 'DELETE') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(200);
-
-      const result = await store.getQueries({});
-      expect(result.total).toBe(0);
-    });
-
-    it('routes GET /__dev/cache/stats', async () => {
-      const req = new MockRequest('/__dev/cache/stats') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(200);
-      expect(mockRes.getBody<{ hits: number }>().hits).toBeDefined();
-    });
-
-    it('routes GET /__dev/logger/stats', async () => {
-      const req = new MockRequest('/__dev/logger/stats') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(503); // Logger not available
-    });
-
-    it('routes GET /__dev/export', async () => {
-      const req = new MockRequest('/__dev/export') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(200);
-      expect(mockRes.headers['Content-Disposition']).toContain('attachment');
-    });
-
-    it('routes POST /__dev/import', async () => {
-      const req = new MockRequest('/__dev/import', 'POST') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const promise = router.handleRequest(req, res);
-      (req as unknown as MockRequest).sendBody('[]');
-      const handled = await promise;
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(200);
-    });
-  });
-
-  describe('SSE events', () => {
-    it('routes GET /__dev/events for SSE', async () => {
-      const req = new MockRequest('/__dev/events') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.headers['Content-Type']).toBe('text/event-stream');
-    });
-
-    it('tracks SSE client count', async () => {
-      expect(router.getClientCount()).toBe(0);
-
-      const req = new MockRequest('/__dev/events') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      await router.handleRequest(req, res);
-
-      expect(router.getClientCount()).toBe(1);
-    });
-
-    it('provides SSE handler access', () => {
-      const sseHandler = router.getSSEHandler();
-      expect(sseHandler).toBeDefined();
-      expect(typeof sseHandler.broadcast).toBe('function');
-    });
-  });
-
-  describe('404 handling', () => {
-    it('returns 404 for unmatched /__dev/* routes', async () => {
-      const req = new MockRequest('/__dev/unknown') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      const handled = await router.handleRequest(req, res);
-
-      expect(handled).toBe(true);
-      const mockRes = res as unknown as MockResponse;
-      expect(mockRes.statusCode).toBe(404);
-
-      const body = mockRes.getBody<{ error: string; availableRoutes: string[] }>();
-      expect(body.error).toBe('Not found');
-      expect(body.availableRoutes).toBeInstanceOf(Array);
-    });
-  });
-
-  describe('query string handling', () => {
-    it('handles query parameters correctly', async () => {
-      await store.batchInsert([
-        { queryId: 'q1', query: 'SELECT 1', startTime: Date.now(), status: 'completed' },
-        { queryId: 'q2', query: 'SELECT 2', startTime: Date.now(), status: 'error' }
-      ]);
-
-      const req = new MockRequest('/__dev/queries?status=completed') as unknown as IncomingMessage;
-      const res = new MockResponse() as unknown as ServerResponse;
-
-      await router.handleRequest(req, res);
-
-      const mockRes = res as unknown as MockResponse;
-      const body = mockRes.getBody<{ queries: Array<{ status: string }>; total: number }>();
-      expect(body.total).toBe(1);
-      expect(body.queries[0].status).toBe('completed');
-    });
-  });
-
-  describe('shutdown', () => {
-    it('closes all SSE connections', async () => {
-      const req1 = new MockRequest('/__dev/events') as unknown as IncomingMessage;
-      const res1 = new MockResponse() as unknown as ServerResponse;
-      const req2 = new MockRequest('/__dev/events') as unknown as IncomingMessage;
-      const res2 = new MockResponse() as unknown as ServerResponse;
-
-      await router.handleRequest(req1, res1);
-      await router.handleRequest(req2, res2);
-
-      expect(router.getClientCount()).toBe(2);
-
-      router.shutdown();
-
-      expect(router.getClientCount()).toBe(0);
-    });
-  });
-});
-
-describe('createDevRouter', () => {
-  it('creates router with options', async () => {
-    const store = new MemoryStore(1000);
-    await store.initialize();
-
-    const router = createDevRouter({
+    router = createDevRouter({
       store,
-      cacheManager: {
-        invalidate: async () => {},
-        clear: async () => {}
-      }
+      api: makeApi(),
+      capabilities: ['registry', 'execute', 'history', 'events'],
+      projectName: 'demo'
     });
+  });
 
-    expect(router).toBeInstanceOf(DevAPIRouter);
+  afterEach(() => router.shutdown());
 
-    router.shutdown();
+  it('ignores non-dev routes', async () => {
+    expect(await router.handleRequest(req('/api/users'), res())).toBe(false);
+  });
+
+  it('does not emit wildcard CORS for unknown origins', async () => {
+    const r = res();
+    await router.handleRequest(req('/__dev/meta', 'OPTIONS', { origin: 'https://evil.example' }), r);
+    const mr = r as unknown as MockResponse;
+    expect(mr.statusCode).toBe(204);
+    expect(mr.headers['Access-Control-Allow-Origin']).toBeUndefined();
+  });
+
+  it('GET /__dev/meta returns contract version + capabilities', async () => {
+    const r = res();
+    await router.handleRequest(req('/__dev/meta'), r);
+    const body = (r as unknown as MockResponse).getBody<{
+      contractVersion: string;
+      capabilities: string[];
+      project: { name: string };
+    }>();
+    expect(body.contractVersion).toBe('0.1');
+    expect(body.capabilities).toContain('registry');
+    expect(body.project.name).toBe('demo');
+  });
+
+  it('GET /__dev/registry maps describe() output', async () => {
+    const r = res();
+    await router.handleRequest(req('/__dev/registry'), r);
+    const body = (r as unknown as MockResponse).getBody<{
+      endpoints: Array<{ key: string; hasInput: boolean }>;
+      total: number;
+    }>();
+    expect(body.total).toBe(1);
+    expect(body.endpoints[0].key).toBe('listUsers');
+    expect(body.endpoints[0].hasInput).toBe(true);
+  });
+
+  it('POST /__dev/execute runs the endpoint via the api', async () => {
+    const r = res();
+    const request = new MockRequest('/__dev/execute', 'POST');
+    const done = router.handleRequest(request as unknown as IncomingMessage, r);
+    request.sendBody(JSON.stringify({ key: 'listUsers', input: {} }));
+    await done;
+    const body = (r as unknown as MockResponse).getBody<{ success: boolean; key: string }>();
+    expect(body.success).toBe(true);
+    expect(body.key).toBe('listUsers');
+  });
+
+  it('POST /__dev/execute rejects a missing key', async () => {
+    const r = res();
+    const request = new MockRequest('/__dev/execute', 'POST');
+    const done = router.handleRequest(request as unknown as IncomingMessage, r);
+    request.sendBody(JSON.stringify({ input: {} }));
+    await done;
+    expect((r as unknown as MockResponse).statusCode).toBe(400);
+  });
+
+  it('GET /__dev/history lists persisted queries', async () => {
+    await store.addQuery({
+      queryId: 'q1',
+      query: 'GET /api/users',
+      startTime: Date.now(),
+      status: 'completed'
+    });
+    const r = res();
+    await router.handleRequest(req('/__dev/history'), r);
+    const body = (r as unknown as MockResponse).getBody<{ total: number }>();
+    expect(body.total).toBe(1);
+  });
+
+  it('serves 404 for unknown /__dev routes', async () => {
+    const r = res();
+    await router.handleRequest(req('/__dev/nope'), r);
+    expect((r as unknown as MockResponse).statusCode).toBe(404);
   });
 });

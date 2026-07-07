@@ -1,48 +1,63 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import type { QueryHistoryStore } from './storage/types.js';
-import type { DevQueryLogger } from './query-logger.js';
-import type { CacheStore } from '../cache/types.js';
+import { createRequire } from 'node:module';
+import { readFile } from 'node:fs/promises';
+import * as path from 'node:path';
 import { DevAPIRouter, type RouterOptions } from './api/router.js';
-import { getDevUIAssets } from './assets.js';
 
 /**
  * Options for creating the dev handler.
  */
-export interface DevHandlerOptions {
-  /** Query history store */
-  store: QueryHistoryStore;
-  /** Query logger for stats */
-  logger?: DevQueryLogger;
-  /** Serve-layer cache store for real-time cache stats and operations */
-  serveCacheStore?: CacheStore;
-  /** API instance with endpoints and execute function */
-  api?: RouterOptions['api'];
-  /** Base path for the HTML UI entry point (default: /) */
-  basePath?: string;
+export interface DevHandlerOptions extends RouterOptions {
   /** Base path for internal UI assets and APIs (default: /__dev) */
   apiBasePath?: string;
 }
 
+const CONTENT_TYPES: Record<string, string> = {
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon'
+};
+
 /**
- * Dev handler that serves the React UI and routes API requests.
+ * Locate the built @hypequery/studio dist directory on disk. Returns null when
+ * the studio package is not installed (gateway then runs API-only).
+ */
+function resolveStudioDist(): string | null {
+  try {
+    const require = createRequire(import.meta.url);
+    const pkgJson = require.resolve('@hypequery/studio/package.json');
+    return path.join(path.dirname(pkgJson), 'dist');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Dev handler: serves the studio UI same-origin under /__dev and routes
+ * /__dev/* API requests. UI assets are read from the installed
+ * @hypequery/studio package on disk (no build-time embedding).
  */
 export class DevHandler {
   private router: DevAPIRouter;
-  private basePath: string;
   private apiBasePath: string;
-  private assets: ReturnType<typeof getDevUIAssets>;
+  private distDir: string | null;
 
   constructor(options: DevHandlerOptions) {
-    this.basePath = options.basePath ?? '/';
     this.apiBasePath = options.apiBasePath ?? '/__dev';
-    this.assets = getDevUIAssets();
+    this.distDir = resolveStudioDist();
+    this.router = new DevAPIRouter(options);
+  }
 
-    this.router = new DevAPIRouter({
-      store: options.store,
-      logger: options.logger,
-      serveCacheStore: options.serveCacheStore,
-      api: options.api
-    });
+  /** Whether the studio UI is available on disk. */
+  get uiAvailable(): boolean {
+    return this.distDir !== null;
   }
 
   /**
@@ -51,118 +66,88 @@ export class DevHandler {
    */
   async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const url = req.url || '';
-    const path = url.split('?')[0];
+    const reqPath = url.split('?')[0];
 
-    // Route: Serve React UI at / or configured base path
-    if (path === this.basePath || path === `${this.basePath}/`) {
-      this.serveHTML(res);
-      return true;
-    }
-
-    // Route: Serve static assets from the internal dev base path
-    if (path.startsWith(`${this.apiBasePath}/assets/`)) {
-      const assetPath = path.slice(`${this.apiBasePath}/assets/`.length);
+    // Static assets under the base path (must precede the generic API match)
+    if (reqPath.startsWith(`${this.apiBasePath}/assets/`)) {
+      const assetPath = reqPath.slice(`${this.apiBasePath}/`.length);
       return this.serveAsset(res, assetPath);
     }
 
-    // Route: API endpoints (/__dev/*)
-    if (path.startsWith(`${this.apiBasePath}/`)) {
+    // API routes
+    if (reqPath.startsWith(`${this.apiBasePath}/`)) {
       return this.router.handleRequest(req, res);
+    }
+
+    // The UI shell at the base path
+    if (reqPath === this.apiBasePath || reqPath === `${this.apiBasePath}/`) {
+      return this.serveHTML(res);
     }
 
     return false;
   }
 
-  /**
-   * Serve the main HTML page.
-   */
-  private serveHTML(res: ServerResponse): void {
-    res.writeHead(200, {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-cache'
-    });
-    res.end(this.assets.html);
-  }
-
-  /**
-   * Serve a static asset (JS, CSS).
-   */
-  private serveAsset(res: ServerResponse, assetPath: string): boolean {
-    // Serve JavaScript
-    if (assetPath.endsWith('.js')) {
-      const js = this.assets.js[assetPath];
-      if (js) {
-        res.writeHead(200, {
-          'Content-Type': 'application/javascript; charset=utf-8',
-          'Cache-Control': 'public, max-age=31536000, immutable'
-        });
-        res.end(js);
-        return true;
-      }
+  private async serveHTML(res: ServerResponse): Promise<boolean> {
+    if (!this.distDir) {
+      res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('hypequery studio UI is not installed. Install @hypequery/studio to enable the playground.');
+      return true;
     }
-
-    // Serve CSS
-    if (assetPath.endsWith('.css')) {
-      const css = this.assets.css[assetPath];
-      if (css) {
-        res.writeHead(200, {
-          'Content-Type': 'text/css; charset=utf-8',
-          'Cache-Control': 'public, max-age=31536000, immutable'
-        });
-        res.end(css);
-        return true;
-      }
+    try {
+      const html = await readFile(path.join(this.distDir, 'index.html'), 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(html);
+    } catch {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Failed to load studio UI');
     }
-
-    // Asset not found
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not found');
     return true;
   }
 
-  /**
-   * Get the API router for direct access.
-   */
-  getRouter(): DevAPIRouter {
-    return this.router;
+  private async serveAsset(res: ServerResponse, assetPath: string): Promise<boolean> {
+    if (!this.distDir) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
+      return true;
+    }
+
+    // Prevent path traversal: resolve and confirm the target stays within dist
+    const resolved = path.resolve(this.distDir, assetPath);
+    const distRoot = path.resolve(this.distDir);
+    if (resolved !== distRoot && !resolved.startsWith(distRoot + path.sep)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return true;
+    }
+
+    try {
+      const data = await readFile(resolved);
+      const type = CONTENT_TYPES[path.extname(resolved)] ?? 'application/octet-stream';
+      res.writeHead(200, {
+        'Content-Type': type,
+        'Cache-Control': 'public, max-age=31536000, immutable'
+      });
+      res.end(data);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
+    }
+    return true;
   }
 
-  /**
-   * Get count of connected SSE clients.
-   */
+  getSSEHandler() {
+    return this.router.getSSEHandler();
+  }
+
   getClientCount(): number {
     return this.router.getClientCount();
   }
 
-  /**
-   * Shutdown the handler and close all connections.
-   */
   shutdown(): void {
     this.router.shutdown();
   }
 }
 
-/**
- * Create a dev handler.
- *
- * @example
- * ```typescript
- * const devHandler = createDevHandler({
- *   store: await createStore(),
- *   logger: queryLogger,
- *   api: {
- *     endpoints: serveApi.queries,
- *     execute: (key, opts) => serveApi.execute(key, opts)
- *   }
- * });
- *
- * // In request handler:
- * if (await devHandler.handleRequest(req, res)) {
- *   return; // Request was handled
- * }
- * // Continue with normal request handling
- * ```
- */
 export function createDevHandler(options: DevHandlerOptions): DevHandler {
   return new DevHandler(options);
 }

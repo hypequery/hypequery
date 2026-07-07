@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { DevQueryLogger, type QueryLogEvent } from './query-logger.js';
 import { MemoryStore } from './storage/index.js';
-import { ServeQueryLogger, type ServeQueryEvent } from '../query-logger.js';
+import { ServeQueryLogger, type ServeQueryEvent } from '@hypequery/serve';
 
 describe('DevQueryLogger', () => {
   let store: MemoryStore;

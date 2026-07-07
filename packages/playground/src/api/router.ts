@@ -1,9 +1,16 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { QueryHistoryStore } from '../storage/types.js';
 import type { DevQueryLogger } from '../query-logger.js';
-import type { CacheStore } from '../../cache/types.js';
+import type { CacheStore, DevIntegrationApi, GatewayCapability } from '../types.js';
 import { SSEHandler } from './sse-handler.js';
-import * as endpoints from './endpoints.js';
+import type { EndpointContext } from './types.js';
+import { getMeta } from './meta-endpoints.js';
+import { getRegistry } from './registry-endpoints.js';
+import { execute } from './execute-endpoints.js';
+import { getQueries, getQuery } from './query-endpoints.js';
+import { clearHistory, exportHistory, importHistory } from './history-endpoints.js';
+import { getLoggerStats } from './logger-endpoints.js';
+import { getCacheStats, clearCache } from './cache-endpoints.js';
 
 /**
  * Options for the dev API router.
@@ -15,102 +22,70 @@ export interface RouterOptions {
   serveCacheStore?: CacheStore;
   /** Optional query logger for stats */
   logger?: DevQueryLogger;
-  /** Optional API instance for available queries and execution */
-  api?: {
-    endpoints?: Record<string, {
-      key?: string;
-      path?: string;
-      method?: string;
-      description?: string;
-      tags?: string[];
-      inputSchema?: unknown;
-      outputSchema?: unknown;
-      metadata?: {
-        path?: string;
-        method?: string;
-        name?: string;
-        summary?: string;
-        description?: string;
-        tags?: string[];
-        requiresAuth?: boolean;
-        requiredRoles?: string[];
-        requiredScopes?: string[];
-        cacheTtlMs?: number | null;
-        visibility?: string;
-        custom?: Record<string, unknown>;
-      };
-      tenant?: unknown;
-      cacheTtlMs?: number | null;
-    }>;
-    execute?: (key: string, options: { input?: unknown }) => Promise<unknown>;
-  };
+  /** The serve API the gateway drives. */
+  api?: DevIntegrationApi;
+  /** Capabilities advertised via /meta. */
+  capabilities: GatewayCapability[];
+  /** Project name surfaced in /meta. */
+  projectName?: string;
+  /**
+   * Cross-origin allowlist. Empty by default — the studio is served
+   * same-origin, so no CORS headers are emitted and the wildcard `*` is
+   * never used. Add explicit origins only when a remote UI must connect.
+   */
+  allowedOrigins?: string[];
 }
 
 /**
- * Available dev API routes for documentation.
- */
-const AVAILABLE_ROUTES = [
-  'GET /__dev/events - SSE connection for real-time updates',
-  'GET /__dev/queries - List query history',
-  'GET /__dev/queries/:id - Get single query',
-  'DELETE /__dev/queries - Clear query history',
-];
-
-/**
- * Dev API router with SSE support.
- *
- * Handles all /__dev/* routes for the development UI.
+ * Dev API router with SSE support. Handles all /__dev/* API routes.
+ * Implements gateway contract v0 (see plans/gateway-contract.md).
  */
 export class DevAPIRouter {
   private sseHandler: SSEHandler;
   private options: RouterOptions;
+  private allowedOrigins: Set<string>;
 
   constructor(options: RouterOptions) {
     this.options = options;
     this.sseHandler = new SSEHandler(30000);
+    this.allowedOrigins = new Set(options.allowedOrigins ?? []);
   }
 
   /**
-   * Handle CORS preflight and set CORS headers.
-   * @returns true if the request was handled (OPTIONS request)
+   * Apply CORS headers only for explicitly allowlisted origins. Same-origin
+   * requests need no headers; the wildcard `*` is never emitted.
+   * @returns true if the request was fully handled (OPTIONS preflight)
    */
   private handleCORS(req: IncomingMessage, res: ServerResponse): boolean {
-    // Set CORS headers for all /__dev/ requests
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Last-Event-ID');
+    const origin = req.headers.origin;
+    if (origin && this.allowedOrigins.has(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Last-Event-ID');
+    }
 
-    // Handle preflight
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
       return true;
     }
-
     return false;
   }
 
-  /**
-   * Send 404 response with available routes.
-   */
   private send404(res: ServerResponse, path: string): void {
     res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      error: 'Not found',
-      path,
-      availableRoutes: AVAILABLE_ROUTES
-    }));
+    res.end(JSON.stringify({ error: 'Not found', path }));
   }
 
-  /**
-   * Create endpoint context for handlers.
-   */
-  private createContext(req: IncomingMessage, res: ServerResponse): endpoints.EndpointContext {
+  private createContext(req: IncomingMessage, res: ServerResponse): EndpointContext {
     return {
       store: this.options.store,
       serveCacheStore: this.options.serveCacheStore,
       logger: this.options.logger,
       api: this.options.api,
+      capabilities: this.options.capabilities,
+      projectName: this.options.projectName,
       sseHandler: this.sseHandler,
       req,
       res
@@ -118,100 +93,101 @@ export class DevAPIRouter {
   }
 
   /**
-   * Handle incoming dev API request.
+   * Handle an incoming /__dev/* API request.
    * @returns true if the request was handled, false otherwise
    */
   async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const url = req.url || '';
     const method = req.method || 'GET';
 
-    // Only handle /__dev/ routes
-    if (!url.startsWith('/__dev/')) {
-      return false;
-    }
-
-    // Handle CORS preflight
-    if (this.handleCORS(req, res)) {
-      return true;
-    }
+    if (!url.startsWith('/__dev/')) return false;
+    if (this.handleCORS(req, res)) return true;
 
     const ctx = this.createContext(req, res);
-
-    // Parse URL path (without query string)
     const path = url.split('?')[0];
 
-    // Route: SSE Events
-    if (path === '/__dev/events' && method === 'GET') {
-      const lastEventId = req.headers['last-event-id'] as string | undefined;
-      this.sseHandler.addClient(res, lastEventId);
+    // Discovery
+    if (path === '/__dev/meta' && method === 'GET') {
+      await getMeta(ctx);
       return true;
     }
 
-    // Route: Single query by ID
-    if (path.startsWith('/__dev/queries/') && method === 'GET') {
-      const queryId = path.slice('/__dev/queries/'.length);
+    // Registry
+    if (path === '/__dev/registry' && method === 'GET') {
+      await getRegistry(ctx);
+      return true;
+    }
+
+    // Execute
+    if (path === '/__dev/execute' && method === 'POST') {
+      await execute(ctx);
+      return true;
+    }
+
+    // SSE — no Last-Event-ID replay in v0 (clients refetch history on reconnect)
+    if (path === '/__dev/events' && method === 'GET') {
+      this.sseHandler.addClient(res);
+      return true;
+    }
+
+    // History (renamed from donor /queries)
+    if (path === '/__dev/history/export' && method === 'GET') {
+      await exportHistory(ctx);
+      return true;
+    }
+    if (path === '/__dev/history/import' && method === 'POST') {
+      await importHistory(ctx);
+      return true;
+    }
+    if (path.startsWith('/__dev/history/') && method === 'GET') {
+      const queryId = path.slice('/__dev/history/'.length);
       if (queryId) {
-        await endpoints.getQuery(ctx, queryId);
+        await getQuery(ctx, queryId);
         return true;
       }
     }
-
-    // Route: List queries
-    if (path === '/__dev/queries' && method === 'GET') {
-      await endpoints.getQueries(ctx);
+    if (path === '/__dev/history' && method === 'GET') {
+      await getQueries(ctx);
+      return true;
+    }
+    if (path === '/__dev/history' && method === 'DELETE') {
+      await clearHistory(ctx);
       return true;
     }
 
-    // Route: Clear query history
-    if (path === '/__dev/queries' && method === 'DELETE') {
-      await endpoints.clearHistory(ctx);
+    // Logger stats
+    if (path === '/__dev/logger/stats' && method === 'GET') {
+      await getLoggerStats(ctx);
       return true;
     }
 
-    // 404 for unmatched /__dev/* routes
+    // Cache (capability-gated)
+    if (path === '/__dev/cache' && method === 'GET') {
+      await getCacheStats(ctx);
+      return true;
+    }
+    if (path === '/__dev/cache/clear' && method === 'POST') {
+      await clearCache(ctx);
+      return true;
+    }
+
     this.send404(res, path);
     return true;
   }
 
-  /**
-   * Get the SSE handler for broadcasting events.
-   */
   getSSEHandler(): SSEHandler {
     return this.sseHandler;
   }
 
-  /**
-   * Get count of connected SSE clients.
-   */
   getClientCount(): number {
     return this.sseHandler.clientCount;
   }
 
-  /**
-   * Shutdown the router and close all connections.
-   */
   shutdown(): void {
     this.sseHandler.shutdown();
   }
 }
 
-/**
- * Create a dev API router.
- *
- * @example
- * ```typescript
- * const router = createDevRouter({
- *   store: await createStore(),
- *   logger: queryLogger,
- *   api: serveApi
- * });
- *
- * // In request handler:
- * if (await router.handleRequest(req, res)) {
- *   return; // Request was handled
- * }
- * ```
- */
 export function createDevRouter(options: RouterOptions): DevAPIRouter {
   return new DevAPIRouter(options);
 }

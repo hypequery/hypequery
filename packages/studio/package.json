@@ -8,7 +8,8 @@
     "dist"
   ],
   "exports": {
-    "./dist/*": "./dist/*"
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
   },
   "scripts": {
     "dev": "vite",

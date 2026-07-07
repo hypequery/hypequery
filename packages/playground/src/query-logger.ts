@@ -1,5 +1,5 @@
 import type { QueryHistoryStore, QueryLog } from './storage/index.js';
-import type { ServeQueryLogger, ServeQueryEvent } from '../query-logger.js';
+import type { ServeQueryLogger, ServeQueryEvent } from '@hypequery/serve';
 
 /**
  * Statistics for the query logger.
@@ -119,6 +119,15 @@ export class DevQueryLogger {
       ? this.endpointMetadata[event.endpointKey]
       : undefined;
 
+    // Cache/tenant/timing fields are populated by the serve-layer cache, which
+    // lands separately. Read them defensively so the gateway works against any
+    // serve version.
+    const ext = event as ServeQueryEvent & {
+      cache?: { status?: string; key?: string; age?: number };
+      tenantId?: string;
+      timing?: QueryLog['timing'];
+    };
+
     const log: QueryLog & {
       queryId: string;
       endpointKey?: string;
@@ -138,12 +147,12 @@ export class DevQueryLogger {
       endpointDescription: endpointMetadata?.description,
       endpointPath: endpointMetadata?.path ?? event.path,
       // Include cache info if available
-      cacheStatus: event.cache?.status,
-      cacheKey: event.cache?.key,
-      cacheAgeMs: event.cache?.age,
+      cacheStatus: ext.cache?.status,
+      cacheKey: ext.cache?.key,
+      cacheAgeMs: ext.cache?.age,
       // Include tenant and timing
-      tenantId: event.tenantId,
-      timing: event.timing,
+      tenantId: ext.tenantId,
+      timing: ext.timing,
     };
 
     this.enqueue(log);
