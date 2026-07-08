@@ -24,6 +24,29 @@ function toOrderDirection(direction: MetricOrderBy['direction']): 'ASC' | 'DESC'
   return direction === 'asc' ? 'ASC' : 'DESC';
 }
 
+/**
+ * Raw SQL expressions on the base dataset are emitted verbatim, so their column
+ * references are not table-qualified. When relationship joins are active a bare
+ * `price` in such an expression is ambiguous if the joined table also has a
+ * `price` column. Until the builder rewrites identifiers inside expressions,
+ * reject the combination rather than emit ambiguous SQL.
+ */
+function assertNoRawSqlUnderJoins(
+  kind: 'dimension' | 'measure',
+  name: string,
+  sql: string,
+  joinCtx?: RelationshipBuilderContext,
+): void {
+  if (!joinCtx) {
+    return;
+  }
+  throw new Error(
+    `SQL-backed ${kind} "${name}" cannot be combined with relationship joins: its expression ` +
+    `("${sql}") is not table-qualified and may collide with joined columns. Query it without ` +
+    `relationship-qualified fields, or redeclare it as a plain column.`,
+  );
+}
+
 export function resolveDimensionExpression(
   ds: DatasetShape,
   dimensionName: string,
@@ -34,6 +57,7 @@ export function resolveDimensionExpression(
   }
   const definition = ds.dimensions[dimensionName];
   if (definition?.sql) {
+    assertNoRawSqlUnderJoins('dimension', dimensionName, definition.sql, joinCtx);
     return definition.sql;
   }
   return qualifyBaseColumn(joinCtx, definition?.column ?? dimensionName);
@@ -99,6 +123,9 @@ export function applyAggregationSpec(
   alias: string,
   joinCtx?: RelationshipBuilderContext,
 ): QueryBuilderLike {
+  if (spec.sql) {
+    assertNoRawSqlUnderJoins('measure', alias, spec.sql, joinCtx);
+  }
   const fieldOrExpr = applyFilteredAggregationExpression(
     ds,
     spec,
@@ -131,6 +158,9 @@ export function applyMeasureDefinition(
   definition: MeasureDefinition,
   joinCtx?: RelationshipBuilderContext,
 ): QueryBuilderLike {
+  if (definition.sql) {
+    assertNoRawSqlUnderJoins('measure', name, definition.sql, joinCtx);
+  }
   const baseFieldOrExpr = definition.sql ?? resolveDimensionExpression(ds, definition.field, joinCtx);
   const fieldOrExpr = applyFilteredAggregationExpression(
     ds,

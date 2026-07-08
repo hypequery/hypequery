@@ -53,6 +53,22 @@ const Orders = dataset('orders', {
 
 const revenueMetric = Orders.metric('revenue', { measure: 'revenue' });
 
+// Dataset with SQL-backed fields, to exercise the "raw SQL under joins" guard.
+const SqlOrders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    status: dimension.string(),
+    lineTotal: dimension.number({ sql: 'price * quantity' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    rawRevenue: measure.sum('amount', { sql: 'sum(amount)' }),
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+  },
+});
+
 // Tenant-scoped datasets for defense-in-depth join tenancy.
 const TenantCustomers = dataset('tenant_customers', {
   source: 'tenant_customers',
@@ -445,5 +461,27 @@ describe('relationship joins on the query-builder path', () => {
       measures: ['revenue'],
     });
     expect(sql).toBe('SELECT status, SUM(amount) AS revenue FROM orders GROUP BY status');
+  });
+
+  it('rejects a SQL-backed base dimension combined with a join', () => {
+    expect(() => builderClient().toSQL(SqlOrders, {
+      dimensions: ['lineTotal', 'customer.country'],
+      measures: ['revenue'],
+    })).toThrow(/SQL-backed dimension "lineTotal" cannot be combined with relationship joins/);
+  });
+
+  it('rejects a SQL-backed measure combined with a join', () => {
+    expect(() => builderClient().toSQL(SqlOrders, {
+      dimensions: ['customer.country'],
+      measures: ['rawRevenue'],
+    })).toThrow(/SQL-backed measure "rawRevenue" cannot be combined with relationship joins/);
+  });
+
+  it('still allows a SQL-backed base dimension without joins', () => {
+    const sql = builderClient().toSQL(SqlOrders, {
+      dimensions: ['lineTotal'],
+      measures: ['revenue'],
+    });
+    expect(sql).toContain('price * quantity AS lineTotal');
   });
 });
