@@ -124,8 +124,12 @@ export function validateDatasetQueryInput(
         const resolution = resolveQualifiedField(ds, order.field);
         if (resolution?.error) {
           errors.push(resolution.error);
+          continue;
         }
-        continue;
+        // A resolvable qualified field is only orderable when it is also
+        // selected as a dimension (same rule as unqualified fields). Otherwise
+        // the sort silently no-ops in-memory and breaks the SQL alias, so fall
+        // through to the orderableFields check rather than accepting it.
       }
       if (!orderableFields.has(order.field)) {
         invalid.push(order.field);

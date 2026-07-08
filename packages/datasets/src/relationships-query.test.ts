@@ -6,7 +6,6 @@ import { belongsTo, hasMany, hasOne } from './relationships.js';
 import { createDatasetClient } from './executor.js';
 import { validateDatasetQuery } from './dataset-query.js';
 import { createInMemoryBackend, type InMemoryTables } from './in-memory-backend.js';
-import { buildDatasetPlan } from './semantic-planner.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 import type { ExecutionContext } from './types.js';
 
@@ -290,6 +289,25 @@ describe('relationship-qualified validation', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.join(' ')).toMatch(/Unknown relationship "supplier"/);
   });
+
+  it('rejects a resolvable qualified orderBy field that is not selected as a dimension', () => {
+    const result = validateDatasetQuery(Orders, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'customer.country', direction: 'asc' }],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/Unknown orderBy fields: customer\.country/);
+  });
+
+  it('accepts a qualified orderBy field when it is also selected as a dimension', () => {
+    const result = validateDatasetQuery(Orders, {
+      dimensions: ['customer.country'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'customer.country', direction: 'asc' }],
+    });
+    expect(result.valid).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -342,16 +360,16 @@ describe('relationship joins on the semantic backend', () => {
     expect(data).toEqual([{ status: 'paid', revenue: '100' }]);
   });
 
-  it('collects the join for an orderBy-only qualified field', () => {
-    const plan = buildDatasetPlan(Orders, {
-      dimensions: ['status'],
+  it('sorts by a selected joined dimension (orderBy on a joined field works end to end)', async () => {
+    const client = backendClient(tables);
+    const { data } = await client.execute(Orders, {
+      dimensions: ['customer.country'],
       measures: ['revenue'],
-      orderBy: [{ field: 'customer.country', direction: 'asc' }],
+      orderBy: [{ field: 'customer.country', direction: 'desc' }],
     });
-    if (plan.kind !== 'aggregate') throw new Error('expected an aggregate plan');
-    expect(plan.joins).toEqual([
-      expect.objectContaining({ relationship: 'customer', source: 'customers', type: 'left' }),
-    ]);
+    // Descending by country_code, the matched rows sort US before DE.
+    const matched = data.map((row) => row['customer.country']).filter((c) => c !== undefined);
+    expect(matched).toEqual(['US', 'DE']);
   });
 
   it('scopes joined targets by tenant (defense in depth)', async () => {
