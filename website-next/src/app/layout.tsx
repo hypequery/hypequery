@@ -159,7 +159,7 @@ gtag('config', '${gaMeasurementId}');`,
             enableSystem: true,
             disableTransitionOnChange: true,
             storageKey: THEME_STORAGE_KEY,
-            attribute: "class",
+            attribute: ["class", "data-theme"],
           }}
           search={{
             SearchDialog: DefaultSearchDialog,
