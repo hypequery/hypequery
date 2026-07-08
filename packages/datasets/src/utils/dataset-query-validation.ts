@@ -118,9 +118,21 @@ export function validateDatasetQueryInput(
   }
 
   if (query.orderBy) {
-    const invalid = query.orderBy.filter(order => !orderableFields.has(order.field));
+    const invalid: string[] = [];
+    for (const order of query.orderBy) {
+      if (isQualifiedField(order.field)) {
+        const resolution = resolveQualifiedField(ds, order.field);
+        if (resolution?.error) {
+          errors.push(resolution.error);
+        }
+        continue;
+      }
+      if (!orderableFields.has(order.field)) {
+        invalid.push(order.field);
+      }
+    }
     if (invalid.length > 0) {
-      errors.push(`Unknown orderBy fields: ${invalid.map(order => order.field).join(', ')}. Available: ${Array.from(orderableFields).join(', ')}`);
+      errors.push(`Unknown orderBy fields: ${invalid.join(', ')}. Available: ${Array.from(orderableFields).join(', ')}`);
     }
   }
 

@@ -6,6 +6,7 @@ import { belongsTo, hasMany, hasOne } from './relationships.js';
 import { createDatasetClient } from './executor.js';
 import { validateDatasetQuery } from './dataset-query.js';
 import { createInMemoryBackend, type InMemoryTables } from './in-memory-backend.js';
+import { buildDatasetPlan } from './semantic-planner.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-protocol.js';
 import type { ExecutionContext } from './types.js';
 
@@ -269,6 +270,26 @@ describe('relationship-qualified validation', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.join(' ')).toMatch(/hasMany|not queryable/i);
   });
+
+  it('rejects a hasMany qualified orderBy field with an actionable message', () => {
+    const result = validateDatasetQuery(Orders, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'items.sku', direction: 'asc' }],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/hasMany|not queryable/i);
+  });
+
+  it('rejects an unknown-relationship qualified orderBy field', () => {
+    const result = validateDatasetQuery(Orders, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'supplier.name', direction: 'asc' }],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/Unknown relationship "supplier"/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -294,8 +315,8 @@ describe('relationship joins on the semantic backend', () => {
       dimensions: ['customer.country'],
       measures: ['revenue'],
     });
-    expect(data).toContainEqual({ 'customer.country': 'US', revenue: 100 });
-    expect(data).toContainEqual({ 'customer.country': 'DE', revenue: 50 });
+    expect(data).toContainEqual({ 'customer.country': 'US', revenue: '100' });
+    expect(data).toContainEqual({ 'customer.country': 'DE', revenue: '50' });
   });
 
   it('keeps base rows whose FK has no match (LEFT JOIN semantics)', async () => {
@@ -306,8 +327,8 @@ describe('relationship joins on the semantic backend', () => {
     });
     // Order 3 (customer_id 99) has no matching customer -> country is undefined but the row survives.
     const unmatched = data.find((row) => row['customer.country'] === undefined);
-    expect(unmatched).toEqual({ 'customer.country': undefined, revenue: 70 });
-    const total = data.reduce((sum, row) => sum + (row.revenue as number), 0);
+    expect(unmatched).toEqual({ 'customer.country': undefined, revenue: '70' });
+    const total = data.reduce((sum, row) => sum + Number(row.revenue), 0);
     expect(total).toBe(220);
   });
 
@@ -318,7 +339,19 @@ describe('relationship joins on the semantic backend', () => {
       measures: ['revenue'],
       filters: [{ field: 'customer.tier', operator: 'eq', value: 'enterprise' }],
     });
-    expect(data).toEqual([{ status: 'paid', revenue: 100 }]);
+    expect(data).toEqual([{ status: 'paid', revenue: '100' }]);
+  });
+
+  it('collects the join for an orderBy-only qualified field', () => {
+    const plan = buildDatasetPlan(Orders, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'customer.country', direction: 'asc' }],
+    });
+    if (plan.kind !== 'aggregate') throw new Error('expected an aggregate plan');
+    expect(plan.joins).toEqual([
+      expect.objectContaining({ relationship: 'customer', source: 'customers', type: 'left' }),
+    ]);
   });
 
   it('scopes joined targets by tenant (defense in depth)', async () => {
@@ -340,8 +373,8 @@ describe('relationship joins on the semantic backend', () => {
       context,
     );
     // Order 2's customer (id 20) belongs to tenant t2, so it must not leak across the join.
-    expect(data).toContainEqual({ 'customer.country': 'US', revenue: 100 });
-    expect(data).toContainEqual({ 'customer.country': undefined, revenue: 50 });
+    expect(data).toContainEqual({ 'customer.country': 'US', revenue: '100' });
+    expect(data).toContainEqual({ 'customer.country': undefined, revenue: '50' });
     expect(data.find((row) => row['customer.country'] === 'FR')).toBeUndefined();
   });
 });

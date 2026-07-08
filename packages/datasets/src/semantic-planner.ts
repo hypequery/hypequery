@@ -3,6 +3,7 @@ import type {
   DatasetQuery,
   ExecutionContext,
   MetricFilter,
+  MetricOrderBy,
   MetricQuery,
   MetricRef,
   GrainedMetricRef,
@@ -87,18 +88,20 @@ function normalizeFilters(
 
 /**
  * Collects deduped to-one LEFT JOINs for every relationship referenced by the
- * query's dimensions or filters, scoping each joined target with the runtime
- * tenant predicate when the target declares a `tenantKey`.
+ * query's dimensions, filters, or orderBy, scoping each joined target with the
+ * runtime tenant predicate when the target declares a `tenantKey`.
  */
 function collectJoins(
   ds: AnyDatasetInstance,
   dimensions: string[] = [],
   filters: MetricFilter[] = [],
+  orderBy: MetricOrderBy[] = [],
   context?: ExecutionContext,
 ): SemanticJoinPlan[] | undefined {
   const referenced = [
     ...dimensions,
     ...filters.map((filter) => filter.field),
+    ...orderBy.map((order) => order.field),
   ].filter(isQualifiedField);
   if (referenced.length === 0) {
     return undefined;
@@ -189,7 +192,7 @@ function aggregatePlan(
     limit: query.limit,
     offset: query.offset,
     tenant: tenantForContext(ds, context),
-    joins: collectJoins(ds, query.dimensions, query.filters, context),
+    joins: collectJoins(ds, query.dimensions, query.filters, query.orderBy, context),
   };
 }
 

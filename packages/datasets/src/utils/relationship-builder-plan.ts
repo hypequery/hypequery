@@ -134,6 +134,14 @@ export function applyRelationshipJoins(
       join.relationship,
     );
     if (join.tenant) {
+      // NOTE: applying the tenant predicate in WHERE (rather than the JOIN ON
+      // clause) turns this LEFT JOIN into an effective INNER JOIN — base rows
+      // whose FK matches a different tenant, or no target at all, are dropped
+      // instead of surviving with undefined joined columns (as the in-memory
+      // backend does). Correct LEFT semantics require an ON-clause predicate,
+      // which needs `leftJoin` to carry extra conditions; that lands with the
+      // @hypequery/clickhouse join changes in PR 2. Until then this over-filters
+      // (safe: it never leaks cross-tenant rows).
       qb = qb.where(
         `${join.relationship}.${join.tenant.field}`,
         join.tenant.operator,
