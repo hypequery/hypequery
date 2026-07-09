@@ -35,7 +35,7 @@ import type {
   SemanticBackend,
 } from './semantic-plan.js';
 
-import { validateSQLIdentifier } from './sql-utils.js';
+import { quoteSQLIdentifier, validateSQLIdentifier } from './sql-utils.js';
 import { SUPPORTED_TIME_GRAINS, isSupportedTimeGrain } from './constants.js';
 import { validateFilterValue, type ValidationResult } from './validation.js';
 import {
@@ -77,6 +77,13 @@ import {
   buildDatasetQuerySignature,
   buildMetricQuerySignature,
 } from './cache/query-signature.js';
+import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
+import { validateQualifiedFilter } from './utils/relationship-validation.js';
+import {
+  applyRelationshipJoins,
+  buildRelationshipBuilderContext,
+  qualifyBaseColumn,
+} from './utils/relationship-builder-plan.js';
 
 function validateQuery(
   metric: MetricHandle,
@@ -110,6 +117,13 @@ function validateQuery(
 
   // Validate dimensions
   for (const dim of query.dimensions ?? []) {
+    if (isQualifiedField(dim)) {
+      const resolution = resolveQualifiedField(ds, dim);
+      if (resolution?.error) {
+        errors.push(resolution.error);
+      }
+      continue;
+    }
     if (!dimensionNames.includes(dim)) {
       errors.push(`Unknown dimension "${dim}". Available: ${dimensionNames.join(', ')}`);
     }
@@ -117,6 +131,13 @@ function validateQuery(
 
   // Validate filters
   for (const filter of query.filters ?? []) {
+    if (isQualifiedField(filter.field)) {
+      const filterError = validateQualifiedFilter(ds, filter, context);
+      if (filterError) {
+        errors.push(filterError);
+      }
+      continue;
+    }
     if (!filterNames.includes(filter.field)) {
       errors.push(`Unknown filter field "${filter.field}". Available: ${filterNames.join(', ')}`);
       continue;
@@ -437,11 +458,14 @@ export class MetricQueryEngine {
     context?: ExecutionContext,
   ): QueryBuilderLike {
     const activeBuilderFactory = resolveBuilderFactory(context, this.builderFactory);
+    const joinCtx = buildRelationshipBuilderContext(ds, query, context);
     let qb: QueryBuilderLike = activeBuilderFactory.table(ds.source);
+    qb = applyRelationshipJoins(qb, joinCtx);
     const { selectParts, groupByParts } = buildDimensionSelectionPlan(
       ds,
       query.dimensions ?? [],
       grain,
+      joinCtx,
     );
 
     if (selectParts.length > 0) {
@@ -449,7 +473,7 @@ export class MetricQueryEngine {
     }
 
     // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
-    qb = applyAggregationSpec(qb, ds, spec, ref.name);
+    qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx);
 
     // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
     if (groupByParts.length > 0) {
@@ -460,7 +484,7 @@ export class MetricQueryEngine {
     const tenantColumn = resolveTenantFilterColumn(ds, context);
     const tenantPredicate = getRuntimeTenantPredicate(context);
     if (tenantPredicate && tenantColumn) {
-      qb = qb.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
+      qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
     }
 
     // User filters
@@ -470,12 +494,12 @@ export class MetricQueryEngine {
           `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
         );
       }
-      const resolvedField = resolveFilterField(ds, filter.field);
+      const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
       qb = qb.where(resolvedField, filter.operator, filter.value);
     }
 
     // Order, limit, offset
-    qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset);
+    qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx);
 
     return qb;
   }
@@ -489,13 +513,16 @@ export class MetricQueryEngine {
   ): { sql: string; params: unknown[] } {
     const activeBuilderFactory = resolveBuilderFactory(context, this.builderFactory);
     const ds = ref.dataset;
+    const joinCtx = buildRelationshipBuilderContext(ds, query, context);
 
     // Build the CTE inner query using the builder
     let cteBuilder: QueryBuilderLike = activeBuilderFactory.table(ds.source);
+    cteBuilder = applyRelationshipJoins(cteBuilder, joinCtx);
     const { selectParts, groupByParts } = buildDimensionSelectionPlan(
       ds,
       query.dimensions ?? [],
       grain,
+      joinCtx,
     );
 
     if (selectParts.length > 0) {
@@ -510,7 +537,7 @@ export class MetricQueryEngine {
       if (baseSpec.__type !== 'aggregation_spec') {
         throw new Error(`Derived metric "${ref.name}" references non-base metric "${alias}".`);
       }
-      cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias);
+      cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias, joinCtx);
       refAliases[alias] = alias;
       aggregateAliases.push(alias);
     }
@@ -523,7 +550,7 @@ export class MetricQueryEngine {
     const tenantColumn = resolveTenantFilterColumn(ds, context);
     const tenantPredicate = getRuntimeTenantPredicate(context);
     if (tenantPredicate && tenantColumn) {
-      cteBuilder = cteBuilder.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
+      cteBuilder = cteBuilder.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
     }
     for (const filter of query.filters ?? []) {
       if (isTenantScopedFilter(ds, filter, context)) {
@@ -531,7 +558,7 @@ export class MetricQueryEngine {
           `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
         );
       }
-      const resolvedField = resolveFilterField(ds, filter.field);
+      const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
       cteBuilder = cteBuilder.where(resolvedField, filter.operator, filter.value);
     }
 
@@ -546,6 +573,11 @@ export class MetricQueryEngine {
     const outerSelectParts: string[] = [];
     if (grain) outerSelectParts.push('period');
     for (const dim of query.dimensions ?? []) {
+      // Joined dimensions surface from the CTE under their quoted qualified alias.
+      if (joinCtx && isQualifiedField(dim)) {
+        outerSelectParts.push(quoteSQLIdentifier(dim));
+        continue;
+      }
       validateSQLIdentifier(dim, 'dimension name');
       outerSelectParts.push(dim);
     }
@@ -559,6 +591,9 @@ export class MetricQueryEngine {
     // ORDER BY
     if (query.orderBy && query.orderBy.length > 0) {
       const orderParts = query.orderBy.map(o => {
+        if (joinCtx && isQualifiedField(o.field)) {
+          return `${quoteSQLIdentifier(o.field)} ${o.direction.toUpperCase()}`;
+        }
         validateSQLIdentifier(o.field, 'order by field');
         return `${o.field} ${o.direction.toUpperCase()}`;
       });

@@ -37,6 +37,25 @@ export interface SemanticAggregationPlan {
   filters?: MetricFilter[];
 }
 
+export type SemanticTenantPredicate =
+  | { field: string; operator: 'eq'; value: string }
+  | { field: string; operator: 'in'; value: string[] };
+
+/**
+ * A query-time LEFT JOIN for a to-one relationship. `relationship` is the alias
+ * used to qualify joined columns (`<relationship>.<column>`); `from`/`to` are
+ * the unqualified base and target join columns. An optional `tenant` predicate
+ * scopes the joined target when runtime tenancy is active on the target.
+ */
+export interface SemanticJoinPlan {
+  relationship: string;
+  source: string;
+  from: string;
+  to: string;
+  type: 'left';
+  tenant?: SemanticTenantPredicate;
+}
+
 export interface SemanticGrainPlan {
   field: string;
   unit: TimeGrain;
@@ -56,7 +75,13 @@ export type PlanNode =
     orderBy?: MetricOrderBy[];
     limit?: number;
     offset?: number;
-    tenant?: { field: string; operator: 'eq'; value: string } | { field: string; operator: 'in'; value: string[] };
+    tenant?: SemanticTenantPredicate;
+    /**
+     * To-one relationship LEFT JOINs. When present, joined columns referenced by
+     * dimensions/filters are qualified as `<relationship>.<column>`; base columns
+     * stay unqualified (SQL backends qualify them with `source` as needed).
+     */
+    joins?: SemanticJoinPlan[];
   }
   | {
     kind: 'derive';

@@ -1,5 +1,6 @@
 import type { AggregationSpec, AnyDatasetInstance, MetricFilter } from '../types.js';
 import { resolveFilterField } from '../query-planner.js';
+import type { RelationshipBuilderContext } from './relationship-builder-plan.js';
 
 type DatasetShape = AnyDatasetInstance;
 
@@ -29,8 +30,9 @@ function renderMeasureFilterLiteral(value: unknown): string {
 function renderMeasureFilterCondition(
   ds: DatasetShape,
   filter: MetricFilter,
+  joinCtx?: RelationshipBuilderContext,
 ): string {
-  const field = resolveFilterField(ds, filter.field);
+  const field = resolveFilterField(ds, filter.field, joinCtx);
 
   switch (filter.operator) {
     case 'eq':
@@ -70,13 +72,14 @@ export function applyFilteredAggregationExpression(
   ds: DatasetShape,
   spec: AggregationSpec,
   fieldOrExpr: string,
+  joinCtx?: RelationshipBuilderContext,
 ): string {
   if (!spec.filters?.length) {
     return fieldOrExpr;
   }
 
   const combinedCondition = spec.filters
-    .map(filter => renderMeasureFilterCondition(ds, filter))
+    .map(filter => renderMeasureFilterCondition(ds, filter, joinCtx))
     .map(condition => `(${condition})`)
     .join(' AND ');
 

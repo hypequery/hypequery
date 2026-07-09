@@ -199,6 +199,7 @@ const builderFactory: QueryBuilderFactoryLike = {
     min: () => builderFactory.table('orders'),
     max: () => builderFactory.table('orders'),
     where: () => builderFactory.table('orders'),
+    leftJoin: () => builderFactory.table('orders'),
     groupBy: () => builderFactory.table('orders'),
     orderBy: () => builderFactory.table('orders'),
     limit: () => builderFactory.table('orders'),
