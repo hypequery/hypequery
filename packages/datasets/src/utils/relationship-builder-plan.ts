@@ -130,7 +130,7 @@ export function applyRelationshipJoins(
     qb = qb.leftJoin(
       join.source,
       `${ctx.baseSource}.${join.from}`,
-      `${join.source}.${join.to}`,
+      `${join.relationship}.${join.to}`,
       join.relationship,
     );
     if (join.tenant) {

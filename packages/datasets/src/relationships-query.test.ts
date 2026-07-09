@@ -148,10 +148,8 @@ function createJoinMockBuilderFactory(): QueryBuilderFactoryLike {
         return builder;
       },
       leftJoin: (joinTable, leftColumn, rightColumn, alias) => {
-        // Mirror @hypequery/clickhouse: aliasing rewrites the ON right column.
-        const rendered = alias ? rightColumn.replace(`${joinTable}.`, `${alias}.`) : rightColumn;
         const tableClause = alias ? `${joinTable} AS ${alias}` : joinTable;
-        state.joins.push(`LEFT JOIN ${tableClause} ON ${leftColumn} = ${rendered}`);
+        state.joins.push(`LEFT JOIN ${tableClause} ON ${leftColumn} = ${rightColumn}`);
         return builder;
       },
       groupBy: (args) => {
