@@ -365,11 +365,14 @@ function buildAggregateQuery(queryBuilder: any, plan: Extract<PlanNode, { kind: 
       `${plan.source}.${join.from}`,
       `${join.source}.${join.to}`,
       join.relationship,
+      join.tenant
+        ? {
+          column: `${join.relationship}.${join.tenant.field}`,
+          operator: join.tenant.operator,
+          value: join.tenant.value,
+        }
+        : undefined,
     );
-    // Defense in depth: scope the joined target by tenant when active.
-    if (join.tenant) {
-      qb = qb.where(`${join.relationship}.${join.tenant.field}`, join.tenant.operator, join.tenant.value);
-    }
   }
 
   // Build SELECT and GROUP BY for dimensions

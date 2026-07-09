@@ -260,14 +260,17 @@ describe('datasets ClickHouse integration', () => {
       { runtime: { tenant: { id: 'active' } } },
     );
 
-    // Only active users survive the join; bob_jones (inactive) must not leak.
+    // The inactive user must not leak, but its base order must survive the LEFT JOIN.
     const revenueByUser = new Map(
       result.data.map((row) => [row['user.userName'], row.revenue]),
     );
     expect(revenueByUser.get('jane_smith')).toBe(92.25);
     expect(revenueByUser.get('john_doe')).toBe(36);
     expect(revenueByUser.has('bob_jones')).toBe(false);
-    expect(result.meta?.sql).toContain('LEFT JOIN users AS user ON orders.user_id = user.id');
-    expect(result.meta?.sql).toContain('user.status = ?');
+    expect(result.data.reduce((total, row) => total + Number(row.revenue), 0)).toBe(144.75);
+    expect(result.meta?.sql).toContain(
+      'LEFT JOIN users AS user ON orders.user_id = user.id AND user.status = ?',
+    );
+    expect(result.meta?.sql).not.toContain('WHERE user.status = ?');
   });
 });

@@ -30,6 +30,7 @@ export interface QueryBuilderLike {
     leftColumn: string,
     rightColumn: string,
     alias?: string,
+    on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
   ): QueryBuilderLike;
 
   // Grouping
@@ -43,6 +44,12 @@ export interface QueryBuilderLike {
   // Terminal operations
   toSQLWithParams(): { sql: string; parameters: unknown[] };
   execute<T = Record<string, unknown>>(): Promise<T[]>;
+}
+
+export interface QueryBuilderJoinCondition {
+  column: string;
+  operator: string;
+  value: unknown;
 }
 
 /** A query builder factory (what `createQueryBuilder(config)` returns). */

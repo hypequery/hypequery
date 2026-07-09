@@ -29,6 +29,21 @@ describe('QueryBuilder - Joins', () => {
       expect(sql).toBe('SELECT * FROM test_table INNER JOIN users AS u1 ON created_by = u1.id INNER JOIN users AS u2 ON updated_by = u2.id');
     });
 
+    it('should parameterize additional LEFT JOIN conditions', () => {
+      const { sql, parameters } = builder
+        .leftJoin('users', 'created_by', 'users.id', 'user', {
+          column: 'user.status',
+          operator: 'eq',
+          value: 'active',
+        })
+        .toSQLWithParams();
+
+      expect(sql).toBe(
+        'SELECT * FROM test_table LEFT JOIN users AS user ON created_by = user.id AND user.status = ?',
+      );
+      expect(parameters).toEqual(['active']);
+    });
+
     it('should maintain types when joining on same column name', () => {
       const _query = builder
         .select(['id'])

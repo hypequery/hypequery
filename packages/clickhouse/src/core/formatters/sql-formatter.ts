@@ -203,18 +203,26 @@ export class SQLFormatter {
     }
   }
 
-  formatJoins(query: SelectQueryNode<any, any>): string {
-    if (!query.joins?.length) return '';
+  compileJoins(query: SelectQueryNode<any, any>): CompiledQuery {
+    if (!query.joins?.length) return { query: '', parameters: [] };
 
-    return query.joins.map(join => {
+    return this.combineCompiledWithSeparator(query.joins.map(join => {
       const tableClause = join.alias
         ? `${join.table} AS ${join.alias}`
         : join.table;
       const leftColumn = join.leftSource && !join.leftColumn.includes('.')
         ? `${join.leftSource}.${join.leftColumn}`
         : join.leftColumn;
-      return `${join.type} JOIN ${tableClause} ON ${leftColumn} = ${join.rightColumn}`;
-    }).join(' ');
+      const extra = this.compileExpr(join.on);
+      return {
+        query: `${join.type} JOIN ${tableClause} ON ${leftColumn} = ${join.rightColumn}${extra.query ? ` AND ${extra.query}` : ''}`,
+        parameters: extra.parameters,
+      };
+    }), ' ');
+  }
+
+  formatJoins(query: SelectQueryNode<any, any>): string {
+    return this.compileJoins(query).query;
   }
 
   formatCtes(query: SelectQueryNode<any, any>): string {

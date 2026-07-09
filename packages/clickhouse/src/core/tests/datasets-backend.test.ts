@@ -1032,9 +1032,11 @@ describe('ClickHouse Backend - Relationship Joins', () => {
     );
 
     const sql = queries[0];
-    expect(sql).toContain('LEFT JOIN customers AS customer ON orders.customer_id = customer.id');
+    expect(sql).toContain(
+      'LEFT JOIN customers AS customer ON orders.customer_id = customer.id AND customer.tenant_id = ?',
+    );
     expect(sql).toContain('orders.tenant_id = ?');
-    expect(sql).toContain('customer.tenant_id = ?');
+    expect(sql).not.toContain('WHERE customer.tenant_id = ?');
   });
 
   it('supports derived metrics over a joined dimension', async () => {
