@@ -77,7 +77,9 @@ export function createSelectQueryNode<TOutput, TSchema>(
     offset: config.offset,
     distinct: config.distinct,
     orderBy: config.orderBy ? config.orderBy.map(item => ({ ...item })) : undefined,
-    joins: config.joins ? config.joins.map(item => ({ ...item })) : undefined,
+    joins: config.joins
+      ? config.joins.map(item => ({ ...item, on: cloneExprNode(item.on) }))
+      : undefined,
     ctes: config.ctes ? config.ctes.map(item => ({ ...item })) : undefined,
     unionQueries: config.unionQueries ? [...config.unionQueries] : undefined,
     settings: config.settings ? { ...config.settings } : undefined,

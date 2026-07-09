@@ -147,9 +147,13 @@ function createJoinMockBuilderFactory(): QueryBuilderFactoryLike {
         state.where.push(`${column} ${op} ?`);
         return builder;
       },
-      leftJoin: (joinTable, leftColumn, rightColumn, alias) => {
+      leftJoin: (joinTable, leftColumn, rightColumn, alias, on) => {
         const tableClause = alias ? `${joinTable} AS ${alias}` : joinTable;
-        state.joins.push(`LEFT JOIN ${tableClause} ON ${leftColumn} = ${rightColumn}`);
+        const conditions = on ? (Array.isArray(on) ? on : [on]) : [];
+        const extra = conditions
+          .map(condition => ` AND ${condition.column} ${condition.operator === 'eq' ? '=' : condition.operator} ?`)
+          .join('');
+        state.joins.push(`LEFT JOIN ${tableClause} ON ${leftColumn} = ${rightColumn}${extra}`);
         return builder;
       },
       groupBy: (args) => {
@@ -448,9 +452,11 @@ describe('relationship joins on the query-builder path', () => {
       { dimensions: ['customer.country'], measures: ['revenue'] },
       context,
     );
-    expect(sql).toContain('LEFT JOIN tenant_customers AS customer ON tenant_orders.customer_id = customer.id');
+    expect(sql).toContain(
+      'LEFT JOIN tenant_customers AS customer ON tenant_orders.customer_id = customer.id AND customer.tenant_id = ?',
+    );
     expect(sql).toContain('tenant_orders.tenant_id = ?');
-    expect(sql).toContain('customer.tenant_id = ?');
+    expect(sql).not.toContain('WHERE customer.tenant_id = ?');
   });
 
   it('leaves non-join queries unqualified (no regression)', () => {

@@ -6,6 +6,7 @@ import { dataset } from '../../dataset.js';
 import { dimension } from '../../field.js';
 import { divide, nullIfZero, round } from '../../formulas.js';
 import { measure } from '../../measure.js';
+import { belongsTo } from '../../relationships.js';
 import { eq, gt } from '../../query-helpers.js';
 import {
   TEST_CONNECTION_CONFIG,
@@ -44,6 +45,51 @@ const TenantOrders = dataset('tenantOrders', {
   measures: {
     revenue: measure.sum('total'),
     orderCount: measure.count('id'),
+  },
+});
+
+const Users = dataset('users', {
+  source: 'users',
+  dimensions: {
+    id: dimension.number(),
+    userName: dimension.string({ column: 'user_name' }),
+    email: dimension.string(),
+    status: dimension.string(),
+  },
+});
+
+const OrdersWithUser = dataset('ordersWithUser', {
+  source: 'orders',
+  timeKey: 'created_at',
+  dimensions: Orders.dimensions,
+  measures: {
+    revenue: measure.sum('total'),
+    orderCount: measure.count('id'),
+  },
+  relationships: {
+    user: belongsTo(() => Users, { from: 'user_id', to: 'id' }),
+  },
+});
+
+// Target dataset with a tenantKey, to exercise defense-in-depth join scoping.
+const TenantUsers = dataset('tenantUsers', {
+  source: 'users',
+  tenantKey: 'status',
+  dimensions: {
+    id: dimension.number(),
+    userName: dimension.string({ column: 'user_name' }),
+    status: dimension.string(),
+  },
+});
+
+const OrdersWithTenantUser = dataset('ordersWithTenantUser', {
+  source: 'orders',
+  dimensions: Orders.dimensions,
+  measures: {
+    revenue: measure.sum('total'),
+  },
+  relationships: {
+    user: belongsTo(() => TenantUsers, { from: 'user_id', to: 'id' }),
   },
 });
 
@@ -161,5 +207,70 @@ describe('datasets ClickHouse integration', () => {
       tenant: 'completed',
     });
     expect(result.meta?.sql).toContain('WHERE status = ?');
+  });
+
+  it('groups a base measure by a to-one joined dimension', async () => {
+    const analytics = createClient();
+
+    const result = await analytics.execute(OrdersWithUser, {
+      dimensions: ['user.userName'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'revenue', direction: 'desc' }],
+    });
+
+    // Every order maps to a user, so no LEFT JOIN misses here.
+    expect(result.data).toEqual([
+      { 'user.userName': 'jane_smith', revenue: 92.25 },
+      { 'user.userName': 'john_doe', revenue: 36 },
+      { 'user.userName': 'bob_jones', revenue: 16.5 },
+    ]);
+    expect(result.meta?.sql).toContain('LEFT JOIN users AS user ON orders.user_id = user.id');
+    expect(result.meta?.sql).toContain('user.user_name AS `user.userName`');
+    expect(result.meta?.sql).toContain('SUM(orders.total) AS revenue');
+  });
+
+  it('filters a base measure by a joined dimension', async () => {
+    const analytics = createClient();
+
+    const result = await analytics.execute(OrdersWithUser, {
+      dimensions: ['status'],
+      measures: ['revenue'],
+      filters: [eq('user.status', 'active')],
+      orderBy: [{ field: 'revenue', direction: 'desc' }],
+    });
+
+    // Active users (john_doe, jane_smith) own orders 1-4; bob_jones' order is excluded.
+    expect(result.data).toEqual([
+      { status: 'completed', revenue: 66 },
+      { status: 'pending', revenue: 62.25 },
+    ]);
+    expect(result.meta?.sql).toContain('user.status = ?');
+  });
+
+  it('scopes the joined target by tenant (defense in depth)', async () => {
+    const analytics = createClient();
+
+    const result = await analytics.execute(
+      OrdersWithTenantUser,
+      {
+        dimensions: ['user.userName'],
+        measures: ['revenue'],
+        orderBy: [{ field: 'revenue', direction: 'desc' }],
+      },
+      { runtime: { tenant: { id: 'active' } } },
+    );
+
+    // The inactive user must not leak, but its base order must survive the LEFT JOIN.
+    const revenueByUser = new Map(
+      result.data.map((row) => [row['user.userName'], row.revenue]),
+    );
+    expect(revenueByUser.get('jane_smith')).toBe(92.25);
+    expect(revenueByUser.get('john_doe')).toBe(36);
+    expect(revenueByUser.has('bob_jones')).toBe(false);
+    expect(result.data.reduce((total, row) => total + Number(row.revenue), 0)).toBe(144.75);
+    expect(result.meta?.sql).toContain(
+      'LEFT JOIN users AS user ON orders.user_id = user.id AND user.status = ?',
+    );
+    expect(result.meta?.sql).not.toContain('WHERE user.status = ?');
   });
 });

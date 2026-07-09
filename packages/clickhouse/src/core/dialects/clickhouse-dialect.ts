@@ -23,7 +23,9 @@ export class ClickHouseDialect implements SqlDialect {
     }
 
     if (query.joins?.length) {
-      parts.push(this.formatter.formatJoins(query));
+      const compiled = this.formatter.compileJoins(query);
+      parts.push(compiled.query);
+      parameters.push(...compiled.parameters);
     }
 
     if (query.prewhere) {

@@ -11,10 +11,13 @@ Status: PR 1 landed 2026-07-06 (resolves "Next Work #4" in `datasets-semantic-la
   `packages/datasets/src/relationships-query.test.ts`; full datasets/serve/mcp
   suites green. `PlanNode.joins` was pulled forward from PR 2 because the
   in-memory backend consumes it.
-- **PR 2 — TODO.** `@hypequery/clickhouse` `createBackend` translation of
-  `PlanNode.joins` (base columns qualified with `source`, joined with the
-  relationship alias) + live ClickHouse integration specs for joined base,
-  derived, grouped, grained, filtered, and tenant-scoped queries.
+- **PR 2 — DONE (2026-07-06).** `@hypequery/clickhouse` `createBackend`
+  translates `PlanNode.joins` into LEFT JOINs (base columns qualified with
+  `source`, joined columns kept relationship-qualified and aliased to their
+  quoted qualified name). GROUP BY is applied before aggregations to bypass the
+  builder's alias-inference, which cannot parse quoted dotted aliases. 9 backend
+  SQL tests (mock adapter) + 3 live ClickHouse integration cases (joined
+  group-by, joined filter, joined tenant scoping).
 - **PR 3 — TODO.** Catalog/contract `queryable` + `fields`, serve
   `semantic-input-schema` enums, React field-name types, docs page.
 

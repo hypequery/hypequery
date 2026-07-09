@@ -83,13 +83,53 @@ function renderGrain(field: string, unit: keyof typeof GRAIN_FUNCTIONS): string 
 }
 
 /**
+ * Backtick-quotes a ClickHouse identifier, doubling any embedded backticks.
+ */
+function quoteIdentifier(identifier: string): string {
+  return `\`${identifier.replace(/`/g, '``')}\``;
+}
+
+/**
+ * Quotes a name only when it is relationship-qualified (contains a dot), so
+ * joined column aliases like `customer.country` render as `` `customer.country` ``.
+ */
+function quoteQualified(name: string): string {
+  return name.includes('.') ? quoteIdentifier(name) : name;
+}
+
+/** Maps a plan field to its SQL reference. See {@link makeColumnQualifier}. */
+type ColumnQualifier = (field: string) => string;
+
+/**
+ * Builds a column qualifier for an aggregate plan. When the plan has joins,
+ * base columns are table-qualified with the plan source (`orders.status`) while
+ * columns already qualified by a relationship alias (`customer.country`) are
+ * left untouched. Without joins the field passes through unchanged so non-join
+ * SQL is byte-for-byte identical.
+ */
+function makeColumnQualifier(plan: Extract<PlanNode, { kind: 'aggregate' }>): ColumnQualifier {
+  const joins = plan.joins ?? [];
+  if (joins.length === 0) {
+    return (field) => field;
+  }
+  const relationships = new Set(joins.map((join) => join.relationship));
+  return (field) => {
+    const dot = field.indexOf('.');
+    if (dot !== -1 && relationships.has(field.slice(0, dot))) {
+      return field;
+    }
+    return `${plan.source}.${field}`;
+  };
+}
+
+/**
  * Filter Rendering - Applies filters using query builder WHERE clauses
  * This is the preferred method when working with the query builder
  */
-function applyFilters(builder: any, filters: MetricFilter[]): any {
+function applyFilters(builder: any, filters: MetricFilter[], qualify: ColumnQualifier = (field) => field): any {
   let qb = builder;
   for (const filter of filters) {
-    qb = qb.where(filter.field, filter.operator, filter.value);
+    qb = qb.where(qualify(filter.field), filter.operator, filter.value);
   }
   return qb;
 }
@@ -121,8 +161,9 @@ function renderFilterValue(value: unknown): string {
  * Filter Condition Rendering - Converts filter to SQL WHERE clause string
  * Used for filtered aggregations (IF conditions) where query builder can't be used
  */
-function renderFilterCondition(filter: MetricFilter): string {
-  const { field, operator, value } = filter;
+function renderFilterCondition(filter: MetricFilter, qualify: ColumnQualifier = (field) => field): string {
+  const { operator, value } = filter;
+  const field = qualify(filter.field);
 
   switch (operator) {
     case 'eq':
@@ -166,21 +207,23 @@ function renderFilterCondition(filter: MetricFilter): string {
  */
 function renderFilteredAggregationField(
   aggregation: Extract<PlanNode, { kind: 'aggregate' }>['aggregations'][number],
+  qualify: ColumnQualifier = (field) => field,
 ): string {
+  const field = qualify(aggregation.field);
   if (!aggregation.filters?.length) {
-    return aggregation.field;
+    return field;
   }
 
   // Combine multiple filters with AND
   const condition = aggregation.filters
-    .map(renderFilterCondition)
+    .map((filter) => renderFilterCondition(filter, qualify))
     .map((part) => `(${part})`)
     .join(' AND ');
 
   // Use appropriate fallback: 0 for SUM, NULL for others
   const fallback = aggregation.aggregation === 'sum' ? '0' : 'NULL';
 
-  return `if(${condition}, ${aggregation.field}, ${fallback})`;
+  return `if(${condition}, ${field}, ${fallback})`;
 }
 
 /**
@@ -246,11 +289,15 @@ function renderExpression(expression: SemanticExpression): string {
  * Apply Aggregations
  * Translates semantic aggregations to query builder method calls
  */
-function applyAggregations(builder: any, plan: Extract<PlanNode, { kind: 'aggregate' }>): any {
+function applyAggregations(
+  builder: any,
+  plan: Extract<PlanNode, { kind: 'aggregate' }>,
+  qualify: ColumnQualifier = (field) => field,
+): any {
   let qb = builder;
 
   for (const aggregation of plan.aggregations) {
-    const field = renderFilteredAggregationField(aggregation);
+    const field = renderFilteredAggregationField(aggregation, qualify);
     const { name, aggregation: aggType } = aggregation;
 
     switch (aggType) {
@@ -285,9 +332,9 @@ function applyAggregations(builder: any, plan: Extract<PlanNode, { kind: 'aggreg
 function appendOrderLimitOffset(builder: any, plan: Pick<PlanNode, 'orderBy' | 'limit' | 'offset'>): any {
   let qb = builder;
 
-  // Order by
+  // Order by (qualified fields reference their quoted joined alias)
   for (const order of plan.orderBy ?? []) {
-    qb = qb.orderBy(order.field, order.direction.toUpperCase());
+    qb = qb.orderBy(quoteQualified(order.field), order.direction.toUpperCase());
   }
 
   // Pagination
@@ -307,6 +354,26 @@ function appendOrderLimitOffset(builder: any, plan: Pick<PlanNode, 'orderBy' | '
  */
 function buildAggregateQuery(queryBuilder: any, plan: Extract<PlanNode, { kind: 'aggregate' }>): any {
   let qb = queryBuilder.table(plan.source);
+  const qualify = makeColumnQualifier(plan);
+  const hasJoins = (plan.joins?.length ?? 0) > 0;
+
+  // Relationship LEFT JOINs (to-one). Base rows survive; joined columns are
+  // addressable as `<relationship>.<column>`.
+  for (const join of plan.joins ?? []) {
+    qb = qb.leftJoin(
+      join.source,
+      `${plan.source}.${join.from}`,
+      `${join.source}.${join.to}`,
+      join.relationship,
+      join.tenant
+        ? {
+          column: `${join.relationship}.${join.tenant.field}`,
+          operator: join.tenant.operator,
+          value: join.tenant.value,
+        }
+        : undefined,
+    );
+  }
 
   // Build SELECT and GROUP BY for dimensions
   const selectParts: string[] = [];
@@ -314,18 +381,25 @@ function buildAggregateQuery(queryBuilder: any, plan: Extract<PlanNode, { kind: 
 
   // Time grain (period column)
   if (plan.grain) {
-    const grainSql = renderGrain(plan.grain.field, plan.grain.unit);
+    const grainSql = renderGrain(qualify(plan.grain.field), plan.grain.unit);
     selectParts.push(`${grainSql} AS ${plan.grain.output}`);
     groupByParts.push(plan.grain.output);
   }
 
-  // Dimensions
+  // Dimensions. With joins in scope every selection is qualified and aliased so
+  // grouping can reference the (quoted) alias unambiguously.
   for (const dimension of plan.dimensions) {
-    const columnSql = dimension.field === dimension.name
-      ? dimension.name
-      : `${dimension.field} AS ${dimension.name}`;
-    selectParts.push(columnSql);
-    groupByParts.push(dimension.name);
+    if (hasJoins) {
+      const alias = quoteQualified(dimension.name);
+      selectParts.push(`${qualify(dimension.field)} AS ${alias}`);
+      groupByParts.push(alias);
+    } else {
+      const columnSql = dimension.field === dimension.name
+        ? dimension.name
+        : `${dimension.field} AS ${dimension.name}`;
+      selectParts.push(columnSql);
+      groupByParts.push(dimension.name);
+    }
   }
 
   // Apply SELECT clause
@@ -333,21 +407,24 @@ function buildAggregateQuery(queryBuilder: any, plan: Extract<PlanNode, { kind: 
     qb = qb.select(selectParts);
   }
 
-  // Apply aggregations (measures)
-  qb = applyAggregations(qb, plan);
-
-  // Apply GROUP BY
+  // Apply GROUP BY before aggregations so the builder does not auto-infer it
+  // from the SELECT list. Inference re-derives group keys from the selection
+  // strings and cannot parse quoted, dotted joined aliases; setting it
+  // explicitly first keeps `GROUP BY status, \`customer.country\`` correct.
   if (groupByParts.length > 0) {
     qb = qb.groupBy(groupByParts);
   }
 
+  // Apply aggregations (measures)
+  qb = applyAggregations(qb, plan, qualify);
+
   // Apply tenant filter (auto-injected)
   if (plan.tenant) {
-    qb = qb.where(plan.tenant.field, plan.tenant.operator, plan.tenant.value);
+    qb = qb.where(qualify(plan.tenant.field), plan.tenant.operator, plan.tenant.value);
   }
 
   // Apply user filters
-  qb = applyFilters(qb, plan.filters);
+  qb = applyFilters(qb, plan.filters, qualify);
 
   // Apply order/limit/offset
   return appendOrderLimitOffset(qb, plan);
@@ -369,10 +446,11 @@ function buildDerivedSQL(queryBuilder: any, plan: Extract<PlanNode, { kind: 'der
   const inputQuery = buildAggregateQuery(queryBuilder, plan.input);
   const { sql, parameters } = inputQuery.toSQLWithParams();
 
-  // Passthrough columns (grain + dimensions)
+  // Passthrough columns (grain + dimensions). Joined dimensions surface from
+  // the CTE under their quoted qualified alias.
   const passthrough = [
     ...(plan.input.grain ? [plan.input.grain.output] : []),
-    ...plan.input.dimensions.map((dim) => dim.name),
+    ...plan.input.dimensions.map((dim) => quoteQualified(dim.name)),
   ];
 
   // Derived metric calculations
@@ -387,7 +465,7 @@ function buildDerivedSQL(queryBuilder: any, plan: Extract<PlanNode, { kind: 'der
   // ORDER BY
   if (plan.orderBy?.length) {
     const orderClauses = plan.orderBy.map(
-      (order) => `${order.field} ${order.direction.toUpperCase()}`
+      (order) => `${quoteQualified(order.field)} ${order.direction.toUpperCase()}`
     );
     outerSql += ` ORDER BY ${orderClauses.join(', ')}`;
   }
