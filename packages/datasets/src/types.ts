@@ -34,10 +34,13 @@ export type InferDimensionType<T extends DimensionDefinition> =
 
 export type RelationshipKind = 'belongsTo' | 'hasMany' | 'hasOne';
 
-export interface RelationshipDefinition {
+export interface RelationshipDefinition<
+  TTarget extends { __type: 'dataset'; name: string } = { __type: 'dataset'; name: string },
+  TKind extends RelationshipKind = RelationshipKind,
+> {
   __type: 'relationship';
-  kind: RelationshipKind;
-  target: () => { __type: 'dataset'; name: string };
+  kind: TKind;
+  target: () => TTarget;
   from: string;
   to: string;
 }
@@ -331,9 +334,6 @@ export type AnyDatasetInstance = DatasetInstance<
   string
 >;
 
-export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  keyof TDataset['dimensions'] & string;
-
 type NonNeverStringKeys<T extends Record<string, unknown>> = {
   [K in keyof T]: [T[K]] extends [never] ? never : K;
 }[keyof T] & string;
@@ -346,6 +346,49 @@ type KnownStringKeysOrFallback<T extends Record<string, unknown>> =
   [KnownStringKeys<T>] extends [never]
     ? NonNeverStringKeys<T>
     : KnownStringKeys<T> & NonNeverStringKeys<T>;
+
+type NonSqlDimensionNames<TDimensions extends Record<string, DimensionDefinition>> = {
+  [TName in KnownStringKeysOrFallback<TDimensions>]:
+    TDimensions[TName] extends { sql: string } ? never : TName;
+}[KnownStringKeysOrFallback<TDimensions>];
+
+type QueryableRelationshipDimensionNames<
+  TRelationships extends Record<string, RelationshipDefinition>,
+> = {
+  [TRelationshipName in KnownStringKeys<TRelationships>]:
+    TRelationships[TRelationshipName] extends RelationshipDefinition<
+      infer TTarget,
+      infer TKind
+    >
+      ? TKind extends 'hasMany'
+        ? never
+        : TTarget extends DatasetInstance<infer TDimensions, any, any, any>
+          ? `${TRelationshipName}.${NonSqlDimensionNames<TDimensions>}`
+          : never
+      : never;
+}[KnownStringKeys<TRelationships>];
+
+type DatasetDimensionDefinitionByName<
+  TDataset extends DatasetInstance<any, any, any, any>,
+  TName extends string,
+> = TName extends keyof TDataset['dimensions']
+  ? TDataset['dimensions'][TName]
+  : TName extends `${infer TRelationshipName}.${infer TDimensionName}`
+    ? TRelationshipName extends keyof TDataset['relationships']
+      ? TDataset['relationships'][TRelationshipName] extends RelationshipDefinition<
+          infer TTarget,
+          infer TKind
+        >
+        ? TKind extends 'hasMany'
+          ? never
+          : TTarget extends DatasetInstance<infer TDimensions, any, any, any>
+            ? TDimensionName extends keyof TDimensions
+              ? TDimensions[TDimensionName]
+              : never
+            : never
+        : never
+      : never
+    : never;
 
 // ---------------------------------------------------------------------------
 // Typed query / result helpers for client codegen and React hooks
@@ -362,7 +405,17 @@ type KnownStringKeysOrFallback<T extends Record<string, unknown>> =
 
 /** Dimension names declared by a dataset. */
 export type DatasetDimensionNames<TDataset extends DatasetInstance<any, any, any, any>> =
-  KnownStringKeysOrFallback<TDataset['dimensions']>;
+  | KnownStringKeysOrFallback<TDataset['dimensions']>
+  | QueryableRelationshipDimensionNames<TDataset['relationships']>;
+
+/** Dimension definitions addressable by a one-hop dataset query. */
+export type DatasetQueryableDimensions<TDataset extends DatasetInstance<any, any, any, any>> = {
+  [TName in DatasetDimensionNames<TDataset>]: DatasetDimensionDefinitionByName<TDataset, TName>;
+};
+
+/** Backwards-compatible alias for all queryable dataset dimension names. */
+export type DatasetFieldNames<TDataset extends DatasetInstance<any, any, any, any>> =
+  DatasetDimensionNames<TDataset>;
 
 /** Measure names declared by a dataset. */
 export type DatasetMeasureNames<TDataset extends DatasetInstance<any, any, any, any>> =
@@ -410,7 +463,7 @@ type PeriodSelection<TQuery> = TQuery extends { by: TimeGrain }
 
 /** A broad typed result row for a dataset, independent of projection. */
 export type DatasetRow<TDataset extends DatasetInstance<any, any, any, any>> =
-  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in DatasetMeasureNames<TDataset>]?: string }
   & { period?: string };
 
@@ -419,7 +472,7 @@ export type DatasetRowFor<
   TDataset extends DatasetInstance<any, any, any, any>,
   TQuery = DatasetQueryFor<TDataset>,
 > =
-  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in SelectedDatasetMeasures<TDataset, TQuery>]?: string }
   & PeriodSelection<TQuery>;
 
@@ -450,7 +503,7 @@ export type MetricRow<
   TDataset extends DatasetInstance<any, any, any, any>,
   TMetricName extends string,
 > =
-  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in TMetricName]?: string }
   & { period?: string };
 
@@ -460,7 +513,7 @@ export type MetricRowFor<
   TMetricName extends string,
   TQuery = MetricQueryFor<TDataset, TMetricName>,
 > =
-  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<TDataset['dimensions'][K]> }
+  & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
   & { [K in TMetricName]?: string }
   & PeriodSelection<TQuery>;
 

@@ -107,16 +107,36 @@ function limitSchema(catalogs: DatasetCatalog[]): JsonSchema {
   };
 }
 
+function relationshipFields(catalog: DatasetCatalog): string[] {
+  return Object.values(catalog.relationships)
+    .filter(relationship => relationship.queryable)
+    .flatMap(relationship => relationship.fields);
+}
+
+function dimensionFields(catalog: DatasetCatalog): string[] {
+  return [
+    ...Object.keys(catalog.dimensions),
+    ...relationshipFields(catalog),
+  ];
+}
+
+function filterFields(catalog: DatasetCatalog): string[] {
+  return [
+    ...Object.keys(catalog.filters),
+    ...relationshipFields(catalog),
+  ];
+}
+
 function querySchema(catalogs: DatasetCatalog[], includeDataset: boolean): JsonSchema {
   const datasetNames = catalogs.map(catalog => catalog.name);
   const dimensionNames = Array.from(
-    new Set(catalogs.flatMap(catalog => Object.keys(catalog.dimensions))),
+    new Set(catalogs.flatMap(dimensionFields)),
   );
   const measureNames = Array.from(
     new Set(catalogs.flatMap(catalog => Object.keys(catalog.measures))),
   );
   const filterNames = Array.from(
-    new Set(catalogs.flatMap(catalog => Object.keys(catalog.filters))),
+    new Set(catalogs.flatMap(filterFields)),
   );
   const grainNames = Array.from(
     new Set(catalogs.flatMap(catalog => catalog.supportedGrains)),
@@ -260,9 +280,9 @@ function normalizeDatasetQuery(
   const offset = assertNonNegativeInteger(input.offset, 'offset');
   let by: TimeGrain | undefined;
 
-  assertAllowedValues(dimensions, Object.keys(catalog.dimensions), 'dimensions');
+  assertAllowedValues(dimensions, dimensionFields(catalog), 'dimensions');
   assertAllowedValues(measures, Object.keys(catalog.measures), 'measures');
-  assertAllowedValues(filters.map(filter => filter.field), Object.keys(catalog.filters), 'filter fields');
+  assertAllowedValues(filters.map(filter => filter.field), filterFields(catalog), 'filter fields');
   assertAllowedValues(
     orderBy.map(order => order.field),
     options.orderableFields ?? catalog.orderableFields,
@@ -270,7 +290,7 @@ function normalizeDatasetQuery(
   );
 
   for (const filter of filters) {
-    const allowedOperators = catalog.filters[filter.field]?.operators ?? [];
+    const allowedOperators = catalog.filters[filter.field]?.operators ?? [...SEMANTIC_FILTER_OPERATORS];
     if (!allowedOperators.includes(filter.operator)) {
       throw new Error(
         `Invalid filter operator for "${filter.field}": ${filter.operator}. Allowed: ${allowedOperators.join(', ')}.`,
@@ -372,7 +392,7 @@ function metricQuerySchema(catalog: DatasetCatalog, metricName: string): JsonSch
     items: {
       type: 'object',
       properties: {
-        field: enumSchema([...Object.keys(catalog.dimensions), metricName, ...(catalog.timeKey ? ['period'] : [])]),
+        field: enumSchema([...dimensionFields(catalog), metricName, ...(catalog.timeKey ? ['period'] : [])]),
         direction: enumSchema(['asc', 'desc']),
       },
       required: ['field', 'direction'],
@@ -402,7 +422,7 @@ function buildMetricTools(
         parameters: metricQuerySchema(catalog, metricName),
         async execute(input: Record<string, unknown>, context?: ExecutionContext): Promise<unknown> {
           const orderableFields = [
-            ...Object.keys(catalog.dimensions),
+            ...dimensionFields(catalog),
             metricName,
             ...(catalog.timeKey ? ['period'] : []),
           ];

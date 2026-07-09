@@ -56,7 +56,8 @@ export interface RelationshipCatalogEntry {
   target: string;
   from: string;
   to: string;
-  execution: 'metadata_only';
+  queryable: boolean;
+  fields: string[];
 }
 
 export interface DatasetCatalog {
@@ -134,13 +135,25 @@ function metricToCatalog(metric: MetricHandle): MetricCatalogEntry {
   };
 }
 
-function relationshipToCatalog(relationship: RelationshipDefinition): RelationshipCatalogEntry {
+function relationshipToCatalog(
+  name: string,
+  relationship: RelationshipDefinition,
+): RelationshipCatalogEntry {
+  const queryable = relationship.kind !== 'hasMany';
+  const target = relationship.target() as Partial<AnyDatasetInstance> & { name: string };
+  const fields = queryable
+    ? Object.entries(target.dimensions ?? {})
+        .filter(([, dimension]) => dimension.sql === undefined)
+        .map(([field]) => `${name}.${field}`)
+    : [];
+
   return {
     kind: relationship.kind,
-    target: relationship.target().name,
+    target: target.name,
     from: relationship.from,
     to: relationship.to,
-    execution: 'metadata_only',
+    queryable,
+    fields,
   };
 }
 
@@ -150,6 +163,12 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
   const metricNames = Object.keys(dataset.metrics ?? {});
   const supportedGrains = dataset.timeKey ? [...SUPPORTED_TIME_GRAINS] : [];
   const maxLimit = dataset.limits?.maxResultSize;
+  const relationships = Object.fromEntries(
+    Object.entries(dataset.relationships).map(([name, relationship]) => [
+      name,
+      relationshipToCatalog(name, relationship),
+    ]),
+  );
 
   return {
     name: dataset.name,
@@ -180,12 +199,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
         filterToCatalog(filter, dataset.dimensions),
       ]),
     ),
-    relationships: Object.fromEntries(
-      Object.entries(dataset.relationships).map(([name, relationship]) => [
-        name,
-        relationshipToCatalog(relationship),
-      ]),
-    ),
+    relationships,
     limits: dataset.limits,
     requiresTenant: !!dataset.tenantKey,
     supportedGrains,
@@ -193,6 +207,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
       ...dimensionNames,
       ...measureNames,
       ...metricNames,
+      ...Object.values(relationships).flatMap(relationship => relationship.fields),
       ...(dataset.timeKey ? ['period'] : []),
     ],
     maxLimit,

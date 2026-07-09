@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
-import { belongsTo } from './relationships.js';
+import { belongsTo, hasMany } from './relationships.js';
 import { getDatasetCatalog, getDatasetCatalogs } from './catalog.js';
 
 describe('dataset catalog', () => {
@@ -62,7 +62,18 @@ describe('dataset catalog', () => {
       limits: { maxMeasures: 2 },
       requiresTenant: true,
       supportedGrains: ['day', 'week', 'month', 'quarter', 'year'],
-      orderableFields: ['id', 'customerId', 'status', 'createdAt', 'amount', 'revenue', 'orderCount', 'period'],
+      orderableFields: [
+        'id',
+        'customerId',
+        'status',
+        'createdAt',
+        'amount',
+        'revenue',
+        'orderCount',
+        'customer.id',
+        'customer.country',
+        'period',
+      ],
     });
     expect(catalog.dimensions.status).toMatchObject({
       type: 'string',
@@ -91,7 +102,8 @@ describe('dataset catalog', () => {
       target: 'customers',
       from: 'customerId',
       to: 'id',
-      execution: 'metadata_only',
+      queryable: true,
+      fields: ['customer.id', 'customer.country'],
     });
   });
 
@@ -118,5 +130,28 @@ describe('dataset catalog', () => {
 
     expect(Object.keys(catalogs)).toEqual(['orders', 'customers']);
     expect(catalogs.customers.source).toBe('customers');
+  });
+
+  it('keeps hasMany relationships metadata-only', () => {
+    const LineItems = dataset('line_items', {
+      source: 'line_items',
+      dimensions: {
+        id: dimension.string(),
+        sku: dimension.string(),
+      },
+    });
+    const catalog = getDatasetCatalog(dataset('orders_with_items', {
+      source: 'orders',
+      dimensions: { id: dimension.string() },
+      relationships: {
+        items: hasMany(() => LineItems, { from: 'id', to: 'order_id' }),
+      },
+    }));
+
+    expect(catalog.relationships.items).toMatchObject({
+      queryable: false,
+      fields: [],
+    });
+    expect(catalog.orderableFields).not.toContain('items.sku');
   });
 });

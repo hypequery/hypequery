@@ -2,6 +2,7 @@ import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
 import type {
   DatasetInstance,
+  DatasetQueryableDimensions,
   DatasetQueryFor,
   DatasetQueryResultFor,
   KnownStringKeys,
@@ -259,7 +260,7 @@ interface MetricEndpointSemantic<
 > {
   readonly __hypequerySemantic?: {
     kind: 'metric';
-    dimensions: TDataset['dimensions'];
+    dimensions: DatasetQueryableDimensions<TDataset>;
     measures: TDataset['measures'];
     metricName: TMetricName;
   };
@@ -268,7 +269,7 @@ interface MetricEndpointSemantic<
 interface DatasetEndpointSemantic<TDataset extends DatasetInstance<any, any, any, any>> {
   readonly __hypequerySemantic?: {
     kind: 'dataset';
-    dimensions: TDataset['dimensions'];
+    dimensions: DatasetQueryableDimensions<TDataset>;
     measures: TDataset['measures'];
   };
 }

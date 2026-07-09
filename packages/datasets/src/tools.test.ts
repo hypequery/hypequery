@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
+import { belongsTo } from './relationships.js';
 import {
   generateDatasetTools,
   toAISDKTools,
@@ -10,6 +11,14 @@ import {
 } from './tools.js';
 
 describe('semantic dataset tools', () => {
+  const Customers = dataset('customers', {
+    source: 'customers',
+    dimensions: {
+      id: dimension.string(),
+      country: dimension.string(),
+    },
+  });
+
   const Orders = dataset('orders', {
     source: 'orders',
     tenantKey: 'tenant_id',
@@ -29,6 +38,9 @@ describe('semantic dataset tools', () => {
         field: 'status',
         operators: ['eq', 'in'],
       },
+    },
+    relationships: {
+      customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
     },
     limits: {
       maxResultSize: 500,
@@ -61,6 +73,8 @@ describe('semantic dataset tools', () => {
       'status',
       'createdAt',
       'amount',
+      'customer.id',
+      'customer.country',
     ]);
     expect(tool.parameters.properties?.measures.items?.enum).toEqual([
       'revenue',
@@ -106,8 +120,50 @@ describe('semantic dataset tools', () => {
         dataset: 'orders',
         dimensions: ['missing'],
       }),
-    ).rejects.toThrow('Invalid dimensions: missing. Available: status, createdAt, amount.');
+    ).rejects.toThrow('Invalid dimensions: missing. Available: status, createdAt, amount, customer.id, customer.country.');
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('accepts queryable relationship fields in generated dataset tools', async () => {
+    const execute = vi.fn(async () => ({
+      data: [{ 'customer.country': 'US', revenue: 42 }],
+    }));
+    const [tool] = generateDatasetTools({
+      datasets: { orders: Orders },
+      analytics: { execute },
+      mode: 'per-dataset',
+    });
+
+    expect(tool.parameters.properties?.dimensions.items?.enum).toEqual([
+      'status',
+      'createdAt',
+      'amount',
+      'customer.id',
+      'customer.country',
+    ]);
+    expect(tool.parameters.properties?.filters.items?.properties?.field.enum).toEqual([
+      'status',
+      'customer.id',
+      'customer.country',
+    ]);
+
+    await tool.execute({
+      dimensions: ['customer.country'],
+      measures: ['revenue'],
+      filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
+      orderBy: [{ field: 'customer.country', direction: 'asc' }],
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'orders' }),
+      {
+        dimensions: ['customer.country'],
+        measures: ['revenue'],
+        filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
+        orderBy: [{ field: 'customer.country', direction: 'asc' }],
+      },
+      undefined,
+    );
   });
 
   it('generates per-dataset and per-metric tool shapes', () => {
@@ -151,8 +207,43 @@ describe('semantic dataset tools', () => {
       tool.execute({
         orderBy: [{ field: 'revenue', direction: 'desc' }],
       }),
-    ).rejects.toThrow('Invalid orderBy fields: revenue. Available: status, createdAt, amount, totalRevenue, period.');
+    ).rejects.toThrow('Invalid orderBy fields: revenue. Available: status, createdAt, amount, customer.id, customer.country, totalRevenue, period.');
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('accepts queryable relationship fields in generated metric tools', async () => {
+    const execute = vi.fn(async () => ({
+      data: [{ 'customer.country': 'US', totalRevenue: 42 }],
+    }));
+    const [tool] = generateDatasetTools({
+      datasets: {
+        orders: {
+          ...Orders,
+          metrics: { totalRevenue },
+        },
+      },
+      analytics: { execute },
+      mode: 'per-metric',
+    });
+
+    expect(tool.parameters.properties?.dimensions.items?.enum).toContain('customer.country');
+    expect(tool.parameters.properties?.orderBy.items?.properties?.field.enum).toContain('customer.country');
+
+    await tool.execute({
+      dimensions: ['customer.country'],
+      filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
+      orderBy: [{ field: 'customer.country', direction: 'asc' }],
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      totalRevenue,
+      {
+        dimensions: ['customer.country'],
+        filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
+        orderBy: [{ field: 'customer.country', direction: 'asc' }],
+      },
+      undefined,
+    );
   });
 
   it('adapts generated tool metadata for OpenAI, AI SDK, and MCP runtimes', () => {

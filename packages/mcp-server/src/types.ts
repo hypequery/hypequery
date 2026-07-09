@@ -147,7 +147,8 @@ export interface RelationshipSchema {
   target: string;
   from?: string;
   to?: string;
-  execution?: string;
+  queryable?: boolean;
+  fields?: string[];
   description: string;
 }
 

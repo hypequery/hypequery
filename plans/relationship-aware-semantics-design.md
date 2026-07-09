@@ -1,7 +1,7 @@
 # Relationship-Aware Semantics Design
 
 Date: 2026-07-02
-Status: PR 1 landed 2026-07-06 (resolves "Next Work #4" in `datasets-semantic-layer-fix-plan.md`)
+Status: Implementation complete across PRs 1–3; documentation tracked separately
 
 ## Implementation status
 
@@ -18,8 +18,10 @@ Status: PR 1 landed 2026-07-06 (resolves "Next Work #4" in `datasets-semantic-la
   builder's alias-inference, which cannot parse quoted dotted aliases. 9 backend
   SQL tests (mock adapter) + 3 live ClickHouse integration cases (joined
   group-by, joined filter, joined tenant scoping).
-- **PR 3 — TODO.** Catalog/contract `queryable` + `fields`, serve
-  `semantic-input-schema` enums, React field-name types, docs page.
+- **PR 3 — DONE (2026-07-09).** Catalog/contract `queryable` + `fields`, serve
+  `semantic-input-schema` enums, React field-name types, and MCP introspection.
+- **PR 4 — TODO.** User-facing relationship documentation and stale semantic
+  package/spec documentation updates.
 
 Sources: `packages/datasets/src` (relationships, planners, validation, catalog, contract),
 `packages/clickhouse/src` (query builder joins, semantic backend), `packages/schema/src/compat`,
@@ -166,6 +168,8 @@ Revisit alongside the SQL-expression lineage work in schema compat.
   template-literal names for to-one relationships. Keep helper types shallow — this
   multiplies name unions and can stress `tsc` (same risk class as production-plan Phase 3).
 - Schema compat: join-column checks already exist; no new checks required for v1.
+- Documentation is intentionally deferred to PR 4 so the metadata/type changes
+  can be reviewed independently.
 
 ### 4. Until v1 lands
 
@@ -179,7 +183,8 @@ generic unknown-field error.
 |----|-------|
 | 1 | Validation + builder-path planning + protocol `leftJoin` + in-memory backend + unit/type tests |
 | 2 | `PlanNode.joins` + ClickHouse backend translation + live integration specs |
-| 3 | Catalog/contract `queryable` + serve enums + React field types + docs page |
+| 3 | Catalog/contract `queryable` + serve enums + React field types + MCP introspection |
+| 4 | User-facing docs page + stale package/spec documentation updates |
 
 ## Non-goals (v1)
 

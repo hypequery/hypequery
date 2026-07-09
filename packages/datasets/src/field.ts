@@ -19,7 +19,9 @@
 import type { DimensionDefinition, DimensionOptions, FieldType } from './types.js';
 
 function createFieldHelper<T extends FieldType>(fieldType: T) {
-  return (opts?: DimensionOptions): DimensionDefinition<T> => ({
+  return <TOptions extends DimensionOptions | undefined = undefined>(
+    opts?: TOptions,
+  ): DimensionDefinition<T> & (TOptions extends DimensionOptions ? TOptions : object) => ({
     __type: 'field_definition',
     fieldType,
     label: opts?.label,
@@ -28,7 +30,7 @@ function createFieldHelper<T extends FieldType>(fieldType: T) {
     sql: opts?.sql,
     filterable: opts?.filterable,
     groupable: opts?.groupable,
-  });
+  }) as DimensionDefinition<T> & (TOptions extends DimensionOptions ? TOptions : object);
 }
 
 export const dimension = {

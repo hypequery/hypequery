@@ -3,7 +3,7 @@ import { createAnalyticsHooks } from '../src/index.js';
 type Api = {
   revenue: {
     input: {
-      dimensions?: readonly ('country' | 'status')[];
+      dimensions?: readonly ('country' | 'status' | 'customer.country')[];
       by?: 'month';
     };
     output: {
@@ -14,6 +14,7 @@ type Api = {
       dimensions: {
         country: { fieldType: 'string' };
         status: { fieldType: 'string' };
+        'customer.country': { fieldType: 'string' };
       };
       measures: {
         revenue: { aggregation: 'sum' };
@@ -24,7 +25,7 @@ type Api = {
   };
   'dataset:orders': {
     input: {
-      dimensions?: readonly ('country' | 'status')[];
+      dimensions?: readonly ('country' | 'status' | 'customer.country')[];
       measures?: readonly ('revenue' | 'orderCount')[];
       by?: 'month';
     };
@@ -36,6 +37,7 @@ type Api = {
       dimensions: {
         country: { fieldType: 'string' };
         status: { fieldType: 'string' };
+        'customer.country': { fieldType: 'string' };
       };
       measures: {
         revenue: { aggregation: 'sum' };
@@ -82,6 +84,14 @@ void groupedRevenue;
 void groupedOrderCount;
 void groupedPeriod;
 
+const relatedDatasetResult = hooks.useDataset('orders', {
+  dimensions: ['customer.country'] as const,
+  measures: ['revenue'] as const,
+});
+const relatedCountry: string | undefined =
+  relatedDatasetResult.data?.data[0]?.['customer.country'];
+void relatedCountry;
+
 // @ts-expect-error unselected dimensions are not exposed
 void groupedDatasetRow?.status;
 
@@ -97,6 +107,13 @@ const metricRevenueAsNumber: number | undefined = metricRow?.revenue;
 void metricRevenueAsNumber;
 void metricRevenue;
 void metricCountry;
+
+const relatedMetricResult = hooks.useMetric('revenue', {
+  dimensions: ['customer.country'] as const,
+});
+const relatedMetricCountry: string | undefined =
+  relatedMetricResult.data?.data[0]?.['customer.country'];
+void relatedMetricCountry;
 
 // @ts-expect-error unknown metric names should be rejected
 hooks.useMetric('missing');

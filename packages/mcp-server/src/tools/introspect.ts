@@ -116,7 +116,8 @@ export async function getDatasetSchemaTool(
         target: relationship.target,
         from: relationship.from,
         to: relationship.to,
-        execution: relationship.execution,
+        queryable: relationship.queryable,
+        fields: relationship.fields,
         description: '',
       };
       schema.relationships[name] = relSchema;
@@ -172,7 +173,8 @@ export async function getDatasetSchemaTool(
           target: typeof rel.target === 'function' ? rel.target()?.name || '' : rel.target || rel.dataset?.name || '',
           from: rel.from,
           to: rel.to,
-          execution: rel.execution,
+          queryable: rel.queryable,
+          fields: rel.fields,
           description: rel.description || '',
         };
         schema.relationships[name] = relSchema;

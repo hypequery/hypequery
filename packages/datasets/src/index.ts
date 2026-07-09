@@ -172,6 +172,7 @@ export type {
   DatasetRegistryInstance,
   DatasetFieldNames,
   DatasetDimensionNames,
+  DatasetQueryableDimensions,
   DatasetMeasureNames,
   DatasetOrderableNames,
   DatasetQueryFor,
