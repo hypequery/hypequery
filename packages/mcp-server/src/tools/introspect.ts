@@ -180,7 +180,7 @@ export async function getDatasetSchemaTool(
           queryable: rel.queryable ?? (kind ? kind !== 'hasMany' : undefined),
           fields: rel.fields ?? (kind && hasResolvableTarget
             ? listQueryableRelationshipFields(name, { ...rel, kind })
-            : undefined),
+            : kind && kind !== 'hasMany' ? [] : undefined),
           description: rel.description || '',
         };
         schema.relationships[name] = relSchema;
