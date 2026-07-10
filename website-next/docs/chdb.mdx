@@ -38,7 +38,7 @@ Nothing else changes: `toSQL()`, `rawQuery()`, and streaming all work, and the a
 
 - **Testing and CI** — run your hypequery analytics against a real ClickHouse engine with no container and no shared staging environment. The builder code your tests exercise is the code you ship.
 - **Local development** — build a dashboard against a local Parquet file or an in-memory database, then point the same code at remote ClickHouse for production by swapping the adapter.
-- **Serverless and edge** — chDB is just a library, so it goes wherever Node goes, including Lambda and edge functions where there's no server to reach.
+- **Serverless** — chDB runs in any Node.js environment, including AWS Lambda (note: chDB's native binary is large; verify your deployment package stays within Lambda's 250 MB unzipped limit). Edge runtimes that run in V8 isolates (Cloudflare Workers, Vercel Edge Runtime) cannot load native Node.js addons and are not supported.
 - **Local files and beyond** — chDB reads Parquet, CSV, S3, and more through ClickHouse table functions, queryable via `rawQuery()`.
 
 ## Setup
