@@ -30,11 +30,22 @@ vi.mock('ora', () => ({
   })),
 }));
 
-// Mock @hypequery/serve
+// Mock @hypequery/serve/dev
 const mockServeDev = vi.fn();
 const mockServerStop = vi.fn();
-vi.mock('@hypequery/serve', () => ({
+vi.mock('@hypequery/serve/dev', () => ({
   serveDev: mockServeDev,
+}));
+
+// Mock @hypequery/playground gateway
+const mockGatewayShutdown = vi.fn();
+vi.mock('@hypequery/playground', () => ({
+  createGateway: vi.fn(async () => ({
+    mount: vi.fn(),
+    shutdown: mockGatewayShutdown,
+    uiAvailable: true,
+    capabilities: ['registry', 'execute', 'history', 'events'],
+  })),
 }));
 
 // Mock open package
