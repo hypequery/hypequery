@@ -28,6 +28,7 @@
     "datasets/metrics",
     "datasets/filters",
     "datasets/time-grains",
+    "datasets/relationships",
     "datasets/execution",
     "datasets/caching",
     "datasets/multi-tenancy",

@@ -15,7 +15,7 @@ Catalog metadata includes:
 - measures and their aggregation metadata
 - attached named metrics
 - filters, allowed operators, and filter value types
-- relationship metadata and current execution support
+- relationship metadata, including whether each relationship is queryable and the qualified field names it contributes
 - dataset limits, maximum result limit, supported time grains, and orderable fields
 
 ## Dataset catalog
@@ -78,6 +78,8 @@ The returned object is plain JSON-compatible metadata.
 }
 ```
 </CodeBlock>
+
+Relationship entries carry `queryable` and `fields` — the qualified `<relationship>.<dimension>` names a one-hop query may reference. To-one relationships (`belongsTo`, `hasOne`) are queryable; `hasMany` entries report `queryable: false` with an empty field list. See [Relationships](/docs/datasets/relationships) for the query semantics.
 
 When a filter definition does not specify `operators`, the catalog exposes the default semantic operators from `SEMANTIC_FILTER_OPERATORS`:
 

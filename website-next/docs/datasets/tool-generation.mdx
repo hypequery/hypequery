@@ -35,7 +35,7 @@ const openaiTools = toOpenAITools(tools);
 ```
 </CodeBlock>
 
-The generated schema includes enums derived from the dataset catalog.
+The generated schema includes enums derived from the dataset catalog. Queryable [relationship fields](/docs/datasets/relationships) (for example `customer.country`) appear in the dimension, filter, and order enums alongside local dimensions.
 
 <CodeBlock>
 ```json

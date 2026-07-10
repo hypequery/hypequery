@@ -1,0 +1,133 @@
+---
+title: Relationships
+description: Model links between datasets and query to-one related fields one hop deep.
+---
+
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+Relationships model how one dataset links to another. To-one relationships (`belongsTo`, `hasOne`) are queryable: dataset and metric queries can select, filter, and order by fields on the related dataset one hop deep, and hypequery executes the join for you. To-many relationships (`hasMany`) are metadata only.
+
+## Defining relationships
+
+Declare relationships in the dataset config. The target is a lazy reference (`() => Dataset`) so datasets can reference each other without import-order problems. `from` is the join column on this dataset's table; `to` is the join column on the target's table.
+
+<CodeBlock>
+```typescript
+import { dataset, dimension, measure, belongsTo, hasMany } from '@hypequery/datasets';
+
+const Customers = dataset('customers', {
+  source: 'customers',
+  dimensions: {
+    id: dimension.string(),
+    country: dimension.string(),
+    tier: dimension.string(),
+  },
+});
+
+const LineItems = dataset('line_items', {
+  source: 'line_items',
+  dimensions: {
+    id: dimension.string(),
+    sku: dimension.string(),
+  },
+});
+
+const Orders = dataset('orders', {
+  source: 'orders',
+  dimensions: {
+    id: dimension.string(),
+    status: dimension.string(),
+    amount: dimension.number(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+    items: hasMany(() => LineItems, { from: 'id', to: 'order_id' }),
+  },
+});
+```
+</CodeBlock>
+
+The three helpers describe where the foreign key lives:
+
+- `belongsTo` — many-to-one; the FK is on this table (`orders.customer_id → customers.id`).
+- `hasOne` — one-to-one; the FK is on the target table.
+- `hasMany` — one-to-many; the FK is on the target table. Metadata only — see below.
+
+## Querying related fields
+
+Reference to-one related dimensions as `<relationship>.<dimension>` anywhere a dimension name is accepted: `dimensions`, `filters`, and `orderBy`, in both dataset and metric queries.
+
+<CodeBlock>
+```typescript
+const result = await analytics.execute(Orders, {
+  dimensions: ['customer.country'],
+  measures: ['revenue'],
+  filters: [{ field: 'customer.tier', operator: 'eq', value: 'enterprise' }],
+  orderBy: [{ field: 'customer.country', direction: 'asc' }],
+});
+
+// Rows are typed: result.data[0]['customer.country'] is string | undefined
+```
+</CodeBlock>
+
+Result rows key joined columns by their qualified name (`'customer.country'`), and the row types include them, so projections stay fully typed end to end — including through Serve endpoints and the React hooks.
+
+## Join semantics
+
+Relationship traversal executes as a ClickHouse `LEFT ANY JOIN` (first match), aliased by the relationship name:
+
+- Base rows always survive. An order with no matching customer keeps its measures; its joined columns are `NULL`.
+- At most one target row matches per base row, so duplicate join keys on the target can never fan out and inflate aggregates. The in-memory backend applies the same first-match rule.
+- Filtering on a joined column excludes base rows without a match (the standard SQL behavior: `NULL` fails the comparison).
+
+Queries that reference no relationship fields generate exactly the same SQL as before relationships existed — there is no cost until you traverse.
+
+## Rules and limits
+
+Validation rejects, with a specific error message:
+
+- **More than one hop.** `customer.region.name` is not supported; only `<relationship>.<dimension>`.
+- **`hasMany` traversal.** Joining a to-many relationship would fan out rows and corrupt aggregates, so `hasMany` stays metadata only.
+- **SQL-backed target dimensions.** Dimensions defined with a raw `sql` expression on the target are not yet queryable through a relationship.
+- **Measures across relationships.** Measures aggregate the base dataset only.
+- **Ordering by an unselected joined field.** As with local dimensions, a qualified `orderBy` field must also be selected as a dimension.
+
+At definition time, `dataset()` rejects relationship names that collide with the dataset's own `source` table (the join alias would shadow the base table) or contain a dot.
+
+## Multi-tenancy
+
+When runtime tenant enforcement is active and the target dataset declares a `tenantKey`, the tenant predicate is applied to the joined table **inside the join condition**. Rows from other tenants are never joined — they surface as `NULL`s rather than leaking values — and base-table scoping continues to apply as usual. Explicitly filtering on the target's tenant column is rejected while enforcement is active, same as on the base dataset.
+
+## Metadata
+
+The [catalog](/docs/datasets/catalog) and the versioned semantic contract expose relationship metadata, so tools and agents can discover what is traversable:
+
+<CodeBlock>
+```json
+{
+  "relationships": {
+    "customer": {
+      "kind": "belongsTo",
+      "target": "customers",
+      "from": "customer_id",
+      "to": "id",
+      "queryable": true,
+      "fields": ["customer.id", "customer.country", "customer.tier"]
+    },
+    "items": {
+      "kind": "hasMany",
+      "target": "line_items",
+      "from": "id",
+      "to": "order_id",
+      "queryable": false,
+      "fields": []
+    }
+  }
+}
+```
+</CodeBlock>
+
+`fields` lists the qualified names a query may reference. The same list flows into [generated tools](/docs/datasets/tool-generation) (enum schemas for agents), Serve's OpenAPI input schemas, and MCP's `get_dataset_schema`, so every surface advertises exactly what the validators accept.
