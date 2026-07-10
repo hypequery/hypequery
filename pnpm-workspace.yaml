@@ -4,6 +4,7 @@ packages:
   - 'packages/react'
   - 'packages/schema'
   - 'packages/datasets'
+  - 'packages/playground'
   - 'packages/serve'
   - 'packages/studio'
   - 'packages/mcp-server'
