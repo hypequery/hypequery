@@ -356,7 +356,7 @@ export const executeEndpoint = async <
           ...(verboseAuthErrors && authErrorInfo?.details ? { auth_error: authErrorInfo.details } : {}),
           endpoint: endpoint.metadata.path,
         },
-        { 'x-request-id': requestId }
+        { 'x-request-id': requestId, 'cache-control': 'no-store' }
       );
     }
 
@@ -389,7 +389,8 @@ export const executeEndpoint = async <
             actual: authzResult.actual,
           }),
           endpoint: endpoint.metadata.path,
-        }
+        },
+        { 'x-request-id': requestId, 'cache-control': 'no-store' }
       );
     }
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
@@ -418,7 +419,7 @@ export const executeEndpoint = async <
         return createErrorResponse(403, 'FORBIDDEN', errorMessage, {
           reason: 'missing_tenant_context',
           tenant_required: true,
-        }, { 'x-request-id': requestId });
+        }, { 'x-request-id': requestId, 'cache-control': 'no-store' });
       }
 
       if (tenantId) {

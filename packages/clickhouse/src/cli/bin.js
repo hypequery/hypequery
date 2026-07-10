@@ -21,8 +21,13 @@ const colors = {
   cyan: '\x1b[36m'
 };
 
+// Returns enough endpoint information for diagnostics without exposing URL
+// userinfo, query parameters, or fragments that may contain credentials.
+// Keep in sync with packages/cli/src/utils/redact-connection-url.ts.
 function redactConnectionUrl(value) {
-  const trimmed = String(value).trim();
+  if (!value) return 'not set';
+
+  const trimmed = value.trim();
   const hasScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
 
   try {
