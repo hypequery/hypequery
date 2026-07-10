@@ -1,8 +1,29 @@
 import type { AddressInfo } from "net";
 
 import { startNodeServer } from "./adapters/node.js";
-import type { ServeBuilder, StartServerOptions } from "./types.js";
-import { formatQueryEvent } from "./query-logger.js";
+import type {
+  ServeBuilder,
+  StartServerOptions,
+  ToolkitDescription,
+} from "./types.js";
+import { formatQueryEvent, type ServeQueryLogger } from "./query-logger.js";
+
+/**
+ * The narrow surface of a serve API that dev tooling (e.g.
+ * `@hypequery/playground`) is allowed to depend on. `ServeBuilder`
+ * satisfies this structurally — dev tools should accept this type
+ * rather than reaching into serve internals.
+ */
+export interface DevIntegrationApi {
+  /** Subscribe to endpoint execution events. */
+  readonly queryLogger: ServeQueryLogger;
+  /** Full endpoint registry, including semantic dataset/metric routes. */
+  describe(): ToolkitDescription;
+  /** In-process execution of a registered endpoint. */
+  execute(key: string, options?: { input?: unknown }): Promise<unknown>;
+  /** Base path applied to all registered routes. */
+  readonly basePath?: string;
+}
 
 export interface ServeDevOptions extends StartServerOptions {
   logger?: (message: string) => void;
@@ -43,6 +64,9 @@ export const serveDev = async <
         : `${hostname}:${port}`;
     logger(`hypequery dev server running at http://${display}`);
     logger(`Docs available at http://${display}/docs`);
+    if (options.mount) {
+      logger(`Playground available at http://${display}/__dev`);
+    }
   }
 
   return server;

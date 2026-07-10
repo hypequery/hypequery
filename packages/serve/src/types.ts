@@ -902,12 +902,29 @@ export interface CorsConfig {
   maxAge?: number;
 }
 
+/**
+ * Node-level handler mounted ahead of the serve router.
+ * Return `true` when the request was fully handled (response sent),
+ * `false` to fall through to the serve handler.
+ * Node adapter only — ignored by fetch/edge adapters.
+ */
+export type NodeMountHandler = (
+  req: import("http").IncomingMessage,
+  res: import("http").ServerResponse
+) => Promise<boolean> | boolean;
+
 export interface StartServerOptions {
   port?: number;
   hostname?: string;
   signal?: AbortSignal;
   /** Whether to suppress internal logging. */
   quiet?: boolean;
+  /**
+   * Optional handler tried before the serve router — used by dev tooling
+   * such as `@hypequery/playground` to mount UI/API routes under `/__dev`.
+   * Node adapter only.
+   */
+  mount?: NodeMountHandler;
   /**
    * Maximum time in milliseconds a request handler is allowed to run
    * before the server responds with 504 Gateway Timeout.
