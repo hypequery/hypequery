@@ -1,5 +1,5 @@
 import { createQueryBuilder } from '../src/index.js';
-import type { InsertRow, InsertResultSummary } from '../src/index.js';
+import type { InsertJsonValue, InsertRow, InsertResultSummary } from '../src/index.js';
 import type { TestSchema } from '../src/core/tests/test-utils.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
@@ -42,6 +42,31 @@ type ExpectedEventsInsert = {
   note?: string | null;
 };
 type AssertEventsInsert = Expect<Equal<EventsInsert, ExpectedEventsInsert>>;
+
+// Generator-supported specialized and composite types stay insertable.
+type GeneratedTypesSchema = {
+  generated_types: {
+    ip: 'IPv6';
+    money: 'Decimal128(8)';
+    pair: 'Tuple(String, UInt64)';
+    events: 'Array(Tuple(DateTime64(3), String))';
+    attributes: 'Map(String, Nullable(Int64))';
+    payload: 'JSON';
+  };
+};
+type GeneratedTypesInsert = InsertRow<GeneratedTypesSchema['generated_types']>;
+type ExpectedGeneratedTypesInsert = {
+  ip: string;
+  money: number | string;
+  pair: [string, string | number | bigint];
+  events: Array<[string | Date | number, string]>;
+  attributes: Record<string, string | number | bigint | null>;
+  payload: InsertJsonValue;
+};
+type AssertGeneratedTypesInsert = Expect<Equal<
+  GeneratedTypesInsert,
+  ExpectedGeneratedTypesInsert
+>>;
 
 // --- Valid inserts.
 

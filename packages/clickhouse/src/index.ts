@@ -1,7 +1,7 @@
 export { createQueryBuilder, QueryBuilder } from './core/query-builder.js';
 export { InsertBuilder } from './core/insert-builder.js';
 export type { InsertExecuteOptions, InsertQB } from './core/insert-builder.js';
-export { normalizeInsertRows, buildJsonEachRowInsert } from './core/features/insert-executor.js';
+export { buildJsonEachRowInsert } from './core/features/insert-executor.js';
 export type { JsonEachRowInsertOptions } from './core/features/insert-executor.js';
 export { ClickHouseConnection } from './core/connection.js';
 export { JoinRelationships } from './core/join-relationships.js';
@@ -51,6 +51,7 @@ export type {
   InsertRow,
   InsertRowForColumns,
   InsertValue,
+  InsertJsonValue,
 } from './types/insert.js';
 export type {
   OrderDirection,
@@ -198,4 +199,3 @@ export {
   datasetsToJSON,
   summarizeAllDatasets,
 } from './dataset/introspection.js';
-

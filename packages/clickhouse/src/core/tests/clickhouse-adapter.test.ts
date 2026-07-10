@@ -78,4 +78,17 @@ describe('ClickHouseAdapter', () => {
       query_id: 'query-456',
     });
   });
+
+  it('rejects unsafe insert identifiers before calling the client', async () => {
+    const clientInsertMock = vi.fn();
+    const adapter = new ClickHouseAdapter({
+      client: {
+        insert: clientInsertMock,
+      } as any,
+    });
+
+    await expect(adapter.insert('events; DROP TABLE users', [{ id: 1 }]))
+      .rejects.toThrow('Unsafe table identifier');
+    expect(clientInsertMock).not.toHaveBeenCalled();
+  });
 });

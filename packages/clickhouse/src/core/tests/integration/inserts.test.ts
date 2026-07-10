@@ -16,6 +16,13 @@ interface InsertTestSchema {
     note: 'Nullable(String)';
     status: 'String';
   };
+  insert_types_test: {
+    id: 'UInt32';
+    amount: 'Decimal64(4)';
+    source_ip: 'IPv4';
+    pair: 'Tuple(String, UInt64)';
+    pairs: 'Array(Tuple(String, Int32))';
+  };
 }
 
 const CREATE_TABLE_SQL = `
@@ -34,6 +41,17 @@ const CREATE_TABLE_SQL = `
   ORDER BY id
 `;
 
+const CREATE_TYPES_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS insert_types_test (
+    id UInt32,
+    amount Decimal64(4),
+    source_ip IPv4,
+    pair Tuple(String, UInt64),
+    pairs Array(Tuple(String, Int32))
+  ) ENGINE = MergeTree()
+  ORDER BY id
+`;
+
 describe('Integration Tests - Inserts', () => {
   (SKIP_INTEGRATION_TESTS ? describe.skip : describe)('ClickHouse Integration', () => {
     let db: ReturnType<typeof createQueryBuilder<InsertTestSchema>>;
@@ -42,7 +60,9 @@ describe('Integration Tests - Inserts', () => {
       ensureConnectionInitialized();
       const client = ClickHouseConnection.getClient();
       await client.command({ query: 'DROP TABLE IF EXISTS insert_test' });
+      await client.command({ query: 'DROP TABLE IF EXISTS insert_types_test' });
       await client.command({ query: CREATE_TABLE_SQL });
+      await client.command({ query: CREATE_TYPES_TABLE_SQL });
 
       db = createQueryBuilder<InsertTestSchema>({
         host: TEST_CONNECTION_CONFIG.host,
@@ -55,6 +75,7 @@ describe('Integration Tests - Inserts', () => {
     afterAll(async () => {
       const client = ClickHouseConnection.getClient();
       await client.command({ query: 'DROP TABLE IF EXISTS insert_test' });
+      await client.command({ query: 'DROP TABLE IF EXISTS insert_types_test' });
     });
 
     test('inserts a full-width row and reads back the same values', async () => {
@@ -137,6 +158,22 @@ describe('Integration Tests - Inserts', () => {
         .orderBy('id', 'ASC')
         .execute();
       expect(rows.map(row => row.name)).toEqual(['batch-1', 'batch-2', 'batch-3']);
+    });
+
+    test('inserts generator-supported decimal, IP, and tuple values', async () => {
+      await db.insert('insert_types_test').values({
+        id: 1,
+        amount: '12.3456',
+        source_ip: '192.168.1.10',
+        pair: ['primary', 9007199254740993n],
+        pairs: [['one', 1], ['two', 2]],
+      }).execute();
+
+      const [row] = await db.table('insert_types_test').select('*').execute();
+      expect(Number(row.amount)).toBe(12.3456);
+      expect(row.source_ip).toBe('192.168.1.10');
+      expect(row.pair).toEqual(['primary', '9007199254740993']);
+      expect(row.pairs).toEqual([['one', 1], ['two', 2]]);
     });
 
     test('an explicit empty batch is a no-op', async () => {

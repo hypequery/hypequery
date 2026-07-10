@@ -3,6 +3,10 @@ import type { AnyInsertState, SchemaDefinition } from '../types/builder-state.js
 import type { InsertResultSummary } from '../adapters/database-adapter.js';
 import { InsertBuilder } from '../insert-builder.js';
 import { logger } from '../utils/logger.js';
+import {
+  assertSafeIdentifier,
+  assertSafeInsertIdentifiers,
+} from '../utils/insert-identifiers.js';
 
 interface InsertExecutorRunOptions {
   queryId?: string;
@@ -89,6 +93,9 @@ export function buildJsonEachRowInsert(
   rows: ReadonlyArray<Record<string, unknown>>,
   options?: JsonEachRowInsertOptions
 ): string {
+  assertSafeInsertIdentifiers(table, options?.columns);
+  Object.keys(options?.clickhouseSettings ?? {})
+    .forEach(key => assertSafeIdentifier(key, 'setting'));
   const normalized = normalizeInsertRows([...rows]);
   const columnsSql = options?.columns?.length ? ` (${options.columns.join(', ')})` : '';
   const settings: Record<string, unknown> = {
@@ -128,6 +135,7 @@ export class InsertExecutorFeature<
 
     // Synthetic statement for logs only — row data is never serialized into logs.
     const tableName = this.builder.getTableName();
+    assertSafeInsertIdentifiers(tableName, queryNode.columns);
     const columnsSql = queryNode.columns?.length ? ` (${queryNode.columns.join(', ')})` : '';
     const renderSql = `INSERT INTO ${tableName}${columnsSql} FORMAT JSONEachRow /* ${queryNode.rows.length} rows */`;
 

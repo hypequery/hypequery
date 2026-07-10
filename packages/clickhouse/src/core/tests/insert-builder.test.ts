@@ -150,6 +150,23 @@ describe('InsertBuilder', () => {
     await expect(base.execute()).rejects.toThrow('No values provided');
   });
 
+  it('snapshots nested row values when values() is called', async () => {
+    const { db, calls } = createDb();
+    const row = {
+      ...userRow,
+      profile: { plan: 'pro' },
+      roles: ['admin'],
+    };
+    const insert = db.insert('users').values(row);
+
+    row.profile.plan = 'free';
+    row.roles.push('viewer');
+    await insert.execute();
+
+    expect(calls[0].rows[0].profile).toEqual({ plan: 'pro' });
+    expect(calls[0].rows[0].roles).toEqual(['admin']);
+  });
+
   it('propagates adapter errors', async () => {
     const adapter: DatabaseAdapter = {
       name: 'failing',
@@ -230,5 +247,23 @@ describe('buildJsonEachRowInsert', () => {
     ]);
     expect(statement.endsWith('{"at":"2026-01-02T03:04:05.000Z","big":"1"}')).toBe(true);
     expect(() => buildJsonEachRowInsert('events', [{ x: Number.NaN }])).toThrow('non-finite number');
+  });
+
+  it('rejects unsafe SQL identifiers', () => {
+    expect(() => buildJsonEachRowInsert('events; DROP TABLE users', [{ id: 1 }]))
+      .toThrow('Unsafe table identifier');
+    expect(() => buildJsonEachRowInsert('events', [{ id: 1 }], {
+      columns: ['id) FORMAT Null; --'],
+    })).toThrow('Unsafe column identifier');
+    expect(() => buildJsonEachRowInsert('events', [{ id: 1 }], {
+      clickhouseSettings: { 'async_insert=0; DROP TABLE users': 1 },
+    })).toThrow('Unsafe setting identifier');
+  });
+
+  it('accepts database-qualified tables and nested column paths', () => {
+    const statement = buildJsonEachRowInsert('analytics.events', [{ id: 1 }], {
+      columns: ['id', 'nested.value'],
+    });
+    expect(statement).toContain('INSERT INTO analytics.events (id, nested.value)');
   });
 });

@@ -96,10 +96,28 @@ export function createInsertQueryNode(
 ): InsertQueryNode {
   return {
     kind: 'insert-query',
-    rows: config.rows ? config.rows.map(row => ({ ...row })) : [],
+    rows: config.rows ? config.rows.map(row => cloneInsertValue(row)) : [],
     columns: config.columns ? [...config.columns] : undefined,
     settings: config.settings ? { ...config.settings } : undefined,
   };
+}
+
+function cloneInsertValue<T>(value: T): T {
+  if (value instanceof Date) {
+    return new Date(value.getTime()) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map(item => cloneInsertValue(item)) as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype === Object.prototype || prototype === null) {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [key, cloneInsertValue(item)])
+      ) as T;
+    }
+  }
+  return value;
 }
 
 export function cloneInsertQueryNode(query: InsertQueryNode): InsertQueryNode {

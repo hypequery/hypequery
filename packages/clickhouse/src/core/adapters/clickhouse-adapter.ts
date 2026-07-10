@@ -13,6 +13,7 @@ import { getConnectionEndpoint } from '../utils/connection-endpoint.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 import { getAutoClientModule } from '../env/auto-client.js';
 import type { AutoClientModule } from '../env/auto-client.js';
+import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
 
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
@@ -72,6 +73,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     rows: T[],
     options?: InsertExecutionOptions
   ): Promise<InsertResultSummary> {
+    assertSafeInsertIdentifiers(table, options?.columns);
     const result = await this.client.insert({
       table,
       values: rows,

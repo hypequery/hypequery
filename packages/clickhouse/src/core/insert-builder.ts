@@ -44,9 +44,14 @@ export class InsertBuilder<
   private adapter: DatabaseAdapter;
   private valuesProvided = false;
 
-  constructor(tableName: string, state: State, adapter: DatabaseAdapter) {
+  constructor(
+    tableName: string,
+    state: State,
+    adapter: DatabaseAdapter,
+    query?: InsertQueryNode
+  ) {
     this.tableName = tableName;
-    this.query = createInsertQueryNode();
+    this.query = query ? cloneInsertQueryNode(query) : createInsertQueryNode();
     this.state = state;
     this.adapter = adapter;
     this.executor = new InsertExecutorFeature(this);
@@ -56,23 +61,18 @@ export class InsertBuilder<
     state: NextState,
     query: InsertQueryNode
   ): InsertBuilder<Schema, NextState> {
-    const builder = new InsertBuilder<Schema, NextState>(this.tableName, state, this.adapter);
-    builder.query = cloneInsertQueryNode(query);
+    const builder = new InsertBuilder<Schema, NextState>(
+      this.tableName,
+      state,
+      this.adapter,
+      query
+    );
     builder.valuesProvided = this.valuesProvided;
     return builder;
   }
 
-  private cloneMutable(): this {
-    return this.fork(this.state, this.query) as this;
-  }
-
-  private assignQuery(builder: this, query: InsertQueryNode): this {
-    builder.query = cloneInsertQueryNode(query);
-    return builder;
-  }
-
   private updateQuery(updater: (query: InsertQueryNode) => InsertQueryNode): this {
-    return this.assignQuery(this.cloneMutable(), updater(this.query));
+    return this.fork(this.state, updater(this.query)) as this;
   }
 
   /**

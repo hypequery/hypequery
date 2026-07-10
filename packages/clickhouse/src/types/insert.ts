@@ -5,6 +5,7 @@ import type {
   ClickHouseDecimal,
   ClickHouseDateTime,
   ClickHouseString,
+  ClickHouseJson,
   ClickHouseEnum,
   ClickHouseBoolean,
   ClickHouseType,
@@ -14,6 +15,14 @@ import type { ColumnType } from './schema.js';
 import type { Simplify } from '../core/types/type-helpers.js';
 
 type Add1<T extends number> = T extends 0 ? 1 : T extends 1 ? 2 : T extends 2 ? 3 : T extends 3 ? 4 : 5;
+
+export type InsertJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | InsertJsonValue[]
+  | { [key: string]: InsertJsonValue };
 
 /**
  * Widened value type accepted when inserting into a column of ClickHouse type `T`.
@@ -49,6 +58,7 @@ type InsertValueOf<T extends string, Depth extends number> =
   : T extends 'Date' | 'Date32' ? string
   : T extends ClickHouseDateTime ? string | Date | number
   : T extends ClickHouseString ? string
+  : T extends ClickHouseJson ? InsertJsonValue
   : T extends ClickHouseEnum ? string | number
   : T extends ClickHouseBoolean ? boolean
   : T extends `Array(${infer U})`
@@ -64,13 +74,9 @@ type InsertValueOf<T extends string, Depth extends number> =
   ? InsertValue<U, Add1<Depth>> | null
   : unknown | null
   : T extends `LowCardinality(${infer U})`
-  ? U extends `Nullable(${infer V})`
-    ? V extends ClickHouseString | ClickHouseEnum
-      ? InsertValue<V, Add1<Depth>> | null
-      : unknown | null
-    : U extends ClickHouseString | ClickHouseEnum
-      ? InsertValue<U, Add1<Depth>>
-      : unknown
+  ? U extends ClickHouseType
+    ? InsertValue<U, Add1<Depth>>
+    : unknown
   : T extends `Map(${string}, ${infer V})`
   ? V extends ClickHouseType
   ? Record<string, InsertValue<V, Add1<Depth>>>

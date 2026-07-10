@@ -1,7 +1,6 @@
 import {
   createQueryBuilder,
   InsertBuilder,
-  normalizeInsertRows,
   toStartOfMinute,
   toStartOfHour,
   toStartOfDay,
@@ -35,8 +34,6 @@ describe('Public exports', () => {
       adapter: { name: 'test', query: async () => [] },
     });
     expect(db.insert('any_table')).toBeInstanceOf(InsertBuilder);
-    expect(normalizeInsertRows([{ at: new Date('2026-01-01T00:00:00.000Z') }]))
-      .toEqual([{ at: '2026-01-01T00:00:00.000Z' }]);
   });
 
   it('exports a datasets client from the datasets package', () => {
