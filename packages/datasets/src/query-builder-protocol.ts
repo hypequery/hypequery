@@ -23,15 +23,15 @@ export interface QueryBuilderLike {
 
   // Analytical aggregations
   /** Value of `column` on the row where `argColumn` is greatest. */
-  argMax(column: string, argColumn: string, alias?: string): QueryBuilderLike;
+  argMax?(column: string, argColumn: string, alias?: string): QueryBuilderLike;
   /** Value of `column` on the row where `argColumn` is smallest. */
-  argMin(column: string, argColumn: string, alias?: string): QueryBuilderLike;
+  argMin?(column: string, argColumn: string, alias?: string): QueryBuilderLike;
   /** Approximate percentile of `column` at `level` in [0, 1]. */
-  quantile(column: string, level: number, alias?: string): QueryBuilderLike;
+  quantile?(column: string, level: number, alias?: string): QueryBuilderLike;
   /** Sample standard deviation of `column`. */
-  stddev(column: string, alias?: string): QueryBuilderLike;
+  stddev?(column: string, alias?: string): QueryBuilderLike;
   /** Sample variance of `column`. */
-  variance(column: string, alias?: string): QueryBuilderLike;
+  variance?(column: string, alias?: string): QueryBuilderLike;
 
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;

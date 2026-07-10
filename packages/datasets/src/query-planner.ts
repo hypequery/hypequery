@@ -154,20 +154,36 @@ export function applyAggregationSpec(
         throw new Error(`Aggregation "${spec.aggregation}" for "${alias}" requires an argField ("by" column).`);
       }
       const argExpr = resolveDimensionExpression(ds, spec.argField, joinCtx);
-      return spec.aggregation === "argMax"
-        ? qb.argMax(fieldOrExpr, argExpr, alias)
-        : qb.argMin(fieldOrExpr, argExpr, alias);
+      if (spec.aggregation === "argMax") {
+        if (!qb.argMax) {
+          throw new Error('Query builder does not support argMax aggregations.');
+        }
+        return qb.argMax(fieldOrExpr, argExpr, alias);
+      }
+      if (!qb.argMin) {
+        throw new Error('Query builder does not support argMin aggregations.');
+      }
+      return qb.argMin(fieldOrExpr, argExpr, alias);
     }
     case "percentile": {
       if (spec.level == null) {
         throw new Error(`Aggregation "percentile" for "${alias}" requires a level.`);
       }
       validatePercentileLevel(spec.level);
+      if (!qb.quantile) {
+        throw new Error('Query builder does not support percentile aggregations.');
+      }
       return qb.quantile(fieldOrExpr, spec.level, alias);
     }
     case "stddev":
+      if (!qb.stddev) {
+        throw new Error('Query builder does not support stddev aggregations.');
+      }
       return qb.stddev(fieldOrExpr, alias);
     case "variance":
+      if (!qb.variance) {
+        throw new Error('Query builder does not support variance aggregations.');
+      }
       return qb.variance(fieldOrExpr, alias);
     default:
       throw new Error(`Unknown aggregation type: ${spec.aggregation}`);

@@ -997,6 +997,7 @@ const OrdersWithCustomer = dataset('ordersWithCustomer', {
   measures: {
     revenue: measure.sum('amount'),
     orderCount: measure.count('id'),
+    latestAmount: measure.argMax('amount', 'createdAt'),
     completedRevenue: measure.sum('amount', { filters: [eq('status', 'completed')] }),
   },
   relationships: {
@@ -1046,6 +1047,18 @@ describe('ClickHouse Backend - Relationship Joins', () => {
     expect(sql).toContain('customer.country_code AS `customer.country`');
     expect(sql).toContain('SUM(orders.amount) AS revenue');
     expect(sql).toContain('GROUP BY status, `customer.country`');
+  });
+
+  it('qualifies argMax by-columns when relationship joins are active', async () => {
+    const { backend, queries } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+
+    await analytics.execute(OrdersWithCustomer, {
+      dimensions: ['customer.country'],
+      measures: ['latestAmount'],
+    });
+
+    expect(queries[0]).toContain('argMax(orders.amount, orders.created_at) AS latestAmount');
   });
 
   it('filters on a joined dimension', async () => {

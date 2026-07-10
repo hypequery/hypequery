@@ -1,7 +1,7 @@
 # Analytical Measures: argMax, argMin, percentile, median, stddev, variance
 
 Date: 2026-07-07
-Status: implemented 2026-07-07 (branch `claude/analytical-measures`, off `main`).
+Status: implemented and hardened on branch `codex/analytical-measures-reopen`.
 All suites green: datasets 196 unit + type tests, clickhouse 511 unit tests,
 serve/mcp typechecks. Live integration cases added (run in CI's ClickHouse
 harness; not executed locally — no Docker in the authoring environment).
@@ -81,22 +81,24 @@ Notes:
    - argMax/argMin metrics are allowed only when the target field is *not* a
      declared non-numeric dimension (a declared string dimension would violate
      the numeric contract; undeclared/hidden fields are trusted as today).
-4. **Row typing**: static measure row values remain `number`. For argMax/argMin
-   over non-numeric fields the runtime value follows the field's type — a
-   documented v1 limitation (per-measure value types would require making
-   `MeasureDefinition` generic; deferred).
+4. **Row typing**: measure and metric result columns are exposed as `string`,
+   matching ClickHouse JSON serialization and the existing dataset result
+   contract. For argMax/argMin over non-numeric fields the runtime value still
+   follows the field's type before serialization; per-measure value types remain
+   deferred.
 
 ## Query-builder protocol + ClickHouse builder
 
-`QueryBuilderLike` gains five required methods (pre-release; the only known
-implementor is `@hypequery/clickhouse`):
+`QueryBuilderLike` gains five optional capability methods so existing custom
+builders remain source-compatible. Builders that do not implement an
+analytical method receive a clear unsupported-aggregation error:
 
 ```ts
-argMax(column: string, argColumn: string, alias?: string): QueryBuilderLike;
-argMin(column: string, argColumn: string, alias?: string): QueryBuilderLike;
-quantile(column: string, level: number, alias?: string): QueryBuilderLike;
-stddev(column: string, alias?: string): QueryBuilderLike;   // stddevSamp
-variance(column: string, alias?: string): QueryBuilderLike; // varSamp
+argMax?(column: string, argColumn: string, alias?: string): QueryBuilderLike;
+argMin?(column: string, argColumn: string, alias?: string): QueryBuilderLike;
+quantile?(column: string, level: number, alias?: string): QueryBuilderLike;
+stddev?(column: string, alias?: string): QueryBuilderLike;   // stddevSamp
+variance?(column: string, alias?: string): QueryBuilderLike; // varSamp
 ```
 
 The ClickHouse `QueryBuilder` implements them in `AggregationFeature`,

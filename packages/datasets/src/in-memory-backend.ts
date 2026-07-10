@@ -180,7 +180,9 @@ function argExtremeOf(
 ): unknown {
   let best: Record<string, unknown> | undefined;
   for (const row of rows) {
-    if (row[argField] == null) {
+    // ClickHouse argMax/argMin skip rows where either the value being
+    // returned or the ordering value is NULL.
+    if (row[argField] == null || row[field] == null) {
       continue;
     }
     if (

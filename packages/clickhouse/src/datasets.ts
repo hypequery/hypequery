@@ -332,8 +332,8 @@ function applyAggregations(
           throw new Error(`Aggregation "${aggType}" for "${name}" requires an argField.`);
         }
         qb = aggType === 'argMax'
-          ? qb.argMax(field, aggregation.argField, name)
-          : qb.argMin(field, aggregation.argField, name);
+          ? qb.argMax(field, qualify(aggregation.argField), name)
+          : qb.argMin(field, qualify(aggregation.argField), name);
         break;
       }
       case 'percentile': {

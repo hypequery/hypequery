@@ -63,11 +63,17 @@ export function median(field: string): AggregationSpec {
 
 /** Value of `field` on the row where `by` is greatest. */
 export function argMax(field: string, by: string): AggregationSpec {
+  if (typeof by !== 'string' || by.trim().length === 0) {
+    throw new Error('argMax(field, by) requires a "by" field.');
+  }
   return { ...createAggregation('argMax', field), argField: by };
 }
 
 /** Value of `field` on the row where `by` is smallest. */
 export function argMin(field: string, by: string): AggregationSpec {
+  if (typeof by !== 'string' || by.trim().length === 0) {
+    throw new Error('argMin(field, by) requires a "by" field.');
+  }
   return { ...createAggregation('argMin', field), argField: by };
 }
 

@@ -6,7 +6,7 @@ description: Define aggregations such as revenue, counts, averages, minimums, an
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-Measures are aggregations over fields in a dataset. They are the numeric values callers can request in dataset queries, such as revenue, order count, average order amount, minimum value, or maximum value.
+Measures are aggregations over fields in a dataset. Callers can request values such as revenue, order count, average order amount, minimum value, or maximum value. Measure and metric result columns are returned as strings to match ClickHouse's JSON serialization; convert numeric values at the application boundary when needed.
 
 The object key is the semantic API name. The first argument is the backing field to aggregate. If that field is a dimension, hypequery uses the dimension mapping to resolve the ClickHouse column.
 
@@ -45,12 +45,46 @@ await analytics.execute(Orders, {
 - `measure.avg(field, opts?)`
 - `measure.min(field, opts?)`
 - `measure.max(field, opts?)`
+- `measure.percentile(field, level, opts?)`
+- `measure.median(field, opts?)`
+- `measure.argMax(field, by, opts?)`
+- `measure.argMin(field, by, opts?)`
+- `measure.stddev(field, opts?)`
+- `measure.variance(field, opts?)`
 
 The helper determines the aggregation. The field should be the semantic field name when it exists in `dimensions`, or the physical column name when you are aggregating a raw table column.
 
+`percentile` uses ClickHouse's approximate `quantile(level)` aggregation, where
+`level` is between `0` and `1`. `median` is shorthand for `percentile(field,
+0.5)`. `stddev` and `variance` use sample statistics (`stddevSamp` and
+`varSamp`).
+
+`argMax` and `argMin` return the value of `field` from the row where `by` is
+greatest or smallest. The `by` field can use a semantic dimension name, so
+column mappings are respected:
+
+<CodeBlock>
+```typescript
+measures: {
+  p95Latency: measure.percentile('latencyMs', 0.95),
+  medianLatency: measure.median('latencyMs'),
+  latestStatus: measure.argMax('status', 'createdAt'),
+  firstStatus: measure.argMin('status', 'createdAt'),
+  latencyStddev: measure.stddev('latencyMs'),
+  latencyVariance: measure.variance('latencyMs'),
+}
+```
+</CodeBlock>
+
+The percentile, standard deviation, and variance helpers support measure-local
+filters. Filters are intentionally not supported on `argMax` or `argMin`
+because NULL handling for conditional arg aggregates differs across ClickHouse
+versions. Use a query-level filter when filtering an arg aggregate.
+
 ## Options
 
-Every measure helper accepts the same options object:
+Most measure helpers accept the following options object. `argMax` and `argMin`
+accept `sql`, `label`, and `description`, but not `filters`.
 
 <CodeBlock>
 ```typescript

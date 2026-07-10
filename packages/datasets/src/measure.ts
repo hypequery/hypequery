@@ -20,7 +20,7 @@ export function validatePercentileLevel(level: number): void {
 
 function createArgMeasureHelper(aggregation: 'argMax' | 'argMin') {
   return (field: string, by: string, opts?: Omit<MeasureOptions, 'filters'>): MeasureDefinition => {
-    if (!by) {
+    if (typeof by !== 'string' || by.trim().length === 0) {
       throw new Error(`measure.${aggregation}("${field}", by) requires a "by" field.`);
     }
     return {
@@ -63,7 +63,8 @@ export const measure = {
     createPercentileMeasure(field, 0.5, opts),
   /**
    * Value of `field` on the row where `by` is greatest (ClickHouse `argMax`).
-   * The runtime value follows `field`'s type; static row typing stays `number`.
+   * The runtime value follows `field`'s type; aggregate result columns are
+   * exposed as strings to match the dataset result contract.
    * Measure filters are not supported on argMax/argMin.
    */
   argMax: createArgMeasureHelper('argMax'),

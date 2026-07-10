@@ -4,6 +4,7 @@ import type {
   DerivedMetricConfig,
 } from '../types.js';
 import { validateFilterValue } from '../validation.js';
+import { validatePercentileLevel } from '../measure.js';
 
 const NUMERIC_FIELD_TYPES = new Set(['number']);
 
@@ -19,6 +20,24 @@ export function validateBaseMetric(
   spec: AggregationSpec,
   options?: { allowHiddenField?: boolean },
 ): void {
+  if (spec.aggregation === 'argMax' || spec.aggregation === 'argMin') {
+    if (typeof spec.argField !== 'string' || spec.argField.trim().length === 0) {
+      throw new Error(
+        `Invalid metric "${metricName}": ${spec.aggregation}() requires a non-empty argField ("by" column).`,
+      );
+    }
+    if (spec.filters?.length) {
+      throw new Error(`Invalid metric "${metricName}": measure filters are not supported on ${spec.aggregation} aggregations.`);
+    }
+  }
+
+  if (spec.aggregation === 'percentile') {
+    if (spec.level == null) {
+      throw new Error(`Invalid metric "${metricName}": percentile() requires a level.`);
+    }
+    validatePercentileLevel(spec.level);
+  }
+
   const dimension = ds.dimensions[spec.field];
   if (!dimension && !options?.allowHiddenField) {
     throw new Error(

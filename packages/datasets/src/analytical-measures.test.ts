@@ -104,6 +104,11 @@ describe('analytical measure helpers', () => {
     expect(() => percentile('amount', 2)).toThrow('between 0 and 1');
   });
 
+  it('rejects empty argMax/argMin by-fields', () => {
+    expect(() => measure.argMax('status', ' ')).toThrow('requires a "by" field');
+    expect(() => argMaxAgg('status', '')).toThrow('requires a "by" field');
+  });
+
   it('captures the by-field on argMax/argMin', () => {
     expect(measure.argMax('status', 'createdAt')).toMatchObject({ aggregation: 'argMax', field: 'status', argField: 'createdAt' });
     expect(argMaxAgg('status', 'createdAt')).toMatchObject({ aggregation: 'argMax', argField: 'createdAt' });
@@ -144,27 +149,27 @@ describe('analytical measures on the in-memory backend', () => {
   it('computes percentile and median', async () => {
     const { data } = await client.execute(Orders, { measures: ['p95Amount', 'medianAmount'] });
     // amounts [10,20,30,40,50]: p95 = 40 + 0.8*(50-40) = 48; median = 30
-    expect(data).toEqual([{ p95Amount: 48, medianAmount: 30 }]);
+    expect(data).toEqual([{ p95Amount: '48', medianAmount: '30' }]);
   });
 
   it('computes argMax/argMin including non-numeric fields', async () => {
     const { data } = await client.execute(Orders, {
       measures: ['latestAmount', 'firstAmount', 'latestStatus'],
     });
-    expect(data).toEqual([{ latestAmount: 50, firstAmount: 10, latestStatus: 'cancelled' }]);
+    expect(data).toEqual([{ latestAmount: '50', firstAmount: '10', latestStatus: 'cancelled' }]);
   });
 
   it('computes sample stddev and variance', async () => {
     const { data } = await client.execute(Orders, { measures: ['amountStddev', 'amountVariance'] });
     // sample variance of [10..50] = 250; stddev = sqrt(250)
-    expect(data[0].amountVariance).toBeCloseTo(250, 6);
-    expect(data[0].amountStddev).toBeCloseTo(Math.sqrt(250), 6);
+    expect(Number(data[0].amountVariance)).toBeCloseTo(250, 6);
+    expect(Number(data[0].amountStddev)).toBeCloseTo(Math.sqrt(250), 6);
   });
 
   it('applies measure filters to percentile', async () => {
     const { data } = await client.execute(Orders, { measures: ['completedP95'] });
     // completed amounts [10,20,40]: p95 = 20 + 0.9*(40-20) = 38
-    expect(data[0].completedP95).toBeCloseTo(38, 6);
+    expect(Number(data[0].completedP95)).toBeCloseTo(38, 6);
   });
 
   it('groups analytical measures by dimension', async () => {
@@ -174,10 +179,31 @@ describe('analytical measures on the in-memory backend', () => {
       orderBy: [{ field: 'status', direction: 'asc' }],
     });
     expect(data).toEqual([
-      { status: 'cancelled', latestAmount: 50, medianAmount: 50 },
-      { status: 'completed', latestAmount: 40, medianAmount: 20 },
-      { status: 'pending', latestAmount: 30, medianAmount: 30 },
+      { status: 'cancelled', latestAmount: '50', medianAmount: '50' },
+      { status: 'completed', latestAmount: '40', medianAmount: '20' },
+      { status: 'pending', latestAmount: '30', medianAmount: '30' },
     ]);
+  });
+
+  it('skips null arg/value rows and returns null for an empty arg aggregate', async () => {
+    const edgeClient = createDatasetClient({
+      backend: createInMemoryBackend({
+        orders: [
+          { id: 1, status: 'first', amount: 10, created_at: '2024-01-01' },
+          { id: 2, status: null, amount: 20, created_at: '2024-01-02' },
+          { id: 3, status: null, amount: null, created_at: '2024-01-03' },
+        ],
+      }),
+    });
+
+    const { data } = await edgeClient.execute(Orders, {
+      measures: ['latestAmount', 'latestStatus'],
+    });
+    expect(data).toEqual([{ latestAmount: '20', latestStatus: 'first' }]);
+
+    const emptyClient = createDatasetClient({ backend: createInMemoryBackend({ orders: [] }) });
+    const empty = await emptyClient.execute(Orders, { measures: ['latestAmount'] });
+    expect(empty.data).toEqual([{ latestAmount: null }]);
   });
 });
 
