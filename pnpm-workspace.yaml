@@ -5,6 +5,7 @@ packages:
   - 'packages/schema'
   - 'packages/datasets'
   - 'packages/serve'
+  - 'packages/studio'
   - 'packages/mcp-server'
   - 'packages/protocol'
   - 'packages/tsconfig'
