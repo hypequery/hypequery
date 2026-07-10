@@ -88,10 +88,16 @@ const badDatasetMeasure: OrdersInput = { measures: ['nope'] };
 void badDatasetMeasure;
 
 // --- Dataset output rows are typed by dimension/measure -----------------------
+// Measure values are `string`: ClickHouse serializes aggregates (UInt64,
+// Decimal, ...) as strings over JSON, matching @hypequery/datasets.
 type OrdersRow = Api['dataset:orders']['output']['data'][number];
 const datasetRow: OrdersRow = {};
-const rowRevenue: number | undefined = datasetRow.revenue;
+const rowRevenue: string | undefined = datasetRow.revenue;
 void rowRevenue;
+
+// @ts-expect-error - measure values are strings, not numbers
+const rowRevenueAsNumber: number | undefined = datasetRow.revenue;
+void rowRevenueAsNumber;
 
 // @ts-expect-error - dimensions are projection-dependent and omitted by default
 void datasetRow.country;
@@ -142,8 +148,12 @@ void badMetricDim;
 // --- Metric output row carries dimensions + the metric value column -----------
 type MetricRowT = Api['totalRevenue']['output']['data'][number];
 const metricRow: MetricRowT = {};
-const metricValue: number | undefined = metricRow.totalRevenue;
+const metricValue: string | undefined = metricRow.totalRevenue;
 void metricValue;
+
+// @ts-expect-error - metric values are strings, not numbers
+const metricValueAsNumber: number | undefined = metricRow.totalRevenue;
+void metricValueAsNumber;
 
 // @ts-expect-error - dimensions are projection-dependent and omitted by default
 void metricRow.country;

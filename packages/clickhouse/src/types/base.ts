@@ -112,6 +112,12 @@ export interface HavingNode {
 
 export type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
 
+export interface JoinConditionInput {
+  column: string;
+  operator: FilterOperator;
+  value: unknown;
+}
+
 export interface JoinNode {
   kind: 'join';
   type: JoinType;
@@ -120,6 +126,7 @@ export interface JoinNode {
   leftSource?: string;
   rightColumn: string;
   alias?: string;
+  on?: ExprNode;
 }
 
 export interface OrderByItemNode {

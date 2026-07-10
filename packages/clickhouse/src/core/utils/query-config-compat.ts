@@ -46,6 +46,7 @@ export type LegacyQueryConfig<T> = {
     leftColumn: string;
     rightColumn: string;
     alias?: string;
+    on?: ExprNode;
   }>;
   parameters?: any[];
   ctes?: string[];
@@ -201,8 +202,10 @@ export function toLegacyQueryConfig<T, Schema>(
       leftColumn: join.leftColumn,
       rightColumn: join.rightColumn,
       alias: join.alias,
+      on: join.on,
     })),
     parameters: [
+      ...(queryNode.joins?.flatMap(join => collectExprParameters(join.on)) || []),
       ...collectExprParameters(queryNode.prewhere),
       ...collectExprParameters(queryNode.where),
       ...(queryNode.having?.flatMap(item => item.parameters?.map(unwrapValueNode) || []) || []),

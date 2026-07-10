@@ -7,7 +7,7 @@ type Api = {
       by?: 'month';
     };
     output: {
-      data: Array<{ revenue?: number }>;
+      data: Array<{ revenue?: string }>;
     };
     readonly __hypequerySemantic?: {
       kind: 'metric';
@@ -29,7 +29,7 @@ type Api = {
       by?: 'month';
     };
     output: {
-      data: Array<{ revenue?: number; orderCount?: number }>;
+      data: Array<{ revenue?: string; orderCount?: string }>;
     };
     readonly __hypequerySemantic?: {
       kind: 'dataset';
@@ -53,8 +53,13 @@ const datasetResult = hooks.useDataset('orders', {
   measures: ['revenue'] as const,
 });
 const datasetRow = datasetResult.data?.data[0];
-const datasetRevenue: number | undefined = datasetRow?.revenue;
+// Measure values are strings: ClickHouse serializes aggregates as strings over JSON.
+const datasetRevenue: string | undefined = datasetRow?.revenue;
 void datasetRevenue;
+
+// @ts-expect-error measure values are strings, not numbers
+const datasetRevenueAsNumber: number | undefined = datasetRow?.revenue;
+void datasetRevenueAsNumber;
 
 // @ts-expect-error unselected dimensions are not exposed
 void datasetRow?.status;
@@ -69,8 +74,8 @@ const groupedDatasetResult = hooks.useDataset('orders', {
 });
 const groupedDatasetRow = groupedDatasetResult.data?.data[0];
 const groupedCountry: string | undefined = groupedDatasetRow?.country;
-const groupedRevenue: number | undefined = groupedDatasetRow?.revenue;
-const groupedOrderCount: number | undefined = groupedDatasetRow?.orderCount;
+const groupedRevenue: string | undefined = groupedDatasetRow?.revenue;
+const groupedOrderCount: string | undefined = groupedDatasetRow?.orderCount;
 const groupedPeriod: string | undefined = groupedDatasetRow?.period;
 void groupedCountry;
 void groupedRevenue;
@@ -84,8 +89,12 @@ const metricResult = hooks.useMetric('revenue', {
   dimensions: ['country'] as const,
 });
 const metricRow = metricResult.data?.data[0];
-const metricRevenue: number | undefined = metricRow?.revenue;
+const metricRevenue: string | undefined = metricRow?.revenue;
 const metricCountry: string | undefined = metricRow?.country;
+
+// @ts-expect-error metric values are strings, not numbers
+const metricRevenueAsNumber: number | undefined = metricRow?.revenue;
+void metricRevenueAsNumber;
 void metricRevenue;
 void metricCountry;
 

@@ -9,6 +9,12 @@ import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
+<Callout type="info" title="hypequery now supports embedded ClickHouse with chDB">
+  You can run the exact same builder code on [chDB](https://github.com/chdb-io/chdb-node). ClickHouse embedded in your
+  node process by passing its adapter: `createQueryBuilder({ adapter: chdbAdapter({ session }) })`.
+  Read how to get started [here](/docs/chdb).
+</Callout>
+
 ## Choose your route
 
 This page has two paths:

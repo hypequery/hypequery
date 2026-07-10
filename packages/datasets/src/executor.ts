@@ -35,7 +35,7 @@ import type {
   SemanticBackend,
 } from './semantic-plan.js';
 
-import { validateSQLIdentifier } from './sql-utils.js';
+import { quoteSQLIdentifier, validateSQLIdentifier } from './sql-utils.js';
 import { SUPPORTED_TIME_GRAINS, isSupportedTimeGrain } from './constants.js';
 import { validateFilterValue, type ValidationResult } from './validation.js';
 import {
@@ -69,6 +69,21 @@ import {
   validateTenantRuntime,
 } from './utils/tenant-runtime.js';
 import { applyPagination, overfetchLimit } from './utils/pagination.js';
+import {
+  SemanticQueryCache,
+  type SemanticCacheOptions,
+} from './cache/semantic-query-cache.js';
+import {
+  buildDatasetQuerySignature,
+  buildMetricQuerySignature,
+} from './cache/query-signature.js';
+import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
+import { validateQualifiedFilter } from './utils/relationship-validation.js';
+import {
+  applyRelationshipJoins,
+  buildRelationshipBuilderContext,
+  qualifyBaseColumn,
+} from './utils/relationship-builder-plan.js';
 
 function validateQuery(
   metric: MetricHandle,
@@ -102,6 +117,13 @@ function validateQuery(
 
   // Validate dimensions
   for (const dim of query.dimensions ?? []) {
+    if (isQualifiedField(dim)) {
+      const resolution = resolveQualifiedField(ds, dim);
+      if (resolution?.error) {
+        errors.push(resolution.error);
+      }
+      continue;
+    }
     if (!dimensionNames.includes(dim)) {
       errors.push(`Unknown dimension "${dim}". Available: ${dimensionNames.join(', ')}`);
     }
@@ -109,6 +131,13 @@ function validateQuery(
 
   // Validate filters
   for (const filter of query.filters ?? []) {
+    if (isQualifiedField(filter.field)) {
+      const filterError = validateQualifiedFilter(ds, filter, context);
+      if (filterError) {
+        errors.push(filterError);
+      }
+      continue;
+    }
     if (!filterNames.includes(filter.field)) {
       errors.push(`Unknown filter field "${filter.field}". Available: ${filterNames.join(', ')}`);
       continue;
@@ -203,6 +232,14 @@ export interface CreateDatasetClientOptions {
   queryBuilder?: QueryBuilderFactoryInput;
   /** Semantic backend for executing neutral semantic plans. */
   backend?: SemanticBackend;
+  /**
+   * Result-cache defaults for this client. Results are keyed by the canonical
+   * query signature (target, dimensions, measures, filters, ordering,
+   * pagination, grain, and tenant scope). Individual calls can override or
+   * bypass via `ExecutionContext.cache`; per-call `{ cache: { ttlMs } }` works
+   * even when this option is omitted.
+   */
+  cache?: SemanticCacheOptions;
 }
 
 /** Resolves the per-call builder override, adapted to the call contract. */
@@ -421,11 +458,14 @@ export class MetricQueryEngine {
     context?: ExecutionContext,
   ): QueryBuilderLike {
     const activeBuilderFactory = resolveBuilderFactory(context, this.builderFactory);
+    const joinCtx = buildRelationshipBuilderContext(ds, query, context);
     let qb: QueryBuilderLike = activeBuilderFactory.table(ds.source);
+    qb = applyRelationshipJoins(qb, joinCtx);
     const { selectParts, groupByParts } = buildDimensionSelectionPlan(
       ds,
       query.dimensions ?? [],
       grain,
+      joinCtx,
     );
 
     if (selectParts.length > 0) {
@@ -433,7 +473,7 @@ export class MetricQueryEngine {
     }
 
     // Aggregation (appends to select, auto-sets groupBy on non-agg columns)
-    qb = applyAggregationSpec(qb, ds, spec, ref.name);
+    qb = applyAggregationSpec(qb, ds, spec, ref.name, joinCtx);
 
     // Explicit groupBy (ensures period + dims are grouped even if aggregation auto-groupBy misses them)
     if (groupByParts.length > 0) {
@@ -444,7 +484,7 @@ export class MetricQueryEngine {
     const tenantColumn = resolveTenantFilterColumn(ds, context);
     const tenantPredicate = getRuntimeTenantPredicate(context);
     if (tenantPredicate && tenantColumn) {
-      qb = qb.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
+      qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
     }
 
     // User filters
@@ -454,12 +494,12 @@ export class MetricQueryEngine {
           `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
         );
       }
-      const resolvedField = resolveFilterField(ds, filter.field);
+      const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
       qb = qb.where(resolvedField, filter.operator, filter.value);
     }
 
     // Order, limit, offset
-    qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset);
+    qb = appendOrderLimitOffset(qb, query.orderBy, grain, query.limit, query.offset, joinCtx);
 
     return qb;
   }
@@ -473,13 +513,16 @@ export class MetricQueryEngine {
   ): { sql: string; params: unknown[] } {
     const activeBuilderFactory = resolveBuilderFactory(context, this.builderFactory);
     const ds = ref.dataset;
+    const joinCtx = buildRelationshipBuilderContext(ds, query, context);
 
     // Build the CTE inner query using the builder
     let cteBuilder: QueryBuilderLike = activeBuilderFactory.table(ds.source);
+    cteBuilder = applyRelationshipJoins(cteBuilder, joinCtx);
     const { selectParts, groupByParts } = buildDimensionSelectionPlan(
       ds,
       query.dimensions ?? [],
       grain,
+      joinCtx,
     );
 
     if (selectParts.length > 0) {
@@ -494,7 +537,7 @@ export class MetricQueryEngine {
       if (baseSpec.__type !== 'aggregation_spec') {
         throw new Error(`Derived metric "${ref.name}" references non-base metric "${alias}".`);
       }
-      cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias);
+      cteBuilder = applyAggregationSpec(cteBuilder, ds, baseSpec, alias, joinCtx);
       refAliases[alias] = alias;
       aggregateAliases.push(alias);
     }
@@ -507,7 +550,7 @@ export class MetricQueryEngine {
     const tenantColumn = resolveTenantFilterColumn(ds, context);
     const tenantPredicate = getRuntimeTenantPredicate(context);
     if (tenantPredicate && tenantColumn) {
-      cteBuilder = cteBuilder.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
+      cteBuilder = cteBuilder.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
     }
     for (const filter of query.filters ?? []) {
       if (isTenantScopedFilter(ds, filter, context)) {
@@ -515,7 +558,7 @@ export class MetricQueryEngine {
           `Cannot filter on tenant field "${filter.field}" when runtime tenancy enforcement is active.`,
         );
       }
-      const resolvedField = resolveFilterField(ds, filter.field);
+      const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
       cteBuilder = cteBuilder.where(resolvedField, filter.operator, filter.value);
     }
 
@@ -530,6 +573,11 @@ export class MetricQueryEngine {
     const outerSelectParts: string[] = [];
     if (grain) outerSelectParts.push('period');
     for (const dim of query.dimensions ?? []) {
+      // Joined dimensions surface from the CTE under their quoted qualified alias.
+      if (joinCtx && isQualifiedField(dim)) {
+        outerSelectParts.push(quoteSQLIdentifier(dim));
+        continue;
+      }
       validateSQLIdentifier(dim, 'dimension name');
       outerSelectParts.push(dim);
     }
@@ -543,6 +591,9 @@ export class MetricQueryEngine {
     // ORDER BY
     if (query.orderBy && query.orderBy.length > 0) {
       const orderParts = query.orderBy.map(o => {
+        if (joinCtx && isQualifiedField(o.field)) {
+          return `${quoteSQLIdentifier(o.field)} ${o.direction.toUpperCase()}`;
+        }
         validateSQLIdentifier(o.field, 'order by field');
         return `${o.field} ${o.direction.toUpperCase()}`;
       });
@@ -568,6 +619,9 @@ export class MetricQueryEngine {
 
 export class DatasetClientImpl extends MetricQueryEngine implements DatasetClient {
   private backend?: SemanticBackend;
+  private readonly queryCache: SemanticQueryCache;
+  private readonly cacheEnabledByDefault: boolean;
+  private readonly defaultCacheScope?: string;
 
   constructor(options: CreateDatasetClientOptions) {
     if (!options.queryBuilder && !options.backend) {
@@ -584,6 +638,55 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       },
     });
     this.backend = options.backend;
+    this.queryCache = new SemanticQueryCache(options.cache);
+    this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
+    this.defaultCacheScope = options.cache?.scope;
+  }
+
+  /**
+   * True when this call can hit the cache — either the client has a default
+   * TTL or the call opts in via `context.cache`. Skips signature building for
+   * the common uncached path.
+   */
+  private isCacheable(context?: ExecutionContext): boolean {
+    if (context?.cache === false || context?.cache?.mode === 'bypass') {
+      return false;
+    }
+    const builderOverride = context?.runtime?.builderFactory;
+    if (
+      builderOverride &&
+      toQueryBuilderFactory(builderOverride) !== this.getBuilderFactory() &&
+      context.cache?.scope == null
+    ) {
+      // A per-call builder override can point at a different data source; the
+      // query signature alone cannot tell them apart, so caching is unsafe
+      // unless the caller partitions entries with an explicit `cache.scope`.
+      // Passing the client's own factory back in is not an override.
+      return false;
+    }
+    if (context?.cache?.mode === 'refresh') {
+      // Always reach the cache: it warns if refresh has no TTL to write under.
+      return true;
+    }
+    if (context?.cache?.ttlMs != null) {
+      return context.cache.ttlMs > 0;
+    }
+    return this.cacheEnabledByDefault;
+  }
+
+  /**
+   * Context used for cache-key building: fills in the client-level default
+   * `cache.scope` unless the call sets its own, so clients sharing a custom
+   * store can be namespaced apart.
+   */
+  private signatureContext(context?: ExecutionContext): ExecutionContext | undefined {
+    if (this.defaultCacheScope === undefined) {
+      return context;
+    }
+    if (context?.cache === false || context?.cache?.scope != null) {
+      return context;
+    }
+    return { ...context, cache: { ...context?.cache, scope: this.defaultCacheScope } };
   }
 
   planMetric(
@@ -687,17 +790,38 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: MetricQuery,
     context?: ExecutionContext,
   ): Promise<MetricResult<TRow>> {
-    if (this.backend) {
-      const validation = validateQuery(metric, query, context);
-      if (!validation.valid) {
-        throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+    const run = (): Promise<MetricResult<TRow>> => {
+      if (this.backend) {
+        const validation = validateQuery(metric, query, context);
+        if (!validation.valid) {
+          throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+        }
+        return this.backend.execute<TRow>(
+          this.planMetric(metric, query, context),
+        ) as Promise<MetricResult<TRow>>;
       }
-      return this.backend.execute<TRow>(
-        this.planMetric(metric, query, context),
-      ) as Promise<MetricResult<TRow>>;
+
+      return this.run<TRow>(metric, query, context);
+    };
+
+    if (!this.isCacheable(context)) {
+      return run();
     }
 
-    return this.run<TRow>(metric, query, context);
+    // Validate semantic rules before cache lookup so invalid queries and
+    // missing tenant runtime cannot be served from cache. Avoid this.validate()
+    // here because it dry-builds SQL, which is unnecessary on cache hits and
+    // invalid for backend-only clients.
+    const validation = validateQuery(metric, query, context);
+    if (!validation.valid) {
+      throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
+    }
+
+    return this.queryCache.through(
+      buildMetricQuerySignature(metric, query, this.signatureContext(context)),
+      run,
+      context?.cache,
+    );
   }
 
   private executeDataset<TRow>(
@@ -705,24 +829,32 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: DatasetQuery,
     context?: ExecutionContext,
   ): Promise<DatasetQueryResult<TRow>> {
-    if (this.backend) {
-      const validation = this.validate(ds, query, context);
-      if (!validation.valid) {
-        throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
-      }
-      return this.backend.execute<TRow>(
-        this.planDataset(ds, query, context),
-      ) as Promise<DatasetQueryResult<TRow>>;
-    }
-
     const validation = this.validate(ds, query, context);
     if (!validation.valid) {
       throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
     }
-    return runDatasetQuery(ds, query, {
-      builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
-      context,
-    }) as Promise<DatasetQueryResult<TRow>>;
+
+    const run = (): Promise<DatasetQueryResult<TRow>> => {
+      if (this.backend) {
+        return this.backend.execute<TRow>(
+          this.planDataset(ds, query, context),
+        ) as Promise<DatasetQueryResult<TRow>>;
+      }
+      return runDatasetQuery(ds, query, {
+        builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
+        context,
+      }) as Promise<DatasetQueryResult<TRow>>;
+    };
+
+    if (!this.isCacheable(context)) {
+      return run();
+    }
+
+    return this.queryCache.through(
+      buildDatasetQuerySignature(ds, query, this.signatureContext(context)),
+      run,
+      context?.cache,
+    );
   }
 
   private toDatasetSQL(

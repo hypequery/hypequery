@@ -203,6 +203,14 @@ export const createAPI = <
     router.register(registeredEndpoint);
   }
 
+  // Shared dataset client for all semantic endpoints, so metric and dataset
+  // entries share one result cache.
+  let sharedAnalytics: ReturnType<typeof createDatasetClient> | undefined;
+  const getAnalytics = (builderFactory: NonNullable<typeof resolvedQueryBuilder>) => {
+    sharedAnalytics ??= createDatasetClient({ queryBuilder: builderFactory });
+    return sharedAnalytics;
+  };
+
   // Process metrics — auto-generate POST endpoints
   if (config.metrics) {
     const metricsEntries = config.metrics;
@@ -216,7 +224,7 @@ export const createAPI = <
       );
     }
 
-    const analytics = createDatasetClient({ queryBuilder: builderFactory });
+    const analytics = getAnalytics(builderFactory);
 
     for (const [name, entry] of Object.entries(metricsEntries)) {
       assertSemanticKeyAvailable(queryEntries as Record<string, unknown>, name, "metric");
@@ -252,6 +260,7 @@ export const createAPI = <
       const datasetEndpoint = createDatasetEndpoint(
         name,
         entry,
+        getAnalytics(builderFactory),
         builderFactory,
       );
       const datasetsPath = config.semanticPaths?.datasets ?? '/datasets';

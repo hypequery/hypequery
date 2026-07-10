@@ -2060,3 +2060,142 @@ describe("Serve integration — metrics", () => {
     });
   });
 });
+
+// =============================================================================
+// SEMANTIC ENDPOINT RESULT CACHING
+// =============================================================================
+
+describe("semantic endpoint result caching", () => {
+  /**
+   * Counts actual executions (execute/rawQuery), not builder construction —
+   * validation also builds queries via table(), so table() counts would
+   * overstate executions.
+   */
+  function createExecutionCountingFactory() {
+    const inner = createMockBuilderFactory();
+    let executions = 0;
+
+    const factory: QueryBuilderFactoryLike = {
+      table: (name: string) => {
+        const builder = inner.table(name);
+        const originalExecute = builder.execute.bind(builder);
+        builder.execute = (async () => {
+          executions += 1;
+          return originalExecute();
+        }) as QueryBuilderLike['execute'];
+        return builder;
+      },
+      rawQuery: async (sql: string, params?: unknown[]) => {
+        executions += 1;
+        return inner.rawQuery(sql, params);
+      },
+    };
+
+    return { factory, getExecutions: () => executions };
+  }
+
+  it("serves repeated metric queries from the cache when the entry sets cache", async () => {
+    const { factory, getExecutions } = createExecutionCountingFactory();
+    const api = createAPI({
+      metrics: {
+        totalRevenue: { metric: totalRevenue, cache: 60_000 },
+      },
+      queryBuilder: factory,
+    });
+
+    const request = () => api.handler(
+      createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: { dimensions: ["country"], includeMeta: true },
+      })
+    );
+
+    const first = await request();
+    const second = await request();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(getExecutions()).toBe(1);
+    expect(semanticBody(second).data).toEqual(semanticBody(first).data);
+
+    const secondMeta = semanticBody(second).meta as { cache?: { hit: boolean } } | undefined;
+    expect(secondMeta?.cache).toMatchObject({ hit: true });
+  });
+
+  it("serves repeated dataset queries from the cache when the entry sets cache", async () => {
+    const { factory, getExecutions } = createExecutionCountingFactory();
+    const api = createAPI({
+      datasets: {
+        orders: { dataset: Orders, cache: 60_000 },
+      },
+      queryBuilder: factory,
+    });
+
+    const request = () => api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["country"], measures: ["revenue"], includeMeta: true },
+      })
+    );
+
+    const first = await request();
+    const second = await request();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(getExecutions()).toBe(1);
+
+    const secondMeta = semanticBody(second).meta as { cache?: { hit: boolean } } | undefined;
+    expect(secondMeta?.cache).toMatchObject({ hit: true });
+  });
+
+  it("does not cache when the entry has no cache setting", async () => {
+    const { factory, getExecutions } = createExecutionCountingFactory();
+    const api = createAPI({
+      datasets: { orders: Orders },
+      queryBuilder: factory,
+    });
+
+    const request = () => api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["country"], measures: ["revenue"] },
+      })
+    );
+
+    await request();
+    await request();
+
+    expect(getExecutions()).toBe(2);
+  });
+
+  it("different query bodies never share cache entries", async () => {
+    const { factory, getExecutions } = createExecutionCountingFactory();
+    const api = createAPI({
+      datasets: {
+        orders: { dataset: Orders, cache: 60_000 },
+      },
+      queryBuilder: factory,
+    });
+
+    await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["country"], measures: ["revenue"] },
+      })
+    );
+    await api.handler(
+      createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["status"], measures: ["revenue"] },
+      })
+    );
+
+    expect(getExecutions()).toBe(2);
+  });
+});

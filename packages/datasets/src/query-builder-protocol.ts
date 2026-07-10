@@ -24,6 +24,15 @@ export interface QueryBuilderLike {
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
 
+  // Joins (to-one relationship traversal)
+  leftJoin(
+    table: string,
+    leftColumn: string,
+    rightColumn: string,
+    alias?: string,
+    on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
+  ): QueryBuilderLike;
+
   // Grouping
   groupBy(columns: string | string[]): QueryBuilderLike;
 
@@ -35,6 +44,12 @@ export interface QueryBuilderLike {
   // Terminal operations
   toSQLWithParams(): { sql: string; parameters: unknown[] };
   execute<T = Record<string, unknown>>(): Promise<T[]>;
+}
+
+export interface QueryBuilderJoinCondition {
+  column: string;
+  operator: string;
+  value: unknown;
 }
 
 /** A query builder factory (what `createQueryBuilder(config)` returns). */

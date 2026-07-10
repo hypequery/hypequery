@@ -9,6 +9,7 @@ import type {
   SemanticBackendResult,
   SemanticExpression,
   SemanticGrainPlan,
+  SemanticJoinPlan,
 } from './semantic-plan.js';
 
 export type InMemoryTable = Array<Record<string, unknown>>;
@@ -65,6 +66,47 @@ function applyTenant(
     return rows.filter((row) => tenant.value.includes(String(row[tenant.field])));
   }
   return rows.filter((row) => row[tenant.field] === tenant.value);
+}
+
+/**
+ * Enriches base rows with columns from to-one joined targets, keyed by the
+ * qualified name `<relationship>.<column>`. Mirrors a query-time LEFT JOIN:
+ * base rows without a matching target keep the joined columns undefined.
+ */
+function applyJoins(
+  rows: InMemoryTable,
+  joins: SemanticJoinPlan[] | undefined,
+  tables: InMemoryTables,
+): InMemoryTable {
+  if (!joins || joins.length === 0) {
+    return rows;
+  }
+
+  const indexes = joins.map((join) => {
+    const targetRows = applyTenant(tables[join.source] ?? [], join.tenant);
+    const index = new Map<string, Record<string, unknown>>();
+    for (const row of targetRows) {
+      const key = String(row[join.to]);
+      // To-one: first matching target wins; a mis-declared to-many still won't fan out.
+      if (!index.has(key)) {
+        index.set(key, row);
+      }
+    }
+    return { join, index };
+  });
+
+  return rows.map((row) => {
+    const enriched: Record<string, unknown> = { ...row };
+    for (const { join, index } of indexes) {
+      const match = index.get(String(row[join.from]));
+      if (match) {
+        for (const [column, value] of Object.entries(match)) {
+          enriched[`${join.relationship}.${column}`] = value;
+        }
+      }
+    }
+    return enriched;
+  });
 }
 
 function periodForValue(value: unknown, grain: SemanticGrainPlan): string {
@@ -183,10 +225,36 @@ function applyOrderLimitOffset(rows: InMemoryTable, plan: Pick<PlanNode, 'orderB
   return result;
 }
 
+/**
+ * The measure/metric columns a plan emits. These carry aggregate values, which
+ * ClickHouse serializes as strings over JSON (UInt64, Decimal, ...); the row
+ * types in `types.ts` reflect that. We compute and order them numerically (as
+ * ClickHouse does in SQL) and only stringify at the output boundary, so this
+ * backend stays a faithful double of the real one.
+ */
+function measureColumns(plan: PlanNode): string[] {
+  return plan.kind === 'aggregate'
+    ? plan.aggregations.map((aggregation) => aggregation.name)
+    : plan.metrics.map((metric) => metric.name);
+}
+
+function serializeMeasures(rows: InMemoryTable, measures: string[]): InMemoryTable {
+  return rows.map((row) => {
+    const next = { ...row };
+    for (const name of measures) {
+      if (next[name] != null) {
+        next[name] = String(next[name]);
+      }
+    }
+    return next;
+  });
+}
+
 export function createInMemoryBackend(tables: InMemoryTables): SemanticBackend {
   function executeAggregate(plan: Extract<PlanNode, { kind: 'aggregate' }>): InMemoryTable {
     const table = tables[plan.source] ?? [];
-    const filteredRows = applyFilters(applyTenant(table, plan.tenant), plan.filters);
+    const joinedRows = applyJoins(table, plan.joins, tables);
+    const filteredRows = applyFilters(applyTenant(joinedRows, plan.tenant), plan.filters);
     const groups = new Map<string, InMemoryTable>();
 
     for (const row of filteredRows) {
@@ -217,31 +285,35 @@ export function createInMemoryBackend(tables: InMemoryTables): SemanticBackend {
     return applyOrderLimitOffset(output, plan);
   }
 
+  // Keeps measure values numeric so computation and ordering match ClickHouse's
+  // SQL semantics; the public `execute` stringifies them at the output boundary.
+  function executeNode(plan: PlanNode): InMemoryTable {
+    if (plan.kind === 'aggregate') {
+      return executeAggregate(plan);
+    }
+
+    const input = executeNode(plan.input);
+    const data = input.map((row) => {
+      const next: Record<string, unknown> = {};
+      if (plan.input.kind === 'aggregate') {
+        if (plan.input.grain) {
+          next[plan.input.grain.output] = row[plan.input.grain.output];
+        }
+        for (const dimension of plan.input.dimensions) {
+          next[dimension.name] = row[dimension.name];
+        }
+      }
+      for (const metric of plan.metrics) {
+        next[metric.name] = evaluateExpression(metric.expression, row);
+      }
+      return next;
+    });
+    return applyOrderLimitOffset(data, plan);
+  }
+
   async function execute<T = Record<string, unknown>>(plan: PlanNode): Promise<SemanticBackendResult<T>> {
     const start = Date.now();
-    let data: InMemoryTable;
-
-    if (plan.kind === 'aggregate') {
-      data = executeAggregate(plan);
-    } else {
-      const input = (await execute<Record<string, unknown>>(plan.input)).data;
-      data = input.map((row) => {
-        const next: Record<string, unknown> = {};
-        if (plan.input.kind === 'aggregate') {
-          if (plan.input.grain) {
-            next[plan.input.grain.output] = row[plan.input.grain.output];
-          }
-          for (const dimension of plan.input.dimensions) {
-            next[dimension.name] = row[dimension.name];
-          }
-        }
-        for (const metric of plan.metrics) {
-          next[metric.name] = evaluateExpression(metric.expression, row);
-        }
-        return next;
-      });
-      data = applyOrderLimitOffset(data, plan);
-    }
+    const data = serializeMeasures(executeNode(plan), measureColumns(plan));
 
     return {
       data: data as T[],

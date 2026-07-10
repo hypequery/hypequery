@@ -8,6 +8,7 @@ import {
   OperatorValueMap,
   OrderDirection,
   JoinType,
+  type JoinConditionInput,
   type SelectQueryNode,
 } from '../types/index.js';
 import { AnySchema, ColumnType } from '../types/schema.js';
@@ -961,14 +962,15 @@ export class QueryBuilder<
     table: TableName,
     leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias
+    alias?: Alias,
+    on?: JoinConditionInput | JoinConditionInput[],
   ): QueryBuilder<
     Schema,
     Alias extends string
     ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
     : WidenTables<State, TableName>
   > {
-    return this.applyJoin('LEFT', table, leftColumn, rightColumn, alias);
+    return this.applyJoin('LEFT', table, leftColumn, rightColumn, alias, on);
   }
 
   rightJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
@@ -1004,7 +1006,8 @@ export class QueryBuilder<
     table: TableName,
     leftColumn: keyof BaseRow<State>,
     rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
-    alias?: Alias
+    alias?: Alias,
+    on?: JoinConditionInput | JoinConditionInput[],
   ): QueryBuilder<
     Schema,
     Alias extends string
@@ -1022,7 +1025,7 @@ export class QueryBuilder<
 
     const nextState = this.withAliasesState<NextState>(nextAliases);
 
-    const nextConfig = this.joins.addJoin(type, table, String(leftColumn), rightColumn, alias);
+    const nextConfig = this.joins.addJoin(type, table, String(leftColumn), rightColumn, alias, undefined, on);
     return this.transition<NextState>(nextState, nextConfig);
   }
 

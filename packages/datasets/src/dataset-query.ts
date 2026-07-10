@@ -19,6 +19,11 @@ import {
   getRuntimeTenantPredicate,
 } from './utils/tenant-runtime.js';
 import { applyPagination, overfetchLimit } from './utils/pagination.js';
+import {
+  applyRelationshipJoins,
+  buildRelationshipBuilderContext,
+  qualifyBaseColumn,
+} from './utils/relationship-builder-plan.js';
 
 function toResultMeta(
   qb: QueryBuilderLike,
@@ -60,8 +65,11 @@ export function buildDatasetQueryBuilder(
     throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
   }
 
+  const joinCtx = buildRelationshipBuilderContext(ds, query, options.context);
+
   let qb = options.builderFactory.table(ds.source);
-  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by);
+  qb = applyRelationshipJoins(qb, joinCtx);
+  const { selectParts, groupByParts } = buildDimensionSelectionPlan(ds, query.dimensions ?? [], query.by, joinCtx);
   const measureNames = query.measures ?? Object.keys(ds.measures);
 
   if (selectParts.length > 0) {
@@ -69,7 +77,7 @@ export function buildDatasetQueryBuilder(
   }
 
   for (const measureName of measureNames) {
-    qb = applyMeasureDefinition(qb, ds, measureName, ds.measures[measureName]);
+    qb = applyMeasureDefinition(qb, ds, measureName, ds.measures[measureName], joinCtx);
   }
 
   if (groupByParts.length > 0) {
@@ -79,11 +87,11 @@ export function buildDatasetQueryBuilder(
   const tenantColumn = resolveTenantFilterColumn(ds, options.context);
   const tenantPredicate = getRuntimeTenantPredicate(options.context);
   if (tenantPredicate && tenantColumn) {
-    qb = qb.where(tenantColumn, tenantPredicate.operator, tenantPredicate.value);
+    qb = qb.where(qualifyBaseColumn(joinCtx, tenantColumn), tenantPredicate.operator, tenantPredicate.value);
   }
 
   for (const filter of query.filters ?? []) {
-    const resolvedField = resolveFilterField(ds, filter.field);
+    const resolvedField = resolveFilterField(ds, filter.field, joinCtx);
     qb = qb.where(resolvedField, filter.operator, filter.value);
   }
 
@@ -93,6 +101,7 @@ export function buildDatasetQueryBuilder(
     query.by,
     options.executionLimit ?? query.limit,
     query.offset,
+    joinCtx,
   );
 }
 

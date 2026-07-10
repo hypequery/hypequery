@@ -1057,8 +1057,8 @@ describe("MetricQueryEngine", () => {
       });
 
       expect(result.data).toEqual([
-        { country: "DE", revenue: 75 },
-        { country: "US", revenue: 100 },
+        { country: "DE", revenue: "75" },
+        { country: "US", revenue: "100" },
       ]);
     });
 
@@ -1085,8 +1085,8 @@ describe("MetricQueryEngine", () => {
       });
 
       expect(result.data).toEqual([
-        { country: "DE", avgOrderValue: 75 },
-        { country: "US", avgOrderValue: 100 },
+        { country: "DE", avgOrderValue: "75" },
+        { country: "US", avgOrderValue: "100" },
       ]);
 
       const datasetResult = await analytics.execute(Orders, {
@@ -1101,8 +1101,8 @@ describe("MetricQueryEngine", () => {
       });
 
       expect(datasetResult.data).toEqual([
-        { country: "US", revenue: 100, orderCount: 1 },
-        { country: "DE", revenue: 75, orderCount: 1 },
+        { country: "US", revenue: "100", orderCount: "1" },
+        { country: "DE", revenue: "75", orderCount: "1" },
       ]);
     });
 

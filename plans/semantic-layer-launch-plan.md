@@ -430,10 +430,15 @@ describe('ClickHouse edge-case type handling', () => {
 **Timeline:** 5-7 days, ship 2-3 weeks after launch
 **Goal:** Retention signals, production readiness, "is this serious" features
 
-#### 2.1 Semantic Query-Keyed Caching
+#### 2.1 Semantic Query-Keyed Caching [✅ COMPLETE 2026-07-03]
 **Why:** "First production objection is 'every query hits ClickHouse'"
 **Effort:** 2-3 days
-**Current State:** Endpoint-level caching exists but too coarse-grained
+**Shipped:** `createDatasetClient({ cache })` — query-signature-keyed result cache
+(`packages/datasets/src/cache/`) with TTL + stale-while-revalidate, pluggable
+store (in-memory LRU default), per-call overrides via `ExecutionContext.cache`,
+tenant-partitioned keys, and `meta.cache` observability. Serve per-entry
+`cache` values now cache server-side through the shared DatasetClient.
+**Current State (pre-implementation):** Endpoint-level caching existed but was header-only
 
 **Implementation:**
 - Generate cache keys from semantic query structure (not HTTP params)
