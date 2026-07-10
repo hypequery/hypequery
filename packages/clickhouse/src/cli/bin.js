@@ -21,6 +21,24 @@ const colors = {
   cyan: '\x1b[36m'
 };
 
+// Returns enough endpoint information for diagnostics without exposing URL
+// userinfo, query parameters, or fragments that may contain credentials.
+// Keep in sync with packages/cli/src/utils/redact-connection-url.ts.
+function redactConnectionUrl(value) {
+  if (!value) return 'not set';
+
+  const trimmed = value.trim();
+  const hasScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
+
+  try {
+    const url = new URL(hasScheme ? trimmed : `http://${trimmed}`);
+    const pathname = url.pathname === '/' ? '' : url.pathname;
+    return `${hasScheme ? `${url.protocol}//` : ''}${url.host}${pathname}`;
+  } catch {
+    return '[configured connection URL]';
+  }
+}
+
 /**
  * Display a colorful banner with the tool name
  */
@@ -206,7 +224,7 @@ async function main() {
       process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE ||
       'default';
 
-    console.log(`${colors.dim}Connecting to ClickHouse at ${colors.reset}${colors.bright}${host}${colors.reset}`);
+    console.log(`${colors.dim}Connecting to ClickHouse at ${colors.reset}${colors.bright}${redactConnectionUrl(host)}${colors.reset}`);
     console.log(`${colors.dim}Database: ${colors.reset}${colors.bright}${database}${colors.reset}`);
 
     // Configure connection
