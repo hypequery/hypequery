@@ -19,11 +19,14 @@
 
 import type { RelationshipDefinition, RelationshipKind } from './types.js';
 
-function createRelationship(
-  kind: RelationshipKind,
-  target: () => { __type: 'dataset'; name: string },
+function createRelationship<
+  TTarget extends { __type: 'dataset'; name: string },
+  TKind extends RelationshipKind,
+>(
+  kind: TKind,
+  target: () => TTarget,
   join: { from: string; to: string },
-): RelationshipDefinition {
+): RelationshipDefinition<TTarget, TKind> {
   return {
     __type: 'relationship',
     kind,
@@ -34,25 +37,25 @@ function createRelationship(
 }
 
 /** Many-to-one relationship (FK on this table). */
-export function belongsTo(
-  target: () => { __type: 'dataset'; name: string },
+export function belongsTo<TTarget extends { __type: 'dataset'; name: string }>(
+  target: () => TTarget,
   join: { from: string; to: string },
-): RelationshipDefinition {
+): RelationshipDefinition<TTarget, 'belongsTo'> {
   return createRelationship('belongsTo', target, join);
 }
 
 /** One-to-many relationship (FK on target table). */
-export function hasMany(
-  target: () => { __type: 'dataset'; name: string },
+export function hasMany<TTarget extends { __type: 'dataset'; name: string }>(
+  target: () => TTarget,
   join: { from: string; to: string },
-): RelationshipDefinition {
+): RelationshipDefinition<TTarget, 'hasMany'> {
   return createRelationship('hasMany', target, join);
 }
 
 /** One-to-one relationship (FK on target table). */
-export function hasOne(
-  target: () => { __type: 'dataset'; name: string },
+export function hasOne<TTarget extends { __type: 'dataset'; name: string }>(
+  target: () => TTarget,
   join: { from: string; to: string },
-): RelationshipDefinition {
+): RelationshipDefinition<TTarget, 'hasOne'> {
   return createRelationship('hasOne', target, join);
 }

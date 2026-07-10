@@ -32,7 +32,8 @@ export {
 export { createDatasetRegistry } from './registry.js';
 
 // Catalog
-export { getDatasetCatalog, getDatasetCatalogs } from './catalog.js';
+export { getDatasetCatalog, getDatasetCatalogs, getQueryableRelationshipFields } from './catalog.js';
+export { listQueryableRelationshipFields } from './utils/relationship-fields.js';
 export type {
   DatasetCatalog,
   DatasetCatalogMap,
@@ -97,6 +98,9 @@ export {
   buildDatasetQuerySignature,
   buildMetricQuerySignature,
 } from './cache/query-signature.js';
+// Plan/backend protocol — FROZEN. Deprecated in favor of the query-builder
+// path (`createDatasetClient({ queryBuilder })`); bug fixes only, no new
+// features. See the deprecation notes on each declaration.
 export { createInMemoryBackend } from './in-memory-backend.js';
 export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';
 export type {
@@ -172,6 +176,7 @@ export type {
   DatasetRegistryInstance,
   DatasetFieldNames,
   DatasetDimensionNames,
+  DatasetQueryableDimensions,
   DatasetMeasureNames,
   DatasetOrderableNames,
   DatasetQueryFor,

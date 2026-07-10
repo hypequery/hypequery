@@ -14,6 +14,7 @@
 import { z } from 'zod';
 import {
   getDatasetCatalog,
+  getQueryableRelationshipFields,
   SEMANTIC_FILTER_OPERATORS,
   type AnyDatasetInstance,
   type DatasetCatalog,
@@ -31,8 +32,7 @@ function grainEnum(catalog: DatasetCatalog): z.ZodTypeAny {
   return fieldEnum(catalog.supportedGrains);
 }
 
-function filterSchema(catalog: DatasetCatalog) {
-  const fieldNames = Object.keys(catalog.filters);
+function filterSchema(fieldNames: string[]) {
   return z.object({
     field: fieldEnum(fieldNames),
     operator: z.enum(SEMANTIC_FILTER_OPERATORS),
@@ -59,13 +59,22 @@ function boundedArray(item: z.ZodTypeAny, max?: number) {
  */
 export function buildDatasetInputSchema(ds: AnyDatasetInstance) {
   const catalog = getDatasetCatalog(ds);
-  const dimensionNames = Object.keys(catalog.dimensions);
+  const dimensionNames = [
+    ...Object.keys(catalog.dimensions),
+    ...getQueryableRelationshipFields(catalog),
+  ];
   const measureNames = Object.keys(catalog.measures);
+  // Dataset runtime (`validateDatasetQueryInput`) rejects any non-relationship
+  // field not in `catalog.filters`, so mirror that exactly (no dimension fallback).
+  const filterFieldNames = [
+    ...Object.keys(catalog.filters),
+    ...getQueryableRelationshipFields(catalog),
+  ];
 
   return z.object({
     dimensions: boundedArray(fieldEnum(dimensionNames), ds.limits?.maxDimensions),
     measures: boundedArray(fieldEnum(measureNames), ds.limits?.maxMeasures),
-    filters: boundedArray(filterSchema(catalog), ds.limits?.maxFilters),
+    filters: boundedArray(filterSchema(filterFieldNames), ds.limits?.maxFilters),
     orderBy: z.array(orderBySchema(catalog.orderableFields)).optional(),
     limit: z.number().int().positive().optional(),
     offset: z.number().int().nonnegative().optional(),
@@ -81,16 +90,27 @@ export function buildDatasetInputSchema(ds: AnyDatasetInstance) {
  */
 export function buildMetricInputSchema(ds: AnyDatasetInstance, metricName: string) {
   const catalog = getDatasetCatalog(ds);
-  const dimensionNames = Object.keys(catalog.dimensions);
+  const dimensionNames = [
+    ...Object.keys(catalog.dimensions),
+    ...getQueryableRelationshipFields(catalog),
+  ];
   const orderableNames = [
     ...dimensionNames,
     metricName,
     ...(catalog.timeKey ? ['period'] : []),
   ];
+  // Metric runtime (`validateQuery`) falls back to all dimensions as valid
+  // filter fields when the dataset declares no filters — mirror that fallback so
+  // the schema never rejects a local-dimension filter the runtime would accept.
+  const declaredFilters = Object.keys(catalog.filters);
+  const filterFieldNames = [
+    ...(declaredFilters.length > 0 ? declaredFilters : Object.keys(catalog.dimensions)),
+    ...getQueryableRelationshipFields(catalog),
+  ];
 
   return z.object({
     dimensions: boundedArray(fieldEnum(dimensionNames), ds.limits?.maxDimensions),
-    filters: boundedArray(filterSchema(catalog), ds.limits?.maxFilters),
+    filters: boundedArray(filterSchema(filterFieldNames), ds.limits?.maxFilters),
     orderBy: z.array(orderBySchema(orderableNames)).optional(),
     limit: z.number().int().positive().optional(),
     offset: z.number().int().nonnegative().optional(),

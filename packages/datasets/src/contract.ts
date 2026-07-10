@@ -17,7 +17,7 @@ import { sortedRecord, uniqueSorted } from './utils/canonical-json.js';
  * Version of the semantic contract format. Bump when the serialized shape
  * changes in a way that snapshot consumers must account for.
  */
-export const SEMANTIC_CONTRACT_VERSION = 1;
+export const SEMANTIC_CONTRACT_VERSION = 2;
 
 export interface ContractDimension {
   type: DimensionCatalogEntry['type'];
@@ -63,6 +63,8 @@ export interface ContractRelationship {
   target: string;
   from: string;
   to: string;
+  queryable: boolean;
+  fields: string[];
 }
 
 export interface ContractDataset {
@@ -222,6 +224,8 @@ function relationshipToContract(entry: RelationshipCatalogEntry): ContractRelati
     target: entry.target,
     from: entry.from,
     to: entry.to,
+    queryable: entry.queryable,
+    fields: uniqueSorted(entry.fields),
   };
 }
 

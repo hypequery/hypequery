@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { dataset, dimension, measure } from '@hypequery/datasets';
+import { belongsTo, dataset, dimension, measure } from '@hypequery/datasets';
 import { getDatasetSchemaTool } from './introspect.js';
 
 describe('getDatasetSchemaTool', () => {
@@ -208,6 +208,72 @@ describe('getDatasetSchemaTool', () => {
       aggregation: 'revenue',
       label: 'Total Revenue',
       format: null,
+    });
+  });
+
+  it('advertises queryable relationship fields for real dataset instances', async () => {
+    const Customers = dataset('customers', {
+      source: 'customers',
+      dimensions: {
+        id: dimension.string(),
+        country: dimension.string(),
+      },
+    });
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { id: dimension.string() },
+      relationships: {
+        customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+
+    const result = await getDatasetSchemaTool({ orders: Orders }, { dataset: 'orders' });
+    const schema = JSON.parse(result.content[0].text);
+
+    expect(schema.relationships.customer).toMatchObject({
+      queryable: true,
+      fields: ['customer.id', 'customer.country'],
+    });
+  });
+
+  it('derives queryable relationship metadata for config-shaped datasets', async () => {
+    const datasets = {
+      orders: {
+        dimensions: { id: { fieldType: 'string' } },
+        relationships: {
+          customer: {
+            kind: 'belongsTo',
+            target: () => ({
+              name: 'customers',
+              dimensions: {
+                id: { fieldType: 'string' },
+                country: { fieldType: 'string' },
+                computed: { fieldType: 'string', sql: 'upper(country)' },
+              },
+            }),
+            from: 'customer_id',
+            to: 'id',
+          },
+          items: {
+            kind: 'hasMany',
+            target: () => ({ name: 'line_items', dimensions: { sku: { fieldType: 'string' } } }),
+            from: 'id',
+            to: 'order_id',
+          },
+        },
+      },
+    };
+
+    const result = await getDatasetSchemaTool(datasets as any, { dataset: 'orders' });
+    const schema = JSON.parse(result.content[0].text);
+
+    expect(schema.relationships.customer).toMatchObject({
+      queryable: true,
+      fields: ['customer.id', 'customer.country'],
+    });
+    expect(schema.relationships.items).toMatchObject({
+      queryable: false,
+      fields: [],
     });
   });
 

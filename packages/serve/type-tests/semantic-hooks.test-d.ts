@@ -7,7 +7,14 @@
 
 import { createAPI } from '../src/server/create-api.js';
 import type { InferAPIType, InferApiType } from '../src/types.js';
-import { dataset, dimension, measure } from '@hypequery/datasets';
+import { belongsTo, dataset, dimension, measure } from '@hypequery/datasets';
+
+const Customers = dataset('customers', {
+  source: 'customers',
+  dimensions: {
+    country: dimension.string(),
+  },
+});
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -20,6 +27,9 @@ const Orders = dataset('orders', {
   measures: {
     revenue: measure.sum('amount'),
     orderCount: measure.count('country'),
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
   },
 });
 
@@ -72,12 +82,18 @@ void ordersMisclassified;
 type OrdersInput = Api['dataset:orders']['input'];
 
 const okDatasetInput: OrdersInput = {
-  dimensions: ['country', 'status', 'amount'],
+  dimensions: ['country', 'status', 'amount', 'customer.country'],
   measures: ['revenue', 'orderCount'],
   orderBy: [{ field: 'revenue', direction: 'desc' }],
   by: 'month',
 };
 void okDatasetInput;
+
+const okRelationshipOrder: OrdersInput = {
+  dimensions: ['customer.country'],
+  orderBy: [{ field: 'customer.country', direction: 'asc' }],
+};
+void okRelationshipOrder;
 
 // @ts-expect-error - unknown dimension name
 const badDatasetDim: OrdersInput = { dimensions: ['nope'] };

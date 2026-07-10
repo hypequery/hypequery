@@ -117,6 +117,8 @@ describe('semantic contract — shape', () => {
       target: 'customers',
       from: 'customerId',
       to: 'id',
+      queryable: true,
+      fields: ['customer.country', 'customer.id'],
     });
   });
 

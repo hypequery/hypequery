@@ -1,10 +1,13 @@
 import {
   createDatasetClient,
+  belongsTo,
   dataset,
   dimension,
+  hasMany,
   measure,
   type AnyDatasetInstance,
   type DatasetQueryFor,
+  type DatasetDimensionNames,
   type DatasetRow,
   type MetricRow,
 } from '../src/index.js';
@@ -15,6 +18,22 @@ type Equal<A, B> =
   (<T>() => T extends B ? 1 : 2)
     ? true
     : false;
+
+const Customers = dataset('customers', {
+  source: 'customers',
+  dimensions: {
+    country: dimension.string(),
+    tier: dimension.string(),
+    computed: dimension.string({ sql: 'upper(country)' }),
+  },
+});
+
+const Items = dataset('items', {
+  source: 'items',
+  dimensions: {
+    sku: dimension.string(),
+  },
+});
 
 const Orders = dataset('orders', {
   source: 'orders',
@@ -31,6 +50,10 @@ const Orders = dataset('orders', {
     averageOrderValue: measure.avg('amount'),
     smallestOrder: measure.min('amount'),
     largestOrder: measure.max('amount'),
+  },
+  relationships: {
+    customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+    items: hasMany(() => Items, { from: 'id', to: 'order_id' }),
   },
 });
 
@@ -67,6 +90,24 @@ async function assertDatasetProjection() {
   void row.orderCount;
   // @ts-expect-error period is only exposed for grained queries
   void row.period;
+}
+
+async function assertRelationshipProjection() {
+  const result = await analytics.execute(Orders, {
+    dimensions: ['customer.country'] as const,
+    measures: ['revenue'] as const,
+    orderBy: [{ field: 'customer.country', direction: 'asc' }] as const,
+  });
+  const row = result.data[0]!;
+
+  type _CustomerCountry = Assert<Equal<typeof row['customer.country'], string | undefined>>;
+
+  type _HasManyExcluded = Assert<
+    Equal<Extract<DatasetDimensionNames<typeof Orders>, 'items.sku'>, never>
+  >;
+  type _SqlDimensionExcluded = Assert<
+    Equal<Extract<DatasetDimensionNames<typeof Orders>, 'customer.computed'>, never>
+  >;
 }
 
 async function assertEveryAggregationEmitsString() {
@@ -160,6 +201,7 @@ function assertBroadRowTypes() {
 }
 
 void assertDatasetProjection;
+void assertRelationshipProjection;
 void assertEveryAggregationEmitsString;
 void assertMeasuresOnlyProjection;
 void assertOmittedMeasuresExposeAllMeasures;

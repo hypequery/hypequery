@@ -45,7 +45,22 @@ export function normalizeMeasures<TMeasures extends Record<string, MeasureDefini
 
 export function normalizeRelationships<TRelationships extends Record<string, RelationshipDefinition>>(
   relationships: TRelationships | undefined,
+  source: string,
 ): TRelationships {
+  for (const name of Object.keys(relationships ?? {})) {
+    if (name === source) {
+      throw new Error(
+        `Invalid relationship "${name}": the name matches the dataset source table, so the join ` +
+        'alias would shadow the base table and produce ambiguous SQL. Rename the relationship.',
+      );
+    }
+    if (name.includes('.')) {
+      throw new Error(
+        `Invalid relationship "${name}": relationship names cannot contain "." because qualified ` +
+        'fields are addressed as "<relationship>.<dimension>".',
+      );
+    }
+  }
   return (relationships ?? {}) as TRelationships;
 }
 

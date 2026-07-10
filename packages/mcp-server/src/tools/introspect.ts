@@ -5,7 +5,7 @@
  * named metrics, filters, and relationships.
  */
 
-import { getDatasetCatalog } from '@hypequery/datasets';
+import { getDatasetCatalog, listQueryableRelationshipFields } from '@hypequery/datasets';
 import type {
   DatasetRegistry,
   GetDatasetSchemaArgs,
@@ -116,7 +116,8 @@ export async function getDatasetSchemaTool(
         target: relationship.target,
         from: relationship.from,
         to: relationship.to,
-        execution: relationship.execution,
+        queryable: relationship.queryable,
+        fields: relationship.fields,
         description: '',
       };
       schema.relationships[name] = relSchema;
@@ -167,12 +168,19 @@ export async function getDatasetSchemaTool(
     if (datasetAny.relationships) {
       for (const [name, relationship] of Object.entries(datasetAny.relationships)) {
         const rel = relationship as any;
+        // Raw config relationships don't carry the catalog's computed
+        // queryable/fields metadata; derive it when the shape allows.
+        const kind = rel.type || rel.kind;
+        const hasResolvableTarget = typeof rel.target === 'function';
         const relSchema: RelationshipSchema = {
-          type: rel.type || rel.kind || 'unknown',
-          target: typeof rel.target === 'function' ? rel.target()?.name || '' : rel.target || rel.dataset?.name || '',
+          type: kind || 'unknown',
+          target: hasResolvableTarget ? rel.target()?.name || '' : rel.target || rel.dataset?.name || '',
           from: rel.from,
           to: rel.to,
-          execution: rel.execution,
+          queryable: rel.queryable ?? (kind ? kind !== 'hasMany' : undefined),
+          fields: rel.fields ?? (kind && hasResolvableTarget
+            ? listQueryableRelationshipFields(name, { ...rel, kind })
+            : kind && kind !== 'hasMany' ? [] : undefined),
           description: rel.description || '',
         };
         schema.relationships[name] = relSchema;

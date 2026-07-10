@@ -1947,7 +1947,7 @@ describe("Serve integration — metrics", () => {
         contentHash: string;
         datasets: Record<string, { source: string; dimensions: Record<string, unknown> }>;
       };
-      expect(body.version).toBe(1);
+      expect(body.version).toBe(2);
       expect(body.contentHash).toMatch(/^[a-f0-9]{64}$/);
       expect(body.datasets.orders.source).toBe("orders");
       expect(Object.keys(body.datasets.orders.dimensions)).toContain("country");

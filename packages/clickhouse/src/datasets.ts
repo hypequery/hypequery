@@ -25,16 +25,10 @@
  * const analytics = createDatasetClient({ queryBuilder: db });
  * ```
  *
- * Advanced: `createBackend` exposes the database-agnostic SemanticBackend
- * protocol directly. Reach for it when you want a standalone backend instance
- * rather than sharing a query builder.
- * ```ts
- * import { createBackend } from '@hypequery/clickhouse/datasets';
- *
- * const analytics = createDatasetClient({
- *   backend: createBackend({ url, username, password, database }),
- * });
- * ```
+ * Deprecated: `createBackend` exposes the database-agnostic SemanticBackend
+ * protocol directly. That plan/backend path is FROZEN — it receives bug fixes
+ * only, and new semantic features are not guaranteed to be mirrored there.
+ * Use the query-builder path above instead.
  */
 
 import {
@@ -48,6 +42,7 @@ import { createQueryBuilder } from './core/query-builder.js';
 import type { CreateQueryBuilderConfig } from './core/query-builder.js';
 import type { SchemaDefinition } from './core/types/builder-state.js';
 
+/** @deprecated The plan/backend path is frozen; use `createQueryBuilder` with `createDatasetClient({ queryBuilder })`. */
 export type CreateBackendConfig = CreateQueryBuilderConfig;
 
 // =============================================================================
@@ -70,8 +65,9 @@ function renderLiteral(value: string | number | boolean | null): string {
   if (value === null) return 'NULL';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? '1' : '0';
-  // SQL string escaping: single quotes are escaped by doubling them
-  return `'${String(value).replace(/'/g, "''")}'`;
+  // SQL string escaping: backslashes first (ClickHouse treats `\` as an escape
+  // inside string literals), then single quotes doubled.
+  return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
 }
 
 /**
@@ -357,10 +353,12 @@ function buildAggregateQuery(queryBuilder: any, plan: Extract<PlanNode, { kind: 
   const qualify = makeColumnQualifier(plan);
   const hasJoins = (plan.joins?.length ?? 0) > 0;
 
-  // Relationship LEFT JOINs (to-one). Base rows survive; joined columns are
+  // Relationship LEFT ANY JOINs (to-one). Base rows survive and at most one
+  // target row matches, so duplicate join keys can never fan out aggregates —
+  // matching the in-memory backend's first-match semantics. Joined columns are
   // addressable as `<relationship>.<column>`.
   for (const join of plan.joins ?? []) {
-    qb = qb.leftJoin(
+    qb = qb.leftAnyJoin(
       join.source,
       `${plan.source}.${join.from}`,
       `${join.source}.${join.to}`,
@@ -490,6 +488,10 @@ function buildDerivedSQL(queryBuilder: any, plan: Extract<PlanNode, { kind: 'der
  *
  * Creates a SemanticBackend implementation that translates database-agnostic
  * semantic plans into ClickHouse SQL and executes them.
+ *
+ * @deprecated The plan/backend execution path is frozen (bug fixes only) and
+ * will not gain new features. Share a query builder instead:
+ * `createDatasetClient({ queryBuilder: createQueryBuilder(config) })`.
  *
  * @param config - ClickHouse connection configuration
  * @returns SemanticBackend interface for executing semantic queries

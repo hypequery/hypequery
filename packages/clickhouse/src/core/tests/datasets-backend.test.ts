@@ -938,7 +938,7 @@ const TenantOrdersWithCustomer = dataset('tenantOrdersWithCustomer', {
 });
 
 describe('ClickHouse Backend - Relationship Joins', () => {
-  it('emits a LEFT JOIN with qualified base columns and quoted joined aliases', async () => {
+  it('emits a LEFT ANY JOIN with qualified base columns and quoted joined aliases', async () => {
     const { backend, queries } = createTestBackend([]);
     const analytics = createDatasetClient({ backend });
 
@@ -948,7 +948,7 @@ describe('ClickHouse Backend - Relationship Joins', () => {
     });
 
     const sql = queries[0];
-    expect(sql).toContain('LEFT JOIN customers AS customer ON orders.customer_id = customer.id');
+    expect(sql).toContain('LEFT ANY JOIN customers AS customer ON orders.customer_id = customer.id');
     expect(sql).toContain('orders.status AS status');
     expect(sql).toContain('customer.country_code AS `customer.country`');
     expect(sql).toContain('SUM(orders.amount) AS revenue');
@@ -965,7 +965,7 @@ describe('ClickHouse Backend - Relationship Joins', () => {
       filters: [eq('customer.tier', 'enterprise')],
     });
 
-    expect(queries[0]).toContain('LEFT JOIN customers AS customer');
+    expect(queries[0]).toContain('LEFT ANY JOIN customers AS customer');
     expect(queries[0]).toContain('customer.tier = ?');
   });
 
@@ -1033,7 +1033,7 @@ describe('ClickHouse Backend - Relationship Joins', () => {
 
     const sql = queries[0];
     expect(sql).toContain(
-      'LEFT JOIN customers AS customer ON orders.customer_id = customer.id AND customer.tenant_id = ?',
+      'LEFT ANY JOIN customers AS customer ON orders.customer_id = customer.id AND customer.tenant_id = ?',
     );
     expect(sql).toContain('orders.tenant_id = ?');
     expect(sql).not.toContain('WHERE customer.tenant_id = ?');
@@ -1054,7 +1054,7 @@ describe('ClickHouse Backend - Relationship Joins', () => {
     });
 
     const sql = queries[0];
-    expect(sql).toContain('LEFT JOIN customers AS customer');
+    expect(sql).toContain('LEFT ANY JOIN customers AS customer');
     expect(sql).toContain('customer.country_code AS `customer.country`');
     // Outer CTE query references the joined column by its quoted alias.
     expect(sql).toMatch(/SELECT `customer\.country`, .* AS avgOrderValue FROM base/);

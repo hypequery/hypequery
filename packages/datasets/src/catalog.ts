@@ -9,6 +9,7 @@ import type {
   TimeGrain,
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
+import { listQueryableRelationshipFields } from './utils/relationship-fields.js';
 
 export interface DimensionCatalogEntry {
   type: DimensionDefinition['fieldType'];
@@ -56,7 +57,8 @@ export interface RelationshipCatalogEntry {
   target: string;
   from: string;
   to: string;
-  execution: 'metadata_only';
+  queryable: boolean;
+  fields: string[];
 }
 
 export interface DatasetCatalog {
@@ -134,14 +136,25 @@ function metricToCatalog(metric: MetricHandle): MetricCatalogEntry {
   };
 }
 
-function relationshipToCatalog(relationship: RelationshipDefinition): RelationshipCatalogEntry {
+function relationshipToCatalog(
+  name: string,
+  relationship: RelationshipDefinition,
+): RelationshipCatalogEntry {
   return {
     kind: relationship.kind,
     target: relationship.target().name,
     from: relationship.from,
     to: relationship.to,
-    execution: 'metadata_only',
+    queryable: relationship.kind !== 'hasMany',
+    fields: listQueryableRelationshipFields(name, relationship),
   };
+}
+
+/** All queryable relationship field names (`<relationship>.<dimension>`) a catalog advertises. */
+export function getQueryableRelationshipFields(catalog: DatasetCatalog): string[] {
+  return Object.values(catalog.relationships)
+    .filter(relationship => relationship.queryable)
+    .flatMap(relationship => relationship.fields);
 }
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {
@@ -150,6 +163,12 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
   const metricNames = Object.keys(dataset.metrics ?? {});
   const supportedGrains = dataset.timeKey ? [...SUPPORTED_TIME_GRAINS] : [];
   const maxLimit = dataset.limits?.maxResultSize;
+  const relationships = Object.fromEntries(
+    Object.entries(dataset.relationships).map(([name, relationship]) => [
+      name,
+      relationshipToCatalog(name, relationship),
+    ]),
+  );
 
   return {
     name: dataset.name,
@@ -180,12 +199,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
         filterToCatalog(filter, dataset.dimensions),
       ]),
     ),
-    relationships: Object.fromEntries(
-      Object.entries(dataset.relationships).map(([name, relationship]) => [
-        name,
-        relationshipToCatalog(relationship),
-      ]),
-    ),
+    relationships,
     limits: dataset.limits,
     requiresTenant: !!dataset.tenantKey,
     supportedGrains,
@@ -193,6 +207,7 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
       ...dimensionNames,
       ...measureNames,
       ...metricNames,
+      ...Object.values(relationships).flatMap(relationship => relationship.fields),
       ...(dataset.timeKey ? ['period'] : []),
     ],
     maxLimit,
