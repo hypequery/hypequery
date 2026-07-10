@@ -469,7 +469,12 @@ export const executeEndpoint = async <
       ...(endpoint.defaultHeaders ?? {}),
       'x-request-id': requestId,
     };
-    if (typeof cacheTtlMs === 'number') {
+    // Authenticated and tenant-aware responses must never be shared by an
+    // intermediary cache. Endpoint TTLs only opt public, tenant-independent
+    // responses into shared caching.
+    if (requiresAuth || authContext || activeTenantConfig) {
+      headers['cache-control'] = 'no-store';
+    } else if (typeof cacheTtlMs === 'number') {
       headers['cache-control'] = cacheTtlMs > 0 ? `public, max-age=${Math.floor(cacheTtlMs / 1000)}` : 'no-store';
     }
 

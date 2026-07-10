@@ -121,6 +121,71 @@ describe("defineServe", () => {
     expect(authContexts[0]).toEqual({ apiKey: "valid-key" });
   });
 
+  it("never marks authenticated responses as publicly cacheable", async () => {
+    const api = defineServe({
+      queries: {
+        secureMetric: {
+          cacheTtlMs: 60_000,
+          query: async () => ({ ok: true }),
+        },
+      },
+    });
+
+    api.route("/secure-cache", api.queries.secureMetric);
+    api.useAuth(async () => ({ userId: "user-1" }));
+
+    const response = await api.handler(
+      createRequest({ path: "/secure-cache" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers?.["cache-control"]).toBe("no-store");
+  });
+
+  it("never marks tenant-aware responses as publicly cacheable", async () => {
+    const api = defineServe({
+      tenant: {
+        extract: (auth) => auth.tenantId,
+      },
+      queries: {
+        tenantMetric: {
+          cacheTtlMs: 60_000,
+          query: async ({ ctx }) => ({ tenantId: ctx.tenantId }),
+        },
+      },
+    });
+
+    api.route("/tenant-cache", api.queries.tenantMetric);
+    api.useAuth(async () => ({ userId: "user-1", tenantId: "tenant-1" }));
+
+    const response = await api.handler(
+      createRequest({ path: "/tenant-cache" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers?.["cache-control"]).toBe("no-store");
+  });
+
+  it("keeps explicit public caching for unauthenticated tenant-independent responses", async () => {
+    const api = defineServe({
+      queries: {
+        publicMetric: {
+          cacheTtlMs: 60_000,
+          query: async () => ({ ok: true }),
+        },
+      },
+    });
+
+    api.route("/public-cache", api.queries.publicMetric);
+
+    const response = await api.handler(
+      createRequest({ path: "/public-cache" })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers?.["cache-control"]).toBe("public, max-age=60");
+  });
+
   it("validates input payloads using endpoint schemas", async () => {
     const received: unknown[] = [];
     const api = defineServe({

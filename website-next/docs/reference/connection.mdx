@@ -63,6 +63,15 @@ const db = createQueryBuilder({
 ```
 </CodeBlock>
 
+<Callout type="warn">
+Connecting an end-user browser directly to ClickHouse is not recommended. Any
+credentials shipped to the browser — including values in `NEXT_PUBLIC_*` or
+`VITE_*` variables — are public, so anyone can run whatever that ClickHouse user
+is allowed to. If you do it, restrict the user (read-only, quotas, row
+policies); otherwise keep credentials in server-only variables and have browsers
+call an authenticated server API such as one built with `@hypequery/serve`.
+</Callout>
+
 
 ## Embedded ClickHouse (chDB)
 

@@ -10,6 +10,7 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { getTableCount } from '../utils/detect-database.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
+import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 
 export interface GenerateDatasetsOptions {
   output?: string;
@@ -102,7 +103,9 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
         logger.indent('• Firewall blocking connection');
         logger.newline();
         logger.info('Check your configuration:');
-        logger.indent('CLICKHOUSE_URL=' + (process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST || 'not set'));
+        logger.indent('CLICKHOUSE_URL=' + redactConnectionUrl(
+          process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST,
+        ));
       } else if (error.message.includes('No tables found')) {
         logger.newline();
         logger.info('No tables match the specified criteria');

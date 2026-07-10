@@ -29,11 +29,10 @@ export class ExecutorFeature<
     const adapter = this.builder.getAdapter();
     const queryNode = this.builder.toQueryNode();
     const { sql, parameters } = this.toSQLWithParams();
-    const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
     logger.logQuery({
-      query: renderSql,
+      query: sql,
       parameters,
       startTime,
       status: 'started',
@@ -49,7 +48,7 @@ export class ExecutorFeature<
       const endTime = Date.now();
 
       logger.logQuery({
-        query: renderSql,
+        query: sql,
         parameters,
         startTime,
         endTime,
@@ -65,7 +64,7 @@ export class ExecutorFeature<
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
-        query: renderSql,
+        query: sql,
         parameters,
         startTime,
         endTime,
@@ -83,11 +82,10 @@ export class ExecutorFeature<
     const adapter = this.builder.getAdapter();
     const queryNode = this.builder.toQueryNode();
     const { sql, parameters } = this.toSQLWithParams();
-    const renderSql = adapter.render ? adapter.render(sql, parameters) : substituteParameters(sql, parameters);
 
     const startTime = Date.now();
     logger.logQuery({
-      query: renderSql,
+      query: sql,
       parameters,
       startTime,
       status: 'started'
@@ -103,7 +101,7 @@ export class ExecutorFeature<
 
       const endTime = Date.now();
       logger.logQuery({
-        query: renderSql,
+        query: sql,
         parameters,
         startTime,
         endTime,
@@ -115,7 +113,7 @@ export class ExecutorFeature<
     } catch (error) {
       const endTime = Date.now();
       logger.logQuery({
-        query: renderSql,
+        query: sql,
         parameters,
         startTime,
         endTime,

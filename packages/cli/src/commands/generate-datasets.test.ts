@@ -49,6 +49,7 @@ describe('generate datasets command', () => {
 
   afterEach(() => {
     exitHandler.restore();
+    delete process.env.CLICKHOUSE_URL;
   });
 
   it('derives datasets output from path when provided', async () => {
@@ -80,5 +81,17 @@ describe('generate datasets command', () => {
         excludeTables: ['orders_archive'],
       }),
     );
+  });
+
+  it('redacts credentials from connection diagnostics', async () => {
+    process.env.CLICKHOUSE_URL = 'https://admin:secret@clickhouse.example.com:8443/analytics?token=secret';
+    vi.mocked(detectDb.getTableCount).mockRejectedValue(new Error('connect ECONNREFUSED'));
+
+    await expect(generateDatasetsCommand({})).rejects.toThrow();
+
+    expect(mockLogger.indent).toHaveBeenCalledWith(
+      'CLICKHOUSE_URL=https://clickhouse.example.com:8443/analytics',
+    );
+    expect(mockLogger.indent).not.toHaveBeenCalledWith(expect.stringContaining('secret'));
   });
 });

@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { findSchemaFile } from '../utils/find-files.js';
 import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detect-database.js';
 import { getTypeGenerator } from '../generators/index.js';
+import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 
 export interface GenerateOptions {
   output?: string;
@@ -88,7 +89,9 @@ export async function generateCommand(options: GenerateOptions = {}) {
         logger.indent('• Firewall blocking connection');
         logger.newline();
         logger.info('Check your configuration:');
-        logger.indent('CLICKHOUSE_URL=' + (process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST || 'not set'));
+        logger.indent('CLICKHOUSE_URL=' + redactConnectionUrl(
+          process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST,
+        ));
         logger.newline();
         logger.info('Docs: https://hypequery.com/docs/troubleshooting#connection-errors');
       } else if (error.message.includes('ETIMEDOUT') || error.message.includes('timeout')) {

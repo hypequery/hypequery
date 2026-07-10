@@ -63,6 +63,7 @@ describe('generate command', () => {
   afterEach(() => {
     exitHandler.restore();
     delete process.env.CLICKHOUSE_HOST;
+    delete process.env.CLICKHOUSE_URL;
   });
 
   describe('Happy path', () => {
@@ -157,6 +158,18 @@ describe('generate command', () => {
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
       expect(logger.info).toHaveBeenCalledWith('This usually means:');
       expect(logger.indent).toHaveBeenCalledWith('• ClickHouse is not running');
+    });
+
+    it('redacts credentials from connection diagnostics', async () => {
+      process.env.CLICKHOUSE_URL = 'https://admin:secret@clickhouse.example.com:8443/analytics?token=secret';
+      vi.mocked(detectDb.getTableCount).mockRejectedValue(new Error('connect ECONNREFUSED'));
+
+      await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
+
+      expect(logger.indent).toHaveBeenCalledWith(
+        'CLICKHOUSE_URL=https://clickhouse.example.com:8443/analytics',
+      );
+      expect(logger.indent).not.toHaveBeenCalledWith(expect.stringContaining('secret'));
     });
 
     it('handles table generation errors', async () => {
