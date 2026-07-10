@@ -1,5 +1,14 @@
 # @hypequery/serve
 
+## 0.8.1
+
+### Patch Changes
+
+- 688a9e2: Harden logging and diagnostics without changing public APIs: never mark
+  authenticated or tenant-aware responses as publicly cacheable, log the
+  parameterized SQL template instead of a value-substituted string, and redact
+  connection URLs in CLI output and error messages.
+
 ## 0.8.0
 
 ### Minor Changes
