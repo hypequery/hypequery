@@ -69,4 +69,4 @@ const db = createQueryBuilder<Schema>({ url: process.env.CLICKHOUSE_URL, passwor
 
 ## How It Works
 
-The adapter implements hypequery's [`DatabaseAdapter` contract](/docs/reference/custom-adapters): hypequery compiles your query to SQL client-side, and the adapter executes it in-process via a chDB `Session`, returning `JSONEachRow` rows. The adapter is maintained by the chDB team — issues with the adapter itself belong on [chdb-io/chdb-node](https://github.com/chdb-io/chdb-node/issues).
+The adapter implements hypequery's `DatabaseAdapter` contract: hypequery compiles your query to SQL client-side, and the adapter executes it in-process via a chDB `Session`, returning `JSONEachRow` rows. The adapter is maintained by the chDB team — issues with the adapter itself belong on [chdb-io/chdb-node](https://github.com/chdb-io/chdb-node/issues).

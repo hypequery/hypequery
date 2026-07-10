@@ -81,7 +81,7 @@ const db = createQueryBuilder<Schema>({ adapter: chdbAdapter({ session }) });
 
 Swap to remote ClickHouse for production by handing `createQueryBuilder` your connection details instead of the adapter — nothing else changes. See [chDB (Embedded ClickHouse)](/docs/chdb) for the full guide.
 
-More generally, `createQueryBuilder({ adapter })` accepts any implementation of the [`DatabaseAdapter` contract](/docs/reference/custom-adapters), so the builder can run against any engine that speaks ClickHouse SQL.
+More generally, `createQueryBuilder({ adapter })` accepts any implementation of the `DatabaseAdapter` contract, so the builder can run against any engine that speaks ClickHouse SQL.
 
 ## Connection Options
 
