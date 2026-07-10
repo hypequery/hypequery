@@ -87,6 +87,34 @@ function createSqlCapturingFactory(): { factory: QueryBuilderFactoryLike; querie
   return { factory: { table: (name: string) => createBuilder(name), rawQuery: async () => [] }, queries };
 }
 
+/**
+ * A legacy builder that only implements the classic aggregations, so the
+ * analytical methods (argMax/argMin/quantile/stddev/variance) are absent. Used
+ * to prove the planner degrades gracefully with a descriptive error.
+ */
+function createLegacyFactory(): QueryBuilderFactoryLike {
+  function createBuilder(): QueryBuilderLike {
+    const builder = {
+      select: () => builder,
+      sum: () => builder,
+      count: () => builder,
+      countDistinct: () => builder,
+      avg: () => builder,
+      min: () => builder,
+      max: () => builder,
+      where: () => builder,
+      groupBy: () => builder,
+      orderBy: () => builder,
+      limit: () => builder,
+      offset: () => builder,
+      toSQLWithParams: () => ({ sql: '', parameters: [] }),
+      execute: async () => [],
+    } as unknown as QueryBuilderLike;
+    return builder;
+  }
+  return { table: () => createBuilder(), rawQuery: async () => [] };
+}
+
 // ---------------------------------------------------------------------------
 // Helper validation
 // ---------------------------------------------------------------------------
@@ -256,6 +284,21 @@ describe('analytical measures on the query-builder path', () => {
 
     expect(() => client.toSQL(FilteredArg, { measures: ['bad'] }))
       .toThrow('Measure filters are not supported on argMax aggregations.');
+  });
+
+  it('degrades gracefully when the builder lacks analytical methods', () => {
+    const client = createDatasetClient({ queryBuilder: createLegacyFactory() });
+
+    expect(() => client.toSQL(Orders, { measures: ['latestAmount'] }))
+      .toThrow('Query builder does not support argMax aggregations.');
+    expect(() => client.toSQL(Orders, { measures: ['firstAmount'] }))
+      .toThrow('Query builder does not support argMin aggregations.');
+    expect(() => client.toSQL(Orders, { measures: ['p95Amount'] }))
+      .toThrow('Query builder does not support percentile aggregations.');
+    expect(() => client.toSQL(Orders, { measures: ['amountStddev'] }))
+      .toThrow('Query builder does not support stddev aggregations.');
+    expect(() => client.toSQL(Orders, { measures: ['amountVariance'] }))
+      .toThrow('Query builder does not support variance aggregations.');
   });
 });
 

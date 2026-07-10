@@ -189,5 +189,31 @@ describe('QueryBuilder - Aggregations', () => {
         'GROUP BY category'
       );
     });
+
+    it('should not infer GROUP BY from raw analytical aggregate selections', () => {
+      const sql = builder
+        .select([
+          'category',
+          rawAs('argMax(price, created_at)', 'latest_price'),
+          rawAs('quantile(0.5)(price)', 'median_price'),
+          rawAs('stddevSamp(price)', 'price_sd'),
+          rawAs('varSamp(price)', 'price_var'),
+        ])
+        .count('id', 'order_count')
+        .toSQL();
+
+      // Only the plain `category` column is a grouping key; the raw analytical
+      // aggregates must be recognized as aggregates, not group keys.
+      expect(sql).toBe(
+        'SELECT category, ' +
+        'argMax(price, created_at) AS latest_price, ' +
+        'quantile(0.5)(price) AS median_price, ' +
+        'stddevSamp(price) AS price_sd, ' +
+        'varSamp(price) AS price_var, ' +
+        'COUNT(id) AS order_count ' +
+        'FROM test_table ' +
+        'GROUP BY category'
+      );
+    });
   });
 });

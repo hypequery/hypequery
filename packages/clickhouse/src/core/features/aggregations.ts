@@ -7,7 +7,8 @@ export class AggregationFeature<
   State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
 > {
   private static readonly TRAILING_ALIAS_PATTERN = /\s+AS\s+[A-Za-z_][A-Za-z0-9_]*$/i;
-  private static readonly LEADING_AGGREGATE_CALL_PATTERN = /^(COUNT|SUM|AVG|MIN|MAX)\s*\(/i;
+  private static readonly LEADING_AGGREGATE_CALL_PATTERN =
+    /^(COUNT|SUM|AVG|MIN|MAX|argMax|argMin|quantile|stddevSamp|varSamp)\s*\(/i;
 
   constructor(private builder: QueryBuilder<Schema, State>) { }
 

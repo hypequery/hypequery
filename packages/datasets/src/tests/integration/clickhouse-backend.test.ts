@@ -52,20 +52,6 @@ const AnalyticalOrders = dataset('analyticalOrders', {
   },
 });
 
-const AnalyticalOrders = dataset('analyticalOrders', {
-  source: 'orders',
-  timeKey: 'created_at',
-  dimensions: Orders.dimensions,
-  measures: {
-    latestTotal: measure.argMax('total', 'createdAt'),
-    firstTotal: measure.argMin('total', 'createdAt'),
-    medianTotal: measure.median('total'),
-    p95Total: measure.percentile('total', 0.95),
-    totalStddev: measure.stddev('total'),
-    totalVariance: measure.variance('total'),
-  },
-});
-
 const TenantOrders = dataset('tenantOrders', {
   source: 'orders',
   tenantKey: 'status',
