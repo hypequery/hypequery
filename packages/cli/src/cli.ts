@@ -83,6 +83,7 @@ program
   .option('--cache <provider>', 'Cache provider (memory|redis)')
   .option('--redis-url <url>', 'Redis connection URL')
   .option('--open', 'Open browser automatically')
+  .option('--no-ui', 'Disable the playground UI')
   .option('--cors', 'Enable CORS')
   .option('--path <path>', 'Analytics directory (loads <path>/api.ts or <path>/queries.ts)')
   .option('-q, --quiet', 'Suppress startup messages')
