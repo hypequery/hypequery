@@ -14,6 +14,7 @@ import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 import { getAutoClientModule } from '../env/auto-client.js';
 import type { AutoClientModule } from '../env/auto-client.js';
 import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
+import type { ClickHouseSettings } from '@clickhouse/client-common';
 
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
@@ -35,6 +36,14 @@ function deriveNamespace(config: ClickHouseConfig): string {
   return `${endpoint || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
 }
 
+function jsonOutputSettings(settings?: ClickHouseSettings): ClickHouseSettings {
+  return {
+    // Matches generated Int64+ result types and prevents JSON.parse precision loss.
+    output_format_json_quote_64bit_integers: 1,
+    ...settings,
+  };
+}
+
 export class ClickHouseAdapter implements DatabaseAdapter {
   readonly name = 'clickhouse';
   readonly namespace?: string;
@@ -50,7 +59,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     const result = await this.client.query({
       query: finalSQL,
       format: 'JSONEachRow',
-      clickhouse_settings: options?.clickhouseSettings,
+      clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
       query_id: options?.queryId,
     });
     return result.json<T>();
@@ -61,7 +70,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     const result = await this.client.query({
       query: finalSQL,
       format: 'JSONEachRow',
-      clickhouse_settings: options?.clickhouseSettings,
+      clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
       query_id: options?.queryId,
     });
     const stream = result.stream();
