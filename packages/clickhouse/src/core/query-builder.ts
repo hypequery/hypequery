@@ -971,6 +971,26 @@ export class QueryBuilder<
     return this.applyJoin('LEFT', table, leftColumn, rightColumn, alias, on);
   }
 
+  /**
+   * ClickHouse `LEFT ANY JOIN`: like `leftJoin`, but takes at most one matching
+   * right-side row per left row, so duplicate join keys never fan out the
+   * result. Used by the semantic layer for to-one relationship traversal.
+   */
+  leftAnyJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
+    table: TableName,
+    leftColumn: keyof BaseRow<State>,
+    rightColumn: `${TableName & string}.${keyof Schema[TableName] & string}`,
+    alias?: Alias,
+    on?: JoinConditionInput | JoinConditionInput[],
+  ): QueryBuilder<
+    Schema,
+    Alias extends string
+    ? AddAlias<WidenTables<State, TableName>, Alias, TableName>
+    : WidenTables<State, TableName>
+  > {
+    return this.applyJoin('LEFT ANY', table, leftColumn, rightColumn, alias, on);
+  }
+
   rightJoin<TableName extends Extract<keyof Schema, string>, Alias extends string | undefined = undefined>(
     table: TableName,
     leftColumn: keyof BaseRow<State>,

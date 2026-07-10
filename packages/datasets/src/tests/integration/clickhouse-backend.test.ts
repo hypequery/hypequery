@@ -224,7 +224,7 @@ describe('datasets ClickHouse integration', () => {
       { 'user.userName': 'john_doe', revenue: 36 },
       { 'user.userName': 'bob_jones', revenue: 16.5 },
     ]);
-    expect(result.meta?.sql).toContain('LEFT JOIN users AS user ON orders.user_id = user.id');
+    expect(result.meta?.sql).toContain('LEFT ANY JOIN users AS user ON orders.user_id = user.id');
     expect(result.meta?.sql).toContain('user.user_name AS `user.userName`');
     expect(result.meta?.sql).toContain('SUM(orders.total) AS revenue');
   });
@@ -269,7 +269,7 @@ describe('datasets ClickHouse integration', () => {
     expect(revenueByUser.has('bob_jones')).toBe(false);
     expect(result.data.reduce((total, row) => total + Number(row.revenue), 0)).toBe(144.75);
     expect(result.meta?.sql).toContain(
-      'LEFT JOIN users AS user ON orders.user_id = user.id AND user.status = ?',
+      'LEFT ANY JOIN users AS user ON orders.user_id = user.id AND user.status = ?',
     );
     expect(result.meta?.sql).not.toContain('WHERE user.status = ?');
   });

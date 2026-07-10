@@ -70,4 +70,39 @@ describe('relationship-aware semantic input schemas', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('does not advertise dimensions as filterable when a dataset opts out of filters', () => {
+    const NoFilters = dataset('orders_no_filters', {
+      source: 'orders',
+      dimensions: { status: dimension.string() },
+      filters: {},
+      relationships: {
+        customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+      },
+    });
+    const schema = buildDatasetInputSchema(NoFilters);
+
+    // The runtime validator rejects unqualified filters not declared in
+    // ds.filters, so the schema must not advertise them either.
+    expect(schema.safeParse({
+      filters: [{ field: 'status', operator: 'eq', value: 'x' }],
+    }).success).toBe(false);
+    expect(schema.safeParse({
+      filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
+    }).success).toBe(true);
+  });
+
+  it('falls back to plain strings when no filter fields are known', () => {
+    const Bare = dataset('bare', {
+      source: 'bare',
+      dimensions: { id: dimension.string() },
+      filters: {},
+    });
+
+    // Superset-safe: with no known fields the schema stays permissive and the
+    // runtime validator produces the precise error.
+    expect(buildDatasetInputSchema(Bare).safeParse({
+      filters: [{ field: 'anything', operator: 'eq', value: 1 }],
+    }).success).toBe(true);
+  });
 });

@@ -118,6 +118,8 @@ export function resolveQualifiedColumn(
 /**
  * Applies each relationship LEFT JOIN to the builder and, when runtime tenancy
  * is active on a target, scopes the joined rows with the tenant predicate.
+ * Builders that support single-match joins (`leftAnyJoin`, e.g. ClickHouse
+ * `LEFT ANY JOIN`) get them so duplicate target keys cannot fan out aggregates.
  */
 export function applyRelationshipJoins(
   qb: QueryBuilderLike,
@@ -127,7 +129,8 @@ export function applyRelationshipJoins(
     return qb;
   }
   for (const join of ctx.joins) {
-    qb = qb.leftJoin(
+    const applyJoin = qb.leftAnyJoin?.bind(qb) ?? qb.leftJoin.bind(qb);
+    qb = applyJoin(
       join.source,
       `${ctx.baseSource}.${join.from}`,
       `${join.relationship}.${join.to}`,

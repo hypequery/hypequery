@@ -128,6 +128,18 @@ describe('QueryBuilder - Joins', () => {
       expect(sql).toBe('SELECT * FROM test_table LEFT JOIN users ON created_by = users.id');
     });
 
+    it('should support LEFT ANY JOIN', () => {
+      const sql = builder
+        .leftAnyJoin(
+          'users',
+          'created_by',
+          'users.id',
+          'user'
+        )
+        .toSQL();
+      expect(sql).toBe('SELECT * FROM test_table LEFT ANY JOIN users AS user ON created_by = user.id');
+    });
+
     it('should support RIGHT JOIN', () => {
       const sql = builder
         .rightJoin(

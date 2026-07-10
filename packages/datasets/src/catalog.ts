@@ -9,6 +9,7 @@ import type {
   TimeGrain,
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
+import { listQueryableRelationshipFields } from './utils/relationship-fields.js';
 
 export interface DimensionCatalogEntry {
   type: DimensionDefinition['fieldType'];
@@ -139,22 +140,21 @@ function relationshipToCatalog(
   name: string,
   relationship: RelationshipDefinition,
 ): RelationshipCatalogEntry {
-  const queryable = relationship.kind !== 'hasMany';
-  const target = relationship.target() as Partial<AnyDatasetInstance> & { name: string };
-  const fields = queryable
-    ? Object.entries(target.dimensions ?? {})
-        .filter(([, dimension]) => dimension.sql === undefined)
-        .map(([field]) => `${name}.${field}`)
-    : [];
-
   return {
     kind: relationship.kind,
-    target: target.name,
+    target: relationship.target().name,
     from: relationship.from,
     to: relationship.to,
-    queryable,
-    fields,
+    queryable: relationship.kind !== 'hasMany',
+    fields: listQueryableRelationshipFields(name, relationship),
   };
+}
+
+/** All queryable relationship field names (`<relationship>.<dimension>`) a catalog advertises. */
+export function getQueryableRelationshipFields(catalog: DatasetCatalog): string[] {
+  return Object.values(catalog.relationships)
+    .filter(relationship => relationship.queryable)
+    .flatMap(relationship => relationship.fields);
 }
 
 export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog {

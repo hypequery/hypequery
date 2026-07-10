@@ -32,7 +32,8 @@ export {
 export { createDatasetRegistry } from './registry.js';
 
 // Catalog
-export { getDatasetCatalog, getDatasetCatalogs } from './catalog.js';
+export { getDatasetCatalog, getDatasetCatalogs, getQueryableRelationshipFields } from './catalog.js';
+export { listQueryableRelationshipFields } from './utils/relationship-fields.js';
 export type {
   DatasetCatalog,
   DatasetCatalogMap,

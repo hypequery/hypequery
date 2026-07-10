@@ -110,7 +110,7 @@ export interface HavingNode {
   parameters?: ValueNode[];
 }
 
-export type JoinType = 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
+export type JoinType = 'INNER' | 'LEFT' | 'LEFT ANY' | 'RIGHT' | 'FULL';
 
 export interface JoinConditionInput {
   column: string;

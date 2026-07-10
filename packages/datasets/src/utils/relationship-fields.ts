@@ -13,6 +13,26 @@ import type {
   RelationshipDefinition,
 } from '../types.js';
 
+/**
+ * Enumerates the queryable qualified field names (`<name>.<dimension>`) a
+ * relationship contributes, applying the same rules `resolveQualifiedField`
+ * enforces at query time: `hasMany` contributes nothing and SQL-backed target
+ * dimensions are excluded. Keep the two in sync — the catalog, contract, and
+ * generated input schemas all advertise exactly this list.
+ */
+export function listQueryableRelationshipFields(
+  name: string,
+  relationship: RelationshipDefinition,
+): string[] {
+  if (relationship.kind === 'hasMany') {
+    return [];
+  }
+  const target = relationship.target() as Partial<AnyDatasetInstance> | undefined;
+  return Object.entries(target?.dimensions ?? {})
+    .filter(([, dimension]) => !dimension.sql)
+    .map(([field]) => `${name}.${field}`);
+}
+
 export interface ParsedQualifiedField {
   /** The relationship name (prefix before the first dot). */
   relationship: string;

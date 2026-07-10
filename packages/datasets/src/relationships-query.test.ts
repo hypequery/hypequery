@@ -185,6 +185,40 @@ const backendClient = (tables: InMemoryTables) => createDatasetClient({ backend:
 // Validation
 // ---------------------------------------------------------------------------
 
+describe('relationship definition validation', () => {
+  it('rejects relationship names that match the dataset source', () => {
+    const Customers = dataset('customers_rel_target', {
+      source: 'customers',
+      dimensions: { id: dimension.string() },
+    });
+    expect(() =>
+      dataset('orders_alias_collision', {
+        source: 'orders',
+        dimensions: { id: dimension.string() },
+        relationships: {
+          orders: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+        },
+      }),
+    ).toThrow(/matches the dataset source/);
+  });
+
+  it('rejects relationship names containing dots', () => {
+    const Customers = dataset('customers_rel_target_2', {
+      source: 'customers',
+      dimensions: { id: dimension.string() },
+    });
+    expect(() =>
+      dataset('orders_dotted_relationship', {
+        source: 'orders',
+        dimensions: { id: dimension.string() },
+        relationships: {
+          'primary.customer': belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
+        },
+      }),
+    ).toThrow(/cannot contain "\."/);
+  });
+});
+
 describe('relationship-qualified validation', () => {
   it('accepts a to-one qualified dimension', () => {
     const result = validateDatasetQuery(Orders, {

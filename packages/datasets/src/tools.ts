@@ -10,6 +10,7 @@ import type {
 import {
   getDatasetCatalog,
   getDatasetCatalogs,
+  getQueryableRelationshipFields,
   type DatasetCatalog,
   type DatasetCatalogMap,
   type DatasetCatalogSource,
@@ -107,36 +108,31 @@ function limitSchema(catalogs: DatasetCatalog[]): JsonSchema {
   };
 }
 
-function relationshipFields(catalog: DatasetCatalog): string[] {
-  return Object.values(catalog.relationships)
-    .filter(relationship => relationship.queryable)
-    .flatMap(relationship => relationship.fields);
+/** Field allowlists derived once per catalog when tools are built. */
+interface CatalogFieldLists {
+  dimensions: string[];
+  filters: string[];
 }
 
-function dimensionFields(catalog: DatasetCatalog): string[] {
-  return [
-    ...Object.keys(catalog.dimensions),
-    ...relationshipFields(catalog),
-  ];
-}
-
-function filterFields(catalog: DatasetCatalog): string[] {
-  return [
-    ...Object.keys(catalog.filters),
-    ...relationshipFields(catalog),
-  ];
+function catalogFieldLists(catalog: DatasetCatalog): CatalogFieldLists {
+  const relationshipFields = getQueryableRelationshipFields(catalog);
+  return {
+    dimensions: [...Object.keys(catalog.dimensions), ...relationshipFields],
+    filters: [...Object.keys(catalog.filters), ...relationshipFields],
+  };
 }
 
 function querySchema(catalogs: DatasetCatalog[], includeDataset: boolean): JsonSchema {
+  const fieldLists = catalogs.map(catalogFieldLists);
   const datasetNames = catalogs.map(catalog => catalog.name);
   const dimensionNames = Array.from(
-    new Set(catalogs.flatMap(dimensionFields)),
+    new Set(fieldLists.flatMap(fields => fields.dimensions)),
   );
   const measureNames = Array.from(
     new Set(catalogs.flatMap(catalog => Object.keys(catalog.measures))),
   );
   const filterNames = Array.from(
-    new Set(catalogs.flatMap(filterFields)),
+    new Set(fieldLists.flatMap(fields => fields.filters)),
   );
   const grainNames = Array.from(
     new Set(catalogs.flatMap(catalog => catalog.supportedGrains)),
@@ -270,6 +266,7 @@ function assertAllowedValues(values: string[], allowed: string[], label: string)
 function normalizeDatasetQuery(
   input: Record<string, unknown>,
   catalog: DatasetCatalog,
+  fields: CatalogFieldLists,
   options: { orderableFields?: string[] } = {},
 ): DatasetQuery {
   const dimensions = assertStringArray(input.dimensions, 'dimensions');
@@ -280,9 +277,9 @@ function normalizeDatasetQuery(
   const offset = assertNonNegativeInteger(input.offset, 'offset');
   let by: TimeGrain | undefined;
 
-  assertAllowedValues(dimensions, dimensionFields(catalog), 'dimensions');
+  assertAllowedValues(dimensions, fields.dimensions, 'dimensions');
   assertAllowedValues(measures, Object.keys(catalog.measures), 'measures');
-  assertAllowedValues(filters.map(filter => filter.field), filterFields(catalog), 'filter fields');
+  assertAllowedValues(filters.map(filter => filter.field), fields.filters, 'filter fields');
   assertAllowedValues(
     orderBy.map(order => order.field),
     options.orderableFields ?? catalog.orderableFields,
@@ -344,6 +341,9 @@ function buildCatalogTool(
   includeSql: boolean,
 ): SemanticToolDefinition {
   const catalogList = Object.values(catalogs);
+  const fieldLists = Object.fromEntries(
+    Object.entries(catalogs).map(([name, catalog]) => [name, catalogFieldLists(catalog)]),
+  );
 
   return {
     name: 'query_dataset',
@@ -355,7 +355,7 @@ function buildCatalogTool(
       }
 
       const catalog = catalogs[input.dataset];
-      const query = normalizeDatasetQuery(input, catalog);
+      const query = normalizeDatasetQuery(input, catalog, fieldLists[input.dataset]);
       const result = await analytics.execute(datasets[input.dataset], query, context);
       return redactSql(result, includeSql);
     },
@@ -370,12 +370,13 @@ function buildDatasetTools(
 ): SemanticToolDefinition[] {
   return Object.entries(datasets).map(([datasetName, dataset]) => {
     const catalog = catalogs[datasetName];
+    const fields = catalogFieldLists(catalog);
     return {
       name: `query_${toolNamePart(datasetName)}`,
       description: `Query the ${datasetName} analytics dataset.`,
       parameters: querySchema([catalog], false),
       async execute(input: Record<string, unknown>, context?: ExecutionContext): Promise<unknown> {
-        const query = normalizeDatasetQuery(input, catalog);
+        const query = normalizeDatasetQuery(input, catalog, fields);
         const result = await analytics.execute(dataset, query, context);
         return redactSql(result, includeSql);
       },
@@ -383,7 +384,7 @@ function buildDatasetTools(
   });
 }
 
-function metricQuerySchema(catalog: DatasetCatalog, metricName: string): JsonSchema {
+function metricQuerySchema(catalog: DatasetCatalog, orderableFields: string[]): JsonSchema {
   const schema = querySchema([catalog], false);
   const properties = schema.properties ?? {};
   delete properties.measures;
@@ -392,7 +393,7 @@ function metricQuerySchema(catalog: DatasetCatalog, metricName: string): JsonSch
     items: {
       type: 'object',
       properties: {
-        field: enumSchema([...dimensionFields(catalog), metricName, ...(catalog.timeKey ? ['period'] : [])]),
+        field: enumSchema(orderableFields),
         direction: enumSchema(['asc', 'desc']),
       },
       required: ['field', 'direction'],
@@ -415,20 +416,22 @@ function buildMetricTools(
 
   for (const [datasetName, dataset] of Object.entries(datasets)) {
     const catalog = catalogs[datasetName];
+    const fields = catalogFieldLists(catalog);
     for (const [metricName, metric] of Object.entries(dataset.metrics ?? {})) {
+      const orderableFields = [
+        ...fields.dimensions,
+        metricName,
+        ...(catalog.timeKey ? ['period'] : []),
+      ];
       tools.push({
         name: `query_${toolNamePart(metricName)}`,
         description: `Query the ${metricName} metric from the ${datasetName} dataset.`,
-        parameters: metricQuerySchema(catalog, metricName),
+        parameters: metricQuerySchema(catalog, orderableFields),
         async execute(input: Record<string, unknown>, context?: ExecutionContext): Promise<unknown> {
-          const orderableFields = [
-            ...dimensionFields(catalog),
-            metricName,
-            ...(catalog.timeKey ? ['period'] : []),
-          ];
           const query = normalizeDatasetQuery(
             { ...input, measures: [] },
             catalog,
+            fields,
             { orderableFields },
           );
           const result = await analytics.execute(metric, query, context);

@@ -70,8 +70,9 @@ function renderLiteral(value: string | number | boolean | null): string {
   if (value === null) return 'NULL';
   if (typeof value === 'number') return String(value);
   if (typeof value === 'boolean') return value ? '1' : '0';
-  // SQL string escaping: single quotes are escaped by doubling them
-  return `'${String(value).replace(/'/g, "''")}'`;
+  // SQL string escaping: backslashes first (ClickHouse treats `\` as an escape
+  // inside string literals), then single quotes doubled.
+  return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
 }
 
 /**
@@ -357,10 +358,12 @@ function buildAggregateQuery(queryBuilder: any, plan: Extract<PlanNode, { kind: 
   const qualify = makeColumnQualifier(plan);
   const hasJoins = (plan.joins?.length ?? 0) > 0;
 
-  // Relationship LEFT JOINs (to-one). Base rows survive; joined columns are
+  // Relationship LEFT ANY JOINs (to-one). Base rows survive and at most one
+  // target row matches, so duplicate join keys can never fan out aggregates —
+  // matching the in-memory backend's first-match semantics. Joined columns are
   // addressable as `<relationship>.<column>`.
   for (const join of plan.joins ?? []) {
-    qb = qb.leftJoin(
+    qb = qb.leftAnyJoin(
       join.source,
       `${plan.source}.${join.from}`,
       `${join.source}.${join.to}`,

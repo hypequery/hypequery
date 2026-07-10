@@ -14,6 +14,7 @@
 import { z } from 'zod';
 import {
   getDatasetCatalog,
+  getQueryableRelationshipFields,
   SEMANTIC_FILTER_OPERATORS,
   type AnyDatasetInstance,
   type DatasetCatalog,
@@ -31,17 +32,10 @@ function grainEnum(catalog: DatasetCatalog): z.ZodTypeAny {
   return fieldEnum(catalog.supportedGrains);
 }
 
-function relationshipFields(catalog: DatasetCatalog): string[] {
-  return Object.values(catalog.relationships)
-    .filter(relationship => relationship.queryable)
-    .flatMap(relationship => relationship.fields);
-}
-
 function filterSchema(catalog: DatasetCatalog) {
-  const localFields = Object.keys(catalog.filters);
   const fieldNames = [
-    ...(localFields.length > 0 ? localFields : Object.keys(catalog.dimensions)),
-    ...relationshipFields(catalog),
+    ...Object.keys(catalog.filters),
+    ...getQueryableRelationshipFields(catalog),
   ];
   return z.object({
     field: fieldEnum(fieldNames),
@@ -71,7 +65,7 @@ export function buildDatasetInputSchema(ds: AnyDatasetInstance) {
   const catalog = getDatasetCatalog(ds);
   const dimensionNames = [
     ...Object.keys(catalog.dimensions),
-    ...relationshipFields(catalog),
+    ...getQueryableRelationshipFields(catalog),
   ];
   const measureNames = Object.keys(catalog.measures);
 
@@ -96,7 +90,7 @@ export function buildMetricInputSchema(ds: AnyDatasetInstance, metricName: strin
   const catalog = getDatasetCatalog(ds);
   const dimensionNames = [
     ...Object.keys(catalog.dimensions),
-    ...relationshipFields(catalog),
+    ...getQueryableRelationshipFields(catalog),
   ];
   const orderableNames = [
     ...dimensionNames,

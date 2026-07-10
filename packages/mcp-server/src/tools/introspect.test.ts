@@ -236,6 +236,47 @@ describe('getDatasetSchemaTool', () => {
     });
   });
 
+  it('derives queryable relationship metadata for config-shaped datasets', async () => {
+    const datasets = {
+      orders: {
+        dimensions: { id: { fieldType: 'string' } },
+        relationships: {
+          customer: {
+            kind: 'belongsTo',
+            target: () => ({
+              name: 'customers',
+              dimensions: {
+                id: { fieldType: 'string' },
+                country: { fieldType: 'string' },
+                computed: { fieldType: 'string', sql: 'upper(country)' },
+              },
+            }),
+            from: 'customer_id',
+            to: 'id',
+          },
+          items: {
+            kind: 'hasMany',
+            target: () => ({ name: 'line_items', dimensions: { sku: { fieldType: 'string' } } }),
+            from: 'id',
+            to: 'order_id',
+          },
+        },
+      },
+    };
+
+    const result = await getDatasetSchemaTool(datasets as any, { dataset: 'orders' });
+    const schema = JSON.parse(result.content[0].text);
+
+    expect(schema.relationships.customer).toMatchObject({
+      queryable: true,
+      fields: ['customer.id', 'customer.country'],
+    });
+    expect(schema.relationships.items).toMatchObject({
+      queryable: false,
+      fields: [],
+    });
+  });
+
   it('should handle dataset with config structure', async () => {
     const datasets = {
       events: {

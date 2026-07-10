@@ -33,6 +33,19 @@ export interface QueryBuilderLike {
     on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
   ): QueryBuilderLike;
 
+  /**
+   * Optional single-match LEFT JOIN (ClickHouse `LEFT ANY JOIN`). When a
+   * builder provides it, relationship joins use it so duplicate target join
+   * keys cannot fan out aggregates; otherwise `leftJoin` is used.
+   */
+  leftAnyJoin?(
+    table: string,
+    leftColumn: string,
+    rightColumn: string,
+    alias?: string,
+    on?: QueryBuilderJoinCondition | QueryBuilderJoinCondition[],
+  ): QueryBuilderLike;
+
   // Grouping
   groupBy(columns: string | string[]): QueryBuilderLike;
 

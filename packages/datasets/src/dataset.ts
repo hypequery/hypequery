@@ -1,9 +1,10 @@
 /**
  * dataset() — creates a typed semantic model over a physical table.
  *
- * Relationships are modeled on the dataset today, but current query execution
- * only supports same-dataset dimensions, measures, and metrics. Joined
- * relationship traversal is not part of the shipped execution surface yet.
+ * Relationships are modeled on the dataset. To-one relationships (`belongsTo`,
+ * `hasOne`) are queryable one hop deep as `<relationship>.<dimension>` and
+ * execute as LEFT JOINs; `hasMany` relationships remain metadata-only to avoid
+ * fan-out corrupting aggregates.
  *
  * @example
  * ```ts
@@ -69,7 +70,7 @@ export function dataset<
   const dimensions = normalizeDimensions(config);
   const measures = normalizeMeasures(config.measures);
   const filters = normalizeFilters(dimensions, config.filters);
-  const relationships = normalizeRelationships(config.relationships);
+  const relationships = normalizeRelationships(config.relationships, config.source);
 
   type ThisDataset = DatasetInstance<TDimensions, TMeasures, TRelationships, TDatasetName>;
   function metric<TName extends string>(
