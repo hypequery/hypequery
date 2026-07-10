@@ -58,6 +58,7 @@
     "vite",
     "nextjs",
     "nodejs",
+    "chdb",
     "fetch",
     "---Reference---",
     "reference/api",

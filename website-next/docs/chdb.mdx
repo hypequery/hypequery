@@ -1,0 +1,72 @@
+---
+title: chDB (Embedded ClickHouse)
+description: Run hypequery on embedded ClickHouse with chDB. No server, same builder code. Local dev, CI tests, and serverless with the exact query builder you ship to production.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+import { Pre } from 'fumadocs-ui/components/codeblock';
+
+
+# Getting started
+
+<CodeBlock>
+
+```typescript
+import { createQueryBuilder } from '@hypequery/clickhouse';
+import { Session } from 'chdb';
+import { chdbAdapter } from 'chdb/hypequery';
+
+const session = new Session('./analytics.chdb');   // or new Session() for in-memory
+const db = createQueryBuilder<Schema>({ adapter: chdbAdapter({ session }) });
+
+await db.table('trips')
+  .where('passenger_count', 'gte', 2)
+  .select(['passenger_count'])
+  .count('trip_id', 'trip_count')
+  .sum('total_amount', 'revenue')
+  .groupBy(['passenger_count'])
+  .orderBy('passenger_count', 'ASC')
+  .execute();
+```
+
+</CodeBlock>
+
+Nothing else changes: `toSQL()`, `rawQuery()`, and streaming all work, and the adapter renders SQL with hypequery's own exported helpers, so the queries are byte-identical to what the built-in HTTP adapter sends to a ClickHouse server.
+
+## Why Run Embedded?
+
+- **Testing and CI** — run your hypequery analytics against a real ClickHouse engine with no container and no shared staging environment. The builder code your tests exercise is the code you ship.
+- **Local development** — build a dashboard against a local Parquet file or an in-memory database, then point the same code at remote ClickHouse for production by swapping the adapter.
+- **Serverless** — chDB runs in any Node.js environment, including AWS Lambda (note: chDB's native binary is large; verify your deployment package stays within Lambda's 250 MB unzipped limit). Edge runtimes that run in V8 isolates (Cloudflare Workers, Vercel Edge Runtime) cannot load native Node.js addons and are not supported.
+- **Local files and beyond** — chDB reads Parquet, CSV, S3, and more through ClickHouse table functions, queryable via `rawQuery()`.
+
+## Setup
+
+<CodeBlock>
+
+```bash
+npm install chdb @hypequery/clickhouse
+```
+
+</CodeBlock>
+
+chDB ships prebuilt binaries for Linux x64/arm64 (glibc) and macOS x64/arm64 — no node-gyp step. Windows isn't supported natively; use WSL2.
+
+Swapping between embedded and remote is a one-line change:
+
+<CodeBlock>
+
+```typescript
+// Local / test
+const db = createQueryBuilder<Schema>({ adapter: chdbAdapter({ session }) });
+
+// Production
+const db = createQueryBuilder<Schema>({ url: process.env.CLICKHOUSE_URL, password: '...' });
+```
+
+</CodeBlock>
+
+## How It Works
+
+The adapter implements hypequery's `DatabaseAdapter` contract: hypequery compiles your query to SQL client-side, and the adapter executes it in-process via a chDB `Session`, returning `JSONEachRow` rows. The adapter is maintained by the chDB team — issues with the adapter itself belong on [chdb-io/chdb-node](https://github.com/chdb-io/chdb-node/issues).
