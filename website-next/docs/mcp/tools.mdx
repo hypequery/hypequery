@@ -40,7 +40,7 @@ Example response:
 
 ## `get_dataset_schema`
 
-Returns metadata for one dataset, including dimensions, measures, named metrics, filters, tenant key, time key, limits, and relationship metadata when present.
+Returns metadata for one dataset, including dimensions, measures, named metrics, filters, tenant key, time key, limits, and relationship metadata when present. Relationship entries include `queryable` and `fields`, so agents can discover which related fields (for example `customer.country`) a query may reference. See [Relationships](/docs/datasets/relationships).
 
 <CodeBlock>
 ```json
