@@ -98,6 +98,9 @@ export {
   buildDatasetQuerySignature,
   buildMetricQuerySignature,
 } from './cache/query-signature.js';
+// Plan/backend protocol — FROZEN. Deprecated in favor of the query-builder
+// path (`createDatasetClient({ queryBuilder })`); bug fixes only, no new
+// features. See the deprecation notes on each declaration.
 export { createInMemoryBackend } from './in-memory-backend.js';
 export type { InMemoryTable, InMemoryTables } from './in-memory-backend.js';
 export type {

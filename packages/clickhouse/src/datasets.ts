@@ -25,16 +25,10 @@
  * const analytics = createDatasetClient({ queryBuilder: db });
  * ```
  *
- * Advanced: `createBackend` exposes the database-agnostic SemanticBackend
- * protocol directly. Reach for it when you want a standalone backend instance
- * rather than sharing a query builder.
- * ```ts
- * import { createBackend } from '@hypequery/clickhouse/datasets';
- *
- * const analytics = createDatasetClient({
- *   backend: createBackend({ url, username, password, database }),
- * });
- * ```
+ * Deprecated: `createBackend` exposes the database-agnostic SemanticBackend
+ * protocol directly. That plan/backend path is FROZEN — it receives bug fixes
+ * only, and new semantic features are not guaranteed to be mirrored there.
+ * Use the query-builder path above instead.
  */
 
 import {
@@ -48,6 +42,7 @@ import { createQueryBuilder } from './core/query-builder.js';
 import type { CreateQueryBuilderConfig } from './core/query-builder.js';
 import type { SchemaDefinition } from './core/types/builder-state.js';
 
+/** @deprecated The plan/backend path is frozen; use `createQueryBuilder` with `createDatasetClient({ queryBuilder })`. */
 export type CreateBackendConfig = CreateQueryBuilderConfig;
 
 // =============================================================================
@@ -493,6 +488,10 @@ function buildDerivedSQL(queryBuilder: any, plan: Extract<PlanNode, { kind: 'der
  *
  * Creates a SemanticBackend implementation that translates database-agnostic
  * semantic plans into ClickHouse SQL and executes them.
+ *
+ * @deprecated The plan/backend execution path is frozen (bug fixes only) and
+ * will not gain new features. Share a query builder instead:
+ * `createDatasetClient({ queryBuilder: createQueryBuilder(config) })`.
  *
  * @param config - ClickHouse connection configuration
  * @returns SemanticBackend interface for executing semantic queries

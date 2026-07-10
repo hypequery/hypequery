@@ -230,7 +230,13 @@ export interface MetricQueryEngineOptions {
 export interface CreateDatasetClientOptions {
   /** Query builder factory for executing semantic metric and dataset queries. */
   queryBuilder?: QueryBuilderFactoryInput;
-  /** Semantic backend for executing neutral semantic plans. */
+  /**
+   * Semantic backend for executing neutral semantic plans.
+   *
+   * @deprecated Use `queryBuilder` instead — the query-builder path is
+   * canonical. The plan/backend path is frozen (bug fixes only) and will not
+   * gain new features.
+   */
   backend?: SemanticBackend;
   /**
    * Result-cache defaults for this client. Results are keyed by the canonical

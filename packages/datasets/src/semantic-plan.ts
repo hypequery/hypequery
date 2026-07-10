@@ -1,3 +1,13 @@
+/**
+ * Database-neutral semantic plan protocol (`PlanNode` / `SemanticBackend`).
+ *
+ * FROZEN: this execution path is superseded by the query-builder path —
+ * `createDatasetClient({ queryBuilder })` is the canonical way to execute
+ * semantic queries. The plan/backend protocol receives bug fixes only; new
+ * semantic features land on the query-builder path and are not guaranteed to
+ * be mirrored here.
+ */
+
 import type {
   AggregationType,
   FieldType,
@@ -9,6 +19,7 @@ import type {
 export type SemanticBinaryOperator = 'add' | 'subtract' | 'multiply' | 'divide';
 export type SemanticFunctionName = 'nullIfZero' | 'coalesce' | 'round' | 'floor' | 'ceil';
 
+/** @deprecated Part of the frozen plan/backend protocol; use `createDatasetClient({ queryBuilder })` instead. */
 export type SemanticExpression =
   | { kind: 'ref'; name: string }
   | { kind: 'literal'; value: string | number | boolean | null }
@@ -24,12 +35,14 @@ export type SemanticExpression =
     args: SemanticExpression[];
   };
 
+/** @deprecated Part of the frozen plan/backend protocol; use `createDatasetClient({ queryBuilder })` instead. */
 export interface SemanticDimensionPlan {
   name: string;
   field: string;
   fieldType?: FieldType;
 }
 
+/** @deprecated Part of the frozen plan/backend protocol; use `createDatasetClient({ queryBuilder })` instead. */
 export interface SemanticAggregationPlan {
   name: string;
   aggregation: AggregationType;
@@ -56,6 +69,7 @@ export interface SemanticJoinPlan {
   tenant?: SemanticTenantPredicate;
 }
 
+/** @deprecated Part of the frozen plan/backend protocol; use `createDatasetClient({ queryBuilder })` instead. */
 export interface SemanticGrainPlan {
   field: string;
   unit: TimeGrain;
@@ -64,6 +78,7 @@ export interface SemanticGrainPlan {
   weekStart?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
 }
 
+/** @deprecated Part of the frozen plan/backend protocol; use `createDatasetClient({ queryBuilder })` instead. */
 export type PlanNode =
   | {
     kind: 'aggregate';
@@ -92,6 +107,7 @@ export type PlanNode =
     offset?: number;
   };
 
+/** @deprecated Part of the frozen plan/backend protocol; use `createDatasetClient({ queryBuilder })` instead. */
 export interface SemanticBackendResult<T = Record<string, unknown>> {
   data: T[];
   meta?: {
@@ -101,6 +117,11 @@ export interface SemanticBackendResult<T = Record<string, unknown>> {
   };
 }
 
+/**
+ * @deprecated The plan/backend execution path is frozen (bug fixes only).
+ * Pass a query builder to `createDatasetClient({ queryBuilder })` instead of
+ * implementing a backend.
+ */
 export interface SemanticBackend {
   execute<T = Record<string, unknown>>(plan: PlanNode): Promise<SemanticBackendResult<T>>;
   explain?(plan: PlanNode): Promise<{ sql?: string }>;

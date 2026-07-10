@@ -250,6 +250,11 @@ function serializeMeasures(rows: InMemoryTable, measures: string[]): InMemoryTab
   });
 }
 
+/**
+ * @deprecated The plan/backend execution path is frozen (bug fixes only); this
+ * backend remains as the test harness for that path. New code should use
+ * `createDatasetClient({ queryBuilder })`.
+ */
 export function createInMemoryBackend(tables: InMemoryTables): SemanticBackend {
   function executeAggregate(plan: Extract<PlanNode, { kind: 'aggregate' }>): InMemoryTable {
     const table = tables[plan.source] ?? [];
