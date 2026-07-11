@@ -165,8 +165,34 @@ CORS: same-origin default, explicit allowlist only — never `*` (replaces donor
   Cloud credentials are in play.
 - **AI never executes raw SQL.** Its tools are the semantic endpoints only (identical to
   MCP). A human raw-SQL scratchpad is Phase 4, gated off by default.
-- Local-first: no telemetry; outbound calls only to the user's ClickHouse and (opt-in,
-  BYOK) their AI provider.
+- Local-first: user data never leaves the machine. Outbound calls are limited to the
+  user's ClickHouse, (opt-in, BYOK) their AI provider, and — see below — anonymous
+  usage telemetry.
+
+### Telemetry (added 2026-07-10 — supersedes the original "no telemetry" stance)
+
+Decision: anonymous, opt-out usage telemetry, Next.js-style, to measure whether the
+playground earns further investment (activation funnel: `gateway_started` →
+`ui_served` → execute → return usage). Rules, enforced in
+`packages/playground/src/telemetry.ts`:
+
+- NEVER captures SQL, query/endpoint names (sha256-hashed only), inputs, results,
+  hostnames, file paths, or credentials. Durations are bucketed, never exact.
+- Anonymous machine UUID + hashed project id. No PII.
+- Loud one-time disclosure on first enabled run; `GET /__dev/telemetry` reports the
+  enabled state for transparency.
+- Opt-out: `HYPEQUERY_TELEMETRY_DISABLED=1` or `DO_NOT_TRACK=1`; auto-disabled in CI;
+  inert until an ingest endpoint is configured (`HYPEQUERY_TELEMETRY_ENDPOINT` or the
+  `DEFAULT_ENDPOINT` constant — currently empty, so telemetry is a no-op in the wild).
+- UI events go same-origin to the gateway beacon (`POST /__dev/telemetry`),
+  allowlist-validated and prop-sanitized server-side; the browser never contacts a
+  third party.
+- Fire-and-forget: batched, 3s timeout, failures swallowed — telemetry may never slow
+  or break the dev server.
+
+The security-review talking point changes from "zero network calls ever" to "your
+data never leaves localhost; anonymous feature-usage counts are sent unless you opt
+out, and here is the exhaustive list of what they contain."
 
 ### Storage
 
