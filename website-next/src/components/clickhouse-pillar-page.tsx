@@ -8,6 +8,11 @@ type LinkItem = {
   label: string;
 };
 
+function ctaTarget(href: string) {
+  const path = href.replace(/^https?:\/\//, '').replace(/[#?].*$/, '');
+  return path.replace(/^\//, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/_+$/, '') || 'home';
+}
+
 type Card = {
   title: string;
   copy: string;
@@ -107,12 +112,18 @@ export function ClickhousePillarPage({
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href={primaryCta.href}
+                data-umami-event="cta_click"
+                data-umami-event-target={ctaTarget(primaryCta.href)}
+                data-umami-event-location="pillar_hero_primary"
                 className="bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 {primaryCta.label}
               </Link>
               <Link
                 href={secondaryCta.href}
+                data-umami-event="cta_click"
+                data-umami-event-target={ctaTarget(secondaryCta.href)}
+                data-umami-event-location="pillar_hero_secondary"
                 className="border border-border-strong px-6 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
               >
                 {secondaryCta.label}
@@ -346,12 +357,18 @@ export function ClickhousePillarPage({
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href={nextStep.primaryCta.href}
+                data-umami-event="cta_click"
+                data-umami-event-target={ctaTarget(nextStep.primaryCta.href)}
+                data-umami-event-location="pillar_next_step_primary"
                 className="inline-flex items-center bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 {nextStep.primaryCta.label}
               </Link>
               <Link
                 href={nextStep.secondaryCta.href}
+                data-umami-event="cta_click"
+                data-umami-event-target={ctaTarget(nextStep.secondaryCta.href)}
+                data-umami-event-location="pillar_next_step_secondary"
                 className="inline-flex items-center border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
               >
                 {nextStep.secondaryCta.label}

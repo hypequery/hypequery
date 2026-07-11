@@ -147,12 +147,18 @@ export default function ClickHouseTypeScriptPage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="hero_primary"
                 className="bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Start with hypequery
               </Link>
               <Link
                 href="/clickhouse-schema"
+                data-umami-event="cta_click"
+                data-umami-event-target="clickhouse_schema"
+                data-umami-event-location="hero_secondary"
                 className="border border-border-strong px-6 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
               >
                 Generate schema types
@@ -362,12 +368,18 @@ export default function ClickHouseTypeScriptPage() {
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="next_step_primary"
                 className="inline-flex items-center bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Start with hypequery
               </Link>
               <Link
                 href="/clickhouse-schema"
+                data-umami-event="cta_click"
+                data-umami-event-target="clickhouse_schema"
+                data-umami-event-location="next_step_secondary"
                 className="inline-flex items-center border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
               >
                 Generate schema types

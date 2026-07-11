@@ -174,6 +174,9 @@ export default async function ComparePage({
 	            <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="hero_primary"
                 className="bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
               >
                 Start with the quick start
@@ -291,6 +294,9 @@ export default async function ComparePage({
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/docs/quick-start"
+                  data-umami-event="cta_click"
+                  data-umami-event-target="docs_quick_start"
+                  data-umami-event-location="article_body"
                   className="inline-flex items-center bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
                 >
                   Open quick start
@@ -338,6 +344,9 @@ export default async function ComparePage({
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="next_step_primary"
                 className="inline-flex items-center bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
               >
                 Open quick start

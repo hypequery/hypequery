@@ -96,12 +96,18 @@ export default function InternalProductApisUseCasePage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="hero_primary"
                 className="bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Start with this pattern
               </Link>
               <a
-                href="https://cal.com"
+                href="https://cal.com/luke-reilly-jdi9su/hypequery-chat"
+                data-umami-event="cta_click"
+                data-umami-event-target="book_call"
+                data-umami-event-location="hero_secondary"
                 className="border border-border-strong px-6 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -224,12 +230,18 @@ export default function InternalProductApisUseCasePage() {
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="next_step_primary"
                 className="inline-flex items-center bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Open quick start
               </Link>
               <Link
                 href="/use-cases/multi-tenant-saas"
+                data-umami-event="cta_click"
+                data-umami-event-target="use_cases_multi_tenant_saas"
+                data-umami-event-location="next_step_secondary"
                 className="inline-flex items-center border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
               >
                 Next: Multi-tenant

@@ -172,6 +172,9 @@ export default function CompareIndexPage() {
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="hero_primary"
                 className="inline-flex items-center bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
               >
                 Open quick start

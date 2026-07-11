@@ -169,6 +169,9 @@ export default function UseCasesPage() {
             <div className="mt-6 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="next_step_primary"
                 className="inline-flex items-center bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Open quick start

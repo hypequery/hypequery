@@ -177,12 +177,18 @@ export default function ClickHouseSemanticLayerPage() {
           <div className="mt-7 flex flex-wrap gap-2.5">
             <Link
               href="/docs/datasets/overview"
+              data-umami-event="cta_click"
+              data-umami-event-target="docs_datasets_overview"
+              data-umami-event-location="hero_primary"
               className="bg-text text-bg px-5 py-3 text-[13.5px] font-semibold rounded transition hover:opacity-90 hover:-translate-y-px"
             >
               Read the datasets docs →
             </Link>
             <Link
               href="/docs/quick-start"
+              data-umami-event="cta_click"
+              data-umami-event-target="docs_quick_start"
+              data-umami-event-location="hero_secondary"
               className="bg-transparent text-text px-5 py-3 text-[13.5px] font-semibold rounded border border-border-strong transition hover:border-text hover:bg-bg-alt"
             >
               Get started →
@@ -274,12 +280,18 @@ export default function ClickHouseSemanticLayerPage() {
           <div className="mt-8 flex flex-wrap justify-center gap-2.5">
             <Link
               href="/docs/quick-start"
+              data-umami-event="cta_click"
+              data-umami-event-target="docs_quick_start"
+              data-umami-event-location="footer_primary"
               className="bg-text text-bg px-5 py-3 text-[13.5px] font-semibold rounded transition hover:opacity-90 hover:-translate-y-px"
             >
               Get started →
             </Link>
             <Link
               href="/docs/datasets/overview"
+              data-umami-event="cta_click"
+              data-umami-event-target="docs_datasets_overview"
+              data-umami-event-location="footer_secondary"
               className="bg-transparent text-text px-5 py-3 text-[13.5px] font-semibold rounded border border-border-strong transition hover:border-text hover:bg-bg-alt"
             >
               Read the datasets docs →
