@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'TypeORM for ClickHouse: Better Alternative for TypeScript | hypequery',
+  title: 'TypeORM for ClickHouse: Better Alternative for TypeScript',
   description:
     'Looking for TypeORM on ClickHouse? TypeORM is not a natural fit for ClickHouse analytics workloads. hypequery is the TypeScript-first alternative for generated schema types and ClickHouse queries.',
   alternates: { canonical: absoluteUrl('/typeorm-clickhouse') },
   openGraph: {
+    images: ogImage('TypeORM for ClickHouse: Better Alternative for TypeScript'),
     type: 'website',
     url: absoluteUrl('/typeorm-clickhouse'),
     title: 'TypeORM for ClickHouse: Better Alternative for TypeScript | hypequery',

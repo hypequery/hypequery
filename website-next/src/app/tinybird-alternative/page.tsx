@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure | hypequery',
+  title: 'Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure',
   description:
     'Looking for a Tinybird alternative? hypequery + your own ClickHouse gives you typed analytics APIs with no data ingestion into a third-party platform and no per-query pricing.',
   alternates: { canonical: absoluteUrl('/tinybird-alternative') },
   openGraph: {
+    images: ogImage('Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure'),
     type: 'website',
     url: absoluteUrl('/tinybird-alternative'),
     title: 'Tinybird Alternative — Typed ClickHouse APIs on Your Own Infrastructure | hypequery',

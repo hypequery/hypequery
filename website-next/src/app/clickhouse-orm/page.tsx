@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ORM for ClickHouse in TypeScript | hypequery',
+  title: 'ORM for ClickHouse in TypeScript',
   description:
     'Looking for an ORM for ClickHouse? Prisma, Drizzle, and TypeORM do not fit ClickHouse well. hypequery is the schema-driven TypeScript alternative for analytics work.',
   alternates: { canonical: absoluteUrl('/clickhouse-orm') },
   openGraph: {
+    images: ogImage('ORM for ClickHouse in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-orm'),
     title: 'ORM for ClickHouse in TypeScript | hypequery',

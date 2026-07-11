@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'ClickHouse Multi-Tenant Analytics',
@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/clickhouse-multi-tenant-analytics'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Multi-Tenant Analytics'),
     type: 'website',
     url: absoluteUrl('/clickhouse-multi-tenant-analytics'),
     title: 'ClickHouse Multi-Tenant Analytics | Tenant Isolation for SaaS',

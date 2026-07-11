@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getPosts } from '@/lib/blog';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 import { comparePageBySlug } from '@/data/compare-pages';
 
 export async function generateMetadata({
@@ -26,6 +26,7 @@ export async function generateMetadata({
       url: absoluteUrl(canonicalPath),
       title: pageNumber > 1 ? `hypequery ClickHouse Blog - Page ${pageNumber}` : 'hypequery ClickHouse Blog',
       description,
+      images: ogImage(title),
     },
   };
 }

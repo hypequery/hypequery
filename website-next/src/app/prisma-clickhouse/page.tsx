@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Prisma for ClickHouse: What TypeScript Teams Should Use Instead | hypequery',
+  title: 'Prisma for ClickHouse: What TypeScript Teams Should Use Instead',
   description:
     'Prisma does not support ClickHouse. If you need a schema-first TypeScript workflow for ClickHouse, use hypequery for generated types and composable queries.',
   alternates: { canonical: absoluteUrl('/prisma-clickhouse') },
   openGraph: {
+    images: ogImage('Prisma for ClickHouse: What TypeScript Teams Should Use Instead'),
     type: 'website',
     url: absoluteUrl('/prisma-clickhouse'),
     title: 'Prisma for ClickHouse: What TypeScript Teams Should Use Instead | hypequery',

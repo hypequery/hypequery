@@ -3,16 +3,17 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs | hypequery',
+  title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs',
   description:
     'Use ClickHouse with TypeScript without hand-written interfaces. Generate schema types, build typed queries, and reuse them across APIs, jobs, and dashboards.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-typescript'),
   },
   openGraph: {
+    images: ogImage('ClickHouse with TypeScript: Type-Safe Queries and APIs'),
     type: 'website',
     url: absoluteUrl('/clickhouse-typescript'),
     title: 'ClickHouse with TypeScript: Type-Safe Queries and APIs | hypequery',

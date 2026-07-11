@@ -36,7 +36,7 @@ export const clickhouseFunctions: ClickHouseFunctionDef[] = [
     name: 'toStartOfDay',
     cluster: 'date',
     tagline: 'Truncate a DateTime to midnight — the foundation of daily analytics bucketing.',
-    metaTitle: 'ClickHouse toStartOfDay — TypeScript daily bucketing with hypequery',
+    metaTitle: 'ClickHouse toStartOfDay — TypeScript daily bucketing',
     metaDescription:
       'toStartOfDay truncates a DateTime to midnight. Learn how to use it in TypeScript with hypequery for daily trend charts, DAU counts, and time-series grouping.',
     signature: 'toStartOfDay(datetime: DateTime): DateTime',
@@ -117,7 +117,7 @@ const daily = await db
     name: 'toStartOfWeek',
     cluster: 'date',
     tagline: 'Round a DateTime to the start of the week — weekly cohort and trend analysis.',
-    metaTitle: 'ClickHouse toStartOfWeek — TypeScript weekly bucketing with hypequery',
+    metaTitle: 'ClickHouse toStartOfWeek — TypeScript weekly bucketing',
     metaDescription:
       'toStartOfWeek truncates a DateTime to the first day of the ISO week. Use it in TypeScript with hypequery for weekly trend charts and cohort retention.',
     signature: 'toStartOfWeek(datetime: DateTime, mode?: UInt8): Date',
@@ -190,7 +190,7 @@ const weekly = await db
     name: 'toStartOfMonth',
     cluster: 'date',
     tagline: 'Truncate a DateTime to the first day of the month for MoM reporting.',
-    metaTitle: 'ClickHouse toStartOfMonth — TypeScript monthly bucketing with hypequery',
+    metaTitle: 'ClickHouse toStartOfMonth — TypeScript monthly bucketing',
     metaDescription:
       'toStartOfMonth rounds a DateTime down to the first day of the month. Learn how to use it in TypeScript with hypequery for MoM growth and monthly aggregation.',
     signature: 'toStartOfMonth(datetime: DateTime): Date',
@@ -261,7 +261,7 @@ const mau = await db
     name: 'toStartOfQuarter',
     cluster: 'date',
     tagline: 'Round a DateTime to the first day of the quarter for QoQ reporting.',
-    metaTitle: 'ClickHouse toStartOfQuarter — TypeScript quarterly bucketing with hypequery',
+    metaTitle: 'ClickHouse toStartOfQuarter — TypeScript quarterly bucketing',
     metaDescription:
       'toStartOfQuarter truncates a DateTime to the first day of the calendar quarter (Jan 1, Apr 1, Jul 1, Oct 1). Use it in TypeScript with hypequery for QoQ analysis.',
     signature: 'toStartOfQuarter(datetime: DateTime): Date',
@@ -603,7 +603,7 @@ const labels = await db
     name: 'count',
     cluster: 'aggregate',
     tagline: 'Count rows or non-NULL values — ClickHouse\'s fastest aggregate.',
-    metaTitle: 'ClickHouse count() — row counting in TypeScript with hypequery',
+    metaTitle: 'ClickHouse count() — row counting in TypeScript',
     metaDescription:
       'ClickHouse count() counts rows or non-NULL values. Learn how to use count(), count(x), and countIf() in TypeScript with hypequery for event tracking and analytics.',
     signature: 'count() | count(column) | countIf(condition)',
@@ -755,7 +755,7 @@ const dau = await db
     name: 'sum',
     cluster: 'aggregate',
     tagline: 'Sum numeric values — revenue totals, event counts, and metric roll-ups.',
-    metaTitle: 'ClickHouse sum() — sum aggregation in TypeScript with hypequery',
+    metaTitle: 'ClickHouse sum() — sum aggregation in TypeScript',
     metaDescription:
       'ClickHouse sum() sums a numeric column. Learn how to use sum(), sumIf(), and sumArray() in TypeScript with hypequery for revenue, metrics, and financial aggregations.',
     signature: 'sum(column): Number | sumIf(column, condition): Number',
@@ -826,7 +826,7 @@ const dailyRevenue = await db
     name: 'avg',
     cluster: 'aggregate',
     tagline: 'Calculate the arithmetic mean — average order value, session duration, latency.',
-    metaTitle: 'ClickHouse avg() — average aggregation in TypeScript with hypequery',
+    metaTitle: 'ClickHouse avg() — average aggregation in TypeScript',
     metaDescription:
       'ClickHouse avg() calculates the arithmetic mean of a numeric column. Use it in TypeScript with hypequery for AOV, p50 latency approximation, and metric averages.',
     signature: 'avg(column): Float64',
@@ -1109,7 +1109,7 @@ const orders = await db
     name: 'concat',
     cluster: 'string',
     tagline: 'Concatenate strings — build labels, composite keys, and display values.',
-    metaTitle: 'ClickHouse concat() — string concatenation in TypeScript with hypequery',
+    metaTitle: 'ClickHouse concat() — string concatenation in TypeScript',
     metaDescription:
       'ClickHouse concat() joins two or more strings. Use it in TypeScript with hypequery to build composite display values, slugs, and event labels in your analytics queries.',
     signature: 'concat(s1: String, s2: String, ...): String',
@@ -1318,7 +1318,7 @@ const graded = await db
     name: 'round',
     cluster: 'math',
     tagline: 'Round a number to N decimal places — clean display values and bucketing.',
-    metaTitle: 'ClickHouse round() — numeric rounding in TypeScript with hypequery',
+    metaTitle: 'ClickHouse round() — numeric rounding in TypeScript',
     metaDescription:
       'ClickHouse round() rounds a Float to N decimal places. Use it in TypeScript with hypequery for display-ready metrics, percentage formatting, and numeric bucketing.',
     signature: 'round(x: Number, [decimals: Int]): Number',

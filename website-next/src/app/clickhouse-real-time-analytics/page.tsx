@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Real-Time Analytics in TypeScript | hypequery',
+  title: 'ClickHouse Real-Time Analytics in TypeScript',
   description:
     'Query ClickHouse in real time with TypeScript. hypequery gives you typed queries for live analytics dashboards — low-latency reads, tenant isolation, and typed HTTP APIs.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-real-time-analytics'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Real-Time Analytics in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-real-time-analytics'),
     title: 'ClickHouse Real-Time Analytics in TypeScript | hypequery',

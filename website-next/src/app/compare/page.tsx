@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import PageWrapper from '@/components/PageWrapper';
 import { comparePages } from '@/data/compare-pages';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Compare Hypequery',
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/compare'),
   },
   openGraph: {
+    images: ogImage('Compare Hypequery'),
     type: 'website',
     url: absoluteUrl('/compare'),
     title: 'Compare hypequery | ClickHouse TypeScript Tradeoffs',

@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse tRPC — Typed Analytics Procedures | hypequery',
+  title: 'ClickHouse tRPC — Typed Analytics Procedures',
   description:
     'Integrate ClickHouse analytics into your tRPC API. hypequery query definitions become tRPC procedures — fully typed from ClickHouse schema to React client.',
   robots: {
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   },
   alternates: { canonical: absoluteUrl('/clickhouse-trpc') },
   openGraph: {
+    images: ogImage('ClickHouse tRPC — Typed Analytics Procedures'),
     type: 'website',
     url: absoluteUrl('/clickhouse-trpc'),
     title: 'ClickHouse tRPC — Typed Analytics Procedures | hypequery',

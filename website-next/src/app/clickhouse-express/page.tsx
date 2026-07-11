@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Mount ClickHouse Analytics on an Express Server | hypequery',
+  title: 'Mount ClickHouse Analytics on an Express Server',
   description:
     'Add a typed ClickHouse analytics surface to an existing Express app with Node handlers, request validation, and generated OpenAPI docs.',
   robots: {
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   },
   alternates: { canonical: absoluteUrl('/clickhouse-express') },
   openGraph: {
+    images: ogImage('Mount ClickHouse Analytics on an Express Server'),
     type: 'website',
     url: absoluteUrl('/clickhouse-express'),
     title: 'Mount ClickHouse Analytics on an Express Server | hypequery',

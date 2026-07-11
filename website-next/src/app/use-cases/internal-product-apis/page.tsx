@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import PageWrapper from '@/components/PageWrapper';
 import CodeWindow from '@/components/CodeWindow';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Internal Product APIs with ClickHouse Analytics',
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/use-cases/internal-product-apis'),
   },
   openGraph: {
+    images: ogImage('Internal Product APIs with ClickHouse Analytics'),
     type: 'website',
     url: absoluteUrl('/use-cases/internal-product-apis'),
     title: 'Internal Product APIs with ClickHouse Analytics | hypequery',

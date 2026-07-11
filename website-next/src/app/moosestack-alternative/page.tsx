@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'MooseStack Alternative — The Library Instead of the Framework | hypequery',
+  title: 'MooseStack Alternative — The Library Instead of the Framework',
   description:
     'Looking for a MooseStack (Moose) alternative? hypequery gives you typed ClickHouse queries and APIs as an npm library — no framework runtime, no project scaffold, no streaming stack you didn’t ask for.',
   alternates: { canonical: absoluteUrl('/moosestack-alternative') },
   openGraph: {
+    images: ogImage('MooseStack Alternative — The Library Instead of the Framework'),
     type: 'website',
     url: absoluteUrl('/moosestack-alternative'),
     title: 'MooseStack Alternative — The Library Instead of the Framework | hypequery',

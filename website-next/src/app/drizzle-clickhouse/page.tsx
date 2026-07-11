@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Drizzle ORM for ClickHouse — Alternative for TypeScript Teams | hypequery',
+  title: 'Drizzle ORM for ClickHouse — Alternative for TypeScript Teams',
   description:
     'Looking for Drizzle ORM support for ClickHouse? Drizzle does not support ClickHouse. hypequery is the TypeScript-first alternative for schema generation and typed queries.',
   alternates: { canonical: absoluteUrl('/drizzle-clickhouse') },
   openGraph: {
+    images: ogImage('Drizzle ORM for ClickHouse — Alternative for TypeScript Teams'),
     type: 'website',
     url: absoluteUrl('/drizzle-clickhouse'),
     title: 'Drizzle ORM for ClickHouse — Alternative for TypeScript Teams | hypequery',

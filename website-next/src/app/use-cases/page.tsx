@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import PageWrapper from '@/components/PageWrapper';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'hypequery Use Cases',
@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/use-cases'),
   },
   openGraph: {
+    images: ogImage('hypequery Use Cases'),
     type: 'website',
     url: absoluteUrl('/use-cases'),
     title: 'hypequery Use Cases | Type-Safe ClickHouse Analytics',

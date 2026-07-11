@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Dashboard Data Layer for React and TypeScript | hypequery',
+  title: 'ClickHouse Dashboard Data Layer for React and TypeScript',
   description:
     'Build ClickHouse dashboards without inventing a custom API and fetch layer for every chart.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-dashboard'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Dashboard Data Layer for React and TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-dashboard'),
     title: 'ClickHouse Dashboard Data Layer for React and TypeScript | hypequery',

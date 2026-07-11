@@ -2,15 +2,16 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 import { clickhouseFunctions, functionPathSegment, functionsByCluster } from '@/data/clickhouse-functions';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Functions — TypeScript Examples with hypequery',
+  title: 'ClickHouse Functions — TypeScript Examples',
   description:
     'Curated TypeScript examples for common ClickHouse functions: date functions, aggregates, strings, conditionals, and math — with hypequery query-builder examples.',
   alternates: { canonical: absoluteUrl('/clickhouse/functions') },
   openGraph: {
+    images: ogImage('ClickHouse Functions — TypeScript Examples'),
     type: 'website',
     url: absoluteUrl('/clickhouse/functions'),
     title: 'ClickHouse Functions — TypeScript Examples with hypequery',

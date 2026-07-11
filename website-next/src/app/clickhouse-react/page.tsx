@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'ClickHouse React',
@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/clickhouse-react'),
   },
   openGraph: {
+    images: ogImage('ClickHouse React'),
     type: 'website',
     url: absoluteUrl('/clickhouse-react'),
     title: 'ClickHouse React | Typed Hooks for Analytics Apps',

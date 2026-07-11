@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript | hypequery',
+  title: 'ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript',
   description:
     'Use hypequery as the data layer for ClickHouse GraphQL resolvers. Schema-generated types flow from ClickHouse through your resolver to the GraphQL schema — no manual type bridging.',
   robots: {
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   },
   alternates: { canonical: absoluteUrl('/clickhouse-graphql') },
   openGraph: {
+    images: ogImage('ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-graphql'),
     title: 'ClickHouse GraphQL — Typed Analytics Resolvers in TypeScript | hypequery',

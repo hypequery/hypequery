@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Time-Series Queries for TypeScript Apps | hypequery',
+  title: 'ClickHouse Time-Series Queries for TypeScript Apps',
   description:
     'Build readable ClickHouse time-series queries with explicit DateTime handling, reusable range logic, and date bucketing patterns that fit TypeScript apps.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-time-series'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Time-Series Queries for TypeScript Apps'),
     type: 'website',
     url: absoluteUrl('/clickhouse-time-series'),
     title: 'ClickHouse Time-Series Queries for TypeScript Apps | hypequery',

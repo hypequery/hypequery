@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Migrations — TypeScript Schema Change Management | hypequery',
+  title: 'ClickHouse Migrations — TypeScript Schema Change Management',
   description:
     'ClickHouse schema migrations are painful. hypequery is building TypeScript-first migration tooling for ClickHouse — track changes, run reversible migrations, and keep your schema in sync.',
   robots: {
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   },
   alternates: { canonical: absoluteUrl('/clickhouse-migrations') },
   openGraph: {
+    images: ogImage('ClickHouse Migrations — TypeScript Schema Change Management'),
     type: 'website',
     url: absoluteUrl('/clickhouse-migrations'),
     title: 'ClickHouse Migrations — TypeScript Schema Change Management | hypequery',

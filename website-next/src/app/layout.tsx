@@ -60,6 +60,30 @@ export const metadata: Metadata = {
 
 const gaMeasurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
+const organizationSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  '@id': absoluteUrl('/#organization').toString(),
+  name: 'hypequery',
+  url: absoluteUrl('/').toString(),
+  logo: absoluteUrl('/logo.png').toString(),
+  sameAs: [
+    'https://github.com/hypequery/hypequery',
+    'https://www.npmjs.com/package/@hypequery/clickhouse',
+    'https://twitter.com/hypequery',
+    'https://www.newsletter.hypequery.com',
+  ],
+};
+
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': absoluteUrl('/#website').toString(),
+  name: 'hypequery',
+  url: absoluteUrl('/').toString(),
+  publisher: { '@id': absoluteUrl('/#organization').toString() },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -68,6 +92,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(() => {

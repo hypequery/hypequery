@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 import {
   clickhouseFunctions,
   findFunction,
@@ -35,6 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: canonical,
       title: fn.metaTitle,
       description: fn.metaDescription,
+      images: ogImage(fn.metaTitle),
     },
     twitter: {
       card: 'summary_large_image',

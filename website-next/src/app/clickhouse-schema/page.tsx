@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Schema — TypeScript Types Generated from Your Database | hypequery',
+  title: 'ClickHouse Schema — TypeScript Types Generated from Your Database',
   description:
     'Generate TypeScript types from your live ClickHouse schema so query code stops relying on hand-written interfaces and incorrect runtime assumptions.',
   alternates: { canonical: absoluteUrl('/clickhouse-schema') },
   openGraph: {
+    images: ogImage('ClickHouse Schema — TypeScript Types Generated from Your Database'),
     type: 'website',
     url: absoluteUrl('/clickhouse-schema'),
     title: 'ClickHouse Schema — TypeScript Types from Your Database | hypequery',

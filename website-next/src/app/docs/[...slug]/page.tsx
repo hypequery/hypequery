@@ -8,7 +8,7 @@ import {
 import { notFound } from 'next/navigation';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
 import type { Metadata } from 'next';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export async function generateMetadata({
   params,
@@ -36,6 +36,7 @@ export async function generateMetadata({
       url: absoluteUrl(page.url),
       title,
       description,
+      images: ogImage(title),
     },
     twitter: {
       card: 'summary_large_image',

@@ -6,7 +6,7 @@ import PageWrapper from '@/components/PageWrapper';
 import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
 import { getPostBySlug } from '@/lib/blog';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 import { compareArticles } from '@/data/compare-articles';
 import { comparePageBySlug, comparePages } from '@/data/compare-pages';
 
@@ -64,6 +64,7 @@ export async function generateMetadata({
       description,
       publishedTime: article?.date,
       tags: article?.tags,
+      images: ogImage(title),
     },
     twitter: {
       card: 'summary_large_image',

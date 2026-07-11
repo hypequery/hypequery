@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import PageWrapper from '@/components/PageWrapper';
 import CodeWindow from '@/components/CodeWindow';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Multi-Tenant SaaS Analytics on ClickHouse',
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/use-cases/multi-tenant-saas'),
   },
   openGraph: {
+    images: ogImage('Multi-Tenant SaaS Analytics on ClickHouse'),
     type: 'website',
     url: absoluteUrl('/use-cases/multi-tenant-saas'),
     title: 'Multi-Tenant SaaS Analytics on ClickHouse | hypequery',

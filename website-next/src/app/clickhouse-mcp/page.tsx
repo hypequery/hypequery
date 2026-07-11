@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse MCP Server with Type-Safe Queries | hypequery',
+  title: 'ClickHouse MCP Server with Type-Safe Queries',
   description:
     'Give AI agents a fixed, tenant-safe ClickHouse tool surface instead of raw SQL access.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-mcp'),
   },
   openGraph: {
+    images: ogImage('ClickHouse MCP Server with Type-Safe Queries'),
     type: 'website',
     url: absoluteUrl('/clickhouse-mcp'),
     title: 'ClickHouse MCP Server | Structured AI Agent Access | hypequery',

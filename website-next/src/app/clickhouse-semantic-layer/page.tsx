@@ -3,16 +3,17 @@ import Link from 'next/link';
 import CodeHighlight from '@/components/CodeHighlight';
 import Footer from '@/components/Footer';
 import Navigation from '@/components/Navigation';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Semantic Layer in TypeScript | hypequery',
+  title: 'ClickHouse Semantic Layer in TypeScript',
   description:
     'Define a ClickHouse semantic layer in TypeScript with typed datasets, tenant keys, time keys, and reusable delivery across APIs, jobs, and dashboards.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-semantic-layer'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Semantic Layer in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-semantic-layer'),
     title: 'ClickHouse Semantic Layer in TypeScript | hypequery',

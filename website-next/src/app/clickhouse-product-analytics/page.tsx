@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
+  title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying',
   description:
     'Build product analytics on ClickHouse in TypeScript. hypequery gives you typed event queries, funnel analysis, retention metrics, and typed APIs for your analytics stack.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-product-analytics'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Product Analytics — TypeScript Event Tracking & Querying'),
     type: 'website',
     url: absoluteUrl('/clickhouse-product-analytics'),
     title: 'ClickHouse Product Analytics — TypeScript Event Tracking & Querying | hypequery',
