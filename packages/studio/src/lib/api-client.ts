@@ -25,6 +25,11 @@ export function gatewayEventsUrl(): string {
   return `${BASE_URL}/events`;
 }
 
+/** The telemetry beacon endpoint for the configured gateway. */
+export function gatewayTelemetryUrl(): string {
+  return `${BASE_URL}/telemetry`;
+}
+
 /**
  * API client error.
  */

@@ -13,6 +13,10 @@ export type { Gateway, CreateGatewayOptions } from './gateway.js';
 export { CONTRACT_VERSION } from './api/meta-endpoints.js';
 export type { GatewayCapability, CacheObservability, CacheStatsSnapshot, DevIntegrationApi } from './types.js';
 
+// Telemetry (anonymous, opt-out; see design doc privacy rules)
+export { Telemetry, anonymize, durationBucket, UI_EVENT_ALLOWLIST } from './telemetry.js';
+export type { TelemetryEvent, TelemetryOptions } from './telemetry.js';
+
 // Storage
 export * from './storage/index.js';
 

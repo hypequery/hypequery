@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo } from 'react';
+import { track } from '@/lib/telemetry';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-sql';
 import { format as formatSQL } from 'sql-formatter';
@@ -45,6 +46,10 @@ export function SQLViewer({
       Prism.highlightElement(codeRef.current);
     }
   }, [formattedSQL]);
+
+  useEffect(() => {
+    track('sql_viewed', undefined, { once: true });
+  }, []);
 
   // Split into lines for line numbers
   const lines = formattedSQL.split('\n');
