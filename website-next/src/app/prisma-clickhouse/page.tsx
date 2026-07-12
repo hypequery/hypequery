@@ -3,23 +3,23 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Prisma for ClickHouse: What TypeScript Teams Should Use Instead',
+  title: 'Prisma with ClickHouse? Use This Instead',
   description:
-    'Prisma does not support ClickHouse. If you need a schema-first TypeScript workflow for ClickHouse, use hypequery for generated types and composable queries.',
+    'Prisma doesn\'t support ClickHouse. hypequery brings Prisma-style DX to analytics: types generated from your live schema and fully typed queries.',
   alternates: { canonical: absoluteUrl('/prisma-clickhouse') },
   openGraph: {
     images: ogImage('Prisma for ClickHouse: What TypeScript Teams Should Use Instead'),
     type: 'website',
     url: absoluteUrl('/prisma-clickhouse'),
-    title: 'Prisma for ClickHouse: What TypeScript Teams Should Use Instead | hypequery',
+    title: 'Prisma with ClickHouse? Use This Instead | hypequery',
     description:
-      'Prisma is built for relational transactional databases. If you need a TypeScript-first workflow for ClickHouse analytics, hypequery is the closer fit.',
+      'Prisma doesn\'t support ClickHouse. hypequery brings Prisma-style DX to analytics: types from your live schema and fully typed queries.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Prisma for ClickHouse | hypequery',
+    title: 'Prisma with ClickHouse? Use This Instead | hypequery',
     description:
-      'Prisma does not support ClickHouse. Use hypequery for generated schema types, composable ClickHouse queries, and reusable APIs.',
+      'Prisma doesn\'t support ClickHouse. hypequery brings Prisma-style DX to ClickHouse analytics.',
   },
 };
 
@@ -55,7 +55,7 @@ export default function PrismaClickHousePage() {
       eyebrow="Prisma ClickHouse"
       title="Looking for Prisma on ClickHouse?"
       description="Prisma does not support ClickHouse. If what you actually want is the useful part of the Prisma experience — generated types, predictable query code, and a clean TypeScript workflow — hypequery is the closer fit for ClickHouse."
-      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
+      primaryCta={{ href: '/docs/quick-start', label: 'Generate types from your schema' }}
       secondaryCta={{ href: '/clickhouse-orm', label: 'See the ClickHouse ORM page' }}
       stats={[
         { label: 'Prisma fit', value: 'Relational app databases' },
@@ -171,7 +171,7 @@ export default function PrismaClickHousePage() {
         title: 'Start with hypequery on one real ClickHouse query',
         description:
           'Generate schema types from your ClickHouse instance and try one real analytics query. That is the fastest way to validate whether the Prisma-style ClickHouse workflow you want is really a generated-schema query-layer problem instead.',
-        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
+        primaryCta: { href: '/docs/quick-start', label: 'Generate types from your schema' },
         secondaryCta: { href: '/clickhouse-schema', label: 'Generate schema types' },
       }}
     />

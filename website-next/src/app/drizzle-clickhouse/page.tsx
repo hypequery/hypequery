@@ -3,23 +3,23 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Drizzle ORM for ClickHouse — Alternative for TypeScript Teams',
+  title: 'Drizzle ORM for ClickHouse? Use This Instead',
   description:
-    'Looking for Drizzle ORM support for ClickHouse? Drizzle does not support ClickHouse. hypequery is the TypeScript-first alternative for schema generation and typed queries.',
+    'Drizzle doesn\'t support ClickHouse. hypequery gives you the same schema-first DX: types generated from your live ClickHouse schema and fully typed queries.',
   alternates: { canonical: absoluteUrl('/drizzle-clickhouse') },
   openGraph: {
     images: ogImage('Drizzle ORM for ClickHouse — Alternative for TypeScript Teams'),
     type: 'website',
     url: absoluteUrl('/drizzle-clickhouse'),
-    title: 'Drizzle ORM for ClickHouse — Alternative for TypeScript Teams | hypequery',
+    title: 'Drizzle ORM for ClickHouse? Use This Instead | hypequery',
     description:
-      'If you want a Drizzle-style workflow for ClickHouse, use hypequery: live-schema generation, composable queries, and typed APIs built for analytics.',
+      'Drizzle doesn\'t support ClickHouse. hypequery gives you the same schema-first DX: types generated from your live schema and fully typed queries.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Drizzle ORM for ClickHouse | hypequery',
+    title: 'Drizzle ORM for ClickHouse? Use This Instead | hypequery',
     description:
-      'Drizzle does not support ClickHouse. hypequery is the TypeScript-first alternative for ClickHouse analytics applications.',
+      'Drizzle doesn\'t support ClickHouse. hypequery gives you the same schema-first DX for ClickHouse analytics.',
   },
 };
 
@@ -53,7 +53,7 @@ export default function DrizzleClickHousePage() {
       eyebrow="Drizzle ORM ClickHouse"
       title="Looking for Drizzle ORM on ClickHouse?"
       description="Drizzle does not support ClickHouse. If what you want is the part people actually like about Drizzle — generated types, predictable query code, and a good TypeScript workflow — hypequery is the closer fit for ClickHouse."
-      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
+      primaryCta={{ href: '/docs/quick-start', label: 'Generate types from your schema' }}
       secondaryCta={{ href: '/compare/hypequery-vs-drizzle', label: 'Read the full comparison' }}
       stats={[
         { label: 'ClickHouse support', value: 'hypequery native' },
@@ -169,7 +169,7 @@ export default function DrizzleClickHousePage() {
         title: 'Generate your ClickHouse schema types and prove the workflow on one real query',
         description:
           'That is the fastest way to evaluate whether hypequery covers the Drizzle-style ClickHouse workflow your team actually wants.',
-        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
+        primaryCta: { href: '/docs/quick-start', label: 'Generate types from your schema' },
         secondaryCta: { href: '/compare/hypequery-vs-drizzle', label: 'Read full comparison' },
       }}
     />
