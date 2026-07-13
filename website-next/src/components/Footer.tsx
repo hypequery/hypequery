@@ -80,7 +80,7 @@ export default function Footer() {
                     target="_blank"
                     rel="noreferrer"
                     data-umami-event={link.track ? 'cta_click' : undefined}
-                    data-umami-event-target={link.track}
+                    data-umami-event-target={link.track ? link.track : undefined}
                     data-umami-event-location={link.track ? 'footer' : undefined}
                     className="block text-[13.5px] text-text-muted transition hover:text-text"
                   >

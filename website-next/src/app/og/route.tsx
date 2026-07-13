@@ -1,5 +1,7 @@
 import { ImageResponse } from 'next/og';
 
+export const runtime = 'edge';
+
 const DEFAULT_TITLE = 'The TypeScript analytics layer for ClickHouse';
 
 export async function GET(request: Request) {
