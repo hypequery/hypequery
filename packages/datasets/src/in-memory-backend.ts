@@ -149,7 +149,8 @@ function groupKey(row: Record<string, unknown>, plan: Extract<PlanNode, { kind: 
  */
 function percentileOf(values: number[], level: number): number {
   if (values.length === 0) {
-    return 0;
+    // ClickHouse `quantile` over an empty set yields nan.
+    return Number.NaN;
   }
   const sorted = [...values].sort((a, b) => a - b);
   const position = (sorted.length - 1) * level;
@@ -161,10 +162,13 @@ function percentileOf(values: number[], level: number): number {
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
 }
 
-/** Sample variance; fewer than two values yields 0. */
+/**
+ * Sample variance. Fewer than two values yields NaN, as in ClickHouse:
+ * `varSamp`/`stddevSamp` divide by n - 1, so a single row gives nan.
+ */
 function sampleVarianceOf(values: number[]): number {
   if (values.length < 2) {
-    return 0;
+    return Number.NaN;
   }
   const mean = values.reduce((total, value) => total + value, 0) / values.length;
   const squaredDeviations = values.reduce((total, value) => total + (value - mean) ** 2, 0);
@@ -181,7 +185,10 @@ function argExtremeOf(
   let best: Record<string, unknown> | undefined;
   for (const row of rows) {
     // ClickHouse argMax/argMin skip rows where either the value being
-    // returned or the ordering value is NULL.
+    // returned or the ordering value is NULL ("both `arg` and `val` behave
+    // as aggregate functions, they both skip NULL"). Verified against
+    // ClickHouse 25.1: argMax(amount, created_at) over
+    // [(NULL, '2024-01-05'), (10, '2024-01-01')] returns 10, not NULL.
     if (row[argField] == null || row[field] == null) {
       continue;
     }
@@ -324,7 +331,11 @@ function serializeMeasures(rows: InMemoryTable, measures: string[]): InMemoryTab
   return rows.map((row) => {
     const next = { ...row };
     for (const name of measures) {
-      if (next[name] != null) {
+      if (typeof next[name] === 'number' && !Number.isFinite(next[name])) {
+        // ClickHouse JSON output serializes nan/inf as null
+        // (output_format_json_quote_denormals defaults to 0).
+        next[name] = null;
+      } else if (next[name] != null) {
         next[name] = String(next[name]);
       }
     }

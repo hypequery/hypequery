@@ -213,6 +213,37 @@ describe('analytical measures on the in-memory backend', () => {
     ]);
   });
 
+  it('returns null for stddev/variance over fewer than two values, like ClickHouse', async () => {
+    // ClickHouse varSamp/stddevSamp divide by n - 1, yielding nan for a
+    // single row, which its JSON output serializes as null.
+    const singleRowClient = createDatasetClient({
+      backend: createInMemoryBackend({ orders: rows.slice(0, 1) }),
+    });
+    const single = await singleRowClient.execute(Orders, {
+      measures: ['amountStddev', 'amountVariance'],
+    });
+    expect(single.data).toEqual([{ amountStddev: null, amountVariance: null }]);
+
+    const emptyClient = createDatasetClient({ backend: createInMemoryBackend({ orders: [] }) });
+    const empty = await emptyClient.execute(Orders, {
+      measures: ['amountStddev', 'amountVariance', 'medianAmount'],
+    });
+    expect(empty.data).toEqual([{ amountStddev: null, amountVariance: null, medianAmount: null }]);
+  });
+
+  it('returns null per group for single-row groups of stddev/variance', async () => {
+    const { data } = await client.execute(Orders, {
+      dimensions: ['status'],
+      measures: ['amountVariance'],
+      orderBy: [{ field: 'status', direction: 'asc' }],
+    });
+    // completed has 3 rows [10,20,40] → variance 233.33...; the single-row
+    // groups (cancelled, pending) are null as in ClickHouse.
+    expect(data[0]).toEqual({ status: 'cancelled', amountVariance: null });
+    expect(Number(data[1].amountVariance)).toBeCloseTo(233.333333, 4);
+    expect(data[2]).toEqual({ status: 'pending', amountVariance: null });
+  });
+
   it('skips null arg/value rows and returns null for an empty arg aggregate', async () => {
     const edgeClient = createDatasetClient({
       backend: createInMemoryBackend({

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { createBackend } from '../../../../clickhouse/src/datasets.js';
 import { createDatasetClient } from '../../executor.js';
@@ -8,8 +8,11 @@ import { divide, nullIfZero, round } from '../../formulas.js';
 import { measure } from '../../measure.js';
 import { belongsTo } from '../../relationships.js';
 import { eq, gt } from '../../query-helpers.js';
+import { createInMemoryBackend } from '../../in-memory-backend.js';
 import {
   TEST_CONNECTION_CONFIG,
+  insertRows,
+  runSql,
 } from '../../../../../testing/clickhouse/harness.mjs';
 
 const Orders = dataset('orders', {
@@ -331,5 +334,76 @@ describe('datasets ClickHouse integration', () => {
       { status: 'completed', latestTotal: 30 },
       { status: 'pending', latestTotal: 62.25 },
     ]);
+  });
+
+  it('returns null variance/stddev for single-row groups, matching the in-memory backend', async () => {
+    const analytics = createClient();
+
+    const result = await analytics.execute(AnalyticalOrders, {
+      dimensions: ['status'],
+      measures: ['totalVariance', 'totalStddev'],
+      orderBy: [{ field: 'status', direction: 'asc' }],
+    });
+
+    const [cancelled, completed, pending] = result.data as Array<Record<string, unknown>>;
+    // Single-row groups: varSamp/stddevSamp divide by n - 1, yielding nan,
+    // which ClickHouse's JSON output serializes as null.
+    expect(cancelled).toEqual({ status: 'cancelled', totalVariance: null, totalStddev: null });
+    expect(pending).toEqual({ status: 'pending', totalVariance: null, totalStddev: null });
+    // completed totals [21, 15, 30] → sample variance 57
+    expect(completed.status).toBe('completed');
+    expect(Number(completed.totalVariance)).toBeCloseTo(57, 6);
+    expect(Number(completed.totalStddev)).toBeCloseTo(Math.sqrt(57), 6);
+  });
+
+  describe('argMax NULL-value parity with the in-memory backend', () => {
+    const nullableRows = [
+      { id: 1, amount: null, created_at: '2024-01-05' },
+      { id: 2, amount: 10, created_at: '2024-01-01' },
+    ];
+
+    const NullableOrders = dataset('nullableOrders', {
+      source: 'nullable_orders',
+      dimensions: {
+        id: dimension.number(),
+        amount: dimension.number(),
+        createdAt: dimension.timestamp({ column: 'created_at' }),
+      },
+      measures: {
+        latestAmount: measure.argMax('amount', 'createdAt'),
+      },
+    });
+
+    beforeAll(async () => {
+      await runSql(
+        `DROP TABLE IF EXISTS ${TEST_CONNECTION_CONFIG.database}.nullable_orders`,
+        { includeDatabase: false },
+      );
+      await runSql(
+        `CREATE TABLE ${TEST_CONNECTION_CONFIG.database}.nullable_orders (
+          id UInt32,
+          amount Nullable(Float64),
+          created_at Date
+        ) ENGINE = MergeTree() ORDER BY id`,
+        { includeDatabase: false },
+      );
+      await insertRows('nullable_orders', nullableRows);
+    });
+
+    it('skips rows whose value column is NULL on both backends', async () => {
+      // The row with the greatest created_at has a NULL amount. ClickHouse
+      // argMax skips rows where either the value or the arg is NULL, so it
+      // returns the next-best row's amount rather than NULL.
+      const analytics = createClient();
+      const clickhouse = await analytics.execute(NullableOrders, {
+        measures: ['latestAmount'],
+      });
+      expect(clickhouse.data).toEqual([{ latestAmount: 10 }]);
+
+      const inMemory = await createDatasetClient({
+        backend: createInMemoryBackend({ nullable_orders: nullableRows }),
+      }).execute(NullableOrders, { measures: ['latestAmount'] });
+      expect(Number(inMemory.data[0].latestAmount)).toBe(10);
+    });
   });
 });
