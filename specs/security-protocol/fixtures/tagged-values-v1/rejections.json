@@ -1,0 +1,239 @@
+[
+  {
+    "id": "duplicate-object-key",
+    "phase": "parse",
+    "sourceUtf8": "{\"a\":1,\"a\":2}",
+    "error": "HQ_VALUE_DUPLICATE_KEY"
+  },
+  {
+    "id": "invalid-json-nan",
+    "phase": "parse",
+    "sourceUtf8": "NaN",
+    "error": "HQ_VALUE_INVALID_JSON"
+  },
+  {
+    "id": "invalid-json-infinity",
+    "phase": "parse",
+    "sourceUtf8": "Infinity",
+    "error": "HQ_VALUE_INVALID_JSON"
+  },
+  {
+    "id": "lone-high-surrogate",
+    "phase": "unicode",
+    "sourceUtf8": "\"\\ud800\"",
+    "error": "HQ_VALUE_INVALID_UNICODE"
+  },
+  {
+    "id": "control-character-null",
+    "phase": "model",
+    "sourceUtf8": "\"\\u0000\"",
+    "error": "HQ_VALUE_CONTROL_CHARACTER"
+  },
+  {
+    "id": "negative-zero",
+    "phase": "model",
+    "sourceUtf8": "-0",
+    "error": "HQ_VALUE_NEGATIVE_ZERO"
+  },
+  {
+    "id": "raw-array",
+    "phase": "model",
+    "value": [true, false],
+    "error": "HQ_VALUE_RAW_COMPOSITE"
+  },
+  {
+    "id": "unknown-tag-version",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "integer",
+        "version": 2,
+        "bits": 8,
+        "signed": true,
+        "value": "1"
+      }
+    },
+    "error": "HQ_VALUE_UNKNOWN_TAG_VERSION"
+  },
+  {
+    "id": "unknown-tag-field",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "integer",
+        "version": 1,
+        "bits": 8,
+        "signed": true,
+        "value": "1",
+        "extra": true
+      }
+    },
+    "error": "HQ_VALUE_UNKNOWN_FIELD"
+  },
+  {
+    "id": "integer-leading-zero",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "integer",
+        "version": 1,
+        "bits": 8,
+        "signed": false,
+        "value": "01"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "signed-int8-overflow",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "integer",
+        "version": 1,
+        "bits": 8,
+        "signed": true,
+        "value": "128"
+      }
+    },
+    "error": "HQ_VALUE_OUT_OF_RANGE"
+  },
+  {
+    "id": "decimal-negative-zero",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "decimal",
+        "version": 1,
+        "precision": 9,
+        "scale": 2,
+        "coefficient": "-0"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "decimal-scale-exceeds-precision",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "decimal",
+        "version": 1,
+        "precision": 2,
+        "scale": 3,
+        "coefficient": "1"
+      }
+    },
+    "error": "HQ_VALUE_OUT_OF_RANGE"
+  },
+  {
+    "id": "invalid-date",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "date",
+        "version": 1,
+        "clickhouseType": "Date",
+        "value": "2025-02-29"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "date-out-of-range",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "date",
+        "version": 1,
+        "clickhouseType": "Date",
+        "value": "1900-01-01"
+      }
+    },
+    "error": "HQ_VALUE_OUT_OF_RANGE"
+  },
+  {
+    "id": "datetime-missing-timezone",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime64",
+        "precision": 3,
+        "timezone": "Europe/Madrid",
+        "value": "2026-07-13T14:30:45.123"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "uuid-uppercase",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "uuid",
+        "version": 1,
+        "value": "01890F3E-7B7B-7CC2-98C4-DC0C0C07398F"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "bytes-padding",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "bytes",
+        "version": 1,
+        "encoding": "base64url",
+        "value": "AA=="
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "enum8-code-overflow",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "enum",
+        "version": 1,
+        "bits": 8,
+        "code": 128,
+        "label": "overflow"
+      }
+    },
+    "error": "HQ_VALUE_OUT_OF_RANGE"
+  },
+  {
+    "id": "composite-depth-17",
+    "phase": "limits",
+    "generator": {
+      "type": "nested-array",
+      "depth": 17,
+      "leaf": null
+    },
+    "error": "HQ_VALUE_TOO_DEEP"
+  },
+  {
+    "id": "array-items-1001",
+    "phase": "limits",
+    "generator": {
+      "type": "array",
+      "items": 1001,
+      "value": null
+    },
+    "error": "HQ_VALUE_TOO_MANY_ITEMS"
+  },
+  {
+    "id": "string-bytes-65537",
+    "phase": "limits",
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "a",
+      "count": 65537
+    },
+    "error": "HQ_VALUE_TOO_LARGE"
+  }
+]

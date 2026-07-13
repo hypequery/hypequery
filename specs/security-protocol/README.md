@@ -40,8 +40,8 @@ a bug. Implementations must not silently establish competing protocol rules.
   validation failures.
 - `rfc/`: proposals that are not normative until accepted.
 
-Only `decisions/` exists in the scaffold. Empty directories will be introduced
-with the first artifact that needs them.
+The tagged-value proposal and its draft fixtures now live in `rfc/` and
+`fixtures/`. Empty directories are introduced only with their first artifact.
 
 ## Boundaries
 
