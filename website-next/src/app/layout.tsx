@@ -122,13 +122,6 @@ export default function RootLayout({
           }}
         />
         <Script
-          id="theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: '',
-          }}
-        />
-        <Script
           defer
           src="https://cloud.umami.is/script.js"
           data-website-id="a1b133a2-bf0a-4260-9c2c-f76a2a20359f"
@@ -191,7 +184,7 @@ gtag('config', '${gaMeasurementId}');`,
             enableSystem: true,
             disableTransitionOnChange: true,
             storageKey: THEME_STORAGE_KEY,
-            attribute: "class",
+            attribute: ["class", "data-theme"],
           }}
           search={{
             SearchDialog: DefaultSearchDialog,
