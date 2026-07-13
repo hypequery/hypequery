@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer | hypequery',
+  title: 'ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer',
   description:
     'Build customer-facing ClickHouse analytics with tenant-scoped query definitions, typed APIs, and dashboard delivery that does not fork per surface.',
   alternates: { canonical: absoluteUrl('/clickhouse-saas-analytics') },
   openGraph: {
+    images: ogImage('ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer'),
     type: 'website',
     url: absoluteUrl('/clickhouse-saas-analytics'),
     title: 'ClickHouse SaaS Analytics — Multi-Tenant TypeScript Layer | hypequery',

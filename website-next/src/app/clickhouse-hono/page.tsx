@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Hono Routes with Typed Query Results | hypequery',
+  title: 'ClickHouse Hono Routes with Typed Query Results',
   description:
     'Use Hono as the HTTP layer and hypequery as the ClickHouse query layer for typed analytics routes on Node.js or fetch-based runtimes.',
   robots: {
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   },
   alternates: { canonical: absoluteUrl('/clickhouse-hono') },
   openGraph: {
+    images: ogImage('ClickHouse Hono Routes with Typed Query Results'),
     type: 'website',
     url: absoluteUrl('/clickhouse-hono'),
     title: 'ClickHouse Hono Routes with Typed Query Results | hypequery',

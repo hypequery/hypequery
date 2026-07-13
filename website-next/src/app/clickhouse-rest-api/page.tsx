@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse API in TypeScript — Typed REST Endpoints | hypequery',
+  title: 'ClickHouse API in TypeScript — Typed REST Endpoints',
   description:
     'Build a ClickHouse API in TypeScript without hand-writing every route. hypequery turns query definitions into typed REST endpoints with OpenAPI docs and input validation.',
   alternates: { canonical: absoluteUrl('/clickhouse-rest-api') },
   openGraph: {
+    images: ogImage('ClickHouse API in TypeScript — Typed REST Endpoints'),
     type: 'website',
     url: absoluteUrl('/clickhouse-rest-api'),
     title: 'ClickHouse API in TypeScript — Typed REST Endpoints | hypequery',

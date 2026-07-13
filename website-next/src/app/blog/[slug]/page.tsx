@@ -188,10 +188,14 @@ export default async function BlogPostPage({
     datePublished: publishDate ?? undefined,
     dateModified: publishDate ?? undefined,
     mainEntityOfPage: articleUrl,
-    author: {
-      '@type': 'Organization',
-      name: 'hypequery',
-    },
+    author: data.author
+      ? { '@type': 'Person', name: data.author }
+      : {
+          '@type': 'Person',
+          name: 'Luke Reilly',
+          url: 'https://github.com/lureilly1',
+          sameAs: ['https://dev.to/lureilly1', 'https://medium.com/@lureilly1'],
+        },
     publisher: {
       '@type': 'Organization',
       name: 'hypequery',
@@ -224,7 +228,7 @@ export default async function BlogPostPage({
               day: 'numeric',
             })}
           </time>
-          <h1 className="font-display mt-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
+          <h1 className="mt-3 text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-5xl">
             {data.title}
           </h1>
           {data.description && (

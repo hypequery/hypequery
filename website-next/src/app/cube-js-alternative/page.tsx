@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Cube.js Alternative for ClickHouse — Code-First TypeScript Layer | hypequery',
+  title: 'Cube.js Alternative for ClickHouse — Code-First TypeScript Layer',
   description:
     'Looking for a Cube.js alternative for ClickHouse? hypequery replaces the Cube server, Redis cache, and YAML modelling with a typed TypeScript library that lives in your codebase.',
   alternates: { canonical: absoluteUrl('/cube-js-alternative') },
   openGraph: {
+    images: ogImage('Cube.js Alternative for ClickHouse — Code-First TypeScript Layer'),
     type: 'website',
     url: absoluteUrl('/cube-js-alternative'),
     title: 'Cube.js Alternative for ClickHouse — Code-First TypeScript Layer | hypequery',

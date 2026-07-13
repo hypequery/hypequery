@@ -1,7 +1,14 @@
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 
-const footerColumns = [
+type FooterLink = {
+  label: string;
+  href: string;
+  external?: boolean;
+  track?: string;
+};
+
+const footerColumns: Array<{ title: string; links: FooterLink[] }> = [
   {
     title: 'Product',
     links: [
@@ -32,7 +39,8 @@ const footerColumns = [
       { label: 'Use Cases', href: '/use-cases' },
       { label: 'Internal Product APIs', href: '/use-cases/internal-product-apis' },
       { label: 'Multi-Tenant SaaS', href: '/use-cases/multi-tenant-saas' },
-      { label: 'Contact', href: 'https://x.com/hypequery', external: true },
+      { label: 'Contact', href: '/contact-us' },
+      { label: 'Book a call', href: 'https://cal.com/luke-reilly-jdi9su/hypequery-chat', external: true, track: 'book_call' },
     ],
   },
   {
@@ -71,6 +79,9 @@ export default function Footer() {
                     href={link.href}
                     target="_blank"
                     rel="noreferrer"
+                    data-umami-event={link.track ? 'cta_click' : undefined}
+                    data-umami-event-target={link.track ? link.track : undefined}
+                    data-umami-event-location={link.track ? 'footer' : undefined}
                     className="block text-[13.5px] text-text-muted transition hover:text-text"
                   >
                     {link.label}

@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Schema — TypeScript Types Generated from Your Database | hypequery',
+  title: 'ClickHouse Schema — TypeScript Types Generated from Your Database',
   description:
     'Generate TypeScript types from your live ClickHouse schema so query code stops relying on hand-written interfaces and incorrect runtime assumptions.',
   alternates: { canonical: absoluteUrl('/clickhouse-schema') },
   openGraph: {
+    images: ogImage('ClickHouse Schema — TypeScript Types Generated from Your Database'),
     type: 'website',
     url: absoluteUrl('/clickhouse-schema'),
     title: 'ClickHouse Schema — TypeScript Types from Your Database | hypequery',
@@ -55,7 +56,7 @@ export default function ClickHouseSchemaPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Schema"
       title="Generate TypeScript types from your live ClickHouse schema"
-      description="This is the page for the first problem most TypeScript teams hit on ClickHouse: the database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."
+      description="The first problem most TypeScript teams hit on ClickHouse: the database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/docs/schemas', label: 'Read the schemas guide' }}
       stats={[

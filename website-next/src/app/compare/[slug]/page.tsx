@@ -6,7 +6,7 @@ import PageWrapper from '@/components/PageWrapper';
 import MarkdownContent from '@/components/MarkdownContent';
 import RelatedContent from '@/components/RelatedContent';
 import { getPostBySlug } from '@/lib/blog';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 import { compareArticles } from '@/data/compare-articles';
 import { comparePageBySlug, comparePages } from '@/data/compare-pages';
 
@@ -64,6 +64,7 @@ export async function generateMetadata({
       description,
       publishedTime: article?.date,
       tags: article?.tags,
+      images: ogImage(title),
     },
     twitter: {
       card: 'summary_large_image',
@@ -164,7 +165,7 @@ export default async function ComparePage({
         <section className="border-b border-slate-800/80">
           <div className="mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">Compare</p>
-            <h1 className="font-display mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
+            <h1 className="mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
               {article.title}
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
@@ -173,6 +174,9 @@ export default async function ComparePage({
 	            <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="hero_primary"
                 className="bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
               >
                 Start with the quick start
@@ -218,19 +222,19 @@ export default async function ComparePage({
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
 	            <div className="mb-10 grid gap-6 md:grid-cols-3">
 	            <div className="border border-slate-700 bg-slate-900/60 p-6">
-	              <h2 className="font-display text-lg font-semibold text-slate-100">What this page is for</h2>
+	              <h2 className="text-lg font-semibold text-slate-100">What this page is for</h2>
 	              <p className="mt-3 text-sm leading-7 text-slate-300">
 	                Use this page when the real question is how one tool changes the shape of your ClickHouse application code, not just which syntax looks nicer.
 	              </p>
 	            </div>
 	            <div className="border border-slate-700 bg-slate-900/60 p-6">
-	              <h2 className="font-display text-lg font-semibold text-slate-100">What this page is not</h2>
+	              <h2 className="text-lg font-semibold text-slate-100">What this page is not</h2>
 	              <p className="mt-3 text-sm leading-7 text-slate-300">
 	                It is not a broad ecosystem roundup. It stays narrow on the tradeoff a ClickHouse-heavy TypeScript team is actually deciding.
 	              </p>
 	            </div>
 	            <div className="border border-slate-700 bg-slate-900/60 p-6">
-	              <h2 className="font-display text-lg font-semibold text-slate-100">Recommended next move</h2>
+	              <h2 className="text-lg font-semibold text-slate-100">Recommended next move</h2>
 	              <p className="mt-3 text-sm leading-7 text-slate-300">
 	                If the tradeoff already looks clear, stop reading comparisons and test the fit against one real query in your own schema.
 	              </p>
@@ -281,7 +285,7 @@ export default async function ComparePage({
             </div>
 	            <div className="mt-10 border border-slate-700 bg-slate-900/70 p-6">
 	              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">Decision checkpoint</p>
-	              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
+	              <h2 className="mt-3 text-2xl font-semibold text-white">
 	                If the tradeoff is already clear, move into implementation
 	              </h2>
 	              <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
@@ -290,6 +294,9 @@ export default async function ComparePage({
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/docs/quick-start"
+                  data-umami-event="cta_click"
+                  data-umami-event-target="docs_quick_start"
+                  data-umami-event-location="article_body"
                   className="inline-flex items-center bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
                 >
                   Open quick start
@@ -311,11 +318,11 @@ export default async function ComparePage({
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <h2 className="font-display text-3xl font-semibold text-white">FAQ</h2>
+          <h2 className="text-3xl font-semibold text-white">FAQ</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {comparePage.faq.map((item) => (
               <div key={item.question} className="border border-slate-700 bg-slate-900/70 p-6">
-                <h3 className="font-display text-xl font-semibold text-slate-100">{item.question}</h3>
+                <h3 className="text-xl font-semibold text-slate-100">{item.question}</h3>
                 <p className="mt-3 text-sm leading-7 text-slate-300">{item.answer}</p>
               </div>
             ))}
@@ -326,7 +333,7 @@ export default async function ComparePage({
           <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">Next step</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
+              <h2 className="mt-3 text-2xl font-semibold text-white">
                 Move from evaluation into a typed ClickHouse workflow
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
@@ -337,6 +344,9 @@ export default async function ComparePage({
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="next_step_primary"
                 className="inline-flex items-center bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
               >
                 Open quick start

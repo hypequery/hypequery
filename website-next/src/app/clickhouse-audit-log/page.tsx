@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Audit Log — TypeScript Query Layer for Event Logs | hypequery',
+  title: 'ClickHouse Audit Log — TypeScript Query Layer for Event Logs',
   description:
     'Build audit-log APIs on ClickHouse with typed filters, cursor pagination, and reviewable tenant scoping patterns for append-only event tables.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-audit-log'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Audit Log — TypeScript Query Layer for Event Logs'),
     type: 'website',
     url: absoluteUrl('/clickhouse-audit-log'),
     title: 'ClickHouse Audit Log — TypeScript Query Layer for Event Logs | hypequery',

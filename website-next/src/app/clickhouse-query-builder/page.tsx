@@ -1,15 +1,16 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse Query Builder for TypeScript | hypequery',
+  title: 'ClickHouse Query Builder for TypeScript',
   description:
     'Build ClickHouse queries in TypeScript with schema-generated types, native ClickHouse syntax, and a clean path from one-off queries to reusable API definitions.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-query-builder'),
   },
   openGraph: {
+    images: ogImage('ClickHouse Query Builder for TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-query-builder'),
     title: 'ClickHouse Query Builder for TypeScript | hypequery',

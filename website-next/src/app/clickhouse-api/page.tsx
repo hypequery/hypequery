@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse API in TypeScript | hypequery',
+  title: 'ClickHouse API in TypeScript',
   description:
     'Build a ClickHouse API in TypeScript from typed query definitions. Generate schema types, expose validated endpoints, and get OpenAPI docs automatically.',
   alternates: { canonical: absoluteUrl('/clickhouse-api') },
   openGraph: {
+    images: ogImage('ClickHouse API in TypeScript'),
     type: 'website',
     url: absoluteUrl('/clickhouse-api'),
     title: 'ClickHouse API in TypeScript | hypequery',

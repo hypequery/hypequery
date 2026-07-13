@@ -1,24 +1,25 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'TypeORM for ClickHouse: Better Alternative for TypeScript | hypequery',
+  title: 'TypeORM with ClickHouse? Use This Instead',
   description:
-    'Looking for TypeORM on ClickHouse? TypeORM is not a natural fit for ClickHouse analytics workloads. hypequery is the TypeScript-first alternative for generated schema types and ClickHouse queries.',
+    'TypeORM fights ClickHouse — decorators, migrations, and relations don\'t map to analytics tables. hypequery generates types from your live schema instead.',
   alternates: { canonical: absoluteUrl('/typeorm-clickhouse') },
   openGraph: {
+    images: ogImage('TypeORM for ClickHouse: Better Alternative for TypeScript'),
     type: 'website',
     url: absoluteUrl('/typeorm-clickhouse'),
-    title: 'TypeORM for ClickHouse: Better Alternative for TypeScript | hypequery',
+    title: 'TypeORM with ClickHouse? Use This Instead | hypequery',
     description:
-      'TypeORM is built for relational transactional workflows. If you need a TypeScript-native workflow for ClickHouse analytics, hypequery is the closer fit.',
+      'TypeORM fights ClickHouse analytics. hypequery generates TypeScript types from your live schema and gives you fully typed queries instead.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TypeORM for ClickHouse | hypequery',
+    title: 'TypeORM with ClickHouse? Use This Instead | hypequery',
     description:
-      'TypeORM is not a natural fit for ClickHouse analytics workloads. Use hypequery for generated types, composable ClickHouse queries, and reusable APIs.',
+      'TypeORM fights ClickHouse analytics. hypequery generates TypeScript types from your live schema instead.',
   },
 };
 
@@ -54,7 +55,7 @@ export default function TypeormClickHousePage() {
       eyebrow="TypeORM ClickHouse"
       title="Looking for TypeORM on ClickHouse?"
       description="TypeORM is built around relational entities, transactions, and table relationships. ClickHouse is a columnar analytics database with a different type model and a different query shape. If what you actually want is a TypeScript workflow for ClickHouse analytics, hypequery is the closer fit."
-      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
+      primaryCta={{ href: '/docs/quick-start', label: 'Generate types from your schema' }}
       secondaryCta={{ href: '/clickhouse-orm', label: 'See the ClickHouse ORM page' }}
       stats={[
         { label: 'TypeORM fit', value: 'Relational app databases' },
@@ -170,7 +171,7 @@ export default function TypeormClickHousePage() {
         title: 'Generate your ClickHouse schema types and try one real analytics query',
         description:
           'That is the fastest way to tell whether the TypeORM-style ClickHouse workflow you want is really a generated-schema query-layer problem instead.',
-        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
+        primaryCta: { href: '/docs/quick-start', label: 'Generate types from your schema' },
         secondaryCta: { href: '/clickhouse-orm', label: 'See the ORM page' },
       }}
     />

@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse for Node.js Scripts, Jobs, and APIs | hypequery',
+  title: 'ClickHouse for Node.js Scripts, Jobs, and APIs',
   description:
     'Use ClickHouse from Node.js scripts, jobs, and servers without rebuilding row types and HTTP wiring around every query.',
   alternates: { canonical: absoluteUrl('/clickhouse-nodejs') },
   openGraph: {
+    images: ogImage('ClickHouse for Node.js Scripts, Jobs, and APIs'),
     type: 'website',
     url: absoluteUrl('/clickhouse-nodejs'),
     title: 'ClickHouse for Node.js Scripts, Jobs, and APIs | hypequery',

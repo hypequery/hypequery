@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import CodeWindow from '@/components/CodeWindow';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 import {
   clickhouseFunctions,
   findFunction,
@@ -35,6 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: canonical,
       title: fn.metaTitle,
       description: fn.metaDescription,
+      images: ogImage(fn.metaTitle),
     },
     twitter: {
       card: 'summary_large_image',
@@ -112,7 +113,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
               <span className="text-text-dim">/</span>
               <span className="text-accent">{clusterLabel[fn.cluster] ?? fn.cluster}</span>
             </div>
-            <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight text-text sm:text-5xl">
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-text sm:text-5xl">
               <code className="font-mono">{fn.name}</code>
             </h1>
             <p className="mt-4 max-w-3xl text-lg leading-8 text-text-muted">{fn.tagline}</p>
@@ -136,7 +137,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
           <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">What it does</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+              <h2 className="mt-3 text-2xl font-semibold text-text">
                 {fn.description}
               </h2>
               <p className="mt-5 text-base leading-8 text-text-muted">{fn.longDescription}</p>
@@ -159,7 +160,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             {/* SQL Example */}
             <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
               <p className="text-xs uppercase tracking-[0.25em] text-text-dim">Example SQL</p>
-              <h3 className="font-display mt-3 text-xl font-semibold text-text">
+              <h3 className="mt-3 text-xl font-semibold text-text">
                 {fn.name} in ClickHouse SQL
               </h3>
               <CodeWindow
@@ -179,7 +180,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                   TypeScript with hypequery
                 </p>
-                <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+                <h2 className="mt-3 text-2xl font-semibold text-text">
                   Use {fn.name} in a typed TypeScript query
                 </h2>
                 <p className="mt-5 text-base leading-8 text-text-muted">
@@ -190,6 +191,9 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
                 <div className="mt-8 flex flex-wrap gap-4">
                   <Link
                     href="/docs/quick-start"
+                    data-umami-event="cta_click"
+                    data-umami-event-target="docs_quick_start"
+                    data-umami-event-location="example_panel"
                     className="bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
                   >
                     Quick start
@@ -216,13 +220,13 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
         {/* Search intent cards */}
         <section className="mx-auto max-w-7xl px-4 py-14 lg:px-6">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Common questions</p>
-          <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+          <h2 className="mt-3 text-2xl font-semibold text-text">
             What developers search for with {fn.name}
           </h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {fn.searchIntentCards.map((card) => (
               <div key={card.title} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h3 className="font-display text-lg font-semibold text-text">{card.title}</h3>
+                <h3 className="text-lg font-semibold text-text">{card.title}</h3>
                 <p className="mt-3 text-sm leading-7 text-text-muted">{card.copy}</p>
               </div>
             ))}
@@ -234,13 +238,13 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
           <section className="border-y border-border bg-bg-alt/60">
             <div className="mx-auto max-w-7xl px-4 py-14 lg:px-6">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">FAQ</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+              <h2 className="mt-3 text-2xl font-semibold text-text">
                 Frequently asked questions about {fn.name}
               </h2>
               <div className="mt-8 space-y-6">
                 {fn.faqItems.map((item) => (
                   <div key={item.question} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                    <h3 className="font-display text-lg font-semibold text-text">{item.question}</h3>
+                    <h3 className="text-lg font-semibold text-text">{item.question}</h3>
                     <p className="mt-3 text-sm leading-7 text-text-muted">{item.answer}</p>
                   </div>
                 ))}
@@ -254,7 +258,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
           <div className="grid gap-8 lg:grid-cols-[0.6fr_0.4fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">Related functions</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+              <h2 className="mt-3 text-2xl font-semibold text-text">
                 Functions used alongside {fn.name}
               </h2>
               {resolvedRelatedFunctions.length > 0 ? (
@@ -297,7 +301,7 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
           <div className="rounded-lg border border-border-strong bg-bg-card p-8 shadow-card md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">Next step</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+              <h2 className="mt-3 text-2xl font-semibold text-text">
                 Use {fn.name} in a type-safe TypeScript query
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-text-muted">
@@ -308,6 +312,9 @@ async function ClickHouseFunctionPageInner({ params }: Props) {
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="next_step_primary"
                 className="inline-flex items-center bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Quick start

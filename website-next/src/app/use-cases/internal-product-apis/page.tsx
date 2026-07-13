@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import PageWrapper from '@/components/PageWrapper';
 import CodeWindow from '@/components/CodeWindow';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Internal Product APIs with ClickHouse Analytics',
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     canonical: absoluteUrl('/use-cases/internal-product-apis'),
   },
   openGraph: {
+    images: ogImage('Internal Product APIs with ClickHouse Analytics'),
     type: 'website',
     url: absoluteUrl('/use-cases/internal-product-apis'),
     title: 'Internal Product APIs with ClickHouse Analytics | hypequery',
@@ -86,7 +87,7 @@ export default function InternalProductApisUseCasePage() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
               Use Case
             </p>
-            <h1 className="font-display mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
               Internal product APIs with embedded ClickHouse analytics
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
@@ -95,12 +96,18 @@ export default function InternalProductApisUseCasePage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="hero_primary"
                 className="bg-text px-6 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Start with this pattern
               </Link>
               <a
-                href="https://cal.com"
+                href="https://cal.com/luke-reilly-jdi9su/hypequery-chat"
+                data-umami-event="cta_click"
+                data-umami-event-target="book_call"
+                data-umami-event-location="hero_secondary"
                 className="border border-border-strong px-6 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -128,19 +135,19 @@ export default function InternalProductApisUseCasePage() {
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="grid gap-6 md:grid-cols-3">
 	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="font-display text-lg font-semibold text-text">Keep route contracts stable</h2>
+	              <h2 className="text-lg font-semibold text-text">Keep route contracts stable</h2>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Existing consumers do not need to notice the migration while you move analytics logic behind an internal path.
 	              </p>
 	            </div>
 	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="font-display text-lg font-semibold text-text">Use one query definition</h2>
+	              <h2 className="text-lg font-semibold text-text">Use one query definition</h2>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Let handlers call `api.run(...)` directly and expose the same definition over HTTP only where it is genuinely useful.
 	              </p>
 	            </div>
 	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="font-display text-lg font-semibold text-text">Scale rollout safely</h2>
+	              <h2 className="text-lg font-semibold text-text">Scale rollout safely</h2>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Start with one endpoint or one response shape, see what sticks, then widen the internal surface deliberately.
 	              </p>
@@ -150,25 +157,25 @@ export default function InternalProductApisUseCasePage() {
 
         <section className="border-y border-border bg-bg-alt/60">
           <div className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-          <h2 className="font-display text-3xl font-semibold text-text">Implementation flow</h2>
+          <h2 className="text-3xl font-semibold text-text">Implementation flow</h2>
             <div className="mt-8 grid gap-6 md:grid-cols-3">
               <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
                 <p className="text-xs uppercase tracking-[0.2em] text-accent">Step 1</p>
-                <h3 className="font-display mt-3 text-lg font-semibold text-text">Mount internal routes</h3>
+                <h3 className="mt-3 text-lg font-semibold text-text">Mount internal routes</h3>
 	                <p className="mt-3 text-sm leading-7 text-text-muted">
 	                  Mount the analytics handler beside the routes you already run instead of restructuring the whole backend first.
 	                </p>
               </div>
               <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
                 <p className="text-xs uppercase tracking-[0.2em] text-accent">Step 2</p>
-                <h3 className="font-display mt-3 text-lg font-semibold text-text">Compose in endpoints</h3>
+                <h3 className="mt-3 text-lg font-semibold text-text">Compose in endpoints</h3>
 	                <p className="mt-3 text-sm leading-7 text-text-muted">
 	                  Pull analytics into existing business responses without turning every route into bespoke query code.
 	                </p>
               </div>
               <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
                 <p className="text-xs uppercase tracking-[0.2em] text-accent">Step 3</p>
-                <h3 className="font-display mt-3 text-lg font-semibold text-text">Reuse query logic</h3>
+                <h3 className="mt-3 text-lg font-semibold text-text">Reuse query logic</h3>
 	                <p className="mt-3 text-sm leading-7 text-text-muted">
 	                  Keep one typed source of truth whether the query is called directly or exposed under an internal path.
 	                </p>
@@ -178,7 +185,7 @@ export default function InternalProductApisUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-	          <h2 className="font-display text-2xl font-semibold text-text">Works with your existing routes</h2>
+	          <h2 className="text-2xl font-semibold text-text">Works with your existing routes</h2>
 	          <p className="mt-3 text-lg leading-8 text-text-muted">
 	            The route tree stays yours. Add the analytics surface where it fits instead of adopting a separate service boundary immediately.
 	          </p>
@@ -186,7 +193,7 @@ export default function InternalProductApisUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="font-display text-2xl font-semibold text-text">
+          <h2 className="text-2xl font-semibold text-text">
             Compose analytics directly in business endpoints
           </h2>
 	          <p className="mt-3 text-lg leading-8 text-text-muted">
@@ -196,7 +203,7 @@ export default function InternalProductApisUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-          <h2 className="font-display text-2xl font-semibold text-text">
+          <h2 className="text-2xl font-semibold text-text">
             Define once, reuse everywhere
           </h2>
 	          <p className="mt-3 text-lg leading-8 text-text-muted">
@@ -211,7 +218,7 @@ export default function InternalProductApisUseCasePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                 Ready to implement
               </p>
-	              <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+	              <h2 className="mt-3 text-2xl font-semibold text-text">
 	                Use this as your first production migration path
 	              </h2>
 	              <ul className="mt-4 space-y-2 text-sm leading-7 text-text-muted">
@@ -223,12 +230,18 @@ export default function InternalProductApisUseCasePage() {
             <div className="mt-6 flex gap-3 md:mt-0">
               <Link
                 href="/docs/quick-start"
+                data-umami-event="cta_click"
+                data-umami-event-target="docs_quick_start"
+                data-umami-event-location="next_step_primary"
                 className="inline-flex items-center bg-text px-5 py-3 text-sm font-semibold text-bg transition hover:opacity-90"
               >
                 Open quick start
               </Link>
               <Link
                 href="/use-cases/multi-tenant-saas"
+                data-umami-event="cta_click"
+                data-umami-event-target="use_cases_multi_tenant_saas"
+                data-umami-event-location="next_step_secondary"
                 className="inline-flex items-center border border-border-strong px-5 py-3 text-sm font-semibold text-text transition hover:bg-bg-alt"
               >
                 Next: Multi-tenant

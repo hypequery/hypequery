@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
-import { absoluteUrl } from '@/lib/site';
+import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse OpenAPI — Auto-Generated Docs from Query Definitions | hypequery',
+  title: 'ClickHouse OpenAPI — Auto-Generated Docs from Query Definitions',
   description:
     'Generate an OpenAPI spec from real ClickHouse query definitions so your docs, request validation, and response schemas stay aligned with the code you actually ship.',
   alternates: { canonical: absoluteUrl('/clickhouse-openapi') },
   openGraph: {
+    images: ogImage('ClickHouse OpenAPI — Auto-Generated Docs from Query Definitions'),
     type: 'website',
     url: absoluteUrl('/clickhouse-openapi'),
     title: 'ClickHouse OpenAPI — Auto-Generated from Query Definitions | hypequery',
