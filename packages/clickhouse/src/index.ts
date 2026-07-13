@@ -1,9 +1,17 @@
 export { createQueryBuilder, QueryBuilder } from './core/query-builder.js';
+export { InsertBuilder } from './core/insert-builder.js';
+export type { InsertExecuteOptions, InsertQB } from './core/insert-builder.js';
+export { buildJsonEachRowInsert } from './core/features/insert-executor.js';
+export type { JsonEachRowInsertOptions } from './core/features/insert-executor.js';
 export { ClickHouseConnection } from './core/connection.js';
 export { JoinRelationships } from './core/join-relationships.js';
 export { createClickHouseAdapter, ClickHouseAdapter } from './core/adapters/clickhouse-adapter.js';
 export { ClickHouseDialect } from './core/dialects/clickhouse-dialect.js';
-export type { DatabaseAdapter } from './core/adapters/database-adapter.js';
+export type {
+  DatabaseAdapter,
+  InsertExecutionOptions,
+  InsertResultSummary
+} from './core/adapters/database-adapter.js';
 export type { SqlDialect } from './core/dialects/sql-dialect.js';
 
 // Re-export types for convenience
@@ -39,6 +47,12 @@ export type {
   DatabaseSchema,
   InferColumnType,
 } from './types/schema.js';
+export type {
+  InsertRow,
+  InsertRowForColumns,
+  InsertValue,
+  InsertJsonValue,
+} from './types/insert.js';
 export type {
   OrderDirection,
   QueryConfig,
@@ -185,4 +199,3 @@ export {
   datasetsToJSON,
   summarizeAllDatasets,
 } from './dataset/introspection.js';
-

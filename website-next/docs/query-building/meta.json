@@ -13,6 +13,7 @@
     "helper-methods",
     "sql-expressions",
     "subqueries-ctes",
-    "advanced-filtering"
+    "advanced-filtering",
+    "inserts"
   ]
 }

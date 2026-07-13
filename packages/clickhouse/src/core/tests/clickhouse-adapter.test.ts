@@ -38,7 +38,11 @@ describe('ClickHouseAdapter', () => {
     expect(clientQueryMock).toHaveBeenCalledWith({
       query: 'SELECT 1',
       format: 'JSONEachRow',
-      clickhouse_settings: { final: 1, max_execution_time: 10 },
+      clickhouse_settings: {
+        output_format_json_quote_64bit_integers: 1,
+        final: 1,
+        max_execution_time: 10,
+      },
       query_id: 'query-123',
     });
     expect(jsonMock).toHaveBeenCalled();
@@ -74,8 +78,42 @@ describe('ClickHouseAdapter', () => {
     expect(clientQueryMock).toHaveBeenCalledWith({
       query: 'SELECT id FROM events',
       format: 'JSONEachRow',
-      clickhouse_settings: { final: 1, max_execution_time: 10 },
+      clickhouse_settings: {
+        output_format_json_quote_64bit_integers: 1,
+        final: 1,
+        max_execution_time: 10,
+      },
       query_id: 'query-456',
     });
+  });
+
+  it('allows explicitly opting out of quoted 64-bit JSON integers', async () => {
+    const clientQueryMock = vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue([]),
+    });
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+    });
+
+    await adapter.query('SELECT toInt64(1)', [], {
+      clickhouseSettings: { output_format_json_quote_64bit_integers: 0 },
+    });
+
+    expect(clientQueryMock).toHaveBeenCalledWith(expect.objectContaining({
+      clickhouse_settings: { output_format_json_quote_64bit_integers: 0 },
+    }));
+  });
+
+  it('rejects unsafe insert identifiers before calling the client', async () => {
+    const clientInsertMock = vi.fn();
+    const adapter = new ClickHouseAdapter({
+      client: {
+        insert: clientInsertMock,
+      } as any,
+    });
+
+    await expect(adapter.insert('events; DROP TABLE users', [{ id: 1 }]))
+      .rejects.toThrow('Unsafe table identifier');
+    expect(clientInsertMock).not.toHaveBeenCalled();
   });
 });

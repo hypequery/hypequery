@@ -150,6 +150,13 @@ export interface SelectQueryNode<T, Schema> extends QueryConfig<T, Schema> {
   kind: 'select-query';
 }
 
+export interface InsertQueryNode {
+  kind: 'insert-query';
+  rows: Record<string, unknown>[];
+  columns?: string[];
+  settings?: ClickHouseSettings;
+}
+
 export type AggregationType<T, Aggregations, Column, A extends string, Suffix extends string, HasSelect extends boolean> =
   HasSelect extends true
   ? { [K in keyof T | A]: K extends keyof T ? T[K] : string }

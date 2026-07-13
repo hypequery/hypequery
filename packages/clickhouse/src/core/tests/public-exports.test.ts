@@ -1,4 +1,6 @@
 import {
+  createQueryBuilder,
+  InsertBuilder,
   toStartOfMinute,
   toStartOfHour,
   toStartOfDay,
@@ -25,6 +27,13 @@ describe('Public exports', () => {
     expect(toStartOfMonth('created_at').toSql()).toBe('toStartOfMonth(created_at)');
     expect(toStartOfQuarter('created_at').toSql()).toBe('toStartOfQuarter(created_at)');
     expect(toStartOfYear('created_at').toSql()).toBe('toStartOfYear(created_at)');
+  });
+
+  it('exports the insert API from the package entrypoint', () => {
+    const db = createQueryBuilder({
+      adapter: { name: 'test', query: async () => [] },
+    });
+    expect(db.insert('any_table')).toBeInstanceOf(InsertBuilder);
   });
 
   it('exports a datasets client from the datasets package', () => {

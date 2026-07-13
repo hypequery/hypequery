@@ -75,7 +75,7 @@ export class CrossFilter<
     if (Array.isArray(value)) {
       value = value.map(v => v instanceof Date ? v.toISOString() : v) as typeof value;
     } else if (value instanceof Date) {
-      value = value.toISOString() as typeof value;
+      value = value.toISOString() as unknown as typeof value;
     }
 
     this.rootGroup.conditions.push({

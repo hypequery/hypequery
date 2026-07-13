@@ -18,6 +18,7 @@
     "query-building/sql-expressions",
     "query-building/subqueries-ctes",
     "query-building/advanced-filtering",
+    "query-building/inserts",
     "re-using-queries",
     "schemas",
     "---Datasets---",

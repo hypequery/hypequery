@@ -15,6 +15,10 @@ export type ClickHouseFloat = 'Float32' | 'Float64';
 
 export type ClickHouseDecimal =
   | 'Decimal32' | 'Decimal64' | 'Decimal128' | 'Decimal256'
+  | `Decimal32(${number})`
+  | `Decimal64(${number})`
+  | `Decimal128(${number})`
+  | `Decimal256(${number})`
   | `Decimal(${number}, ${number})`;
 
 export type ClickHouseDateTime =
@@ -27,7 +31,11 @@ export type ClickHouseDateTime =
 export type ClickHouseString =
   | 'String'
   | `FixedString(${number})`
-  | 'UUID';
+  | 'UUID'
+  | 'IPv4'
+  | 'IPv6';
+
+export type ClickHouseJson = 'JSON';
 
 export type ClickHouseBoolean = 'Bool' | 'Boolean';
 
@@ -41,49 +49,16 @@ export type ClickHouseBaseType =
   | ClickHouseDecimal
   | ClickHouseDateTime
   | ClickHouseString
+  | ClickHouseJson
   | ClickHouseBoolean
   | ClickHouseEnum;
 
 export type ClickHouseType =
   | ClickHouseBaseType
-  | `Array(${ClickHouseBaseType})`
-  | `Array(Nullable(${ClickHouseBaseType}))`
-  | `Array(LowCardinality(String))`
-  | `Array(LowCardinality(${ClickHouseEnum}))`
-  | `Array(Tuple(${string}))`
-  | `Nullable(${ClickHouseBaseType})`
-  | `Nullable(Array(${ClickHouseBaseType}))`
-  | `Nullable(Array(Tuple(${string})))`
-  | `Nullable(Tuple(${string}))`
-  | `LowCardinality(${ClickHouseString})`
-  | `LowCardinality(${ClickHouseEnum})`
-  | `LowCardinality(Nullable(${ClickHouseString}))`
-  | `LowCardinality(Nullable(${ClickHouseEnum}))`
-  | `Map(String, ${ClickHouseBaseType})`
-  | `Map(String, Array(${ClickHouseBaseType}))`
-  | `Map(String, Nullable(${ClickHouseBaseType}))`
-  | `Map(String, Tuple(${string}))`
-  | `Map(String, Array(Tuple(${string})))`
-  | `Map(LowCardinality(String), ${ClickHouseBaseType})`
-  | `Map(LowCardinality(String), Array(${ClickHouseBaseType}))`
-  | `Map(LowCardinality(String), Nullable(${ClickHouseBaseType}))`
-  | `Map(LowCardinality(String), Tuple(${string}))`
-  | `Map(LowCardinality(String), Array(Tuple(${string})))`
-  | `Map(${ClickHouseInteger}, ${ClickHouseBaseType})`
-  | `Map(${ClickHouseInteger}, Array(${ClickHouseBaseType}))`
-  | `Map(${ClickHouseInteger}, Nullable(${ClickHouseBaseType}))`
-  | `Map(${ClickHouseInteger}, Tuple(${string}))`
-  | `Map(${ClickHouseInteger}, Array(Tuple(${string})))`
-  | `Array(Map(String, ${ClickHouseBaseType}))`
-  | `Array(Map(String, Tuple(${string})))`
-  | `Array(Map(LowCardinality(String), ${ClickHouseBaseType}))`
-  | `Array(Map(LowCardinality(String), Tuple(${string})))`
-  | `Array(Map(${ClickHouseInteger}, ${ClickHouseBaseType}))`
-  | `Array(Map(${ClickHouseInteger}, Tuple(${string})))`
-  | `Nullable(Map(String, ${ClickHouseBaseType}))`
-  | `Nullable(Map(String, Tuple(${string})))`
-  | `Nullable(Map(LowCardinality(String), ${ClickHouseBaseType}))`
-  | `Nullable(Map(LowCardinality(String), Tuple(${string})))`
+  | `Array(${string})`
+  | `Nullable(${string})`
+  | `LowCardinality(${string})`
+  | `Map(${string}, ${string})`
   | `Tuple(${string})`;
 
 // Cap recursive expansion for nested ClickHouse wrappers to keep type instantiation bounded.
@@ -96,6 +71,7 @@ export type InferClickHouseType<T extends string, Depth extends number = 0> =
   : T extends ClickHouseDecimal ? number
   : T extends ClickHouseDateTime ? string
   : T extends ClickHouseString ? string
+  : T extends ClickHouseJson ? unknown
   : T extends ClickHouseEnum ? string
   : T extends ClickHouseBoolean ? boolean
   : T extends `Array(${infer U})`
@@ -111,13 +87,9 @@ export type InferClickHouseType<T extends string, Depth extends number = 0> =
   ? InferClickHouseType<U, Add1<Depth>> | null
   : unknown | null
   : T extends `LowCardinality(${infer U})`
-  ? U extends `Nullable(${infer V})`
-    ? V extends ClickHouseString | ClickHouseEnum
-      ? InferClickHouseType<V, Add1<Depth>> | null
-      : unknown | null
-    : U extends ClickHouseString | ClickHouseEnum
-      ? InferClickHouseType<U, Add1<Depth>>
-      : unknown
+  ? U extends ClickHouseType
+    ? InferClickHouseType<U, Add1<Depth>>
+    : unknown
   : T extends `Map(${string}, ${infer V})`
   ? V extends ClickHouseType
   ? Record<string, InferClickHouseType<V, Add1<Depth>>>
