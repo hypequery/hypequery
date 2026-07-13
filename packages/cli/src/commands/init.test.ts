@@ -36,6 +36,12 @@ const mockGenerateDatasets = vi.fn().mockResolvedValue(undefined);
 vi.mock('../generators/dataset-generator.js', () => ({
   generateDatasets: mockGenerateDatasets,
 }));
+const mockEnsureChdbInstalled = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock('../utils/chdb-client.js', () => ({
+  ensureChdbInstalled: mockEnsureChdbInstalled,
+  validateChdb: vi.fn(),
+  getChdbTables: vi.fn(),
+}));
 
 // Import after mocks
 let initCommand: any;
@@ -412,7 +418,7 @@ describe('init command - graceful failure handling', () => {
         expect.stringContaining('custom/queries.ts'),
         expect.any(String),
       );
-      expect(installScaffoldDependencies).toHaveBeenCalledWith('datasets');
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('datasets', 'clickhouse');
     });
 
     it('generates selected datasets from explicit tables in non-interactive mode', async () => {
@@ -527,7 +533,69 @@ describe('init command - graceful failure handling', () => {
         expect.stringContaining('custom/api.ts'),
         expect.any(String),
       );
-      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries');
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries', 'clickhouse');
+    });
+  });
+
+  describe('Embedded chDB scaffold (--database chdb)', () => {
+    beforeEach(() => {
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(0);
+      vi.mocked(detectDb.getTables).mockResolvedValue([]);
+    });
+
+    it('scaffolds onto the embedded engine without connection prompts or .env', async () => {
+      await initCommand({ database: 'chdb', chdbPath: './analytics.chdb', noInteractive: true });
+
+      // Never asks for ClickHouse credentials
+      expect(prompts.promptClickHouseConnection).not.toHaveBeenCalled();
+
+      // Installs the embedded engine with the scaffold packages (up-front and at step 13)
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries', 'chdb');
+
+      // client.ts runs on the adapter, bound to the requested session path
+      const clientWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('client.ts'),
+      );
+      expect(clientWrite?.[1]).toContain('chdbAdapter({ session })');
+      expect(clientWrite?.[1]).toContain("new Session('./analytics.chdb')");
+
+      // No .env is written — there are no credentials to persist
+      const envWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('.env'),
+      );
+      expect(envWrite).toBeUndefined();
+
+      // Types come from the embedded generator
+      expect(mockGetTypeGenerator).toHaveBeenCalledWith('chdb');
+      expect(detectDb.validateConnection).toHaveBeenCalledWith('chdb', { chdbPath: './analytics.chdb' });
+    });
+
+    it('prompts for storage interactively and scaffolds in-memory by default', async () => {
+      vi.mocked(prompts.promptChdbStorage).mockResolvedValue(undefined);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('queries');
+      vi.mocked(prompts.promptGenerateExample).mockResolvedValue(false);
+
+      await initCommand({ database: 'chdb' });
+
+      expect(prompts.promptChdbStorage).toHaveBeenCalled();
+      const clientWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('client.ts'),
+      );
+      expect(clientWrite?.[1]).toContain('new Session()');
+    });
+
+    it('fails fast in non-interactive mode when the engine cannot run', async () => {
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(false);
+
+      await expect(
+        initCommand({ database: 'chdb', noInteractive: true }),
+      ).rejects.toThrow(/Embedded chDB failed to start/);
+    });
+
+    it('rejects unsupported database values', async () => {
+      await expect(initCommand({ database: 'postgres' })).rejects.toThrow(/Unsupported database/);
     });
   });
 });

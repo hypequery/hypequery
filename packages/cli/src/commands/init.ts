@@ -4,6 +4,7 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import {
   promptClickHouseConnection,
+  promptChdbStorage,
   promptOutputDirectory,
   promptInitStyle,
   promptGenerateExample,
@@ -18,7 +19,9 @@ import {
   validateConnection,
   getTableCount,
   getTables,
+  type DatabaseType,
 } from '../utils/detect-database.js';
+import { ensureChdbInstalled } from '../utils/chdb-client.js';
 import { hasEnvFile, hasGitignore } from '../utils/find-files.js';
 import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
@@ -33,6 +36,8 @@ import { installScaffoldDependencies } from '../utils/dependency-installer.js';
 export interface InitOptions {
   path?: string;
   style?: InitStyle;
+  database?: string;
+  chdbPath?: string;
   allTables?: boolean;
   tables?: string;
   excludeTables?: string;
@@ -41,6 +46,18 @@ export interface InitOptions {
   force?: boolean;
   skipConnection?: boolean;
   auth?: AuthTemplateMode;
+}
+
+type InitDatabase = Extract<DatabaseType, 'clickhouse' | 'chdb'>;
+
+function normalizeInitDatabase(database: InitOptions['database']): InitDatabase {
+  if (!database || database === 'clickhouse') {
+    return 'clickhouse';
+  }
+  if (database === 'chdb') {
+    return 'chdb';
+  }
+  throw new Error(`Unsupported database "${database}". Use "clickhouse" or "chdb".`);
 }
 
 function normalizeInitStyle(style: InitOptions['style']): InitStyle {
@@ -97,6 +114,38 @@ async function resolveConnectionConfig(options: InitOptions): Promise<Connection
   return promptClickHouseConnection();
 }
 
+async function testChdbConnection(chdbPath: string | undefined): Promise<boolean> {
+  const spinner = ora('Starting embedded chDB...').start();
+
+  try {
+    await ensureChdbInstalled();
+  } catch (error) {
+    spinner.fail('chdb is not installed');
+    logger.newline();
+    logger.error(error instanceof Error ? error.message : String(error));
+    logger.newline();
+    return false;
+  }
+
+  const isValid = await validateConnection('chdb', { chdbPath });
+  if (!isValid) {
+    spinner.fail('Embedded chDB failed to run a query');
+    logger.newline();
+    logger.info('Common issues:');
+    logger.indent('• Unsupported platform (chdb ships linux/macOS binaries; Windows needs WSL2)');
+    logger.indent(`• The session directory is locked by another process${chdbPath ? ` (${chdbPath})` : ''}`);
+    logger.newline();
+    return false;
+  }
+
+  const tableCount = await getTableCount('chdb', { chdbPath });
+  spinner.succeed(
+    `Embedded chDB ready (${chdbPath ? `${tableCount} tables in ${chdbPath}` : 'in-memory session'})`,
+  );
+  logger.newline();
+  return true;
+}
+
 async function testConnection(
   connectionConfig: ConnectionConfig,
 ): Promise<{ hasValidConnection: boolean; tableCount: number }> {
@@ -131,48 +180,91 @@ async function testConnection(
 
 export async function initCommand(options: InitOptions = {}) {
   const noInteractive = options.noInteractive === true || (options as InitOptions & { interactive?: boolean }).interactive === false;
+  const database = normalizeInitDatabase(options.database);
 
   logger.newline();
   logger.header('Welcome to hypequery!');
-  logger.info("Let's set up your analytics layer.");
+  logger.info(
+    database === 'chdb'
+      ? "Let's set up your analytics layer on embedded ClickHouse (chDB)."
+      : "Let's set up your analytics layer.",
+  );
   logger.newline();
 
   // Step 2: Get connection details
-  let connectionConfig = await resolveConnectionConfig(options);
+  let connectionConfig: ConnectionConfig | null = null;
   let hasValidConnection = false;
+  let chdbPath = options.chdbPath;
 
-  // Handle user skipping connection details
-  if (!connectionConfig) {
-    logger.info('Skipping database connection for now.');
-    logger.newline();
-  } else if (options.skipConnection) {
-    logger.info('Skipping database connection test (requested).');
-    logger.newline();
+  if (database === 'chdb') {
+    // No server, no credentials — the only connection question is where the
+    // embedded session stores its data.
+    if (!chdbPath && !noInteractive) {
+      chdbPath = await promptChdbStorage();
+    }
+
+    // The scaffold's chdb dependency has to exist before the engine can be
+    // exercised, so install up front (Step 13 stays a no-op for these).
+    await installScaffoldDependencies(normalizeInitStyle(options.style), 'chdb');
+
+    if (options.skipConnection) {
+      logger.info('Skipping embedded chDB test (requested).');
+      logger.newline();
+    } else {
+      hasValidConnection = await testChdbConnection(chdbPath);
+
+      if (!hasValidConnection) {
+        if (noInteractive) {
+          throw new Error('Embedded chDB failed to start in non-interactive mode. Install the chdb package and re-run.');
+        }
+
+        const continueWithout = await promptContinueWithoutDb();
+        if (!continueWithout) {
+          logger.info('Setup cancelled');
+          process.exit(0);
+        }
+
+        logger.newline();
+        logger.info('Continuing without a working embedded engine.');
+        logger.newline();
+      }
+    }
   } else {
-    const { hasValidConnection: valid } = await testConnection(connectionConfig);
-    hasValidConnection = valid;
+    connectionConfig = await resolveConnectionConfig(options);
 
-    if (!hasValidConnection) {
-      if (noInteractive) {
-        throw new Error('Failed to connect to ClickHouse in non-interactive mode. Check your environment variables or use interactive setup.');
-      }
-
-      const retry = await promptRetry('Try again?');
-      if (retry) {
-        return initCommand(options);
-      }
-
-      const continueWithout = await promptContinueWithoutDb();
-      if (!continueWithout) {
-        logger.info('Setup cancelled');
-        process.exit(0);
-      }
-
+    // Handle user skipping connection details
+    if (!connectionConfig) {
+      logger.info('Skipping database connection for now.');
       logger.newline();
-      logger.info('Continuing without database connection.');
-      logger.info('You can configure the connection later in .env');
+    } else if (options.skipConnection) {
+      logger.info('Skipping database connection test (requested).');
       logger.newline();
-      connectionConfig = null;
+    } else {
+      const { hasValidConnection: valid } = await testConnection(connectionConfig);
+      hasValidConnection = valid;
+
+      if (!hasValidConnection) {
+        if (noInteractive) {
+          throw new Error('Failed to connect to ClickHouse in non-interactive mode. Check your environment variables or use interactive setup.');
+        }
+
+        const retry = await promptRetry('Try again?');
+        if (retry) {
+          return initCommand(options);
+        }
+
+        const continueWithout = await promptContinueWithoutDb();
+        if (!continueWithout) {
+          logger.info('Setup cancelled');
+          process.exit(0);
+        }
+
+        logger.newline();
+        logger.info('Continuing without database connection.');
+        logger.info('You can configure the connection later in .env');
+        logger.newline();
+        connectionConfig = null;
+      }
     }
   }
 
@@ -236,7 +328,7 @@ export async function initCommand(options: InitOptions = {}) {
     generateExample = await promptGenerateExample();
 
     if (generateExample) {
-      discoveredTables = await getTables('clickhouse');
+      discoveredTables = await getTables(database, { chdbPath });
       selectedTable = await promptTableSelection(discoveredTables);
       generateExample = selectedTable !== null;
     }
@@ -252,7 +344,7 @@ export async function initCommand(options: InitOptions = {}) {
     !datasetTables &&
     !noInteractive
   ) {
-    discoveredTables ??= await getTables('clickhouse');
+    discoveredTables ??= await getTables(database, { chdbPath });
     datasetTables = await promptDatasetTableSelection(
       discoveredTables,
       selectedTable ? [selectedTable] : [],
@@ -264,8 +356,12 @@ export async function initCommand(options: InitOptions = {}) {
   // Step 7: Create directory
   await mkdir(resolvedOutputDir, { recursive: true });
 
-  // Step 8: Save credentials to .env (if we have connection config)
-  if (connectionConfig) {
+  // Step 8: Save credentials to .env (if we have connection config).
+  // Embedded chDB has no credentials — the storage path lives in client.ts —
+  // so the chdb scaffold writes no .env at all.
+  if (database === 'chdb') {
+    // nothing to persist
+  } else if (connectionConfig) {
     const envPath = path.join(process.cwd(), '.env');
     const envExists = await hasEnvFile();
 
@@ -303,8 +399,8 @@ export async function initCommand(options: InitOptions = {}) {
     const typeSpinner = ora('Generating TypeScript types...').start();
 
     try {
-      const generator = getTypeGenerator('clickhouse');
-      await generator({ outputPath: schemaPath });
+      const generator = getTypeGenerator(database);
+      await generator({ outputPath: schemaPath, chdbPath });
       typeSpinner.succeed(`Generated TypeScript types (${path.relative(process.cwd(), schemaPath)})`);
     } catch (error) {
       typeSpinner.fail('Failed to generate types');
@@ -313,8 +409,11 @@ export async function initCommand(options: InitOptions = {}) {
     }
   } else {
     // Create placeholder schema file
+    const regenerateHint = database === 'chdb'
+      ? "// Run 'npx hypequery generate --database chdb' after creating tables"
+      : "// Run 'npx hypequery generate' after configuring your database connection";
     await writeFile(schemaPath, `// Generated by hypequery
-// Run 'npx hypequery generate' after configuring your database connection
+${regenerateHint}
 
 export interface IntrospectedSchema {
   // Your table types will appear here after generation
@@ -325,8 +424,10 @@ export interface IntrospectedSchema {
 
   // Step 10: Create client.ts
   const clientPath = path.join(resolvedOutputDir, 'client.ts');
-  await writeFile(clientPath, generateClientTemplate());
-  logger.success(`Created ClickHouse client (${path.relative(process.cwd(), clientPath)})`);
+  await writeFile(clientPath, generateClientTemplate({ database, chdbPath }));
+  logger.success(
+    `Created ${database === 'chdb' ? 'embedded chDB' : 'ClickHouse'} client (${path.relative(process.cwd(), clientPath)})`,
+  );
 
   // Step 11: Create API entrypoint
   let apiPath: string;
@@ -395,7 +496,7 @@ export interface IntrospectedSchema {
   }
 
   // Step 13: Ensure required hypequery packages are installed
-  await installScaffoldDependencies(style);
+  await installScaffoldDependencies(style, database);
 
   // Step 14: Success message
   logger.newline();
@@ -428,12 +529,24 @@ export interface IntrospectedSchema {
       logger.indent('npx hypequery dev          Start development server');
       logger.newline();
     }
+  } else if (database === 'chdb') {
+    logger.info('Next steps:');
+    logger.newline();
+    logger.indent('1. Install the embedded engine: npm install chdb');
+    logger.indent(`2. Run: npx hypequery generate --database chdb${chdbPath ? ` --chdb-path ${chdbPath}` : ''}`);
+    logger.indent('3. Run: npx hypequery dev          (to start dev server)');
+    logger.newline();
   } else {
     logger.info('Next steps:');
     logger.newline();
     logger.indent('1. Configure your database connection in .env');
     logger.indent('2. Run: npx hypequery generate    (to generate types)');
     logger.indent('3. Run: npx hypequery dev          (to start dev server)');
+    logger.newline();
+  }
+
+  if (database === 'chdb' && hasValidConnection) {
+    logger.indent(`hypequery generate --database chdb${chdbPath ? ` --chdb-path ${chdbPath}` : ''}   Refresh types after creating tables`);
     logger.newline();
   }
 

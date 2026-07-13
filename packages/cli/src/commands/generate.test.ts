@@ -71,7 +71,7 @@ describe('generate command', () => {
       await generateCommand({});
 
       expect(logger.header).toHaveBeenCalledWith('hypequery generate');
-      expect(detectDb.getTableCount).toHaveBeenCalledWith('clickhouse');
+      expect(detectDb.getTableCount).toHaveBeenCalledWith('clickhouse', { chdbPath: undefined });
       expect(mockSpinner.succeed).toHaveBeenCalledWith('Connected to ClickHouse');
       expect(logger.success).toHaveBeenCalledWith('Found 10 tables');
       expect(mockGenerateTypes).toHaveBeenCalledWith(

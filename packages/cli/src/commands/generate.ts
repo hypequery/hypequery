@@ -11,6 +11,7 @@ export interface GenerateOptions {
   path?: string;
   tables?: string;
   database?: DatabaseType;
+  chdbPath?: string;
   commandName?: string;
 }
 
@@ -52,8 +53,10 @@ export async function generateCommand(options: GenerateOptions = {}) {
     const generator = getTypeGenerator(dbType);
 
     // Get table count
-    const tableCount = await getTableCount(dbType);
-    spinner.succeed(`Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType}`);
+    const tableCount = await getTableCount(dbType, { chdbPath: options.chdbPath });
+    spinner.succeed(
+      `Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType === 'chdb' ? 'embedded chDB' : dbType}`,
+    );
 
     logger.success(`Found ${tableCount} tables`);
 
@@ -63,6 +66,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     await generator({
       outputPath,
       includeTables: parsedTables,
+      chdbPath: options.chdbPath,
     });
 
     typeSpinner.succeed(`Generated types for ${tableCount} tables`);

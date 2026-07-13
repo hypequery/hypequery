@@ -41,6 +41,30 @@ Nothing else changes: `toSQL()`, `rawQuery()`, and streaming all work, and the a
 - **Serverless** — chDB runs in any Node.js environment, including AWS Lambda (note: chDB's native binary is large; verify your deployment package stays within Lambda's 250 MB unzipped limit). Edge runtimes that run in V8 isolates (Cloudflare Workers, Vercel Edge Runtime) cannot load native Node.js addons and are not supported.
 - **Local files and beyond** — chDB reads Parquet, CSV, S3, and more through ClickHouse table functions, queryable via `rawQuery()`.
 
+## Zero-Server Scaffolding
+
+`hypequery init` can scaffold a project straight onto the embedded engine — no server, no credentials, no `.env`:
+
+<CodeBlock>
+
+```bash
+npx hypequery init --database chdb
+```
+
+</CodeBlock>
+
+The scaffolded `client.ts` uses the adapter instead of an HTTP connection, `chdb` is installed as a dependency automatically, and the connection prompts are skipped. Choose an on-disk session directory (e.g. `./analytics.chdb`) to persist data between runs, or stay in-memory for a throwaway sandbox. After creating tables, refresh your types from the same session:
+
+<CodeBlock>
+
+```bash
+npx hypequery generate --database chdb --chdb-path ./analytics.chdb
+```
+
+</CodeBlock>
+
+See the [CLI reference](/docs/reference/api/cli) for all `init` and `generate` flags.
+
 ## Setup
 
 <CodeBlock>

@@ -51,7 +51,8 @@ function addTypeGenerationOptions(command: Command) {
     .option('-o, --output <path>', 'Output file (default: analytics/schema.ts)')
     .option('--path <path>', 'Analytics directory (derives <path>/schema.ts)')
     .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
-    .option('--database <type>', 'Database driver to use (default: auto-detect)');
+    .option('--database <type>', 'Database driver to use: clickhouse or chdb (default: auto-detect)')
+    .option('--chdb-path <path>', 'Embedded chDB data directory (with --database chdb; omit for in-memory)');
 }
 
 // Init command
@@ -60,6 +61,8 @@ program
   .description('Initialize a new hypequery project')
   .option('--path <path>', 'Output directory (default: analytics/)')
   .option('--style <style>', 'Scaffold style: queries or datasets')
+  .option('--database <type>', 'Database driver: clickhouse (default) or chdb for embedded, zero-server ClickHouse')
+  .option('--chdb-path <path>', 'Embedded chDB data directory (with --database chdb; omit for in-memory)')
   .option('--auth <mode>', 'Auth scaffold mode: none or context')
   .option('--all-tables', 'Generate datasets for all discovered tables when using --style datasets')
   .option('--tables <names>', 'Generate datasets for specific tables when using --style datasets (comma-separated)')
