@@ -22,7 +22,7 @@
     "dev": "tsc --project tsconfig.json --watch",
     "lint": "eslint --ext .ts \"src/**/*.ts\"",
     "test": "vitest run",
-    "types": "tsc --project tsconfig.json --noEmit"
+    "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

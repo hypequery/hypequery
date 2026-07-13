@@ -33,3 +33,10 @@ Studio compatibility and security diagnostics.
 Only the root package export is public. Deep imports from `src` or `dist` are
 unsupported. Package SemVer and protocol/artifact versions are separate; an
 installed npm version never determines an artifact's identity.
+
+## Runtime compatibility
+
+This package is ESM-only. Consumers must load it with `import`; CommonJS
+`require()` and a dual ESM/CommonJS build are intentionally out of scope.
+Older tools that ignore the package `exports` map and attempt to require the
+`main` entry may fail with `ERR_REQUIRE_ESM`.
