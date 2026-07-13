@@ -29,7 +29,10 @@ interface RejectionFixture {
     value?: unknown;
     utf8?: string;
     count?: number;
+    branches?: number;
+    itemsPerBranch?: number;
   };
+  declaredClickHouseType?: string;
   error: string;
 }
 
@@ -57,6 +60,23 @@ function generateRejection(generator: NonNullable<RejectionFixture['generator']>
     case 'array': return arrayValue(
       Array.from({ length: generator.items ?? 0 }, () => generator.value),
     );
+    case 'array-tree': return arrayValue(
+      Array.from(
+        { length: generator.branches ?? 0 },
+        () => arrayValue(
+          Array.from(
+            { length: generator.itemsPerBranch ?? 0 },
+            () => generator.value,
+          ),
+        ),
+      ),
+    );
+    case 'non-finite-float': {
+      if (generator.value === 'NaN') return Number.NaN;
+      if (generator.value === 'Infinity') return Number.POSITIVE_INFINITY;
+      if (generator.value === '-Infinity') return Number.NEGATIVE_INFINITY;
+      throw new Error(`Unknown non-finite float: ${String(generator.value)}`);
+    }
     case 'repeat-string': return (generator.utf8 ?? '').repeat(generator.count ?? 0);
     default: throw new Error(`Unknown fixture generator: ${generator.type}`);
   }
@@ -91,6 +111,7 @@ describe('canonical value codec', () => {
       ? () => decodeCanonicalValue(fixture.sourceUtf8 as string)
       : () => validateCanonicalValue(
         fixture.generator ? generateRejection(fixture.generator) : fixture.value,
+        { declaredClickHouseType: fixture.declaredClickHouseType },
       );
     expectProtocolError(action, fixture.error);
   });

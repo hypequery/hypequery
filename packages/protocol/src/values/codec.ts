@@ -14,7 +14,10 @@ function prepare(
   options: CanonicalValueOptions,
 ): { value: CanonicalValue; canonical: string; bytes: Uint8Array } {
   const limits = resolveLimits(options);
-  const value = validateCanonicalValue(input, { limits });
+  const value = validateCanonicalValue(input, {
+    limits,
+    declaredClickHouseType: options.declaredClickHouseType,
+  });
   const canonical = serializeJcs(value);
   const bytes = textEncoder.encode(canonical);
   if (bytes.byteLength > limits.maxCanonicalBytes) {
@@ -49,7 +52,10 @@ export function decodeCanonicalValue(
 ): CanonicalValue {
   const limits = resolveLimits(options);
   const parsed = parseDuplicateAwareJson(input, limits);
-  return validateCanonicalValue(parsed, { limits });
+  return validateCanonicalValue(parsed, {
+    limits,
+    declaredClickHouseType: options.declaredClickHouseType,
+  });
 }
 
 /** Raw conformance hash only; deployment and cache domains are specified later. */

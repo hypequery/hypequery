@@ -88,7 +88,11 @@ function validateCanonicalIntegerString(value: string, path: string): bigint {
   return BigInt(value);
 }
 
-function validateIntegerTag(tag: JsonRecord, path: string): void {
+function validateIntegerTag(
+  tag: JsonRecord,
+  path: string,
+  declaredClickHouseType?: string,
+): void {
   assertExactFields(tag, ['bits', 'signed', 'type', 'value', 'version'], path);
   const bits = requireMetadataInteger(tag.bits, `${path}.bits`);
   if (!INTEGER_BITS.has(bits)) valueError('HQ_VALUE_OUT_OF_RANGE', `${path}.bits`);
@@ -102,6 +106,10 @@ function validateIntegerTag(tag: JsonRecord, path: string): void {
   const maximum = signed ? (1n << (width - 1n)) - 1n : (1n << width) - 1n;
   if (integer < minimum || integer > maximum) {
     valueError('HQ_VALUE_OUT_OF_RANGE', `${path}.value`);
+  }
+  const actualClickHouseType = `${signed ? '' : 'U'}Int${bits}`;
+  if (declaredClickHouseType && declaredClickHouseType !== actualClickHouseType) {
+    valueError('HQ_VALUE_TYPE_MISMATCH', path);
   }
 }
 
@@ -268,6 +276,7 @@ function validateValue(
   state: ValidationState,
   path: string,
   depth: number,
+  declaredClickHouseType?: string,
 ): void {
   incrementLogicalNode(state, path);
 
@@ -279,6 +288,9 @@ function validateValue(
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) valueError('HQ_VALUE_NON_FINITE_FLOAT', path);
     if (Object.is(value, -0)) valueError('HQ_VALUE_NEGATIVE_ZERO', path);
+    if (/^(?:U?Int)(?:8|16|32|64|128|256)$/.test(declaredClickHouseType ?? '')) {
+      valueError('HQ_VALUE_INTEGER_TAG_REQUIRED', path);
+    }
     return;
   }
   if (Array.isArray(value)) valueError('HQ_VALUE_RAW_COMPOSITE', path);
@@ -292,7 +304,7 @@ function validateValue(
   if (version !== 1) valueError('HQ_VALUE_UNKNOWN_TAG_VERSION', `${tagPath}.version`);
 
   switch (type) {
-    case 'integer': validateIntegerTag(tag, tagPath); return;
+    case 'integer': validateIntegerTag(tag, tagPath, declaredClickHouseType); return;
     case 'decimal': validateDecimalTag(tag, tagPath); return;
     case 'date': validateDateTag(tag, tagPath); return;
     case 'datetime': validateDatetimeTag(tag, tagPath); return;
@@ -345,7 +357,7 @@ export function validateCanonicalValue(
 ): CanonicalValue {
   const limits = resolveLimits(options);
   const snapshot = snapshotPlainData(input, limits);
-  validateValue(snapshot, { limits, nodes: 0 }, '$', 0);
+  validateValue(snapshot, { limits, nodes: 0 }, '$', 0, options.declaredClickHouseType);
   deepFreeze(snapshot);
   return snapshot as CanonicalValue;
 }

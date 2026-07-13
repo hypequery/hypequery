@@ -11,6 +11,8 @@ export interface CanonicalValueLimits {
 export interface CanonicalValueOptions {
   /** Product policy may lower, but never raise, the version 1 limits. */
   readonly limits?: Partial<CanonicalValueLimits>;
+  /** Containing ClickHouse type when validation depends on schema context. */
+  readonly declaredClickHouseType?: string;
 }
 
 interface TagEnvelope<T> {
