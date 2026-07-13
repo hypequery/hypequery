@@ -114,14 +114,79 @@ const { data } = useQuery('revenueByDay', {
 });`;
 
 const comparisonRows = [
-  ['Lives in', 'Your TypeScript codebase', 'Separate service / platform'],
-  ['Language', 'TypeScript', 'YAML / modeling DSLs'],
-  ['Types', 'End-to-end TypeScript contracts', 'Limited or external to app code'],
-  ['Tenancy', 'Runtime-enforced from tenant context; typed fields', 'Manual filters or platform policy'],
-  ['Operate', 'A library in your stack', 'A platform to run'],
-  ['Best for', 'Shipping ClickHouse-backed product features', 'Centralized BI metrics and non-engineer consumers'],
-  ['Honest concession', 'Not a BI modeling platform', 'Better fit for broad BI governance'],
+  {
+    label: 'Lives in',
+    detail: 'Where the semantic layer physically runs',
+    hypequery: 'Your TypeScript codebase',
+    platform: 'Separate service / platform',
+    hypequeryYes: true,
+    platformYes: false,
+  },
+  {
+    label: 'Language',
+    detail: 'How you author metrics and dimensions',
+    hypequery: 'TypeScript',
+    platform: 'YAML / modeling DSLs',
+    hypequeryYes: true,
+    platformYes: false,
+  },
+  {
+    label: 'Types',
+    detail: 'Compile-time safety from schema to response',
+    hypequery: 'End-to-end TypeScript contracts',
+    platform: 'Limited or external to app code',
+    hypequeryYes: true,
+    platformYes: false,
+  },
+  {
+    label: 'Tenancy',
+    detail: 'How rows are isolated per tenant',
+    hypequery: 'Runtime-enforced from tenant context; typed fields',
+    platform: 'Manual filters or platform policy',
+    hypequeryYes: true,
+    platformYes: false,
+  },
+  {
+    label: 'Operate',
+    detail: 'What you deploy and maintain in production',
+    hypequery: 'A library in your stack',
+    platform: 'A platform to run',
+    hypequeryYes: true,
+    platformYes: false,
+  },
+  {
+    label: 'Best for',
+    detail: 'The workload each shape fits',
+    hypequery: 'Shipping ClickHouse-backed product features',
+    platform: 'Centralized BI metrics and non-engineer consumers',
+    hypequeryYes: true,
+    platformYes: true,
+  },
+  {
+    label: 'BI Support',
+    detail: 'Fit for dashboards and self-serve BI tools',
+    hypequery: 'Not a full BI modeling platform',
+    platform: 'Better fit for broad BI governance',
+    hypequeryYes: false,
+    platformYes: true,
+  },
 ] as const;
+
+function Verdict({ yes }: { yes: boolean }) {
+  return yes ? (
+    <span className="mt-[2px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
+      <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3" aria-hidden="true">
+        <path d="M3.5 8.5l3 3 6-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  ) : (
+    <span className="mt-[2px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-text-dim/15 text-text-dim">
+      <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3" aria-hidden="true">
+        <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
 
 function CodeCard({ title, code }: { title: string; code: string }) {
   return (
@@ -249,19 +314,40 @@ export default function ClickHouseSemanticLayerPage() {
             </p>
           </SectionIntro>
           <div className="overflow-hidden rounded-lg border border-border-strong bg-bg-card shadow-card">
-            <div className="grid grid-cols-[150px_1fr_1fr] border-b border-border bg-bg-alt/60 px-4 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim">
+            <div className="hidden grid-cols-[160px_1fr_1fr] gap-4 border-b border-border bg-bg-alt/60 px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-text-dim md:grid">
               <span>Decision</span>
               <span>hypequery</span>
               <span>Cube / MetricFlow</span>
             </div>
-            {comparisonRows.map(([label, hypequery, platform]) => (
+            {comparisonRows.map((row) => (
               <div
-                key={label}
-                className="grid grid-cols-1 gap-2 border-b border-border px-4 py-4 text-[14px] last:border-b-0 md:grid-cols-[150px_1fr_1fr]"
+                key={row.label}
+                className="grid gap-3 border-b border-border px-5 py-4 text-[14px] last:border-b-0 md:grid-cols-[160px_1fr_1fr] md:items-start md:gap-4"
               >
-                <div className="font-mono text-[11px] font-bold uppercase tracking-[0.1em] text-text-dim">{label}</div>
-                <div className="font-semibold text-text">{hypequery}</div>
-                <div className="text-text-muted">{platform}</div>
+                <div className="md:pt-[3px]">
+                  <div className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-text-dim">
+                    {row.label}
+                  </div>
+                  <p className="mt-1 text-[12px] leading-snug text-text-muted">{row.detail}</p>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Verdict yes={row.hypequeryYes} />
+                  <div>
+                    <span className="mb-0.5 block font-mono text-[10px] uppercase tracking-[0.1em] text-text-dim md:hidden">
+                      hypequery
+                    </span>
+                    <span className="font-semibold text-text">{row.hypequery}</span>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Verdict yes={row.platformYes} />
+                  <div>
+                    <span className="mb-0.5 block font-mono text-[10px] uppercase tracking-[0.1em] text-text-dim md:hidden">
+                      Cube / MetricFlow
+                    </span>
+                    <span className="text-text-muted">{row.platform}</span>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

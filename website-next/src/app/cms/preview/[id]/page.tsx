@@ -50,7 +50,7 @@ export default async function CmsPreviewPostPage({
               })
               : 'Not published yet'}
           </time>
-          <h1 className="font-display mt-3 text-4xl font-bold tracking-tight text-white sm:text-5xl">
+          <h1 className="mt-3 text-4xl font-bold tracking-tight text-white sm:text-5xl">
             {post.title}
           </h1>
           {post.description && (

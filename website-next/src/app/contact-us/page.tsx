@@ -61,7 +61,7 @@ export default function ContactUsPage() {
       <main className="min-h-screen bg-bg pt-28 text-text">
         <section className="mx-auto max-w-7xl px-4 py-20 lg:px-6">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">Contact</p>
-          <h1 className="font-display mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+          <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
             Talk to the team behind hypequery
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
@@ -72,7 +72,7 @@ export default function ContactUsPage() {
           <div className="mt-12 grid gap-6 lg:grid-cols-3">
             {channels.map((channel) => (
               <div key={channel.title} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h2 className="font-display text-xl font-semibold text-text">{channel.title}</h2>
+                <h2 className="text-xl font-semibold text-text">{channel.title}</h2>
                 <p className="mt-3 text-sm leading-7 text-text-muted">{channel.copy}</p>
                 <a
                   href={channel.href}
@@ -94,7 +94,7 @@ export default function ContactUsPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                 Just exploring?
               </p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+              <h2 className="mt-3 text-2xl font-semibold text-text">
                 The quick start answers most questions
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-text-muted">

@@ -84,7 +84,7 @@ export default function ClickHouseFunctionsIndexPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               ClickHouse Functions
             </p>
-            <h1 className="font-display mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
+            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-white sm:text-6xl">
               ClickHouse function reference for TypeScript developers
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
@@ -134,7 +134,7 @@ export default function ClickHouseFunctionsIndexPage() {
               <p className={`text-xs font-semibold uppercase tracking-[0.3em] ${clusterColor[cluster]}`}>
                 {clusterLabel[cluster]}
               </p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-white">{clusterDescription[cluster]}</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-white">{clusterDescription[cluster]}</h2>
               <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {fns.map((fn) => (
                   <Link
@@ -161,7 +161,7 @@ export default function ClickHouseFunctionsIndexPage() {
           <div className="border border-indigo-500/35 bg-slate-950 p-8 md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-300">Get started</p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-white">
+              <h2 className="mt-3 text-2xl font-semibold text-white">
                 Use common ClickHouse functions in typed TypeScript queries
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">

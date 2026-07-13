@@ -95,7 +95,7 @@ export default function MultiTenantSaasUseCasePage() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
               Use Case
             </p>
-            <h1 className="font-display mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+            <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
               Multi-tenant SaaS ClickHouse analytics with policy control by default
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
@@ -143,19 +143,19 @@ export default function MultiTenantSaasUseCasePage() {
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
           <div className="grid gap-6 md:grid-cols-3">
 	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="font-display text-lg font-semibold text-text">Map auth once</h2>
+	              <h2 className="text-lg font-semibold text-text">Map auth once</h2>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Turn API keys or sessions into typed request context with tenant and role metadata in one place.
 	              </p>
 	            </div>
 	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="font-display text-lg font-semibold text-text">Inject tenant filters</h2>
+	              <h2 className="text-lg font-semibold text-text">Inject tenant filters</h2>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Configure extraction once and let the standard query path apply tenant scope instead of trusting every author to remember it.
 	              </p>
 	            </div>
 	            <div className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-	              <h2 className="font-display text-lg font-semibold text-text">Enforce roles inline</h2>
+	              <h2 className="text-lg font-semibold text-text">Enforce roles inline</h2>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Keep sensitive access checks next to the query definition instead of scattering them through route files.
 	              </p>
@@ -165,7 +165,7 @@ export default function MultiTenantSaasUseCasePage() {
 
         <section className="border-y border-border bg-bg-alt/60">
           <div className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-            <h2 className="font-display text-3xl font-semibold text-text">Request lifecycle</h2>
+            <h2 className="text-3xl font-semibold text-text">Request lifecycle</h2>
             <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-5">
               <div className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
                 <p className="text-xs uppercase tracking-[0.2em] text-accent">1</p>
@@ -192,7 +192,7 @@ export default function MultiTenantSaasUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-16 lg:px-6">
-	          <h2 className="font-display text-2xl font-semibold text-text">Tenant auth without glue code</h2>
+	          <h2 className="text-2xl font-semibold text-text">Tenant auth without glue code</h2>
 	          <p className="mt-3 text-lg leading-8 text-text-muted">
 	            Map incoming auth to one typed context object so tenant and role data enter the system in a predictable way.
 	          </p>
@@ -200,7 +200,7 @@ export default function MultiTenantSaasUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-	          <h2 className="font-display text-2xl font-semibold text-text">Automatic tenant scoping</h2>
+	          <h2 className="text-2xl font-semibold text-text">Automatic tenant scoping</h2>
 	          <p className="mt-3 text-lg leading-8 text-text-muted">
 	            Set tenant extraction once and let the backend query path apply it consistently rather than relying on repeated manual filters.
 	          </p>
@@ -208,7 +208,7 @@ export default function MultiTenantSaasUseCasePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 pb-16 lg:px-6">
-	          <h2 className="font-display text-2xl font-semibold text-text">Role-based access for sensitive queries</h2>
+	          <h2 className="text-2xl font-semibold text-text">Role-based access for sensitive queries</h2>
 	          <p className="mt-3 text-lg leading-8 text-text-muted">
 	            Put the access rule on the query definition that needs it instead of treating authorization as an afterthought outside the analytics layer.
 	          </p>
@@ -221,7 +221,7 @@ export default function MultiTenantSaasUseCasePage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                 Governance outcome
               </p>
-	              <h2 className="font-display mt-3 text-2xl font-semibold text-text">
+	              <h2 className="mt-3 text-2xl font-semibold text-text">
 	                Clear tenant boundaries with a single shared query layer
 	              </h2>
 	              <ul className="mt-4 space-y-2 text-sm leading-7 text-text-muted">

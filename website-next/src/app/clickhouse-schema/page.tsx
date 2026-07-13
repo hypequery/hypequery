@@ -56,7 +56,7 @@ export default function ClickHouseSchemaPage() {
     <ClickhousePillarPage
       eyebrow="ClickHouse Schema"
       title="Generate TypeScript types from your live ClickHouse schema"
-      description="This is the page for the first problem most TypeScript teams hit on ClickHouse: the database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."
+      description="The first problem most TypeScript teams hit on ClickHouse: the database returns one thing, their interfaces claim another, and the compiler happily trusts the wrong version. hypequery fixes that at the schema boundary."
       primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
       secondaryCta={{ href: '/docs/schemas', label: 'Read the schemas guide' }}
       stats={[

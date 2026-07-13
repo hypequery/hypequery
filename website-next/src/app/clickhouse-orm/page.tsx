@@ -59,13 +59,8 @@ export default function ClickHouseOrmPage() {
       eyebrow="ClickHouse ORM"
       title="The closest thing to an ORM for ClickHouse"
       description="Most teams searching for an ORM for ClickHouse are not looking for relations or migrations. They want generated types, query composition, and a way to reuse analytics logic without hand-maintaining interfaces. Prisma, Drizzle, and TypeORM were built for transactional databases. hypequery is built for ClickHouse."
-      primaryCta={{ href: '/docs/quick-start', label: 'Generate types from your schema' }}
-      secondaryCta={{ href: '/clickhouse-schema', label: 'Generate schema types now' }}
-      stats={[
-        { label: 'Type source', value: 'Generated from live schema' },
-        { label: 'Target database', value: 'ClickHouse native' },
-        { label: 'Best for', value: 'Analytics-heavy TypeScript apps' },
-      ]}
+      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
+      secondaryCta={{ href: '/clickhouse-schema', label: 'See schema generation' }}
       problems={[
         {
           title: 'Transactional ORMs are the wrong abstraction for ClickHouse',
@@ -185,8 +180,8 @@ export default function ClickHouseOrmPage() {
         title: 'Generate schema types and start with hypequery on a real ClickHouse query',
         description:
           'Run schema generation against your ClickHouse instance, then build your first typed query. This is the fastest way to prove the ORM-like workflow on your real schema.',
-        primaryCta: { href: '/docs/quick-start', label: 'Generate types from your schema' },
-        secondaryCta: { href: '/clickhouse-schema', label: 'Generate schema types' },
+        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
+        secondaryCta: { href: '/clickhouse-schema', label: 'See schema generation' },
       }}
     />
   );

@@ -69,7 +69,7 @@ export default function UseCasesPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">
               Use Cases
             </p>
-            <h1 className="font-display mt-4 text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-text sm:text-6xl">
               ClickHouse analytics use cases for product APIs and SaaS
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">
@@ -96,7 +96,7 @@ export default function UseCasesPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
             Use Cases
           </p>
-          <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight text-text sm:text-4xl">
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-text sm:text-4xl">
             Start with the path closest to the codebase you already have
           </h2>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
@@ -109,7 +109,7 @@ export default function UseCasesPage() {
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
                   {item.label}
                 </p>
-                <h3 className="font-display mt-3 text-2xl font-semibold text-text">{item.title}</h3>
+                <h3 className="mt-3 text-2xl font-semibold text-text">{item.title}</h3>
                 <p className="mt-4 text-base leading-7 text-text-muted">{item.description}</p>
                 <ul className="mt-6 space-y-2 text-sm text-text">
                   {item.points.map((point) => (
@@ -131,21 +131,21 @@ export default function UseCasesPage() {
 	          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 lg:grid-cols-3 lg:px-6">
 	            <div>
 	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 01</p>
-	              <h3 className="font-display mt-3 text-xl font-semibold text-text">Pick one repeated query</h3>
+	              <h3 className="mt-3 text-xl font-semibold text-text">Pick one repeated query</h3>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Start with analytics logic that already appears in more than one place in your codebase.
 	              </p>
 	            </div>
 	            <div>
 	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 02</p>
-	              <h3 className="font-display mt-3 text-xl font-semibold text-text">Put it on a shared path</h3>
+	              <h3 className="mt-3 text-xl font-semibold text-text">Put it on a shared path</h3>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Either call it in-process from the backend you already run or expose it under a controlled internal API path.
 	              </p>
 	            </div>
 	            <div>
 	              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">Step 03</p>
-	              <h3 className="font-display mt-3 text-xl font-semibold text-text">Expand only after it proves useful</h3>
+	              <h3 className="mt-3 text-xl font-semibold text-text">Expand only after it proves useful</h3>
 	              <p className="mt-3 text-sm leading-7 text-text-muted">
 	                Let more consumers depend on the same definition instead of minting new one-off query copies.
 	              </p>
@@ -159,7 +159,7 @@ export default function UseCasesPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                 Next step
               </p>
-	              <h3 className="font-display mt-3 text-2xl font-semibold text-text">
+	              <h3 className="mt-3 text-2xl font-semibold text-text">
 	                Start with the use case closest to your current architecture
 	              </h3>
 	              <p className="mt-3 max-w-2xl text-sm leading-7 text-text-muted">

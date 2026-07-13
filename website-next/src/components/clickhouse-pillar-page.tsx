@@ -65,7 +65,7 @@ export type ClickhousePillarPageProps = {
   description: string;
   primaryCta: Cta;
   secondaryCta: Cta;
-  stats: Stat[];
+  stats?: Stat[];
   problems: Card[];
   solutionSection: Section;
   implementationSection: Section;
@@ -105,7 +105,7 @@ export function ClickhousePillarPage({
         <section className="relative overflow-hidden border-b border-border">
           <div className="relative mx-auto max-w-7xl px-4 py-20 lg:px-6">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent">{eyebrow}</p>
-            <h1 className="font-display mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
+            <h1 className="mt-4 max-w-5xl text-4xl font-semibold tracking-tight text-text sm:text-6xl">
               {title}
             </h1>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-text-muted">{description}</p>
@@ -129,14 +129,16 @@ export function ClickhousePillarPage({
                 {secondaryCta.label}
               </Link>
             </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-3">
-              {stats.map((stat) => (
-                <div key={stat.label} className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
-                  <p className="text-xs uppercase tracking-[0.2em] text-text-dim">{stat.label}</p>
-                  <p className="mt-2 text-xl font-semibold text-text">{stat.value}</p>
-                </div>
-              ))}
-            </div>
+            {stats && stats.length > 0 && (
+              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="rounded-lg border border-border bg-bg-card p-5 shadow-card">
+                    <p className="text-xs uppercase tracking-[0.2em] text-text-dim">{stat.label}</p>
+                    <p className="mt-2 text-xl font-semibold text-text">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -144,7 +146,7 @@ export function ClickhousePillarPage({
           <div className="grid gap-6 lg:grid-cols-3">
             {problems.map((problem) => (
               <div key={problem.title} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                <h2 className="font-display text-xl font-semibold text-text">{problem.title}</h2>
+                <h2 className="text-xl font-semibold text-text">{problem.title}</h2>
                 <p className="mt-4 text-sm leading-7 text-text-muted">{problem.copy}</p>
               </div>
             ))}
@@ -158,7 +160,7 @@ export function ClickhousePillarPage({
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                   {solutionSection.eyebrow}
                 </p>
-                <h2 className="font-display mt-3 text-3xl font-semibold text-text">
+                <h2 className="mt-3 text-3xl font-semibold text-text">
                   {solutionSection.title}
                 </h2>
                 <p className="mt-5 text-base leading-8 text-text-muted">{solutionSection.description}</p>
@@ -183,7 +185,7 @@ export function ClickhousePillarPage({
                   <p className="text-xs uppercase tracking-[0.25em] text-text-dim">
                     {solutionSection.codePanel.eyebrow}
                   </p>
-                  <h3 className="font-display mt-3 text-xl font-semibold text-text">
+                  <h3 className="mt-3 text-xl font-semibold text-text">
                     {solutionSection.codePanel.title}
                   </h3>
                   <CodeWindow
@@ -206,7 +208,7 @@ export function ClickhousePillarPage({
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                 {implementationSection.eyebrow}
               </p>
-              <h2 className="font-display mt-3 text-3xl font-semibold text-text">
+              <h2 className="mt-3 text-3xl font-semibold text-text">
                 {implementationSection.title}
               </h2>
               <p className="mt-5 text-base leading-8 text-text-muted">{implementationSection.description}</p>
@@ -231,7 +233,7 @@ export function ClickhousePillarPage({
                 <p className="text-xs uppercase tracking-[0.25em] text-text-dim">
                   {implementationSection.codePanel.eyebrow}
                 </p>
-                <h3 className="font-display mt-3 text-xl font-semibold text-text">
+                <h3 className="mt-3 text-xl font-semibold text-text">
                   {implementationSection.codePanel.title}
                 </h3>
                 <CodeWindow
@@ -252,7 +254,7 @@ export function ClickhousePillarPage({
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
               {comparisonTable.eyebrow}
             </p>
-            <h2 className="font-display mt-3 text-3xl font-semibold text-text">{comparisonTable.title}</h2>
+            <h2 className="mt-3 text-3xl font-semibold text-text">{comparisonTable.title}</h2>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-text-muted">{comparisonTable.description}</p>
             <div className="mt-8 overflow-x-auto rounded-lg border border-border bg-bg-card shadow-card">
               <table className="w-full min-w-[640px] border-collapse text-left text-sm">
@@ -291,13 +293,13 @@ export function ClickhousePillarPage({
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-dim">
               Where teams usually get stuck
             </p>
-            <h2 className="font-display mt-3 text-3xl font-semibold text-text">
-              The questions this page should answer
+            <h2 className="mt-3 text-3xl font-semibold text-text">
+              Questions teams ask
             </h2>
             <div className="mt-10 grid gap-6 md:grid-cols-2">
               {searchIntentCards.map((item) => (
                 <div key={item.title} className="rounded-lg border border-border bg-bg-card p-6 shadow-card">
-                  <h3 className="font-display text-xl font-semibold text-text">{item.title}</h3>
+                  <h3 className="text-xl font-semibold text-text">{item.title}</h3>
                   <p className="mt-3 text-sm leading-7 text-text-muted">{item.copy}</p>
                 </div>
               ))}
@@ -309,7 +311,7 @@ export function ClickhousePillarPage({
           <div className="grid gap-10 lg:grid-cols-[0.65fr_0.35fr]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">Further reading</p>
-              <h2 className="font-display mt-3 text-3xl font-semibold text-text">
+              <h2 className="mt-3 text-3xl font-semibold text-text">
                 Go deeper where it actually helps
               </h2>
               <div className="mt-10 grid gap-6 lg:grid-cols-2">
@@ -319,7 +321,7 @@ export function ClickhousePillarPage({
                     href={item.href}
                     className="group rounded-lg border border-border bg-bg-card p-6 transition hover:-translate-y-1 hover:border-border-strong hover:shadow-card"
                   >
-                    <h3 className="font-display text-xl font-semibold text-text">{item.title}</h3>
+                    <h3 className="text-xl font-semibold text-text">{item.title}</h3>
                     <p className="mt-3 text-sm leading-7 text-text-muted">{item.description}</p>
                     <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-accent group-hover:opacity-70">
                       Open guide
@@ -351,7 +353,7 @@ export function ClickhousePillarPage({
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent">
                 {nextStep.eyebrow}
               </p>
-              <h2 className="font-display mt-3 text-2xl font-semibold text-text">{nextStep.title}</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-text">{nextStep.title}</h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-text-muted">{nextStep.description}</p>
             </div>
             <div className="mt-6 flex gap-3 md:mt-0">
