@@ -3,6 +3,7 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { findSchemaFile } from '../utils/find-files.js';
 import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detect-database.js';
+import { ensureChdbInstalled } from '../utils/chdb-client.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 
@@ -52,6 +53,14 @@ export async function generateCommand(options: GenerateOptions = {}) {
   try {
     const generator = getTypeGenerator(dbType);
 
+    // Surface a missing chdb install as the connection failure it is —
+    // getTableCount swallows errors, so without this probe the spinner
+    // would report a successful connection and 0 tables before type
+    // generation fails.
+    if (dbType === 'chdb') {
+      await ensureChdbInstalled();
+    }
+
     // Get table count
     const tableCount = await getTableCount(dbType, { chdbPath: options.chdbPath });
     spinner.succeed(
@@ -78,7 +87,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     logger.newline();
 
   } catch (error) {
-    spinner.fail('Failed to generate types');
+    spinner.fail(dbType === 'chdb' ? 'Failed to start embedded chDB' : 'Failed to generate types');
     logger.newline();
 
     if (error instanceof Error) {

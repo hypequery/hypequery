@@ -31,6 +31,11 @@ vi.mock('../generators/index.js', () => ({
   getTypeGenerator: mockGetTypeGenerator,
 }));
 
+const mockEnsureChdbInstalled = vi.hoisted(() => vi.fn());
+vi.mock('../utils/chdb-client.js', () => ({
+  ensureChdbInstalled: mockEnsureChdbInstalled,
+}));
+
 let generateCommand: typeof import('./generate.js')['generateCommand'];
 
 describe('generate command', () => {
@@ -278,6 +283,38 @@ describe('generate command', () => {
 
       expect(mockGenerateTypes).toHaveBeenCalledWith(
         expect.objectContaining({ outputPath: expect.stringContaining('explicit.ts') })
+      );
+    });
+  });
+
+  describe('Embedded chDB driver', () => {
+    it('generates against the embedded session, passing the session path through', async () => {
+      mockEnsureChdbInstalled.mockResolvedValue(undefined);
+
+      await generateCommand({ database: 'chdb', chdbPath: './analytics.chdb' });
+
+      expect(mockEnsureChdbInstalled).toHaveBeenCalled();
+      expect(detectDb.getTableCount).toHaveBeenCalledWith('chdb', { chdbPath: './analytics.chdb' });
+      expect(mockGetTypeGenerator).toHaveBeenCalledWith('chdb');
+      expect(mockGenerateTypes).toHaveBeenCalledWith(
+        expect.objectContaining({ chdbPath: './analytics.chdb' }),
+      );
+    });
+
+    it('fails the connection step (not a fake success) when chdb is missing', async () => {
+      mockEnsureChdbInstalled.mockRejectedValue(
+        new Error('The embedded driver needs the `chdb` package.'),
+      );
+
+      await expect(generateCommand({ database: 'chdb' })).rejects.toThrow(ProcessExitError);
+
+      // The install error must surface as the connection failure — the
+      // spinner must not report a successful connection with 0 tables first.
+      expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to start embedded chDB');
+      expect(mockSpinner.succeed).not.toHaveBeenCalled();
+      expect(detectDb.getTableCount).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('chdb'),
       );
     });
   });

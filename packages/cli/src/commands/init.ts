@@ -114,7 +114,9 @@ async function resolveConnectionConfig(options: InitOptions): Promise<Connection
   return promptClickHouseConnection();
 }
 
-async function testChdbConnection(chdbPath: string | undefined): Promise<boolean> {
+type ChdbTestResult = { ok: true } | { ok: false; reason: 'not-installed' | 'engine-error' };
+
+async function testChdbConnection(chdbPath: string | undefined): Promise<ChdbTestResult> {
   const spinner = ora('Starting embedded chDB...').start();
 
   try {
@@ -124,7 +126,7 @@ async function testChdbConnection(chdbPath: string | undefined): Promise<boolean
     logger.newline();
     logger.error(error instanceof Error ? error.message : String(error));
     logger.newline();
-    return false;
+    return { ok: false, reason: 'not-installed' };
   }
 
   const isValid = await validateConnection('chdb', { chdbPath });
@@ -135,7 +137,7 @@ async function testChdbConnection(chdbPath: string | undefined): Promise<boolean
     logger.indent('• Unsupported platform (chdb ships linux/macOS binaries; Windows needs WSL2)');
     logger.indent(`• The session directory is locked by another process${chdbPath ? ` (${chdbPath})` : ''}`);
     logger.newline();
-    return false;
+    return { ok: false, reason: 'engine-error' };
   }
 
   const tableCount = await getTableCount('chdb', { chdbPath });
@@ -143,7 +145,7 @@ async function testChdbConnection(chdbPath: string | undefined): Promise<boolean
     `Embedded chDB ready (${chdbPath ? `${tableCount} tables in ${chdbPath}` : 'in-memory session'})`,
   );
   logger.newline();
-  return true;
+  return { ok: true };
 }
 
 async function testConnection(
@@ -195,6 +197,7 @@ export async function initCommand(options: InitOptions = {}) {
   let connectionConfig: ConnectionConfig | null = null;
   let hasValidConnection = false;
   let chdbPath = options.chdbPath;
+  let chdbFailureReason: 'not-installed' | 'engine-error' | undefined;
 
   if (database === 'chdb') {
     // No server, no credentials — the only connection question is where the
@@ -211,7 +214,11 @@ export async function initCommand(options: InitOptions = {}) {
       logger.info('Skipping embedded chDB test (requested).');
       logger.newline();
     } else {
-      hasValidConnection = await testChdbConnection(chdbPath);
+      const chdbTest = await testChdbConnection(chdbPath);
+      hasValidConnection = chdbTest.ok;
+      if (!chdbTest.ok) {
+        chdbFailureReason = chdbTest.reason;
+      }
 
       if (!hasValidConnection) {
         if (noInteractive) {
@@ -532,7 +539,13 @@ export interface IntrospectedSchema {
   } else if (database === 'chdb') {
     logger.info('Next steps:');
     logger.newline();
-    logger.indent('1. Install the embedded engine: npm install chdb');
+    // chdb is normally installed by the scaffold itself — only tell the user
+    // to install when that is actually what failed, not when an installed
+    // engine could not run (unsupported platform, locked session directory).
+    const firstStep = chdbFailureReason === 'engine-error'
+      ? '1. Resolve the engine error shown above'
+      : '1. Install the embedded engine: npm install chdb';
+    logger.indent(firstStep);
     logger.indent(`2. Run: npx hypequery generate --database chdb${chdbPath ? ` --chdb-path ${chdbPath}` : ''}`);
     logger.indent('3. Run: npx hypequery dev          (to start dev server)');
     logger.newline();

@@ -15,10 +15,18 @@ describe('generateClientTemplate', () => {
 
     expect(result).toContain("import { Session } from 'chdb'");
     expect(result).toContain("import { chdbAdapter } from 'chdb/hypequery'");
-    expect(result).toContain("new Session('./analytics.chdb')");
+    expect(result).toContain('new Session("./analytics.chdb")');
     expect(result).toContain('adapter: chdbAdapter({ session })');
     // Embedded scaffold reads nothing from the environment
     expect(result).not.toContain('process.env');
+  });
+
+  it('escapes quotes and backslashes in the session path', () => {
+    const result = generateClientTemplate({ database: 'chdb', chdbPath: "./my's data\\db" });
+
+    // JSON.stringify renders a parseable literal — raw interpolation would
+    // produce a syntax error in the scaffolded file.
+    expect(result).toContain(`new Session(${JSON.stringify("./my's data\\db")})`);
   });
 
   it('scaffolds an in-memory chDB session when no path is given', () => {

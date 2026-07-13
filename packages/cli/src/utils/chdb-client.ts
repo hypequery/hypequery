@@ -62,8 +62,8 @@ async function loadChdb(): Promise<ChdbModule> {
  * database directory; omit it for an ephemeral in-memory session. The session
  * is cached per path — chDB allows one active data directory per process.
  */
-export async function getChdbSession(path?: string): Promise<ChdbSession> {
-  if (session && sessionPath === path) {
+export async function getChdbSession(dbPath?: string): Promise<ChdbSession> {
+  if (session && sessionPath === dbPath) {
     return session;
   }
   if (session) {
@@ -71,19 +71,19 @@ export async function getChdbSession(path?: string): Promise<ChdbSession> {
     session = null;
   }
   const chdb = await loadChdb();
-  session = new chdb.Session(path);
-  sessionPath = path;
+  session = new chdb.Session(dbPath);
+  sessionPath = dbPath;
   return session;
 }
 
-async function queryJsonRows<T>(sql: string, path?: string): Promise<T[]> {
-  const s = await getChdbSession(path);
+async function queryJsonRows<T>(sql: string, dbPath?: string): Promise<T[]> {
+  const s = await getChdbSession(dbPath);
   const result = await s.queryAsync(sql, { format: 'JSONEachRow' });
-  const text = result.text().trim();
-  if (!text) {
-    return [];
-  }
-  return text.split('\n').map((line) => JSON.parse(line) as T);
+  return result
+    .text()
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => JSON.parse(line) as T);
 }
 
 /**
@@ -91,11 +91,11 @@ async function queryJsonRows<T>(sql: string, path?: string): Promise<T[]> {
  * the `TypeGenerationClickHouseClient` seam — so the embedded session can
  * stand in for an HTTP client without touching the generator itself.
  */
-export function getChdbTypeGenerationClient(path?: string): TypeGenerationClickHouseClient {
+export function getChdbTypeGenerationClient(dbPath?: string): TypeGenerationClickHouseClient {
   return {
     async query({ query }: { query: string; format: 'JSONEachRow' }) {
       return {
-        json: async () => queryJsonRows<Record<string, string>>(query, path),
+        json: async () => queryJsonRows<Record<string, string>>(query, dbPath),
       };
     },
   };
@@ -110,18 +110,18 @@ export async function ensureChdbInstalled(): Promise<void> {
   await loadChdb();
 }
 
-export async function validateChdb(path?: string): Promise<boolean> {
+export async function validateChdb(dbPath?: string): Promise<boolean> {
   try {
-    const rows = await queryJsonRows<{ ok: string | number }>('SELECT 1 AS ok', path);
+    const rows = await queryJsonRows<{ ok: string | number }>('SELECT 1 AS ok', dbPath);
     return rows.length === 1;
   } catch {
     return false;
   }
 }
 
-export async function getChdbTables(path?: string): Promise<string[]> {
+export async function getChdbTables(dbPath?: string): Promise<string[]> {
   try {
-    const rows = await queryJsonRows<{ name: string }>('SHOW TABLES', path);
+    const rows = await queryJsonRows<{ name: string }>('SHOW TABLES', dbPath);
     return rows.map((row) => row.name);
   } catch {
     return [];

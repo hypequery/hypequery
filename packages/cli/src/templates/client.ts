@@ -9,7 +9,9 @@ export interface ClientTemplateOptions {
  */
 export function generateClientTemplate(options: ClientTemplateOptions = {}): string {
   if (options.database === 'chdb') {
-    const sessionArg = options.chdbPath ? `'${options.chdbPath}'` : '';
+    // JSON.stringify produces a valid JS string literal for any path
+    // (quotes, backslashes) — raw interpolation would break the scaffold.
+    const sessionArg = options.chdbPath ? JSON.stringify(options.chdbPath) : '';
     const storageComment = options.chdbPath
       ? `// Embedded ClickHouse — data persists in ${options.chdbPath}`
       : '// Embedded ClickHouse — in-memory session (data is discarded on exit).\n// Pass a directory path to new Session(...) to persist between runs.';

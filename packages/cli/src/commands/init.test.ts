@@ -558,7 +558,7 @@ describe('init command - graceful failure handling', () => {
         ([file]) => typeof file === 'string' && file.endsWith('client.ts'),
       );
       expect(clientWrite?.[1]).toContain('chdbAdapter({ session })');
-      expect(clientWrite?.[1]).toContain("new Session('./analytics.chdb')");
+      expect(clientWrite?.[1]).toContain('new Session("./analytics.chdb")');
 
       // No .env is written — there are no credentials to persist
       const envWrite = vi.mocked(writeFile).mock.calls.find(
