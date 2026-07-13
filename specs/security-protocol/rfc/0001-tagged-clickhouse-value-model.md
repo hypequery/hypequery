@@ -381,6 +381,7 @@ Version 1 conformance fixtures use these minimum codes:
 - `HQ_VALUE_TOO_MANY_NODES`
 - `HQ_VALUE_TOO_MANY_ITEMS`
 - `HQ_VALUE_TOO_LARGE`
+- `HQ_VALUE_UNSAFE_OBJECT`
 
 Products may attach safe source locations and expected types, but these codes
 and their meaning are part of the frozen value contract.

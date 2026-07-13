@@ -5,20 +5,21 @@ Hypequery artifacts.
 
 ## Current status
 
-This package is an intentionally empty public scaffold. It does not yet define
-a stable protocol or an executable deployment bundle. Runtime exports will be
-added incrementally after their language-neutral specifications and conformance
-fixtures are accepted.
+This package now contains the proposed version 1 tagged ClickHouse value codec.
+The API remains pre-stable while the language-neutral specification and
+conformance fixtures are reviewed. It does not yet define an executable
+deployment bundle or a stable Cloud protocol.
 
 The normative source is
 [`specs/security-protocol`](../../specs/security-protocol/README.md).
 
-## Intended scope
+## Scope
 
-The package will contain deterministic, framework-independent implementations
-of accepted protocol rules, including strict validation, canonical encoding,
-digest calculation, identifiers, portable AST structures, artifact envelopes,
-and compatibility checks.
+The package contains deterministic, framework-independent implementations of
+accepted protocol rules. The current implementation provides strict tagged
+value validation, RFC 8785 canonical encoding, duplicate-aware decoding, and a
+raw SHA-256 conformance digest. Identifiers, portable AST structures, artifact
+envelopes, and compatibility checks will follow in separate changes.
 
 It will not connect to ClickHouse, execute queries, load project source, access
 credentials or the environment, perform network or filesystem I/O, implement
@@ -33,6 +34,18 @@ Studio compatibility and security diagnostics.
 Only the root package export is public. Deep imports from `src` or `dist` are
 unsupported. Package SemVer and protocol/artifact versions are separate; an
 installed npm version never determines an artifact's identity.
+
+The proposed tagged-value surface exports:
+
+- `validateCanonicalValue`
+- `encodeCanonicalValue` and `encodeCanonicalValueToString`
+- `decodeCanonicalValue`
+- `hashCanonicalValue`
+- `ProtocolValueError` and stable error-code types
+- tagged-value, option, and limit types
+
+The raw conformance digest is not a deployment identity or shared cache key.
+Those domains require separate, versioned, domain-separated contracts.
 
 ## Runtime compatibility
 

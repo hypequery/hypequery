@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import * as protocol from './index.js';
 
 describe('@hypequery/protocol scaffold', () => {
-  it('does not expose a protocol before its normative contracts are accepted', () => {
-    expect(Object.keys(protocol)).toEqual([]);
+  it('exports only the reviewed canonical value surface', () => {
+    expect(Object.keys(protocol).sort()).toEqual([
+      'DEFAULT_CANONICAL_VALUE_LIMITS',
+      'ProtocolValueError',
+      'decodeCanonicalValue',
+      'encodeCanonicalValue',
+      'encodeCanonicalValueToString',
+      'hashCanonicalValue',
+      'validateCanonicalValue',
+    ]);
   });
 });

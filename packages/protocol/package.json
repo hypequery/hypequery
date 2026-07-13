@@ -17,6 +17,9 @@
     "dist",
     "README.md"
   ],
+  "dependencies": {
+    "@noble/hashes": "^1.8.0"
+  },
   "scripts": {
     "build": "tsc --project tsconfig.json",
     "dev": "tsc --project tsconfig.json --watch",
