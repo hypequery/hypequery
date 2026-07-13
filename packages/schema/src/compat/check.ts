@@ -23,6 +23,12 @@ function createDiagnostic(
   return diagnostic;
 }
 
+// Mirrors NUMERIC_INPUT_AGGREGATIONS in @hypequery/datasets: aggregations whose
+// input column must be numeric for the dataset runtime to accept the measure.
+const NUMERIC_INPUT_AGGREGATIONS = new Set([
+  'sum', 'avg', 'percentile', 'stddev', 'variance', 'argMax', 'argMin',
+]);
+
 function isNumericClickHouseType(type: string): boolean {
   return /^(?:U?Int(?:8|16|32|64|128|256)|Float(?:32|64)|Decimal(?:32|64|128|256)?(?:\(|$))/.test(type);
 }
@@ -259,7 +265,7 @@ function checkMeasureDefinition(
     return diagnostics;
   }
 
-  if ((definition.aggregation === 'sum' || definition.aggregation === 'avg') && !isNumericClickHouseType(column.type)) {
+  if (NUMERIC_INPUT_AGGREGATIONS.has(definition.aggregation) && !isNumericClickHouseType(column.type)) {
     diagnostics.push(createDiagnostic({
       level: 'error',
       code: 'IncompatibleNumericMeasureType',
@@ -269,6 +275,21 @@ function checkMeasureDefinition(
       sourceName: ds.source,
       message: `Measure "${measureName}" uses ${definition.aggregation} on non-numeric column "${columnName}" of type "${column.type}" on source "${ds.source}".`,
     }));
+  }
+
+  if ((definition.aggregation === 'argMax' || definition.aggregation === 'argMin') && definition.argField) {
+    const argColumnName = resolveFieldPhysicalColumn(ds, definition.argField) ?? definition.argField;
+    if (!findSnapshotColumn(sourceTable, argColumnName)) {
+      diagnostics.push(createDiagnostic({
+        level: 'error',
+        code: 'MissingMeasureField',
+        datasetName: ds.name,
+        fieldName: measureName,
+        physicalColumnName: argColumnName,
+        sourceName: ds.source,
+        message: `Measure "${measureName}" uses ${definition.aggregation} "by" field "${definition.argField}" that resolves to missing column "${argColumnName}" on source "${ds.source}".`,
+      }));
+    }
   }
 
   return diagnostics;

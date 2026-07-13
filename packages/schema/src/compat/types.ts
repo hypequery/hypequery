@@ -11,9 +11,31 @@ export interface CompatibilityDimensionDefinition {
   sql?: string;
 }
 
+export type CompatibilityKnownAggregation =
+  | 'sum'
+  | 'count'
+  | 'countDistinct'
+  | 'avg'
+  | 'min'
+  | 'max'
+  | 'argMax'
+  | 'argMin'
+  | 'percentile'
+  | 'stddev'
+  | 'variance';
+
 export interface CompatibilityMeasureDefinition {
-  aggregation: 'sum' | 'count' | 'countDistinct' | 'avg' | 'min' | 'max';
+  /**
+   * Known aggregations receive schema-aware checks. Aggregations introduced by
+   * newer `@hypequery/datasets` releases are still accepted (they pass through
+   * unchecked) so the two packages do not require lockstep upgrades.
+   */
+  aggregation: CompatibilityKnownAggregation | (string & {});
   field: string;
+  /** Second column for argMax/argMin: the field whose extreme selects the row. */
+  argField?: string;
+  /** Percentile level in [0, 1]. Present when aggregation is 'percentile'. */
+  level?: number;
   sql?: string;
   filters?: CompatibilityMetricFilter[];
 }
