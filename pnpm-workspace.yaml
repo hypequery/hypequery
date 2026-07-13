@@ -6,5 +6,6 @@ packages:
   - 'packages/datasets'
   - 'packages/serve'
   - 'packages/mcp-server'
+  - 'packages/protocol'
   - 'packages/tsconfig'
   - 'examples/*'

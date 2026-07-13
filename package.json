@@ -7,6 +7,7 @@
     "packages/clickhouse",
     "packages/datasets",
     "packages/mcp-server",
+    "packages/protocol",
     "packages/react",
     "packages/schema",
     "packages/serve",

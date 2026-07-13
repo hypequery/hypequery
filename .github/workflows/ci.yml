@@ -119,6 +119,7 @@ jobs:
           "@hypequery/serve": patch
           "@hypequery/cli": patch
           "@hypequery/mcp": patch
+          "@hypequery/protocol": patch
           "@hypequery/react": patch
           "@hypequery/schema": patch
           ---
@@ -138,6 +139,8 @@ jobs:
               packages/cli/CHANGELOG.md \
               packages/mcp-server/package.json \
               packages/mcp-server/CHANGELOG.md \
+              packages/protocol/package.json \
+              packages/protocol/CHANGELOG.md \
               packages/react/package.json \
               packages/react/CHANGELOG.md \
               packages/schema/package.json \
