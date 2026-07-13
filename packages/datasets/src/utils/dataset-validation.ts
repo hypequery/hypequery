@@ -4,8 +4,15 @@ import type {
   DerivedMetricConfig,
 } from '../types.js';
 import { validateFilterValue } from '../validation.js';
+import { validatePercentileLevel } from '../measure.js';
 
 const NUMERIC_FIELD_TYPES = new Set(['number']);
+
+// Aggregations whose output tracks the input field's type, so a metric
+// (contract valueType: 'number') needs a numeric input dimension.
+const NUMERIC_INPUT_AGGREGATIONS = new Set([
+  'sum', 'avg', 'percentile', 'stddev', 'variance', 'argMax', 'argMin',
+]);
 
 export function validateBaseMetric(
   ds: AnyDatasetInstance,
@@ -13,6 +20,24 @@ export function validateBaseMetric(
   spec: AggregationSpec,
   options?: { allowHiddenField?: boolean },
 ): void {
+  if (spec.aggregation === 'argMax' || spec.aggregation === 'argMin') {
+    if (typeof spec.argField !== 'string' || spec.argField.trim().length === 0) {
+      throw new Error(
+        `Invalid metric "${metricName}": ${spec.aggregation}() requires a non-empty argField ("by" column).`,
+      );
+    }
+    if (spec.filters?.length) {
+      throw new Error(`Invalid metric "${metricName}": measure filters are not supported on ${spec.aggregation} aggregations.`);
+    }
+  }
+
+  if (spec.aggregation === 'percentile') {
+    if (spec.level == null) {
+      throw new Error(`Invalid metric "${metricName}": percentile() requires a level.`);
+    }
+    validatePercentileLevel(spec.level);
+  }
+
   const dimension = ds.dimensions[spec.field];
   if (!dimension && !options?.allowHiddenField) {
     throw new Error(
@@ -22,7 +47,7 @@ export function validateBaseMetric(
 
   if (
     dimension &&
-    (spec.aggregation === 'sum' || spec.aggregation === 'avg') &&
+    NUMERIC_INPUT_AGGREGATIONS.has(spec.aggregation) &&
     !NUMERIC_FIELD_TYPES.has(dimension.fieldType)
   ) {
     throw new Error(

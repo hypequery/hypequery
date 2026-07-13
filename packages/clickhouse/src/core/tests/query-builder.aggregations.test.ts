@@ -141,5 +141,79 @@ describe('QueryBuilder - Aggregations', () => {
     );
   });
 
+  describe('analytical aggregations', () => {
+    it('should build query with argMax', () => {
+      const sql = builder
+        .argMax('price', 'created_at', 'latest_price')
+        .toSQL();
+      expect(sql).toBe('SELECT argMax(price, created_at) AS latest_price FROM test_table');
+    });
 
-}); 
+    it('should build query with argMin and a default alias', () => {
+      const sql = builder
+        .argMin('price', 'created_at')
+        .toSQL();
+      expect(sql).toBe('SELECT argMin(price, created_at) AS price_argMin FROM test_table');
+    });
+
+    it('should build query with quantile', () => {
+      const sql = builder
+        .quantile('price', 0.95, 'p95_price')
+        .toSQL();
+      expect(sql).toBe('SELECT quantile(0.95)(price) AS p95_price FROM test_table');
+    });
+
+    it('should reject quantile levels outside [0, 1]', () => {
+      expect(() => builder.quantile('price', 1.5, 'bad')).toThrow('between 0 and 1');
+    });
+
+    it('should build query with stddev and variance', () => {
+      const sql = builder
+        .stddev('price', 'price_sd')
+        .variance('price', 'price_var')
+        .toSQL();
+      expect(sql).toBe('SELECT stddevSamp(price) AS price_sd, varSamp(price) AS price_var FROM test_table');
+    });
+
+    it('should infer GROUP BY from plain selections but never from analytical aggregates', () => {
+      const sql = builder
+        .select(['category'])
+        .argMax('price', 'created_at', 'latest_price')
+        .quantile('price', 0.5, 'median_price')
+        .toSQL();
+      expect(sql).toBe(
+        'SELECT category, ' +
+        'argMax(price, created_at) AS latest_price, ' +
+        'quantile(0.5)(price) AS median_price ' +
+        'FROM test_table ' +
+        'GROUP BY category'
+      );
+    });
+
+    it('should not infer GROUP BY from raw analytical aggregate selections', () => {
+      const sql = builder
+        .select([
+          'category',
+          rawAs('argMax(price, created_at)', 'latest_price'),
+          rawAs('quantile(0.5)(price)', 'median_price'),
+          rawAs('stddevSamp(price)', 'price_sd'),
+          rawAs('varSamp(price)', 'price_var'),
+        ])
+        .count('id', 'order_count')
+        .toSQL();
+
+      // Only the plain `category` column is a grouping key; the raw analytical
+      // aggregates must be recognized as aggregates, not group keys.
+      expect(sql).toBe(
+        'SELECT category, ' +
+        'argMax(price, created_at) AS latest_price, ' +
+        'quantile(0.5)(price) AS median_price, ' +
+        'stddevSamp(price) AS price_sd, ' +
+        'varSamp(price) AS price_var, ' +
+        'COUNT(id) AS order_count ' +
+        'FROM test_table ' +
+        'GROUP BY category'
+      );
+    });
+  });
+});

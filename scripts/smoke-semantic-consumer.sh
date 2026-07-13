@@ -25,28 +25,43 @@ node "$ROOT_DIR/scripts/utils/write-semantic-consumer-fixtures.mjs" "$WORKDIR"
 
 TSC="$ROOT_DIR/packages/datasets/node_modules/typescript/bin/tsc"
 
+# Compiles a fixture that must fail, and verifies it fails for the expected
+# reason so an unrelated breakage (e.g. a broken install) cannot false-pass.
+expect_compile_failure() {
+  local file="$1"
+  local expected_error="$2"
+  local label="$3"
+  local log="$WORKDIR/${file%.ts}.log"
+
+  if "$TSC" --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit "$file" >"$log" 2>&1; then
+    cat "$log"
+    echo "Expected $label to fail, but it compiled."
+    exit 1
+  fi
+
+  if ! grep -q "$expected_error" "$log"; then
+    cat "$log"
+    echo "Expected $label to fail matching \"$expected_error\", but it failed for a different reason."
+    exit 1
+  fi
+}
+
 (
   cd "$WORKDIR"
   "$TSC" --noEmit --project tsconfig.json
   node runtime.mjs
 
-  if "$TSC" --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit invalid-root-dataset-query.ts >/tmp/hq-invalid-root.log 2>&1; then
-    cat /tmp/hq-invalid-root.log
-    echo 'Expected root dataset-query helper import to fail, but it compiled.'
-    exit 1
-  fi
+  expect_compile_failure invalid-root-dataset-query.ts \
+    "no exported member.*runDatasetQuery" \
+    'root dataset-query helper import'
 
-  if "$TSC" --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit invalid-root-executor.ts >/tmp/hq-invalid-executor.log 2>&1; then
-    cat /tmp/hq-invalid-executor.log
-    echo 'Expected root executor import to fail, but it compiled.'
-    exit 1
-  fi
+  expect_compile_failure invalid-root-executor.ts \
+    "no exported member.*createExecutor" \
+    'root executor import'
 
-  if "$TSC" --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --skipLibCheck --noEmit invalid-deep-import.ts >/tmp/hq-invalid-deep.log 2>&1; then
-    cat /tmp/hq-invalid-deep.log
-    echo 'Expected deep serve import to fail, but it compiled.'
-    exit 1
-  fi
+  expect_compile_failure invalid-deep-import.ts \
+    "Cannot find module" \
+    'deep serve import'
 )
 
 echo 'semantic consumer smoke passed'

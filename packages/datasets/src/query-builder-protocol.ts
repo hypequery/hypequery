@@ -21,6 +21,18 @@ export interface QueryBuilderLike {
   min(column: string, alias?: string): QueryBuilderLike;
   max(column: string, alias?: string): QueryBuilderLike;
 
+  // Analytical aggregations
+  /** Value of `column` on the row where `argColumn` is greatest. */
+  argMax?(column: string, argColumn: string, alias?: string): QueryBuilderLike;
+  /** Value of `column` on the row where `argColumn` is smallest. */
+  argMin?(column: string, argColumn: string, alias?: string): QueryBuilderLike;
+  /** Approximate percentile of `column` at `level` in [0, 1]. */
+  quantile?(column: string, level: number, alias?: string): QueryBuilderLike;
+  /** Sample standard deviation of `column`. */
+  stddev?(column: string, alias?: string): QueryBuilderLike;
+  /** Sample variance of `column`. */
+  variance?(column: string, alias?: string): QueryBuilderLike;
+
   // Filtering
   where(column: string, operator: string, value: unknown): QueryBuilderLike;
 

@@ -147,6 +147,7 @@ export type {
   CheckDatasetsAgainstSchemaInput,
   CompatibilityDatasetInstance,
   CompatibilityDimensionDefinition,
+  CompatibilityKnownAggregation,
   CompatibilityMeasureDefinition,
   CompatibilityMetricFilter,
   CompatibilitySemanticFilterDefinition,

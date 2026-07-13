@@ -47,6 +47,10 @@ export interface SemanticAggregationPlan {
   name: string;
   aggregation: AggregationType;
   field: string;
+  /** Resolved second column for argMax/argMin. */
+  argField?: string;
+  /** Percentile level in [0, 1]; present when aggregation is 'percentile'. */
+  level?: number;
   filters?: MetricFilter[];
 }
 

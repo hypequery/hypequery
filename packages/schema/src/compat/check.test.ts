@@ -286,6 +286,170 @@ describe('check datasets against schema', () => {
     );
   });
 
+  it('passes for compatible analytical measures', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        id: dimension.number(),
+        amount: dimension.number(),
+        createdAt: dimension.timestamp({ column: 'created_at' }),
+      },
+      measures: {
+        medianAmount: measure.median('amount'),
+        p95Amount: measure.percentile('amount', 0.95),
+        amountStddev: measure.stddev('amount'),
+        amountVariance: measure.variance('amount'),
+        latestAmount: measure.argMax('amount', 'createdAt'),
+        earliestAmount: measure.argMin('amount', 'createdAt'),
+      },
+    });
+
+    const snapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+              amount: column.Float64(),
+              created_at: column.DateTime(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(checkDatasetsAgainstSchema({ snapshot, datasets: [Orders] })).toEqual({
+      valid: true,
+      diagnostics: [],
+    });
+  });
+
+  it('fails for analytical measures on non-numeric columns', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        status: dimension.string(),
+        createdAt: dimension.timestamp({ column: 'created_at' }),
+      },
+      measures: {
+        statusP95: measure.percentile('status', 0.95),
+        statusStddev: measure.stddev('status'),
+        statusVariance: measure.variance('status'),
+        latestStatus: measure.argMax('status', 'createdAt'),
+      },
+    });
+
+    const snapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+              status: column.String(),
+              created_at: column.DateTime(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    const report = checkDatasetsAgainstSchema({ snapshot, datasets: [Orders] });
+
+    expect(report.valid).toBe(false);
+    for (const fieldName of ['statusP95', 'statusStddev', 'statusVariance', 'latestStatus']) {
+      expect(report.diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'IncompatibleNumericMeasureType',
+            fieldName,
+          }),
+        ]),
+      );
+    }
+  });
+
+  it('fails when an argMax "by" field resolves to a missing column', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        amount: dimension.number(),
+      },
+      measures: {
+        latestAmount: measure.argMax('amount', 'missing_column'),
+      },
+    });
+
+    const snapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+              amount: column.Float64(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    const report = checkDatasetsAgainstSchema({ snapshot, datasets: [Orders] });
+
+    expect(report.valid).toBe(false);
+    expect(report.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'MissingMeasureField',
+        fieldName: 'latestAmount',
+        physicalColumnName: 'missing_column',
+      }),
+    ]);
+  });
+
+  it('accepts unknown aggregations from newer datasets versions without checking them', () => {
+    const Future = {
+      name: 'future_orders',
+      source: 'orders',
+      dimensions: {},
+      measures: {
+        magic: { aggregation: 'hyperLogLog', field: 'status' },
+      },
+      filters: {},
+    };
+
+    const snapshot = serializeSchemaToSnapshot(
+      defineSchema({
+        tables: [
+          defineTable('orders', {
+            columns: {
+              id: column.UInt64(),
+              status: column.String(),
+            },
+            engine: {
+              type: 'MergeTree',
+              orderBy: ['id'],
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(checkDatasetsAgainstSchema({ snapshot, datasets: [Future] })).toEqual({
+      valid: true,
+      diagnostics: [],
+    });
+  });
+
   it('resolves materialized view sources through their target table', () => {
     const DailyRevenue = dataset('dailyRevenue', {
       source: 'daily_revenue_mv',

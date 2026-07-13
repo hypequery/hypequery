@@ -17,6 +17,8 @@ import {
   resolveQualifiedColumn,
   type RelationshipBuilderContext,
 } from './utils/relationship-builder-plan.js';
+import { measureToAggregationSpec } from './utils/dataset-normalization.js';
+import { validatePercentileLevel } from './measure.js';
 
 type DatasetShape = AnyDatasetInstance;
 
@@ -146,6 +148,43 @@ export function applyAggregationSpec(
       return qb.min(fieldOrExpr, alias);
     case "max":
       return qb.max(fieldOrExpr, alias);
+    case "argMax":
+    case "argMin": {
+      if (!spec.argField) {
+        throw new Error(`Aggregation "${spec.aggregation}" for "${alias}" requires an argField ("by" column).`);
+      }
+      const argExpr = resolveDimensionExpression(ds, spec.argField, joinCtx);
+      if (spec.aggregation === "argMax") {
+        if (!qb.argMax) {
+          throw new Error('Query builder does not support argMax aggregations.');
+        }
+        return qb.argMax(fieldOrExpr, argExpr, alias);
+      }
+      if (!qb.argMin) {
+        throw new Error('Query builder does not support argMin aggregations.');
+      }
+      return qb.argMin(fieldOrExpr, argExpr, alias);
+    }
+    case "percentile": {
+      if (spec.level == null) {
+        throw new Error(`Aggregation "percentile" for "${alias}" requires a level.`);
+      }
+      validatePercentileLevel(spec.level);
+      if (!qb.quantile) {
+        throw new Error('Query builder does not support percentile aggregations.');
+      }
+      return qb.quantile(fieldOrExpr, spec.level, alias);
+    }
+    case "stddev":
+      if (!qb.stddev) {
+        throw new Error('Query builder does not support stddev aggregations.');
+      }
+      return qb.stddev(fieldOrExpr, alias);
+    case "variance":
+      if (!qb.variance) {
+        throw new Error('Query builder does not support variance aggregations.');
+      }
+      return qb.variance(fieldOrExpr, alias);
     default:
       throw new Error(`Unknown aggregation type: ${spec.aggregation}`);
   }
@@ -158,38 +197,7 @@ export function applyMeasureDefinition(
   definition: MeasureDefinition,
   joinCtx?: RelationshipBuilderContext,
 ): QueryBuilderLike {
-  if (definition.sql) {
-    assertNoRawSqlUnderJoins('measure', name, definition.sql, joinCtx);
-  }
-  const baseFieldOrExpr = definition.sql ?? resolveDimensionExpression(ds, definition.field, joinCtx);
-  const fieldOrExpr = applyFilteredAggregationExpression(
-    ds,
-    {
-      __type: 'aggregation_spec',
-      aggregation: definition.aggregation,
-      field: definition.field,
-      filters: definition.filters,
-    },
-    baseFieldOrExpr,
-    joinCtx,
-  );
-
-  switch (definition.aggregation) {
-    case "sum":
-      return qb.sum(fieldOrExpr, name);
-    case "count":
-      return qb.count(fieldOrExpr, name);
-    case "countDistinct":
-      return qb.countDistinct(fieldOrExpr, name);
-    case "avg":
-      return qb.avg(fieldOrExpr, name);
-    case "min":
-      return qb.min(fieldOrExpr, name);
-    case "max":
-      return qb.max(fieldOrExpr, name);
-    default:
-      throw new Error(`Unsupported measure aggregation: ${definition.aggregation}`);
-  }
+  return applyAggregationSpec(qb, ds, measureToAggregationSpec(name, definition), name, joinCtx);
 }
 
 export function appendOrderLimitOffset(

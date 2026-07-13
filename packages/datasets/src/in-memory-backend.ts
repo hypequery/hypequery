@@ -143,9 +143,76 @@ function groupKey(row: Record<string, unknown>, plan: Extract<PlanNode, { kind: 
   return JSON.stringify(parts);
 }
 
-function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan): number {
+/**
+ * Percentile by linear interpolation over sorted values. Approximate parity
+ * with ClickHouse's sampling-based `quantile`; exact only for clean inputs.
+ */
+function percentileOf(values: number[], level: number): number {
+  if (values.length === 0) {
+    // ClickHouse `quantile` over an empty set yields nan.
+    return Number.NaN;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const position = (sorted.length - 1) * level;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) {
+    return sorted[lower];
+  }
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
+}
+
+/**
+ * Sample variance. Fewer than two values yields NaN, as in ClickHouse:
+ * `varSamp`/`stddevSamp` divide by n - 1, so a single row gives nan.
+ */
+function sampleVarianceOf(values: number[]): number {
+  if (values.length < 2) {
+    return Number.NaN;
+  }
+  const mean = values.reduce((total, value) => total + value, 0) / values.length;
+  const squaredDeviations = values.reduce((total, value) => total + (value - mean) ** 2, 0);
+  return squaredDeviations / (values.length - 1);
+}
+
+/** Value of `field` on the row where `argField` is most extreme; empty → null. */
+function argExtremeOf(
+  rows: InMemoryTable,
+  field: string,
+  argField: string,
+  extreme: 'max' | 'min',
+): unknown {
+  let best: Record<string, unknown> | undefined;
+  for (const row of rows) {
+    // ClickHouse argMax/argMin skip rows where either the value being
+    // returned or the ordering value is NULL ("both `arg` and `val` behave
+    // as aggregate functions, they both skip NULL"). Verified against
+    // ClickHouse 25.1: argMax(amount, created_at) over
+    // [(NULL, '2024-01-05'), (10, '2024-01-01')] returns 10, not NULL.
+    if (row[argField] == null || row[field] == null) {
+      continue;
+    }
+    if (
+      best === undefined
+      || (extreme === 'max' ? (row[argField] as any) > (best[argField] as any) : (row[argField] as any) < (best[argField] as any))
+    ) {
+      best = row;
+    }
+  }
+  return best?.[field] ?? null;
+}
+
+function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan): unknown {
+  if (
+    (aggregation.aggregation === 'argMax' || aggregation.aggregation === 'argMin')
+    && aggregation.filters?.length
+  ) {
+    throw new Error(`Measure filters are not supported on ${aggregation.aggregation} aggregations.`);
+  }
+
   const filteredRows = applyFilters(rows, aggregation.filters ?? []);
   const values = filteredRows.map((row) => row[aggregation.field]);
+  const numericValues = () => values.filter((value) => value != null).map((value) => Number(value));
 
   switch (aggregation.aggregation) {
     case 'sum':
@@ -162,6 +229,28 @@ function aggregateRows(rows: InMemoryTable, aggregation: SemanticAggregationPlan
       return Math.min(...values.map((value) => Number(value)));
     case 'max':
       return Math.max(...values.map((value) => Number(value)));
+    case 'argMax':
+    case 'argMin': {
+      if (!aggregation.argField) {
+        throw new Error(`Aggregation "${aggregation.aggregation}" for "${aggregation.name}" requires an argField.`);
+      }
+      return argExtremeOf(
+        filteredRows,
+        aggregation.field,
+        aggregation.argField,
+        aggregation.aggregation === 'argMax' ? 'max' : 'min',
+      );
+    }
+    case 'percentile': {
+      if (aggregation.level == null) {
+        throw new Error(`Aggregation "percentile" for "${aggregation.name}" requires a level.`);
+      }
+      return percentileOf(numericValues(), aggregation.level);
+    }
+    case 'stddev':
+      return Math.sqrt(sampleVarianceOf(numericValues()));
+    case 'variance':
+      return sampleVarianceOf(numericValues());
     default:
       return 0;
   }
@@ -242,7 +331,11 @@ function serializeMeasures(rows: InMemoryTable, measures: string[]): InMemoryTab
   return rows.map((row) => {
     const next = { ...row };
     for (const name of measures) {
-      if (next[name] != null) {
+      if (typeof next[name] === 'number' && !Number.isFinite(next[name])) {
+        // ClickHouse JSON output serializes nan/inf as null
+        // (output_format_json_quote_denormals defaults to 0).
+        next[name] = null;
+      } else if (next[name] != null) {
         next[name] = String(next[name]);
       }
     }

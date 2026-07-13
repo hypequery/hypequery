@@ -24,6 +24,10 @@ export interface DimensionCatalogEntry {
 export interface MeasureCatalogEntry {
   aggregation: MeasureDefinition['aggregation'];
   field: string;
+  /** Second column for argMax/argMin. */
+  argField?: string;
+  /** Percentile level in [0, 1]. */
+  level?: number;
   sql?: string;
   label?: string;
   description?: string;
@@ -99,6 +103,8 @@ function measureToCatalog(measure: MeasureDefinition): MeasureCatalogEntry {
   return {
     aggregation: measure.aggregation,
     field: measure.field,
+    argField: measure.argField,
+    level: measure.level,
     sql: measure.sql,
     label: measure.label,
     description: measure.description,

@@ -17,6 +17,32 @@ import type { QueryBuilderFactoryLike, QueryBuilderLike } from './query-builder-
 // TEST FIXTURES
 // =============================================================================
 
+/** Analytical aggregation mock methods shared by the test builders below. */
+function mockAnalyticalAggregations(select: string[], getBuilder: () => QueryBuilderLike) {
+  return {
+    argMax: (column: string, argColumn: string, alias?: string) => {
+      select.push(`argMax(${column}, ${argColumn}) AS ${alias ?? `${column}_argMax`}`);
+      return getBuilder();
+    },
+    argMin: (column: string, argColumn: string, alias?: string) => {
+      select.push(`argMin(${column}, ${argColumn}) AS ${alias ?? `${column}_argMin`}`);
+      return getBuilder();
+    },
+    quantile: (column: string, level: number, alias?: string) => {
+      select.push(`quantile(${level})(${column}) AS ${alias ?? `${column}_quantile`}`);
+      return getBuilder();
+    },
+    stddev: (column: string, alias?: string) => {
+      select.push(`stddevSamp(${column}) AS ${alias ?? `${column}_stddev`}`);
+      return getBuilder();
+    },
+    variance: (column: string, alias?: string) => {
+      select.push(`varSamp(${column}) AS ${alias ?? `${column}_variance`}`);
+      return getBuilder();
+    },
+  };
+}
+
 const Customers = dataset("customers", {
   source: "customers",
   tenantKey: "tenant_id",
@@ -309,6 +335,7 @@ describe("dataset query helpers", () => {
           state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
           return builder;
         },
+        ...mockAnalyticalAggregations(state.select, () => builder),
         where: (column: string, operator: string, _value: unknown) => {
           const op = operator === 'eq' ? '=' : operator;
           state.where.push(`${column} ${op} ?`);
@@ -684,6 +711,7 @@ describe("MetricQueryEngine", () => {
           state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
           return builder;
         },
+        ...mockAnalyticalAggregations(state.select, () => builder),
         where: (column: string, operator: string, _value: unknown) => {
           const op = operator === 'eq' ? '=' : operator;
           state.where.push(`${column} ${op} ?`);
@@ -771,6 +799,7 @@ describe("MetricQueryEngine", () => {
           state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
           return builder;
         },
+        ...mockAnalyticalAggregations(state.select, () => builder),
         where: (column: string, operator: string, _value: unknown) => {
           const op = operator === 'eq' ? '=' : operator;
           state.where.push(`${column} ${op} ?`);
@@ -1368,6 +1397,7 @@ describe("dataset SQL generation matrix", () => {
           state.select.push(`MAX(${column}) AS ${alias ?? `${column}_max`}`);
           return builder;
         },
+        ...mockAnalyticalAggregations(state.select, () => builder),
         where: (column: string, operator: string, _value: unknown) => {
           state.where.push(renderWhere(column, operator));
           return builder;

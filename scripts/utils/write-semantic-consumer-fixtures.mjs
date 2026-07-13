@@ -42,10 +42,17 @@ const Orders = dataset('orders', {
   },
   measures: {
     revenue: measure.sum('amount'),
+    medianAmount: measure.median('amount'),
+    p95Amount: measure.percentile('amount', 0.95),
+    amountStddev: measure.stddev('amount'),
+    amountVariance: measure.variance('amount'),
+    latestAmount: measure.argMax('amount', 'createdAt'),
+    earliestAmount: measure.argMin('amount', 'createdAt'),
   },
 });
 
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const latestAmount = Orders.metric('latestAmount', { measure: 'latestAmount' });
 const query: MetricQuery = { dimensions: ['status'] };
 
 const ordersTable = defineTable('orders', {
@@ -77,6 +84,7 @@ const analytics = createDatasetClient({
 const explicitAnalytics: DatasetClient = analytics;
 
 void revenue;
+void latestAmount;
 void query;
 void explicitAnalytics;
 void compatibility;
@@ -105,7 +113,7 @@ void SemanticExecutor;
 void createAPI;
 `,
   'runtime.mjs': `import { dataset, dimension, measure } from '@hypequery/datasets';
-import { column, defineSchema, defineTable, serializeSchemaToSnapshot } from '@hypequery/schema';
+import { checkDatasetsAgainstSchema, column, defineSchema, defineTable, serializeSchemaToSnapshot } from '@hypequery/schema';
 import { createAPI } from '@hypequery/serve';
 
 const Orders = dataset('orders', {
@@ -113,9 +121,13 @@ const Orders = dataset('orders', {
   dimensions: {
     id: dimension.number(),
     amount: dimension.number(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
   },
   measures: {
     revenue: measure.sum('amount'),
+    p95Amount: measure.percentile('amount', 0.95),
+    amountStddev: measure.stddev('amount'),
+    latestAmount: measure.argMax('amount', 'createdAt'),
   },
 });
 
@@ -123,6 +135,7 @@ const table = defineTable('orders', {
   columns: {
     id: column.UInt64(),
     amount: column.Float64(),
+    created_at: column.DateTime(),
   },
   engine: {
     type: 'MergeTree',
@@ -135,6 +148,32 @@ const api = createAPI({});
 
 if (Orders.name !== 'orders' || snapshot.tables.length !== 1 || typeof api.describe !== 'function') {
   throw new Error('semantic consumer runtime import smoke failed');
+}
+
+const report = checkDatasetsAgainstSchema({ snapshot, datasets: [Orders] });
+if (!report.valid) {
+  throw new Error(
+    'semantic consumer compat smoke failed: expected analytical measures to be schema-compatible, got ' +
+      JSON.stringify(report.diagnostics),
+  );
+}
+
+const Broken = dataset('broken_orders', {
+  source: 'orders',
+  dimensions: {
+    amount: dimension.number(),
+  },
+  measures: {
+    latestAmount: measure.argMax('amount', 'missing_column'),
+  },
+});
+
+const brokenReport = checkDatasetsAgainstSchema({ snapshot, datasets: [Broken] });
+if (brokenReport.valid || !brokenReport.diagnostics.some((d) => d.code === 'MissingMeasureField')) {
+  throw new Error(
+    'semantic consumer compat smoke failed: expected argMax "by" field on a missing column to be reported, got ' +
+      JSON.stringify(brokenReport.diagnostics),
+  );
 }
 `,
 };
