@@ -36,10 +36,37 @@
     "error": "HQ_VALUE_NEGATIVE_ZERO"
   },
   {
+    "id": "non-finite-float-model-value",
+    "phase": "model",
+    "generator": {
+      "type": "non-finite-float",
+      "value": "NaN"
+    },
+    "error": "HQ_VALUE_NON_FINITE_FLOAT"
+  },
+  {
+    "id": "safe-integer-requires-tag",
+    "phase": "model",
+    "value": 42,
+    "declaredClickHouseType": "Int64",
+    "error": "HQ_VALUE_INTEGER_TAG_REQUIRED"
+  },
+  {
     "id": "raw-array",
     "phase": "model",
     "value": [true, false],
     "error": "HQ_VALUE_RAW_COMPOSITE"
+  },
+  {
+    "id": "unknown-tag-type",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "blob",
+        "version": 1
+      }
+    },
+    "error": "HQ_VALUE_UNKNOWN_TAG"
   },
   {
     "id": "unknown-tag-version",
@@ -99,6 +126,21 @@
     "error": "HQ_VALUE_OUT_OF_RANGE"
   },
   {
+    "id": "integer-declared-type-mismatch",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "integer",
+        "version": 1,
+        "bits": 8,
+        "signed": false,
+        "value": "1"
+      }
+    },
+    "declaredClickHouseType": "Int8",
+    "error": "HQ_VALUE_TYPE_MISMATCH"
+  },
+  {
     "id": "decimal-negative-zero",
     "phase": "model",
     "value": {
@@ -153,7 +195,7 @@
     "error": "HQ_VALUE_OUT_OF_RANGE"
   },
   {
-    "id": "datetime-missing-timezone",
+    "id": "datetime-value-missing-z",
     "phase": "model",
     "value": {
       "$hypequery": {
@@ -225,6 +267,17 @@
       "value": null
     },
     "error": "HQ_VALUE_TOO_MANY_ITEMS"
+  },
+  {
+    "id": "value-nodes-10001",
+    "phase": "limits",
+    "generator": {
+      "type": "array-tree",
+      "branches": 10,
+      "itemsPerBranch": 999,
+      "value": null
+    },
+    "error": "HQ_VALUE_TOO_MANY_NODES"
   },
   {
     "id": "string-bytes-65537",
