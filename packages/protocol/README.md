@@ -17,9 +17,10 @@ The normative source is
 
 The package contains deterministic, framework-independent implementations of
 accepted protocol rules. The current implementation provides strict tagged
-value validation, RFC 8785 canonical encoding, duplicate-aware decoding, and a
-raw SHA-256 conformance digest. Identifiers, portable AST structures, artifact
-envelopes, and compatibility checks will follow in separate changes.
+value validation, RFC 8785 canonical encoding, duplicate-aware decoding, a raw
+SHA-256 conformance digest, and draft portable logical identifiers. Portable
+AST structures, artifact envelopes, and compatibility checks will follow in
+separate changes.
 
 It will not connect to ClickHouse, execute queries, load project source, access
 credentials or the environment, perform network or filesystem I/O, implement
@@ -46,6 +47,10 @@ The proposed tagged-value surface exports:
 
 The raw conformance digest is not a deployment identity or shared cache key.
 Those domains require separate, versioned, domain-separated contracts.
+
+The proposed identifier surface exports strict parse, guard, split, and join
+helpers for simple and dot-qualified logical identifiers. Identifiers are
+ASCII, case-sensitive, preserved exactly, and are not SQL identifiers.
 
 ## Runtime compatibility
 

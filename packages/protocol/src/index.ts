@@ -25,3 +25,20 @@ export type {
   TupleTaggedValue,
   UuidTaggedValue,
 } from './values/index.js';
+
+export {
+  PROTOCOL_IDENTIFIER_LIMITS,
+  ProtocolIdentifierError,
+  isProtocolIdentifier,
+  isProtocolQualifiedIdentifier,
+  joinProtocolQualifiedIdentifier,
+  parseProtocolIdentifier,
+  parseProtocolQualifiedIdentifier,
+  splitProtocolQualifiedIdentifier,
+} from './identifiers/index.js';
+
+export type {
+  ProtocolIdentifier,
+  ProtocolIdentifierErrorCode,
+  ProtocolQualifiedIdentifier,
+} from './identifiers/index.js';

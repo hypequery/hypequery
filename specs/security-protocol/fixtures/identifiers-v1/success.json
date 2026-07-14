@@ -1,0 +1,26 @@
+[
+  {
+    "id": "simple-lowercase",
+    "mode": "simple",
+    "value": "orders",
+    "segments": ["orders"]
+  },
+  {
+    "id": "simple-leading-underscore",
+    "mode": "simple",
+    "value": "_tenant_id",
+    "segments": ["_tenant_id"]
+  },
+  {
+    "id": "simple-case-preserved",
+    "mode": "simple",
+    "value": "RevenueByDay",
+    "segments": ["RevenueByDay"]
+  },
+  {
+    "id": "qualified-relationship-field",
+    "mode": "qualified",
+    "value": "orders.customer.country",
+    "segments": ["orders", "customer", "country"]
+  }
+]
