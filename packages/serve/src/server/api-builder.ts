@@ -12,6 +12,7 @@ import type {
   RouteRegistrationOptions,
 } from "../types.js";
 import type { ServeRouter } from "../router.js";
+import type { CacheObservability } from "../cache-observability.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
@@ -30,10 +31,12 @@ export const createAPImethods = <
   executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext>,
   handler: ServeHandler,
   basePath: string,
+  cacheObservability: CacheObservability,
 ): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const api: HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     queryLogger,
+    cacheObservability,
 
     manifest: (): RouteManifest => {
       const manifest: RouteManifest = {};

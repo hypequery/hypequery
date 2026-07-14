@@ -1,12 +1,15 @@
 import type { AddressInfo } from "net";
 
 import { startNodeServer } from "./adapters/node.js";
+import type { CacheObservability } from "./cache-observability.js";
 import type {
   ServeBuilder,
   StartServerOptions,
   ToolkitDescription,
 } from "./types.js";
 import { formatQueryEvent, type ServeQueryLogger } from "./query-logger.js";
+
+export type { CacheObservability, CacheLayerStats } from "./cache-observability.js";
 
 /**
  * The narrow surface of a serve API that dev tooling (e.g.
@@ -21,6 +24,12 @@ export interface DevIntegrationApi {
   describe(): ToolkitDescription;
   /** In-process execution of a registered endpoint. */
   execute(key: string, options?: { input?: unknown }): Promise<unknown>;
+  /**
+   * Per-layer cache stats/clear (semantic + query-builder layers). Gateways
+   * should advertise clear affordances (the `cache:clear` capability) only
+   * for layers reporting `clearSupported`.
+   */
+  readonly cacheObservability: CacheObservability;
   /** Base path applied to all registered routes. */
   readonly basePath?: string;
 }

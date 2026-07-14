@@ -16,6 +16,8 @@ export * from "./adapters/fetch.js";
 export * from "./adapters/vercel.js";
 export { startServer, toNodeHandler, toFetchHandler } from "./adapters/standalone.js";
 export type { DevIntegrationApi, ServeDevOptions } from "./dev.js";
+export { createCacheObservability, detectBuilderCache } from "./cache-observability.js";
+export type { CacheObservability, CacheLayerStats, BuilderCacheLike } from "./cache-observability.js";
 /** @deprecated Import from `@hypequery/serve/dev` instead. */
 export { serveDev } from "./dev.js";
 export * from "./serve.js";
