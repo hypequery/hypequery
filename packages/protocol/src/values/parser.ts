@@ -1,6 +1,8 @@
 import { valueError } from './errors.js';
 import type { CanonicalValueLimits } from './types.js';
 
+const textEncoder = new TextEncoder();
+
 class DuplicateAwareJsonParser {
   private index = 0;
   private syntaxNodes = 0;
@@ -249,8 +251,11 @@ export function parseDuplicateAwareJson(
   let byteLength: number;
 
   if (typeof input === 'string') {
+    if (input.length > limits.maxInputBytes) {
+      valueError('HQ_VALUE_TOO_LARGE');
+    }
     source = input;
-    byteLength = new TextEncoder().encode(input).byteLength;
+    byteLength = textEncoder.encode(input).byteLength;
   } else if (input instanceof Uint8Array) {
     byteLength = input.byteLength;
     try {

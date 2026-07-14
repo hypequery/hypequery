@@ -63,7 +63,7 @@ function requireMetadataInteger(value: unknown, path: string): number {
 function validateUnicode(value: string, path: string, maxBytes: number): void {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
-    if (code <= 0x1f || code === 0x7f) {
+    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) {
       valueError('HQ_VALUE_CONTROL_CHARACTER', path);
     }
     if (code >= 0xd800 && code <= 0xdbff) {
@@ -356,8 +356,38 @@ export function validateCanonicalValue(
   options: CanonicalValueOptions = {},
 ): CanonicalValue {
   const limits = resolveLimits(options);
-  const snapshot = snapshotPlainData(input, limits);
-  validateValue(snapshot, { limits, nodes: 0 }, '$', 0, options.declaredClickHouseType);
+  return validateCanonicalValueWithLimits(
+    input,
+    limits,
+    options.declaredClickHouseType,
+  );
+}
+
+function validateSnapshot(
+  snapshot: unknown,
+  limits: Readonly<CanonicalValueLimits>,
+  declaredClickHouseType?: string,
+): CanonicalValue {
+  validateValue(snapshot, { limits, nodes: 0 }, '$', 0, declaredClickHouseType);
   deepFreeze(snapshot);
   return snapshot as CanonicalValue;
+}
+
+/** Package-internal path for arbitrary input when limits are already resolved. */
+export function validateCanonicalValueWithLimits(
+  input: unknown,
+  limits: Readonly<CanonicalValueLimits>,
+  declaredClickHouseType?: string,
+): CanonicalValue {
+  const snapshot = snapshotPlainData(input, limits);
+  return validateSnapshot(snapshot, limits, declaredClickHouseType);
+}
+
+/** Package-internal path for trees created by the duplicate-aware parser. */
+export function validateParsedCanonicalValue(
+  parsed: unknown,
+  limits: Readonly<CanonicalValueLimits>,
+  declaredClickHouseType?: string,
+): CanonicalValue {
+  return validateSnapshot(parsed, limits, declaredClickHouseType);
 }

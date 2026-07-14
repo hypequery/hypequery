@@ -5,7 +5,10 @@ import { serializeJcs } from './jcs.js';
 import { resolveLimits } from './limits.js';
 import { parseDuplicateAwareJson } from './parser.js';
 import type { CanonicalValue, CanonicalValueOptions } from './types.js';
-import { validateCanonicalValue } from './validate.js';
+import {
+  validateCanonicalValueWithLimits,
+  validateParsedCanonicalValue,
+} from './validate.js';
 
 const textEncoder = new TextEncoder();
 
@@ -14,10 +17,11 @@ function prepare(
   options: CanonicalValueOptions,
 ): { value: CanonicalValue; canonical: string; bytes: Uint8Array } {
   const limits = resolveLimits(options);
-  const value = validateCanonicalValue(input, {
+  const value = validateCanonicalValueWithLimits(
+    input,
     limits,
-    declaredClickHouseType: options.declaredClickHouseType,
-  });
+    options.declaredClickHouseType,
+  );
   const canonical = serializeJcs(value);
   const bytes = textEncoder.encode(canonical);
   if (bytes.byteLength > limits.maxCanonicalBytes) {
@@ -52,10 +56,11 @@ export function decodeCanonicalValue(
 ): CanonicalValue {
   const limits = resolveLimits(options);
   const parsed = parseDuplicateAwareJson(input, limits);
-  return validateCanonicalValue(parsed, {
+  return validateParsedCanonicalValue(
+    parsed,
     limits,
-    declaredClickHouseType: options.declaredClickHouseType,
-  });
+    options.declaredClickHouseType,
+  );
 }
 
 /** Raw conformance hash only; deployment and cache domains are specified later. */

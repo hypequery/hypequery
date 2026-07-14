@@ -131,6 +131,18 @@ describe('canonical value codec', () => {
     expect(Object.isFrozen(value.$hypequery.values)).toBe(true);
   });
 
+  it('deeply freezes trees produced by the duplicate-aware decoder', () => {
+    const value = decodeCanonicalValue(
+      '{"$hypequery":{"type":"array","version":1,"values":["original"]}}',
+    ) as {
+      readonly $hypequery: { readonly values: readonly string[] };
+    };
+
+    expect(Object.isFrozen(value)).toBe(true);
+    expect(Object.isFrozen(value.$hypequery)).toBe(true);
+    expect(Object.isFrozen(value.$hypequery.values)).toBe(true);
+  });
+
   it('never invokes getters or toJSON', () => {
     let getterCalls = 0;
     let toJsonCalls = 0;
@@ -213,6 +225,17 @@ describe('canonical value codec', () => {
     expectProtocolError(
       () => decodeCanonicalValue(Uint8Array.from([0xc3, 0x28])),
       'HQ_VALUE_INVALID_UNICODE',
+    );
+  });
+
+  it('enforces input byte limits for obvious and multibyte string overflows', () => {
+    expectProtocolError(
+      () => decodeCanonicalValue('"aa"', { limits: { maxInputBytes: 3 } }),
+      'HQ_VALUE_TOO_LARGE',
+    );
+    expectProtocolError(
+      () => decodeCanonicalValue('"é"', { limits: { maxInputBytes: 3 } }),
+      'HQ_VALUE_TOO_LARGE',
     );
   });
 });
