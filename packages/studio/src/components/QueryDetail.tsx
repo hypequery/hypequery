@@ -9,6 +9,22 @@ import { IconButton } from './IconButton';
 import type { QueryHistoryEntry } from '@/lib/types';
 
 /**
+ * Renders an error of any shape as text. The contract types this as a
+ * string, but defensive: a raw Error object JSON-serializes to `{}`, and
+ * rendering an object as a React child crashes the whole app (error #31).
+ */
+function formatError(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message) return message;
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}') return serialized;
+  }
+  return 'Unknown error';
+}
+
+/**
  * Union of keys across all rows. ClickHouse result previews can be sparse
  * (union-typed rows), so the first row alone may miss columns — and cells
  * must be looked up by these keys, never by Object.values position.
@@ -209,7 +225,7 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
               <div className={cn('flex items-start gap-2', COLORS.error.text)}>
                 <AlertCircle className={cn(ICON_SIZES.md, 'mt-0.5 flex-shrink-0')} />
                 <pre className="text-sm whitespace-pre-wrap break-words font-mono">
-                  {query.error}
+                  {formatError(query.error)}
                 </pre>
               </div>
             </div>
