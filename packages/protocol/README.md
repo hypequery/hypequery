@@ -55,14 +55,20 @@ ASCII, case-sensitive, preserved exactly, and are not SQL identifiers.
 
 The proposed expression surface exports strict validators and immutable types
 for derived formulas, comparisons, filtered aggregations, all current dataset
-aggregations, and dataset/metric query envelopes. It intentionally excludes raw
-SQL and tenant identity; consumers validate names and policy against a dataset
-contract before execution.
+aggregations, and dataset/metric query envelopes. It intentionally excludes
+caller-supplied SQL and tenant identity; consumers validate names and policy
+against a dataset contract before execution.
 
 The proposed schema surface exports strict types and validation for portable
 query input/output schemas. It covers the current declarative Serve/Zod schema
 features without depending on Zod or embedding executable transforms and
 refinements.
+
+The proposed query-implementation surface keeps trusted implementation details
+separate from public query intent. It covers Dataset SQL expressions, fixed
+semantic plans, compiled read-only ClickHouse statements with bound input or
+tenant parameters, and hashed Node/Python runtime references for Serve handlers
+that cannot be lowered portably. Validation does not execute or authorize SQL.
 
 ## Runtime compatibility
 

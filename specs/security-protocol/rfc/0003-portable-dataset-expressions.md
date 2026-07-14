@@ -131,7 +131,10 @@ Objects with accessors, symbols, non-enumerable properties, custom prototypes,
 or cycles MUST be rejected. Successful validation returns an immutable plain
 data snapshot and never retains caller-owned containers.
 
-Raw SQL, arbitrary function names, source-language callbacks, tenant identity,
-credentials, and database connection details are outside this AST. Unknown
-fields and operators fail closed. Changing node meaning, arity, limits, or the
-closed registries requires a new expression extension or core protocol version.
+Caller-supplied SQL, arbitrary function names, source-language callbacks,
+tenant identity, credentials, and database connection details are outside this
+AST. Trusted SQL produced during a build is specified separately by the query
+implementation extension; it never becomes an untrusted expression node.
+Unknown fields and operators fail closed. Changing node meaning, arity, limits,
+or the closed registries requires a new expression extension or core protocol
+version.

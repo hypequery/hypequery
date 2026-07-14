@@ -78,3 +78,22 @@ export type {
   ProtocolIdentifierErrorCode,
   ProtocolQualifiedIdentifier,
 } from './identifiers/index.js';
+
+export {
+  DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS,
+  ProtocolQueryImplementationError,
+  validateProtocolQueryImplementation,
+  validateProtocolSqlExpression,
+} from './query-implementations/index.js';
+
+export type {
+  ProtocolQueryImplementation,
+  ProtocolQueryImplementationErrorCode,
+  ProtocolQueryImplementationLimits,
+  ProtocolQueryImplementationOptions,
+  ProtocolSqlDialect,
+  ProtocolSqlExpression,
+  ProtocolSqlParameter,
+  ProtocolSqlParameterSource,
+  ProtocolSqlTenantPolicy,
+} from './query-implementations/index.js';
