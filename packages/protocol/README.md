@@ -18,9 +18,9 @@ The normative source is
 The package contains deterministic, framework-independent implementations of
 accepted protocol rules. The current implementation provides strict tagged
 value validation, RFC 8785 canonical encoding, duplicate-aware decoding, a raw
-SHA-256 conformance digest, and draft portable logical identifiers. Portable
-AST structures, artifact envelopes, and compatibility checks will follow in
-separate changes.
+SHA-256 conformance digest, draft portable logical identifiers, and a proposed
+closed dataset expression/query AST. Artifact envelopes and compatibility
+checks will follow in separate changes.
 
 It will not connect to ClickHouse, execute queries, load project source, access
 credentials or the environment, perform network or filesystem I/O, implement
@@ -51,6 +51,12 @@ Those domains require separate, versioned, domain-separated contracts.
 The proposed identifier surface exports strict parse, guard, split, and join
 helpers for simple and dot-qualified logical identifiers. Identifiers are
 ASCII, case-sensitive, preserved exactly, and are not SQL identifiers.
+
+The proposed expression surface exports strict validators and immutable types
+for derived formulas, comparisons, filtered aggregations, all current dataset
+aggregations, and dataset/metric query envelopes. It intentionally excludes raw
+SQL and tenant identity; consumers validate names and policy against a dataset
+contract before execution.
 
 ## Runtime compatibility
 

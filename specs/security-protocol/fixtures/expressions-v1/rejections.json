@@ -1,0 +1,17 @@
+[
+  { "id": "expression-not-object", "mode": "expression", "value": null, "error": "HQ_EXPRESSION_TYPE" },
+  { "id": "expression-unknown-field", "mode": "expression", "value": { "kind": "reference", "name": "orders", "extra": true }, "error": "HQ_EXPRESSION_UNKNOWN_FIELD" },
+  { "id": "expression-unknown-kind", "mode": "expression", "value": { "kind": "sql", "value": "select 1" }, "error": "HQ_EXPRESSION_UNKNOWN_KIND" },
+  { "id": "expression-invalid-identifier", "mode": "expression", "value": { "kind": "reference", "name": "customer..country" }, "error": "HQ_EXPRESSION_INVALID_IDENTIFIER" },
+  { "id": "expression-invalid-canonical-value", "mode": "expression", "value": { "kind": "literal", "value": [42] }, "error": "HQ_EXPRESSION_INVALID_VALUE" },
+  { "id": "expression-invalid-operator", "mode": "expression", "value": { "kind": "binary", "operator": "power", "left": { "kind": "literal", "value": 1.5 }, "right": { "kind": "literal", "value": 2.5 } }, "error": "HQ_EXPRESSION_INVALID_OPERATOR" },
+  { "id": "expression-invalid-arity", "mode": "expression", "value": { "kind": "call", "function": "floor", "args": [] }, "error": "HQ_EXPRESSION_INVALID_ARITY" },
+  { "id": "comparison-empty-in-list", "mode": "expression", "value": { "kind": "comparison", "operator": "in", "left": { "kind": "reference", "name": "status" }, "right": { "kind": "literal", "value": { "$hypequery": { "type": "array", "version": 1, "values": [] } } } }, "error": "HQ_EXPRESSION_INVALID_ARITY" },
+  { "id": "comparison-like-non-string", "mode": "expression", "value": { "kind": "comparison", "operator": "like", "left": { "kind": "reference", "name": "status" }, "right": { "kind": "literal", "value": 1.5 } }, "error": "HQ_EXPRESSION_INVALID_VALUE" },
+  { "id": "expression-invalid-aggregation", "mode": "expression", "value": { "kind": "aggregate", "aggregation": "percentile", "field": "amount", "level": 2.0 }, "error": "HQ_EXPRESSION_INVALID_AGGREGATION" },
+  { "id": "query-invalid-grain", "mode": "query", "value": { "kind": "dataset", "dataset": "orders", "by": "hour" }, "error": "HQ_EXPRESSION_INVALID_QUERY" },
+  { "id": "expression-too-deep", "mode": "expression", "generator": { "type": "nested-not", "depth": 17 }, "error": "HQ_EXPRESSION_TOO_DEEP" },
+  { "id": "expression-too-many-nodes", "mode": "expression", "generator": { "type": "logical-tree", "nodes": 1001 }, "error": "HQ_EXPRESSION_TOO_MANY_NODES" },
+  { "id": "expression-too-many-items", "mode": "expression", "generator": { "type": "logical-operands", "count": 101 }, "error": "HQ_EXPRESSION_TOO_MANY_ITEMS" },
+  { "id": "expression-unsafe-accessor", "mode": "expression", "generator": { "type": "unsafe-accessor" }, "error": "HQ_EXPRESSION_UNSAFE_OBJECT" }
+]
