@@ -49,7 +49,9 @@ Companion: `plans/dev-playground-design.md`
 ```
 
 Capability strings defined so far: `registry`, `execute`, `history`, `events`, `cache`,
-`schema`, `ai`. The UI renders only what is advertised.
+`cache:clear`, `schema`, `ai`, `telemetry`. The UI renders only what is advertised.
+`x:y` strings are sub-capabilities: they refine a parent and are only meaningful when
+the parent is also advertised.
 
 ### `GET {base}/registry` — endpoint catalog (capability `registry`)
 
@@ -61,7 +63,13 @@ dataset/metric routes. Entries: `key`, `path`, `method`, `name?`, `description?`
 ### `POST {base}/execute` (capability `execute`)
 
 Request: `{ "key": string, "input?": unknown, "context?": { "tenantId?": string, "roles?": string[] } }`
-(`context` is the dev auth-context picker; ignored or rejected in Cloud mode).
+
+`context` is the dev auth-context picker (local mode only). A gateway that does not
+support it — Cloud mode, where identity comes from the session — MUST reject a request
+carrying `context` with `400` and `error.type: "context_not_allowed"`; silently
+ignoring it is forbidden, since a developer simulating a tenant must never get
+un-scoped results labelled as scoped ones. The UI hides the context picker when
+`mode` is not `"local"`.
 
 Response: `{ "queryId", "success": true, "result", "sql?", "durationMs", "cache?": { "status", "key?", "ageMs?" } }`
 or typed error `{ "success": false, "error": { "type", "message", "details?" } }` with an
@@ -87,8 +95,10 @@ DELETE {base}/history                                         → { cleared }
 
 ### `GET {base}/events` — SSE (capability `events`)
 
-Event types: `query:started`, `query:completed`, `query:error` (payload = the history
-entry, incl. generated SQL), `cache:updated`. Note: `query:completed` — the donor UI's
+Event types: `query:started` (payload `{ "queryId", "key", "startedAt" }` — the
+`queryId` correlates the in-flight query with the history entry that arrives on
+completion), `query:completed`, `query:error` (payload = the history entry, incl.
+generated SQL), `cache:updated`. Note: `query:completed` — the donor UI's
 `query:complete` was a bug; this contract settles the name. Heartbeat comments every
 30s. `Last-Event-ID` replay is NOT part of v0 (donor plumbing was dead code — deleted);
 clients refetch history on reconnect. May become a capability later.
@@ -102,9 +112,14 @@ POST {base}/cache/clear  → { cleared }    body: { "layer?": string } — omit 
 
 Stats are reported per cache layer (see the design doc's "Cache architecture": the
 semantic query cache and the query-builder cache are the only result caches; there is
-no serve-layer response cache). A gateway with no wired cache observability may derive
-approximate hit/miss stats from query history and should then omit the `cache`
-capability's clear support (503 on `/cache/clear`). New layer ids are additive.
+no serve-layer response cache). New layer ids are additive.
+
+Clear support is signalled by the `cache:clear` sub-capability, advertised only when a
+real cache is wired for clearing. A gateway without wired cache observability may still
+advertise `cache` (deriving approximate hit/miss stats from query history) but must
+omit `cache:clear`, and the UI must not render clear affordances without it.
+`/cache/clear` on such a gateway returns 503 — defense against clients that ignore
+capabilities, not a state the UI should ever trigger.
 
 ### `GET {base}/schema` (capability `schema`)
 
@@ -116,6 +131,23 @@ ClickHouse introspection: databases → tables → columns/types, from
 SSE-streamed chat. Tool calls are constrained to registry entries; the gateway executes
 them via the same path as `/execute` and tags resulting history entries `ai`. Raw SQL
 execution is not expressible in this contract.
+
+### Telemetry (capability `telemetry`)
+
+```
+GET  {base}/telemetry  → { "enabled": boolean }
+POST {base}/telemetry  → 204        body: { "events": [ { "name": string, "props?": object } ] }
+```
+
+`GET` reports the effective telemetry state for transparency (reflects the opt-out
+switches — see the design doc's Telemetry section for the policy). `POST` is the
+same-origin beacon the studio UI sends its events to; the browser never contacts a
+third party. The gateway validates `name` against its event allowlist and sanitizes
+`props` server-side; unknown events and disallowed props are dropped silently. The
+response is always `204` regardless of enabled state or dropped events — the beacon is
+fire-and-forget and must never surface errors to the UI. When telemetry is disabled,
+`POST` accepts and discards. Gateways without telemetry (e.g. Cloud) omit the
+capability, and the UI must not send beacons without it.
 
 ## Asset serving (local mode, informative — not part of the contract)
 

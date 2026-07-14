@@ -91,17 +91,17 @@ the built UI — lives in one dev-only package; serve gains only a mount hook.
    `hypequery dev` wires it into `serveDev` via the mount option; without it installed,
    `serveDev` still works as the plain thin server with an install hint. Prod installs
    of serve never download it.
-2b. **`@hypequery/studio`** (OSS, publishable): the embeddable React UI core — components
+3. **`@hypequery/studio`** (OSS, publishable): the embeddable React UI core — components
    render against a `gatewayBaseUrl` + `/meta` capabilities. Ships source *and* a
    prebuilt dist that the gateway serves locally. The future Cloud app imports this
    package and wraps it with Cloud-only screens — one frontend, no fork.
-3. **UI stack is plain React 18** — not Preact. The assets are served locally from disk,
+4. **UI stack is plain React 18** — not Preact. The assets are served locally from disk,
    so framework size is nearly irrelevant there; the donor components port unchanged;
    and it keeps a straight path to the hosted cloud workspace (website-next is already
    React/Next). Size discipline comes instead from: route-level code-splitting, lazy
    chunks for Prism + sql-formatter (load on first SQL view), no heavyweight chart lib
    (uPlot-class or nothing until Phase 4).
-4. **CI budgets**: playground asset bundle ≤ 500KB compressed; serve's dist may not grow
+5. **CI budgets**: playground asset bundle ≤ 500KB compressed; serve's dist may not grow
    more than a few KB from the mount hook + interface. Fail the build otherwise.
 
 ```
@@ -204,11 +204,13 @@ What replaces it — **cache observability, not storage**:
    semantic (`SemanticQueryCache.getStats()`) and builder (`CacheController`, already
    publicly exported): `getStats(): Promise<CacheLayerStats[]>`, `clear(layer?)`.
 3. Gateway: `GET /__dev/cache` returns per-layer stats (`{ layers: [...] }`);
-   `POST /__dev/cache/clear` takes an optional layer. When nothing is wired, the
-   gateway keeps its history-derived approximate stats (already implemented) and
-   `clear` returns 503. Per-query cache fields on history/SSE come from semantic
-   `meta.cache` (`hit`, `ageMs`, `stale`) flowing through results — no serve cache
-   needed.
+   `POST /__dev/cache/clear` takes an optional layer. Clear support is advertised via
+   the `cache:clear` sub-capability, only when a real cache is wired for clearing;
+   when nothing is wired the gateway keeps its history-derived approximate stats
+   (already implemented), omits `cache:clear`, and `clear` returns 503 as defense
+   against capability-ignoring clients. Per-query cache fields on history/SSE come
+   from semantic `meta.cache` (`hit`, `ageMs`, `stale`) flowing through results — no
+   serve cache needed.
 
 Usage guidance (docs, not code): semantic endpoints prefer the semantic cache (closer
 to the response; gets dedup and scopes); the builder cache is for direct query-builder
@@ -243,7 +245,8 @@ playground earns further investment (activation funnel: `gateway_started` →
   `DEFAULT_ENDPOINT` constant — currently empty, so telemetry is a no-op in the wild).
 - UI events go same-origin to the gateway beacon (`POST /__dev/telemetry`),
   allowlist-validated and prop-sanitized server-side; the browser never contacts a
-  third party.
+  third party. Endpoint shapes are normative in `plans/gateway-contract.md`
+  (capability `telemetry`); this section owns only the policy.
 - Fire-and-forget: batched, 3s timeout, failures swallowed — telemetry may never slow
   or break the dev server.
 
