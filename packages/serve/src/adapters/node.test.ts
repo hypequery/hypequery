@@ -419,3 +419,80 @@ describe("startNodeServer", () => {
     expect(stopResolved).toBe(true);
   });
 });
+
+describe("mount option", () => {
+  const okHandler: ServeHandler = async () => ({
+    status: 200,
+    body: { ok: true },
+  });
+
+  it("lets the mount handler claim a request before normal routing", async () => {
+    const started = await startNodeServer(okHandler, {
+      port: 0,
+      hostname: "127.0.0.1",
+      quiet: true,
+      mount: async (req, res) => {
+        if (req.url?.startsWith("/claimed")) {
+          res.statusCode = 202;
+          res.end("mounted");
+          return true;
+        }
+        return false;
+      },
+    });
+
+    try {
+      const base = serverUrl(started.server);
+      const claimed = await requestWithNodeHttp(`${base}/claimed`);
+      const passedThrough = await requestWithNodeHttp(`${base}/other`);
+
+      expect(claimed.status).toBe(202);
+      expect(claimed.body).toBe("mounted");
+      expect(passedThrough.status).toBe(200);
+      expect(JSON.parse(passedThrough.body)).toEqual({ ok: true });
+    } finally {
+      await started.stop();
+    }
+  });
+
+  it("ends the response when a mount handler throws after writing", async () => {
+    const started = await startNodeServer(okHandler, {
+      port: 0,
+      hostname: "127.0.0.1",
+      quiet: true,
+      mount: async (_req, res) => {
+        res.write("partial");
+        throw new Error("mount handler bug");
+      },
+    });
+
+    try {
+      // Must terminate rather than hang until timeout or crash the process
+      // with ERR_HTTP_HEADERS_SENT from the error recovery path.
+      const response = await requestWithNodeHttp(`${serverUrl(started.server)}/anything`);
+
+      expect(response.body).toBe("partial");
+    } finally {
+      await started.stop();
+    }
+  });
+
+  it("still sends a 500 when a mount handler throws before writing", async () => {
+    const started = await startNodeServer(okHandler, {
+      port: 0,
+      hostname: "127.0.0.1",
+      quiet: true,
+      mount: async () => {
+        throw new Error("mount handler bug");
+      },
+    });
+
+    try {
+      const response = await requestWithNodeHttp(`${serverUrl(started.server)}/anything`);
+
+      expect(response.status).toBe(500);
+    } finally {
+      await started.stop();
+    }
+  });
+});

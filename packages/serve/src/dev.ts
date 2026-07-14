@@ -65,7 +65,7 @@ export const serveDev = async <
     logger(`hypequery dev server running at http://${display}`);
     logger(`Docs available at http://${display}/docs`);
     if (options.mount) {
-      logger(`Playground available at http://${display}/__dev`);
+      logger(`Dev mount handler active at http://${display}`);
     }
   }
 
