@@ -328,7 +328,7 @@ export class SQLiteStore implements QueryHistoryStore {
    * @param format - Export format (currently only 'json' supported)
    * @returns JSON string of all query history entries
    */
-  async export(format: 'json'): Promise<string> {
+  async export(_format: 'json'): Promise<string> {
     if (!this.db) throw new Error('Database not initialized');
 
     const stmt = this.db.prepare('SELECT * FROM query_history ORDER BY started_at ASC');
@@ -344,7 +344,7 @@ export class SQLiteStore implements QueryHistoryStore {
    * @param data - JSON string of query history entries
    * @param format - Import format (currently only 'json' supported)
    */
-  async import(data: string, format: 'json'): Promise<void> {
+  async import(data: string, _format: 'json'): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     const queries = JSON.parse(data) as QueryHistoryEntry[];

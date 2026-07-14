@@ -4,6 +4,7 @@ import { parseBody, sendJSON, sendError } from './helpers.js';
 interface ExecuteBody {
   key?: string;
   input?: unknown;
+  context?: unknown;
 }
 
 /**
@@ -27,6 +28,24 @@ export async function execute(ctx: EndpointContext): Promise<void> {
     const key = body?.key;
     if (!key || typeof key !== 'string') {
       return sendError(ctx.res, 'key is required', 400);
+    }
+
+    // The dev auth-context picker is not implemented yet; the contract
+    // forbids silently ignoring `context` (a developer simulating a tenant
+    // must never get un-scoped results labelled as scoped ones).
+    if (body?.context !== undefined) {
+      return sendJSON(
+        ctx.res,
+        {
+          success: false,
+          error: {
+            type: 'context_not_allowed',
+            message: 'This gateway does not support an execution context override yet.'
+          },
+          timestamp: Date.now()
+        },
+        400
+      );
     }
 
     const result = await ctx.api.execute(key, { input: body.input });

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { QueryHistoryStore } from '../storage/types.js';
 import type { DevQueryLogger } from '../query-logger.js';
-import type { CacheStore, DevIntegrationApi, GatewayCapability } from '../types.js';
+import type { CacheObservability, DevIntegrationApi, GatewayCapability } from '../types.js';
 import { SSEHandler } from './sse-handler.js';
 import type { EndpointContext } from './types.js';
 import { getMeta } from './meta-endpoints.js';
@@ -18,8 +18,8 @@ import { getCacheStats, clearCache } from './cache-endpoints.js';
 export interface RouterOptions {
   /** Query history store */
   store: QueryHistoryStore;
-  /** Serve-layer cache store for real-time cache stats and operations */
-  serveCacheStore?: CacheStore;
+  /** Per-layer cache stats/clear from serve's DevIntegrationApi. */
+  cacheObservability?: CacheObservability;
   /** Optional query logger for stats */
   logger?: DevQueryLogger;
   /** The serve API the gateway drives. */
@@ -81,7 +81,7 @@ export class DevAPIRouter {
   private createContext(req: IncomingMessage, res: ServerResponse): EndpointContext {
     return {
       store: this.options.store,
-      serveCacheStore: this.options.serveCacheStore,
+      cacheObservability: this.options.cacheObservability,
       logger: this.options.logger,
       api: this.options.api,
       capabilities: this.options.capabilities,

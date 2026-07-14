@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { SSEHandler } from './sse-handler.js';
 import { EventEmitter } from 'events';
 import type { ServerResponse } from 'http';
@@ -371,4 +371,48 @@ describe('SSEHandler', () => {
       expect(event).toBeDefined();
     });
   });
+
+  describe('broadcastQueryEvent', () => {
+    it('shapes query:started as the contract payload { queryId, key, startedAt }', () => {
+      const mockRes = new MockResponse();
+      handler.addClient(mockRes as unknown as ServerResponse);
+
+      handler.broadcastQueryEvent({
+        type: 'query:started',
+        data: {
+          queryId: 'q-1',
+          endpointKey: 'totalRevenue',
+          query: 'POST /metrics/totalRevenue',
+          startTime: 1234,
+          status: 'started'
+        }
+      });
+
+      const frame = mockRes.writtenData.find((d) => d.includes('query:started'));
+      expect(frame).toBeDefined();
+      const dataLine = frame!.split('\n').find((line) => line.startsWith('data: '))!;
+      const payload = JSON.parse(dataLine.slice('data: '.length));
+      expect(payload).toMatchObject({ queryId: 'q-1', key: 'totalRevenue', startedAt: 1234 });
+    });
+
+    it('passes query:completed data through unchanged', () => {
+      const mockRes = new MockResponse();
+      handler.addClient(mockRes as unknown as ServerResponse);
+
+      handler.broadcastQueryEvent({
+        type: 'query:completed',
+        data: {
+          queryId: 'q-2',
+          query: 'POST /metrics/totalRevenue',
+          startTime: 1234,
+          duration: 5,
+          status: 'completed'
+        }
+      });
+
+      const frame = mockRes.writtenData.find((d) => d.includes('query:completed'));
+      expect(frame).toBeDefined();
+    });
+  });
 });
+

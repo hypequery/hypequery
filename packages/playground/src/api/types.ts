@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import type { QueryHistoryStore } from '../storage/types.js';
 import type { DevQueryLogger } from '../query-logger.js';
 import type { SSEHandler } from './sse-handler.js';
-import type { CacheStore, DevIntegrationApi, GatewayCapability } from '../types.js';
+import type { CacheObservability, DevIntegrationApi, GatewayCapability } from '../types.js';
 
 /**
  * Context passed to endpoint handlers.
@@ -12,8 +12,8 @@ export interface EndpointContext {
   req: IncomingMessage;
   res: ServerResponse;
   logger?: DevQueryLogger;
-  /** Serve-layer cache store for real-time cache stats and operations */
-  serveCacheStore?: CacheStore;
+  /** Per-layer cache stats/clear from serve's DevIntegrationApi. */
+  cacheObservability?: CacheObservability;
   sseHandler?: SSEHandler;
   /** The serve API the gateway drives (registry + execution). */
   api?: DevIntegrationApi;

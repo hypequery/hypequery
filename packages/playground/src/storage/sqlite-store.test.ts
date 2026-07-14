@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { SQLiteStore } from './sqlite-store.js';
-import type { QueryHistoryEntry } from './types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

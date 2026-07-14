@@ -221,7 +221,7 @@ export class MemoryStore implements QueryHistoryStore {
    * @param format - Export format (currently only 'json' supported)
    * @returns JSON string of all query history entries
    */
-  async export(format: 'json'): Promise<string> {
+  async export(_format: 'json'): Promise<string> {
     const entries = this.orderedIds.map(id => this.queries.get(id)!).filter(Boolean);
     return JSON.stringify(entries, null, 2);
   }
@@ -231,7 +231,7 @@ export class MemoryStore implements QueryHistoryStore {
    * @param data - JSON string of query history entries
    * @param format - Import format (currently only 'json' supported)
    */
-  async import(data: string, format: 'json'): Promise<void> {
+  async import(data: string, _format: 'json'): Promise<void> {
     const entries = JSON.parse(data) as QueryHistoryEntry[];
     for (const entry of entries) {
       await this.addQuery({

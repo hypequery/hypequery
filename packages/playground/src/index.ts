@@ -11,7 +11,7 @@ export type { Gateway, CreateGatewayOptions } from './gateway.js';
 
 // Contract
 export { CONTRACT_VERSION } from './api/meta-endpoints.js';
-export type { GatewayCapability, CacheStore, CacheStatsSnapshot, DevIntegrationApi } from './types.js';
+export type { GatewayCapability, CacheObservability, CacheStatsSnapshot, DevIntegrationApi } from './types.js';
 
 // Storage
 export * from './storage/index.js';

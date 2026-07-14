@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { DevQueryLogger, type QueryLogEvent } from './query-logger.js';
 import { MemoryStore } from './storage/index.js';
 import { ServeQueryLogger, type ServeQueryEvent } from '@hypequery/serve';

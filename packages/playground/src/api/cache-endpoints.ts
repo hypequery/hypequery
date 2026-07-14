@@ -1,23 +1,32 @@
 import type { EndpointContext } from './types.js';
-import { sendJSON, sendError } from './helpers.js';
+import { parseBody, sendJSON, sendError } from './helpers.js';
 
 /**
  * GET /__dev/cache
- * Cache performance statistics. Prefers the live serve-layer cache store when
- * present; otherwise derives hit/miss stats from persisted query history.
- * (Capability `cache` — the serve-layer cache store lands separately.)
+ * Per-layer cache stats (gateway contract v0: `{ layers: [...] }`). Layers
+ * come from serve's cache observability (semantic + builder); when none are
+ * observable yet, an approximate `history` layer is derived from persisted
+ * query history. Layer ids are additive under the contract.
  */
 export async function getCacheStats(ctx: EndpointContext): Promise<void> {
   try {
-    if (ctx.serveCacheStore) {
-      const stats = await ctx.serveCacheStore.getStats();
-      ctx.sseHandler?.broadcast({ type: 'cache:updated', data: stats });
-      return sendJSON(ctx.res, stats);
-    }
+    const layers = (await ctx.cacheObservability?.getStats()) ?? [];
 
-    const stats = await ctx.store.getCacheStats();
-    ctx.sseHandler?.broadcast({ type: 'cache:updated', data: stats });
-    sendJSON(ctx.res, stats);
+    const payload =
+      layers.length > 0
+        ? { layers }
+        : {
+            layers: [
+              {
+                layer: 'history',
+                stats: await ctx.store.getCacheStats(),
+                clearSupported: false,
+              },
+            ],
+          };
+
+    ctx.sseHandler?.broadcast({ type: 'cache:updated', data: payload });
+    sendJSON(ctx.res, payload);
   } catch (error) {
     console.error('[gateway] getCacheStats error:', error);
     sendError(ctx.res, (error as Error).message);
@@ -26,17 +35,29 @@ export async function getCacheStats(ctx: EndpointContext): Promise<void> {
 
 /**
  * POST /__dev/cache/clear
- * Clear all cached data.
+ * Body: `{ layer?: string }` — clears the named layer, or every clearable
+ * layer when omitted. 503 when nothing was cleared: either no layer supports
+ * clearing (defense against clients ignoring the `cache:clear` capability)
+ * or the named layer is unknown/unclearable.
  */
 export async function clearCache(ctx: EndpointContext): Promise<void> {
   try {
-    if (!ctx.serveCacheStore) {
-      return sendError(ctx.res, 'Cache not available', 503);
+    const observability = ctx.cacheObservability;
+    if (!observability) {
+      return sendError(ctx.res, 'Cache clearing not available', 503);
     }
 
-    await ctx.serveCacheStore.clear();
+    const body = (await parseBody(ctx.req)) as { layer?: string } | undefined;
+    // The observability API narrows layer ids at compile time; request-body
+    // strings pass through and unknown ids safely clear nothing.
+    const layer = body?.layer as Parameters<typeof observability.clear>[0];
+    const { cleared } = await observability.clear(layer);
 
-    const result = { cleared: true, timestamp: Date.now() };
+    if (cleared.length === 0) {
+      return sendError(ctx.res, 'Cache clearing not available', 503);
+    }
+
+    const result = { cleared, timestamp: Date.now() };
     ctx.sseHandler?.broadcast({ type: 'cache:updated', data: result });
     sendJSON(ctx.res, result);
   } catch (error) {

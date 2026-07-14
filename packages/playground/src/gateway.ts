@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import type { DevIntegrationApi, CacheStore, GatewayCapability } from './types.js';
+import type { DevIntegrationApi, GatewayCapability } from './types.js';
 import { createStore, type StorageOptions } from './storage/index.js';
 import { DevQueryLogger } from './query-logger.js';
 import { DevHandler } from './dev-handler.js';
@@ -7,8 +7,6 @@ import { DevHandler } from './dev-handler.js';
 export interface CreateGatewayOptions {
   /** Storage configuration for query history. */
   storage?: StorageOptions;
-  /** Optional serve-layer cache store (enables the `cache` capability). */
-  cacheStore?: CacheStore;
   /** Project name surfaced via /meta. */
   projectName?: string;
   /**
@@ -66,13 +64,19 @@ export async function createGateway(
   const logger = new DevQueryLogger(store, { endpointMetadata });
   logger.initialize(api.queryLogger);
 
-  const capabilities: GatewayCapability[] = ['registry', 'execute', 'history', 'events'];
-  if (options.cacheStore) capabilities.push('cache');
+  // `cache` is always available: per-layer stats from serve's observability,
+  // or history-derived approximations as fallback. `cache:clear` is the
+  // sub-capability the UI checks before rendering clear affordances —
+  // advertised only when a wired layer reports clearSupported. By gateway
+  // creation time the serve API is fully built, so this snapshot is accurate.
+  const capabilities: GatewayCapability[] = ['registry', 'execute', 'history', 'events', 'cache'];
+  const cacheLayers = await api.cacheObservability.getStats();
+  if (cacheLayers.some((layer) => layer.clearSupported)) capabilities.push('cache:clear');
 
   const handler = new DevHandler({
     store,
     logger,
-    serveCacheStore: options.cacheStore,
+    cacheObservability: api.cacheObservability,
     api,
     capabilities,
     projectName: options.projectName,

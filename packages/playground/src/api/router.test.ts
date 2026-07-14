@@ -171,4 +171,82 @@ describe('DevAPIRouter (gateway contract v0)', () => {
     await router.handleRequest(req('/__dev/nope'), r);
     expect((r as unknown as MockResponse).statusCode).toBe(404);
   });
+
+  describe('cache endpoints (contract v0)', () => {
+    const makeObservability = (clearSupported = true) => ({
+      getStats: async () => [
+        { layer: 'semantic' as const, stats: { hits: 1, misses: 2 }, clearSupported }
+      ],
+      clear: async () => ({ cleared: clearSupported ? (['semantic'] as const) : [] })
+    });
+
+    it('GET /__dev/cache returns per-layer stats from cache observability', async () => {
+      const withCache = createDevRouter({
+        store,
+        api: makeApi(),
+        cacheObservability: makeObservability(),
+        capabilities: ['cache', 'cache:clear'],
+        projectName: 'demo'
+      });
+      const r = res();
+      await withCache.handleRequest(req('/__dev/cache'), r);
+      const body = (r as unknown as MockResponse).getBody<{ layers: Array<{ layer: string }> }>();
+      expect(body.layers).toEqual([
+        { layer: 'semantic', stats: { hits: 1, misses: 2 }, clearSupported: true }
+      ]);
+      await withCache.shutdown();
+    });
+
+    it('GET /__dev/cache falls back to a history-derived layer', async () => {
+      const r = res();
+      await router.handleRequest(req('/__dev/cache'), r);
+      const body = (r as unknown as MockResponse).getBody<{
+        layers: Array<{ layer: string; clearSupported: boolean }>;
+      }>();
+      expect(body.layers).toHaveLength(1);
+      expect(body.layers[0].layer).toBe('history');
+      expect(body.layers[0].clearSupported).toBe(false);
+    });
+
+    it('POST /__dev/cache/clear clears via observability and reports layer ids', async () => {
+      const withCache = createDevRouter({
+        store,
+        api: makeApi(),
+        cacheObservability: makeObservability(),
+        capabilities: ['cache', 'cache:clear'],
+        projectName: 'demo'
+      });
+      const r = res();
+      const request = new MockRequest('/__dev/cache/clear', 'POST');
+      const handled = withCache.handleRequest(request as unknown as IncomingMessage, r);
+      request.sendBody('{}');
+      await handled;
+      const body = (r as unknown as MockResponse).getBody<{ cleared: string[] }>();
+      expect(body.cleared).toEqual(['semantic']);
+      await withCache.shutdown();
+    });
+
+    it('POST /__dev/cache/clear returns 503 when nothing can be cleared', async () => {
+      const r = res();
+      const request = new MockRequest('/__dev/cache/clear', 'POST');
+      const handled = router.handleRequest(request as unknown as IncomingMessage, r);
+      request.sendBody('{}');
+      await handled;
+      expect((r as unknown as MockResponse).statusCode).toBe(503);
+    });
+  });
+
+  describe('execute context rejection (contract v0)', () => {
+    it('rejects a context override with 400 context_not_allowed', async () => {
+      const r = res();
+      const request = new MockRequest('/__dev/execute', 'POST');
+      const handled = router.handleRequest(request as unknown as IncomingMessage, r);
+      request.sendBody(JSON.stringify({ key: 'listUsers', context: { tenantId: 't1' } }));
+      await handled;
+      const mr = r as unknown as MockResponse;
+      expect(mr.statusCode).toBe(400);
+      expect(mr.getBody<{ error: { type: string } }>().error.type).toBe('context_not_allowed');
+    });
+  });
 });
+
