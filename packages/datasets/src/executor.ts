@@ -72,6 +72,7 @@ import { applyPagination, overfetchLimit } from './utils/pagination.js';
 import {
   SemanticQueryCache,
   type SemanticCacheOptions,
+  type SemanticCacheStats,
 } from './cache/semantic-query-cache.js';
 import {
   buildDatasetQuerySignature,
@@ -328,6 +329,13 @@ export interface DatasetClient {
     query?: SemanticQuery<TTarget>,
     context?: ExecutionContext,
   ): ValidationResult;
+  /** Lookup counters for this client's semantic result cache. */
+  getCacheStats(): SemanticCacheStats;
+  /**
+   * Clears the semantic result cache. Returns false when the configured store
+   * does not support clearing (see `SemanticCacheStats.clearSupported`).
+   */
+  clearCache(): Promise<boolean>;
 }
 
 export class MetricQueryEngine {
@@ -647,6 +655,14 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     this.queryCache = new SemanticQueryCache(options.cache);
     this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
     this.defaultCacheScope = options.cache?.scope;
+  }
+
+  getCacheStats(): SemanticCacheStats {
+    return this.queryCache.getStats();
+  }
+
+  clearCache(): Promise<boolean> {
+    return this.queryCache.clear();
   }
 
   /**

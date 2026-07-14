@@ -362,3 +362,117 @@ describe('SemanticQueryCache.through', () => {
     expect(hit.data).toEqual([{ v: 'original' }]);
   });
 });
+
+describe('SemanticQueryCache stats and clear', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('starts empty with hitRate 0', () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000 });
+    expect(cache.getStats()).toEqual({
+      hits: 0,
+      misses: 0,
+      staleHits: 0,
+      hitRate: 0,
+      clearSupported: true,
+    });
+  });
+
+  it('counts misses, fresh hits, and stale hits', async () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000, staleWhileRevalidateMs: 1000 });
+    const run = makeRunner();
+
+    await cache.through('k', run); // miss
+    await cache.through('k', run); // fresh hit
+    vi.advanceTimersByTime(1500); // past TTL, inside SWR window
+    await cache.through('k', run); // stale hit
+    await vi.runAllTimersAsync(); // let the background refresh settle
+
+    const stats = cache.getStats();
+    expect(stats.misses).toBe(1);
+    expect(stats.hits).toBe(1);
+    expect(stats.staleHits).toBe(1);
+    expect(stats.hitRate).toBeCloseTo(2 / 3);
+  });
+
+  it('counts each concurrent deduplicated caller', async () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000 });
+    const run = makeRunner();
+
+    await Promise.all([cache.through('k', run), cache.through('k', run)]);
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(cache.getStats().misses).toBe(2);
+  });
+
+  it('counts refresh-mode calls as misses', async () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000 });
+    const run = makeRunner();
+
+    await cache.through('k', run);
+    await cache.through('k', run, { mode: 'refresh' });
+
+    expect(cache.getStats().misses).toBe(2);
+  });
+
+  it('does not count bypassed or uncached calls', async () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000 });
+    const uncached = new SemanticQueryCache();
+    const run = makeRunner();
+
+    await cache.through('k', run, { mode: 'bypass' });
+    await cache.through('k', run, false);
+    await uncached.through('k', run);
+
+    expect(cache.getStats().misses).toBe(0);
+    expect(uncached.getStats().misses).toBe(0);
+  });
+
+  it('does not count errored executions', async () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000 });
+    const run = vi.fn(async (): Promise<TestResult> => {
+      throw new Error('boom');
+    });
+
+    await expect(cache.through('k', run)).rejects.toThrow('boom');
+
+    const stats = cache.getStats();
+    expect(stats.hits + stats.misses + stats.staleHits).toBe(0);
+  });
+
+  it('clear() empties the store but keeps lookup counters', async () => {
+    const cache = new SemanticQueryCache({ ttlMs: 1000 });
+    const run = makeRunner();
+
+    await cache.through('k', run); // miss
+    await cache.through('k', run); // hit
+    await expect(cache.clear()).resolves.toBe(true);
+    await cache.through('k', run); // miss again after clear
+
+    const stats = cache.getStats();
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(stats).toMatchObject({ hits: 1, misses: 2, staleHits: 0 });
+  });
+
+  it('clear() returns false when the store cannot clear', async () => {
+    const entries = new Map<string, SemanticCacheEntry>();
+    const store: SemanticCacheStore = {
+      get: (key) => entries.get(key),
+      set: (key, entry) => void entries.set(key, entry),
+      delete: (key) => void entries.delete(key),
+    };
+    const cache = new SemanticQueryCache({ ttlMs: 1000, store });
+    const run = makeRunner();
+
+    await cache.through('k', run);
+    await expect(cache.clear()).resolves.toBe(false);
+
+    expect(cache.getStats().clearSupported).toBe(false);
+    expect(entries.size).toBe(1);
+  });
+});

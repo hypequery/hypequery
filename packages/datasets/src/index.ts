@@ -92,6 +92,7 @@ export type {
   SemanticCacheMetaInfo,
   SemanticCacheOptions,
   SemanticCacheRuntime,
+  SemanticCacheStats,
   SemanticCacheStore,
 } from './cache/semantic-query-cache.js';
 export {
