@@ -87,6 +87,29 @@ export interface SemanticCacheMetaInfo {
   stale?: boolean;
 }
 
+/**
+ * Aggregate lookup counters, snapshot via `SemanticQueryCache.getStats()`.
+ *
+ * Counters are per cache instance and in-process: with a shared store (e.g.
+ * Redis) each process reports its own lookups, not cluster-wide totals. Every
+ * caller counts once — concurrent callers deduplicated onto one execution
+ * each record their own outcome. Bypassed calls (no TTL, `cache: false`,
+ * `mode: 'bypass'`, unscoped builder overrides) never reach the cache and are
+ * not counted.
+ */
+export interface SemanticCacheStats {
+  /** Fresh hits (within TTL). */
+  hits: number;
+  /** Lookups that executed the query (includes `mode: 'refresh'` calls). */
+  misses: number;
+  /** Hits served from the stale-while-revalidate window. */
+  staleHits: number;
+  /** (hits + staleHits) / total lookups; 0 when no lookups yet. */
+  hitRate: number;
+  /** Whether `clear()` can clear entries (the store implements `clear`). */
+  clearSupported: boolean;
+}
+
 const DEFAULT_MAX_ENTRIES = 500;
 
 export function createMemoryCacheStore(
@@ -161,6 +184,9 @@ export class SemanticQueryCache {
   private readonly pending = new Map<string, Promise<LookupOutcome>>();
   private readonly refreshing = new Set<string>();
   private warnedRefreshWithoutTtl = false;
+  private hits = 0;
+  private misses = 0;
+  private staleHits = 0;
 
   constructor(options: SemanticCacheOptions = {}) {
     this.defaults = options;
@@ -216,6 +242,7 @@ export class SemanticQueryCache {
       // an in-flight miss, just execute and repopulate the entry.
       const value = await execute();
       await this.writeEntry(key, value);
+      this.record({ hit: false });
       return annotate(value as T, { hit: false });
     }
 
@@ -225,6 +252,7 @@ export class SemanticQueryCache {
       // callers never share a result object. The outcome (hit, staleness) was
       // resolved with the initiating caller's TTL configuration.
       const shared = await inFlight;
+      this.record(shared.info);
       return annotate(cloneValue(shared.value) as T, shared.info);
     }
 
@@ -260,6 +288,7 @@ export class SemanticQueryCache {
     this.pending.set(key, promise);
     try {
       const outcome = await promise;
+      this.record(outcome.info);
       // Hits alias the stored entry and must be cloned; a freshly executed
       // result is owned by this caller.
       const value = outcome.info.hit ? cloneValue(outcome.value) : outcome.value;
@@ -267,6 +296,42 @@ export class SemanticQueryCache {
     } finally {
       this.pending.delete(key);
     }
+  }
+
+  private record(info: SemanticCacheMetaInfo): void {
+    if (info.stale) {
+      this.staleHits += 1;
+    } else if (info.hit) {
+      this.hits += 1;
+    } else {
+      this.misses += 1;
+    }
+  }
+
+  /** Snapshot of this instance's lookup counters (see `SemanticCacheStats`). */
+  getStats(): SemanticCacheStats {
+    const total = this.hits + this.misses + this.staleHits;
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      staleHits: this.staleHits,
+      hitRate: total > 0 ? (this.hits + this.staleHits) / total : 0,
+      clearSupported: typeof this.store.clear === 'function',
+    };
+  }
+
+  /**
+   * Clears all entries. Returns false without touching anything when the
+   * store does not implement `clear` (see `SemanticCacheStats.clearSupported`
+   * — callers advertising a clear affordance should check it first). Lookup
+   * counters are not reset: they count lookups, not entries.
+   */
+  async clear(): Promise<boolean> {
+    if (typeof this.store.clear !== 'function') {
+      return false;
+    }
+    await this.store.clear();
+    return true;
   }
 
   /** Best-effort write: a failing store degrades to "no caching", never a failed call. */
