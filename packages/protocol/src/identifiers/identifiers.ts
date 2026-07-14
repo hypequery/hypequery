@@ -76,7 +76,10 @@ export function joinProtocolQualifiedIdentifier(
   const value = segments
     .map((segment) => parseSegment(segment, 'HQ_IDENTIFIER_INVALID_FORMAT'))
     .join('.');
-  return parseProtocolQualifiedIdentifier(value);
+  if (value.length > PROTOCOL_IDENTIFIER_LIMITS.maxQualifiedBytes) {
+    identifierError('HQ_IDENTIFIER_TOO_LONG');
+  }
+  return value as ProtocolQualifiedIdentifier;
 }
 
 export function isProtocolIdentifier(input: unknown): input is ProtocolIdentifier {

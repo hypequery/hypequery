@@ -24,12 +24,9 @@ interface RejectionFixture {
   id: string;
   mode: Mode;
   value?: unknown;
-  generator?: {
-    type: 'repeat-string' | 'qualified-segments';
-    value?: string;
-    segment?: string;
-    count: number;
-  };
+  generator?:
+    | { type: 'repeat-string'; value: string; count: number }
+    | { type: 'qualified-segments'; segment: string; count: number };
   error: string;
 }
 
@@ -52,13 +49,34 @@ function readFixture<T>(name: string): T {
 
 function materialize(fixture: RejectionFixture): unknown {
   if (!fixture.generator) return fixture.value;
-  if (fixture.generator.type === 'repeat-string') {
-    return (fixture.generator.value ?? '').repeat(fixture.generator.count);
+  const generator = fixture.generator;
+  if (!Number.isSafeInteger(generator.count) || generator.count < 0) {
+    throw new Error(`Malformed fixture "${fixture.id}": generator.count`);
+  }
+  if (generator.type === 'repeat-string') {
+    if (typeof generator.value !== 'string') {
+      throw new Error(`Malformed fixture "${fixture.id}": generator.value`);
+    }
+    return generator.value.repeat(generator.count);
+  }
+  if (typeof generator.segment !== 'string') {
+    throw new Error(`Malformed fixture "${fixture.id}": generator.segment`);
   }
   return Array.from(
-    { length: fixture.generator.count },
-    () => fixture.generator?.segment ?? '',
+    { length: generator.count },
+    () => generator.segment,
   ).join('.');
+}
+
+function expectIdentifierError(action: () => unknown, code: string): void {
+  try {
+    action();
+    throw new Error('Expected identifier validation to fail');
+  } catch (error) {
+    expect(error).toBeInstanceOf(ProtocolIdentifierError);
+    expect((error as ProtocolIdentifierError).code).toBe(code);
+    expect((error as Error).message).toBe(code);
+  }
 }
 
 describe('portable protocol identifiers', () => {
@@ -88,13 +106,7 @@ describe('portable protocol identifiers', () => {
     const action = fixture.mode === 'simple'
       ? () => parseProtocolIdentifier(materialize(fixture))
       : () => parseProtocolQualifiedIdentifier(materialize(fixture));
-    expect(action).toThrow(ProtocolIdentifierError);
-    try {
-      action();
-    } catch (error) {
-      expect((error as ProtocolIdentifierError).code).toBe(fixture.error);
-      expect((error as Error).message).toBe(fixture.error);
-    }
+    expectIdentifierError(action, fixture.error);
   });
 
   it('provides non-throwing guards', () => {
@@ -114,14 +126,13 @@ describe('portable protocol identifiers', () => {
     expect(parseProtocolQualifiedIdentifier(qualifiedAt511Bytes)).toBe(qualifiedAt511Bytes);
     expect(parseProtocolQualifiedIdentifier(eightSegments)).toBe(eightSegments);
 
-    for (const value of ['a'.repeat(129), qualifiedAt515Bytes]) {
-      try {
-        parseProtocolQualifiedIdentifier(value);
-        throw new Error('Expected identifier validation to fail');
-      } catch (error) {
-        expect(error).toBeInstanceOf(ProtocolIdentifierError);
-        expect((error as ProtocolIdentifierError).code).toBe('HQ_IDENTIFIER_TOO_LONG');
-      }
-    }
+    expectIdentifierError(
+      () => parseProtocolIdentifier('a'.repeat(129)),
+      'HQ_IDENTIFIER_TOO_LONG',
+    );
+    expectIdentifierError(
+      () => parseProtocolQualifiedIdentifier(qualifiedAt515Bytes),
+      'HQ_IDENTIFIER_TOO_LONG',
+    );
   });
 });
