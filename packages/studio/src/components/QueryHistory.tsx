@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Search, Trash2, RefreshCw } from 'lucide-react';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@/hooks/useQueries';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { QueryRow } from './QueryRow';
+import { queryColumns, QUERY_GRID_COLS } from './query-columns';
 import { QueryDetail } from './QueryDetail';
 import { EmptyState } from './EmptyState';
 import { QueryListSkeleton } from './Skeleton';
@@ -33,6 +34,13 @@ export function QueryHistory({ className }: QueryHistoryProps) {
   }, [debouncedSearch]);
 
   const { queries, total, loading, error, refetch, clearHistory } = useQueries(apiFilters);
+
+  const table = useReactTable({
+    data: queries,
+    columns: queryColumns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.queryId,
+  });
 
   // Get selected query
   const selectedQuery = queries.find((q) => q.queryId === selectedId);
@@ -100,15 +108,21 @@ export function QueryHistory({ className }: QueryHistoryProps) {
           {loading ? 'Loading...' : `${total} ${total === 1 ? 'query' : 'queries'}`}
         </div>
 
-        <div className="grid grid-cols-[140px_minmax(0,1.25fr)_minmax(0,0.95fr)_120px_110px_110px_auto] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          <div>Status</div>
-          <div>Query</div>
-          <div>Inputs</div>
-          <div>Started</div>
-          <div>Duration</div>
-          <div>Rows</div>
-          <div className="text-right">Meta</div>
-        </div>
+        {table.getHeaderGroups().map((headerGroup) => (
+          <div
+            key={headerGroup.id}
+            className={cn(
+              'grid gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground',
+              QUERY_GRID_COLS
+            )}
+          >
+            {headerGroup.headers.map((header) => (
+              <div key={header.id}>
+                {flexRender(header.column.columnDef.header, header.getContext())}
+              </div>
+            ))}
+          </div>
+        ))}
 
         {/* Query list */}
         <div className="flex-1 overflow-auto">
@@ -117,13 +131,24 @@ export function QueryHistory({ className }: QueryHistoryProps) {
           ) : queries.length === 0 ? (
               <EmptyState type="no-history" />
           ) : (
-            queries.map((query) => (
-              <QueryRow
-                key={query.queryId}
-                query={query}
-                isSelected={query.queryId === selectedId}
-                onClick={() => setSelectedId(query.queryId)}
-              />
+            table.getRowModel().rows.map((row) => (
+              <button
+                key={row.id}
+                type="button"
+                className={cn(
+                  'grid w-full items-center gap-3 px-4 py-3 text-left transition-colors',
+                  'border-b border-border hover:bg-muted/40',
+                  QUERY_GRID_COLS,
+                  row.id === selectedId && 'bg-muted'
+                )}
+                onClick={() => setSelectedId(row.id)}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <div key={cell.id} className="min-w-0">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </div>
+                ))}
+              </button>
             ))
           )}
         </div>

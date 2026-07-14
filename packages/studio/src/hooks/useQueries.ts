@@ -1,150 +1,73 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { getSSEConnection } from '@/lib/sse';
-import type { QueryHistoryEntry, QueryFilters, QueryEventData } from '@/lib/types';
+import type { QueryFilters, QueryHistoryEntry } from '@/lib/types';
+
+/** Query-key factory for gateway history data. */
+export const historyKeys = {
+  all: ['history'] as const,
+  list: (filters: QueryFilters) => ['history', 'list', filters] as const,
+  detail: (queryId: string) => ['history', 'detail', queryId] as const,
+};
 
 /**
- * Hook for managing query list state with real-time updates.
+ * Query history list backed by TanStack Query. Live updates come from the
+ * gateway's SSE stream: each query lifecycle event invalidates the history
+ * cache, and React Query coalesces concurrent invalidations into one refetch.
  */
-export function useQueries(initialFilters: QueryFilters = {}) {
-  const [queries, setQueries] = useState<QueryHistoryEntry[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [filters, setFilters] = useState<QueryFilters>(initialFilters);
+export function useQueries(filters: QueryFilters = {}) {
+  const queryClient = useQueryClient();
 
-  // Fetch queries from API
-  const fetchQueries = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await apiClient.getQueries(filters);
-      setQueries(result.queries);
-      setTotal(result.total);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch queries'));
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
+  const historyQuery = useQuery({
+    queryKey: historyKeys.list(filters),
+    queryFn: () => apiClient.getQueries(filters),
+    // Keep the previous page on filter/search changes so the list doesn't
+    // flash empty while the new result loads.
+    placeholderData: keepPreviousData,
+  });
 
-  // Initial fetch and refetch on filter change
-  useEffect(() => {
-    fetchQueries();
-  }, [fetchQueries]);
-
-  // Subscribe to SSE events for real-time updates
   useEffect(() => {
     const connection = getSSEConnection();
     connection.connect();
-
-    const unsubscribe = connection.onQuery((event) => {
-      const data = event.data as QueryEventData;
-
-      setQueries((prev) => {
-        const existingIndex = prev.findIndex((q) => q.queryId === data.queryId);
-
-        if (existingIndex >= 0) {
-          // Update existing query
-          const updated = [...prev];
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            ...data,
-          };
-          return updated;
-        } else if (event.type === 'query:started') {
-          // Add new query at the beginning
-          const newQuery: QueryHistoryEntry = {
-            queryId: data.queryId,
-            query: data.query ?? '',
-            startTime: Date.now(),
-            status: data.status,
-          };
-          return [newQuery, ...prev];
-        }
-
-        return prev;
-      });
+    return connection.onQuery(() => {
+      void queryClient.invalidateQueries({ queryKey: historyKeys.all });
     });
+  }, [queryClient]);
 
-    return () => {
-      unsubscribe();
-    };
-  }, []);
-
-  // Clear history
-  const clearHistory = useCallback(async () => {
-    try {
-      await apiClient.clearHistory();
-      setQueries([]);
-      setTotal(0);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to clear history'));
-    }
-  }, []);
-
-  // Update filters
-  const updateFilters = useCallback((newFilters: Partial<QueryFilters>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
-  }, []);
+  const clearMutation = useMutation({
+    mutationFn: () => apiClient.clearHistory(),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: historyKeys.all }),
+  });
 
   return {
-    queries,
-    total,
-    loading,
-    error,
-    filters,
-    refetch: fetchQueries,
-    clearHistory,
-    updateFilters,
+    queries: historyQuery.data?.queries ?? [],
+    total: historyQuery.data?.total ?? 0,
+    loading: historyQuery.isPending,
+    error: (historyQuery.error ?? clearMutation.error) as Error | null,
+    refetch: historyQuery.refetch,
+    clearHistory: clearMutation.mutate,
   };
 }
 
 /**
- * Hook for getting a single query by ID.
+ * Single history entry, kept live by the same SSE-driven invalidation.
  */
-export function useQuery(queryId: string | null) {
-  const [query, setQuery] = useState<QueryHistoryEntry | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
+export function useQueryDetail(queryId: string | null) {
+  const detailQuery = useQuery({
+    queryKey: historyKeys.detail(queryId ?? ''),
+    queryFn: () => apiClient.getQuery(queryId as string),
+    enabled: queryId != null,
+  });
 
-  useEffect(() => {
-    if (!queryId) {
-      setQuery(null);
-      return;
-    }
-
-    const fetchQuery = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const result = await apiClient.getQuery(queryId);
-        setQuery(result);
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to fetch query'));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchQuery();
-  }, [queryId]);
-
-  // Subscribe to SSE updates for this specific query
-  useEffect(() => {
-    if (!queryId) return;
-
-    const connection = getSSEConnection();
-
-    const unsubscribe = connection.onQuery((event) => {
-      const data = event.data as QueryEventData;
-      if (data.queryId === queryId) {
-        setQuery((prev) => (prev ? { ...prev, ...data } : null));
-      }
-    });
-
-    return unsubscribe;
-  }, [queryId]);
-
-  return { query, loading, error };
+  return {
+    query: (detailQuery.data ?? null) as QueryHistoryEntry | null,
+    loading: detailQuery.isPending && queryId != null,
+    error: detailQuery.error as Error | null,
+  };
 }

@@ -1,3 +1,3 @@
 export { useDebouncedValue } from './useDebouncedValue';
-export { useQueries, useQuery } from './useQueries';
+export { historyKeys, useQueries, useQueryDetail } from './useQueries';
 export { useSSEConnection, useSSEEvent } from './useSSE';
