@@ -78,8 +78,9 @@ The following values use native JSON representations:
 
 Strings MUST contain valid Unicode scalar values, MUST be preserved without
 Unicode normalization, and MUST NOT contain C0 control characters U+0000
-through U+001F or U+007F. Quotes, backslashes, comment-looking text, and other
-ordinary Unicode remain data.
+through U+001F, DEL U+007F, or C1 control characters U+0080 through U+009F.
+Quotes, backslashes, comment-looking text, and other ordinary Unicode remain
+data.
 
 Native JSON numbers are floating-point values. NaN, positive or negative
 Infinity, and lexical negative zero are forbidden. An integer-valued JSON token
@@ -381,6 +382,7 @@ Version 1 conformance fixtures use these minimum codes:
 - `HQ_VALUE_TOO_MANY_NODES`
 - `HQ_VALUE_TOO_MANY_ITEMS`
 - `HQ_VALUE_TOO_LARGE`
+- `HQ_VALUE_UNSAFE_OBJECT`
 
 Products may attach safe source locations and expected types, but these codes
 and their meaning are part of the frozen value contract.
