@@ -90,14 +90,15 @@ function validateAnnotations(
 ): void {
   if (value.description !== undefined) {
     if (typeof value.description !== 'string') schemaError('HQ_SCHEMA_TYPE', `${path}.description`);
-    canonicalValue(value.description, `${path}.description`);
+    const description = canonicalValue(value.description, `${path}.description`);
+    // UTF-16 code units are a conservative allocation-free lower bound on UTF-8 bytes.
     if (value.description.length > state.limits.maxDescriptionBytes) {
       schemaError('HQ_SCHEMA_TOO_LARGE', `${path}.description`);
     }
     if (textEncoder.encode(value.description).byteLength > state.limits.maxDescriptionBytes) {
       schemaError('HQ_SCHEMA_TOO_LARGE', `${path}.description`);
     }
-    result.description = value.description;
+    result.description = description;
   }
   if (value.default !== undefined) {
     if (!allowDefault) schemaError('HQ_SCHEMA_INVALID_VALUE', `${path}.default`);
@@ -160,18 +161,18 @@ function copyNonNegativeRange(
 }
 
 function assertOrderedBounds(result: Record<string, unknown>, path: string): void {
+  if (result.minimum !== undefined && result.exclusiveMinimum !== undefined) {
+    schemaError('HQ_SCHEMA_INVALID_CONSTRAINT', path);
+  }
+  if (result.maximum !== undefined && result.exclusiveMaximum !== undefined) {
+    schemaError('HQ_SCHEMA_INVALID_CONSTRAINT', path);
+  }
   const lower = result.exclusiveMinimum ?? result.minimum;
   const upper = result.exclusiveMaximum ?? result.maximum;
   const emptyAtEqual = lower === upper
     && (result.exclusiveMinimum !== undefined || result.exclusiveMaximum !== undefined);
   if (lower !== undefined && upper !== undefined
     && ((lower as number) > (upper as number) || emptyAtEqual)) {
-    schemaError('HQ_SCHEMA_INVALID_CONSTRAINT', path);
-  }
-  if (result.minimum !== undefined && result.exclusiveMinimum !== undefined) {
-    schemaError('HQ_SCHEMA_INVALID_CONSTRAINT', path);
-  }
-  if (result.maximum !== undefined && result.exclusiveMaximum !== undefined) {
     schemaError('HQ_SCHEMA_INVALID_CONSTRAINT', path);
   }
 }
