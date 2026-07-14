@@ -37,6 +37,29 @@ export {
   splitProtocolQualifiedIdentifier,
 } from './identifiers/index.js';
 
+export {
+  DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
+  ProtocolExpressionError,
+  validateProtocolExpression,
+  validateProtocolSemanticQuery,
+} from './expressions/index.js';
+
+export type {
+  ProtocolAggregation,
+  ProtocolBinaryOperator,
+  ProtocolComparisonOperator,
+  ProtocolDatasetQuery,
+  ProtocolExpression,
+  ProtocolExpressionErrorCode,
+  ProtocolExpressionLimits,
+  ProtocolExpressionOptions,
+  ProtocolFunctionName,
+  ProtocolMetricQuery,
+  ProtocolOrderBy,
+  ProtocolSemanticQuery,
+  ProtocolTimeGrain,
+} from './expressions/index.js';
+
 export type {
   ProtocolIdentifier,
   ProtocolIdentifierErrorCode,

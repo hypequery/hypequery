@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import * as protocol from './index.js';
 
 describe('@hypequery/protocol public surface', () => {
-  it('exports only the reviewed value and identifier surfaces', () => {
+  it('exports only the reviewed protocol surfaces', () => {
     expect(Object.keys(protocol).sort()).toEqual([
       'DEFAULT_CANONICAL_VALUE_LIMITS',
+      'DEFAULT_PROTOCOL_EXPRESSION_LIMITS',
       'PROTOCOL_IDENTIFIER_LIMITS',
+      'ProtocolExpressionError',
       'ProtocolIdentifierError',
       'ProtocolValueError',
       'decodeCanonicalValue',
@@ -19,6 +21,8 @@ describe('@hypequery/protocol public surface', () => {
       'parseProtocolQualifiedIdentifier',
       'splitProtocolQualifiedIdentifier',
       'validateCanonicalValue',
+      'validateProtocolExpression',
+      'validateProtocolSemanticQuery',
     ]);
   });
 });
