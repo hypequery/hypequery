@@ -177,6 +177,9 @@ describe('DevQueryLogger', () => {
 
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe('query:error');
+      // Serve's Error object must be normalized to its message: an Error
+      // JSON-serializes to {} over the gateway API.
+      expect(events[0].data.error).toBe('Connection failed');
     });
 
     it('allows unsubscribing from events', async () => {

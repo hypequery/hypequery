@@ -142,7 +142,9 @@ export class DevQueryLogger {
       endTime: event.endTime,
       duration: event.durationMs,
       status: event.status,
-      error: event.error,
+      // Serve emits an Error object; persist the message only — an Error
+      // JSON-serializes to {} over the gateway API.
+      error: event.error?.message,
       endpointKey: event.endpointKey,
       endpointDescription: endpointMetadata?.description,
       endpointPath: endpointMetadata?.path ?? event.path,

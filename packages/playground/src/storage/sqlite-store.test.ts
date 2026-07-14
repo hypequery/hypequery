@@ -77,7 +77,7 @@ describe('SQLiteStore', () => {
         query: 'SELECT * FROM nonexistent',
         startTime: Date.now(),
         status: 'error' as const,
-        error: new Error('Table not found')
+        error: 'Table not found'
       };
 
       await store.addQuery(log);
@@ -85,7 +85,7 @@ describe('SQLiteStore', () => {
       const result = await store.getQuery('error-query');
       expect(result).not.toBeNull();
       expect(result?.status).toBe('error');
-      expect(result?.error?.message).toBe('Table not found');
+      expect(result?.error).toBe('Table not found');
     });
 
     it('handles queries with cache metadata', async () => {
@@ -338,7 +338,7 @@ describe('SQLiteStore', () => {
           query: 'SELECT * FROM orders',
           startTime: Date.now(),
           status: 'error' as const,
-          error: new Error('Connection failed')
+          error: 'Connection failed'
         }
       ];
       await store.batchInsert(logs);

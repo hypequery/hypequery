@@ -68,14 +68,14 @@ describe('MemoryStore', () => {
         query: 'SELECT * FROM nonexistent',
         startTime: Date.now(),
         status: 'error' as const,
-        error: new Error('Table not found')
+        error: 'Table not found'
       };
 
       await store.addQuery(log);
 
       const result = await store.getQuery('error-query');
       expect(result?.status).toBe('error');
-      expect(result?.error?.message).toBe('Table not found');
+      expect(result?.error).toBe('Table not found');
     });
 
     it('handles queries with cache metadata', async () => {

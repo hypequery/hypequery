@@ -22,7 +22,9 @@ export interface QueryLog {
   endTime?: number;
   duration?: number;
   status: 'started' | 'completed' | 'error';
-  error?: Error;
+  /** Error message. A string, never an Error object — raw errors JSON-serialize
+   * to `{}` at the API boundary and are unrenderable by the studio. */
+  error?: string;
   rowCount?: number;
   queryId?: string;
   cacheStatus?: string;
