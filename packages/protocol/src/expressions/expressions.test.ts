@@ -11,7 +11,7 @@ interface RejectionFixture {
   value?: unknown;
   generator?:
     | { type: 'nested-not'; depth: number }
-    | { type: 'logical-tree'; nodes: number }
+    | { type: 'logical-tree' }
     | { type: 'logical-operands'; count: number }
     | { type: 'unsafe-accessor' };
   error: string;
@@ -36,6 +36,19 @@ function readFixture<T>(name: string): T {
 
 function literal(): unknown {
   return { kind: 'literal', value: false };
+}
+
+function nestedPredicate(wrappers: number): unknown {
+  let value: unknown = {
+    kind: 'comparison',
+    operator: 'eq',
+    left: { kind: 'reference', name: 'status' },
+    right: { kind: 'literal', value: 'paid' },
+  };
+  for (let index = 0; index < wrappers; index += 1) {
+    value = { kind: 'logical', operator: 'not', operand: value };
+  }
+  return value;
 }
 
 function materialize(fixture: RejectionFixture): unknown {
@@ -151,5 +164,26 @@ describe('portable dataset expressions', () => {
     );
     expect(() => validateProtocolExpression(literal(), { limits: { maxNodes: 1_001 } }))
       .toThrow(RangeError);
+  });
+
+  it('applies the same expression-depth boundary to standalone and query filters', () => {
+    const atMaximumDepth = nestedPredicate(14);
+    const overMaximumDepth = nestedPredicate(15);
+
+    expect(() => validateProtocolExpression(atMaximumDepth)).not.toThrow();
+    expect(() => validateProtocolSemanticQuery({
+      kind: 'dataset', dataset: 'orders', filters: [atMaximumDepth],
+    })).not.toThrow();
+
+    expectExpressionError(
+      () => validateProtocolExpression(overMaximumDepth),
+      'HQ_EXPRESSION_TOO_DEEP',
+    );
+    expectExpressionError(
+      () => validateProtocolSemanticQuery({
+        kind: 'dataset', dataset: 'orders', filters: [overMaximumDepth],
+      }),
+      'HQ_EXPRESSION_TOO_DEEP',
+    );
   });
 });

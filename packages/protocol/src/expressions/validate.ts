@@ -302,7 +302,7 @@ export function validateProtocolSemanticQuery(
       result.filters = Object.freeze(filters.map((filter, index) => validatePredicate(
         filter,
         `$.filters[${index}]`,
-        2,
+        1,
         state,
         'HQ_EXPRESSION_INVALID_QUERY',
       )));
