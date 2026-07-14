@@ -16,6 +16,12 @@ Companion: `plans/dev-playground-design.md`
 - **Optionality is a capability, never a version bump.**
 - **Execution goes through the real serve pipeline** (auth, tenant isolation,
   rate-limit, cache) — the gateway has no side door.
+- **Payload semantics defer to the security protocol** (added 2026-07-14). This
+  contract owns the dev transport: paths, auth, SSE mechanics, capability negotiation.
+  Payload semantics that Cloud must share — canonical value encoding, error codes,
+  compiled-query/event envelopes — are owned by `specs/security-protocol` as they are
+  accepted there; where the two overlap, the protocol is normative. This contract must
+  not define competing rules for those surfaces.
 
 ## Transport & auth
 
@@ -62,6 +68,11 @@ or typed error `{ "success": false, "error": { "type", "message", "details?" } }
 appropriate HTTP status (400 validation, 401/403 auth, 500 execution). `queryId` joins
 to `/history/:queryId`.
 
+`result` is plain JSON in v0, which cannot faithfully represent Int64/UInt64/Decimal
+precision, DateTime64 zones, or ClickHouse Map ordering. A future capability (working
+name `values-v1`) will let clients request results as protocol tagged values
+(`specs/security-protocol` RFC 0001) — additive, no v0 field changes.
+
 ### History (capability `history`)
 
 ```
@@ -84,7 +95,16 @@ clients refetch history on reconnect. May become a capability later.
 
 ### Cache (capability `cache`)
 
-`GET {base}/cache` → stats snapshot; `POST {base}/cache/clear` → `{ cleared }`.
+```
+GET  {base}/cache        → { "layers": [ { "layer": "semantic" | "builder", "stats": {…} }, … ] }
+POST {base}/cache/clear  → { cleared }    body: { "layer?": string } — omit to clear all
+```
+
+Stats are reported per cache layer (see the design doc's "Cache architecture": the
+semantic query cache and the query-builder cache are the only result caches; there is
+no serve-layer response cache). A gateway with no wired cache observability may derive
+approximate hit/miss stats from query history and should then omit the `cache`
+capability's clear support (503 on `/cache/clear`). New layer ids are additive.
 
 ### `GET {base}/schema` (capability `schema`)
 

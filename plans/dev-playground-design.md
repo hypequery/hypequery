@@ -44,7 +44,8 @@ Branch `claude/enhance-dev-server-storage-WRp4W` (closed unmerged 2026-03-07, +1
 built a React playground (query history, cache stats, SSE live updates, schema-driven
 execute forms), a storage layer, a batched dev query logger, and a serve-layer cache.
 Reusable: UI components, `QueryHistoryStore` interface + tests, SSE handler (heartbeats
-correctly `unref`'d), cache layer, endpoint routing shape.
+correctly `unref`'d), endpoint routing shape. (The donor cache layer was originally on
+this list; superseded — see "Cache architecture" below.)
 
 Why it cannot merge as-is (verified 2026-07-03):
 
@@ -81,8 +82,9 @@ the built UI — lives in one dev-only package; serve gains only a mount hook.
    subscription, contract access — most already public). Root `index.ts` keeps a
    `@deprecated` `serveDev` re-export (policy: deprecate shipped APIs, don't remove).
    The AI SDK, storage code, and SSE machinery do NOT enter serve's dependency tree.
-   The serve-layer cache (`src/cache/`) does land in serve — it is a runtime feature
-   useful in production, not playground bloat.
+   Serve gains **no cache implementation** — result caching already lives in the two
+   layers that own query semantics; the dev integration exposes cache *observability*,
+   not storage (see "Cache architecture" below).
 2. **`@hypequery/playground`** (dev-only, dependency of the CLI): the local *gateway* —
    implements the gateway contract (`plans/gateway-contract.md`) against serve's
    `DevIntegrationApi` and serves the studio's built assets same-origin at `/__dev`.
@@ -104,7 +106,7 @@ the built UI — lives in one dev-only package; serve gains only a mount hook.
 
 ```
 packages/serve                 runtime; exports "." (unchanged) and "./dev" (mount hook,
-  src/cache/                   integration interface); serve-layer cache (donor, reconciled)
+                               integration interface incl. cache observability)
 packages/playground            local gateway: contract impl (/__dev API, storage, SSE,
                                AI proxy) + serves studio assets same-origin
 packages/studio                embeddable React 18 UI core (Vite; pnpm — no npm lockfile);
@@ -168,6 +170,61 @@ CORS: same-origin default, explicit allowlist only — never `*` (replaces donor
 - Local-first: user data never leaves the machine. Outbound calls are limited to the
   user's ClickHouse, (opt-in, BYOK) their AI provider, and — see below — anonymous
   usage telemetry.
+
+### Cache architecture (DECIDED 2026-07-14 — supersedes the donor serve-layer cache)
+
+The original plan ported the donor's serve-layer response cache
+(`packages/serve/src/cache/*` from PR #126) as landing-sequence PR 1. That decision
+predated #253 and is now reversed: **no serve-layer cache is built.** Result caching
+stays in the two layers that own query semantics, and serve exposes observability only.
+
+Why the donor cache is dropped:
+
+- It would be a **third result cache**. The query-builder cache
+  (`@hypequery/clickhouse` `core/cache/`: modes, table/join tags, `deleteByTag`,
+  pluggable providers, `CacheController.getStats()`) and the semantic query cache
+  (`@hypequery/datasets`, #253: canonical-signature keys, TTL + SWR, concurrent dedup,
+  scope partitioning) already cover both execution paths. A serve response cache
+  triple-stores the same rows and makes invalidation incoherent across layers.
+- Its default key — `hq:{endpointKey}:{stableStringify(input)}` — **omits tenant/auth
+  context**: a multi-tenant endpoint serves tenant A's cached rows to tenant B unless
+  every author remembers the `keyGenerator` escape hatch. The real caches key on the
+  actual query, where tenant filters already live. Adding a
+  cross-tenant-leak-by-default cache contradicts the serve security roadmap.
+- Its unique features are covered: SWR exists in both caches; pattern invalidation is
+  the builder cache's `deleteByTag`; partitioning is the semantic cache's `scope`.
+- The plan's open question ("does `api.execute()` honor cache?") was answered by #253:
+  semantic endpoints execute through the shared `DatasetClient`, cache included.
+
+What replaces it — **cache observability, not storage**:
+
+1. Datasets: add hit/miss/stale counters plus `getStats()`/`clear()` to
+   `SemanticQueryCache` (its store interface already has optional `clear()`).
+2. Serve: expose `cacheObservability` on `DevIntegrationApi`, aggregating the layers —
+   semantic (`SemanticQueryCache.getStats()`) and builder (`CacheController`, already
+   publicly exported): `getStats(): Promise<CacheLayerStats[]>`, `clear(layer?)`.
+3. Gateway: `GET /__dev/cache` returns per-layer stats (`{ layers: [...] }`);
+   `POST /__dev/cache/clear` takes an optional layer. When nothing is wired, the
+   gateway keeps its history-derived approximate stats (already implemented) and
+   `clear` returns 503. Per-query cache fields on history/SSE come from semantic
+   `meta.cache` (`hit`, `ageMs`, `stale`) flowing through results — no serve cache
+   needed.
+
+Usage guidance (docs, not code): semantic endpoints prefer the semantic cache (closer
+to the response; gets dedup and scopes); the builder cache is for direct query-builder
+code outside the semantic layer. Configuring both on the same path double-caches.
+
+### Relationship to the security protocol (added 2026-07-14)
+
+`specs/security-protocol/` is the language-neutral source of truth for contracts shared
+by authoring tools, runtimes, Studio, and Cloud, and it forbids competing protocol
+rules. The gateway contract therefore owns only the **dev transport** — paths, auth,
+SSE mechanics, capability negotiation. Payload semantics that Cloud must share
+(canonical value encoding, error codes, compiled-query/event envelopes) defer to
+`specs/security-protocol` as those are accepted; where the two overlap, the protocol is
+normative. Concretely: `/execute` results are plain JSON in contract v0 (with known
+Int64/Decimal precision limits); a future `values-v1` capability will carry protocol
+tagged values (RFC 0001) additively.
 
 ### Telemetry (added 2026-07-10 — supersedes the original "no telemetry" stance)
 
@@ -293,11 +350,12 @@ are fixed during the split, not ported.
 
 | # | PR | Contents | Depends on |
 |---|---|---|---|
-| 0 | Repo hygiene | gitignore `.hypequery/`; remove committed `.hypequery/tmp` artifacts & `dist-file-index.txt` (straight to main) | — |
-| 1 | Serve-layer cache | `packages/serve/src/cache/*` reconciled with main's rewritten `pipeline.ts`; fix `deletePattern()` regex-escape (pattern comes from request body); decide+document whether `api.execute()` honors cache | 0 |
+| 0 | Repo hygiene | gitignore `.hypequery/`; remove committed `.hypequery/tmp` artifacts & `dist-file-index.txt` (straight to main) | — (merged as #256) |
+| 1a | Semantic cache stats | hit/miss/stale counters + `getStats()`/`clear()` on `SemanticQueryCache` in `@hypequery/datasets` (replaces the dropped donor serve-layer cache — see "Cache architecture") | — |
+| 1b | Serve cache observability | `cacheObservability` on `DevIntegrationApi` aggregating semantic + builder (`CacheController`) layers | 1a, 2 |
 | 2 | serve mount hook | already on branch (c01b51e): `StartServerOptions.mount`, `DevIntegrationApi`, `./dev` subpath, `@deprecated` root re-export | — |
-| 3 | Gateway storage | `packages/playground/src/storage/*` on `node:sqlite` + dev query logger; per-project `.hypequery/dev.db`; donor tests ported | 1 (cache fields on events) |
-| 4 | Gateway API + SSE | contract v0 impl: `/meta`, `/registry` + `/execute` written fresh against `DevIntegrationApi` (donor tip deleted these), `/history` rename, `/events`; loopback/token guard; CORS allowlist; fix `query:completed` vs `query:complete` mismatch; delete dead `lastEventId` plumbing (replay later if needed); `serveDev` return shape does NOT change (composition lives in CLI) | 2, 3 |
+| 3 | Gateway storage | `packages/playground/src/storage/*` on `node:sqlite` + dev query logger; per-project `.hypequery/dev.db`; donor tests ported; cache fields on history entries come from semantic `meta.cache` | — |
+| 4 | Gateway API + SSE | contract v0 impl: `/meta`, `/registry` + `/execute` written fresh against `DevIntegrationApi` (donor tip deleted these), `/history` rename, `/events`; loopback/token guard; CORS allowlist; fix `query:completed` vs `query:complete` mismatch; delete dead `lastEventId` plumbing (replay later if needed); `serveDev` return shape does NOT change (composition lives in CLI); rename `serveCacheStore` → `cacheObservability` (history-derived fallback stays; full `cache` capability needs 1b) | 2, 3 |
 | 5 | `@hypequery/studio` | embeddable React core (donor serve-ui as seed); `gatewayBaseUrl` + capability gating; fix `useSSE` 500ms polling → `onStateChange`, `useSSEEvent` effect-dep churn, debounced search; prebuilt dist + size budget CI | 4's contract only (parallel) |
 | 6 | CLI wiring | `hypequery dev` composes gateway+studio via mount; `--no-ui`; fix stale `getTableCount` assertion in dev tests; evaluate donor `sync.ts` separately before porting | 4, 5 |
 | 7 | Examples | node-embedded dev-server example rewritten for mount composition; next-dashboard fixes | all |
