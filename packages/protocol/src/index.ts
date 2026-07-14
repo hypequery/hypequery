@@ -44,6 +44,19 @@ export {
   validateProtocolSemanticQuery,
 } from './expressions/index.js';
 
+export {
+  DEFAULT_PROTOCOL_SCHEMA_LIMITS,
+  ProtocolSchemaError,
+  validateProtocolSchema,
+} from './schemas/index.js';
+
+export type {
+  ProtocolSchema,
+  ProtocolSchemaErrorCode,
+  ProtocolSchemaLimits,
+  ProtocolSchemaOptions,
+} from './schemas/index.js';
+
 export type {
   ProtocolAggregation,
   ProtocolBinaryOperator,
