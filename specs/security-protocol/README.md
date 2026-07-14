@@ -11,10 +11,10 @@ continues to execute project source within its existing trust model.
 
 ## Status
 
-The protocol is under active design and has no stable wire version yet. The
-initial `@hypequery/protocol` package is deliberately an empty public scaffold.
-Normative schemas and runtime exports are added only by reviewed follow-up
-decisions with conformance fixtures.
+The protocol is under active design and has no stable wire version yet.
+`@hypequery/protocol` contains draft reference implementations only where a
+reviewed proposal has matching language-neutral fixtures. Draft exports do not
+establish a stable artifact version.
 
 Do not treat a draft document or the npm package version as an executable
 artifact version.
@@ -40,8 +40,9 @@ a bug. Implementations must not silently establish competing protocol rules.
   validation failures.
 - `rfc/`: proposals that are not normative until accepted.
 
-The tagged-value proposal and its draft fixtures now live in `rfc/` and
-`fixtures/`. Empty directories are introduced only with their first artifact.
+Tagged-value and portable-identifier proposals and their draft fixtures live in
+`rfc/` and `fixtures/`. Empty directories are introduced only with their first
+artifact.
 
 ## Boundaries
 

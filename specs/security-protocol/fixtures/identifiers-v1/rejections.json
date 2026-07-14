@@ -1,0 +1,58 @@
+[
+  {
+    "id": "non-string",
+    "mode": "simple",
+    "value": 42,
+    "error": "HQ_IDENTIFIER_TYPE"
+  },
+  {
+    "id": "empty",
+    "mode": "simple",
+    "value": "",
+    "error": "HQ_IDENTIFIER_EMPTY"
+  },
+  {
+    "id": "segment-bytes-129",
+    "mode": "simple",
+    "generator": {
+      "type": "repeat-string",
+      "value": "a",
+      "count": 129
+    },
+    "error": "HQ_IDENTIFIER_TOO_LONG"
+  },
+  {
+    "id": "leading-digit",
+    "mode": "simple",
+    "value": "1orders",
+    "error": "HQ_IDENTIFIER_INVALID_FORMAT"
+  },
+  {
+    "id": "unicode-letter",
+    "mode": "simple",
+    "value": "café",
+    "error": "HQ_IDENTIFIER_INVALID_FORMAT"
+  },
+  {
+    "id": "reserved-protocol-prefix",
+    "mode": "simple",
+    "value": "__HypequeryInternal",
+    "error": "HQ_IDENTIFIER_RESERVED"
+  },
+  {
+    "id": "qualified-empty-segment",
+    "mode": "qualified",
+    "value": "orders..country",
+    "error": "HQ_IDENTIFIER_INVALID_FORMAT"
+  },
+  {
+    "id": "qualified-segments-9",
+    "mode": "qualified",
+    "generator": {
+      "type": "qualified-segments",
+      "segment": "a",
+      "count": 9
+    },
+    "error": "HQ_IDENTIFIER_TOO_MANY_SEGMENTS"
+  }
+]
