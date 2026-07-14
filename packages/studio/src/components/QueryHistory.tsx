@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Trash2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@/hooks/useQueries';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { QueryRow } from './QueryRow';
 import { QueryDetail } from './QueryDetail';
 import { EmptyState } from './EmptyState';
@@ -20,13 +21,16 @@ interface QueryHistoryProps {
 export function QueryHistory({ className }: QueryHistoryProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Debounce so typing does not fire a fetch per keystroke; the input itself
+  // stays bound to `search` for immediate feedback.
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // Build API filters from filter state
   const apiFilters: QueryFilters = useMemo(() => {
     const f: QueryFilters = { limit: 100 };
-    if (search) f.search = search;
+    if (debouncedSearch) f.search = debouncedSearch;
     return f;
-  }, [search]);
+  }, [debouncedSearch]);
 
   const { queries, total, loading, error, refetch, clearHistory } = useQueries(apiFilters);
 

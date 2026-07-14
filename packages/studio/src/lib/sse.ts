@@ -1,4 +1,5 @@
 import type { SSEEvent, SSEEventType, QueryEventData } from './types';
+import { gatewayEventsUrl } from './api-client';
 
 /**
  * SSE connection state.
@@ -42,7 +43,7 @@ export class SSEConnection {
   private readonly onStateChange?: (state: ConnectionState) => void;
 
   constructor(options: SSEConnectionOptions = {}) {
-    this.url = options.url ?? '/__dev/events';
+    this.url = options.url ?? gatewayEventsUrl();
     this.reconnectDelay = options.reconnectDelay ?? 1000;
     this.maxReconnectAttempts = options.maxReconnectAttempts ?? 10;
     this.onStateChange = options.onStateChange;
@@ -283,7 +284,11 @@ let defaultConnection: SSEConnection | null = null;
  */
 export function getSSEConnection(): SSEConnection {
   if (!defaultConnection) {
-    defaultConnection = new SSEConnection();
+    // Resolve the URL through the configured gateway base so embedders that
+    // call setGatewayBaseUrl() (e.g. Cloud) get a matching event stream, not
+    // the same-origin default. setGatewayBaseUrl is a set-once-at-boot API,
+    // so resolving at first use is safe.
+    defaultConnection = new SSEConnection({ url: gatewayEventsUrl() });
   }
   return defaultConnection;
 }

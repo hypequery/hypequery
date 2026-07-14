@@ -59,8 +59,12 @@ async function request<T>(
   if (!response.ok) {
     let details: unknown;
     let message = `API request failed: ${response.statusText}`;
+    // Read the body once as text: response.json() consumes the stream, so a
+    // non-JSON body (e.g. an HTML error page) would make a follow-up text()
+    // throw "body stream already read" and mask the real HTTP error.
+    const bodyText = await response.text().catch(() => '');
     try {
-      details = await response.json();
+      details = bodyText ? JSON.parse(bodyText) : undefined;
       if (
         details &&
         typeof details === 'object' &&
@@ -70,9 +74,9 @@ async function request<T>(
         message = (details as { error: string }).error;
       }
     } catch {
-      details = await response.text();
-      if (typeof details === 'string' && details) {
-        message = details;
+      details = bodyText;
+      if (bodyText) {
+        message = bodyText;
       }
     }
     throw new APIError(

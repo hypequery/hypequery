@@ -8,6 +8,21 @@ import { MetricCard } from './MetricCard';
 import { IconButton } from './IconButton';
 import type { QueryHistoryEntry } from '@/lib/types';
 
+/**
+ * Union of keys across all rows. ClickHouse result previews can be sparse
+ * (union-typed rows), so the first row alone may miss columns — and cells
+ * must be looked up by these keys, never by Object.values position.
+ */
+function previewColumns(rows: unknown[]): string[] {
+  const columns = new Set<string>();
+  for (const row of rows) {
+    if (row && typeof row === 'object') {
+      for (const key of Object.keys(row)) columns.add(key);
+    }
+  }
+  return Array.from(columns);
+}
+
 interface QueryDetailProps {
   query: QueryHistoryEntry;
   onClose?: () => void;
@@ -17,6 +32,8 @@ interface QueryDetailProps {
  * Detailed view of a single query.
  */
 export function QueryDetail({ query, onClose }: QueryDetailProps) {
+  const resultColumns = query.resultPreview ? previewColumns(query.resultPreview) : [];
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -207,7 +224,7 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
               <table className="w-full text-sm">
                 <thead className="bg-muted-foreground/10 sticky top-0">
                   <tr>
-                    {Object.keys(query.resultPreview[0] as object).map((key) => (
+                    {resultColumns.map((key) => (
                       <th
                         key={key}
                         className="px-3 py-2 text-left font-medium text-muted-foreground"
@@ -220,9 +237,9 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
                 <tbody>
                   {query.resultPreview.map((row, i) => (
                     <tr key={i} className="border-t border-border">
-                      {Object.values(row as object).map((value, j) => (
-                        <td key={j} className="px-3 py-2 font-mono">
-                          {formatCellValue(value)}
+                      {resultColumns.map((key) => (
+                        <td key={key} className="px-3 py-2 font-mono">
+                          {formatCellValue((row as Record<string, unknown>)[key])}
                         </td>
                       ))}
                     </tr>

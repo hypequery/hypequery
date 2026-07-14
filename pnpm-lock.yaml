@@ -533,12 +533,6 @@ importers:
       prismjs:
         specifier: ^1.29.0
         version: 1.30.0
-      react:
-        specifier: ^18.2.0
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.2.0
-        version: 18.3.1(react@18.3.1)
       sql-formatter:
         specifier: ^15.7.2
         version: 15.8.2
@@ -567,6 +561,12 @@ importers:
       postcss:
         specifier: ^8.5.10
         version: 8.5.14
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
       tailwindcss:
         specifier: ^3.4.1
         version: 3.4.19(tsx@4.21.0)(yaml@2.8.3)
