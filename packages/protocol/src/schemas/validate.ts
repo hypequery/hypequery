@@ -90,7 +90,6 @@ function validateAnnotations(
 ): void {
   if (value.description !== undefined) {
     if (typeof value.description !== 'string') schemaError('HQ_SCHEMA_TYPE', `${path}.description`);
-    const description = canonicalValue(value.description, `${path}.description`);
     // UTF-16 code units are a conservative allocation-free lower bound on UTF-8 bytes.
     if (value.description.length > state.limits.maxDescriptionBytes) {
       schemaError('HQ_SCHEMA_TOO_LARGE', `${path}.description`);
@@ -98,6 +97,7 @@ function validateAnnotations(
     if (textEncoder.encode(value.description).byteLength > state.limits.maxDescriptionBytes) {
       schemaError('HQ_SCHEMA_TOO_LARGE', `${path}.description`);
     }
+    const description = canonicalValue(value.description, `${path}.description`);
     result.description = description;
   }
   if (value.default !== undefined) {
