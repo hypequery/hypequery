@@ -1,5 +1,6 @@
 import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
+import type { CacheObservability } from "./cache-observability.js";
 import type {
   DatasetInstance,
   DatasetQueryableDimensions,
@@ -1007,6 +1008,12 @@ export interface HypeQueryAPI<
   /** The underlying request handler. Can be passed directly to transport adapters. */
   readonly handler: ServeHandler;
   /**
+   * Per-layer stats/clear for the semantic and query-builder caches (serve
+   * itself holds no cache). Reports an empty layer list until a cache-capable
+   * query builder or a semantic endpoint is registered.
+   */
+  readonly cacheObservability: CacheObservability;
+  /**
    * Build a serializable {@link RouteManifest} of every query/metric/dataset
    * route (method + full path). Safe to JSON-serialize and ship to the client.
    */
@@ -1084,6 +1091,12 @@ export interface ServeBuilder<
   readonly basePath?: string;
   /** Serve-layer query logger for subscribing to endpoint execution events */
   readonly queryLogger: ServeQueryLogger;
+  /**
+   * Per-layer stats/clear for the semantic and query-builder caches (serve
+   * itself holds no cache). Reports an empty layer list until a cache-capable
+   * query builder or a semantic endpoint is registered.
+   */
+  readonly cacheObservability: CacheObservability;
   /** Internal route configuration mapping query names to their HTTP methods */
   readonly _routeConfig?: Record<string, { method: HttpMethod }>;
   /**

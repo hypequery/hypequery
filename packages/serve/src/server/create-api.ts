@@ -22,6 +22,7 @@ import { createDocsEndpoint, createOpenApiEndpoint } from "../pipeline.js";
 import { resolveCorsConfig } from "../cors.js";
 import { createExecuteQuery } from "./execute-query.js";
 import { createAPImethods } from "./api-builder.js";
+import { createCacheObservability, detectBuilderCache } from "../cache-observability.js";
 import { createDatasetClient, serializeSemanticContract, toQueryBuilderFactory } from "@hypequery/datasets";
 import {
   createMetricEndpoint,
@@ -315,6 +316,15 @@ export const createAPI = <
     config.security?.verboseAuthErrors ?? false,
   );
 
+  // Lazy sources: the shared dataset client only exists once a semantic
+  // endpoint is registered, and the builder cache only when the configured
+  // query builder carries a `cache` controller (createQueryBuilder() results
+  // do; bare factories report no builder layer).
+  const cacheObservability = createCacheObservability({
+    getSemanticClient: () => sharedAnalytics,
+    getBuilderCache: () => detectBuilderCache(resolvedQueryBuilder),
+  });
+
   const api = createAPImethods<TQueries, TContext, TAuth>(
     queryEntries as ServeEndpointMap<TQueries, TContext, TAuth>,
     queryLogger,
@@ -324,6 +334,7 @@ export const createAPI = <
     executeQuery,
     handler,
     basePath,
+    cacheObservability,
   ) as HypeQueryAPI<
     ServeEndpointMap<TQueries, TContext, TAuth>
       & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,

@@ -14,6 +14,8 @@ import type {
   StartServerOptions,
 } from "../types.js";
 import type { ServeRouter } from "../router.js";
+import type { CacheObservability } from "../cache-observability.js";
+import { createCacheObservability } from "../cache-observability.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
@@ -40,11 +42,13 @@ export const createBuilderMethods = <
   executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext>,
   handler: ServeHandler,
   basePath: string,
+  cacheObservability: CacheObservability = createCacheObservability({}),
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const builder: ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     basePath: basePath || undefined,
     queryLogger,
+    cacheObservability,
     _routeConfig: routeConfig,
 
     manifest: (): RouteManifest => {
