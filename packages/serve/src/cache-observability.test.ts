@@ -104,8 +104,11 @@ describe("createCacheObservability", () => {
     expect(semantic.clearCache).not.toHaveBeenCalled();
   });
 
-  it("omits layers whose clear is unsupported from the cleared list", async () => {
+  it("never attempts clear on layers whose clearSupported is false", async () => {
     const semantic = makeSemanticClient({ clearSupported: false });
+    // The guard must protect against implementations that throw instead of
+    // returning false.
+    semantic.clearCache.mockRejectedValue(new Error("clear not supported"));
     const observability = createCacheObservability({
       getSemanticClient: () => semantic,
     });
@@ -113,13 +116,18 @@ describe("createCacheObservability", () => {
     const [layer] = await observability.getStats();
     expect(layer.clearSupported).toBe(false);
     await expect(observability.clear()).resolves.toEqual({ cleared: [] });
+    expect(semantic.clearCache).not.toHaveBeenCalled();
   });
 
-  it("returns an empty cleared list for unknown layer names", async () => {
+  it("returns an empty cleared list for unknown layer names from untyped callers", async () => {
     const observability = createCacheObservability({
       getSemanticClient: () => makeSemanticClient(),
     });
 
-    await expect(observability.clear("nope")).resolves.toEqual({ cleared: [] });
+    // The parameter type is narrowed to known layer ids; JS callers (e.g. a
+    // gateway passing a request-body string through) still get the safe
+    // no-op behavior.
+    const unknownLayer = "nope" as Parameters<typeof observability.clear>[0];
+    await expect(observability.clear(unknownLayer)).resolves.toEqual({ cleared: [] });
   });
 });

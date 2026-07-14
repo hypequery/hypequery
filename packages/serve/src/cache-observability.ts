@@ -24,12 +24,13 @@ export interface CacheObservability {
   /** Stats for every observable cache layer; empty when none are wired. */
   getStats(): Promise<CacheLayerStats[]>;
   /**
-   * Clears the given layer, or every clearable layer when omitted. Returns
-   * the ids of layers actually cleared — callers advertising a clear
-   * affordance (the gateway's `cache:clear` capability) should first check
-   * `clearSupported` on `getStats()`.
+   * Clears the given layer, or every clearable layer when omitted. Layers
+   * whose `clearSupported` is false are never attempted. Returns the ids of
+   * layers actually cleared — callers advertising a clear affordance (the
+   * gateway's `cache:clear` capability) should first check `clearSupported`
+   * on `getStats()`.
    */
-  clear(layer?: string): Promise<{ cleared: string[] }>;
+  clear(layer?: CacheLayerStats["layer"]): Promise<{ cleared: Array<CacheLayerStats["layer"]> }>;
 }
 
 /**
@@ -108,9 +109,12 @@ export const createCacheObservability = (sources: {
       return resolveLayers().map((layer) => layer.getStats());
     },
     async clear(layer) {
-      const cleared: string[] = [];
+      const cleared: Array<CacheLayerStats["layer"]> = [];
       for (const candidate of resolveLayers()) {
         if (layer !== undefined && candidate.layer !== layer) continue;
+        // Never attempt an unsupported clear — don't rely on the downstream
+        // implementation returning false instead of throwing.
+        if (!candidate.getStats().clearSupported) continue;
         if (await candidate.clear()) {
           cleared.push(candidate.layer);
         }
