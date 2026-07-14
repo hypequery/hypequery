@@ -20,7 +20,8 @@ accepted protocol rules. The current implementation provides strict tagged
 value validation, RFC 8785 canonical encoding, duplicate-aware decoding, a raw
 SHA-256 conformance digest, draft portable logical identifiers, and a proposed
 closed dataset expression/query AST. Artifact envelopes and compatibility
-checks will follow in separate changes.
+checks will follow in separate changes. A closed portable query-schema tree
+provides the next layer for named-query input and output contracts.
 
 It will not connect to ClickHouse, execute queries, load project source, access
 credentials or the environment, perform network or filesystem I/O, implement
@@ -57,6 +58,11 @@ for derived formulas, comparisons, filtered aggregations, all current dataset
 aggregations, and dataset/metric query envelopes. It intentionally excludes raw
 SQL and tenant identity; consumers validate names and policy against a dataset
 contract before execution.
+
+The proposed schema surface exports strict types and validation for portable
+query input/output schemas. It covers the current declarative Serve/Zod schema
+features without depending on Zod or embedding executable transforms and
+refinements.
 
 ## Runtime compatibility
 
