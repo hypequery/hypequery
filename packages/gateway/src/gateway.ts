@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { DevIntegrationApi, GatewayCapability } from './types.js';
 import { createStore, type StorageOptions } from './storage/index.js';
 import { DevQueryLogger } from './query-logger.js';
@@ -15,7 +16,8 @@ export interface CreateGatewayOptions {
   allowedOrigins?: string[];
   /**
    * Bearer token required for non-loopback requests to /__dev/*. When unset,
-   * only loopback clients may reach the gateway.
+   * only loopback clients may reach the gateway. Browser users can bootstrap
+   * an HttpOnly dev session by opening `/__dev?token=<devToken>`.
    */
   devToken?: string;
 }
@@ -41,6 +43,26 @@ function isLoopback(req: IncomingMessage): boolean {
 function bearerToken(req: IncomingMessage): string | undefined {
   const header = req.headers.authorization;
   if (header?.startsWith('Bearer ')) return header.slice('Bearer '.length);
+  return undefined;
+}
+
+function secureEqual(actual: string | undefined, expected: string): boolean {
+  if (actual === undefined) return false;
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
+}
+
+function cookieValue(req: IncomingMessage, name: string): string | undefined {
+  const cookie = req.headers.cookie;
+  if (!cookie) return undefined;
+  for (const part of cookie.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator === -1) continue;
+    if (part.slice(0, separator).trim() === name) {
+      return part.slice(separator + 1).trim();
+    }
+  }
   return undefined;
 }
 
@@ -87,6 +109,7 @@ export async function createGateway(
   logger.onEvent((event) => handler.getSSEHandler().broadcastQueryEvent(event));
 
   const devToken = options.devToken;
+  const browserSession = devToken ? randomBytes(32).toString('base64url') : undefined;
 
   const mount = async (req: IncomingMessage, res: ServerResponse): Promise<boolean> => {
     const url = req.url || '';
@@ -94,11 +117,38 @@ export async function createGateway(
       return false;
     }
 
-    // Security guard: non-loopback clients require a matching dev token.
+    // Security guard: non-loopback clients require a matching bearer token or
+    // a browser session established from the token at the UI shell.
     if (!isLoopback(req)) {
-      if (!devToken || bearerToken(req) !== devToken) {
+      if (!devToken) {
         res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Forbidden: dev gateway is restricted to localhost' }));
+        return true;
+      }
+
+      // Preflight carries no credentials. The router still restricts CORS to
+      // the explicit origin allowlist before a browser sends the real request.
+      if (req.method === 'OPTIONS') return handler.handleRequest(req, res);
+
+      const requestUrl = new URL(url, 'http://hypequery.local');
+      const isShell = requestUrl.pathname === '/__dev' || requestUrl.pathname === '/__dev/';
+      const bootstrapToken = isShell && req.method === 'GET' ? requestUrl.searchParams.get('token') : null;
+      if (bootstrapToken && secureEqual(bootstrapToken, devToken) && browserSession) {
+        res.writeHead(303, {
+          Location: '/__dev',
+          'Set-Cookie': `hq_dev_session=${browserSession}; Path=/__dev; HttpOnly; SameSite=Strict`,
+          'Cache-Control': 'no-store'
+        });
+        res.end();
+        return true;
+      }
+
+      const bearerAuthorized = secureEqual(bearerToken(req), devToken);
+      const sessionAuthorized =
+        browserSession !== undefined && secureEqual(cookieValue(req, 'hq_dev_session'), browserSession);
+      if (!bearerAuthorized && !sessionAuthorized) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Forbidden: valid dev gateway credentials required' }));
         return true;
       }
     }

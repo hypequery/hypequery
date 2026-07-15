@@ -1,5 +1,5 @@
 /**
- * @hypequery/playground — local hypequery gateway.
+ * @hypequery/gateway — local hypequery gateway.
  *
  * Implements the gateway contract (plans/gateway-contract.md) over a serve API
  * and serves the @hypequery/studio UI same-origin at /__dev.

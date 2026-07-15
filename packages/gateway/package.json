@@ -1,5 +1,5 @@
 {
-  "name": "@hypequery/playground",
+  "name": "@hypequery/gateway",
   "version": "0.1.0",
   "description": "Local hypequery gateway — implements the gateway contract over serve and serves the studio UI",
   "license": "Apache-2.0",

@@ -1,6 +1,21 @@
 import type { EndpointContext } from './types.js';
 import { parseBody, sendJSON, sendError } from './helpers.js';
 
+async function buildCacheStatsPayload(ctx: EndpointContext) {
+  const layers = (await ctx.cacheObservability?.getStats()) ?? [];
+  return layers.length > 0
+    ? { layers }
+    : {
+        layers: [
+          {
+            layer: 'history',
+            stats: await ctx.store.getCacheStats(),
+            clearSupported: false
+          }
+        ]
+      };
+}
+
 /**
  * GET /__dev/cache
  * Per-layer cache stats (gateway contract v0: `{ layers: [...] }`). Layers
@@ -10,22 +25,7 @@ import { parseBody, sendJSON, sendError } from './helpers.js';
  */
 export async function getCacheStats(ctx: EndpointContext): Promise<void> {
   try {
-    const layers = (await ctx.cacheObservability?.getStats()) ?? [];
-
-    const payload =
-      layers.length > 0
-        ? { layers }
-        : {
-            layers: [
-              {
-                layer: 'history',
-                stats: await ctx.store.getCacheStats(),
-                clearSupported: false,
-              },
-            ],
-          };
-
-    ctx.sseHandler?.broadcast({ type: 'cache:updated', data: payload });
+    const payload = await buildCacheStatsPayload(ctx);
     sendJSON(ctx.res, payload);
   } catch (error) {
     console.error('[gateway] getCacheStats error:', error);
@@ -58,7 +58,12 @@ export async function clearCache(ctx: EndpointContext): Promise<void> {
     }
 
     const result = { cleared, timestamp: Date.now() };
-    ctx.sseHandler?.broadcast({ type: 'cache:updated', data: result });
+    try {
+      const payload = await buildCacheStatsPayload(ctx);
+      ctx.sseHandler?.broadcast({ type: 'cache:updated', data: payload });
+    } catch (error) {
+      console.error('[gateway] failed to broadcast cache stats after clear:', error);
+    }
     sendJSON(ctx.res, result);
   } catch (error) {
     console.error('[gateway] clearCache error:', error);

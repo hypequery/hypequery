@@ -922,7 +922,7 @@ export interface StartServerOptions {
   quiet?: boolean;
   /**
    * Optional handler tried before the serve router — used by dev tooling
-   * such as `@hypequery/playground` to mount UI/API routes under `/__dev`.
+   * such as `@hypequery/gateway` to mount UI/API routes under `/__dev`.
    * Node adapter only.
    */
   mount?: NodeMountHandler;
@@ -961,6 +961,7 @@ export type ExecuteQueryFunction<
     input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
     context?: Partial<TContext>;
     request?: Partial<ServeRequest>;
+    requestId?: string;
   }
 ) => Promise<ServeEndpointResult<TQueries[TKey]>>;
 
@@ -1031,6 +1032,7 @@ export interface HypeQueryAPI<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of execute() for in-process execution. */
@@ -1040,6 +1042,7 @@ export interface HypeQueryAPI<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of execute() for in-process execution. */
@@ -1049,6 +1052,7 @@ export interface HypeQueryAPI<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;
@@ -1117,6 +1121,7 @@ export interface ServeBuilder<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of run() for in-process execution. */
@@ -1126,6 +1131,7 @@ export interface ServeBuilder<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   run<TKey extends keyof TQueries>(
@@ -1134,6 +1140,7 @@ export interface ServeBuilder<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;

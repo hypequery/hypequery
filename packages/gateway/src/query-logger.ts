@@ -46,6 +46,17 @@ export interface DevQueryLoggerOptions {
   endpointMetadata?: Record<string, { description?: string; path?: string }>;
 }
 
+interface SemanticResult {
+  data?: unknown;
+  meta?: {
+    sql?: string;
+    tenant?: string;
+    timingMs?: number;
+    rowCount?: number;
+    cache?: { hit?: boolean; ageMs?: number; stale?: boolean };
+  };
+}
+
 /**
  * Non-blocking query logger for development.
  *
@@ -119,14 +130,16 @@ export class DevQueryLogger {
       ? this.endpointMetadata[event.endpointKey]
       : undefined;
 
-    // Cache/tenant/timing fields are populated by the serve-layer cache, which
-    // lands separately. Read them defensively so the gateway works against any
-    // serve version.
-    const ext = event as ServeQueryEvent & {
-      cache?: { status?: string; key?: string; age?: number };
-      tenantId?: string;
-      timing?: QueryLog['timing'];
-    };
+    // Semantic endpoints return generated SQL, cache state, tenant, timing,
+    // and row count in result.meta. Non-semantic endpoints simply fall back to
+    // request-level history fields.
+    const result =
+      event.result && typeof event.result === 'object'
+        ? (event.result as SemanticResult)
+        : undefined;
+    const meta = result?.meta;
+    const cache = meta?.cache;
+    const resultRows = Array.isArray(result?.data) ? result.data : undefined;
 
     const log: QueryLog & {
       queryId: string;
@@ -136,7 +149,7 @@ export class DevQueryLogger {
       tenantId?: string;
     } = {
       queryId: event.requestId,
-      query: `${event.method} ${event.path}`,
+      query: meta?.sql ?? `${event.method} ${event.path}`,
       input: event.input,
       startTime: event.startTime,
       endTime: event.endTime,
@@ -148,13 +161,18 @@ export class DevQueryLogger {
       endpointKey: event.endpointKey,
       endpointDescription: endpointMetadata?.description,
       endpointPath: endpointMetadata?.path ?? event.path,
-      // Include cache info if available
-      cacheStatus: ext.cache?.status,
-      cacheKey: ext.cache?.key,
-      cacheAgeMs: ext.cache?.age,
-      // Include tenant and timing
-      tenantId: ext.tenantId,
-      timing: ext.timing,
+      rowCount: meta?.rowCount ?? resultRows?.length,
+      resultPreview: resultRows?.slice(0, 10),
+      cacheStatus: cache
+        ? cache.stale
+          ? 'stale-hit'
+          : cache.hit
+            ? 'hit'
+            : 'miss'
+        : undefined,
+      cacheAgeMs: cache?.ageMs,
+      tenantId: meta?.tenant,
+      timing: meta?.timingMs === undefined ? undefined : { handlerMs: meta.timingMs },
     };
 
     this.enqueue(log);

@@ -436,7 +436,11 @@ describe('SQLiteStore', () => {
         cacheMode: 'stale-while-revalidate',
         cacheAgeMs: 500,
         endpointKey: 'getUser',
-        endpointPath: '/api/users/:id'
+        endpointDescription: 'Get one user',
+        endpointPath: '/api/users/:id',
+        resultPreview: [{ id: 42 }],
+        tenantId: 'tenant-1',
+        timing: { setupMs: 2, handlerMs: 140, serializeMs: 8 }
       };
 
       await store.addQuery(log);
@@ -456,7 +460,11 @@ describe('SQLiteStore', () => {
       expect(result?.cacheMode).toBe('stale-while-revalidate');
       expect(result?.cacheAgeMs).toBe(500);
       expect(result?.endpointKey).toBe('getUser');
+      expect(result?.endpointDescription).toBe('Get one user');
       expect(result?.endpointPath).toBe('/api/users/:id');
+      expect(result?.resultPreview).toEqual([{ id: 42 }]);
+      expect(result?.tenantId).toBe('tenant-1');
+      expect(result?.timing).toEqual({ setupMs: 2, handlerMs: 140, serializeMs: 8 });
       expect(result?.id).toBeGreaterThan(0);
       expect(result?.createdAt).toBeGreaterThan(0);
     });

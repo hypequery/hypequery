@@ -90,7 +90,7 @@ export class DevHandler {
   private async serveHTML(res: ServerResponse): Promise<boolean> {
     if (!this.distDir) {
       res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('hypequery studio UI is not installed. Install @hypequery/studio to enable the playground.');
+      res.end('hypequery studio UI is not installed. Install @hypequery/studio to enable Studio.');
       return true;
     }
     try {

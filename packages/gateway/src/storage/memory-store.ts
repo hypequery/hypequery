@@ -87,6 +87,7 @@ export class MemoryStore implements QueryHistoryStore {
         status: log.status,
         error: log.error,
         rowCount: log.rowCount,
+        resultPreview: log.resultPreview,
         cacheStatus: log.cacheStatus,
         cacheKey: log.cacheKey,
         cacheMode: log.cacheMode,
@@ -119,6 +120,18 @@ export class MemoryStore implements QueryHistoryStore {
     // Apply filters
     if (options.status) {
       entries = entries.filter(e => e.status === options.status);
+    }
+
+    if (options.endpointKey) {
+      entries = entries.filter(e => e.endpointKey === options.endpointKey);
+    }
+
+    if (options.cacheHit !== undefined) {
+      entries = entries.filter((e) =>
+        options.cacheHit
+          ? e.cacheStatus === 'hit' || e.cacheStatus === 'stale-hit'
+          : e.cacheStatus != null && e.cacheStatus !== 'hit' && e.cacheStatus !== 'stale-hit'
+      );
     }
 
     if (options.search) {
@@ -245,6 +258,7 @@ export class MemoryStore implements QueryHistoryStore {
         status: entry.status,
         error: entry.error,
         rowCount: entry.rowCount,
+        resultPreview: entry.resultPreview,
         cacheStatus: entry.cacheStatus,
         cacheKey: entry.cacheKey,
         cacheMode: entry.cacheMode,

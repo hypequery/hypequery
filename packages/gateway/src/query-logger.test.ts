@@ -77,7 +77,7 @@ describe('DevQueryLogger', () => {
       expect(result?.duration).toBe(100);
     });
 
-    it('includes cache info when available', async () => {
+    it('extracts semantic SQL, cache, tenant, timing, and preview metadata', async () => {
       queryLogger.initialize(serveLogger);
 
       emitServeEvent({
@@ -85,20 +85,29 @@ describe('DevQueryLogger', () => {
         path: '/api/users',
         method: 'GET',
         status: 'completed',
-        cache: {
-          status: 'hit',
-          age: 5000,
-          key: 'hq:getUsers:{}',
-        },
+        result: {
+          data: [{ id: 1 }, { id: 2 }],
+          meta: {
+            sql: 'SELECT id FROM users',
+            tenant: 'tenant-1',
+            timingMs: 12,
+            rowCount: 2,
+            cache: { hit: true, ageMs: 5000 }
+          }
+        }
       });
 
       // Wait for flush
       await new Promise(resolve => setTimeout(resolve, 150));
 
       const result = await store.getQuery('req-cache');
+      expect(result?.query).toBe('SELECT id FROM users');
       expect(result?.cacheStatus).toBe('hit');
-      expect(result?.cacheKey).toBe('hq:getUsers:{}');
       expect(result?.cacheAgeMs).toBe(5000);
+      expect(result?.tenantId).toBe('tenant-1');
+      expect(result?.timing).toEqual({ handlerMs: 12 });
+      expect(result?.rowCount).toBe(2);
+      expect(result?.resultPreview).toEqual([{ id: 1 }, { id: 2 }]);
     });
   });
 

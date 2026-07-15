@@ -14,6 +14,15 @@ export async function getQueries(ctx: EndpointContext): Promise<void> {
       limit: params.limit ? parseInt(params.limit, 10) : 50,
       offset: params.offset ? parseInt(params.offset, 10) : 0,
       status: params.status as 'started' | 'completed' | 'error' | undefined,
+      endpointKey: params.endpointKey || undefined,
+      cacheHit:
+        params.cacheHit === undefined
+          ? undefined
+          : params.cacheHit === 'true'
+            ? true
+            : params.cacheHit === 'false'
+              ? false
+              : undefined,
       search: params.search || undefined
     };
 
@@ -27,6 +36,10 @@ export async function getQueries(ctx: EndpointContext): Promise<void> {
 
     if (options.status && !['started', 'completed', 'error'].includes(options.status)) {
       return sendError(ctx.res, 'Invalid status (started, completed, error)', 400);
+    }
+
+    if (params.cacheHit !== undefined && !['true', 'false'].includes(params.cacheHit)) {
+      return sendError(ctx.res, 'Invalid cacheHit (true or false)', 400);
     }
 
     const result = await ctx.store.getQueries(options);

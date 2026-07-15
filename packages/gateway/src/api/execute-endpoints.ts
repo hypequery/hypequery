@@ -1,5 +1,6 @@
 import type { EndpointContext } from './types.js';
 import { parseBody, sendJSON, sendError } from './helpers.js';
+import { randomUUID } from 'node:crypto';
 
 interface ExecuteBody {
   key?: string;
@@ -19,6 +20,7 @@ interface ExecuteBody {
  */
 export async function execute(ctx: EndpointContext): Promise<void> {
   const startTime = Date.now();
+  let queryId: string | undefined;
   try {
     if (!ctx.api?.execute) {
       return sendError(ctx.res, 'Execution not available', 503);
@@ -48,11 +50,13 @@ export async function execute(ctx: EndpointContext): Promise<void> {
       );
     }
 
-    const result = await ctx.api.execute(key, { input: body.input });
+    queryId = randomUUID();
+    const result = await ctx.api.execute(key, { input: body.input, requestId: queryId });
     const durationMs = Date.now() - startTime;
 
     sendJSON(ctx.res, {
       success: true,
+      queryId,
       key,
       result,
       durationMs,
@@ -69,16 +73,30 @@ export async function execute(ctx: EndpointContext): Promise<void> {
       error && typeof error === 'object' && 'details' in error
         ? (error as { details?: unknown }).details
         : undefined;
+    const errorStatus =
+      error && typeof error === 'object' && 'status' in error && typeof error.status === 'number'
+        ? error.status
+        : undefined;
+    const status =
+      errorStatus ??
+      ({
+        VALIDATION_ERROR: 400,
+        UNAUTHORIZED: 401,
+        FORBIDDEN: 403,
+        RATE_LIMITED: 429,
+        SERVICE_UNAVAILABLE: 503
+      }[type ?? ''] ?? 500);
 
     sendJSON(
       ctx.res,
       {
         success: false,
+        ...(queryId ? { queryId } : {}),
         error: { type, message, ...(details ? { details } : {}) },
         durationMs,
         timestamp: Date.now()
       },
-      type === 'VALIDATION_ERROR' ? 400 : 500
+      status
     );
   }
 }

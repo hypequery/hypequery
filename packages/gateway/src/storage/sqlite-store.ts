@@ -72,6 +72,8 @@ export class SQLiteStore implements QueryHistoryStore {
         cache_mode TEXT,
         cache_age_ms INTEGER,
         result_preview TEXT,
+        tenant_id TEXT,
+        timing TEXT,
         created_at INTEGER DEFAULT (strftime('%s','now') * 1000)
       );
 
@@ -83,6 +85,9 @@ export class SQLiteStore implements QueryHistoryStore {
 
     this.ensureColumn('query_history', 'endpoint_description', 'TEXT');
     this.ensureColumn('query_history', 'input', 'TEXT');
+    this.ensureColumn('query_history', 'result_preview', 'TEXT');
+    this.ensureColumn('query_history', 'tenant_id', 'TEXT');
+    this.ensureColumn('query_history', 'timing', 'TEXT');
   }
 
   private ensureColumn(table: string, column: string, definition: string): void {
@@ -107,8 +112,9 @@ export class SQLiteStore implements QueryHistoryStore {
       INSERT OR REPLACE INTO query_history (
         query_id, endpoint_key, endpoint_description, endpoint_path, query, parameters, input,
         started_at, completed_at, duration_ms, status, error_message,
-        row_count, cache_status, cache_key, cache_mode, cache_age_ms
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        row_count, cache_status, cache_key, cache_mode, cache_age_ms,
+        result_preview, tenant_id, timing
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // node:sqlite has no transaction() helper — wrap manually
@@ -124,15 +130,18 @@ export class SQLiteStore implements QueryHistoryStore {
           log.parameters ? JSON.stringify(log.parameters) : null,
           log.input !== undefined ? JSON.stringify(log.input) : null,
           log.startTime,
-          log.endTime || null,
-          log.duration || null,
+          log.endTime ?? null,
+          log.duration ?? null,
           log.status,
-          log.error || null,
-          log.rowCount || null,
-          log.cacheStatus || null,
-          log.cacheKey || null,
-          log.cacheMode || null,
-          log.cacheAgeMs || null
+          log.error ?? null,
+          log.rowCount ?? null,
+          log.cacheStatus ?? null,
+          log.cacheKey ?? null,
+          log.cacheMode ?? null,
+          log.cacheAgeMs ?? null,
+          log.resultPreview !== undefined ? JSON.stringify(log.resultPreview) : null,
+          log.tenantId ?? null,
+          log.timing !== undefined ? JSON.stringify(log.timing) : null
         );
       }
       this.db.exec('COMMIT');
@@ -200,6 +209,8 @@ export class SQLiteStore implements QueryHistoryStore {
       cacheMode: row.cache_mode,
       cacheAgeMs: row.cache_age_ms,
       resultPreview: this.safeJsonParseArray(row.result_preview),
+      tenantId: row.tenant_id ?? undefined,
+      timing: this.safeJsonParseValue(row.timing) as QueryHistoryEntry['timing'],
       createdAt: row.created_at
     };
   }
@@ -221,6 +232,19 @@ export class SQLiteStore implements QueryHistoryStore {
     if (options.status) {
       whereClauses.push('status = ?');
       params.push(options.status);
+    }
+
+    if (options.endpointKey) {
+      whereClauses.push('endpoint_key = ?');
+      params.push(options.endpointKey);
+    }
+
+    if (options.cacheHit !== undefined) {
+      whereClauses.push(
+        options.cacheHit
+          ? "cache_status IN ('hit', 'stale-hit')"
+          : "cache_status IS NOT NULL AND cache_status NOT IN ('hit', 'stale-hit')"
+      );
     }
 
     if (options.search) {
@@ -358,12 +382,16 @@ export class SQLiteStore implements QueryHistoryStore {
       status: q.status,
       error: q.error,
       rowCount: q.rowCount,
+      resultPreview: q.resultPreview,
       cacheStatus: q.cacheStatus,
       cacheKey: q.cacheKey,
       cacheMode: q.cacheMode,
       cacheAgeMs: q.cacheAgeMs,
       endpointKey: q.endpointKey,
-      endpointPath: q.endpointPath
+      endpointDescription: q.endpointDescription,
+      endpointPath: q.endpointPath,
+      tenantId: q.tenantId,
+      timing: q.timing
     }));
 
     await this.batchInsert(logs);

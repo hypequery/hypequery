@@ -26,6 +26,8 @@ export interface QueryLog {
    * to `{}` at the API boundary and are unrenderable by the studio. */
   error?: string;
   rowCount?: number;
+  /** Preview of query results (first few rows). */
+  resultPreview?: unknown[];
   queryId?: string;
   cacheStatus?: string;
   cacheKey?: string;
@@ -53,7 +55,7 @@ export interface QueryHistoryEntry extends QueryLog {
   /** URL path of the endpoint */
   endpointPath?: string;
   /** Preview of query results (first few rows) */
-  resultPreview?: any[];
+  resultPreview?: unknown[];
   /** Timestamp when entry was created in storage */
   createdAt?: number;
   /** Tenant ID if multi-tenancy is enabled */
@@ -99,6 +101,10 @@ export interface GetQueriesOptions {
   offset?: number;
   /** Filter by query execution status */
   status?: 'started' | 'completed' | 'error';
+  /** Filter by the exact registered endpoint key. */
+  endpointKey?: string;
+  /** Filter by whether a cache result was served. */
+  cacheHit?: boolean;
   /** Search term to filter queries by SQL text */
   search?: string;
 }

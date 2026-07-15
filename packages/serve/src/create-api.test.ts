@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createAPI } from "./server/create-api";
 import { toNodeHandler, toFetchHandler } from "./adapters/standalone";
 import type { ServeRequest } from "./types";
+import { ServeHttpError } from "./errors";
 
 const BASE_PATH = "/api/analytics";
 const withBasePath = (path = "/") => {
@@ -182,6 +183,30 @@ describe("createAPI", () => {
 
     const result = await api.execute("metric", { input: { limit: 2 } });
     expect(result).toEqual([{ value: 0, ctx: "execute" }, { value: 1, ctx: "execute" }]);
+  });
+
+  it("uses an explicit requestId for direct execution and preserves error status", async () => {
+    const api = createAPI({
+      queries: {
+        ok: { query: async () => ({ ok: true }) },
+        denied: {
+          query: async () => {
+            throw new ServeHttpError(403, "FORBIDDEN", "Denied");
+          },
+        },
+      },
+    });
+    const requestIds: string[] = [];
+    api.queryLogger.on((event) => {
+      if (event.status === "completed") requestIds.push(event.requestId);
+    });
+
+    await api.execute("ok", { requestId: "gateway-query-id" });
+    expect(requestIds).toEqual(["gateway-query-id"]);
+    await expect(api.execute("denied")).rejects.toMatchObject({
+      type: "FORBIDDEN",
+      status: 403,
+    });
   });
 
   it("exposes api.run and api.client as aliases for api.execute", async () => {

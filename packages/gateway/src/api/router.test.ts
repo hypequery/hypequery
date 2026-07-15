@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'events';
 import { DevAPIRouter, createDevRouter } from './router.js';
 import { MemoryStore } from '../storage/index.js';
@@ -134,14 +134,51 @@ describe('DevAPIRouter (gateway contract v0)', () => {
   });
 
   it('POST /__dev/execute runs the endpoint via the api', async () => {
+    let requestId: string | undefined;
+    const executeRouter = createDevRouter({
+      store,
+      api: makeApi({
+        execute: async (_key, options) => {
+          requestId = options?.requestId;
+          return { rows: [] };
+        }
+      }),
+      capabilities: ['execute']
+    });
     const r = res();
     const request = new MockRequest('/__dev/execute', 'POST');
-    const done = router.handleRequest(request as unknown as IncomingMessage, r);
+    const done = executeRouter.handleRequest(request as unknown as IncomingMessage, r);
     request.sendBody(JSON.stringify({ key: 'listUsers', input: {} }));
     await done;
-    const body = (r as unknown as MockResponse).getBody<{ success: boolean; key: string }>();
+    const body = (r as unknown as MockResponse).getBody<{
+      success: boolean;
+      key: string;
+      queryId: string;
+    }>();
     expect(body.success).toBe(true);
     expect(body.key).toBe('listUsers');
+    expect(body.queryId).toBe(requestId);
+    expect(body.queryId).toMatch(/^[0-9a-f-]{36}$/);
+    executeRouter.shutdown();
+  });
+
+  it('POST /__dev/execute preserves pipeline error status', async () => {
+    const authError = Object.assign(new Error('Sign in required'), {
+      type: 'UNAUTHORIZED',
+      status: 401
+    });
+    const executeRouter = createDevRouter({
+      store,
+      api: makeApi({ execute: async () => { throw authError; } }),
+      capabilities: ['execute']
+    });
+    const r = res();
+    const request = new MockRequest('/__dev/execute', 'POST');
+    const done = executeRouter.handleRequest(request as unknown as IncomingMessage, r);
+    request.sendBody(JSON.stringify({ key: 'listUsers' }));
+    await done;
+    expect((r as unknown as MockResponse).statusCode).toBe(401);
+    executeRouter.shutdown();
   });
 
   it('POST /__dev/execute rejects a missing key', async () => {
@@ -166,6 +203,31 @@ describe('DevAPIRouter (gateway contract v0)', () => {
     expect(body.total).toBe(1);
   });
 
+  it('GET /__dev/history filters by endpointKey', async () => {
+    await store.addQuery({
+      queryId: 'q1',
+      endpointKey: 'listUsers',
+      query: 'SELECT 1',
+      startTime: Date.now(),
+      status: 'completed'
+    });
+    await store.addQuery({
+      queryId: 'q2',
+      endpointKey: 'listOrders',
+      query: 'SELECT 2',
+      startTime: Date.now(),
+      status: 'completed'
+    });
+    const r = res();
+    await router.handleRequest(req('/__dev/history?endpointKey=listUsers'), r);
+    const body = (r as unknown as MockResponse).getBody<{
+      total: number;
+      queries: Array<{ queryId: string }>;
+    }>();
+    expect(body.total).toBe(1);
+    expect(body.queries[0].queryId).toBe('q1');
+  });
+
   it('serves 404 for unknown /__dev routes', async () => {
     const r = res();
     await router.handleRequest(req('/__dev/nope'), r);
@@ -188,12 +250,14 @@ describe('DevAPIRouter (gateway contract v0)', () => {
         capabilities: ['cache', 'cache:clear'],
         projectName: 'demo'
       });
+      const broadcast = vi.spyOn(withCache.getSSEHandler(), 'broadcast');
       const r = res();
       await withCache.handleRequest(req('/__dev/cache'), r);
       const body = (r as unknown as MockResponse).getBody<{ layers: Array<{ layer: string }> }>();
       expect(body.layers).toEqual([
         { layer: 'semantic', stats: { hits: 1, misses: 2 }, clearSupported: true }
       ]);
+      expect(broadcast).not.toHaveBeenCalled();
       await withCache.shutdown();
     });
 
@@ -216,6 +280,7 @@ describe('DevAPIRouter (gateway contract v0)', () => {
         capabilities: ['cache', 'cache:clear'],
         projectName: 'demo'
       });
+      const broadcast = vi.spyOn(withCache.getSSEHandler(), 'broadcast');
       const r = res();
       const request = new MockRequest('/__dev/cache/clear', 'POST');
       const handled = withCache.handleRequest(request as unknown as IncomingMessage, r);
@@ -223,6 +288,12 @@ describe('DevAPIRouter (gateway contract v0)', () => {
       await handled;
       const body = (r as unknown as MockResponse).getBody<{ cleared: string[] }>();
       expect(body.cleared).toEqual(['semantic']);
+      expect(broadcast).toHaveBeenCalledWith({
+        type: 'cache:updated',
+        data: {
+          layers: [{ layer: 'semantic', stats: { hits: 1, misses: 2 }, clearSupported: true }]
+        }
+      });
       await withCache.shutdown();
     });
 
@@ -249,4 +320,3 @@ describe('DevAPIRouter (gateway contract v0)', () => {
     });
   });
 });
-

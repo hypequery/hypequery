@@ -399,6 +399,25 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@edge-runtime/vm@3.2.0)(@types/node@18.19.130)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
 
+  packages/gateway:
+    dependencies:
+      '@hypequery/serve':
+        specifier: workspace:*
+        version: link:../serve
+      '@hypequery/studio':
+        specifier: workspace:*
+        version: link:../studio
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
   packages/mcp-server:
     dependencies:
       '@hypequery/datasets':
@@ -420,25 +439,6 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
-
-  packages/playground:
-    dependencies:
-      '@hypequery/serve':
-        specifier: workspace:*
-        version: link:../serve
-      '@hypequery/studio':
-        specifier: workspace:*
-        version: link:../studio
-    devDependencies:
-      '@types/node':
-        specifier: ^22.5.0
-        version: 22.20.1
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/protocol:
     dependencies:

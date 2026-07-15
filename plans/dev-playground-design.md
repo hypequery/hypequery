@@ -85,7 +85,7 @@ the built UI — lives in one dev-only package; serve gains only a mount hook.
    Serve gains **no cache implementation** — result caching already lives in the two
    layers that own query semantics; the dev integration exposes cache *observability*,
    not storage (see "Cache architecture" below).
-2. **`@hypequery/playground`** (dev-only, dependency of the CLI): the local *gateway* —
+2. **`@hypequery/gateway`** (dev-only, dependency of the CLI): the local *gateway* —
    implements the gateway contract (`plans/gateway-contract.md`) against serve's
    `DevIntegrationApi` and serves the studio's built assets same-origin at `/__dev`.
    `hypequery dev` wires it into `serveDev` via the mount option; without it installed,
@@ -107,7 +107,7 @@ the built UI — lives in one dev-only package; serve gains only a mount hook.
 ```
 packages/serve                 runtime; exports "." (unchanged) and "./dev" (mount hook,
                                integration interface incl. cache observability)
-packages/playground            local gateway: contract impl (/__dev API, storage, SSE,
+packages/gateway               local gateway: contract impl (/__dev API, storage, SSE,
                                AI proxy) + serves studio assets same-origin
 packages/studio                embeddable React 18 UI core (Vite; pnpm — no npm lockfile);
                                ships source + prebuilt dist
@@ -233,7 +233,7 @@ tagged values (RFC 0001) additively.
 Decision: anonymous, opt-out usage telemetry, Next.js-style, to measure whether the
 playground earns further investment (activation funnel: `gateway_started` →
 `ui_served` → execute → return usage). Rules, enforced in
-`packages/playground/src/telemetry.ts`:
+`packages/gateway/src/telemetry.ts`:
 
 - NEVER captures SQL, query/endpoint names (sha256-hashed only), inputs, results,
   hostnames, file paths, or credentials. Durations are bucketed, never exact.
@@ -293,7 +293,7 @@ Plumbing: server-side proxy `POST /__dev/ai/chat` (key stays server-side), strea
 the existing SSE machinery. BYOK: `ANTHROPIC_API_KEY` present → feature lights up.
 Default model `claude-sonnet-5`. Anthropic SDK direct behind a thin internal provider
 interface (streaming chat + tools) so OpenAI-compatible providers are an adapter later —
-no Vercel AI SDK dependency for now. The SDK dependency lives in `@hypequery/playground`,
+no Vercel AI SDK dependency for now. The SDK dependency lives in `@hypequery/gateway`,
 never in `@hypequery/serve`.
 
 Trust affordances: show the tool call (endpoint + inputs) alongside results; always show
@@ -304,7 +304,7 @@ never arbitrary SQL.
 
 | Phase | Scope | Effort |
 |---|---|---|
-| **0 — Foundation** | Cherry-pick donor parts into `@hypequery/playground`; serve mount hook + `"./dev"` subpath + deprecated root re-export; `node:sqlite`; pnpm throughout + CI hard-fail on missing assets + size budgets; per-project DB; localhost guard | ~1–1.5 wk |
+| **0 — Foundation** | Cherry-pick donor parts into `@hypequery/gateway`; serve mount hook + `"./dev"` subpath + deprecated root re-export; `node:sqlite`; pnpm throughout + CI hard-fail on missing assets + size budgets; per-project DB; localhost guard | ~1–1.5 wk |
 | **1 — Playground core** | Semantic registry; execute-through-pipeline with dev auth context; history/SSE/cache screens; SQL viewer; copy-as-curl | ~1.5–2 wk |
 | **2 — Cloud & schema** | Connection setup + test; schema explorer; error diagnostics | ~1 wk |
 | **3 — AI** | Chat proxy; NL→query tool calls; explain; diagnose | ~1.5–2 wk |
@@ -357,7 +357,7 @@ are fixed during the split, not ported.
 | 1a | Semantic cache stats | hit/miss/stale counters + `getStats()`/`clear()` on `SemanticQueryCache` in `@hypequery/datasets` (replaces the dropped donor serve-layer cache — see "Cache architecture") | — |
 | 1b | Serve cache observability | `cacheObservability` on `DevIntegrationApi` aggregating semantic + builder (`CacheController`) layers | 1a, 2 |
 | 2 | serve mount hook | already on branch (c01b51e): `StartServerOptions.mount`, `DevIntegrationApi`, `./dev` subpath, `@deprecated` root re-export | — |
-| 3 | Gateway storage | `packages/playground/src/storage/*` on `node:sqlite` + dev query logger; per-project `.hypequery/dev.db`; donor tests ported; cache fields on history entries come from semantic `meta.cache` | — |
+| 3 | Gateway storage | `packages/gateway/src/storage/*` on `node:sqlite` + dev query logger; per-project `.hypequery/dev.db`; donor tests ported; cache fields on history entries come from semantic `meta.cache` | — |
 | 4 | Gateway API + SSE | contract v0 impl: `/meta`, `/registry` + `/execute` written fresh against `DevIntegrationApi` (donor tip deleted these), `/history` rename, `/events`; loopback/token guard; CORS allowlist; fix `query:completed` vs `query:complete` mismatch; delete dead `lastEventId` plumbing (replay later if needed); `serveDev` return shape does NOT change (composition lives in CLI); rename `serveCacheStore` → `cacheObservability` (history-derived fallback stays; full `cache` capability needs 1b) | 2, 3 |
 | 5 | `@hypequery/studio` | embeddable React core (donor serve-ui as seed); `gatewayBaseUrl` + capability gating; fix `useSSE` 500ms polling → `onStateChange`, `useSSEEvent` effect-dep churn, debounced search; prebuilt dist + size budget CI | 4's contract only (parallel) |
 | 6 | CLI wiring | `hypequery dev` composes gateway+studio via mount; `--no-ui`; fix stale `getTableCount` assertion in dev tests; evaluate donor `sync.ts` separately before porting | 4, 5 |

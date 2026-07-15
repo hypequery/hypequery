@@ -5,7 +5,7 @@
  * "Cache architecture"): result caching lives in the semantic query cache
  * (`@hypequery/datasets`) and the query-builder cache
  * (`@hypequery/clickhouse`). This module aggregates their stats/clear
- * surfaces per layer so the playground gateway can serve
+ * surfaces per layer so the local gateway can serve
  * `GET /__dev/cache` → `{ layers: [...] }` without a serve-layer cache.
  */
 
