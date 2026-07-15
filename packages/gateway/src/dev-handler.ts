@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { createRequire } from 'node:module';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import * as path from 'node:path';
 import { DevAPIRouter, type RouterOptions } from './api/router.js';
 
@@ -43,6 +43,10 @@ function resolveStudioDist(): string | null {
  * Dev handler: serves the studio UI same-origin under /__dev and routes
  * /__dev/* API requests. UI assets are read from the installed
  * @hypequery/studio package on disk (no build-time embedding).
+ *
+ * @security This low-level handler does not authenticate requests. Prefer
+ * `createGateway`, or apply an equivalent authentication guard before calling
+ * `handleRequest` directly.
  */
 export class DevHandler {
   private router: DevAPIRouter;
@@ -74,14 +78,14 @@ export class DevHandler {
       return this.serveAsset(res, assetPath);
     }
 
-    // API routes
-    if (reqPath.startsWith(`${this.apiBasePath}/`)) {
-      return this.router.handleRequest(req, res);
-    }
-
     // The UI shell at the base path
     if (reqPath === this.apiBasePath || reqPath === `${this.apiBasePath}/`) {
       return this.serveHTML(res);
+    }
+
+    // API routes
+    if (reqPath.startsWith(`${this.apiBasePath}/`)) {
+      return this.router.handleRequest(req, res);
     }
 
     return false;
@@ -121,8 +125,17 @@ export class DevHandler {
     }
 
     try {
-      const data = await readFile(resolved);
-      const type = CONTENT_TYPES[path.extname(resolved)] ?? 'application/octet-stream';
+      // Resolve symlinks before the containment check so an asset link cannot
+      // escape the studio distribution directory.
+      const [realDistRoot, realAssetPath] = await Promise.all([realpath(distRoot), realpath(resolved)]);
+      if (realAssetPath !== realDistRoot && !realAssetPath.startsWith(realDistRoot + path.sep)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        res.end('Forbidden');
+        return true;
+      }
+
+      const data = await readFile(realAssetPath);
+      const type = CONTENT_TYPES[path.extname(realAssetPath)] ?? 'application/octet-stream';
       res.writeHead(200, {
         'Content-Type': type,
         'Cache-Control': 'public, max-age=31536000, immutable'
@@ -148,6 +161,12 @@ export class DevHandler {
   }
 }
 
+/**
+ * Create an unauthenticated low-level dev handler.
+ *
+ * @security Prefer `createGateway`, or authenticate requests before passing
+ * them to the returned handler.
+ */
 export function createDevHandler(options: DevHandlerOptions): DevHandler {
   return new DevHandler(options);
 }

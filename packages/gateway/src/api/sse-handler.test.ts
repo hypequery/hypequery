@@ -392,7 +392,7 @@ describe('SSEHandler', () => {
       expect(frame).toBeDefined();
       const dataLine = frame!.split('\n').find((line) => line.startsWith('data: '))!;
       const payload = JSON.parse(dataLine.slice('data: '.length));
-      expect(payload).toMatchObject({ queryId: 'q-1', key: 'totalRevenue', startedAt: 1234 });
+      expect(payload).toEqual({ queryId: 'q-1', key: 'totalRevenue', startedAt: 1234 });
     });
 
     it('passes query:completed data through unchanged', () => {
@@ -415,4 +415,3 @@ describe('SSEHandler', () => {
     });
   });
 });
-

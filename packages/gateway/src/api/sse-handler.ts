@@ -212,12 +212,11 @@ export class SSEHandler {
     if (event.type === 'query:started') {
       // Contract v0 names this payload { queryId, key, startedAt } — the
       // queryId is the correlation handle to the history entry that arrives
-      // on completion. Extra fields are contract-tolerated.
+      // on completion. Map explicitly so raw query inputs are not broadcast.
       const data = event.data as typeof event.data & { endpointKey?: string };
       this.broadcast({
         type: event.type,
         data: {
-          ...data,
           queryId: data.queryId,
           key: data.endpointKey,
           startedAt: data.startTime

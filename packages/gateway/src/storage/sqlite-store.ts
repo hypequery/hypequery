@@ -20,6 +20,16 @@ type NodeSqliteDatabase = {
   close(): void;
 };
 
+const QUERY_HISTORY_MIGRATIONS = [
+  { column: 'endpoint_description', sql: 'ALTER TABLE query_history ADD COLUMN endpoint_description TEXT' },
+  { column: 'input', sql: 'ALTER TABLE query_history ADD COLUMN input TEXT' },
+  { column: 'result_preview', sql: 'ALTER TABLE query_history ADD COLUMN result_preview TEXT' },
+  { column: 'tenant_id', sql: 'ALTER TABLE query_history ADD COLUMN tenant_id TEXT' },
+  { column: 'timing', sql: 'ALTER TABLE query_history ADD COLUMN timing TEXT' }
+] as const;
+
+type QueryHistoryMigration = (typeof QUERY_HISTORY_MIGRATIONS)[number];
+
 /**
  * SQLite-based implementation of QueryHistoryStore.
  * Uses the built-in `node:sqlite` module (Node >= 22.5) for synchronous,
@@ -83,19 +93,17 @@ export class SQLiteStore implements QueryHistoryStore {
       CREATE INDEX IF NOT EXISTS idx_endpoint_key ON query_history(endpoint_key);
     `);
 
-    this.ensureColumn('query_history', 'endpoint_description', 'TEXT');
-    this.ensureColumn('query_history', 'input', 'TEXT');
-    this.ensureColumn('query_history', 'result_preview', 'TEXT');
-    this.ensureColumn('query_history', 'tenant_id', 'TEXT');
-    this.ensureColumn('query_history', 'timing', 'TEXT');
+    for (const migration of QUERY_HISTORY_MIGRATIONS) {
+      this.ensureQueryHistoryColumn(migration);
+    }
   }
 
-  private ensureColumn(table: string, column: string, definition: string): void {
+  private ensureQueryHistoryColumn(migration: QueryHistoryMigration): void {
     if (!this.db) throw new Error('Database not initialized');
-    const rows = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-    const hasColumn = rows.some((row) => row.name === column);
+    const rows = this.db.prepare('PRAGMA table_info(query_history)').all() as Array<{ name: string }>;
+    const hasColumn = rows.some((row) => row.name === migration.column);
     if (!hasColumn) {
-      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      this.db.exec(migration.sql);
     }
   }
 
