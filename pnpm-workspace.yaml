@@ -2,7 +2,6 @@ packages:
   - 'packages/cli'
   - 'packages/clickhouse'
   - 'packages/react'
-  - 'packages/schema'
   - 'packages/datasets'
   - 'packages/gateway'
   - 'packages/serve'
@@ -10,4 +9,3 @@ packages:
   - 'packages/mcp-server'
   - 'packages/protocol'
   - 'packages/tsconfig'
-  - 'examples/*'

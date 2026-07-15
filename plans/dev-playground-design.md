@@ -5,7 +5,7 @@ Status: proposed
 Sources: `packages/serve/src/dev.ts` (current `serveDev`), closed PR #126 / branch
 `claude/enhance-dev-server-storage-WRp4W` (donor implementation: `packages/serve-ui`,
 `packages/serve/src/dev-ui`, `packages/serve/src/cache`), `packages/serve/src/semantic/datasets`,
-`packages/datasets` (semantic contract, tool schemas), `packages/mcp-server`, `packages/schema`.
+`packages/datasets` (semantic contract, tool schemas), and `packages/mcp-server`.
 
 ## Vision
 
@@ -268,7 +268,7 @@ The gap is experience:
 - **Connection setup in the playground**: guided form (URL, user, password /
   `CLICKHOUSE_*` env detection), test-connection, TLS hints. Writes `.env`, never the DB.
 - **Schema explorer** (`/__dev/schema`): introspect `system.tables`/`system.columns`
-  (reuse/extend `packages/schema`); also grounds the AI.
+  through the existing ClickHouse client; also grounds the AI.
 - **Diagnostics**: human explanations for ClickHouse error codes; `system.query_log`
   stats (rows/bytes read) per run where permissions allow.
 - **Out of scope**: the Cloud control-plane API (provisioning orgs/services/keys) —
@@ -361,4 +361,4 @@ are fixed during the split, not ported.
 | 4 | Gateway API + SSE | contract v0 impl: `/meta`, `/registry` + `/execute` written fresh against `DevIntegrationApi` (donor tip deleted these), `/history` rename, `/events`; loopback/token guard; CORS allowlist; fix `query:completed` vs `query:complete` mismatch; delete dead `lastEventId` plumbing (replay later if needed); `serveDev` return shape does NOT change (composition lives in CLI); rename `serveCacheStore` → `cacheObservability` (history-derived fallback stays; full `cache` capability needs 1b) | 2, 3 |
 | 5 | `@hypequery/studio` | embeddable React core (donor serve-ui as seed); `gatewayBaseUrl` + capability gating; fix `useSSE` 500ms polling → `onStateChange`, `useSSEEvent` effect-dep churn, debounced search; prebuilt dist + size budget CI | 4's contract only (parallel) |
 | 6 | CLI wiring | `hypequery dev` composes gateway+studio via mount; `--no-ui`; fix stale `getTableCount` assertion in dev tests; evaluate donor `sync.ts` separately before porting | 4, 5 |
-| 7 | Examples | node-embedded dev-server example rewritten for mount composition; next-dashboard fixes | all |
+| 7 | Consumer smoke coverage | verify the mounted dev server through focused generated fixtures | all |

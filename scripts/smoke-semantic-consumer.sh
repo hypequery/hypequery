@@ -13,12 +13,10 @@ cleanup() {
 trap cleanup EXIT
 
 pnpm --filter @hypequery/datasets build >/dev/null
-pnpm --filter @hypequery/schema build >/dev/null
 pnpm --filter @hypequery/serve build >/dev/null
 
 mkdir -p "$WORKDIR/node_modules/@hypequery"
 ln -s "$ROOT_DIR/packages/datasets" "$WORKDIR/node_modules/@hypequery/datasets"
-ln -s "$ROOT_DIR/packages/schema" "$WORKDIR/node_modules/@hypequery/schema"
 ln -s "$ROOT_DIR/packages/serve" "$WORKDIR/node_modules/@hypequery/serve"
 
 node "$ROOT_DIR/scripts/utils/write-semantic-consumer-fixtures.mjs" "$WORKDIR"

@@ -130,7 +130,6 @@ If this saves you from hand-writing ClickHouse types, a ⭐ helps other TypeScri
 - `@hypequery/react`: thin TanStack Query hooks for hypequery APIs
 - `@hypequery/mcp`: MCP server for exposing governed analytics tools to agents
 - `@hypequery/protocol`: public, language-neutral contracts and TypeScript reference implementation for portable artifacts
-- `@hypequery/schema`: ClickHouse schema definitions, migrations, and dataset compatibility checks
 - `@hypequery/cli`: scaffolding, schema generation, and local dev tooling
 
 ## Quick Start

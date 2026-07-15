@@ -26,7 +26,6 @@ pnpm asks to reinstall from scratch occasionally—accepting the prompt is safe.
 | `packages/serve` | `defineServe`, router, adapters |
 | `packages/react` | TanStack Query hooks + helpers |
 | `packages/cli` | `npx hypequery …` commands |
-| `examples/*` | integration demos (Next, Vite, agents, etc.) |
 | `website/` | starlight docs + blog |
 
 ## Common scripts
