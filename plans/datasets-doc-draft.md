@@ -22,10 +22,7 @@ It lets users define:
 
 The package is not responsible for physical warehouse migrations.
 
-That separation matters:
-
-- `@hypequery/schema` owns physical schema truth
-- `@hypequery/datasets` owns semantic meaning
+`@hypequery/datasets` owns semantic meaning while generated ClickHouse types remain the physical source contract.
 
 ## Core Model
 
@@ -172,8 +169,6 @@ This keeps the package ergonomic without adding a second helper API surface.
 
 - `@hypequery/clickhouse`
   - query building and execution backend
-- `@hypequery/schema`
-  - physical schema compatibility checks
 - `@hypequery/serve`
   - runtime delivery, auth, tenancy, transport
 
@@ -221,7 +216,6 @@ Still worth improving later:
 The current technical story is:
 
 - define semantic analytics concepts in `@hypequery/datasets`
-- verify they still match physical schema with `@hypequery/schema`
 - expose them safely at runtime with `@hypequery/serve`
 
 That is the intended layering, even before the final docs and positioning are polished.

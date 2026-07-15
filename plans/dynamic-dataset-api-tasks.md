@@ -21,7 +21,6 @@ Hypequery already has a strong foundation:
 - `@hypequery/react`: TanStack Query hooks for served APIs and semantic dataset/metric endpoints.
 - `@hypequery/cli`: scaffolding, schema generation, dataset generation, and local API module loading.
 - `@hypequery/mcp-server`: MCP tools for listing, introspecting, and querying datasets/metrics.
-- `@hypequery/schema`: schema snapshots, diffs, migration planning, and compatibility checks.
 
 Core dynamic dataset querying already works:
 
@@ -91,9 +90,9 @@ Enterprise value:
 | Priority | Feature Area | Change Size | Primary Packages | Enterprise Value |
 |---|---:|---:|---|---|
 | P0 | Catalog/introspection unification | Medium | `datasets`, `serve`, `mcp-server`, `cli` | AI readiness, DX |
-| P0 | Safe semantic expression system | Major | `datasets`, `clickhouse`, `schema`, `cli` | Correctness, Governance |
+| P0 | Safe semantic expression system | Major | `datasets`, `clickhouse`, `cli` | Correctness, Governance |
 | P0 | Semantic governance and field policies | Major | `datasets`, `serve`, `react`, `mcp-server` | Governance |
-| P0 | Semantic contract lifecycle | Major | `datasets`, `cli`, `schema`, `serve` | Correctness, DX |
+| P0 | Semantic contract lifecycle | Major | `datasets`, `cli`, `serve` | Correctness, DX |
 | P0 | Enterprise observability and audit events | Medium | `serve`, `datasets`, `clickhouse`, `mcp-server` | Governance, Scale |
 | P1 | Relationship-aware semantic queries | Major | `datasets`, `clickhouse`, `serve`, `react`, `mcp-server` | Correctness, DX |
 | P1 | Rich metric vocabulary | Major | `datasets`, `clickhouse`, `serve`, `react`, `mcp-server` | Correctness, DX |
@@ -101,8 +100,8 @@ Enterprise value:
 | P1 | Query-dependent TypeScript result types | Medium | `datasets`, `serve`, `react` | DX |
 | P1 | AI tool generation | Medium | `datasets`, `mcp-server`, `serve` | AI readiness, Governance |
 | P1 | BI/explore query API | Major | `datasets`, `serve`, `react`, `mcp-server` | DX, AI readiness |
-| P1 | Semantic caching and acceleration | Major | `datasets`, `clickhouse`, `serve`, `schema` | Scale |
-| P2 | Materialized view and rollup planner | Major | `schema`, `datasets`, `clickhouse`, `cli` | Scale |
+| P1 | Semantic caching and acceleration | Major | `datasets`, `clickhouse`, `serve` | Scale |
+| P2 | Rollup planner | Major | `datasets`, `clickhouse`, `cli` | Scale |
 | P2 | Semantic package/codegen ecosystem | Medium | `cli`, `serve`, `react`, `mcp-server` | DX |
 | P2 | Tenant-specific dynamic registries | Major | `datasets`, `serve`, `mcp-server`, `cli` | Governance, DX |
 
@@ -221,7 +220,7 @@ Priority: P0
 
 Change size: Major
 
-Primary packages: `@hypequery/datasets`, `@hypequery/clickhouse`, `@hypequery/schema`, `@hypequery/cli`
+Primary packages: `@hypequery/datasets`, `@hypequery/clickhouse`, `@hypequery/cli`
 
 ### Current State
 
@@ -367,11 +366,11 @@ Priority: P0
 
 Change size: Major
 
-Primary packages: `@hypequery/datasets`, `@hypequery/cli`, `@hypequery/schema`, `@hypequery/serve`
+Primary packages: `@hypequery/datasets`, `@hypequery/cli`, `@hypequery/serve`
 
 ### Current State
 
-Query-time validation exists. `@hypequery/schema` has schema snapshots, diffs, migration planning, and dataset compatibility checks. Semantic contracts do not yet have a complete lifecycle around snapshots, breaking-change detection, CI validation, docs, and lineage.
+Query-time validation exists. Semantic contracts do not yet have a complete lifecycle around snapshots, breaking-change detection, CI validation, docs, and lineage.
 
 ### Missing Capabilities
 
@@ -983,7 +982,7 @@ Priority: P1
 
 Change size: Major
 
-Primary packages: `@hypequery/datasets`, `@hypequery/clickhouse`, `@hypequery/serve`, `@hypequery/schema`
+Primary packages: `@hypequery/datasets`, `@hypequery/clickhouse`, `@hypequery/serve`
 
 ### Current State
 
@@ -1042,26 +1041,23 @@ await analytics.execute(Orders, {
 - Operators can invalidate by dataset or metric.
 - Audit events include cache status.
 
-## 13. Materialized View And Rollup Planner
+## 13. Rollup Planner
 
 Priority: P2
 
 Change size: Major
 
-Primary packages: `@hypequery/schema`, `@hypequery/datasets`, `@hypequery/clickhouse`, `@hypequery/cli`
+Primary packages: `@hypequery/datasets`, `@hypequery/clickhouse`, `@hypequery/cli`
 
 ### Current State
 
-`@hypequery/schema` has materialized-view snapshot and diff concepts. The semantic layer does not yet define rollups or rewrite semantic queries to aggregate tables/materialized views.
+The semantic layer does not yet define rollups or rewrite semantic queries to user-managed aggregate tables or materialized views.
 
 ### Missing Capabilities
 
 - Rollup definitions attached to semantic models.
-- Generated ClickHouse materialized views.
-- Generated aggregate target tables.
 - Query rewrite to rollups.
 - Freshness/staleness checks.
-- Backfill workflows.
 - CI checks for rollup compatibility.
 
 ### Recommended API Direction
@@ -1080,14 +1076,12 @@ const OrdersDailyRollup = rollup(Orders, {
 ### Implementation Work
 
 - Define rollup contracts.
-- Generate ClickHouse DDL through `@hypequery/schema`.
 - Add semantic query planner rewrite rules.
 - Track rollup freshness.
-- Add backfill scripts/CLI.
 
 ### Acceptance Criteria
 
-- Rollup SQL is generated from semantic contracts.
+- Rollup queries are generated from semantic contracts and target user-managed aggregate sources.
 - Query planner picks rollup only when semantically equivalent.
 - Freshness metadata is exposed.
 - Backfills are documented and scriptable.
@@ -1191,10 +1185,8 @@ Example overlay:
 | `@hypequery/serve` | High | Policy-aware endpoints, OpenAPI schemas, auth integration, audit events, semantic metadata. |
 | `@hypequery/react` | Medium | Exact query/result types, explore hooks, manifest consumption, generated clients. |
 | `@hypequery/cli` | High | Semantic validation, snapshot/diff, codegen, schema drift checks, docs/tool generation. |
-| `@hypequery/schema` | Medium-High | Contract lifecycle, ClickHouse compatibility, migrations, materialized views, rollups. |
 | `@hypequery/mcp-server` | Medium-High | Safe introspection, tool generation, policy-aware metadata, explain tools, audit events. |
-| `website-next` | Medium | Enterprise docs, semantic contracts, trust boundaries, examples, migration guides. |
-| Examples | Medium | Multi-tenant SaaS, embedded analytics, governed MCP, dashboard builder, rollups. |
+| `website-next` | Medium | Enterprise docs, semantic contracts, trust boundaries, and guides. |
 
 ## Recommended Delivery Plan
 

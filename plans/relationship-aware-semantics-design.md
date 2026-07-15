@@ -24,7 +24,7 @@ Status: Implementation complete across PRs 1–3; documentation tracked separate
   package/spec documentation updates.
 
 Sources: `packages/datasets/src` (relationships, planners, validation, catalog, contract),
-`packages/clickhouse/src` (query builder joins, semantic backend), `packages/schema/src/compat`,
+`packages/clickhouse/src` (query builder joins, semantic backend), and
 `packages/serve/src/semantic/datasets`.
 
 ## Decision

@@ -445,7 +445,6 @@ Dataset definitions can be reused in several places:
 - runtime validation with `analytics.validate(...)`
 - HTTP metric and dataset endpoints through `@hypequery/serve`
 - agent-facing tools through `@hypequery/mcp`
-- schema compatibility checks through `@hypequery/schema`
 
 ## Serve Integration
 
@@ -458,25 +457,6 @@ Metric endpoints expose named metrics. Dataset endpoints expose same-dataset ad-
 ## Agent Integration
 
 `@hypequery/mcp` exposes dataset contracts, metric queries, and dataset queries over Model Context Protocol. This package does not run an MCP server directly; it provides the semantic definitions and execution client that the MCP package consumes.
-
-## Schema Compatibility
-
-Use `@hypequery/schema` to check whether physical schema changes break dataset definitions.
-
-```ts
-import { checkDatasetsAgainstSchema } from '@hypequery/schema';
-
-const report = checkDatasetsAgainstSchema({
-  snapshot,
-  datasets: [Orders],
-});
-
-if (!report.valid) {
-  console.error(report.diagnostics);
-}
-```
-
-The checker validates source tables/views, dimension columns, measure fields, tenant/time keys, filtered measure fields, numeric measure types, and relationship join columns. Complex SQL expressions are reported with explicit limitation warnings.
 
 ## Current Scope And Limits
 

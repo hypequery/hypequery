@@ -156,16 +156,10 @@ export default function ClickHouseSchemaPage() {
           title: 'The ClickHouse TypeScript type problem',
           description: 'Why DateTime, UInt64, Nullable, and Decimal return the wrong types and how schema generation fixes it.',
         },
-        {
-          href: '/clickhouse-migrations',
-          title: 'ClickHouse Migrations',
-          description: 'Schema change tooling coming soon — reversible migrations with automatic type regeneration.',
-        },
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
         { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
-        { href: '/clickhouse-migrations', label: 'ClickHouse Migrations' },
         { href: '/clickhouse-orm', label: 'ClickHouse ORM' },
       ]}
       nextStep={{
