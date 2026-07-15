@@ -20,7 +20,7 @@ export function Tooltip({
 }: TooltipProps) {
   const [isVisible, setIsVisible] = React.useState(false);
   const [position, setPosition] = React.useState<{ top: number; left: number } | null>(null);
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const triggerRef = React.useRef<HTMLDivElement>(null);
 
   const updatePosition = React.useCallback(() => {

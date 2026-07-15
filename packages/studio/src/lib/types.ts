@@ -26,7 +26,7 @@ export interface QueryHistoryEntry {
   startTime: number;
   endTime?: number;
   duration?: number;
-  status: 'pending' | 'running' | 'completed' | 'error';
+  status: 'pending' | 'running' | 'started' | 'completed' | 'error';
   error?: string;
   rowCount?: number | null;
   /** @deprecated Use cacheStatus instead */
@@ -94,7 +94,7 @@ export interface QueryListResult {
  * Query filter options.
  */
 export interface QueryFilters {
-  status?: 'pending' | 'running' | 'completed' | 'error';
+  status?: 'pending' | 'running' | 'started' | 'completed' | 'error';
   endpointKey?: string;
   cacheHit?: boolean;
   search?: string;
@@ -185,7 +185,7 @@ export interface QueryEventData {
   queryId: string;
   query?: string;
   input?: unknown;
-  status: 'pending' | 'running' | 'completed' | 'error';
+  status: 'pending' | 'running' | 'started' | 'completed' | 'error';
   duration?: number;
   rowCount?: number;
   error?: string;

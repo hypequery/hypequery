@@ -1,6 +1,6 @@
 import { Badge } from './ui/badge';
 
-type Status = 'pending' | 'running' | 'completed' | 'error';
+type Status = 'pending' | 'running' | 'started' | 'completed' | 'error';
 
 interface StatusBadgeProps {
   status: Status;
@@ -10,6 +10,7 @@ interface StatusBadgeProps {
 const statusVariants: Record<Status, 'warning' | 'info' | 'success' | 'destructive'> = {
   pending: 'warning',
   running: 'info',
+  started: 'info',
   completed: 'success',
   error: 'destructive',
 };
@@ -17,6 +18,7 @@ const statusVariants: Record<Status, 'warning' | 'info' | 'success' | 'destructi
 const statusLabels: Record<Status, string> = {
   pending: 'Pending',
   running: 'Running',
+  started: 'Running',
   completed: 'Completed',
   error: 'Error',
 };

@@ -14,7 +14,7 @@ export function Logo({ collapsed, className }: LogoProps) {
     return (
       <span
         className={cn(
-          'font-mono text-xl font-bold text-primary',
+          'font-mono text-[19px] font-bold tracking-[-0.02em] text-foreground',
           className
         )}
         title="hypequery"
@@ -27,12 +27,11 @@ export function Logo({ collapsed, className }: LogoProps) {
   return (
     <span
       className={cn(
-        'font-mono text-lg font-bold',
+        'font-mono text-[18px] font-bold tracking-[-0.02em] text-foreground sm:text-[19px]',
         className
       )}
     >
-      <span className="text-primary">&gt;</span>{' '}
-      <span className="text-foreground">hypequery</span>
+      &gt; hypequery
     </span>
   );
 }

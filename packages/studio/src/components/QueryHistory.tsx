@@ -61,7 +61,18 @@ export function QueryHistory({ className }: QueryHistoryProps) {
   return (
     <div className={cn('flex h-full flex-col min-w-0', className)}>
       {/* Toolbar */}
-      <div className="flex-shrink-0 p-4 border-b border-border">
+      <div className="flex-shrink-0 border-b border-border bg-card/45 px-4 py-5 md:px-6">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
+              Execution history
+            </p>
+            <h1 className="text-lg font-semibold tracking-[-0.02em]">Query runs</h1>
+          </div>
+          <span className="hidden text-right text-xs text-muted-foreground sm:block">
+            Live updates from your API
+          </span>
+        </div>
         {/* Search */}
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -108,7 +119,7 @@ export function QueryHistory({ className }: QueryHistoryProps) {
         <div
           key={headerGroup.id}
           className={cn(
-            'grid gap-3 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground',
+            'grid gap-3 border-b border-border bg-muted/45 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:px-6',
             QUERY_GRID_COLS
           )}
         >
@@ -131,8 +142,7 @@ export function QueryHistory({ className }: QueryHistoryProps) {
             <div
               key={row.id}
               className={cn(
-                'grid w-full items-center gap-3 px-4 py-3',
-                'border-b border-border',
+                'grid w-full items-center gap-3 border-b border-border bg-card/35 px-4 py-3 transition-colors hover:bg-card md:px-6',
                 QUERY_GRID_COLS
               )}
             >
