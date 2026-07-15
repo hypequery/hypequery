@@ -130,6 +130,7 @@ export type GatewayCapability =
   | 'history'
   | 'events'
   | 'cache'
+  | 'cache:clear'
   | 'schema'
   | 'ai';
 
@@ -171,6 +172,7 @@ export interface RegistryResult {
 /** Response of POST /execute. */
 export interface ExecuteResult {
   success: boolean;
+  queryId?: string;
   key?: string;
   result?: unknown;
   durationMs: number;

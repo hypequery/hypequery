@@ -10,6 +10,7 @@ import { QueryListSkeleton } from './Skeleton';
 import type { QueryFilters } from '@/lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Tooltip } from './ui/tooltip';
 
 interface QueryHistoryProps {
   className?: string;
@@ -60,21 +61,9 @@ export function QueryHistory({ className }: QueryHistoryProps) {
 
   return (
     <div className={cn('flex h-full flex-col min-w-0', className)}>
-      {/* Toolbar */}
-      <div className="flex-shrink-0 border-b border-border bg-card/45 px-4 py-5 md:px-6">
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
-              Execution history
-            </p>
-            <h1 className="text-lg font-semibold tracking-[-0.02em]">Query runs</h1>
-          </div>
-          <span className="hidden text-right text-xs text-muted-foreground sm:block">
-            Live updates from your API
-          </span>
-        </div>
-        {/* Search */}
-        <div className="relative mb-3">
+      {/* Toolbar: search + actions on one row */}
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-border bg-card/45 px-4 py-3 md:px-6">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
@@ -84,20 +73,22 @@ export function QueryHistory({ className }: QueryHistoryProps) {
             className="pl-9"
           />
         </div>
-
-        <div className="flex items-center justify-end gap-2">
+        <Tooltip content="Refresh">
           <Button
             variant="outline"
             size="sm"
+            aria-label="Refresh"
             onClick={() => refetch()}
             disabled={loading}
           >
             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            Refresh
           </Button>
+        </Tooltip>
+        <Tooltip content="Clear history">
           <Button
             variant="outline"
             size="sm"
+            aria-label="Clear history"
             onClick={() => {
               if (confirm('Clear all query history?')) {
                 clearHistory();
@@ -105,9 +96,8 @@ export function QueryHistory({ className }: QueryHistoryProps) {
             }}
           >
             <Trash2 className="h-4 w-4" />
-            Clear
           </Button>
-        </div>
+        </Tooltip>
       </div>
 
       {/* Query count */}
@@ -115,24 +105,27 @@ export function QueryHistory({ className }: QueryHistoryProps) {
         {loading ? 'Loading...' : `${total} ${total === 1 ? 'query' : 'queries'}`}
       </div>
 
-      {table.getHeaderGroups().map((headerGroup) => (
-        <div
-          key={headerGroup.id}
-          className={cn(
-            'grid gap-3 border-b border-border bg-muted/45 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:px-6',
-            QUERY_GRID_COLS
-          )}
-        >
-          {headerGroup.headers.map((header) => (
-            <div key={header.id}>
-              {flexRender(header.column.columnDef.header, header.getContext())}
-            </div>
-          ))}
-        </div>
-      ))}
-
-      {/* Query list */}
+      {/* Header lives inside the scroll container so it shares the rows'
+          scrollbar gutter — outside it, header and cells disagree by the
+          scrollbar width. Sticky keeps it visible; the solid background
+          layer stops rows showing through as they scroll under. */}
       <div className="flex-1 overflow-auto">
+        {table.getHeaderGroups().map((headerGroup) => (
+          <div key={headerGroup.id} className="sticky top-0 z-10 bg-background">
+            <div
+              className={cn(
+                'grid gap-3 border-b border-border bg-muted/45 px-4 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground md:px-6',
+                QUERY_GRID_COLS
+              )}
+            >
+              {headerGroup.headers.map((header) => (
+                <div key={header.id}>
+                  {flexRender(header.column.columnDef.header, header.getContext())}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
         {loading && queries.length === 0 ? (
           <QueryListSkeleton count={8} />
         ) : queries.length === 0 ? (

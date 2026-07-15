@@ -7,9 +7,14 @@ import { StatusBadge } from './StatusBadge';
 import { TenantBadge } from './TenantBadge';
 import type { QueryHistoryEntry } from '@/lib/types';
 
-/** Shared grid template so the header and rows always align. */
+/**
+ * Shared grid template so the header and rows always align. Every track must
+ * be fixed or fractional — never `auto`/content-sized: each row is its own
+ * grid container, so a content-sized track would resolve to a different width
+ * per row and the columns would visibly wander between rows.
+ */
 export const QUERY_GRID_COLS =
-  'grid-cols-[140px_minmax(0,1.25fr)_minmax(0,0.95fr)_120px_110px_110px_auto]';
+  'grid-cols-[110px_minmax(0,1.25fr)_minmax(0,0.95fr)_110px_90px_90px_72px]';
 
 function formatInputPreview(input: unknown): string {
   if (input == null) return '-';
@@ -94,9 +99,9 @@ export const queryColumns = [
   }),
   columnHelper.display({
     id: 'meta',
-    header: () => <div className="text-right">Meta</div>,
+    header: 'Meta',
     cell: ({ row }) => (
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-start gap-2">
         {row.original.tenantId && <TenantBadge tenantId={row.original.tenantId} />}
         {row.original.error && (
           <AlertCircle className={cn(ICON_SIZES.md, 'text-destructive')} />

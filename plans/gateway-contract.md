@@ -1,7 +1,7 @@
 # hypequery Gateway Contract v0
 
 Date: 2026-07-05
-Status: draft (normative for `@hypequery/playground` local gateway and `@hypequery/studio` UI;
+Status: draft (normative for `@hypequery/gateway` local gateway and `@hypequery/studio` UI;
 the future Cloud control plane implements the same contract)
 Companion: `plans/dev-playground-design.md`
 
@@ -29,7 +29,10 @@ Companion: `plans/dev-playground-design.md`
   the control plane mounts it.
 - Auth: `Authorization: Bearer <token>` everywhere. Local: requests from loopback need
   no token; any non-loopback request requires `HYPEQUERY_DEV_TOKEN` (gateway refuses to
-  answer otherwise). Cloud: session JWT. UI handles 401 uniformly.
+  answer otherwise). The bundled same-origin Studio may exchange that token at the UI
+  shell for an HttpOnly, path-scoped dev session cookie so browser navigation and native
+  `EventSource` remain usable; API clients continue to use bearer auth. Cloud: session
+  JWT. UI handles 401 uniformly.
 - CORS: same-origin by default. An explicit origin allowlist may be configured; the
   wildcard `*` is forbidden by this contract.
 
