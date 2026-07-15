@@ -1,0 +1,333 @@
+import { X, Copy, Clock, Zap, Database, Server, AlertCircle, Users, Timer } from 'lucide-react';
+import { cn, formatDuration, formatTime, formatNumber } from '@/lib/utils';
+import { COLORS, ICON_SIZES } from '@/lib/colors';
+import { getCacheDisplayConfig } from '@/lib/cache-display';
+import { SQLViewer } from './SQLViewer';
+import { StatusBadge } from './StatusBadge';
+import { MetricCard } from './MetricCard';
+import { IconButton } from './IconButton';
+import type { QueryHistoryEntry } from '@/lib/types';
+
+/**
+ * Renders an error of any shape as text. The contract types this as a
+ * string, but defensive: a raw Error object JSON-serializes to `{}`, and
+ * rendering an object as a React child crashes the whole app (error #31).
+ */
+function formatError(error: unknown): string {
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message) return message;
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}') return serialized;
+  }
+  return 'Unknown error';
+}
+
+/**
+ * Union of keys across all rows. ClickHouse result previews can be sparse
+ * (union-typed rows), so the first row alone may miss columns — and cells
+ * must be looked up by these keys, never by Object.values position.
+ */
+function previewColumns(rows: unknown[]): string[] {
+  const columns = new Set<string>();
+  for (const row of rows) {
+    if (row && typeof row === 'object') {
+      for (const key of Object.keys(row)) columns.add(key);
+    }
+  }
+  return Array.from(columns);
+}
+
+interface QueryDetailProps {
+  query: QueryHistoryEntry;
+  onClose?: () => void;
+}
+
+/**
+ * Detailed view of a single query.
+ */
+export function QueryDetail({ query, onClose }: QueryDetailProps) {
+  const resultColumns = query.resultPreview ? previewColumns(query.resultPreview) : [];
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center gap-3">
+          <StatusBadge status={query.status} />
+          {query.endpointKey && (
+            <span className="text-sm font-medium text-primary">
+              {query.endpointKey}
+            </span>
+          )}
+        </div>
+        {onClose && (
+          <IconButton icon={X} onClick={onClose} title="Close" />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-4 space-y-6">
+        {/* SQL Query */}
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium">SQL Query</h3>
+            <button
+              onClick={() => copyToClipboard(query.query)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Copy className={ICON_SIZES.xs} />
+              Copy
+            </button>
+          </div>
+          <SQLViewer sql={query.query} showLineNumbers maxHeight="300px" />
+        </section>
+
+        {query.input !== undefined && (
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-medium">Input</h3>
+              <button
+                onClick={() => copyToClipboard(JSON.stringify(query.input, null, 2))}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Copy className={ICON_SIZES.xs} />
+                Copy
+              </button>
+            </div>
+            <pre className="overflow-auto rounded-md bg-muted p-3 text-xs font-mono text-foreground">
+              {JSON.stringify(query.input, null, 2)}
+            </pre>
+          </section>
+        )}
+
+        {/* Metrics */}
+        <section>
+          <h3 className="text-sm font-medium mb-3">Metrics</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <MetricCard
+              icon={Clock}
+              label="Start Time"
+              value={formatTime(query.startTime)}
+            />
+            <MetricCard
+              icon={Zap}
+              label="Duration"
+              value={formatDuration(query.duration)}
+              highlight={query.duration !== undefined && query.duration > 1000}
+            />
+            <MetricCard
+              icon={Database}
+              label="Row Count"
+              value={formatNumber(query.rowCount)}
+            />
+            <MetricCard
+              icon={Server}
+              label="Cache Status"
+              value={getCacheDisplayConfig(query.cacheStatus, query.cacheHit)?.label || 'N/A'}
+              highlight={query.cacheStatus === 'hit' || query.cacheHit === true}
+              highlightColor={query.cacheStatus === 'stale' ? 'warning' : 'success'}
+            />
+          </div>
+        </section>
+
+        {/* Cache Info */}
+        {(query.cacheStatus || query.cacheHit || query.cacheKey) && (
+          <section>
+            <h3 className="text-sm font-medium mb-2">Cache</h3>
+            {(() => {
+              const display = getCacheDisplayConfig(query.cacheStatus, query.cacheHit);
+              if (!display) return null;
+              const Icon = display.icon;
+              return (
+                <div className={cn('rounded-md p-3 text-sm', display.bgClass)}>
+                  <div className={cn('flex items-center gap-2 mb-2', display.textClass)}>
+                    <Icon className={ICON_SIZES.md} />
+                    <span className="font-medium">{display.label}</span>
+                    {query.cacheAgeMs !== undefined && (query.cacheStatus === 'hit' || query.cacheStatus === 'stale' || query.cacheHit) && (
+                      <span className="text-xs opacity-75">({formatDuration(query.cacheAgeMs)} old)</span>
+                    )}
+                  </div>
+                  {query.cacheKey && (
+                    <div className="mt-2 pt-2 border-t border-current/10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs opacity-75">Cache Key</span>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(query.cacheKey!)}
+                          className="text-xs opacity-75 hover:opacity-100 flex items-center gap-1"
+                        >
+                          <Copy className={ICON_SIZES.xs} />
+                          Copy
+                        </button>
+                      </div>
+                      <code className="text-xs font-mono block mt-1 truncate" title={query.cacheKey}>
+                        {query.cacheKey}
+                      </code>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </section>
+        )}
+
+        {/* Tenant Info */}
+        {query.tenantId && (
+          <section>
+            <h3 className="text-sm font-medium mb-2">Tenancy</h3>
+            <div className={cn('rounded-md p-3 text-sm', COLORS.purple.bgLight)}>
+              <div className={cn('flex items-center gap-2', COLORS.purple.text)}>
+                <Users className={ICON_SIZES.md} />
+                <span className="font-medium">Tenant: {query.tenantId}</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Timing Breakdown */}
+        {query.timing && (query.timing.setupMs !== undefined || query.timing.handlerMs !== undefined || query.timing.serializeMs !== undefined) && (
+          <section>
+            <h3 className="text-sm font-medium mb-2">Timing Breakdown</h3>
+            <div className="bg-muted rounded-md p-3">
+              <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+                <Timer className={ICON_SIZES.md} />
+                <span className="text-sm">Total: {formatDuration(query.duration)}</span>
+              </div>
+              <div className="space-y-2">
+                {query.timing.setupMs !== undefined && (
+                  <TimingBar label="Setup" value={query.timing.setupMs} total={query.duration ?? 0} />
+                )}
+                {query.timing.handlerMs !== undefined && (
+                  <TimingBar label="Handler" value={query.timing.handlerMs} total={query.duration ?? 0} />
+                )}
+                {query.timing.serializeMs !== undefined && (
+                  <TimingBar label="Serialize" value={query.timing.serializeMs} total={query.duration ?? 0} />
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Error */}
+        {query.error && (
+          <section>
+            <h3 className="text-sm font-medium mb-2">Error</h3>
+            <div className={cn('rounded-md p-3', COLORS.error.bgLight)}>
+              <div className={cn('flex items-start gap-2', COLORS.error.text)}>
+                <AlertCircle className={cn(ICON_SIZES.md, 'mt-0.5 flex-shrink-0')} />
+                <pre className="text-sm whitespace-pre-wrap break-words font-mono">
+                  {formatError(query.error)}
+                </pre>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Result Preview */}
+        {query.resultPreview && query.resultPreview.length > 0 && (
+          <section>
+            <h3 className="text-sm font-medium mb-2">Result Preview</h3>
+            <div className="bg-muted rounded-md overflow-auto max-h-[300px]">
+              <table className="w-full text-sm">
+                <thead className="bg-muted-foreground/10 sticky top-0">
+                  <tr>
+                    {resultColumns.map((key) => (
+                      <th
+                        key={key}
+                        className="px-3 py-2 text-left font-medium text-muted-foreground"
+                      >
+                        {key}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {query.resultPreview.map((row, i) => (
+                    <tr key={i} className="border-t border-border">
+                      {resultColumns.map((key) => (
+                        <td key={key} className="px-3 py-2 font-mono">
+                          {formatCellValue((row as Record<string, unknown>)[key])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {/* Meta Info */}
+        <section>
+          <h3 className="text-sm font-medium mb-2">Details</h3>
+          <dl className="text-sm space-y-1">
+            <div className="flex">
+              <dt className="w-24 text-muted-foreground">Query ID</dt>
+              <dd className="font-mono text-xs">{query.queryId}</dd>
+            </div>
+            {query.endpointPath && (
+              <div className="flex">
+                <dt className="w-24 text-muted-foreground">Endpoint</dt>
+                <dd className="font-mono text-xs">{query.endpointPath}</dd>
+              </div>
+            )}
+            {query.endpointDescription && (
+              <div className="flex">
+                <dt className="w-24 text-muted-foreground">Description</dt>
+                <dd>{query.endpointDescription}</dd>
+              </div>
+            )}
+            {query.createdAt && (
+              <div className="flex">
+                <dt className="w-24 text-muted-foreground">Created</dt>
+                <dd>{formatTime(query.createdAt)}</dd>
+              </div>
+            )}
+          </dl>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Timing bar for visualizing execution breakdown.
+ */
+function TimingBar({ label, value, total }: { label: string; value: number; total: number }) {
+  const percentage = total > 0 ? Math.min((value / total) * 100, 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono">{formatDuration(value)}</span>
+      </div>
+      <div className="h-1.5 bg-background rounded-full overflow-hidden">
+        <div
+          className="h-full bg-primary/60 rounded-full transition-all"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Format cell value for display.
+ */
+function formatCellValue(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+export default QueryDetail;
