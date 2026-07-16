@@ -38,20 +38,23 @@ export interface DevOptions {
   open?: boolean;
   cors?: boolean;
   path?: string;
-  /** Disable the playground UI/gateway (default: enabled). */
-  ui?: boolean;
+  /**
+   * Opt into the experimental query UI/gateway at /__dev. Off by default —
+   * the UI is not release-ready; behaviour and flag may change or go away.
+   */
+  uiExperimental?: boolean;
 }
 
 /**
- * Attempt to create the local gateway from @hypequery/playground. Returns null
- * (with a hint) when the package is not installed, so `hypequery dev` still runs
- * as a plain server.
+ * Attempt to create the local gateway from @hypequery/gateway. The package is an
+ * optional dependency, so it may be absent; in that case we return null (with a
+ * hint) and `hypequery dev` still runs as a plain server.
  */
 async function createGatewayIfAvailable(
   api: unknown
 ): Promise<{ mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null> {
   try {
-    const { createGateway } = await import('@hypequery/playground');
+    const { createGateway } = await import('@hypequery/gateway');
     return (await createGateway(api as any, {
       projectName: path.basename(process.cwd()),
       devToken: process.env.HYPEQUERY_DEV_TOKEN,
@@ -59,7 +62,7 @@ async function createGatewayIfAvailable(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('Cannot find') || message.includes('ERR_MODULE_NOT_FOUND')) {
-      logger.warn('Playground UI not installed. Install @hypequery/playground to enable it.');
+      logger.warn('Playground UI not installed. Install @hypequery/gateway to enable it.');
       return null;
     }
     logger.warn(`Playground failed to start: ${message}`);
@@ -119,8 +122,9 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
       logger.newline();
 
-      // Optionally start the playground gateway and mount it into the server.
-      const gateway = options.ui === false ? null : await createGatewayIfAvailable(api);
+      // The query UI is experimental and strictly opt-in; the default dev
+      // server is unchanged.
+      const gateway = options.uiExperimental ? await createGatewayIfAvailable(api) : null;
       currentGateway = gateway;
 
       // Start the server

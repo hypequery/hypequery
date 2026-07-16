@@ -109,6 +109,10 @@ importers:
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@edge-runtime/vm@3.2.0)(@types/node@20.19.31)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+    optionalDependencies:
+      '@hypequery/gateway':
+        specifier: workspace:*
+        version: link:../gateway
 
   packages/clickhouse:
     dependencies:
