@@ -4,7 +4,6 @@ import { logger } from '../utils/logger.js';
 import { findSchemaFile } from '../utils/find-files.js';
 import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detect-database.js';
 import { ensureChdbInstalled } from '../utils/chdb-client.js';
-import { readProjectConfig } from '../utils/project-config.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 
@@ -43,12 +42,15 @@ export async function generateCommand(options: GenerateOptions = {}) {
         .filter(Boolean)
     : undefined;
 
-  const projectConfig = await readProjectConfig();
   const requestedDbType = options.database as DatabaseType | undefined;
-  const dbType = requestedDbType ?? projectConfig.database ?? (await detectDatabase());
-  const chdbPath = dbType === 'chdb'
-    ? options.chdbPath ?? projectConfig.chdbPath
-    : undefined;
+  const dbType = requestedDbType ?? (await detectDatabase());
+  const chdbPath = dbType === 'chdb' ? options.chdbPath : undefined;
+
+  if (dbType === 'chdb' && !requestedDbType) {
+    throw new Error(
+      'chDB generation must be explicit. Re-run with --database chdb and add --chdb-path <dir> for persistent storage.',
+    );
+  }
 
   logger.newline();
   logger.header(options.commandName ?? 'hypequery generate');

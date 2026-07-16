@@ -36,11 +36,6 @@ vi.mock('../utils/chdb-client.js', () => ({
   ensureChdbInstalled: mockEnsureChdbInstalled,
 }));
 
-const mockReadProjectConfig = vi.hoisted(() => vi.fn());
-vi.mock('../utils/project-config.js', () => ({
-  readProjectConfig: mockReadProjectConfig,
-}));
-
 let generateCommand: typeof import('./generate.js')['generateCommand'];
 
 describe('generate command', () => {
@@ -66,7 +61,6 @@ describe('generate command', () => {
     vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
     vi.mocked(detectDb.detectDatabase).mockResolvedValue('clickhouse');
     mockGenerateTypes.mockResolvedValue(undefined);
-    mockReadProjectConfig.mockResolvedValue({});
 
     process.env.CLICKHOUSE_HOST = 'localhost';
   });
@@ -324,36 +318,13 @@ describe('generate command', () => {
       );
     });
 
-    it('reuses the configured persistent session path during auto-detection', async () => {
-      mockReadProjectConfig.mockResolvedValue({
-        database: 'chdb',
-        chdbPath: './analytics.chdb',
-      });
-      mockEnsureChdbInstalled.mockResolvedValue(undefined);
+    it('requires an explicit driver when a chdb dependency is auto-detected', async () => {
+      vi.mocked(detectDb.detectDatabase).mockResolvedValue('chdb');
 
-      await generateCommand({});
+      await expect(generateCommand({})).rejects.toThrow(/chDB generation must be explicit/);
 
-      expect(detectDb.detectDatabase).not.toHaveBeenCalled();
-      expect(detectDb.getTableCount).toHaveBeenCalledWith('chdb', {
-        chdbPath: './analytics.chdb',
-      });
-      expect(mockGenerateTypes).toHaveBeenCalledWith(
-        expect.objectContaining({ chdbPath: './analytics.chdb' }),
-      );
-    });
-
-    it('lets an explicit session path override project configuration', async () => {
-      mockReadProjectConfig.mockResolvedValue({
-        database: 'chdb',
-        chdbPath: './configured.chdb',
-      });
-      mockEnsureChdbInstalled.mockResolvedValue(undefined);
-
-      await generateCommand({ database: 'chdb', chdbPath: './override.chdb' });
-
-      expect(detectDb.getTableCount).toHaveBeenCalledWith('chdb', {
-        chdbPath: './override.chdb',
-      });
+      expect(mockGetTypeGenerator).not.toHaveBeenCalled();
+      expect(detectDb.getTableCount).not.toHaveBeenCalled();
     });
   });
 });

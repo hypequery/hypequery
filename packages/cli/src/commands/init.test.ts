@@ -45,12 +45,6 @@ vi.mock('../utils/chdb-client.js', () => ({
   getChdbTables: vi.fn(),
 }));
 
-const mockWriteProjectConfig = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
-vi.mock('../utils/project-config.js', () => ({
-  PROJECT_CONFIG_FILENAME: 'hypequery.config.json',
-  writeProjectConfig: mockWriteProjectConfig,
-}));
-
 // Import after mocks
 let initCommand: any;
 
@@ -577,10 +571,6 @@ describe('init command - graceful failure handling', () => {
       // Types come from the embedded generator
       expect(mockGetTypeGenerator).toHaveBeenCalledWith('chdb');
       expect(detectDb.validateConnection).toHaveBeenCalledWith('chdb', { chdbPath: './analytics.chdb' });
-      expect(mockWriteProjectConfig).toHaveBeenCalledWith({
-        database: 'chdb',
-        chdbPath: './analytics.chdb',
-      });
     });
 
     it('prompts for storage interactively and scaffolds in-memory by default', async () => {

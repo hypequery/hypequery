@@ -72,6 +72,8 @@ await initCommand({
 });
 
 await generateCommand({
+  database: 'chdb',
+  chdbPath: dbPath,
   output: 'analytics/regenerated-schema.ts',
 });
 
@@ -79,7 +81,6 @@ const schema = await readFile('analytics/schema.ts', 'utf8');
 const regeneratedSchema = await readFile('analytics/regenerated-schema.ts', 'utf8');
 const client = await readFile('analytics/client.ts', 'utf8');
 const datasets = await readFile('analytics/datasets.ts', 'utf8');
-const config = JSON.parse(await readFile('hypequery.config.json', 'utf8'));
 
 for (const generated of [schema, regeneratedSchema]) {
   assert.match(generated, /events:\s*\{/);
@@ -89,7 +90,6 @@ for (const generated of [schema, regeneratedSchema]) {
 assert.match(client, /chdbAdapter\(\{ session \}\)/);
 assert.ok(client.includes(`new Session(${JSON.stringify(dbPath)})`));
 assert.match(datasets, /EventsDataset = dataset\('events'/);
-assert.deepEqual(config, { database: 'chdb', chdbPath: dbPath });
 
 await closeChdbSessionForTesting();
 NODE
