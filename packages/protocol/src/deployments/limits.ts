@@ -17,8 +17,11 @@ export function resolveDeploymentLimits(
   for (const key of Object.keys(result) as (keyof ProtocolDeploymentLimits)[]) {
     const value = options.limits?.[key];
     if (value === undefined) continue;
-    if (!Number.isSafeInteger(value) || value < 1 || value > DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS[key]) {
-      throw new RangeError(`Invalid deployment limit: ${key}`);
+    const maximum = DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS[key];
+    if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
+      throw new RangeError(
+        `${key} must be a positive safe integer no greater than ${maximum} (the deployment contract v1 maximum)`,
+      );
     }
     result[key] = value;
   }

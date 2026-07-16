@@ -167,6 +167,29 @@ describe('Serve protocol adapter', () => {
     });
   });
 
+  it('preserves discriminator properties when lowering discriminated unions', () => {
+    const schema = z.discriminatedUnion('type', [
+      z.object({ type: z.literal('created'), id: z.string() }),
+      z.object({ type: z.literal('deleted'), reason: z.string() }),
+    ]);
+
+    expect(zodToProtocolSchema(schema)).toMatchObject({
+      kind: 'union',
+      variants: [
+        {
+          kind: 'object',
+          properties: { type: { kind: 'literal', value: 'created' } },
+          required: ['type', 'id'],
+        },
+        {
+          kind: 'object',
+          properties: { type: { kind: 'literal', value: 'deleted' } },
+          required: ['type', 'reason'],
+        },
+      ],
+    });
+  });
+
   it('unwraps readonly Zod schemas', () => {
     expect(zodToProtocolSchema(z.string().readonly())).toEqual({ kind: 'string' });
   });

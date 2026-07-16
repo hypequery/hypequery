@@ -162,7 +162,8 @@ describe('deployment contract v1', () => {
       'HQ_DEPLOYMENT_TOO_MANY_ITEMS',
     );
     expect(() => validateProtocolDeploymentContract(baseDeployment(), { limits: { maxDatasets: 101 } }))
-      .toThrow(RangeError);
+      .toThrow('maxDatasets must be a positive safe integer no greater than 100 '
+        + '(the deployment contract v1 maximum)');
   });
 
   it('validates compiled input bindings against the named-query input schema', () => {

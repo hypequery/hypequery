@@ -214,6 +214,9 @@ function convert(schema: ZodTypeAny, path: string): Record<string, unknown> {
           convert(option, `${path}.variants[${index}]`)),
       });
     case 'ZodDiscriminatedUnion':
+      // RFC 0004 has no separate discriminator index. Converting every option
+      // drops only Zod's lookup metadata; each object's literal discriminator
+      // property remains part of its protocol variant.
       return annotate(schema, {
         kind: 'union',
         variants: [...definition.options.values()].map((option: ZodTypeAny, index: number) =>

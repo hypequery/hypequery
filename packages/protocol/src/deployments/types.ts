@@ -155,6 +155,14 @@ export interface ProtocolDeploymentLimits {
   readonly maxPathBytes: number;
 }
 
+/**
+ * Validation budgets for a deployment contract.
+ *
+ * Each configured value must be a positive safe integer no greater than the
+ * corresponding value in `DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS`. These options
+ * may tighten the deployment-contract v1 conformance limits, but cannot raise
+ * them; they are not deployment capacity settings.
+ */
 export interface ProtocolDeploymentOptions {
   readonly limits?: Partial<ProtocolDeploymentLimits>;
 }
