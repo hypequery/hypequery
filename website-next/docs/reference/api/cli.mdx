@@ -202,7 +202,7 @@ npx hypequery generate [options]
 
 `hypequery generate` auto-detects remote ClickHouse configuration and ships with that driver, so the remote path needs no extra database package. Pass `--database chdb` to introspect an [embedded ClickHouse](/docs/chdb) session instead; this requires `chdb`, which `init --database chdb` installs automatically. Add `--chdb-path <dir>` for a persistent session. If the CLI detects a chDB dependency without an explicit driver, it stops with the exact command to run rather than silently opening an empty in-memory session.
 
-Detection prefers remote ClickHouse configuration over an installed `chdb` dependency. The order is: `CLICKHOUSE_*` environment variables, ClickHouse variables in `.env`, then a `chdb` dependency; when none are present, the CLI defaults to the ClickHouse driver. Use `--database clickhouse` or `--database chdb` to override detection explicitly. This means a project may depend on `chdb` and still generate against ClickHouse Cloud:
+Detection prefers remote ClickHouse configuration over an installed `chdb` dependency. The order is: `CLICKHOUSE_*` environment variables, ClickHouse variables in `.env`, then a `chdb` dependency. If none are present, generation stops and asks you to select a database explicitly. Use `--database clickhouse` or `--database chdb` to override detection. This means a project may depend on `chdb` and still generate against ClickHouse Cloud:
 
 <CodeBlock>
 

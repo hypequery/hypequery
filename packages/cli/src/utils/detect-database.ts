@@ -73,9 +73,7 @@ export async function detectDatabase(): Promise<DatabaseType> {
     // package.json missing or unparsable, continue
   }
 
-  // ClickHouse is the CLI's default driver. Connection validation will provide
-  // the actionable missing-credentials error when no configuration is present.
-  return 'clickhouse';
+  return 'unknown';
 }
 
 /**
