@@ -70,9 +70,9 @@ describe('detect-database', () => {
       await expect(detectDatabase()).resolves.toBe('bigquery');
     });
 
-    it('returns unknown when nothing matches', async () => {
+    it('defaults to clickhouse when nothing matches', async () => {
       vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
-      await expect(detectDatabase()).resolves.toBe('unknown');
+      await expect(detectDatabase()).resolves.toBe('clickhouse');
     });
 
     it('detects chdb from a project dependency when no connection config exists', async () => {
