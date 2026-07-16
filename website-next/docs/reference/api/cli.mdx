@@ -10,7 +10,7 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # CLI reference
 
-The `hypequery` CLI provides commands for scaffolding, generating types, and running development servers. Every command expects access to your ClickHouse credentials via the prompts presented during `init` or via the `CLICKHOUSE_*` environment variables listed below — except with `--database chdb`, which runs on [embedded ClickHouse](/docs/chdb) and needs no credentials at all.
+The `hypequery` CLI provides commands for scaffolding, generating types, and running development servers. Remote ClickHouse workflows use credentials collected during `init` or supplied through the `CLICKHOUSE_*` environment variables below. The `chdb` driver runs on [embedded ClickHouse](/docs/chdb) and needs no server credentials.
 
 ## Which command should I use?
 
@@ -67,7 +67,7 @@ npx hypequery dev
 
 | Command | Purpose |
 | --- | --- |
-| `hypequery init` | Scaffold the `analytics/` folder, collect ClickHouse credentials, and optionally create an example query or dataset |
+| `hypequery init` | Scaffold the `analytics/` folder, configure the selected database driver, and optionally create an example query or dataset |
 | `hypequery dev [file]` | Run the local dev server backed by `@hypequery/serve` with hot reload |
 | `hypequery generate` | Rebuild `analytics/schema.ts` from your current ClickHouse schema |
 | `hypequery generate:types` | Alias for `hypequery generate` |
@@ -96,22 +96,22 @@ npx hypequery init [options]
 - **`--tables <names>`** – With `--style datasets`, generate datasets only for these comma-separated tables
 - **`--exclude-tables <names>`** – With `--style datasets`, exclude these comma-separated tables from generation
 - **`--no-example`** – Skip generating the sample query
-- **`--database <type>`** – Database driver: `clickhouse` (default) or `chdb` to scaffold onto [embedded ClickHouse](/docs/chdb) — no server, no credentials, no `.env`
-- **`--chdb-path <path>`** – With `--database chdb`, the directory the embedded session stores data in (e.g. `./analytics.chdb`); omit for an in-memory session. `init` saves this choice in `hypequery.config.json` for later generate commands
+- **`--database <type>`** – Database driver: `clickhouse` (default) or `chdb` to scaffold onto [embedded ClickHouse](/docs/chdb) — no server or credentials, and no `.env` is created or updated
+- **`--chdb-path <path>`** – With `--database chdb`, the directory the embedded session stores data in (e.g. `./analytics.chdb`); omit for an in-memory session. `init` saves this choice in `hypequery.config.json`. Use on-disk storage when later generate commands must see tables created by another process
 - **`--no-interactive`** – Skip prompts and read the ClickHouse URL/database/user/password from `CLICKHOUSE_*` env vars. The command fails if any required variable is missing. With `--database chdb` there are no connection variables to read
 - **`--force`** – Overwrite existing files without asking
-- **`--skip-connection`** – Skip the initial ClickHouse connectivity test and scaffold files without validating the connection first
+- **`--skip-connection`** – Skip the initial database connectivity test and scaffold files without validating the selected driver first
 
 **What it does:**
 
-During the flow the CLI tests your ClickHouse connection immediately using the credentials you provide. On success it:
-- Writes `.env` with your connection details
+For the default `clickhouse` driver, the CLI validates the remote connection using the credentials you provide. For `chdb`, it installs and starts the embedded engine against the selected storage path. On success it:
+- Writes remote ClickHouse credentials to `.env`, or writes the chDB driver and storage path to `hypequery.config.json`
 - Generates `client.ts`, `schema.ts`, and `queries.ts` (or `datasets.ts` + `api.ts` with `--style datasets`) in the selected directory
 - Creates or updates `.gitignore` to protect secrets
-- Installs the scaffold dependencies the generated files expect (`@hypequery/clickhouse`, `@hypequery/serve`, `zod`, plus `@hypequery/datasets` for the datasets style) using the package manager detected in your project
+- Installs the scaffold dependencies the generated files expect (`@hypequery/clickhouse`, `@hypequery/serve`, `zod`, plus `@hypequery/datasets` for the datasets style and `chdb` for the embedded driver) using the package manager detected in your project
 - Prints follow-up instructions for `hypequery dev`
 
-The example query is only generated in interactive mode with a valid connection. To skip the automatic dependency install (for example in CI), set `HYPEQUERY_SKIP_INSTALL=1` and install the packages yourself.
+With a valid connection, interactive mode can generate a table-backed example after you select a table. Otherwise the query scaffold contains a database-independent `exampleMetric`. To skip the automatic dependency install (for example in CI), set `HYPEQUERY_SKIP_INSTALL=1` and install the packages yourself.
 
 The generated scaffold is written for modern ESM and NodeNext-style resolution, so local relative imports include the `.js` extension where needed.
 
@@ -200,7 +200,7 @@ npx hypequery generate [options]
 ```
 </CodeBlock>
 
-`hypequery generate` auto-detects your database configuration and ships with the ClickHouse driver, so there’s no extra package to install. Pass `--database chdb` to introspect an [embedded ClickHouse](/docs/chdb) session instead of a server. Projects created by `init --database chdb` reuse the driver and session path saved in `hypequery.config.json`; dependency-based detection remains as a fallback for existing chDB projects.
+`hypequery generate` auto-detects your database configuration and ships with the remote ClickHouse driver, so that path needs no extra database package. Pass `--database chdb` to introspect an [embedded ClickHouse](/docs/chdb) session instead of a server; this requires `chdb`, which `init --database chdb` installs automatically. Projects created by that command reuse the driver and session path saved in `hypequery.config.json`; dependency-based detection remains as a fallback for existing chDB projects.
 
 This is the command most users want after initial setup. Run it whenever your ClickHouse schema changes and you need to refresh the generated TypeScript types.
 
@@ -209,19 +209,19 @@ This is the command most users want after initial setup. Run it whenever your Cl
 - **`--path <dir>`** – Analytics directory to write into (derives `<dir>/schema.ts`). Takes effect when `--output` is not set
 - **`--tables <names>`** – Comma-separated list of tables to include. By default all ClickHouse tables are introspected
 - **`--database <type>`** – Override the detected database driver: `clickhouse` or `chdb`
-- **`--chdb-path <path>`** – With `--database chdb`, override the configured embedded session directory to introspect; omit when `hypequery.config.json` already contains the path or for an in-memory session
+- **`--chdb-path <path>`** – For chDB, override the configured embedded session directory to introspect; omit when `hypequery.config.json` already contains the path. Without a configured or explicit path, generate opens a new in-memory session
 
 `hypequery generate:types` is an alias for `hypequery generate` and accepts the same options.
 
 **What it does:**
 
 The generator:
-- Connects to ClickHouse using your `CLICKHOUSE_*` env variables
+- Connects to remote ClickHouse using `CLICKHOUSE_*`, or opens the configured chDB session
 - Introspects your database schema
 - Generates TypeScript interfaces for all tables
 - Updates your schema file with type-safe definitions
 
-The generator shares the `CLICKHOUSE_*` configuration with the rest of the CLI, so ensure those env vars are set (or run `hypequery init` first).
+For remote ClickHouse, ensure the `CLICKHOUSE_*` variables are set (or run `hypequery init` first). For chDB, use an on-disk session path when the schema was created by another process; an in-memory session starts empty in each CLI invocation.
 
 Unlike `init`, `generate` does not scaffold `client.ts` or `queries.ts`. It only updates the generated schema types.
 
@@ -250,7 +250,7 @@ npx hypequery generate:datasets [options]
 ```
 </CodeBlock>
 
-Scaffolds [dataset (semantic layer)](/docs/datasets/overview) definitions from your ClickHouse schema, so you don't have to hand-write dimensions and measures for every table. This is the standalone version of what `hypequery init --style datasets` does during scaffolding.
+Scaffolds [dataset (semantic layer)](/docs/datasets/overview) definitions from a remote ClickHouse schema, so you don't have to hand-write dimensions and measures for every table. This standalone command currently uses `CLICKHOUSE_*` configuration. For chDB, `hypequery init --database chdb --style datasets` can generate dataset definitions during the initial scaffold, but `generate:datasets` does not currently accept the chDB driver or session path.
 
 **Options:**
 - **`-o, --output <file>`** – Where to write the generated datasets. Defaults to `src/datasets/generated.ts`
@@ -276,7 +276,7 @@ npx @hypequery/cli generate:datasets --path analytics --tables users,orders
 
 ## Environment variables
 
-These variables are read whenever the CLI talks to ClickHouse (either during `init` in non-interactive mode or during later commands):
+These variables are read whenever the CLI talks to a remote ClickHouse server (either during `init` in non-interactive mode or during later remote-driver commands). They are not used by chDB:
 
 | Variable | Description |
 | --- | --- |
@@ -286,7 +286,7 @@ These variables are read whenever the CLI talks to ClickHouse (either during `in
 | `CLICKHOUSE_PASSWORD` | Password or token |
 | `CLICKHOUSE_HOST` / `CLICKHOUSE_USERNAME` / `CLICKHOUSE_PASS` | Backward-compatible aliases also detected by the CLI |
 
-Set these in your `.env` (the `init` command will scaffold this file for you) or export them in CI/CD before running CLI commands.
+Set these in your `.env` (the default ClickHouse `init` flow will scaffold this file for you) or export them in CI/CD before running remote-driver CLI commands.
 
 ## Troubleshooting
 

@@ -43,7 +43,7 @@ Nothing else changes: `toSQL()`, `rawQuery()`, and streaming all work, and the a
 
 ## Zero-Server Scaffolding
 
-`hypequery init` can scaffold a project straight onto the embedded engine — no server, no credentials, no `.env`:
+`hypequery init` can scaffold a project straight onto the embedded engine — no server, no credentials, and no `.env` created or updated:
 
 <CodeBlock>
 
@@ -53,7 +53,7 @@ npx hypequery init --database chdb
 
 </CodeBlock>
 
-The scaffolded `client.ts` uses the adapter instead of an HTTP connection, `chdb` is installed as a dependency automatically, and the connection prompts are skipped. Choose an on-disk session directory (e.g. `./analytics.chdb`) to persist data between runs, or stay in-memory for a throwaway sandbox. The choice is saved in `hypequery.config.json`, so after creating tables a plain generate command refreshes types from the same session:
+The scaffolded `client.ts` uses the adapter instead of an HTTP connection, `chdb` is installed as a dependency automatically, and the credential prompts are skipped. Choose an on-disk session directory (e.g. `./analytics.chdb`) to persist data between runs, or stay in-memory for a throwaway runtime sandbox. The choice is saved in `hypequery.config.json`. With on-disk storage, a plain generate command reopens that directory and refreshes types after you create tables:
 
 <CodeBlock>
 
@@ -62,6 +62,8 @@ npx hypequery generate
 ```
 
 </CodeBlock>
+
+An in-memory session is discarded when its process exits. Use an on-disk path when tables created by your application must also be visible to a later `hypequery generate` process.
 
 See the [CLI reference](/docs/reference/api/cli) for all `init` and `generate` flags.
 
