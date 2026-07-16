@@ -1,4 +1,6 @@
 import {
+  parseProtocolIdentifier,
+  parseProtocolQualifiedIdentifier,
   validateCanonicalValue,
   validateProtocolDatasetContract,
   type CanonicalValue,
@@ -20,6 +22,13 @@ import type {
   MetricHandle,
   MetricRef,
 } from './types.js';
+
+type ProtocolReferenceExpression = Extract<ProtocolExpression, { readonly kind: 'reference' }>;
+type ProtocolLiteralExpression = Extract<ProtocolExpression, { readonly kind: 'literal' }>;
+type ProtocolBinaryExpression = Extract<ProtocolExpression, { readonly kind: 'binary' }>;
+type ProtocolCallExpression = Extract<ProtocolExpression, { readonly kind: 'call' }>;
+type ProtocolComparisonExpression = Extract<ProtocolExpression, { readonly kind: 'comparison' }>;
+type ProtocolAggregateExpression = Extract<ProtocolExpression, { readonly kind: 'aggregate' }>;
 
 export interface BuildProtocolDatasetContractOptions {
   readonly metrics?: Readonly<Record<string, MetricHandle>>;
@@ -75,25 +84,37 @@ function canonicalValue(input: unknown): CanonicalValue {
 }
 
 function filterExpression(filter: MetricFilter): ProtocolExpression {
-  return {
+  const left: ProtocolReferenceExpression = {
+    kind: 'reference',
+    name: parseProtocolQualifiedIdentifier(filter.field),
+  };
+  const right: ProtocolLiteralExpression = {
+    kind: 'literal',
+    value: canonicalValue(filter.value),
+  };
+  const result: ProtocolComparisonExpression = {
     kind: 'comparison',
     operator: filter.operator,
-    left: { kind: 'reference', name: filter.field },
-    right: { kind: 'literal', value: canonicalValue(filter.value) },
-  } as unknown as ProtocolExpression;
+    left,
+    right,
+  };
+  return result;
 }
 
 function aggregationExpression(spec: AggregationSpec): ProtocolExpression {
-  return {
+  const result: ProtocolAggregateExpression = {
     kind: 'aggregate',
     aggregation: spec.aggregation,
-    field: spec.field,
-    ...(spec.argField !== undefined ? { argField: spec.argField } : {}),
+    field: parseProtocolQualifiedIdentifier(spec.field),
+    ...(spec.argField !== undefined
+      ? { argField: parseProtocolQualifiedIdentifier(spec.argField) }
+      : {}),
     ...(spec.level !== undefined ? { level: spec.level } : {}),
     ...(spec.filters?.length
       ? { filters: spec.filters.map(filterExpression) }
       : {}),
-  } as unknown as ProtocolExpression;
+  };
+  return result;
 }
 
 function semanticExpression(
@@ -103,7 +124,10 @@ function semanticExpression(
   switch (expression.kind) {
     case 'ref':
       return references[expression.name]
-        ?? ({ kind: 'reference', name: expression.name } as unknown as ProtocolExpression);
+        ?? {
+          kind: 'reference',
+          name: parseProtocolQualifiedIdentifier(expression.name),
+        } satisfies ProtocolReferenceExpression;
     case 'literal':
       return { kind: 'literal', value: canonicalValue(expression.value) };
     case 'binary':
@@ -112,13 +136,13 @@ function semanticExpression(
         operator: expression.operator,
         left: semanticExpression(expression.left, references),
         right: semanticExpression(expression.right, references),
-      } as unknown as ProtocolExpression;
+      } satisfies ProtocolBinaryExpression;
     case 'function':
       return {
         kind: 'call',
         function: expression.name,
         args: expression.args.map(argument => semanticExpression(argument, references)),
-      } as unknown as ProtocolExpression;
+      } satisfies ProtocolCallExpression;
   }
 }
 
@@ -148,22 +172,23 @@ function metricContract(
 ): ProtocolDatasetMetric {
   const { ref, grain } = unwrapMetric(metric);
   const contract = metric.contract();
-  return {
-    name: exposedName,
+  const result: ProtocolDatasetMetric = {
+    name: parseProtocolIdentifier(exposedName),
     kind: grain
       ? 'grained-metric'
       : ref.spec.__type === 'derived_metric_spec'
         ? 'derived-metric'
         : 'metric',
     expression: metricExpression(ref.spec),
-    dimensions: [...contract.dimensions].sort(),
-    filters: [...contract.filters].sort(),
+    dimensions: [...contract.dimensions].sort().map(parseProtocolQualifiedIdentifier),
+    filters: [...contract.filters].sort().map(parseProtocolIdentifier),
     grains: [...contract.grains].sort(),
     ...(grain !== undefined ? { grain } : {}),
     ...(ref.label !== undefined ? { label: ref.label } : {}),
     ...(ref.description !== undefined ? { description: ref.description } : {}),
     endpoint,
-  } as unknown as ProtocolDatasetMetric;
+  };
+  return result;
 }
 
 function sqlExpression(
@@ -176,8 +201,21 @@ function sqlExpression(
     dialect: 'clickhouse',
     sql,
     output,
-    dependencies,
-  } as unknown as ProtocolSqlExpression;
+    dependencies: [...dependencies].sort().map(parseProtocolQualifiedIdentifier),
+  };
+}
+
+function requiredSqlDependencies(
+  kind: 'dimension' | 'measure',
+  name: string,
+  dependencies: readonly string[] | undefined,
+): readonly string[] {
+  if (dependencies === undefined) {
+    throw new Error(
+      `SQL-backed ${kind} "${name}" must declare dependencies for the protocol artifact.`,
+    );
+  }
+  return dependencies;
 }
 
 /**
@@ -188,10 +226,6 @@ export function buildProtocolDatasetContract(
   dataset: AnyDatasetInstance,
   options: BuildProtocolDatasetContractOptions = {},
 ): ProtocolDatasetContract {
-  const dependencies = Object.entries(dataset.dimensions)
-    .filter(([, dimension]) => dimension.sql === undefined)
-    .map(([name]) => name)
-    .sort();
   const metrics = Object.entries(options.metrics ?? {})
     .filter(([, metric]) => unwrapMetric(metric).ref.datasetName === dataset.name)
     .map(([name, metric]) => {
@@ -214,7 +248,11 @@ export function buildProtocolDatasetContract(
       name,
       type: dimension.fieldType,
       source: dimension.sql !== undefined
-        ? sqlExpression(dimension.sql, fieldSchema(dimension.fieldType), dependencies)
+        ? sqlExpression(
+            dimension.sql,
+            fieldSchema(dimension.fieldType),
+            requiredSqlDependencies('dimension', name, dimension.dependencies),
+          )
         : { kind: 'column' as const, column: dimension.column ?? name },
       filterable: dimension.filterable !== false,
       groupable: dimension.groupable !== false,
@@ -232,7 +270,7 @@ export function buildProtocolDatasetContract(
             sql: sqlExpression(
               measure.sql,
               fieldSchema(dataset.dimensions[measure.field]?.fieldType),
-              dependencies,
+              requiredSqlDependencies('measure', name, measure.dependencies),
             ),
           }
         : {}),

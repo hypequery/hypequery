@@ -126,6 +126,21 @@ describe('Serve protocol adapter', () => {
     expect(contract.queries[0]?.endpoint.access.kind).toBe('authenticated');
   });
 
+  it('preserves the semantic endpoint public override for auth null', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { id: dimension.string() },
+    });
+    const contract = buildProtocolDeploymentContract({
+      auth: async () => ({ userId: 'user_1' }),
+      datasets: {
+        orders: { dataset: Orders, auth: null },
+      },
+    });
+
+    expect(contract.datasets[0]?.endpoint?.access).toEqual({ kind: 'public' });
+  });
+
   it('rejects typed object catchalls that the protocol cannot represent', () => {
     expect(() => zodToProtocolSchema(z.object({ id: z.string() }).catchall(z.number())))
       .toThrow(ProtocolSchemaAdapterError);

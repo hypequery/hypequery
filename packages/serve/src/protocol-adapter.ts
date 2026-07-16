@@ -71,14 +71,14 @@ function accessPolicy(
     readonly requiredScopes?: readonly string[];
   },
   globalAuth: AnyServeConfig['auth'],
-  authNullIsPublic: boolean,
+  nullAuthOverridesGlobal: boolean,
 ): ProtocolAccessPolicy {
   const roles = [...new Set(local.requiredRoles ?? [])].sort();
   const scopes = [...new Set(local.requiredScopes ?? [])].sort();
   if (roles.length > 0 || scopes.length > 0) {
     return { kind: 'authenticated', roles, scopes };
   }
-  if (local.requiresAuth === false || (authNullIsPublic && local.auth === null)) {
+  if (local.requiresAuth === false || (nullAuthOverridesGlobal && local.auth === null)) {
     return { kind: 'public' };
   }
   if (local.requiresAuth === true || local.auth != null || hasGlobalAuth(globalAuth)) {
@@ -102,11 +102,13 @@ function endpointPolicy(
   globalTenant: AnyServeConfig['tenant'],
   path: string,
   defaultMaxLimit?: number,
-  authNullIsPublic = false,
+  // Dataset/metric endpoints use `auth: null` as an explicit public override;
+  // named queries use it only to omit a local strategy and still inherit global auth.
+  nullAuthOverridesGlobal = false,
 ): ProtocolEndpointPolicy {
   const cacheTtlMs = local.cacheTtlMs ?? local.cache ?? undefined;
   return {
-    access: accessPolicy(local, globalAuth, authNullIsPublic),
+    access: accessPolicy(local, globalAuth, nullAuthOverridesGlobal),
     tenant: endpointTenantPolicy(local.tenant, globalTenant),
     ...(typeof cacheTtlMs === 'number' && cacheTtlMs > 0 ? { cacheTtlMs } : {}),
     ...((local.maxLimit ?? defaultMaxLimit) !== undefined

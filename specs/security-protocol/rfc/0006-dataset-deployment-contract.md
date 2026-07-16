@@ -72,6 +72,13 @@ These fields describe enforcement requirements; authentication strategies,
 tenant extraction callbacks, middleware, and HTTP server behavior remain
 runtime concerns.
 
+The reference Serve adapter preserves the runtime distinction for explicit
+`auth: null`: Dataset and metric entries use it to opt out of a global auth
+strategy, while named queries use it only to omit a local strategy and continue
+to inherit global auth. Role or scope requirements still make either endpoint
+authenticated. Named queries use `requiresAuth: false` for an explicit public
+override.
+
 ## Serve query adapter
 
 An adapter may convert the portable subset of Zod or Pydantic into RFC 0004

@@ -23,12 +23,18 @@ describe('Dataset protocol adapter', () => {
       dimensions: {
         id: dimension.string(),
         amount: dimension.number(),
-        netAmount: dimension.number({ sql: 'amount - discount' }),
+        netAmount: dimension.number({
+          sql: 'amount - discount',
+          dependencies: ['amount', 'discount'],
+        }),
       },
       measures: {
         revenue: measure.sum('amount', { filters: [eq('amount', 10)] }),
         orderCount: measure.count('id'),
-        netRevenue: measure.sum('amount', { sql: 'amount - discount' }),
+        netRevenue: measure.sum('amount', {
+          sql: 'amount - discount',
+          dependencies: ['amount', 'discount'],
+        }),
       },
       relationships: {
         customer: belongsTo(() => Customers, { from: 'customer_id', to: 'id' }),
@@ -73,7 +79,7 @@ describe('Dataset protocol adapter', () => {
         kind: 'sql-expression',
         dialect: 'clickhouse',
         sql: 'amount - discount',
-        dependencies: ['amount', 'id'],
+        dependencies: ['amount', 'discount'],
       });
     expect(contract.measures.find(item => item.name === 'revenue')?.filters)
       .toHaveLength(1);
@@ -100,5 +106,17 @@ describe('Dataset protocol adapter', () => {
     });
     expect(Object.isFrozen(contract)).toBe(true);
     expect(Object.isFrozen(contract.dimensions)).toBe(true);
+  });
+
+  it('requires exact dependencies for every SQL-backed field', () => {
+    const Dataset = dataset('orders', {
+      source: 'orders',
+      dimensions: {
+        computed: dimension.number({ sql: 'amount - discount' }),
+      },
+    });
+
+    expect(() => buildProtocolDatasetContract(Dataset))
+      .toThrow('SQL-backed dimension "computed" must declare dependencies');
   });
 });
