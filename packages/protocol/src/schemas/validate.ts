@@ -379,7 +379,7 @@ function matchesSchema(schema: ProtocolSchema, value: CanonicalValue): boolean {
         if (property) {
           if (!matchesSchema(property, item)) return false;
           found.add(key);
-        } else if (schema.unknownProperties === 'reject') {
+        } else if (schema.unknownProperties === 'reject' || schema.unknownProperties === 'strip') {
           return false;
         }
       }
