@@ -99,6 +99,30 @@ describe('dev command', () => {
     exitHandler.restore();
   });
 
+  describe('experimental query UI', () => {
+    it('does not start the gateway by default', async () => {
+      const { createGateway } = await import('@hypequery/playground');
+      await devCommand(undefined, { watch: false });
+
+      expect(createGateway).not.toHaveBeenCalled();
+      expect(mockServeDev).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ mount: undefined })
+      );
+    });
+
+    it('starts the gateway only with --ui-experimental', async () => {
+      const { createGateway } = await import('@hypequery/playground');
+      await devCommand(undefined, { watch: false, uiExperimental: true });
+
+      expect(createGateway).toHaveBeenCalledOnce();
+      expect(mockServeDev).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ mount: expect.any(Function) })
+      );
+    });
+  });
+
   describe('Happy path (watch disabled for testing)', () => {
     it('should start dev server successfully', async () => {
       await devCommand(undefined, { watch: false });

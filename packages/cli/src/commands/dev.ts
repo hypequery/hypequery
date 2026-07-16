@@ -38,8 +38,11 @@ export interface DevOptions {
   open?: boolean;
   cors?: boolean;
   path?: string;
-  /** Disable the playground UI/gateway (default: enabled). */
-  ui?: boolean;
+  /**
+   * Opt into the experimental query UI/gateway at /__dev. Off by default —
+   * the UI is not release-ready; behaviour and flag may change or go away.
+   */
+  uiExperimental?: boolean;
 }
 
 /**
@@ -119,8 +122,9 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
       logger.newline();
 
-      // Optionally start the playground gateway and mount it into the server.
-      const gateway = options.ui === false ? null : await createGatewayIfAvailable(api);
+      // The query UI is experimental and strictly opt-in; the default dev
+      // server is unchanged.
+      const gateway = options.uiExperimental ? await createGatewayIfAvailable(api) : null;
       currentGateway = gateway;
 
       // Start the server
