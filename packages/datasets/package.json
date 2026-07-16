@@ -40,6 +40,7 @@
     "dist"
   ],
   "dependencies": {
+    "@hypequery/protocol": "^0.1.0",
     "@noble/hashes": "^1.8.0",
     "zod": "^3.22.4"
   },

@@ -52,6 +52,10 @@ export {
   hashContract,
   SEMANTIC_CONTRACT_VERSION,
 } from './contract.js';
+
+// Portable deployment contract adapter
+export { buildProtocolDatasetContract } from './protocol-adapter.js';
+export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
 export type {
   SemanticContract,
   SerializeSemanticContractOptions,

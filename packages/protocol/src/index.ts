@@ -86,6 +86,35 @@ export {
   validateProtocolSqlExpression,
 } from './query-implementations/index.js';
 
+export {
+  DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
+  ProtocolDeploymentError,
+  validateProtocolDatasetContract,
+  validateProtocolDeploymentContract,
+} from './deployments/index.js';
+
+export type {
+  ProtocolAccessPolicy,
+  ProtocolDatasetContract,
+  ProtocolDatasetDimension,
+  ProtocolDatasetFieldSource,
+  ProtocolDatasetFieldType,
+  ProtocolDatasetFilter,
+  ProtocolDatasetLimits,
+  ProtocolDatasetMeasure,
+  ProtocolDatasetMetric,
+  ProtocolDatasetRelationship,
+  ProtocolDatasetTenantPolicy,
+  ProtocolDeploymentContract,
+  ProtocolDeploymentErrorCode,
+  ProtocolDeploymentLimits,
+  ProtocolDeploymentOptions,
+  ProtocolEndpointPolicy,
+  ProtocolEndpointTenantPolicy,
+  ProtocolNamedQueryContract,
+  ProtocolRuntimeArtifact,
+} from './deployments/index.js';
+
 export type {
   ProtocolQueryImplementation,
   ProtocolQueryImplementationErrorCode,

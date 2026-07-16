@@ -5,10 +5,12 @@ describe('@hypequery/protocol public surface', () => {
   it('exports only the reviewed protocol surfaces', () => {
     expect(Object.keys(protocol).sort()).toEqual([
       'DEFAULT_CANONICAL_VALUE_LIMITS',
+      'DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS',
       'DEFAULT_PROTOCOL_EXPRESSION_LIMITS',
       'DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS',
       'DEFAULT_PROTOCOL_SCHEMA_LIMITS',
       'PROTOCOL_IDENTIFIER_LIMITS',
+      'ProtocolDeploymentError',
       'ProtocolExpressionError',
       'ProtocolIdentifierError',
       'ProtocolQueryImplementationError',
@@ -25,6 +27,8 @@ describe('@hypequery/protocol public surface', () => {
       'parseProtocolQualifiedIdentifier',
       'splitProtocolQualifiedIdentifier',
       'validateCanonicalValue',
+      'validateProtocolDatasetContract',
+      'validateProtocolDeploymentContract',
       'validateProtocolExpression',
       'validateProtocolQueryImplementation',
       'validateProtocolSchema',

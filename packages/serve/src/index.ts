@@ -18,6 +18,9 @@ export { startServer, toNodeHandler, toFetchHandler } from "./adapters/standalon
 export type { DevIntegrationApi, ServeDevOptions } from "./dev.js";
 export { createCacheObservability, detectBuilderCache } from "./cache-observability.js";
 export type { CacheObservability, CacheLayerStats, BuilderCacheLike } from "./cache-observability.js";
+export { buildProtocolDeploymentContract } from './protocol-adapter.js';
+export type { BuildProtocolDeploymentOptions } from './protocol-adapter.js';
+export { ProtocolSchemaAdapterError, zodToProtocolSchema } from './protocol-schema-adapter.js';
 /** @deprecated Import from `@hypequery/serve/dev` instead. */
 export { serveDev } from "./dev.js";
 export * from "./serve.js";

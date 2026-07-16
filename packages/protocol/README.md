@@ -70,6 +70,11 @@ semantic plans, compiled read-only ClickHouse statements with bound input or
 tenant parameters, and hashed Node/Python runtime references for Serve handlers
 that cannot be lowered portably. Validation does not execute or authorize SQL.
 
+The proposed deployment surface combines complete Dataset definitions, named
+Serve queries, endpoint policy, and runtime artifact identities into one strict
+versioned envelope. Dataset and Serve adapters live in their owning packages;
+the protocol package remains deterministic and framework-independent.
+
 ## Runtime compatibility
 
 This package is ESM-only. Consumers must load it with `import`; CommonJS
