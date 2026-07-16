@@ -65,6 +65,16 @@ npx hypequery generate --database chdb --chdb-path ./analytics.chdb
 
 An in-memory session is discarded when its process exits. Use an on-disk path when tables created by your application must also be visible to a later `hypequery generate` process.
 
+Installing `chdb` does not prevent the CLI from connecting to ClickHouse Cloud or another remote server. `CLICKHOUSE_*` environment variables and `.env` configuration take precedence over dependency-based chDB detection. You can also select the remote driver explicitly:
+
+<CodeBlock>
+
+```bash
+npx hypequery generate --database clickhouse
+```
+
+</CodeBlock>
+
 See the [CLI reference](/docs/reference/api/cli) for all `init` and `generate` flags.
 
 ## Setup
