@@ -7,12 +7,14 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import type { TypeGenerationClickHouseClient } from '@hypequery/clickhouse/cli';
 import { getClickHouseClient } from '../utils/clickhouse-client.js';
 
 export interface DatasetGeneratorOptions {
   outputPath: string;
   includeTables?: string[];
   excludeTables?: string[];
+  client?: TypeGenerationClickHouseClient;
 }
 
 interface ColumnInfo {
@@ -176,7 +178,7 @@ function generateLabel(columnName: string): string {
  * Generate dataset definition code for a single table
  */
 async function generateDatasetForTable(
-  client: any,
+  client: TypeGenerationClickHouseClient,
   tableName: string
 ): Promise<string> {
   // Get column information
@@ -184,7 +186,7 @@ async function generateDatasetForTable(
     query: `DESCRIBE TABLE ${tableName}`,
     format: 'JSONEachRow',
   });
-  const columns: ColumnInfo[] = await columnsQuery.json();
+  const columns = await columnsQuery.json() as unknown as ColumnInfo[];
 
   // Determine timeKey (prefer created_at, then any timestamp column)
   const timestampColumns = columns.filter(isTimestampColumn);
@@ -264,14 +266,14 @@ ${configLines.join('\n')}
  * Generate dataset definitions from ClickHouse schema
  */
 export async function generateDatasets(options: DatasetGeneratorOptions) {
-  const client = getClickHouseClient();
+  const client = options.client ?? getClickHouseClient();
 
   // Get all tables
   const tablesQuery = await client.query({
     query: 'SHOW TABLES',
     format: 'JSONEachRow',
   });
-  let tables: Array<{ name: string }> = await tablesQuery.json();
+  let tables = await tablesQuery.json() as unknown as Array<{ name: string }>;
 
   // Filter tables
   if (options.includeTables && options.includeTables.length > 0) {

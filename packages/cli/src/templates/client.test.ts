@@ -29,6 +29,17 @@ describe('generateClientTemplate', () => {
     expect(result).toContain(`new Session(${JSON.stringify("./my's data\\db")})`);
   });
 
+  it('prevents session paths from breaking out of the generated comment', () => {
+    const chdbPath = './data\nglobalThis.hacked = true;//\r\u2028throw new Error()\u2029';
+    const result = generateClientTemplate({ database: 'chdb', chdbPath });
+
+    expect(result).toContain(
+      '// Embedded ClickHouse — data persists in ./dataglobalThis.hacked = true;//throw new Error()',
+    );
+    expect(result).not.toContain('\nglobalThis.hacked = true');
+    expect(result).toContain(`new Session(${JSON.stringify(chdbPath)})`);
+  });
+
   it('scaffolds an in-memory chDB session when no path is given', () => {
     const result = generateClientTemplate({ database: 'chdb' });
 

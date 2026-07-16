@@ -28,6 +28,7 @@
     "fix:mdx": "node packages/clickhouse/scripts/fix-mdx-frontmatter.js",
     "dev:example": "npm run build --workspace=@hypequery/clickhouse && npm run dev --workspace=next-dashboard",
     "smoke:cli": "bash scripts/smoke-cli.sh",
+    "smoke:cli-chdb": "bash scripts/smoke-cli-chdb.sh",
     "smoke:next-starter": "bash scripts/smoke-next-starter.sh",
     "smoke:next-dashboard": "bash scripts/smoke-next-dashboard.sh",
     "smoke:vite-starter": "bash scripts/smoke-vite-starter.sh",
@@ -35,7 +36,7 @@
     "smoke:serve-adapters": "bash scripts/smoke-serve-adapters.sh",
     "smoke:semantic-consumer": "bash scripts/smoke-semantic-consumer.sh",
     "smoke:docs-snippets": "bash scripts/smoke-docs-snippets.sh",
-    "smoke:examples": "pnpm smoke:cli && pnpm smoke:next-starter && pnpm smoke:vite-starter && pnpm smoke:node-embedded && pnpm smoke:next-dashboard && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
+    "smoke:examples": "pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:next-starter && pnpm smoke:vite-starter && pnpm smoke:node-embedded && pnpm smoke:next-dashboard && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
     "changeset": "changeset",
     "release:version": "changeset version",
     "release:publish": "changeset publish"

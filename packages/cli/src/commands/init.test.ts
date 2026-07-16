@@ -37,10 +37,18 @@ vi.mock('../generators/dataset-generator.js', () => ({
   generateDatasets: mockGenerateDatasets,
 }));
 const mockEnsureChdbInstalled = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockChdbTypeGenerationClient = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock('../utils/chdb-client.js', () => ({
   ensureChdbInstalled: mockEnsureChdbInstalled,
+  getChdbTypeGenerationClient: vi.fn(() => mockChdbTypeGenerationClient),
   validateChdb: vi.fn(),
   getChdbTables: vi.fn(),
+}));
+
+const mockWriteProjectConfig = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock('../utils/project-config.js', () => ({
+  PROJECT_CONFIG_FILENAME: 'hypequery.config.json',
+  writeProjectConfig: mockWriteProjectConfig,
 }));
 
 // Import after mocks
@@ -569,6 +577,10 @@ describe('init command - graceful failure handling', () => {
       // Types come from the embedded generator
       expect(mockGetTypeGenerator).toHaveBeenCalledWith('chdb');
       expect(detectDb.validateConnection).toHaveBeenCalledWith('chdb', { chdbPath: './analytics.chdb' });
+      expect(mockWriteProjectConfig).toHaveBeenCalledWith({
+        database: 'chdb',
+        chdbPath: './analytics.chdb',
+      });
     });
 
     it('prompts for storage interactively and scaffolds in-memory by default', async () => {
@@ -592,6 +604,30 @@ describe('init command - graceful failure handling', () => {
       await expect(
         initCommand({ database: 'chdb', noInteractive: true }),
       ).rejects.toThrow(/Embedded chDB failed to start/);
+    });
+
+    it('uses the embedded client when generating dataset scaffolds', async () => {
+      await initCommand({
+        database: 'chdb',
+        chdbPath: './analytics.chdb',
+        style: 'datasets',
+        allTables: true,
+        noInteractive: true,
+      });
+
+      expect(mockGenerateDatasets).toHaveBeenCalledWith(
+        expect.objectContaining({ client: mockChdbTypeGenerationClient }),
+      );
+    });
+
+    it('does not install dependencies when overwrite confirmation is declined', async () => {
+      vi.mocked(access).mockResolvedValue(undefined);
+      vi.mocked(prompts.confirmOverwrite).mockResolvedValue(false);
+
+      await expect(initCommand({ database: 'chdb' })).rejects.toBeInstanceOf(ProcessExitError);
+
+      expect(installScaffoldDependencies).not.toHaveBeenCalled();
+      expect(mockEnsureChdbInstalled).not.toHaveBeenCalled();
     });
 
     it('rejects unsupported database values', async () => {

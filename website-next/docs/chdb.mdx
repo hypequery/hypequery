@@ -53,12 +53,12 @@ npx hypequery init --database chdb
 
 </CodeBlock>
 
-The scaffolded `client.ts` uses the adapter instead of an HTTP connection, `chdb` is installed as a dependency automatically, and the connection prompts are skipped. Choose an on-disk session directory (e.g. `./analytics.chdb`) to persist data between runs, or stay in-memory for a throwaway sandbox. After creating tables, refresh your types from the same session:
+The scaffolded `client.ts` uses the adapter instead of an HTTP connection, `chdb` is installed as a dependency automatically, and the connection prompts are skipped. Choose an on-disk session directory (e.g. `./analytics.chdb`) to persist data between runs, or stay in-memory for a throwaway sandbox. The choice is saved in `hypequery.config.json`, so after creating tables a plain generate command refreshes types from the same session:
 
 <CodeBlock>
 
 ```bash
-npx hypequery generate --database chdb --chdb-path ./analytics.chdb
+npx hypequery generate
 ```
 
 </CodeBlock>

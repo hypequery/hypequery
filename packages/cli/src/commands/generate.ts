@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { findSchemaFile } from '../utils/find-files.js';
 import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detect-database.js';
 import { ensureChdbInstalled } from '../utils/chdb-client.js';
+import { readProjectConfig } from '../utils/project-config.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 
@@ -42,8 +43,12 @@ export async function generateCommand(options: GenerateOptions = {}) {
         .filter(Boolean)
     : undefined;
 
+  const projectConfig = await readProjectConfig();
   const requestedDbType = options.database as DatabaseType | undefined;
-  const dbType = requestedDbType ?? (await detectDatabase());
+  const dbType = requestedDbType ?? projectConfig.database ?? (await detectDatabase());
+  const chdbPath = dbType === 'chdb'
+    ? options.chdbPath ?? projectConfig.chdbPath
+    : undefined;
 
   logger.newline();
   logger.header(options.commandName ?? 'hypequery generate');
@@ -62,7 +67,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     }
 
     // Get table count
-    const tableCount = await getTableCount(dbType, { chdbPath: options.chdbPath });
+    const tableCount = await getTableCount(dbType, { chdbPath });
     spinner.succeed(
       `Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType === 'chdb' ? 'embedded chDB' : dbType}`,
     );
@@ -75,7 +80,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     await generator({
       outputPath,
       includeTables: parsedTables,
-      chdbPath: options.chdbPath,
+      chdbPath,
     });
 
     typeSpinner.succeed(`Generated types for ${tableCount} tables`);

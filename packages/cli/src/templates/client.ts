@@ -12,8 +12,9 @@ export function generateClientTemplate(options: ClientTemplateOptions = {}): str
     // JSON.stringify produces a valid JS string literal for any path
     // (quotes, backslashes) — raw interpolation would break the scaffold.
     const sessionArg = options.chdbPath ? JSON.stringify(options.chdbPath) : '';
+    const safePathForComment = options.chdbPath?.replace(/[\r\n\u2028\u2029]/g, '') ?? '';
     const storageComment = options.chdbPath
-      ? `// Embedded ClickHouse — data persists in ${options.chdbPath}`
+      ? `// Embedded ClickHouse — data persists in ${safePathForComment}`
       : '// Embedded ClickHouse — in-memory session (data is discarded on exit).\n// Pass a directory path to new Session(...) to persist between runs.';
     return `import { createQueryBuilder } from '@hypequery/clickhouse';
 import { Session } from 'chdb';
