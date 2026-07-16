@@ -1,12 +1,14 @@
 import type { DatabaseType } from '../utils/detect-database.js';
 import { generateClickHouseTypes, type ClickHouseGeneratorOptions } from './clickhouse.js';
+import { generateChdbTypes, type ChdbGeneratorOptions } from './chdb.js';
 
-export type TypeGeneratorOptions = ClickHouseGeneratorOptions;
+export type TypeGeneratorOptions = ClickHouseGeneratorOptions & ChdbGeneratorOptions;
 
 type GeneratorFn = (options: TypeGeneratorOptions) => Promise<void>;
 
 const generators: Partial<Record<DatabaseType, GeneratorFn>> = {
   clickhouse: generateClickHouseTypes,
+  chdb: generateChdbTypes,
 };
 
 export function getTypeGenerator(dbType: DatabaseType): GeneratorFn {

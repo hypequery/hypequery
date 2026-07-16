@@ -6,8 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 
 const ZOD_SCAFFOLD_VERSION = '^3.23.8';
+// chdb/hypequery (the embedded adapter subpath) ships from chdb 3.2.0.
+const CHDB_SCAFFOLD_VERSION = '^3.2.0';
 const STABLE_SCAFFOLD_PACKAGES = ['@hypequery/clickhouse', '@hypequery/serve', `zod@${ZOD_SCAFFOLD_VERSION}`] as const;
 type ScaffoldStyle = 'queries' | 'datasets';
+type ScaffoldDatabase = 'clickhouse' | 'chdb';
 const CLI_PACKAGE_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
 
 type PackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun';
@@ -97,8 +100,13 @@ function formatManualCommand(manager: PackageManager, packages: string[]) {
   return `${MANUAL_COMMANDS[manager]} ${packages.join(' ')}`;
 }
 
-export function resolveScaffoldPackages(cliVersion: string | undefined, style: ScaffoldStyle = 'queries'): string[] {
+export function resolveScaffoldPackages(
+  cliVersion: string | undefined,
+  style: ScaffoldStyle = 'queries',
+  database: ScaffoldDatabase = 'clickhouse',
+): string[] {
   const includeDatasets = style === 'datasets';
+  const includeChdb = database === 'chdb';
 
   if (cliVersion?.includes('canary')) {
     return [
@@ -106,12 +114,14 @@ export function resolveScaffoldPackages(cliVersion: string | undefined, style: S
       `@hypequery/serve@${cliVersion}`,
       ...(includeDatasets ? [`@hypequery/datasets@${cliVersion}`] : []),
       `zod@${ZOD_SCAFFOLD_VERSION}`,
+      ...(includeChdb ? [`chdb@${CHDB_SCAFFOLD_VERSION}`] : []),
     ];
   }
 
   return [
     ...STABLE_SCAFFOLD_PACKAGES,
     ...(includeDatasets ? ['@hypequery/datasets'] : []),
+    ...(includeChdb ? [`chdb@${CHDB_SCAFFOLD_VERSION}`] : []),
   ];
 }
 
@@ -135,7 +145,10 @@ function shouldInstallPackage(pkgJson: PackageJson, specifier: string): boolean 
   return existingVersion !== desiredVersion;
 }
 
-export async function installScaffoldDependencies(style: ScaffoldStyle = 'queries') {
+export async function installScaffoldDependencies(
+  style: ScaffoldStyle = 'queries',
+  database: ScaffoldDatabase = 'clickhouse',
+) {
   if (process.env.HYPEQUERY_SKIP_INSTALL === '1') {
     return;
   }
@@ -150,7 +163,7 @@ export async function installScaffoldDependencies(style: ScaffoldStyle = 'querie
     return;
   }
 
-  const requestedPackages = resolveScaffoldPackages(cliPkgJson?.version, style);
+  const requestedPackages = resolveScaffoldPackages(cliPkgJson?.version, style, database);
   const missing = requestedPackages.filter(pkg => shouldInstallPackage(pkgJson, pkg));
   if (missing.length === 0) {
     return;

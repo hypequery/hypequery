@@ -51,6 +51,41 @@ export async function promptClickHouseConnection(): Promise<{
 }
 
 /**
+ * Prompt for embedded chDB storage: ephemeral in-memory session, or an
+ * on-disk directory that persists between runs. Returns the session path,
+ * or undefined for in-memory.
+ */
+export async function promptChdbStorage(): Promise<string | undefined> {
+  const response = await prompts({
+    type: 'select',
+    name: 'storage',
+    message: 'Where should embedded chDB store data?',
+    choices: [
+      { title: 'In-memory (discarded on exit)', value: 'memory' },
+      { title: 'Local directory (./analytics.chdb)', value: 'file' },
+      { title: 'Custom path...', value: 'custom' },
+    ],
+    initial: 0,
+  });
+
+  if (!response.storage || response.storage === 'memory') {
+    return undefined;
+  }
+
+  if (response.storage === 'custom') {
+    const customResponse = await prompts({
+      type: 'text',
+      name: 'path',
+      message: 'Enter chDB data directory:',
+      initial: './analytics.chdb',
+    });
+    return customResponse.path || './analytics.chdb';
+  }
+
+  return './analytics.chdb';
+}
+
+/**
  * Prompt for output directory
  */
 export async function promptOutputDirectory(): Promise<string> {

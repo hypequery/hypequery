@@ -1,11 +1,20 @@
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { getClickHouseClient } from './clickhouse-client.js';
+import { validateChdb, getChdbTables } from './chdb-client.js';
 
 /**
  * Database type detection result
  */
-export type DatabaseType = 'clickhouse' | 'bigquery' | 'unknown';
+export type DatabaseType = 'clickhouse' | 'chdb' | 'bigquery' | 'unknown';
+
+/**
+ * Options threaded through to drivers that need more than env vars —
+ * currently only the embedded chDB session directory.
+ */
+export interface DatabaseOptions {
+  chdbPath?: string;
+}
 
 /**
  * Auto-detect database type from environment or config files
@@ -29,7 +38,6 @@ export async function detectDatabase(): Promise<DatabaseType> {
     const envPath = path.join(process.cwd(), '.env');
     await access(envPath);
 
-    const { readFile } = await import('node:fs/promises');
     const envContent = await readFile(envPath, 'utf-8');
 
     if (
@@ -50,16 +58,36 @@ export async function detectDatabase(): Promise<DatabaseType> {
     // .env doesn't exist, continue
   }
 
+  // A project that depends on chdb but has no ClickHouse connection config is
+  // running on the embedded engine.
+  try {
+    const pkgContent = await readFile(path.join(process.cwd(), 'package.json'), 'utf-8');
+    const pkg = JSON.parse(pkgContent) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    if (pkg.dependencies?.chdb || pkg.devDependencies?.chdb) {
+      return 'chdb';
+    }
+  } catch {
+    // package.json missing or unparsable, continue
+  }
+
   return 'unknown';
 }
 
 /**
  * Validate database connection
  */
-export async function validateConnection(dbType: DatabaseType): Promise<boolean> {
+export async function validateConnection(
+  dbType: DatabaseType,
+  options: DatabaseOptions = {},
+): Promise<boolean> {
   switch (dbType) {
     case 'clickhouse':
       return validateClickHouse();
+    case 'chdb':
+      return validateChdb(options.chdbPath);
     case 'bigquery':
       return validateBigQuery();
     default:
@@ -91,10 +119,15 @@ async function validateBigQuery(): Promise<boolean> {
 /**
  * Get table count from database
  */
-export async function getTableCount(dbType: DatabaseType): Promise<number> {
+export async function getTableCount(
+  dbType: DatabaseType,
+  options: DatabaseOptions = {},
+): Promise<number> {
   switch (dbType) {
     case 'clickhouse':
       return getClickHouseTableCount();
+    case 'chdb':
+      return (await getChdbTables(options.chdbPath)).length;
     default:
       return 0;
   }
@@ -126,10 +159,15 @@ async function getClickHouseTableCount(): Promise<number> {
 /**
  * Get list of tables from database
  */
-export async function getTables(dbType: DatabaseType): Promise<string[]> {
+export async function getTables(
+  dbType: DatabaseType,
+  options: DatabaseOptions = {},
+): Promise<string[]> {
   switch (dbType) {
     case 'clickhouse':
       return getClickHouseTables();
+    case 'chdb':
+      return getChdbTables(options.chdbPath);
     default:
       return [];
   }

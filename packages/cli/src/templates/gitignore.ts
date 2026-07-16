@@ -6,24 +6,46 @@ export const GITIGNORE_CONTENT = `
 .env
 `;
 
+function hasEntry(content: string, entry: string): boolean {
+  return content
+    .split(/\r?\n/)
+    .some((line) => line.trim() === entry);
+}
+
 /**
  * Check if .gitignore already has hypequery entries
  */
 export function hasHypequeryEntries(content: string): boolean {
-  return content.includes('# Hypequery') || content.includes('.env');
+  return hasEntry(content, '# Hypequery') || hasEntry(content, '.env');
 }
 
 /**
  * Append hypequery entries to .gitignore
  */
-export function appendToGitignore(existingContent: string): string {
-  if (hasHypequeryEntries(existingContent)) {
+export function appendToGitignore(
+  existingContent: string,
+  additionalEntries: readonly string[] = [],
+): string {
+  const entries = ['.env', ...additionalEntries];
+  const missingEntries = entries.filter(
+    (entry, index) => entry.length > 0 && entries.indexOf(entry) === index && !hasEntry(existingContent, entry),
+  );
+
+  if (missingEntries.length === 0) {
     return existingContent;
   }
 
-  if (!existingContent.endsWith('\n')) {
-    existingContent += '\n';
+  let updatedContent = existingContent;
+  if (updatedContent.length > 0 && !updatedContent.endsWith('\n')) {
+    updatedContent += '\n';
   }
 
-  return existingContent + GITIGNORE_CONTENT;
+  if (!hasHypequeryEntries(existingContent)) {
+    if (updatedContent.length > 0 && !updatedContent.endsWith('\n\n')) {
+      updatedContent += '\n';
+    }
+    updatedContent += '# Hypequery\n';
+  }
+
+  return `${updatedContent}${missingEntries.join('\n')}\n`;
 }

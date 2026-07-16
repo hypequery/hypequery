@@ -31,6 +31,11 @@ vi.mock('../generators/index.js', () => ({
   getTypeGenerator: mockGetTypeGenerator,
 }));
 
+const mockEnsureChdbInstalled = vi.hoisted(() => vi.fn());
+vi.mock('../utils/chdb-client.js', () => ({
+  ensureChdbInstalled: mockEnsureChdbInstalled,
+}));
+
 let generateCommand: typeof import('./generate.js')['generateCommand'];
 
 describe('generate command', () => {
@@ -71,7 +76,7 @@ describe('generate command', () => {
       await generateCommand({});
 
       expect(logger.header).toHaveBeenCalledWith('hypequery generate');
-      expect(detectDb.getTableCount).toHaveBeenCalledWith('clickhouse');
+      expect(detectDb.getTableCount).toHaveBeenCalledWith('clickhouse', { chdbPath: undefined });
       expect(mockSpinner.succeed).toHaveBeenCalledWith('Connected to ClickHouse');
       expect(logger.success).toHaveBeenCalledWith('Found 10 tables');
       expect(mockGenerateTypes).toHaveBeenCalledWith(
@@ -177,6 +182,7 @@ describe('generate command', () => {
 
       await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
 
+      expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to generate types');
       expect(logger.error).toHaveBeenCalledWith('Failed to write file');
     });
 
@@ -279,6 +285,58 @@ describe('generate command', () => {
       expect(mockGenerateTypes).toHaveBeenCalledWith(
         expect.objectContaining({ outputPath: expect.stringContaining('explicit.ts') })
       );
+    });
+  });
+
+  describe('Embedded chDB driver', () => {
+    it('generates against the embedded session, passing the session path through', async () => {
+      mockEnsureChdbInstalled.mockResolvedValue(undefined);
+
+      await generateCommand({ database: 'chdb', chdbPath: './analytics.chdb' });
+
+      expect(mockEnsureChdbInstalled).toHaveBeenCalled();
+      expect(detectDb.getTableCount).toHaveBeenCalledWith('chdb', { chdbPath: './analytics.chdb' });
+      expect(mockGetTypeGenerator).toHaveBeenCalledWith('chdb');
+      expect(mockGenerateTypes).toHaveBeenCalledWith(
+        expect.objectContaining({ chdbPath: './analytics.chdb' }),
+      );
+    });
+
+    it('fails the connection step (not a fake success) when chdb is missing', async () => {
+      mockEnsureChdbInstalled.mockRejectedValue(
+        new Error('The embedded driver needs the `chdb` package.'),
+      );
+
+      await expect(generateCommand({ database: 'chdb' })).rejects.toThrow(ProcessExitError);
+
+      // The install error must surface as the connection failure — the
+      // spinner must not report a successful connection with 0 tables first.
+      expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to start embedded chDB');
+      expect(mockSpinner.succeed).not.toHaveBeenCalled();
+      expect(detectDb.getTableCount).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('chdb'),
+      );
+    });
+
+    it('reports a type-generation failure after connecting to chdb', async () => {
+      mockEnsureChdbInstalled.mockResolvedValue(undefined);
+      mockGenerateTypes.mockRejectedValue(new Error('Failed to inspect schema'));
+
+      await expect(generateCommand({ database: 'chdb' })).rejects.toThrow(ProcessExitError);
+
+      expect(mockSpinner.succeed).toHaveBeenCalledWith('Connected to embedded chDB');
+      expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to generate types');
+      expect(mockSpinner.fail).not.toHaveBeenCalledWith('Failed to start embedded chDB');
+    });
+
+    it('requires an explicit driver when a chdb dependency is auto-detected', async () => {
+      vi.mocked(detectDb.detectDatabase).mockResolvedValue('chdb');
+
+      await expect(generateCommand({})).rejects.toThrow(/chDB generation must be explicit/);
+
+      expect(mockGetTypeGenerator).not.toHaveBeenCalled();
+      expect(detectDb.getTableCount).not.toHaveBeenCalled();
     });
   });
 });

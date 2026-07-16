@@ -3,6 +3,7 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import { findSchemaFile } from '../utils/find-files.js';
 import { detectDatabase, getTableCount, type DatabaseType } from '../utils/detect-database.js';
+import { ensureChdbInstalled } from '../utils/chdb-client.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 
@@ -11,6 +12,7 @@ export interface GenerateOptions {
   path?: string;
   tables?: string;
   database?: DatabaseType;
+  chdbPath?: string;
   commandName?: string;
 }
 
@@ -42,27 +44,51 @@ export async function generateCommand(options: GenerateOptions = {}) {
 
   const requestedDbType = options.database as DatabaseType | undefined;
   const dbType = requestedDbType ?? (await detectDatabase());
+  const chdbPath = dbType === 'chdb' ? options.chdbPath : undefined;
+
+  if (dbType === 'chdb' && !requestedDbType) {
+    throw new Error(
+      'chDB generation must be explicit. Re-run with --database chdb and add --chdb-path <dir> for persistent storage.',
+    );
+  }
 
   logger.newline();
   logger.header(options.commandName ?? 'hypequery generate');
 
   const spinner = ora(`Connecting to ${dbType}...`).start();
+  let activeSpinner = spinner;
+  let failureMessage = dbType === 'chdb'
+    ? 'Failed to start embedded chDB'
+    : 'Failed to generate types';
 
   try {
     const generator = getTypeGenerator(dbType);
 
+    // Surface a missing chdb install as the connection failure it is —
+    // getTableCount swallows errors, so without this probe the spinner
+    // would report a successful connection and 0 tables before type
+    // generation fails.
+    if (dbType === 'chdb') {
+      await ensureChdbInstalled();
+    }
+
     // Get table count
-    const tableCount = await getTableCount(dbType);
-    spinner.succeed(`Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType}`);
+    const tableCount = await getTableCount(dbType, { chdbPath });
+    spinner.succeed(
+      `Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType === 'chdb' ? 'embedded chDB' : dbType}`,
+    );
 
     logger.success(`Found ${tableCount} tables`);
 
     // Generate types
     const typeSpinner = ora('Generating types...').start();
+    activeSpinner = typeSpinner;
+    failureMessage = 'Failed to generate types';
 
     await generator({
       outputPath,
       includeTables: parsedTables,
+      chdbPath,
     });
 
     typeSpinner.succeed(`Generated types for ${tableCount} tables`);
@@ -74,7 +100,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     logger.newline();
 
   } catch (error) {
-    spinner.fail('Failed to generate types');
+    activeSpinner.fail(failureMessage);
     logger.newline();
 
     if (error instanceof Error) {

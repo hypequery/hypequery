@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
+import path from 'node:path';
 import * as prompts from '../utils/prompts.js';
 import * as detectDb from '../utils/detect-database.js';
 import * as findFiles from '../utils/find-files.js';
@@ -36,6 +37,16 @@ const mockGenerateDatasets = vi.fn().mockResolvedValue(undefined);
 vi.mock('../generators/dataset-generator.js', () => ({
   generateDatasets: mockGenerateDatasets,
 }));
+const mockEnsureChdbInstalled = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockChdbTypeGenerationClient = vi.hoisted(() => ({ query: vi.fn() }));
+const MockChdbNotInstalledError = vi.hoisted(() => class ChdbNotInstalledError extends Error {});
+vi.mock('../utils/chdb-client.js', () => ({
+  ChdbNotInstalledError: MockChdbNotInstalledError,
+  ensureChdbInstalled: mockEnsureChdbInstalled,
+  getChdbTypeGenerationClient: vi.fn(() => mockChdbTypeGenerationClient),
+  validateChdb: vi.fn(),
+  getChdbTables: vi.fn(),
+}));
 
 // Import after mocks
 let initCommand: any;
@@ -58,6 +69,7 @@ describe('init command - graceful failure handling', () => {
     vi.mocked(access).mockRejectedValue(new Error('File not found'));
     vi.mocked(findFiles.hasEnvFile).mockResolvedValue(false);
     vi.mocked(findFiles.hasGitignore).mockResolvedValue(false);
+    mockEnsureChdbInstalled.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -412,7 +424,7 @@ describe('init command - graceful failure handling', () => {
         expect.stringContaining('custom/queries.ts'),
         expect.any(String),
       );
-      expect(installScaffoldDependencies).toHaveBeenCalledWith('datasets');
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('datasets', 'clickhouse');
     });
 
     it('generates selected datasets from explicit tables in non-interactive mode', async () => {
@@ -527,7 +539,151 @@ describe('init command - graceful failure handling', () => {
         expect.stringContaining('custom/api.ts'),
         expect.any(String),
       );
-      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries');
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries', 'clickhouse');
+    });
+  });
+
+  describe('Embedded chDB scaffold (--database chdb)', () => {
+    beforeEach(() => {
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(0);
+      vi.mocked(detectDb.getTables).mockResolvedValue([]);
+    });
+
+    it('scaffolds onto the embedded engine without connection prompts or .env', async () => {
+      await initCommand({ database: 'chdb', chdbPath: './analytics.chdb', noInteractive: true });
+
+      // Never asks for ClickHouse credentials
+      expect(prompts.promptClickHouseConnection).not.toHaveBeenCalled();
+
+      // Installs the embedded engine with the scaffold packages (up-front and at step 13)
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries', 'chdb');
+
+      // client.ts runs on the adapter, bound to the requested session path
+      const clientWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('client.ts'),
+      );
+      expect(clientWrite?.[1]).toContain('chdbAdapter({ session })');
+      expect(clientWrite?.[1]).toContain('new Session("./analytics.chdb")');
+
+      // No .env is written — there are no credentials to persist
+      const envWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('.env'),
+      );
+      expect(envWrite).toBeUndefined();
+
+      const gitignoreWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('.gitignore'),
+      );
+      expect(gitignoreWrite?.[1]).toContain('/analytics.chdb/');
+
+      // Types come from the embedded generator
+      expect(mockGetTypeGenerator).toHaveBeenCalledWith('chdb');
+      expect(detectDb.validateConnection).toHaveBeenCalledWith('chdb', { chdbPath: './analytics.chdb' });
+    });
+
+    it('does not add an external chDB directory to the project gitignore', async () => {
+      const externalPath = path.resolve(process.cwd(), '..', 'external.chdb');
+
+      await initCommand({ database: 'chdb', chdbPath: externalPath, noInteractive: true });
+
+      const gitignoreWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('.gitignore'),
+      );
+      expect(gitignoreWrite?.[1]).not.toContain('external.chdb');
+    });
+
+    it('prompts for storage interactively and scaffolds in-memory by default', async () => {
+      vi.mocked(prompts.promptChdbStorage).mockResolvedValue(undefined);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('queries');
+      vi.mocked(prompts.promptGenerateExample).mockResolvedValue(false);
+
+      await initCommand({ database: 'chdb' });
+
+      expect(prompts.promptChdbStorage).toHaveBeenCalled();
+      const clientWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('client.ts'),
+      );
+      expect(clientWrite?.[1]).toContain('new Session()');
+      expect(logger.indent).toHaveBeenCalledWith(
+        expect.stringContaining('In-memory chDB is process-local'),
+      );
+      expect(logger.indent).not.toHaveBeenCalledWith(
+        expect.stringContaining('Refresh types after creating tables'),
+      );
+    });
+
+    it('does not report a skipped connection test as a missing installation', async () => {
+      await initCommand({
+        database: 'chdb',
+        chdbPath: './analytics.chdb',
+        noInteractive: true,
+        skipConnection: true,
+      });
+
+      expect(mockEnsureChdbInstalled).not.toHaveBeenCalled();
+      expect(logger.indent).toHaveBeenCalledWith(
+        '1. Verify the embedded engine and create your tables',
+      );
+      expect(logger.indent).not.toHaveBeenCalledWith(
+        expect.stringContaining('Install the embedded engine'),
+      );
+    });
+
+    it('fails fast in non-interactive mode when the engine cannot run', async () => {
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(false);
+
+      await expect(
+        initCommand({ database: 'chdb', noInteractive: true }),
+      ).rejects.toThrow(/Resolve the engine error shown above/);
+    });
+
+    it('classifies an installed chDB load failure as an engine error', async () => {
+      mockEnsureChdbInstalled.mockRejectedValue(new Error('native binding failed to load'));
+
+      await expect(
+        initCommand({ database: 'chdb', noInteractive: true }),
+      ).rejects.toThrow(/Resolve the engine error shown above/);
+
+      expect(logger.error).toHaveBeenCalledWith('native binding failed to load');
+      expect(detectDb.validateConnection).not.toHaveBeenCalled();
+    });
+
+    it('keeps the install guidance for an absent chDB package', async () => {
+      mockEnsureChdbInstalled.mockRejectedValue(new MockChdbNotInstalledError());
+
+      await expect(
+        initCommand({ database: 'chdb', noInteractive: true }),
+      ).rejects.toThrow(/Install the chdb package/);
+    });
+
+    it('uses the embedded client when generating dataset scaffolds', async () => {
+      await initCommand({
+        database: 'chdb',
+        chdbPath: './analytics.chdb',
+        style: 'datasets',
+        allTables: true,
+        noInteractive: true,
+      });
+
+      expect(mockGenerateDatasets).toHaveBeenCalledWith(
+        expect.objectContaining({ client: mockChdbTypeGenerationClient }),
+      );
+    });
+
+    it('does not install dependencies when overwrite confirmation is declined', async () => {
+      vi.mocked(access).mockResolvedValue(undefined);
+      vi.mocked(prompts.confirmOverwrite).mockResolvedValue(false);
+
+      await expect(initCommand({ database: 'chdb' })).rejects.toBeInstanceOf(ProcessExitError);
+
+      expect(installScaffoldDependencies).not.toHaveBeenCalled();
+      expect(mockEnsureChdbInstalled).not.toHaveBeenCalled();
+    });
+
+    it('rejects unsupported database values', async () => {
+      await expect(initCommand({ database: 'postgres' })).rejects.toThrow(/Unsupported database/);
     });
   });
 });

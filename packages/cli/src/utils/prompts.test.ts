@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import prompts from 'prompts';
 import {
   promptClickHouseConnection,
+  promptChdbStorage,
   promptOutputDirectory,
   promptInitStyle,
   promptGenerateExample,
@@ -114,6 +115,34 @@ describe('prompts', () => {
       );
 
       process.env = originalEnv;
+    });
+  });
+
+  describe('promptChdbStorage', () => {
+    it('defaults to an in-memory session when the prompt is cancelled', async () => {
+      vi.mocked(prompts).mockResolvedValue({});
+
+      await expect(promptChdbStorage()).resolves.toBeUndefined();
+    });
+
+    it('returns the standard persistent directory selection', async () => {
+      vi.mocked(prompts).mockResolvedValue({ storage: 'file' });
+
+      await expect(promptChdbStorage()).resolves.toBe('./analytics.chdb');
+    });
+
+    it('returns a custom path and falls back when the path prompt is cancelled', async () => {
+      vi.mocked(prompts)
+        .mockResolvedValueOnce({ storage: 'custom' })
+        .mockResolvedValueOnce({ path: './data/my.chdb' });
+
+      await expect(promptChdbStorage()).resolves.toBe('./data/my.chdb');
+
+      vi.mocked(prompts)
+        .mockResolvedValueOnce({ storage: 'custom' })
+        .mockResolvedValueOnce({});
+
+      await expect(promptChdbStorage()).resolves.toBe('./analytics.chdb');
     });
   });
 

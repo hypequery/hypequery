@@ -64,6 +64,15 @@ describe('dependency installer', () => {
     ]);
   });
 
+  it('includes the supported chdb version for embedded scaffolds', () => {
+    expect(resolveScaffoldPackages('1.1.1', 'queries', 'chdb')).toEqual([
+      '@hypequery/clickhouse',
+      '@hypequery/serve',
+      'zod@^3.23.8',
+      'chdb@^3.2.0',
+    ]);
+  });
+
   it('pins sibling packages to the same canary version', () => {
     expect(resolveScaffoldPackages('0.0.0-canary-20260506195711')).toEqual([
       '@hypequery/clickhouse@0.0.0-canary-20260506195711',
@@ -79,6 +88,45 @@ describe('dependency installer', () => {
       '@hypequery/datasets@0.0.0-canary-20260506195711',
       'zod@^3.23.8',
     ]);
+  });
+
+  it('keeps chdb on its supported version for canary dataset scaffolds', () => {
+    expect(resolveScaffoldPackages(
+      '0.0.0-canary-20260506195711',
+      'datasets',
+      'chdb',
+    )).toEqual([
+      '@hypequery/clickhouse@0.0.0-canary-20260506195711',
+      '@hypequery/serve@0.0.0-canary-20260506195711',
+      '@hypequery/datasets@0.0.0-canary-20260506195711',
+      'zod@^3.23.8',
+      'chdb@^3.2.0',
+    ]);
+  });
+
+  it('installs chdb when the other scaffold dependencies already exist', async () => {
+    vi.mocked(readFile)
+      .mockResolvedValueOnce(JSON.stringify({
+        name: 'fixture-app',
+        packageManager: 'pnpm@10.0.0',
+        dependencies: {
+          '@hypequery/clickhouse': '^2.4.0',
+          '@hypequery/serve': '^1.3.0',
+          zod: '^3.23.8',
+        },
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        name: '@hypequery/cli',
+        version: '1.3.1',
+      }));
+
+    await installScaffoldDependencies('queries', 'chdb');
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      'pnpm',
+      ['add', 'chdb@^3.2.0'],
+      expect.objectContaining({ cwd: '/tmp/project', stdio: 'inherit' }),
+    );
   });
 
   it('installs matching canary siblings plus zod when missing', async () => {

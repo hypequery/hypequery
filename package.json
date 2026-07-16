@@ -25,10 +25,11 @@
     "docs:mdx": "cd packages/clickhouse && npm run docs:mdx",
     "fix:mdx": "node packages/clickhouse/scripts/fix-mdx-frontmatter.js",
     "smoke:cli": "bash scripts/smoke-cli.sh",
+    "smoke:cli-chdb": "bash scripts/smoke-cli-chdb.sh",
     "smoke:serve-adapters": "bash scripts/smoke-serve-adapters.sh",
     "smoke:semantic-consumer": "bash scripts/smoke-semantic-consumer.sh",
     "smoke:docs-snippets": "bash scripts/smoke-docs-snippets.sh",
-    "smoke:consumers": "pnpm smoke:cli && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
+    "smoke:consumers": "pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
     "changeset": "changeset",
     "release:version": "changeset version",
     "release:publish": "changeset publish"

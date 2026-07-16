@@ -15,6 +15,14 @@ vi.mock('./clickhouse-client.js', () => ({
   getClickHouseClient: mockGetClickHouseClient,
 }));
 
+const mockValidateChdb = vi.hoisted(() => vi.fn());
+const mockGetChdbTables = vi.hoisted(() => vi.fn());
+
+vi.mock('./chdb-client.js', () => ({
+  validateChdb: mockValidateChdb,
+  getChdbTables: mockGetChdbTables,
+}));
+
 describe('detect-database', () => {
   const originalEnv = process.env;
 
@@ -66,6 +74,20 @@ describe('detect-database', () => {
       vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
       await expect(detectDatabase()).resolves.toBe('unknown');
     });
+
+    it('detects chdb from a project dependency when no connection config exists', async () => {
+      vi.mocked(access).mockRejectedValue(new Error('ENOENT'));
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ dependencies: { chdb: '^3.2.0' } }));
+
+      await expect(detectDatabase()).resolves.toBe('chdb');
+    });
+
+    it('prefers clickhouse env config over a chdb dependency', async () => {
+      process.env.CLICKHOUSE_HOST = 'http://localhost:8123';
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ dependencies: { chdb: '^3.2.0' } }));
+
+      await expect(detectDatabase()).resolves.toBe('clickhouse');
+    });
   });
 
   describe('validateConnection', () => {
@@ -89,6 +111,13 @@ describe('detect-database', () => {
     it('returns false for unsupported databases', async () => {
       await expect(validateConnection('bigquery')).resolves.toBe(false);
       await expect(validateConnection('unknown')).resolves.toBe(false);
+    });
+
+    it('dispatches chdb validation with the session path', async () => {
+      mockValidateChdb.mockResolvedValue(true);
+
+      await expect(validateConnection('chdb', { chdbPath: './analytics.chdb' })).resolves.toBe(true);
+      expect(mockValidateChdb).toHaveBeenCalledWith('./analytics.chdb');
     });
   });
 
@@ -115,6 +144,15 @@ describe('detect-database', () => {
 
       await expect(getTableCount('clickhouse')).resolves.toBe(0);
     });
+
+    it('counts tables from the selected chdb session', async () => {
+      mockGetChdbTables.mockResolvedValue(['events', 'users']);
+
+      await expect(
+        getTableCount('chdb', { chdbPath: './analytics.chdb' }),
+      ).resolves.toBe(2);
+      expect(mockGetChdbTables).toHaveBeenCalledWith('./analytics.chdb');
+    });
   });
 
   describe('getTables', () => {
@@ -139,6 +177,15 @@ describe('detect-database', () => {
       });
 
       await expect(getTables('clickhouse')).resolves.toEqual([]);
+    });
+
+    it('returns tables from the selected chdb session', async () => {
+      mockGetChdbTables.mockResolvedValue(['events']);
+
+      await expect(
+        getTables('chdb', { chdbPath: './analytics.chdb' }),
+      ).resolves.toEqual(['events']);
+      expect(mockGetChdbTables).toHaveBeenCalledWith('./analytics.chdb');
     });
   });
 });

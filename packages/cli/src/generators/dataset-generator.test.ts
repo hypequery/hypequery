@@ -103,4 +103,35 @@ describe('generateDatasets', () => {
       { cwd: repoRoot },
     );
   }, 15_000);
+
+  it('uses an injected introspection client', async () => {
+    const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
+      if (query === 'SHOW TABLES') {
+        return { json: async () => [{ name: 'events' }] };
+      }
+      if (query === 'DESCRIBE TABLE events') {
+        return {
+          json: async () => [
+            { name: 'id', type: 'UInt64', default_type: '', default_expression: '' },
+          ],
+        };
+      }
+      throw new Error(`Unexpected query: ${query}`);
+    });
+    const workdir = await mkdtemp(path.join(tmpdir(), 'hq-dataset-client-'));
+    const outputPath = path.join(workdir, 'datasets.ts');
+
+    await generateDatasets({
+      outputPath,
+      client: { query: injectedQuery },
+    });
+
+    expect(injectedQuery).toHaveBeenCalledWith({
+      query: 'SHOW TABLES',
+      format: 'JSONEachRow',
+    });
+    await expect(readFile(outputPath, 'utf8')).resolves.toContain(
+      "export const EventsDataset = dataset('events'",
+    );
+  });
 });
