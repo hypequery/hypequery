@@ -548,11 +548,17 @@ export interface IntrospectedSchema {
     // chdb is normally installed by the scaffold itself — only tell the user
     // to install when that is actually what failed, not when an installed
     // engine could not run (unsupported platform, locked session directory).
-    const firstStep = chdbFailureReason === 'engine-error'
-      ? '1. Resolve the engine error shown above'
-      : '1. Install the embedded engine: npm install chdb';
+    const firstStep = options.skipConnection
+      ? '1. Verify the embedded engine and create your tables'
+      : chdbFailureReason === 'engine-error'
+        ? '1. Resolve the engine error shown above'
+        : '1. Install the embedded engine: npm install chdb';
     logger.indent(firstStep);
-    logger.indent(`2. Run: npx hypequery generate --database chdb${chdbPath ? ` --chdb-path ${chdbPath}` : ''}`);
+    logger.indent(
+      chdbPath
+        ? `2. Run: npx hypequery generate --database chdb --chdb-path ${chdbPath}`
+        : '2. Re-run init with --chdb-path <dir> if later generate commands must see your tables',
+    );
     logger.indent('3. Run: npx hypequery dev          (to start dev server)');
     logger.newline();
   } else {
@@ -565,7 +571,11 @@ export interface IntrospectedSchema {
   }
 
   if (database === 'chdb' && hasValidConnection) {
-    logger.indent(`hypequery generate --database chdb${chdbPath ? ` --chdb-path ${chdbPath}` : ''}   Refresh types after creating tables`);
+    logger.indent(
+      chdbPath
+        ? `hypequery generate --database chdb --chdb-path ${chdbPath}   Refresh types after creating tables`
+        : 'In-memory chDB is process-local; use --chdb-path <dir> for later type generation',
+    );
     logger.newline();
   }
 

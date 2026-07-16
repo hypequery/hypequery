@@ -24,16 +24,16 @@ PKG
 # project to verify that the CLI resolves the native driver from the user's cwd.
 pnpm --dir "$WORKDIR" add --save-exact chdb@3.2.0 --ignore-workspace >/dev/null
 
+# Compile and load the generated consumer against this branch's package build,
+# while keeping chdb resolved from the fixture exactly as it is under npx.
+mkdir -p "$WORKDIR/node_modules/@hypequery"
+ln -s "$ROOT_DIR/packages/clickhouse" "$WORKDIR/node_modules/@hypequery/clickhouse"
+
 (
   cd "$WORKDIR"
-  HYPEQUERY_SKIP_INSTALL=1 HQ_ROOT="$ROOT_DIR" node --input-type=module <<'NODE'
-import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+  node --input-type=module <<'NODE'
 import path from 'node:path';
 import { Session } from 'chdb';
-
-const root = process.env.HQ_ROOT;
-assert(root, 'HQ_ROOT must point to the repository root');
 
 const dbPath = path.resolve('analytics.chdb');
 const seedSession = new Session(dbPath);
@@ -49,34 +49,40 @@ await seedSession.queryAsync(
   "INSERT INTO events VALUES (1, 'smoke', now())",
 );
 seedSession.close();
+NODE
 
-const { initCommand } = await import(
-  path.resolve(root, 'packages/cli/dist/commands/init.js')
-);
-const { generateCommand } = await import(
-  path.resolve(root, 'packages/cli/dist/commands/generate.js')
-);
-const { closeChdbSessionForTesting } = await import(
-  path.resolve(root, 'packages/cli/dist/utils/chdb-client.js')
-);
+  HYPEQUERY_SKIP_INSTALL=1 node "$ROOT_DIR/packages/cli/dist/bin/cli.js" init \
+    --database chdb \
+    --chdb-path "$WORKDIR/analytics.chdb" \
+    --path analytics \
+    --style datasets \
+    --all-tables \
+    --no-interactive \
+    --force \
+    --no-example
 
-await initCommand({
-  database: 'chdb',
-  chdbPath: dbPath,
-  path: 'analytics',
-  style: 'datasets',
-  allTables: true,
-  noInteractive: true,
-  force: true,
-  noExample: true,
-});
+  if CLICKHOUSE_HOST= CLICKHOUSE_URL= CLICKHOUSE_DATABASE= \
+    BIGQUERY_PROJECT_ID= GOOGLE_APPLICATION_CREDENTIALS= \
+    node "$ROOT_DIR/packages/cli/dist/bin/cli.js" generate \
+    --output analytics/auto-detected-schema.ts >auto-detect.log 2>&1; then
+    cat auto-detect.log
+    echo 'Expected dependency-based chdb generation to require an explicit driver.'
+    exit 1
+  fi
+  grep -q 'chDB generation must be explicit' auto-detect.log
+  test ! -f analytics/auto-detected-schema.ts
 
-await generateCommand({
-  database: 'chdb',
-  chdbPath: dbPath,
-  output: 'analytics/regenerated-schema.ts',
-});
+  node "$ROOT_DIR/packages/cli/dist/bin/cli.js" generate \
+    --database chdb \
+    --chdb-path "$WORKDIR/analytics.chdb" \
+    --output analytics/regenerated-schema.ts
 
+  node --input-type=module <<'NODE'
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
+const dbPath = path.resolve('analytics.chdb');
 const schema = await readFile('analytics/schema.ts', 'utf8');
 const regeneratedSchema = await readFile('analytics/regenerated-schema.ts', 'utf8');
 const client = await readFile('analytics/client.ts', 'utf8');
@@ -90,10 +96,33 @@ for (const generated of [schema, regeneratedSchema]) {
 assert.match(client, /chdbAdapter\(\{ session \}\)/);
 assert.ok(client.includes(`new Session(${JSON.stringify(dbPath)})`));
 assert.match(datasets, /EventsDataset = dataset\('events'/);
-
-await closeChdbSessionForTesting();
 NODE
 )
 
 test ! -f "$WORKDIR/.env"
+
+"$ROOT_DIR/node_modules/.bin/tsc" \
+  --target ES2022 \
+  --module NodeNext \
+  --moduleResolution NodeNext \
+  --strict \
+  --skipLibCheck \
+  --rootDir "$WORKDIR" \
+  --outDir "$WORKDIR/compiled" \
+  "$WORKDIR/analytics/client.ts" \
+  "$WORKDIR/analytics/schema.ts"
+
+(
+  cd "$WORKDIR"
+  node --input-type=module <<'NODE'
+import assert from 'node:assert/strict';
+import path from 'node:path';
+
+const { db, session } = await import(path.resolve('compiled/analytics/client.js'));
+const rows = await db.rawQuery('SELECT count() AS count FROM events');
+assert.equal(String(rows[0].count), '1');
+session.close();
+NODE
+)
+
 echo 'cli chdb smoke passed'

@@ -586,6 +586,29 @@ describe('init command - graceful failure handling', () => {
         ([file]) => typeof file === 'string' && file.endsWith('client.ts'),
       );
       expect(clientWrite?.[1]).toContain('new Session()');
+      expect(logger.indent).toHaveBeenCalledWith(
+        expect.stringContaining('In-memory chDB is process-local'),
+      );
+      expect(logger.indent).not.toHaveBeenCalledWith(
+        expect.stringContaining('Refresh types after creating tables'),
+      );
+    });
+
+    it('does not report a skipped connection test as a missing installation', async () => {
+      await initCommand({
+        database: 'chdb',
+        chdbPath: './analytics.chdb',
+        noInteractive: true,
+        skipConnection: true,
+      });
+
+      expect(mockEnsureChdbInstalled).not.toHaveBeenCalled();
+      expect(logger.indent).toHaveBeenCalledWith(
+        '1. Verify the embedded engine and create your tables',
+      );
+      expect(logger.indent).not.toHaveBeenCalledWith(
+        expect.stringContaining('Install the embedded engine'),
+      );
     });
 
     it('fails fast in non-interactive mode when the engine cannot run', async () => {

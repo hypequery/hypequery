@@ -144,6 +144,15 @@ describe('detect-database', () => {
 
       await expect(getTableCount('clickhouse')).resolves.toBe(0);
     });
+
+    it('counts tables from the selected chdb session', async () => {
+      mockGetChdbTables.mockResolvedValue(['events', 'users']);
+
+      await expect(
+        getTableCount('chdb', { chdbPath: './analytics.chdb' }),
+      ).resolves.toBe(2);
+      expect(mockGetChdbTables).toHaveBeenCalledWith('./analytics.chdb');
+    });
   });
 
   describe('getTables', () => {
@@ -168,6 +177,15 @@ describe('detect-database', () => {
       });
 
       await expect(getTables('clickhouse')).resolves.toEqual([]);
+    });
+
+    it('returns tables from the selected chdb session', async () => {
+      mockGetChdbTables.mockResolvedValue(['events']);
+
+      await expect(
+        getTables('chdb', { chdbPath: './analytics.chdb' }),
+      ).resolves.toEqual(['events']);
+      expect(mockGetChdbTables).toHaveBeenCalledWith('./analytics.chdb');
     });
   });
 });
