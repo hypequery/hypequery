@@ -4,7 +4,7 @@ CLI for scaffolding and running the main hypequery path.
 
 Use it to:
 
-- generate schema types from ClickHouse
+- generate schema types from ClickHouse or embedded chDB
 - scaffold `analytics/` files
 - run the local dev server with docs
 
@@ -36,26 +36,35 @@ npx hypequery init
 
 It will:
 
-- generate schema types
+- connect to ClickHouse or start an embedded chDB session
+- generate schema types when the database is available
 - create client and query files
-- write `.env` values
-- update `.gitignore`
-- install scaffold dependencies, including `zod`
+- write `.env` values for ClickHouse connections
+- update `.gitignore`, including a project-local persistent chDB directory
+- install scaffold dependencies, including `zod` and the selected database adapter
 
 Options:
 
 - `--path <path>`: output directory, default `analytics/`
 - `--style <style>`: `queries` (default) or `datasets`
+- `--database <type>`: `clickhouse` (default) or `chdb`
+- `--chdb-path <path>`: persistent chDB data directory; omit for an in-memory session
 - `--auth <mode>`: `none` (default) or `context`
 - `--all-tables`: with `--style datasets`, scaffold every table
 - `--tables <names>`: with `--style datasets`, scaffold these comma-separated tables
 - `--exclude-tables <names>`: with `--style datasets`, exclude these comma-separated tables
 - `--no-example`: skip the example query
-- `--no-interactive`: read connection details from env vars
+- `--no-interactive`: skip prompts; ClickHouse connection details come from env vars
 - `--force`: overwrite existing scaffold files
-- `--skip-connection`: skip testing the ClickHouse connection before scaffolding
+- `--skip-connection`: skip testing the selected database before scaffolding
 
 Set `HYPEQUERY_SKIP_INSTALL=1` to skip the automatic dependency install.
+
+To scaffold against persistent embedded chDB without server credentials:
+
+```bash
+npx hypequery init --database chdb --chdb-path ./analytics.chdb --no-interactive
+```
 
 ### `hypequery dev`
 
@@ -78,7 +87,7 @@ The CLI understands TypeScript entry files directly, so `analytics/queries.ts` w
 
 ### `hypequery generate`
 
-Regenerates schema types from ClickHouse.
+Regenerates schema types from ClickHouse or embedded chDB.
 
 ```bash
 npx hypequery generate
@@ -89,7 +98,14 @@ Options:
 - `--output <path>`: default `analytics/schema.ts`
 - `--path <path>`: analytics directory (derives `<path>/schema.ts`)
 - `--tables <names>`: comma-separated table list
-- `--database <type>`: currently `clickhouse`
+- `--database <type>`: `clickhouse` or `chdb`; chDB generation must be selected explicitly
+- `--chdb-path <path>`: persistent chDB data directory; omit for an in-memory session
+
+For a persistent chDB scaffold, pass the same path used by `init`:
+
+```bash
+npx hypequery generate --database chdb --chdb-path ./analytics.chdb
+```
 
 `hypequery generate:types` is an alias for `hypequery generate`.
 
@@ -121,7 +137,7 @@ semantic keys such as `dataset:orders`.
 
 ## Non-interactive Setup
 
-`hypequery init --no-interactive` reads:
+For ClickHouse, `hypequery init --no-interactive` reads:
 
 - `CLICKHOUSE_URL` or deprecated `CLICKHOUSE_HOST`
 - `CLICKHOUSE_DATABASE`
@@ -133,6 +149,7 @@ semantic keys such as `dataset:orders`.
 - generated scaffold files use NodeNext-safe local `.js` imports
 - `CLICKHOUSE_URL` is now the preferred connection variable
 - the CLI bundles the ClickHouse driver for schema generation
+- chDB runs in memory unless `--chdb-path` is provided; persistent paths must be reused by later `generate` commands
 
 ## Docs
 

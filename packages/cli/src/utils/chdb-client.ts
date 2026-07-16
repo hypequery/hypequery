@@ -20,6 +20,17 @@ interface ChdbSession {
 let session: ChdbSession | null = null;
 let sessionPath: string | undefined;
 
+export class ChdbNotInstalledError extends Error {
+  readonly code = 'CHDB_NOT_INSTALLED';
+
+  constructor() {
+    super(
+      'The embedded driver needs the `chdb` package. Install it with `npm install chdb` (or your package manager\'s equivalent) and re-run.',
+    );
+    this.name = 'ChdbNotInstalledError';
+  }
+}
+
 function isModuleNotFound(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -29,32 +40,38 @@ function isModuleNotFound(error: unknown): boolean {
   );
 }
 
+function resolveChdb(requireFn: NodeJS.Require): string | undefined {
+  try {
+    return requireFn.resolve('chdb');
+  } catch (error) {
+    if (isModuleNotFound(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 async function loadChdb(): Promise<ChdbModule> {
   // Resolve chdb from the USER'S project, not from where the CLI happens to
   // be installed — under `npx` the CLI runs out of the npx cache, where a
   // bare import('chdb') would never see the project's node_modules.
-  try {
-    const requireFromProject = createRequire(path.join(process.cwd(), 'package.json'));
-    return requireFromProject('chdb') as ChdbModule;
-  } catch (error) {
-    if (!isModuleNotFound(error)) {
-      throw error;
-    }
+  const requireFromProject = createRequire(path.join(process.cwd(), 'package.json'));
+  const projectChdb = resolveChdb(requireFromProject);
+  if (projectChdb) {
+    // Resolving first lets us distinguish an absent package from failures
+    // while loading an installed package (for example, a native ABI error).
+    return requireFromProject(projectChdb) as ChdbModule;
   }
-  try {
-    // Non-literal specifier: chdb is deliberately NOT a CLI dependency, so
-    // TypeScript must not try to resolve its types at build time.
-    const specifier = 'chdb';
-    const mod = (await import(specifier)) as ChdbModule & { default?: ChdbModule };
-    return mod.default ?? mod;
-  } catch (error) {
-    if (isModuleNotFound(error)) {
-      throw new Error(
-        'The embedded driver needs the `chdb` package. Install it with `npm install chdb` (or your package manager\'s equivalent) and re-run.',
-      );
-    }
-    throw error;
+
+  // Retain the fallback for installations where chdb is visible beside the
+  // CLI rather than from the project package.json.
+  const requireFromCli = createRequire(import.meta.url);
+  const cliChdb = resolveChdb(requireFromCli);
+  if (cliChdb) {
+    return requireFromCli(cliChdb) as ChdbModule;
   }
+
+  throw new ChdbNotInstalledError();
 }
 
 /**

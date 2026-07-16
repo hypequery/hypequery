@@ -17,6 +17,18 @@ import {
 describe('chdb client', () => {
   const sessions: FakeSession[] = [];
 
+  function mockChdbRequire(
+    load: () => unknown,
+    resolve: () => string = () => '/project/node_modules/chdb/index.js',
+  ) {
+    const requireFn = vi.fn(load) as ReturnType<typeof vi.fn> & {
+      resolve: ReturnType<typeof vi.fn>;
+    };
+    requireFn.resolve = vi.fn(resolve);
+    createRequireMock.mockReturnValue(requireFn);
+    return requireFn;
+  }
+
   class FakeSession {
     readonly close = vi.fn();
     readonly queryAsync = vi.fn(async (sql: string) => ({
@@ -34,7 +46,7 @@ describe('chdb client', () => {
     await closeChdbSessionForTesting();
     sessions.length = 0;
     vi.clearAllMocks();
-    createRequireMock.mockReturnValue(() => ({ Session: FakeSession }));
+    mockChdbRequire(() => ({ Session: FakeSession }));
   });
 
   it('resolves chdb from the project and reuses a session for the same path', async () => {
@@ -78,23 +90,35 @@ describe('chdb client', () => {
 
   it('does not hide native module load failures', async () => {
     const loadError = new Error('native binding failed to load');
-    createRequireMock.mockReturnValue(() => {
+    const requireFn = mockChdbRequire(() => {
       throw loadError;
     });
 
     await expect(ensureChdbInstalled()).rejects.toBe(loadError);
+    expect(requireFn.resolve).toHaveBeenCalledWith('chdb');
   });
 
   it('provides an install hint when chdb cannot be resolved', async () => {
     const missingError = Object.assign(new Error('Cannot find module chdb'), {
       code: 'MODULE_NOT_FOUND',
     });
-    createRequireMock.mockReturnValue(() => {
-      throw missingError;
-    });
+    const requireFn = mockChdbRequire(
+      () => {
+        throw new Error('chdb should not be loaded when resolution fails');
+      },
+      () => {
+        throw missingError;
+      },
+    );
 
-    await expect(ensureChdbInstalled()).rejects.toThrow(
+    const installationCheck = ensureChdbInstalled();
+    await expect(installationCheck).rejects.toMatchObject({
+      name: 'ChdbNotInstalledError',
+      code: 'CHDB_NOT_INSTALLED',
+    });
+    await expect(installationCheck).rejects.toThrow(
       'Install it with `npm install chdb`',
     );
+    expect(requireFn).not.toHaveBeenCalled();
   });
 });

@@ -100,6 +100,7 @@ NODE
 )
 
 test ! -f "$WORKDIR/.env"
+grep -Fxq '/analytics.chdb/' "$WORKDIR/.gitignore"
 
 "$ROOT_DIR/node_modules/.bin/tsc" \
   --target ES2022 \

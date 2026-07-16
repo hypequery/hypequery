@@ -46,6 +46,27 @@ describe('gitignore template', () => {
       expect(result).toBe(existing);
     });
 
+    it('should append additional entries to an existing hypequery section', () => {
+      const existing = '# Hypequery\n.env\n';
+      const result = appendToGitignore(existing, ['/analytics.chdb/']);
+
+      expect(result).toBe('# Hypequery\n.env\n/analytics.chdb/\n');
+    });
+
+    it('should append additional entries when .env already exists without a section header', () => {
+      const existing = 'node_modules/\n.env\n';
+      const result = appendToGitignore(existing, ['/analytics.chdb/']);
+
+      expect(result).toBe('node_modules/\n.env\n/analytics.chdb/\n');
+    });
+
+    it('should not duplicate additional entries', () => {
+      const existing = '# Hypequery\n.env\n/analytics.chdb/\n';
+      const result = appendToGitignore(existing, ['/analytics.chdb/']);
+
+      expect(result).toBe(existing);
+    });
+
     it('should handle gitignore without trailing newline', () => {
       const existing = 'node_modules/';
       const result = appendToGitignore(existing);

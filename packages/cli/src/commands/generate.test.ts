@@ -182,6 +182,7 @@ describe('generate command', () => {
 
       await expect(generateCommand({})).rejects.toBeInstanceOf(ProcessExitError);
 
+      expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to generate types');
       expect(logger.error).toHaveBeenCalledWith('Failed to write file');
     });
 
@@ -316,6 +317,17 @@ describe('generate command', () => {
       expect(logger.error).toHaveBeenCalledWith(
         expect.stringContaining('chdb'),
       );
+    });
+
+    it('reports a type-generation failure after connecting to chdb', async () => {
+      mockEnsureChdbInstalled.mockResolvedValue(undefined);
+      mockGenerateTypes.mockRejectedValue(new Error('Failed to inspect schema'));
+
+      await expect(generateCommand({ database: 'chdb' })).rejects.toThrow(ProcessExitError);
+
+      expect(mockSpinner.succeed).toHaveBeenCalledWith('Connected to embedded chDB');
+      expect(mockSpinner.fail).toHaveBeenCalledWith('Failed to generate types');
+      expect(mockSpinner.fail).not.toHaveBeenCalledWith('Failed to start embedded chDB');
     });
 
     it('requires an explicit driver when a chdb dependency is auto-detected', async () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
+import path from 'node:path';
 import * as prompts from '../utils/prompts.js';
 import * as detectDb from '../utils/detect-database.js';
 import * as findFiles from '../utils/find-files.js';
@@ -38,7 +39,9 @@ vi.mock('../generators/dataset-generator.js', () => ({
 }));
 const mockEnsureChdbInstalled = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const mockChdbTypeGenerationClient = vi.hoisted(() => ({ query: vi.fn() }));
+const MockChdbNotInstalledError = vi.hoisted(() => class ChdbNotInstalledError extends Error {});
 vi.mock('../utils/chdb-client.js', () => ({
+  ChdbNotInstalledError: MockChdbNotInstalledError,
   ensureChdbInstalled: mockEnsureChdbInstalled,
   getChdbTypeGenerationClient: vi.fn(() => mockChdbTypeGenerationClient),
   validateChdb: vi.fn(),
@@ -66,6 +69,7 @@ describe('init command - graceful failure handling', () => {
     vi.mocked(access).mockRejectedValue(new Error('File not found'));
     vi.mocked(findFiles.hasEnvFile).mockResolvedValue(false);
     vi.mocked(findFiles.hasGitignore).mockResolvedValue(false);
+    mockEnsureChdbInstalled.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -568,9 +572,25 @@ describe('init command - graceful failure handling', () => {
       );
       expect(envWrite).toBeUndefined();
 
+      const gitignoreWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('.gitignore'),
+      );
+      expect(gitignoreWrite?.[1]).toContain('/analytics.chdb/');
+
       // Types come from the embedded generator
       expect(mockGetTypeGenerator).toHaveBeenCalledWith('chdb');
       expect(detectDb.validateConnection).toHaveBeenCalledWith('chdb', { chdbPath: './analytics.chdb' });
+    });
+
+    it('does not add an external chDB directory to the project gitignore', async () => {
+      const externalPath = path.resolve(process.cwd(), '..', 'external.chdb');
+
+      await initCommand({ database: 'chdb', chdbPath: externalPath, noInteractive: true });
+
+      const gitignoreWrite = vi.mocked(writeFile).mock.calls.find(
+        ([file]) => typeof file === 'string' && file.endsWith('.gitignore'),
+      );
+      expect(gitignoreWrite?.[1]).not.toContain('external.chdb');
     });
 
     it('prompts for storage interactively and scaffolds in-memory by default', async () => {
@@ -616,7 +636,26 @@ describe('init command - graceful failure handling', () => {
 
       await expect(
         initCommand({ database: 'chdb', noInteractive: true }),
-      ).rejects.toThrow(/Embedded chDB failed to start/);
+      ).rejects.toThrow(/Resolve the engine error shown above/);
+    });
+
+    it('classifies an installed chDB load failure as an engine error', async () => {
+      mockEnsureChdbInstalled.mockRejectedValue(new Error('native binding failed to load'));
+
+      await expect(
+        initCommand({ database: 'chdb', noInteractive: true }),
+      ).rejects.toThrow(/Resolve the engine error shown above/);
+
+      expect(logger.error).toHaveBeenCalledWith('native binding failed to load');
+      expect(detectDb.validateConnection).not.toHaveBeenCalled();
+    });
+
+    it('keeps the install guidance for an absent chDB package', async () => {
+      mockEnsureChdbInstalled.mockRejectedValue(new MockChdbNotInstalledError());
+
+      await expect(
+        initCommand({ database: 'chdb', noInteractive: true }),
+      ).rejects.toThrow(/Install the chdb package/);
     });
 
     it('uses the embedded client when generating dataset scaffolds', async () => {

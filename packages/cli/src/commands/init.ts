@@ -21,7 +21,11 @@ import {
   getTables,
   type DatabaseType,
 } from '../utils/detect-database.js';
-import { ensureChdbInstalled, getChdbTypeGenerationClient } from '../utils/chdb-client.js';
+import {
+  ChdbNotInstalledError,
+  ensureChdbInstalled,
+  getChdbTypeGenerationClient,
+} from '../utils/chdb-client.js';
 import { hasEnvFile, hasGitignore } from '../utils/find-files.js';
 import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
@@ -83,6 +87,27 @@ function parseTableList(value: string | undefined): string[] | undefined {
   return parsed && parsed.length > 0 ? parsed : undefined;
 }
 
+function getChdbGitignoreEntry(chdbPath: string | undefined): string | undefined {
+  if (!chdbPath || /[\0\r\n]/.test(chdbPath)) {
+    return undefined;
+  }
+
+  const cwd = path.resolve(process.cwd());
+  const relativePath = path.relative(cwd, path.resolve(cwd, chdbPath));
+  if (
+    relativePath.length === 0 ||
+    relativePath === '..' ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
+    return undefined;
+  }
+
+  const normalizedPath = relativePath.split(path.sep).join('/');
+  const escapedPath = normalizedPath.replace(/[\\*?[\]]/g, '\\$&');
+  return `/${escapedPath}/`;
+}
+
 type ConnectionConfig = {
   host: string;
   database: string;
@@ -122,11 +147,12 @@ async function testChdbConnection(chdbPath: string | undefined): Promise<ChdbTes
   try {
     await ensureChdbInstalled();
   } catch (error) {
-    spinner.fail('chdb is not installed');
+    const isNotInstalled = error instanceof ChdbNotInstalledError;
+    spinner.fail(isNotInstalled ? 'chdb is not installed' : 'Embedded chDB failed to load');
     logger.newline();
     logger.error(error instanceof Error ? error.message : String(error));
     logger.newline();
-    return { ok: false, reason: 'not-installed' };
+    return { ok: false, reason: isNotInstalled ? 'not-installed' : 'engine-error' };
   }
 
   const isValid = await validateConnection('chdb', { chdbPath });
@@ -313,7 +339,11 @@ export async function initCommand(options: InitOptions = {}) {
 
       if (!hasValidConnection) {
         if (noInteractive) {
-          throw new Error('Embedded chDB failed to start in non-interactive mode. Install the chdb package and re-run.');
+          throw new Error(
+            chdbFailureReason === 'not-installed'
+              ? 'Embedded chDB failed to start in non-interactive mode. Install the chdb package and re-run.'
+              : 'Embedded chDB failed to start in non-interactive mode. Resolve the engine error shown above and re-run.',
+          );
         }
 
         const continueWithout = await promptContinueWithoutDb();
@@ -495,16 +525,20 @@ export interface IntrospectedSchema {
   // Step 12: Update .gitignore
   const gitignorePath = path.join(process.cwd(), '.gitignore');
   const gitignoreExists = await hasGitignore();
+  const chdbGitignoreEntry = database === 'chdb'
+    ? getChdbGitignoreEntry(chdbPath)
+    : undefined;
+  const gitignoreEntries = chdbGitignoreEntry ? [chdbGitignoreEntry] : [];
 
   if (gitignoreExists) {
     const existingGitignore = await readFile(gitignorePath, 'utf-8');
-    const newGitignore = appendToGitignore(existingGitignore);
+    const newGitignore = appendToGitignore(existingGitignore, gitignoreEntries);
     if (newGitignore !== existingGitignore) {
       await writeFile(gitignorePath, newGitignore);
       logger.success('Updated .gitignore');
     }
   } else {
-    await writeFile(gitignorePath, appendToGitignore(''));
+    await writeFile(gitignorePath, appendToGitignore('', gitignoreEntries));
     logger.success('Created .gitignore');
   }
 

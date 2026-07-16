@@ -56,6 +56,10 @@ export async function generateCommand(options: GenerateOptions = {}) {
   logger.header(options.commandName ?? 'hypequery generate');
 
   const spinner = ora(`Connecting to ${dbType}...`).start();
+  let activeSpinner = spinner;
+  let failureMessage = dbType === 'chdb'
+    ? 'Failed to start embedded chDB'
+    : 'Failed to generate types';
 
   try {
     const generator = getTypeGenerator(dbType);
@@ -78,6 +82,8 @@ export async function generateCommand(options: GenerateOptions = {}) {
 
     // Generate types
     const typeSpinner = ora('Generating types...').start();
+    activeSpinner = typeSpinner;
+    failureMessage = 'Failed to generate types';
 
     await generator({
       outputPath,
@@ -94,7 +100,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
     logger.newline();
 
   } catch (error) {
-    spinner.fail(dbType === 'chdb' ? 'Failed to start embedded chDB' : 'Failed to generate types');
+    activeSpinner.fail(failureMessage);
     logger.newline();
 
     if (error instanceof Error) {
