@@ -13,11 +13,12 @@ export function resolveSchemaLimits(
   const limits = { ...DEFAULT_PROTOCOL_SCHEMA_LIMITS };
   for (const key of Object.keys(options.limits ?? {}) as (keyof ProtocolSchemaLimits)[]) {
     const value = options.limits?.[key];
-    if (!Number.isSafeInteger(value) || (value as number) < 1
-      || (value as number) > DEFAULT_PROTOCOL_SCHEMA_LIMITS[key]) {
+    if (value === undefined) continue;
+    if (!Number.isSafeInteger(value) || value < 1
+      || value > DEFAULT_PROTOCOL_SCHEMA_LIMITS[key]) {
       throw new RangeError(`${key} must be a positive integer no greater than the protocol v1 maximum`);
     }
-    limits[key] = value as number;
+    limits[key] = value;
   }
   return Object.freeze(limits);
 }

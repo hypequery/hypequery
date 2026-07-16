@@ -1,0 +1,80 @@
+[
+  {
+    "id": "implementation-not-object",
+    "surface": "query-implementation",
+    "value": null,
+    "error": "HQ_QUERY_IMPLEMENTATION_TYPE"
+  },
+  {
+    "id": "implementation-extra-field",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "runtime-reference",
+      "runtime": "node",
+      "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "entrypoint": "queries.run",
+      "path": "./queries.js"
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_UNKNOWN_FIELD"
+  },
+  {
+    "id": "implementation-unknown-kind",
+    "surface": "query-implementation",
+    "value": { "kind": "raw-sql" },
+    "error": "HQ_QUERY_IMPLEMENTATION_UNKNOWN_KIND"
+  },
+  {
+    "id": "runtime-invalid-entrypoint",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "runtime-reference",
+      "runtime": "node",
+      "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "entrypoint": "queries/customerRevenue"
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_IDENTIFIER"
+  },
+  {
+    "id": "runtime-uppercase-digest",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "runtime-reference",
+      "runtime": "node",
+      "artifactSha256": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+      "entrypoint": "queries.run"
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_VALUE"
+  },
+  {
+    "id": "compiled-sql-missing-tenant-parameter",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT * FROM trips WHERE tenant_id = {tenantId:UUID}",
+      "parameters": [],
+      "readSources": ["trips"],
+      "tenant": { "kind": "required", "parameter": "tenantId" }
+    },
+    "error": "HQ_QUERY_IMPLEMENTATION_INVALID_REFERENCE"
+  },
+  {
+    "id": "compiled-sql-too-many-parameters",
+    "surface": "query-implementation",
+    "generator": { "type": "parameters", "count": 101 },
+    "error": "HQ_QUERY_IMPLEMENTATION_TOO_MANY_ITEMS"
+  },
+  {
+    "id": "sql-expression-too-large",
+    "surface": "sql-expression",
+    "generator": { "type": "sql-expression", "bytes": 65537 },
+    "error": "HQ_QUERY_IMPLEMENTATION_TOO_LARGE"
+  },
+  {
+    "id": "implementation-accessor",
+    "surface": "query-implementation",
+    "generator": { "type": "unsafe-accessor" },
+    "error": "HQ_QUERY_IMPLEMENTATION_UNSAFE_OBJECT"
+  }
+]

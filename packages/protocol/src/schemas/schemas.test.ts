@@ -119,6 +119,7 @@ describe('portable query schemas', () => {
     for (const value of [
       { kind: 'integer', minimum: 1, default: 0 },
       { kind: 'string', minLength: 2, default: 'a' },
+      { kind: 'string', description: 'a'.repeat(65_537) },
       { kind: 'literal', value: true, default: false },
       { kind: 'enum', values: ['one', 'two'], default: 'three' },
       {
@@ -127,8 +128,25 @@ describe('portable query schemas', () => {
         default: { $hypequery: { type: 'array', version: 1, values: [1.5] } },
       },
     ]) {
-      expectSchemaError(() => validateProtocolSchema(value), 'HQ_SCHEMA_INVALID_VALUE');
+      const expectedCode = 'description' in value ? 'HQ_SCHEMA_TOO_LARGE' : 'HQ_SCHEMA_INVALID_VALUE';
+      expectSchemaError(() => validateProtocolSchema(value), expectedCode);
     }
+  });
+
+  it('rejects strip-policy defaults containing unknown properties', () => {
+    expectSchemaError(() => validateProtocolSchema({
+      kind: 'object',
+      properties: { known: { kind: 'string' } },
+      required: [],
+      unknownProperties: 'strip',
+      default: {
+        $hypequery: {
+          type: 'map',
+          version: 1,
+          entries: [['unknown', 'value']],
+        },
+      },
+    }), 'HQ_SCHEMA_INVALID_VALUE');
   });
 
   it('returns detached, deeply immutable snapshots', () => {
@@ -156,5 +174,12 @@ describe('portable query schemas', () => {
     );
     expect(() => validateProtocolSchema({ kind: 'any' }, { limits: { maxNodes: 1_001 } }))
       .toThrow(RangeError);
+  });
+
+  it('ignores explicitly undefined schema limits', () => {
+    expect(validateProtocolSchema(
+      { kind: 'any' },
+      { limits: { maxDepth: undefined, maxNodes: undefined } },
+    )).toEqual({ kind: 'any' });
   });
 });

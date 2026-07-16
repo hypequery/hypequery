@@ -6,10 +6,12 @@ describe('@hypequery/protocol public surface', () => {
     expect(Object.keys(protocol).sort()).toEqual([
       'DEFAULT_CANONICAL_VALUE_LIMITS',
       'DEFAULT_PROTOCOL_EXPRESSION_LIMITS',
+      'DEFAULT_PROTOCOL_QUERY_IMPLEMENTATION_LIMITS',
       'DEFAULT_PROTOCOL_SCHEMA_LIMITS',
       'PROTOCOL_IDENTIFIER_LIMITS',
       'ProtocolExpressionError',
       'ProtocolIdentifierError',
+      'ProtocolQueryImplementationError',
       'ProtocolSchemaError',
       'ProtocolValueError',
       'decodeCanonicalValue',
@@ -24,8 +26,10 @@ describe('@hypequery/protocol public surface', () => {
       'splitProtocolQualifiedIdentifier',
       'validateCanonicalValue',
       'validateProtocolExpression',
+      'validateProtocolQueryImplementation',
       'validateProtocolSchema',
       'validateProtocolSemanticQuery',
+      'validateProtocolSqlExpression',
     ]);
   });
 });
