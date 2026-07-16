@@ -64,7 +64,9 @@ const buildServeRequest = async (
 };
 
 const sendResponse = (res: ServerResponse, response: ServeResponse) => {
-  if (res.writableEnded) return;
+  // headersSent guards against a mount handler that wrote part of a response
+  // and then threw: status/headers can no longer be changed at that point.
+  if (res.writableEnded || res.headersSent) return;
 
   res.statusCode = response.status;
   const headers = response.headers ?? {};
@@ -85,6 +87,13 @@ const sendResponse = (res: ServerResponse, response: ServeResponse) => {
 
 const sendError = (res: ServerResponse, error: unknown) => {
   if (res.writableEnded) return;
+  if (res.headersSent) {
+    // A handler already streamed part of a response and then failed; an error
+    // status can no longer be sent. End the response so the connection does
+    // not hang open until timeout.
+    res.end();
+    return;
+  }
 
   // Handle body-too-large errors
   if (
@@ -131,6 +140,10 @@ export const createNodeHandler = (
 
   return async (req: IncomingMessage, res: ServerResponse) => {
     try {
+      if (options.mount && (await options.mount(req, res))) {
+        return;
+      }
+
       const request = await buildServeRequest(req, bodyLimit);
 
       if (requestTimeout > 0) {

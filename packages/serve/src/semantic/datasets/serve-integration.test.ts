@@ -2199,3 +2199,68 @@ describe("semantic endpoint result caching", () => {
     expect(getExecutions()).toBe(2);
   });
 });
+
+describe("cacheObservability", () => {
+  it("reports no layers for a queries-only API with a bare builder", async () => {
+    const api = createAPI({
+      queries: { ping: { query: async () => ({ ok: true }) } },
+    });
+
+    await expect(api.cacheObservability.getStats()).resolves.toEqual([]);
+    await expect(api.cacheObservability.clear()).resolves.toEqual({ cleared: [] });
+  });
+
+  it("reports the semantic layer once semantic endpoints are registered", async () => {
+    const api = createAPI({
+      metrics: { totalRevenue },
+      queryBuilder: createMockBuilderFactory(),
+    });
+
+    const layers = await api.cacheObservability.getStats();
+
+    expect(layers).toHaveLength(1);
+    expect(layers[0]).toMatchObject({ layer: "semantic", clearSupported: true });
+    expect(layers[0].stats).toMatchObject({ hits: 0, misses: 0, staleHits: 0 });
+  });
+
+  it("detects a cache controller on the query builder and reports both layers", async () => {
+    const builderCache = {
+      getStats: () => ({ hits: 2, misses: 1, staleHits: 0, revalidations: 0, hitRate: 2 / 3 }),
+      clear: vi.fn(async () => undefined),
+    };
+    const factory = Object.assign(createMockBuilderFactory(), { cache: builderCache });
+
+    const api = createAPI({
+      metrics: { totalRevenue },
+      queryBuilder: factory,
+    });
+
+    const layers = await api.cacheObservability.getStats();
+
+    expect(layers.map((l) => l.layer)).toEqual(["semantic", "builder"]);
+    expect(layers[1].stats).toMatchObject({ revalidations: 0 });
+
+    await expect(api.cacheObservability.clear("builder")).resolves.toEqual({
+      cleared: ["builder"],
+    });
+    expect(builderCache.clear).toHaveBeenCalledOnce();
+  });
+
+  it("counts semantic lookups from cache-enabled endpoint executions", async () => {
+    const api = createAPI({
+      metrics: { totalRevenue: { metric: totalRevenue, cache: 60_000 } },
+      queryBuilder: createMockBuilderFactory(),
+    });
+
+    await api.execute("totalRevenue", { input: {} });
+    await api.execute("totalRevenue", { input: {} });
+
+    const [semantic] = await api.cacheObservability.getStats();
+    expect(semantic.stats).toMatchObject({ hits: 1, misses: 1 });
+
+    await expect(api.cacheObservability.clear()).resolves.toEqual({ cleared: ["semantic"] });
+    await api.execute("totalRevenue", { input: {} });
+    const [after] = await api.cacheObservability.getStats();
+    expect(after.stats).toMatchObject({ hits: 1, misses: 2 });
+  });
+});

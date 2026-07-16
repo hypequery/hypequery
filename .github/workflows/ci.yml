@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -84,7 +84,7 @@ jobs:
           CLICKHOUSE_TEST_DB: test_db
           NODE_OPTIONS: "--experimental-vm-modules --experimental-global-webcrypto --no-warnings"
       - name: Run smoke tests
-        run: pnpm smoke:examples
+        run: pnpm smoke:consumers
   canary-release:
     needs: build
     runs-on: ubuntu-latest
@@ -101,7 +101,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
         env:
@@ -121,7 +121,6 @@ jobs:
           "@hypequery/mcp": patch
           "@hypequery/protocol": patch
           "@hypequery/react": patch
-          "@hypequery/schema": patch
           ---
 
           Temporary canary snapshot release.
@@ -142,15 +141,7 @@ jobs:
               packages/protocol/package.json \
               packages/protocol/CHANGELOG.md \
               packages/react/package.json \
-              packages/react/CHANGELOG.md \
-              packages/schema/package.json \
-              packages/schema/CHANGELOG.md 2>/dev/null || true
-            git checkout -- \
-              examples/auth-playground/package.json \
-              examples/next-dashboard/package.json \
-              examples/next-starter/package.json \
-              examples/node-embedded/package.json \
-              examples/vite-starter/package.json 2>/dev/null || true
+              packages/react/CHANGELOG.md 2>/dev/null || true
             rm -f .changeset/canary-release.md
           }
 
@@ -177,7 +168,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
         env:

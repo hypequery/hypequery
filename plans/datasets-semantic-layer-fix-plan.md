@@ -2,7 +2,7 @@
 
 Date: 2026-05-25 (status updated 2026-07-02)
 Owner: TBD
-Status: Items 1–3 of Next Work are complete (schema compatibility depth, docs + guide snippet compile checks, live CI). Item 4 (relationship-aware semantics) is designed in `relationship-aware-semantics-design.md` and awaits implementation.
+Status: Docs + guide snippet compile checks and live CI are complete. Relationship-aware semantics is designed in `relationship-aware-semantics-design.md` and awaits implementation.
 
 ## Pre-Release Bias
 
@@ -12,7 +12,6 @@ Status: Items 1–3 of Next Work are complete (schema compatibility depth, docs 
 
 - `@hypequery/datasets` owns semantic planning, validation, and metric behavior.
 - `@hypequery/serve` owns runtime delivery, auth, tenancy, transport, and endpoint policy.
-- `@hypequery/schema` owns physical schema truth, snapshots, migration planning, and semantic compatibility checks.
 - `@hypequery/clickhouse` owns relational query construction and execution.
 - Dataset endpoint planning is a package-integration concern exposed through `@hypequery/datasets/internal`, not the public root datasets API.
 
@@ -28,8 +27,7 @@ Status: Items 1–3 of Next Work are complete (schema compatibility depth, docs 
 - Added `@hypequery/datasets/internal` for the intentional datasets-to-serve planning boundary.
 - Updated serve dataset endpoints to use datasets-owned planning instead of duplicated serve planner logic.
 - Removed duplicated serve semantic planner utilities.
-- Added schema-to-datasets compatibility checks for physical schema changes.
-- Added semantic architecture/spec notes for datasets, serve, and schema.
+- Added semantic architecture/spec notes for datasets and serve.
 - Made `QueryBuilderLike.execute<T>()` generic so metric execution does not need result casts.
 - Removed file-level type suppression and response `any` casts from touched semantic tests.
 - Added types for the shared ClickHouse integration harness.
@@ -54,28 +52,21 @@ Live ClickHouse execution has not been run in this environment because Docker so
 
 ## Next Work
 
-### 1. Schema Compatibility Depth — DONE
-
-Completed in `packages/schema/src/compat/check.ts`: relationship join-column checks
-(`MissingRelationshipSourceColumn`, `MissingRelationshipTargetColumn`,
-`MissingRelationshipTargetSource`), simple SQL-column extraction, and
-`LimitedSqlExpressionCompatibility` diagnostics for complex SQL expressions, with tests.
-
-### 2. Docs and Guide Alignment — DONE
+### 1. Docs and Guide Alignment — DONE
 
 Datasets guides shipped to the website (`website-next/docs/datasets/`, PR #223).
 Guide snippet compile checks added 2026-07-02: `pnpm smoke:docs-snippets`
 (`scripts/smoke-docs-snippets.sh`) extracts every TypeScript block from the datasets
-guides and type-checks them against the built packages; wired into `smoke:examples`
+guides and type-checks them against the built packages; wired into `smoke:consumers`
 so CI runs it.
 
-### 3. Live Integration and CI Hardening — DONE
+### 2. Live Integration and CI Hardening — DONE
 
 CI (`.github/workflows/ci.yml`) runs a ClickHouse service container with live
 integration suites for `@hypequery/clickhouse`, `@hypequery/datasets`, and
-`@hypequery/serve`, plus `smoke:examples` (which includes `smoke:semantic-consumer`).
+`@hypequery/serve`, plus `smoke:consumers` (which includes `smoke:semantic-consumer`).
 
-### 4. Relationship-Aware Semantics — DESIGNED, not implemented
+### 3. Relationship-Aware Semantics — DESIGNED, not implemented
 
 Design finalized in `plans/relationship-aware-semantics-design.md` (2026-07-02):
 to-one relationships (`belongsTo`, `hasOne`) become query-time LEFT JOINs for

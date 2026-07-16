@@ -30,6 +30,12 @@
     "error": "HQ_VALUE_CONTROL_CHARACTER"
   },
   {
+    "id": "control-character-c1-next-line",
+    "phase": "model",
+    "sourceUtf8": "\"\\u0085\"",
+    "error": "HQ_VALUE_CONTROL_CHARACTER"
+  },
+  {
     "id": "negative-zero",
     "phase": "model",
     "sourceUtf8": "-0",

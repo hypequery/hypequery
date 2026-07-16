@@ -1,0 +1,17 @@
+[
+  { "id": "any", "value": { "kind": "any", "description": "Any protocol value" } },
+  { "id": "void", "value": { "kind": "void" } },
+  { "id": "null", "value": { "kind": "null", "default": null } },
+  { "id": "boolean", "value": { "kind": "boolean", "default": true } },
+  { "id": "string-bounds", "value": { "kind": "string", "minLength": 1, "maxLength": 128, "default": "all" } },
+  { "id": "number-bounds", "value": { "kind": "number", "exclusiveMinimum": 0.0, "maximum": 100.5, "default": 10.5 } },
+  { "id": "integer-bounds", "value": { "kind": "integer", "minimum": 1, "maximum": 100, "default": 10 } },
+  { "id": "literal", "value": { "kind": "literal", "value": true } },
+  { "id": "enum", "value": { "kind": "enum", "values": ["hit", "miss", "stale-hit", "bypass"], "default": "miss" } },
+  { "id": "array-bounds", "value": { "kind": "array", "items": { "kind": "string" }, "minItems": 1, "maxItems": 10 } },
+  { "id": "object-strip-optional-default", "value": { "kind": "object", "properties": { "limit": { "kind": "integer", "minimum": 1, "maximum": 100, "default": 10 }, "dictionary": { "kind": "string" } }, "required": [], "unknownProperties": "strip", "default": { "$hypequery": { "type": "map", "version": 1, "entries": [] } } } },
+  { "id": "object-reject-required", "value": { "kind": "object", "properties": { "start": { "kind": "string" }, "end": { "kind": "string" } }, "required": ["start", "end"], "unknownProperties": "reject" } },
+  { "id": "object-preserve", "value": { "kind": "object", "properties": {}, "required": [], "unknownProperties": "preserve" } },
+  { "id": "record", "value": { "kind": "record", "values": { "kind": "any" } } },
+  { "id": "union-nullable", "value": { "kind": "union", "variants": [{ "kind": "string" }, { "kind": "number" }, { "kind": "null" }] } }
+]

@@ -22,9 +22,6 @@ When these packages are ready for public docs, the first docs pass should focus 
   - generated dataset endpoints
   - auth / tenant runtime ownership
   - `X-Include-Meta` behavior
-- `@hypequery/schema`
-  - schema ↔ datasets compatibility checks
-  - migration-plan integration via `semanticCompatibility`
 
 Docs should explicitly avoid presenting these as shipped until they are actually implemented:
 
@@ -38,20 +35,18 @@ Docs should also preserve the package ownership boundary:
 
 - `datasets` owns semantic planning
 - `serve` owns runtime delivery and policy
-- `schema` owns physical truth and compatibility checks
 - `clickhouse` owns relational query construction and execution
 
 ---
 
 ## 1. Design Philosophy
 
-Hypequery's analytics layer is built on four primitives:
+Hypequery's analytics layer is built on three primitives:
 
 | Layer | Purpose | Feel |
 |-------|---------|------|
 | **Dataset** | Semantic model over a physical source | Dimensions, measures, filtered measures, metrics, tenant/time semantics |
 | **Metric** | Canonical reusable business values | Derived from dataset measures and formulas |
-| **Schema** | Physical warehouse truth | Tables, views, snapshots, diffs, migration planning, semantic compatibility |
 | **Serve** | Execution/runtime surface | Auth, tenancy, caching, transport, OpenAPI |
 
 Key departures from the previous spec:
@@ -59,7 +54,6 @@ Key departures from the previous spec:
 - **Datasets use dimensions and measures.** `field` remains a compatibility alias of `dimension`, not a separate concept.
 - **Serve generation is optional.** The semantic layer is useful in-process even without generated HTTP endpoints.
 - **Datasets own semantic planning.** Serve should consume semantic planning and execution helpers from `@hypequery/datasets`, not re-implement planner behavior locally.
-- **Schema is the physical layer.** `@hypequery/schema` owns snapshots, diffs, migration planning, and schema ↔ datasets compatibility checks.
 - **React consumes real endpoint paths.** Client config now carries `method` and `path`, so generated metric and dataset endpoints can be consumed by hooks without flat-route assumptions.
 - **No `defineDashboard`.** Dashboard composition is a UI concern, not a server primitive.
 - **No materialization.** Out of scope — too much DDL lifecycle complexity.
@@ -100,7 +94,6 @@ Current ownership boundary:
 - `@hypequery/datasets` owns semantic planning, validation, and execution composition
 - `@hypequery/clickhouse` owns relational query construction and execution
 - `@hypequery/serve` owns runtime concerns like auth, tenancy, caching, and transport
-- `@hypequery/schema` owns physical-schema truth and compatibility with datasets
 
 ---
 
@@ -995,41 +988,6 @@ const Orders = dataset("orders", {
 ```
 
 The semantic engine validates these before generating SQL. Violations return a `400` with a clear error message.
-
-### 5.7 Schema Compatibility
-
-`@hypequery/schema` now provides a compatibility bridge for checking whether physical schema changes break semantic dataset definitions.
-
-Standalone:
-
-```ts
-checkDatasetsAgainstSchema({
-  snapshot,
-  datasets: [Orders],
-});
-```
-
-Migration planning:
-
-```ts
-createMigrationPlan(diffSnapshots(previousSnapshot, nextSnapshot), {
-  semanticCompatibility: {
-    datasets: [Orders],
-  },
-});
-```
-
-Current v1 checks include:
-
-- missing dataset sources
-- missing dimension columns
-- missing measure fields
-- missing `tenantKey`
-- missing `timeKey`
-- invalid filtered-measure fields
-- `sum` / `avg` on non-numeric physical columns
-
----
 
 ## 6. Deliverables by PR
 

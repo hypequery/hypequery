@@ -308,3 +308,34 @@ describe('query signatures', () => {
     expect(unscoped('tenant_a')).toBe(unscoped('tenant_b'));
   });
 });
+
+describe('DatasetClient cache observability', () => {
+  it('exposes lookup stats and clear through the client', async () => {
+    const { factory } = createCountingFactory();
+    const client = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+
+    await client.execute(Orders, { measures: ['revenue'] }); // miss
+    await client.execute(Orders, { measures: ['revenue'] }); // hit
+
+    expect(client.getCacheStats()).toMatchObject({
+      hits: 1,
+      misses: 1,
+      staleHits: 0,
+      clearSupported: true,
+    });
+
+    await expect(client.clearCache()).resolves.toBe(true);
+    await client.execute(Orders, { measures: ['revenue'] }); // miss after clear
+    expect(client.getCacheStats().misses).toBe(2);
+  });
+
+  it('does not count uncached executions', async () => {
+    const { factory } = createCountingFactory();
+    const client = createDatasetClient({ queryBuilder: factory });
+
+    await client.execute(Orders, { measures: ['revenue'] });
+
+    const stats = client.getCacheStats();
+    expect(stats.hits + stats.misses + stats.staleHits).toBe(0);
+  });
+});

@@ -43,7 +43,7 @@ Both of these are available in hypequery, built for the ClickHouse data model.
 
 **Serving** — Prisma gives you a database client. hypequery goes further with @hypequery/serve, which turns your query definitions into typed REST endpoints with OpenAPI docs. This is the layer analytics teams need that pure ORMs do not provide.
 
-**Migrations** — Prisma's migration system is one of its strongest features. hypequery migrations are in development and will account for ClickHouse-specific ALTER TABLE constraints, ON CLUSTER DDL for distributed setups, and automatic TypeScript type regeneration. [Schema generation](/clickhouse-schema) is available today.
+**Migrations** — Prisma includes schema migrations for its supported transactional databases. hypequery leaves ClickHouse schema ownership to your existing tooling and generates application types from the live database through [schema generation](/clickhouse-schema).
 
 ## The Postgres + ClickHouse mixed setup
 

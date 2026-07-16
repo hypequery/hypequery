@@ -119,9 +119,8 @@ each builder renders its own dialect.
 
 ## Out of scope / deferred
 
-- Schema-compat checks for `argField` column existence and numeric-type checks
-  for percentile/stddev/variance (`packages/schema` is frozen per the 2026
-  roadmap; the existing aggregation-agnostic `field` column check still applies).
+- Physical-schema compatibility checks for `argField` column existence and
+  numeric-type checks for percentile/stddev/variance.
 - Exact quantile variants, weighted quantiles, multi-level `quantiles(...)`.
 - Per-measure static value typing for argMax/argMin.
 - Window-function measures (cumulative etc.) — separate "advanced metric types"

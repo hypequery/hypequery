@@ -1,5 +1,6 @@
 import type { ZodType, ZodTypeAny } from "zod";
 import type { ServeQueryLogger, ServeQueryEventCallback } from "./query-logger.js";
+import type { CacheObservability } from "./cache-observability.js";
 import type {
   DatasetInstance,
   DatasetQueryableDimensions,
@@ -902,12 +903,29 @@ export interface CorsConfig {
   maxAge?: number;
 }
 
+/**
+ * Node-level handler mounted ahead of the serve router.
+ * Return `true` when the request was fully handled (response sent),
+ * `false` to fall through to the serve handler.
+ * Node adapter only — ignored by fetch/edge adapters.
+ */
+export type NodeMountHandler = (
+  req: import("http").IncomingMessage,
+  res: import("http").ServerResponse
+) => Promise<boolean> | boolean;
+
 export interface StartServerOptions {
   port?: number;
   hostname?: string;
   signal?: AbortSignal;
   /** Whether to suppress internal logging. */
   quiet?: boolean;
+  /**
+   * Optional handler tried before the serve router — used by dev tooling
+   * such as `@hypequery/gateway` to mount UI/API routes under `/__dev`.
+   * Node adapter only.
+   */
+  mount?: NodeMountHandler;
   /**
    * Maximum time in milliseconds a request handler is allowed to run
    * before the server responds with 504 Gateway Timeout.
@@ -943,6 +961,7 @@ export type ExecuteQueryFunction<
     input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
     context?: Partial<TContext>;
     request?: Partial<ServeRequest>;
+    requestId?: string;
   }
 ) => Promise<ServeEndpointResult<TQueries[TKey]>>;
 
@@ -990,6 +1009,12 @@ export interface HypeQueryAPI<
   /** The underlying request handler. Can be passed directly to transport adapters. */
   readonly handler: ServeHandler;
   /**
+   * Per-layer stats/clear for the semantic and query-builder caches (serve
+   * itself holds no cache). Reports an empty layer list until a cache-capable
+   * query builder or a semantic endpoint is registered.
+   */
+  readonly cacheObservability: CacheObservability;
+  /**
    * Build a serializable {@link RouteManifest} of every query/metric/dataset
    * route (method + full path). Safe to JSON-serialize and ship to the client.
    */
@@ -1007,6 +1032,7 @@ export interface HypeQueryAPI<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of execute() for in-process execution. */
@@ -1016,6 +1042,7 @@ export interface HypeQueryAPI<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of execute() for in-process execution. */
@@ -1025,6 +1052,7 @@ export interface HypeQueryAPI<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;
@@ -1067,6 +1095,12 @@ export interface ServeBuilder<
   readonly basePath?: string;
   /** Serve-layer query logger for subscribing to endpoint execution events */
   readonly queryLogger: ServeQueryLogger;
+  /**
+   * Per-layer stats/clear for the semantic and query-builder caches (serve
+   * itself holds no cache). Reports an empty layer list until a cache-capable
+   * query builder or a semantic endpoint is registered.
+   */
+  readonly cacheObservability: CacheObservability;
   /** Internal route configuration mapping query names to their HTTP methods */
   readonly _routeConfig?: Record<string, { method: HttpMethod }>;
   /**
@@ -1087,6 +1121,7 @@ export interface ServeBuilder<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of run() for in-process execution. */
@@ -1096,6 +1131,7 @@ export interface ServeBuilder<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   run<TKey extends keyof TQueries>(
@@ -1104,6 +1140,7 @@ export interface ServeBuilder<
       input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;

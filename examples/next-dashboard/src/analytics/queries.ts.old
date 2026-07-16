@@ -1,3 +1,0 @@
-import * as apiModule from './api';
-
-export const api = apiModule.api;

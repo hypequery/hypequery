@@ -33,6 +33,7 @@ export const createExecuteQuery = <
       input?: SchemaInput<(typeof queryEntries)[TKey]['inputSchema']>;
       context?: Partial<TContext>;
       request?: Partial<ServeRequest>;
+      requestId?: string;
     }
   ): Promise<ServeEndpointResult<(typeof queryEntries)[TKey]>> => {
     const endpoint = queryEntries[key];
@@ -63,6 +64,7 @@ export const createExecuteQuery = <
       tenantConfig,
       hooks,
       queryLogger,
+      requestId: options?.requestId,
       additionalContext: options?.context,
       verboseAuthErrors,
       sanitizeErrors: false, // In-process callers can see raw error messages
@@ -72,6 +74,7 @@ export const createExecuteQuery = <
       const errorBody = response.body as ErrorEnvelope;
       const error = new Error(errorBody.error.message);
       (error as any).type = errorBody.error.type;
+      (error as any).status = response.status;
       if (errorBody.error.details) {
         (error as any).details = errorBody.error.details;
       }

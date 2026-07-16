@@ -1,0 +1,15 @@
+[
+  { "id": "not-object", "value": null, "error": "HQ_SCHEMA_TYPE" },
+  { "id": "unknown-field", "value": { "kind": "string", "format": "uuid" }, "error": "HQ_SCHEMA_UNKNOWN_FIELD" },
+  { "id": "unknown-kind", "value": { "kind": "function" }, "error": "HQ_SCHEMA_UNKNOWN_KIND" },
+  { "id": "invalid-property-identifier", "value": { "kind": "object", "properties": { "bad-name": { "kind": "string" } }, "required": [], "unknownProperties": "reject" }, "error": "HQ_SCHEMA_INVALID_IDENTIFIER" },
+  { "id": "invalid-raw-default", "value": { "kind": "object", "properties": {}, "required": [], "unknownProperties": "strip", "default": {} }, "error": "HQ_SCHEMA_INVALID_VALUE" },
+  { "id": "reversed-bounds", "value": { "kind": "integer", "minimum": 10, "maximum": 1 }, "error": "HQ_SCHEMA_INVALID_CONSTRAINT" },
+  { "id": "required-name-not-declared", "value": { "kind": "object", "properties": {}, "required": ["missing"], "unknownProperties": "reject" }, "error": "HQ_SCHEMA_INVALID_REQUIRED" },
+  { "id": "duplicate-enum", "value": { "kind": "enum", "values": ["same", "same"] }, "error": "HQ_SCHEMA_DUPLICATE_VALUE" },
+  { "id": "too-deep", "generator": { "type": "nested-array", "depth": 17 }, "error": "HQ_SCHEMA_TOO_DEEP" },
+  { "id": "too-many-nodes", "generator": { "type": "union-tree" }, "error": "HQ_SCHEMA_TOO_MANY_NODES" },
+  { "id": "too-many-items", "generator": { "type": "enum-values", "count": 101 }, "error": "HQ_SCHEMA_TOO_MANY_ITEMS" },
+  { "id": "description-too-large", "generator": { "type": "description", "bytes": 4097 }, "error": "HQ_SCHEMA_TOO_LARGE" },
+  { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_SCHEMA_UNSAFE_OBJECT" }
+]

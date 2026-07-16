@@ -1,0 +1,96 @@
+[
+  {
+    "id": "sql-dimension-expression",
+    "surface": "sql-expression",
+    "value": {
+      "kind": "sql-expression",
+      "dialect": "clickhouse",
+      "sql": "toDate(pickup_datetime)",
+      "output": { "kind": "string" },
+      "dependencies": ["pickup_datetime"]
+    }
+  },
+  {
+    "id": "sql-measure-expression",
+    "surface": "sql-expression",
+    "value": {
+      "kind": "sql-expression",
+      "dialect": "clickhouse",
+      "sql": "quantileExact(0.95)(trip_distance)",
+      "output": { "kind": "number" },
+      "dependencies": ["trip_distance"]
+    }
+  },
+  {
+    "id": "fixed-semantic-plan",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "semantic-plan",
+      "query": {
+        "kind": "dataset",
+        "dataset": "trips",
+        "dimensions": ["pickup_date"],
+        "measures": ["count", "total_revenue"],
+        "limit": 100
+      }
+    }
+  },
+  {
+    "id": "compiled-sql-input-parameters",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT pickup_date, count() AS count FROM trips WHERE pickup_date >= {from:Date} GROUP BY pickup_date",
+      "parameters": [
+        {
+          "name": "from",
+          "source": { "kind": "input", "path": "range.from" },
+          "clickHouseType": "Date"
+        }
+      ],
+      "readSources": ["analytics.trips"],
+      "tenant": { "kind": "not-required" }
+    }
+  },
+  {
+    "id": "compiled-sql-required-tenant",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "compiled-sql",
+      "dialect": "clickhouse",
+      "operation": "select",
+      "statement": "SELECT sum(total_amount) AS revenue FROM trips WHERE tenant_id = {tenantId:UUID}",
+      "parameters": [
+        {
+          "name": "tenantId",
+          "source": { "kind": "tenant" },
+          "clickHouseType": "UUID"
+        }
+      ],
+      "readSources": ["trips"],
+      "tenant": { "kind": "required", "parameter": "tenantId" }
+    }
+  },
+  {
+    "id": "node-runtime-reference",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "runtime-reference",
+      "runtime": "node",
+      "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "entrypoint": "queries.customerRevenue"
+    }
+  },
+  {
+    "id": "python-runtime-reference",
+    "surface": "query-implementation",
+    "value": {
+      "kind": "runtime-reference",
+      "runtime": "python",
+      "artifactSha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      "entrypoint": "queries.customer_revenue"
+    }
+  }
+]
