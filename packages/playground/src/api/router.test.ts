@@ -121,6 +121,33 @@ describe('DevAPIRouter (gateway contract v0)', () => {
     expect(body.project.name).toBe('demo');
   });
 
+  it('GET /__dev/registry rewrites dataset keys to their executable form', async () => {
+    const withDatasets = createDevRouter({
+      store,
+      api: makeApi({
+        describe: () => ({
+          basePath: '/api',
+          queries: [
+            { key: 'orders', path: '/api/datasets/orders/query', method: 'POST', tags: ['datasets'], visibility: 'public', requiresAuth: false, inputSchema: { type: 'object' } },
+            { key: '__hypequery_semantic_contract__', path: '/api/contract', method: 'GET', tags: ['datasets'], visibility: 'public', requiresAuth: false },
+            { key: 'listUsers', path: '/api/users', method: 'GET', tags: ['users'], visibility: 'public', requiresAuth: false }
+          ]
+        })
+      }),
+      capabilities: ['registry'],
+      projectName: 'demo'
+    });
+    const r = res();
+    await withDatasets.handleRequest(req('/__dev/registry'), r);
+    const body = (r as unknown as MockResponse).getBody<{ endpoints: Array<{ key: string }> }>();
+    expect(body.endpoints.map((e) => e.key)).toEqual([
+      'dataset:orders',
+      '__hypequery_semantic_contract__',
+      'listUsers'
+    ]);
+    await withDatasets.shutdown();
+  });
+
   it('GET /__dev/registry maps describe() output', async () => {
     const r = res();
     await router.handleRequest(req('/__dev/registry'), r);
