@@ -1,4 +1,10 @@
 export { ProtocolDeploymentError } from './errors.js';
+export {
+  PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
+  encodeProtocolDeploymentContract,
+  encodeProtocolDeploymentContractToString,
+  hashProtocolDeploymentContract,
+} from './codec.js';
 export { DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS } from './limits.js';
 export {
   validateProtocolDatasetContract,

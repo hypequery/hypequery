@@ -5,10 +5,11 @@ Hypequery artifacts.
 
 ## Current status
 
-This package now contains the proposed version 1 tagged ClickHouse value codec.
-The API remains pre-stable while the language-neutral specification and
-conformance fixtures are reviewed. It does not yet define an executable
-deployment bundle or a stable Cloud protocol.
+This package contains proposed version 1 tagged values, identifiers,
+expressions, query schemas and implementations, and Dataset deployment
+contracts. The API remains pre-stable while the language-neutral specifications
+and conformance fixtures are reviewed; these drafts do not yet establish a
+stable Cloud protocol.
 
 The normative source is
 [`specs/security-protocol`](../../specs/security-protocol/README.md).
@@ -17,11 +18,10 @@ The normative source is
 
 The package contains deterministic, framework-independent implementations of
 accepted protocol rules. The current implementation provides strict tagged
-value validation, RFC 8785 canonical encoding, duplicate-aware decoding, a raw
-SHA-256 conformance digest, draft portable logical identifiers, and a proposed
-closed dataset expression/query AST. Artifact envelopes and compatibility
-checks will follow in separate changes. A closed portable query-schema tree
-provides the next layer for named-query input and output contracts.
+value validation, RFC 8785 canonical encoding, duplicate-aware decoding,
+portable logical identifiers, closed expression and schema trees, query
+implementation artifacts, and a validated deployment envelope with a
+domain-separated identity.
 
 It will not connect to ClickHouse, execute queries, load project source, access
 credentials or the environment, perform network or filesystem I/O, implement
@@ -74,6 +74,8 @@ The proposed deployment surface combines complete Dataset definitions, named
 Serve queries, endpoint policy, and runtime artifact identities into one strict
 versioned envelope. Dataset and Serve adapters live in their owning packages;
 the protocol package remains deterministic and framework-independent.
+Validated envelopes can be encoded as canonical RFC 8785 bytes and identified
+with the deployment-v1 domain-separated SHA-256 digest.
 
 ## Runtime compatibility
 

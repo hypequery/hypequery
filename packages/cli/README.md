@@ -7,6 +7,7 @@ Use it to:
 - generate schema types from ClickHouse or embedded chDB
 - scaffold `analytics/` files
 - run the local dev server with docs
+- build and validate portable deployment contracts
 
 ## Quick Start
 
@@ -134,6 +135,37 @@ npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-ma
 
 The output is the exact serializable JSON returned by `api.manifest()`, including
 semantic keys such as `dataset:orders`.
+
+### `hypequery deployment:build`
+
+Builds the strict deployment contract for an exported HypeQuery API, writes
+canonical RFC 8785 JSON, and writes its domain-separated SHA-256 identity to a
+sidecar file.
+
+```bash
+npx hypequery deployment:build analytics/api.ts \
+  --runtime-artifact 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+The runtime artifact digest is required when named Serve handlers cannot be
+lowered to a portable implementation. Dataset-only APIs can omit it.
+
+Options:
+
+- `--output <path>`: default `analytics/hypequery-deployment.json`
+- `--runtime <runtime>`: `node` (default) or `python`
+- `--runtime-artifact <sha256>`: lowercase SHA-256 of the built runtime artifact
+- `--entrypoint-prefix <prefix>`: default `queries`
+- `--hash-output <path>`: default `<output>.sha256`
+
+### `hypequery deployment:validate`
+
+Validates an existing contract with the strict protocol validator and reports
+its datasets, queries, runtime artifacts, and identity.
+
+```bash
+npx hypequery deployment:validate analytics/hypequery-deployment.json
+```
 
 ## Non-interactive Setup
 

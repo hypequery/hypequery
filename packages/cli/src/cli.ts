@@ -6,6 +6,11 @@ import { devCommand, type DevOptions } from './commands/dev.js';
 import { generateCommand, type GenerateOptions } from './commands/generate.js';
 import { generateDatasetsCommand, type GenerateDatasetsOptions } from './commands/generate-datasets.js';
 import { generateManifestCommand, type GenerateManifestOptions } from './commands/generate-manifest.js';
+import {
+  buildDeploymentCommand,
+  validateDeploymentCommand,
+  type BuildDeploymentOptions,
+} from './commands/deployment.js';
 
 const program = new Command();
 
@@ -123,6 +128,25 @@ program
     await generateManifestCommand(api, options);
   }));
 
+program
+  .command('deployment:build <api>')
+  .description('Build a validated, canonical deployment contract and identity')
+  .option('-o, --output <path>', 'Output JSON file (default: analytics/hypequery-deployment.json)')
+  .option('--runtime <runtime>', 'Runtime for non-portable handlers: node or python (default: node)')
+  .option('--runtime-artifact <sha256>', 'SHA-256 identity of the built runtime artifact')
+  .option('--entrypoint-prefix <prefix>', 'Runtime entrypoint prefix (default: queries)')
+  .option('--hash-output <path>', 'Deployment identity sidecar path (default: <output>.sha256)')
+  .action(runCommand(async (api: string, options: BuildDeploymentOptions) => {
+    await buildDeploymentCommand(api, options);
+  }));
+
+program
+  .command('deployment:validate <artifact>')
+  .description('Validate a deployment contract and report its identity')
+  .action(runCommand(async (artifact: string) => {
+    await validateDeploymentCommand(artifact);
+  }));
+
 // Help command
 program
   .command('help [command]')
@@ -152,6 +176,8 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
+  console.log('  hypequery deployment:build analytics/api.ts --runtime-artifact <sha256>');
+  console.log('  hypequery deployment:validate analytics/hypequery-deployment.json');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

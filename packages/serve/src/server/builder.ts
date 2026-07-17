@@ -15,6 +15,8 @@ import type {
 } from "../types.js";
 import type { ServeRouter } from "../router.js";
 import type { CacheObservability } from "../cache-observability.js";
+import type { ProtocolDeploymentContract } from "@hypequery/protocol";
+import type { BuildProtocolDeploymentOptions } from "../protocol-adapter.js";
 import { createCacheObservability } from "../cache-observability.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
@@ -43,12 +45,21 @@ export const createBuilderMethods = <
   handler: ServeHandler,
   basePath: string,
   cacheObservability: CacheObservability = createCacheObservability({}),
+  buildDeploymentContract?: (
+    options?: BuildProtocolDeploymentOptions,
+  ) => ProtocolDeploymentContract,
 ): ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const builder: ServeBuilder<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     basePath: basePath || undefined,
     queryLogger,
     cacheObservability,
+    deploymentContract: options => {
+      if (!buildDeploymentContract) {
+        throw new Error('This Serve builder was created without a deployment contract source.');
+      }
+      return buildDeploymentContract(options);
+    },
     _routeConfig: routeConfig,
 
     manifest: (): RouteManifest => {
