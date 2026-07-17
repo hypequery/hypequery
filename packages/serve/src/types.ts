@@ -587,8 +587,10 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
   | MetricHandle<any, any>
   | {
       metric: MetricHandle<any, any>;
-      /** `null` makes this semantic endpoint public instead of inheriting global auth. */
+      /** Local auth strategy. `null` omits it while still inheriting global auth. */
       auth?: AuthStrategy<TAuth> | null;
+      /** Explicit auth requirement. Set to `false` to make this endpoint public. */
+      requiresAuth?: boolean;
       tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;
       requiredRoles?: string[];

@@ -10,8 +10,10 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
   | AnyDatasetInstance
   | {
       dataset: AnyDatasetInstance;
-      /** `null` makes this semantic endpoint public instead of inheriting global auth. */
+      /** Local auth strategy. `null` omits it while still inheriting global auth. */
       auth?: AuthStrategy<TAuth> | null;
+      /** Explicit auth requirement. Set to `false` to make this endpoint public. */
+      requiresAuth?: boolean;
       tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;
       requiredRoles?: string[];
@@ -40,6 +42,7 @@ export function resolveDatasetEntry<TAuth extends AuthContext>(
 ): {
   dataset: AnyDatasetInstance;
   auth?: AuthStrategy<TAuth> | null;
+  requiresAuth?: boolean;
   tenant?: TenantConfigOverride<TAuth>;
   cache?: number | null;
   requiredRoles?: string[];

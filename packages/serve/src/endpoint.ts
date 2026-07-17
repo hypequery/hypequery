@@ -14,6 +14,7 @@ import type {
   ServeEndpoint,
   ServeQueryConfig,
 } from "./types.js";
+import { resolveLocalAuthRequirement } from "./auth-requirement.js";
 
 const fallbackSchema = z.any();
 
@@ -78,8 +79,6 @@ export const createEndpoint = <
     : SchemaOutput<OutputSchema>;
 
   const method = definition.method ?? "GET";
-  const hasRolesOrScopes = (definition.requiredRoles?.length ?? 0) > 0
-    || (definition.requiredScopes?.length ?? 0) > 0;
   const metadata: EndpointMetadata = {
     path: "",
     method: method as HttpMethod,
@@ -87,7 +86,7 @@ export const createEndpoint = <
     summary: definition.summary,
     description: definition.description,
     tags: definition.tags ?? [],
-    requiresAuth: definition.requiresAuth ?? (definition.auth ? true : hasRolesOrScopes ? true : undefined),
+    requiresAuth: resolveLocalAuthRequirement(definition),
     requiredRoles: definition.requiredRoles,
     requiredScopes: definition.requiredScopes,
     deprecated: undefined,
