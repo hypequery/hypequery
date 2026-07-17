@@ -56,6 +56,23 @@ function baseDeployment() {
   };
 }
 
+function minimalMetric(overrides: Record<string, unknown> = {}) {
+  return {
+    name: 'revenue',
+    kind: 'grained-metric',
+    expression: { kind: 'literal', value: 1 },
+    dimensions: [],
+    filters: [],
+    grains: ['day'],
+    grain: 'day',
+    endpoint: {
+      access: { kind: 'public' },
+      tenant: { kind: 'not-required' },
+    },
+    ...overrides,
+  };
+}
+
 function materialize(type: string): unknown {
   const value = baseDeployment();
   switch (type) {
@@ -116,13 +133,14 @@ function materialize(type: string): unknown {
   }
 }
 
-function expectDeploymentError(action: () => unknown, code: string): void {
+function expectDeploymentError(action: () => unknown, code: string, path?: string): void {
   try {
     action();
     throw new Error('Expected deployment validation to fail');
   } catch (error) {
     expect(error).toBeInstanceOf(ProtocolDeploymentError);
     expect((error as ProtocolDeploymentError).code).toBe(code);
+    if (path !== undefined) expect((error as ProtocolDeploymentError).path).toBe(path);
   }
 }
 
@@ -164,6 +182,68 @@ describe('deployment contract v1', () => {
     expect(() => validateProtocolDeploymentContract(baseDeployment(), { limits: { maxDatasets: 101 } }))
       .toThrow('maxDatasets must be a positive safe integer no greater than 100 '
         + '(the deployment contract v1 maximum)');
+  });
+
+  it('requires a grained metric fixed grain to be supported by the metric', () => {
+    const deployment = {
+      ...baseDeployment(),
+      datasets: [{
+        ...minimalDataset(),
+        timeField: 'created_at',
+        metrics: [minimalMetric({ grain: 'month', grains: ['day'] })],
+      }],
+    };
+
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract(deployment),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].grain',
+    );
+  });
+
+  it('rejects grained metrics with no supported grains', () => {
+    const deployment = {
+      ...baseDeployment(),
+      datasets: [{
+        ...minimalDataset(),
+        metrics: [minimalMetric({ grains: [] })],
+      }],
+    };
+
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract(deployment),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.datasets[0].metrics[0].grain',
+    );
+  });
+
+  it('requires a dataset time field for a valid grained metric', () => {
+    const deployment = {
+      ...baseDeployment(),
+      datasets: [{
+        ...minimalDataset(),
+        metrics: [minimalMetric()],
+      }],
+    };
+
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract(deployment),
+      'HQ_DEPLOYMENT_INVALID_REFERENCE',
+      '$.datasets[0].metrics[0].grains',
+    );
+  });
+
+  it('accepts a grained metric with a supported grain and dataset time field', () => {
+    const deployment = {
+      ...baseDeployment(),
+      datasets: [{
+        ...minimalDataset(),
+        timeField: 'created_at',
+        metrics: [minimalMetric()],
+      }],
+    };
+
+    expect(() => validateProtocolDeploymentContract(deployment)).not.toThrow();
   });
 
   it('validates compiled input bindings against the named-query input schema', () => {
