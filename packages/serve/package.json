@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/serve",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Declarative HTTP server for exposing hypequery analytics endpoints",
   "license": "Apache-2.0",
   "type": "module",
@@ -31,12 +31,12 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@hypequery/protocol": "^0.2.0",
+    "@hypequery/protocol": "^0.3.0",
     "jose": "^5.9.6",
     "openapi-typescript": "^7.13.0",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.23.5",
-    "@hypequery/datasets": "^0.12.0"
+    "@hypequery/datasets": "^0.12.1"
   },
   "peerDependencies": {
     "tsx": "^4.0.0"
