@@ -1,5 +1,19 @@
 # @hypequery/serve
 
+## 0.11.0
+
+### Minor Changes
+
+- 28e998f: Add the portable Dataset deployment contract, strict protocol validation, and
+  Dataset/Serve adapters for producing deployment artifacts from existing
+  definitions.
+
+### Patch Changes
+
+- Updated dependencies [28e998f]
+  - @hypequery/protocol@0.2.0
+  - @hypequery/datasets@0.12.0
+
 ## 0.10.0
 
 ### Minor Changes
