@@ -28,6 +28,7 @@ function createFieldHelper<T extends FieldType>(fieldType: T) {
     description: opts?.description,
     column: opts?.column,
     sql: opts?.sql,
+    dependencies: opts?.dependencies,
     filterable: opts?.filterable,
     groupable: opts?.groupable,
   }) as DimensionDefinition<T> & (TOptions extends DimensionOptions ? TOptions : object);

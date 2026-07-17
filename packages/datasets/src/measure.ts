@@ -6,6 +6,7 @@ function createMeasureHelper(aggregation: MeasureAggregation) {
     aggregation,
     field,
     sql: opts?.sql,
+    dependencies: opts?.dependencies,
     label: opts?.label,
     description: opts?.description,
     filters: opts?.filters,
@@ -29,6 +30,7 @@ function createArgMeasureHelper(aggregation: 'argMax' | 'argMin') {
       field,
       argField: by,
       sql: opts?.sql,
+      dependencies: opts?.dependencies,
       label: opts?.label,
       description: opts?.description,
     };
@@ -43,6 +45,7 @@ function createPercentileMeasure(field: string, level: number, opts?: MeasureOpt
     field,
     level,
     sql: opts?.sql,
+    dependencies: opts?.dependencies,
     label: opts?.label,
     description: opts?.description,
     filters: opts?.filters,

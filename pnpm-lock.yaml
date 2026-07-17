@@ -149,6 +149,9 @@ importers:
 
   packages/datasets:
     dependencies:
+      '@hypequery/protocol':
+        specifier: ^0.1.0
+        version: link:../protocol
       '@noble/hashes':
         specifier: ^1.8.0
         version: 1.8.0
@@ -267,6 +270,9 @@ importers:
       '@hypequery/datasets':
         specifier: ^0.11.0
         version: link:../datasets
+      '@hypequery/protocol':
+        specifier: ^0.1.0
+        version: link:../protocol
       jose:
         specifier: ^5.9.6
         version: 5.10.0

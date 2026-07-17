@@ -10,6 +10,8 @@ export interface DimensionOptions {
   description?: string;
   column?: string;
   sql?: string;
+  /** Identifiers referenced by `sql`; required when producing a protocol artifact. */
+  dependencies?: readonly string[];
   filterable?: boolean;
   groupable?: boolean;
 }
@@ -21,6 +23,8 @@ export interface DimensionDefinition<TType extends DimensionType = DimensionType
   description?: string;
   column?: string;
   sql?: string;
+  /** Identifiers referenced by `sql`; required when producing a protocol artifact. */
+  dependencies?: readonly string[];
   filterable?: boolean;
   groupable?: boolean;
 }
@@ -73,6 +77,8 @@ export interface AggregationSpec {
 
 export interface MeasureOptions {
   sql?: string;
+  /** Identifiers referenced by `sql`; required when producing a protocol artifact. */
+  dependencies?: readonly string[];
   label?: string;
   description?: string;
   filters?: MetricFilter[];
@@ -87,6 +93,8 @@ export interface MeasureDefinition {
   /** Percentile level in [0, 1]. Required when aggregation is 'percentile'. */
   level?: number;
   sql?: string;
+  /** Identifiers referenced by `sql`; required when producing a protocol artifact. */
+  dependencies?: readonly string[];
   label?: string;
   description?: string;
   filters?: MetricFilter[];

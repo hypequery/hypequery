@@ -10,6 +10,7 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
   | AnyDatasetInstance
   | {
       dataset: AnyDatasetInstance;
+      /** `null` makes this semantic endpoint public instead of inheriting global auth. */
       auth?: AuthStrategy<TAuth> | null;
       tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;

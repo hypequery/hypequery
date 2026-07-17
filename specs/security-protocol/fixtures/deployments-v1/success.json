@@ -1,0 +1,81 @@
+[
+  {
+    "id": "dataset-and-runtime-query",
+    "value": {
+      "kind": "hypequery-deployment",
+      "version": 1,
+      "datasets": [
+        {
+          "name": "orders",
+          "source": "analytics.orders",
+          "tenant": { "kind": "required", "field": "tenant_id" },
+          "timeField": "created_at",
+          "dimensions": [
+            {
+              "name": "status",
+              "type": "string",
+              "source": { "kind": "column", "column": "status" },
+              "filterable": true,
+              "groupable": true
+            }
+          ],
+          "measures": [
+            {
+              "name": "revenue",
+              "aggregation": "sum",
+              "field": "amount",
+              "filters": []
+            }
+          ],
+          "filters": [
+            {
+              "name": "status",
+              "field": "status",
+              "operators": ["eq", "neq"]
+            }
+          ],
+          "metrics": [],
+          "relationships": [],
+          "limits": { "maxResultSize": 1000 },
+          "endpoint": {
+            "access": { "kind": "authenticated", "roles": [], "scopes": ["read:orders"] },
+            "tenant": { "kind": "required", "mode": "auto-inject", "column": "tenant_id" },
+            "maxLimit": 1000,
+            "path": "/api/analytics/datasets/orders/query"
+          }
+        }
+      ],
+      "queries": [
+        {
+          "name": "health",
+          "input": { "kind": "any" },
+          "output": {
+            "kind": "object",
+            "properties": { "ok": { "kind": "boolean" } },
+            "required": ["ok"],
+            "unknownProperties": "strip"
+          },
+          "implementation": {
+            "kind": "runtime-reference",
+            "runtime": "node",
+            "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "entrypoint": "queries.health"
+          },
+          "endpoint": {
+            "access": { "kind": "public" },
+            "tenant": { "kind": "not-required" },
+            "method": "GET",
+            "path": "/api/analytics/queries/health"
+          },
+          "tags": ["system"]
+        }
+      ],
+      "artifacts": [
+        {
+          "runtime": "node",
+          "artifactSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        }
+      ]
+    }
+  }
+]
