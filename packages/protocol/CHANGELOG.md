@@ -1,5 +1,11 @@
 # @hypequery/protocol
 
+## 0.3.0
+
+### Minor Changes
+
+- 05d2a4d: Add canonical deployment contract encoding and domain-separated identities, expose deployment generation on Serve APIs, and add CLI build and validation commands for deployment artifacts.
+
 ## 0.2.1
 
 ### Patch Changes
