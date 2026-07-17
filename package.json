@@ -31,7 +31,7 @@
     "smoke:docs-snippets": "bash scripts/smoke-docs-snippets.sh",
     "smoke:consumers": "pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
     "changeset": "changeset",
-    "release:version": "changeset version",
+    "release:version": "changeset version && pnpm install --lockfile-only --no-frozen-lockfile",
     "release:publish": "changeset publish"
   },
   "devDependencies": {
