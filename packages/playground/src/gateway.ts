@@ -70,7 +70,19 @@ export async function createGateway(
   // sub-capability the UI checks before rendering clear affordances —
   // advertised only when a wired layer reports clearSupported. By gateway
   // creation time the serve API is fully built, so this snapshot is accurate.
-  const capabilities: GatewayCapability[] = ['registry', 'execute', 'history', 'events', 'cache'];
+  // `telemetry` is advertised unconditionally because this gateway always
+  // mounts the endpoints: GET /telemetry reports the effective enabled state
+  // for transparency, and POST accepts-and-discards when disabled. Per the
+  // contract, the capability signals endpoint support (not enabled state),
+  // and the UI must not beacon without it.
+  const capabilities: GatewayCapability[] = [
+    'registry',
+    'execute',
+    'history',
+    'events',
+    'cache',
+    'telemetry'
+  ];
   const cacheLayers = await api.cacheObservability.getStats();
   if (cacheLayers.some((layer) => layer.clearSupported)) capabilities.push('cache:clear');
 

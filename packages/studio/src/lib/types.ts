@@ -123,15 +123,21 @@ export interface SSEEvent<T = unknown> {
   id?: string;
 }
 
-/** Capability strings advertised by the gateway via /meta. */
+/**
+ * Capability strings advertised by the gateway via /meta. The UI must
+ * tolerate unknown strings (contract is additive within 0.x), so treat this
+ * union as the known set, not an exhaustive one.
+ */
 export type GatewayCapability =
   | 'registry'
   | 'execute'
   | 'history'
   | 'events'
   | 'cache'
+  | 'cache:clear'
   | 'schema'
-  | 'ai';
+  | 'ai'
+  | 'telemetry';
 
 /** Response of GET /meta. */
 export interface GatewayMeta {

@@ -14,7 +14,8 @@ export type GatewayCapability =
   | 'cache'
   | 'cache:clear'
   | 'schema'
-  | 'ai';
+  | 'ai'
+  | 'telemetry';
 
 /**
  * Per-layer cache stats/clear, provided by serve's `DevIntegrationApi`
