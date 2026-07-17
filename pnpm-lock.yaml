@@ -150,7 +150,7 @@ importers:
   packages/datasets:
     dependencies:
       '@hypequery/protocol':
-        specifier: ^0.1.0
+        specifier: ^0.2.0
         version: link:../protocol
       '@noble/hashes':
         specifier: ^1.8.0
@@ -194,7 +194,7 @@ importers:
   packages/mcp-server:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.11.0
+        specifier: ^0.12.0
         version: link:../datasets
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
@@ -268,10 +268,10 @@ importers:
   packages/serve:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.11.0
+        specifier: ^0.12.0
         version: link:../datasets
       '@hypequery/protocol':
-        specifier: ^0.1.0
+        specifier: ^0.2.0
         version: link:../protocol
       jose:
         specifier: ^5.9.6
