@@ -103,6 +103,18 @@ implementations, or artifact hashes are deployment-significant. Labels,
 descriptions, tags, cache TTLs, limits, and routes are also preserved so build
 diffs can distinguish execution changes from presentation and operations.
 
+## Canonical bytes and identity
+
+A deployment contract is validated in full before encoding. Its canonical
+bytes are the UTF-8 encoding of its RFC 8785 JSON serialization. Implementations
+MUST NOT hash unvalidated input or a presentation-formatted JSON file.
+
+The deployment contract v1 identity is lowercase hexadecimal SHA-256 over the
+UTF-8 bytes of the domain prefix `hypequery:deployment:v1\0` followed by the
+canonical contract bytes. `\0` denotes one zero byte. The domain prefix is
+part of the digest input and prevents deployment identities from being reused
+as raw canonical-value, artifact, or cache hashes.
+
 ## Limits
 
 | Limit | Maximum |

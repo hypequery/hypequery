@@ -1,7 +1,13 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  encodeProtocolDeploymentContract,
+  encodeProtocolDeploymentContractToString,
+  hashProtocolDeploymentContract,
+  prepareProtocolDeploymentContract,
+  PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
   validateProtocolDeploymentContract,
 } from './index.js';
@@ -11,6 +17,11 @@ interface RejectionFixture {
   id: string;
   generator: { type: string };
   error: string;
+}
+interface IdentityFixture {
+  id: string;
+  canonical: string;
+  sha256: string;
 }
 
 const FAILURE_CODES = [
@@ -147,6 +158,7 @@ function expectDeploymentError(action: () => unknown, code: string, path?: strin
 describe('deployment contract v1', () => {
   const success = readFixture<SuccessFixture[]>('success.json');
   const rejections = readFixture<RejectionFixture[]>('rejections.json');
+  const identities = readFixture<IdentityFixture[]>('identity.json');
 
   it('has unique fixtures and covers every stable error code', () => {
     const fixtures = [...success, ...rejections];
@@ -161,6 +173,39 @@ describe('deployment contract v1', () => {
     expect(Object.isFrozen(contract)).toBe(true);
     expect(Object.isFrozen(contract.datasets)).toBe(true);
     expect(Object.isFrozen(contract.queries[0]?.implementation)).toBe(true);
+  });
+
+  it.each(identities)('$id matches canonical deployment bytes and identity', fixture => {
+    const value = success.find(candidate => candidate.id === fixture.id)?.value;
+    expect(value).toBeDefined();
+    const prepared = prepareProtocolDeploymentContract(value);
+    expect(prepared.contract).toEqual(value);
+    expect(prepared.canonical).toBe(fixture.canonical);
+    expect(new TextDecoder().decode(prepared.bytes)).toBe(fixture.canonical);
+    expect(prepared.identity).toBe(fixture.sha256);
+    expect(Object.isFrozen(prepared)).toBe(true);
+  });
+
+  it('produces canonical bytes and a domain-separated deployment identity', () => {
+    const deployment = baseDeployment();
+    const reordered = {
+      artifacts: deployment.artifacts,
+      queries: deployment.queries,
+      datasets: deployment.datasets,
+      version: deployment.version,
+      kind: deployment.kind,
+    };
+    const canonical = encodeProtocolDeploymentContractToString(deployment);
+
+    expect(new TextDecoder().decode(encodeProtocolDeploymentContract(deployment))).toBe(canonical);
+    expect(encodeProtocolDeploymentContractToString(reordered)).toBe(canonical);
+    expect(hashProtocolDeploymentContract(reordered)).toBe(hashProtocolDeploymentContract(deployment));
+    expect(hashProtocolDeploymentContract(deployment)).toBe(
+      createHash('sha256')
+        .update(PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN)
+        .update(canonical)
+        .digest('hex'),
+    );
   });
 
   it.each(rejections)('rejects $id with its stable code', fixture => {

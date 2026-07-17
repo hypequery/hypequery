@@ -13,6 +13,8 @@ import type {
 } from "../types.js";
 import type { ServeRouter } from "../router.js";
 import type { CacheObservability } from "../cache-observability.js";
+import type { ProtocolDeploymentContract } from "@hypequery/protocol";
+import type { BuildProtocolDeploymentOptions } from "../protocol-adapter.js";
 import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
@@ -32,11 +34,15 @@ export const createAPImethods = <
   handler: ServeHandler,
   basePath: string,
   cacheObservability: CacheObservability,
+  buildDeploymentContract: (
+    options?: BuildProtocolDeploymentOptions,
+  ) => ProtocolDeploymentContract,
 ): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const api: HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     queryLogger,
     cacheObservability,
+    deploymentContract: buildDeploymentContract,
 
     manifest: (): RouteManifest => {
       const manifest: RouteManifest = {};

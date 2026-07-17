@@ -88,12 +88,18 @@ export {
 
 export {
   DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
+  PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
+  encodeProtocolDeploymentContract,
+  encodeProtocolDeploymentContractToString,
+  hashProtocolDeploymentContract,
+  prepareProtocolDeploymentContract,
   validateProtocolDatasetContract,
   validateProtocolDeploymentContract,
 } from './deployments/index.js';
 
 export type {
+  PreparedProtocolDeploymentContract,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolDatasetDimension,

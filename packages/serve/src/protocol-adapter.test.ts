@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { dataset, dimension } from '@hypequery/datasets';
 import {
   buildProtocolDeploymentContract,
+  createAPI,
   ProtocolSchemaAdapterError,
   zodToProtocolSchema,
 } from './index.js';
@@ -10,6 +11,28 @@ import {
 const ARTIFACT_SHA = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 describe('Serve protocol adapter', () => {
+  it('exposes deployment contract generation on created APIs', () => {
+    const api = createAPI({
+      queries: {
+        greeting: {
+          input: z.object({ name: z.string() }),
+          output: z.string(),
+          query: async ({ input }) => `Hello ${input.name}`,
+        },
+      },
+    });
+
+    const contract = api.deploymentContract({
+      runtimeArtifact: {
+        runtime: 'node',
+        artifactSha256: ARTIFACT_SHA,
+      },
+    });
+
+    expect(contract.queries[0]?.name).toBe('greeting');
+    expect(contract.artifacts).toEqual([{ runtime: 'node', artifactSha256: ARTIFACT_SHA }]);
+  });
+
   it('converts Serve queries and Dataset endpoints into one deployment contract', () => {
     const Orders = dataset('orders', {
       source: 'orders',
