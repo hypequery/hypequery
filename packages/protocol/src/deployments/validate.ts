@@ -436,6 +436,15 @@ function validateMetric(
   if ((value.kind === 'grained-metric') !== (value.grain !== undefined)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.grain`);
   }
+  const grain = value.grain === undefined
+    ? undefined
+    : parseGrain(value.grain, `${path}.grain`);
+  if (grain !== undefined && grains.length === 0) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.grains`);
+  }
+  if (grain !== undefined && !grains.includes(grain)) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.grain`);
+  }
   const result: Record<string, unknown> = {
     name: identifier(value.name, `${path}.name`),
     kind: value.kind,
@@ -455,7 +464,7 @@ function validateMetric(
     grains,
     endpoint: validateEndpoint(value.endpoint, `${path}.endpoint`, limits),
   };
-  if (value.grain !== undefined) result.grain = parseGrain(value.grain, `${path}.grain`);
+  if (grain !== undefined) result.grain = grain;
   optionalText(value.label, 'label', result, path, limits);
   optionalText(value.description, 'description', result, path, limits);
   return freezeRecord(result) as unknown as ProtocolDatasetMetric;
@@ -609,7 +618,8 @@ function validateReferences(contract: ProtocolDeploymentContract): void {
           `$.datasets[${datasetIndex}].metrics[${metricIndex}]`,
         );
       }
-      if (metric.grains.length > 0 && dataset.timeField === undefined) {
+      if ((metric.kind === 'grained-metric' || metric.grains.length > 0)
+        && dataset.timeField === undefined) {
         deploymentError(
           'HQ_DEPLOYMENT_INVALID_REFERENCE',
           `$.datasets[${datasetIndex}].metrics[${metricIndex}].grains`,
