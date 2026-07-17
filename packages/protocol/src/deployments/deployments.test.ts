@@ -213,7 +213,7 @@ describe('deployment contract v1', () => {
     expectDeploymentError(
       () => validateProtocolDeploymentContract(deployment),
       'HQ_DEPLOYMENT_INVALID_VALUE',
-      '$.datasets[0].metrics[0].grain',
+      '$.datasets[0].metrics[0].grains',
     );
   });
 

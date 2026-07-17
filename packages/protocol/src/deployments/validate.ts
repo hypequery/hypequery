@@ -439,6 +439,9 @@ function validateMetric(
   const grain = value.grain === undefined
     ? undefined
     : parseGrain(value.grain, `${path}.grain`);
+  if (grain !== undefined && grains.length === 0) {
+    deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.grains`);
+  }
   if (grain !== undefined && !grains.includes(grain)) {
     deploymentError('HQ_DEPLOYMENT_INVALID_VALUE', `${path}.grain`);
   }
