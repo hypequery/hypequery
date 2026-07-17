@@ -13,5 +13,5 @@
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
     "onlyUpdatePeerDependentsWhenOutOfRange": true
   },
-  "ignore": ["auth-playground", "next-dashboard", "next-starter", "node-embedded", "vite-starter"]
+  "ignore": []
 }
