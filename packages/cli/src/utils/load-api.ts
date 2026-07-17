@@ -260,7 +260,7 @@ async function bundleTypeScriptModule(entryPath: string) {
   }
 }
 
-async function findNearestTsconfig(filePath: string) {
+export async function findNearestTsconfig(filePath: string) {
   let dir = path.dirname(filePath);
   const visited: string[] = [];
 

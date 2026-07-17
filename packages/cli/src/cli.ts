@@ -133,7 +133,8 @@ program
   .description('Build a validated, canonical deployment contract and identity')
   .option('-o, --output <path>', 'Output JSON file (default: analytics/hypequery-deployment.json)')
   .option('--runtime <runtime>', 'Runtime for non-portable handlers: node or python (default: node)')
-  .option('--runtime-artifact <sha256>', 'SHA-256 identity of the built runtime artifact')
+  .option('--runtime-artifact <sha256>', 'Use a prebuilt runtime artifact with this SHA-256 identity')
+  .option('--runtime-output <path>', 'Bundled Node runtime path (default: beside deployment JSON)')
   .option('--entrypoint-prefix <prefix>', 'Runtime entrypoint prefix (default: queries)')
   .option('--hash-output <path>', 'Deployment identity sidecar path (default: <output>.sha256)')
   .action(runCommand(async (api: string, options: BuildDeploymentOptions) => {

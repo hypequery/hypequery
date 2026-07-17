@@ -142,18 +142,19 @@ Builds deployment metadata for an exported HypeQuery API and writes the
 artifact with its identity sidecar.
 
 ```bash
-npx hypequery deployment:build analytics/api.ts \
-  --runtime-artifact 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+npx hypequery deployment:build analytics/api.ts
 ```
 
-The runtime artifact digest is required when named Serve handlers cannot be
-lowered to a portable implementation. Dataset-only APIs can omit it.
+Named Serve handlers are bundled into a Node runtime artifact automatically.
+Dataset-only APIs do not produce a runtime artifact. Use `--runtime-artifact`
+to reference a separately built Node or Python artifact instead.
 
 Options:
 
 - `--output <path>`: default `analytics/hypequery-deployment.json`
 - `--runtime <runtime>`: `node` (default) or `python`
-- `--runtime-artifact <sha256>`: lowercase SHA-256 of the built runtime artifact
+- `--runtime-artifact <sha256>`: lowercase SHA-256 of a prebuilt runtime artifact
+- `--runtime-output <path>`: default beside the deployment JSON as `hypequery-runtime.mjs`
 - `--entrypoint-prefix <prefix>`: default `queries`
 - `--hash-output <path>`: default `<output>.sha256`
 

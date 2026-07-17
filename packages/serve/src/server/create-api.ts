@@ -337,6 +337,7 @@ export const createAPI = <
     basePath,
     cacheObservability,
     options => buildProtocolDeploymentContract(config, options),
+    Object.keys(configuredQueries).map(String),
   ) as HypeQueryAPI<
     ServeEndpointMap<TQueries, TContext, TAuth>
       & ServeSemanticEndpointMap<TMetrics, TDatasets, TContext, TAuth>,

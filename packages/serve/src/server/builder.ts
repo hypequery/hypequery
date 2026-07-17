@@ -22,6 +22,7 @@ import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
+import { attachDeploymentBuildSource } from "./deployment-build-source.js";
 
 const loadNodeAdapter = async () => {
   if (typeof require !== "undefined") {
@@ -153,6 +154,8 @@ export const createBuilderMethods = <
       return startNodeServer(handler, options);
     },
   };
+
+  attachDeploymentBuildSource(builder, Object.keys(queryEntries));
 
   return builder;
 };
