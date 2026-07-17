@@ -138,9 +138,8 @@ semantic keys such as `dataset:orders`.
 
 ### `hypequery deployment:build`
 
-Builds the strict deployment contract for an exported HypeQuery API, writes
-canonical RFC 8785 JSON, and writes its domain-separated SHA-256 identity to a
-sidecar file.
+Builds deployment metadata for an exported HypeQuery API and writes the
+artifact with its identity sidecar.
 
 ```bash
 npx hypequery deployment:build analytics/api.ts \
@@ -158,15 +157,13 @@ Options:
 - `--entrypoint-prefix <prefix>`: default `queries`
 - `--hash-output <path>`: default `<output>.sha256`
 
-The identity sidecar is not a checksum of the JSON file and is not compatible
-with `sha256sum -c`. It records SHA-256 over the deployment-v1 domain prefix,
-one zero byte, and the canonical RFC 8785 UTF-8 bytes. The presentation newline
-written after the JSON document is not part of the identity.
+The identity sidecar is not compatible with `sha256sum -c`. Use
+`deployment:validate` to validate the artifact and report its identity.
 
 ### `hypequery deployment:validate`
 
-Validates an existing contract with the strict protocol validator and reports
-its datasets, queries, runtime artifacts, and identity.
+Validates an existing deployment artifact and reports its datasets, queries,
+runtime artifacts, and identity.
 
 ```bash
 npx hypequery deployment:validate analytics/hypequery-deployment.json
