@@ -1,5 +1,13 @@
 # @hypequery/cli
 
+## 1.4.0
+
+### Minor Changes
+
+- 28e5abe: `hypequery init --database chdb` scaffolds a project straight onto embedded ClickHouse (chDB) — no server or credentials, and no `.env` is created or updated. The scaffolded `client.ts` uses `createQueryBuilder({ adapter: chdbAdapter({ session }) })` from `chdb/hypequery`, `chdb` is installed as a scaffold dependency instead of relying on `CLICKHOUSE_*` env vars, and the credential prompts are replaced by a single storage question (in-memory by default, or an on-disk session directory such as `./analytics.chdb` via `--chdb-path`).
+
+  `hypequery generate --database chdb [--chdb-path <dir>]` introspects the embedded session — the type generator's client seam is now satisfiable by a chDB session, so schema types regenerate without an HTTP connection. Persistent sessions are selected explicitly with `--chdb-path`; in-memory sessions remain process-local and start empty in a later CLI invocation. Dependency-based detection produces an actionable explicit-command hint rather than silently opening an empty session. Dataset scaffolding during `init` uses the same embedded introspection client instead of falling back to an HTTP ClickHouse connection. `chdb` stays out of the CLI's own dependencies; it is resolved dynamically from the user's project and a missing install produces an actionable error instead of a resolution failure.
+
 ## 1.3.1
 
 ### Patch Changes
