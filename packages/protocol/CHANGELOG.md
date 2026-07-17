@@ -1,5 +1,11 @@
 # @hypequery/protocol
 
+## 0.2.1
+
+### Patch Changes
+
+- 90c02f7: Reject grained deployment metrics whose fixed grain is not included in their supported grains, and require a dataset time field for every grained metric.
+
 ## 0.2.0
 
 ### Minor Changes
