@@ -93,11 +93,13 @@ export {
   encodeProtocolDeploymentContract,
   encodeProtocolDeploymentContractToString,
   hashProtocolDeploymentContract,
+  prepareProtocolDeploymentContract,
   validateProtocolDatasetContract,
   validateProtocolDeploymentContract,
 } from './deployments/index.js';
 
 export type {
+  PreparedProtocolDeploymentContract,
   ProtocolAccessPolicy,
   ProtocolDatasetContract,
   ProtocolDatasetDimension,

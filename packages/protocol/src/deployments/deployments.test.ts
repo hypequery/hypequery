@@ -6,6 +6,7 @@ import {
   encodeProtocolDeploymentContract,
   encodeProtocolDeploymentContractToString,
   hashProtocolDeploymentContract,
+  prepareProtocolDeploymentContract,
   PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
   validateProtocolDeploymentContract,
@@ -159,8 +160,12 @@ describe('deployment contract v1', () => {
   it.each(identities)('$id matches canonical deployment bytes and identity', fixture => {
     const value = success.find(candidate => candidate.id === fixture.id)?.value;
     expect(value).toBeDefined();
-    expect(encodeProtocolDeploymentContractToString(value)).toBe(fixture.canonical);
-    expect(hashProtocolDeploymentContract(value)).toBe(fixture.sha256);
+    const prepared = prepareProtocolDeploymentContract(value);
+    expect(prepared.contract).toEqual(value);
+    expect(prepared.canonical).toBe(fixture.canonical);
+    expect(new TextDecoder().decode(prepared.bytes)).toBe(fixture.canonical);
+    expect(prepared.identity).toBe(fixture.sha256);
+    expect(Object.isFrozen(prepared)).toBe(true);
   });
 
   it('produces canonical bytes and a domain-separated deployment identity', () => {

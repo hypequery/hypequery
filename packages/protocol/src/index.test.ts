@@ -29,6 +29,7 @@ describe('@hypequery/protocol public surface', () => {
       'joinProtocolQualifiedIdentifier',
       'parseProtocolIdentifier',
       'parseProtocolQualifiedIdentifier',
+      'prepareProtocolDeploymentContract',
       'splitProtocolQualifiedIdentifier',
       'validateCanonicalValue',
       'validateProtocolDatasetContract',

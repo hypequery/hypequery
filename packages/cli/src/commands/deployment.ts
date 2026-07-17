@@ -1,9 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
-  encodeProtocolDeploymentContractToString,
-  hashProtocolDeploymentContract,
-  validateProtocolDeploymentContract,
+  prepareProtocolDeploymentContract,
   type ProtocolDeploymentContract,
 } from '@hypequery/protocol';
 import { loadApiModule } from '../utils/load-api.js';
@@ -69,16 +67,22 @@ export async function buildDeploymentCommand(
   }
 
   const contract = api.deploymentContract(artifact ? { runtimeArtifact: artifact } : {});
-  const validated = validateProtocolDeploymentContract(contract);
-  const canonical = encodeProtocolDeploymentContractToString(validated);
-  const digest = hashProtocolDeploymentContract(validated);
+  const prepared = prepareProtocolDeploymentContract(contract);
+  const { canonical, contract: validated, identity: digest } = prepared;
   const outputPath = options.output ?? 'analytics/hypequery-deployment.json';
   const hashOutputPath = options.hashOutput ?? `${outputPath}.sha256`;
+  const identitySidecar = [
+    '# Hypequery deployment identity v1; not a file checksum or sha256sum input.',
+    '# SHA-256(UTF-8("hypequery:deployment:v1") || 0x00 || RFC 8785 canonical bytes); '
+      + 'the output newline is excluded.',
+    `${digest}  ${path.basename(outputPath)}`,
+    '',
+  ].join('\n');
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await mkdir(path.dirname(hashOutputPath), { recursive: true });
   await writeFile(outputPath, `${canonical}\n`, 'utf8');
-  await writeFile(hashOutputPath, `${digest}  ${path.basename(outputPath)}\n`, 'utf8');
+  await writeFile(hashOutputPath, identitySidecar, 'utf8');
 
   logger.success(`Deployment contract written to ${outputPath}`);
   logger.info(`Identity: ${digest}`);
@@ -105,8 +109,17 @@ export async function validateDeploymentCommand(
     );
   }
 
-  const contract = validateProtocolDeploymentContract(input);
-  const digest = hashProtocolDeploymentContract(contract);
+  let prepared: ReturnType<typeof prepareProtocolDeploymentContract>;
+  try {
+    prepared = prepareProtocolDeploymentContract(input);
+  } catch (error) {
+    throw new Error(
+      `Invalid deployment contract: ${artifactPath}\n\n`
+      + (error instanceof Error ? error.message : String(error)),
+    );
+  }
+
+  const { contract, identity: digest } = prepared;
   logger.success(`Valid deployment contract: ${artifactPath}`);
   logger.info(
     `${contract.datasets.length} datasets, ${contract.queries.length} queries, `

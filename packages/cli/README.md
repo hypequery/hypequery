@@ -158,6 +158,11 @@ Options:
 - `--entrypoint-prefix <prefix>`: default `queries`
 - `--hash-output <path>`: default `<output>.sha256`
 
+The identity sidecar is not a checksum of the JSON file and is not compatible
+with `sha256sum -c`. It records SHA-256 over the deployment-v1 domain prefix,
+one zero byte, and the canonical RFC 8785 UTF-8 bytes. The presentation newline
+written after the JSON document is not part of the identity.
+
 ### `hypequery deployment:validate`
 
 Validates an existing contract with the strict protocol validator and reports

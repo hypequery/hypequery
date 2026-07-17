@@ -75,7 +75,9 @@ Serve queries, endpoint policy, and runtime artifact identities into one strict
 versioned envelope. Dataset and Serve adapters live in their owning packages;
 the protocol package remains deterministic and framework-independent.
 Validated envelopes can be encoded as canonical RFC 8785 bytes and identified
-with the deployment-v1 domain-separated SHA-256 digest.
+with the deployment-v1 domain-separated SHA-256 digest. Consumers that need
+the validated contract, canonical representation, and identity together can
+use `prepareProtocolDeploymentContract` to compute all three in one pass.
 
 ## Runtime compatibility
 

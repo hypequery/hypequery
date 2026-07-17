@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  encodeProtocolDeploymentContractToString,
-  hashProtocolDeploymentContract,
-} from '@hypequery/protocol';
+import { prepareProtocolDeploymentContract } from '@hypequery/protocol';
 
 const mockLoadApiModule = vi.hoisted(() => vi.fn());
 
@@ -47,6 +44,7 @@ describe('deployment commands', () => {
   it('builds canonical deployment JSON and a domain-separated identity sidecar', async () => {
     const deploymentContract = vi.fn(() => contract);
     mockLoadApiModule.mockResolvedValue({ deploymentContract });
+    const prepared = prepareProtocolDeploymentContract(contract);
 
     await buildDeploymentCommand('analytics/api.ts', {
       output: 'dist/deployment.json',
@@ -64,12 +62,15 @@ describe('deployment commands', () => {
     expect(mkdir).toHaveBeenCalledWith('dist', { recursive: true });
     expect(writeFile).toHaveBeenCalledWith(
       'dist/deployment.json',
-      `${encodeProtocolDeploymentContractToString(contract)}\n`,
+      `${prepared.canonical}\n`,
       'utf8',
     );
     expect(writeFile).toHaveBeenCalledWith(
       'dist/deployment.json.sha256',
-      `${hashProtocolDeploymentContract(contract)}  deployment.json\n`,
+      '# Hypequery deployment identity v1; not a file checksum or sha256sum input.\n'
+      + '# SHA-256(UTF-8("hypequery:deployment:v1") || 0x00 || RFC 8785 canonical bytes); '
+      + 'the output newline is excluded.\n'
+      + `${prepared.identity}  deployment.json\n`,
       'utf8',
     );
   });
@@ -101,6 +102,13 @@ describe('deployment commands', () => {
     vi.mocked(readFile).mockResolvedValue('{');
     await expect(validateDeploymentCommand('broken.json')).rejects.toThrow(
       /Invalid deployment JSON: broken\.json/,
+    );
+  });
+
+  it('includes the artifact path in contract validation errors', async () => {
+    vi.mocked(readFile).mockResolvedValue('{}');
+    await expect(validateDeploymentCommand('invalid.json')).rejects.toThrow(
+      /Invalid deployment contract: invalid\.json[\s\S]*HQ_DEPLOYMENT_/,
     );
   });
 });
