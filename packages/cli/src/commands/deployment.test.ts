@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
+import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { prepareProtocolDeploymentContract } from '@hypequery/protocol';
+import {
+  prepareProtocolDeploymentContract,
+  prepareProtocolDeploymentReleaseEnvelope,
+} from '@hypequery/protocol';
 
 const mockLoadApiModule = vi.hoisted(() => vi.fn());
 const mockBuildNodeRuntimeArtifact = vi.hoisted(() => vi.fn());
@@ -36,16 +40,23 @@ vi.mock('node:fs/promises', async () => {
   return {
     ...actual,
     mkdir: vi.fn(),
+    lstat: vi.fn(),
+    realpath: vi.fn(),
     readFile: vi.fn(),
     stat: vi.fn(),
     writeFile: vi.fn(),
   };
 });
 
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { buildDeploymentCommand, validateDeploymentCommand } from './deployment.js';
+import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
+import {
+  buildDeploymentCommand,
+  prepareDeploymentReleaseCommand,
+  validateDeploymentCommand,
+} from './deployment.js';
 
 const ARTIFACT_SHA = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const BUNDLE_IDENTITY = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 const contract = {
   kind: 'hypequery-deployment' as const,
   version: 1 as const,
@@ -59,6 +70,8 @@ describe('deployment commands', () => {
     vi.clearAllMocks();
     mockGetDeploymentRuntimeEntrypoints.mockReturnValue([]);
     vi.mocked(stat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+    vi.mocked(lstat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+    vi.mocked(realpath).mockImplementation(async value => path.resolve(String(value)));
     mockWriteDeploymentBundle.mockImplementation(async (directory, prepared) => ({
       directory,
       manifest: {
@@ -346,5 +359,158 @@ describe('deployment commands', () => {
     await expect(validateDeploymentCommand('invalid.json')).rejects.toThrow(
       /Invalid deployment contract: invalid\.json[\s\S]*HQ_DEPLOYMENT_/,
     );
+  });
+
+  it('prepares a target-bound release from a verified bundle', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({
+      directory: '/project/dist/bundle',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 1,
+        deployment: {
+          path: 'deployment.json',
+          identity: '1'.repeat(64),
+          sha256: '2'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: BUNDLE_IDENTITY,
+      contract,
+    });
+    const expected = prepareProtocolDeploymentReleaseEnvelope({
+      kind: 'hypequery-deployment-release',
+      version: 1,
+      bundleIdentity: BUNDLE_IDENTITY,
+      target: { project: 'project_1', environment: 'production' },
+    });
+
+    const result = await prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: 'production',
+    });
+
+    expect(mockVerifyDeploymentBundle).toHaveBeenCalledWith('dist/bundle');
+    expect(writeFile).toHaveBeenCalledWith(
+      'dist/bundle.release.json',
+      `${expected.canonical}\n`,
+      'utf8',
+    );
+    expect(result).toEqual(expected.release);
+    expect(Object.isFrozen(result)).toBe(true);
+  });
+
+  it('requires release target options before reading the bundle', async () => {
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      environment: 'production',
+    })).rejects.toThrow(/--project/);
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+    })).rejects.toThrow(/--environment/);
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('does not permit release output inside the closed bundle', async () => {
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: 'production',
+      output: 'dist/bundle/release.json',
+    })).rejects.toThrow(/outside the closed deployment bundle/);
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('does not write a release for an invalid bundle', async () => {
+    mockVerifyDeploymentBundle.mockRejectedValue(new Error('hash mismatch'));
+
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: 'production',
+    })).rejects.toThrow(/invalid deployment bundle: dist\/bundle[\s\S]*hash mismatch/);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects output paths that resolve through a symlink into the bundle', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({
+      directory: '/real/bundle',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 1,
+        deployment: {
+          path: 'deployment.json',
+          identity: '1'.repeat(64),
+          sha256: '2'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: BUNDLE_IDENTITY,
+      contract,
+    });
+    vi.mocked(realpath).mockResolvedValueOnce('/real/bundle/release.json');
+
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: 'production',
+      output: 'dist/output/release.json',
+    })).rejects.toThrow(/outside the closed deployment bundle/);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects dangling output symlinks before writing', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({
+      directory: '/real/bundle',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 1,
+        deployment: {
+          path: 'deployment.json',
+          identity: '1'.repeat(64),
+          sha256: '2'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: BUNDLE_IDENTITY,
+      contract,
+    });
+    vi.mocked(realpath)
+      .mockRejectedValueOnce(Object.assign(new Error('dangling'), { code: 'ENOENT' }));
+    vi.mocked(lstat).mockResolvedValue({ isSymbolicLink: () => true } as never);
+
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: 'production',
+      output: 'dist/release-link.json',
+    })).rejects.toThrow(/dangling symbolic link/);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects output that becomes a symbolic link immediately before writing', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({
+      directory: '/real/bundle',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 1,
+        deployment: {
+          path: 'deployment.json',
+          identity: '1'.repeat(64),
+          sha256: '2'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: BUNDLE_IDENTITY,
+      contract,
+    });
+    vi.mocked(realpath).mockResolvedValue('/real/output/release.json');
+    vi.mocked(lstat).mockResolvedValue({ isSymbolicLink: () => true } as never);
+
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: 'production',
+      output: 'dist/output/release.json',
+    })).rejects.toThrow(/--output must not be a symbolic link/);
+    expect(mkdir).toHaveBeenCalledWith('dist/output', { recursive: true });
+    expect(writeFile).not.toHaveBeenCalled();
   });
 });

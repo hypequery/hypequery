@@ -8,8 +8,10 @@ import { generateDatasetsCommand, type GenerateDatasetsOptions } from './command
 import { generateManifestCommand, type GenerateManifestOptions } from './commands/generate-manifest.js';
 import {
   buildDeploymentCommand,
+  prepareDeploymentReleaseCommand,
   validateDeploymentCommand,
   type BuildDeploymentOptions,
+  type PrepareDeploymentReleaseOptions,
 } from './commands/deployment.js';
 
 const program = new Command();
@@ -150,6 +152,16 @@ program
     await validateDeploymentCommand(artifact);
   }));
 
+program
+  .command('deployment:release <bundle>')
+  .description('Prepare a target-bound release from a verified deployment bundle')
+  .requiredOption('--project <project>', 'Target project identifier')
+  .requiredOption('--environment <environment>', 'Target environment identifier')
+  .option('-o, --output <path>', 'Release JSON path (default: beside the bundle)')
+  .action(runCommand(async (bundle: string, options: PrepareDeploymentReleaseOptions) => {
+    await prepareDeploymentReleaseCommand(bundle, options);
+  }));
+
 // Help command
 program
   .command('help [command]')
@@ -181,6 +193,7 @@ program.on('--help', () => {
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
   console.log('  hypequery deployment:build analytics/api.ts');
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
+  console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

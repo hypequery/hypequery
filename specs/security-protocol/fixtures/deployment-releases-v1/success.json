@@ -1,0 +1,14 @@
+[
+  {
+    "id": "production-release",
+    "value": {
+      "kind": "hypequery-deployment-release",
+      "version": 1,
+      "bundleIdentity": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "target": {
+        "project": "prj_acme-analytics",
+        "environment": "production"
+      }
+    }
+  }
+]

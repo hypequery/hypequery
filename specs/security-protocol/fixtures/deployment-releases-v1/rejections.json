@@ -1,0 +1,8 @@
+[
+  { "id": "wrong-root-type", "generator": { "type": "wrong-root-type" }, "error": "HQ_RELEASE_TYPE" },
+  { "id": "unknown-root-field", "generator": { "type": "unknown-root-field" }, "error": "HQ_RELEASE_UNKNOWN_FIELD" },
+  { "id": "unsupported-version", "generator": { "type": "unsupported-version" }, "error": "HQ_RELEASE_INVALID_VERSION" },
+  { "id": "malformed-bundle-identity", "generator": { "type": "malformed-bundle-identity" }, "error": "HQ_RELEASE_INVALID_VALUE" },
+  { "id": "target-too-large", "generator": { "type": "target-too-large" }, "error": "HQ_RELEASE_TOO_LARGE" },
+  { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_RELEASE_UNSAFE_OBJECT" }
+]

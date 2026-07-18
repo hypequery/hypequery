@@ -97,6 +97,26 @@ export {
   validateProtocolDeploymentBundleManifest,
 } from './bundles/index.js';
 
+export {
+  DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS,
+  PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN,
+  ProtocolDeploymentReleaseError,
+  encodeProtocolDeploymentReleaseEnvelope,
+  encodeProtocolDeploymentReleaseEnvelopeToString,
+  hashProtocolDeploymentReleaseEnvelope,
+  prepareProtocolDeploymentReleaseEnvelope,
+  validateProtocolDeploymentReleaseEnvelope,
+} from './releases/index.js';
+
+export type {
+  PreparedProtocolDeploymentReleaseEnvelope,
+  ProtocolDeploymentReleaseEnvelope,
+  ProtocolDeploymentReleaseErrorCode,
+  ProtocolDeploymentReleaseLimits,
+  ProtocolDeploymentReleaseOptions,
+  ProtocolDeploymentReleaseTarget,
+} from './releases/index.js';
+
 export type {
   PreparedProtocolDeploymentBundleManifest,
   ProtocolDeploymentBundleArtifact,
