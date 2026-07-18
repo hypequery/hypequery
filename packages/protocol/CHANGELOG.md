@@ -1,5 +1,13 @@
 # @hypequery/protocol
 
+## 0.4.0
+
+### Minor Changes
+
+- b92a0a1: Add versioned deployment bundle manifests, canonical identities, deterministic
+  bundle directory builds, and strict filesystem verification for deployment and
+  runtime artifact bytes.
+
 ## 0.3.0
 
 ### Minor Changes

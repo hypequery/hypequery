@@ -1,5 +1,18 @@
 # @hypequery/cli
 
+## 1.7.0
+
+### Minor Changes
+
+- b92a0a1: Add versioned deployment bundle manifests, canonical identities, deterministic
+  bundle directory builds, and strict filesystem verification for deployment and
+  runtime artifact bytes.
+
+### Patch Changes
+
+- Updated dependencies [b92a0a1]
+  - @hypequery/protocol@0.4.0
+
 ## 1.6.0
 
 ### Minor Changes
