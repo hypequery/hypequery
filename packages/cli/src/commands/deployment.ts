@@ -352,6 +352,20 @@ async function prospectiveRealPath(inputPath: string): Promise<string> {
   }
 }
 
+async function assertOutputIsNotSymbolicLink(outputPath: string): Promise<void> {
+  try {
+    const outputStat = await lstat(outputPath);
+    if (outputStat.isSymbolicLink()) {
+      throw new Error('--output must not be a symbolic link.');
+    }
+  } catch (error) {
+    if (!(typeof error === 'object' && error !== null && 'code' in error
+      && (error as { code?: unknown }).code === 'ENOENT')) {
+      throw error;
+    }
+  }
+}
+
 export async function prepareDeploymentReleaseCommand(
   bundlePath: string | undefined,
   options: PrepareDeploymentReleaseOptions = {},
@@ -382,7 +396,7 @@ export async function prepareDeploymentReleaseCommand(
     );
   }
   assertOutputOutsideBundle(
-    await realpath(bundlePath),
+    bundle.directory,
     await prospectiveRealPath(outputPath),
   );
   const prepared = prepareProtocolDeploymentReleaseEnvelope({
@@ -395,6 +409,7 @@ export async function prepareDeploymentReleaseCommand(
     },
   });
   await mkdir(path.dirname(outputPath), { recursive: true });
+  await assertOutputIsNotSymbolicLink(outputPath);
   await writeFile(outputPath, `${prepared.canonical}\n`, 'utf8');
   logger.success(`Deployment release written to ${outputPath}`);
   logger.info(`Release identity: ${prepared.identity}`);

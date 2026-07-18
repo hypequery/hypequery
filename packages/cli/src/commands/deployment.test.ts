@@ -446,9 +446,7 @@ describe('deployment commands', () => {
       identity: BUNDLE_IDENTITY,
       contract,
     });
-    vi.mocked(realpath)
-      .mockResolvedValueOnce('/real/bundle')
-      .mockResolvedValueOnce('/real/bundle/release.json');
+    vi.mocked(realpath).mockResolvedValueOnce('/real/bundle/release.json');
 
     await expect(prepareDeploymentReleaseCommand('dist/bundle', {
       project: 'project_1',
@@ -476,7 +474,6 @@ describe('deployment commands', () => {
       contract,
     });
     vi.mocked(realpath)
-      .mockResolvedValueOnce('/real/bundle')
       .mockRejectedValueOnce(Object.assign(new Error('dangling'), { code: 'ENOENT' }));
     vi.mocked(lstat).mockResolvedValue({ isSymbolicLink: () => true } as never);
 
@@ -485,6 +482,35 @@ describe('deployment commands', () => {
       environment: 'production',
       output: 'dist/release-link.json',
     })).rejects.toThrow(/dangling symbolic link/);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects output that becomes a symbolic link immediately before writing', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({
+      directory: '/real/bundle',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 1,
+        deployment: {
+          path: 'deployment.json',
+          identity: '1'.repeat(64),
+          sha256: '2'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: BUNDLE_IDENTITY,
+      contract,
+    });
+    vi.mocked(realpath).mockResolvedValue('/real/output/release.json');
+    vi.mocked(lstat).mockResolvedValue({ isSymbolicLink: () => true } as never);
+
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: 'production',
+      output: 'dist/output/release.json',
+    })).rejects.toThrow(/--output must not be a symbolic link/);
+    expect(mkdir).toHaveBeenCalledWith('dist/output', { recursive: true });
     expect(writeFile).not.toHaveBeenCalled();
   });
 });
