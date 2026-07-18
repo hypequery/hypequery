@@ -182,6 +182,28 @@ are still accepted for metadata-only validation.
 npx hypequery deployment:validate analytics/hypequery-deployment
 ```
 
+### `hypequery deployment:release`
+
+Prepares a deterministic release request from a verified deployment bundle and
+an explicit project/environment target. This command does not upload, authorize,
+or execute the release.
+
+```bash
+npx hypequery deployment:release analytics/hypequery-deployment \
+  --project my-project \
+  --environment production
+```
+
+The default output is `analytics/hypequery-deployment.release.json`. It is
+written beside the bundle because adding it inside the closed bundle would
+invalidate bundle verification.
+
+Options:
+
+- `--project <project>`: required target project identifier
+- `--environment <environment>`: required target environment identifier
+- `--output <path>`: release JSON path, default beside the bundle
+
 ## Non-interactive Setup
 
 For ClickHouse, `hypequery init --no-interactive` reads:

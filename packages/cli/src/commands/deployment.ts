@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+  prepareProtocolDeploymentReleaseEnvelope,
   prepareProtocolDeploymentContract,
   type ProtocolDeploymentContract,
+  type ProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
 import {
   writeDeploymentBundle,
@@ -30,6 +32,12 @@ export interface BuildDeploymentOptions {
   runtimeOutput?: string;
   entrypointPrefix?: string;
   hashOutput?: string;
+}
+
+export interface PrepareDeploymentReleaseOptions {
+  project?: string;
+  environment?: string;
+  output?: string;
 }
 
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
@@ -300,4 +308,96 @@ export async function validateDeploymentCommand(
   );
   logger.info(`Identity: ${digest}`);
   return contract;
+}
+
+function assertOutputOutsideBundle(bundlePath: string, outputPath: string): void {
+  const bundle = path.resolve(bundlePath);
+  const output = path.resolve(outputPath);
+  const relative = path.relative(bundle, output);
+  const outside = relative === '..'
+    || relative.startsWith(`..${path.sep}`)
+    || path.isAbsolute(relative);
+  if (relative === '' || !outside) {
+    throw new Error('--output must be outside the closed deployment bundle directory.');
+  }
+}
+
+async function prospectiveRealPath(inputPath: string): Promise<string> {
+  let current = path.resolve(inputPath);
+  const missingSegments: string[] = [];
+  for (;;) {
+    try {
+      return path.join(await realpath(current), ...missingSegments);
+    } catch (error) {
+      if (!(typeof error === 'object' && error !== null && 'code' in error
+        && (error as { code?: unknown }).code === 'ENOENT')) {
+        throw error;
+      }
+      try {
+        const stat = await lstat(current);
+        if (stat.isSymbolicLink()) {
+          throw new Error('--output must not traverse a dangling symbolic link.');
+        }
+      } catch (lstatError) {
+        if (!(typeof lstatError === 'object' && lstatError !== null && 'code' in lstatError
+          && (lstatError as { code?: unknown }).code === 'ENOENT')) {
+          throw lstatError;
+        }
+      }
+      const parent = path.dirname(current);
+      if (parent === current) throw error;
+      missingSegments.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+export async function prepareDeploymentReleaseCommand(
+  bundlePath: string | undefined,
+  options: PrepareDeploymentReleaseOptions = {},
+): Promise<ProtocolDeploymentReleaseEnvelope> {
+  if (!bundlePath) {
+    throw new Error(
+      'Missing deployment bundle path.\n\n'
+      + 'Usage: hypequery deployment:release analytics/hypequery-deployment '
+      + '--project <project> --environment <environment>',
+    );
+  }
+  if (options.project === undefined) {
+    throw new Error('Missing required --project <project>.');
+  }
+  if (options.environment === undefined) {
+    throw new Error('Missing required --environment <environment>.');
+  }
+  const outputPath = options.output ?? `${bundlePath.replace(/[\\/]+$/, '')}.release.json`;
+  assertOutputOutsideBundle(bundlePath, outputPath);
+
+  let bundle: Awaited<ReturnType<typeof verifyDeploymentBundle>>;
+  try {
+    bundle = await verifyDeploymentBundle(bundlePath);
+  } catch (error) {
+    throw new Error(
+      `Cannot prepare a release from an invalid deployment bundle: ${bundlePath}\n\n`
+      + (error instanceof Error ? error.message : String(error)),
+    );
+  }
+  assertOutputOutsideBundle(
+    await realpath(bundlePath),
+    await prospectiveRealPath(outputPath),
+  );
+  const prepared = prepareProtocolDeploymentReleaseEnvelope({
+    kind: 'hypequery-deployment-release',
+    version: 1,
+    bundleIdentity: bundle.identity,
+    target: {
+      project: options.project,
+      environment: options.environment,
+    },
+  });
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${prepared.canonical}\n`, 'utf8');
+  logger.success(`Deployment release written to ${outputPath}`);
+  logger.info(`Release identity: ${prepared.identity}`);
+  logger.info(`Bundle identity: ${bundle.identity}`);
+  return prepared.release;
 }

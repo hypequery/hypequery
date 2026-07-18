@@ -1,0 +1,7 @@
+[
+  {
+    "id": "production-release",
+    "canonical": "{\"bundleIdentity\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\",\"kind\":\"hypequery-deployment-release\",\"target\":{\"environment\":\"production\",\"project\":\"prj_acme-analytics\"},\"version\":1}",
+    "sha256": "3ffb5ef6824431b6859c5ae609903e41abf3515c8080dff951dc4babfa2b6cda"
+  }
+]

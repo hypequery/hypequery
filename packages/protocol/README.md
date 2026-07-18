@@ -83,6 +83,11 @@ provides canonical encoding and a separate bundle-v1 identity. Filesystem-safe
 writing and byte verification remain in the CLI because this package performs
 no I/O.
 
+The proposed deployment-release surface binds one verified bundle identity to
+an explicit project and environment. Its deterministic identity can serve as an
+idempotency key for a future authenticated upload API without putting
+credentials, timestamps, release state, or provider behavior into the envelope.
+
 ## Runtime compatibility
 
 This package is ESM-only. Consumers must load it with `import`; CommonJS

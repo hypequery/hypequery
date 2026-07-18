@@ -76,7 +76,7 @@ denotes one zero byte.
 
 The manifest identity identifies the set of declared files and their exact
 bytes. It does not replace artifact hashes, the RFC 0006 deployment identity,
-or a future signed release envelope.
+the RFC 0008 release identity, or a future detached signature.
 
 ## Limits
 
