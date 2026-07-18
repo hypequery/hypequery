@@ -1,5 +1,22 @@
 # @hypequery/serve
 
+## 0.13.0
+
+### Minor Changes
+
+- 303d402: Normalize auth overrides across queries, datasets, and metrics. Semantic entries
+  with `auth: null` now continue to inherit global auth; use
+  `requiresAuth: false` to make a dataset or metric endpoint explicitly public.
+
+  Compatibility note: semantic endpoints that previously used `auth: null` as a
+  public override must migrate to `requiresAuth: false`. This breaking behavior
+  change ships as a minor deliberately because `@hypequery/serve` is 0.x, where
+  breaking changes use the minor version slot.
+
+### Patch Changes
+
+- fdec655: Build deterministic Node runtime artifacts automatically when deployment metadata references Serve handlers.
+
 ## 0.12.0
 
 ### Minor Changes
