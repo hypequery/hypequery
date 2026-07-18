@@ -20,6 +20,7 @@ import {
   type ProtocolDeploymentBundleManifest,
   type ProtocolDeploymentContract,
 } from '@hypequery/protocol';
+import { logger } from './logger.js';
 
 export const DEPLOYMENT_BUNDLE_MANIFEST = 'bundle.json';
 export const DEPLOYMENT_BUNDLE_CONTRACT = 'deployment.json';
@@ -193,7 +194,14 @@ export async function writeDeploymentBundle(
         await rename(backup, destination);
         throw error;
       }
-      await rm(backup, { recursive: true });
+      try {
+        await rm(backup, { recursive: true });
+      } catch (error) {
+        logger.warn(
+          `Deployment bundle was replaced, but its previous backup could not be removed: ${backup}`
+          + ` (${error instanceof Error ? error.message : String(error)})`,
+        );
+      }
     }
   } catch (error) {
     await rm(staging, { force: true, recursive: true });

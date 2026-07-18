@@ -9,7 +9,16 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { prepareProtocolDeploymentContract } from '@hypequery/protocol';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger } from './logger.js';
+
+const mockRm = vi.hoisted(() => vi.fn());
+
+vi.mock('node:fs/promises', async () => {
+  const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  mockRm.mockImplementation(actual.rm);
+  return { ...actual, rm: mockRm };
+});
 import {
   DEPLOYMENT_BUNDLE_MANIFEST,
   readDeploymentRuntimeFile,
@@ -60,6 +69,9 @@ afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map(directory => (
     rm(directory, { force: true, recursive: true })
   )));
+  const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  mockRm.mockImplementation(actual.rm);
+  vi.restoreAllMocks();
 });
 
 describe('deployment bundle filesystem', () => {
@@ -177,6 +189,29 @@ describe('deployment bundle filesystem', () => {
     const replaced = await writeDeploymentBundle(output, prepared, []);
     const verified = await verifyDeploymentBundle(output);
     expect(verified.identity).toBe(replaced.identity);
+  });
+
+  it('warns without failing when an obsolete backup cannot be removed', async () => {
+    const parent = await temporaryDirectory();
+    const output = path.join(parent, 'bundle');
+    const prepared = prepareProtocolDeploymentContract(deployment());
+    await writeDeploymentBundle(output, prepared, []);
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+    mockRm.mockImplementation(async (target, options) => {
+      if (String(target).includes('.bundle.previous-')) {
+        throw Object.assign(new Error('permission denied'), { code: 'EPERM' });
+      }
+      return actual.rm(target, options);
+    });
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+    const replaced = await writeDeploymentBundle(output, prepared, []);
+    const verified = await verifyDeploymentBundle(output);
+
+    expect(verified.identity).toBe(replaced.identity);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(
+      /previous backup could not be removed:[\s\S]*\.bundle\.previous-[\s\S]*permission denied/,
+    ));
   });
 
   it('does not replace an unrelated existing path', async () => {
