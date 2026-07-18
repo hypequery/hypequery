@@ -1,5 +1,12 @@
 # @hypequery/datasets
 
+## 0.12.3
+
+### Patch Changes
+
+- Updated dependencies [3a8cad6]
+  - @hypequery/protocol@0.5.0
+
 ## 0.12.2
 
 ### Patch Changes

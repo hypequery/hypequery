@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/datasets",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "Semantic layer for defining datasets, metrics, and semantic queries",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -40,7 +40,7 @@
     "dist"
   ],
   "dependencies": {
-    "@hypequery/protocol": "^0.4.0",
+    "@hypequery/protocol": "^0.5.0",
     "@noble/hashes": "^1.8.0",
     "zod": "^3.22.4"
   },
