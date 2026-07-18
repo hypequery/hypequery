@@ -153,6 +153,8 @@ describe('deployment commands', () => {
       output: 'dist/deployment.json',
       runtimeOutput: 'dist/deployment.json',
     })).rejects.toThrow(/--runtime-output must use a different path from --output/);
+    expect(mockLoadApiModule).not.toHaveBeenCalled();
+    expect(mockBuildNodeRuntimeArtifact).not.toHaveBeenCalled();
     expect(writeFile).not.toHaveBeenCalled();
   });
 

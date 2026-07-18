@@ -95,7 +95,7 @@ function runtimeEntrySource(
 
   return [
     `import * as apiModule from ${JSON.stringify(apiSpecifier)};`,
-    'const api = apiModule.api ?? apiModule.default;',
+    'const api = apiModule.api ?? Reflect.get(apiModule, "default");',
     'if (!api || typeof api !== "object") throw new Error("Runtime API export is unavailable.");',
     'const resolveQuery = (name) => {',
     '  const query = api.queries?.[name]?.query;',
@@ -141,7 +141,7 @@ export async function buildNodeRuntimeArtifact(
       charset: 'utf8',
       format: 'esm',
       legalComments: 'none',
-      logLevel: 'silent',
+      logLevel: 'warning',
       minify: true,
       platform: 'node',
       sourcemap: false,

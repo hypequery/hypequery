@@ -89,6 +89,13 @@ export async function buildDeploymentCommand(
   }
   const outputPath = options.output ?? 'analytics/hypequery-deployment.json';
   const hashOutputPath = options.hashOutput ?? `${outputPath}.sha256`;
+  if (options.runtimeOutput !== undefined) {
+    assertDistinctOutputPaths({
+      '--output': outputPath,
+      '--hash-output': hashOutputPath,
+      '--runtime-output': options.runtimeOutput,
+    });
+  }
   const api = await loadApiModule(apiPath) as DeploymentContractSource;
   if (typeof api.deploymentContract !== 'function') {
     throw new Error(
