@@ -1,5 +1,6 @@
 interface EndpointAuthRequirement {
   readonly auth?: unknown | null;
+  /** Explicit local requirement; roles or scopes take precedence over `false`. */
   readonly requiresAuth?: boolean;
   readonly requiredRoles?: readonly string[];
   readonly requiredScopes?: readonly string[];

@@ -12,7 +12,7 @@ export type DatasetEntry<TAuth extends AuthContext = AuthContext> =
       dataset: AnyDatasetInstance;
       /** Local auth strategy. `null` omits it while still inheriting global auth. */
       auth?: AuthStrategy<TAuth> | null;
-      /** Explicit auth requirement. Set to `false` to make this endpoint public. */
+      /** Set to `false` for public access. Required roles or scopes take precedence. */
       requiresAuth?: boolean;
       tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;
