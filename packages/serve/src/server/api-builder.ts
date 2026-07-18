@@ -19,6 +19,7 @@ import { ServeQueryLogger } from "../query-logger.js";
 import { mergeTags } from "../utils.js";
 import { applyBasePath, normalizeRoutePath } from "../router.js";
 import { mapEndpointToToolkit } from "./mapper.js";
+import { attachDeploymentBuildSource } from "./deployment-build-source.js";
 
 export const createAPImethods = <
   TQueries extends ServeQueriesMap<TContext, TAuth>,
@@ -37,6 +38,7 @@ export const createAPImethods = <
   buildDeploymentContract: (
     options?: BuildProtocolDeploymentOptions,
   ) => ProtocolDeploymentContract,
+  runtimeEntrypoints: readonly string[],
 ): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
   const api: HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
@@ -127,6 +129,8 @@ export const createAPImethods = <
 
     handler,
   };
+
+  attachDeploymentBuildSource(api, runtimeEntrypoints);
 
   return api;
 };

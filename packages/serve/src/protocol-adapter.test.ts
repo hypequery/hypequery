@@ -33,6 +33,22 @@ describe('Serve protocol adapter', () => {
     expect(contract.artifacts).toEqual([{ runtime: 'node', artifactSha256: ARTIFACT_SHA }]);
   });
 
+  it('exposes named query entrypoints only through internal build metadata', () => {
+    const api = createAPI({
+      queries: {
+        zebra: { output: z.string(), query: async () => 'zebra' },
+        alpha: { output: z.string(), query: async () => 'alpha' },
+      },
+    });
+    const source = (api as unknown as Record<PropertyKey, unknown>)[
+      Symbol.for('hypequery.deployment-build-source.v1')
+    ];
+
+    expect(source).toEqual({ version: 1, runtimeEntrypoints: ['alpha', 'zebra'] });
+    expect(Object.keys(api)).not.toContain('deploymentBuildSource');
+    expect(Object.isFrozen(source)).toBe(true);
+  });
+
   it('converts Serve queries and Dataset endpoints into one deployment contract', () => {
     const Orders = dataset('orders', {
       source: 'orders',
