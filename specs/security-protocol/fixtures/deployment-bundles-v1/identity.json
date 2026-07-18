@@ -1,0 +1,7 @@
+[
+  {
+    "id": "node-runtime-bundle",
+    "canonical": "{\"artifacts\":[{\"byteLength\":2048,\"path\":\"artifacts/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.mjs\",\"runtime\":\"node\",\"sha256\":\"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\"}],\"deployment\":{\"byteLength\":1024,\"identity\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"path\":\"deployment.json\",\"sha256\":\"2222222222222222222222222222222222222222222222222222222222222222\"},\"kind\":\"hypequery-deployment-bundle\",\"version\":1}",
+    "sha256": "fca7dcefbc455553890c2408d6a693d4583ec19cf0c055202930a03b41560ace"
+  }
+]

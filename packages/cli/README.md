@@ -138,36 +138,48 @@ semantic keys such as `dataset:orders`.
 
 ### `hypequery deployment:build`
 
-Builds deployment metadata for an exported HypeQuery API and writes the
-artifact with its identity sidecar.
+Builds a closed deployment bundle for an exported HypeQuery API. The bundle
+contains canonical deployment metadata, every referenced runtime artifact, and
+a manifest that binds their exact bytes and identities.
 
 ```bash
 npx hypequery deployment:build analytics/api.ts
 ```
 
-Named Serve handlers are bundled into a Node runtime artifact automatically.
-Dataset-only APIs do not produce a runtime artifact. Use `--runtime-artifact`
-to reference a separately built Node or Python artifact instead.
+The default output is `analytics/hypequery-deployment/`. Named Serve handlers
+are bundled into a Node runtime artifact automatically. Dataset-only APIs do
+not produce a runtime artifact. For a separately built Node or Python runtime,
+provide both its expected digest and file path:
+
+```bash
+npx hypequery deployment:build analytics/api.ts \
+  --runtime python \
+  --runtime-artifact <sha256> \
+  --runtime-file dist/runtime.pyz
+```
 
 Options:
 
-- `--output <path>`: default `analytics/hypequery-deployment.json`
+- `--bundle-output <directory>`: default `analytics/hypequery-deployment`
 - `--runtime <runtime>`: `node` (default) or `python`
 - `--runtime-artifact <sha256>`: lowercase SHA-256 of a prebuilt runtime artifact
-- `--runtime-output <path>`: default beside the deployment JSON as `hypequery-runtime.mjs`
+- `--runtime-file <path>`: bytes for the prebuilt runtime artifact
 - `--entrypoint-prefix <prefix>`: default `queries`
-- `--hash-output <path>`: default `<output>.sha256`
 
-The identity sidecar is not compatible with `sha256sum -c`. Use
-`deployment:validate` to validate the artifact and report its identity.
+The compatibility options `--output`, `--runtime-output`, and `--hash-output`
+still emit the earlier metadata files instead of a complete bundle. They cannot
+be combined with `--bundle-output`.
 
 ### `hypequery deployment:validate`
 
-Validates an existing deployment artifact and reports its datasets, queries,
-runtime artifacts, and identity.
+Verifies a complete deployment bundle before returning any contained metadata.
+Verification rejects missing or undeclared files, symbolic links, path
+traversal, byte-length or hash mismatches, deployment identity mismatches, and
+runtime files not referenced by the deployment. Legacy deployment JSON files
+are still accepted for metadata-only validation.
 
 ```bash
-npx hypequery deployment:validate analytics/hypequery-deployment.json
+npx hypequery deployment:validate analytics/hypequery-deployment
 ```
 
 ## Non-interactive Setup

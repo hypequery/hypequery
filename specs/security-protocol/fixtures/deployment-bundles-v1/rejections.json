@@ -1,0 +1,11 @@
+[
+  { "id": "wrong-root-type", "generator": { "type": "wrong-root-type" }, "error": "HQ_BUNDLE_TYPE" },
+  { "id": "unknown-root-field", "generator": { "type": "unknown-root-field" }, "error": "HQ_BUNDLE_UNKNOWN_FIELD" },
+  { "id": "unsupported-version", "generator": { "type": "unsupported-version" }, "error": "HQ_BUNDLE_INVALID_VERSION" },
+  { "id": "malformed-digest", "generator": { "type": "malformed-digest" }, "error": "HQ_BUNDLE_INVALID_VALUE" },
+  { "id": "traversal-path", "generator": { "type": "traversal-path" }, "error": "HQ_BUNDLE_INVALID_PATH" },
+  { "id": "duplicate-path", "generator": { "type": "duplicate-path" }, "error": "HQ_BUNDLE_INVALID_REFERENCE" },
+  { "id": "too-many-artifacts", "generator": { "type": "too-many-artifacts" }, "error": "HQ_BUNDLE_TOO_MANY_ITEMS" },
+  { "id": "deployment-too-large", "generator": { "type": "deployment-too-large" }, "error": "HQ_BUNDLE_TOO_LARGE" },
+  { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_BUNDLE_UNSAFE_OBJECT" }
+]

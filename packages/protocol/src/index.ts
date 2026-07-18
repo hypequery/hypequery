@@ -87,6 +87,28 @@ export {
 } from './query-implementations/index.js';
 
 export {
+  DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
+  PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN,
+  ProtocolDeploymentBundleError,
+  encodeProtocolDeploymentBundleManifest,
+  encodeProtocolDeploymentBundleManifestToString,
+  hashProtocolDeploymentBundleManifest,
+  prepareProtocolDeploymentBundleManifest,
+  validateProtocolDeploymentBundleManifest,
+} from './bundles/index.js';
+
+export type {
+  PreparedProtocolDeploymentBundleManifest,
+  ProtocolDeploymentBundleArtifact,
+  ProtocolDeploymentBundleDeployment,
+  ProtocolDeploymentBundleErrorCode,
+  ProtocolDeploymentBundleFile,
+  ProtocolDeploymentBundleLimits,
+  ProtocolDeploymentBundleManifest,
+  ProtocolDeploymentBundleOptions,
+} from './bundles/index.js';
+
+export {
   DEFAULT_PROTOCOL_DEPLOYMENT_LIMITS,
   PROTOCOL_DEPLOYMENT_IDENTITY_DOMAIN,
   ProtocolDeploymentError,
