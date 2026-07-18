@@ -1,5 +1,11 @@
 # @hypequery/cli
 
+## 1.6.0
+
+### Minor Changes
+
+- fdec655: Build deterministic Node runtime artifacts automatically when deployment metadata references Serve handlers.
+
 ## 1.5.0
 
 ### Minor Changes
