@@ -25,6 +25,7 @@ import {
   resolveSemanticQueryBuilder,
 } from '../query-builder-context.js';
 import { buildMetricInputSchema } from './utils/semantic-input-schema.js';
+import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
 
 // ---------------------------------------------------------------------------
 // Zod schemas for metric query input / output
@@ -80,6 +81,7 @@ export function resolveMetricEntry<TAuth extends AuthContext>(
 ): {
   metric: MetricHandle<any, any>;
   auth?: AuthStrategy<TAuth> | null;
+  requiresAuth?: boolean;
   tenant?: TenantConfigOverride<TAuth>;
   cache?: number | null;
   requiredRoles?: string[];
@@ -128,7 +130,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     summary: `Query the "${name}" metric`,
     description: buildDescription(contract, effectiveMaxLimit),
     tags: ['metrics'],
-    requiresAuth: resolved.auth !== null ? undefined : false,
+    requiresAuth: resolveLocalAuthRequirement(resolved),
     requiredRoles: resolved.requiredRoles,
     requiredScopes: resolved.requiredScopes,
     cacheTtlMs: resolved.cache,

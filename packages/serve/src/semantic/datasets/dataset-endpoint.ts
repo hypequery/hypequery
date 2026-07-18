@@ -30,6 +30,7 @@ import {
 import { buildDatasetQueryDescription } from './utils/dataset-query-metadata.js';
 import { resolveDatasetEntry, type DatasetEntry } from './utils/dataset-entry.js';
 import { buildDatasetInputSchema } from './utils/semantic-input-schema.js';
+import { resolveLocalAuthRequirement } from '../../auth-requirement.js';
 
 export type { DatasetEntry } from './utils/dataset-entry.js';
 
@@ -83,7 +84,7 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
     summary: `Query the "${name}" semantic dataset`,
     description: buildDatasetQueryDescription(ds, effectiveMaxLimit),
     tags: ['datasets'],
-    requiresAuth: resolved.auth !== null ? undefined : false,
+    requiresAuth: resolveLocalAuthRequirement(resolved),
     requiredRoles: resolved.requiredRoles,
     requiredScopes: resolved.requiredScopes,
     cacheTtlMs: resolved.cache,

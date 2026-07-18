@@ -453,7 +453,7 @@ export interface ServeQueryConfig<
     TAuth
   >[];
   auth?: AuthStrategy<TAuth> | null;
-  /** Explicitly set whether authentication is required. Set by .requireAuth() or .public(). */
+  /** Explicit auth requirement. Required roles or scopes take precedence over `false`. */
   requiresAuth?: boolean;
   tenant?: TenantConfigOverride<TAuth>;
   cacheTtlMs?: number | null;
@@ -491,6 +491,7 @@ export interface QueryObjectConfig<
   summary?: string;
   tags?: string[];
   auth?: AuthStrategy<TAuth> | null;
+  /** Explicit auth requirement. Required roles or scopes take precedence over `false`. */
   requiresAuth?: boolean;
   tenant?: TenantConfigOverride<TAuth>;
   cacheTtlMs?: number | null;
@@ -589,8 +590,10 @@ export type MetricEntry<TAuth extends AuthContext = AuthContext> =
   | MetricHandle<any, any>
   | {
       metric: MetricHandle<any, any>;
-      /** `null` makes this semantic endpoint public instead of inheriting global auth. */
+      /** Local auth strategy. `null` omits it while still inheriting global auth. */
       auth?: AuthStrategy<TAuth> | null;
+      /** Set to `false` for public access. Required roles or scopes take precedence. */
+      requiresAuth?: boolean;
       tenant?: TenantConfigOverride<TAuth>;
       cache?: number | null;
       requiredRoles?: string[];

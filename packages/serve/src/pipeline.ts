@@ -33,6 +33,7 @@ import {
   AuthError,
 } from './auth.js';
 import { type ResolvedCorsConfig, handleCorsRequest } from './cors.js';
+import { resolveLocalAuthRequirement } from './auth-requirement.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -159,21 +160,12 @@ const computeRequiresAuth = <TAuth extends AuthContext>(
   globalStrategies: AuthStrategy<TAuth>[],
   endpoint: ServeEndpoint<any, any, any, TAuth>,
 ) => {
-  // Explicit .public() overrides everything
-  if (metadata.requiresAuth === false) {
-    return false;
-  }
-  // Explicit .requireAuth() or roles/scopes imply auth
-  if (metadata.requiresAuth === true) {
-    return true;
-  }
-  if ((endpoint.requiredRoles?.length ?? 0) > 0 || (endpoint.requiredScopes?.length ?? 0) > 0) {
-    return true;
-  }
-  if (endpointStrategy) {
-    return true;
-  }
-  return globalStrategies.length > 0;
+  return resolveLocalAuthRequirement({
+    auth: endpointStrategy,
+    requiresAuth: metadata.requiresAuth,
+    requiredRoles: endpoint.requiredRoles,
+    requiredScopes: endpoint.requiredScopes,
+  }) ?? globalStrategies.length > 0;
 };
 
 const checkAuthorization = <TAuth extends AuthContext>(

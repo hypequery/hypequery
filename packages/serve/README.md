@@ -87,6 +87,25 @@ await api.execute('dataset:orders', {
 });
 ```
 
+### Semantic endpoint auth
+
+Dataset and metric entries follow the same auth rules as named queries. An
+entry with no local strategy, including `auth: null`, still inherits the global
+`auth` configuration. Use `requiresAuth: false` for an explicitly public
+endpoint; `requiredRoles` or `requiredScopes` always require authentication.
+
+```ts
+const api = serve({
+  auth: globalAuth,
+  metrics: {
+    revenue: { metric: revenue, auth: null }, // inherits globalAuth
+  },
+  datasets: {
+    publicOrders: { dataset: Orders, requiresAuth: false },
+  },
+});
+```
+
 ## Main Ideas
 
 ### `query({ ... })`

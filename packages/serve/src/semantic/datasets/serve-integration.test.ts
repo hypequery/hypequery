@@ -1154,6 +1154,90 @@ describe("Serve integration — metrics", () => {
     });
   });
 
+  describe("semantic auth overrides", () => {
+    it("inherits global auth when auth is null", async () => {
+      const api = createAPI({
+        auth: async ({ request }) => request.headers.authorization === "Bearer valid"
+          ? { userId: "user-123" }
+          : null,
+        metrics: {
+          totalRevenue: { metric: totalRevenue, auth: null },
+        },
+        datasets: {
+          orders: { dataset: Orders, auth: null },
+        },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const metricRequest = (authorized: boolean) => api.handler(createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: {},
+        ...(authorized ? { headers: { authorization: "Bearer valid" } } : {}),
+      }));
+      const datasetRequest = (authorized: boolean) => api.handler(createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["country"], measures: ["revenue"] },
+        ...(authorized ? { headers: { authorization: "Bearer valid" } } : {}),
+      }));
+
+      expect((await metricRequest(false)).status).toBe(401);
+      expect((await datasetRequest(false)).status).toBe(401);
+      expect((await metricRequest(true)).status).toBe(200);
+      expect((await datasetRequest(true)).status).toBe(200);
+    });
+
+    it("uses requiresAuth false as the explicit public override", async () => {
+      const api = createAPI({
+        auth: async () => null,
+        metrics: {
+          totalRevenue: { metric: totalRevenue, requiresAuth: false },
+        },
+        datasets: {
+          orders: { dataset: Orders, requiresAuth: false },
+        },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const metricResponse = await api.handler(createRequest({
+        path: "/metrics/totalRevenue",
+        method: "POST",
+        body: {},
+      }));
+      const datasetResponse = await api.handler(createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["country"], measures: ["revenue"] },
+      }));
+
+      expect(metricResponse.status).toBe(200);
+      expect(datasetResponse.status).toBe(200);
+    });
+
+    it("requires authentication when semantic entries declare roles", async () => {
+      const api = createAPI({
+        auth: async () => null,
+        datasets: {
+          orders: {
+            dataset: Orders,
+            requiresAuth: false,
+            requiredRoles: ["admin"],
+          },
+        },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(createRequest({
+        path: "/datasets/orders/query",
+        method: "POST",
+        body: { dimensions: ["country"], measures: ["revenue"] },
+      }));
+
+      expect(response.status).toBe(401);
+    });
+  });
+
   describe("OpenAPI", () => {
     it("includes metric endpoints in OpenAPI spec", async () => {
       const api = createAPI({

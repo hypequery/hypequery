@@ -27,6 +27,7 @@ import type {
 import { resolveDatasetEntry } from './semantic/datasets/utils/dataset-entry.js';
 import { resolveMetricEntry } from './semantic/datasets/metric-endpoint.js';
 import { zodToProtocolSchema } from './protocol-schema-adapter.js';
+import { resolveLocalAuthRequirement } from './auth-requirement.js';
 
 export interface BuildProtocolDeploymentOptions {
   /** Runtime artifact used for Serve callbacks without an explicit implementation override. */
@@ -71,17 +72,15 @@ function accessPolicy(
     readonly requiredScopes?: readonly string[];
   },
   globalAuth: AnyServeConfig['auth'],
-  nullAuthOverridesGlobal: boolean,
 ): ProtocolAccessPolicy {
   const roles = [...new Set(local.requiredRoles ?? [])].sort();
   const scopes = [...new Set(local.requiredScopes ?? [])].sort();
-  if (roles.length > 0 || scopes.length > 0) {
-    return { kind: 'authenticated', roles, scopes };
-  }
-  if (local.requiresAuth === false || (nullAuthOverridesGlobal && local.auth === null)) {
-    return { kind: 'public' };
-  }
-  if (local.requiresAuth === true || local.auth != null || hasGlobalAuth(globalAuth)) {
+  const localRequirement = resolveLocalAuthRequirement({
+    ...local,
+    requiredRoles: roles,
+    requiredScopes: scopes,
+  });
+  if (localRequirement ?? hasGlobalAuth(globalAuth)) {
     return { kind: 'authenticated', roles, scopes };
   }
   return { kind: 'public' };
@@ -102,13 +101,10 @@ function endpointPolicy(
   globalTenant: AnyServeConfig['tenant'],
   path: string,
   defaultMaxLimit?: number,
-  // Dataset/metric endpoints use `auth: null` as an explicit public override;
-  // named queries use it only to omit a local strategy and still inherit global auth.
-  nullAuthOverridesGlobal = false,
 ): ProtocolEndpointPolicy {
   const cacheTtlMs = local.cacheTtlMs ?? local.cache ?? undefined;
   return {
-    access: accessPolicy(local, globalAuth, nullAuthOverridesGlobal),
+    access: accessPolicy(local, globalAuth),
     tenant: endpointTenantPolicy(local.tenant, globalTenant),
     ...(typeof cacheTtlMs === 'number' && cacheTtlMs > 0 ? { cacheTtlMs } : {}),
     ...((local.maxLimit ?? defaultMaxLimit) !== undefined
@@ -229,7 +225,6 @@ export function buildProtocolDeploymentContract(
       serveConfig.tenant,
       normalizePath(basePath, datasetsPath, exposedName, 'query'),
       resolved.dataset.limits?.maxResultSize ?? 1_000,
-      true,
     ));
   }
 
@@ -245,7 +240,6 @@ export function buildProtocolDeploymentContract(
       serveConfig.tenant,
       normalizePath(basePath, metricsPath, exposedName),
       resolved.maxLimit ?? dataset.limits?.maxResultSize ?? 1_000,
-      true,
     );
   }
 

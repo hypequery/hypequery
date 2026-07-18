@@ -330,7 +330,7 @@ Use object-style auth fields by default on `query({ ... })`. Use the chainable g
 
 ## Auth on semantic endpoints
 
-Auto-generated `metrics` and `datasets` endpoints are protected the same way as queries, but you declare the requirements on the per-entry config object instead of inside a `query({ ... })` definition. Each entry accepts `auth`, `requiredRoles`, and `requiredScopes`.
+Auto-generated `metrics` and `datasets` endpoints are protected the same way as queries, but you declare the requirements on the per-entry config object instead of inside a `query({ ... })` definition. Each entry accepts `auth`, `requiresAuth`, `requiredRoles`, and `requiredScopes`.
 
 <CodeBlock>
 ```typescript
@@ -365,9 +365,14 @@ The semantics match `query({ ... })`:
 - `requiredRoles` uses OR semantics (any listed role grants access)
 - `requiredScopes` uses AND semantics (all listed scopes required)
 - declaring either one implies authentication
-- `auth` on an entry overrides the global strategy for that endpoint; `auth: null` makes it public
+- `auth` on an entry adds a local strategy; omitting it or setting `auth: null` still inherits global auth
+- `requiresAuth: false` makes an entry public unless it declares required roles or scopes
+- `requiresAuth: true` requires authentication even when no local or global strategy is configured
 
-Metrics use the same shape via `{ metric, requiredRoles, requiredScopes, auth }`. See [Serve integration](/docs/datasets/serve-integration) for the full set of per-entry options.
+If you previously used `auth: null` as a public override on a dataset or metric,
+replace it with `requiresAuth: false` when upgrading.
+
+Metrics use the same shape via `{ metric, auth, requiresAuth, requiredRoles, requiredScopes }`. See [Serve integration](/docs/datasets/serve-integration) for the full set of per-entry options.
 
 ## See Also
 

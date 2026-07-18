@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { dataset, dimension } from '@hypequery/datasets';
+import { dataset, dimension, measure } from '@hypequery/datasets';
 import {
   buildProtocolDeploymentContract,
   createAPI,
@@ -149,7 +149,7 @@ describe('Serve protocol adapter', () => {
     expect(contract.queries[0]?.endpoint.access.kind).toBe('authenticated');
   });
 
-  it('preserves the semantic endpoint public override for auth null', () => {
+  it('preserves global auth for semantic endpoints with no local strategy', () => {
     const Orders = dataset('orders', {
       source: 'orders',
       dimensions: { id: dimension.string() },
@@ -161,7 +161,34 @@ describe('Serve protocol adapter', () => {
       },
     });
 
+    expect(contract.datasets[0]?.endpoint?.access).toEqual({
+      kind: 'authenticated',
+      roles: [],
+      scopes: [],
+    });
+  });
+
+  it('uses requiresAuth false for explicitly public semantic endpoints', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { id: dimension.string() },
+      measures: { count: measure.count('id') },
+    });
+    const revenue = Orders.metric('revenue', {
+      measure: 'count',
+    });
+    const contract = buildProtocolDeploymentContract({
+      auth: async () => ({ userId: 'user_1' }),
+      datasets: {
+        orders: { dataset: Orders, requiresAuth: false },
+      },
+      metrics: {
+        revenue: { metric: revenue, requiresAuth: false },
+      },
+    });
+
     expect(contract.datasets[0]?.endpoint?.access).toEqual({ kind: 'public' });
+    expect(contract.datasets[0]?.metrics[0]?.endpoint.access).toEqual({ kind: 'public' });
   });
 
   it('rejects typed object catchalls that the protocol cannot represent', () => {
