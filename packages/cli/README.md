@@ -204,6 +204,33 @@ Options:
 - `--environment <environment>`: required target environment identifier
 - `--output <path>`: release JSON path, default beside the bundle
 
+### `hypequery deployment:push`
+
+Submits a verified deployment bundle with an already-prepared target-bound
+release. The command verifies both inputs again, requires their bundle
+identities to match, and streams only the files declared by the bundle.
+
+```bash
+HYPEQUERY_API_TOKEN=<token> \
+npx hypequery deployment:push analytics/hypequery-deployment \
+  --release analytics/hypequery-deployment.release.json \
+  --endpoint https://deploy.example.com/v1/releases
+```
+
+The token is accepted only through `HYPEQUERY_API_TOKEN`, keeping it out of
+shell history. The submission endpoint must use HTTPS, may also be supplied by
+`HYPEQUERY_DEPLOYMENT_ENDPOINT`, and must not contain credentials or a URL
+fragment. The release identity is sent as the idempotency key, so an unchanged
+release can be submitted safely again.
+
+This command submits immutable deployment inputs. Activation, status changes,
+promotion, and rollback remain control-plane operations.
+
+Options:
+
+- `--release <path>`: required target-bound release JSON
+- `--endpoint <url>`: HTTPS submission endpoint; defaults to `HYPEQUERY_DEPLOYMENT_ENDPOINT`
+
 ## Non-interactive Setup
 
 For ClickHouse, `hypequery init --no-interactive` reads:
