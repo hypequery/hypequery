@@ -1,5 +1,17 @@
 # @hypequery/cli
 
+## 1.8.0
+
+### Minor Changes
+
+- 3a8cad6: Add deterministic target-bound deployment release envelopes and a CLI command
+  that prepares them only from fully verified deployment bundles.
+
+### Patch Changes
+
+- Updated dependencies [3a8cad6]
+  - @hypequery/protocol@0.5.0
+
 ## 1.7.0
 
 ### Minor Changes
