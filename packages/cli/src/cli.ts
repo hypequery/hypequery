@@ -130,10 +130,12 @@ program
 
 program
   .command('deployment:build <api>')
-  .description('Build a validated, canonical deployment contract and identity')
+  .description('Build a verified deployment bundle')
+  .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
   .option('-o, --output <path>', 'Output JSON file (default: analytics/hypequery-deployment.json)')
   .option('--runtime <runtime>', 'Runtime for non-portable handlers: node or python (default: node)')
   .option('--runtime-artifact <sha256>', 'Use a prebuilt runtime artifact with this SHA-256 identity')
+  .option('--runtime-file <path>', 'Include the bytes for a prebuilt runtime artifact')
   .option('--runtime-output <path>', 'Bundled Node runtime path (default: beside deployment JSON)')
   .option('--entrypoint-prefix <prefix>', 'Runtime entrypoint prefix (default: queries)')
   .option('--hash-output <path>', 'Deployment identity sidecar path (default: <output>.sha256)')
@@ -143,7 +145,7 @@ program
 
 program
   .command('deployment:validate <artifact>')
-  .description('Validate a deployment contract and report its identity')
+  .description('Verify a deployment bundle or validate a legacy deployment JSON file')
   .action(runCommand(async (artifact: string) => {
     await validateDeploymentCommand(artifact);
   }));
@@ -177,8 +179,8 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
-  console.log('  hypequery deployment:build analytics/api.ts --runtime-artifact <sha256>');
-  console.log('  hypequery deployment:validate analytics/hypequery-deployment.json');
+  console.log('  hypequery deployment:build analytics/api.ts');
+  console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

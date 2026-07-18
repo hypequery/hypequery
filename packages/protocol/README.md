@@ -6,10 +6,10 @@ Hypequery artifacts.
 ## Current status
 
 This package contains proposed version 1 tagged values, identifiers,
-expressions, query schemas and implementations, and Dataset deployment
-contracts. The API remains pre-stable while the language-neutral specifications
-and conformance fixtures are reviewed; these drafts do not yet establish a
-stable Cloud protocol.
+expressions, query schemas and implementations, Dataset deployment contracts,
+and deployment bundle manifests. The API remains pre-stable while the
+language-neutral specifications and conformance fixtures are reviewed; these
+drafts do not yet establish a stable Cloud protocol.
 
 The normative source is
 [`specs/security-protocol`](../../specs/security-protocol/README.md).
@@ -76,6 +76,12 @@ versioned envelope. Dataset and Serve adapters live in their owning packages;
 the protocol package remains deterministic and framework-independent.
 Validated envelopes can be encoded as canonical RFC 8785 bytes and identified
 with the deployment-v1 domain-separated SHA-256 digest.
+
+The proposed deployment-bundle surface validates the portable manifest that
+binds a deployment identity to exact deployment and runtime artifact files. It
+provides canonical encoding and a separate bundle-v1 identity. Filesystem-safe
+writing and byte verification remain in the CLI because this package performs
+no I/O.
 
 ## Runtime compatibility
 

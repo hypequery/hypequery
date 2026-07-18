@@ -1,0 +1,23 @@
+[
+  {
+    "id": "node-runtime-bundle",
+    "value": {
+      "kind": "hypequery-deployment-bundle",
+      "version": 1,
+      "deployment": {
+        "path": "deployment.json",
+        "identity": "1111111111111111111111111111111111111111111111111111111111111111",
+        "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "byteLength": 1024
+      },
+      "artifacts": [
+        {
+          "runtime": "node",
+          "path": "artifacts/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.mjs",
+          "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "byteLength": 2048
+        }
+      ]
+    }
+  }
+]

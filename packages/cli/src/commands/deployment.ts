@@ -1,9 +1,16 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   prepareProtocolDeploymentContract,
   type ProtocolDeploymentContract,
 } from '@hypequery/protocol';
+import {
+  writeDeploymentBundle,
+  verifyDeploymentBundle,
+  readDeploymentRuntimeFile,
+  type DeploymentBundleRuntimeFile,
+} from '../utils/deployment-bundle.js';
 import {
   buildNodeRuntimeArtifact,
   getDeploymentRuntimeEntrypoints,
@@ -15,13 +22,17 @@ import { logger } from '../utils/logger.js';
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 export interface BuildDeploymentOptions {
+  bundleOutput?: string;
   output?: string;
   runtime?: 'node' | 'python';
   runtimeArtifact?: string;
+  runtimeFile?: string;
   runtimeOutput?: string;
   entrypointPrefix?: string;
   hashOutput?: string;
 }
+
+const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
 
 interface DeploymentContractSource {
   deploymentContract(options?: {
@@ -84,6 +95,27 @@ export async function buildDeploymentCommand(
 
   const runtime = runtimeName(options);
   const configuredArtifact = configuredRuntimeArtifact(options, runtime);
+  const legacyOutputRequested = options.output !== undefined
+    || options.hashOutput !== undefined
+    || options.runtimeOutput !== undefined;
+  if (options.bundleOutput !== undefined && legacyOutputRequested) {
+    throw new Error(
+      '--bundle-output cannot be combined with --output, --hash-output, or --runtime-output.',
+    );
+  }
+  const bundleOutput = options.bundleOutput
+    ?? (legacyOutputRequested ? undefined : DEFAULT_BUNDLE_OUTPUT);
+  if (options.runtimeFile !== undefined && configuredArtifact === undefined) {
+    throw new Error('--runtime-file requires --runtime-artifact.');
+  }
+  if (options.runtimeFile !== undefined && bundleOutput === undefined) {
+    throw new Error('--runtime-file is only supported when building a deployment bundle.');
+  }
+  if (configuredArtifact && bundleOutput !== undefined && options.runtimeFile === undefined) {
+    throw new Error(
+      'A complete deployment bundle requires --runtime-file with a prebuilt --runtime-artifact.',
+    );
+  }
   if (configuredArtifact && options.runtimeOutput !== undefined) {
     throw new Error('--runtime-output cannot be used with a prebuilt --runtime-artifact.');
   }
@@ -132,6 +164,31 @@ export async function buildDeploymentCommand(
   const contract = api.deploymentContract(artifact ? { runtimeArtifact: artifact } : {});
   const prepared = prepareProtocolDeploymentContract(contract);
   const { canonical, contract: validated, identity: digest } = prepared;
+  if (bundleOutput !== undefined) {
+    const runtimeFiles: DeploymentBundleRuntimeFile[] = [];
+    if (builtArtifact) {
+      runtimeFiles.push({
+        runtime: 'node',
+        sha256: builtArtifact.artifactSha256,
+        bytes: builtArtifact.bytes,
+      });
+    } else if (configuredArtifact && options.runtimeFile) {
+      const bytes = await readDeploymentRuntimeFile(options.runtimeFile);
+      const actualSha256 = createHash('sha256').update(bytes).digest('hex');
+      if (actualSha256 !== configuredArtifact.artifactSha256) {
+        throw new Error(
+          `Prebuilt runtime artifact SHA-256 mismatch: ${options.runtimeFile}\n\n`
+          + `Expected: ${configuredArtifact.artifactSha256}\nActual: ${actualSha256}`,
+        );
+      }
+      runtimeFiles.push({ runtime, sha256: actualSha256, bytes });
+    }
+    const bundle = await writeDeploymentBundle(bundleOutput, prepared, runtimeFiles);
+    logger.success(`Deployment bundle written to ${bundle.directory}`);
+    logger.info(`Bundle identity: ${bundle.identity}`);
+    logger.info(`Deployment identity: ${digest}`);
+    return validated;
+  }
   const runtimeOutputPath = builtArtifact
     ? options.runtimeOutput ?? path.join(path.dirname(outputPath), 'hypequery-runtime.mjs')
     : undefined;
@@ -172,7 +229,46 @@ export async function validateDeploymentCommand(
   if (!artifactPath) {
     throw new Error(
       'Missing deployment artifact path.\n\n'
-      + 'Usage: hypequery deployment:validate analytics/hypequery-deployment.json',
+      + 'Usage: hypequery deployment:validate analytics/hypequery-deployment',
+    );
+  }
+
+  let artifactStat: Awaited<ReturnType<typeof stat>> | undefined;
+  try {
+    artifactStat = await stat(artifactPath);
+  } catch (error) {
+    if (!(typeof error === 'object' && error !== null && 'code' in error
+      && (error as { code?: unknown }).code === 'ENOENT')) {
+      throw new Error(
+        `Cannot inspect deployment input: ${artifactPath}\n\n`
+        + (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+
+  if (artifactStat?.isDirectory()) {
+    try {
+      const bundle = await verifyDeploymentBundle(artifactPath);
+      const contract = bundle.contract;
+      logger.success(`Valid deployment bundle: ${artifactPath}`);
+      logger.info(
+        `${contract.datasets.length} datasets, ${contract.queries.length} queries, `
+        + `${contract.artifacts.length} runtime artifacts`,
+      );
+      logger.info(`Bundle identity: ${bundle.identity}`);
+      logger.info(`Deployment identity: ${bundle.manifest.deployment.identity}`);
+      return contract;
+    } catch (error) {
+      throw new Error(
+        `Invalid deployment bundle: ${artifactPath}\n\n`
+        + (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+
+  if (artifactStat && !artifactStat.isFile()) {
+    throw new Error(
+      `Deployment input must be a regular JSON file or bundle directory: ${artifactPath}`,
     );
   }
 
