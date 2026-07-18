@@ -88,10 +88,7 @@ function relativePath(value: unknown, path: string, maxBytes: number): string {
     bundleError('HQ_BUNDLE_TOO_LARGE', path);
   }
   const segments = value.split('/');
-  if (segments.length === 0
-    || segments.some(segment => !PATH_SEGMENT_PATTERN.test(segment)
-      || segment === '.'
-      || segment === '..'
+  if (segments.some(segment => !PATH_SEGMENT_PATTERN.test(segment)
       || segment.endsWith('.')
       || WINDOWS_RESERVED_NAME.test(segment))) {
     bundleError('HQ_BUNDLE_INVALID_PATH', path);

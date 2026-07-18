@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   prepareProtocolDeploymentContract,
@@ -233,9 +233,21 @@ export async function validateDeploymentCommand(
     );
   }
 
+  let artifactStat: Awaited<ReturnType<typeof stat>> | undefined;
   try {
-    const stat = await lstat(artifactPath);
-    if (stat.isDirectory()) {
+    artifactStat = await stat(artifactPath);
+  } catch (error) {
+    if (!(typeof error === 'object' && error !== null && 'code' in error
+      && (error as { code?: unknown }).code === 'ENOENT')) {
+      throw new Error(
+        `Cannot inspect deployment input: ${artifactPath}\n\n`
+        + (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+
+  if (artifactStat?.isDirectory()) {
+    try {
       const bundle = await verifyDeploymentBundle(artifactPath);
       const contract = bundle.contract;
       logger.success(`Valid deployment bundle: ${artifactPath}`);
@@ -246,18 +258,18 @@ export async function validateDeploymentCommand(
       logger.info(`Bundle identity: ${bundle.identity}`);
       logger.info(`Deployment identity: ${bundle.manifest.deployment.identity}`);
       return contract;
-    }
-    if (stat.isSymbolicLink() || !stat.isFile()) {
-      throw new Error('Deployment input must be a regular JSON file or bundle directory.');
-    }
-  } catch (error) {
-    if (!(typeof error === 'object' && error !== null && 'code' in error
-      && (error as { code?: unknown }).code === 'ENOENT')) {
+    } catch (error) {
       throw new Error(
         `Invalid deployment bundle: ${artifactPath}\n\n`
         + (error instanceof Error ? error.message : String(error)),
       );
     }
+  }
+
+  if (artifactStat && !artifactStat.isFile()) {
+    throw new Error(
+      `Deployment input must be a regular JSON file or bundle directory: ${artifactPath}`,
+    );
   }
 
   let input: unknown;

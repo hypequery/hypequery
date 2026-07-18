@@ -36,13 +36,13 @@ vi.mock('node:fs/promises', async () => {
   return {
     ...actual,
     mkdir: vi.fn(),
-    lstat: vi.fn(),
     readFile: vi.fn(),
+    stat: vi.fn(),
     writeFile: vi.fn(),
   };
 });
 
-import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { buildDeploymentCommand, validateDeploymentCommand } from './deployment.js';
 
 const ARTIFACT_SHA = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -58,7 +58,7 @@ describe('deployment commands', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetDeploymentRuntimeEntrypoints.mockReturnValue([]);
-    vi.mocked(lstat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+    vi.mocked(stat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
     mockWriteDeploymentBundle.mockImplementation(async (directory, prepared) => ({
       directory,
       manifest: {
@@ -280,8 +280,18 @@ describe('deployment commands', () => {
     expect(Object.isFrozen(result)).toBe(true);
   });
 
+  it('validates a legacy JSON artifact reached through a symbolic link', async () => {
+    vi.mocked(stat).mockResolvedValue({ isDirectory: () => false, isFile: () => true } as never);
+    vi.mocked(readFile).mockResolvedValue(JSON.stringify(contract));
+
+    const result = await validateDeploymentCommand('dist/deployment-link.json');
+
+    expect(result).toEqual(contract);
+    expect(readFile).toHaveBeenCalledWith('dist/deployment-link.json', 'utf8');
+  });
+
   it('verifies a deployment bundle directory', async () => {
-    vi.mocked(lstat).mockResolvedValue({ isDirectory: () => true } as never);
+    vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as never);
     mockVerifyDeploymentBundle.mockResolvedValue({
       directory: '/project/dist/bundle',
       manifest: {
@@ -303,6 +313,24 @@ describe('deployment commands', () => {
 
     expect(mockVerifyDeploymentBundle).toHaveBeenCalledWith('dist/bundle');
     expect(result).toBe(contract);
+    expect(readFile).not.toHaveBeenCalled();
+  });
+
+  it('reports bundle verification failures as invalid bundles', async () => {
+    vi.mocked(stat).mockResolvedValue({ isDirectory: () => true } as never);
+    mockVerifyDeploymentBundle.mockRejectedValue(new Error('manifest mismatch'));
+
+    await expect(validateDeploymentCommand('dist/bundle')).rejects.toThrow(
+      /Invalid deployment bundle: dist\/bundle[\s\S]*manifest mismatch/,
+    );
+  });
+
+  it('reports special files as unsupported deployment inputs', async () => {
+    vi.mocked(stat).mockResolvedValue({ isDirectory: () => false, isFile: () => false } as never);
+
+    await expect(validateDeploymentCommand('dist/deployment.pipe')).rejects.toThrow(
+      /Deployment input must be a regular JSON file or bundle directory: dist\/deployment\.pipe/,
+    );
     expect(readFile).not.toHaveBeenCalled();
   });
 
