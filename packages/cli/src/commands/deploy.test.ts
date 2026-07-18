@@ -17,7 +17,7 @@ vi.mock('../utils/logger.js', () => ({
   },
 }));
 
-import { pushDeploymentCommand } from './deployment-push.js';
+import { deployCommand } from './deploy.js';
 
 const BUNDLE_IDENTITY = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 const temporaryDirectories: string[] = [];
@@ -68,7 +68,7 @@ afterEach(async () => {
   )));
 });
 
-describe('deployment push command', () => {
+describe('deploy command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVerifyDeploymentBundle.mockResolvedValue(bundle);
@@ -85,7 +85,7 @@ describe('deployment push command', () => {
     });
     const createTransport = vi.fn(() => ({ submit }));
 
-    const result = await pushDeploymentCommand('dist/bundle', {
+    const result = await deployCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -116,7 +116,7 @@ describe('deployment push command', () => {
     });
     const createTransport = vi.fn(() => ({ submit }));
 
-    await pushDeploymentCommand('dist/bundle', { release: release.path }, {
+    await deployCommand('dist/bundle', { release: release.path }, {
       env: {
         HYPEQUERY_API_TOKEN: 'secret-token',
         HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://deploy.example.test/v1/releases',
@@ -131,9 +131,9 @@ describe('deployment push command', () => {
 
   it('requires endpoint and token configuration before bundle verification', async () => {
     const release = await releaseFile();
-    await expect(pushDeploymentCommand('dist/bundle', { release: release.path }, { env: {} }))
+    await expect(deployCommand('dist/bundle', { release: release.path }, { env: {} }))
       .rejects.toThrow(/Missing deployment endpoint/);
-    await expect(pushDeploymentCommand('dist/bundle', {
+    await expect(deployCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, { env: {} })).rejects.toThrow(/Missing HYPEQUERY_API_TOKEN/);
@@ -144,7 +144,7 @@ describe('deployment push command', () => {
     const release = await releaseFile('0'.repeat(64));
     const createTransport = vi.fn();
 
-    await expect(pushDeploymentCommand('dist/bundle', {
+    await expect(deployCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -160,7 +160,7 @@ describe('deployment push command', () => {
     const releasePath = path.join(directory, 'broken.json');
     await writeFile(releasePath, '{', 'utf8');
 
-    await expect(pushDeploymentCommand('dist/bundle', {
+    await expect(deployCommand('dist/bundle', {
       release: releasePath,
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
@@ -171,7 +171,7 @@ describe('deployment push command', () => {
   it('reports bundle verification failure before opening the release', async () => {
     mockVerifyDeploymentBundle.mockRejectedValue(new Error('manifest mismatch'));
 
-    await expect(pushDeploymentCommand('dist/bundle', {
+    await expect(deployCommand('dist/bundle', {
       release: '/missing/release.json',
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {

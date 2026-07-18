@@ -14,12 +14,12 @@ import { logger } from '../utils/logger.js';
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
-export interface PushDeploymentOptions {
+export interface DeployOptions {
   release?: string;
   endpoint?: string;
 }
 
-export interface PushDeploymentDependencies {
+export interface DeployDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly createTransport?: typeof createHttpDeploymentUploadTransport;
 }
@@ -62,15 +62,15 @@ function requiredConfiguration(
   return value;
 }
 
-export async function pushDeploymentCommand(
+export async function deployCommand(
   bundlePath: string | undefined,
-  options: PushDeploymentOptions = {},
-  dependencies: PushDeploymentDependencies = {},
+  options: DeployOptions = {},
+  dependencies: DeployDependencies = {},
 ): Promise<DeploymentSubmissionResponse> {
   if (!bundlePath) {
     throw new Error(
       'Missing deployment bundle path.\n\n'
-      + 'Usage: hypequery deployment:push analytics/hypequery-deployment '
+      + 'Usage: hypequery deploy analytics/hypequery-deployment '
       + '--release analytics/hypequery-deployment.release.json',
     );
   }

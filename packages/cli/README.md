@@ -204,7 +204,7 @@ Options:
 - `--environment <environment>`: required target environment identifier
 - `--output <path>`: release JSON path, default beside the bundle
 
-### `hypequery deployment:push`
+### `hypequery deploy`
 
 Submits a verified deployment bundle with an already-prepared target-bound
 release. The command verifies both inputs again, requires their bundle
@@ -212,7 +212,7 @@ identities to match, and streams only the files declared by the bundle.
 
 ```bash
 HYPEQUERY_API_TOKEN=<token> \
-npx hypequery deployment:push analytics/hypequery-deployment \
+npx hypequery deploy analytics/hypequery-deployment \
   --release analytics/hypequery-deployment.release.json \
   --endpoint https://deploy.example.com/v1/releases
 ```
