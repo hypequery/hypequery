@@ -1,4 +1,18 @@
 export {
+  createFileSystemDeploymentActivationRegistry,
+  DeploymentActivationError,
+} from './activation.js';
+export type {
+  DeploymentActivationErrorCode,
+  DeploymentActivationRegistry,
+  DeploymentActivationRelease,
+  DeploymentActivationRecord,
+  DeploymentActivationRequest,
+  DeploymentActivationResult,
+  DeploymentReleaseReader,
+  FileSystemDeploymentActivationRegistryOptions,
+} from './activation.js';
+export {
   DEPLOYMENT_BUNDLE_CONTRACT,
   DEPLOYMENT_BUNDLE_MANIFEST,
   verifyDeploymentBundle,
