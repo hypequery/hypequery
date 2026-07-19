@@ -3,6 +3,7 @@ packages:
   - 'packages/clickhouse'
   - 'packages/react'
   - 'packages/datasets'
+  - 'packages/deployment'
   - 'packages/gateway'
   - 'packages/serve'
   - 'packages/studio'

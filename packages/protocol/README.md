@@ -80,12 +80,13 @@ with the deployment-v1 domain-separated SHA-256 digest.
 The proposed deployment-bundle surface validates the portable manifest that
 binds a deployment identity to exact deployment and runtime artifact files. It
 provides canonical encoding and a separate bundle-v1 identity. Filesystem-safe
-writing and byte verification remain in the CLI because this package performs
-no I/O.
+writing remains in the CLI, while reusable filesystem verification and
+receiving-side intake live in `@hypequery/deployment`; this package performs no
+I/O.
 
 The proposed deployment-release surface binds one verified bundle identity to
-an explicit project and environment. Its deterministic identity can serve as an
-idempotency key for a future authenticated upload API without putting
+an explicit project and environment. Its deterministic identity serves as the
+idempotency key for authenticated deployment submission without putting
 credentials, timestamps, release state, or provider behavior into the envelope.
 
 ## Runtime compatibility

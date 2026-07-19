@@ -5,6 +5,7 @@ import {
   prepareProtocolDeploymentContract,
   prepareProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
+import { createDeploymentIntake } from '@hypequery/deployment';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   verifyDeploymentBundle,
@@ -98,6 +99,48 @@ function jsonResponse(input: unknown, status = 200, statusText = 'OK'): Response
 }
 
 describe('deployment upload transport', () => {
+  it('is wire-compatible with the provider-neutral deployment intake', async () => {
+    const bundle = await verifiedBundle();
+    const release = releaseFor(bundle.identity);
+    const intake = createDeploymentIntake({
+      authenticator: { authenticate: async ({ token }) => (
+        token === 'secret-token' ? 'principal' : null
+      ) },
+      authorizer: { authorize: async ({ target }) => (
+        target.project === 'project-1' && target.environment === 'production'
+      ) },
+      store: {
+        accept: async submission => {
+          expect(await readFile(
+            path.join(submission.bundle.directory, 'deployment.json'),
+            'utf8',
+          )).toContain('hypequery-deployment');
+          return 'accepted';
+        },
+      },
+    });
+    const fetch = vi.fn<DeploymentFetch>(async (_endpoint, init) => {
+      const response = await intake.handle({
+        headers: init.headers,
+        body: init.body,
+        signal: init.signal,
+      });
+      return new Response(response.body, {
+        status: response.status,
+        headers: response.headers,
+      });
+    });
+    const transport = createHttpDeploymentUploadTransport({
+      endpoint: 'https://deploy.example.test/v1/releases',
+      token: 'secret-token',
+      fetch,
+    });
+
+    await expect(transport.submit(bundle, release)).resolves.toEqual(
+      submission(bundle.identity, release.identity),
+    );
+  });
+
   it('streams a verified bundle with authenticated identity headers', async () => {
     const bundle = await verifiedBundle();
     const release = releaseFor(bundle.identity);
