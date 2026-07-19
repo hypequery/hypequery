@@ -116,6 +116,7 @@ jobs:
           ---
           "@hypequery/clickhouse": patch
           "@hypequery/datasets": patch
+          "@hypequery/deployment": patch
           "@hypequery/serve": patch
           "@hypequery/cli": patch
           "@hypequery/mcp": patch
@@ -132,6 +133,8 @@ jobs:
               packages/clickhouse/package.json \
               packages/clickhouse/CHANGELOG.md \
               packages/datasets/package.json \
+              packages/deployment/package.json \
+              packages/deployment/CHANGELOG.md \
               packages/serve/package.json \
               packages/serve/CHANGELOG.md \
               packages/cli/package.json \

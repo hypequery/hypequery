@@ -82,6 +82,25 @@ MUST match the request after server-side recomputation. Unknown response fields,
 invalid UTF-8 or JSON, responses larger than 64 KiB, and identity mismatches fail
 closed on the client.
 
+A newly persisted submission returns HTTP `202`. An authorized, fully verified
+idempotent replay returns HTTP `200`. Neither response activates or executes the
+release.
+
+## Reference receiver
+
+`@hypequery/deployment` provides the framework-neutral TypeScript reference
+receiver. Its request adapter accepts a header record and streaming byte body;
+its response adapter returns an HTTP status, headers, and bounded JSON body.
+Authentication, target authorization, and atomic persistence are deliberately
+pluggable provider responsibilities.
+
+The reference receiver authenticates before consuming body bytes, authorizes
+after validating the canonical release, streams only manifest-declared bundle
+paths into a unique temporary directory, then invokes the same complete bundle
+filesystem verifier used by the CLI. The persistence callback must copy every
+required byte before it resolves because the temporary directory is removed on
+both success and failure.
+
 ## Rejection and client errors
 
 Non-success HTTP statuses reject the submission. A service may return a bounded

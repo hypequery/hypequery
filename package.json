@@ -6,6 +6,7 @@
     "packages/cli",
     "packages/clickhouse",
     "packages/datasets",
+    "packages/deployment",
     "packages/mcp-server",
     "packages/protocol",
     "packages/react",

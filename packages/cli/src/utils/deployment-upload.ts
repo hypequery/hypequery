@@ -12,6 +12,9 @@ import {
   DEPLOYMENT_BUNDLE_MANIFEST,
   type VerifiedDeploymentBundle,
 } from './deployment-bundle.js';
+import type { DeploymentSubmissionResponse } from '@hypequery/deployment';
+
+export type { DeploymentSubmissionResponse } from '@hypequery/deployment';
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -37,14 +40,6 @@ export class DeploymentUploadError extends Error {
     this.code = code;
     if (status !== undefined) this.status = status;
   }
-}
-
-export interface DeploymentSubmissionResponse {
-  readonly kind: 'hypequery-deployment-submission';
-  readonly version: 1;
-  readonly status: 'accepted' | 'already-exists';
-  readonly releaseIdentity: string;
-  readonly bundleIdentity: string;
 }
 
 export interface DeploymentHttpResponse {
