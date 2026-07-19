@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto';
 import {
+  appendFile,
   mkdir,
   mkdtemp,
+  open,
   readFile,
   readdir,
   rm,
   symlink,
+  type FileHandle,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,7 +18,7 @@ import {
   prepareProtocolDeploymentContract,
   prepareProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { verifyDeploymentBundle } from './bundle.js';
 import {
   createFileSystemDeploymentSubmissionStore,
@@ -158,6 +161,29 @@ describe('filesystem deployment submission store', () => {
     await expect(store.read('0'.repeat(64))).resolves.toBeUndefined();
   });
 
+  it.skipIf(process.platform === 'win32')(
+    'initializes and syncs the store layout only once',
+    async () => {
+      const root = await temporaryDirectory('hypequery-store-');
+      const probe = await open(root, 'r');
+      const prototype = Object.getPrototypeOf(probe) as FileHandle;
+      await probe.close();
+      const sync = vi.spyOn(prototype, 'sync');
+      const store = createFileSystemDeploymentSubmissionStore({ directory: root });
+
+      try {
+        await store.read('0'.repeat(64));
+        const initializationSyncs = sync.mock.calls.length;
+        expect(initializationSyncs).toBeGreaterThan(0);
+
+        await store.read('1'.repeat(64));
+        expect(sync).toHaveBeenCalledTimes(initializationSyncs);
+      } finally {
+        sync.mockRestore();
+      }
+    },
+  );
+
   it('rejects inconsistent submission metadata before writing store state', async () => {
     const fixture = await submissionFixture();
     const root = await temporaryDirectory('hypequery-store-');
@@ -254,6 +280,37 @@ describe('filesystem deployment submission store', () => {
       store.accept(fixture.submission),
       'HQ_DEPLOYMENT_STORE_CORRUPT_STATE',
     );
+  });
+
+  it('enforces the release byte ceiling if the file grows after stat', async () => {
+    const fixture = await submissionFixture();
+    const root = await temporaryDirectory('hypequery-store-');
+    const store = createFileSystemDeploymentSubmissionStore<string>({ directory: root });
+    await store.accept(fixture.submission);
+    const releasePath = path.join(
+      root,
+      'releases',
+      fixture.submission.releaseIdentity,
+      'release.json',
+    );
+    const probe = await open(releasePath, 'r');
+    const prototype = Object.getPrototypeOf(probe) as FileHandle;
+    const originalRead = prototype.read;
+    await probe.close();
+    const read = vi.spyOn(prototype, 'read').mockImplementationOnce(async function (...args) {
+      await appendFile(releasePath, Buffer.alloc(16 * 1024));
+      return originalRead.apply(this, args);
+    });
+
+    try {
+      await expectStoreCode(
+        store.read(fixture.submission.releaseIdentity),
+        'HQ_DEPLOYMENT_STORE_CORRUPT_STATE',
+      );
+      expect(read).toHaveBeenCalled();
+    } finally {
+      read.mockRestore();
+    }
   });
 
   it('recovers a missing release record from an already-published bundle', async () => {

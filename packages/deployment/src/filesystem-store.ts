@@ -105,26 +105,31 @@ async function requireRegularDirectory(
   }
 }
 
-async function ensureRegularStoreDirectory(directory: string, description: string): Promise<void> {
+async function ensureRegularStoreDirectory(
+  directory: string,
+  description: string,
+): Promise<boolean> {
+  let created = false;
   try {
-    await mkdir(directory, { recursive: true, mode: 0o700 });
+    created = await mkdir(directory, { recursive: true, mode: 0o700 }) !== undefined;
   } catch (error) {
     if (errorCode(error) !== 'EEXIST') throw error;
   }
   await requireRegularDirectory(directory, description);
+  return created;
 }
 
 async function ensureStoreDirectories(root: string): Promise<{
   readonly bundles: string;
   readonly releases: string;
 }> {
-  await ensureRegularStoreDirectory(root, 'Deployment store root');
+  const rootCreated = await ensureRegularStoreDirectory(root, 'Deployment store root');
   const bundles = path.join(root, 'bundles');
   const releases = path.join(root, 'releases');
-  await ensureRegularStoreDirectory(bundles, 'Deployment bundle store');
-  await ensureRegularStoreDirectory(releases, 'Deployment release store');
-  await syncDirectory(root);
-  await syncDirectory(path.dirname(root));
+  const bundlesCreated = await ensureRegularStoreDirectory(bundles, 'Deployment bundle store');
+  const releasesCreated = await ensureRegularStoreDirectory(releases, 'Deployment release store');
+  if (bundlesCreated || releasesCreated) await syncDirectory(root);
+  if (rootCreated) await syncDirectory(path.dirname(root));
   return Object.freeze({ bundles, releases });
 }
 
@@ -225,8 +230,11 @@ async function copyRegularFile(
     }
     throw error;
   } finally {
-    await destination?.close();
-    await source?.close();
+    try {
+      await destination?.close();
+    } finally {
+      await source?.close();
+    }
   }
 }
 
@@ -316,7 +324,28 @@ async function readRegularFile(filePath: string, maximumBytes: number): Promise<
     if (!stat.isFile() || stat.size < 1 || stat.size > maximumBytes) {
       throw new Error(`Stored entry is not a bounded regular file: ${filePath}`);
     }
-    return await handle.readFile();
+    const buffer = Buffer.allocUnsafe(Math.min(COPY_BUFFER_BYTES, maximumBytes + 1));
+    const chunks: Buffer[] = [];
+    let total = 0;
+    while (total <= maximumBytes) {
+      const remaining = maximumBytes + 1 - total;
+      const { bytesRead } = await handle.read(
+        buffer,
+        0,
+        Math.min(buffer.byteLength, remaining),
+        null,
+      );
+      if (bytesRead === 0) break;
+      total += bytesRead;
+      if (total > maximumBytes) {
+        throw new Error(`Stored entry is not a bounded regular file: ${filePath}`);
+      }
+      chunks.push(Buffer.from(buffer.subarray(0, bytesRead)));
+    }
+    if (total < 1) {
+      throw new Error(`Stored entry is not a bounded regular file: ${filePath}`);
+    }
+    return Buffer.concat(chunks, total);
   } finally {
     await handle.close();
   }
@@ -488,12 +517,23 @@ export function createFileSystemDeploymentSubmissionStore<Principal = unknown>(
       'Deployment store directory cannot be a filesystem root.',
     );
   }
+  let directoriesPromise: ReturnType<typeof ensureStoreDirectories> | undefined;
+
+  async function storeDirectories(): ReturnType<typeof ensureStoreDirectories> {
+    const pending = directoriesPromise ??= ensureStoreDirectories(root);
+    try {
+      return await pending;
+    } catch (error) {
+      if (directoriesPromise === pending) directoriesPromise = undefined;
+      throw error;
+    }
+  }
 
   async function read(releaseIdentity: string): Promise<StoredDeploymentSubmission | undefined> {
     const identity = requireIdentity(releaseIdentity);
     let directories;
     try {
-      directories = await ensureStoreDirectories(root);
+      directories = await storeDirectories();
       const releaseDirectory = path.join(directories.releases, identity);
       if (!await pathExists(releaseDirectory)) return undefined;
       let storedRelease;
@@ -533,7 +573,7 @@ export function createFileSystemDeploymentSubmissionStore<Principal = unknown>(
   ): Promise<'accepted' | 'already-exists'> {
     const prepared = prepareSubmission(submission);
     try {
-      const directories = await ensureStoreDirectories(root);
+      const directories = await storeDirectories();
       await ensureStoredBundle(root, directories.bundles, submission.bundle);
 
       const releaseDestination = path.join(directories.releases, submission.releaseIdentity);
