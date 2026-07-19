@@ -101,6 +101,14 @@ filesystem verifier used by the CLI. The persistence callback must copy every
 required byte before it resolves because the temporary directory is removed on
 both success and failure.
 
+The package also includes an optional single-host filesystem store. It copies
+and revalidates the closed bundle into a content-addressed bundle directory,
+syncs it, and only then atomically publishes the canonical release record under
+its release identity. An interruption may leave an unreferenced bundle for a
+later retry to reuse, but never a visible release that references an incomplete
+bundle. Reads and idempotent replays revalidate both stored objects. The store
+does not activate releases or define provider lifecycle state.
+
 ## Rejection and client errors
 
 Non-success HTTP statuses reject the submission. A service may return a bounded

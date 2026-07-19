@@ -65,4 +65,49 @@ filesystem. It rejects symbolic links and undeclared entries, enforces byte
 limits, recomputes every hash and identity, and returns an immutable verified
 snapshot.
 
+## Filesystem store
+
+`createFileSystemDeploymentSubmissionStore` is the reference durable store for
+a single host. It copies verified bundle bytes out of temporary intake storage,
+revalidates the copy, and atomically publishes the release only after its bundle
+is durable. Replaying the same release returns `already-exists` after the stored
+state has been fully revalidated.
+
+```ts
+import {
+  createDeploymentIntake,
+  createFileSystemDeploymentSubmissionStore,
+} from '@hypequery/deployment';
+
+const store = createFileSystemDeploymentSubmissionStore({
+  directory: '/var/lib/hypequery/deployments',
+});
+
+const intake = createDeploymentIntake({
+  authenticator,
+  authorizer,
+  store,
+});
+```
+
+The closed layout is content-addressed:
+
+```text
+<directory>/
+  bundles/<bundle identity>/...
+  releases/<release identity>/release.json
+```
+
+Bundle directories are published before release directories. A crash can leave
+an unreferenced bundle that a later submission safely reuses, but cannot expose
+a release whose bundle is incomplete. Files and directories are opened without
+following symbolic links where Node exposes that facility, file contents and
+directory entries are revalidated on reads and replays, and temporary staging
+directories are removed after success or failure.
+
+The configured directory is an operator-controlled local trust boundary. This
+store does not provide remote replication, activation, lifecycle state, or
+protection from an administrator modifying its files. `read(releaseIdentity)`
+returns only a completely revalidated stored submission.
+
 The package is ESM-only and requires Node.js 20 or newer.

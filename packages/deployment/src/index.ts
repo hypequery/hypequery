@@ -9,6 +9,16 @@ export {
 } from './errors.js';
 export type { DeploymentIntakeErrorCode } from './errors.js';
 export {
+  createFileSystemDeploymentSubmissionStore,
+  FileSystemDeploymentStoreError,
+} from './filesystem-store.js';
+export type {
+  FileSystemDeploymentStoreErrorCode,
+  FileSystemDeploymentSubmissionStore,
+  FileSystemDeploymentSubmissionStoreOptions,
+  StoredDeploymentSubmission,
+} from './filesystem-store.js';
+export {
   createDeploymentIntake,
 } from './intake.js';
 export {
