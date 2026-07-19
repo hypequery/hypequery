@@ -229,13 +229,14 @@ export function createDeploymentDataPlane(options: DeploymentDataPlaneOptions): 
       const { query } = route;
 
       let principal: DeploymentDataPlanePrincipal | null = null;
-      if (query.endpoint.access.kind === 'authenticated' || request.credentials !== undefined) {
-        if (!options.authenticate) {
-          throw dataPlaneError(
-            'HQ_DATA_PLANE_CONFIGURATION',
-            'An authenticator is required for this deployment route.',
-          );
-        }
+      if (query.endpoint.access.kind === 'authenticated' && !options.authenticate) {
+        throw dataPlaneError(
+          'HQ_DATA_PLANE_CONFIGURATION',
+          'An authenticator is required for this deployment route.',
+        );
+      }
+      if (options.authenticate
+        && (query.endpoint.access.kind === 'authenticated' || request.credentials !== undefined)) {
         try {
           principal = await options.authenticate({ credentials: request.credentials, request, query });
         } catch (error) {

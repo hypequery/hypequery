@@ -103,8 +103,9 @@ function cloneAny(value: unknown, path: string, depth: number, state: State): un
   try {
     const result: Record<string, unknown> = Object.create(null);
     for (const [key, item] of Object.entries(source)) {
-      stringValue(key, path, state);
-      result[key] = cloneAny(item, propertyPath(path, key), depth + 1, state);
+      const itemPath = propertyPath(path, key);
+      stringValue(key, itemPath, state);
+      result[key] = cloneAny(item, itemPath, depth + 1, state);
     }
     return frozenRecord(result);
   } finally {
@@ -214,9 +215,9 @@ function apply(
       try {
         const result: Record<string, unknown> = Object.create(null);
         for (const [key, item] of Object.entries(source)) {
-          stringValue(key, path, state);
-          const property = schema.properties[key as keyof typeof schema.properties];
           const itemPath = propertyPath(path, key);
+          stringValue(key, itemPath, state);
+          const property = schema.properties[key as keyof typeof schema.properties];
           if (property) result[key] = apply(property, item, itemPath, depth + 1, state);
           else if (schema.unknownProperties === 'reject') fail(itemPath);
           else if (schema.unknownProperties === 'preserve') {
@@ -243,8 +244,9 @@ function apply(
       try {
         const result: Record<string, unknown> = Object.create(null);
         for (const [key, item] of Object.entries(source)) {
-          stringValue(key, path, state);
-          result[key] = apply(schema.values, item, propertyPath(path, key), depth + 1, state);
+          const itemPath = propertyPath(path, key);
+          stringValue(key, itemPath, state);
+          result[key] = apply(schema.values, item, itemPath, depth + 1, state);
         }
         return frozenRecord(result);
       } finally {
@@ -253,7 +255,7 @@ function apply(
     }
     case 'union':
       for (const variant of schema.variants) {
-        const branch: State = { active: new WeakSet(), limits: state.limits, nodes: state.nodes };
+        const branch: State = { active: state.active, limits: state.limits, nodes: state.nodes };
         try {
           const result = apply(variant, value, path, depth, branch);
           state.nodes = branch.nodes;

@@ -173,6 +173,24 @@ describe('deployment data plane', () => {
     }));
   });
 
+  it('ignores credentials on public routes when no authenticator is configured', async () => {
+    const executeRuntimeReference = vi.fn(async () => 'ok');
+    const plane = createDeploymentDataPlane({
+      deployment: deployment([query()]),
+      executeRuntimeReference,
+    });
+
+    await expect(plane.execute({
+      method: 'POST',
+      path: '/handler',
+      input: null,
+      credentials: 'incidental-token',
+    })).resolves.toEqual({ query: 'handler', output: 'ok' });
+    expect(executeRuntimeReference).toHaveBeenCalledWith(expect.objectContaining({
+      principal: null,
+    }));
+  });
+
   it('resolves typed input and tenant bindings for compiled SQL', async () => {
     const executeCompiledSql = vi.fn(async () => [{ id: 'order-1' }]);
     const compiled = query({

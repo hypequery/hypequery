@@ -78,6 +78,24 @@ describe('protocol schema values', () => {
     }));
   });
 
+  it.each([
+    { kind: 'any' } as const,
+    {
+      kind: 'object',
+      properties: {},
+      required: [],
+      unknownProperties: 'preserve',
+    } as const,
+    { kind: 'record', values: { kind: 'any' } } as const,
+  ])('reports oversized property keys at their derived path for $kind schemas', schema => {
+    const parser = createProtocolSchemaValueParser(schema, { limits: { maxStringBytes: 8 } });
+    const oversized = 'x'.repeat(129);
+
+    expect(() => parser.parse({ [oversized]: true })).toThrow(expect.objectContaining({
+      path: '$.*',
+    }));
+  });
+
   it('rejects unsafe values and cycles', () => {
     const parser = createProtocolSchemaValueParser({ kind: 'any' });
     const cycle: Record<string, unknown> = {};
@@ -98,6 +116,34 @@ describe('protocol schema values', () => {
     }, { limits: { maxNodes: 3 } });
 
     expect(() => parser.parse([1, 2])).toThrow(ProtocolSchemaValueError);
+  });
+
+  it('retains ancestor cycle detection across union attempts', () => {
+    const parser = createProtocolSchemaValueParser(validateProtocolSchema({
+      kind: 'object',
+      properties: {
+        child: {
+          kind: 'union',
+          variants: [{
+            kind: 'object',
+            properties: { parent: { kind: 'any' } },
+            required: ['parent'],
+            unknownProperties: 'reject',
+          }, {
+            kind: 'object',
+            properties: {},
+            required: [],
+            unknownProperties: 'strip',
+          }],
+        },
+      },
+      required: ['child'],
+      unknownProperties: 'reject',
+    }), { limits: { maxNodes: 6 } });
+    const input: { child: { parent?: unknown } } = { child: {} };
+    input.child.parent = input;
+
+    expect(parser.parse(input)).toEqual({ child: {} });
   });
 
   it('treats explicit undefined limits as absent', () => {
