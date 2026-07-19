@@ -110,4 +110,46 @@ store does not provide remote replication, activation, lifecycle state, or
 protection from an administrator modifying its files. `read(releaseIdentity)`
 returns only a completely revalidated stored submission.
 
+## Activation registry
+
+`createFileSystemDeploymentActivationRegistry` adds explicit target activation
+without changing accepted release or bundle bytes. The registry requires a
+release reader that completely revalidates an accepted release and its closed
+bundle before returning it; the filesystem submission store satisfies that
+contract directly.
+
+```ts
+import {
+  createFileSystemDeploymentActivationRegistry,
+  createFileSystemDeploymentSubmissionStore,
+} from '@hypequery/deployment';
+
+const directory = '/var/lib/hypequery/deployments';
+const releases = createFileSystemDeploymentSubmissionStore({ directory });
+const activations = createFileSystemDeploymentActivationRegistry({
+  directory,
+  releases,
+});
+
+const target = { project: 'analytics', environment: 'production' };
+const current = await activations.current(target);
+const result = await activations.activate({
+  target,
+  releaseIdentity,
+  expectedRevision: current?.revision ?? null,
+});
+```
+
+`expectedRevision` is a compare-and-swap precondition. A different active
+revision returns `conflict`; requesting the release that is already active
+returns `already-active`. Activating an older accepted release performs a
+rollback through the same operation and produces a new revision, so stale
+pre-rollback callers cannot pass the comparison after an ABA sequence.
+
+The filesystem implementation stores an immutable, domain-separated activation
+record for every transition and derives the current release by verifying the
+append-only chain. It has no mutable pointer file or persistent lock to become
+stale after a crash. Activation does not load runtime code, route traffic,
+perform health checks, or authorize callers; those remain provider concerns.
+
 The package is ESM-only and requires Node.js 20 or newer.

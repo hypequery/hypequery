@@ -106,6 +106,7 @@ export {
   hashProtocolDeploymentReleaseEnvelope,
   prepareProtocolDeploymentReleaseEnvelope,
   validateProtocolDeploymentReleaseEnvelope,
+  validateProtocolDeploymentReleaseTarget,
 } from './releases/index.js';
 
 export type {

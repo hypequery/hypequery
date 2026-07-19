@@ -53,7 +53,7 @@ function targetToken(value: unknown, path: string, maximum: number): string {
   return value;
 }
 
-function validateTarget(
+function validateTargetWithMaximum(
   input: unknown,
   maximum: number,
 ): ProtocolDeploymentReleaseTarget {
@@ -63,6 +63,16 @@ function validateTarget(
     project: targetToken(value.project, '$.target.project', maximum),
     environment: targetToken(value.environment, '$.target.environment', maximum),
   }) as unknown as ProtocolDeploymentReleaseTarget;
+}
+
+export function validateProtocolDeploymentReleaseTarget(
+  input: unknown,
+  options: ProtocolDeploymentReleaseOptions = {},
+): ProtocolDeploymentReleaseTarget {
+  return validateTargetWithMaximum(
+    input,
+    resolveDeploymentReleaseLimits(options).maxTargetBytes,
+  );
 }
 
 export function validateProtocolDeploymentReleaseEnvelope(
@@ -90,6 +100,6 @@ export function validateProtocolDeploymentReleaseEnvelope(
     kind: 'hypequery-deployment-release',
     version: 1,
     bundleIdentity: value.bundleIdentity,
-    target: validateTarget(value.target, limits.maxTargetBytes),
+    target: validateTargetWithMaximum(value.target, limits.maxTargetBytes),
   }) as unknown as ProtocolDeploymentReleaseEnvelope;
 }

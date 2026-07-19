@@ -10,6 +10,7 @@ import {
   PROTOCOL_DEPLOYMENT_RELEASE_IDENTITY_DOMAIN,
   ProtocolDeploymentReleaseError,
   validateProtocolDeploymentReleaseEnvelope,
+  validateProtocolDeploymentReleaseTarget,
 } from './index.js';
 
 interface SuccessFixture { id: string; value: unknown }
@@ -133,6 +134,17 @@ describe('deployment release envelope v1', () => {
       }),
       'HQ_RELEASE_INVALID_VALUE',
       '$.target.project',
+    );
+  });
+
+  it('validates release targets independently as immutable snapshots', () => {
+    const target = validateProtocolDeploymentReleaseTarget(baseRelease().target);
+    expect(target).toEqual(baseRelease().target);
+    expect(Object.isFrozen(target)).toBe(true);
+    expectReleaseError(
+      () => validateProtocolDeploymentReleaseTarget({ ...target, extra: true }),
+      'HQ_RELEASE_UNKNOWN_FIELD',
+      '$.target.extra',
     );
   });
 
