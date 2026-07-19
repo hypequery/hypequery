@@ -286,6 +286,12 @@ export function createDeploymentRuntimeMaterializer(
   options: DeploymentRuntimeMaterializerOptions,
 ): DeploymentRuntimeMaterializer {
   const maximumAttempts = stabilityAttempts(options.maxStabilityAttempts);
+  if (!constants.O_NOFOLLOW) {
+    throw materializationError(
+      'HQ_RUNTIME_MATERIALIZATION_CONFIGURATION',
+      'Runtime materialization requires filesystem no-follow support.',
+    );
+  }
 
   async function currentActivation(
     target: ProtocolDeploymentReleaseTarget,
@@ -316,7 +322,8 @@ export function createDeploymentRuntimeMaterializer(
         if (!activation) return undefined;
         const snapshot = await materializeActivation(activation, options.releases);
         const confirmed = await currentActivation(target);
-        if (confirmed?.revision === activation.revision) return snapshot;
+        if (!confirmed) return undefined;
+        if (confirmed.revision === activation.revision) return snapshot;
       }
       throw materializationError(
         'HQ_RUNTIME_MATERIALIZATION_UNSTABLE_ACTIVATION',

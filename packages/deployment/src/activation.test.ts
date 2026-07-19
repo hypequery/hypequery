@@ -335,10 +335,12 @@ describe('filesystem deployment activation registry', () => {
     ]);
 
     expect(results.map(result => result.status).sort()).toEqual(['activated', 'conflict']);
+    const activated = results.find(result => result.status === 'activated');
+    if (!activated || activated.status === 'conflict') {
+      throw new Error('Expected one concurrent activation to succeed.');
+    }
     const current = await registry.current(target);
-    expect(current?.releaseIdentity).toBe(
-      results.find(result => result.status === 'activated')!.activation.releaseIdentity,
-    );
+    expect(current?.releaseIdentity).toBe(activated.activation.releaseIdentity);
     expect(await registry.history(target)).toHaveLength(1);
   });
 

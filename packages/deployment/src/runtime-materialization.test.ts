@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { constants } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -144,6 +145,7 @@ function registry(
     current,
     activate: async () => { throw new Error('not used'); },
     history: async () => [],
+    historyPage: async () => ({ activations: [], nextBefore: null }),
   };
 }
 
@@ -217,6 +219,21 @@ describe('deployment runtime materialization', () => {
     expect(current).toHaveBeenCalledTimes(4);
   });
 
+  it('returns no snapshot when the activation disappears during materialization', async () => {
+    const fixture = await releaseFixture('export const version=1;\n');
+    const active = activation(fixture.stored.releaseIdentity);
+    const current = vi.fn()
+      .mockResolvedValueOnce(active)
+      .mockResolvedValueOnce(undefined);
+    const materializer = createDeploymentRuntimeMaterializer({
+      activations: registry(current),
+      releases: { read: async () => fixture.stored },
+    });
+
+    await expect(materializer.current(TARGET)).resolves.toBeUndefined();
+    expect(current).toHaveBeenCalledTimes(2);
+  });
+
   it('fails closed when the accepted release or closed bundle is inconsistent', async () => {
     const fixture = await releaseFixture('export const value=true;\n');
     const active = activation(fixture.stored.releaseIdentity);
@@ -276,4 +293,16 @@ describe('deployment runtime materialization', () => {
       maxStabilityAttempts: 17,
     })).toThrow(DeploymentRuntimeMaterializationError);
   });
+
+  it.skipIf(Boolean(constants.O_NOFOLLOW))(
+    'fails closed when the platform cannot open artifacts without following links',
+    () => {
+      expect(() => createDeploymentRuntimeMaterializer({
+        activations: registry(async () => undefined),
+        releases: { read: async () => undefined },
+      })).toThrow(expect.objectContaining({
+        code: 'HQ_RUNTIME_MATERIALIZATION_CONFIGURATION',
+      }));
+    },
+  );
 });

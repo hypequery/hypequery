@@ -3,13 +3,18 @@ import {
   DeploymentActivationError,
   type DeploymentActivationRecord,
   type DeploymentActivationRegistry,
+  type DeploymentActivationResult,
 } from './activation.js';
-import { createDeploymentControlPlane } from './control-plane.js';
+import {
+  createDeploymentControlPlane,
+  type DeploymentControlPlaneAuthorizationInput,
+} from './control-plane.js';
 import {
   DEFAULT_DEPLOYMENT_CONTROL_PLANE_LIMITS,
   resolveDeploymentControlPlaneLimits,
 } from './control-plane-limits.js';
 import type {
+  DeploymentAuthenticationInput,
   DeploymentIntake,
   DeploymentIntakeResponse,
 } from './types.js';
@@ -56,15 +61,20 @@ function parsed(response: DeploymentIntakeResponse): any {
 }
 
 function fixture(overrides: {
-  readonly authenticate?: () => Promise<string | null>;
-  readonly authorize?: () => Promise<boolean>;
+  readonly authenticate?: (input: DeploymentAuthenticationInput) => Promise<string | null>;
+  readonly authorize?: (
+    input: DeploymentControlPlaneAuthorizationInput<string>
+  ) => Promise<boolean>;
   readonly registry?: Partial<DeploymentActivationRegistry>;
   readonly intake?: DeploymentIntake;
   readonly limits?: { readonly maxActivationRequestBytes?: number; readonly maxHistoryPageSize?: number };
 } = {}) {
   const defaultActivation = activation(REVISION_ONE);
   const registry: DeploymentActivationRegistry = {
-    activate: vi.fn(async () => ({ status: 'activated', activation: defaultActivation })),
+    activate: vi.fn(async (): Promise<DeploymentActivationResult> => ({
+      status: 'activated',
+      activation: defaultActivation,
+    })),
     current: vi.fn(async () => defaultActivation),
     history: vi.fn(async () => [defaultActivation]),
     historyPage: vi.fn(async () => ({

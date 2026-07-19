@@ -38,6 +38,10 @@ For each manifest-declared runtime artifact, materialization MUST:
 4. recompute and compare SHA-256;
 5. retain a private copy that cannot be mutated through the public snapshot.
 
+Materialization fails with `HQ_RUNTIME_MATERIALIZATION_CONFIGURATION` when the
+host cannot open files with a no-follow primitive. An `lstat`-then-open sequence
+alone is insufficient because a path can be replaced between those operations.
+
 The resulting snapshot contains:
 
 - the exact activation record and target;
@@ -56,6 +60,8 @@ The materializer reads the current activation before constructing the snapshot
 and reads it again afterward. The snapshot may be returned only when both reads
 have the same activation revision. If the revision changed, the intermediate
 snapshot is discarded and materialization retries from the new activation.
+If either read finds no activation, the intermediate snapshot is discarded and
+no snapshot is returned.
 
 Retries are bounded. Repeated activation churn fails with a stable
 `HQ_RUNTIME_MATERIALIZATION_UNSTABLE_ACTIVATION` error rather than returning a
