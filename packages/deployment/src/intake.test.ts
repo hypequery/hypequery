@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import {
+  chmod,
   mkdtemp,
   readFile,
   readdir,
@@ -272,6 +273,26 @@ describe('deployment intake', () => {
     expect(accept).not.toHaveBeenCalled();
   });
 
+  it('rejects non-ASCII multipart header bytes without lossy decoding', async () => {
+    const fixture = submissionFixture();
+    const body = Buffer.from(fixture.body);
+    const headerValue = body.indexOf('application/json');
+    if (headerValue < 0) throw new Error('Expected multipart content type header.');
+    body[headerValue] = 0x80;
+    const request = fixture.request();
+    const accept = vi.fn<DeploymentSubmissionStore<string>['accept']>();
+    const intake = createDeploymentIntake({
+      authenticator: { authenticate: async () => 'principal' },
+      authorizer: { authorize: async () => true },
+      store: { accept },
+    });
+
+    const response = await intake.handle({ ...request, body: chunks(body) });
+
+    expect(response.status).toBe(400);
+    expect(accept).not.toHaveBeenCalled();
+  });
+
   it('rejects undeclared parts and truncated bodies', async () => {
     const extra: Part = {
       name: 'bundle',
@@ -309,6 +330,35 @@ describe('deployment intake', () => {
     expect(response.status).toBe(400);
     expect(accept).not.toHaveBeenCalled();
   });
+
+  it.each(['../outside.json', 'nested//outside.json', 'nested/./outside.json'])(
+    'rejects unsafe manifest path %s before creating temporary files',
+    async unsafePath => {
+      const fixture = submissionFixture();
+      const temporary = await temporaryDirectory();
+      const body = Buffer.from(
+        fixture.body.toString('utf8').replaceAll('deployment.json', unsafePath),
+      );
+      const request = fixture.request();
+      const accept = vi.fn<DeploymentSubmissionStore<string>['accept']>();
+      const intake = createDeploymentIntake({
+        authenticator: { authenticate: async () => 'principal' },
+        authorizer: { authorize: async () => true },
+        store: { accept },
+        temporaryDirectory: temporary,
+      });
+
+      const response = await intake.handle({
+        ...request,
+        headers: { ...request.headers, 'Content-Length': String(body.byteLength) },
+        body: chunks(body),
+      });
+
+      expect(response.status).toBe(400);
+      expect(accept).not.toHaveBeenCalled();
+      expect(await readdir(temporary)).toEqual([]);
+    },
+  );
 
   it('preflights request limits without consuming the body', async () => {
     const fixture = submissionFixture();
@@ -365,4 +415,30 @@ describe('deployment intake', () => {
     expect(response.body).not.toContain('database secret');
     expect(await readdir(temporary)).toEqual([]);
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'does not turn a successful persist into a failure when cleanup fails',
+    async () => {
+      const fixture = submissionFixture();
+      const temporary = await temporaryDirectory();
+      const accept = vi.fn<DeploymentSubmissionStore<string>['accept']>(async () => {
+        await chmod(temporary, 0o500);
+        return 'accepted';
+      });
+      const intake = createDeploymentIntake({
+        authenticator: { authenticate: async () => 'principal' },
+        authorizer: { authorize: async () => true },
+        store: { accept },
+        temporaryDirectory: temporary,
+      });
+
+      const response = await intake.handle(fixture.request());
+      await chmod(temporary, 0o700);
+
+      expect(response.status).toBe(202);
+      expect((responseBody(response) as { status: string }).status).toBe('accepted');
+      expect(accept).toHaveBeenCalledOnce();
+      expect(await readdir(temporary)).toHaveLength(1);
+    },
+  );
 });

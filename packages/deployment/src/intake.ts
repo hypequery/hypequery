@@ -153,6 +153,10 @@ function requireReconstructablePaths(manifest: PreparedProtocolDeploymentBundleM
   }
   for (const file of files) {
     const segments = file.split('/');
+    if (file.includes('\\')
+      || segments.some(segment => segment === '' || segment === '.' || segment === '..')) {
+      throw badRequest('Bundle file paths must be safe relative paths.');
+    }
     for (let index = 1; index < segments.length; index += 1) {
       if (fileSet.has(segments.slice(0, index).join('/'))) {
         throw badRequest('A bundle file path cannot also be a parent directory.');
@@ -243,7 +247,12 @@ async function receiveBundleFile(
     contentType,
     bundlePath: file.path,
   });
-  const absolutePath = path.join(root, ...file.path.split('/'));
+  const absolutePath = path.resolve(root, ...file.path.split('/'));
+  const relativePath = path.relative(root, absolutePath);
+  if (relativePath === '' || relativePath === '..'
+    || relativePath.startsWith(`..${path.sep}`) || path.isAbsolute(relativePath)) {
+    throw badRequest('Bundle file paths must remain within the temporary bundle directory.');
+  }
   await mkdir(path.dirname(absolutePath), { recursive: true });
   const handle = await open(absolutePath, 'wx');
   const digest = createHash('sha256');
@@ -428,8 +437,8 @@ export function createDeploymentIntake<Principal>(
         releaseIdentity: release.identity,
         bundleIdentity: bundle.identity,
       });
-      await removeTemporaryDirectory(temporaryRoot);
       cleaned = true;
+      await removeTemporaryDirectory(temporaryRoot, true);
       return jsonResponse(status === 'accepted' ? 202 : 200, response);
     } finally {
       if (!cleaned) await removeTemporaryDirectory(temporaryRoot, true);

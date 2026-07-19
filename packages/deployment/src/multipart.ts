@@ -93,10 +93,11 @@ export class BoundedMultipartReader {
         if (index > maximum) throw tooLarge('Multipart part headers exceed their byte limit.');
         const bytes = this.#buffer.subarray(0, index);
         this.#buffer = this.#buffer.subarray(index + CRLF.length);
-        if (!HEADER_VALUE.test(bytes.toString('latin1'))) {
+        const value = bytes.toString('latin1');
+        if (!HEADER_VALUE.test(value)) {
           throw badRequest('Multipart headers must contain printable ASCII.');
         }
-        return bytes.toString('ascii');
+        return value;
       }
       if (this.#buffer.length > maximum) {
         throw tooLarge('Multipart part headers exceed their byte limit.');
