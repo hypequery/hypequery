@@ -67,6 +67,10 @@ function fixture(overrides: {
     activate: vi.fn(async () => ({ status: 'activated', activation: defaultActivation })),
     current: vi.fn(async () => defaultActivation),
     history: vi.fn(async () => [defaultActivation]),
+    historyPage: vi.fn(async () => ({
+      activations: Object.freeze([defaultActivation]),
+      nextBefore: null,
+    })),
     ...overrides.registry,
   };
   const intake = overrides.intake ?? {
@@ -196,8 +200,14 @@ describe('deployment control plane', () => {
   it('reads current activation and bounded cursor history', async () => {
     const first = activation(REVISION_ONE);
     const second = activation(REVISION_TWO, REVISION_ONE);
+    const historyPage = vi.fn(async (
+      _target: typeof TARGET,
+      query: { readonly limit: number; readonly before?: string },
+    ) => query.before === undefined
+      ? { activations: Object.freeze([second]), nextBefore: REVISION_TWO }
+      : { activations: Object.freeze([first]), nextBefore: null });
     const { controlPlane, authorize } = fixture({
-      registry: { current: async () => undefined, history: async () => [first, second] },
+      registry: { current: async () => undefined, historyPage },
       limits: { maxHistoryPageSize: 1 },
     });
 
@@ -219,6 +229,11 @@ describe('deployment control plane', () => {
       'read-activation-history',
       'read-activation-history',
     ]);
+    expect(historyPage).toHaveBeenNthCalledWith(1, TARGET, { limit: 1 });
+    expect(historyPage).toHaveBeenNthCalledWith(2, TARGET, {
+      limit: 1,
+      before: REVISION_TWO,
+    });
   });
 
   it('rejects duplicate, unknown, and out-of-range history query parameters', async () => {
@@ -236,6 +251,28 @@ describe('deployment control plane', () => {
       expect(response.status).toBe(400);
       expect(parsed(response).error.code).toBe('HQ_CONTROL_BAD_REQUEST');
     }
+  });
+
+  it('maps a history cursor missing from storage to a bad request', async () => {
+    const { controlPlane } = fixture({
+      registry: {
+        historyPage: async () => {
+          throw new DeploymentActivationError(
+            'HQ_DEPLOYMENT_ACTIVATION_INVALID_REQUEST',
+            'cursor missing',
+          );
+        },
+      },
+    });
+
+    const response = await controlPlane.handle(request({
+      path: '/v1/deployments/targets/analytics/production/activations',
+      query: { before: REVISION_ONE },
+    }));
+
+    expect(response.status).toBe(400);
+    expect(parsed(response).error.code).toBe('HQ_CONTROL_BAD_REQUEST');
+    expect(response.body).not.toContain('cursor missing');
   });
 
   it('rejects invalid activation bodies and enforces the configured byte limit', async () => {
@@ -337,7 +374,7 @@ describe('deployment control plane', () => {
 
     expect(unknown.status).toBe(404);
     expect(wrongMethod.status).toBe(405);
-    expect(wrongMethod.headers.allow).toBe('PUT');
+    expect(wrongMethod.headers.allow).toBe('GET, PUT');
   });
 });
 

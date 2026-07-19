@@ -92,6 +92,26 @@ describe('deployment control-plane HTTP adapters', () => {
     expect(handle).toHaveBeenCalledOnce();
   });
 
+  it('preserves potential duplicate Fetch singleton headers for core rejection', async () => {
+    const headers = new Headers();
+    headers.append('authorization', 'Bearer first');
+    headers.append('authorization', 'Bearer second');
+    const handle = vi.fn<DeploymentControlPlane['handle']>(async request => {
+      expect(Object.keys(request.headers).filter(name => (
+        name.toLowerCase() === 'authorization'
+      ))).toHaveLength(2);
+      return success();
+    });
+    const fetchHandler = createDeploymentControlPlaneFetchHandler({ handle });
+
+    const response = await fetchHandler(new Request('https://deploy.example/v1/test', {
+      headers,
+    }));
+
+    expect(response.status).toBe(200);
+    expect(handle).toHaveBeenCalledOnce();
+  });
+
   it('contains unexpected adapter and custom-handler failures', async () => {
     const fetchHandler = createDeploymentControlPlaneFetchHandler({
       handle: async () => { throw new Error('sensitive fetch failure'); },

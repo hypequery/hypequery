@@ -1,5 +1,5 @@
 import {
-  prepareProtocolDeploymentReleaseEnvelope,
+  validateProtocolDeploymentReleaseTarget,
   type ProtocolDeploymentReleaseTarget,
 } from '@hypequery/protocol';
 import {
@@ -204,15 +204,10 @@ function decodeTargetSegment(input: string): string {
 
 function validatedTarget(project: string, environment: string): ProtocolDeploymentReleaseTarget {
   try {
-    return prepareProtocolDeploymentReleaseEnvelope({
-      kind: 'hypequery-deployment-release',
-      version: 1,
-      bundleIdentity: '0'.repeat(64),
-      target: {
-        project: decodeTargetSegment(project),
-        environment: decodeTargetSegment(environment),
-      },
-    }).release.target;
+    return validateProtocolDeploymentReleaseTarget({
+      project: decodeTargetSegment(project),
+      environment: decodeTargetSegment(environment),
+    });
   } catch (error) {
     if (error instanceof ControlPlaneError) throw error;
     throw new ControlPlaneError(
@@ -235,12 +230,13 @@ function parseRoute(path: string): ParsedRoute | undefined {
   return undefined;
 }
 
-function requireMethod(method: string, expected: string): void {
-  if (method !== expected) {
+function requireMethod(method: string, ...expected: readonly string[]): void {
+  if (!expected.includes(method)) {
+    const allowed = expected.join(', ');
     throw new ControlPlaneError(
       'HQ_CONTROL_METHOD_NOT_ALLOWED',
-      `This deployment control-plane route requires ${expected}.`,
-      { headers: { allow: expected } },
+      `This deployment control-plane route requires ${allowed}.`,
+      { headers: { allow: allowed } },
     );
   }
 }
@@ -456,28 +452,6 @@ function validatedHistoryQuery(
   return Object.freeze({ limit, ...(before === undefined ? {} : { before }) });
 }
 
-function historyPage(
-  history: readonly DeploymentActivationRecord[],
-  query: { readonly limit: number; readonly before?: string },
-): {
-  readonly activations: readonly DeploymentActivationRecord[];
-  readonly nextBefore: string | null;
-} {
-  let end = history.length;
-  if (query.before !== undefined) {
-    const before = query.before;
-    end = history.findIndex(record => record.revision === before);
-    if (end < 0) {
-      throw new ControlPlaneError('HQ_CONTROL_BAD_REQUEST', 'History cursor was not found.');
-    }
-  }
-  const start = Math.max(0, end - query.limit);
-  return Object.freeze({
-    activations: Object.freeze(history.slice(start, end)),
-    nextBefore: start > 0 ? history[start]!.revision : null,
-  });
-}
-
 export function createDeploymentControlPlane<Principal>(
   options: DeploymentControlPlaneOptions<Principal>,
 ): DeploymentControlPlane {
@@ -541,7 +515,7 @@ export function createDeploymentControlPlane<Principal>(
           activation: current ?? null,
         });
       }
-      requireMethod(method, 'PUT');
+      requireMethod(method, 'GET', 'PUT');
       requireNoQuery(request);
       await authenticateAndAuthorize(request, 'activate', target);
       const contentType = requestHeader(request.headers, 'content-type');
@@ -573,8 +547,9 @@ export function createDeploymentControlPlane<Principal>(
     requireNoBody(request);
     await authenticateAndAuthorize(request, 'read-activation-history', target);
     const historyQuery = validatedHistoryQuery(request.query, limits.maxHistoryPageSize);
-    const history = await activationCall(() => options.activations.history(target));
-    const page = historyPage(history, historyQuery);
+    const page = await activationCall(() => (
+      options.activations.historyPage(target, historyQuery)
+    ));
     return jsonResponse(200, {
       kind: 'hypequery-deployment-activation-history',
       version: 1,

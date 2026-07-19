@@ -23,6 +23,14 @@ const INTERNAL_RESPONSE: DeploymentControlPlaneResponse = Object.freeze({
   }),
   body: INTERNAL_BODY,
 });
+const FETCH_SINGLETON_HEADERS = new Set([
+  'authorization',
+  'content-length',
+  'content-type',
+  'idempotency-key',
+  'x-hypequery-bundle-identity',
+  'x-hypequery-release-identity',
+]);
 
 function queryParameters(search: URLSearchParams): ControlPlaneQuery {
   const query = Object.create(null) as Record<string, string | readonly string[]>;
@@ -40,7 +48,16 @@ function queryParameters(search: URLSearchParams): ControlPlaneQuery {
 }
 
 function fetchHeaders(input: Headers): Readonly<Record<string, string>> {
-  return Object.freeze(Object.fromEntries(input.entries()));
+  const headers = Object.create(null) as Record<string, string>;
+  for (const [name, value] of input.entries()) {
+    headers[name] = value;
+    if (FETCH_SINGLETON_HEADERS.has(name) && value.includes(',')) {
+      // Fetch combines duplicate header lines before exposing Headers. Reify a
+      // second case-insensitive entry so the core singleton guard rejects it.
+      headers[name.toUpperCase()] = value;
+    }
+  }
+  return Object.freeze(headers);
 }
 
 async function* fetchBody(input: ReadableStream<Uint8Array> | null): AsyncGenerator<Uint8Array> {
@@ -133,12 +150,15 @@ export function createDeploymentControlPlaneNodeHandler(
 ): DeploymentControlPlaneNodeHandler {
   return async (request, response) => {
     const abort = new AbortController();
-    const abortRequest = () => abort.abort(new Error('The request was aborted.'));
+    const abortRequest = () => {
+      if (!request.complete) abort.abort(new Error('The request connection was closed.'));
+    };
     const abortResponse = () => {
       if (!response.writableEnded) abort.abort(new Error('The response connection was closed.'));
     };
-    request.once('aborted', abortRequest);
+    request.socket.once('close', abortRequest);
     response.once('close', abortResponse);
+    if (request.destroyed && !request.complete) abortRequest();
     try {
       const url = new URL(request.url ?? '/', 'http://deployment-control-plane.invalid');
       const headers = nodeHeaders(request);
@@ -155,7 +175,7 @@ export function createDeploymentControlPlaneNodeHandler(
     } catch {
       sendNodeResponse(response, INTERNAL_RESPONSE);
     } finally {
-      request.off('aborted', abortRequest);
+      request.socket.off('close', abortRequest);
       response.off('close', abortResponse);
     }
   };

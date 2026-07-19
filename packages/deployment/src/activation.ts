@@ -81,6 +81,16 @@ export type DeploymentActivationResult =
     readonly current: DeploymentActivationRecord | null;
   };
 
+export interface DeploymentActivationHistoryQuery {
+  readonly limit: number;
+  readonly before?: string;
+}
+
+export interface DeploymentActivationHistoryPage {
+  readonly activations: readonly DeploymentActivationRecord[];
+  readonly nextBefore: string | null;
+}
+
 export interface DeploymentActivationRelease {
   readonly release: ProtocolDeploymentReleaseEnvelope;
   readonly releaseIdentity: string;
@@ -105,6 +115,10 @@ export interface DeploymentActivationRegistry {
   history(
     target: ProtocolDeploymentReleaseTarget,
   ): Promise<readonly DeploymentActivationRecord[]>;
+  historyPage(
+    target: ProtocolDeploymentReleaseTarget,
+    query: DeploymentActivationHistoryQuery,
+  ): Promise<DeploymentActivationHistoryPage>;
 }
 
 interface PreparedActivation {
@@ -516,10 +530,11 @@ async function readStoredActivation(
   return prepared;
 }
 
-async function resolveHistory(
+async function visitHistory(
   targetDirectory: string,
   target: ProtocolDeploymentReleaseTarget,
-): Promise<readonly DeploymentActivationRecord[]> {
+  visitor: (record: DeploymentActivationRecord) => void,
+): Promise<void> {
   try {
     await readCanonicalTarget(targetDirectory, target);
     const claimsDirectory = path.join(targetDirectory, CLAIMS_DIRECTORY);
@@ -531,7 +546,6 @@ async function resolveHistory(
     }
     const remaining = new Set(claimNames);
     const revisions = new Set<string>();
-    const history: DeploymentActivationRecord[] = [];
     let previousRevision: string | null = null;
     let previousReleaseIdentity: string | null = null;
     // Following predecessor-named claims derives the head without trusting a
@@ -549,14 +563,13 @@ async function resolveHistory(
         throw new Error('Deployment activation history contains a cycle.');
       }
       revisions.add(prepared.record.revision);
-      history.push(prepared.record);
+      visitor(prepared.record);
       previousRevision = prepared.record.revision;
       previousReleaseIdentity = prepared.record.releaseIdentity;
     }
     if (remaining.size > 0) {
       throw new Error('Deployment activation history contains unreachable claims.');
     }
-    return Object.freeze(history);
   } catch (error) {
     if (error instanceof DeploymentActivationError) throw error;
     if (isOperationalFileSystemError(error)) throw error;
@@ -568,10 +581,71 @@ async function resolveHistory(
   }
 }
 
-function currentActivation(
-  history: readonly DeploymentActivationRecord[],
-): DeploymentActivationRecord | undefined {
-  return history[history.length - 1];
+async function resolveHistory(
+  targetDirectory: string,
+  target: ProtocolDeploymentReleaseTarget,
+): Promise<readonly DeploymentActivationRecord[]> {
+  const history: DeploymentActivationRecord[] = [];
+  await visitHistory(targetDirectory, target, record => { history.push(record); });
+  return Object.freeze(history);
+}
+
+async function resolveCurrent(
+  targetDirectory: string,
+  target: ProtocolDeploymentReleaseTarget,
+): Promise<DeploymentActivationRecord | undefined> {
+  let current: DeploymentActivationRecord | undefined;
+  await visitHistory(targetDirectory, target, record => { current = record; });
+  return current;
+}
+
+function validateHistoryQuery(
+  input: DeploymentActivationHistoryQuery,
+): DeploymentActivationHistoryQuery {
+  if (!Number.isSafeInteger(input?.limit) || input.limit < 1
+    || (input.before !== undefined && !IDENTITY_PATTERN.test(input.before))) {
+    throw activationError(
+      'HQ_DEPLOYMENT_ACTIVATION_INVALID_REQUEST',
+      'Deployment activation history query is invalid.',
+    );
+  }
+  return Object.freeze({
+    limit: input.limit,
+    ...(input.before === undefined ? {} : { before: input.before }),
+  });
+}
+
+async function resolveHistoryPage(
+  targetDirectory: string,
+  target: ProtocolDeploymentReleaseTarget,
+  query: DeploymentActivationHistoryQuery,
+): Promise<DeploymentActivationHistoryPage> {
+  const retained: DeploymentActivationRecord[] = [];
+  let beforeFound = query.before === undefined;
+  let beforeReached = false;
+  await visitHistory(targetDirectory, target, record => {
+    if (record.revision === query.before) {
+      beforeFound = true;
+      beforeReached = true;
+      return;
+    }
+    if (beforeReached) return;
+    retained.push(record);
+    if (retained.length > query.limit + 1) retained.shift();
+  });
+  if (!beforeFound) {
+    throw activationError(
+      'HQ_DEPLOYMENT_ACTIVATION_INVALID_REQUEST',
+      'Deployment activation history cursor was not found.',
+    );
+  }
+  const hasOlder = retained.length > query.limit;
+  if (hasOlder) retained.shift();
+  const activations = Object.freeze(retained);
+  return Object.freeze({
+    activations,
+    nextBefore: hasOlder ? activations[0]!.revision : null,
+  });
 }
 
 export function createFileSystemDeploymentActivationRegistry(
@@ -644,9 +718,45 @@ export function createFileSystemDeploymentActivationRegistry(
   }
 
   async function current(
-    target: ProtocolDeploymentReleaseTarget,
+    targetInput: ProtocolDeploymentReleaseTarget,
   ): Promise<DeploymentActivationRecord | undefined> {
-    return currentActivation(await history(target));
+    const target = validateTarget(targetInput, 'HQ_DEPLOYMENT_ACTIVATION_INVALID_REQUEST');
+    try {
+      const key = sha256(TARGET_IDENTITY_DOMAIN, targetCanonical(target));
+      const targetDirectory = path.join(await activationRoot(), key);
+      if (!await pathExists(targetDirectory)) return undefined;
+      return await resolveCurrent(targetDirectory, target);
+    } catch (error) {
+      if (error instanceof DeploymentActivationError) throw error;
+      throw activationError(
+        'HQ_DEPLOYMENT_ACTIVATION_IO',
+        'Could not read the current deployment activation.',
+        error,
+      );
+    }
+  }
+
+  async function historyPage(
+    targetInput: ProtocolDeploymentReleaseTarget,
+    queryInput: DeploymentActivationHistoryQuery,
+  ): Promise<DeploymentActivationHistoryPage> {
+    const target = validateTarget(targetInput, 'HQ_DEPLOYMENT_ACTIVATION_INVALID_REQUEST');
+    const query = validateHistoryQuery(queryInput);
+    try {
+      const key = sha256(TARGET_IDENTITY_DOMAIN, targetCanonical(target));
+      const targetDirectory = path.join(await activationRoot(), key);
+      if (!await pathExists(targetDirectory)) {
+        return Object.freeze({ activations: Object.freeze([]), nextBefore: null });
+      }
+      return await resolveHistoryPage(targetDirectory, target, query);
+    } catch (error) {
+      if (error instanceof DeploymentActivationError) throw error;
+      throw activationError(
+        'HQ_DEPLOYMENT_ACTIVATION_IO',
+        'Could not read deployment activation history.',
+        error,
+      );
+    }
   }
 
   async function activate(
@@ -706,8 +816,7 @@ export function createFileSystemDeploymentActivationRegistry(
     try {
       const activations = await activationRoot();
       const targetDirectory = await ensureTargetDirectory(activations, target);
-      const existingHistory = await resolveHistory(targetDirectory, target);
-      const existing = currentActivation(existingHistory);
+      const existing = await resolveCurrent(targetDirectory, target);
       if (existing?.releaseIdentity === releaseIdentity) {
         return Object.freeze({ status: 'already-active', activation: existing });
       }
@@ -757,7 +866,7 @@ export function createFileSystemDeploymentActivationRegistry(
       if (published) {
         return Object.freeze({ status: 'activated', activation: prepared.record });
       }
-      const resolved = currentActivation(await resolveHistory(targetDirectory, target));
+      const resolved = await resolveCurrent(targetDirectory, target);
       if (resolved?.releaseIdentity === releaseIdentity) {
         return Object.freeze({ status: 'already-active', activation: resolved });
       }
@@ -772,5 +881,5 @@ export function createFileSystemDeploymentActivationRegistry(
     }
   }
 
-  return Object.freeze({ activate, current, history });
+  return Object.freeze({ activate, current, history, historyPage });
 }

@@ -4,6 +4,8 @@ export {
 } from './activation.js';
 export type {
   DeploymentActivationErrorCode,
+  DeploymentActivationHistoryPage,
+  DeploymentActivationHistoryQuery,
   DeploymentActivationRegistry,
   DeploymentActivationRelease,
   DeploymentActivationRecord,
