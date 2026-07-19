@@ -1,6 +1,7 @@
 export {
   createFileSystemDeploymentActivationRegistry,
   DeploymentActivationError,
+  validateDeploymentActivationRecord,
 } from './activation.js';
 export type {
   DeploymentActivationErrorCode,
@@ -68,6 +69,20 @@ export {
   resolveDeploymentIntakeLimits,
 } from './limits.js';
 export type { DeploymentIntakeLimits } from './limits.js';
+export {
+  createDeploymentRuntimeMaterializer,
+  DeploymentRuntimeMaterializationError,
+} from './runtime-materialization.js';
+export type {
+  DeploymentRuntimeArtifactSnapshot,
+  DeploymentRuntimeMaterializationErrorCode,
+  DeploymentRuntimeMaterializer,
+  DeploymentRuntimeMaterializerOptions,
+  DeploymentRuntimeQueryBinding,
+  DeploymentRuntimeRelease,
+  DeploymentRuntimeReleaseReader,
+  DeploymentRuntimeSnapshot,
+} from './runtime-materialization.js';
 export type {
   DeploymentAuthenticationInput,
   DeploymentAuthenticator,

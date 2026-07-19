@@ -274,20 +274,12 @@ function requireRecord(input: unknown): Record<string, unknown> {
   return value;
 }
 
-function validateStoredActivation(
-  input: unknown,
-  expectedTarget: ProtocolDeploymentReleaseTarget,
-  expectedPreviousRevision: string | null,
-  expectedPreviousReleaseIdentity: string | null,
-): PreparedActivation {
+function prepareValidatedActivation(input: unknown): PreparedActivation {
   const value = requireRecord(input);
   if (value.kind !== 'hypequery-deployment-activation' || value.version !== 1) {
     throw new Error('Activation record kind or version is invalid.');
   }
   const target = validateTarget(value.target, 'HQ_DEPLOYMENT_ACTIVATION_CORRUPT_STATE');
-  if (!targetsEqual(target, expectedTarget)) {
-    throw new Error('Activation record target is inconsistent.');
-  }
   const releaseIdentity = requireIdentity(
     value.releaseIdentity,
     'Stored release identity',
@@ -303,9 +295,7 @@ function validateStoredActivation(
     'Stored previous release identity',
     'HQ_DEPLOYMENT_ACTIVATION_CORRUPT_STATE',
   );
-  if (previousRevision !== expectedPreviousRevision
-    || previousReleaseIdentity !== expectedPreviousReleaseIdentity
-    || (previousRevision === null) !== (previousReleaseIdentity === null)) {
+  if ((previousRevision === null) !== (previousReleaseIdentity === null)) {
     throw new Error('Activation record predecessor is inconsistent.');
   }
   if (typeof value.activatedAt !== 'string') {
@@ -324,6 +314,28 @@ function validateStoredActivation(
   });
   if (value.revision !== prepared.record.revision) {
     throw new Error('Activation revision does not match its contents.');
+  }
+  return prepared;
+}
+
+/** Validate and recompute an immutable deployment activation record. */
+export function validateDeploymentActivationRecord(input: unknown): DeploymentActivationRecord {
+  return prepareValidatedActivation(input).record;
+}
+
+function validateStoredActivation(
+  input: unknown,
+  expectedTarget: ProtocolDeploymentReleaseTarget,
+  expectedPreviousRevision: string | null,
+  expectedPreviousReleaseIdentity: string | null,
+): PreparedActivation {
+  const prepared = prepareValidatedActivation(input);
+  if (!targetsEqual(prepared.record.target, expectedTarget)) {
+    throw new Error('Activation record target is inconsistent.');
+  }
+  if (prepared.record.previousRevision !== expectedPreviousRevision
+    || prepared.record.previousReleaseIdentity !== expectedPreviousReleaseIdentity) {
+    throw new Error('Activation record predecessor is inconsistent.');
   }
   return prepared;
 }

@@ -184,4 +184,29 @@ current state, and bounded cursor history. It returns stable, bounded JSON error
 codes and suppresses internal provider and filesystem details. The HTTP
 contract is specified in `specs/deployment/0003-control-plane-http.md`.
 
+## Runtime materialization
+
+`createDeploymentRuntimeMaterializer` converts the current target activation
+into a private runtime snapshot. It revalidates the accepted release and closed
+bundle, copies and hashes each runtime artifact without following symbolic
+links, and confirms the activation revision again before returning.
+
+```ts
+import { createDeploymentRuntimeMaterializer } from '@hypequery/deployment';
+
+const materializer = createDeploymentRuntimeMaterializer({
+  activations,
+  releases: store,
+});
+
+const snapshot = await materializer.current({
+  project: 'analytics',
+  environment: 'production',
+});
+```
+
+Artifact `read()` methods return fresh byte copies, so neither callers nor later
+changes to durable storage can alter a materialized snapshot. Runtime imports,
+process lifecycle, readiness, and traffic switching remain separate concerns.
+
 The package is ESM-only and requires Node.js 20 or newer.
