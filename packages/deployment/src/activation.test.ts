@@ -266,6 +266,23 @@ describe('filesystem deployment activation registry', () => {
       second.submission.releaseIdentity,
       first.submission.releaseIdentity,
     ]);
+    const newest = await registry.historyPage(target, { limit: 1 });
+    const older = await registry.historyPage(target, {
+      limit: 1,
+      before: newest.nextBefore!,
+    });
+    const oldest = await registry.historyPage(target, {
+      limit: 1,
+      before: older.nextBefore!,
+    });
+    expect(newest).toEqual({ activations: [rollback.activation], nextBefore: rollback.activation.revision });
+    expect(older).toEqual({ activations: [forward.activation], nextBefore: forward.activation.revision });
+    expect(oldest).toEqual({ activations: [initial.activation], nextBefore: null });
+    expect(Object.isFrozen(newest.activations)).toBe(true);
+    await expectActivationCode(
+      registry.historyPage(target, { limit: 1, before: 'f'.repeat(64) }),
+      'HQ_DEPLOYMENT_ACTIVATION_INVALID_REQUEST',
+    );
   });
 
   it('returns the current record on a compare-and-swap conflict', async () => {

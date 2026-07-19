@@ -4,6 +4,8 @@ export {
 } from './activation.js';
 export type {
   DeploymentActivationErrorCode,
+  DeploymentActivationHistoryPage,
+  DeploymentActivationHistoryQuery,
   DeploymentActivationRegistry,
   DeploymentActivationRelease,
   DeploymentActivationRecord,
@@ -35,6 +37,32 @@ export type {
 export {
   createDeploymentIntake,
 } from './intake.js';
+export {
+  createDeploymentControlPlaneFetchHandler,
+  createDeploymentControlPlaneNodeHandler,
+} from './control-plane-adapters.js';
+export type {
+  DeploymentControlPlaneFetchHandler,
+  DeploymentControlPlaneNodeHandler,
+} from './control-plane-adapters.js';
+export {
+  createDeploymentControlPlane,
+} from './control-plane.js';
+export type {
+  DeploymentControlPlane,
+  DeploymentControlPlaneAction,
+  DeploymentControlPlaneAuthorizationInput,
+  DeploymentControlPlaneAuthorizer,
+  DeploymentControlPlaneErrorCode,
+  DeploymentControlPlaneOptions,
+  DeploymentControlPlaneRequest,
+  DeploymentControlPlaneResponse,
+} from './control-plane.js';
+export {
+  DEFAULT_DEPLOYMENT_CONTROL_PLANE_LIMITS,
+  resolveDeploymentControlPlaneLimits,
+} from './control-plane-limits.js';
+export type { DeploymentControlPlaneLimits } from './control-plane-limits.js';
 export {
   DEFAULT_DEPLOYMENT_INTAKE_LIMITS,
   resolveDeploymentIntakeLimits,

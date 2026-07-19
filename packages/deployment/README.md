@@ -1,7 +1,7 @@
 # @hypequery/deployment
 
-Provider-neutral verification and receiving-side intake for Hypequery deployment
-bundles.
+Provider-neutral verification, intake, activation, and HTTP control-plane
+building blocks for Hypequery deployment bundles.
 
 The package accepts the authenticated multipart transport emitted by
 `hypequery deploy`, reconstructs only manifest-declared files in temporary
@@ -151,5 +151,37 @@ record for every transition and derives the current release by verifying the
 append-only chain. It has no mutable pointer file or persistent lock to become
 stale after a crash. Activation does not load runtime code, route traffic,
 perform health checks, or authorize callers; those remain provider concerns.
+
+## HTTP control plane
+
+`createDeploymentControlPlane` combines intake and activation behind closed v1
+routes. Activation reads and writes use a separate target-scoped authorizer;
+write authorization completes before the small JSON request body is consumed.
+The Fetch and Node adapters preserve streaming multipart submission bodies.
+
+```ts
+import {
+  createDeploymentControlPlane,
+  createDeploymentControlPlaneNodeHandler,
+} from '@hypequery/deployment';
+
+const controlPlane = createDeploymentControlPlane({
+  intake,
+  activations,
+  authenticator,
+  authorizer: {
+    async authorize({ principal, action, target }) {
+      return canControlDeployment(principal, action, target);
+    },
+  },
+});
+
+const nodeHandler = createDeploymentControlPlaneNodeHandler(controlPlane);
+```
+
+The control plane exposes release submission, compare-and-swap activation,
+current state, and bounded cursor history. It returns stable, bounded JSON error
+codes and suppresses internal provider and filesystem details. The HTTP
+contract is specified in `specs/deployment/0003-control-plane-http.md`.
 
 The package is ESM-only and requires Node.js 20 or newer.

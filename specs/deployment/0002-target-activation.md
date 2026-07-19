@@ -66,6 +66,12 @@ Rollback uses the same activation operation with an older accepted release
 identity. There is no special rollback mutation and no historical record is
 rewritten.
 
+Registries expose bounded history pages using a positive `limit` and an
+optional `before` revision. Providers SHOULD apply that cursor and limit while
+reading storage rather than materializing the complete history. Returned
+records remain chronological and strictly precede `before`; `nextBefore` is
+the first returned revision when older records remain, otherwise `null`.
+
 ## Reference filesystem registry
 
 The reference registry uses this layout beneath the deployment store root:

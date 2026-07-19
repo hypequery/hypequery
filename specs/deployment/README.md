@@ -7,3 +7,12 @@ Unlike `specs/security-protocol`, these specifications may describe HTTP,
 authentication, authorization, idempotent persistence, and service responses.
 They must not weaken or replace the validation, identity, or closed-content
 requirements of the referenced immutable artifacts.
+
+Current specifications:
+
+- `0001-authenticated-deployment-submission.md` defines streaming authenticated
+  release intake;
+- `0002-target-activation.md` defines immutable target activation and
+  compare-and-swap behavior;
+- `0003-control-plane-http.md` binds submission and activation to provider-neutral
+  HTTP routes and adapters.
