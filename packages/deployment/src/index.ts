@@ -70,6 +70,14 @@ export {
 } from './limits.js';
 export type { DeploymentIntakeLimits } from './limits.js';
 export {
+  createNodeWorkerDeploymentRuntimeFactory,
+  NodeDeploymentRuntimeError,
+} from './node-runtime-factory.js';
+export type {
+  NodeDeploymentRuntimeErrorCode,
+  NodeDeploymentRuntimeFactoryOptions,
+} from './node-runtime-factory.js';
+export {
   createDeploymentRuntimeMaterializer,
   DeploymentRuntimeMaterializationError,
 } from './runtime-materialization.js';
@@ -83,6 +91,21 @@ export type {
   DeploymentRuntimeReleaseReader,
   DeploymentRuntimeSnapshot,
 } from './runtime-materialization.js';
+export {
+  createDeploymentRuntimeSupervisor,
+  DeploymentRuntimeSupervisorError,
+} from './runtime-supervisor.js';
+export type {
+  DeploymentRuntimeFactory,
+  DeploymentRuntimeInstance,
+  DeploymentRuntimeInstanceInvocation,
+  DeploymentRuntimeInvocation,
+  DeploymentRuntimeReconcileResult,
+  DeploymentRuntimeStatus,
+  DeploymentRuntimeSupervisor,
+  DeploymentRuntimeSupervisorErrorCode,
+  DeploymentRuntimeSupervisorOptions,
+} from './runtime-supervisor.js';
 export type {
   DeploymentAuthenticationInput,
   DeploymentAuthenticator,

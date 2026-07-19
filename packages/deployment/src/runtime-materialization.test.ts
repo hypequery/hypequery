@@ -23,6 +23,8 @@ import {
   DeploymentRuntimeMaterializationError,
   type DeploymentRuntimeRelease,
 } from './runtime-materialization.js';
+import { createNodeWorkerDeploymentRuntimeFactory } from './node-runtime-factory.js';
+import { createDeploymentRuntimeSupervisor } from './runtime-supervisor.js';
 
 const TARGET = Object.freeze({ project: 'analytics', environment: 'production' });
 const temporaryDirectories: string[] = [];
@@ -305,4 +307,32 @@ describe('deployment runtime materialization', () => {
       }));
     },
   );
+
+  it('feeds exact materialized bytes through readiness and supervised execution', async () => {
+    const fixture = await releaseFixture([
+      'export const queries = {',
+      '  handler: async ({ input }) => ({ deployed: input }),',
+      '};',
+      '',
+    ].join('\n'));
+    const active = activation(fixture.stored.releaseIdentity);
+    const workerRoot = await mkdtemp(path.join(tmpdir(), 'hypequery-runtime-worker-'));
+    temporaryDirectories.push(workerRoot);
+    const materializer = createDeploymentRuntimeMaterializer({
+      activations: registry(async () => active),
+      releases: { read: async () => fixture.stored },
+    });
+    const supervisor = createDeploymentRuntimeSupervisor({
+      materializer,
+      factory: createNodeWorkerDeploymentRuntimeFactory({ temporaryDirectory: workerRoot }),
+    });
+
+    await expect(supervisor.reconcile(TARGET)).resolves.toMatchObject({ status: 'activated' });
+    await expect(supervisor.invoke({
+      target: TARGET,
+      query: 'handler',
+      argument: { input: 'verified-runtime' },
+    })).resolves.toEqual({ deployed: 'verified-runtime' });
+    await supervisor.close();
+  });
 });

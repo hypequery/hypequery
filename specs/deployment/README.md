@@ -18,3 +18,5 @@ Current specifications:
   HTTP routes and adapters.
 - `0004-runtime-materialization.md` converts a confirmed current activation into
   an immutable, fully revalidated runtime snapshot.
+- `0005-runtime-supervision.md` defines readiness-gated runtime startup, atomic
+  generation switching, invocation, draining, and the reference Node worker.
