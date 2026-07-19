@@ -150,4 +150,18 @@ describe('protocol schema values', () => {
     expect(resolveProtocolSchemaValueLimits({ limits: { maxDepth: undefined } }))
       .toMatchObject({ maxDepth: 32 });
   });
+
+  it('parses duplicate-aware JSON before applying the schema', () => {
+    const parser = createProtocolSchemaValueParser(validateProtocolSchema({
+      kind: 'object',
+      properties: { id: { kind: 'string' } },
+      required: ['id'],
+      unknownProperties: 'reject',
+    }));
+
+    expect(parser.parseJson('{"id":"one"}')).toEqual({ id: 'one' });
+    expect(() => parser.parseJson('{"id":"one","id":"two"}')).toThrow(expect.objectContaining({
+      code: 'HQ_VALUE_DUPLICATE_KEY',
+    }));
+  });
 });

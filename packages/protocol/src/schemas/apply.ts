@@ -1,4 +1,6 @@
 import type { CanonicalValue } from '../values/index.js';
+import { DEFAULT_CANONICAL_VALUE_LIMITS } from '../values/limits.js';
+import { parseDuplicateAwareJson } from '../values/parser.js';
 import { resolveProtocolSchemaValueLimits } from './value-limits.js';
 import type {
   ProtocolSchema,
@@ -20,6 +22,7 @@ export class ProtocolSchemaValueError extends Error {
 
 export interface ProtocolSchemaValueParser {
   parse(input: unknown): unknown;
+  parseJson(input: string | Uint8Array): unknown;
 }
 
 interface State {
@@ -275,9 +278,21 @@ export function createProtocolSchemaValueParser(
 ): ProtocolSchemaValueParser {
   const schema = validateProtocolSchema(input);
   const limits = resolveProtocolSchemaValueLimits(options);
+  const jsonLimits = Object.freeze({
+    ...DEFAULT_CANONICAL_VALUE_LIMITS,
+    maxInputBytes: limits.maxInputBytes,
+    maxDepth: limits.maxDepth,
+    maxNodes: limits.maxNodes,
+    maxCollectionItems: limits.maxCollectionItems,
+    maxStringBytes: limits.maxStringBytes,
+  });
+  const parse = (value: unknown) => (
+    apply(schema, value, '$', 1, { active: new WeakSet(), limits, nodes: 0 })
+  );
   return Object.freeze({
-    parse(value: unknown): unknown {
-      return apply(schema, value, '$', 1, { active: new WeakSet(), limits, nodes: 0 });
+    parse,
+    parseJson(value: string | Uint8Array): unknown {
+      return parse(parseDuplicateAwareJson(value, jsonLimits));
     },
   });
 }

@@ -1,13 +1,12 @@
 # @hypequery/deployment
 
-Provider-neutral verification, intake, activation, and HTTP control-plane
+Provider-neutral verification, intake, activation, runtime, and HTTP hosting
 building blocks for Hypequery deployment bundles.
 
 The package accepts the authenticated multipart transport emitted by
 `hypequery deploy`, reconstructs only manifest-declared files in temporary
 storage, and revalidates the release, bundle manifest, file hashes, deployment
-identity, and runtime references before handing the submission to a store. It
-does not activate or execute a release.
+identity, and runtime references before handing the submission to a store.
 
 ## Intake adapters
 
@@ -291,5 +290,59 @@ host can preserve the handler contract of its chosen runtime.
 Semantic-plan and compiled-SQL adapters own database execution. The core passes
 only validated values, the fixed implementation artifact, and closed typed SQL
 parameter bindings; it does not select credentials or interpolate SQL.
+
+## Data-plane hosting
+
+`createDeploymentHost` keeps route/schema execution and supervised runtime
+dispatch pinned to the same activation revision. Reconciliation builds a new
+data plane from the supervisor's immutable generation view and publishes it
+only after confirming that the active generation did not change during
+configuration.
+
+`createDeploymentDataPlaneFetchHandler` and
+`createDeploymentDataPlaneNodeHandler` expose a hosted data plane over HTTP.
+They accept either query parameters or one bounded UTF-8 JSON body, reject
+duplicate JSON property names, forward cancellation, and return bounded JSON
+errors. Public cache metadata is emitted only when execution confirms the
+request was public, tenant-independent, and unauthenticated.
+
+For a single-node service, `createFileSystemDeploymentHost` composes the
+filesystem submission store, activation registry, intake, control plane,
+runtime materializer, supervisor, and generation-pinned data plane. It
+reconciles configured targets at startup and schedules reconciliation after a
+durable activation without changing an already-successful activation response
+if runtime startup later fails.
+
+```ts
+import {
+  createDeploymentDataPlaneNodeHandler,
+  createFileSystemDeploymentHost,
+} from '@hypequery/deployment';
+
+const service = createFileSystemDeploymentHost({
+  directory: '/var/lib/hypequery/deployments',
+  targets: [{ project: 'analytics', environment: 'production' }],
+  intake: { authenticator: deploymentAuthenticator, authorizer: deploymentAuthorizer },
+  controlPlane: { authenticator: operatorAuthenticator, authorizer: operatorAuthorizer },
+  configureDataPlane: () => ({
+    authenticate: queryAuthenticator,
+    resolveTenant,
+    executeSemanticPlan,
+    executeCompiledSql,
+    runtimeArgument: ({ input, principal, tenant }) => ({ input, principal, tenant }),
+  }),
+});
+
+await service.start();
+const queryHandler = createDeploymentDataPlaneNodeHandler(
+  service.host.dataPlane({ project: 'analytics', environment: 'production' }),
+);
+```
+
+Cloud and other distributed systems can use the same host, supervisor, and HTTP
+adapter interfaces while supplying provider-owned persistence, runtime, SQL,
+authentication, tenant, routing, and observability implementations. The
+filesystem assembly is a reference single-host composition, not a distributed
+control plane.
 
 The package is ESM-only and requires Node.js 20 or newer.

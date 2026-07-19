@@ -68,6 +68,8 @@ function fixture(overrides: {
   readonly registry?: Partial<DeploymentActivationRegistry>;
   readonly intake?: DeploymentIntake;
   readonly limits?: { readonly maxActivationRequestBytes?: number; readonly maxHistoryPageSize?: number };
+  readonly onActivation?: (activation: DeploymentActivationRecord) => void | Promise<void>;
+  readonly onBackgroundError?: (error: unknown) => void;
 } = {}) {
   const defaultActivation = activation(REVISION_ONE);
   const registry: DeploymentActivationRegistry = {
@@ -98,6 +100,8 @@ function fixture(overrides: {
     authenticator: { authenticate },
     authorizer: { authorize },
     limits: overrides.limits,
+    onActivation: overrides.onActivation,
+    onBackgroundError: overrides.onBackgroundError,
   });
   return { controlPlane, registry, intake, authenticate, authorize };
 }
@@ -181,6 +185,30 @@ describe('deployment control plane', () => {
       releaseIdentity: RELEASE,
       expectedRevision: REVISION_ONE,
     });
+  });
+
+  it('notifies the host after durable activation without changing a successful response', async () => {
+    const record = activation(REVISION_TWO, REVISION_ONE);
+    const failure = new Error('host reconciliation failed');
+    const onBackgroundError = vi.fn();
+    const { controlPlane } = fixture({
+      registry: {
+        activate: async () => ({ status: 'activated', activation: record }),
+      },
+      onActivation: async () => { throw failure; },
+      onBackgroundError,
+    });
+
+    const response = await controlPlane.handle(request({
+      method: 'PUT',
+      headers: { authorization: 'Bearer secret', 'content-type': 'application/json' },
+      body: body(activationRequest(REVISION_ONE)),
+      hasBody: true,
+    }));
+
+    expect(response.status).toBe(201);
+    expect(parsed(response).activation).toEqual(record);
+    await vi.waitFor(() => expect(onBackgroundError).toHaveBeenCalledWith(failure));
   });
 
   it('returns conflicts and already-active results without losing current state', async () => {

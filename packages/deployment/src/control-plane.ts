@@ -58,6 +58,11 @@ export interface DeploymentControlPlaneOptions<Principal> {
   readonly authenticator: DeploymentAuthenticator<Principal>;
   readonly authorizer: DeploymentControlPlaneAuthorizer<Principal>;
   readonly limits?: Partial<DeploymentControlPlaneLimits>;
+  /** Called after a successful activation has been durably committed. */
+  readonly onActivation?: (
+    activation: DeploymentActivationRecord,
+  ) => void | Promise<void>;
+  readonly onBackgroundError?: (error: unknown) => void;
 }
 
 export type DeploymentControlPlaneErrorCode =
@@ -457,6 +462,23 @@ export function createDeploymentControlPlane<Principal>(
 ): DeploymentControlPlane {
   const limits = resolveDeploymentControlPlaneLimits(options.limits);
 
+  function reportBackgroundError(error: unknown): void {
+    try {
+      options.onBackgroundError?.(error);
+    } catch {
+      // Diagnostics cannot change the result of an already-durable activation.
+    }
+  }
+
+  function notifyActivation(activation: DeploymentActivationRecord): void {
+    try {
+      const operation = options.onActivation?.(activation);
+      if (operation) void Promise.resolve(operation).catch(reportBackgroundError);
+    } catch (error) {
+      reportBackgroundError(error);
+    }
+  }
+
   async function authenticateAndAuthorize(
     request: DeploymentControlPlaneRequest,
     action: DeploymentControlPlaneAction,
@@ -541,6 +563,7 @@ export function createDeploymentControlPlane<Principal>(
           current: result.current,
         });
       }
+      notifyActivation(result.activation);
       return activationResponse(result.status, result.activation);
     }
     requireMethod(method, 'GET');

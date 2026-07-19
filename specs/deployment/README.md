@@ -22,3 +22,5 @@ Current specifications:
   generation switching, invocation, draining, and the reference Node worker.
 - `0006-data-plane-execution.md` defines named-query route matching, policy,
   schema application, implementation dispatch, and output validation.
+- `0007-data-plane-hosting.md` defines generation-pinned host assembly,
+  activation reconciliation, HTTP adaptation, and graceful shutdown.

@@ -151,6 +151,11 @@ describe('deployment runtime supervisor', () => {
     });
     expect(response).toEqual({ label: 'v1', argument: 42 });
     expect(supervisor.status(TARGET)?.releaseIdentity).toBe(active.releaseIdentity);
+    expect(supervisor.generation(TARGET)).toEqual({
+      status: supervisor.status(TARGET),
+      deployment: active.deployment,
+    });
+    expect(Object.isFrozen(supervisor.generation(TARGET))).toBe(true);
     await supervisor.close();
   });
 

@@ -97,6 +97,7 @@ export {
 } from './runtime-supervisor.js';
 export type {
   DeploymentRuntimeFactory,
+  DeploymentRuntimeGeneration,
   DeploymentRuntimeInstance,
   DeploymentRuntimeInstanceInvocation,
   DeploymentRuntimeInvocation,
@@ -129,6 +130,7 @@ export type {
   DeploymentDataPlaneAuthenticationInput,
   DeploymentDataPlaneErrorCode,
   DeploymentDataPlaneExecutionInput,
+  DeploymentDataPlaneJsonRequest,
   DeploymentDataPlaneOptions,
   DeploymentDataPlanePrincipal,
   DeploymentDataPlaneRequest,
@@ -144,3 +146,29 @@ export {
 export type { DeploymentDataPlaneLimits } from './data-plane-limits.js';
 export { createDeploymentRuntimeSupervisorExecutor } from './data-plane-runtime.js';
 export type { DeploymentRuntimeSupervisorExecutorOptions } from './data-plane-runtime.js';
+export {
+  createDeploymentDataPlaneFetchHandler,
+  createDeploymentDataPlaneNodeHandler,
+} from './data-plane-adapters.js';
+export type {
+  DeploymentDataPlaneAdapterOptions,
+  DeploymentDataPlaneAdapterRequest,
+  DeploymentDataPlaneFetchHandler,
+  DeploymentDataPlaneNodeHandler,
+} from './data-plane-adapters.js';
+export {
+  createDeploymentHost,
+  DeploymentHostError,
+} from './host.js';
+export { createFileSystemDeploymentHost } from './filesystem-host.js';
+export type {
+  FileSystemDeploymentHost,
+  FileSystemDeploymentHostOptions,
+} from './filesystem-host.js';
+export type {
+  DeploymentHost,
+  DeploymentHostDataPlaneConfiguration,
+  DeploymentHostDataPlaneInput,
+  DeploymentHostErrorCode,
+  DeploymentHostOptions,
+} from './host.js';
