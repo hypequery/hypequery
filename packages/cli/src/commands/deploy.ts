@@ -26,6 +26,8 @@ export interface DeployDependencies {
 
 async function readReleaseFile(releasePath: string): Promise<unknown> {
   let handle;
+  let bytes: Uint8Array | undefined;
+  let fileFailure: { readonly error: unknown } | undefined;
   try {
     handle = await open(releasePath, constants.O_RDONLY | constants.O_NOFOLLOW);
     const stat = await handle.stat();
@@ -33,24 +35,42 @@ async function readReleaseFile(releasePath: string): Promise<unknown> {
     if (stat.size > MAX_RELEASE_FILE_BYTES) {
       throw new Error('Release JSON exceeds 16384 bytes.');
     }
-    const bytes = new Uint8Array(MAX_RELEASE_FILE_BYTES + 1);
+    const buffer = new Uint8Array(MAX_RELEASE_FILE_BYTES + 1);
     let total = 0;
-    while (total < bytes.byteLength) {
-      const { bytesRead } = await handle.read(bytes, total, bytes.byteLength - total, total);
+    while (total < buffer.byteLength) {
+      const { bytesRead } = await handle.read(buffer, total, buffer.byteLength - total, total);
       if (bytesRead === 0) break;
       total += bytesRead;
     }
     if (total > MAX_RELEASE_FILE_BYTES) {
       throw new Error('Release JSON exceeds 16384 bytes.');
     }
-    return JSON.parse(utf8Decoder.decode(bytes.subarray(0, total)));
+    bytes = buffer.subarray(0, total);
+  } catch (error) {
+    fileFailure = { error };
+  }
+  if (handle) {
+    try {
+      await handle.close();
+    } catch (error) {
+      fileFailure ??= { error };
+    }
+  }
+  if (fileFailure) {
+    throw new Error(
+      `Cannot read deployment release file: ${releasePath}\n\n`
+      + (fileFailure.error instanceof Error
+        ? fileFailure.error.message
+        : String(fileFailure.error)),
+    );
+  }
+  try {
+    return JSON.parse(utf8Decoder.decode(bytes));
   } catch (error) {
     throw new Error(
       `Invalid deployment release JSON: ${releasePath}\n\n`
       + (error instanceof Error ? error.message : String(error)),
     );
-  } finally {
-    await handle?.close();
   }
 }
 

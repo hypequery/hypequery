@@ -168,6 +168,21 @@ describe('deploy command', () => {
     })).rejects.toThrow(new RegExp(`Invalid deployment release JSON: ${releasePath}`));
   });
 
+  it('reports release filesystem failures separately from invalid JSON', async () => {
+    const releasePath = path.join(tmpdir(), 'missing-hypequery-release.json');
+
+    const action = deployCommand('dist/bundle', {
+      release: releasePath,
+      endpoint: 'https://deploy.example.test/v1/releases',
+    }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+    });
+
+    await expect(action).rejects.toThrow(
+      new RegExp(`Cannot read deployment release file: ${releasePath}`),
+    );
+  });
+
   it('reports bundle verification failure before opening the release', async () => {
     mockVerifyDeploymentBundle.mockRejectedValue(new Error('manifest mismatch'));
 

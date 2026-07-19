@@ -152,6 +152,31 @@ describe('deployment upload transport', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('rejects bundle paths that cannot be safely encoded as multipart headers', async () => {
+    const bundle = await verifiedBundle();
+    const unsafeBundle = {
+      ...bundle,
+      manifest: {
+        ...bundle.manifest,
+        deployment: {
+          ...bundle.manifest.deployment,
+          path: 'deployment.json\r\nInjected: header',
+        },
+      },
+    };
+    const fetch = vi.fn<DeploymentFetch>();
+    const transport = createHttpDeploymentUploadTransport({
+      endpoint: 'https://deploy.example.test/v1/releases',
+      token: 'secret-token',
+      fetch,
+    });
+
+    await expect(transport.submit(unsafeBundle, releaseFor(bundle.identity))).rejects.toMatchObject({
+      code: 'HQ_UPLOAD_BUNDLE_CHANGED',
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('aborts when a streamed bundle entry changed after verification', async () => {
     const bundle = await verifiedBundle();
     const release = releaseFor(bundle.identity);
@@ -230,8 +255,12 @@ describe('deployment upload transport', () => {
 
   it('preserves upload integrity errors wrapped by a fetch implementation', async () => {
     const error = new DeploymentUploadError('HQ_UPLOAD_BUNDLE_CHANGED', 'changed');
+    let wrapped: unknown = error;
+    for (let depth = 0; depth < 6; depth += 1) {
+      wrapped = new TypeError(`fetch wrapper ${depth}`, { cause: wrapped });
+    }
     const fetch = vi.fn<DeploymentFetch>(async () => {
-      throw new TypeError('fetch failed', { cause: error });
+      throw wrapped;
     });
     const bundle = await verifiedBundle();
     const transport = createHttpDeploymentUploadTransport({
@@ -241,5 +270,21 @@ describe('deployment upload transport', () => {
     });
 
     await expect(transport.submit(bundle, releaseFor(bundle.identity))).rejects.toBe(error);
+  });
+
+  it('stops safely when a fetch error cause chain contains a cycle', async () => {
+    const cyclic: { cause?: unknown } = {};
+    cyclic.cause = cyclic;
+    const fetch = vi.fn<DeploymentFetch>(async () => { throw cyclic; });
+    const bundle = await verifiedBundle();
+    const transport = createHttpDeploymentUploadTransport({
+      endpoint: 'https://deploy.example.test/v1/releases',
+      token: 'secret-token',
+      fetch,
+    });
+
+    await expect(transport.submit(bundle, releaseFor(bundle.identity))).rejects.toMatchObject({
+      code: 'HQ_UPLOAD_NETWORK',
+    });
   });
 });

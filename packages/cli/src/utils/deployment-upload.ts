@@ -144,12 +144,29 @@ function timeout(input: number | undefined): number {
   return value;
 }
 
+function multipartBundlePath(input: string): string {
+  if (!/^[\x21-\x7e]+$/.test(input) || input.includes('"') || input.includes('\\')) {
+    throw new DeploymentUploadError(
+      'HQ_UPLOAD_BUNDLE_CHANGED',
+      'A bundle path cannot be safely encoded as a multipart header.',
+    );
+  }
+  return input;
+}
+
+function validateMultipartBundlePaths(bundle: VerifiedDeploymentBundle): void {
+  multipartBundlePath(bundle.manifest.deployment.path);
+  for (const artifact of bundle.manifest.artifacts) multipartBundlePath(artifact.path);
+}
+
 function partHeader(boundary: string, part: UploadPart): Uint8Array {
   const headers = [
     `--${boundary}`,
     `Content-Disposition: form-data; name="${part.name}"; filename="${part.filename}"`,
     `Content-Type: ${part.contentType}`,
-    ...(part.bundlePath ? [`X-HypeQuery-Bundle-Path: ${part.bundlePath}`] : []),
+    ...(part.bundlePath
+      ? [`X-HypeQuery-Bundle-Path: ${multipartBundlePath(part.bundlePath)}`]
+      : []),
     '',
     '',
   ].join('\r\n');
@@ -387,10 +404,12 @@ function rejectedMessage(response: DeploymentHttpResponse, body: string): string
 }
 
 function nestedUploadError(input: unknown): DeploymentUploadError | undefined {
+  const seen = new Set<object>();
   let current = input;
-  for (let depth = 0; depth < 4; depth += 1) {
+  while (typeof current === 'object' && current !== null && !seen.has(current)) {
     if (current instanceof DeploymentUploadError) return current;
-    if (typeof current !== 'object' || current === null || !('cause' in current)) return undefined;
+    seen.add(current);
+    if (!('cause' in current)) return undefined;
     current = (current as { cause?: unknown }).cause;
   }
   return undefined;
@@ -412,6 +431,7 @@ export function createHttpDeploymentUploadTransport(
       bundle: VerifiedDeploymentBundle,
       release: PreparedProtocolDeploymentReleaseEnvelope,
     ) {
+      validateMultipartBundlePaths(bundle);
       const manifest = prepareProtocolDeploymentBundleManifest(bundle.manifest);
       const preparedRelease = prepareProtocolDeploymentReleaseEnvelope(release.release);
       if (manifest.identity !== bundle.identity
