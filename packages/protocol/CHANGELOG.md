@@ -1,5 +1,13 @@
 # @hypequery/protocol
 
+## 0.6.0
+
+### Minor Changes
+
+- 268818b: Add target-scoped deployment activation with immutable history, atomic
+  compare-and-swap semantics, rollback support, and a filesystem reference
+  registry.
+
 ## 0.5.0
 
 ### Minor Changes
