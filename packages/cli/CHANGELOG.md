@@ -1,5 +1,12 @@
 # @hypequery/cli
 
+## 1.9.0
+
+### Minor Changes
+
+- 7c4be46: Add authenticated, idempotent streaming submission of verified deployment
+  bundles and target-bound releases.
+
 ## 1.8.0
 
 ### Minor Changes
