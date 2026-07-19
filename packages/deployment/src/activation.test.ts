@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createFileSystemDeploymentActivationRegistry,
   DeploymentActivationError,
+  validateDeploymentActivationRecord,
 } from './activation.js';
 import { verifyDeploymentBundle } from './bundle.js';
 import { createFileSystemDeploymentSubmissionStore } from './filesystem-store.js';
@@ -147,6 +148,22 @@ async function targetDirectory(root: string): Promise<string> {
 }
 
 describe('filesystem deployment activation registry', () => {
+  it('validates standalone activation records by recomputing their revision', async () => {
+    const { first, registry } = await setup();
+    const result = await registry.activate({
+      target,
+      releaseIdentity: first.submission.releaseIdentity,
+      expectedRevision: null,
+    });
+    if (result.status !== 'activated') throw new Error('Expected activation.');
+
+    expect(validateDeploymentActivationRecord(result.activation)).toEqual(result.activation);
+    expect(() => validateDeploymentActivationRecord({
+      ...result.activation,
+      revision: '0'.repeat(64),
+    })).toThrow(/revision/);
+  });
+
   it('returns no current record before the first successful comparison', async () => {
     const { first, registry } = await setup();
 
@@ -318,10 +335,12 @@ describe('filesystem deployment activation registry', () => {
     ]);
 
     expect(results.map(result => result.status).sort()).toEqual(['activated', 'conflict']);
+    const activated = results.find(result => result.status === 'activated');
+    if (!activated || activated.status === 'conflict') {
+      throw new Error('Expected one concurrent activation to succeed.');
+    }
     const current = await registry.current(target);
-    expect(current?.releaseIdentity).toBe(
-      results.find(result => result.status === 'activated')!.activation.releaseIdentity,
-    );
+    expect(current?.releaseIdentity).toBe(activated.activation.releaseIdentity);
     expect(await registry.history(target)).toHaveLength(1);
   });
 

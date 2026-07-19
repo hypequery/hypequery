@@ -16,3 +16,5 @@ Current specifications:
   compare-and-swap behavior;
 - `0003-control-plane-http.md` binds submission and activation to provider-neutral
   HTTP routes and adapters.
+- `0004-runtime-materialization.md` converts a confirmed current activation into
+  an immutable, fully revalidated runtime snapshot.

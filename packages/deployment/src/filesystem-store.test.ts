@@ -297,7 +297,10 @@ describe('filesystem deployment submission store', () => {
     const prototype = Object.getPrototypeOf(probe) as FileHandle;
     const originalRead = prototype.read;
     await probe.close();
-    const read = vi.spyOn(prototype, 'read').mockImplementationOnce(async function (...args) {
+    const read = vi.spyOn(prototype, 'read').mockImplementationOnce(async function (
+      this: FileHandle,
+      ...args
+    ) {
       await appendFile(releasePath, Buffer.alloc(16 * 1024));
       return originalRead.apply(this, args);
     });
