@@ -209,4 +209,40 @@ Artifact `read()` methods return fresh byte copies, so neither callers nor later
 changes to durable storage can alter a materialized snapshot. Runtime imports,
 process lifecycle, readiness, and traffic switching remain separate concerns.
 
+## Runtime supervision
+
+`createDeploymentRuntimeSupervisor` starts materialized snapshots through a
+runtime factory, checks candidate readiness, confirms activation again, and
+atomically changes the generation used for new named-query invocations. Failed
+or superseded candidates never displace a healthy generation.
+
+```ts
+import {
+  createDeploymentRuntimeSupervisor,
+  createNodeWorkerDeploymentRuntimeFactory,
+} from '@hypequery/deployment';
+
+const supervisor = createDeploymentRuntimeSupervisor({
+  materializer,
+  factory: createNodeWorkerDeploymentRuntimeFactory(),
+});
+
+await supervisor.reconcile({ project: 'analytics', environment: 'production' });
+const result = await supervisor.invoke({
+  target: { project: 'analytics', environment: 'production' },
+  query: 'orders',
+  argument: { input, ctx: { tenantId } },
+});
+```
+
+Calls already assigned to an old generation may finish after cutover. That
+generation receives no new calls and closes when its in-flight work reaches
+zero or the drain deadline expires. The reference Node factory loads exact
+materialized bytes in worker threads and removes their temporary files on
+shutdown. Provider factories can implement Python, process, container, or
+remote-sandbox isolation behind the same lifecycle interface.
+
+The reference worker is a lifecycle boundary, not a hostile-code security
+sandbox. Only trusted deployment code should use it directly.
+
 The package is ESM-only and requires Node.js 20 or newer.
