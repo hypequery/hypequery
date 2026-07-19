@@ -8,7 +8,10 @@ export {
 } from './codec.js';
 export type { PreparedProtocolDeploymentReleaseEnvelope } from './codec.js';
 export { DEFAULT_PROTOCOL_DEPLOYMENT_RELEASE_LIMITS } from './limits.js';
-export { validateProtocolDeploymentReleaseEnvelope } from './validate.js';
+export {
+  validateProtocolDeploymentReleaseEnvelope,
+  validateProtocolDeploymentReleaseTarget,
+} from './validate.js';
 export type {
   ProtocolDeploymentReleaseEnvelope,
   ProtocolDeploymentReleaseErrorCode,

@@ -12,6 +12,7 @@ import {
 import path from 'node:path';
 import {
   prepareProtocolDeploymentReleaseEnvelope,
+  validateProtocolDeploymentReleaseTarget,
   type ProtocolDeploymentReleaseEnvelope,
   type ProtocolDeploymentReleaseTarget,
 } from '@hypequery/protocol';
@@ -151,12 +152,7 @@ function validateTarget(
   code: DeploymentActivationErrorCode,
 ): ProtocolDeploymentReleaseTarget {
   try {
-    return prepareProtocolDeploymentReleaseEnvelope({
-      kind: 'hypequery-deployment-release',
-      version: 1,
-      bundleIdentity: '0'.repeat(64),
-      target: input,
-    }).release.target;
+    return validateProtocolDeploymentReleaseTarget(input);
   } catch (error) {
     throw activationError(code, 'Deployment activation target is invalid.', error);
   }
@@ -338,13 +334,18 @@ async function requireRegularDirectory(directory: string, description: string): 
   }
 }
 
-async function ensureRegularDirectory(directory: string, description: string): Promise<void> {
+async function ensureRegularDirectory(
+  directory: string,
+  description: string,
+): Promise<boolean> {
+  let created = false;
   try {
-    await mkdir(directory, { recursive: true, mode: 0o700 });
+    created = await mkdir(directory, { recursive: true, mode: 0o700 }) !== undefined;
   } catch (error) {
     if (errorCode(error) !== 'EEXIST') throw error;
   }
   await requireRegularDirectory(directory, description);
+  return created;
 }
 
 async function syncDirectory(directory: string): Promise<void> {
@@ -596,13 +597,29 @@ export function createFileSystemDeploymentActivationRegistry(
     );
   }
   const clock = options.clock ?? (() => new Date());
+  const activations = path.join(root, 'activations');
+  let initializationPromise: Promise<void> | undefined;
+
+  async function initializeActivationRoot(): Promise<void> {
+    const rootCreated = await ensureRegularDirectory(root, 'Deployment store root');
+    const activationsCreated = await ensureRegularDirectory(
+      activations,
+      'Deployment activation store',
+    );
+    if (activationsCreated) await syncDirectory(root);
+    if (rootCreated) await syncDirectory(path.dirname(root));
+  }
 
   async function activationRoot(): Promise<string> {
-    await ensureRegularDirectory(root, 'Deployment store root');
-    const activations = path.join(root, 'activations');
-    await ensureRegularDirectory(activations, 'Deployment activation store');
-    await syncDirectory(root);
-    await syncDirectory(path.dirname(root));
+    const pending = initializationPromise ??= initializeActivationRoot();
+    try {
+      await pending;
+    } catch (error) {
+      if (initializationPromise === pending) initializationPromise = undefined;
+      throw error;
+    }
+    await requireRegularDirectory(root, 'Deployment store root');
+    await requireRegularDirectory(activations, 'Deployment activation store');
     return activations;
   }
 

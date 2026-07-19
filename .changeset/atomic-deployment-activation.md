@@ -1,5 +1,6 @@
 ---
 '@hypequery/deployment': minor
+'@hypequery/protocol': minor
 ---
 
 Add target-scoped deployment activation with immutable history, atomic

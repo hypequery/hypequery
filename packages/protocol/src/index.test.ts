@@ -50,6 +50,7 @@ describe('@hypequery/protocol public surface', () => {
       'validateProtocolDeploymentBundleManifest',
       'validateProtocolDeploymentContract',
       'validateProtocolDeploymentReleaseEnvelope',
+      'validateProtocolDeploymentReleaseTarget',
       'validateProtocolExpression',
       'validateProtocolQueryImplementation',
       'validateProtocolSchema',

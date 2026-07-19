@@ -2,10 +2,12 @@ import { createHash } from 'node:crypto';
 import {
   mkdir,
   mkdtemp,
+  open,
   readFile,
   readdir,
   rm,
   symlink,
+  type FileHandle,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -16,7 +18,7 @@ import {
   prepareProtocolDeploymentReleaseEnvelope,
   type ProtocolDeploymentReleaseTarget,
 } from '@hypequery/protocol';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createFileSystemDeploymentActivationRegistry,
   DeploymentActivationError,
@@ -157,6 +159,32 @@ describe('filesystem deployment activation registry', () => {
     })).resolves.toEqual({ status: 'conflict', current: null });
     await expect(registry.current(target)).resolves.toBeUndefined();
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'syncs newly created activation directories only once',
+    async () => {
+      const root = await temporaryDirectory('hypequery-activation-store-');
+      const probe = await open(root, 'r');
+      const prototype = Object.getPrototypeOf(probe) as FileHandle;
+      await probe.close();
+      const sync = vi.spyOn(prototype, 'sync');
+      const registry = createFileSystemDeploymentActivationRegistry({
+        directory: root,
+        releases: { read: async () => undefined },
+      });
+
+      try {
+        await registry.current(target);
+        const initializationSyncs = sync.mock.calls.length;
+        expect(initializationSyncs).toBeGreaterThan(0);
+
+        await registry.history(target);
+        expect(sync).toHaveBeenCalledTimes(initializationSyncs);
+      } finally {
+        sync.mockRestore();
+      }
+    },
+  );
 
   it('activates an accepted release with an immutable target-scoped record', async () => {
     const { first, registry, root } = await setup();
