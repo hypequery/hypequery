@@ -13,6 +13,10 @@ import {
   type BuildDeploymentOptions,
   type PrepareDeploymentReleaseOptions,
 } from './commands/deployment.js';
+import {
+  deployCommand,
+  type DeployOptions,
+} from './commands/deploy.js';
 
 const program = new Command();
 
@@ -162,6 +166,15 @@ program
     await prepareDeploymentReleaseCommand(bundle, options);
   }));
 
+program
+  .command('deploy <bundle>')
+  .description('Submit a verified deployment bundle and release')
+  .requiredOption('--release <path>', 'Target-bound release JSON path')
+  .option('--endpoint <url>', 'HTTPS submission endpoint (or HYPEQUERY_DEPLOYMENT_ENDPOINT)')
+  .action(runCommand(async (bundle: string, options: DeployOptions) => {
+    await deployCommand(bundle, options);
+  }));
+
 // Help command
 program
   .command('help [command]')
@@ -194,6 +207,7 @@ program.on('--help', () => {
   console.log('  hypequery deployment:build analytics/api.ts');
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
+  console.log('  hypequery deploy analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });
