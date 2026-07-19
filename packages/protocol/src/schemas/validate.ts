@@ -374,7 +374,7 @@ function matchesSchema(schema: ProtocolSchema, value: CanonicalValue): boolean {
       if (!entries) return false;
       const found = new Set<string>();
       for (const [key, item] of entries) {
-        if (typeof key !== 'string') return false;
+        if (typeof key !== 'string' || found.has(key)) return false;
         const property = schema.properties[key as keyof typeof schema.properties];
         if (property) {
           if (!matchesSchema(property, item)) return false;
@@ -387,8 +387,15 @@ function matchesSchema(schema: ProtocolSchema, value: CanonicalValue): boolean {
     }
     case 'record': {
       const entries = taggedEntries(value);
-      return entries !== undefined
-        && entries.every(([key, item]) => typeof key === 'string' && matchesSchema(schema.values, item));
+      if (entries === undefined) return false;
+      const found = new Set<string>();
+      return entries.every(([key, item]) => {
+        if (typeof key !== 'string' || found.has(key) || !matchesSchema(schema.values, item)) {
+          return false;
+        }
+        found.add(key);
+        return true;
+      });
     }
     case 'union':
       return schema.variants.some(variant => matchesSchema(variant, value));

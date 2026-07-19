@@ -62,7 +62,9 @@ against a dataset contract before execution.
 The proposed schema surface exports strict types and validation for portable
 query input/output schemas. It covers the current declarative Serve/Zod schema
 features without depending on Zod or embedding executable transforms and
-refinements.
+refinements. The reusable schema-value parser applies defaults and unknown
+property policy to bounded plain wire values and returns detached immutable
+values for execution adapters.
 
 The proposed query-implementation surface keeps trusted implementation details
 separate from public query intent. It covers Dataset SQL expressions, fixed

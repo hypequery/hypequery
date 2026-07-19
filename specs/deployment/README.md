@@ -20,3 +20,5 @@ Current specifications:
   an immutable, fully revalidated runtime snapshot.
 - `0005-runtime-supervision.md` defines readiness-gated runtime startup, atomic
   generation switching, invocation, draining, and the reference Node worker.
+- `0006-data-plane-execution.md` defines named-query route matching, policy,
+  schema application, implementation dispatch, and output validation.

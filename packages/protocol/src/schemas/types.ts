@@ -63,6 +63,18 @@ export interface ProtocolSchemaOptions {
   readonly limits?: Partial<ProtocolSchemaLimits>;
 }
 
+export interface ProtocolSchemaValueLimits {
+  readonly maxDepth: number;
+  readonly maxNodes: number;
+  readonly maxCollectionItems: number;
+  readonly maxStringBytes: number;
+}
+
+export interface ProtocolSchemaValueOptions {
+  /** Product policy may lower, but never raise, the protocol schema-value limits. */
+  readonly limits?: Partial<ProtocolSchemaValueLimits>;
+}
+
 export type ProtocolSchemaErrorCode =
   | 'HQ_SCHEMA_TYPE'
   | 'HQ_SCHEMA_UNKNOWN_FIELD'

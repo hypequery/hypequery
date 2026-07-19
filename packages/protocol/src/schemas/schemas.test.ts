@@ -149,6 +149,22 @@ describe('portable query schemas', () => {
     }), 'HQ_SCHEMA_INVALID_VALUE');
   });
 
+  it('rejects object defaults with duplicate property names', () => {
+    expectSchemaError(() => validateProtocolSchema({
+      kind: 'object',
+      properties: { known: { kind: 'string' } },
+      required: ['known'],
+      unknownProperties: 'reject',
+      default: {
+        $hypequery: {
+          type: 'map',
+          version: 1,
+          entries: [['known', 'first'], ['known', 'second']],
+        },
+      },
+    }), 'HQ_SCHEMA_INVALID_VALUE');
+  });
+
   it('returns detached, deeply immutable snapshots', () => {
     const input = {
       kind: 'object',

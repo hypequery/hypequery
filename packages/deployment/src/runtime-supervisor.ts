@@ -58,6 +58,8 @@ export interface DeploymentRuntimeFactory {
 
 export interface DeploymentRuntimeInvocation {
   readonly target: ProtocolDeploymentReleaseTarget;
+  /** Reject the invocation unless this exact activation generation is active. */
+  readonly activationRevision?: string;
   readonly query: string;
   readonly argument: unknown;
   readonly signal?: AbortSignal;
@@ -367,6 +369,13 @@ export function createDeploymentRuntimeSupervisor(
       const generation = active.get(targetKey(input.target));
       if (!generation) {
         throw supervisorError('HQ_RUNTIME_NOT_READY', 'No deployment runtime is ready for target.');
+      }
+      if (input.activationRevision !== undefined
+        && generation.snapshot.activation.revision !== input.activationRevision) {
+        throw supervisorError(
+          'HQ_RUNTIME_NOT_READY',
+          'The requested deployment runtime generation is not ready for target.',
+        );
       }
       const resolved = binding(generation.snapshot, input.query);
       generation.inFlight += 1;

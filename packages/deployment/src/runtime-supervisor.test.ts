@@ -154,6 +154,25 @@ describe('deployment runtime supervisor', () => {
     await supervisor.close();
   });
 
+  it('rejects an invocation pinned to a different activation generation', async () => {
+    const active = snapshot('e');
+    const runtime = runtimeInstance('v1');
+    const supervisor = createDeploymentRuntimeSupervisor({
+      materializer: materializer(async () => active),
+      factory: { start: async () => runtime.instance },
+    });
+    await supervisor.reconcile(TARGET);
+
+    await expect(supervisor.invoke({
+      target: TARGET,
+      activationRevision: 'f'.repeat(64),
+      query: 'handler',
+      argument: null,
+    })).rejects.toMatchObject({ code: 'HQ_RUNTIME_NOT_READY' });
+    expect(runtime.invoke).not.toHaveBeenCalled();
+    await supervisor.close();
+  });
+
   it('keeps the old runtime active until its in-flight work drains after cutover', async () => {
     const first = snapshot('2');
     const second = snapshot('3');

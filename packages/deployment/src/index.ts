@@ -119,3 +119,28 @@ export type {
   DeploymentSubmissionStore,
   VerifiedDeploymentSubmission,
 } from './types.js';
+export {
+  createDeploymentDataPlane,
+  DeploymentDataPlaneError,
+} from './data-plane.js';
+export type {
+  DeploymentCompiledSqlExecutionInput,
+  DeploymentDataPlane,
+  DeploymentDataPlaneAuthenticationInput,
+  DeploymentDataPlaneErrorCode,
+  DeploymentDataPlaneExecutionInput,
+  DeploymentDataPlaneOptions,
+  DeploymentDataPlanePrincipal,
+  DeploymentDataPlaneRequest,
+  DeploymentDataPlaneResult,
+  DeploymentDataPlaneTenantInput,
+  DeploymentRuntimeReferenceExecutionInput,
+  DeploymentSemanticPlanExecutionInput,
+} from './data-plane.js';
+export {
+  DEFAULT_DEPLOYMENT_DATA_PLANE_LIMITS,
+  resolveDeploymentDataPlaneLimits,
+} from './data-plane-limits.js';
+export type { DeploymentDataPlaneLimits } from './data-plane-limits.js';
+export { createDeploymentRuntimeSupervisorExecutor } from './data-plane-runtime.js';
+export type { DeploymentRuntimeSupervisorExecutorOptions } from './data-plane-runtime.js';
