@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { prepareProtocolDeploymentContract } from '@hypequery/protocol';
@@ -163,6 +163,23 @@ describe('Node worker deployment runtime factory', () => {
     });
     expect(await readdir(directory)).toEqual([]);
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'seals generated runtime directories before writing artifacts',
+    async () => {
+      const directory = await temporaryDirectory();
+      await chmod(directory, 0o755);
+      const deployed = snapshot('export const queries = { handler: () => true };\n');
+      const factory = createNodeWorkerDeploymentRuntimeFactory({ temporaryDirectory: directory });
+
+      const instance = await factory.start(deployed, {});
+      instances.push(instance);
+      const entries = await readdir(directory);
+
+      expect(entries).toHaveLength(1);
+      expect((await stat(path.join(directory, entries[0]!))).mode & 0o777).toBe(0o700);
+    },
+  );
 
   it('rejects unsupported or identity-mismatched artifacts before execution', async () => {
     const directory = await temporaryDirectory();

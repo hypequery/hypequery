@@ -115,7 +115,7 @@ function runtimeInstance(label: string) {
   const invoke = vi.fn<DeploymentRuntimeInstance['invoke']>(
     async ({ argument }) => ({ label, argument }),
   );
-  const close = vi.fn(async () => undefined);
+  const close = vi.fn<DeploymentRuntimeInstance['close']>(async () => undefined);
   return { instance: { healthCheck, invoke, close }, healthCheck, invoke, close };
 }
 
@@ -208,6 +208,29 @@ describe('deployment runtime supervisor', () => {
     await expect(supervisor.invoke({ target: TARGET, query: 'handler', argument: null }))
       .resolves.toEqual({ label: 'v1', argument: null });
     expect(failedRuntime.close).toHaveBeenCalledOnce();
+    await supervisor.close();
+  });
+
+  it('preserves cancellation when startup is aborted in flight', async () => {
+    const active = snapshot('d');
+    const controller = new AbortController();
+    const start = vi.fn<DeploymentRuntimeFactory['start']>(async (_candidate, { signal }) => (
+      await new Promise<DeploymentRuntimeInstance>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => reject(new Error('startup aborted')), {
+          once: true,
+        });
+      })
+    ));
+    const supervisor = createDeploymentRuntimeSupervisor({
+      materializer: materializer(async () => active),
+      factory: { start },
+    });
+
+    const reconcile = supervisor.reconcile(TARGET, { signal: controller.signal });
+    await vi.waitFor(() => expect(start).toHaveBeenCalledOnce());
+    controller.abort('cancelled');
+
+    await expect(reconcile).rejects.toMatchObject({ code: 'HQ_RUNTIME_ABORTED' });
     await supervisor.close();
   });
 
@@ -305,6 +328,26 @@ describe('deployment runtime supervisor', () => {
 
     await expect(supervisor.close()).rejects.toBeInstanceOf(AggregateError);
     expect(runtime.close).toHaveBeenCalledOnce();
+  });
+
+  it('shares one shutdown promise across concurrent close calls', async () => {
+    const active = snapshot('e');
+    const runtime = runtimeInstance('v1');
+    const closing = deferred<void>();
+    runtime.close.mockImplementationOnce(async () => closing.promise);
+    const supervisor = createDeploymentRuntimeSupervisor({
+      materializer: materializer(async () => active),
+      factory: { start: async () => runtime.instance },
+    });
+    await supervisor.reconcile(TARGET);
+
+    const first = supervisor.close();
+    const second = supervisor.close();
+
+    expect(second).toBe(first);
+    await vi.waitFor(() => expect(runtime.close).toHaveBeenCalledOnce());
+    closing.resolve();
+    await expect(Promise.all([first, second])).resolves.toEqual([undefined, undefined]);
   });
 
   it('rejects portable queries and becomes permanently closed', async () => {

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
@@ -223,7 +223,6 @@ function workerInstance(
     return new Promise((resolve, reject) => {
       const observeAbort = kind === 'health';
       const abort = () => {
-        if (!observeAbort) return;
         pending.delete(id);
         reject(nodeRuntimeError(
           'HQ_NODE_RUNTIME_ABORTED',
@@ -389,6 +388,7 @@ export function createNodeWorkerDeploymentRuntimeFactory(
       const root = await ensureTemporaryDirectory(options.temporaryDirectory);
       const directory = await mkdtemp(path.join(root, 'hypequery-node-runtime-'));
       try {
+        await chmod(directory, 0o700);
         return await startWorker(snapshot, directory, timeoutMs, input.signal);
       } catch (error) {
         try {

@@ -201,6 +201,7 @@ export function createDeploymentRuntimeSupervisor(
   const background = new Set<Promise<void>>();
   const backgroundFailures: unknown[] = [];
   let closed = false;
+  let closePromise: Promise<void> | undefined;
 
   function ensureOpen(): void {
     if (closed) throw supervisorError('HQ_RUNTIME_SUPERVISOR_CLOSED', 'Runtime supervisor is closed.');
@@ -277,6 +278,13 @@ export function createDeploymentRuntimeSupervisor(
       try {
         candidate = await options.factory.start(snapshot, { signal });
       } catch (error) {
+        if (signal?.aborted) {
+          throw supervisorError(
+            'HQ_RUNTIME_ABORTED',
+            'The runtime operation was aborted while starting a candidate.',
+            error,
+          );
+        }
         if (error instanceof DeploymentRuntimeSupervisorError) throw error;
         throw supervisorError(
           'HQ_RUNTIME_START_FAILED',
@@ -387,23 +395,29 @@ export function createDeploymentRuntimeSupervisor(
       return generation ? status(generation) : undefined;
     },
 
-    async close(): Promise<void> {
-      if (closed) return;
+    close(): Promise<void> {
+      if (closePromise) return closePromise;
       closed = true;
-      await Promise.allSettled([...updates.values()]);
-      const generations = [...active.values()];
-      active.clear();
-      const results = await Promise.allSettled(generations.map(generation => drain(generation)));
-      await Promise.allSettled([...background]);
-      const failures = [
-        ...backgroundFailures,
-        ...results
-        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-        .map(result => result.reason),
-      ];
-      if (failures.length > 0) {
-        throw new AggregateError(failures, 'One or more deployment runtimes could not be closed.');
-      }
+      closePromise = (async () => {
+        await Promise.allSettled([...updates.values()]);
+        const generations = [...active.values()];
+        active.clear();
+        const results = await Promise.allSettled(generations.map(generation => drain(generation)));
+        await Promise.allSettled([...background]);
+        const failures = [
+          ...backgroundFailures,
+          ...results
+            .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+            .map(result => result.reason),
+        ];
+        if (failures.length > 0) {
+          throw new AggregateError(
+            failures,
+            'One or more deployment runtimes could not be closed.',
+          );
+        }
+      })();
+      return closePromise;
     },
   });
 }
