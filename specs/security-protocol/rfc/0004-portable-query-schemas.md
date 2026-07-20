@@ -77,6 +77,22 @@ values and emitted wire values. The portable query contract describes the wire
 value. If a producer cannot derive that wire schema exactly, the author must
 provide it explicitly.
 
+## Value application
+
+A runtime schema-value parser validates ordinary JSON-compatible wire values.
+It returns a detached immutable snapshot, applies defaults to absent values,
+and implements object unknown-property policy before the value reaches an
+implementation adapter. Composite canonical defaults are materialized as their
+ordinary array or string-keyed object wire values.
+
+`void` accepts only an absent value. Other nodes reject `undefined`, non-finite
+numbers, negative zero, functions, symbols, and unsafe object graphs. String
+bounds count Unicode code points as they do in the schema contract.
+
+Union variants are attempted in declaration order. The first matching variant
+defines the transformed result, and every attempted branch consumes one shared
+validation budget.
+
 ## Compatibility
 
 Schemas describe sets of accepted wire values. For an existing named query:
@@ -110,6 +126,19 @@ Products may impose lower limits but cannot raise these limits while claiming
 schema extension 1 conformance. Recursive schemas and references are not part
 of version 1.
 
+Runtime value application has separate ceilings:
+
+| Limit | Maximum |
+| --- | ---: |
+| Value depth | 32 |
+| Value nodes per application | 10,000 |
+| Items in one value collection | 1,000 |
+| UTF-8 bytes in one string or object key | 1,048,576 |
+
+Products may lower but cannot raise these value ceilings. Error paths for
+arbitrary record and preserved object keys are bounded independently from the
+key itself.
+
 ## Stable failure codes
 
 - `HQ_SCHEMA_TYPE`
@@ -125,6 +154,7 @@ of version 1.
 - `HQ_SCHEMA_TOO_MANY_ITEMS`
 - `HQ_SCHEMA_TOO_LARGE`
 - `HQ_SCHEMA_UNSAFE_OBJECT`
+- `HQ_SCHEMA_VALUE_INVALID`
 
 ## Security
 

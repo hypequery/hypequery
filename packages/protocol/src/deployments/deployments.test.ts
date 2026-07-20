@@ -127,6 +127,27 @@ function materialize(type: string): unknown {
           tags: [],
         }],
       };
+    case 'ambiguous-query-route': {
+      const namedQuery = (name: string) => ({
+        name,
+        input: { kind: 'void' },
+        output: { kind: 'void' },
+        implementation: {
+          kind: 'semantic-plan',
+          query: {
+            kind: 'dataset', dataset: 'orders', dimensions: [], measures: [], filters: [], orderBy: [],
+          },
+        },
+        endpoint: {
+          access: { kind: 'public' },
+          tenant: { kind: 'not-required' },
+          method: 'GET',
+          path: '/same',
+        },
+        tags: [],
+      });
+      return { ...value, queries: [namedQuery('first'), namedQuery('second')] };
+    }
     case 'too-many-datasets':
       return {
         ...value,
@@ -328,6 +349,37 @@ describe('deployment contract v1', () => {
     expectDeploymentError(
       () => validateProtocolDeploymentContract(deployment),
       'HQ_DEPLOYMENT_INVALID_REFERENCE',
+    );
+  });
+
+  it('rejects duplicate method and path routes', () => {
+    const namedQuery = (name: string) => ({
+      name,
+      input: { kind: 'void' },
+      output: { kind: 'void' },
+      implementation: {
+        kind: 'semantic-plan',
+        query: {
+          kind: 'dataset', dataset: 'orders', dimensions: [], measures: [], filters: [], orderBy: [],
+        },
+      },
+      endpoint: {
+        access: { kind: 'public' },
+        tenant: { kind: 'not-required' },
+        method: 'GET',
+        path: '/same',
+      },
+      tags: [],
+    });
+    const deployment = {
+      ...baseDeployment(),
+      queries: [namedQuery('first'), namedQuery('second')],
+    };
+
+    expectDeploymentError(
+      () => validateProtocolDeploymentContract(deployment),
+      'HQ_DEPLOYMENT_INVALID_VALUE',
+      '$.queries[1].endpoint',
     );
   });
 });

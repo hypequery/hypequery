@@ -46,7 +46,12 @@ export {
 
 export {
   DEFAULT_PROTOCOL_SCHEMA_LIMITS,
+  DEFAULT_PROTOCOL_SCHEMA_VALUE_LIMITS,
   ProtocolSchemaError,
+  ProtocolSchemaValueError,
+  applyProtocolSchemaValue,
+  createProtocolSchemaValueParser,
+  resolveProtocolSchemaValueLimits,
   validateProtocolSchema,
 } from './schemas/index.js';
 
@@ -55,6 +60,9 @@ export type {
   ProtocolSchemaErrorCode,
   ProtocolSchemaLimits,
   ProtocolSchemaOptions,
+  ProtocolSchemaValueLimits,
+  ProtocolSchemaValueOptions,
+  ProtocolSchemaValueParser,
 } from './schemas/index.js';
 
 export type {

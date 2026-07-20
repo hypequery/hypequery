@@ -245,4 +245,51 @@ remote-sandbox isolation behind the same lifecycle interface.
 The reference worker is a lifecycle boundary, not a hostile-code security
 sandbox. Only trusted deployment code should use it directly.
 
+## Data-plane execution
+
+`createDeploymentDataPlane` executes named-query routes from one validated,
+immutable deployment contract. It applies bounded input defaults and unknown
+property behavior, enforces access and tenant policy, dispatches the declared
+implementation kind through an injected adapter, and validates output before
+returning it.
+
+```ts
+import {
+  createDeploymentDataPlane,
+  createDeploymentRuntimeSupervisorExecutor,
+} from '@hypequery/deployment';
+
+const executeRuntimeReference = createDeploymentRuntimeSupervisorExecutor({
+  supervisor,
+  target,
+  activationRevision: snapshot.activation.revision,
+  argument: ({ input, principal, tenant }) => ({ input, principal, tenant }),
+});
+
+const dataPlane = createDeploymentDataPlane({
+  deployment: snapshot.deployment,
+  authenticate,
+  resolveTenant,
+  executeSemanticPlan,
+  executeCompiledSql,
+  executeRuntimeReference,
+});
+
+const result = await dataPlane.execute({
+  method: 'POST',
+  path: '/analytics/queries/orders',
+  credentials,
+  input: { status: 'paid' },
+});
+```
+
+The runtime-supervisor adapter requires the exact activation revision used to
+construct the data plane. A later activation therefore cannot accidentally run
+against stale route or schema metadata. Argument mapping remains explicit so a
+host can preserve the handler contract of its chosen runtime.
+
+Semantic-plan and compiled-SQL adapters own database execution. The core passes
+only validated values, the fixed implementation artifact, and closed typed SQL
+parameter bindings; it does not select credentials or interpolate SQL.
+
 The package is ESM-only and requires Node.js 20 or newer.

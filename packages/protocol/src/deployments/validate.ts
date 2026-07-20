@@ -738,6 +738,17 @@ export function validateProtocolDeploymentContract(
     queries,
     artifacts,
   }) as unknown as ProtocolDeploymentContract;
+  const routes = new Set<string>();
+  for (const [queryIndex, query] of queries.entries()) {
+    const route = `${query.endpoint.method}\0${query.endpoint.path}`;
+    if (routes.has(route)) {
+      deploymentError(
+        'HQ_DEPLOYMENT_INVALID_VALUE',
+        `$.queries[${queryIndex}].endpoint`,
+      );
+    }
+    routes.add(route);
+  }
   validateReferences(result);
   return result;
 }
