@@ -1,0 +1,18 @@
+[
+  { "id": "wrong-root-type", "generator": { "type": "wrong-root-type" }, "error": "HQ_EVENT_TYPE" },
+  { "id": "missing-required-field", "generator": { "type": "missing-required-field" }, "error": "HQ_EVENT_TYPE" },
+  { "id": "unknown-sql-field", "generator": { "type": "unknown-sql-field" }, "error": "HQ_EVENT_UNKNOWN_FIELD" },
+  { "id": "unknown-parameters-field", "generator": { "type": "unknown-parameters-field" }, "error": "HQ_EVENT_UNKNOWN_FIELD" },
+  { "id": "unknown-raw-tenant-field", "generator": { "type": "unknown-raw-tenant-field" }, "error": "HQ_EVENT_UNKNOWN_FIELD" },
+  { "id": "newer-version", "generator": { "type": "newer-version" }, "error": "HQ_EVENT_INVALID_VERSION" },
+  { "id": "malformed-event-id", "generator": { "type": "malformed-event-id" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "invalid-occurred-at", "generator": { "type": "invalid-occurred-at" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "failure-without-category", "generator": { "type": "failure-without-category" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "success-with-category", "generator": { "type": "success-with-category" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "unknown-error-category", "generator": { "type": "unknown-error-category" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "negative-duration", "generator": { "type": "negative-duration" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "invalid-target", "generator": { "type": "invalid-target" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "invalid-query-name", "generator": { "type": "invalid-query-name" }, "error": "HQ_EVENT_INVALID_VALUE" },
+  { "id": "oversized-correlation-id", "generator": { "type": "oversized-correlation-id" }, "error": "HQ_EVENT_TOO_LARGE" },
+  { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_EVENT_UNSAFE_OBJECT" }
+]

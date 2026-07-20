@@ -1,0 +1,27 @@
+[
+  {
+    "id": "minimal-diagnostics",
+    "value": {
+      "kind": "hypequery-query-diagnostics",
+      "version": 1,
+      "eventId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "queryId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "terminalReason": "completed",
+      "attempts": 1
+    }
+  },
+  {
+    "id": "full-diagnostics",
+    "value": {
+      "kind": "hypequery-query-diagnostics",
+      "version": 1,
+      "eventId": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+      "queryId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "terminalReason": "deadline-exceeded",
+      "attempts": 3,
+      "runtimeIdentity": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "debugQuery": "SELECT sum(revenue) FROM orders WHERE tenant_id = {tenant_fingerprint:String} AND day >= {start_date:Date}",
+      "safeMessage": "The query exceeded its execution deadline."
+    }
+  }
+]

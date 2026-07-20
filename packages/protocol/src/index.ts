@@ -95,6 +95,28 @@ export {
 } from './query-implementations/index.js';
 
 export {
+  DEFAULT_PROTOCOL_QUERY_EVENT_LIMITS,
+  ProtocolQueryDiagnosticsError,
+  ProtocolQueryEventError,
+  validateProtocolQueryDiagnostics,
+  validateProtocolQueryEvent,
+} from './events/index.js';
+
+export type {
+  ProtocolQueryDiagnostics,
+  ProtocolQueryDiagnosticsErrorCode,
+  ProtocolQueryErrorCategory,
+  ProtocolQueryEvent,
+  ProtocolQueryEventErrorCode,
+  ProtocolQueryEventLimits,
+  ProtocolQueryEventOptions,
+  ProtocolQueryEventOutcome,
+  ProtocolQueryEventTarget,
+  ProtocolQueryOperation,
+  ProtocolQueryTerminalReason,
+} from './events/index.js';
+
+export {
   DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS,
   PROTOCOL_DEPLOYMENT_BUNDLE_IDENTITY_DOMAIN,
   ProtocolDeploymentBundleError,

@@ -1,0 +1,13 @@
+[
+  { "id": "wrong-root-type", "generator": { "type": "wrong-root-type" }, "error": "HQ_DIAGNOSTICS_TYPE" },
+  { "id": "missing-required-field", "generator": { "type": "missing-required-field" }, "error": "HQ_DIAGNOSTICS_TYPE" },
+  { "id": "unknown-result-field", "generator": { "type": "unknown-result-field" }, "error": "HQ_DIAGNOSTICS_UNKNOWN_FIELD" },
+  { "id": "unknown-credentials-field", "generator": { "type": "unknown-credentials-field" }, "error": "HQ_DIAGNOSTICS_UNKNOWN_FIELD" },
+  { "id": "newer-version", "generator": { "type": "newer-version" }, "error": "HQ_DIAGNOSTICS_INVALID_VERSION" },
+  { "id": "malformed-query-id", "generator": { "type": "malformed-query-id" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
+  { "id": "unknown-terminal-reason", "generator": { "type": "unknown-terminal-reason" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
+  { "id": "zero-attempts", "generator": { "type": "zero-attempts" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
+  { "id": "control-character-message", "generator": { "type": "control-character-message" }, "error": "HQ_DIAGNOSTICS_INVALID_VALUE" },
+  { "id": "oversized-debug-query", "generator": { "type": "oversized-debug-query" }, "error": "HQ_DIAGNOSTICS_TOO_LARGE" },
+  { "id": "unsafe-accessor", "generator": { "type": "unsafe-accessor" }, "error": "HQ_DIAGNOSTICS_UNSAFE_OBJECT" }
+]

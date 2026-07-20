@@ -1,0 +1,40 @@
+[
+  {
+    "id": "minimal-success-event",
+    "value": {
+      "kind": "hypequery-query-event",
+      "version": 1,
+      "eventId": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "occurredAt": "2026-07-20T12:34:56.789Z",
+      "target": {
+        "project": "prj_acme-analytics",
+        "environment": "production"
+      },
+      "queryName": "daily_revenue",
+      "operation": "query",
+      "outcome": "success",
+      "durationMs": 182
+    }
+  },
+  {
+    "id": "full-failure-event",
+    "value": {
+      "kind": "hypequery-query-event",
+      "version": 1,
+      "eventId": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+      "occurredAt": "2026-07-20T23:59:59Z",
+      "target": {
+        "project": "prj_acme-analytics",
+        "environment": "staging"
+      },
+      "queryName": "analytics.weekly_active_users",
+      "operation": "insert",
+      "outcome": "failure",
+      "errorCategory": "deadline-exceeded",
+      "durationMs": 30000,
+      "rowCount": 4200,
+      "tenantFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "correlationId": "checkout-deploy-2026-07-20T21:00Z"
+    }
+  }
+]
