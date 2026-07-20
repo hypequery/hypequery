@@ -64,6 +64,7 @@ export interface ProtocolSchemaOptions {
 }
 
 export interface ProtocolSchemaValueLimits {
+  readonly maxInputBytes: number;
   readonly maxDepth: number;
   readonly maxNodes: number;
   readonly maxCollectionItems: number;

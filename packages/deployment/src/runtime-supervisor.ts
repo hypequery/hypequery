@@ -1,4 +1,7 @@
-import type { ProtocolDeploymentReleaseTarget } from '@hypequery/protocol';
+import type {
+  ProtocolDeploymentContract,
+  ProtocolDeploymentReleaseTarget,
+} from '@hypequery/protocol';
 import type {
   DeploymentRuntimeMaterializer,
   DeploymentRuntimeQueryBinding,
@@ -72,6 +75,11 @@ export interface DeploymentRuntimeStatus {
   readonly bundleIdentity: string;
 }
 
+export interface DeploymentRuntimeGeneration {
+  readonly status: DeploymentRuntimeStatus;
+  readonly deployment: ProtocolDeploymentContract;
+}
+
 export type DeploymentRuntimeReconcileResult =
   | { readonly status: 'activated'; readonly runtime: DeploymentRuntimeStatus }
   | { readonly status: 'already-current'; readonly runtime: DeploymentRuntimeStatus }
@@ -85,6 +93,7 @@ export interface DeploymentRuntimeSupervisor {
   ): Promise<DeploymentRuntimeReconcileResult>;
   invoke(input: DeploymentRuntimeInvocation): Promise<unknown>;
   status(target: ProtocolDeploymentReleaseTarget): DeploymentRuntimeStatus | undefined;
+  generation(target: ProtocolDeploymentReleaseTarget): DeploymentRuntimeGeneration | undefined;
   close(): Promise<void>;
 }
 
@@ -402,6 +411,14 @@ export function createDeploymentRuntimeSupervisor(
     status(target: ProtocolDeploymentReleaseTarget): DeploymentRuntimeStatus | undefined {
       const generation = active.get(targetKey(target));
       return generation ? status(generation) : undefined;
+    },
+
+    generation(target: ProtocolDeploymentReleaseTarget): DeploymentRuntimeGeneration | undefined {
+      const generation = active.get(targetKey(target));
+      return generation ? Object.freeze({
+        status: status(generation),
+        deployment: generation.snapshot.deployment,
+      }) : undefined;
     },
 
     close(): Promise<void> {

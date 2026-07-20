@@ -2,6 +2,7 @@ import type { ProtocolSchemaValueLimits, ProtocolSchemaValueOptions } from './ty
 
 export const DEFAULT_PROTOCOL_SCHEMA_VALUE_LIMITS: Readonly<ProtocolSchemaValueLimits> =
   Object.freeze({
+    maxInputBytes: 1_048_576,
     maxDepth: 32,
     maxNodes: 10_000,
     maxCollectionItems: 1_000,
