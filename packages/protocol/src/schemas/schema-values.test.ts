@@ -159,8 +159,8 @@ describe('protocol schema values', () => {
       unknownProperties: 'reject',
     }));
 
-    expect(parser.parseJson('{"id":"one"}')).toEqual({ id: 'one' });
-    expect(() => parser.parseJson('{"id":"one","id":"two"}')).toThrow(expect.objectContaining({
+    expect(parser.parseJson?.('{"id":"one"}')).toEqual({ id: 'one' });
+    expect(() => parser.parseJson?.('{"id":"one","id":"two"}')).toThrow(expect.objectContaining({
       code: 'HQ_VALUE_DUPLICATE_KEY',
     }));
   });

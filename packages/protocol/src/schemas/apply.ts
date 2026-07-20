@@ -22,7 +22,7 @@ export class ProtocolSchemaValueError extends Error {
 
 export interface ProtocolSchemaValueParser {
   parse(input: unknown): unknown;
-  parseJson(input: string | Uint8Array): unknown;
+  parseJson?(input: string | Uint8Array): unknown;
 }
 
 interface State {

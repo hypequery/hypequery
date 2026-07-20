@@ -258,7 +258,7 @@ export function createDeploymentHost(options: DeploymentHostOptions): Deployment
         }
       });
       background.add(operation);
-      void operation.finally(() => background.delete(operation));
+      void operation.finally(() => background.delete(operation)).catch(() => undefined);
     },
 
     async execute(input, request): Promise<DeploymentDataPlaneResult> {

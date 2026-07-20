@@ -252,6 +252,9 @@ async function fetchBytes(
       }
       chunks.push(result.value);
     }
+  } catch (error) {
+    await reader.cancel(error).catch(() => undefined);
+    throw error;
   } finally {
     reader.releaseLock();
   }

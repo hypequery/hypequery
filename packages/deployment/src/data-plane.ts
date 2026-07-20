@@ -288,9 +288,15 @@ export function createDeploymentDataPlane(options: DeploymentDataPlaneOptions): 
 
     let input: unknown;
     try {
-      input = json && request.input !== undefined
-        ? route.input.parseJson(request.input as string | Uint8Array)
-        : route.input.parse(request.input);
+      if (json && request.input !== undefined) {
+        if (typeof route.input.parseJson !== 'function') throw dataPlaneError(
+          'HQ_DATA_PLANE_CONFIGURATION',
+          'The route input parser does not support JSON request bodies.',
+        );
+        input = route.input.parseJson(request.input as string | Uint8Array);
+      } else {
+        input = route.input.parse(request.input);
+      }
     } catch (error) {
       if (error instanceof ProtocolSchemaValueError || error instanceof ProtocolValueError) {
         throw dataPlaneError(
