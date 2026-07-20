@@ -1,5 +1,11 @@
 # @hypequery/protocol
 
+## 0.8.0
+
+### Minor Changes
+
+- 7097da6: Add generation-pinned deployment host assembly, bounded Fetch and Node data-plane adapters, duplicate-aware JSON schema parsing, activation-triggered reconciliation, and a reference filesystem host lifecycle.
+
 ## 0.7.0
 
 ### Minor Changes
