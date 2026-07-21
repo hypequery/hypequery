@@ -43,6 +43,7 @@ const staticRoutes = [
   '/use-cases/internal-product-apis',
   '/use-cases/multi-tenant-saas',
   '/contact-us',
+  '/telemetry',
   '/cube-js-alternative',
   '/tinybird-alternative',
   '/moosestack-alternative',
