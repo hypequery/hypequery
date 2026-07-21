@@ -198,12 +198,18 @@ observable. Runtimes surface them with these stable codes:
   match the tenant context the execution would use.
 
 These codes classify denials only; they carry no tenant values, capability
-material, or policy detail beyond the class of failure. They map onto the
-RFC 0010 public error envelope categories: `HQ_CAPABILITY_MISSING` and
-`HQ_CAPABILITY_CLASS_MISMATCH` to `unauthenticated` or `forbidden` as the
-authentication state dictates, `HQ_CAPABILITY_TENANT_REQUIRED` and
-`HQ_CAPABILITY_TENANT_MISMATCH` to `tenant-required` and `forbidden`
-respectively.
+material, or policy detail beyond the class of failure.
+
+The public error envelope and its categories are defined by the forthcoming
+RFC 0010. Until it is accepted, denials use an HTTP response carrying an
+error object with a stable `code` and a safe `message`: status 401 when
+authentication is absent or rejected, 403 otherwise. The RFC 0010 mapping is
+then: `HQ_CAPABILITY_MISSING` and `HQ_CAPABILITY_CLASS_MISMATCH` map to
+`unauthenticated` or `forbidden` as the authentication state dictates;
+`HQ_CAPABILITY_TENANT_REQUIRED` maps to `tenant-required`, the
+protocol-specific category for a denial caused solely by an unresolved
+tenant context (surfaced as 403 until RFC 0010 defines the envelope); and
+`HQ_CAPABILITY_TENANT_MISMATCH` maps to `forbidden`.
 
 ## Security
 
