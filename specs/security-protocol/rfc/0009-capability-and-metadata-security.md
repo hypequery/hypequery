@@ -86,7 +86,7 @@ target, and the access time — never a client-writable log line.
   rejection is part of the capability boundary.
 - No request field may construct or influence a capability. Fields asserting
   tenant proof, administrative flags, roles, or scopes are prohibited and MUST
-  be ignored or rejected.
+  be rejected.
 - Capabilities MUST NOT be written to caches, logs, query events, diagnostic
   projections, or error payloads. A cache key derives from capability-relevant
   context (target, tenant, and endpoint policy) through server-side derivation;
