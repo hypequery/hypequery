@@ -28,6 +28,7 @@ const STATE_FILE = path.join(homedir(), '.hypequery', 'telemetry.json');
 const FLUSH_INTERVAL_MS = 5_000;
 const FLUSH_BATCH_SIZE = 20;
 const REQUEST_TIMEOUT_MS = 3_000;
+const SHUTDOWN_TIMEOUT_MS = 1_000;
 
 /**
  * UI events accepted through the /__dev/telemetry beacon (allowlist).
@@ -220,9 +221,21 @@ export class Telemetry {
     await send;
   }
 
-  /** Flush remaining events and stop timers. */
+  /**
+   * Flush remaining events and stop timers. Races the flush against a short
+   * deadline so a slow or unreachable ingest endpoint never delays process
+   * exit — telemetry is fire-and-forget, including on shutdown. Any send
+   * still in flight when the deadline hits keeps running in the background;
+   * its errors are already swallowed by `flush`.
+   */
   async shutdown(): Promise<void> {
-    await this.flush();
-    await Promise.allSettled([...this.pendingSends]);
+    const flushed = this.flush().then(() => Promise.allSettled([...this.pendingSends]));
+    await Promise.race([
+      flushed,
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, SHUTDOWN_TIMEOUT_MS);
+        timer.unref?.();
+      }),
+    ]);
   }
 }

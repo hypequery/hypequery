@@ -34,13 +34,16 @@ export function QueryHistory({ className }: QueryHistoryProps) {
     track('screen_viewed', { screen: 'runs' }, { once: true });
   }, []);
 
+  useEffect(() => {
+    if (debouncedSearch) {
+      track('search_used', undefined, { once: true });
+    }
+  }, [debouncedSearch]);
+
   // Build API filters from filter state
   const apiFilters: QueryFilters = useMemo(() => {
     const f: QueryFilters = { limit: 100 };
-    if (debouncedSearch) {
-      f.search = debouncedSearch;
-      track('search_used', undefined, { once: true });
-    }
+    if (debouncedSearch) f.search = debouncedSearch;
     return f;
   }, [debouncedSearch]);
 

@@ -123,6 +123,17 @@ describe('Telemetry', () => {
     await expect(t.flush()).resolves.toBeUndefined();
   });
 
+  it('shutdown does not block on a slow or unreachable ingest endpoint', async () => {
+    const fetchFn = vi.fn(() => new Promise<Response>(() => {})); // never resolves
+    const t = makeTelemetry({ endpoint: ENDPOINT, fetchFn: fetchFn as unknown as typeof fetch });
+    t.track('gateway_started');
+
+    const start = Date.now();
+    await t.shutdown();
+    // Bounded by the shutdown deadline (1s), well under the network timeout (3s).
+    expect(Date.now() - start).toBeLessThan(1500);
+  });
+
   it('anonymize produces a stable 12-char hash', () => {
     expect(anonymize('myQuery')).toBe(anonymize('myQuery'));
     expect(anonymize('myQuery')).toMatch(/^[0-9a-f]{12}$/);

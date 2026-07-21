@@ -4,6 +4,7 @@ import { UI_EVENT_ALLOWLIST } from '../telemetry.js';
 
 const MAX_EVENTS_PER_BATCH = 20;
 const MAX_PROP_ENTRIES = 10;
+const MAX_PROP_KEY_LENGTH = 64;
 
 interface BeaconBody {
   events?: Array<{ name?: unknown; props?: unknown }>;
@@ -16,11 +17,12 @@ function sanitizeProps(props: unknown): Record<string, string | number | boolean
   let count = 0;
   for (const [key, value] of Object.entries(props)) {
     if (count >= MAX_PROP_ENTRIES) break;
+    const safeKey = key.slice(0, MAX_PROP_KEY_LENGTH);
     if (typeof value === 'string') {
-      out[key] = value.slice(0, 100);
+      out[safeKey] = value.slice(0, 100);
       count++;
     } else if (typeof value === 'number' || typeof value === 'boolean') {
-      out[key] = value;
+      out[safeKey] = value;
       count++;
     }
   }
