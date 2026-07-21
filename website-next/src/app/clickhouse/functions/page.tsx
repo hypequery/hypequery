@@ -32,6 +32,7 @@ const clusterLabel: Record<string, string> = {
   string: 'String Functions',
   conditional: 'Conditional Functions',
   math: 'Math Functions',
+  array: 'Array Functions',
 };
 
 const clusterDescription: Record<string, string> = {
@@ -43,6 +44,8 @@ const clusterDescription: Record<string, string> = {
   conditional:
     'Conditional expressions for inline branching, NULL handling, and multi-way value selection.',
   math: 'Math functions for rounding, integer arithmetic, and numeric bucketing.',
+  array:
+    'Array functions for transforming, filtering, and unnesting array columns — including higher-order functions with lambda expressions.',
 };
 
 const clusterColor: Record<string, string> = {
@@ -51,6 +54,7 @@ const clusterColor: Record<string, string> = {
   string: 'text-emerald-300',
   conditional: 'text-amber-300',
   math: 'text-rose-300',
+  array: 'text-violet-300',
 };
 
 const jsonLd = {
@@ -68,7 +72,7 @@ const jsonLd = {
 };
 
 export default function ClickHouseFunctionsIndexPage() {
-  const clusters = ['date', 'aggregate', 'string', 'conditional', 'math'] as const;
+  const clusters = ['date', 'aggregate', 'string', 'conditional', 'math', 'array'] as const;
 
   return (
     <>

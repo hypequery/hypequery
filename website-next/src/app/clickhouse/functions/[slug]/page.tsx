@@ -51,6 +51,7 @@ const clusterLabel: Record<string, string> = {
   string: 'String Functions',
   conditional: 'Conditional Functions',
   math: 'Math Functions',
+  array: 'Array Functions',
 };
 
 export default function ClickHouseFunctionPage({ params }: Props) {

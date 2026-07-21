@@ -1,4 +1,4 @@
-export type ClickHouseFunctionCluster = 'date' | 'aggregate' | 'string' | 'conditional' | 'math';
+export type ClickHouseFunctionCluster = 'date' | 'aggregate' | 'string' | 'conditional' | 'math' | 'array';
 
 export type ClickHouseFunctionDef = {
   slug: string;
@@ -1436,6 +1436,491 @@ const histogram = await db
       },
     ],
   },
+
+  {
+    "slug": "min",
+    "name": "min",
+    "cluster": "aggregate",
+    "tagline": "Return the smallest value in a group — earliest signup, cheapest order, fastest response.",
+    "metaTitle": "ClickHouse min — TypeScript aggregate minimum",
+    "metaDescription": "min(column) returns the smallest value in a group. Learn how to use it in TypeScript with hypequery for earliest dates, lowest prices, and fastest latencies.",
+    "signature": "min(column: T): T",
+    "description": "Returns the minimum value across all rows in a group. Skips NULLs in Nullable columns and returns the same type as the input column.",
+    "longDescription": "min is one of the core aggregate functions in ClickHouse. Given a column, it scans every row in the group and returns the single smallest value — the earliest signup date, the cheapest order total, the fastest response time. It works on numbers, dates, and strings, and returns the same type as the column it reads. Paired with GROUP BY it produces one minimum per bucket, which is why it shows up in almost every analytics rollup. When you need the row at the minimum rather than just the value itself, reach for argMin instead.",
+    "exampleSql": "SELECT\n  tenant_id,\n  min(created_at) AS first_order,\n  min(total) AS cheapest_order\nFROM orders\nGROUP BY tenant_id\nORDER BY first_order ASC",
+    "hypequeryExample": "import { createQueryBuilder } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './schema';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\nconst firstOrders = await db\n  .table('orders')\n  .select(['tenant_id'])\n  .min('created_at', 'first_order')\n  .min('total', 'cheapest_order')\n  .groupBy('tenant_id')\n  .orderBy('first_order', 'ASC')\n  .execute();",
+    "hypequeryFilename": "min-per-tenant.ts",
+    "returnType": "Same type as the input column",
+    "notes": [
+      "Aggregate functions skip NULLs — min ignores NULL values in a Nullable(T) column and returns the smallest non-NULL value.",
+      "The return type matches the column: min over a DateTime gives a DateTime, min over a Decimal gives a Decimal.",
+      "When you need the row at the minimum rather than the value itself, use argMin(col, argCol) — hypequery exposes it natively as .argMin(col, argCol, alias)."
+    ],
+    "relatedFunctions": [
+      "max",
+      "sum",
+      "avg",
+      "quantile"
+    ],
+    "relatedPillars": [
+      {
+        "href": "/clickhouse-analytics",
+        "label": "ClickHouse Analytics"
+      },
+      {
+        "href": "/clickhouse-typescript",
+        "label": "ClickHouse TypeScript"
+      },
+      {
+        "href": "/clickhouse-query-builder",
+        "label": "ClickHouse Query Builder"
+      }
+    ],
+    "searchIntentCards": [
+      {
+        "title": "GROUP BY min in ClickHouse",
+        "copy": "min is the standard aggregate for the smallest value per group. Combine it with GROUP BY tenant_id to get the earliest signup or lowest price for every tenant in one pass."
+      },
+      {
+        "title": "min value vs the row at the minimum",
+        "copy": "min(total) tells you the cheapest order amount, but not which order it was. Use argMin(order_id, total) — .argMin() in hypequery — to pull the row sitting at that minimum."
+      },
+      {
+        "title": "ClickHouse min in TypeScript",
+        "copy": "hypequery has a native .min('column', 'alias') on the query builder, so you get the aggregate and a fully typed result back without writing raw SQL."
+      }
+    ],
+    "faqItems": [
+      {
+        "question": "Does ClickHouse min ignore NULL values?",
+        "answer": "Yes. Like other aggregate functions, min skips NULLs in a Nullable column and returns the smallest non-NULL value. If every value in the group is NULL, the result is NULL."
+      },
+      {
+        "question": "What type does min return?",
+        "answer": "min returns the same type as the column it reads — a DateTime column yields a DateTime, a Decimal yields a Decimal, a String yields the lexicographically smallest String."
+      },
+      {
+        "question": "How do I get the row at the minimum, not just the value?",
+        "answer": "Use argMin(returnColumn, minColumn), which returns the value of one column at the row where another is smallest. hypequery exposes it as .argMin('order_id', 'total', 'cheapest_order_id')."
+      }
+    ]
+  },
+
+  {
+    "slug": "max",
+    "name": "max",
+    "cluster": "aggregate",
+    "tagline": "Return the maximum value in a column — the go-to aggregate for peaks, latest timestamps, and largest orders.",
+    "metaTitle": "ClickHouse max — TypeScript max aggregate",
+    "metaDescription": "max(column) returns the largest value in a group. Learn how to use it in TypeScript with hypequery for peak latency, latest event timestamps, and largest-order queries.",
+    "signature": "max(x): T",
+    "description": "Returns the largest value across the rows in each group. The exact mirror of min. Works on numbers, dates, and strings, and skips NULLs.",
+    "longDescription": "max is one of the most common aggregate functions in ClickHouse analytics: it collapses a group of rows down to the single largest value. It works on any orderable type — numbers, DateTime, Date, and strings — so it covers peak latency, the most recent event timestamp, and the largest order in one function. max ignores NULLs, so a Nullable column returns the largest non-NULL value (or NULL if every row is NULL). It pairs naturally with min for range queries, and when you need the row *at* the maximum rather than just the value, reach for argMax instead.",
+    "exampleSql": "SELECT\n  tenant_id,\n  max(latency_ms) AS peak_latency,\n  max(created_at) AS last_event\nFROM events\nWHERE created_at >= now() - INTERVAL 7 DAY\nGROUP BY tenant_id\nORDER BY peak_latency DESC\nLIMIT 50",
+    "hypequeryExample": "import { createQueryBuilder } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './schema';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\nconst peaks = await db\n  .table('events')\n  .select(['tenant_id'])\n  .max('latency_ms', 'peak_latency')\n  .max('created_at', 'last_event')\n  .where('created_at', 'gte', '2026-07-13')\n  .groupBy('tenant_id')\n  .orderBy('peak_latency', 'DESC')\n  .limit(50)\n  .execute();",
+    "hypequeryFilename": "peak-latency.ts",
+    "returnType": "Same type as the input column (Nullable if the column is Nullable)",
+    "notes": [
+      "max ignores NULLs and returns the largest non-NULL value; it returns NULL only when every row in the group is NULL.",
+      "max(created_at) gives you the latest timestamp, but not the other columns from that row — use argMax(other_col, created_at) to fetch the value at the maximum. hypequery exposes this natively as .argMax('other_col', 'created_at', 'alias').",
+      "On a ReplacingMergeTree table, the argMax pattern (or .final()) is the standard way to pick the latest version of each key without paying for a full FINAL merge.",
+      "max comes back typed by hypequery's generated schema — a max over a UInt64 column arrives as a string in JS, and a max over DateTime arrives as a string, matching ClickHouse's wire format."
+    ],
+    "relatedFunctions": [
+      "min",
+      "sum",
+      "avg",
+      "quantile"
+    ],
+    "relatedPillars": [
+      {
+        "href": "/clickhouse-analytics",
+        "label": "ClickHouse Analytics"
+      },
+      {
+        "href": "/clickhouse-real-time-analytics",
+        "label": "Real-Time Analytics"
+      },
+      {
+        "href": "/clickhouse-query-builder",
+        "label": "ClickHouse Query Builder"
+      }
+    ],
+    "searchIntentCards": [
+      {
+        "title": "Latest value per key in ClickHouse",
+        "copy": "max(created_at) finds the most recent timestamp per group, but to grab the row at that timestamp use argMax(status, created_at). hypequery exposes .argMax('status', 'created_at', 'latest_status') natively — the same idiom that deduplicates a ReplacingMergeTree."
+      },
+      {
+        "title": "Peak latency and largest order in TypeScript",
+        "copy": "Use .max('latency_ms', 'peak_latency') to get the worst latency per tenant, or .max('total', 'largest_order') for the biggest order. Results are fully typed from your generated schema."
+      },
+      {
+        "title": "max vs argMax in ClickHouse",
+        "copy": "max returns the largest value; argMax returns another column's value at the row where a given column is largest. Pick max for the number, argMax when you need the accompanying data."
+      }
+    ],
+    "faqItems": [
+      {
+        "question": "What does max return in ClickHouse?",
+        "answer": "It returns the single largest value across the rows in each group, in the same type as the input column. It works on numbers, dates, and strings, and skips NULLs, returning NULL only when every row is NULL."
+      },
+      {
+        "question": "How do I get the row at the maximum, not just the value?",
+        "answer": "Use argMax instead of max: argMax(status, created_at) returns the status from the row with the largest created_at. In hypequery this is .argMax('status', 'created_at', 'latest_status')."
+      },
+      {
+        "question": "How do I use max in hypequery?",
+        "answer": "Call the native .max(column, alias) aggregate on the query builder, for example .max('latency_ms', 'peak_latency'), then .groupBy(...) and .execute(). The result column is typed from your generated schema."
+      }
+    ]
+  },
+
+  {
+    "slug": "uniqExact",
+    "name": "uniqExact",
+    "cluster": "aggregate",
+    "tagline": "Count distinct values exactly — the precise, memory-heavy counterpart to uniq().",
+    "metaTitle": "ClickHouse uniqExact — TypeScript exact distinct count",
+    "metaDescription": "uniqExact returns an exact distinct count. Learn when to use it over the faster uniq() in TypeScript with hypequery, and how COUNT(DISTINCT) maps to it.",
+    "signature": "uniqExact(column: T): UInt64",
+    "description": "Returns the exact number of distinct values in a column. Unlike uniq(), it holds every distinct value in memory, so it is accurate but costly on high-cardinality columns.",
+    "longDescription": "uniqExact is the exact-cardinality aggregate in ClickHouse: it computes COUNT(DISTINCT column) with no approximation. To guarantee accuracy it keeps a hash set of every distinct value it sees, which makes it memory-heavy and slower than uniq() on high-cardinality columns like user_id or session_id. Reach for uniqExact only when exactness is a hard requirement — billing, compliance, or invoice reconciliation — and use uniq() for dashboards and exploratory analytics where a small error is acceptable. A useful detail: COUNT(DISTINCT x) maps to uniqExact by default (controlled by the count_distinct_implementation setting), so the two are equivalent unless you change that setting.",
+    "exampleSql": "SELECT\n  toStartOfDay(created_at) AS day,\n  uniqExact(user_id) AS exact_users\nFROM events\nGROUP BY day\nORDER BY day DESC\nLIMIT 30",
+    "hypequeryExample": "import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './schema';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\n// Native .countDistinct emits COUNT(DISTINCT col), which resolves to uniqExact by default —\n// so this IS the exact path in hypequery.\nconst exactByDay = await db\n  .table('events')\n  .select([selectExpr('toStartOfDay(created_at)', 'day')])\n  .countDistinct('user_id', 'exact_users')\n  .groupBy('day')\n  .orderBy('day', 'DESC')\n  .limit(30)\n  .execute();\n\n// Or call uniqExact explicitly with selectExpr when you want the function by name:\nconst exactUsers = await db\n  .table('events')\n  .select([selectExpr('uniqExact(user_id)', 'exact_users')])\n  .execute();",
+    "hypequeryFilename": "exact-distinct-users.ts",
+    "returnType": "UInt64",
+    "notes": [
+      "uniqExact stores every distinct value in memory, so it can be slow and RAM-hungry on high-cardinality columns — prefer uniq() unless exactness is required.",
+      "COUNT(DISTINCT x) compiles to uniqExact by default via the count_distinct_implementation setting, so the two produce identical results.",
+      "UInt64 counts come back from ClickHouse as strings in JavaScript — parse before doing arithmetic on the result.",
+      "hypequery's .countDistinct('col', 'alias') emits COUNT(DISTINCT col), which is the exact (uniqExact) path; use uniq() via selectExpr for the fast approximate count."
+    ],
+    "relatedFunctions": [
+      "uniq",
+      "count",
+      "groupArray"
+    ],
+    "relatedPillars": [
+      {
+        "href": "/clickhouse-analytics",
+        "label": "ClickHouse Analytics"
+      },
+      {
+        "href": "/clickhouse-product-analytics",
+        "label": "Product Analytics"
+      },
+      {
+        "href": "/clickhouse-query-builder",
+        "label": "ClickHouse Query Builder"
+      }
+    ],
+    "searchIntentCards": [
+      {
+        "title": "COUNT(DISTINCT) in ClickHouse",
+        "copy": "COUNT(DISTINCT x) maps to uniqExact by default via count_distinct_implementation. In hypequery, .countDistinct('user_id', 'exact_users') emits exactly that — an exact distinct count."
+      },
+      {
+        "title": "uniqExact vs uniq",
+        "copy": "uniqExact is exact but keeps every value in memory; uniq() is approximate, fast, and fixed-memory. Use uniqExact for billing and compliance, uniq() for dashboards."
+      },
+      {
+        "title": "Exact distinct count in TypeScript",
+        "copy": "hypequery gives you both paths with typed results: native .countDistinct for the exact count, or selectExpr('uniqExact(user_id)', 'exact_users') to name the function directly."
+      }
+    ],
+    "faqItems": [
+      {
+        "question": "What is the difference between uniqExact and uniq in ClickHouse?",
+        "answer": "uniqExact returns the exact distinct count by keeping every value in memory, while uniq() returns an approximate count using an HLL-like algorithm with small, fixed memory. Use uniqExact when exactness is required and uniq() when speed matters more than a tiny error."
+      },
+      {
+        "question": "Does COUNT(DISTINCT x) use uniqExact?",
+        "answer": "Yes. By default ClickHouse rewrites COUNT(DISTINCT x) to uniqExact(x), controlled by the count_distinct_implementation setting. In hypequery, .countDistinct('col', 'alias') emits COUNT(DISTINCT col), so it takes the exact path."
+      },
+      {
+        "question": "When should I avoid uniqExact?",
+        "answer": "Avoid it on high-cardinality columns in latency-sensitive queries — it stores all distinct values and can consume significant memory. Prefer uniq() for dashboards and exploratory analytics unless the count must be exact."
+      }
+    ]
+  },
+
+  {
+    "slug": "coalesce",
+    "name": "coalesce",
+    "cluster": "conditional",
+    "tagline": "Return the first non-NULL argument — the standard fix for Nullable(T) columns leaking into results.",
+    "metaTitle": "ClickHouse coalesce in TypeScript | NULL fallbacks",
+    "metaDescription": "coalesce returns the first non-NULL argument. Use it in TypeScript with hypequery to push defaults for Nullable(T) columns into SQL and drop the T | null from results.",
+    "signature": "coalesce(x1: Nullable(T), x2: T, ...): T",
+    "description": "Evaluates its arguments left to right and returns the first one that is not NULL. The standard way to substitute a default for a Nullable(T) column so the result never contains NULL.",
+    "longDescription": "coalesce is the workhorse for handling nullable columns in ClickHouse. It scans its arguments in order and returns the first non-NULL value, falling back to the next argument whenever the previous one is NULL. In analytics this is how you keep NULLs out of GROUP BY keys, chart labels, and API payloads: coalesce(region, 'unknown') collapses missing regions into a single labelled bucket instead of a separate NULL group. In hypequery this matters even more, because the generated types map a Nullable(T) column to T | null, so TypeScript forces you to handle the null case. Wrapping the column in coalesce at query time pushes the default down into SQL, and the result column comes back as a plain T — no null to reason about downstream.",
+    "exampleSql": "SELECT\n  coalesce(region, 'unknown') AS region,\n  count() AS orders,\n  sum(total) AS revenue\nFROM orders\nGROUP BY region\nORDER BY revenue DESC",
+    "hypequeryExample": "import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './schema';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\nconst byRegion = await db\n  .table('orders')\n  .select([selectExpr(\"coalesce(region, 'unknown')\", 'region')])\n  .count('id', 'orders')\n  .sum('total', 'revenue')\n  .groupBy('region')\n  .orderBy('revenue', 'DESC')\n  .execute();",
+    "hypequeryFilename": "orders-by-region.ts",
+    "returnType": "T (the non-nullable supertype of the arguments)",
+    "notes": [
+      "All arguments should share a common supertype — coalesce(revenue, 0) is fine, coalesce(name, 0) is not.",
+      "For the common two-argument case, ifNull(x, alt) is the shorter equivalent of coalesce(x, alt).",
+      "assumeNotNull(x) strips the Nullable wrapper without supplying a default — it is unsafe and returns garbage if the value is actually NULL, so prefer coalesce.",
+      "coalesce over a GROUP BY key collapses NULLs into one labelled bucket instead of a separate NULL group."
+    ],
+    "relatedFunctions": [
+      "ifNull",
+      "nullIf",
+      "assumeNotNull",
+      "multiIf"
+    ],
+    "relatedPillars": [
+      {
+        "href": "/clickhouse-typescript",
+        "label": "ClickHouse TypeScript"
+      },
+      {
+        "href": "/clickhouse-analytics",
+        "label": "ClickHouse Analytics"
+      },
+      {
+        "href": "/clickhouse-query-builder",
+        "label": "ClickHouse Query Builder"
+      }
+    ],
+    "searchIntentCards": [
+      {
+        "title": "Replace NULL with a default in ClickHouse",
+        "copy": "coalesce(col, fallback) returns the first non-NULL argument, so coalesce(region, 'unknown') swaps every NULL region for a default. It is the standard fix for Nullable(T) columns leaking NULLs into your results."
+      },
+      {
+        "title": "coalesce vs ifNull in ClickHouse",
+        "copy": "ifNull(x, alt) is the two-argument shortcut; coalesce(x1, x2, ...) takes any number of fallbacks and returns the first non-NULL. Use ifNull for a single default, coalesce when you have a chain of fallbacks."
+      },
+      {
+        "title": "Handle Nullable columns in TypeScript",
+        "copy": "hypequery generates Nullable(T) columns as T | null, so TypeScript forces you to handle the null. Wrapping the column in selectExpr(\"coalesce(col, 'default')\", 'col') pushes the default into SQL and returns a plain, non-nullable T."
+      }
+    ],
+    "faqItems": [
+      {
+        "question": "What does coalesce return in ClickHouse?",
+        "answer": "It evaluates its arguments left to right and returns the first one that is not NULL. If every argument is NULL, the result is NULL, so end the list with a non-nullable default like coalesce(region, 'unknown')."
+      },
+      {
+        "question": "What is the difference between coalesce and ifNull?",
+        "answer": "ifNull(x, alt) is the two-argument special case of coalesce. coalesce(x1, x2, ...) accepts any number of arguments and returns the first non-NULL, so reach for it when you have a chain of fallbacks rather than a single default."
+      },
+      {
+        "question": "How do I remove the null from a Nullable column in hypequery?",
+        "answer": "hypequery types a Nullable(T) column as T | null. Wrap it in coalesce inside selectExpr — selectExpr(\"coalesce(region, 'unknown')\", 'region') — to push the default into SQL so the result column comes back as a plain, non-nullable T."
+      }
+    ]
+  },
+
+  {
+    "slug": "dateDiff",
+    "name": "dateDiff",
+    "cluster": "date",
+    "tagline": "Count calendar-boundary crossings between two dates — not elapsed time, which is the gotcha everyone hits.",
+    "metaTitle": "ClickHouse dateDiff — TypeScript date differences",
+    "metaDescription": "dateDiff(unit, start, end) counts calendar-boundary crossings between two dates, not elapsed time. Learn the gotcha and use it type-safely in TypeScript.",
+    "signature": "dateDiff(unit: String, startdate: DateTime, enddate: DateTime[, timezone: String]): Int64",
+    "description": "Returns the number of `unit` boundaries (day, month, year, etc.) crossed between two dates. It counts calendar boundaries, not elapsed time — so 23:59 on Dec 31 to 00:01 on Jan 1 is 1 day.",
+    "longDescription": "dateDiff is the function people reach for to answer \"how many days/months/years between these two timestamps?\" — but its behavior surprises almost everyone the first time. It does not measure elapsed duration. It counts how many `unit` boundaries you cross going from the start to the end. dateDiff('day', '2024-12-31 23:59:00', '2025-01-01 00:01:00') returns 1, even though only two minutes elapsed, because a single midnight boundary was crossed. Likewise dateDiff('year', '2024-12-31', '2025-01-01') is 1. This is exactly what you want for questions phrased in calendar terms (\"which billing month is this in?\") and exactly what you don't want for SLA timers or precise durations. When you need complete elapsed units instead, use age(), the complement: age('day', start, end) only counts a day once a full 24 hours has passed. Supported units range from nanosecond through year, and dateDiff has two aliases, date_diff and timestampDiff.",
+    "exampleSql": "SELECT\n  region,\n  avg(dateDiff('day', created_at, converted_at)) AS avg_days_to_convert,\n  count() AS conversions\nFROM orders\nWHERE converted_at IS NOT NULL\nGROUP BY region\nORDER BY avg_days_to_convert ASC",
+    "hypequeryExample": "import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './schema';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\nconst conversions = await db\n  .table('orders')\n  .select([\n    'region',\n    selectExpr(\"dateDiff('day', created_at, converted_at)\", 'days_to_convert'),\n  ])\n  .whereNotNull('converted_at')\n  .orderBy('days_to_convert', 'ASC')\n  .execute();",
+    "hypequeryFilename": "days-to-convert.ts",
+    "returnType": "Int64",
+    "notes": [
+      "dateDiff counts calendar-boundary crossings, not elapsed time: dateDiff('day', '2024-12-31 23:59:00', '2025-01-01 00:01:00') is 1 despite only two minutes passing.",
+      "Use age(unit, start, end) as the complement — it counts complete elapsed units, so the same two-minute span returns 0 days.",
+      "The aliases date_diff and timestampDiff are identical to dateDiff; pick one and stay consistent across a codebase.",
+      "Supported units run from nanosecond to year; the result is always an Int64.",
+      "Pass a fourth timezone argument to control which calendar the boundaries are measured in — this matters for day and larger units near midnight.",
+      "In hypequery, wrap the call in selectExpr(\"dateDiff('day', a, b)\", 'alias') inside .select([...]) — it is a raw ClickHouse expression, not a first-class builder method."
+    ],
+    "relatedFunctions": [
+      "toStartOfDay",
+      "toDate",
+      "now",
+      "formatDateTime"
+    ],
+    "relatedPillars": [
+      {
+        "href": "/clickhouse-time-series",
+        "label": "ClickHouse Time Series"
+      },
+      {
+        "href": "/clickhouse-analytics",
+        "label": "ClickHouse Analytics"
+      },
+      {
+        "href": "/clickhouse-product-analytics",
+        "label": "ClickHouse Product Analytics"
+      }
+    ],
+    "searchIntentCards": [
+      {
+        "title": "Days to conversion in ClickHouse",
+        "copy": "To measure how long a signup takes to convert, dateDiff('day', created_at, converted_at) gives the day count. Remember it counts midnight crossings, so a signup at 23:00 converting at 01:00 the next day counts as 1 day."
+      },
+      {
+        "title": "Subscription age in months or years",
+        "copy": "dateDiff('month', started_at, now()) returns how many month boundaries a subscription has crossed — ideal for billing-cycle and cohort logic where calendar months, not elapsed 30-day windows, are what matter."
+      },
+      {
+        "title": "dateDiff counting wrong for SLA timers",
+        "copy": "If your SLA timer over-counts, you are hitting the boundary-crossing behavior: dateDiff('hour', ...) increments at each clock hour, not per 60 elapsed minutes. Use age('hour', start, end) when you need complete elapsed hours instead."
+      }
+    ],
+    "faqItems": [
+      {
+        "question": "Does dateDiff measure elapsed time between two dates?",
+        "answer": "No. dateDiff counts how many `unit` boundaries are crossed between the two dates, not the elapsed duration. dateDiff('day', '2024-12-31 23:59:00', '2025-01-01 00:01:00') returns 1 because one midnight is crossed, even though only two minutes elapsed. Use age() when you need complete elapsed units."
+      },
+      {
+        "question": "What is the difference between dateDiff and age in ClickHouse?",
+        "answer": "dateDiff counts calendar-boundary crossings, so a partial unit still counts. age counts only fully completed units, so it returns the same value only once a whole unit of time has actually passed. They are complements: reach for dateDiff for calendar questions and age for precise durations."
+      },
+      {
+        "question": "What units and return type does dateDiff support?",
+        "answer": "dateDiff accepts units from nanosecond, microsecond, millisecond, second, minute, hour, day, week, month, quarter, up to year, and always returns an Int64. Its aliases date_diff and timestampDiff behave identically."
+      }
+    ]
+  },
+
+  {
+    "slug": "arrayMap",
+    "name": "arrayMap",
+    "cluster": "array",
+    "tagline": "Transform every element of an array with a lambda — no subquery, no UNNEST.",
+    "metaTitle": "ClickHouse arrayMap — TypeScript array transforms",
+    "metaDescription": "arrayMap applies a lambda to every element of an array. Use it in TypeScript with hypequery to transform values collected by groupArray, no subquery needed.",
+    "signature": "arrayMap(func: x -> expr, arr: Array(T)): Array(U)",
+    "description": "Applies a lambda function to every element of an array and returns a new array of the transformed results. Uses ClickHouse's higher-order lambda syntax (x -> expr).",
+    "longDescription": "arrayMap is ClickHouse's higher-order array transform: you pass a lambda (x -> expr) and an array, and it returns a new array where each element is the result of running the lambda on the original. Because ClickHouse arrays are first-class column values, arrayMap chains naturally with groupArray — collect rows into an array with groupArray, then reshape each value inline without a correlated subquery or a second GROUP BY pass. The multi-array form arrayMap((x, y) -> ..., arr1, arr2) walks several equal-length arrays in lockstep, which is how you combine collected fields (say, prices and quantities) element by element.",
+    "exampleSql": "SELECT\n  region,\n  arrayMap(x -> round(x * 1.2, 2), groupArray(price)) AS adjusted_prices\nFROM orders\nGROUP BY region\nORDER BY region",
+    "hypequeryExample": "import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './schema';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\nconst adjusted = await db\n  .table('orders')\n  .select([\n    'region',\n    selectExpr('arrayMap(x -> round(x * 1.2, 2), groupArray(price))', 'adjusted_prices'),\n  ])\n  .groupBy('region')\n  .orderBy('region', 'ASC')\n  .execute();",
+    "hypequeryFilename": "adjusted-prices.ts",
+    "returnType": "Array(U)",
+    "notes": [
+      "The lambda uses ClickHouse arrow syntax (x -> expr), not a SQL function name — express it inside selectExpr in hypequery.",
+      "The multi-array form arrayMap((x, y) -> x * y, prices, quantities) requires every input array to be the same length or the query errors.",
+      "Pair with groupArray to collect rows first, then transform each value inline instead of writing a subquery or second aggregation pass."
+    ],
+    "relatedFunctions": [
+      "groupArray",
+      "arrayFilter"
+    ],
+    "relatedPillars": [
+      {
+        "href": "/clickhouse-typescript",
+        "label": "ClickHouse TypeScript"
+      },
+      {
+        "href": "/clickhouse-analytics",
+        "label": "ClickHouse Analytics"
+      },
+      {
+        "href": "/clickhouse-query-builder",
+        "label": "ClickHouse Query Builder"
+      }
+    ],
+    "searchIntentCards": [
+      {
+        "title": "Transform an array in ClickHouse",
+        "copy": "arrayMap runs a lambda over every element of an array and returns a new array. Use arrayMap(x -> expr, arr) to convert units, round values, or reshape each element without touching the rest of the query."
+      },
+      {
+        "title": "arrayMap with groupArray",
+        "copy": "Collect rows into an array with groupArray, then wrap it in arrayMap to transform each collected value in place — no correlated subquery and no second GROUP BY."
+      },
+      {
+        "title": "ClickHouse arrayMap in TypeScript",
+        "copy": "hypequery has no dedicated arrayMap builder method, but selectExpr lets you pass arrayMap(x -> round(x * 1.2, 2), prices) straight into .select([...]) and get typed rows back."
+      }
+    ],
+    "faqItems": [
+      {
+        "question": "What does arrayMap return in ClickHouse?",
+        "answer": "It returns a new array of the same length as the input, where each element is the result of applying the lambda (x -> expr) to the corresponding source element."
+      },
+      {
+        "question": "Can arrayMap work over multiple arrays at once?",
+        "answer": "Yes. The multi-array form arrayMap((x, y) -> ..., arr1, arr2) walks several arrays in parallel, so you can combine collected fields element by element. All input arrays must be the same length."
+      },
+      {
+        "question": "How do I use arrayMap in hypequery?",
+        "answer": "There is no arrayMap method on the query builder. Pass the expression through selectExpr, for example selectExpr('arrayMap(x -> round(x * 1.2, 2), groupArray(price))', 'adjusted_prices') inside .select([...])."
+      }
+    ]
+  },
+
+  {
+    "slug": "arrayFilter",
+    "name": "arrayFilter",
+    "cluster": "array",
+    "tagline": "Keep only the array elements that match a lambda predicate — the array-native WHERE clause.",
+    "metaTitle": "ClickHouse arrayFilter — TypeScript array filtering",
+    "metaDescription": "arrayFilter keeps array elements where a lambda returns nonzero. Use it in TypeScript with hypequery to filter arrays in one expression, no subquery.",
+    "signature": "arrayFilter(func: x -> UInt8, arr: Array(T)): Array(T)",
+    "description": "Returns a new array containing only the elements of the input array for which the lambda x -> cond evaluates to a nonzero value. The array-column equivalent of a WHERE clause.",
+    "longDescription": "arrayFilter walks an array and keeps every element where the lambda predicate returns nonzero (truthy), dropping the rest. It uses the same x -> expr lambda syntax as arrayMap, so the two pair naturally: filter an array down to the elements you care about, then map over the survivors — all in a single SQL expression, with no subquery or arrayJoin round-trip. Because it operates row-by-row on the array column, it is the idiomatic way to slice event lists, tag arrays, or per-order line items before aggregating with functions like groupArray, sum, or length.",
+    "exampleSql": "SELECT\n  order_id,\n  arrayFilter(x -> x > 100, order_values) AS large_orders,\n  length(arrayFilter(x -> x > 100, order_values)) AS large_order_count\nFROM orders\nWHERE has(order_values, 0) = 0\nORDER BY large_order_count DESC\nLIMIT 50",
+    "hypequeryExample": "import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './schema';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\nconst rows = await db\n  .table('orders')\n  .select([\n    'order_id',\n    selectExpr('arrayFilter(x -> x > 100, order_values)', 'large_orders'),\n  ])\n  .orderBy('order_id', 'DESC')\n  .limit(50)\n  .execute();",
+    "hypequeryFilename": "large-orders.ts",
+    "returnType": "Array(T) — a new array of the same element type, containing only the matching elements",
+    "notes": [
+      "The lambda must return a nonzero value to keep an element; ClickHouse treats any nonzero number as true, so predicates like x -> x > 100 or x -> x != '' work directly.",
+      "arrayFilter uses the same x -> expr lambda syntax as arrayMap, so you can filter then map in one expression — arrayMap(x -> x * 2, arrayFilter(x -> x > 100, order_values)) — without a subquery.",
+      "When you only need a boolean or a count rather than the filtered array, reach for the predicate cousins: arrayExists (any element matches), arrayAll (every element matches), and arrayCount (how many match).",
+      "In hypequery there is no dedicated array-lambda builder method — pass the whole arrayFilter(...) call through selectExpr(sql, alias) inside .select([...]) and you still get typed results back."
+    ],
+    "relatedFunctions": [
+      "arrayMap",
+      "groupArray"
+    ],
+    "relatedPillars": [
+      {
+        "href": "/clickhouse-analytics",
+        "label": "ClickHouse Analytics"
+      },
+      {
+        "href": "/clickhouse-typescript",
+        "label": "ClickHouse TypeScript"
+      },
+      {
+        "href": "/clickhouse-query-builder",
+        "label": "ClickHouse Query Builder"
+      }
+    ],
+    "searchIntentCards": [
+      {
+        "title": "Filter an array column in ClickHouse",
+        "copy": "arrayFilter(x -> cond, arr) is the array-native WHERE clause: it returns a new array of only the elements where the lambda is nonzero, leaving the rest of the row untouched."
+      },
+      {
+        "title": "arrayFilter vs arrayMap",
+        "copy": "arrayMap transforms every element; arrayFilter drops the ones that fail a predicate. They share the x -> expr lambda syntax, so nest them to filter then transform in a single expression."
+      },
+      {
+        "title": "ClickHouse array filtering in TypeScript",
+        "copy": "hypequery has no array-lambda builder method, so pass arrayFilter(x -> x > 100, order_values) through selectExpr inside .select([...]) and get a typed array back on the result row."
+      }
+    ],
+    "faqItems": [
+      {
+        "question": "What does arrayFilter return?",
+        "answer": "A new array of the same element type containing only the elements for which the lambda x -> cond returned a nonzero value. Non-matching elements are removed and the original array is unchanged."
+      },
+      {
+        "question": "How is arrayFilter different from arrayExists or arrayCount?",
+        "answer": "arrayFilter returns the filtered array itself, while arrayExists returns 1 if any element matches, arrayAll returns 1 only if every element matches, and arrayCount returns how many matched. Use the predicate versions when you need a boolean or a number instead of the sub-array."
+      },
+      {
+        "question": "Can I use arrayFilter in hypequery's query builder?",
+        "answer": "Yes. There is no dedicated array-lambda method, so wrap the full call in selectExpr('arrayFilter(x -> x > 100, order_values)', 'large_orders') inside .select([...]). hypequery passes the raw expression through and still types the returned column."
+      }
+    ]
+  },
 ];
 
 export const functionsBySlug = Object.fromEntries(
@@ -1457,5 +1942,5 @@ export const functionsByCluster = clickhouseFunctions.reduce<
     acc[fn.cluster].push(fn);
     return acc;
   },
-  { date: [], aggregate: [], string: [], conditional: [], math: [] },
+  { date: [], aggregate: [], string: [], conditional: [], math: [], array: [] },
 );
