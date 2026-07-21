@@ -1,5 +1,11 @@
 # @hypequery/protocol
 
+## 0.9.0
+
+### Minor Changes
+
+- 04abd3c: Add metadata-only query event and privileged query diagnostics validators with closed field sets, size caps, redaction and retention classes, and safe version evolution, per RFC 0011.
+
 ## 0.8.0
 
 ### Minor Changes
