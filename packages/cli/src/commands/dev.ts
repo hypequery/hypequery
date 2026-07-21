@@ -38,6 +38,36 @@ export interface DevOptions {
   open?: boolean;
   cors?: boolean;
   path?: string;
+  /**
+   * Opt into the experimental query UI/gateway at /__dev. Off by default —
+   * the UI is not release-ready; behaviour and flag may change or go away.
+   */
+  uiExperimental?: boolean;
+}
+
+/**
+ * Attempt to create the local gateway from @hypequery/gateway. The package is an
+ * optional dependency, so it may be absent; in that case we return null (with a
+ * hint) and `hypequery dev` still runs as a plain server.
+ */
+async function createGatewayIfAvailable(
+  api: unknown
+): Promise<{ mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null> {
+  try {
+    const { createGateway } = await import('@hypequery/gateway');
+    return (await createGateway(api as any, {
+      projectName: path.basename(process.cwd()),
+      devToken: process.env.HYPEQUERY_DEV_TOKEN,
+    })) as any;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('Cannot find') || message.includes('ERR_MODULE_NOT_FOUND')) {
+      logger.warn('Playground UI not installed. Install @hypequery/gateway to enable it.');
+      return null;
+    }
+    logger.warn(`Playground failed to start: ${message}`);
+    return null;
+  }
 }
 
 export async function devCommand(file?: string, options: DevOptions = {}) {
@@ -57,6 +87,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   logger.newline();
 
   let currentServer: any = null;
+  let currentGateway: { mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null = null;
   const shouldWatch = options.watch !== false; // Default to true
 
   const startServer = async () => {
@@ -91,13 +122,19 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
       logger.newline();
 
+      // The query UI is experimental and strictly opt-in; the default dev
+      // server is unchanged.
+      const gateway = options.uiExperimental ? await createGatewayIfAvailable(api) : null;
+      currentGateway = gateway;
+
       // Start the server
-      const { serveDev } = await import('@hypequery/serve');
+      const { serveDev } = await import('@hypequery/serve/dev');
 
       currentServer = await serveDev(api, {
         port: options.port,
         hostname: options.hostname,
         quiet: true,
+        mount: gateway?.mount as any,
       });
 
       const address = currentServer.server.address();
@@ -108,10 +145,14 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       const docsPath = api.docs?.path ?? '/docs';
       const openapiPath = api.openapi?.path ?? '/openapi.json';
 
-      logger.box([
+      const boxLines = [
         `Docs:     ${baseUrl}${api.basePath ?? ''}${docsPath}`,
         `OpenAPI:  ${baseUrl}${api.basePath ?? ''}${openapiPath}`,
-      ]);
+      ];
+      if (gateway?.uiAvailable) {
+        boxLines.unshift(`Playground: ${baseUrl}/__dev`);
+      }
+      logger.box(boxLines);
 
       logger.newline();
       logger.success(`Ready in ${process.uptime().toFixed(0)}ms`);
@@ -173,6 +214,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
       logger.newline();
       logger.reload('File changed, restarting...');
       logger.newline();
+      if (currentGateway) await currentGateway.shutdown();
       await currentServer.stop();
     }
     await startServer();
@@ -181,6 +223,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   const shutdown = async () => {
     logger.newline();
     logger.info('Shutting down dev server...');
+    if (currentGateway) await currentGateway.shutdown();
     if (currentServer) {
       await currentServer.stop();
     }

@@ -30,11 +30,22 @@ vi.mock('ora', () => ({
   })),
 }));
 
-// Mock @hypequery/serve
+// Mock @hypequery/serve/dev
 const mockServeDev = vi.fn();
 const mockServerStop = vi.fn();
-vi.mock('@hypequery/serve', () => ({
+vi.mock('@hypequery/serve/dev', () => ({
   serveDev: mockServeDev,
+}));
+
+// Mock @hypequery/gateway
+const mockGatewayShutdown = vi.fn();
+vi.mock('@hypequery/gateway', () => ({
+  createGateway: vi.fn(async () => ({
+    mount: vi.fn(),
+    shutdown: mockGatewayShutdown,
+    uiAvailable: true,
+    capabilities: ['registry', 'execute', 'history', 'events'],
+  })),
 }));
 
 // Mock open package
@@ -86,6 +97,30 @@ describe('dev command', () => {
 
   afterEach(() => {
     exitHandler.restore();
+  });
+
+  describe('experimental query UI', () => {
+    it('does not start the gateway by default', async () => {
+      const { createGateway } = await import('@hypequery/gateway');
+      await devCommand(undefined, { watch: false });
+
+      expect(createGateway).not.toHaveBeenCalled();
+      expect(mockServeDev).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ mount: undefined })
+      );
+    });
+
+    it('starts the gateway only with --ui-experimental', async () => {
+      const { createGateway } = await import('@hypequery/gateway');
+      await devCommand(undefined, { watch: false, uiExperimental: true });
+
+      expect(createGateway).toHaveBeenCalledOnce();
+      expect(mockServeDev).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ mount: expect.any(Function) })
+      );
+    });
   });
 
   describe('Happy path (watch disabled for testing)', () => {
