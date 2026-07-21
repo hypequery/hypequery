@@ -52,10 +52,12 @@ export class DevHandler {
   private router: DevAPIRouter;
   private apiBasePath: string;
   private distDir: string | null;
+  private telemetry?: DevHandlerOptions['telemetry'];
 
   constructor(options: DevHandlerOptions) {
     this.apiBasePath = options.apiBasePath ?? '/__dev';
     this.distDir = resolveStudioDist();
+    this.telemetry = options.telemetry;
     this.router = new DevAPIRouter(options);
   }
 
@@ -93,12 +95,15 @@ export class DevHandler {
 
   private async serveHTML(res: ServerResponse): Promise<boolean> {
     if (!this.distDir) {
+      this.telemetry?.track('ui_missing');
       res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('hypequery studio UI is not installed. Install @hypequery/studio to enable Studio.');
       return true;
     }
     try {
       const html = await readFile(path.join(this.distDir, 'index.html'), 'utf-8');
+      // Funnel step 2: someone actually opened the playground in a browser.
+      this.telemetry?.track('ui_served');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
       res.end(html);
     } catch {

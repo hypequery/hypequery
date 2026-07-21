@@ -4,6 +4,7 @@ import type { DevIntegrationApi, GatewayCapability } from './types.js';
 import { createStore, type StorageOptions } from './storage/index.js';
 import { DevQueryLogger } from './query-logger.js';
 import { DevHandler } from './dev-handler.js';
+import { Telemetry, anonymize, durationBucket } from './telemetry.js';
 
 export interface CreateGatewayOptions {
   /** Storage configuration for query history. */
@@ -20,6 +21,11 @@ export interface CreateGatewayOptions {
    * an HttpOnly dev session by opening `/__dev?token=<devToken>`.
    */
   devToken?: string;
+  /**
+   * Hard-disable anonymous usage telemetry regardless of endpoint/env signals.
+   * Wired to `hypequery dev --no-telemetry`.
+   */
+  telemetryDisabled?: boolean;
 }
 
 export interface Gateway {
@@ -91,9 +97,27 @@ export async function createGateway(
   // sub-capability the UI checks before rendering clear affordances —
   // advertised only when a wired layer reports clearSupported. By gateway
   // creation time the serve API is fully built, so this snapshot is accurate.
-  const capabilities: GatewayCapability[] = ['registry', 'execute', 'history', 'events', 'cache'];
+  // `telemetry` is advertised unconditionally because this gateway always
+  // mounts the endpoints: GET /telemetry reports the effective enabled state
+  // for transparency, and POST accepts-and-discards when disabled. Per the
+  // contract, the capability signals endpoint support (not enabled state),
+  // and the UI must not beacon without it.
+  const capabilities: GatewayCapability[] = [
+    'registry',
+    'execute',
+    'history',
+    'events',
+    'cache',
+    'telemetry'
+  ];
   const cacheLayers = await api.cacheObservability.getStats();
   if (cacheLayers.some((layer) => layer.clearSupported)) capabilities.push('cache:clear');
+
+  const telemetry = new Telemetry({
+    projectDir: process.cwd(),
+    disabled: options.telemetryDisabled
+  });
+  await telemetry.initialize();
 
   const handler = new DevHandler({
     store,
@@ -102,11 +126,33 @@ export async function createGateway(
     api,
     capabilities,
     projectName: options.projectName,
-    allowedOrigins: options.allowedOrigins
+    allowedOrigins: options.allowedOrigins,
+    telemetry
   });
 
   // Stream persisted query events to connected SSE clients.
   logger.onEvent((event) => handler.getSSEHandler().broadcastQueryEvent(event));
+
+  // Funnel step 1: the dev server + gateway came up.
+  telemetry.track('gateway_started', {
+    capabilities: capabilities.join(','),
+    uiAvailable: handler.uiAvailable,
+    endpointCount: description.queries.length
+  });
+
+  // Aggregate query activity from the serve layer (names hashed, no SQL).
+  logger.onEvent((event) => {
+    if (event.type === 'query:completed' || event.type === 'query:error') {
+      // endpointKey is set by DevQueryLogger at runtime but not surfaced in
+      // the QueryLog type; read it defensively.
+      const endpointKey = (event.data as { endpointKey?: string }).endpointKey;
+      telemetry.track('endpoint_executed', {
+        ok: event.type === 'query:completed',
+        endpointHash: endpointKey ? anonymize(endpointKey) : 'unknown',
+        durationBucket: durationBucket(event.data.duration ?? 0)
+      });
+    }
+  });
 
   const devToken = options.devToken;
   const browserSession = devToken ? randomBytes(32).toString('base64url') : undefined;
@@ -163,6 +209,7 @@ export async function createGateway(
     async shutdown() {
       await logger.shutdown();
       handler.shutdown();
+      await telemetry.shutdown();
       await store.close();
     }
   };

@@ -3,6 +3,7 @@ import type { QueryHistoryStore } from '../storage/types.js';
 import type { DevQueryLogger } from '../query-logger.js';
 import type { SSEHandler } from './sse-handler.js';
 import type { CacheObservability, DevIntegrationApi, GatewayCapability } from '../types.js';
+import type { Telemetry } from '../telemetry.js';
 
 /**
  * Context passed to endpoint handlers.
@@ -21,6 +22,8 @@ export interface EndpointContext {
   capabilities: GatewayCapability[];
   /** Project name surfaced in /meta. */
   projectName?: string;
+  /** Anonymous usage telemetry (no-op unless enabled). */
+  telemetry?: Telemetry;
 }
 
 /**

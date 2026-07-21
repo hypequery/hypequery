@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, Trash2, RefreshCw } from 'lucide-react';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import type { QueryFilters } from '@/lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Tooltip } from './ui/tooltip';
+import { track } from '@/lib/telemetry';
 
 interface QueryHistoryProps {
   className?: string;
@@ -29,10 +30,17 @@ export function QueryHistory({ className }: QueryHistoryProps) {
   // stays bound to `search` for immediate feedback.
   const debouncedSearch = useDebouncedValue(search, 300);
 
+  useEffect(() => {
+    track('screen_viewed', { screen: 'runs' }, { once: true });
+  }, []);
+
   // Build API filters from filter state
   const apiFilters: QueryFilters = useMemo(() => {
     const f: QueryFilters = { limit: 100 };
-    if (debouncedSearch) f.search = debouncedSearch;
+    if (debouncedSearch) {
+      f.search = debouncedSearch;
+      track('search_used', undefined, { once: true });
+    }
     return f;
   }, [debouncedSearch]);
 
@@ -90,6 +98,7 @@ export function QueryHistory({ className }: QueryHistoryProps) {
             size="sm"
             aria-label="Clear history"
             onClick={() => {
+              track('history_cleared_clicked');
               if (confirm('Clear all query history?')) {
                 clearHistory();
               }
