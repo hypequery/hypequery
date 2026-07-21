@@ -43,7 +43,11 @@ usable by, or visible to the data plane.
 Created by control-plane or support authorization. It authorizes access to
 privileged diagnostic projections beyond the public metadata and default event
 contracts. Diagnostic access is always audited, and the capability never
-authorizes query execution or lifecycle actions by itself.
+authorizes query execution or lifecycle actions by itself. The audit record
+contract is deferred to a future audit RFC building on the RFC 0011 event
+model; until it is accepted, "audited" requires at minimum an append-only,
+server-written record of the accessor principal, the capability class, the
+target, and the access time — never a client-writable log line.
 
 ## Construction rules
 
@@ -59,6 +63,17 @@ authorizes query execution or lifecycle actions by itself.
 - Every authorization check fails closed. A missing, unknown, expired, or
   mismatched capability results in denial; absence of a tenant capability on a
   tenant-required endpoint results in denial, not a tenant-free execution.
+- A tenant-optional endpoint executes in exactly one of two modes: with a
+  tenant capability, in which case tenant predicates MUST be applied exactly
+  as on a tenant-required endpoint; or without one, in which case the
+  execution is tenant-free and MUST NOT return tenant-scoped data.
+  "Optional" describes whether the caller must present a tenant context,
+  never whether tenant predicates apply when one is present.
+- Relationship traversal MUST NOT widen tenant scope. RFC 0006 makes
+  `hasMany` relationships metadata-only in version 1 to prevent aggregate
+  fan-out; that restriction is a security invariant of this capability model,
+  not a convenience, and every runtime executing relationship queries under a
+  tenant capability MUST honor it.
 
 ## Non-serializability and non-constructibility
 
@@ -135,7 +150,12 @@ are publicly cacheable only for public endpoints with tenant not required.
 Required behavior: identical inputs from two tenants cannot produce a shared
 hit; authenticated or tenant-aware responses are never marked publicly
 cacheable; no cache key or value contains a capability, raw tenant value, or
-credential.
+credential. On a tenant-optional endpoint, "tenant context" is explicit: when
+a tenant capability is present, the cache key MUST incorporate the derived
+tenant fingerprint and the response is tenant-aware for caching purposes, so
+it is never publicly cacheable and never shares a key with tenant-free
+executions; only an execution without a tenant capability may share a key
+with other tenant-free executions of the same endpoint.
 
 ### Log and event exposure
 
@@ -162,6 +182,28 @@ and are separate from public metadata and default events. Required behavior:
 public metadata and default events contain no diagnostic content; every
 diagnostic access is authorized and audited; a diagnostic capability alone
 grants no execution or lifecycle access.
+
+## Stable failure codes
+
+Capability checks produce no serialized capability, but their denials are
+observable. Runtimes surface them with these stable codes:
+
+- `HQ_CAPABILITY_MISSING`: no capability was presented for an endpoint that
+  requires one.
+- `HQ_CAPABILITY_CLASS_MISMATCH`: the presented capability belongs to a
+  different class than the action requires.
+- `HQ_CAPABILITY_TENANT_REQUIRED`: no tenant capability was resolved for a
+  tenant-required endpoint.
+- `HQ_CAPABILITY_TENANT_MISMATCH`: the presented tenant capability does not
+  match the tenant context the execution would use.
+
+These codes classify denials only; they carry no tenant values, capability
+material, or policy detail beyond the class of failure. They map onto the
+RFC 0010 public error envelope categories: `HQ_CAPABILITY_MISSING` and
+`HQ_CAPABILITY_CLASS_MISMATCH` to `unauthenticated` or `forbidden` as the
+authentication state dictates, `HQ_CAPABILITY_TENANT_REQUIRED` and
+`HQ_CAPABILITY_TENANT_MISMATCH` to `tenant-required` and `forbidden`
+respectively.
 
 ## Security
 
