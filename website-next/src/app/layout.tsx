@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans, JetBrains_Mono, Space_Grotesk } from "next/font/goog
 import "./globals.css";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import DefaultSearchDialog from "@/components/search";
+import CookieConsentBanner from "@/components/CookieConsent";
 import { absoluteUrl, siteUrl } from "@/lib/site";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -121,66 +122,18 @@ export default function RootLayout({
 })();`,
           }}
         />
+        {/*
+          Umami is cookieless and collects no personal data, so it is
+          consent-exempt and loads unconditionally. GA, Leadfeeder and reb2b
+          set cookies or identify visitors — they are gated behind the consent
+          banner (see CookieConsentBanner) and injected only after opt-in.
+        */}
         <Script
           defer
           src="https://cloud.umami.is/script.js"
           data-website-id="a1b133a2-bf0a-4260-9c2c-f76a2a20359f"
           strategy="afterInteractive"
         />
-        <Script
-          id="leadfeeder"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `(function (ss, ex) {
-  window.ldfdr =
-    window.ldfdr ||
-    function () {
-      (ldfdr._q = ldfdr._q || []).push([].slice.call(arguments));
-    };
-  (function (d, s) {
-    fs = d.getElementsByTagName(s)[0];
-    function ce(src) {
-      var cs = d.createElement(s);
-      cs.src = src;
-      cs.async = 1;
-      fs.parentNode.insertBefore(cs, fs);
-    }
-    ce(
-      "https://sc.lfeeder.com/lftracker_v1_" +
-        ss +
-        (ex ? "_" + ex : "") +
-        ".js"
-    );
-  })(document, "script");
-})("DzLR5a5lx1Z4BoQ2");`,
-          }}
-        />
-        <Script
-          id="reb2b"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `!function(key){if(window.reb2b)return;window.reb2b={loaded:true};var s=document.createElement("script");s.async=true;s.src="https://ddwl4m2hdecbv.cloudfront.net/b/"+key+"/"+key+".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s,document.getElementsByTagName("script")[0]);}("QOQRJHK1W462");`,
-          }}
-        />
-        {gaMeasurementId ? (
-          <>
-            <Script
-              async
-              src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
-              strategy="afterInteractive"
-            />
-            <Script
-              id="ga"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${gaMeasurementId}');`,
-              }}
-            />
-          </>
-        ) : null}
       </head>
       <body
         className={`${sans.variable} ${mono.variable} ${displayFont.variable} antialiased`}
@@ -199,6 +152,7 @@ gtag('config', '${gaMeasurementId}');`,
         >
           {children}
         </RootProvider>
+        <CookieConsentBanner gaMeasurementId={gaMeasurementId} />
       </body>
     </html>
   );
