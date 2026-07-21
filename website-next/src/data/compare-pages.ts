@@ -9,7 +9,11 @@ export type ComparePageConfig = {
     | 'cube-vs-tinybird-vs-hypequery'
     | 'hypequery-vs-moose'
     | 'hypequery-vs-dbt'
-    | 'hypequery-vs-propel';
+    | 'hypequery-vs-propel'
+    | 'hypequery-vs-typeorm'
+    | 'hypequery-vs-metabase'
+    | 'hypequery-vs-clickhouse-http'
+    | 'hypequery-vs-raw-sql';
   href: string;
   title: string;
   verdict: string;
@@ -427,6 +431,202 @@ export const comparePages: ComparePageConfig[] = [
           'When you want analytics queries versioned in your own repo, response types generated from your actual schema, no per-query platform pricing, and no dependency on a third-party serving layer between your app and your ClickHouse.',
       },
     ],
+  },
+
+  {
+    "slug": "hypequery-vs-typeorm",
+    "href": "/compare/hypequery-vs-typeorm",
+    "title": "hypequery vs TypeORM",
+    "verdict": "TypeORM does not support ClickHouse and has no credible workaround — its entity/decorator model is built for transactional row stores, not columnar append-only analytics. hypequery is the ClickHouse-native TypeScript layer; the realistic setup is coexistence, with TypeORM on Postgres/MySQL and hypequery on the ClickHouse side.",
+    "rows": [
+      {
+        "label": "ClickHouse support",
+        "hypequery": "Native — built specifically for ClickHouse",
+        "alternative": "None — Postgres, MySQL, SQLite, and other OLTP engines only"
+      },
+      {
+        "label": "Data model",
+        "hypequery": "Columnar analytics: aggregations, time grains, tenant scoping",
+        "alternative": "Relational entities: FKs, transactions, migrations, identity map"
+      },
+      {
+        "label": "Schema source",
+        "hypequery": "Generated from your live ClickHouse schema",
+        "alternative": "Decorated entity classes, migrated to the database"
+      },
+      {
+        "label": "Type mapping",
+        "hypequery": "ClickHouse-correct (UInt64 → string, DateTime → string, Nullable → T | null)",
+        "alternative": "Column types for OLTP engines; no ClickHouse column set"
+      },
+      {
+        "label": "Analytics layer",
+        "hypequery": "Query builder, HTTP serving, OpenAPI, React hooks",
+        "alternative": "Repository/entity CRUD — no analytics serving layer"
+      }
+    ],
+    "faq": [
+      {
+        "question": "Does TypeORM support ClickHouse?",
+        "answer": "No. TypeORM has no ClickHouse driver, and there is no MySQL-port style workaround that holds up, because its entity model (foreign keys, transactions, migrations, the identity map) assumes a row-oriented transactional database. hypequery is built natively for ClickHouse instead."
+      },
+      {
+        "question": "Can I use TypeORM for Postgres and hypequery for ClickHouse in the same app?",
+        "answer": "Yes — this is the recommended setup. Keep TypeORM on your Postgres or MySQL entities and add hypequery for the ClickHouse analytics side. They run side by side in one Nest or Express service without competing for the same tables."
+      },
+      {
+        "question": "Is hypequery an ORM?",
+        "answer": "No. hypequery is a typed query builder and serving layer for ClickHouse, not an entity ORM. ClickHouse is columnar and aggregation-first, so hypequery models measures, dimensions, and time grains rather than entities with relations and lifecycle hooks."
+      }
+    ]
+  },
+
+  {
+    "slug": "hypequery-vs-metabase",
+    "href": "/compare/hypequery-vs-metabase",
+    "title": "hypequery vs Metabase",
+    "verdict": "Metabase is a BI tool with a ClickHouse connector and iframe/interactive embedding — the fastest way to get a chart in front of people, especially for internal analytics. hypequery is the code-first route for customer-facing product analytics, where you need type-safe queries, per-tenant governance in your own auth stack, and UI built from your own components.",
+    "rows": [
+      {
+        "label": "Category",
+        "hypequery": "Code-first embedded analytics library",
+        "alternative": "BI tool with a ClickHouse connector and embeds"
+      },
+      {
+        "label": "Best for",
+        "hypequery": "Customer-facing product analytics you ship and own",
+        "alternative": "Internal dashboards and fast chart-in-front-of-people"
+      },
+      {
+        "label": "The UI",
+        "hypequery": "Your own React components on typed contracts",
+        "alternative": "Metabase's charts, embedded via iframe or SDK"
+      },
+      {
+        "label": "Multi-tenancy",
+        "hypequery": "Tenant rules in your app's auth context, per request",
+        "alternative": "Sandboxing / row-level permissions (paid tiers)"
+      },
+      {
+        "label": "Type safety",
+        "hypequery": "Types generated from your live ClickHouse schema",
+        "alternative": "Not code — queries authored in the BI UI"
+      }
+    ],
+    "faq": [
+      {
+        "question": "Is Metabase or hypequery faster to get a first dashboard?",
+        "answer": "Metabase, clearly. Connect ClickHouse, build a question, publish an embed, and a chart is live in an afternoon with no code. hypequery is faster over the long run only when you need typed queries, per-tenant governance, and UI that matches your product."
+      },
+      {
+        "question": "Can I embed Metabase in a customer-facing SaaS product?",
+        "answer": "Yes, with caveats. Static iframe embeds are free; interactive embedding with SSO and row-level sandboxing is a paid tier. The UI is still Metabase's look and feel, and per-tenant rules live in Metabase rather than your own auth stack."
+      },
+      {
+        "question": "Do I have to choose one?",
+        "answer": "No. A common split is Metabase for internal BI and ad-hoc exploration, and hypequery for the customer-facing analytics baked into your product. Both point at the same ClickHouse."
+      }
+    ]
+  },
+
+  {
+    "slug": "hypequery-vs-clickhouse-http",
+    "href": "/compare/hypequery-vs-clickhouse-http",
+    "title": "hypequery vs the ClickHouse HTTP Interface",
+    "verdict": "The ClickHouse HTTP interface is excellent for scripts, health checks, and one-off queries, and it's the transport hypequery uses under the hood. hypequery is the better fit once the same queries live in application code and need types, reuse, and safe parameters.",
+    "rows": [
+      {
+        "label": "Best for",
+        "hypequery": "Application code that queries ClickHouse at request time",
+        "alternative": "Scripts, health checks, one-off queries from the shell"
+      },
+      {
+        "label": "Parameters",
+        "hypequery": "Bound parameters via the query builder",
+        "alternative": "String-concatenated SQL you escape yourself"
+      },
+      {
+        "label": "Response types",
+        "hypequery": "Generated from your schema, correct runtime mappings",
+        "alternative": "Untyped JSON you hand-parse and annotate"
+      },
+      {
+        "label": "Reuse",
+        "hypequery": "One query definition across execution, HTTP, and React",
+        "alternative": "Same query string pasted wherever it's needed"
+      },
+      {
+        "label": "Exposed endpoints",
+        "hypequery": "zod validation, auth hooks, OpenAPI via @hypequery/serve",
+        "alternative": "You build validation and auth from scratch"
+      }
+    ],
+    "faq": [
+      {
+        "question": "Does hypequery replace the ClickHouse HTTP interface?",
+        "answer": "No. hypequery builds on @clickhouse/client, which speaks the same HTTP protocol to ClickHouse. It adds generated types, bound parameters, and reusable query definitions on top of the same transport."
+      },
+      {
+        "question": "When should I stick with raw curl over HTTP?",
+        "answer": "For health checks, ad-hoc exploration, shell scripts, and CI probes, curl against port 8123 with FORMAT JSON is the right tool. There is nothing to install and nothing to maintain."
+      },
+      {
+        "question": "Is string-concatenated SQL over HTTP a real risk?",
+        "answer": "Yes, once user input reaches the query. Interpolating values into a SQL string exposes you to injection and escaping bugs. hypequery's query builder binds parameters and validates inputs before any SQL runs."
+      }
+    ]
+  },
+
+  {
+    "slug": "hypequery-vs-raw-sql",
+    "href": "/compare/hypequery-vs-raw-sql",
+    "title": "hypequery vs Raw SQL",
+    "verdict": "Raw SQL strings are the right call for one-off scripts and genuinely gnarly analytical SQL — and hypequery agrees, which is why selectExpr and withCTE let you drop to raw SQL any time. The case for the builder is the repeated, application-embedded queries where hand-written strings and interfaces silently drift from your schema.",
+    "rows": [
+      {
+        "label": "Best for",
+        "hypequery": "Reused, app-embedded queries that must stay in sync with the schema",
+        "alternative": "One-off scripts, migrations, and genuinely gnarly analytical SQL"
+      },
+      {
+        "label": "Schema drift",
+        "hypequery": "Rename a column and every affected query fails to compile",
+        "alternative": "Nothing fails until the query runs in production"
+      },
+      {
+        "label": "Refactoring",
+        "hypequery": "Find-references and rename work across the codebase",
+        "alternative": "String search, no IDE support, copy-paste reuse"
+      },
+      {
+        "label": "Injection safety",
+        "hypequery": "Parameterized by construction; values never interpolated",
+        "alternative": "Safe only if you never interpolate — easy to get wrong"
+      },
+      {
+        "label": "Escape hatch",
+        "hypequery": "selectExpr / rawAs / withCTE for the hard parts",
+        "alternative": "It is all raw SQL, all the time"
+      }
+    ],
+    "faq": [
+      {
+        "question": "Is raw SQL ever the right choice over hypequery?",
+        "answer": "Yes. For a one-off backfill script, a migration, or a genuinely complex analytical query with window functions and ASOF joins, raw SQL is clearer than any builder. hypequery is aimed at the queries that live in your application and get reused, filtered, and refactored over time — not throwaway SQL."
+      },
+      {
+        "question": "Do I have to give up raw SQL entirely to use hypequery?",
+        "answer": "No. hypequery has escape hatches precisely so you never fight the builder: selectExpr and rawAs drop raw SQL expressions into a typed .select(), and .withCTE() takes a raw SQL subquery. You get compile-time safety on the parts the builder covers and raw SQL for the parts it doesn't."
+      },
+      {
+        "question": "How is this different from comparing hypequery to @clickhouse/client?",
+        "answer": "This page is about the practice of writing raw SQL strings and hand-written result interfaces wherever they live — template literals, .sql files, any client. The comparison with the official @clickhouse/client is about that specific transport library, which hypequery is actually built on top of."
+      },
+      {
+        "question": "Does the builder cover window functions and FINAL?",
+        "answer": "Partly. FINAL, LIMIT BY, CTEs, and array joins are first-class builder methods. Window functions are not — you express them with selectExpr('... OVER (...)', 'alias'). The builder is honest about its edges and hands you raw SQL where it stops."
+      }
+    ]
   },
 ];
 

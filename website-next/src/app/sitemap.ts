@@ -28,6 +28,7 @@ const staticRoutes = [
   '/clickhouse-schema',
   '/clickhouse-typescript',
   '/clickhouse-query-builder',
+  '/type-safe-sql-typescript',
   '/drizzle-clickhouse',
   '/prisma-clickhouse',
   '/typeorm-clickhouse',
