@@ -62,12 +62,21 @@ compiled query can request less work than the ceiling but never more.
 
 Every execution carries a server-generated authoritative query identifier:
 unique per execution, unguessable, and safe for logs and cache metadata. A
-caller may attach a separately named external correlation identifier, which
-is bounded, validated, and never treated as authoritative. The two
+caller may attach a separately named external correlation identifier: at most
+1,024 UTF-8 bytes and containing no control characters, matching the RFC 0011
+event contract; products may tighten but not raise this bound. The
+correlation identifier is never treated as authoritative, and the two
 identifiers are distinct fields; the correlation value MUST NOT influence
 routing, cache keys, or authorization.
 
 ## Deadline and cancellation precedence
+
+The effective deadline is the earlier of the caller-supplied deadline and the
+policy-derived maximum: a caller can shorten but never extend the execution
+window. The settings-based maximum-execution-time ceiling applies
+unconditionally and takes precedence over any caller-supplied value. A
+supplied deadline at or before the current time fails immediately with the
+deadline category rather than being extended or ignored.
 
 An execution ends for exactly one of four reasons, with this precedence:
 
@@ -86,8 +95,9 @@ An execution ends for exactly one of four reasons, with this precedence:
 
 Cancellation is not advisory: the adapter MUST propagate it to the database
 so interrupted work stops consuming server resources. An execution reports
-its terminal reason honestly; a cancelled execution is never reported as a
-success or converted into a retry without the caller's signal still open.
+its terminal reason honestly. A failed execution MUST NOT be silently
+retried or reported as a success; a retry requires the caller's abort signal
+to be inactive and MUST be initiated by the caller, not the adapter.
 
 ## Debug form
 
@@ -123,6 +133,13 @@ new contract version. Messages for `internal` and other server-fault
 categories MUST NOT expose adapter error text, SQL, values, or tenant
 identifiers; client-fault categories may carry a safe message. The error
 envelope is the only execution-failure shape a runtime may surface.
+
+Existence is not public: when a caller lacks the access required to use a
+named route or query, the runtime MUST return `not-found` rather than
+`forbidden`, so the response cannot confirm whether the name exists.
+`forbidden` applies only once the caller is authenticated and the endpoint's
+existence is already visible to them, for example when role or scope checks
+fail on an endpoint they are permitted to discover.
 
 ## Security
 
