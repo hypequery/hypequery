@@ -6,7 +6,6 @@ import 'vanilla-cookieconsent/dist/cookieconsent.css';
 
 declare global {
   interface Window {
-    reb2b?: unknown;
     ldfdr?: unknown;
     dataLayer?: unknown[];
   }
@@ -68,22 +67,10 @@ function loadLeadfeeder() {
 }
 
 /**
- * Loads reb2b (person-level visitor de-anonymization). Marketing category.
- */
-function loadReb2b() {
-  if (window.reb2b || document.getElementById('reb2b')) return;
-
-  const s = document.createElement('script');
-  s.id = 'reb2b';
-  s.textContent = `!function(key){if(window.reb2b)return;window.reb2b={loaded:true};var s=document.createElement("script");s.async=true;s.src="https://ddwl4m2hdecbv.cloudfront.net/b/"+key+"/"+key+".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s,document.getElementsByTagName("script")[0]);}("QOQRJHK1W462");`;
-  document.head.appendChild(s);
-}
-
-/**
  * Consent banner (vanilla-cookieconsent). Gates the trackers that set cookies
- * or identify individuals — GA (analytics) and Leadfeeder + reb2b (marketing) —
- * so they only load after the visitor opts in. Umami is cookieless and
- * consent-exempt, so it stays in the root layout and is not managed here.
+ * or identify visitors — GA (analytics) and Leadfeeder (marketing) — so they
+ * only load after the visitor opts in. Umami is cookieless and consent-exempt,
+ * so it stays in the root layout and is not managed here.
  */
 export default function CookieConsentBanner({
   gaMeasurementId,
@@ -148,7 +135,7 @@ export default function CookieConsentBanner({
                 {
                   title: 'Marketing',
                   description:
-                    'Leadfeeder and reb2b identify visiting organizations and individuals so we can follow up. Loads only with your consent.',
+                    'Leadfeeder identifies visiting organizations so we can follow up. Loads only with your consent.',
                   linkedCategory: 'marketing',
                 },
               ],
@@ -164,7 +151,6 @@ export default function CookieConsentBanner({
       }
       if (CookieConsent.acceptedCategory('marketing')) {
         loadLeadfeeder();
-        loadReb2b();
       }
     }
   }, [gaMeasurementId]);
