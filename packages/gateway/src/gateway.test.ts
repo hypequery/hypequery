@@ -130,3 +130,43 @@ describe('createGateway authentication', () => {
     expect(response.headers['Access-Control-Allow-Origin']).toBe('https://studio.example');
   });
 });
+
+/** DevIntegrationApi stub whose cache layer optionally supports clearing. */
+function makeCapabilityApi(clearSupported: boolean): DevIntegrationApi {
+  return {
+    queryLogger: { on: () => () => {} } as DevIntegrationApi['queryLogger'],
+    describe: () => ({ queries: [] }),
+    execute: async () => null,
+    cacheObservability: {
+      getStats: async () =>
+        clearSupported
+          ? [{ layer: 'semantic' as const, stats: {}, clearSupported: true }]
+          : [],
+      clear: async () => ({ cleared: [] })
+    }
+  } as DevIntegrationApi;
+}
+
+describe('createGateway capabilities', () => {
+  it('always advertises telemetry — the endpoints are always mounted', async () => {
+    const gateway = await createGateway(makeCapabilityApi(false), {
+      storage: { forceMemory: true, silent: true }
+    });
+
+    expect(gateway.capabilities).toContain('telemetry');
+    expect(gateway.capabilities).toEqual(
+      expect.arrayContaining(['registry', 'execute', 'history', 'events', 'cache'])
+    );
+    expect(gateway.capabilities).not.toContain('cache:clear');
+    await gateway.shutdown();
+  });
+
+  it('advertises cache:clear only when a layer supports clearing', async () => {
+    const gateway = await createGateway(makeCapabilityApi(true), {
+      storage: { forceMemory: true, silent: true }
+    });
+
+    expect(gateway.capabilities).toContain('cache:clear');
+    await gateway.shutdown();
+  });
+});

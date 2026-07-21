@@ -11,6 +11,8 @@ import { getQueries, getQuery } from './query-endpoints.js';
 import { clearHistory, exportHistory, importHistory } from './history-endpoints.js';
 import { getLoggerStats } from './logger-endpoints.js';
 import { getCacheStats, clearCache } from './cache-endpoints.js';
+import { postTelemetry, getTelemetryStatus } from './telemetry-endpoints.js';
+import type { Telemetry } from '../telemetry.js';
 
 /**
  * Options for the dev API router.
@@ -28,6 +30,8 @@ export interface RouterOptions {
   capabilities: GatewayCapability[];
   /** Project name surfaced in /meta. */
   projectName?: string;
+  /** Anonymous usage telemetry (no-op unless enabled). */
+  telemetry?: Telemetry;
   /**
    * Cross-origin allowlist. Empty by default — the studio is served
    * same-origin, so no CORS headers are emitted and the wildcard `*` is
@@ -86,6 +90,7 @@ export class DevAPIRouter {
       api: this.options.api,
       capabilities: this.options.capabilities,
       projectName: this.options.projectName,
+      telemetry: this.options.telemetry,
       sseHandler: this.sseHandler,
       req,
       res
@@ -114,18 +119,21 @@ export class DevAPIRouter {
 
     // Registry
     if (path === '/__dev/registry' && method === 'GET') {
+      this.options.telemetry?.track('registry_viewed');
       await getRegistry(ctx);
       return true;
     }
 
     // Execute
     if (path === '/__dev/execute' && method === 'POST') {
+      this.options.telemetry?.track('playground_execute_requested');
       await execute(ctx);
       return true;
     }
 
     // SSE — no Last-Event-ID replay in v0 (clients refetch history on reconnect)
     if (path === '/__dev/events' && method === 'GET') {
+      this.options.telemetry?.track('sse_connected', { clients: this.sseHandler.clientCount + 1 });
       this.sseHandler.addClient(res);
       return true;
     }
@@ -151,7 +159,18 @@ export class DevAPIRouter {
       return true;
     }
     if (path === '/__dev/history' && method === 'DELETE') {
+      this.options.telemetry?.track('history_cleared');
       await clearHistory(ctx);
+      return true;
+    }
+
+    // Telemetry beacon (UI events) + transparency
+    if (path === '/__dev/telemetry' && method === 'POST') {
+      await postTelemetry(ctx);
+      return true;
+    }
+    if (path === '/__dev/telemetry' && method === 'GET') {
+      await getTelemetryStatus(ctx);
       return true;
     }
 

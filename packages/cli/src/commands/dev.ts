@@ -43,6 +43,12 @@ export interface DevOptions {
    * the UI is not release-ready; behaviour and flag may change or go away.
    */
   uiExperimental?: boolean;
+  /**
+   * Anonymous playground usage telemetry. Commander sets this to `false` when
+   * `--no-telemetry` is passed; otherwise it is undefined (telemetry follows
+   * its usual endpoint/env gating).
+   */
+  telemetry?: boolean;
 }
 
 /**
@@ -51,13 +57,15 @@ export interface DevOptions {
  * hint) and `hypequery dev` still runs as a plain server.
  */
 async function createGatewayIfAvailable(
-  api: unknown
+  api: unknown,
+  telemetryDisabled: boolean
 ): Promise<{ mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null> {
   try {
     const { createGateway } = await import('@hypequery/gateway');
     return (await createGateway(api as any, {
       projectName: path.basename(process.cwd()),
       devToken: process.env.HYPEQUERY_DEV_TOKEN,
+      telemetryDisabled,
     })) as any;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -124,7 +132,9 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
       // The query UI is experimental and strictly opt-in; the default dev
       // server is unchanged.
-      const gateway = options.uiExperimental ? await createGatewayIfAvailable(api) : null;
+      const gateway = options.uiExperimental
+        ? await createGatewayIfAvailable(api, options.telemetry === false)
+        : null;
       currentGateway = gateway;
 
       // Start the server

@@ -121,6 +121,26 @@ describe('dev command', () => {
         expect.objectContaining({ mount: expect.any(Function) })
       );
     });
+
+    it('leaves telemetry enabled by default', async () => {
+      const { createGateway } = await import('@hypequery/gateway');
+      await devCommand(undefined, { watch: false, uiExperimental: true });
+
+      expect(createGateway).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ telemetryDisabled: false })
+      );
+    });
+
+    it('disables telemetry with --no-telemetry (commander sets telemetry: false)', async () => {
+      const { createGateway } = await import('@hypequery/gateway');
+      await devCommand(undefined, { watch: false, uiExperimental: true, telemetry: false });
+
+      expect(createGateway).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ telemetryDisabled: true })
+      );
+    });
   });
 
   describe('Happy path (watch disabled for testing)', () => {
