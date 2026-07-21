@@ -1,0 +1,73 @@
+/*
+ * Brand theme for vanilla-cookieconsent, mapped onto the site design tokens
+ * (globals.css). Because it references --bg-card / --text / --accent etc., the
+ * banner automatically follows the site's light and dark themes.
+ */
+#cc-main {
+  --cc-font-family: var(--font-sans, system-ui, sans-serif);
+
+  --cc-bg: var(--bg-card);
+  --cc-primary-color: var(--text);
+  --cc-secondary-color: var(--text-muted);
+  --cc-link-color: var(--accent);
+
+  --cc-btn-border-radius: var(--radius, 4px);
+  --cc-modal-border-radius: var(--radius-lg, 8px);
+  --cc-pm-toggle-border-radius: var(--radius-pill, 100px);
+
+  /* Primary (Accept) button — brand accent */
+  --cc-btn-primary-bg: var(--accent);
+  --cc-btn-primary-color: #ffffff;
+  --cc-btn-primary-border-color: var(--accent);
+  --cc-btn-primary-hover-bg: color-mix(in srgb, var(--accent) 82%, #000);
+  --cc-btn-primary-hover-color: #ffffff;
+  --cc-btn-primary-hover-border-color: color-mix(in srgb, var(--accent) 82%, #000);
+
+  /* Secondary (Reject / Manage) buttons — subtle surface */
+  --cc-btn-secondary-bg: var(--bg-alt);
+  --cc-btn-secondary-color: var(--text);
+  --cc-btn-secondary-border-color: var(--border-strong);
+  --cc-btn-secondary-hover-bg: var(--border);
+  --cc-btn-secondary-hover-color: var(--text);
+  --cc-btn-secondary-hover-border-color: var(--border-strong);
+
+  --cc-separator-border-color: var(--border);
+  --cc-section-category-border: var(--border);
+
+  /* Category toggles */
+  --cc-toggle-on-bg: var(--accent);
+  --cc-toggle-off-bg: var(--text-dim);
+  --cc-toggle-on-knob-bg: #ffffff;
+  --cc-toggle-off-knob-bg: #ffffff;
+  --cc-toggle-readonly-bg: var(--border-strong);
+  --cc-toggle-readonly-knob-bg: var(--bg-card);
+
+  /* Preferences modal category blocks */
+  --cc-cookie-category-block-bg: var(--bg-alt);
+  --cc-cookie-category-block-border: var(--border);
+  --cc-cookie-category-block-hover-bg: var(--bg-alt);
+  --cc-cookie-category-block-hover-border: var(--border-strong);
+  --cc-cookie-category-expanded-block-bg: transparent;
+  --cc-cookie-category-expanded-block-hover-bg: var(--bg-alt);
+
+  --cc-overlay-bg: rgba(0, 0, 0, 0.5);
+  --cc-footer-bg: var(--bg-card);
+  --cc-footer-color: var(--text-muted);
+  --cc-footer-border-color: var(--border);
+
+  --cc-webkit-scrollbar-bg: var(--border);
+  --cc-webkit-scrollbar-hover-bg: var(--border-strong);
+
+  border: 1px solid var(--border);
+}
+
+/*
+ * In dark mode the accent is a light lavender, so the primary button needs
+ * dark text for contrast (and a lighter hover instead of darker).
+ */
+[data-theme='dark'] #cc-main {
+  --cc-btn-primary-color: #0c0e14;
+  --cc-btn-primary-hover-color: #0c0e14;
+  --cc-btn-primary-hover-bg: color-mix(in srgb, var(--accent) 82%, #fff);
+  --cc-btn-primary-hover-border-color: color-mix(in srgb, var(--accent) 82%, #fff);
+}
