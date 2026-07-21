@@ -123,6 +123,14 @@ describe('SQL portability compiler v1', () => {
     }
   });
 
+  it('drains long unary plus chains without exhausting the call stack', () => {
+    const result = compilePortableSqlExpression(`${'+'.repeat(60_000)}1`);
+    expect(result).toMatchObject({
+      portable: true,
+      expression: { kind: 'literal', value: 1 },
+    });
+  });
+
   it('fuzzes the corpus within bounded time without throwing', () => {
     const random = mulberry32(0x5eed);
     const corpus = portable.map(fixture => fixture.sql);

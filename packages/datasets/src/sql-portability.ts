@@ -170,9 +170,12 @@ function tokenize(sql: string): Token[] {
       continue;
     }
     if (char === '=' && sql[index + 1] === '=') {
-      push('operator', '=', start, start + 2);
-      index += 2;
-      continue;
+      fail(
+        'HQ_SQL_PORT_UNSUPPORTED_OPERATOR',
+        'Operator "==" is not portable; use "=" for equality.',
+        start,
+        start + 2,
+      );
     }
     if (char === '=') {
       push('operator', '=', start, start + 1);
@@ -584,6 +587,15 @@ class Parser {
       const separator = this.peek();
       if (separator?.type === 'operator' && separator.value === ',') {
         this.next();
+        const following = this.peek();
+        if (following?.type === 'operator' && following.value === ')') {
+          fail(
+            'HQ_SQL_PORT_SYNTAX',
+            'IN lists do not allow a trailing comma.',
+            separator.start,
+            following.end,
+          );
+        }
         continue;
       }
       if (separator?.type === 'operator' && separator.value === ')') {
@@ -653,7 +665,11 @@ class Parser {
   }
 
   private parseUnary(depth: number): ProtocolExpression {
-    const token = this.peek();
+    let token = this.peek();
+    while (token?.type === 'operator' && token.value === '+') {
+      this.next();
+      token = this.peek();
+    }
     if (token?.type === 'operator' && token.value === '-') {
       this.next();
       const operand = this.peek();
@@ -667,10 +683,6 @@ class Parser {
       }
       this.next();
       return this.numericLiteral(operand, true);
-    }
-    if (token?.type === 'operator' && token.value === '+') {
-      this.next();
-      return this.parseUnary(depth);
     }
     return this.parsePrimary(depth);
   }
