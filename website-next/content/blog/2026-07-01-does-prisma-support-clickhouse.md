@@ -3,7 +3,7 @@ title: "Does Prisma Support ClickHouse? What to Use Instead"
 description: "Prisma has no ClickHouse connector, and the MySQL-compat-port workaround breaks on real analytics workloads. Here's why, and the Prisma-plus-ClickHouse-native pattern teams actually run in production."
 seoTitle: "Does Prisma Support ClickHouse? No — Here's What to Use Instead"
 seoDescription: "Does Prisma support ClickHouse? No — there is no ClickHouse connector. Learn why the MySQL port 9004 workaround fails and how to pair Prisma with a type-safe ClickHouse layer."
-pubDate: 2026-07-18
+pubDate: 2026-07-01
 heroImage: ""
 slug: does-prisma-support-clickhouse
 status: published

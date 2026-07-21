@@ -3,7 +3,7 @@ title: "How to Build Usage-Based Billing with ClickHouse and TypeScript"
 description: "A tutorial on metered billing with ClickHouse: an append-only usage_events table, tenant-scoped usage and revenue metrics defined once in TypeScript, monthly rollups, and one definition shared by the invoicing job and the customer usage page."
 seoTitle: "Usage-Based Billing with ClickHouse: A TypeScript Tutorial"
 seoDescription: "Build usage-based billing on ClickHouse with TypeScript: model a usage_events table, define tenant-isolated revenue metrics once, roll up by month, and serve the same numbers to your billing job and customer dashboard."
-pubDate: 2026-07-18
+pubDate: 2026-07-10
 heroImage: ""
 slug: usage-based-billing-clickhouse-typescript
 status: published

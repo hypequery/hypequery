@@ -3,7 +3,7 @@ title: "How to Build Multi-Tenant Analytics with ClickHouse and TypeScript"
 description: "How to enforce tenant isolation in application code for ClickHouse analytics: tenant-scoped serve contexts, tenantKey on datasets, builder-level filters, and why you should still keep row policies as a backstop."
 seoTitle: "Multi-Tenant Analytics with ClickHouse and TypeScript"
 seoDescription: "Build multi-tenant analytics on ClickHouse with TypeScript. Enforce tenant isolation in application code with tenant-scoped contexts, dataset tenant keys, and defense-in-depth row policies."
-pubDate: 2026-07-18
+pubDate: 2026-07-08
 heroImage: ""
 slug: multi-tenant-analytics-clickhouse-typescript
 status: published

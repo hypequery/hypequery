@@ -3,7 +3,7 @@ title: "Migrating from Raw SQL Strings to hypequery"
 description: "A step-by-step migration guide from @clickhouse/client SQL strings and hand-written row interfaces to generated types and a typed builder — incrementally, hot paths first, with honest escape hatches for the SQL you keep."
 seoTitle: "Migrate Raw SQL to Type-Safe TypeScript: A ClickHouse Guide"
 seoDescription: "How to migrate raw SQL strings and hand-written row interfaces to typed TypeScript queries against ClickHouse — an incremental strategy with before/after code, CI drift checks, and escape hatches."
-pubDate: 2026-07-18
+pubDate: 2026-07-20
 heroImage: ""
 slug: migrating-raw-sql-to-hypequery
 status: published

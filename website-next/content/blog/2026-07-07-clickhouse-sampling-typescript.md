@@ -3,7 +3,7 @@ title: "ClickHouse Sampling for Fast Prototyping in TypeScript"
 description: "The ClickHouse SAMPLE clause reads a fraction of your data for near-instant estimates. Learn how SAMPLE BY works, how to scale results, and what to use from TypeScript — approximate aggregates in hypequery or raw SQL via @clickhouse/client."
 seoTitle: "ClickHouse SAMPLE Clause: Fast Query Prototyping in TypeScript"
 seoDescription: "How the ClickHouse SAMPLE clause works: SAMPLE BY table setup, scaling results, OFFSET slices, and the TypeScript options — approximate aggregates with hypequery or raw SAMPLE queries with @clickhouse/client."
-pubDate: 2026-07-18
+pubDate: 2026-07-07
 heroImage: ""
 slug: clickhouse-sampling-typescript
 status: published

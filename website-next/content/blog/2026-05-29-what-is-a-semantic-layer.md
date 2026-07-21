@@ -3,7 +3,7 @@ title: "What Is a Semantic Layer? (And Why ClickHouse Teams Need One)"
 description: "A semantic layer is a shared definition of your metrics — what 'revenue' means, exactly, everywhere it appears. Here's what that looks like in practice, the forms it takes, and how ClickHouse + TypeScript teams implement one in code."
 seoTitle: "What Is a Semantic Layer? A Practical Definition for Engineers"
 seoDescription: "What is a semantic layer? A plain-English definition with concrete examples: dimensions, measures, metrics, grain, and governed filters — plus how ClickHouse and TypeScript teams build one in code."
-pubDate: 2026-07-18
+pubDate: 2026-05-29
 heroImage: ""
 slug: what-is-a-semantic-layer
 status: published

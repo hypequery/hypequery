@@ -3,7 +3,7 @@ title: "ClickHouse Window Functions in TypeScript"
 description: "How to use row_number(), rank(), dense_rank(), and lagInFrame() in ClickHouse, and how to run window functions from a type-safe TypeScript query builder with hypequery."
 seoTitle: "ClickHouse Window Functions: row_number, rank, lag in TypeScript"
 seoDescription: "ClickHouse window functions explained: row_number(), rank(), dense_rank(), and the lagInFrame()/leadInFrame() naming gotcha, with SQL and type-safe TypeScript examples."
-pubDate: 2026-07-18
+pubDate: 2026-06-03
 heroImage: ""
 slug: clickhouse-window-functions-typescript
 status: published

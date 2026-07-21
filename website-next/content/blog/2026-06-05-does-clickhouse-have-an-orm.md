@@ -3,7 +3,7 @@ title: "Does ClickHouse Have an ORM? A Practical Answer"
 description: "No mature ORM exists for ClickHouse, and the architecture explains why. Here's what actually exists for TypeScript teams — the official client, typed query builders, SQL tag libraries — and what to use instead."
 seoTitle: "Does ClickHouse Have an ORM? What Exists and What to Use Instead"
 seoDescription: "Does ClickHouse have an ORM? Short answer: no mature ORM exists, and a traditional ORM is the wrong shape for a columnar database. A practical survey of @clickhouse/client, hypequery, chorm, and Waddler — and why Prisma, TypeORM, and Drizzle don't support ClickHouse."
-pubDate: 2026-07-18
+pubDate: 2026-06-05
 heroImage: ""
 slug: does-clickhouse-have-an-orm
 status: published

@@ -3,7 +3,7 @@ title: "How to Build a Real-Time Leaderboard with ClickHouse and TypeScript"
 description: "Build a real-time leaderboard on ClickHouse: top-N aggregation, rank columns with row_number(), per-region leaderboards in one query with LIMIT BY, and a typed API with polling React hooks."
 seoTitle: "Real-Time Leaderboard with ClickHouse and TypeScript"
 seoDescription: "How to build a real-time leaderboard in ClickHouse with TypeScript: top-N queries, rank columns, per-segment leaderboards with LIMIT BY, and a polling React hook."
-pubDate: 2026-07-18
+pubDate: 2026-07-15
 heroImage: ""
 slug: real-time-leaderboard-clickhouse-typescript
 status: published

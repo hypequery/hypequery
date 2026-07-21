@@ -3,7 +3,7 @@ title: "ClickHouse CTEs in TypeScript — WITH Clause Patterns"
 description: "How WITH clauses actually behave in ClickHouse (inlined, not materialized), and how to build typed CTEs in TypeScript with hypequery's .withCTE() — including builder-as-subquery composition, cohort retention joins, and reusable filtered subsets."
 seoTitle: "ClickHouse CTE in TypeScript: WITH Clause Patterns That Work"
 seoDescription: "ClickHouse CTEs explained for TypeScript developers: inlining semantics, scalar WITH expressions, and type-safe WITH clauses using hypequery's native .withCTE() with query builders or raw SQL."
-pubDate: 2026-07-18
+pubDate: 2026-06-15
 heroImage: ""
 slug: clickhouse-cte-typescript
 status: published

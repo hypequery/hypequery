@@ -3,7 +3,7 @@ title: "How to Expose ClickHouse Queries as a Typed REST API"
 description: "A step-by-step primer on turning a ClickHouse query into a governed, typed REST API with @hypequery/serve — context, zod input validation, OpenAPI docs, auth hooks, and one query definition callable in-process or over HTTP."
 seoTitle: "ClickHouse REST API: Expose Typed Queries Over HTTP in TypeScript"
 seoDescription: "Build a ClickHouse REST API in TypeScript. Define a query once with zod-validated input, serve it over HTTP with generated OpenAPI docs, attach auth, and call it in-process — step by step with @hypequery/serve."
-pubDate: 2026-07-18
+pubDate: 2026-06-17
 heroImage: ""
 slug: typed-rest-api-clickhouse
 status: published

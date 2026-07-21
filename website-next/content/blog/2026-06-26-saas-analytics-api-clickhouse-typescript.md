@@ -3,7 +3,7 @@ title: "How to Build a SaaS Analytics API with ClickHouse and TypeScript"
 description: "A full-stack tutorial for building a SaaS analytics API: generate TypeScript types from your ClickHouse schema, write typed queries, define metrics once, serve zod-validated REST routes with OpenAPI docs, and consume them from React with inferred types."
 seoTitle: "Build a SaaS Analytics API with ClickHouse and TypeScript"
 seoDescription: "Build a SaaS analytics API on ClickHouse with TypeScript: generated schema types, a typed query builder, metrics defined once, zod-validated REST routes with OpenAPI docs, and React hooks that share the same type contract."
-pubDate: 2026-07-18
+pubDate: 2026-06-26
 heroImage: ""
 slug: saas-analytics-api-clickhouse-typescript
 status: published

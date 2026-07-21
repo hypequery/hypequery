@@ -3,7 +3,7 @@ title: "Migrating from Kysely to hypequery for ClickHouse"
 description: "A practical migration guide for moving ClickHouse queries from Kysely to hypequery: idiom-by-idiom mapping, generated schema types, what you gain, and what you honestly give up."
 seoTitle: "Kysely to hypequery: A ClickHouse Migration Guide"
 seoDescription: "Moving from Kysely to hypequery for ClickHouse? Map selectFrom to table, executeTakeFirst to limit(1), and hand-written interfaces to generated types — with honest notes on what you lose."
-pubDate: 2026-07-18
+pubDate: 2026-07-14
 heroImage: ""
 slug: migrating-kysely-to-hypequery
 status: published

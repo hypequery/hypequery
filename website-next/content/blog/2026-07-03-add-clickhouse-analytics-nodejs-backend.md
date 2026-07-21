@@ -3,7 +3,7 @@ title: "How to Add ClickHouse Analytics to an Existing Node.js Backend"
 description: "A retrofit guide for adding ClickHouse analytics to a running Express, Fastify, or Nest app: generate types from your live schema, wire one query builder into your existing DI, and ship a single endpoint before expanding."
 seoTitle: "Add ClickHouse to an Existing App: Node.js Retrofit Guide"
 seoDescription: "Add ClickHouse to an existing Node.js app: generate TypeScript types from your live schema, wire a typed query builder into Express or Nest, and ship one endpoint first."
-pubDate: 2026-07-18
+pubDate: 2026-07-03
 heroImage: ""
 slug: add-clickhouse-analytics-nodejs-backend
 status: published

@@ -3,7 +3,7 @@ title: "ClickHouse ASOF JOIN — Nearest-Match Time-Series Joins in TypeScript"
 description: "ASOF JOIN matches each row to the closest earlier row in another table — trades to quotes, errors to deploys, readings to calibrations. Here's how it works in ClickHouse SQL and how to run it from a TypeScript app with hypequery."
 seoTitle: "ClickHouse ASOF JOIN: Nearest-Match Time-Series Joins in TypeScript"
 seoDescription: "ClickHouse ASOF JOIN joins each row to the nearest matching row by timestamp. Learn the syntax, the one-inequality rule, and how to use it from TypeScript."
-pubDate: 2026-07-18
+pubDate: 2026-06-30
 heroImage: ""
 slug: clickhouse-asof-join-typescript
 status: published

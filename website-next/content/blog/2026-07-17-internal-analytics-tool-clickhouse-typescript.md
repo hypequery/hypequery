@@ -3,7 +3,7 @@ title: "How to Build an Internal Analytics Tool with ClickHouse and TypeScript"
 description: "Ship an internal analytics tool on ClickHouse with three pieces: schema-generated types, a typed query builder, and a Next.js page. No BI platform, no governance layer — until you actually need one."
 seoTitle: "Build an Internal Analytics Tool with ClickHouse and TypeScript"
 seoDescription: "Build an internal analytics tool on ClickHouse with TypeScript: generated types, a typed query builder, and a Next.js page — no BI platform required."
-pubDate: 2026-07-18
+pubDate: 2026-07-17
 heroImage: ""
 slug: internal-analytics-tool-clickhouse-typescript
 status: published
