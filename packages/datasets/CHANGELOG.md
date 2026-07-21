@@ -1,5 +1,11 @@
 # @hypequery/datasets
 
+## 0.13.0
+
+### Minor Changes
+
+- 05ebed8: Add a SQL portability compiler that parses the supported ClickHouse SQL-expression subset into RFC 0003 expression ASTs, returning source-located incompatibility issues for unsupported syntax with bounded input size, depth, and node limits.
+
 ## 0.12.7
 
 ### Patch Changes
