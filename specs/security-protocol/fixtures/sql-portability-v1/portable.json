@@ -1,0 +1,346 @@
+[
+  {
+    "id": "simple-reference",
+    "sql": "revenue",
+    "expression": { "kind": "reference", "name": "revenue" },
+    "dependencies": ["revenue"]
+  },
+  {
+    "id": "qualified-reference",
+    "sql": "orders.revenue",
+    "expression": { "kind": "reference", "name": "orders.revenue" },
+    "dependencies": ["orders.revenue"]
+  },
+  {
+    "id": "arithmetic-product",
+    "sql": "price * quantity",
+    "expression": {
+      "kind": "binary",
+      "operator": "multiply",
+      "left": { "kind": "reference", "name": "price" },
+      "right": { "kind": "reference", "name": "quantity" }
+    },
+    "dependencies": ["price", "quantity"]
+  },
+  {
+    "id": "arithmetic-precedence",
+    "sql": "price * quantity - discount",
+    "expression": {
+      "kind": "binary",
+      "operator": "subtract",
+      "left": {
+        "kind": "binary",
+        "operator": "multiply",
+        "left": { "kind": "reference", "name": "price" },
+        "right": { "kind": "reference", "name": "quantity" }
+      },
+      "right": { "kind": "reference", "name": "discount" }
+    },
+    "dependencies": ["discount", "price", "quantity"]
+  },
+  {
+    "id": "parenthesized-arithmetic",
+    "sql": "(price - cost) * quantity",
+    "expression": {
+      "kind": "binary",
+      "operator": "multiply",
+      "left": {
+        "kind": "binary",
+        "operator": "subtract",
+        "left": { "kind": "reference", "name": "price" },
+        "right": { "kind": "reference", "name": "cost" }
+      },
+      "right": { "kind": "reference", "name": "quantity" }
+    },
+    "dependencies": ["cost", "price", "quantity"]
+  },
+  {
+    "id": "decimal-literal",
+    "sql": "rate * 0.0825",
+    "expression": {
+      "kind": "binary",
+      "operator": "multiply",
+      "left": { "kind": "reference", "name": "rate" },
+      "right": { "kind": "literal", "value": 0.0825 }
+    },
+    "dependencies": ["rate"]
+  },
+  {
+    "id": "negative-literal",
+    "sql": "offset * -1",
+    "expression": {
+      "kind": "binary",
+      "operator": "multiply",
+      "left": { "kind": "reference", "name": "offset" },
+      "right": { "kind": "literal", "value": -1 }
+    },
+    "dependencies": ["offset"]
+  },
+  {
+    "id": "null-if-zero-division",
+    "sql": "revenue / nullIfZero(orders)",
+    "expression": {
+      "kind": "binary",
+      "operator": "divide",
+      "left": { "kind": "reference", "name": "revenue" },
+      "right": {
+        "kind": "call",
+        "function": "nullIfZero",
+        "args": [{ "kind": "reference", "name": "orders" }]
+      }
+    },
+    "dependencies": ["orders", "revenue"]
+  },
+  {
+    "id": "coalesce-case-insensitive",
+    "sql": "COALESCE(discount, 0)",
+    "expression": {
+      "kind": "call",
+      "function": "coalesce",
+      "args": [
+        { "kind": "reference", "name": "discount" },
+        { "kind": "literal", "value": 0 }
+      ]
+    },
+    "dependencies": ["discount"]
+  },
+  {
+    "id": "round-two-arguments",
+    "sql": "round(amount, 2)",
+    "expression": {
+      "kind": "call",
+      "function": "round",
+      "args": [
+        { "kind": "reference", "name": "amount" },
+        { "kind": "literal", "value": 2 }
+      ]
+    },
+    "dependencies": ["amount"]
+  },
+  {
+    "id": "floor-one-argument",
+    "sql": "floor(score)",
+    "expression": {
+      "kind": "call",
+      "function": "floor",
+      "args": [{ "kind": "reference", "name": "score" }]
+    },
+    "dependencies": ["score"]
+  },
+  {
+    "id": "ceil-one-argument",
+    "sql": "ceil(score)",
+    "expression": {
+      "kind": "call",
+      "function": "ceil",
+      "args": [{ "kind": "reference", "name": "score" }]
+    },
+    "dependencies": ["score"]
+  },
+  {
+    "id": "comparison-gte",
+    "sql": "total >= 100",
+    "expression": {
+      "kind": "comparison",
+      "operator": "gte",
+      "left": { "kind": "reference", "name": "total" },
+      "right": { "kind": "literal", "value": 100 }
+    },
+    "dependencies": ["total"]
+  },
+  {
+    "id": "string-literal-escape",
+    "sql": "status = 'it''s'",
+    "expression": {
+      "kind": "comparison",
+      "operator": "eq",
+      "left": { "kind": "reference", "name": "status" },
+      "right": { "kind": "literal", "value": "it's" }
+    },
+    "dependencies": ["status"]
+  },
+  {
+    "id": "boolean-literal",
+    "sql": "active = TRUE",
+    "expression": {
+      "kind": "comparison",
+      "operator": "eq",
+      "left": { "kind": "reference", "name": "active" },
+      "right": { "kind": "literal", "value": true }
+    },
+    "dependencies": ["active"]
+  },
+  {
+    "id": "null-literal",
+    "sql": "deleted_at != NULL",
+    "expression": {
+      "kind": "comparison",
+      "operator": "neq",
+      "left": { "kind": "reference", "name": "deleted_at" },
+      "right": { "kind": "literal", "value": null }
+    },
+    "dependencies": ["deleted_at"]
+  },
+  {
+    "id": "in-string-list",
+    "sql": "status IN ('new', 'paid', 'shipped')",
+    "expression": {
+      "kind": "comparison",
+      "operator": "in",
+      "left": { "kind": "reference", "name": "status" },
+      "right": {
+        "kind": "literal",
+        "value": {
+          "$hypequery": {
+            "type": "array",
+            "version": 1,
+            "values": ["new", "paid", "shipped"]
+          }
+        }
+      }
+    },
+    "dependencies": ["status"]
+  },
+  {
+    "id": "in-number-list",
+    "sql": "year IN (2024, 2025, 2026)",
+    "expression": {
+      "kind": "comparison",
+      "operator": "in",
+      "left": { "kind": "reference", "name": "year" },
+      "right": {
+        "kind": "literal",
+        "value": {
+          "$hypequery": {
+            "type": "array",
+            "version": 1,
+            "values": [2024, 2025, 2026]
+          }
+        }
+      }
+    },
+    "dependencies": ["year"]
+  },
+  {
+    "id": "not-in-lowercase",
+    "sql": "state not in ('ca', 'ny')",
+    "expression": {
+      "kind": "comparison",
+      "operator": "notIn",
+      "left": { "kind": "reference", "name": "state" },
+      "right": {
+        "kind": "literal",
+        "value": {
+          "$hypequery": {
+            "type": "array",
+            "version": 1,
+            "values": ["ca", "ny"]
+          }
+        }
+      }
+    },
+    "dependencies": ["state"]
+  },
+  {
+    "id": "between-integers",
+    "sql": "age BETWEEN 18 AND 65",
+    "expression": {
+      "kind": "comparison",
+      "operator": "between",
+      "left": { "kind": "reference", "name": "age" },
+      "right": {
+        "kind": "literal",
+        "value": {
+          "$hypequery": {
+            "type": "tuple",
+            "version": 1,
+            "values": [18, 65]
+          }
+        }
+      }
+    },
+    "dependencies": ["age"]
+  },
+  {
+    "id": "between-negative-bounds",
+    "sql": "temperature BETWEEN -40 AND 45.5",
+    "expression": {
+      "kind": "comparison",
+      "operator": "between",
+      "left": { "kind": "reference", "name": "temperature" },
+      "right": {
+        "kind": "literal",
+        "value": {
+          "$hypequery": {
+            "type": "tuple",
+            "version": 1,
+            "values": [-40, 45.5]
+          }
+        }
+      }
+    },
+    "dependencies": ["temperature"]
+  },
+  {
+    "id": "like-pattern",
+    "sql": "email LIKE '%@acme.com'",
+    "expression": {
+      "kind": "comparison",
+      "operator": "like",
+      "left": { "kind": "reference", "name": "email" },
+      "right": { "kind": "literal", "value": "%@acme.com" }
+    },
+    "dependencies": ["email"]
+  },
+  {
+    "id": "logical-precedence",
+    "sql": "a = 1 AND b = 2 OR c = 3",
+    "expression": {
+      "kind": "logical",
+      "operator": "or",
+      "operands": [
+        {
+          "kind": "logical",
+          "operator": "and",
+          "operands": [
+            {
+              "kind": "comparison",
+              "operator": "eq",
+              "left": { "kind": "reference", "name": "a" },
+              "right": { "kind": "literal", "value": 1 }
+            },
+            {
+              "kind": "comparison",
+              "operator": "eq",
+              "left": { "kind": "reference", "name": "b" },
+              "right": { "kind": "literal", "value": 2 }
+            }
+          ]
+        },
+        {
+          "kind": "comparison",
+          "operator": "eq",
+          "left": { "kind": "reference", "name": "c" },
+          "right": { "kind": "literal", "value": 3 }
+        }
+      ]
+    },
+    "dependencies": ["a", "b", "c"]
+  },
+  {
+    "id": "logical-not",
+    "sql": "NOT active",
+    "expression": {
+      "kind": "logical",
+      "operator": "not",
+      "operand": { "kind": "reference", "name": "active" }
+    },
+    "dependencies": ["active"]
+  },
+  {
+    "id": "backtick-identifier",
+    "sql": "`order`.`total`",
+    "expression": { "kind": "reference", "name": "order.total" },
+    "dependencies": ["order.total"]
+  }
+]

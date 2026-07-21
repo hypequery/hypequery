@@ -56,6 +56,19 @@ export {
 // Portable deployment contract adapter
 export { buildProtocolDatasetContract } from './protocol-adapter.js';
 export type { BuildProtocolDatasetContractOptions } from './protocol-adapter.js';
+
+// SQL portability compiler (R1A-07)
+export {
+  compilePortableSqlExpression,
+  DEFAULT_SQL_PORTABILITY_LIMITS,
+} from './sql-portability.js';
+export type {
+  SqlPortabilityIssue,
+  SqlPortabilityIssueCode,
+  SqlPortabilityLimits,
+  SqlPortabilityOptions,
+  SqlPortabilityResult,
+} from './sql-portability.js';
 export type {
   SemanticContract,
   SerializeSemanticContractOptions,
