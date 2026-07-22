@@ -54,6 +54,7 @@
   ],
   "dependencies": {
     "@clickhouse/client": "^1.18.3",
+    "@hypequery/protocol": "workspace:*",
     "dotenv": "^16.0.0"
   },
   "peerDependencies": {

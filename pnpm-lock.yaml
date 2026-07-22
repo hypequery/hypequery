@@ -119,6 +119,9 @@ importers:
       '@clickhouse/client':
         specifier: ^1.18.3
         version: 1.18.3
+      '@hypequery/protocol':
+        specifier: workspace:*
+        version: link:../protocol
       dotenv:
         specifier: ^16.0.0
         version: 16.6.1
