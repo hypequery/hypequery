@@ -245,10 +245,25 @@ const resolveRequestContext = (
   request: ServeRequest,
   provided?: string,
 ): RequestIdentifiers => ({
-  requestId: provided ?? generateRequestId(),
-  correlationId: validateCorrelationId(
-    request.headers['x-request-id'] ?? request.headers['x-trace-id'],
+  requestId: validateCorrelationId(provided) ?? generateRequestId(),
+  correlationId:
+    validateCorrelationId(request.headers['x-request-id']) ??
+    validateCorrelationId(request.headers['x-trace-id']),
+});
+
+const withManagedTraceHeaders = (
+  headers: Record<string, string> | undefined,
+  requestId: string,
+  correlationId?: string,
+): Record<string, string> => ({
+  ...Object.fromEntries(
+    Object.entries(headers ?? {}).filter(([key]) => {
+      const normalized = key.toLowerCase();
+      return normalized !== 'x-request-id' && normalized !== 'x-correlation-id';
+    }),
   ),
+  'x-request-id': requestId,
+  ...(correlationId ? { 'x-correlation-id': correlationId } : {}),
 });
 
 export interface ExecuteEndpointOptions<
@@ -485,11 +500,7 @@ export const executeEndpoint = async <
     ];
 
     const result = await runMiddlewares(pipeline, context, () => endpoint.handler(context));
-    const headers: Record<string, string> = {
-      ...(endpoint.defaultHeaders ?? {}),
-      'x-request-id': requestId,
-      ...traceHeaders,
-    };
+    const headers = withManagedTraceHeaders(endpoint.defaultHeaders, requestId, correlationId);
     // Authenticated and tenant-aware responses must never be shared by an
     // intermediary cache. Endpoint TTLs only opt public, tenant-independent
     // responses into shared caching.
@@ -578,7 +589,7 @@ export const executeEndpoint = async <
         structured.payload.type as ErrorEnvelope['error']['type'],
         structured.payload.message,
         undefined,
-        { 'x-request-id': requestId, ...traceHeaders, ...(structured.headers ?? {}) },
+        withManagedTraceHeaders(structured.headers, requestId, correlationId),
       );
       return response;
     }
@@ -630,16 +641,21 @@ export const createServeHandler = <
   corsConfig,
 }: HandlerOptions<TContext, TAuth>): ServeHandler => {
   return async (request) => {
-    // Handle CORS preflight and compute headers for actual requests
-    const { preflightResponse, corsHeaders } = handleCorsRequest(corsConfig ?? null, request);
-    if (preflightResponse) {
-      return preflightResponse;
-    }
-
     const { requestId, correlationId } = resolveRequestContext(request);
     const traceHeaders: Record<string, string> = correlationId
       ? { 'x-correlation-id': correlationId }
       : {};
+    // Handle CORS preflight and compute headers for actual requests
+    const { preflightResponse, corsHeaders } = handleCorsRequest(corsConfig ?? null, request);
+    if (preflightResponse) {
+      preflightResponse.headers = withManagedTraceHeaders(
+        preflightResponse.headers,
+        requestId,
+        correlationId,
+      );
+      return preflightResponse;
+    }
+
     const endpoint = router.match(request.method as HttpMethod, request.path);
     if (!endpoint) {
       const response = createErrorResponse(

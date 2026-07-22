@@ -24,6 +24,7 @@ export const MAX_CORRELATION_ID_BYTES = 200;
 // never inject newlines/control sequences into logs or response headers.
 // eslint-disable-next-line no-control-regex -- control chars are exactly what we reject
 const CORRELATION_CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F]/;
+const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]*$/;
 const correlationIdEncoder = new TextEncoder();
 
 /**
@@ -37,6 +38,9 @@ export const validateCorrelationId = (value?: string): string | undefined => {
   const trimmed = value.trim();
   if (trimmed.length === 0) return undefined;
   if (CORRELATION_CONTROL_CHARS.test(trimmed)) return undefined;
+  // Keep external identifiers in a narrow ASCII grammar so Unicode
+  // confusables and whitespace cannot produce visually ambiguous values.
+  if (!CORRELATION_ID_PATTERN.test(trimmed)) return undefined;
   if (correlationIdEncoder.encode(trimmed).length > MAX_CORRELATION_ID_BYTES) return undefined;
   return trimmed;
 };

@@ -51,6 +51,12 @@ describe("validateCorrelationId", () => {
     expect(validateCorrelationId("a\u0085b")).toBeUndefined();
   });
 
+  it("rejects whitespace, Unicode, and confusable correlation ids", () => {
+    expect(validateCorrelationId("trace id")).toBeUndefined();
+    expect(validateCorrelationId("trac\u0435-id")).toBeUndefined();
+    expect(validateCorrelationId("caf\u00e9")).toBeUndefined();
+  });
+
   it("rejects an oversized value but accepts one at the byte bound", () => {
     expect(validateCorrelationId("x".repeat(MAX_CORRELATION_ID_BYTES))).toHaveLength(
       MAX_CORRELATION_ID_BYTES,
@@ -100,6 +106,47 @@ describe("request-id authority in the pipeline", () => {
     );
 
     expect(response.headers?.["x-correlation-id"]).toBe("trace-xyz");
+  });
+
+  it("falls back to a valid x-trace-id when x-request-id is invalid", async () => {
+    const api = buildApi();
+    const response = await api.handler(
+      createRequest({
+        headers: { "x-request-id": "bad\nvalue", "x-trace-id": "trace-fallback" },
+      }),
+    );
+
+    expect(response.headers?.["x-correlation-id"]).toBe("trace-fallback");
+  });
+
+  it("does not allow structured error headers to replace managed trace ids", async () => {
+    const api = defineServe({
+      queries: {
+        metrics: {
+          query: async () => {
+            throw {
+              status: 429,
+              payload: { type: "RATE_LIMITED", message: "Slow down" },
+              headers: {
+                "X-Request-ID": "spoofed-request",
+                "x-correlation-id": "spoofed-correlation",
+                "retry-after": "1",
+              },
+            };
+          },
+        },
+      },
+    });
+    api.route("/metrics", api.queries.metrics);
+    const response = await api.handler(
+      createRequest({ headers: { "x-request-id": "client-correlation" } }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers?.["x-request-id"]).toMatch(UUID);
+    expect(response.headers?.["x-correlation-id"]).toBe("client-correlation");
+    expect(response.headers?.["X-Request-ID"]).toBeUndefined();
+    expect(response.headers?.["retry-after"]).toBe("1");
   });
 
   it("attaches the authoritative id on a 404", async () => {
