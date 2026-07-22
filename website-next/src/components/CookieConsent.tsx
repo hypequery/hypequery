@@ -68,10 +68,8 @@ function loadLeadfeeder() {
 }
 
 /**
- * Consent banner (vanilla-cookieconsent). Gates the trackers that set cookies
- * or identify visitors — GA (analytics) and Leadfeeder (marketing) — so they
- * only load after the visitor opts in. Umami is cookieless and consent-exempt,
- * so it stays in the root layout and is not managed here.
+ * Consent banner (vanilla-cookieconsent). Gates optional analytics and
+ * marketing trackers so they load only after the visitor opts in.
  */
 export default function CookieConsentBanner({
   gaMeasurementId,
@@ -130,13 +128,13 @@ export default function CookieConsentBanner({
                 {
                   title: 'Analytics',
                   description:
-                    'Google Analytics — helps us understand how the site is used. Umami, our cookieless analytics, runs without consent and is not covered here.',
+                    'Helps us understand how visitors use the site so we can improve it.',
                   linkedCategory: 'analytics',
                 },
                 {
                   title: 'Marketing',
                   description:
-                    'Leadfeeder identifies visiting organizations so we can follow up. Loads only with your consent.',
+                    'Helps us understand which organizations visit the site and measure interest in our products.',
                   linkedCategory: 'marketing',
                 },
               ],

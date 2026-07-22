@@ -122,12 +122,8 @@ export default function RootLayout({
 })();`,
           }}
         />
-        {/*
-          Umami is cookieless and collects no personal data, so it is
-          consent-exempt and loads unconditionally. GA and Leadfeeder set
-          cookies or identify visitors — they are gated behind the consent
-          banner (see CookieConsentBanner) and injected only after opt-in.
-        */}
+        {/* Optional analytics and marketing trackers are injected only after
+            opt-in by CookieConsentBanner. */}
         <Script
           defer
           src="https://cloud.umami.is/script.js"
