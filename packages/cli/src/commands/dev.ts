@@ -96,7 +96,47 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
   let currentServer: any = null;
   let currentGateway: { mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null = null;
+  let lifecycleOperation: Promise<void> = Promise.resolve();
+  let shutdownRequested = false;
   const shouldWatch = options.watch !== false; // Default to true
+
+  const queueLifecycleOperation = (operation: () => Promise<void>) => {
+    const queued = lifecycleOperation.then(operation, operation);
+    lifecycleOperation = queued.catch(() => undefined);
+    return queued;
+  };
+
+  const stopCurrentRuntime = async () => {
+    const gateway = currentGateway;
+    const server = currentServer;
+
+    // Clear references before awaiting teardown so a second signal or restart
+    // cannot stop the same resources twice.
+    currentGateway = null;
+    currentServer = null;
+
+    let teardownError: unknown;
+
+    if (gateway) {
+      try {
+        await gateway.shutdown();
+      } catch (error) {
+        teardownError = error;
+      }
+    }
+
+    if (server) {
+      try {
+        await server.stop();
+      } catch (error) {
+        teardownError ??= error;
+      }
+    }
+
+    if (teardownError) {
+      throw teardownError;
+    }
+  };
 
   const startServer = async () => {
     // Loading spinners for slow operations
@@ -191,6 +231,16 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         }
       }
     } catch (error) {
+      // Gateway creation happens before serveDev so its mount can be passed to
+      // the server. If server startup (or any later setup) fails, tear down all
+      // resources acquired by this attempt before retrying or exiting.
+      try {
+        await stopCurrentRuntime();
+      } catch (teardownError) {
+        const message = teardownError instanceof Error ? teardownError.message : String(teardownError);
+        logger.warn(`Failed to clean up dev server resources: ${message}`);
+      }
+
       // Stop spinners if they're still running
       if (compileSpinner.isSpinning) {
         compileSpinner.fail('Failed to compile queries');
@@ -219,25 +269,33 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     }
   };
 
-  const restartServer = async () => {
-    if (currentServer) {
-      logger.newline();
-      logger.reload('File changed, restarting...');
-      logger.newline();
-      if (currentGateway) await currentGateway.shutdown();
-      await currentServer.stop();
-    }
-    await startServer();
-  };
+  const restartServer = () =>
+    queueLifecycleOperation(async () => {
+      if (shutdownRequested) return;
 
-  const shutdown = async () => {
+      if (currentServer || currentGateway) {
+        logger.newline();
+        logger.reload('File changed, restarting...');
+        logger.newline();
+        await stopCurrentRuntime();
+      }
+
+      if (!shutdownRequested) {
+        await startServer();
+      }
+    });
+
+  const shutdown = () => {
+    if (shutdownRequested) return lifecycleOperation;
+    shutdownRequested = true;
+
     logger.newline();
     logger.info('Shutting down dev server...');
-    if (currentGateway) await currentGateway.shutdown();
-    if (currentServer) {
-      await currentServer.stop();
-    }
-    process.exit(0);
+
+    return queueLifecycleOperation(async () => {
+      await stopCurrentRuntime();
+      process.exit(0);
+    });
   };
 
   // Start initial server

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { watch } from 'node:fs';
 import * as findFiles from '../utils/find-files.js';
 import * as loadApi from '../utils/load-api.js';
 import * as detectDb from '../utils/detect-database.js';
@@ -64,6 +65,20 @@ vi.mock('node:fs', () => ({
 // Import after mocks
 let devCommand: any;
 
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+async function flushMicrotasks() {
+  for (let i = 0; i < 10; i += 1) {
+    await Promise.resolve();
+  }
+}
+
 describe('dev command', () => {
   let exitHandler: ReturnType<typeof mockProcessExit>;
 
@@ -97,6 +112,8 @@ describe('dev command', () => {
 
   afterEach(() => {
     exitHandler.restore();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe('experimental query UI', () => {
@@ -140,6 +157,67 @@ describe('dev command', () => {
         expect.any(Object),
         expect.objectContaining({ telemetryDisabled: true })
       );
+    });
+  });
+
+  describe('runtime lifecycle', () => {
+    it('serializes a second restart behind an in-progress teardown', async () => {
+      vi.useFakeTimers();
+      const gatewayStop = deferred();
+      mockGatewayShutdown.mockImplementationOnce(() => gatewayStop.promise);
+
+      await devCommand(undefined, { watch: true, uiExperimental: true });
+      const watchCallback = vi.mocked(watch).mock.calls[0]?.[2] as (
+        eventType: string,
+        filename: string
+      ) => void;
+
+      watchCallback('change', 'api.ts');
+      vi.advanceTimersByTime(100);
+      await flushMicrotasks();
+      expect(mockGatewayShutdown).toHaveBeenCalledOnce();
+
+      watchCallback('change', 'api.ts');
+      vi.advanceTimersByTime(100);
+      await flushMicrotasks();
+
+      expect(mockServeDev).toHaveBeenCalledOnce();
+
+      gatewayStop.resolve();
+      await vi.waitFor(() => expect(mockServeDev).toHaveBeenCalledTimes(3));
+    });
+
+    it('waits for an in-progress restart teardown before signal exit', async () => {
+      vi.useFakeTimers();
+      const gatewayStop = deferred();
+      const signalHandlers = new Map<string, () => void>();
+      vi.spyOn(process, 'once').mockImplementation(((event: string, listener: () => void) => {
+        signalHandlers.set(event, listener);
+        return process;
+      }) as typeof process.once);
+      exitHandler.exitMock.mockImplementation(() => undefined);
+      mockGatewayShutdown.mockImplementationOnce(() => gatewayStop.promise);
+
+      await devCommand(undefined, { watch: true, uiExperimental: true });
+      const watchCallback = vi.mocked(watch).mock.calls[0]?.[2] as (
+        eventType: string,
+        filename: string
+      ) => void;
+
+      watchCallback('change', 'api.ts');
+      vi.advanceTimersByTime(100);
+      await flushMicrotasks();
+
+      signalHandlers.get('SIGINT')?.();
+      await flushMicrotasks();
+      expect(exitHandler.exitMock).not.toHaveBeenCalled();
+
+      gatewayStop.resolve();
+      await flushMicrotasks();
+
+      expect(mockServerStop).toHaveBeenCalledOnce();
+      expect(mockServeDev).toHaveBeenCalledOnce();
+      expect(exitHandler.exitMock).toHaveBeenCalledWith(0);
     });
   });
 
@@ -308,6 +386,35 @@ describe('dev command', () => {
       }
 
       expect(logger.error).toHaveBeenCalledWith('Failed to start server');
+      expect(logger.info).toHaveBeenCalledWith('Port 4000 already in use');
+    });
+
+    it('shuts down a created gateway when server startup fails', async () => {
+      mockServeDev.mockRejectedValue(new Error('Port 4000 already in use'));
+
+      try {
+        await devCommand(undefined, { watch: false, uiExperimental: true });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ProcessExitError);
+      }
+
+      expect(mockGatewayShutdown).toHaveBeenCalledOnce();
+      expect(exitHandler.exitMock).toHaveBeenCalledWith(1);
+    });
+
+    it('still reports the startup error when gateway cleanup fails', async () => {
+      mockServeDev.mockRejectedValue(new Error('Port 4000 already in use'));
+      mockGatewayShutdown.mockRejectedValueOnce(new Error('Gateway shutdown failed'));
+
+      try {
+        await devCommand(undefined, { watch: false, uiExperimental: true });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ProcessExitError);
+      }
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Failed to clean up dev server resources: Gateway shutdown failed'
+      );
       expect(logger.info).toHaveBeenCalledWith('Port 4000 already in use');
     });
 
