@@ -320,6 +320,11 @@ Local dev server ships first; a hosted playground is the natural SaaS wedge afte
 deployed serve instance). The architecture keeps that door open cheaply, and these
 boundaries must be preserved as such:
 
+Cloud also precedes a supported Python SDK or Python deployment runtime. Before Cloud,
+Python is limited to the bounded cross-language probe in the
+[Cloud and Python sequencing plan](./cloud-python-sequencing.md); it is not a second
+product implementation or a Cloud prerequisite.
+
 - The UI speaks only the gateway contract (REST+SSE) — never Node internals — and ships
   as the embeddable `@hypequery/studio` core, so the Cloud app imports the same frontend
   and mounts it against a hosted gateway implementation.

@@ -19,6 +19,14 @@ establish a stable artifact version.
 Do not treat a draft document or the npm package version as an executable
 artifact version.
 
+## Implementation sequencing
+
+The protocol remains language-neutral, but a production Python SDK is not a
+precondition for the first Cloud product. The accepted sequencing is Cloud
+before a supported Python product surface, with only a time-boxed RFC 0001/0002
+Python conformance probe allowed before Cloud. See the
+[Cloud and Python sequencing plan](../../plans/cloud-python-sequencing.md).
+
 ## Authority
 
 The sources have the following roles:
