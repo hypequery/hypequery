@@ -9,4 +9,5 @@ packages:
   - 'packages/studio'
   - 'packages/mcp-server'
   - 'packages/protocol'
+  - 'packages/protocol-conformance'
   - 'packages/tsconfig'

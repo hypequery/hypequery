@@ -59,6 +59,8 @@ jobs:
           fi
       - name: Run unit tests
         run: pnpm test
+      - name: Run protocol conformance suite
+        run: pnpm conformance
       - name: Run ClickHouse integration tests
         run: pnpm --filter @hypequery/clickhouse test:integration
         env:
@@ -121,6 +123,7 @@ jobs:
           "@hypequery/cli": patch
           "@hypequery/mcp": patch
           "@hypequery/protocol": patch
+          "@hypequery/protocol-conformance": patch
           "@hypequery/react": patch
           ---
 
@@ -143,6 +146,8 @@ jobs:
               packages/mcp-server/CHANGELOG.md \
               packages/protocol/package.json \
               packages/protocol/CHANGELOG.md \
+              packages/protocol-conformance/package.json \
+              packages/protocol-conformance/CHANGELOG.md \
               packages/react/package.json \
               packages/react/CHANGELOG.md 2>/dev/null || true
             rm -f .changeset/canary-release.md

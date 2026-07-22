@@ -1,0 +1,52 @@
+{
+  "name": "@hypequery/protocol-conformance",
+  "version": "0.9.0",
+  "description": "Cross-language conformance runner and TypeScript reference adapter for the Hypequery security protocol",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "hypequery-protocol-conformance": "./dist/bin/conformance.js",
+    "hypequery-protocol-reference-adapter": "./dist/bin/reference-adapter.js"
+  },
+  "files": [
+    "dist",
+    "fixtures",
+    "README.md"
+  ],
+  "dependencies": {
+    "@hypequery/protocol": "workspace:^"
+  },
+  "scripts": {
+    "build": "node scripts/copy-fixtures.mjs && tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "test": "vitest run",
+    "types": "tsc --project tsconfig.json --noEmit && tsc --project tsconfig.test.json"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hypequery/hypequery.git",
+    "directory": "packages/protocol-conformance"
+  },
+  "homepage": "https://github.com/hypequery/hypequery/tree/main/packages/protocol-conformance",
+  "bugs": {
+    "url": "https://github.com/hypequery/hypequery/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

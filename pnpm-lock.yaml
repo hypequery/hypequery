@@ -169,6 +169,9 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
     devDependencies:
+      '@hypequery/protocol-conformance':
+        specifier: workspace:^
+        version: link:../protocol-conformance
       '@types/node':
         specifier: ^18.19.80
         version: 18.19.130
@@ -245,6 +248,22 @@ importers:
         specifier: ^1.8.0
         version: 1.8.0
     devDependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.6
+        version: 3.2.6(@edge-runtime/vm@3.2.0)(@types/node@22.20.1)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3)
+
+  packages/protocol-conformance:
+    dependencies:
+      '@hypequery/protocol':
+        specifier: workspace:^
+        version: link:../protocol
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.0
+        version: 22.20.1
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
