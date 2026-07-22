@@ -1,0 +1,22 @@
+{
+  "kind": "hypequery-conformance-manifest",
+  "version": 1,
+  "families": [
+    {
+      "name": "fam-a",
+      "codePrefixes": ["HQ_A_"],
+      "files": [
+        { "path": "fam-a/success.json", "role": "success" },
+        { "path": "fam-a/rejections.json", "role": "rejection" }
+      ]
+    },
+    {
+      "name": "fam-b",
+      "codePrefixes": ["HQ_B_"],
+      "files": [
+        { "path": "fam-b/success.json", "role": "success" }
+      ]
+    }
+  ],
+  "fuzz": []
+}

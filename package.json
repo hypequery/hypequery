@@ -9,6 +9,7 @@
     "packages/deployment",
     "packages/mcp-server",
     "packages/protocol",
+    "packages/protocol-conformance",
     "packages/react",
     "packages/serve",
     "packages/tsconfig"
@@ -21,6 +22,7 @@
     "types": "turbo run types",
     "test:integration": "cd packages/clickhouse && npm run test:integration",
     "lint": "turbo run lint --filter='@hypequery/*'",
+    "conformance": "node packages/protocol-conformance/dist/bin/conformance.js run --fixtures specs/security-protocol/fixtures -- node packages/protocol-conformance/dist/bin/reference-adapter.js && node packages/protocol-conformance/dist/bin/conformance.js run --fixtures specs/security-protocol/fixtures --families sql-portability-v1 -- node packages/datasets/scripts/conformance-adapter.mjs",
     "start": "turbo run dev",
     "docs:api": "cd packages/clickhouse && npm run docs:api",
     "docs:mdx": "cd packages/clickhouse && npm run docs:mdx",

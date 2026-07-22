@@ -1,0 +1,191 @@
+[
+  {
+    "id": "empty-source",
+    "sourceUtf8": ""
+  },
+  {
+    "id": "whitespace-only",
+    "sourceUtf8": "   \n\t  "
+  },
+  {
+    "id": "unbalanced-array-open",
+    "sourceUtf8": "[[[["
+  },
+  {
+    "id": "unbalanced-object-open",
+    "sourceUtf8": "{\"a\":{\"b\":{"
+  },
+  {
+    "id": "unbalanced-close",
+    "sourceUtf8": "]}"
+  },
+  {
+    "id": "truncated-string",
+    "sourceUtf8": "\"abc"
+  },
+  {
+    "id": "truncated-escape",
+    "sourceUtf8": "\"ab\\"
+  },
+  {
+    "id": "truncated-unicode-escape",
+    "sourceUtf8": "\"\\u00"
+  },
+  {
+    "id": "lone-high-surrogate-escape",
+    "sourceUtf8": "\"\\ud800\""
+  },
+  {
+    "id": "lone-low-surrogate-escape",
+    "sourceUtf8": "\"\\udc00\""
+  },
+  {
+    "id": "swapped-surrogate-pair",
+    "sourceUtf8": "\"\\udc00\\ud800\""
+  },
+  {
+    "id": "bom-prefix",
+    "sourceUtf8": "﻿{}"
+  },
+  {
+    "id": "bare-plus-number",
+    "sourceUtf8": "+1"
+  },
+  {
+    "id": "leading-zero-number",
+    "sourceUtf8": "01"
+  },
+  {
+    "id": "trailing-dot-number",
+    "sourceUtf8": "1."
+  },
+  {
+    "id": "hex-number",
+    "sourceUtf8": "0x10"
+  },
+  {
+    "id": "bare-nan",
+    "sourceUtf8": "NaN"
+  },
+  {
+    "id": "bare-infinity",
+    "sourceUtf8": "Infinity"
+  },
+  {
+    "id": "single-quoted-string",
+    "sourceUtf8": "'abc'"
+  },
+  {
+    "id": "trailing-comma-array",
+    "sourceUtf8": "[1,]"
+  },
+  {
+    "id": "trailing-comma-object",
+    "sourceUtf8": "{\"a\":1,}"
+  },
+  {
+    "id": "duplicate-key-triple",
+    "sourceUtf8": "{\"a\":1,\"a\":2,\"a\":3}"
+  },
+  {
+    "id": "duplicate-key-nested",
+    "sourceUtf8": "{\"o\":{\"k\":1,\"k\":2}}"
+  },
+  {
+    "id": "line-comment",
+    "sourceUtf8": "1 // comment"
+  },
+  {
+    "id": "block-comment",
+    "sourceUtf8": "/* c */ 1"
+  },
+  {
+    "id": "escaped-null-in-string",
+    "sourceUtf8": "\"a\\u0000b\""
+  },
+  {
+    "id": "raw-tab-in-string",
+    "sourceUtf8": "\"ab\tcd\""
+  },
+  {
+    "id": "proto-key",
+    "sourceUtf8": "{\"__proto__\":{\"polluted\":true}}"
+  },
+  {
+    "id": "constructor-key",
+    "sourceUtf8": "{\"constructor\":{\"prototype\":{}}}"
+  },
+  {
+    "id": "tag-lookalike-unknown",
+    "sourceUtf8": "{\"$hypequery\":\"no-such-tag\",\"value\":\"1\"}"
+  },
+  {
+    "id": "tag-lookalike-case",
+    "sourceUtf8": "{\"$HYPEQUERY\":\"int64\",\"value\":\"1\"}"
+  },
+  {
+    "id": "huge-exponent",
+    "sourceUtf8": "1e309"
+  },
+  {
+    "id": "negative-huge-exponent",
+    "sourceUtf8": "-1e309"
+  },
+  {
+    "id": "tiny-exponent",
+    "sourceUtf8": "1e-324"
+  },
+  {
+    "id": "mixed-normalization-keys",
+    "sourceUtf8": "{\"café\":1,\"café\":2}"
+  },
+  {
+    "id": "long-digit-run",
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "9",
+      "count": 20000
+    }
+  },
+  {
+    "id": "deep-array-nesting",
+    "generator": {
+      "type": "nested-array",
+      "depth": 64,
+      "leaf": null
+    }
+  },
+  {
+    "id": "wide-array",
+    "generator": {
+      "type": "array",
+      "items": 5000,
+      "value": null
+    }
+  },
+  {
+    "id": "node-explosion-tree",
+    "generator": {
+      "type": "array-tree",
+      "branches": 64,
+      "itemsPerBranch": 512,
+      "value": null
+    }
+  },
+  {
+    "id": "oversized-string",
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "a",
+      "count": 131072
+    }
+  },
+  {
+    "id": "multibyte-oversized-string",
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "é",
+      "count": 65537
+    }
+  }
+]
