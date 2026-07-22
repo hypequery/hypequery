@@ -53,7 +53,11 @@ pnpm smoke:consumers    # all consumer smoke tests (scripts/smoke-*.sh)
 
 ## Releases
 
-- **Canary**: every push to `main` auto-publishes canary builds (npm `canary` dist-tag) for `clickhouse`, `serve`, and `cli` via GitHub Actions snapshot releases. No manual steps.
+- **Canary**: every push to `main` auto-publishes snapshot builds to the npm
+  `canary` dist-tag for `@hypequery/clickhouse`, `@hypequery/datasets`,
+  `@hypequery/deployment`, `@hypequery/serve`, `@hypequery/cli`,
+  `@hypequery/mcp`, `@hypequery/protocol`,
+  `@hypequery/protocol-conformance`, and `@hypequery/react`. No manual steps.
 - **Stable**: Changesets-driven. Any user-facing change to a published package needs a changeset (`pnpm changeset`) in the PR. Full flow in `release-commands.md`.
 
 ## Testing philosophy

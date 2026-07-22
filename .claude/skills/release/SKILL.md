@@ -7,7 +7,13 @@ description: Cut a stable hypequery release via Changesets, or explain/check the
 
 Two release channels — make sure you're on the right one before doing anything:
 
-- **Canary**: automatic. Every push to `main` publishes snapshot builds of `@hypequery/clickhouse`, `@hypequery/serve`, and `@hypequery/cli` to the npm `canary` dist-tag via GitHub Actions. There are **no manual canary steps** — if the user asks to "publish a canary," the answer is to merge to main and watch the Actions run (`gh run list`).
+- **Canary**: automatic. Every push to `main` publishes snapshot builds of
+  `@hypequery/clickhouse`, `@hypequery/datasets`, `@hypequery/deployment`,
+  `@hypequery/serve`, `@hypequery/cli`, `@hypequery/mcp`,
+  `@hypequery/protocol`, `@hypequery/protocol-conformance`, and
+  `@hypequery/react` to the npm `canary` dist-tag via GitHub Actions. There are
+  **no manual canary steps** — if the user asks to "publish a canary," the
+  answer is to merge to main and watch the Actions run (`gh run list`).
 - **Stable**: manual, Changesets-driven. The steps below.
 
 ## Adding a changeset (during feature work)
