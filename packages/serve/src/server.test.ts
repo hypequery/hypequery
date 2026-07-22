@@ -961,7 +961,7 @@ describe("defineServe", () => {
     expect(typeof response.headers?.["x-request-id"]).toBe("string");
   });
 
-  it("echoes incoming X-Request-Id header in the response", async () => {
+  it("keeps X-Request-Id authoritative and echoes the client value as X-Correlation-Id", async () => {
     const api = defineServe({
       queries: {
         ping: { query: async () => ({ ok: true }) },
@@ -977,7 +977,11 @@ describe("defineServe", () => {
       })
     );
     expect(response.status).toBe(200);
-    expect(response.headers?.["x-request-id"]).toBe("req-abc-123");
+    // The authoritative id is server-generated, not the client-supplied header.
+    expect(response.headers?.["x-request-id"]).not.toBe("req-abc-123");
+    expect(response.headers?.["x-request-id"]).toBeDefined();
+    // The validated client value is preserved as a separate, non-authoritative id.
+    expect(response.headers?.["x-correlation-id"]).toBe("req-abc-123");
   });
 
   it("returns X-Request-Id header on error responses", async () => {

@@ -22,7 +22,7 @@ import type {
 } from './types.js';
 import { warnTenantMisconfiguration } from './tenant.js';
 import { applySemanticTenantRuntime } from './semantic/utils/tenant-runtime.js';
-import { generateRequestId } from './utils.js';
+import { generateRequestId, validateCorrelationId } from './utils.js';
 import { buildOpenApiDocument } from './openapi.js';
 import { buildDocsHtml } from './docs-ui.js';
 import { ServeQueryLogger } from './query-logger.js';
@@ -225,8 +225,31 @@ const resolveContext = async <
   return cloneContext(factory);
 };
 
-const resolveRequestId = (request: ServeRequest, provided?: string) =>
-  provided ?? request.headers['x-request-id'] ?? request.headers['x-trace-id'] ?? generateRequestId();
+interface RequestIdentifiers {
+  /** Authoritative id: server-generated (or a trusted in-process value); never client input. */
+  readonly requestId: string;
+  /** Validated, non-authoritative external correlation id when the caller supplied a safe one. */
+  readonly correlationId?: string;
+}
+
+/**
+ * Resolve the authoritative request id and the optional external correlation id.
+ *
+ * The authoritative id is always server-generated unless a trusted in-process caller passes
+ * one explicitly; a network-supplied `x-request-id`/`x-trace-id` is NEVER treated as
+ * authoritative. Any caller-supplied value is validated and length-bounded and surfaced only
+ * as a separate correlation id, so it cannot inject control characters into logs/headers or
+ * spoof cross-request correlation.
+ */
+const resolveRequestContext = (
+  request: ServeRequest,
+  provided?: string,
+): RequestIdentifiers => ({
+  requestId: provided ?? generateRequestId(),
+  correlationId: validateCorrelationId(
+    request.headers['x-request-id'] ?? request.headers['x-trace-id'],
+  ),
+});
 
 export interface ExecuteEndpointOptions<
   TContext extends Record<string, unknown>,
@@ -271,7 +294,11 @@ export const executeEndpoint = async <
     sanitizeErrors = true, // Default to secure mode for HTTP requests
   } = options;
 
-  const requestId = resolveRequestId(request, explicitRequestId);
+  const { requestId, correlationId } = resolveRequestContext(request, explicitRequestId);
+  // Echoed alongside the authoritative x-request-id; only ever a validated caller value.
+  const traceHeaders: Record<string, string> = correlationId
+    ? { 'x-correlation-id': correlationId }
+    : {};
   const locals: Record<string, unknown> = {};
   let cacheTtlMs: number | null | undefined = endpoint.cacheTtlMs ?? null;
   const setCacheTtl = (ttl: number | null) => {
@@ -348,7 +375,7 @@ export const executeEndpoint = async <
           ...(verboseAuthErrors && authErrorInfo?.details ? { auth_error: authErrorInfo.details } : {}),
           endpoint: endpoint.metadata.path,
         },
-        { 'x-request-id': requestId, 'cache-control': 'no-store' }
+        { 'x-request-id': requestId, ...traceHeaders, 'cache-control': 'no-store' }
       );
     }
 
@@ -382,7 +409,7 @@ export const executeEndpoint = async <
           }),
           endpoint: endpoint.metadata.path,
         },
-        { 'x-request-id': requestId, 'cache-control': 'no-store' }
+        { 'x-request-id': requestId, ...traceHeaders, 'cache-control': 'no-store' }
       );
     }
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
@@ -411,7 +438,7 @@ export const executeEndpoint = async <
         return createErrorResponse(403, 'FORBIDDEN', errorMessage, {
           reason: 'missing_tenant_context',
           tenant_required: true,
-        }, { 'x-request-id': requestId, 'cache-control': 'no-store' });
+        }, { 'x-request-id': requestId, ...traceHeaders, 'cache-control': 'no-store' });
       }
 
       if (tenantId) {
@@ -448,7 +475,7 @@ export const executeEndpoint = async <
       });
       return createErrorResponse(400, 'VALIDATION_ERROR', 'Request validation failed', {
         issues: validationResult.error.issues,
-      }, { 'x-request-id': requestId });
+      }, { 'x-request-id': requestId, ...traceHeaders });
     }
     context.input = validationResult.data;
 
@@ -461,6 +488,7 @@ export const executeEndpoint = async <
     const headers: Record<string, string> = {
       ...(endpoint.defaultHeaders ?? {}),
       'x-request-id': requestId,
+      ...traceHeaders,
     };
     // Authenticated and tenant-aware responses must never be shared by an
     // intermediary cache. Endpoint TTLs only opt public, tenant-independent
@@ -550,7 +578,7 @@ export const executeEndpoint = async <
         structured.payload.type as ErrorEnvelope['error']['type'],
         structured.payload.message,
         undefined,
-        { 'x-request-id': requestId, ...(structured.headers ?? {}) },
+        { 'x-request-id': requestId, ...traceHeaders, ...(structured.headers ?? {}) },
       );
       return response;
     }
@@ -567,7 +595,7 @@ export const executeEndpoint = async <
       'INTERNAL_SERVER_ERROR',
       errorMessage,
       undefined,
-      { 'x-request-id': requestId },
+      { 'x-request-id': requestId, ...traceHeaders },
     );
   }
 };
@@ -608,7 +636,10 @@ export const createServeHandler = <
       return preflightResponse;
     }
 
-    const requestId = resolveRequestId(request);
+    const { requestId, correlationId } = resolveRequestContext(request);
+    const traceHeaders: Record<string, string> = correlationId
+      ? { 'x-correlation-id': correlationId }
+      : {};
     const endpoint = router.match(request.method as HttpMethod, request.path);
     if (!endpoint) {
       const response = createErrorResponse(
@@ -616,7 +647,7 @@ export const createServeHandler = <
         'NOT_FOUND',
         `No endpoint registered for ${request.method} ${request.path}`,
         undefined,
-        { 'x-request-id': requestId },
+        { 'x-request-id': requestId, ...traceHeaders },
       );
       response.headers = { ...response.headers, ...corsHeaders };
       return response;
