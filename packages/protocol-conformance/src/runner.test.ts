@@ -49,6 +49,20 @@ describe('runConformance', () => {
     expect(summary.outcomes.some((o) => o.actual === 'timeout')).toBe(true);
   });
 
+  it('recovers from a timed-out case without desynchronizing later cases', async () => {
+    const summary = await runConformance({
+      fixturesDir: miniFixtures,
+      adapterCommand: adapter('slow-first-adapter.mjs'),
+      timeoutMs: 300,
+    });
+    // s1 times out; the stale connection and its late reply are discarded, so
+    // the remaining three cases are answered correctly rather than shifted by
+    // one and failing the sequence check.
+    expect(summary.passed).toBe(3);
+    expect(summary.outcomes.filter((o) => o.status === 'fail')).toHaveLength(1);
+    expect(summary.outcomes.some((o) => o.actual === 'out-of-order result')).toBe(false);
+  });
+
   it('respawns once after a mid-stream exit and keeps going', async () => {
     const summary = await runConformance({
       fixturesDir: miniFixtures,

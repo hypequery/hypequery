@@ -144,14 +144,6 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
   let seq = 0;
   let notRun = 0;
 
-  const respawn = (): boolean => {
-    if (respawnBudget <= 0) return false;
-    respawnBudget -= 1;
-    connection.kill();
-    connection = new AdapterConnection(options.adapterCommand);
-    return true;
-  };
-
   for (const ec of cases) {
     if (!announced.has(ec.family)) {
       notRun += 1;
@@ -184,9 +176,17 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
           error instanceof AdapterTimeoutError ? 'timeout' : 'adapter exited',
         ),
       );
+      // Both failures leave the connection unusable: a crashed child is gone,
+      // and a timed-out child may still deliver a late reply that would be
+      // consumed as the next case's result — or block every later case and
+      // outlive the run. Kill it and start fresh before continuing. Crashes are
+      // rate-limited because they can recur instantly; timeouts are naturally
+      // bounded by the per-case timeout, so they always refresh.
       if (error instanceof AdapterExitError) {
-        if (!(await reestablish())) break;
+        if (respawnBudget <= 0) break;
+        respawnBudget -= 1;
       }
+      if (!(await refreshConnection())) break;
     }
   }
 
@@ -194,13 +194,14 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
 
   return summarize(outcomes, notRun, hello);
 
-  async function reestablish(): Promise<boolean> {
-    if (!respawn()) return false;
+  async function refreshConnection(): Promise<boolean> {
+    connection.kill();
+    connection = new AdapterConnection(options.adapterCommand);
     try {
       hello = await connection.handshake(handshakeTimeoutMs);
     } catch {
-      // A respawn that cannot even complete a handshake ends the run cleanly
-      // rather than throwing out of the loop.
+      // A replacement that cannot even complete a handshake ends the run
+      // cleanly rather than throwing out of the loop.
       return false;
     }
     announced = new Set(hello.families);
