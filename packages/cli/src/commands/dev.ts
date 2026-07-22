@@ -98,6 +98,38 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   let currentGateway: { mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null = null;
   const shouldWatch = options.watch !== false; // Default to true
 
+  const stopCurrentRuntime = async () => {
+    const gateway = currentGateway;
+    const server = currentServer;
+
+    // Clear references before awaiting teardown so a second signal or restart
+    // cannot stop the same resources twice.
+    currentGateway = null;
+    currentServer = null;
+
+    let teardownError: unknown;
+
+    if (gateway) {
+      try {
+        await gateway.shutdown();
+      } catch (error) {
+        teardownError = error;
+      }
+    }
+
+    if (server) {
+      try {
+        await server.stop();
+      } catch (error) {
+        teardownError ??= error;
+      }
+    }
+
+    if (teardownError) {
+      throw teardownError;
+    }
+  };
+
   const startServer = async () => {
     // Loading spinners for slow operations
     const compileSpinner = ora('Compiling queries...').start();
@@ -191,6 +223,16 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         }
       }
     } catch (error) {
+      // Gateway creation happens before serveDev so its mount can be passed to
+      // the server. If server startup (or any later setup) fails, tear down all
+      // resources acquired by this attempt before retrying or exiting.
+      try {
+        await stopCurrentRuntime();
+      } catch (teardownError) {
+        const message = teardownError instanceof Error ? teardownError.message : String(teardownError);
+        logger.warn(`Failed to clean up dev server resources: ${message}`);
+      }
+
       // Stop spinners if they're still running
       if (compileSpinner.isSpinning) {
         compileSpinner.fail('Failed to compile queries');
@@ -220,12 +262,11 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   };
 
   const restartServer = async () => {
-    if (currentServer) {
+    if (currentServer || currentGateway) {
       logger.newline();
       logger.reload('File changed, restarting...');
       logger.newline();
-      if (currentGateway) await currentGateway.shutdown();
-      await currentServer.stop();
+      await stopCurrentRuntime();
     }
     await startServer();
   };
@@ -233,10 +274,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   const shutdown = async () => {
     logger.newline();
     logger.info('Shutting down dev server...');
-    if (currentGateway) await currentGateway.shutdown();
-    if (currentServer) {
-      await currentServer.stop();
-    }
+    await stopCurrentRuntime();
     process.exit(0);
   };
 

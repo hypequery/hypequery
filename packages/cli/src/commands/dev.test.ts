@@ -311,6 +311,35 @@ describe('dev command', () => {
       expect(logger.info).toHaveBeenCalledWith('Port 4000 already in use');
     });
 
+    it('shuts down a created gateway when server startup fails', async () => {
+      mockServeDev.mockRejectedValue(new Error('Port 4000 already in use'));
+
+      try {
+        await devCommand(undefined, { watch: false, uiExperimental: true });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ProcessExitError);
+      }
+
+      expect(mockGatewayShutdown).toHaveBeenCalledOnce();
+      expect(exitHandler.exitMock).toHaveBeenCalledWith(1);
+    });
+
+    it('still reports the startup error when gateway cleanup fails', async () => {
+      mockServeDev.mockRejectedValue(new Error('Port 4000 already in use'));
+      mockGatewayShutdown.mockRejectedValueOnce(new Error('Gateway shutdown failed'));
+
+      try {
+        await devCommand(undefined, { watch: false, uiExperimental: true });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ProcessExitError);
+      }
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Failed to clean up dev server resources: Gateway shutdown failed'
+      );
+      expect(logger.info).toHaveBeenCalledWith('Port 4000 already in use');
+    });
+
     it('should handle browser open failure silently', async () => {
       mockOpen.mockRejectedValue(new Error('open package not found'));
 
