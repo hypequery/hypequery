@@ -1,12 +1,11 @@
 import type { EndpointContext } from './types.js';
 import { parseBody, sendJSON, sendError } from './helpers.js';
 import { randomUUID } from 'node:crypto';
-
-interface ExecuteBody {
-  key?: string;
-  input?: unknown;
-  context?: unknown;
-}
+import type {
+  ExecuteFailure,
+  ExecuteRequest,
+  ExecuteSuccess,
+} from '@hypequery/gateway-contract';
 
 /**
  * POST /__dev/execute
@@ -26,7 +25,7 @@ export async function execute(ctx: EndpointContext): Promise<void> {
       return sendError(ctx.res, 'Execution not available', 503);
     }
 
-    const body = (await parseBody(ctx.req)) as ExecuteBody;
+    const body = (await parseBody(ctx.req)) as Partial<ExecuteRequest>;
     const key = body?.key;
     if (!key || typeof key !== 'string') {
       return sendError(ctx.res, 'key is required', 400);
@@ -36,32 +35,30 @@ export async function execute(ctx: EndpointContext): Promise<void> {
     // forbids silently ignoring `context` (a developer simulating a tenant
     // must never get un-scoped results labelled as scoped ones).
     if (body?.context !== undefined) {
-      return sendJSON(
-        ctx.res,
-        {
-          success: false,
-          error: {
-            type: 'context_not_allowed',
-            message: 'This gateway does not support an execution context override yet.'
-          },
-          timestamp: Date.now()
+      const response: ExecuteFailure = {
+        success: false,
+        error: {
+          type: 'context_not_allowed',
+          message: 'This gateway does not support an execution context override yet.'
         },
-        400
-      );
+        timestamp: Date.now()
+      };
+      return sendJSON(ctx.res, response, 400);
     }
 
     queryId = randomUUID();
     const result = await ctx.api.execute(key, { input: body.input, requestId: queryId });
     const durationMs = Date.now() - startTime;
 
-    sendJSON(ctx.res, {
+    const response: ExecuteSuccess = {
       success: true,
       queryId,
       key,
       result,
       durationMs,
       timestamp: Date.now()
-    });
+    };
+    sendJSON(ctx.res, response);
   } catch (error) {
     const durationMs = Date.now() - startTime;
     const message = error instanceof Error ? error.message : String(error);
@@ -87,16 +84,13 @@ export async function execute(ctx: EndpointContext): Promise<void> {
         SERVICE_UNAVAILABLE: 503
       }[type ?? ''] ?? 500);
 
-    sendJSON(
-      ctx.res,
-      {
-        success: false,
-        ...(queryId ? { queryId } : {}),
-        error: { type, message, ...(details ? { details } : {}) },
-        durationMs,
-        timestamp: Date.now()
-      },
-      status
-    );
+    const response: ExecuteFailure = {
+      success: false,
+      ...(queryId ? { queryId } : {}),
+      error: { type, message, ...(details ? { details } : {}) },
+      durationMs,
+      timestamp: Date.now()
+    };
+    sendJSON(ctx.res, response, status);
   }
 }

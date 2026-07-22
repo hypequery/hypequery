@@ -135,7 +135,11 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
               label="Cache Status"
               value={getCacheDisplayConfig(query.cacheStatus, query.cacheHit)?.label || 'N/A'}
               highlight={query.cacheStatus === 'hit' || query.cacheHit === true}
-              highlightColor={query.cacheStatus === 'stale' ? 'warning' : 'success'}
+              highlightColor={
+                query.cacheStatus === 'stale-hit' || query.cacheStatus === 'revalidate'
+                  ? 'warning'
+                  : 'success'
+              }
             />
           </div>
         </section>
@@ -153,7 +157,11 @@ export function QueryDetail({ query, onClose }: QueryDetailProps) {
                   <div className={cn('flex items-center gap-2 mb-2', display.textClass)}>
                     <Icon className={ICON_SIZES.md} />
                     <span className="font-medium">{display.label}</span>
-                    {query.cacheAgeMs !== undefined && (query.cacheStatus === 'hit' || query.cacheStatus === 'stale' || query.cacheHit) && (
+                    {query.cacheAgeMs !== undefined &&
+                      (query.cacheStatus === 'hit' ||
+                        query.cacheStatus === 'stale-hit' ||
+                        query.cacheStatus === 'revalidate' ||
+                        query.cacheHit) && (
                       <span className="text-xs opacity-75">({formatDuration(query.cacheAgeMs)} old)</span>
                     )}
                   </div>

@@ -1,21 +1,5 @@
 import type { CacheObservability, DevIntegrationApi } from '@hypequery/serve/dev';
-
-/**
- * Capability strings advertised by GET /__dev/meta. The studio UI renders
- * only what the gateway advertises. Additive-only within contract 0.x.
- * `cache:clear` is a sub-capability of `cache`: advertised only when at least
- * one cache layer is wired for clearing.
- */
-export type GatewayCapability =
-  | 'registry'
-  | 'execute'
-  | 'history'
-  | 'events'
-  | 'cache'
-  | 'cache:clear'
-  | 'schema'
-  | 'ai'
-  | 'telemetry';
+export type { GatewayCapability, KnownGatewayCapability } from '@hypequery/gateway-contract';
 
 /**
  * Per-layer cache stats/clear, provided by serve's `DevIntegrationApi`

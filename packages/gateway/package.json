@@ -24,6 +24,7 @@
     "types": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@hypequery/gateway-contract": "workspace:*",
     "@hypequery/serve": "workspace:*",
     "@hypequery/studio": "workspace:*"
   },

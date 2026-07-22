@@ -1,10 +1,11 @@
 import type { QueryHistoryStore, QueryLog } from './storage/index.js';
 import type { ServeQueryLogger, ServeQueryEvent } from '@hypequery/serve';
+import type { LoggerStats as GatewayLoggerStats } from '@hypequery/gateway-contract';
 
 /**
  * Statistics for the query logger.
  */
-export interface LoggerStats {
+export interface LoggerStats extends GatewayLoggerStats {
   /** Total queries logged */
   totalLogged: number;
   /** Queries successfully persisted to storage */

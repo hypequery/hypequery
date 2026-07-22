@@ -1,5 +1,6 @@
 import type { EndpointContext } from './types.js';
 import { parseBody, sendJSON, sendError } from './helpers.js';
+import type { ClearHistoryResult, ImportHistoryResult } from '@hypequery/gateway-contract';
 
 const VALID_STATUSES = ['started', 'completed', 'error'] as const;
 
@@ -48,7 +49,7 @@ export async function clearHistory(ctx: EndpointContext): Promise<void> {
   try {
     await ctx.store.clear();
 
-    const result = { cleared: true, timestamp: Date.now() };
+    const result: ClearHistoryResult = { cleared: true, timestamp: Date.now() };
     ctx.sseHandler?.broadcast({ type: 'history:cleared', data: result });
     sendJSON(ctx.res, result);
   } catch (error) {
@@ -92,7 +93,11 @@ export async function importHistory(ctx: EndpointContext): Promise<void> {
     const data = JSON.stringify(body);
     await ctx.store.import(data, 'json');
 
-    const result = { imported: true, count: (body as unknown[]).length, timestamp: Date.now() };
+    const result: ImportHistoryResult = {
+      imported: true,
+      count: (body as unknown[]).length,
+      timestamp: Date.now()
+    };
     sendJSON(ctx.res, result);
   } catch (error) {
     console.error('[API] importHistory error:', error);

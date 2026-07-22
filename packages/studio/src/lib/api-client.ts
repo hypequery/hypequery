@@ -6,28 +6,31 @@ import type {
   GatewayMeta,
   RegistryResult,
   ExecuteResult,
+  ClearHistoryResult,
+  ImportHistoryResult,
 } from './types';
+import { normalizeGatewayBaseUrl } from './runtime-config';
 
 /**
  * Base path for the gateway contract. Overridable so the same studio bundle
- * can front the local gateway (same-origin `/__dev`) or a hosted Cloud gateway
- * (an absolute origin). Set once at boot via {@link setGatewayBaseUrl}.
+ * can front a same-origin local gateway or a hosted Cloud gateway (including
+ * an absolute origin). Set once at boot via {@link setGatewayBaseUrl}.
  */
-let BASE_URL = '/__dev';
+let gatewayBaseUrl = '';
 
-/** Point the studio at a specific gateway (e.g. Cloud). Defaults to `/__dev`. */
+/** Point Studio at the gateway selected by its host at boot. */
 export function setGatewayBaseUrl(baseUrl: string): void {
-  BASE_URL = baseUrl.replace(/\/$/, '');
+  gatewayBaseUrl = normalizeGatewayBaseUrl(baseUrl);
 }
 
 /** The SSE endpoint for the configured gateway. */
 export function gatewayEventsUrl(): string {
-  return `${BASE_URL}/events`;
+  return `${gatewayBaseUrl}/events`;
 }
 
 /** The telemetry beacon endpoint for the configured gateway. */
 export function gatewayTelemetryUrl(): string {
-  return `${BASE_URL}/telemetry`;
+  return `${gatewayBaseUrl}/telemetry`;
 }
 
 /**
@@ -51,7 +54,7 @@ async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
+  const url = `${gatewayBaseUrl}${endpoint}`;
 
   const response = await fetch(url, {
     ...options,
@@ -149,8 +152,8 @@ export const apiClient = {
   /**
    * Clear query history.
    */
-  async clearHistory(): Promise<{ cleared: number }> {
-    return request<{ cleared: number }>('/history', { method: 'DELETE' });
+  async clearHistory(): Promise<ClearHistoryResult> {
+    return request<ClearHistoryResult>('/history', { method: 'DELETE' });
   },
 
   /**
@@ -164,7 +167,7 @@ export const apiClient = {
    * Export query history.
    */
   async exportHistory(): Promise<QueryHistoryEntry[]> {
-    const response = await fetch(`${BASE_URL}/history/export`);
+    const response = await fetch(`${gatewayBaseUrl}/history/export`);
     if (!response.ok) {
       throw new APIError('Export failed', response.status);
     }
@@ -174,8 +177,8 @@ export const apiClient = {
   /**
    * Import query history.
    */
-  async importHistory(data: QueryHistoryEntry[]): Promise<{ imported: number }> {
-    return request<{ imported: number }>('/history/import', {
+  async importHistory(data: QueryHistoryEntry[]): Promise<ImportHistoryResult> {
+    return request<ImportHistoryResult>('/history/import', {
       method: 'POST',
       body: JSON.stringify(data),
     });

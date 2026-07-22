@@ -81,7 +81,12 @@ export class DevHandler {
     }
 
     // The UI shell at the base path
-    if (reqPath === this.apiBasePath || reqPath === `${this.apiBasePath}/`) {
+    if (reqPath === this.apiBasePath) {
+      res.writeHead(308, { Location: `${this.apiBasePath}/` });
+      res.end();
+      return true;
+    }
+    if (reqPath === `${this.apiBasePath}/`) {
       return this.serveHTML(res);
     }
 
@@ -101,7 +106,12 @@ export class DevHandler {
       return true;
     }
     try {
-      const html = await readFile(path.join(this.distDir, 'index.html'), 'utf-8');
+      const shell = await readFile(path.join(this.distDir, 'index.html'), 'utf-8');
+      const runtimeConfig = JSON.stringify({ gatewayBaseUrl: this.apiBasePath }).replace(/</g, '\\u003c');
+      const configScript = `<script>window.__HYPEQUERY_STUDIO_CONFIG__=${runtimeConfig}</script>`;
+      const html = shell.includes('</head>')
+        ? shell.replace('</head>', `${configScript}</head>`)
+        : `${configScript}${shell}`;
       // Funnel step 2: someone actually opened the playground in a browser.
       this.telemetry?.track('ui_served');
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });

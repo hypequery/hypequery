@@ -1,5 +1,6 @@
 import type { ServerResponse } from 'http';
 import type { QueryLogEvent } from '../query-logger.js';
+import type { GatewayEvent } from '@hypequery/gateway-contract';
 
 /**
  * Represents a connected SSE client.
@@ -18,13 +19,8 @@ interface SSEClient {
 /**
  * SSE event data structure.
  */
-export interface SSEEvent {
+export interface SSEEvent extends GatewayEvent {
   /** Event type (e.g., 'query:started', 'query:completed') */
-  type: string;
-  /** Event payload */
-  data: unknown;
-  /** Optional event ID for client reconnection */
-  id?: string;
   /** Optional retry interval suggestion in milliseconds */
   retry?: number;
 }

@@ -1,7 +1,7 @@
 {
   "name": "@hypequery/studio",
-  "version": "0.1.0",
-  "description": "Embeddable hypequery studio UI — renders against a gateway contract endpoint",
+  "version": "0.2.0",
+  "description": "Configurable hypequery Studio SPA for local and Cloud gateways",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
@@ -15,9 +15,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hypequery/gateway-contract": "workspace:*",
     "@tanstack/react-query": "^5.90.20",
     "@tanstack/react-table": "^8.21.3",
     "clsx": "^2.1.0",
@@ -42,7 +44,8 @@
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.3",
-    "vite": "^6.4.0"
+    "vite": "^6.4.0",
+    "vitest": "^3.2.6"
   },
   "publishConfig": {
     "access": "public"

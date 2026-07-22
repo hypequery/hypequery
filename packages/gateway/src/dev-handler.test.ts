@@ -63,17 +63,32 @@ describe('DevHandler', () => {
     await rm(rootDir, { recursive: true, force: true });
   });
 
-  it.each(['/__dev', '/__dev/'])('serves the studio shell at %s', async (url) => {
+  it('redirects the mount path to its trailing-slash form for relative assets', async () => {
     const response = new MockResponse();
 
     const handled = await handler.handleRequest(
-      new MockRequest(url) as unknown as IncomingMessage,
+      new MockRequest('/__dev') as unknown as IncomingMessage,
+      response as unknown as ServerResponse
+    );
+
+    expect(handled).toBe(true);
+    expect(response.statusCode).toBe(308);
+    expect(response.headers.Location).toBe('/__dev/');
+  });
+
+  it('serves the configured Studio shell at the mount path', async () => {
+    const response = new MockResponse();
+
+    const handled = await handler.handleRequest(
+      new MockRequest('/__dev/') as unknown as IncomingMessage,
       response as unknown as ServerResponse
     );
 
     expect(handled).toBe(true);
     expect(response.statusCode).toBe(200);
-    expect(response.body).toBe('<html>studio shell</html>');
+    expect(response.body).toContain(
+      '<script>window.__HYPEQUERY_STUDIO_CONFIG__={"gatewayBaseUrl":"/__dev"}</script>'
+    );
   });
 
   it('rejects an asset symlink whose real target escapes the studio dist directory', async () => {

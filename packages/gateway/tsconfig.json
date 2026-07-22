@@ -20,6 +20,7 @@
     "src/**/*.spec.ts"
   ],
   "references": [
+    { "path": "../gateway-contract" },
     { "path": "../serve" }
   ]
 }

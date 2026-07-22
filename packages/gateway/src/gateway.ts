@@ -181,7 +181,7 @@ export async function createGateway(
       const bootstrapToken = isShell && req.method === 'GET' ? requestUrl.searchParams.get('token') : null;
       if (bootstrapToken && secureEqual(bootstrapToken, devToken) && browserSession) {
         res.writeHead(303, {
-          Location: '/__dev',
+          Location: '/__dev/',
           'Set-Cookie': `hq_dev_session=${browserSession}; Path=/__dev; HttpOnly; SameSite=Strict`,
           'Cache-Control': 'no-store'
         });

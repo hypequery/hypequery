@@ -30,7 +30,7 @@ export function getCacheDisplayConfig(
     };
   }
 
-  if (status === 'stale') {
+  if (status === 'stale-hit' || status === 'revalidate') {
     return {
       label: 'Stale (Revalidating)',
       labelShort: 'STALE',

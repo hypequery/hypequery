@@ -2,12 +2,23 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 
-// The studio is served same-origin by the local gateway under /__dev, so built
-// asset URLs must be prefixed accordingly. The gateway serves the HTML shell at
-// /__dev and static assets at /__dev/assets/*.
-export default defineConfig({
-  base: '/__dev/',
-  plugins: [react()],
+// Relative assets let the same build run below any local or Cloud mount path.
+// The host injects the gateway API base separately at runtime.
+export default defineConfig(({ command }) => ({
+  base: './',
+  plugins: [
+    react(),
+    ...(command === 'serve'
+      ? [{
+          name: 'studio-local-gateway-config',
+          transformIndexHtml: () => [{
+            tag: 'script',
+            children: 'window.__HYPEQUERY_STUDIO_CONFIG__={gatewayBaseUrl:"/__dev"}',
+            injectTo: 'head-prepend' as const,
+          }],
+        }]
+      : []),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -41,4 +52,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

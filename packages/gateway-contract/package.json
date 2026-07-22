@@ -1,0 +1,38 @@
+{
+  "name": "@hypequery/gateway-contract",
+  "version": "0.0.0",
+  "description": "Shared transport contract for Hypequery Studio and gateway implementations",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "dev": "tsc --project tsconfig.json --watch",
+    "lint": "eslint --ext .ts \"src/**/*.ts\"",
+    "test": "vitest run",
+    "types": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hypequery/hypequery.git",
+    "directory": "packages/gateway-contract"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

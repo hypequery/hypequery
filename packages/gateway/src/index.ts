@@ -12,6 +12,15 @@ export type { Gateway, CreateGatewayOptions } from './gateway.js';
 // Contract
 export { CONTRACT_VERSION } from './api/meta-endpoints.js';
 export type { GatewayCapability, CacheObservability, CacheStatsSnapshot, DevIntegrationApi } from './types.js';
+export type {
+  ExecuteRequest,
+  ExecuteResult,
+  GatewayMeta,
+  QueryHistoryEntry,
+  QueryListResult,
+  RegistryEntry,
+  RegistryResult,
+} from '@hypequery/gateway-contract';
 
 // Telemetry (anonymous, opt-out; see design doc privacy rules)
 export { Telemetry, anonymize, durationBucket, UI_EVENT_ALLOWLIST } from './telemetry.js';

@@ -5,6 +5,7 @@ packages:
   - 'packages/datasets'
   - 'packages/deployment'
   - 'packages/gateway'
+  - 'packages/gateway-contract'
   - 'packages/serve'
   - 'packages/studio'
   - 'packages/mcp-server'

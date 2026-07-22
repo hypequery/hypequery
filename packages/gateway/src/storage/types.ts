@@ -1,18 +1,13 @@
-/**
- * Query log entry compatible with @hypequery/clickhouse QueryLog.
- * Defined locally so @hypequery/serve has no hard dependency on clickhouse.
- */
-/**
- * Timing breakdown for query execution.
- */
-export interface QueryTimingBreakdown {
-  /** Time to resolve middleware and prepare context (ms) */
-  setupMs?: number;
-  /** Time to execute the actual query/handler (ms) */
-  handlerMs?: number;
-  /** Time to serialize and prepare response (ms) */
-  serializeMs?: number;
-}
+import type {
+  CacheStatus,
+  QueryHistoryEntry as GatewayQueryHistoryEntry,
+  QueryHistoryStatus,
+  QueryTimingBreakdown,
+} from '@hypequery/gateway-contract';
+
+export type { QueryTimingBreakdown } from '@hypequery/gateway-contract';
+
+/** Query log entry compatible with @hypequery/clickhouse QueryLog. */
 
 export interface QueryLog {
   query: string;
@@ -21,18 +16,18 @@ export interface QueryLog {
   startTime: number;
   endTime?: number;
   duration?: number;
-  status: 'started' | 'completed' | 'error';
+  status: QueryHistoryStatus;
   /** Error message. A string, never an Error object — raw errors JSON-serialize
    * to `{}` at the API boundary and are unrenderable by the studio. */
   error?: string;
-  rowCount?: number;
+  rowCount?: number | null;
   /** Preview of query results (first few rows). */
   resultPreview?: unknown[];
   queryId?: string;
-  cacheStatus?: string;
+  cacheStatus?: CacheStatus;
   cacheKey?: string;
   cacheMode?: string;
-  cacheAgeMs?: number;
+  cacheAgeMs?: number | null;
   cacheRowCount?: number;
   /** Tenant ID if multi-tenancy is enabled */
   tenantId?: string;
@@ -43,7 +38,7 @@ export interface QueryLog {
 /**
  * Extended query log entry with additional metadata for storage and display.
  */
-export interface QueryHistoryEntry extends QueryLog {
+export interface QueryHistoryEntry extends QueryLog, GatewayQueryHistoryEntry {
   /** Auto-incrementing database ID */
   id?: number;
   /** Unique identifier for this query execution */
@@ -100,7 +95,7 @@ export interface GetQueriesOptions {
   /** Number of results to skip for pagination */
   offset?: number;
   /** Filter by query execution status */
-  status?: 'started' | 'completed' | 'error';
+  status?: QueryHistoryStatus;
   /** Filter by the exact registered endpoint key. */
   endpointKey?: string;
   /** Filter by whether a cache result was served. */

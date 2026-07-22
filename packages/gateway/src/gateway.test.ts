@@ -81,7 +81,7 @@ describe('createGateway authentication', () => {
     );
 
     expect(bootstrap.statusCode).toBe(303);
-    expect(bootstrap.headers.Location).toBe('/__dev');
+    expect(bootstrap.headers.Location).toBe('/__dev/');
     const setCookie = bootstrap.headers['Set-Cookie'] as string;
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('SameSite=Strict');

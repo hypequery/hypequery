@@ -4,6 +4,7 @@ import type { DevQueryLogger } from '../query-logger.js';
 import type { SSEHandler } from './sse-handler.js';
 import type { CacheObservability, DevIntegrationApi, GatewayCapability } from '../types.js';
 import type { Telemetry } from '../telemetry.js';
+export type { RegistryEntry } from '@hypequery/gateway-contract';
 
 /**
  * Context passed to endpoint handlers.
@@ -24,26 +25,4 @@ export interface EndpointContext {
   projectName?: string;
   /** Anonymous usage telemetry (no-op unless enabled). */
   telemetry?: Telemetry;
-}
-
-/**
- * Registry entry returned by GET /__dev/registry — one per serve endpoint,
- * mapped from serve's `describe()` (`ToolkitQueryDescription`).
- */
-export interface RegistryEntry {
-  key: string;
-  name?: string;
-  path: string;
-  method: string;
-  description?: string;
-  tags: string[];
-  hasInput: boolean;
-  hasTenant: boolean;
-  requiresAuth: boolean;
-  requiredRoles?: string[];
-  requiredScopes?: string[];
-  visibility?: string;
-  inputSchema?: unknown;
-  outputSchema?: unknown;
-  custom?: Record<string, unknown>;
 }
