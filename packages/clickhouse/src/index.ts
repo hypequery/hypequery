@@ -26,6 +26,12 @@ export { isClientConfig } from './core/query-builder.js';
 // SQL rendering used by the built-in adapter; exported so third-party DatabaseAdapter
 // implementations (e.g. embedded engines) reproduce identical ?-param rendering.
 export { substituteParameters, escapeValue } from './core/utils.js';
+
+// CompiledQuery v1 (RFC 0010) — versioned execution-request contract with named typed
+// parameters, closed operations/settings, authoritative ids, deadlines, a redacted debug
+// form, and the public error envelope. Introduced beside the legacy ?-param path (CH-01);
+// the built-in adapter transport is wired in a later change.
+export * from './core/compiled/index.js';
 export type {
   CacheOptions,
   CacheConfig,
