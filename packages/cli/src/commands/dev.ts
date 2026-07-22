@@ -96,7 +96,15 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
   let currentServer: any = null;
   let currentGateway: { mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null = null;
+  let lifecycleOperation: Promise<void> = Promise.resolve();
+  let shutdownRequested = false;
   const shouldWatch = options.watch !== false; // Default to true
+
+  const queueLifecycleOperation = (operation: () => Promise<void>) => {
+    const queued = lifecycleOperation.then(operation, operation);
+    lifecycleOperation = queued.catch(() => undefined);
+    return queued;
+  };
 
   const stopCurrentRuntime = async () => {
     const gateway = currentGateway;
@@ -261,21 +269,33 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     }
   };
 
-  const restartServer = async () => {
-    if (currentServer || currentGateway) {
-      logger.newline();
-      logger.reload('File changed, restarting...');
-      logger.newline();
-      await stopCurrentRuntime();
-    }
-    await startServer();
-  };
+  const restartServer = () =>
+    queueLifecycleOperation(async () => {
+      if (shutdownRequested) return;
 
-  const shutdown = async () => {
+      if (currentServer || currentGateway) {
+        logger.newline();
+        logger.reload('File changed, restarting...');
+        logger.newline();
+        await stopCurrentRuntime();
+      }
+
+      if (!shutdownRequested) {
+        await startServer();
+      }
+    });
+
+  const shutdown = () => {
+    if (shutdownRequested) return lifecycleOperation;
+    shutdownRequested = true;
+
     logger.newline();
     logger.info('Shutting down dev server...');
-    await stopCurrentRuntime();
-    process.exit(0);
+
+    return queueLifecycleOperation(async () => {
+      await stopCurrentRuntime();
+      process.exit(0);
+    });
   };
 
   // Start initial server
