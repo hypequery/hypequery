@@ -1,5 +1,11 @@
 # @hypequery/cli
 
+## 1.10.1
+
+### Patch Changes
+
+- 4bff661: Clean up the experimental local gateway when dev-server startup fails.
+
 ## 1.10.0
 
 ### Minor Changes
