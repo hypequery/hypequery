@@ -77,6 +77,27 @@ describe('CompiledQuery v1 — construction', () => {
     });
     expect(Object.keys(compiled.bindings).sort()).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
   });
+
+  it('snapshots declarations, tagged values, sensitivity, and debug metadata', () => {
+    const parameter = decl('id', 'UInt64', 'integer');
+    const value = uint64('7');
+    const labels = ['pii'];
+    const compiled = compileQueryV1({
+      operation: 'query',
+      sql: 'SELECT {id:UInt64}',
+      parameters: [parameter],
+      values: { id: value },
+      identifiers: { queryId: 'q-snapshot' },
+      sensitivity: { tenantScoped: true, labels },
+    });
+
+    expect(Object.isFrozen(compiled)).toBe(true);
+    expect(Object.isFrozen(compiled.parameters)).toBe(true);
+    expect(Object.isFrozen(compiled.bindings.id)).toBe(true);
+    expect(Object.isFrozen(compiled.sensitivity.labels)).toBe(true);
+    labels[0] = 'public';
+    expect(compiled.sensitivity.labels).toEqual(['pii']);
+  });
 });
 
 describe('CompiledQuery v1 — no value enters SQL text', () => {
@@ -97,6 +118,12 @@ describe('CompiledQuery v1 — no value enters SQL text', () => {
       'SELECT {a:String} WHERE b = {b:UInt64} AND note = 42'
     );
     expect([...names].sort()).toEqual(['a', 'b']);
+  });
+
+  it('ignores question marks and placeholder-looking text in literals and comments', () => {
+    const sql = "SELECT '?', '{ghost:String}', {id:UInt64} -- {comment:String} ?\n";
+    expect([...extractReferencedParameters(sql)]).toEqual(['id']);
+    expect(() => assertNoValuesInSql(sql, { id: uint64('1') })).not.toThrow();
   });
 });
 
@@ -121,6 +148,33 @@ describe('CompiledQuery v1 — parameter binding fail-closed', () => {
     expect(() =>
       validateParameterReferences('SELECT {ghost:UInt64}', params)
     ).toThrow(/undeclared parameter ghost/);
+  });
+
+  it('rejects a placeholder whose ClickHouse type differs from its declaration', () => {
+    expect(() =>
+      validateParameterReferences('SELECT {id:String}', [decl('id', 'UInt64', 'integer')])
+    ).toThrow(/does not match its declared ClickHouse type/);
+  });
+
+  it('rejects native values that do not match the logical or ClickHouse type', () => {
+    expect(() =>
+      buildParameterBindings([decl('id', 'UInt64', 'integer')], { id: 1.5 })
+    ).toThrow(CompiledQueryError);
+    expect(() =>
+      buildParameterBindings([decl('id', 'UUID', 'uuid')], { id: true })
+    ).toThrow(CompiledQueryError);
+    expect(() =>
+      buildParameterBindings([decl('value', 'Float64', 'float')], { value: Number.NaN })
+    ).toThrow(CompiledQueryError);
+  });
+
+  it('rejects an optional parameter that remains referenced without a binding', () => {
+    expect(() => compileQueryV1({
+      operation: 'query',
+      sql: 'SELECT {optional:String}',
+      parameters: [decl('optional', 'String', 'string', true)],
+      identifiers: { queryId: 'q-optional' },
+    })).toThrow(/does not have a bound value/);
   });
 
   it('rejects a structurally invalid tagged value', () => {
@@ -177,6 +231,26 @@ describe('CompiledQuery v1 — deadline precedence', () => {
 
   it('returns undefined when neither deadline is present', () => {
     expect(resolveCompiledDeadline({ nowEpochMs: now })).toBeUndefined();
+  });
+
+  it('rejects non-finite, negative, and overflowing deadline inputs', () => {
+    expect(() => resolveCompiledDeadline({ nowEpochMs: Number.NaN })).toThrow();
+    expect(() => resolveCompiledDeadline({ nowEpochMs: now, policyMaxMs: -1 })).toThrow();
+    expect(() => resolveCompiledDeadline({
+      nowEpochMs: Number.MAX_SAFE_INTEGER,
+      policyMaxMs: 1,
+    })).toThrow();
+  });
+
+  it('tightens the policy deadline to maxExecutionMs', () => {
+    const compiled = compileQueryV1({
+      operation: 'query',
+      sql: 'SELECT 1',
+      settings: { maxExecutionMs: 100 },
+      deadline: { nowEpochMs: now, policyMaxMs: 500 },
+      identifiers: { queryId: 'q-deadline' },
+    });
+    expect(compiled.deadline).toEqual({ atEpochMs: now + 100, source: 'policy' });
   });
 });
 
@@ -251,6 +325,17 @@ describe('CompiledQuery v1 — identifiers', () => {
     expect(() =>
       compileQueryV1({ ...base, identifiers: { queryId: 'q', correlationId: 'a\u0001b' } })
     ).toThrow(/control characters/);
+  });
+
+  it('rejects unsafe authoritative ids and C1 correlation controls', () => {
+    expect(() => compileQueryV1({
+      ...base,
+      identifiers: { queryId: 'q\nspoofed' },
+    })).toThrow(CompiledQueryError);
+    expect(() => compileQueryV1({
+      ...base,
+      identifiers: { queryId: 'q', correlationId: 'a\u0085b' },
+    })).toThrow(/control characters/);
   });
 
   it('rejects an oversized correlation id', () => {

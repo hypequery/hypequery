@@ -38,7 +38,7 @@ export function resolveCompiledSettings(input: CompiledSettings): CompiledSettin
     }
     resolved[key] = value;
   }
-  return resolved;
+  return Object.freeze(resolved);
 }
 
 export interface DeadlineInputs {
@@ -61,8 +61,24 @@ export interface DeadlineInputs {
 export function resolveCompiledDeadline(inputs: DeadlineInputs): CompiledDeadline | undefined {
   const { callerAtEpochMs, policyMaxMs, nowEpochMs } = inputs;
 
+  if (!Number.isSafeInteger(nowEpochMs) || nowEpochMs < 0) {
+    throw new CompiledQueryError('input-invalid', 'The current time is invalid.');
+  }
+  if (
+    callerAtEpochMs !== undefined
+    && (!Number.isSafeInteger(callerAtEpochMs) || callerAtEpochMs < 0)
+  ) {
+    throw new CompiledQueryError('input-invalid', 'The supplied deadline is invalid.');
+  }
+  if (policyMaxMs !== undefined && (!Number.isSafeInteger(policyMaxMs) || policyMaxMs <= 0)) {
+    throw new CompiledQueryError('input-invalid', 'The policy deadline window is invalid.');
+  }
+
   const policyAt =
     policyMaxMs === undefined ? undefined : nowEpochMs + policyMaxMs;
+  if (policyAt !== undefined && !Number.isSafeInteger(policyAt)) {
+    throw new CompiledQueryError('input-invalid', 'The policy deadline is outside the safe range.');
+  }
 
   if (callerAtEpochMs !== undefined && callerAtEpochMs <= nowEpochMs) {
     throw new CompiledQueryError(
@@ -75,12 +91,12 @@ export function resolveCompiledDeadline(inputs: DeadlineInputs): CompiledDeadlin
     return undefined;
   }
   if (callerAtEpochMs === undefined) {
-    return { atEpochMs: policyAt as number, source: 'policy' };
+    return Object.freeze({ atEpochMs: policyAt as number, source: 'policy' });
   }
   if (policyAt === undefined) {
-    return { atEpochMs: callerAtEpochMs, source: 'caller' };
+    return Object.freeze({ atEpochMs: callerAtEpochMs, source: 'caller' });
   }
-  return callerAtEpochMs <= policyAt
+  return Object.freeze(callerAtEpochMs <= policyAt
     ? { atEpochMs: callerAtEpochMs, source: 'caller' }
-    : { atEpochMs: policyAt, source: 'policy' };
+    : { atEpochMs: policyAt, source: 'policy' });
 }

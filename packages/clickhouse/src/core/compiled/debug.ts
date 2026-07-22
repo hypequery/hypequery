@@ -3,6 +3,7 @@ import type {
   CompiledParameterDeclaration,
   CompiledSettings,
 } from './types.js';
+import { replaceParameterPlaceholders } from './parameters.js';
 
 /**
  * Marker wrapping placeholders in the debug form. The guillemets make the rendered SQL
@@ -11,8 +12,6 @@ import type {
  */
 const DEBUG_OPEN = '«param ';
 const DEBUG_CLOSE = '»';
-
-const PLACEHOLDER_PATTERN = /\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^{}]+)\}/g;
 
 /**
  * Build the redacted, non-executable debug form. It carries no parameter values, tenant
@@ -23,22 +22,21 @@ export function buildDebugForm(
   parameters: readonly CompiledParameterDeclaration[],
   settings: CompiledSettings
 ): CompiledDebugForm {
-  const redactedSql = sql.replace(
-    PLACEHOLDER_PATTERN,
-    (_match, name: string, type: string) =>
-      `${DEBUG_OPEN}${name}: ${type.trim()}${DEBUG_CLOSE}`
+  const redactedSql = replaceParameterPlaceholders(
+    sql,
+    (name, type) => `${DEBUG_OPEN}${name}: ${type}${DEBUG_CLOSE}`,
   );
 
-  return {
+  return Object.freeze({
     sql: redactedSql,
-    parameters: parameters.map((p) => ({
+    parameters: Object.freeze(parameters.map((p) => Object.freeze({
       name: p.name as string,
       type: p.type.clickHouseType,
       optional: p.optional,
-    })),
+    }))),
     // Setting names only; values are policy and never appear in diagnostics.
-    settings: Object.keys(settings).filter(
+    settings: Object.freeze(Object.keys(settings).filter(
       (key) => settings[key as keyof CompiledSettings] !== undefined
-    ),
-  };
+    )),
+  });
 }
