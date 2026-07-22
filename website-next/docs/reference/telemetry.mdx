@@ -11,10 +11,6 @@ The experimental hypequery playground can send anonymous usage events so we can 
   This telemetry belongs to the opt-in local playground launched with `hypequery dev --ui-experimental`. It is not part of the standard `hypequery dev` experience.
 </Callout>
 
-<Callout type="info" title="Currently dormant">
-  No ingest endpoint ships in the published packages, so telemetry is a complete no-op today—nothing is sent regardless of your settings. When an endpoint is configured in a future release, the first run that would send anything will print a one-time notice in your terminal. Telemetry is automatically disabled in CI.
-</Callout>
-
 ## What's collected
 
 - An anonymous, randomly generated machine ID: a UUID stored in `~/.hypequery/telemetry.json`. It is not tied to you, your account, or your network.
