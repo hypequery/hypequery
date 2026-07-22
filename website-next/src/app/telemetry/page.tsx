@@ -79,12 +79,17 @@ export default function TelemetryPage() {
 
           <div className="mt-8 rounded-lg border border-border bg-bg-card p-6 shadow-card">
             <p className="text-sm leading-7 text-text-muted">
+              <span className="font-semibold text-text">Experimental UI only.</span> This telemetry belongs to the
+              opt-in local playground launched with{' '}
+              <code className="rounded bg-bg-alt px-1.5 py-0.5 text-xs">hypequery dev --ui-experimental</code>, and is
+              not part of the standard <code className="rounded bg-bg-alt px-1.5 py-0.5 text-xs">hypequery dev</code>{' '}
+              experience.
+            </p>
+            <p className="mt-3 text-sm leading-7 text-text-muted">
               <span className="font-semibold text-text">Currently dormant.</span> No ingest endpoint ships in the
               published packages, so telemetry is a complete no-op today — nothing is sent no matter your settings.
               When an endpoint is configured in a future release, the first run that would send anything prints a
-              one-time notice in your terminal first. It only ever runs behind the opt-in{' '}
-              <code className="rounded bg-bg-alt px-1.5 py-0.5 text-xs">--ui-experimental</code> flag, and is
-              automatically disabled in CI.
+              one-time notice in your terminal first. Telemetry is automatically disabled in CI.
             </p>
           </div>
 
