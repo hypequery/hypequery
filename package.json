@@ -7,11 +7,13 @@
     "packages/clickhouse",
     "packages/datasets",
     "packages/deployment",
+    "packages/gateway",
     "packages/mcp-server",
     "packages/protocol",
     "packages/protocol-conformance",
     "packages/react",
     "packages/serve",
+    "packages/studio",
     "packages/tsconfig"
   ],
   "license": "Apache-2.0",
