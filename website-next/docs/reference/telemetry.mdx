@@ -1,0 +1,65 @@
+---
+title: Telemetry
+description: Learn what the experimental local playground collects, what it never collects, and how to turn telemetry off.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+The experimental hypequery playground can send anonymous usage events so we can tell whether it is worth investing in. It captures no queries, schemas, or data—only which features get used.
+
+<Callout type="warn" title="Experimental UI only">
+  This telemetry belongs to the opt-in local playground launched with `hypequery dev --ui-experimental`. It is not part of the standard `hypequery dev` experience.
+</Callout>
+
+<Callout type="info" title="Currently dormant">
+  No ingest endpoint ships in the published packages, so telemetry is a complete no-op today—nothing is sent regardless of your settings. When an endpoint is configured in a future release, the first run that would send anything will print a one-time notice in your terminal. Telemetry is automatically disabled in CI.
+</Callout>
+
+## What's collected
+
+- An anonymous, randomly generated machine ID: a UUID stored in `~/.hypequery/telemetry.json`. It is not tied to you, your account, or your network.
+- A one-way hash of your project directory path—enough to count distinct projects, never enough to recover the path.
+- Anonymous feature events: that the gateway started, that the playground UI was opened, that a query ran, or that history was cleared.
+- Hashed endpoint identifiers and bucketed durations, such as `<250ms` or `<5s`, so we can see rough activity without exact timings.
+- Coarse environment context: your Node.js major version and operating system platform, such as `darwin`.
+
+## What's never collected
+
+- Your SQL, queries, or query names in readable form.
+- Query inputs, parameters, or results—no rows and no data.
+- Hostnames, connection strings, file paths, environment variables, or credentials.
+- IP-derived identity, account details, or anything that identifies you personally.
+
+These rules are enforced in code, not just promised: events are validated against an allowlist, names are hashed, and durations are bucketed before anything leaves your machine. The browser UI only talks to your own local development server, never a third party. Delivery is fire-and-forget with a short timeout, so it cannot slow down or break your development server.
+
+## How to turn it off
+
+Any one of these options disables telemetry. There is no precedence to remember—the first that applies wins.
+
+### Per run
+
+```bash
+hypequery dev --no-telemetry
+```
+
+This flag disables telemetry for that command, regardless of any other setting.
+
+### Persistent
+
+```bash
+HYPEQUERY_TELEMETRY_DISABLED=1
+```
+
+Set this environment variable in your shell profile or CI to disable telemetry everywhere.
+
+### Universal
+
+```bash
+DO_NOT_TRACK=1
+```
+
+hypequery honors the cross-tool Do Not Track convention. If you already set this variable, telemetry is off.
+
+## Questions
+
+The full implementation is open source. If anything here is unclear, [open an issue](https://github.com/hypequery/hypequery/issues) or [contact the team](/contact-us).
