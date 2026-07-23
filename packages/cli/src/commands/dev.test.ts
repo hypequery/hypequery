@@ -38,17 +38,6 @@ vi.mock('@hypequery/serve/dev', () => ({
   serveDev: mockServeDev,
 }));
 
-// Mock @hypequery/gateway
-const mockGatewayShutdown = vi.fn();
-vi.mock('@hypequery/gateway', () => ({
-  createGateway: vi.fn(async () => ({
-    mount: vi.fn(),
-    shutdown: mockGatewayShutdown,
-    uiAvailable: true,
-    capabilities: ['registry', 'execute', 'history', 'events'],
-  })),
-}));
-
 // Mock open package
 const mockOpen = vi.fn();
 vi.mock('open', () => ({
@@ -116,57 +105,13 @@ describe('dev command', () => {
     vi.restoreAllMocks();
   });
 
-  describe('experimental query UI', () => {
-    it('does not start the gateway by default', async () => {
-      const { createGateway } = await import('@hypequery/gateway');
-      await devCommand(undefined, { watch: false });
-
-      expect(createGateway).not.toHaveBeenCalled();
-      expect(mockServeDev).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({ mount: undefined })
-      );
-    });
-
-    it('starts the gateway only with --ui-experimental', async () => {
-      const { createGateway } = await import('@hypequery/gateway');
-      await devCommand(undefined, { watch: false, uiExperimental: true });
-
-      expect(createGateway).toHaveBeenCalledOnce();
-      expect(mockServeDev).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({ mount: expect.any(Function) })
-      );
-    });
-
-    it('leaves telemetry enabled by default', async () => {
-      const { createGateway } = await import('@hypequery/gateway');
-      await devCommand(undefined, { watch: false, uiExperimental: true });
-
-      expect(createGateway).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({ telemetryDisabled: false })
-      );
-    });
-
-    it('disables telemetry with --no-telemetry (commander sets telemetry: false)', async () => {
-      const { createGateway } = await import('@hypequery/gateway');
-      await devCommand(undefined, { watch: false, uiExperimental: true, telemetry: false });
-
-      expect(createGateway).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({ telemetryDisabled: true })
-      );
-    });
-  });
-
   describe('runtime lifecycle', () => {
     it('serializes a second restart behind an in-progress teardown', async () => {
       vi.useFakeTimers();
-      const gatewayStop = deferred();
-      mockGatewayShutdown.mockImplementationOnce(() => gatewayStop.promise);
+      const serverStop = deferred();
+      mockServerStop.mockImplementationOnce(() => serverStop.promise);
 
-      await devCommand(undefined, { watch: true, uiExperimental: true });
+      await devCommand(undefined, { watch: true });
       const watchCallback = vi.mocked(watch).mock.calls[0]?.[2] as (
         eventType: string,
         filename: string
@@ -175,7 +120,7 @@ describe('dev command', () => {
       watchCallback('change', 'api.ts');
       vi.advanceTimersByTime(100);
       await flushMicrotasks();
-      expect(mockGatewayShutdown).toHaveBeenCalledOnce();
+      expect(mockServerStop).toHaveBeenCalledOnce();
 
       watchCallback('change', 'api.ts');
       vi.advanceTimersByTime(100);
@@ -183,22 +128,22 @@ describe('dev command', () => {
 
       expect(mockServeDev).toHaveBeenCalledOnce();
 
-      gatewayStop.resolve();
+      serverStop.resolve();
       await vi.waitFor(() => expect(mockServeDev).toHaveBeenCalledTimes(3));
     });
 
     it('waits for an in-progress restart teardown before signal exit', async () => {
       vi.useFakeTimers();
-      const gatewayStop = deferred();
+      const serverStop = deferred();
       const signalHandlers = new Map<string, () => void>();
       vi.spyOn(process, 'once').mockImplementation(((event: string, listener: () => void) => {
         signalHandlers.set(event, listener);
         return process;
       }) as typeof process.once);
       exitHandler.exitMock.mockImplementation(() => undefined);
-      mockGatewayShutdown.mockImplementationOnce(() => gatewayStop.promise);
+      mockServerStop.mockImplementationOnce(() => serverStop.promise);
 
-      await devCommand(undefined, { watch: true, uiExperimental: true });
+      await devCommand(undefined, { watch: true });
       const watchCallback = vi.mocked(watch).mock.calls[0]?.[2] as (
         eventType: string,
         filename: string
@@ -212,7 +157,7 @@ describe('dev command', () => {
       await flushMicrotasks();
       expect(exitHandler.exitMock).not.toHaveBeenCalled();
 
-      gatewayStop.resolve();
+      serverStop.resolve();
       await flushMicrotasks();
 
       expect(mockServerStop).toHaveBeenCalledOnce();
@@ -386,35 +331,6 @@ describe('dev command', () => {
       }
 
       expect(logger.error).toHaveBeenCalledWith('Failed to start server');
-      expect(logger.info).toHaveBeenCalledWith('Port 4000 already in use');
-    });
-
-    it('shuts down a created gateway when server startup fails', async () => {
-      mockServeDev.mockRejectedValue(new Error('Port 4000 already in use'));
-
-      try {
-        await devCommand(undefined, { watch: false, uiExperimental: true });
-      } catch (error) {
-        expect(error).toBeInstanceOf(ProcessExitError);
-      }
-
-      expect(mockGatewayShutdown).toHaveBeenCalledOnce();
-      expect(exitHandler.exitMock).toHaveBeenCalledWith(1);
-    });
-
-    it('still reports the startup error when gateway cleanup fails', async () => {
-      mockServeDev.mockRejectedValue(new Error('Port 4000 already in use'));
-      mockGatewayShutdown.mockRejectedValueOnce(new Error('Gateway shutdown failed'));
-
-      try {
-        await devCommand(undefined, { watch: false, uiExperimental: true });
-      } catch (error) {
-        expect(error).toBeInstanceOf(ProcessExitError);
-      }
-
-      expect(logger.warn).toHaveBeenCalledWith(
-        'Failed to clean up dev server resources: Gateway shutdown failed'
-      );
       expect(logger.info).toHaveBeenCalledWith('Port 4000 already in use');
     });
 

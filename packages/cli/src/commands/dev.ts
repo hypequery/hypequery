@@ -38,44 +38,6 @@ export interface DevOptions {
   open?: boolean;
   cors?: boolean;
   path?: string;
-  /**
-   * Opt into the experimental query UI/gateway at /__dev. Off by default —
-   * the UI is not release-ready; behaviour and flag may change or go away.
-   */
-  uiExperimental?: boolean;
-  /**
-   * Anonymous playground usage telemetry. Commander sets this to `false` when
-   * `--no-telemetry` is passed; otherwise it is undefined (telemetry follows
-   * its usual endpoint/env gating).
-   */
-  telemetry?: boolean;
-}
-
-/**
- * Attempt to create the local gateway from @hypequery/gateway. The package is an
- * optional dependency, so it may be absent; in that case we return null (with a
- * hint) and `hypequery dev` still runs as a plain server.
- */
-async function createGatewayIfAvailable(
-  api: unknown,
-  telemetryDisabled: boolean
-): Promise<{ mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null> {
-  try {
-    const { createGateway } = await import('@hypequery/gateway');
-    return (await createGateway(api as any, {
-      projectName: path.basename(process.cwd()),
-      devToken: process.env.HYPEQUERY_DEV_TOKEN,
-      telemetryDisabled,
-    })) as any;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes('Cannot find') || message.includes('ERR_MODULE_NOT_FOUND')) {
-      logger.warn('Playground UI not installed. Install @hypequery/gateway to enable it.');
-      return null;
-    }
-    logger.warn(`Playground failed to start: ${message}`);
-    return null;
-  }
 }
 
 export async function devCommand(file?: string, options: DevOptions = {}) {
@@ -95,7 +57,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   logger.newline();
 
   let currentServer: any = null;
-  let currentGateway: { mount: unknown; shutdown: () => Promise<void>; uiAvailable: boolean } | null = null;
   let lifecycleOperation: Promise<void> = Promise.resolve();
   let shutdownRequested = false;
   const shouldWatch = options.watch !== false; // Default to true
@@ -107,34 +68,14 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
   };
 
   const stopCurrentRuntime = async () => {
-    const gateway = currentGateway;
     const server = currentServer;
 
-    // Clear references before awaiting teardown so a second signal or restart
-    // cannot stop the same resources twice.
-    currentGateway = null;
+    // Clear the reference before awaiting teardown so a second signal or
+    // restart cannot stop the same server twice.
     currentServer = null;
 
-    let teardownError: unknown;
-
-    if (gateway) {
-      try {
-        await gateway.shutdown();
-      } catch (error) {
-        teardownError = error;
-      }
-    }
-
     if (server) {
-      try {
-        await server.stop();
-      } catch (error) {
-        teardownError ??= error;
-      }
-    }
-
-    if (teardownError) {
-      throw teardownError;
+      await server.stop();
     }
   };
 
@@ -170,13 +111,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
 
       logger.newline();
 
-      // The query UI is experimental and strictly opt-in; the default dev
-      // server is unchanged.
-      const gateway = options.uiExperimental
-        ? await createGatewayIfAvailable(api, options.telemetry === false)
-        : null;
-      currentGateway = gateway;
-
       // Start the server
       const { serveDev } = await import('@hypequery/serve/dev');
 
@@ -184,7 +118,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         port: options.port,
         hostname: options.hostname,
         quiet: true,
-        mount: gateway?.mount as any,
       });
 
       const address = currentServer.server.address();
@@ -199,9 +132,6 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         `Docs:     ${baseUrl}${api.basePath ?? ''}${docsPath}`,
         `OpenAPI:  ${baseUrl}${api.basePath ?? ''}${openapiPath}`,
       ];
-      if (gateway?.uiAvailable) {
-        boxLines.unshift(`Playground: ${baseUrl}/__dev`);
-      }
       logger.box(boxLines);
 
       logger.newline();
@@ -231,9 +161,8 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
         }
       }
     } catch (error) {
-      // Gateway creation happens before serveDev so its mount can be passed to
-      // the server. If server startup (or any later setup) fails, tear down all
-      // resources acquired by this attempt before retrying or exiting.
+      // If server startup or later setup fails, tear down any resources
+      // acquired by this attempt before retrying or exiting.
       try {
         await stopCurrentRuntime();
       } catch (teardownError) {
@@ -273,7 +202,7 @@ export async function devCommand(file?: string, options: DevOptions = {}) {
     queueLifecycleOperation(async () => {
       if (shutdownRequested) return;
 
-      if (currentServer || currentGateway) {
+      if (currentServer) {
         logger.newline();
         logger.reload('File changed, restarting...');
         logger.newline();

@@ -201,8 +201,8 @@ describe("createAPI", () => {
       if (event.status === "completed") requestIds.push(event.requestId);
     });
 
-    await api.execute("ok", { requestId: "gateway-query-id" });
-    expect(requestIds).toEqual(["gateway-query-id"]);
+    await api.execute("ok", { requestId: "external-query-id" });
+    expect(requestIds).toEqual(["external-query-id"]);
     await expect(api.execute("denied")).rejects.toMatchObject({
       type: "FORBIDDEN",
       status: 403,

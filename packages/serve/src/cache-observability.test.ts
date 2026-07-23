@@ -124,9 +124,8 @@ describe("createCacheObservability", () => {
       getSemanticClient: () => makeSemanticClient(),
     });
 
-    // The parameter type is narrowed to known layer ids; JS callers (e.g. a
-    // gateway passing a request-body string through) still get the safe
-    // no-op behavior.
+    // The parameter type is narrowed to known layer ids; untyped JS callers
+    // still get the safe no-op behavior.
     const unknownLayer = "nope" as Parameters<typeof observability.clear>[0];
     await expect(observability.clear(unknownLayer)).resolves.toEqual({ cleared: [] });
   });

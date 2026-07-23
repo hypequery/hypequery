@@ -165,13 +165,13 @@ written to logs or default events. Required behavior: logs and default query
 events are metadata-only; parameter values, raw tenant identifiers, SQL, and
 credentials are absent; redaction cannot be disabled by request input.
 
-### Studio privilege confusion
+### Developer-tool privilege confusion
 
-Goal: use a local Studio session to bypass endpoint policy. Invariant: Studio
-cannot mint capabilities; it obtains them only through the same authenticator
-and tenant resolver as any other client. Required behavior: Studio-served
-portable endpoints enforce the same endpoint policies; no local or loopback
-trust substitutes for a capability; Studio-held credentials never appear in
+Goal: use a local developer tool to bypass endpoint policy. Invariant:
+developer tools cannot mint capabilities; they obtain them only through the
+same authenticator and tenant resolver as any other client. Required behavior:
+tool-invoked portable endpoints enforce the same endpoint policies; no local or
+loopback trust substitutes for a capability; credentials never appear in
 browser-reachable code.
 
 ### Diagnostic projection leakage

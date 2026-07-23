@@ -6,7 +6,7 @@
 
 ## Context
 
-Datasets, ClickHouse, Serve, the CLI, Studio, Python, and Cloud need to exchange
+Datasets, ClickHouse, Serve, the CLI, Python, and Cloud need to exchange
 portable artifacts without assigning different meanings to the same bytes.
 Duplicating canonical encoding, validation, identifier rules, or artifact
 schemas inside each product package would make cross-language identity and
@@ -82,7 +82,7 @@ No stable core or artifact schema version is assigned by this scaffold.
 ## Self-hosting and open-core boundary
 
 The protocol and its reference implementation remain public. Bundles are a
-Cloud deployment boundary and may be used for Studio diagnostics; they are not
+Cloud deployment boundary and may be used for local diagnostics; they are not
 a mandatory intermediate for self-hosted Serve. Trusted raw SQL and custom
 handlers remain available under the existing self-hosted trust model.
 
@@ -94,6 +94,6 @@ ability to validate a bundle proprietary.
 
 - Protocol changes require deliberate review and conformance evidence.
 - TypeScript and Python can evolve independently without semantic drift.
-- CLI and Studio can diagnose Cloud compatibility locally.
+- CLI tooling can diagnose Cloud compatibility locally.
 - Cloud can revalidate uploads instead of trusting producer behavior.
 - The package remains smaller than the products that consume it.

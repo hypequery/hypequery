@@ -927,9 +927,7 @@ export interface StartServerOptions {
   /** Whether to suppress internal logging. */
   quiet?: boolean;
   /**
-   * Optional handler tried before the serve router — used by dev tooling
-   * such as `@hypequery/gateway` to mount UI/API routes under `/__dev`.
-   * Node adapter only.
+   * Optional handler tried before the serve router. Node adapter only.
    */
   mount?: NodeMountHandler;
   /**

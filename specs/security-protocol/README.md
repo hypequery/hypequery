@@ -2,7 +2,7 @@
 
 This directory is the public, language-neutral source of truth for the
 contracts shared by Hypequery authoring tools, deployment tooling, runtimes,
-Studio, and Cloud.
+and Cloud.
 
 The protocol exists so that independently implemented components can agree on
 the meaning, validation, canonical bytes, and identity of an artifact. It does
