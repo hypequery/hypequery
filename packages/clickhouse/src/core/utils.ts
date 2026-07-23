@@ -10,6 +10,8 @@ export function escapeValue(value: unknown): string {
       throw new Error('Cannot render a non-finite number as a SQL parameter');
     }
     return value.toString();
+  } else if (typeof value === 'bigint') {
+    return value.toString();
   } else if (typeof value === 'string') {
     const escaped = value.replace(/\\/g, '\\\\').replace(/'/g, "''");
     return `'${escaped}'`;
