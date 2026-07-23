@@ -121,6 +121,22 @@ function createClient() {
   });
 }
 
+function createCachingClient() {
+  return createDatasetClient({
+    backend: createBackend({
+      host: TEST_CONNECTION_CONFIG.host,
+      username: TEST_CONNECTION_CONFIG.user,
+      password: TEST_CONNECTION_CONFIG.password,
+      database: TEST_CONNECTION_CONFIG.database,
+    }),
+    cache: { ttlMs: 60_000 },
+  });
+}
+
+function joinedUserNames(rows: Array<Record<string, unknown>>): Set<unknown> {
+  return new Set(rows.map((row) => row['user.userName']));
+}
+
 function normalizeCount(value: unknown): number {
   return Number(value);
 }
@@ -289,6 +305,46 @@ describe('datasets ClickHouse integration', () => {
       'LEFT ANY JOIN users AS user ON orders.user_id = user.id AND user.status = ?',
     );
     expect(result.meta?.sql).not.toContain('WHERE user.status = ?');
+  });
+
+  it('partitions the result cache per tenant for a tenant-less base joining a tenant-scoped target', async () => {
+    // Ground-truth for the cache-collision fix: the base `orders` has no
+    // tenantKey, so the tenant filter lives only on the joined `TenantUsers`
+    // target. Two tenants running the identical query must get their own rows,
+    // never a cached copy of the other tenant's joined data.
+    const analytics = createCachingClient();
+    const query = {
+      dimensions: ['user.userName'],
+      measures: ['revenue'],
+      orderBy: [{ field: 'revenue', direction: 'desc' as const }],
+    };
+
+    const active = await analytics.execute(OrdersWithTenantUser, query, {
+      runtime: { tenant: { id: 'active' } },
+    });
+    expect(active.meta?.cache).toMatchObject({ hit: false });
+    const activeNames = joinedUserNames(active.data);
+    expect(activeNames.has('jane_smith')).toBe(true);
+    expect(activeNames.has('john_doe')).toBe(true);
+    expect(activeNames.has('bob_jones')).toBe(false);
+
+    // Same tenant + same query hits the cache and returns the same rows.
+    const activeAgain = await analytics.execute(OrdersWithTenantUser, query, {
+      runtime: { tenant: { id: 'active' } },
+    });
+    expect(activeAgain.meta?.cache).toMatchObject({ hit: true });
+    expect(joinedUserNames(activeAgain.data)).toEqual(activeNames);
+
+    // A different tenant must MISS (not be served the cached 'active' rows) and
+    // see only its own tenant's joined user.
+    const inactive = await analytics.execute(OrdersWithTenantUser, query, {
+      runtime: { tenant: { id: 'inactive' } },
+    });
+    expect(inactive.meta?.cache).toMatchObject({ hit: false });
+    const inactiveNames = joinedUserNames(inactive.data);
+    expect(inactiveNames.has('bob_jones')).toBe(true);
+    expect(inactiveNames.has('jane_smith')).toBe(false);
+    expect(inactiveNames.has('john_doe')).toBe(false);
   });
   it('executes argMax/argMin measures against real ClickHouse rows', async () => {
     const analytics = createClient();

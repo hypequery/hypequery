@@ -403,6 +403,19 @@ describe('query signatures', () => {
       buildDatasetQuerySignature(Events, { dimensions: ['id'] }, { runtime: { tenant } });
     expect(plain('tenant_a')).toBe(plain('tenant_b'));
   });
+
+  it('keeps trusted cross-tenant (scope: all) reads out of concrete tenants’ partitions', () => {
+    const joinQuery = { dimensions: ['customer.country'] };
+    const all = buildDatasetQuerySignature(Events, joinQuery, { runtime: { tenant: { scope: 'all' } } });
+    const concrete = buildDatasetQuerySignature(Events, joinQuery, { runtime: { tenant: 'tenant_a' } });
+
+    // A cross-tenant read sees every tenant's joined rows; it must never share a
+    // cache entry with a concrete tenant's narrower result set.
+    expect(all).not.toBe(concrete);
+    // Two cross-tenant reads are equivalent and may share.
+    const allAgain = buildDatasetQuerySignature(Events, joinQuery, { runtime: { tenant: { scope: 'all' } } });
+    expect(all).toBe(allAgain);
+  });
 });
 
 describe('DatasetClient cache observability', () => {
