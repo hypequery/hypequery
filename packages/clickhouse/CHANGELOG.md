@@ -1,5 +1,13 @@
 # @hypequery/clickhouse Changelog
 
+## 2.5.2
+
+### Patch Changes
+
+- 4a1d4e3: Support bigint SQL parameters and add regression coverage ensuring injection-
+  shaped strings nested inside arrays and objects remain contained within their
+  ClickHouse string literals.
+
 ## 2.5.1
 
 ### Patch Changes
