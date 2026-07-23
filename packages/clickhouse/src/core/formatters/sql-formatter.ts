@@ -1,4 +1,5 @@
 import { FilterOperator, type CompiledQuery, type ExprNode, type SelectQueryNode, type SourceNode, type ValueNode } from '../../types/index.js';
+import { hasTopLevelLogicalOperator } from '../utils/sql-parens.js';
 
 export class SQLFormatter {
   formatSelect(query: SelectQueryNode<any, any>): string {
@@ -43,8 +44,12 @@ export class SQLFormatter {
 
     switch (expr.kind) {
       case 'raw':
+        // A raw fragment with a top-level AND/OR would rebind against sibling
+        // conditions when embedded in a sequence (issue #348), so wrap it.
         return {
-          query: expr.expression,
+          query: nested && hasTopLevelLogicalOperator(expr.expression)
+            ? `(${expr.expression})`
+            : expr.expression,
           parameters: expr.parameters.map(parameter => parameter.value),
         };
       case 'group': {
@@ -180,9 +185,12 @@ export class SQLFormatter {
   compileHaving(query: SelectQueryNode<any, any>): CompiledQuery {
     if (!query.having?.length) return { query: '', parameters: [] };
 
+    const wrapFragments = query.having.length > 1;
     return this.combineCompiledWithSeparator(
       query.having.map(item => ({
-        query: item.expression,
+        query: wrapFragments && hasTopLevelLogicalOperator(item.expression)
+          ? `(${item.expression})`
+          : item.expression,
         parameters: item.parameters?.map(parameter => parameter.value) || [],
       })),
       ' AND '

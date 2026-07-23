@@ -367,7 +367,7 @@ describe('QueryBuilder - Where Conditions', () => {
           ])
         )
         .toSQL();
-      expect(sql).toBe("SELECT * FROM test_table WHERE (hasAny(tags, ['foo'])) OR (status = 'active')");
+      expect(sql).toBe("SELECT * FROM test_table WHERE ((hasAny(tags, ['foo'])) OR (status = 'active'))");
     });
 
     it('should support orWhere with builder callback', () => {
@@ -411,7 +411,7 @@ describe('QueryBuilder - Where Conditions', () => {
           ])
         )
         .toSQL();
-      expect(sql).toBe("SELECT * FROM test_table WHERE (hasAny(tags, ['foo'])) AND ((status = 'active') OR (priority > 5))");
+      expect(sql).toBe("SELECT * FROM test_table WHERE ((hasAny(tags, ['foo'])) AND ((status = 'active') OR (priority > 5)))");
     });
 
     it('should support raw expressions as arguments', () => {
@@ -446,7 +446,126 @@ describe('QueryBuilder - Where Conditions', () => {
           ])
         )
         .toSQL();
-      expect(sql).toBe("SELECT * FROM test_table WHERE ((startsWith(name, 'foo')) OR (notEmpty(tags))) AND (endsWith(status, 'ing'))");
+      expect(sql).toBe("SELECT * FROM test_table WHERE (((startsWith(name, 'foo')) OR (notEmpty(tags))) AND (endsWith(status, 'ing')))");
+    });
+  });
+
+  // https://github.com/hypequery/hypequery/issues/348
+  describe('logical group precedence (issue #348)', () => {
+    it('parenthesizes an expr.or group ANDed after a scoping condition', () => {
+      const sql = builder
+        .where('category', 'eq', 'TENANT-1')
+        .where(expr =>
+          expr.or([
+            expr.raw("positionCaseInsensitive(name, 'smith') > 0"),
+            expr.raw("positionCaseInsensitive(brand, 'smith') > 0")
+          ])
+        )
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE category = 'TENANT-1' AND ((positionCaseInsensitive(name, 'smith') > 0) OR (positionCaseInsensitive(brand, 'smith') > 0))"
+      );
+    });
+
+    it('parenthesizes an expr.or group followed by a later AND condition', () => {
+      const sql = builder
+        .where(expr =>
+          expr.or([
+            expr.raw("name = 'a'"),
+            expr.raw("brand = 'b'")
+          ])
+        )
+        .where('category', 'eq', 'TENANT-1')
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE ((name = 'a') OR (brand = 'b')) AND category = 'TENANT-1'"
+      );
+    });
+
+    it('parenthesizes a raw fragment containing a top-level OR inside a sequence', () => {
+      const sql = builder
+        .where('category', 'eq', 'TENANT-1')
+        .where(expr => expr.raw("name = 'a' OR brand = 'b'"))
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE category = 'TENANT-1' AND (name = 'a' OR brand = 'b')"
+      );
+    });
+
+    it('does not treat OR inside string literals or function calls as top-level', () => {
+      const sql = builder
+        .where('category', 'eq', 'TENANT-1')
+        .where(expr => expr.raw("name = 'a OR b'"))
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE category = 'TENANT-1' AND name = 'a OR b'"
+      );
+    });
+
+    it('parenthesizes an expr.or group in PREWHERE alongside other conditions', () => {
+      const sql = builder
+        .prewhere(expr =>
+          expr.or([
+            expr.raw("name = 'a'"),
+            expr.raw("brand = 'b'")
+          ])
+        )
+        .prewhere('active', 'eq', 1)
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table PREWHERE ((name = 'a') OR (brand = 'b')) AND active = 1"
+      );
+    });
+
+    it('parenthesizes a HAVING fragment containing a top-level OR when combined with others', () => {
+      const sql = builder
+        .groupBy('category')
+        .having('count() > 5')
+        .having('sum(total) > 10 OR max(price) > 100')
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT * FROM test_table GROUP BY category HAVING count() > 5 AND (sum(total) > 10 OR max(price) > 100)'
+      );
+    });
+
+    it('parenthesizes an expr.or group used as a scalar expression', () => {
+      const sql = builder
+        .withScalar('matches', expr =>
+          expr.or([
+            expr.raw("name = 'a'"),
+            expr.raw("brand = 'b'")
+          ])
+        )
+        .toSQL();
+
+      expect(sql).toBe(
+        "WITH ((name = 'a') OR (brand = 'b')) AS matches SELECT * FROM test_table"
+      );
+    });
+
+    it('keeps nested and/or groups correctly parenthesized without double-wrapping', () => {
+      const sql = builder
+        .where('category', 'eq', 'TENANT-1')
+        .where(expr =>
+          expr.and([
+            expr.raw('active = 1'),
+            expr.or([
+              expr.raw("name = 'a'"),
+              expr.raw("brand = 'b'")
+            ])
+          ])
+        )
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE category = 'TENANT-1' AND ((active = 1) AND ((name = 'a') OR (brand = 'b')))"
+      );
     });
   });
 });

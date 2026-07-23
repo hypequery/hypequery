@@ -1,5 +1,6 @@
 import type { AnyBuilderState, BaseRow } from '../types/builder-state.js';
 import type { SelectableColumn } from '../types/select-types.js';
+import { isFullyParenthesized } from './sql-parens.js';
 
 export type PredicatePrimitive = string | number | boolean | Date | null;
 type PredicateValue = Exclude<PredicatePrimitive, string>;
@@ -149,7 +150,13 @@ function buildLogical(operator: 'AND' | 'OR', expressions: PredicateExpression[]
     return expressions[0] as PredicateExpression<boolean>;
   }
 
-  const sql = expressions.map(expr => `(${expr.sql})`).join(` ${operator} `);
+  // The group must be wrapped as a whole: it is rendered as a raw fragment, so
+  // without the outer parens an OR group ANDed to other WHERE conditions would
+  // rebind (`a AND x OR y` parses as `(a AND x) OR y`) — see issue #348.
+  const operands = expressions.map(expr =>
+    isFullyParenthesized(expr.sql) ? expr.sql : `(${expr.sql})`
+  );
+  const sql = `(${operands.join(` ${operator} `)})`;
   const parameters = expressions.flatMap(expr => expr.parameters);
   return createExpression(sql, parameters);
 }
