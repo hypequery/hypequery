@@ -351,6 +351,12 @@ describe('QueryBuilder - Where Conditions', () => {
   });
 
   describe('function predicates', () => {
+    it('should reject unsafe function names', () => {
+      expect(() =>
+        builder.where(expr => expr.fn('startsWith) OR 1=1 --', 'name'))
+      ).toThrow('Unsafe function identifier');
+    });
+
     it('should support expression builder within where', () => {
       const sql = builder
         .where(expr => expr.fn('startsWith', 'name', expr.literal('foo')))

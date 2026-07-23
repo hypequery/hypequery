@@ -206,6 +206,12 @@ describe('QueryBuilder Analytics Features', () => {
         'SELECT id FROM test_table')
 
     })
+
+    it('should reject unsafe CTE aliases', () => {
+      expect(() =>
+        queryBuilder.withCTE('safe AS (SELECT 1) --', 'SELECT id FROM users')
+      ).toThrow('Unsafe CTE alias identifier');
+    });
   })
 
   describe('withScalar', () => {

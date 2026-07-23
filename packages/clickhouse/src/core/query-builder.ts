@@ -43,6 +43,7 @@ import { mergeCacheOptionsPartial, initializeCacheRuntime } from './cache/utils.
 import { InsertBuilder, type InsertQB } from './insert-builder.js';
 import type { InitialInsertState } from './types/builder-state.js';
 import { normalizeFilterApplication } from './utils/filter-application.js';
+import { assertSafeIdentifier } from './utils/insert-identifiers.js';
 import { toLegacyQueryConfig } from './utils/query-config-compat.js';
 import { applyRelationPath, resolveRelationPath } from './utils/relation-application.js';
 import type {
@@ -359,6 +360,7 @@ export class QueryBuilder<
     alias: string,
     subquery: QueryBuilder<any, AnyBuilderState> | string
   ): this {
+    assertSafeIdentifier(alias, 'CTE alias');
     return this.updateQuery(() => this.analytics.addCTE(alias, subquery));
   }
 

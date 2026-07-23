@@ -1,5 +1,6 @@
 import type { AnyBuilderState, BaseRow } from '../types/builder-state.js';
 import type { SelectableColumn } from '../types/select-types.js';
+import { assertSafeIdentifier } from './insert-identifiers.js';
 import { isFullyParenthesized, terminateTrailingLineComment } from './sql-parens.js';
 
 export type PredicatePrimitive = string | number | boolean | Date | null;
@@ -136,6 +137,7 @@ function buildFunctionExpression<State extends AnyBuilderState, T = unknown>(
   name: string,
   args: PredicateArg<State>[]
 ): PredicateExpression<T> {
+  assertSafeIdentifier(name, 'function');
   const builtArgs = args.map(arg => normalizeArgument(arg));
   const sql = `${name}(${builtArgs.map(arg => terminateTrailingLineComment(arg.sql)).join(', ')})`;
   const parameters = builtArgs.flatMap(arg => arg.parameters);
