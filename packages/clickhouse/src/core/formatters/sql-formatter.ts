@@ -1,4 +1,5 @@
 import { FilterOperator, type CompiledQuery, type ExprNode, type SelectQueryNode, type SourceNode, type ValueNode } from '../../types/index.js';
+import { hasTopLevelLogicalOperator, terminateTrailingLineComment } from '../utils/sql-parens.js';
 
 export class SQLFormatter {
   formatSelect(query: SelectQueryNode<any, any>): string {
@@ -42,11 +43,17 @@ export class SQLFormatter {
     if (!expr) return { query: '', parameters: [] };
 
     switch (expr.kind) {
-      case 'raw':
+      case 'raw': {
+        // A raw fragment with a top-level AND/OR would rebind against sibling
+        // conditions when embedded in a sequence (issue #348), so wrap it.
+        const rawExpression = terminateTrailingLineComment(expr.expression);
         return {
-          query: expr.expression,
+          query: nested && hasTopLevelLogicalOperator(rawExpression)
+            ? `(${rawExpression})`
+            : rawExpression,
           parameters: expr.parameters.map(parameter => parameter.value),
         };
+      }
       case 'group': {
         if (!expr.expression) {
           return { query: '', parameters: [] };
@@ -180,11 +187,17 @@ export class SQLFormatter {
   compileHaving(query: SelectQueryNode<any, any>): CompiledQuery {
     if (!query.having?.length) return { query: '', parameters: [] };
 
+    const wrapFragments = query.having.length > 1;
     return this.combineCompiledWithSeparator(
-      query.having.map(item => ({
-        query: item.expression,
-        parameters: item.parameters?.map(parameter => parameter.value) || [],
-      })),
+      query.having.map(item => {
+        const expression = terminateTrailingLineComment(item.expression);
+        return {
+          query: wrapFragments && hasTopLevelLogicalOperator(expression)
+            ? `(${expression})`
+            : expression,
+          parameters: item.parameters?.map(parameter => parameter.value) || [],
+        };
+      }),
       ' AND '
     );
   }

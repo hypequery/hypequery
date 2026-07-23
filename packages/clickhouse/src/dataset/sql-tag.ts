@@ -28,6 +28,11 @@ export interface SQLExpression {
 /**
  * Tagged template literal for SQL expressions
  *
+ * This is an intentional raw-SQL authoring API: interpolated strings and
+ * nested expressions are inserted as SQL text, not bound as values. Only
+ * interpolate trusted developer-authored identifiers or fragments. Runtime
+ * values belong in query-builder predicates or parameter arrays.
+ *
  * @param strings - Template string array
  * @param values - Interpolated values
  * @returns SQLExpression object
@@ -46,8 +51,8 @@ export function sql(
     if (isSQLExpression(value)) {
       result += value.sql;
     } else if (typeof value === 'string') {
-      // For security, we should escape string values
-      // In production, this would use proper escaping
+      // Strings are raw SQL fragments by design; see the trust-boundary note
+      // above. This tag must never be treated as a value-binding API.
       result += value;
     } else if (typeof value === 'number') {
       result += String(value);

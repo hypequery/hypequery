@@ -17,6 +17,11 @@ describe('escapeValue', () => {
     expect(escapeValue(3.14)).toBe('3.14');
   });
 
+  it('should reject non-finite numbers', () => {
+    expect(() => escapeValue(Number.NaN)).toThrow(/non-finite number/);
+    expect(() => escapeValue(Number.POSITIVE_INFINITY)).toThrow(/non-finite number/);
+  });
+
   it('should handle booleans', () => {
     expect(escapeValue(true)).toBe('true');
     expect(escapeValue(false)).toBe('false');
@@ -27,8 +32,21 @@ describe('escapeValue', () => {
     expect(escapeValue(date)).toBe("'2024-01-01T00:00:00.000Z'");
   });
 
+  it('should reject invalid dates', () => {
+    expect(() => escapeValue(new Date(Number.NaN))).toThrow(/invalid Date/);
+  });
+
   it('should handle objects by JSON stringifying', () => {
     expect(escapeValue({ key: 'value' })).toBe("'{\"key\":\"value\"}'");
+  });
+
+  it('should escape quotes inside JSON-stringified values', () => {
+    expect(escapeValue({ key: "O'Reilly" })).toBe("'{\"key\":\"O''Reilly\"}'");
+  });
+
+  it('should render null and reject unsupported values', () => {
+    expect(escapeValue(null)).toBe('NULL');
+    expect(() => escapeValue(undefined)).toThrow(/Cannot render undefined/);
   });
 });
 
@@ -70,5 +88,40 @@ describe('substituteParameters', () => {
 
     // Both backslash and quote should be properly escaped
     expect(result).toBe("SELECT * FROM data WHERE field = 'test\\\\''value'");
+  });
+
+  it('should not allow injection through JSON-stringified parameters', () => {
+    const sql = 'SELECT * FROM events WHERE metadata = ? AND tenant_id = 7';
+    const result = substituteParameters(sql, [{ note: "' OR 1=1 #" }]);
+
+    expect(result).toBe(
+      "SELECT * FROM events WHERE metadata = '{\"note\":\"'' OR 1=1 #\"}' AND tenant_id = 7"
+    );
+  });
+
+  it('should only substitute question marks in SQL code', () => {
+    const sql = [
+      "SELECT '?' AS quoted, \"?\" AS identifier, `?` AS backticked, $$?$$ AS heredoc",
+      'FROM events /* ? */',
+      'WHERE id = ? -- ?',
+      'AND enabled = ? # ?',
+    ].join('\n');
+
+    expect(substituteParameters(sql, [42, true])).toBe([
+      "SELECT '?' AS quoted, \"?\" AS identifier, `?` AS backticked, $$?$$ AS heredoc",
+      'FROM events /* ? */',
+      'WHERE id = 42 -- ?',
+      'AND enabled = true # ?',
+    ].join('\n'));
+  });
+
+  it('should fail closed when a parameter only matches a quoted question mark', () => {
+    expect(() => substituteParameters("SELECT '?'", ["' OR 1=1 #"]))
+      .toThrow('Found 0 placeholders but 1 parameters');
+  });
+
+  it('should fail closed when a SQL placeholder has no parameter', () => {
+    expect(() => substituteParameters('SELECT * FROM events WHERE id = ?', []))
+      .toThrow('Found 1 placeholders but 0 parameters');
   });
 });
