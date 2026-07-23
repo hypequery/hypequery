@@ -48,6 +48,20 @@ describe('escapeValue', () => {
     expect(escapeValue(null)).toBe('NULL');
     expect(() => escapeValue(undefined)).toThrow(/Cannot render undefined/);
   });
+
+  it('should escape single quotes inside stringified objects', () => {
+    expect(escapeValue({ k: "'} OR 1=1 --" })).toBe("'{\"k\":\"''} OR 1=1 --\"}'");
+  });
+
+  it('should escape single quotes inside stringified arrays', () => {
+    expect(escapeValue(["x') OR 1=1 --"])).toBe("'[\"x'') OR 1=1 --\"]'");
+  });
+
+  it('should escape backslashes inside stringified values', () => {
+    // JSON.stringify emits \" for an embedded quote; the backslash must be
+    // doubled so ClickHouse does not consume the following character.
+    expect(escapeValue({ k: 'a"b' })).toBe("'{\"k\":\"a\\\\\"b\"}'");
+  });
 });
 
 describe('substituteParameters', () => {
@@ -123,5 +137,14 @@ describe('substituteParameters', () => {
   it('should fail closed when a SQL placeholder has no parameter', () => {
     expect(() => substituteParameters('SELECT * FROM events WHERE id = ?', []))
       .toThrow('Found 1 placeholders but 0 parameters');
+  });
+
+  it('should contain an injection attempt passed as an array value', () => {
+    const sql = 'SELECT * FROM events WHERE tenant_id = ? AND meta = ?';
+    const result = substituteParameters(sql, [5, ["x') OR 1=1 --"]]);
+
+    // The quote inside the array must be doubled so the value stays a single
+    // string literal and cannot detach the preceding tenant_id filter.
+    expect(result).toBe("SELECT * FROM events WHERE tenant_id = 5 AND meta = '[\"x'') OR 1=1 --\"]'");
   });
 });
