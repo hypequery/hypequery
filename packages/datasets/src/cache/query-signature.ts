@@ -24,6 +24,7 @@ import type {
 } from '../types.js';
 import { getMetricGrain, getMetricRef, type MetricHandle } from '../utils/metric-handle.js';
 import { getRuntimeTenantPredicate } from '../utils/tenant-runtime.js';
+import { buildRelationshipBuilderContext } from '../utils/relationship-builder-plan.js';
 import { stableStringify } from '../utils/canonical-json.js';
 
 export { stableStringify };
@@ -55,16 +56,41 @@ function orderBySignature(orderBy: MetricOrderBy[] | undefined) {
   }));
 }
 
+type JoinDrivingQuery = Parameters<typeof buildRelationshipBuilderContext>[1];
+
 /**
- * Tenant portion of the key. Only datasets with a `tenantKey` apply the
- * runtime tenant predicate, so tenant-less datasets share entries across
- * callers while tenant-scoped datasets are strictly partitioned per scope.
+ * True when this query joins a tenant-scoped relationship target under an
+ * active runtime tenant, so the joined rows are filtered per tenant. Mirrors
+ * the executor's join planning (`buildRelationshipBuilderContext`).
  */
-function tenantSignature(ds: AnyDatasetInstance, context?: ExecutionContext) {
+function activatesTenantScopedJoin(
+  ds: AnyDatasetInstance,
+  query: JoinDrivingQuery,
+  context?: ExecutionContext,
+): boolean {
+  const joinCtx = buildRelationshipBuilderContext(ds, query, context);
+  return !!joinCtx && joinCtx.joins.some((join) => join.tenant);
+}
+
+/**
+ * Tenant portion of the key. A dataset with a `tenantKey` is strictly
+ * partitioned per scope. A tenant-less dataset normally shares entries across
+ * callers — but if the query joins a tenant-scoped relationship target, those
+ * joined rows are still filtered by the runtime tenant, so the key must
+ * partition per tenant too or one tenant could be served another's cached rows.
+ */
+function tenantSignature(
+  ds: AnyDatasetInstance,
+  query: JoinDrivingQuery,
+  context?: ExecutionContext,
+) {
+  const predicate = getRuntimeTenantPredicate(context);
   if (!ds.tenantKey) {
+    if (predicate && activatesTenantScopedJoin(ds, query, context)) {
+      return { joinScoped: true, operator: predicate.operator, value: predicate.value };
+    }
     return null;
   }
-  const predicate = getRuntimeTenantPredicate(context);
   if (!predicate) {
     // Trusted cross-tenant scope (`scope: 'all'`) or no runtime tenancy.
     return { key: ds.tenantKey, scope: 'all' };
@@ -90,7 +116,7 @@ export function buildDatasetQuerySignature(
     by: query.by ?? null,
     limit: query.limit ?? null,
     offset: query.offset ?? null,
-    tenant: tenantSignature(ds, context),
+    tenant: tenantSignature(ds, query, context),
     scope: scopeSignature(context),
   });
 }
@@ -114,7 +140,7 @@ export function buildMetricQuerySignature(
     by: grain ?? null,
     limit: query.limit ?? null,
     offset: query.offset ?? null,
-    tenant: tenantSignature(ref.dataset, context),
+    tenant: tenantSignature(ref.dataset, query, context),
     scope: scopeSignature(context),
   });
 }

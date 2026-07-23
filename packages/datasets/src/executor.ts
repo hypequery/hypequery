@@ -79,7 +79,10 @@ import {
   buildMetricQuerySignature,
 } from './cache/query-signature.js';
 import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
-import { validateQualifiedFilter } from './utils/relationship-validation.js';
+import {
+  validateQualifiedFilter,
+  validateRelationshipTenantRuntime,
+} from './utils/relationship-validation.js';
 import {
   applyRelationshipJoins,
   buildRelationshipBuilderContext,
@@ -108,6 +111,10 @@ function validateQuery(
   const tenantRuntimeError = validateTenantRuntime(ds, context);
   if (tenantRuntimeError) {
     errors.push(tenantRuntimeError);
+  }
+  const relationshipTenantError = validateRelationshipTenantRuntime(ds, query, context);
+  if (relationshipTenantError) {
+    errors.push(relationshipTenantError);
   }
 
   if (metric.__type === 'grained_metric_ref' && query.by && query.by !== metric.grain) {

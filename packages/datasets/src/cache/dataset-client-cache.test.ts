@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { dataset, dimension, measure } from '../index.js';
+import { belongsTo } from '../relationships.js';
 import { createDatasetClient } from '../executor.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import {
@@ -75,7 +76,32 @@ const TenantOrders = dataset('tenant_orders', {
   },
 });
 
+// A tenant-scoped target reached only through a relationship from a
+// tenant-less base — the join, not the base, carries the tenant filter.
+const TenantCustomers = dataset('tenant_customers', {
+  source: 'tenant_customers',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    id: dimension.number(),
+    country: dimension.string(),
+  },
+});
+
+const Events = dataset('events', {
+  source: 'events',
+  dimensions: {
+    id: dimension.number(),
+  },
+  measures: {
+    total: measure.count('id'),
+  },
+  relationships: {
+    customer: belongsTo(() => TenantCustomers, { from: 'customer_id', to: 'id' }),
+  },
+});
+
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const eventTotal = Events.metric('total', { measure: 'total' });
 
 describe('DatasetClient result caching', () => {
   it('caches identical dataset queries within the client TTL', async () => {
@@ -150,6 +176,61 @@ describe('DatasetClient result caching', () => {
 
     await analytics.execute(TenantOrders, query, tenantB);
     expect(executions).toHaveBeenCalledTimes(2);
+  });
+
+  it('partitions tenant-scoped relationship results end to end', async () => {
+    const backend = createInMemoryBackend({
+      events: [
+        { id: 1, customer_id: 10 },
+        { id: 2, customer_id: 20 },
+      ],
+      tenant_customers: [
+        { id: 10, country: 'US', tenant_id: 'tenant_a' },
+        { id: 20, country: 'FR', tenant_id: 'tenant_b' },
+      ],
+    });
+    const analytics = createDatasetClient({ backend, cache: { ttlMs: 60_000 } });
+    const query = { dimensions: ['customer.country'], measures: ['total'] };
+
+    const tenantAFirst = await analytics.execute(
+      Events,
+      query,
+      { runtime: { tenant: 'tenant_a' } },
+    );
+    const tenantASecond = await analytics.execute(
+      Events,
+      query,
+      { runtime: { tenant: 'tenant_a' } },
+    );
+    const tenantBFirst = await analytics.execute(
+      Events,
+      query,
+      { runtime: { tenant: 'tenant_b' } },
+    );
+
+    expect(tenantAFirst.data).toContainEqual({ 'customer.country': 'US', total: '1' });
+    expect(tenantAFirst.data).not.toContainEqual({ 'customer.country': 'FR', total: '1' });
+    expect(tenantASecond.meta?.cache).toMatchObject({ hit: true });
+    expect(tenantBFirst.meta?.cache).toMatchObject({ hit: false });
+    expect(tenantBFirst.data).toContainEqual({ 'customer.country': 'FR', total: '1' });
+    expect(tenantBFirst.data).not.toContainEqual({ 'customer.country': 'US', total: '1' });
+  });
+
+  it('requires an explicit tenant scope for tenant-scoped relationships', () => {
+    const backend = createInMemoryBackend({ events: [], tenant_customers: [] });
+    const analytics = createDatasetClient({ backend, cache: { ttlMs: 60_000 } });
+    const query = { dimensions: ['customer.country'], measures: ['total'] };
+
+    expect(() => analytics.execute(Events, query))
+      .toThrow(/relationship "customer" targets a tenant-scoped dataset/);
+    expect(() => analytics.execute(Events, {
+      measures: ['total'],
+      filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
+    })).toThrow(/relationship "customer" targets a tenant-scoped dataset/);
+    expect(() => analytics.execute(eventTotal, { dimensions: ['customer.country'] }))
+      .toThrow(/relationship "customer" targets a tenant-scoped dataset/);
+    expect(() => analytics.execute(Events, query, { runtime: { tenant: { scope: 'all' } } }))
+      .not.toThrow();
   });
 
   it('bypasses the cache when the call overrides the query builder without a scope', async () => {
@@ -306,6 +387,34 @@ describe('query signatures', () => {
     const unscoped = (tenant: string) =>
       buildDatasetQuerySignature(Orders, { measures: ['revenue'] }, { runtime: { tenant } });
     expect(unscoped('tenant_a')).toBe(unscoped('tenant_b'));
+  });
+
+  it('partitions a tenant-less base per tenant when it joins a tenant-scoped target', () => {
+    // The `customer` relationship targets a tenant-scoped dataset, so the join
+    // is filtered per runtime tenant and the results differ — the cache key
+    // must not collapse the two tenants onto one entry.
+    const joined = (tenant: string) =>
+      buildDatasetQuerySignature(Events, { dimensions: ['customer.country'] }, { runtime: { tenant } });
+    expect(joined('tenant_a')).not.toBe(joined('tenant_b'));
+  });
+
+  it('still shares a tenant-less base across tenants when no tenant-scoped join is active', () => {
+    const plain = (tenant: string) =>
+      buildDatasetQuerySignature(Events, { dimensions: ['id'] }, { runtime: { tenant } });
+    expect(plain('tenant_a')).toBe(plain('tenant_b'));
+  });
+
+  it('keeps trusted cross-tenant (scope: all) reads out of concrete tenants’ partitions', () => {
+    const joinQuery = { dimensions: ['customer.country'] };
+    const all = buildDatasetQuerySignature(Events, joinQuery, { runtime: { tenant: { scope: 'all' } } });
+    const concrete = buildDatasetQuerySignature(Events, joinQuery, { runtime: { tenant: 'tenant_a' } });
+
+    // A cross-tenant read sees every tenant's joined rows; it must never share a
+    // cache entry with a concrete tenant's narrower result set.
+    expect(all).not.toBe(concrete);
+    // Two cross-tenant reads are equivalent and may share.
+    const allAgain = buildDatasetQuerySignature(Events, joinQuery, { runtime: { tenant: { scope: 'all' } } });
+    expect(all).toBe(allAgain);
   });
 });
 
