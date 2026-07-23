@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { dataset, dimension, measure } from '../index.js';
+import { belongsTo } from '../relationships.js';
 import { createDatasetClient } from '../executor.js';
 import type { QueryBuilderFactoryLike, QueryBuilderLike } from '../query-builder-protocol.js';
 import {
@@ -72,6 +73,30 @@ const TenantOrders = dataset('tenant_orders', {
   },
   measures: {
     revenue: measure.sum('amount'),
+  },
+});
+
+// A tenant-scoped target reached only through a relationship from a
+// tenant-less base — the join, not the base, carries the tenant filter.
+const TenantCustomers = dataset('tenant_customers', {
+  source: 'tenant_customers',
+  tenantKey: 'tenant_id',
+  dimensions: {
+    id: dimension.number(),
+    country: dimension.string(),
+  },
+});
+
+const Events = dataset('events', {
+  source: 'events',
+  dimensions: {
+    id: dimension.number(),
+  },
+  measures: {
+    total: measure.count('id'),
+  },
+  relationships: {
+    customer: belongsTo(() => TenantCustomers, { from: 'customer_id', to: 'id' }),
   },
 });
 
@@ -306,6 +331,21 @@ describe('query signatures', () => {
     const unscoped = (tenant: string) =>
       buildDatasetQuerySignature(Orders, { measures: ['revenue'] }, { runtime: { tenant } });
     expect(unscoped('tenant_a')).toBe(unscoped('tenant_b'));
+  });
+
+  it('partitions a tenant-less base per tenant when it joins a tenant-scoped target', () => {
+    // The `customer` relationship targets a tenant-scoped dataset, so the join
+    // is filtered per runtime tenant and the results differ — the cache key
+    // must not collapse the two tenants onto one entry.
+    const joined = (tenant: string) =>
+      buildDatasetQuerySignature(Events, { dimensions: ['customer.country'] }, { runtime: { tenant } });
+    expect(joined('tenant_a')).not.toBe(joined('tenant_b'));
+  });
+
+  it('still shares a tenant-less base across tenants when no tenant-scoped join is active', () => {
+    const plain = (tenant: string) =>
+      buildDatasetQuerySignature(Events, { dimensions: ['id'] }, { runtime: { tenant } });
+    expect(plain('tenant_a')).toBe(plain('tenant_b'));
   });
 });
 
