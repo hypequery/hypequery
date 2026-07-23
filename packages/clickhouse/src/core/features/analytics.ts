@@ -4,6 +4,7 @@ import { QueryBuilder } from '../query-builder.js';
 import type { SqlDialect } from '../dialects/sql-dialect.js';
 import type { PredicateExpression } from '../utils/predicate-builder.js';
 import { substituteParameters } from '../utils.js';
+import { terminateTrailingLineComment } from '../utils/sql-parens.js';
 import type { SelectQueryNode } from '../../types/index.js';
 
 export class AnalyticsFeature<
@@ -23,7 +24,10 @@ export class AnalyticsFeature<
 
   addScalar(alias: string, expression: PredicateExpression): SelectQueryNode<State['output'], Schema> {
     const query = this.builder.getQueryNode();
-    const scalarExpression = substituteParameters(expression.sql, expression.parameters);
+    const scalarExpression = substituteParameters(
+      terminateTrailingLineComment(expression.sql),
+      expression.parameters
+    );
     return {
       ...query,
       ctes: [...(query.ctes || []), { kind: 'cte' as const, expression: `${scalarExpression} AS ${alias}` }]

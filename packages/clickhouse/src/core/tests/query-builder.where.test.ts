@@ -495,6 +495,65 @@ describe('QueryBuilder - Where Conditions', () => {
       );
     });
 
+    it('parenthesizes a top-level OR after misleading comment contents', () => {
+      const sql = builder
+        .where('category', 'eq', 'TENANT-1')
+        .where(expr => expr.raw("name = 'a' /* '([ OR hidden */ OR brand = 'b'"))
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE category = 'TENANT-1' AND (name = 'a' /* '([ OR hidden */ OR brand = 'b')"
+      );
+    });
+
+    it('terminates a trailing raw line comment before a sibling condition', () => {
+      const sql = builder
+        .where(expr => expr.raw('active = 1 -- local note'))
+        .where('category', 'eq', 'TENANT-1')
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE active = 1 -- local note\n AND category = 'TENANT-1'"
+      );
+    });
+
+    it('keeps generated logical syntax outside trailing operand comments', () => {
+      const sql = builder
+        .where(expr =>
+          expr.or([
+            expr.raw("name = 'a' -- first branch"),
+            expr.raw("brand = 'b'")
+          ])
+        )
+        .toSQL();
+
+      expect(sql).toBe(
+        "SELECT * FROM test_table WHERE ((name = 'a' -- first branch\n) OR (brand = 'b'))"
+      );
+    });
+
+    it('keeps HAVING separators outside trailing line comments', () => {
+      const sql = builder
+        .groupBy('category')
+        .having('count() > 5 -- minimum count')
+        .having('sum(total) > 10')
+        .toSQL();
+
+      expect(sql).toBe(
+        'SELECT * FROM test_table GROUP BY category HAVING count() > 5 -- minimum count\n AND sum(total) > 10'
+      );
+    });
+
+    it('keeps scalar aliases outside trailing line comments', () => {
+      const sql = builder
+        .withScalar('matches', expr => expr.raw('active = 1 -- scalar predicate'))
+        .toSQL();
+
+      expect(sql).toBe(
+        'WITH active = 1 -- scalar predicate\n AS matches SELECT * FROM test_table'
+      );
+    });
+
     it('does not treat OR inside string literals or function calls as top-level', () => {
       const sql = builder
         .where('category', 'eq', 'TENANT-1')
