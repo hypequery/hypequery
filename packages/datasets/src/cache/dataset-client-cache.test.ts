@@ -223,6 +223,10 @@ describe('DatasetClient result caching', () => {
 
     expect(() => analytics.execute(Events, query))
       .toThrow(/relationship "customer" targets a tenant-scoped dataset/);
+    expect(() => analytics.execute(Events, {
+      measures: ['total'],
+      filters: [{ field: 'customer.country', operator: 'eq', value: 'US' }],
+    })).toThrow(/relationship "customer" targets a tenant-scoped dataset/);
     expect(() => analytics.execute(eventTotal, { dimensions: ['customer.country'] }))
       .toThrow(/relationship "customer" targets a tenant-scoped dataset/);
     expect(() => analytics.execute(Events, query, { runtime: { tenant: { scope: 'all' } } }))
