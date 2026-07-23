@@ -13,7 +13,10 @@ import {
   isQualifiedField,
   resolveQualifiedField,
 } from './relationship-fields.js';
-import { validateQualifiedFilter } from './relationship-validation.js';
+import {
+  validateQualifiedFilter,
+  validateRelationshipTenantRuntime,
+} from './relationship-validation.js';
 
 export function validateDatasetQueryInput(
   ds: AnyDatasetInstance,
@@ -35,6 +38,10 @@ export function validateDatasetQueryInput(
   const tenantRuntimeError = validateTenantRuntime(ds, context);
   if (tenantRuntimeError) {
     errors.push(tenantRuntimeError);
+  }
+  const relationshipTenantError = validateRelationshipTenantRuntime(ds, query, context);
+  if (relationshipTenantError) {
+    errors.push(relationshipTenantError);
   }
 
   if (selectedDimensions.length === 0 && selectedMeasures.length === 0) {

@@ -101,6 +101,7 @@ const Events = dataset('events', {
 });
 
 const revenue = Orders.metric('revenue', { measure: 'revenue' });
+const eventTotal = Events.metric('total', { measure: 'total' });
 
 describe('DatasetClient result caching', () => {
   it('caches identical dataset queries within the client TTL', async () => {
@@ -175,6 +176,57 @@ describe('DatasetClient result caching', () => {
 
     await analytics.execute(TenantOrders, query, tenantB);
     expect(executions).toHaveBeenCalledTimes(2);
+  });
+
+  it('partitions tenant-scoped relationship results end to end', async () => {
+    const backend = createInMemoryBackend({
+      events: [
+        { id: 1, customer_id: 10 },
+        { id: 2, customer_id: 20 },
+      ],
+      tenant_customers: [
+        { id: 10, country: 'US', tenant_id: 'tenant_a' },
+        { id: 20, country: 'FR', tenant_id: 'tenant_b' },
+      ],
+    });
+    const analytics = createDatasetClient({ backend, cache: { ttlMs: 60_000 } });
+    const query = { dimensions: ['customer.country'], measures: ['total'] };
+
+    const tenantAFirst = await analytics.execute(
+      Events,
+      query,
+      { runtime: { tenant: 'tenant_a' } },
+    );
+    const tenantASecond = await analytics.execute(
+      Events,
+      query,
+      { runtime: { tenant: 'tenant_a' } },
+    );
+    const tenantBFirst = await analytics.execute(
+      Events,
+      query,
+      { runtime: { tenant: 'tenant_b' } },
+    );
+
+    expect(tenantAFirst.data).toContainEqual({ 'customer.country': 'US', total: '1' });
+    expect(tenantAFirst.data).not.toContainEqual({ 'customer.country': 'FR', total: '1' });
+    expect(tenantASecond.meta?.cache).toMatchObject({ hit: true });
+    expect(tenantBFirst.meta?.cache).toMatchObject({ hit: false });
+    expect(tenantBFirst.data).toContainEqual({ 'customer.country': 'FR', total: '1' });
+    expect(tenantBFirst.data).not.toContainEqual({ 'customer.country': 'US', total: '1' });
+  });
+
+  it('requires an explicit tenant scope for tenant-scoped relationships', () => {
+    const backend = createInMemoryBackend({ events: [], tenant_customers: [] });
+    const analytics = createDatasetClient({ backend, cache: { ttlMs: 60_000 } });
+    const query = { dimensions: ['customer.country'], measures: ['total'] };
+
+    expect(() => analytics.execute(Events, query))
+      .toThrow(/relationship "customer" targets a tenant-scoped dataset/);
+    expect(() => analytics.execute(eventTotal, { dimensions: ['customer.country'] }))
+      .toThrow(/relationship "customer" targets a tenant-scoped dataset/);
+    expect(() => analytics.execute(Events, query, { runtime: { tenant: { scope: 'all' } } }))
+      .not.toThrow();
   });
 
   it('bypasses the cache when the call overrides the query builder without a scope', async () => {

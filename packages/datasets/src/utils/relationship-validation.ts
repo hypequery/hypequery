@@ -5,12 +5,55 @@
 
 import type {
   AnyDatasetInstance,
+  DatasetQuery,
   ExecutionContext,
   MetricFilter,
+  MetricQuery,
 } from '../types.js';
 import { validateFilterValue } from '../validation.js';
-import { getRuntimeTenantPredicate } from './tenant-runtime.js';
-import { resolveQualifiedField } from './relationship-fields.js';
+import {
+  getRuntimeTenantPredicate,
+  hasTenantRuntime,
+} from './tenant-runtime.js';
+import {
+  isQualifiedField,
+  resolveQualifiedField,
+} from './relationship-fields.js';
+
+type RelationshipQuery = Pick<
+  DatasetQuery & MetricQuery,
+  'dimensions' | 'filters' | 'orderBy'
+>;
+
+/**
+ * Tenant-less base datasets may still reach tenant-scoped data through a
+ * relationship. Require either a concrete runtime tenant or the trusted
+ * cross-tenant scope whenever a query activates such a join.
+ */
+export function validateRelationshipTenantRuntime(
+  ds: AnyDatasetInstance,
+  query: RelationshipQuery,
+  context?: ExecutionContext,
+): string | undefined {
+  if (ds.tenantKey || hasTenantRuntime(context)) {
+    return undefined;
+  }
+
+  const referenced = [
+    ...(query.dimensions ?? []),
+    ...(query.filters ?? []).map((filter) => filter.field),
+    ...(query.orderBy ?? []).map((order) => order.field),
+  ].filter(isQualifiedField);
+
+  for (const name of referenced) {
+    const resolution = resolveQualifiedField(ds, name);
+    if (resolution?.resolved?.target.tenantKey) {
+      return `Dataset "${ds.name}" requires runtime tenant scoping because relationship "${resolution.resolved.relationshipName}" targets a tenant-scoped dataset.`;
+    }
+  }
+
+  return undefined;
+}
 
 /**
  * Validates a relationship-qualified filter (`relationship.field`). Returns an
