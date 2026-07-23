@@ -100,6 +100,34 @@ function matchingCloser(ch: string): string | undefined {
 }
 
 /**
+ * Split on positional parameter markers that occur in SQL code. Question marks
+ * inside literals, quoted identifiers, heredocs, or comments are data, not
+ * placeholders, and must not affect parameter binding.
+ */
+export function splitSqlPlaceholders(sql: string): string[] {
+  const parts: string[] = [];
+  let partStart = 0;
+  let i = 0;
+
+  while (i < sql.length) {
+    const skippedTo = skipNonCode(sql, i);
+    if (skippedTo !== undefined) {
+      i = skippedTo;
+      continue;
+    }
+
+    if (sql[i] === '?') {
+      parts.push(sql.slice(partStart, i));
+      partStart = i + 1;
+    }
+    i += 1;
+  }
+
+  parts.push(sql.slice(partStart));
+  return parts;
+}
+
+/**
  * A generated separator appended after an unterminated line comment would be
  * swallowed by that comment. Add a newline only when the fragment ends inside
  * a ClickHouse line comment so it remains safe to compose with generated SQL.
