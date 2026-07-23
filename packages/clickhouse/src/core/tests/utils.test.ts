@@ -15,6 +15,7 @@ describe('escapeValue', () => {
   it('should handle numbers', () => {
     expect(escapeValue(42)).toBe('42');
     expect(escapeValue(3.14)).toBe('3.14');
+    expect(escapeValue(42n)).toBe('42');
   });
 
   it('should reject non-finite numbers', () => {
@@ -36,17 +37,22 @@ describe('escapeValue', () => {
     expect(() => escapeValue(new Date(Number.NaN))).toThrow(/invalid Date/);
   });
 
+  it('should render null as SQL NULL', () => {
+    expect(escapeValue(null)).toBe('NULL');
+  });
+
+  it('should reject values without a JSON representation', () => {
+    expect(() => escapeValue(undefined)).toThrow(/Cannot render undefined/);
+    expect(() => escapeValue(Symbol('unsupported'))).toThrow(/Cannot render symbol/);
+    expect(() => escapeValue(() => undefined)).toThrow(/Cannot render function/);
+  });
+
   it('should handle objects by JSON stringifying', () => {
     expect(escapeValue({ key: 'value' })).toBe("'{\"key\":\"value\"}'");
   });
 
   it('should escape quotes inside JSON-stringified values', () => {
     expect(escapeValue({ key: "O'Reilly" })).toBe("'{\"key\":\"O''Reilly\"}'");
-  });
-
-  it('should render null and reject unsupported values', () => {
-    expect(escapeValue(null)).toBe('NULL');
-    expect(() => escapeValue(undefined)).toThrow(/Cannot render undefined/);
   });
 
   it('should escape single quotes inside stringified objects', () => {
