@@ -1,5 +1,13 @@
 # @hypequery/cli
 
+## 1.10.2
+
+### Patch Changes
+
+- 25adcdc: Remove the experimental local Studio flag, playground telemetry, and the optional
+  Gateway dependency. `hypequery dev` continues to provide the development server,
+  API documentation, OpenAPI contract, watch mode, and terminal execution logs.
+
 ## 1.10.1
 
 ### Patch Changes
