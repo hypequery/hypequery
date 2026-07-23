@@ -28,9 +28,6 @@
     "ora": "^8.0.1",
     "prompts": "^2.4.2"
   },
-  "optionalDependencies": {
-    "@hypequery/gateway": "workspace:*"
-  },
   "peerDependencies": {
     "@hypequery/clickhouse": "*",
     "@hypequery/serve": "*"

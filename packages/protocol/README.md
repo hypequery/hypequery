@@ -29,7 +29,7 @@ authentication or tenancy, or contain CLI, HTTP, UI, and Cloud operations.
 
 Self-hosted Serve continues to run project source directly. Deployment bundles
 are required only by Cloud deployment and may be generated ephemerally for
-Studio compatibility and security diagnostics.
+local compatibility and security diagnostics.
 
 ## Public API
 

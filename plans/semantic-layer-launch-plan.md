@@ -733,9 +733,10 @@ packages/serve/DATASETS_AND_METRICS_SPEC.md
 
 ---
 
-#### 3.4 Visual Playground / IDE
-**Why:** Nice-to-have for demos
-**Defer Reason:** Doesn't acquire first 50 retained users
+#### 3.4 Cloud Query Explorer / IDE
+**Why:** Useful as a hosted production and demo workflow
+**Defer Reason:** Keep local development focused on the CLI and API docs; build
+the richer interface in Hypequery Cloud after core deployment workflows
 
 ---
 

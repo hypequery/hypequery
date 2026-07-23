@@ -4,7 +4,7 @@ TypeScript-first ClickHouse toolkit: type-safe query builder, semantic layer (da
 
 ## Layout
 
-pnpm + Turbo monorepo. `pnpm-workspace.yaml` is the authoritative workspace list (the `workspaces` field in root `package.json` is stale — it's missing `gateway` and `studio`).
+pnpm + Turbo monorepo. `pnpm-workspace.yaml` is the authoritative workspace list.
 
 | Path | What it is |
 |------|------------|
@@ -15,7 +15,7 @@ pnpm + Turbo monorepo. `pnpm-workspace.yaml` is the authoritative workspace list
 | `packages/cli` | `npx hypequery …` commands |
 | `packages/mcp-server` | `@hypequery/mcp` — exposes datasets to agents |
 | `packages/protocol` / `packages/protocol-conformance` | Security protocol + cross-language conformance runner |
-| `packages/gateway`, `packages/studio`, `packages/deployment` | Gateway, studio UI, deployment tooling |
+| `packages/deployment` | Deployment contracts and tooling |
 | `packages/tsconfig` | Shared tsconfig presets — new packages extend this |
 | `website-next/` | Next.js + Fumadocs site. Docs live in `website-next/content/docs/` |
 | `testing/` | Manual, model-executable E2E test specs (see `testing/README.md`) |

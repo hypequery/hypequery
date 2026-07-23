@@ -7,8 +7,8 @@
 
 Portable Hypequery artifacts need stable names for projects, datasets, queries,
 metrics, dimensions, measures, filters, parameters, and relationships. These
-names must have the same interpretation in TypeScript, Python, Studio, Serve,
-and Cloud and must not depend on SQL dialect quoting or Unicode normalization.
+names must have the same interpretation in TypeScript, Python, Serve, and Cloud
+and must not depend on SQL dialect quoting or Unicode normalization.
 
 This RFC defines one simple identifier grammar and a qualified form composed of
 identifier segments separated by `.`.

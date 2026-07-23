@@ -69,7 +69,6 @@
     "reference/inside-the-query-builder",
     "reference/clickhouse-behavior",
     "reference/trust-boundaries",
-    "reference/telemetry",
     "---Resources---",
     "changelog",
     "roadmap",

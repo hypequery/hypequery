@@ -11,7 +11,7 @@ formats; none is the shared protocol authority.
 
 This RFC defines a closed, JSON-Schema-derived schema tree. Producers lower
 source-language schemas into this tree during a trusted build. Serve, Cloud,
-Studio, generated clients, and agent tools can then inspect the same contract
+generated clients, and agent tools can then inspect the same contract
 without loading project source.
 
 ## Schema nodes

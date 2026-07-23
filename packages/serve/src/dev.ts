@@ -12,10 +12,9 @@ import { formatQueryEvent, type ServeQueryLogger } from "./query-logger.js";
 export type { CacheObservability, CacheLayerStats } from "./cache-observability.js";
 
 /**
- * The narrow surface of a serve API that dev tooling (e.g.
- * `@hypequery/gateway`) is allowed to depend on. `ServeBuilder`
- * satisfies this structurally — dev tools should accept this type
- * rather than reaching into serve internals.
+ * The narrow surface of a serve API that development and managed-runtime
+ * tooling may depend on. `ServeBuilder` satisfies this structurally — tools
+ * should accept this type rather than reaching into serve internals.
  */
 export interface DevIntegrationApi {
   /** Subscribe to endpoint execution events. */
@@ -25,9 +24,7 @@ export interface DevIntegrationApi {
   /** In-process execution of a registered endpoint. */
   execute(key: string, options?: { input?: unknown; requestId?: string }): Promise<unknown>;
   /**
-   * Per-layer cache stats/clear (semantic + query-builder layers). Gateways
-   * should advertise clear affordances (the `cache:clear` capability) only
-   * for layers reporting `clearSupported`.
+   * Per-layer cache stats/clear (semantic + query-builder layers).
    */
   readonly cacheObservability: CacheObservability;
   /** Base path applied to all registered routes. */
