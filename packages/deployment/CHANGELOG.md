@@ -1,5 +1,13 @@
 # @hypequery/deployment
 
+## 0.6.0
+
+### Minor Changes
+
+- ce908d8: Add asynchronous, snapshot-specific environment resolution to the reference
+  Node worker factory so providers can isolate deployment credentials without
+  mutating shared process state.
+
 ## 0.5.1
 
 ### Patch Changes
