@@ -105,6 +105,7 @@ function runtimeEntrySource(
     '      ...(argument.context === undefined ? {} : { context: argument.context }),',
     '      ...(argument.request === undefined ? {} : { request: argument.request }),',
     '      ...(argument.requestId === undefined ? {} : { requestId: argument.requestId }),',
+    '      ...(argument.trustedAuth === undefined ? {} : { trustedAuth: argument.trustedAuth }),',
     '    });',
     '  }',
     '  const entry = api.queries?.[name];',

@@ -280,6 +280,8 @@ export interface ExecuteEndpointOptions<
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
+  /** Trusted in-process principal. Never populate from unverified network input. */
+  preauthenticatedAuth?: TAuth;
   verboseAuthErrors?: boolean;
   /**
    * When true (the default), internal error details are hidden from responses.
@@ -305,6 +307,7 @@ export const executeEndpoint = async <
     hooks = {},
     queryLogger,
     additionalContext,
+    preauthenticatedAuth,
     verboseAuthErrors = false, // Default to secure mode for production safety
     sanitizeErrors = true, // Default to secure mode for HTTP requests
   } = options;
@@ -323,7 +326,7 @@ export const executeEndpoint = async <
   const context = {
     request,
     input: buildContextInput(request),
-    auth: null as TAuth | null,
+    auth: preauthenticatedAuth ?? null,
     metadata: endpoint.metadata,
     locals,
     setCacheTtl,
@@ -361,7 +364,9 @@ export const executeEndpoint = async <
     };
     context.metadata = metadataWithAuth;
 
-    const authResult = await authenticateRequest(strategies, request, metadataWithAuth);
+    const authResult = preauthenticatedAuth === undefined
+      ? await authenticateRequest(strategies, request, metadataWithAuth)
+      : { auth: preauthenticatedAuth };
     const authContext = authResult.auth;
     if (!authContext && requiresAuth) {
       const authErrorInfo = authResult.error

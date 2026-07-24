@@ -390,6 +390,19 @@ export interface DirectQueryExecuteOptions<
   request?: Partial<ServeRequest>;
 }
 
+export interface ApiExecuteOptions<
+  TInput = unknown,
+  TContext extends Record<string, unknown> = Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
+> extends DirectQueryExecuteOptions<TInput, TContext> {
+  requestId?: string;
+  /**
+   * A principal already authenticated by a trusted in-process host.
+   * Never populate this from unverified network input.
+   */
+  trustedAuth?: TAuth;
+}
+
 export interface ServeEndpoint<
   TInputSchema extends ZodTypeAny | undefined = undefined,
   TOutputSchema extends ZodTypeAny = ZodTypeAny,
@@ -959,14 +972,14 @@ export interface StartServerOptions {
 export type ExecuteQueryFunction<
   TQueries extends Record<string, ServeEndpoint<any, any, any, any>>,
   TContext extends Record<string, unknown>,
+  TAuth extends AuthContext = AuthContext,
 > = <TKey extends keyof TQueries>(
   key: TKey,
-  options?: {
-    input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-    context?: Partial<TContext>;
-    request?: Partial<ServeRequest>;
-    requestId?: string;
-  }
+  options?: ApiExecuteOptions<
+    SchemaInput<TQueries[TKey]["inputSchema"]>,
+    TContext,
+    TAuth
+  >,
 ) => Promise<ServeEndpointResult<TQueries[TKey]>>;
 
 /**
@@ -1034,32 +1047,29 @@ export interface HypeQueryAPI<
   useAuth(strategy: AuthStrategy<TAuth>): this;
   execute<TKey extends keyof TQueries>(
     key: TKey,
-    options?: {
-      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-      context?: Partial<TContext>;
-      request?: Partial<ServeRequest>;
-      requestId?: string;
-    }
+    options?: ApiExecuteOptions<
+      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      TContext,
+      TAuth
+    >
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of execute() for in-process execution. */
   client<TKey extends keyof TQueries>(
     key: TKey,
-    options?: {
-      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-      context?: Partial<TContext>;
-      request?: Partial<ServeRequest>;
-      requestId?: string;
-    }
+    options?: ApiExecuteOptions<
+      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      TContext,
+      TAuth
+    >
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of execute() for in-process execution. */
   run<TKey extends keyof TQueries>(
     key: TKey,
-    options?: {
-      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-      context?: Partial<TContext>;
-      request?: Partial<ServeRequest>;
-      requestId?: string;
-    }
+    options?: ApiExecuteOptions<
+      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      TContext,
+      TAuth
+    >
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;
 }
@@ -1125,31 +1135,28 @@ export interface ServeBuilder<
   useAuth(strategy: AuthStrategy<TAuth>): this;
   execute<TKey extends keyof TQueries>(
     key: TKey,
-    options?: {
-      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-      context?: Partial<TContext>;
-      request?: Partial<ServeRequest>;
-      requestId?: string;
-    }
+    options?: ApiExecuteOptions<
+      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      TContext,
+      TAuth
+    >
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   /** Alias of run() for in-process execution. */
   client<TKey extends keyof TQueries>(
     key: TKey,
-    options?: {
-      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-      context?: Partial<TContext>;
-      request?: Partial<ServeRequest>;
-      requestId?: string;
-    }
+    options?: ApiExecuteOptions<
+      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      TContext,
+      TAuth
+    >
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   run<TKey extends keyof TQueries>(
     key: TKey,
-    options?: {
-      input?: SchemaInput<TQueries[TKey]["inputSchema"]>;
-      context?: Partial<TContext>;
-      request?: Partial<ServeRequest>;
-      requestId?: string;
-    }
+    options?: ApiExecuteOptions<
+      SchemaInput<TQueries[TKey]["inputSchema"]>,
+      TContext,
+      TAuth
+    >
   ): Promise<ServeEndpointResult<TQueries[TKey]>>;
   describe(): ToolkitDescription;
   handler: ServeHandler;

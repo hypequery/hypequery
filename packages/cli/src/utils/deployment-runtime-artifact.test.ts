@@ -73,10 +73,22 @@ describe('deployment runtime artifacts', () => {
     const encoded = Buffer.from(artifact.bytes).toString('base64');
     const runtime = await import(`data:text/javascript;base64,${encoded}`);
 
-    await expect(runtime.queries.greeting({ input: { name: 'Ada' } }))
-      .resolves.toBe('Serve context: hello Ada');
+    const trustedAuth = {
+      userId: 'gateway-credential',
+      tenantId: 'customer-42',
+      roles: ['analyst'],
+      scopes: ['greeting:read'],
+    };
+
+    await expect(runtime.queries.greeting({
+      input: { name: 'Ada' },
+      trustedAuth,
+    })).resolves.toBe(
+      'Serve context: hello Ada / gateway-credential / customer-42',
+    );
     await expect(runtime.queries.requestTrace({
       requestId: 'runtime-request-42',
+      trustedAuth,
     })).resolves.toBe('runtime-request-42');
   });
 });

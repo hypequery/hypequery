@@ -1,5 +1,6 @@
 import type {
   AuthContext,
+  ApiExecuteOptions,
   AuthStrategy,
   ErrorEnvelope,
   SchemaInput,
@@ -29,12 +30,11 @@ export const createExecuteQuery = <
 ) => {
   return async <TKey extends keyof typeof queryEntries>(
     key: TKey,
-    options?: {
-      input?: SchemaInput<(typeof queryEntries)[TKey]['inputSchema']>;
-      context?: Partial<TContext>;
-      request?: Partial<ServeRequest>;
-      requestId?: string;
-    }
+    options?: ApiExecuteOptions<
+      SchemaInput<(typeof queryEntries)[TKey]['inputSchema']>,
+      TContext,
+      TAuth
+    >,
   ): Promise<ServeEndpointResult<(typeof queryEntries)[TKey]>> => {
     const endpoint = queryEntries[key];
     if (!endpoint) {
@@ -66,6 +66,7 @@ export const createExecuteQuery = <
       queryLogger,
       requestId: options?.requestId,
       additionalContext: options?.context,
+      preauthenticatedAuth: options?.trustedAuth,
       verboseAuthErrors,
       sanitizeErrors: false, // In-process callers can see raw error messages
     });
