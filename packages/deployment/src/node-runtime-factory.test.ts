@@ -322,6 +322,34 @@ describe('Node worker deployment runtime factory', () => {
     expect(await readdir(directory)).toEqual([]);
   });
 
+  it('detects aborts between environment resolution and worker startup', async () => {
+    const directory = await temporaryDirectory();
+    const deployed = snapshot('export const queries = { handler: () => true };\n');
+    const controller = new AbortController();
+    const reason = new Error('cancel before worker creation');
+    const environment = new Proxy<Record<string, string>>(
+      { SAFE: 'value' },
+      {
+        ownKeys(target) {
+          queueMicrotask(() => controller.abort(reason));
+          return Reflect.ownKeys(target);
+        },
+      },
+    );
+    const factory = createNodeWorkerDeploymentRuntimeFactory({
+      temporaryDirectory: directory,
+      resolveEnvironment: async () => environment,
+    });
+
+    await expect(
+      factory.start(deployed, { signal: controller.signal }),
+    ).rejects.toMatchObject({
+      code: 'HQ_NODE_RUNTIME_ABORTED',
+      cause: reason,
+    });
+    expect(await readdir(directory)).toEqual([]);
+  });
+
   it.skipIf(process.platform === 'win32')(
     'seals generated runtime directories before writing artifacts',
     async () => {

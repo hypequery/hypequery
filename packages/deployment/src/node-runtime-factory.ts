@@ -407,6 +407,13 @@ async function startWorker(
   }
 
   const environment = await resolveWorkerEnvironment(resolveEnvironment, snapshot, signal);
+  if (signal?.aborted) {
+    throw nodeRuntimeError(
+      'HQ_NODE_RUNTIME_ABORTED',
+      'Node runtime startup was aborted.',
+      signal.reason,
+    );
+  }
   const worker = new Worker(WORKER_SOURCE, {
     eval: true,
     workerData: { artifacts },
