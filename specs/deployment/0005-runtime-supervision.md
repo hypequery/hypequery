@@ -79,9 +79,17 @@ The Node factory:
 - accepts only Node artifacts and rejects mixed or Python snapshots;
 - imports modules in a dedicated worker thread;
 - resolves every qualified entrypoint before reporting startup success;
+- optionally resolves a snapshot-specific string environment before import;
 - exchanges invocation values through structured clone;
 - supports abortable startup and pre-dispatch calls;
 - terminates the worker and removes temporary files on close.
+
+When a provider configures snapshot-specific environment resolution, the
+returned environment replaces inherited host process state for that worker.
+The factory MUST copy and validate the resolved string record before worker
+startup, MUST NOT mutate the parent `process.env`, and MUST fail candidate
+startup if resolution or validation fails. Omitting the resolver retains
+Node's default environment inheritance for backwards compatibility.
 
 Worker readiness proves import and entrypoint resolution plus message-loop
 responsiveness. It does not define application-specific dependency health.

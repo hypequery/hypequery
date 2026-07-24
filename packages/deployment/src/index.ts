@@ -74,6 +74,8 @@ export {
   NodeDeploymentRuntimeError,
 } from './node-runtime-factory.js';
 export type {
+  NodeDeploymentRuntimeEnvironment,
+  NodeDeploymentRuntimeEnvironmentResolver,
   NodeDeploymentRuntimeErrorCode,
   NodeDeploymentRuntimeFactoryOptions,
 } from './node-runtime-factory.js';
