@@ -1,5 +1,12 @@
 # @hypequery/cli
 
+## 1.10.3
+
+### Patch Changes
+
+- Updated dependencies [ce908d8]
+  - @hypequery/deployment@0.6.0
+
 ## 1.10.2
 
 ### Patch Changes
