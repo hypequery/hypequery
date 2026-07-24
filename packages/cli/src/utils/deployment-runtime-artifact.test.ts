@@ -71,6 +71,6 @@ describe('deployment runtime artifacts', () => {
     const runtime = await import(`data:text/javascript;base64,${encoded}`);
 
     await expect(runtime.queries.greeting({ input: { name: 'Ada' } }))
-      .resolves.toBe('Hello Ada');
+      .resolves.toBe('Serve context: hello Ada');
   });
 });
