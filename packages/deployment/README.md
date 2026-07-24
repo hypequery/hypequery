@@ -223,7 +223,17 @@ import {
 
 const supervisor = createDeploymentRuntimeSupervisor({
   materializer,
-  factory: createNodeWorkerDeploymentRuntimeFactory(),
+  factory: createNodeWorkerDeploymentRuntimeFactory({
+    async resolveEnvironment(snapshot, { signal }) {
+      const connection = await resolveClickHouseConnection(snapshot.target, { signal });
+      return {
+        CLICKHOUSE_URL: connection.url,
+        CLICKHOUSE_DATABASE: connection.database,
+        CLICKHOUSE_USERNAME: connection.username,
+        CLICKHOUSE_PASSWORD: connection.password,
+      };
+    },
+  }),
 });
 
 await supervisor.reconcile({ project: 'analytics', environment: 'production' });
@@ -240,6 +250,19 @@ zero or the drain deadline expires. The reference Node factory loads exact
 materialized bytes in worker threads and removes their temporary files on
 shutdown. Provider factories can implement Python, process, container, or
 remote-sandbox isolation behind the same lifecycle interface.
+
+`resolveEnvironment(snapshot, { signal })` lets a provider resolve secrets and
+configuration for one immutable deployment target before its worker imports any
+artifact. When configured, the returned string record replaces the inherited
+process environment for that worker, so concurrent targets do not need to
+mutate shared `process.env`. Returning an empty record creates a worker with an
+empty environment. Omitting the resolver preserves Node's default environment
+inheritance for existing single-host integrations.
+
+Resolvers should return the smallest environment the deployment needs and
+honour the startup abort signal during external secret-store calls. Environment
+resolution failure prevents the candidate from becoming ready and removes its
+temporary artifact bytes.
 
 The reference worker is a lifecycle boundary, not a hostile-code security
 sandbox. Only trusted deployment code should use it directly.

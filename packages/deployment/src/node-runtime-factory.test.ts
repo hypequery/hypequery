@@ -34,12 +34,18 @@ function sha256(bytes: Uint8Array): string {
 
 function snapshot(
   source: string,
-  options: { readonly runtime?: 'node' | 'python'; readonly entrypoint?: string; readonly digest?: string } = {},
+  options: {
+    readonly runtime?: 'node' | 'python';
+    readonly entrypoint?: string;
+    readonly digest?: string;
+    readonly target?: { readonly project: string; readonly environment: string };
+  } = {},
 ): DeploymentRuntimeSnapshot {
   const bytes = Buffer.from(source);
   const runtime = options.runtime ?? 'node';
   const artifactSha256 = options.digest ?? sha256(bytes);
   const entrypoint = options.entrypoint ?? 'queries.handler';
+  const target = options.target ?? TARGET;
   const binding = Object.freeze({
     query: 'handler',
     runtime,
@@ -71,12 +77,12 @@ function snapshot(
     artifacts: [{ runtime, artifactSha256 }],
   }).contract;
   return Object.freeze({
-    target: TARGET,
+    target,
     activation: Object.freeze({
       kind: 'hypequery-deployment-activation',
       version: 1,
       revision: '1'.repeat(64),
-      target: TARGET,
+      target,
       releaseIdentity: '2'.repeat(64),
       previousRevision: null,
       previousReleaseIdentity: null,
@@ -86,7 +92,7 @@ function snapshot(
       kind: 'hypequery-deployment-release',
       version: 1,
       bundleIdentity: '3'.repeat(64),
-      target: TARGET,
+      target,
     }),
     releaseIdentity: '2'.repeat(64),
     bundleIdentity: '3'.repeat(64),
@@ -164,6 +170,158 @@ describe('Node worker deployment runtime factory', () => {
     expect(await readdir(directory)).toEqual([]);
   });
 
+  it('injects one explicit environment per snapshot without mutating the parent process', async () => {
+    const directory = await temporaryDirectory();
+    const parentKey = 'HQ_NODE_RUNTIME_PARENT_TEST';
+    const secretKey = 'HQ_NODE_RUNTIME_SECRET_TEST';
+    const previousParent = process.env[parentKey];
+    const previousSecret = process.env[secretKey];
+    process.env[parentKey] = 'parent-only';
+    delete process.env[secretKey];
+    try {
+      const source = [
+        'export const queries = {',
+        '  handler: async () => ({',
+        `    parent: process.env.${parentKey} ?? null,`,
+        `    secret: process.env.${secretKey} ?? null,`,
+        '    project: process.env.HQ_NODE_RUNTIME_PROJECT ?? null,',
+        '  }),',
+        '};',
+        '',
+      ].join('\n');
+      const production = snapshot(source, {
+        target: { project: 'analytics', environment: 'production' },
+      });
+      const preview = snapshot(source, {
+        target: { project: 'analytics', environment: 'preview' },
+      });
+      const resolutions: string[] = [];
+      const factory = createNodeWorkerDeploymentRuntimeFactory({
+        temporaryDirectory: directory,
+        async resolveEnvironment(deployed) {
+          resolutions.push(deployed.target.environment);
+          return {
+            [secretKey]: `${deployed.target.environment}-secret`,
+            HQ_NODE_RUNTIME_PROJECT: deployed.target.project,
+          };
+        },
+      });
+
+      const [productionInstance, previewInstance] = await Promise.all([
+        factory.start(production, {}),
+        factory.start(preview, {}),
+      ]);
+      instances.push(productionInstance, previewInstance);
+      const invoke = (instance: DeploymentRuntimeInstance, deployed: DeploymentRuntimeSnapshot) => (
+        instance.invoke({
+          query: 'handler',
+          binding: deployed.queries[0]!,
+          argument: {},
+        })
+      );
+
+      await expect(invoke(productionInstance, production)).resolves.toEqual({
+        parent: null,
+        secret: 'production-secret',
+        project: 'analytics',
+      });
+      await expect(invoke(previewInstance, preview)).resolves.toEqual({
+        parent: null,
+        secret: 'preview-secret',
+        project: 'analytics',
+      });
+      expect(resolutions.sort()).toEqual(['preview', 'production']);
+      expect(process.env[parentKey]).toBe('parent-only');
+      expect(process.env[secretKey]).toBeUndefined();
+    } finally {
+      if (previousParent === undefined) delete process.env[parentKey];
+      else process.env[parentKey] = previousParent;
+      if (previousSecret === undefined) delete process.env[secretKey];
+      else process.env[secretKey] = previousSecret;
+    }
+  });
+
+  it('inherits the parent environment when no resolver is configured', async () => {
+    const directory = await temporaryDirectory();
+    const key = 'HQ_NODE_RUNTIME_INHERIT_TEST';
+    const previous = process.env[key];
+    process.env[key] = 'inherited';
+    try {
+      const deployed = snapshot([
+        'export const queries = {',
+        `  handler: async () => process.env.${key} ?? null,`,
+        '};',
+        '',
+      ].join('\n'));
+      const factory = createNodeWorkerDeploymentRuntimeFactory({
+        temporaryDirectory: directory,
+      });
+      const instance = await factory.start(deployed, {});
+      instances.push(instance);
+
+      await expect(instance.invoke({
+        query: 'handler',
+        binding: deployed.queries[0]!,
+        argument: {},
+      })).resolves.toBe('inherited');
+    } finally {
+      if (previous === undefined) delete process.env[key];
+      else process.env[key] = previous;
+    }
+  });
+
+  it('rejects invalid or failed environment resolution and removes temporary bytes', async () => {
+    const directory = await temporaryDirectory();
+    const deployed = snapshot('export const queries = { handler: () => true };\n');
+    const invalid = createNodeWorkerDeploymentRuntimeFactory({
+      temporaryDirectory: directory,
+      resolveEnvironment: async () => ({ SECRET: 42 }) as unknown as Record<string, string>,
+    });
+    const failed = createNodeWorkerDeploymentRuntimeFactory({
+      temporaryDirectory: directory,
+      resolveEnvironment: async () => {
+        throw new Error('provider failure');
+      },
+    });
+
+    await expect(invalid.start(deployed, {})).rejects.toMatchObject({
+      code: 'HQ_NODE_RUNTIME_START_FAILED',
+      message: 'The Node deployment runtime environment is invalid.',
+    });
+    await expect(failed.start(deployed, {})).rejects.toMatchObject({
+      code: 'HQ_NODE_RUNTIME_START_FAILED',
+      message: 'The Node deployment runtime environment could not be resolved.',
+    });
+    expect(await readdir(directory)).toEqual([]);
+  });
+
+  it('passes the startup abort signal through environment resolution', async () => {
+    const directory = await temporaryDirectory();
+    const deployed = snapshot('export const queries = { handler: () => true };\n');
+    const controller = new AbortController();
+    let markResolverStarted!: () => void;
+    const resolverStarted = new Promise<void>(resolve => {
+      markResolverStarted = resolve;
+    });
+    const factory = createNodeWorkerDeploymentRuntimeFactory({
+      temporaryDirectory: directory,
+      resolveEnvironment: async (_snapshot, { signal }) => {
+        markResolverStarted();
+        return await new Promise<Record<string, string>>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+          if (signal?.aborted) reject(signal.reason);
+        });
+      },
+    });
+
+    const starting = factory.start(deployed, { signal: controller.signal });
+    await resolverStarted;
+    controller.abort(new Error('cancel environment lookup'));
+
+    await expect(starting).rejects.toMatchObject({ code: 'HQ_NODE_RUNTIME_ABORTED' });
+    expect(await readdir(directory)).toEqual([]);
+  });
+
   it.skipIf(process.platform === 'win32')(
     'seals generated runtime directories before writing artifacts',
     async () => {
@@ -183,7 +341,14 @@ describe('Node worker deployment runtime factory', () => {
 
   it('rejects unsupported or identity-mismatched artifacts before execution', async () => {
     const directory = await temporaryDirectory();
-    const factory = createNodeWorkerDeploymentRuntimeFactory({ temporaryDirectory: directory });
+    let environmentResolutions = 0;
+    const factory = createNodeWorkerDeploymentRuntimeFactory({
+      temporaryDirectory: directory,
+      resolveEnvironment: async () => {
+        environmentResolutions += 1;
+        return {};
+      },
+    });
     const python = snapshot('print("hello")\n', { runtime: 'python' });
     const mismatched = snapshot('export const queries = {};\n', { digest: 'f'.repeat(64) });
 
@@ -193,6 +358,7 @@ describe('Node worker deployment runtime factory', () => {
     await expect(factory.start(mismatched, {})).rejects.toMatchObject({
       code: 'HQ_NODE_RUNTIME_INVALID_ARTIFACT',
     });
+    expect(environmentResolutions).toBe(0);
     expect(await readdir(directory)).toEqual([]);
     expect(() => createNodeWorkerDeploymentRuntimeFactory({ startupTimeoutMs: 0 }))
       .toThrow(NodeDeploymentRuntimeError);

@@ -79,10 +79,23 @@ export class NodeDeploymentRuntimeError extends Error {
   }
 }
 
+export type NodeDeploymentRuntimeEnvironment = Readonly<Record<string, string>>;
+
+export type NodeDeploymentRuntimeEnvironmentResolver = (
+  snapshot: DeploymentRuntimeSnapshot,
+  input: { readonly signal?: AbortSignal },
+) => NodeDeploymentRuntimeEnvironment | Promise<NodeDeploymentRuntimeEnvironment>;
+
 export interface NodeDeploymentRuntimeFactoryOptions {
   readonly temporaryDirectory?: string;
   /** Worker import deadline from 1 through 300,000 milliseconds. */
   readonly startupTimeoutMs?: number;
+  /**
+   * Resolve an explicit environment for one immutable runtime snapshot.
+   * When configured, this replaces inherited process environment state for
+   * the worker. Omit it to preserve Node's default environment inheritance.
+   */
+  readonly resolveEnvironment?: NodeDeploymentRuntimeEnvironmentResolver;
   readonly onCleanupError?: (error: unknown, directory: string) => void;
 }
 
@@ -125,6 +138,85 @@ function startupTimeout(input: number | undefined): number {
 
 function sha256(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function invalidEnvironment(): NodeDeploymentRuntimeError {
+  return nodeRuntimeError(
+    'HQ_NODE_RUNTIME_START_FAILED',
+    'The Node deployment runtime environment is invalid.',
+  );
+}
+
+function validateEnvironment(input: unknown): Record<string, string> {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw invalidEnvironment();
+  }
+  let keys: readonly PropertyKey[];
+  try {
+    keys = Reflect.ownKeys(input);
+  } catch {
+    throw invalidEnvironment();
+  }
+  const environment = Object.create(null) as Record<string, string>;
+  for (const key of keys) {
+    if (typeof key !== 'string' || key.length === 0 || key.includes('\0') || key.includes('=')) {
+      throw invalidEnvironment();
+    }
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(input, key);
+    } catch {
+      throw invalidEnvironment();
+    }
+    if (!descriptor?.enumerable
+      || !Object.hasOwn(descriptor, 'value')
+      || typeof descriptor.value !== 'string'
+      || descriptor.value.includes('\0')) {
+      throw invalidEnvironment();
+    }
+    environment[key] = descriptor.value;
+  }
+  return environment;
+}
+
+async function resolveWorkerEnvironment(
+  resolver: NodeDeploymentRuntimeEnvironmentResolver | undefined,
+  snapshot: DeploymentRuntimeSnapshot,
+  signal: AbortSignal | undefined,
+): Promise<Record<string, string> | undefined> {
+  if (!resolver) return undefined;
+  if (signal?.aborted) {
+    throw nodeRuntimeError(
+      'HQ_NODE_RUNTIME_ABORTED',
+      'Node runtime startup was aborted.',
+      signal.reason,
+    );
+  }
+  let resolved: unknown;
+  try {
+    resolved = await resolver(snapshot, { signal });
+  } catch (error) {
+    if (signal?.aborted) {
+      throw nodeRuntimeError(
+        'HQ_NODE_RUNTIME_ABORTED',
+        'Node runtime startup was aborted.',
+        signal.reason,
+      );
+    }
+    throw nodeRuntimeError(
+      'HQ_NODE_RUNTIME_START_FAILED',
+      'The Node deployment runtime environment could not be resolved.',
+      error,
+    );
+  }
+  if (signal?.aborted) {
+    throw nodeRuntimeError(
+      'HQ_NODE_RUNTIME_ABORTED',
+      'Node runtime startup was aborted.',
+      signal.reason,
+    );
+  }
+  return validateEnvironment(resolved);
 }
 
 async function ensureTemporaryDirectory(input: string | undefined): Promise<string> {
@@ -283,6 +375,7 @@ async function startWorker(
   directory: string,
   timeoutMs: number,
   signal: AbortSignal | undefined,
+  resolveEnvironment: NodeDeploymentRuntimeEnvironmentResolver | undefined,
 ): Promise<DeploymentRuntimeInstance> {
   if (signal?.aborted) {
     throw nodeRuntimeError('HQ_NODE_RUNTIME_ABORTED', 'Node runtime startup was aborted.', signal.reason);
@@ -313,9 +406,11 @@ async function startWorker(
     );
   }
 
+  const environment = await resolveWorkerEnvironment(resolveEnvironment, snapshot, signal);
   const worker = new Worker(WORKER_SOURCE, {
     eval: true,
     workerData: { artifacts },
+    ...(environment === undefined ? {} : { env: environment }),
   });
   let resolveReady!: () => void;
   let rejectReady!: (error: unknown) => void;
@@ -389,7 +484,13 @@ export function createNodeWorkerDeploymentRuntimeFactory(
       const directory = await mkdtemp(path.join(root, 'hypequery-node-runtime-'));
       try {
         await chmod(directory, 0o700);
-        return await startWorker(snapshot, directory, timeoutMs, input.signal);
+        return await startWorker(
+          snapshot,
+          directory,
+          timeoutMs,
+          input.signal,
+          options.resolveEnvironment,
+        );
       } catch (error) {
         try {
           await rm(directory, { force: true, recursive: true });
