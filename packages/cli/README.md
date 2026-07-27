@@ -212,8 +212,20 @@ npx hypequery logout
 ### `hypequery deployment:release`
 
 Prepares a deterministic release request from a verified deployment bundle and
-an explicit project/environment target. This command does not upload, authorize,
-or execute the release.
+a project/environment target. This command does not upload, authorize, or
+execute the release.
+
+After `hypequery login` the target is read from the stored Cloud profile, and
+the resolved target is printed alongside the release identity:
+
+```bash
+npx hypequery deployment:release analytics/hypequery-deployment
+```
+
+To target something other than the logged-in project and environment, pass both
+flags. A half-specified override is rejected rather than completed from the
+stored profile, so an unset shell variable fails loudly instead of silently
+retargeting the release:
 
 ```bash
 npx hypequery deployment:release analytics/hypequery-deployment \
@@ -227,8 +239,10 @@ invalidate bundle verification.
 
 Options:
 
-- `--project <project>`: required target project identifier
-- `--environment <environment>`: required target environment identifier
+- `--project <project>`: target project identifier; defaults to the logged-in
+  target and must be paired with `--environment`
+- `--environment <environment>`: target environment identifier; defaults to the
+  logged-in target and must be paired with `--project`
 - `--output <path>`: release JSON path, default beside the bundle
 
 ### `hypequery deploy`

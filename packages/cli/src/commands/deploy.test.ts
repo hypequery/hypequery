@@ -159,6 +159,63 @@ describe('deploy command', () => {
     });
   });
 
+  it('refuses to send the stored token to a different origin', async () => {
+    const release = await releaseFile();
+    const createTransport = vi.fn();
+
+    await expect(deployCommand('dist/bundle', {
+      release: release.path,
+      endpoint: 'https://evil.example.test/v1/deployments/submissions',
+    }, {
+      env: {},
+      loadCredential: async () => ({
+        cloudUrl: 'https://cloud.example.test',
+        deploymentEndpoint:
+          'https://cloud.example.test/v1/deployments/submissions',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        scope: 'deploy:submit',
+        token: `hqdp_v1_${'f'.repeat(43)}`,
+      }),
+      createTransport,
+    })).rejects.toThrow(/will not be sent to https:\/\/evil\.example\.test/);
+
+    expect(createTransport).not.toHaveBeenCalled();
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('still honours an explicit endpoint on the logged-in origin', async () => {
+    const release = await releaseFile();
+    const submit = vi.fn().mockResolvedValue({
+      kind: 'hypequery-deployment-submission',
+      version: 1,
+      status: 'accepted',
+      releaseIdentity: release.identity,
+      bundleIdentity: BUNDLE_IDENTITY,
+    });
+    const createTransport = vi.fn(() => ({ submit }));
+
+    await deployCommand('dist/bundle', {
+      release: release.path,
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+    }, {
+      env: {},
+      loadCredential: async () => ({
+        cloudUrl: 'https://cloud.example.test',
+        deploymentEndpoint:
+          'https://cloud.example.test/v1/deployments/submissions',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        scope: 'deploy:submit',
+        token: `hqdp_v1_${'f'.repeat(43)}`,
+      }),
+      createTransport,
+    });
+
+    expect(createTransport).toHaveBeenCalledWith({
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      token: `hqdp_v1_${'f'.repeat(43)}`,
+    });
+  });
+
   it('requires a new login when the stored credential expired', async () => {
     const release = await releaseFile();
     await expect(deployCommand('dist/bundle', { release: release.path }, {

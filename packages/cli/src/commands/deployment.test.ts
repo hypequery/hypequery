@@ -453,6 +453,31 @@ describe('deployment commands', () => {
     expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
   });
 
+  it('never completes a half-specified target from the stored login', async () => {
+    const loadCredential = vi.fn(async () => ({
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      target: { project: 'acme:analytics', environment: 'production' },
+      token: `hqdp_v1_${'a'.repeat(43)}`,
+    }));
+
+    // An unset shell variable reaches commander as an empty string. Falling
+    // back here would silently retarget the release at the logged-in target.
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: '',
+    }, { loadCredential })).rejects.toThrow(/--environment/);
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: '',
+      environment: '',
+    }, { loadCredential })).rejects.toThrow(/--project/);
+
+    expect(loadCredential).not.toHaveBeenCalled();
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
   it('does not permit release output inside the closed bundle', async () => {
     await expect(prepareDeploymentReleaseCommand('dist/bundle', {
       project: 'project_1',

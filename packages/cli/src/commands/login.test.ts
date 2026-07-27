@@ -75,6 +75,49 @@ describe('Cloud CLI authentication', () => {
     });
   });
 
+  it('ignores a mismatched callback and still completes the login', async () => {
+    let authorizeUrl: URL | undefined;
+    const saveCredential = vi.fn();
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      access_token: `hqdp_v1_${'c'.repeat(43)}`,
+      token_type: 'Bearer',
+      expires_at: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      deployment_endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      deployment_target: { project: 'acme:analytics', environment: 'production' },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    const openBrowser = vi.fn(async (input: string) => {
+      authorizeUrl = new URL(input);
+      const callbackUrl = authorizeUrl.searchParams.get('redirect_uri') as string;
+
+      // Any page the user has open can reach this port with a no-CORS
+      // request. A wrong state must not abort the pending login.
+      const stray = new URL(callbackUrl);
+      stray.searchParams.set('code', `hqac_v1_${'9'.repeat(43)}`);
+      stray.searchParams.set('state', 'not-the-real-state');
+      const strayResponse = await fetch(stray);
+      expect(strayResponse.status).toBe(400);
+
+      const callback = new URL(callbackUrl);
+      callback.searchParams.set('code', `hqac_v1_${'d'.repeat(43)}`);
+      callback.searchParams.set(
+        'state',
+        authorizeUrl.searchParams.get('state') as string,
+      );
+      await fetch(callback);
+    });
+
+    await loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
+      fetch: fetchMock as typeof fetch,
+      openBrowser,
+      saveCredential,
+      timeoutMs: 2_000,
+    });
+
+    expect(saveCredential).toHaveBeenCalledOnce();
+  });
+
   it('revokes the remote token before deleting it locally', async () => {
     const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
     const deleteCredential = vi.fn();

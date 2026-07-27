@@ -64,6 +64,10 @@ async function callbackServer(state: string, timeoutMs: number) {
     settle = resolve;
     reject = rejectPromise;
   });
+  // The caller only awaits `code` after the browser has been opened, which
+  // takes long enough for a rejection to be seen as unhandled and terminate
+  // the process. This keeps a handler attached from the very first tick.
+  code.catch(() => undefined);
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
     if (request.method !== 'GET' || url.pathname !== '/callback') {
@@ -82,8 +86,11 @@ async function callbackServer(state: string, timeoutMs: number) {
       'X-Content-Type-Options': 'nosniff',
     });
     response.end(callbackHtml(valid));
+    // Only a matching callback completes the login. Any web page the user has
+    // open can issue a no-CORS request to this port, so a mismatch is ignored
+    // rather than settled: aborting here would let a background tab cancel a
+    // legitimate login. The timeout remains the only failure path.
     if (valid) settle?.(authorizationCode as string);
-    else reject?.(new Error('The CLI authorization callback was invalid.'));
   });
   server.listen(0, '127.0.0.1');
   await new Promise<void>((resolve, rejectListen) => {

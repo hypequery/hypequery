@@ -18,6 +18,14 @@ import {
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
+function sameOrigin(left: string, right: string): boolean {
+  try {
+    return new URL(left).origin === new URL(right).origin;
+  } catch {
+    return false;
+  }
+}
+
 export interface DeployOptions {
   release?: string;
   endpoint?: string;
@@ -113,13 +121,26 @@ export async function deployCommand(
         : async () => null);
     const credential = await loadCredential();
     if (credential) {
-      endpoint ??= credential.deploymentEndpoint;
+      // The stored token authenticates one Cloud. An explicit --endpoint or
+      // HYPEQUERY_DEPLOYMENT_ENDPOINT aimed anywhere else must never receive
+      // it, or a mistyped or hostile endpoint silently exfiltrates the
+      // credential the user never typed.
+      const resolved = endpoint ?? credential.deploymentEndpoint;
       if (!token) {
+        if (!sameOrigin(resolved, credential.cloudUrl)) {
+          throw new Error(
+            `The stored Cloud credential belongs to ${credential.cloudUrl} and will not be `
+            + `sent to ${resolved}.\n\n`
+            + 'Drop --endpoint/HYPEQUERY_DEPLOYMENT_ENDPOINT to use the logged-in Cloud, '
+            + 'or set HYPEQUERY_API_TOKEN for this endpoint.',
+          );
+        }
         if (Date.parse(credential.expiresAt) <= Date.now()) {
           throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');
         }
         token = credential.token;
       }
+      endpoint = resolved;
     }
   }
   endpoint = requiredConfiguration(

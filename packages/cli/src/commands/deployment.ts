@@ -385,28 +385,29 @@ export async function prepareDeploymentReleaseCommand(
       + 'Usage: hypequery deployment:release analytics/hypequery-deployment',
     );
   }
-  const hasProject = options.project !== undefined;
-  const hasEnvironment = options.environment !== undefined;
-  if (hasProject !== hasEnvironment && !hasProject) {
-    throw new Error('Missing required --project <project>.');
-  }
-  if (hasProject !== hasEnvironment) {
-    throw new Error('Missing required --environment <environment>.');
-  }
-  let project = options.project;
-  let environment = options.environment;
-  if (!project || !environment) {
+  // Passing either flag opts out of the logged-in target entirely. Completing
+  // a half-specified override from the stored profile would silently retarget
+  // the release — `--project "$P" --environment "$E"` with an unset variable
+  // must fail loudly, not bind to whatever the last login used.
+  let project: string | undefined;
+  let environment: string | undefined;
+  if (options.project !== undefined || options.environment !== undefined) {
+    if (!options.project) throw new Error('Missing required --project <project>.');
+    if (!options.environment) throw new Error('Missing required --environment <environment>.');
+    project = options.project;
+    environment = options.environment;
+  } else {
     const credential = await (
       dependencies.loadCredential ?? loadCloudCredential
     )();
     project = credential?.target?.project;
     environment = credential?.target?.environment;
-  }
-  if (!project || !environment) {
-    throw new Error(
-      'Missing deployment target. Run `hypequery login` or pass both '
-      + '--project <project> and --environment <environment>.',
-    );
+    if (!project || !environment) {
+      throw new Error(
+        'Missing deployment target. Run `hypequery login` or pass both '
+        + '--project <project> and --environment <environment>.',
+      );
+    }
   }
   const outputPath = options.output ?? `${bundlePath.replace(/[\\/]+$/, '')}.release.json`;
   assertOutputOutsideBundle(bundlePath, outputPath);
@@ -437,6 +438,7 @@ export async function prepareDeploymentReleaseCommand(
   await assertOutputIsNotSymbolicLink(outputPath);
   await writeFile(outputPath, `${prepared.canonical}\n`, 'utf8');
   logger.success(`Deployment release written to ${outputPath}`);
+  logger.info(`Target: ${project}/${environment}`);
   logger.info(`Release identity: ${prepared.identity}`);
   logger.info(`Bundle identity: ${bundle.identity}`);
   return prepared.release;
