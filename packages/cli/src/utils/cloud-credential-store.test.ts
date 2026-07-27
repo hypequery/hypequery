@@ -1,0 +1,73 @@
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import {
+  deleteCloudCredential,
+  loadCloudCredential,
+  saveCloudCredential,
+} from './cloud-credential-store.js';
+
+const directories: string[] = [];
+
+async function store() {
+  const configDirectory = await mkdtemp(path.join(tmpdir(), 'hypequery-credential-test-'));
+  directories.push(configDirectory);
+  const passwords = new Map<string, string>();
+  return {
+    configDirectory,
+    passwords,
+    createKeyringEntry: (_service: string, account: string) => ({
+      setPassword: (password: string) => {
+        passwords.set(account, password);
+      },
+      getPassword: () => passwords.get(account) ?? null,
+      deletePassword: () => passwords.delete(account),
+    }),
+  };
+}
+
+afterEach(async () => {
+  await Promise.all(
+    directories.splice(0).map(directory => rm(directory, {
+      force: true,
+      recursive: true,
+    })),
+  );
+});
+
+describe('Cloud credential store', () => {
+  it('stores only profile metadata on disk and keeps the token in the keychain', async () => {
+    const dependencies = await store();
+    const credential = {
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      token: `hqdp_v1_${'a'.repeat(43)}`,
+    };
+    await saveCloudCredential(credential, dependencies);
+
+    const profilePath = path.join(dependencies.configDirectory, 'cloud-profile.json');
+    const profile = await readFile(profilePath, 'utf8');
+    expect(profile).not.toContain(credential.token);
+    expect((await stat(profilePath)).mode & 0o777).toBe(0o600);
+    await expect(loadCloudCredential(dependencies)).resolves.toEqual(credential);
+  });
+
+  it('deletes both the local profile and keychain token', async () => {
+    const dependencies = await store();
+    await saveCloudCredential({
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      token: `hqdp_v1_${'b'.repeat(43)}`,
+    }, dependencies);
+
+    await deleteCloudCredential(dependencies);
+    await expect(loadCloudCredential(dependencies)).resolves.toBeNull();
+    expect(dependencies.passwords.size).toBe(0);
+  });
+});

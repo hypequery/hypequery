@@ -251,6 +251,10 @@ describe('deployment upload transport', () => {
       endpoint: 'https://deploy.example.test/v1/releases',
       token: 'secret-token\nInjected: header',
     })).toThrow(/HQ_UPLOAD_CONFIGURATION[\s\S]*HYPEQUERY_API_TOKEN/);
+    expect(() => createHttpDeploymentUploadTransport({
+      endpoint: 'http://127.0.0.1:3000/v1/deployments/submissions',
+      token: 'secret-token',
+    })).not.toThrow();
   });
 
   it('returns a stable rejection with bounded server detail', async () => {

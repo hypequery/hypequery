@@ -17,6 +17,11 @@ import {
   deployCommand,
   type DeployOptions,
 } from './commands/deploy.js';
+import {
+  loginCommand,
+  logoutCommand,
+  type LoginOptions,
+} from './commands/login.js';
 
 const program = new Command();
 
@@ -42,6 +47,21 @@ program
   .name('hypequery')
   .description('Type-safe analytics layer for ClickHouse')
   .version(getCliVersion());
+
+program
+  .command('login')
+  .description('Authorize this machine with Hypequery Cloud')
+  .option('--cloud-url <url>', 'Cloud origin (or HYPEQUERY_CLOUD_URL)')
+  .action(runCommand(async (options: LoginOptions) => {
+    await loginCommand(options);
+  }));
+
+program
+  .command('logout')
+  .description('Revoke and remove the local Hypequery Cloud credential')
+  .action(runCommand(async () => {
+    await logoutCommand();
+  }));
 
 function runCommand<TArgs extends unknown[]>(
   action: (...args: TArgs) => Promise<void>,
@@ -197,6 +217,8 @@ program
 program.on('--help', () => {
   console.log('');
   console.log('Examples:');
+  console.log('  hypequery login');
+  console.log('  hypequery logout');
   console.log('  hypequery init');
   console.log('  hypequery dev');
   console.log('  hypequery dev --port 3000');

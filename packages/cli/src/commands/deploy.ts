@@ -10,6 +10,10 @@ import {
   type HttpDeploymentUploadTransportOptions,
 } from '../utils/deployment-upload.js';
 import { logger } from '../utils/logger.js';
+import {
+  loadCloudCredential,
+  type StoredCloudCredential,
+} from '../utils/cloud-credential-store.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
@@ -22,6 +26,7 @@ export interface DeployOptions {
 export interface DeployDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly createTransport?: typeof createHttpDeploymentUploadTransport;
+  readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
 }
 
 async function readReleaseFile(releasePath: string): Promise<unknown> {
@@ -99,13 +104,31 @@ export async function deployCommand(
     'Missing required --release <path>.',
   );
   const env = dependencies.env ?? process.env;
-  const endpoint = requiredConfiguration(
-    options.endpoint ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT,
-    'Missing deployment endpoint. Pass --endpoint or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
+  let endpoint = options.endpoint ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT;
+  let token = env.HYPEQUERY_API_TOKEN;
+  if (!endpoint || !token) {
+    const loadCredential = dependencies.loadCredential
+      ?? (dependencies.env === undefined
+        ? loadCloudCredential
+        : async () => null);
+    const credential = await loadCredential();
+    if (credential) {
+      endpoint ??= credential.deploymentEndpoint;
+      if (!token) {
+        if (Date.parse(credential.expiresAt) <= Date.now()) {
+          throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');
+        }
+        token = credential.token;
+      }
+    }
+  }
+  endpoint = requiredConfiguration(
+    endpoint,
+    'Missing deployment endpoint. Run `hypequery login`, pass --endpoint, or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
   );
-  const token = requiredConfiguration(
-    env.HYPEQUERY_API_TOKEN,
-    'Missing HYPEQUERY_API_TOKEN.',
+  token = requiredConfiguration(
+    token,
+    'Missing deployment credential. Run `hypequery login` or set HYPEQUERY_API_TOKEN.',
   );
 
   let bundle: Awaited<ReturnType<typeof verifyDeploymentBundle>>;

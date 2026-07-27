@@ -110,8 +110,10 @@ function endpointUrl(input: string): string {
   } catch {
     configurationError('Deployment endpoint must be an absolute HTTPS URL.');
   }
-  if (url.protocol !== 'https:') {
-    configurationError('Deployment endpoint must use HTTPS.');
+  const loopbackHttp = url.protocol === 'http:'
+    && (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
+  if (url.protocol !== 'https:' && !loopbackHttp) {
+    configurationError('Deployment endpoint must use HTTPS (HTTP is allowed only for loopback development).');
   }
   if (url.username || url.password) {
     configurationError('Deployment endpoint must not contain credentials.');
