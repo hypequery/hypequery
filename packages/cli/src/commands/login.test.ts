@@ -31,6 +31,10 @@ describe('Cloud CLI authentication', () => {
         scope: 'deploy:submit',
         deployment_endpoint:
           'https://cloud.example.test/v1/deployments/submissions',
+        deployment_target: {
+          project: 'acme:analytics',
+          environment: 'production',
+        },
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -63,6 +67,10 @@ describe('Cloud CLI authentication', () => {
         'https://cloud.example.test/v1/deployments/submissions',
       expiresAt: '2030-01-01T00:00:00.000Z',
       scope: 'deploy:submit',
+      target: {
+        project: 'acme:analytics',
+        environment: 'production',
+      },
       token: `hqdp_v1_${'c'.repeat(43)}`,
     });
   });

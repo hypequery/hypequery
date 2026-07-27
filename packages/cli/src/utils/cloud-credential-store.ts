@@ -2,6 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import {
+  validateProtocolDeploymentReleaseTarget,
+  type ProtocolDeploymentReleaseTarget,
+} from '@hypequery/protocol';
 
 const KEYCHAIN_SERVICE = 'dev.hypequery.cli';
 const PROFILE_FILE = 'cloud-profile.json';
@@ -11,6 +15,7 @@ export interface StoredCloudCredential {
   readonly deploymentEndpoint: string;
   readonly expiresAt: string;
   readonly scope: string;
+  readonly target?: ProtocolDeploymentReleaseTarget;
   readonly token: string;
 }
 
@@ -20,6 +25,7 @@ interface StoredCloudProfile {
   readonly deploymentEndpoint: string;
   readonly expiresAt: string;
   readonly scope: string;
+  readonly target?: ProtocolDeploymentReleaseTarget;
   readonly keychainAccount: string;
 }
 
@@ -86,7 +92,18 @@ function parseProfile(input: string): StoredCloudProfile {
   ) {
     throw new Error('The stored Hypequery Cloud profile is invalid. Run `hypequery login` again.');
   }
-  return value as StoredCloudProfile;
+  let target: ProtocolDeploymentReleaseTarget | undefined;
+  try {
+    target = value.target === undefined
+      ? undefined
+      : validateProtocolDeploymentReleaseTarget(value.target);
+  } catch {
+    throw new Error('The stored Hypequery Cloud profile is invalid. Run `hypequery login` again.');
+  }
+  return {
+    ...value,
+    ...(target ? { target } : {}),
+  } as StoredCloudProfile;
 }
 
 async function entry(
@@ -112,6 +129,7 @@ export async function saveCloudCredential(
     deploymentEndpoint: credential.deploymentEndpoint,
     expiresAt: credential.expiresAt,
     scope: credential.scope,
+    ...(credential.target ? { target: credential.target } : {}),
     keychainAccount,
   };
   await mkdir(location.directory, { recursive: true, mode: 0o700 });
@@ -153,6 +171,7 @@ export async function loadCloudCredential(
     deploymentEndpoint: profile.deploymentEndpoint,
     expiresAt: profile.expiresAt,
     scope: profile.scope,
+    ...(profile.target ? { target: profile.target } : {}),
     token,
   };
 }

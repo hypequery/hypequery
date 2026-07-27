@@ -179,8 +179,8 @@ program
 program
   .command('deployment:release <bundle>')
   .description('Prepare a target-bound release from a verified deployment bundle')
-  .requiredOption('--project <project>', 'Target project identifier')
-  .requiredOption('--environment <environment>', 'Target environment identifier')
+  .option('--project <project>', 'Target project identifier (advanced override)')
+  .option('--environment <environment>', 'Target environment identifier (advanced override)')
   .option('-o, --output <path>', 'Release JSON path (default: beside the bundle)')
   .action(runCommand(async (bundle: string, options: PrepareDeploymentReleaseOptions) => {
     await prepareDeploymentReleaseCommand(bundle, options);

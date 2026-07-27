@@ -400,6 +400,49 @@ describe('deployment commands', () => {
     expect(Object.isFrozen(result)).toBe(true);
   });
 
+  it('uses the target stored by interactive login when flags are omitted', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({
+      directory: '/project/dist/bundle',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 1,
+        deployment: {
+          path: 'deployment.json',
+          identity: '1'.repeat(64),
+          sha256: '2'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: BUNDLE_IDENTITY,
+      contract,
+    });
+
+    const result = await prepareDeploymentReleaseCommand(
+      'dist/bundle',
+      {},
+      {
+        loadCredential: async () => ({
+          cloudUrl: 'https://cloud.example.test',
+          deploymentEndpoint:
+            'https://cloud.example.test/v1/deployments/submissions',
+          expiresAt: '2030-01-01T00:00:00.000Z',
+          scope: 'deploy:submit',
+          target: {
+            project: 'acme:analytics',
+            environment: 'production',
+          },
+          token: `hqdp_v1_${'a'.repeat(43)}`,
+        }),
+      },
+    );
+
+    expect(result.target).toEqual({
+      project: 'acme:analytics',
+      environment: 'production',
+    });
+  });
+
   it('requires release target options before reading the bundle', async () => {
     await expect(prepareDeploymentReleaseCommand('dist/bundle', {
       environment: 'production',

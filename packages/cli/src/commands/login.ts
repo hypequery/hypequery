@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import open from 'open';
+import { validateProtocolDeploymentReleaseTarget } from '@hypequery/protocol';
 
 import {
   deleteCloudCredential,
@@ -114,6 +115,7 @@ function tokenResponse(input: unknown, origin: string): StoredCloudCredential {
     || !Number.isFinite(Date.parse(value.expires_at))
     || typeof value.scope !== 'string'
     || typeof value.deployment_endpoint !== 'string'
+    || value.deployment_target === undefined
   ) {
     throw new Error('Cloud returned an invalid CLI token response.');
   }
@@ -122,11 +124,18 @@ function tokenResponse(input: unknown, origin: string): StoredCloudCredential {
     || endpoint.search || endpoint.hash) {
     throw new Error('Cloud returned an invalid deployment endpoint.');
   }
+  let target;
+  try {
+    target = validateProtocolDeploymentReleaseTarget(value.deployment_target);
+  } catch {
+    throw new Error('Cloud returned an invalid CLI deployment target.');
+  }
   return {
     cloudUrl: origin,
     deploymentEndpoint: endpoint.toString(),
     expiresAt: value.expires_at,
     scope: value.scope,
+    target,
     token: value.access_token,
   };
 }

@@ -20,6 +20,10 @@ import {
 } from '../utils/deployment-runtime-artifact.js';
 import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
+import {
+  loadCloudCredential,
+  type StoredCloudCredential,
+} from '../utils/cloud-credential-store.js';
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
@@ -38,6 +42,10 @@ export interface PrepareDeploymentReleaseOptions {
   project?: string;
   environment?: string;
   output?: string;
+}
+
+export interface PrepareDeploymentReleaseDependencies {
+  loadCredential?: () => Promise<StoredCloudCredential | null>;
 }
 
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
@@ -369,19 +377,36 @@ async function assertOutputIsNotSymbolicLink(outputPath: string): Promise<void> 
 export async function prepareDeploymentReleaseCommand(
   bundlePath: string | undefined,
   options: PrepareDeploymentReleaseOptions = {},
+  dependencies: PrepareDeploymentReleaseDependencies = {},
 ): Promise<ProtocolDeploymentReleaseEnvelope> {
   if (!bundlePath) {
     throw new Error(
       'Missing deployment bundle path.\n\n'
-      + 'Usage: hypequery deployment:release analytics/hypequery-deployment '
-      + '--project <project> --environment <environment>',
+      + 'Usage: hypequery deployment:release analytics/hypequery-deployment',
     );
   }
-  if (options.project === undefined) {
+  const hasProject = options.project !== undefined;
+  const hasEnvironment = options.environment !== undefined;
+  if (hasProject !== hasEnvironment && !hasProject) {
     throw new Error('Missing required --project <project>.');
   }
-  if (options.environment === undefined) {
+  if (hasProject !== hasEnvironment) {
     throw new Error('Missing required --environment <environment>.');
+  }
+  let project = options.project;
+  let environment = options.environment;
+  if (!project || !environment) {
+    const credential = await (
+      dependencies.loadCredential ?? loadCloudCredential
+    )();
+    project = credential?.target?.project;
+    environment = credential?.target?.environment;
+  }
+  if (!project || !environment) {
+    throw new Error(
+      'Missing deployment target. Run `hypequery login` or pass both '
+      + '--project <project> and --environment <environment>.',
+    );
   }
   const outputPath = options.output ?? `${bundlePath.replace(/[\\/]+$/, '')}.release.json`;
   assertOutputOutsideBundle(bundlePath, outputPath);
@@ -404,8 +429,8 @@ export async function prepareDeploymentReleaseCommand(
     version: 1,
     bundleIdentity: bundle.identity,
     target: {
-      project: options.project,
-      environment: options.environment,
+      project,
+      environment,
     },
   });
   await mkdir(path.dirname(outputPath), { recursive: true });

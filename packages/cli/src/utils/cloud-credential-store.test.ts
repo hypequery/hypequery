@@ -45,6 +45,10 @@ describe('Cloud credential store', () => {
       deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
       expiresAt: '2030-01-01T00:00:00.000Z',
       scope: 'deploy:submit',
+      target: {
+        project: 'acme:analytics',
+        environment: 'production',
+      },
       token: `hqdp_v1_${'a'.repeat(43)}`,
     };
     await saveCloudCredential(credential, dependencies);
