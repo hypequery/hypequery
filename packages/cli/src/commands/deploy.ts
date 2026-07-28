@@ -112,15 +112,13 @@ export async function deployCommand(
     throw new Error(
       hasExplicitEndpoint
         ? 'An explicit deployment endpoint requires HYPEQUERY_API_TOKEN.'
-        : 'HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT.',
+        : 'HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT.\n\n'
+          + 'If you meant to use `hypequery login`, unset HYPEQUERY_API_TOKEN — '
+          + 'the CLI also reads it from a project .env file.',
     );
   }
   if (!hasExplicitEndpoint) {
-    const loadCredential = dependencies.loadCredential
-      ?? (dependencies.env === undefined
-        ? loadCloudCredential
-        : async () => null);
-    const credential = await loadCredential();
+    const credential = await (dependencies.loadCredential ?? loadCloudCredential)();
     if (credential) {
       if (Date.parse(credential.expiresAt) <= Date.now()) {
         throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');

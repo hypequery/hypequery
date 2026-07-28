@@ -209,4 +209,101 @@ describe('Cloud CLI authentication', () => {
     );
     expect(deleteCredential).toHaveBeenCalledOnce();
   });
+
+  it('still clears local state when the stored credential cannot be read', async () => {
+    const fetchMock = vi.fn();
+    const deleteCredential = vi.fn();
+
+    await logoutCommand({
+      fetch: fetchMock as unknown as typeof fetch,
+      loadCredential: async () => {
+        throw new Error('The stored Hypequery Cloud profile is invalid.');
+      },
+      deleteCredential,
+    });
+
+    // Nothing to revoke without a readable token, but logout is what users run
+    // when local state is broken, so it must not leave the profile behind.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(deleteCredential).toHaveBeenCalledOnce();
+  });
+
+  it('does not clear anything when no credential is stored', async () => {
+    const deleteCredential = vi.fn();
+
+    await logoutCommand({
+      loadCredential: async () => null,
+      deleteCredential,
+    });
+
+    expect(deleteCredential).not.toHaveBeenCalled();
+  });
+
+  it('accepts a token whose format Cloud has rotated', async () => {
+    const saveCredential = vi.fn();
+    await loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
+      fetch: vi.fn(async () => new Response(JSON.stringify({
+        access_token: `hqdp_v2_${'c'.repeat(64)}`,
+        token_type: 'Bearer',
+        expires_at: '2030-01-01T00:00:00.000Z',
+        scope: 'deploy:submit',
+        deployment_endpoint: 'https://cloud.example.test/v2/deploy/submissions',
+        deployment_target: {
+          project: 'acme:analytics',
+          environment: 'production',
+        },
+      }), { status: 200 })) as typeof fetch,
+      now: () => TOKEN_RESPONSE_NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential,
+      timeoutMs: 2_000,
+    });
+
+    expect(saveCredential).toHaveBeenCalledWith(expect.objectContaining({
+      deploymentEndpoint: 'https://cloud.example.test/v2/deploy/submissions',
+      token: `hqdp_v2_${'c'.repeat(64)}`,
+    }));
+  });
+
+  it('rejects a token that is not a header-safe opaque credential', async () => {
+    await expect(loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
+      fetch: vi.fn(async () => new Response(JSON.stringify({
+        access_token: 'hqdp_short',
+        token_type: 'Bearer',
+        expires_at: '2030-01-01T00:00:00.000Z',
+        scope: 'deploy:submit',
+        deployment_endpoint:
+          'https://cloud.example.test/v1/deployments/submissions',
+        deployment_target: {
+          project: 'acme:analytics',
+          environment: 'production',
+        },
+      }), { status: 200 })) as typeof fetch,
+      now: () => TOKEN_RESPONSE_NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential: vi.fn(),
+      timeoutMs: 2_000,
+    })).rejects.toThrow('Cloud returned an invalid CLI token response.');
+  });
+
+  it('rejects a deployment endpoint on another origin', async () => {
+    await expect(loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
+      fetch: vi.fn(async () => new Response(JSON.stringify({
+        access_token: `hqdp_v1_${'c'.repeat(43)}`,
+        token_type: 'Bearer',
+        expires_at: '2030-01-01T00:00:00.000Z',
+        scope: 'deploy:submit',
+        deployment_endpoint:
+          'https://attacker.example.test/v1/deployments/submissions',
+        deployment_target: {
+          project: 'acme:analytics',
+          environment: 'production',
+        },
+      }), { status: 200 })) as typeof fetch,
+      now: () => TOKEN_RESPONSE_NOW,
+      openBrowser: authorizeInBrowser,
+      saveCredential: vi.fn(),
+      timeoutMs: 2_000,
+    })).rejects.toThrow('Cloud returned an invalid deployment endpoint.');
+  });
 });

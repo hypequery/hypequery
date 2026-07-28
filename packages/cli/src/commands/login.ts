@@ -21,7 +21,11 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_TOKEN_RESPONSE_BYTES = 64 * 1024;
 // Cloud issues 12-hour credentials; allow limited client/server clock skew.
 const MAX_TOKEN_LIFETIME_MS = 13 * 60 * 60_000;
-const TOKEN_PATTERN = /^hqdp_v1_[A-Za-z0-9_-]{43}$/;
+// Cloud owns the token format. Validate only what protects this client — an
+// opaque, header-safe bearer credential of a sane length — rather than pinning
+// a version prefix or exact length that would break every already-published
+// CLI the day Cloud rotates its token format.
+const TOKEN_PATTERN = /^hqdp_[A-Za-z0-9_-]{16,512}$/;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
 export interface LoginOptions {
@@ -251,25 +255,36 @@ export async function loginCommand(
 export async function logoutCommand(dependencies: LogoutDependencies = {}) {
   const load = dependencies.loadCredential ?? loadCloudCredential;
   const remove = dependencies.deleteCredential ?? deleteCloudCredential;
-  const credential = await load();
-  if (!credential) {
+  let credential: StoredCloudCredential | null = null;
+  let unreadable = false;
+  try {
+    credential = await load();
+  } catch {
+    // Logout is the command users reach for when local state is broken, so a
+    // corrupt profile or an unreachable vault must not block the cleanup below.
+    unreadable = true;
+    logger.warn('The stored Cloud credential could not be read; removing local state without revoking. The token will expire automatically.');
+  }
+  if (!credential && !unreadable) {
     logger.info('You are not logged in to Hypequery Cloud.');
     return;
   }
-  try {
-    const request = dependencies.fetch ?? fetch;
-    const response = await request(new URL('/api/cli/token', credential.cloudUrl), {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${credential.token}` },
-      redirect: 'error',
-      signal: AbortSignal.timeout(
-        dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
-      ),
-    });
-    await response.body?.cancel().catch(() => undefined);
-    if (!response.ok) throw new Error(`Cloud returned HTTP ${response.status}.`);
-  } catch {
-    logger.warn('Cloud could not be reached; the local credential was removed and the token will expire automatically.');
+  if (credential) {
+    try {
+      const request = dependencies.fetch ?? fetch;
+      const response = await request(new URL('/api/cli/token', credential.cloudUrl), {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${credential.token}` },
+        redirect: 'error',
+        signal: AbortSignal.timeout(
+          dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
+        ),
+      });
+      await response.body?.cancel().catch(() => undefined);
+      if (!response.ok) throw new Error(`Cloud returned HTTP ${response.status}.`);
+    } catch {
+      logger.warn('Cloud could not be reached; the local credential was removed and the token will expire automatically.');
+    }
   }
   await remove();
   logger.success('Logged out of Hypequery Cloud');

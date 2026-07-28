@@ -10,7 +10,7 @@ import {
 const KEYCHAIN_SERVICE = 'dev.hypequery.cli';
 const PROFILE_FILE = 'cloud-profile.json';
 export const CLOUD_DEPLOYMENT_SCOPE = 'deploy:submit';
-const CLOUD_DEPLOYMENT_PATH = '/v1/deployments/submissions';
+const MAX_KEYCHAIN_ACCOUNT_LENGTH = 2048;
 
 export interface StoredCloudCredential {
   readonly cloudUrl: string;
@@ -32,9 +32,15 @@ interface StoredCloudProfile {
 }
 
 interface KeyringEntry {
-  setPassword(password: string): void;
-  getPassword(): string | null;
+  setPassword(password: string): void | Promise<void>;
+  getPassword(): string | null | Promise<string | null>;
   deletePassword(): unknown;
+}
+
+interface VaultEntry {
+  setPassword(password: string): Promise<void>;
+  getPassword(): Promise<string | null>;
+  deletePassword(): Promise<unknown>;
 }
 
 export interface CloudCredentialStoreDependencies {
@@ -61,16 +67,20 @@ function defaultConfigDirectory(
   return path.join(env.XDG_CONFIG_HOME ?? path.join(homedir(), '.config'), 'hypequery');
 }
 
+function vaultUnavailable(error: unknown): Error {
+  return new Error(
+    'The operating-system credential vault is unavailable. '
+    + 'Install its keyring service or use HYPEQUERY_API_TOKEN for manual authentication.',
+    { cause: error },
+  );
+}
+
 async function defaultKeyringEntry(service: string, account: string) {
   try {
     const { Entry } = await import('@napi-rs/keyring');
     return new Entry(service, account);
   } catch (error) {
-    throw new Error(
-      'The operating-system credential vault is unavailable. '
-      + 'Install its keyring service or use HYPEQUERY_API_TOKEN for manual authentication.',
-      { cause: error },
-    );
+    throw vaultUnavailable(error);
   }
 }
 
@@ -108,8 +118,11 @@ export function normalizeCloudDeploymentEndpoint(
   } catch {
     throw new Error('Cloud returned an invalid deployment endpoint.');
   }
+  // Origin equality is what binds the token to the Cloud that issued it, and it
+  // is the only check that has to hold for a tampered profile to be harmless.
+  // Cloud owns its own path layout: pinning an exact submission path here would
+  // break every already-published CLI the day that path is versioned or moved.
   if (endpoint.origin !== cloudOrigin
-    || endpoint.pathname !== CLOUD_DEPLOYMENT_PATH
     || endpoint.username
     || endpoint.password
     || endpoint.search
@@ -169,9 +182,35 @@ function parseProfile(input: string): StoredCloudProfile {
 async function entry(
   account: string,
   dependencies: CloudCredentialStoreDependencies,
-) {
+): Promise<VaultEntry> {
   const create = dependencies.createKeyringEntry ?? defaultKeyringEntry;
-  return create(KEYCHAIN_SERVICE, account);
+  const created = await create(KEYCHAIN_SERVICE, account);
+  // Constructing an entry is lazy — the vault is only contacted on get/set/
+  // delete — so a locked keyring or a missing Secret Service surfaces here, not
+  // at construction. Translate those failures into the same actionable error.
+  return {
+    async setPassword(password: string) {
+      try {
+        await created.setPassword(password);
+      } catch (error) {
+        throw vaultUnavailable(error);
+      }
+    },
+    async getPassword() {
+      try {
+        return await created.getPassword();
+      } catch (error) {
+        throw vaultUnavailable(error);
+      }
+    },
+    async deletePassword() {
+      try {
+        return await created.deletePassword();
+      } catch (error) {
+        throw vaultUnavailable(error);
+      }
+    },
+  };
 }
 
 export async function saveCloudCredential(
@@ -182,11 +221,10 @@ export async function saveCloudCredential(
   let previousProfile: StoredCloudProfile | null = null;
   try {
     previousProfile = parseProfile(await readFile(location.profile, 'utf8'));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      // A new login must be able to replace a malformed profile.
-      previousProfile = null;
-    }
+  } catch {
+    // A new login must be able to replace a missing or malformed profile; the
+    // only thing lost is the chance to purge a superseded vault entry.
+    previousProfile = null;
   }
   const cloudUrl = normalizeCloudOrigin(credential.cloudUrl);
   const deploymentEndpoint = normalizeCloudDeploymentEndpoint(
@@ -199,8 +237,8 @@ export async function saveCloudCredential(
   }
   const keychainAccount = cloudUrl;
   const keyring = await entry(keychainAccount, dependencies);
-  const previousPassword = await Promise.resolve(keyring.getPassword());
-  await Promise.resolve(keyring.setPassword(credential.token));
+  const previousPassword = await keyring.getPassword();
+  await keyring.setPassword(credential.token);
 
   const profile: StoredCloudProfile = {
     version: 1,
@@ -225,9 +263,9 @@ export async function saveCloudCredential(
   } catch (error) {
     await unlink(temporary).catch(() => undefined);
     if (previousPassword === null) {
-      await Promise.resolve(keyring.deletePassword()).catch(() => undefined);
+      await keyring.deletePassword().catch(() => undefined);
     } else {
-      await Promise.resolve(keyring.setPassword(previousPassword)).catch(() => undefined);
+      await keyring.setPassword(previousPassword).catch(() => undefined);
     }
     throw error;
   }
@@ -237,7 +275,7 @@ export async function saveCloudCredential(
         previousProfile.keychainAccount,
         dependencies,
       );
-      await Promise.resolve(previousKeyring.deletePassword());
+      await previousKeyring.deletePassword();
     } catch {
       // The new profile is already committed; the previous token will expire.
     }
@@ -256,7 +294,7 @@ export async function loadCloudCredential(
     throw error;
   }
   const keyring = await entry(profile.keychainAccount, dependencies);
-  const token = await Promise.resolve(keyring.getPassword());
+  const token = await keyring.getPassword();
   if (!token) {
     throw new Error('The Hypequery Cloud token is missing from your credential vault. Run `hypequery login` again.');
   }
@@ -270,19 +308,53 @@ export async function loadCloudCredential(
   };
 }
 
+/**
+ * Recovers just the vault account from a profile that failed validation, so a
+ * corrupted profile can still be cleaned up. Only the account is salvaged, and
+ * only under our own keychain service, so the worst a tampered value can do is
+ * delete another Hypequery entry that `hypequery login` recreates.
+ */
+function salvageKeychainAccount(input: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input) as unknown;
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  const account = (parsed as { keychainAccount?: unknown }).keychainAccount;
+  return typeof account === 'string'
+    && account.length > 0
+    && account.length <= MAX_KEYCHAIN_ACCOUNT_LENGTH
+    ? account
+    : null;
+}
+
 export async function deleteCloudCredential(
   dependencies: CloudCredentialStoreDependencies = {},
 ) {
   const location = paths(dependencies);
-  let profile: StoredCloudProfile | null = null;
+  let contents: string | null = null;
   try {
-    profile = parseProfile(await readFile(location.profile, 'utf8'));
+    contents = await readFile(location.profile, 'utf8');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
-  if (profile) {
-    const keyring = await entry(profile.keychainAccount, dependencies);
-    await Promise.resolve(keyring.deletePassword()).catch(() => undefined);
+  if (contents !== null) {
+    let account: string | null;
+    try {
+      account = parseProfile(contents).keychainAccount;
+    } catch {
+      // `logout` is what users reach for when their profile is broken, so a
+      // malformed profile has to stay removable instead of throwing here.
+      account = salvageKeychainAccount(contents);
+    }
+    if (account !== null) {
+      const keyring = await entry(account, dependencies).catch(() => null);
+      await keyring?.deletePassword().catch(() => undefined);
+    }
   }
   await unlink(location.profile).catch(error => {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;

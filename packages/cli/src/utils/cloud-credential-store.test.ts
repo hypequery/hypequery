@@ -109,6 +109,71 @@ describe('Cloud credential store', () => {
     );
   });
 
+  it('accepts a deployment endpoint whose path Cloud has moved or versioned', async () => {
+    const dependencies = await store();
+    const credential = {
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint: 'https://cloud.example.test/v2/deploy/submissions',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      token: `hqdp_v9_${'a'.repeat(60)}`,
+    };
+    await saveCloudCredential(credential, dependencies);
+    await expect(loadCloudCredential(dependencies)).resolves.toEqual(credential);
+  });
+
+  it('removes a corrupt profile and its vault token instead of failing logout', async () => {
+    const dependencies = await store();
+    await saveCloudCredential({
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      token: `hqdp_v1_${'a'.repeat(43)}`,
+    }, dependencies);
+    const profilePath = path.join(dependencies.configDirectory, 'cloud-profile.json');
+    await writeFile(profilePath, JSON.stringify({
+      version: 1,
+      keychainAccount: 'https://cloud.example.test',
+      truncated: true,
+    }), { encoding: 'utf8', mode: 0o600 });
+
+    await expect(deleteCloudCredential(dependencies)).resolves.toBeUndefined();
+    await expect(loadCloudCredential(dependencies)).resolves.toBeNull();
+    expect(dependencies.passwords.size).toBe(0);
+  });
+
+  it('removes an unsalvageable profile even when the vault account is gone', async () => {
+    const dependencies = await store();
+    const profilePath = path.join(dependencies.configDirectory, 'cloud-profile.json');
+    await writeFile(profilePath, '{ not json', { encoding: 'utf8', mode: 0o600 });
+
+    await expect(deleteCloudCredential(dependencies)).resolves.toBeUndefined();
+    await expect(loadCloudCredential(dependencies)).resolves.toBeNull();
+  });
+
+  it('reports an unusable credential vault with an actionable error', async () => {
+    const dependencies = await store();
+    await saveCloudCredential({
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      token: `hqdp_v1_${'a'.repeat(43)}`,
+    }, dependencies);
+
+    // The vault is only contacted on get/set, so a locked keyring surfaces
+    // there rather than when the entry is constructed.
+    await expect(loadCloudCredential({
+      ...dependencies,
+      createKeyringEntry: () => ({
+        setPassword: () => { throw new Error('SecretService: not available'); },
+        getPassword: (): string | null => { throw new Error('SecretService: not available'); },
+        deletePassword: () => { throw new Error('SecretService: not available'); },
+      }),
+    })).rejects.toThrow(/credential vault is unavailable[\s\S]*HYPEQUERY_API_TOKEN/);
+  });
+
   it('deletes both the local profile and keychain token', async () => {
     const dependencies = await store();
     await saveCloudCredential({

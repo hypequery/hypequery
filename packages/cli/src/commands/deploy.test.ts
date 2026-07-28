@@ -222,8 +222,10 @@ describe('deploy command', () => {
 
   it('requires endpoint and token configuration before bundle verification', async () => {
     const release = await releaseFile();
-    await expect(deployCommand('dist/bundle', { release: release.path }, { env: {} }))
-      .rejects.toThrow(/Missing deployment endpoint/);
+    await expect(deployCommand('dist/bundle', { release: release.path }, {
+      env: {},
+      loadCredential: async () => null,
+    })).rejects.toThrow(/Missing deployment endpoint/);
     await expect(deployCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',

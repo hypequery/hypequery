@@ -202,6 +202,15 @@ it is the authenticated upload API, not the browser login endpoint. For
 non-interactive CI usage, set both `HYPEQUERY_API_TOKEN` and
 `HYPEQUERY_DEPLOYMENT_ENDPOINT` (or pass `--endpoint`).
 
+Because the CLI also loads a project `.env`, a `HYPEQUERY_API_TOKEN` left there
+takes precedence over the login flow and is rejected unless it is paired with an
+endpoint. Unset it to use `hypequery login`.
+
+Token storage requires an operating-system credential vault (Keychain,
+Credential Manager, or a Secret Service implementation such as
+gnome-keyring/KWallet). Headless environments without one should use
+`HYPEQUERY_API_TOKEN` instead of `hypequery login`.
+
 ### `hypequery logout`
 
 Revokes the current Cloud token and removes it from the operating-system
@@ -210,6 +219,9 @@ credential vault:
 ```bash
 npx hypequery logout
 ```
+
+If the stored profile is unreadable, `logout` still removes the local state and
+reports that the token was not revoked; it expires on its own.
 
 ### `hypequery deployment:release`
 
@@ -264,9 +276,11 @@ and token from its secure Cloud profile. For CI and manual credentials, set
 `HYPEQUERY_DEPLOYMENT_ENDPOINT`. The CLI never combines one explicit value with
 the other value from the stored profile. Tokens are never accepted as
 command-line arguments, keeping them out of shell history. The submission
-endpoint must use HTTPS and must not contain credentials or a URL fragment. The
-release identity is sent as the idempotency key, so an unchanged release can be
-submitted safely again.
+endpoint must not contain credentials or a URL fragment, and must use HTTPS
+except for `127.0.0.1`/`localhost`, which is permitted for local Cloud
+development and warns that the token is sent in cleartext. The release identity
+is sent as the idempotency key, so an unchanged release can be submitted safely
+again.
 
 This command submits immutable deployment inputs. Activation, status changes,
 promotion, and rollback remain control-plane operations.
