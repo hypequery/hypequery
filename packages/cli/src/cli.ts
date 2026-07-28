@@ -15,7 +15,9 @@ import {
 } from './commands/deployment.js';
 import {
   deployCommand,
+  submitDeploymentCommand,
   type DeployOptions,
+  type SubmitDeploymentOptions,
 } from './commands/deploy.js';
 import {
   loginCommand,
@@ -187,15 +189,31 @@ program
   }));
 
 program
-  .command('deploy <bundle>')
-  .description('Submit a verified deployment bundle and release')
+  .command('deployment:submit <bundle>')
+  .description('Submit a prebuilt deployment bundle and release')
   .requiredOption('--release <path>', 'Target-bound release JSON path')
   .option(
     '--endpoint <url>',
     'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
   )
-  .action(runCommand(async (bundle: string, options: DeployOptions) => {
-    await deployCommand(bundle, options);
+  .action(runCommand(async (bundle: string, options: SubmitDeploymentOptions) => {
+    await submitDeploymentCommand(bundle, options);
+  }));
+
+program
+  .command('deploy <source>')
+  .description('Build, prepare, and deploy a Hypequery API module')
+  .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
+  .option('--release-output <path>', 'Release JSON path (default: beside the bundle)')
+  .option('--project <project>', 'Target project identifier (advanced override)')
+  .option('--environment <environment>', 'Target environment identifier (advanced override)')
+  .option('--release <path>', 'Submit a prebuilt bundle with this release (legacy)')
+  .option(
+    '--endpoint <url>',
+    'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
+  )
+  .action(runCommand(async (source: string, options: DeployOptions) => {
+    await deployCommand(source, options);
   }));
 
 // Help command
@@ -229,10 +247,12 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
+  console.log('  hypequery deploy analytics/api.ts');
+  console.log('  hypequery deploy analytics/api.ts --project my-project --environment production');
   console.log('  hypequery deployment:build analytics/api.ts');
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
-  console.log('  hypequery deploy analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
+  console.log('  hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });

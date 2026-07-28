@@ -25,6 +25,13 @@ Or install it once:
 npm install -D @hypequery/cli
 ```
 
+Ship it to Hypequery Cloud:
+
+```bash
+npx @hypequery/cli login
+npx @hypequery/cli deploy analytics/api.ts
+```
+
 ## Commands
 
 ### `hypequery init`
@@ -140,7 +147,9 @@ semantic keys such as `dataset:orders`.
 
 Builds a closed deployment bundle for an exported HypeQuery API. The bundle
 contains canonical deployment metadata, every referenced runtime artifact, and
-a manifest that binds their exact bytes and identities.
+a manifest that binds their exact bytes and identities. `hypequery deploy` runs
+this step for you; reach for it directly in CI pipelines that stage artifacts,
+or when you need the runtime options below.
 
 ```bash
 npx hypequery deployment:build analytics/api.ts
@@ -197,8 +206,9 @@ Use `--cloud-url <origin>` or `HYPEQUERY_CLOUD_URL` for a self-hosted or local
 Cloud instance. HTTPS is required except for loopback development origins.
 
 Once logged in, `hypequery deploy` automatically uses the stored endpoint and
-token. The deployment endpoint is returned by Cloud during the token exchange;
-it is the authenticated upload API, not the browser login endpoint. For
+token, and resolves the project and environment from the same stored profile.
+The deployment endpoint is returned by Cloud during the token exchange; it is
+the authenticated upload API, not the browser login endpoint. For
 non-interactive CI usage, set both `HYPEQUERY_API_TOKEN` and
 `HYPEQUERY_DEPLOYMENT_ENDPOINT` (or pass `--endpoint`).
 
@@ -222,6 +232,53 @@ npx hypequery logout
 
 If the stored profile is unreadable, `logout` still removes the local state and
 reports that the token was not revoked; it expires on its own.
+
+### `hypequery deploy`
+
+Builds a deployment bundle from an API module, prepares a target-bound release,
+and submits both. This is the primary Cloud workflow: sign in once, then deploy
+with one command.
+
+```bash
+npx hypequery login
+npx hypequery deploy analytics/api.ts
+```
+
+The bundle is written to `analytics/hypequery-deployment` and the release to
+`analytics/hypequery-deployment.release.json`. The target comes from the stored
+Cloud profile unless you override it:
+
+```bash
+npx hypequery deploy analytics/api.ts \
+  --project my-project \
+  --environment production
+```
+
+The deployment endpoint and token are resolved before the build, so a missing
+or expired login fails immediately rather than after bundling. The credential
+rules are the same as `hypequery deployment:submit` below.
+
+The three steps remain available individually as `deployment:build`,
+`deployment:release`, and `deployment:submit` for CI pipelines that stage
+artifacts, and for the cases `deploy` does not cover: `deploy` always builds the
+runtime artifact itself, so Python deployments and prebuilt runtime artifacts
+(`--runtime`, `--runtime-artifact`, `--runtime-file`) need `deployment:build`.
+
+Options:
+
+- `--project <project>`: target project identifier; defaults to the logged-in
+  target and must be paired with `--environment`
+- `--environment <environment>`: target environment identifier; defaults to the
+  logged-in target and must be paired with `--project`
+- `--bundle-output <directory>`: bundle directory, default
+  `analytics/hypequery-deployment`
+- `--release-output <path>`: release JSON path, default beside the bundle
+- `--endpoint <url>`: HTTPS submission endpoint; requires `HYPEQUERY_API_TOKEN`
+
+> **Deprecated:** `hypequery deploy <bundle> --release <file>` still submits a
+> prebuilt bundle and prints a deprecation warning. Use
+> `hypequery deployment:submit` instead. `--release` cannot be combined with
+> `--project`, `--environment`, `--bundle-output`, or `--release-output`.
 
 ### `hypequery deployment:release`
 
@@ -259,14 +316,16 @@ Options:
   logged-in target and must be paired with `--project`
 - `--output <path>`: release JSON path, default beside the bundle
 
-### `hypequery deploy`
+### `hypequery deployment:submit`
 
 Submits a verified deployment bundle with an already-prepared target-bound
 release. The command verifies both inputs again, requires their bundle
-identities to match, and streams only the files declared by the bundle.
+identities to match, and streams only the files declared by the bundle. Use it
+when the bundle and release were produced by an earlier pipeline step; for the
+ordinary path, use `hypequery deploy`.
 
 ```bash
-npx hypequery deploy analytics/hypequery-deployment \
+npx hypequery deployment:submit analytics/hypequery-deployment \
   --release analytics/hypequery-deployment.release.json
 ```
 

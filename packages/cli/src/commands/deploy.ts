@@ -1,8 +1,12 @@
-import { constants, open } from 'node:fs/promises';
+import { access, constants, open } from 'node:fs/promises';
+import path from 'node:path';
 import {
   prepareProtocolDeploymentReleaseEnvelope,
 } from '@hypequery/protocol';
-import { verifyDeploymentBundle } from '../utils/deployment-bundle.js';
+import {
+  DEPLOYMENT_BUNDLE_MANIFEST,
+  verifyDeploymentBundle,
+} from '../utils/deployment-bundle.js';
 import {
   createHttpDeploymentUploadTransport,
   DeploymentUploadError,
@@ -14,19 +18,37 @@ import {
   loadCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
+import {
+  buildDeploymentCommand,
+  prepareDeploymentReleaseCommand,
+} from './deployment.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
+const DEFAULT_BUNDLE_PATH = 'analytics/hypequery-deployment';
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
-export interface DeployOptions {
+export interface SubmitDeploymentOptions {
   release?: string;
   endpoint?: string;
 }
 
-export interface DeployDependencies {
+export interface DeployOptions extends SubmitDeploymentOptions {
+  project?: string;
+  environment?: string;
+  bundleOutput?: string;
+  releaseOutput?: string;
+}
+
+export interface SubmitDeploymentDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly createTransport?: typeof createHttpDeploymentUploadTransport;
   readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
+}
+
+export interface DeployDependencies extends SubmitDeploymentDependencies {
+  readonly buildDeployment?: typeof buildDeploymentCommand;
+  readonly prepareDeploymentRelease?: typeof prepareDeploymentReleaseCommand;
+  readonly submitDeployment?: typeof submitDeploymentCommand;
 }
 
 async function readReleaseFile(releasePath: string): Promise<unknown> {
@@ -87,24 +109,22 @@ function requiredConfiguration(
   return value;
 }
 
-export async function deployCommand(
-  bundlePath: string | undefined,
-  options: DeployOptions = {},
-  dependencies: DeployDependencies = {},
-): Promise<DeploymentSubmissionResponse> {
-  if (!bundlePath) {
-    throw new Error(
-      'Missing deployment bundle path.\n\n'
-      + 'Usage: hypequery deploy analytics/hypequery-deployment '
-      + '--release analytics/hypequery-deployment.release.json',
-    );
-  }
-  const releasePath = requiredConfiguration(
-    options.release,
-    'Missing required --release <path>.',
-  );
+interface ResolvedDeploymentCredential {
+  readonly endpoint: string;
+  readonly token: string;
+}
+
+/**
+ * Resolves the submission endpoint and token. Kept separate from
+ * `submitDeploymentCommand` so `deployCommand` can run it as a preflight
+ * before the bundle build.
+ */
+async function resolveDeploymentCredential(
+  endpointOption: string | undefined,
+  dependencies: SubmitDeploymentDependencies,
+): Promise<ResolvedDeploymentCredential> {
   const env = dependencies.env ?? process.env;
-  let deploymentEndpoint = options.endpoint ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT;
+  let deploymentEndpoint = endpointOption ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT;
   let token = env.HYPEQUERY_API_TOKEN;
   const hasExplicitEndpoint = Boolean(deploymentEndpoint);
   const hasExplicitToken = Boolean(token);
@@ -127,13 +147,37 @@ export async function deployCommand(
       token = credential.token;
     }
   }
-  deploymentEndpoint = requiredConfiguration(
-    deploymentEndpoint,
-    'Missing deployment endpoint. Run `hypequery login`, pass --endpoint, or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
+  return {
+    endpoint: requiredConfiguration(
+      deploymentEndpoint,
+      'Missing deployment endpoint. Run `hypequery login`, pass --endpoint, or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
+    ),
+    token: requiredConfiguration(
+      token,
+      'Missing deployment credential. Run `hypequery login` or set HYPEQUERY_API_TOKEN.',
+    ),
+  };
+}
+
+export async function submitDeploymentCommand(
+  bundlePath: string | undefined,
+  options: SubmitDeploymentOptions = {},
+  dependencies: SubmitDeploymentDependencies = {},
+): Promise<DeploymentSubmissionResponse> {
+  if (!bundlePath) {
+    throw new Error(
+      'Missing deployment bundle path.\n\n'
+      + 'Usage: hypequery deployment:submit analytics/hypequery-deployment '
+      + '--release analytics/hypequery-deployment.release.json',
+    );
+  }
+  const releasePath = requiredConfiguration(
+    options.release,
+    'Missing required --release <path>.',
   );
-  token = requiredConfiguration(
-    token,
-    'Missing deployment credential. Run `hypequery login` or set HYPEQUERY_API_TOKEN.',
+  const { endpoint: deploymentEndpoint, token } = await resolveDeploymentCredential(
+    options.endpoint,
+    dependencies,
   );
 
   let bundle: Awaited<ReturnType<typeof verifyDeploymentBundle>>;
@@ -175,4 +219,110 @@ export async function deployCommand(
   logger.info(`Release identity: ${result.releaseIdentity}`);
   logger.info(`Bundle identity: ${result.bundleIdentity}`);
   return result;
+}
+
+/**
+ * `deploy` takes an API module, but the deprecated form took a bundle
+ * directory. Dropping `--release` from an existing script would otherwise hand
+ * a bundle to the module loader and fail inside esbuild.
+ */
+async function rejectBundleDirectorySource(sourcePath: string): Promise<void> {
+  try {
+    await access(path.join(sourcePath, DEPLOYMENT_BUNDLE_MANIFEST));
+  } catch {
+    return;
+  }
+  throw new Error(
+    `Cannot deploy a prebuilt bundle directory: ${sourcePath}\n\n`
+    + '`hypequery deploy` takes the API module to build, for example '
+    + '`hypequery deploy analytics/api.ts`.\n'
+    + 'To upload this bundle, use `hypequery deployment:submit '
+    + `${sourcePath} --release <file>\`.`,
+  );
+}
+
+/**
+ * `deploy` exposes no runtime flags, so a runtime error from the shared build
+ * command would otherwise point at flags this command does not accept.
+ */
+function withRuntimeFlagHint(error: unknown): unknown {
+  if (!(error instanceof Error) || !error.message.includes('--runtime')) return error;
+  return new Error(
+    `${error.message}\n\n`
+    + 'Runtime overrides are not available on `hypequery deploy`. Build with '
+    + '`hypequery deployment:build` (which accepts --runtime, --runtime-artifact, '
+    + 'and --runtime-file), then upload with `hypequery deployment:submit`.',
+  );
+}
+
+function rejectLegacyOrchestrationOptions(options: DeployOptions) {
+  if (
+    options.project !== undefined
+    || options.environment !== undefined
+    || options.bundleOutput !== undefined
+    || options.releaseOutput !== undefined
+  ) {
+    throw new Error(
+      '--release selects prebuilt submission mode and cannot be combined with '
+      + '--project, --environment, --bundle-output, or --release-output. '
+      + 'Use `hypequery deployment:submit` for explicit prebuilt uploads.',
+    );
+  }
+}
+
+export async function deployCommand(
+  sourcePath: string | undefined,
+  options: DeployOptions = {},
+  dependencies: DeployDependencies = {},
+): Promise<DeploymentSubmissionResponse> {
+  if (!sourcePath) {
+    throw new Error(
+      'Missing API module path.\n\n'
+      + 'Usage: hypequery deploy analytics/api.ts',
+    );
+  }
+
+  if (options.release !== undefined) {
+    rejectLegacyOrchestrationOptions(options);
+    logger.warn(
+      '`hypequery deploy <bundle> --release <file>` is deprecated. '
+      + 'Use `hypequery deployment:submit <bundle> --release <file>` instead.',
+    );
+    return submitDeploymentCommand(sourcePath, {
+      release: options.release,
+      endpoint: options.endpoint,
+    }, dependencies);
+  }
+
+  await rejectBundleDirectorySource(sourcePath);
+
+  const bundlePath = options.bundleOutput ?? DEFAULT_BUNDLE_PATH;
+  const releasePath = options.releaseOutput
+    ?? `${bundlePath.replace(/[\\/]+$/, '')}.release.json`;
+  const build = dependencies.buildDeployment ?? buildDeploymentCommand;
+  const prepareRelease = dependencies.prepareDeploymentRelease
+    ?? prepareDeploymentReleaseCommand;
+  const submit = dependencies.submitDeployment ?? submitDeploymentCommand;
+
+  // Resolve credentials up front. Submission is the last step, so without this
+  // a missing or expired login only surfaces after a full bundle build.
+  await resolveDeploymentCredential(options.endpoint, dependencies);
+
+  try {
+    await build(sourcePath, { bundleOutput: bundlePath });
+  } catch (error) {
+    throw withRuntimeFlagHint(error);
+  }
+  await prepareRelease(bundlePath, {
+    project: options.project,
+    environment: options.environment,
+    output: releasePath,
+  }, {
+    loadCredential: dependencies.loadCredential,
+    outputFlagLabel: '--release-output',
+  });
+  return submit(bundlePath, {
+    release: releasePath,
+    endpoint: options.endpoint,
+  }, dependencies);
 }
