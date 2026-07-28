@@ -62,6 +62,9 @@ importers:
       '@clickhouse/client':
         specifier: ^1.18.3
         version: 1.18.3
+      '@hypequery/clickhouse':
+        specifier: workspace:*
+        version: link:../clickhouse
       '@hypequery/deployment':
         specifier: workspace:*
         version: link:../deployment
@@ -90,9 +93,6 @@ importers:
         specifier: ^2.4.2
         version: 2.4.2
     devDependencies:
-      '@hypequery/clickhouse':
-        specifier: workspace:*
-        version: link:../clickhouse
       '@hypequery/serve':
         specifier: workspace:*
         version: link:../serve
