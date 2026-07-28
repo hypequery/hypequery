@@ -9,6 +9,7 @@ const mockLoggerWarn = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/deployment-bundle.js', () => ({
   verifyDeploymentBundle: mockVerifyDeploymentBundle,
+  DEPLOYMENT_BUNDLE_MANIFEST: 'bundle.json',
 }));
 
 vi.mock('../utils/logger.js', () => ({
@@ -23,9 +24,25 @@ import {
   deployCommand,
   type DeployDependencies,
 } from './deploy.js';
+import type { StoredCloudCredential } from '../utils/cloud-credential-store.js';
 
 const BUNDLE_IDENTITY = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
+const CI_ENVIRONMENT = {
+  HYPEQUERY_API_TOKEN: 'secret-token',
+  HYPEQUERY_DEPLOYMENT_ENDPOINT: 'https://deploy.example.test/v1/releases',
+};
 const temporaryDirectories: string[] = [];
+
+function storedCredential(): StoredCloudCredential {
+  return {
+    cloudUrl: 'https://cloud.example.test',
+    deploymentEndpoint: 'https://deploy.example.test/v1/releases',
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    scope: 'deployments:write',
+    target: { project: 'project-1', environment: 'production' },
+    token: 'secret-token',
+  };
+}
 
 async function releaseFile(bundleIdentity = BUNDLE_IDENTITY): Promise<{
   path: string;
@@ -80,7 +97,7 @@ describe('deploy command', () => {
   });
 
   it('builds, prepares, and submits an API module with one command', async () => {
-    const loadCredential = vi.fn();
+    const loadCredential = vi.fn(async () => storedCredential());
     const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
       vi.fn(async () => bundle.contract);
     const prepareDeploymentRelease:
@@ -101,6 +118,7 @@ describe('deploy command', () => {
       }));
 
     const result = await deployCommand('analytics/api.ts', {}, {
+      env: {},
       loadCredential,
       buildDeployment,
       prepareDeploymentRelease,
@@ -117,7 +135,7 @@ describe('deploy command', () => {
         environment: undefined,
         output: 'analytics/hypequery-deployment.release.json',
       },
-      { loadCredential },
+      { loadCredential, outputFlagLabel: '--release-output' },
     );
     expect(submitDeployment).toHaveBeenCalledWith(
       'analytics/hypequery-deployment',
@@ -157,6 +175,7 @@ describe('deploy command', () => {
       environment: 'staging',
       endpoint: 'https://deploy.example.test/v1/releases',
     }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
       buildDeployment,
       prepareDeploymentRelease,
       submitDeployment,
@@ -172,7 +191,7 @@ describe('deploy command', () => {
         environment: 'staging',
         output: 'dist/cloud-release.json',
       },
-      { loadCredential: undefined },
+      { loadCredential: undefined, outputFlagLabel: '--release-output' },
     );
     expect(submitDeployment).toHaveBeenCalledWith(
       'dist/cloud-bundle',
@@ -182,6 +201,144 @@ describe('deploy command', () => {
       },
       expect.any(Object),
     );
+  });
+
+  it('defaults the release path beside a bundle output with a trailing slash', async () => {
+    const prepareDeploymentRelease:
+      NonNullable<DeployDependencies['prepareDeploymentRelease']> =
+      vi.fn(async () => prepareProtocolDeploymentReleaseEnvelope({
+        kind: 'hypequery-deployment-release',
+        version: 1,
+        bundleIdentity: BUNDLE_IDENTITY,
+        target: { project: 'project-1', environment: 'production' },
+      }).release);
+    const submitDeployment: NonNullable<DeployDependencies['submitDeployment']> =
+      vi.fn(async () => ({
+        kind: 'hypequery-deployment-submission',
+        version: 1,
+        status: 'accepted',
+        releaseIdentity: '1'.repeat(64),
+        bundleIdentity: BUNDLE_IDENTITY,
+      }));
+
+    await deployCommand('src/api.ts', { bundleOutput: 'dist/cloud-bundle/' }, {
+      env: CI_ENVIRONMENT,
+      buildDeployment: vi.fn(async () => bundle.contract),
+      prepareDeploymentRelease,
+      submitDeployment,
+    });
+
+    expect(prepareDeploymentRelease).toHaveBeenCalledWith(
+      'dist/cloud-bundle/',
+      expect.objectContaining({ output: 'dist/cloud-bundle.release.json' }),
+      expect.any(Object),
+    );
+    expect(submitDeployment).toHaveBeenCalledWith(
+      'dist/cloud-bundle/',
+      expect.objectContaining({ release: 'dist/cloud-bundle.release.json' }),
+      expect.any(Object),
+    );
+  });
+
+  it('resolves credentials before building', async () => {
+    const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
+      vi.fn(async () => bundle.contract);
+    const loadCredential = vi.fn(async () => null);
+
+    await expect(deployCommand('analytics/api.ts', {}, {
+      env: {},
+      loadCredential,
+      buildDeployment,
+    })).rejects.toThrow(/Missing deployment endpoint/);
+
+    expect(loadCredential).toHaveBeenCalled();
+    expect(buildDeployment).not.toHaveBeenCalled();
+  });
+
+  it('rejects an expired stored credential before building', async () => {
+    const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
+      vi.fn(async () => bundle.contract);
+
+    await expect(deployCommand('analytics/api.ts', {}, {
+      env: {},
+      loadCredential: async () => ({
+        ...storedCredential(),
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
+      }),
+      buildDeployment,
+    })).rejects.toThrow(/expired/);
+
+    expect(buildDeployment).not.toHaveBeenCalled();
+  });
+
+  it('stops at a failed build without preparing or submitting', async () => {
+    const prepareDeploymentRelease:
+      NonNullable<DeployDependencies['prepareDeploymentRelease']> = vi.fn();
+    const submitDeployment: NonNullable<DeployDependencies['submitDeployment']> = vi.fn();
+
+    await expect(deployCommand('analytics/api.ts', {}, {
+      env: CI_ENVIRONMENT,
+      buildDeployment: vi.fn(async () => {
+        throw new Error('Invalid API module: analytics/api.ts');
+      }),
+      prepareDeploymentRelease,
+      submitDeployment,
+    })).rejects.toThrow(/Invalid API module/);
+
+    expect(prepareDeploymentRelease).not.toHaveBeenCalled();
+    expect(submitDeployment).not.toHaveBeenCalled();
+  });
+
+  it('points runtime build failures at deployment:build', async () => {
+    await expect(deployCommand('analytics/api.ts', {}, {
+      env: CI_ENVIRONMENT,
+      buildDeployment: vi.fn(async () => {
+        throw new Error(
+          'Automatic runtime artifact builds currently support Node only. '
+          + 'Provide --runtime-artifact for Python deployments.',
+        );
+      }),
+    })).rejects.toThrow(/hypequery deployment:build/);
+  });
+
+  it('rejects a prebuilt bundle directory as the deploy source', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'hypequery-deploy-bundle-source-'));
+    temporaryDirectories.push(directory);
+    await writeFile(path.join(directory, 'bundle.json'), '{}\n', 'utf8');
+    const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
+      vi.fn(async () => bundle.contract);
+
+    await expect(deployCommand(directory, {}, {
+      env: CI_ENVIRONMENT,
+      buildDeployment,
+    })).rejects.toThrow(/hypequery deployment:submit/);
+
+    expect(buildDeployment).not.toHaveBeenCalled();
+  });
+
+  it('does not build in legacy prebuilt submission mode', async () => {
+    const release = await releaseFile();
+    const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
+      vi.fn(async () => bundle.contract);
+
+    await deployCommand('/project/dist/bundle', {
+      release: release.path,
+      endpoint: 'https://deploy.example.test/v1/releases',
+    }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+      buildDeployment,
+      createTransport: () => ({
+        submit: vi.fn().mockResolvedValue({
+          kind: 'hypequery-deployment-submission',
+          version: 1,
+          status: 'accepted',
+          releaseIdentity: release.identity,
+          bundleIdentity: BUNDLE_IDENTITY,
+        }),
+      }),
+    });
+
+    expect(buildDeployment).not.toHaveBeenCalled();
   });
 
   it('does not mix legacy prebuilt submission with orchestration options', async () => {

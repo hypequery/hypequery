@@ -46,6 +46,11 @@ export interface PrepareDeploymentReleaseOptions {
 
 export interface PrepareDeploymentReleaseDependencies {
   loadCredential?: () => Promise<StoredCloudCredential | null>;
+  /**
+   * Flag name to quote in output-path errors. `hypequery deploy` delegates
+   * here but spells the same option `--release-output`.
+   */
+  outputFlagLabel?: string;
 }
 
 const DEFAULT_BUNDLE_OUTPUT = 'analytics/hypequery-deployment';
@@ -318,7 +323,11 @@ export async function validateDeploymentCommand(
   return contract;
 }
 
-function assertOutputOutsideBundle(bundlePath: string, outputPath: string): void {
+function assertOutputOutsideBundle(
+  bundlePath: string,
+  outputPath: string,
+  outputFlag: string,
+): void {
   const bundle = path.resolve(bundlePath);
   const output = path.resolve(outputPath);
   const relative = path.relative(bundle, output);
@@ -326,11 +335,11 @@ function assertOutputOutsideBundle(bundlePath: string, outputPath: string): void
     || relative.startsWith(`..${path.sep}`)
     || path.isAbsolute(relative);
   if (relative === '' || !outside) {
-    throw new Error('--output must be outside the closed deployment bundle directory.');
+    throw new Error(`${outputFlag} must be outside the closed deployment bundle directory.`);
   }
 }
 
-async function prospectiveRealPath(inputPath: string): Promise<string> {
+async function prospectiveRealPath(inputPath: string, outputFlag: string): Promise<string> {
   let current = path.resolve(inputPath);
   const missingSegments: string[] = [];
   for (;;) {
@@ -344,7 +353,7 @@ async function prospectiveRealPath(inputPath: string): Promise<string> {
       try {
         const stat = await lstat(current);
         if (stat.isSymbolicLink()) {
-          throw new Error('--output must not traverse a dangling symbolic link.');
+          throw new Error(`${outputFlag} must not traverse a dangling symbolic link.`);
         }
       } catch (lstatError) {
         if (!(typeof lstatError === 'object' && lstatError !== null && 'code' in lstatError
@@ -360,11 +369,14 @@ async function prospectiveRealPath(inputPath: string): Promise<string> {
   }
 }
 
-async function assertOutputIsNotSymbolicLink(outputPath: string): Promise<void> {
+async function assertOutputIsNotSymbolicLink(
+  outputPath: string,
+  outputFlag: string,
+): Promise<void> {
   try {
     const outputStat = await lstat(outputPath);
     if (outputStat.isSymbolicLink()) {
-      throw new Error('--output must not be a symbolic link.');
+      throw new Error(`${outputFlag} must not be a symbolic link.`);
     }
   } catch (error) {
     if (!(typeof error === 'object' && error !== null && 'code' in error
@@ -409,8 +421,9 @@ export async function prepareDeploymentReleaseCommand(
       );
     }
   }
+  const outputFlag = dependencies.outputFlagLabel ?? '--output';
   const outputPath = options.output ?? `${bundlePath.replace(/[\\/]+$/, '')}.release.json`;
-  assertOutputOutsideBundle(bundlePath, outputPath);
+  assertOutputOutsideBundle(bundlePath, outputPath, outputFlag);
 
   let bundle: Awaited<ReturnType<typeof verifyDeploymentBundle>>;
   try {
@@ -423,7 +436,8 @@ export async function prepareDeploymentReleaseCommand(
   }
   assertOutputOutsideBundle(
     bundle.directory,
-    await prospectiveRealPath(outputPath),
+    await prospectiveRealPath(outputPath, outputFlag),
+    outputFlag,
   );
   const prepared = prepareProtocolDeploymentReleaseEnvelope({
     kind: 'hypequery-deployment-release',
@@ -435,7 +449,7 @@ export async function prepareDeploymentReleaseCommand(
     },
   });
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await assertOutputIsNotSymbolicLink(outputPath);
+  await assertOutputIsNotSymbolicLink(outputPath, outputFlag);
   await writeFile(outputPath, `${prepared.canonical}\n`, 'utf8');
   logger.success(`Deployment release written to ${outputPath}`);
   logger.info(`Target: ${project}/${environment}`);

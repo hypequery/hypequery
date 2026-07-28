@@ -247,10 +247,12 @@ program.on('--help', () => {
   console.log('  hypequery generate:types --output analytics/schema.ts');
   console.log('  hypequery generate:datasets');
   console.log('  hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json');
+  console.log('  hypequery deploy analytics/api.ts');
+  console.log('  hypequery deploy analytics/api.ts --project my-project --environment production');
   console.log('  hypequery deployment:build analytics/api.ts');
   console.log('  hypequery deployment:validate analytics/hypequery-deployment');
   console.log('  hypequery deployment:release analytics/hypequery-deployment --project my-project --environment production');
-  console.log('  hypequery deploy analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
+  console.log('  hypequery deployment:submit analytics/hypequery-deployment --release analytics/hypequery-deployment.release.json');
   console.log('');
   console.log('Docs: https://hypequery.com/docs');
 });
