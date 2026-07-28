@@ -12,6 +12,7 @@ import {
   DEPLOYMENT_BUNDLE_MANIFEST,
   type VerifiedDeploymentBundle,
 } from './deployment-bundle.js';
+import { logger } from './logger.js';
 import type { DeploymentSubmissionResponse } from '@hypequery/deployment';
 
 export type { DeploymentSubmissionResponse } from '@hypequery/deployment';
@@ -110,8 +111,20 @@ function endpointUrl(input: string): string {
   } catch {
     configurationError('Deployment endpoint must be an absolute HTTPS URL.');
   }
-  if (url.protocol !== 'https:') {
-    configurationError('Deployment endpoint must use HTTPS.');
+  // Loopback HTTP exists so a local Cloud instance can be developed against.
+  // It still puts the bearer token on the wire in cleartext, where any local
+  // process listening on that port can read it, so say so rather than let a
+  // production token be pointed at localhost silently.
+  const loopbackHttp = url.protocol === 'http:'
+    && (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
+  if (url.protocol !== 'https:' && !loopbackHttp) {
+    configurationError('Deployment endpoint must use HTTPS (HTTP is allowed only for loopback development).');
+  }
+  if (loopbackHttp) {
+    logger.warn(
+      `Submitting to ${url.origin} over plaintext HTTP; the deployment token is `
+      + 'sent unencrypted. Use this only for local Cloud development.',
+    );
   }
   if (url.username || url.password) {
     configurationError('Deployment endpoint must not contain credentials.');

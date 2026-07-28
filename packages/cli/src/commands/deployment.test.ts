@@ -400,6 +400,49 @@ describe('deployment commands', () => {
     expect(Object.isFrozen(result)).toBe(true);
   });
 
+  it('uses the target stored by interactive login when flags are omitted', async () => {
+    mockVerifyDeploymentBundle.mockResolvedValue({
+      directory: '/project/dist/bundle',
+      manifest: {
+        kind: 'hypequery-deployment-bundle',
+        version: 1,
+        deployment: {
+          path: 'deployment.json',
+          identity: '1'.repeat(64),
+          sha256: '2'.repeat(64),
+          byteLength: 1,
+        },
+        artifacts: [],
+      },
+      identity: BUNDLE_IDENTITY,
+      contract,
+    });
+
+    const result = await prepareDeploymentReleaseCommand(
+      'dist/bundle',
+      {},
+      {
+        loadCredential: async () => ({
+          cloudUrl: 'https://cloud.example.test',
+          deploymentEndpoint:
+            'https://cloud.example.test/v1/deployments/submissions',
+          expiresAt: '2030-01-01T00:00:00.000Z',
+          scope: 'deploy:submit',
+          target: {
+            project: 'acme:analytics',
+            environment: 'production',
+          },
+          token: `hqdp_v1_${'a'.repeat(43)}`,
+        }),
+      },
+    );
+
+    expect(result.target).toEqual({
+      project: 'acme:analytics',
+      environment: 'production',
+    });
+  });
+
   it('requires release target options before reading the bundle', async () => {
     await expect(prepareDeploymentReleaseCommand('dist/bundle', {
       environment: 'production',
@@ -407,6 +450,31 @@ describe('deployment commands', () => {
     await expect(prepareDeploymentReleaseCommand('dist/bundle', {
       project: 'project_1',
     })).rejects.toThrow(/--environment/);
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('never completes a half-specified target from the stored login', async () => {
+    const loadCredential = vi.fn(async () => ({
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      target: { project: 'acme:analytics', environment: 'production' },
+      token: `hqdp_v1_${'a'.repeat(43)}`,
+    }));
+
+    // An unset shell variable reaches commander as an empty string. Falling
+    // back here would silently retarget the release at the logged-in target.
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: 'project_1',
+      environment: '',
+    }, { loadCredential })).rejects.toThrow(/--environment/);
+    await expect(prepareDeploymentReleaseCommand('dist/bundle', {
+      project: '',
+      environment: '',
+    }, { loadCredential })).rejects.toThrow(/--project/);
+
+    expect(loadCredential).not.toHaveBeenCalled();
     expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
   });
 

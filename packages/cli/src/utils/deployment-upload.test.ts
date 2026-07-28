@@ -17,6 +17,7 @@ import {
   type DeploymentFetch,
   type DeploymentFetchInit,
 } from './deployment-upload.js';
+import { logger } from './logger.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -251,6 +252,32 @@ describe('deployment upload transport', () => {
       endpoint: 'https://deploy.example.test/v1/releases',
       token: 'secret-token\nInjected: header',
     })).toThrow(/HQ_UPLOAD_CONFIGURATION[\s\S]*HYPEQUERY_API_TOKEN/);
+  });
+
+  it('permits a loopback HTTP endpoint but warns that the token is cleartext', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined);
+    try {
+      for (const endpoint of [
+        'http://127.0.0.1:3000/v1/deployments/submissions',
+        'http://localhost:3000/v1/deployments/submissions',
+      ]) {
+        expect(() => createHttpDeploymentUploadTransport({
+          endpoint,
+          token: 'secret-token',
+        })).not.toThrow();
+      }
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn.mock.calls[0]?.[0]).toMatch(/plaintext HTTP/);
+
+      warn.mockClear();
+      createHttpDeploymentUploadTransport({
+        endpoint: 'https://deploy.example.test/v1/releases',
+        token: 'secret-token',
+      });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('returns a stable rejection with bounded server detail', async () => {

@@ -182,11 +182,64 @@ are still accepted for metadata-only validation.
 npx hypequery deployment:validate analytics/hypequery-deployment
 ```
 
+### `hypequery login`
+
+Authorizes the local CLI through your existing Hypequery Cloud browser
+session. The command uses an S256 PKCE loopback flow, then stores the
+target-scoped deployment token in the operating-system credential vault.
+Tokens expire after 12 hours.
+
+```bash
+npx hypequery login
+```
+
+Use `--cloud-url <origin>` or `HYPEQUERY_CLOUD_URL` for a self-hosted or local
+Cloud instance. HTTPS is required except for loopback development origins.
+
+Once logged in, `hypequery deploy` automatically uses the stored endpoint and
+token. The deployment endpoint is returned by Cloud during the token exchange;
+it is the authenticated upload API, not the browser login endpoint. For
+non-interactive CI usage, set both `HYPEQUERY_API_TOKEN` and
+`HYPEQUERY_DEPLOYMENT_ENDPOINT` (or pass `--endpoint`).
+
+Because the CLI also loads a project `.env`, a `HYPEQUERY_API_TOKEN` left there
+takes precedence over the login flow and is rejected unless it is paired with an
+endpoint. Unset it to use `hypequery login`.
+
+Token storage requires an operating-system credential vault (Keychain,
+Credential Manager, or a Secret Service implementation such as
+gnome-keyring/KWallet). Headless environments without one should use
+`HYPEQUERY_API_TOKEN` instead of `hypequery login`.
+
+### `hypequery logout`
+
+Revokes the current Cloud token and removes it from the operating-system
+credential vault:
+
+```bash
+npx hypequery logout
+```
+
+If the stored profile is unreadable, `logout` still removes the local state and
+reports that the token was not revoked; it expires on its own.
+
 ### `hypequery deployment:release`
 
 Prepares a deterministic release request from a verified deployment bundle and
-an explicit project/environment target. This command does not upload, authorize,
-or execute the release.
+a project/environment target. This command does not upload, authorize, or
+execute the release.
+
+After `hypequery login` the target is read from the stored Cloud profile, and
+the resolved target is printed alongside the release identity:
+
+```bash
+npx hypequery deployment:release analytics/hypequery-deployment
+```
+
+To target something other than the logged-in project and environment, pass both
+flags. A half-specified override is rejected rather than completed from the
+stored profile, so an unset shell variable fails loudly instead of silently
+retargeting the release:
 
 ```bash
 npx hypequery deployment:release analytics/hypequery-deployment \
@@ -200,8 +253,10 @@ invalidate bundle verification.
 
 Options:
 
-- `--project <project>`: required target project identifier
-- `--environment <environment>`: required target environment identifier
+- `--project <project>`: target project identifier; defaults to the logged-in
+  target and must be paired with `--environment`
+- `--environment <environment>`: target environment identifier; defaults to the
+  logged-in target and must be paired with `--project`
 - `--output <path>`: release JSON path, default beside the bundle
 
 ### `hypequery deploy`
@@ -211,17 +266,21 @@ release. The command verifies both inputs again, requires their bundle
 identities to match, and streams only the files declared by the bundle.
 
 ```bash
-HYPEQUERY_API_TOKEN=<token> \
 npx hypequery deploy analytics/hypequery-deployment \
-  --release analytics/hypequery-deployment.release.json \
-  --endpoint https://deploy.example.com/v1/releases
+  --release analytics/hypequery-deployment.release.json
 ```
 
-The token is accepted only through `HYPEQUERY_API_TOKEN`, keeping it out of
-shell history. The submission endpoint must use HTTPS, may also be supplied by
-`HYPEQUERY_DEPLOYMENT_ENDPOINT`, and must not contain credentials or a URL
-fragment. The release identity is sent as the idempotency key, so an unchanged
-release can be submitted safely again.
+For local development, run `hypequery login` first; the CLI reads the endpoint
+and token from its secure Cloud profile. For CI and manual credentials, set
+`HYPEQUERY_API_TOKEN` together with either `--endpoint` or
+`HYPEQUERY_DEPLOYMENT_ENDPOINT`. The CLI never combines one explicit value with
+the other value from the stored profile. Tokens are never accepted as
+command-line arguments, keeping them out of shell history. The submission
+endpoint must not contain credentials or a URL fragment, and must use HTTPS
+except for `127.0.0.1`/`localhost`, which is permitted for local Cloud
+development and warns that the token is sent in cleartext. The release identity
+is sent as the idempotency key, so an unchanged release can be submitted safely
+again.
 
 This command submits immutable deployment inputs. Activation, status changes,
 promotion, and rollback remain control-plane operations.
@@ -229,7 +288,7 @@ promotion, and rollback remain control-plane operations.
 Options:
 
 - `--release <path>`: required target-bound release JSON
-- `--endpoint <url>`: HTTPS submission endpoint; defaults to `HYPEQUERY_DEPLOYMENT_ENDPOINT`
+- `--endpoint <url>`: HTTPS submission endpoint; requires `HYPEQUERY_API_TOKEN`
 
 ## Non-interactive Setup
 

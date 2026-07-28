@@ -129,14 +129,107 @@ describe('deploy command', () => {
     }));
   });
 
-  it('requires endpoint and token configuration before bundle verification', async () => {
+  it('uses the credential stored by interactive login', async () => {
     const release = await releaseFile();
-    await expect(deployCommand('dist/bundle', { release: release.path }, { env: {} }))
-      .rejects.toThrow(/Missing deployment endpoint/);
+    const submit = vi.fn().mockResolvedValue({
+      kind: 'hypequery-deployment-submission',
+      version: 1,
+      status: 'accepted',
+      releaseIdentity: release.identity,
+      bundleIdentity: BUNDLE_IDENTITY,
+    });
+    const createTransport = vi.fn(() => ({ submit }));
+
+    await deployCommand('dist/bundle', { release: release.path }, {
+      env: {},
+      loadCredential: async () => ({
+        cloudUrl: 'https://cloud.example.test',
+        deploymentEndpoint:
+          'https://cloud.example.test/v1/deployments/submissions',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        scope: 'deploy:submit',
+        token: `hqdp_v1_${'f'.repeat(43)}`,
+      }),
+      createTransport,
+    });
+
+    expect(createTransport).toHaveBeenCalledWith({
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      token: `hqdp_v1_${'f'.repeat(43)}`,
+    });
+  });
+
+  it('never combines an explicit endpoint with the stored Cloud token', async () => {
+    const release = await releaseFile();
+    const loadCredential = vi.fn(async () => ({
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint:
+        'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      scope: 'deploy:submit',
+      token: `hqdp_v1_${'f'.repeat(43)}`,
+    }));
+
     await expect(deployCommand('dist/bundle', {
       release: release.path,
       endpoint: 'https://deploy.example.test/v1/releases',
-    }, { env: {} })).rejects.toThrow(/Missing HYPEQUERY_API_TOKEN/);
+    }, {
+      env: {},
+      loadCredential,
+    })).rejects.toThrow(/explicit deployment endpoint requires HYPEQUERY_API_TOKEN/);
+
+    expect(loadCredential).not.toHaveBeenCalled();
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('never combines an explicit token with the stored Cloud endpoint', async () => {
+    const release = await releaseFile();
+    const loadCredential = vi.fn(async () => ({
+      cloudUrl: 'https://cloud.example.test',
+      deploymentEndpoint:
+        'https://cloud.example.test/v1/deployments/submissions',
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      scope: 'deploy:submit',
+      token: `hqdp_v1_${'f'.repeat(43)}`,
+    }));
+
+    await expect(deployCommand('dist/bundle', { release: release.path }, {
+      env: { HYPEQUERY_API_TOKEN: 'explicit-token' },
+      loadCredential,
+    })).rejects.toThrow(
+      /HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT/,
+    );
+
+    expect(loadCredential).not.toHaveBeenCalled();
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('requires a new login when the stored credential expired', async () => {
+    const release = await releaseFile();
+    await expect(deployCommand('dist/bundle', { release: release.path }, {
+      env: {},
+      loadCredential: async () => ({
+        cloudUrl: 'https://cloud.example.test',
+        deploymentEndpoint:
+          'https://cloud.example.test/v1/deployments/submissions',
+        expiresAt: '2020-01-01T00:00:00.000Z',
+        scope: 'deploy:submit',
+        token: `hqdp_v1_${'f'.repeat(43)}`,
+      }),
+    })).rejects.toThrow(/expired[\s\S]*hypequery login/);
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('requires endpoint and token configuration before bundle verification', async () => {
+    const release = await releaseFile();
+    await expect(deployCommand('dist/bundle', { release: release.path }, {
+      env: {},
+      loadCredential: async () => null,
+    })).rejects.toThrow(/Missing deployment endpoint/);
+    await expect(deployCommand('dist/bundle', {
+      release: release.path,
+      endpoint: 'https://deploy.example.test/v1/releases',
+    }, { env: {} })).rejects.toThrow(/HYPEQUERY_API_TOKEN/);
     expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
   });
 

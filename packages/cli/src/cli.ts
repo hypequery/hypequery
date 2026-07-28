@@ -17,6 +17,11 @@ import {
   deployCommand,
   type DeployOptions,
 } from './commands/deploy.js';
+import {
+  loginCommand,
+  logoutCommand,
+  type LoginOptions,
+} from './commands/login.js';
 
 const program = new Command();
 
@@ -42,6 +47,21 @@ program
   .name('hypequery')
   .description('Type-safe analytics layer for ClickHouse')
   .version(getCliVersion());
+
+program
+  .command('login')
+  .description('Authorize this machine with Hypequery Cloud')
+  .option('--cloud-url <url>', 'Cloud origin (or HYPEQUERY_CLOUD_URL)')
+  .action(runCommand(async (options: LoginOptions) => {
+    await loginCommand(options);
+  }));
+
+program
+  .command('logout')
+  .description('Revoke and remove the local Hypequery Cloud credential')
+  .action(runCommand(async () => {
+    await logoutCommand();
+  }));
 
 function runCommand<TArgs extends unknown[]>(
   action: (...args: TArgs) => Promise<void>,
@@ -159,8 +179,8 @@ program
 program
   .command('deployment:release <bundle>')
   .description('Prepare a target-bound release from a verified deployment bundle')
-  .requiredOption('--project <project>', 'Target project identifier')
-  .requiredOption('--environment <environment>', 'Target environment identifier')
+  .option('--project <project>', 'Target project identifier (advanced override)')
+  .option('--environment <environment>', 'Target environment identifier (advanced override)')
   .option('-o, --output <path>', 'Release JSON path (default: beside the bundle)')
   .action(runCommand(async (bundle: string, options: PrepareDeploymentReleaseOptions) => {
     await prepareDeploymentReleaseCommand(bundle, options);
@@ -170,7 +190,10 @@ program
   .command('deploy <bundle>')
   .description('Submit a verified deployment bundle and release')
   .requiredOption('--release <path>', 'Target-bound release JSON path')
-  .option('--endpoint <url>', 'HTTPS submission endpoint (or HYPEQUERY_DEPLOYMENT_ENDPOINT)')
+  .option(
+    '--endpoint <url>',
+    'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
+  )
   .action(runCommand(async (bundle: string, options: DeployOptions) => {
     await deployCommand(bundle, options);
   }));
@@ -197,6 +220,8 @@ program
 program.on('--help', () => {
   console.log('');
   console.log('Examples:');
+  console.log('  hypequery login');
+  console.log('  hypequery logout');
   console.log('  hypequery init');
   console.log('  hypequery dev');
   console.log('  hypequery dev --port 3000');

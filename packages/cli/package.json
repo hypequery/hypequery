@@ -28,6 +28,9 @@
     "ora": "^8.0.1",
     "prompts": "^2.4.2"
   },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "1.3.0"
+  },
   "peerDependencies": {
     "@hypequery/clickhouse": "*",
     "@hypequery/serve": "*"

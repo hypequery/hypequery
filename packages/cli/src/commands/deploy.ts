@@ -10,6 +10,10 @@ import {
   type HttpDeploymentUploadTransportOptions,
 } from '../utils/deployment-upload.js';
 import { logger } from '../utils/logger.js';
+import {
+  loadCloudCredential,
+  type StoredCloudCredential,
+} from '../utils/cloud-credential-store.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
@@ -22,6 +26,7 @@ export interface DeployOptions {
 export interface DeployDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly createTransport?: typeof createHttpDeploymentUploadTransport;
+  readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
 }
 
 async function readReleaseFile(releasePath: string): Promise<unknown> {
@@ -99,13 +104,36 @@ export async function deployCommand(
     'Missing required --release <path>.',
   );
   const env = dependencies.env ?? process.env;
-  const endpoint = requiredConfiguration(
-    options.endpoint ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT,
-    'Missing deployment endpoint. Pass --endpoint or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
+  let deploymentEndpoint = options.endpoint ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT;
+  let token = env.HYPEQUERY_API_TOKEN;
+  const hasExplicitEndpoint = Boolean(deploymentEndpoint);
+  const hasExplicitToken = Boolean(token);
+  if (hasExplicitEndpoint !== hasExplicitToken) {
+    throw new Error(
+      hasExplicitEndpoint
+        ? 'An explicit deployment endpoint requires HYPEQUERY_API_TOKEN.'
+        : 'HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT.\n\n'
+          + 'If you meant to use `hypequery login`, unset HYPEQUERY_API_TOKEN — '
+          + 'the CLI also reads it from a project .env file.',
+    );
+  }
+  if (!hasExplicitEndpoint) {
+    const credential = await (dependencies.loadCredential ?? loadCloudCredential)();
+    if (credential) {
+      if (Date.parse(credential.expiresAt) <= Date.now()) {
+        throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');
+      }
+      deploymentEndpoint = credential.deploymentEndpoint;
+      token = credential.token;
+    }
+  }
+  deploymentEndpoint = requiredConfiguration(
+    deploymentEndpoint,
+    'Missing deployment endpoint. Run `hypequery login`, pass --endpoint, or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
   );
-  const token = requiredConfiguration(
-    env.HYPEQUERY_API_TOKEN,
-    'Missing HYPEQUERY_API_TOKEN.',
+  token = requiredConfiguration(
+    token,
+    'Missing deployment credential. Run `hypequery login` or set HYPEQUERY_API_TOKEN.',
   );
 
   let bundle: Awaited<ReturnType<typeof verifyDeploymentBundle>>;
@@ -134,7 +162,10 @@ export async function deployCommand(
     );
   }
   const createTransport = dependencies.createTransport ?? createHttpDeploymentUploadTransport;
-  const transportOptions: HttpDeploymentUploadTransportOptions = { endpoint, token };
+  const transportOptions: HttpDeploymentUploadTransportOptions = {
+    endpoint: deploymentEndpoint,
+    token,
+  };
   const result = await createTransport(transportOptions).submit(bundle, release);
   logger.success(
     result.status === 'accepted'
