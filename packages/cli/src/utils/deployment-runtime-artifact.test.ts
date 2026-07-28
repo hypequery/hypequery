@@ -12,6 +12,12 @@ const fixtures = path.resolve(dirname, '..', '..', 'test-fixtures');
 const fixture = path.join(fixtures, 'runtime-api.ts');
 const serveFixture = path.join(fixtures, 'runtime-serve-api.ts');
 const buildSourceSymbol = Symbol.for('hypequery.deployment-build-source.v1');
+const TRUSTED_PRINCIPAL = {
+  userId: 'gateway-credential',
+  tenantId: 'customer-42',
+  roles: ['analyst'],
+  scopes: ['greeting:read'],
+};
 
 function sourceApi(names: readonly string[], queries: Record<string, unknown>) {
   const api = { queries } as Record<PropertyKey, unknown>;
@@ -73,22 +79,53 @@ describe('deployment runtime artifacts', () => {
     const encoded = Buffer.from(artifact.bytes).toString('base64');
     const runtime = await import(`data:text/javascript;base64,${encoded}`);
 
-    const trustedAuth = {
-      userId: 'gateway-credential',
-      tenantId: 'customer-42',
-      roles: ['analyst'],
-      scopes: ['greeting:read'],
-    };
-
     await expect(runtime.queries.greeting({
       input: { name: 'Ada' },
-      trustedAuth,
+      trustedAuth: TRUSTED_PRINCIPAL,
     })).resolves.toBe(
       'Serve context: hello Ada / gateway-credential / customer-42',
     );
     await expect(runtime.queries.requestTrace({
       requestId: 'runtime-request-42',
-      trustedAuth,
+      trustedAuth: TRUSTED_PRINCIPAL,
     })).resolves.toBe('runtime-request-42');
+  });
+
+  it('rejects a caller-supplied context that shadows the trusted principal', async () => {
+    const artifact = await buildNodeRuntimeArtifact(serveFixture, ['greeting']);
+    const encoded = Buffer.from(artifact.bytes).toString('base64');
+    const runtime = await import(`data:text/javascript;base64,${encoded}`);
+
+    await expect(runtime.queries.greeting({
+      input: { name: 'Ada' },
+      trustedAuth: TRUSTED_PRINCIPAL,
+      context: { auth: { userId: 'spoofed' }, tenantId: 'other-tenant' },
+    })).rejects.toThrow(/reserved/i);
+  });
+
+  it('falls through to the API auth strategies when no principal is supplied', async () => {
+    const artifact = await buildNodeRuntimeArtifact(serveFixture, ['greeting']);
+    const encoded = Buffer.from(artifact.bytes).toString('base64');
+    const runtime = await import(`data:text/javascript;base64,${encoded}`);
+
+    // A null principal must behave like an absent one: the fixture's auth
+    // strategy runs, returns null, and the request is rejected as unauthenticated.
+    await expect(runtime.queries.greeting({
+      input: { name: 'Ada' },
+      trustedAuth: null,
+    })).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('refuses a trusted principal when the module has no Serve execute() pipeline', async () => {
+    const artifact = await buildNodeRuntimeArtifact(fixture, ['greeting']);
+    const encoded = Buffer.from(artifact.bytes).toString('base64');
+    const runtime = await import(`data:text/javascript;base64,${encoded}`);
+
+    expect(() => runtime.queries.greeting({
+      input: { name: 'Ada' },
+      trustedAuth: TRUSTED_PRINCIPAL,
+    })).toThrow(/cannot enforce a trusted principal/);
+    await expect(runtime.queries.greeting({ input: { name: 'Ada' } }))
+      .resolves.toBe('Hello Ada');
   });
 });

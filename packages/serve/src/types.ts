@@ -397,10 +397,14 @@ export interface ApiExecuteOptions<
 > extends DirectQueryExecuteOptions<TInput, TContext> {
   requestId?: string;
   /**
-   * A principal already authenticated by a trusted in-process host.
-   * Never populate this from unverified network input.
+   * A principal already authenticated by a trusted in-process host, used in place
+   * of the configured auth strategies. Role, scope, and tenant checks still run
+   * against it, and `context` may not override the resulting `ctx.auth`/`ctx.tenantId`.
+   *
+   * Never populate this from unverified network input. Pass `null` or omit it to
+   * fall through to the configured auth strategies.
    */
-  trustedAuth?: TAuth;
+  trustedAuth?: TAuth | null;
 }
 
 export interface ServeEndpoint<

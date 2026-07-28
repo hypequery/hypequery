@@ -168,6 +168,13 @@ const computeRequiresAuth = <TAuth extends AuthContext>(
   }) ?? globalStrategies.length > 0;
 };
 
+/**
+ * Fields the pipeline derives from the authenticated principal. Caller-supplied
+ * context is rejected rather than merged when it names one, so an in-process
+ * caller cannot shadow the principal that role, scope, and tenant checks ran against.
+ */
+const RESERVED_CONTEXT_KEYS = ['auth', 'tenantId'] as const;
+
 const checkAuthorization = <TAuth extends AuthContext>(
   auth: TAuth | null,
   requiredRoles?: string[],
@@ -280,8 +287,12 @@ export interface ExecuteEndpointOptions<
   hooks?: ServeLifecycleHooks<TAuth>;
   queryLogger?: ServeQueryLogger;
   additionalContext?: Partial<TContext>;
-  /** Trusted in-process principal. Never populate from unverified network input. */
-  preauthenticatedAuth?: TAuth;
+  /**
+   * Trusted in-process principal. Never populate from unverified network input.
+   * `null`/`undefined` mean "no trusted principal" and fall through to the
+   * configured auth strategies.
+   */
+  preauthenticatedAuth?: TAuth | null;
   verboseAuthErrors?: boolean;
   /**
    * When true (the default), internal error details are hidden from responses.
@@ -364,7 +375,9 @@ export const executeEndpoint = async <
     };
     context.metadata = metadataWithAuth;
 
-    const authResult = preauthenticatedAuth === undefined
+    // A null principal is treated as absent so callers that model "anonymous" as
+    // null still get the configured strategies rather than a blanket rejection.
+    const authResult = preauthenticatedAuth == null
       ? await authenticateRequest(strategies, request, metadataWithAuth)
       : { auth: preauthenticatedAuth };
     const authContext = authResult.auth;
@@ -432,8 +445,22 @@ export const executeEndpoint = async <
         { 'x-request-id': requestId, ...traceHeaders, 'cache-control': 'no-store' }
       );
     }
+    if (additionalContext) {
+      const reserved = RESERVED_CONTEXT_KEYS.filter(key => key in additionalContext);
+      if (reserved.length > 0) {
+        return createErrorResponse(400, 'VALIDATION_ERROR', 'Caller-supplied context may not set reserved fields', {
+          reason: 'reserved_context_keys',
+          reserved,
+          endpoint: endpoint.metadata.path,
+        }, { 'x-request-id': requestId, ...traceHeaders, 'cache-control': 'no-store' });
+      }
+    }
+
     const resolvedContext = await resolveContext(contextFactory, request, authContext);
     Object.assign(context, resolvedContext, additionalContext);
+    // The pipeline owns the authenticated principal: neither the context factory
+    // nor caller-supplied context may replace it after authorization ran.
+    context.auth = authContext;
 
     const activeTenantConfig = resolveTenantConfig(tenantConfig, endpoint.tenant);
     if (activeTenantConfig) {
