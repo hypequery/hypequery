@@ -1,5 +1,15 @@
 # @hypequery/cli
 
+## 1.12.1
+
+### Patch Changes
+
+- e7a2ae8: Fix `ERR_MODULE_NOT_FOUND: Cannot find package '@hypequery/clickhouse'` on a clean install.
+
+  `@hypequery/clickhouse` backs `hypequery init` and `hypequery generate`, but it was declared as an _optional_ peer dependency while being imported statically. Package managers skipped installing it (pnpm skips peers entirely; npm skips optional ones), so every command — including `hypequery --help` — crashed before running on a fresh `npx @hypequery/cli` install. It is now a regular dependency.
+
+  Type generators are also loaded on demand, so a failure to resolve one no longer takes down unrelated commands.
+
 ## 1.12.0
 
 ### Minor Changes
