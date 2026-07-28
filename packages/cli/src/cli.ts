@@ -15,7 +15,9 @@ import {
 } from './commands/deployment.js';
 import {
   deployCommand,
+  submitDeploymentCommand,
   type DeployOptions,
+  type SubmitDeploymentOptions,
 } from './commands/deploy.js';
 import {
   loginCommand,
@@ -187,15 +189,31 @@ program
   }));
 
 program
-  .command('deploy <bundle>')
-  .description('Submit a verified deployment bundle and release')
+  .command('deployment:submit <bundle>')
+  .description('Submit a prebuilt deployment bundle and release')
   .requiredOption('--release <path>', 'Target-bound release JSON path')
   .option(
     '--endpoint <url>',
     'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
   )
-  .action(runCommand(async (bundle: string, options: DeployOptions) => {
-    await deployCommand(bundle, options);
+  .action(runCommand(async (bundle: string, options: SubmitDeploymentOptions) => {
+    await submitDeploymentCommand(bundle, options);
+  }));
+
+program
+  .command('deploy <source>')
+  .description('Build, prepare, and deploy a Hypequery API module')
+  .option('--bundle-output <directory>', 'Bundle directory (default: analytics/hypequery-deployment)')
+  .option('--release-output <path>', 'Release JSON path (default: beside the bundle)')
+  .option('--project <project>', 'Target project identifier (advanced override)')
+  .option('--environment <environment>', 'Target environment identifier (advanced override)')
+  .option('--release <path>', 'Submit a prebuilt bundle with this release (legacy)')
+  .option(
+    '--endpoint <url>',
+    'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
+  )
+  .action(runCommand(async (source: string, options: DeployOptions) => {
+    await deployCommand(source, options);
   }));
 
 // Help command

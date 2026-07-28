@@ -14,19 +14,37 @@ import {
   loadCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
+import {
+  buildDeploymentCommand,
+  prepareDeploymentReleaseCommand,
+} from './deployment.js';
 
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
+const DEFAULT_BUNDLE_PATH = 'analytics/hypequery-deployment';
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
-export interface DeployOptions {
+export interface SubmitDeploymentOptions {
   release?: string;
   endpoint?: string;
 }
 
-export interface DeployDependencies {
+export interface DeployOptions extends SubmitDeploymentOptions {
+  project?: string;
+  environment?: string;
+  bundleOutput?: string;
+  releaseOutput?: string;
+}
+
+export interface SubmitDeploymentDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly createTransport?: typeof createHttpDeploymentUploadTransport;
   readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
+}
+
+export interface DeployDependencies extends SubmitDeploymentDependencies {
+  readonly buildDeployment?: typeof buildDeploymentCommand;
+  readonly prepareDeploymentRelease?: typeof prepareDeploymentReleaseCommand;
+  readonly submitDeployment?: typeof submitDeploymentCommand;
 }
 
 async function readReleaseFile(releasePath: string): Promise<unknown> {
@@ -87,15 +105,15 @@ function requiredConfiguration(
   return value;
 }
 
-export async function deployCommand(
+export async function submitDeploymentCommand(
   bundlePath: string | undefined,
-  options: DeployOptions = {},
-  dependencies: DeployDependencies = {},
+  options: SubmitDeploymentOptions = {},
+  dependencies: SubmitDeploymentDependencies = {},
 ): Promise<DeploymentSubmissionResponse> {
   if (!bundlePath) {
     throw new Error(
       'Missing deployment bundle path.\n\n'
-      + 'Usage: hypequery deploy analytics/hypequery-deployment '
+      + 'Usage: hypequery deployment:submit analytics/hypequery-deployment '
       + '--release analytics/hypequery-deployment.release.json',
     );
   }
@@ -175,4 +193,65 @@ export async function deployCommand(
   logger.info(`Release identity: ${result.releaseIdentity}`);
   logger.info(`Bundle identity: ${result.bundleIdentity}`);
   return result;
+}
+
+function rejectLegacyOrchestrationOptions(options: DeployOptions) {
+  if (
+    options.project !== undefined
+    || options.environment !== undefined
+    || options.bundleOutput !== undefined
+    || options.releaseOutput !== undefined
+  ) {
+    throw new Error(
+      '--release selects prebuilt submission mode and cannot be combined with '
+      + '--project, --environment, --bundle-output, or --release-output. '
+      + 'Use `hypequery deployment:submit` for explicit prebuilt uploads.',
+    );
+  }
+}
+
+export async function deployCommand(
+  sourcePath: string | undefined,
+  options: DeployOptions = {},
+  dependencies: DeployDependencies = {},
+): Promise<DeploymentSubmissionResponse> {
+  if (!sourcePath) {
+    throw new Error(
+      'Missing API module path.\n\n'
+      + 'Usage: hypequery deploy analytics/api.ts',
+    );
+  }
+
+  if (options.release !== undefined) {
+    rejectLegacyOrchestrationOptions(options);
+    logger.warn(
+      '`hypequery deploy <bundle> --release <file>` is deprecated. '
+      + 'Use `hypequery deployment:submit <bundle> --release <file>` instead.',
+    );
+    return submitDeploymentCommand(sourcePath, {
+      release: options.release,
+      endpoint: options.endpoint,
+    }, dependencies);
+  }
+
+  const bundlePath = options.bundleOutput ?? DEFAULT_BUNDLE_PATH;
+  const releasePath = options.releaseOutput
+    ?? `${bundlePath.replace(/[\\/]+$/, '')}.release.json`;
+  const build = dependencies.buildDeployment ?? buildDeploymentCommand;
+  const prepareRelease = dependencies.prepareDeploymentRelease
+    ?? prepareDeploymentReleaseCommand;
+  const submit = dependencies.submitDeployment ?? submitDeploymentCommand;
+
+  await build(sourcePath, { bundleOutput: bundlePath });
+  await prepareRelease(bundlePath, {
+    project: options.project,
+    environment: options.environment,
+    output: releasePath,
+  }, {
+    loadCredential: dependencies.loadCredential,
+  });
+  return submit(bundlePath, {
+    release: releasePath,
+    endpoint: options.endpoint,
+  }, dependencies);
 }

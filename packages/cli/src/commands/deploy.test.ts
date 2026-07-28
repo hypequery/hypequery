@@ -5,6 +5,7 @@ import { prepareProtocolDeploymentReleaseEnvelope } from '@hypequery/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
+const mockLoggerWarn = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/deployment-bundle.js', () => ({
   verifyDeploymentBundle: mockVerifyDeploymentBundle,
@@ -14,10 +15,14 @@ vi.mock('../utils/logger.js', () => ({
   logger: {
     success: vi.fn(),
     info: vi.fn(),
+    warn: mockLoggerWarn,
   },
 }));
 
-import { deployCommand } from './deploy.js';
+import {
+  deployCommand,
+  type DeployDependencies,
+} from './deploy.js';
 
 const BUNDLE_IDENTITY = 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789';
 const temporaryDirectories: string[] = [];
@@ -72,6 +77,142 @@ describe('deploy command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVerifyDeploymentBundle.mockResolvedValue(bundle);
+  });
+
+  it('builds, prepares, and submits an API module with one command', async () => {
+    const loadCredential = vi.fn();
+    const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
+      vi.fn(async () => bundle.contract);
+    const prepareDeploymentRelease:
+      NonNullable<DeployDependencies['prepareDeploymentRelease']> =
+      vi.fn(async () => prepareProtocolDeploymentReleaseEnvelope({
+        kind: 'hypequery-deployment-release',
+        version: 1,
+        bundleIdentity: BUNDLE_IDENTITY,
+        target: { project: 'project-1', environment: 'production' },
+      }).release);
+    const submitDeployment: NonNullable<DeployDependencies['submitDeployment']> =
+      vi.fn(async () => ({
+        kind: 'hypequery-deployment-submission',
+        version: 1,
+        status: 'accepted',
+        releaseIdentity: '1'.repeat(64),
+        bundleIdentity: BUNDLE_IDENTITY,
+      }));
+
+    const result = await deployCommand('analytics/api.ts', {}, {
+      loadCredential,
+      buildDeployment,
+      prepareDeploymentRelease,
+      submitDeployment,
+    });
+
+    expect(buildDeployment).toHaveBeenCalledWith('analytics/api.ts', {
+      bundleOutput: 'analytics/hypequery-deployment',
+    });
+    expect(prepareDeploymentRelease).toHaveBeenCalledWith(
+      'analytics/hypequery-deployment',
+      {
+        project: undefined,
+        environment: undefined,
+        output: 'analytics/hypequery-deployment.release.json',
+      },
+      { loadCredential },
+    );
+    expect(submitDeployment).toHaveBeenCalledWith(
+      'analytics/hypequery-deployment',
+      {
+        release: 'analytics/hypequery-deployment.release.json',
+        endpoint: undefined,
+      },
+      expect.objectContaining({ loadCredential }),
+    );
+    expect(result.status).toBe('accepted');
+  });
+
+  it('supports explicit outputs and target overrides in one-command mode', async () => {
+    const buildDeployment: NonNullable<DeployDependencies['buildDeployment']> =
+      vi.fn(async () => bundle.contract);
+    const prepareDeploymentRelease:
+      NonNullable<DeployDependencies['prepareDeploymentRelease']> =
+      vi.fn(async () => prepareProtocolDeploymentReleaseEnvelope({
+        kind: 'hypequery-deployment-release',
+        version: 1,
+        bundleIdentity: BUNDLE_IDENTITY,
+        target: { project: 'project-1', environment: 'staging' },
+      }).release);
+    const submitDeployment: NonNullable<DeployDependencies['submitDeployment']> =
+      vi.fn(async () => ({
+        kind: 'hypequery-deployment-submission',
+        version: 1,
+        status: 'accepted',
+        releaseIdentity: '1'.repeat(64),
+        bundleIdentity: BUNDLE_IDENTITY,
+      }));
+
+    await deployCommand('src/api.ts', {
+      bundleOutput: 'dist/cloud-bundle',
+      releaseOutput: 'dist/cloud-release.json',
+      project: 'project-1',
+      environment: 'staging',
+      endpoint: 'https://deploy.example.test/v1/releases',
+    }, {
+      buildDeployment,
+      prepareDeploymentRelease,
+      submitDeployment,
+    });
+
+    expect(buildDeployment).toHaveBeenCalledWith('src/api.ts', {
+      bundleOutput: 'dist/cloud-bundle',
+    });
+    expect(prepareDeploymentRelease).toHaveBeenCalledWith(
+      'dist/cloud-bundle',
+      {
+        project: 'project-1',
+        environment: 'staging',
+        output: 'dist/cloud-release.json',
+      },
+      { loadCredential: undefined },
+    );
+    expect(submitDeployment).toHaveBeenCalledWith(
+      'dist/cloud-bundle',
+      {
+        release: 'dist/cloud-release.json',
+        endpoint: 'https://deploy.example.test/v1/releases',
+      },
+      expect.any(Object),
+    );
+  });
+
+  it('does not mix legacy prebuilt submission with orchestration options', async () => {
+    await expect(deployCommand('dist/bundle', {
+      release: 'dist/release.json',
+      project: 'project-1',
+    })).rejects.toThrow(/--release selects prebuilt submission mode/);
+    expect(mockVerifyDeploymentBundle).not.toHaveBeenCalled();
+  });
+
+  it('warns when using the legacy prebuilt deploy syntax', async () => {
+    const release = await releaseFile();
+    const submit = vi.fn().mockResolvedValue({
+      kind: 'hypequery-deployment-submission',
+      version: 1,
+      status: 'accepted',
+      releaseIdentity: release.identity,
+      bundleIdentity: BUNDLE_IDENTITY,
+    });
+
+    await deployCommand('/project/dist/bundle', {
+      release: release.path,
+      endpoint: 'https://deploy.example.test/v1/releases',
+    }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+      createTransport: () => ({ submit }),
+    });
+
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('deployment:submit'),
+    );
   });
 
   it('verifies and submits an explicit release using environment credentials', async () => {
