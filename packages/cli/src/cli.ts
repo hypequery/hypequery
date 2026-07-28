@@ -190,7 +190,10 @@ program
   .command('deploy <bundle>')
   .description('Submit a verified deployment bundle and release')
   .requiredOption('--release <path>', 'Target-bound release JSON path')
-  .option('--endpoint <url>', 'HTTPS submission endpoint (or HYPEQUERY_DEPLOYMENT_ENDPOINT)')
+  .option(
+    '--endpoint <url>',
+    'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
+  )
   .action(runCommand(async (bundle: string, options: DeployOptions) => {
     await deployCommand(bundle, options);
   }));

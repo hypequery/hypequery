@@ -9,6 +9,8 @@ import {
 
 const KEYCHAIN_SERVICE = 'dev.hypequery.cli';
 const PROFILE_FILE = 'cloud-profile.json';
+export const CLOUD_DEPLOYMENT_SCOPE = 'deploy:submit';
+const CLOUD_DEPLOYMENT_PATH = '/v1/deployments/submissions';
 
 export interface StoredCloudCredential {
   readonly cloudUrl: string;
@@ -80,8 +82,49 @@ function paths(dependencies: CloudCredentialStoreDependencies) {
   return { directory, profile: path.join(directory, PROFILE_FILE) };
 }
 
+export function normalizeCloudOrigin(input: string): string {
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    throw new Error('Cloud URL must be an absolute HTTPS URL.');
+  }
+  const loopback = url.protocol === 'http:'
+    && (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
+  if ((url.protocol !== 'https:' && !loopback) || url.username || url.password
+    || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Cloud URL must be an HTTPS origin without a path, query, or credentials.');
+  }
+  return url.origin;
+}
+
+export function normalizeCloudDeploymentEndpoint(
+  input: string,
+  cloudOrigin: string,
+): string {
+  let endpoint: URL;
+  try {
+    endpoint = new URL(input);
+  } catch {
+    throw new Error('Cloud returned an invalid deployment endpoint.');
+  }
+  if (endpoint.origin !== cloudOrigin
+    || endpoint.pathname !== CLOUD_DEPLOYMENT_PATH
+    || endpoint.username
+    || endpoint.password
+    || endpoint.search
+    || endpoint.hash) {
+    throw new Error('Cloud returned an invalid deployment endpoint.');
+  }
+  return endpoint.toString();
+}
+
 function parseProfile(input: string): StoredCloudProfile {
-  const value = JSON.parse(input) as Partial<StoredCloudProfile>;
+  const parsed = JSON.parse(input) as unknown;
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('The stored Hypequery Cloud profile is invalid. Run `hypequery login` again.');
+  }
+  const value = parsed as Partial<StoredCloudProfile>;
   if (
     value.version !== 1
     || typeof value.cloudUrl !== 'string'
@@ -92,8 +135,20 @@ function parseProfile(input: string): StoredCloudProfile {
   ) {
     throw new Error('The stored Hypequery Cloud profile is invalid. Run `hypequery login` again.');
   }
+  let cloudUrl: string;
+  let deploymentEndpoint: string;
   let target: ProtocolDeploymentReleaseTarget | undefined;
   try {
+    cloudUrl = normalizeCloudOrigin(value.cloudUrl);
+    deploymentEndpoint = normalizeCloudDeploymentEndpoint(
+      value.deploymentEndpoint,
+      cloudUrl,
+    );
+    if (value.keychainAccount !== cloudUrl
+      || !Number.isFinite(Date.parse(value.expiresAt))
+      || value.scope !== CLOUD_DEPLOYMENT_SCOPE) {
+      throw new Error('profile invariant mismatch');
+    }
     target = value.target === undefined
       ? undefined
       : validateProtocolDeploymentReleaseTarget(value.target);
@@ -101,9 +156,14 @@ function parseProfile(input: string): StoredCloudProfile {
     throw new Error('The stored Hypequery Cloud profile is invalid. Run `hypequery login` again.');
   }
   return {
-    ...value,
+    version: 1,
+    cloudUrl,
+    deploymentEndpoint,
+    expiresAt: value.expiresAt,
+    scope: value.scope,
     ...(target ? { target } : {}),
-  } as StoredCloudProfile;
+    keychainAccount: value.keychainAccount,
+  };
 }
 
 async function entry(
@@ -119,34 +179,68 @@ export async function saveCloudCredential(
   dependencies: CloudCredentialStoreDependencies = {},
 ) {
   const location = paths(dependencies);
-  const keychainAccount = new URL(credential.cloudUrl).origin;
+  let previousProfile: StoredCloudProfile | null = null;
+  try {
+    previousProfile = parseProfile(await readFile(location.profile, 'utf8'));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      // A new login must be able to replace a malformed profile.
+      previousProfile = null;
+    }
+  }
+  const cloudUrl = normalizeCloudOrigin(credential.cloudUrl);
+  const deploymentEndpoint = normalizeCloudDeploymentEndpoint(
+    credential.deploymentEndpoint,
+    cloudUrl,
+  );
+  if (!Number.isFinite(Date.parse(credential.expiresAt))
+    || credential.scope !== CLOUD_DEPLOYMENT_SCOPE) {
+    throw new Error('Cannot store an invalid Hypequery Cloud credential.');
+  }
+  const keychainAccount = cloudUrl;
   const keyring = await entry(keychainAccount, dependencies);
+  const previousPassword = await Promise.resolve(keyring.getPassword());
   await Promise.resolve(keyring.setPassword(credential.token));
 
   const profile: StoredCloudProfile = {
     version: 1,
-    cloudUrl: credential.cloudUrl,
-    deploymentEndpoint: credential.deploymentEndpoint,
+    cloudUrl,
+    deploymentEndpoint,
     expiresAt: credential.expiresAt,
     scope: credential.scope,
     ...(credential.target ? { target: credential.target } : {}),
     keychainAccount,
   };
-  await mkdir(location.directory, { recursive: true, mode: 0o700 });
-  await chmod(location.directory, 0o700);
   const temporary = `${location.profile}.${randomUUID()}.tmp`;
   try {
+    await mkdir(location.directory, { recursive: true, mode: 0o700 });
+    await chmod(location.directory, 0o700);
     await writeFile(temporary, `${JSON.stringify(profile, null, 2)}\n`, {
       encoding: 'utf8',
       flag: 'wx',
       mode: 0o600,
     });
+    await chmod(temporary, 0o600);
     await rename(temporary, location.profile);
-    await chmod(location.profile, 0o600);
   } catch (error) {
     await unlink(temporary).catch(() => undefined);
-    await Promise.resolve(keyring.deletePassword()).catch(() => undefined);
+    if (previousPassword === null) {
+      await Promise.resolve(keyring.deletePassword()).catch(() => undefined);
+    } else {
+      await Promise.resolve(keyring.setPassword(previousPassword)).catch(() => undefined);
+    }
     throw error;
+  }
+  if (previousProfile && previousProfile.keychainAccount !== keychainAccount) {
+    try {
+      const previousKeyring = await entry(
+        previousProfile.keychainAccount,
+        dependencies,
+      );
+      await Promise.resolve(previousKeyring.deletePassword());
+    } catch {
+      // The new profile is already committed; the previous token will expire.
+    }
   }
 }
 

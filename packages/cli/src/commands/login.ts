@@ -5,8 +5,11 @@ import open from 'open';
 import { validateProtocolDeploymentReleaseTarget } from '@hypequery/protocol';
 
 import {
+  CLOUD_DEPLOYMENT_SCOPE,
   deleteCloudCredential,
   loadCloudCredential,
+  normalizeCloudDeploymentEndpoint,
+  normalizeCloudOrigin,
   saveCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
@@ -14,7 +17,12 @@ import { logger } from '../utils/logger.js';
 
 const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
+const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_TOKEN_RESPONSE_BYTES = 64 * 1024;
+// Cloud issues 12-hour credentials; allow limited client/server clock skew.
+const MAX_TOKEN_LIFETIME_MS = 13 * 60 * 60_000;
 const TOKEN_PATTERN = /^hqdp_v1_[A-Za-z0-9_-]{43}$/;
+const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
 export interface LoginOptions {
   readonly cloudUrl?: string;
@@ -23,6 +31,8 @@ export interface LoginOptions {
 export interface LoginDependencies {
   readonly fetch?: typeof fetch;
   readonly openBrowser?: (url: string) => Promise<unknown>;
+  readonly now?: () => number;
+  readonly requestTimeoutMs?: number;
   readonly saveCredential?: typeof saveCloudCredential;
   readonly timeoutMs?: number;
 }
@@ -31,22 +41,7 @@ export interface LogoutDependencies {
   readonly fetch?: typeof fetch;
   readonly loadCredential?: typeof loadCloudCredential;
   readonly deleteCredential?: typeof deleteCloudCredential;
-}
-
-function cloudOrigin(input: string) {
-  let url: URL;
-  try {
-    url = new URL(input);
-  } catch {
-    throw new Error('Cloud URL must be an absolute HTTPS URL.');
-  }
-  const loopback = url.protocol === 'http:'
-    && (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
-  if ((url.protocol !== 'https:' && !loopback) || url.username || url.password
-    || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error('Cloud URL must be an HTTPS origin without a path, query, or credentials.');
-  }
-  return url.origin;
+  readonly requestTimeoutMs?: number;
 }
 
 function callbackHtml(success: boolean) {
@@ -77,7 +72,12 @@ async function callbackServer(state: string, timeoutMs: number) {
     }
     const returnedState = url.searchParams.get('state');
     const authorizationCode = url.searchParams.get('code');
-    const valid = returnedState === state && Boolean(authorizationCode);
+    const authorizationError = url.searchParams.get('error');
+    const stateMatches = returnedState === state;
+    const valid = stateMatches
+      && typeof authorizationCode === 'string'
+      && authorizationCode.length >= 1
+      && authorizationCode.length <= 4096;
     response.writeHead(valid ? 200 : 400, {
       'Cache-Control': 'no-store',
       'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'",
@@ -89,8 +89,11 @@ async function callbackServer(state: string, timeoutMs: number) {
     // Only a matching callback completes the login. Any web page the user has
     // open can issue a no-CORS request to this port, so a mismatch is ignored
     // rather than settled: aborting here would let a background tab cancel a
-    // legitimate login. The timeout remains the only failure path.
+    // legitimate login. A matching Cloud error still ends the transaction.
     if (valid) settle?.(authorizationCode as string);
+    else if (stateMatches && authorizationError) {
+      reject?.(new Error('Cloud authorization was not completed.'));
+    }
   });
   server.listen(0, '127.0.0.1');
   await new Promise<void>((resolve, rejectListen) => {
@@ -112,7 +115,46 @@ async function callbackServer(state: string, timeoutMs: number) {
   };
 }
 
-function tokenResponse(input: unknown, origin: string): StoredCloudCredential {
+async function boundedJsonResponse(response: Response): Promise<unknown> {
+  if (!response.body) return null;
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_TOKEN_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error('Cloud returned an oversized CLI token response.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(utf8Decoder.decode(bytes)) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function tokenResponse(
+  input: unknown,
+  origin: string,
+  now: number,
+): StoredCloudCredential {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new Error('Cloud returned an invalid CLI token response.');
+  }
   const value = input as Record<string, unknown>;
   if (
     typeof value.access_token !== 'string'
@@ -120,17 +162,20 @@ function tokenResponse(input: unknown, origin: string): StoredCloudCredential {
     || value.token_type !== 'Bearer'
     || typeof value.expires_at !== 'string'
     || !Number.isFinite(Date.parse(value.expires_at))
-    || typeof value.scope !== 'string'
+    || value.scope !== CLOUD_DEPLOYMENT_SCOPE
     || typeof value.deployment_endpoint !== 'string'
     || value.deployment_target === undefined
   ) {
     throw new Error('Cloud returned an invalid CLI token response.');
   }
-  const endpoint = new URL(value.deployment_endpoint);
-  if (endpoint.origin !== origin || endpoint.pathname !== '/v1/deployments/submissions'
-    || endpoint.search || endpoint.hash) {
-    throw new Error('Cloud returned an invalid deployment endpoint.');
+  const expiresAt = Date.parse(value.expires_at);
+  if (expiresAt <= now || expiresAt > now + MAX_TOKEN_LIFETIME_MS) {
+    throw new Error('Cloud returned an invalid CLI token expiration.');
   }
+  const deploymentEndpoint = normalizeCloudDeploymentEndpoint(
+    value.deployment_endpoint,
+    origin,
+  );
   let target;
   try {
     target = validateProtocolDeploymentReleaseTarget(value.deployment_target);
@@ -139,7 +184,7 @@ function tokenResponse(input: unknown, origin: string): StoredCloudCredential {
   }
   return {
     cloudUrl: origin,
-    deploymentEndpoint: endpoint.toString(),
+    deploymentEndpoint,
     expiresAt: value.expires_at,
     scope: value.scope,
     target,
@@ -151,7 +196,7 @@ export async function loginCommand(
   options: LoginOptions = {},
   dependencies: LoginDependencies = {},
 ) {
-  const origin = cloudOrigin(
+  const origin = normalizeCloudOrigin(
     options.cloudUrl ?? process.env.HYPEQUERY_CLOUD_URL ?? DEFAULT_CLOUD_URL,
   );
   const state = randomBytes(24).toString('base64url');
@@ -181,12 +226,20 @@ export async function loginCommand(
         redirect_uri: callback.redirectUri,
       }),
       redirect: 'error',
+      signal: AbortSignal.timeout(
+        dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
+      ),
     });
-    const body = await response.json().catch(() => null);
     if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined);
       throw new Error('Cloud rejected the CLI authorization code. Run `hypequery login` again.');
     }
-    const credential = tokenResponse(body, origin);
+    const body = await boundedJsonResponse(response);
+    const credential = tokenResponse(
+      body,
+      origin,
+      (dependencies.now ?? Date.now)(),
+    );
     await (dependencies.saveCredential ?? saveCloudCredential)(credential);
     logger.success('Logged in to Hypequery Cloud');
     logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
@@ -209,7 +262,11 @@ export async function logoutCommand(dependencies: LogoutDependencies = {}) {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${credential.token}` },
       redirect: 'error',
+      signal: AbortSignal.timeout(
+        dependencies.requestTimeoutMs ?? REQUEST_TIMEOUT_MS,
+      ),
     });
+    await response.body?.cancel().catch(() => undefined);
     if (!response.ok) throw new Error(`Cloud returned HTTP ${response.status}.`);
   } catch {
     logger.warn('Cloud could not be reached; the local credential was removed and the token will expire automatically.');

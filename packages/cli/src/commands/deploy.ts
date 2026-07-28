@@ -18,14 +18,6 @@ import {
 const MAX_RELEASE_FILE_BYTES = 16 * 1024;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
-function sameOrigin(left: string, right: string): boolean {
-  try {
-    return new URL(left).origin === new URL(right).origin;
-  } catch {
-    return false;
-  }
-}
-
 export interface DeployOptions {
   release?: string;
   endpoint?: string;
@@ -112,39 +104,33 @@ export async function deployCommand(
     'Missing required --release <path>.',
   );
   const env = dependencies.env ?? process.env;
-  let endpoint = options.endpoint ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT;
+  let deploymentEndpoint = options.endpoint ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT;
   let token = env.HYPEQUERY_API_TOKEN;
-  if (!endpoint || !token) {
+  const hasExplicitEndpoint = Boolean(deploymentEndpoint);
+  const hasExplicitToken = Boolean(token);
+  if (hasExplicitEndpoint !== hasExplicitToken) {
+    throw new Error(
+      hasExplicitEndpoint
+        ? 'An explicit deployment endpoint requires HYPEQUERY_API_TOKEN.'
+        : 'HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT.',
+    );
+  }
+  if (!hasExplicitEndpoint) {
     const loadCredential = dependencies.loadCredential
       ?? (dependencies.env === undefined
         ? loadCloudCredential
         : async () => null);
     const credential = await loadCredential();
     if (credential) {
-      // The stored token authenticates one Cloud. An explicit --endpoint or
-      // HYPEQUERY_DEPLOYMENT_ENDPOINT aimed anywhere else must never receive
-      // it, or a mistyped or hostile endpoint silently exfiltrates the
-      // credential the user never typed.
-      const resolved = endpoint ?? credential.deploymentEndpoint;
-      if (!token) {
-        if (!sameOrigin(resolved, credential.cloudUrl)) {
-          throw new Error(
-            `The stored Cloud credential belongs to ${credential.cloudUrl} and will not be `
-            + `sent to ${resolved}.\n\n`
-            + 'Drop --endpoint/HYPEQUERY_DEPLOYMENT_ENDPOINT to use the logged-in Cloud, '
-            + 'or set HYPEQUERY_API_TOKEN for this endpoint.',
-          );
-        }
-        if (Date.parse(credential.expiresAt) <= Date.now()) {
-          throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');
-        }
-        token = credential.token;
+      if (Date.parse(credential.expiresAt) <= Date.now()) {
+        throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');
       }
-      endpoint = resolved;
+      deploymentEndpoint = credential.deploymentEndpoint;
+      token = credential.token;
     }
   }
-  endpoint = requiredConfiguration(
-    endpoint,
+  deploymentEndpoint = requiredConfiguration(
+    deploymentEndpoint,
     'Missing deployment endpoint. Run `hypequery login`, pass --endpoint, or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
   );
   token = requiredConfiguration(
@@ -178,7 +164,10 @@ export async function deployCommand(
     );
   }
   const createTransport = dependencies.createTransport ?? createHttpDeploymentUploadTransport;
-  const transportOptions: HttpDeploymentUploadTransportOptions = { endpoint, token };
+  const transportOptions: HttpDeploymentUploadTransportOptions = {
+    endpoint: deploymentEndpoint,
+    token,
+  };
   const result = await createTransport(transportOptions).submit(bundle, release);
   logger.success(
     result.status === 'accepted'

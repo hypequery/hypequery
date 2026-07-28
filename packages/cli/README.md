@@ -197,8 +197,10 @@ Use `--cloud-url <origin>` or `HYPEQUERY_CLOUD_URL` for a self-hosted or local
 Cloud instance. HTTPS is required except for loopback development origins.
 
 Once logged in, `hypequery deploy` automatically uses the stored endpoint and
-token. Explicit `HYPEQUERY_API_TOKEN` and `HYPEQUERY_DEPLOYMENT_ENDPOINT`
-values take precedence, which preserves non-interactive CI usage.
+token. The deployment endpoint is returned by Cloud during the token exchange;
+it is the authenticated upload API, not the browser login endpoint. For
+non-interactive CI usage, set both `HYPEQUERY_API_TOKEN` and
+`HYPEQUERY_DEPLOYMENT_ENDPOINT` (or pass `--endpoint`).
 
 ### `hypequery logout`
 
@@ -258,12 +260,13 @@ npx hypequery deploy analytics/hypequery-deployment \
 
 For local development, run `hypequery login` first; the CLI reads the endpoint
 and token from its secure Cloud profile. For CI and manual credentials, set
-`HYPEQUERY_API_TOKEN` and either pass `--endpoint` or set
-`HYPEQUERY_DEPLOYMENT_ENDPOINT`. Tokens are never accepted as command-line
-arguments, keeping them out of shell history. The submission endpoint must use
-HTTPS and must not contain credentials or a URL fragment. Explicit environment
-values override the stored profile. The release identity is sent as the
-idempotency key, so an unchanged release can be submitted safely again.
+`HYPEQUERY_API_TOKEN` together with either `--endpoint` or
+`HYPEQUERY_DEPLOYMENT_ENDPOINT`. The CLI never combines one explicit value with
+the other value from the stored profile. Tokens are never accepted as
+command-line arguments, keeping them out of shell history. The submission
+endpoint must use HTTPS and must not contain credentials or a URL fragment. The
+release identity is sent as the idempotency key, so an unchanged release can be
+submitted safely again.
 
 This command submits immutable deployment inputs. Activation, status changes,
 promotion, and rollback remain control-plane operations.
@@ -271,7 +274,7 @@ promotion, and rollback remain control-plane operations.
 Options:
 
 - `--release <path>`: required target-bound release JSON
-- `--endpoint <url>`: HTTPS submission endpoint; defaults to `HYPEQUERY_DEPLOYMENT_ENDPOINT`
+- `--endpoint <url>`: HTTPS submission endpoint; requires `HYPEQUERY_API_TOKEN`
 
 ## Non-interactive Setup
 
