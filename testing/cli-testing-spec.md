@@ -7,12 +7,11 @@ flag-by-flag coverage.
 
 - **Package under test:** `@hypequery/cli` (bin: `hypequery`)
 - **Commands:** `init`, `dev [file]`, `generate`, `generate:types`, `generate:datasets`, `help [command]`
-- **Peer packages it scaffolds/uses:** `@hypequery/clickhouse`, `@hypequery/serve`, `@hypequery/datasets`, `zod`
+- **Peer packages it scaffolds/uses:** `@hypequery/clickhouse`, `@hypequery/serve`, `@hypequery/datasets`, `zod`, and optionally `chdb`
 
-> ⚠️ Before running, read **Appendix A — Docs accuracy report**. Several documented
-> flags don't exist, several real flags are undocumented, and a few options are
-> accepted but currently ignored. The expected results below describe **actual CLI
-> behavior**, which in places differs from `reference/api/cli.mdx`.
+> ⚠️ Before running, read **Appendix A — Docs accuracy report**. It records both
+> resolved documentation gaps and remaining follow-ups. The expected results below
+> describe **actual CLI behavior**.
 
 ---
 
@@ -48,7 +47,7 @@ export CLICKHOUSE_PASSWORD=<password>
 ```
 
 ### 0.4 Useful test-only env vars
-- `HYPEQUERY_SKIP_INSTALL=1` — skips the automatic `npm/pnpm/yarn/bun add` step in `init`. Set it to make `init` fast and deterministic when network/registry isn't desired, then install manually. (Undocumented; verify it works — see T1.7.)
+- `HYPEQUERY_SKIP_INSTALL=1` — skips the automatic `npm/pnpm/yarn/bun add` step in `init`. Set it to make `init` fast and deterministic when network/registry isn't desired, then install manually. See T1.9.
 
 ### 0.5 How to invoke the CLI under test
 Pick ONE and note it in the report:
@@ -65,15 +64,16 @@ Throughout this doc, `hq` = whichever invocation you chose.
 Real-world goal: "scaffold an analytics layer in my project."
 
 **Actual options (from source):**
-`--path <dir>`, `--style <queries|datasets>`, `--auth <none|context>`,
+`--path <dir>`, `--style <queries|datasets>`,
+`--database <clickhouse|chdb>`, `--chdb-path <path>`,
+`--auth <none|context>`,
 `--all-tables`, `--tables <names>`, `--exclude-tables <names>`,
 `--no-example`, `--no-interactive`, `--force`, `--skip-connection`.
-(There is **no** `--database` flag on `init`, despite the docs.)
 
 ### T1.1 — Interactive happy path (queries style)
 **Pre:** empty repo with a `package.json` (`npm init -y`), env vars **unset** (force prompts).
 **Run:** `hq init`
-**Walk the prompts:** ClickHouse URL → database → username → password → output dir (`analytics/`) → style (`Query builder routes`) → "Generate an example query?" yes → pick a table `E` from the list.
+**Walk the prompts:** database driver (`ClickHouse server or Cloud`) → ClickHouse URL → database name → username → password → output dir (`analytics/`) → style (`Query builder routes`) → auth scaffold (`None (add later)`) → "Generate an example query?" yes → pick a table `E` from the list.
 **Expect:**
 - Spinner: `Testing connection...` → `Connected successfully (T tables found)` where `T` matches your database (§0.2).
 - Files created at repo root: `.env`, `.gitignore` (created or updated).
@@ -117,6 +117,7 @@ Real-world goal: "scaffold an analytics layer in my project."
 ### T1.7 — Auth scaffold mode
 **Run:** `hq init --no-interactive --auth context --path analytics`
 **Expect:** generated `queries.ts`/`api.ts` import `fromContext` and include host/user auth helper scaffolding. Invalid value `--auth bogus` must throw `Unsupported auth mode "bogus". Use "none" or "context".` (exit 1).
+**Interactive variant:** omit `--auth`, choose `Request context authentication`, and confirm the generated scaffold matches `--auth context`.
 
 ### T1.8 — Existing files / `--force`
 **Pre:** run T1.1 once so `analytics/` exists.
@@ -126,12 +127,26 @@ Real-world goal: "scaffold an analytics layer in my project."
 
 ### T1.9 — Skip install via env
 **Run:** `HYPEQUERY_SKIP_INSTALL=1 hq init --no-interactive --skip-connection --path analytics` in a dir with `package.json`.
-**Expect:** no `npm/pnpm/... add` subprocess runs; no scaffold deps added to `package.json`. (Confirms the documented-nowhere escape hatch.)
+**Expect:** no `npm/pnpm/... add` subprocess runs; no scaffold deps added to `package.json`. (Confirms the documented escape hatch.)
 
 ### T1.10 — No `package.json`
 **Pre:** dir without `package.json`.
-**Run:** `hq init --no-interactive --skip-connection`
-**Expect:** warning `package.json not found. Install @hypequery/clickhouse, @hypequery/serve, and zod manually.`; files still scaffolded; exit 0.
+**Run interactively:** `hq init`
+**Expect:** warning identifying the current directory, followed by `Continue scaffolding here?` defaulting to no. Declining prints `Setup cancelled. Run init from your project directory.` and writes no files. Confirming continues to the database-driver prompt.
+**Run non-interactively:** `hq init --no-interactive --skip-connection`
+**Expect:** no confirmation prompt; warning `package.json not found. Install @hypequery/clickhouse, @hypequery/serve, zod manually.`; files still scaffolded; exit 0.
+
+### T1.11 — Interactive chDB path
+**Pre:** fresh project with `package.json`; platform supported by `chdb`.
+**Run:** `hq init`
+**Walk the prompts:** database driver (`chDB (embedded, no server)`) → storage (`In-memory`, local directory, or custom path) → output dir → style → auth scaffold.
+**Expect:**
+- No ClickHouse URL, database-name, username, or password prompts.
+- No `.env` is created or updated.
+- `chdb` is installed with the scaffold dependencies.
+- `client.ts` imports `Session` and `chdbAdapter` and binds the selected storage path.
+- A project-local persistent path is added to `.gitignore`; an in-memory session is not.
+- For a persistent session containing tables, later generation succeeds with `hq generate --database chdb --chdb-path <same-path>`.
 
 ---
 
@@ -140,7 +155,7 @@ Real-world goal: "scaffold an analytics layer in my project."
 Real-world goal: "my ClickHouse schema changed — refresh my types."
 `generate:types` is an alias that only differs in the header label (`hypequery generate:types`).
 
-**Actual options:** `-o, --output <path>`, `--path <path>`, `--tables <names>`, `--database <type>`.
+**Actual options:** `-o, --output <path>`, `--path <path>`, `--tables <names>`, `--database <clickhouse|chdb>`, `--chdb-path <path>`.
 
 ### T2.1 — Generate into existing project
 **Pre:** project from T1.1 (so `analytics/schema.ts` exists), env vars set.
@@ -157,7 +172,7 @@ Real-world goal: "my ClickHouse schema changed — refresh my types."
 **Run:** `hq generate --output types/ch.ts` → writes `types/ch.ts`; `Updated types/ch.ts`.
 
 ### T2.4 — `--path` derives `<path>/schema.ts`
-**Run:** `hq generate --path src/analytics` → writes `src/analytics/schema.ts`. (This flag is **undocumented** — verify it works.)
+**Run:** `hq generate --path src/analytics` → writes `src/analytics/schema.ts`.
 
 ### T2.5 — `--tables` subset
 **Run:** `hq generate --tables E,E2`
@@ -357,33 +372,40 @@ expected behavior above, and separately confirm/deny each item in Appendix A.
 Source compared: `website-next/docs/reference/api/cli.mdx` and `packages/cli/README.md`
 vs. `packages/cli/src/**`. **Fix the docs and/or the code for each:**
 
-**A.1 `init --database` is documented but does not exist.**
-`cli.mdx` lists `--database <type>` under `hypequery init`. The `init` command defines no such option (only `generate`/`generate:types`/`generate:datasets` accept `--database`). → Remove from init docs.
+**A.1 `init --database` (FIXED).**
+`init` accepts `--database clickhouse|chdb`, and interactive mode exposes the same
+choice before connection details.
 
-**A.2 Real `init` options are undocumented.**
-Missing from docs: `--style <queries|datasets>`, `--auth <none|context>`,
-`--all-tables`, `--tables <names>`, `--exclude-tables <names>`. The entire
-**datasets scaffold flow** is therefore undocumented at the CLI-reference level.
+**A.2 Real `init` options (FIXED).**
+The CLI reference now documents `--style`, `--database`, `--chdb-path`, `--auth`,
+the dataset table-selection flags, and the remaining init controls.
 
-**A.3 Whole commands are undocumented.**
-`generate:types`, `generate:datasets`, and `help [command]` do not appear in the CLI
-reference (the "Commands at a glance" table only shows `init`, `dev`, `generate`).
+**A.3 Whole commands (FIXED).**
+The commands-at-a-glance table now includes `generate:types`, `generate:datasets`,
+and `help [command]`.
 
-**A.4 `dev` options: undocumented + non-functional.**
-- Undocumented but real: `--path <path>`, `--cors`, `--cache <provider>`, `--no-cache`, `--redis-url <url>`.
-- **Non-functional:** `--cache`, `--redis-url`, `--cors` are parsed into `DevOptions` but `devCommand` only forwards `port`/`hostname`/`quiet` to `serveDev`. They currently do nothing. Either wire them through or remove them. (README advertises `--cache`/`--cors` as if functional.)
+**A.4 Remaining `dev` option follow-ups.**
+`--path` is documented and functional. The CLI also parses `--cors`,
+`--cache <provider>`, `--no-cache`, and `--redis-url <url>`, but does not forward
+them to `serveDev`; they remain intentionally undocumented until wired through
+or removed.
 
-**A.5 `generate --path` is undocumented.**
-`generate`/`generate:types` accept `--path <dir>` (derives `<dir>/schema.ts`); docs omit it. Docs' description of the default `--output` ("Defaults to your existing analytics/schema.ts or analytics/schema.ts if not found") is also muddled — actual logic searches `analytics/schema.ts`, `src/analytics/schema.ts`, `schema.ts`, `src/schema.ts`, falling back to `analytics/schema.ts`.
+**A.5 `generate --path` and output discovery (FIXED).**
+The CLI reference documents `--path <dir>` and the actual schema search order
+before the `analytics/schema.ts` fallback.
 
 **A.6 `--version` (FIXED).**
 `cli.ts` previously hardcoded `.version('0.0.1')`. Now reads `version` from `package.json` at runtime, so `--version` reports the real installed version. No action needed; T5.3 verifies it.
 
-**A.7 `dev` default file detection list is incomplete/misordered in docs.**
-Docs say it defaults to `analytics/queries.ts`, `src/analytics/queries.ts`, or nearest `hypequery.ts`. Actual search order: `hypequery.ts`, `analytics/api.ts`, `src/analytics/api.ts`, `api.ts`, `src/api.ts`, `analytics/queries.ts`, `src/analytics/queries.ts`, `queries.ts`, `src/queries.ts` — i.e. `api.ts` variants are checked **before** `queries.ts`.
+**A.7 `dev` default file detection order (FIXED).**
+The CLI reference documents the complete search order, including every `api.ts`
+variant before the `queries.ts` variants.
 
-**A.8 `init` installs `zod` (+ `@hypequery/datasets` for datasets style).**
-`cli.mdx` says it "installs the scaffold dependencies" but doesn't name them; README does mention `zod`. Worth stating explicitly, plus the `HYPEQUERY_SKIP_INSTALL=1` escape hatch (currently undocumented).
+**A.8 Scaffold dependencies (FIXED).**
+The CLI reference names the installed packages, including `zod`,
+`@hypequery/datasets` for dataset scaffolds, and `chdb` for the embedded driver.
+It also documents the `HYPEQUERY_SKIP_INSTALL=1` escape hatch.
 
-**A.9 Accepted entry-export forms.**
-`dev` accepts an `api` **or** `default` export and validates `typeof api.handler === 'function'`. Docs' troubleshooting only shows the `initServe`/`serve` form; the `createAPI` datasets form is equally valid (the error message itself shows both).
+**A.9 Accepted entry-export forms (FIXED).**
+The troubleshooting guide documents named `api` and default exports and shows
+both the `initServe`/`serve` and `createAPI` entry styles.
