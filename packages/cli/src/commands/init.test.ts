@@ -77,6 +77,39 @@ describe('init command - graceful failure handling', () => {
   });
 
   describe('User cancellation scenarios', () => {
+    it('stops before scaffolding when package.json is missing and the user declines', async () => {
+      vi.mocked(readFile).mockRejectedValueOnce(new Error('File not found'));
+      vi.mocked(prompts.confirmWithoutPackageJson).mockResolvedValue(false);
+
+      await initCommand({});
+
+      expect(prompts.confirmWithoutPackageJson).toHaveBeenCalledWith(process.cwd());
+      expect(prompts.promptInitDatabase).not.toHaveBeenCalled();
+      expect(writeFile).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith(
+        'Setup cancelled. Run init from your project directory.',
+      );
+    });
+
+    it('continues scaffolding when package.json is missing and the user confirms', async () => {
+      vi.mocked(readFile).mockRejectedValueOnce(new Error('File not found'));
+      vi.mocked(prompts.confirmWithoutPackageJson).mockResolvedValue(true);
+      vi.mocked(prompts.promptInitDatabase).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('queries');
+      vi.mocked(prompts.promptInitAuthMode).mockResolvedValue('none');
+
+      await initCommand({});
+
+      expect(prompts.confirmWithoutPackageJson).toHaveBeenCalledWith(process.cwd());
+      expect(prompts.promptInitDatabase).toHaveBeenCalled();
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('analytics/queries.ts'),
+        expect.any(String),
+      );
+    });
+
     it('should continue when user skips connection details', async () => {
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
       vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
@@ -324,7 +357,10 @@ describe('init command - graceful failure handling', () => {
         path: 'analytics',
       });
 
+      expect(prompts.confirmWithoutPackageJson).not.toHaveBeenCalled();
+      expect(prompts.promptInitDatabase).not.toHaveBeenCalled();
       expect(prompts.promptOutputDirectory).not.toHaveBeenCalled();
+      expect(prompts.promptInitAuthMode).not.toHaveBeenCalled();
       expect(prompts.promptGenerateExample).not.toHaveBeenCalled();
       expect(prompts.promptTableSelection).not.toHaveBeenCalled();
       expect(prompts.confirmOverwrite).not.toHaveBeenCalled();
@@ -372,6 +408,24 @@ describe('init command - graceful failure handling', () => {
   });
 
   describe('Style scaffolds', () => {
+    it('prompts for a database driver before connection details', async () => {
+      vi.mocked(prompts.promptInitDatabase).mockResolvedValue('chdb');
+      vi.mocked(prompts.promptChdbStorage).mockResolvedValue(undefined);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('queries');
+      vi.mocked(prompts.promptInitAuthMode).mockResolvedValue('none');
+      vi.mocked(detectDb.validateConnection).mockResolvedValue(true);
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(0);
+      vi.mocked(detectDb.getTables).mockResolvedValue([]);
+
+      await initCommand({});
+
+      expect(prompts.promptInitDatabase).toHaveBeenCalled();
+      expect(prompts.promptClickHouseConnection).not.toHaveBeenCalled();
+      expect(prompts.promptChdbStorage).toHaveBeenCalled();
+      expect(installScaffoldDependencies).toHaveBeenCalledWith('queries', 'chdb');
+    });
+
     it('prompts for style in interactive mode and defaults to query files', async () => {
       vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
       vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
@@ -384,6 +438,22 @@ describe('init command - graceful failure handling', () => {
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('analytics/queries.ts'),
         expect.stringContaining('initServe'),
+      );
+    });
+
+    it('prompts for authentication scaffolding in interactive mode', async () => {
+      vi.mocked(prompts.promptInitDatabase).mockResolvedValue('clickhouse');
+      vi.mocked(prompts.promptClickHouseConnection).mockResolvedValue(null);
+      vi.mocked(prompts.promptOutputDirectory).mockResolvedValue('analytics');
+      vi.mocked(prompts.promptInitStyle).mockResolvedValue('queries');
+      vi.mocked(prompts.promptInitAuthMode).mockResolvedValue('context');
+
+      await initCommand({});
+
+      expect(prompts.promptInitAuthMode).toHaveBeenCalled();
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('analytics/queries.ts'),
+        expect.stringContaining('fromContext'),
       );
     });
 
@@ -601,6 +671,7 @@ describe('init command - graceful failure handling', () => {
 
       await initCommand({ database: 'chdb' });
 
+      expect(prompts.promptInitDatabase).not.toHaveBeenCalled();
       expect(prompts.promptChdbStorage).toHaveBeenCalled();
       const clientWrite = vi.mocked(writeFile).mock.calls.find(
         ([file]) => typeof file === 'string' && file.endsWith('client.ts'),

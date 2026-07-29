@@ -15,13 +15,20 @@ export async function promptClickHouseConnection(): Promise<{
   username: string;
   password: string;
 } | null> {
-  const response = await prompts([
-    {
-      type: 'text',
-      name: 'host',
-      message: 'ClickHouse URL (or skip to configure later):',
-      initial: process.env.CLICKHOUSE_URL ?? process.env.CLICKHOUSE_HOST ?? '',
-    },
+  const hostResponse = await prompts({
+    type: 'text',
+    name: 'host',
+    message: 'ClickHouse URL (or skip to configure later):',
+    initial: process.env.CLICKHOUSE_URL ?? process.env.CLICKHOUSE_HOST ?? '',
+  });
+
+  // Do not ask for credentials when the user has chosen to configure the
+  // connection later.
+  if (!hostResponse.host) {
+    return null;
+  }
+
+  const credentials = await prompts([
     {
       type: 'text',
       name: 'database',
@@ -42,12 +49,32 @@ export async function promptClickHouseConnection(): Promise<{
     },
   ]);
 
-  // If user cancelled or skipped
-  if (!response.host) {
-    return null;
-  }
+  return {
+    host: hostResponse.host,
+    database: credentials.database ?? '',
+    username: credentials.username ?? '',
+    password: credentials.password ?? '',
+  };
+}
 
-  return response;
+export type InitDatabase = 'clickhouse' | 'chdb';
+
+/**
+ * Choose between a remote ClickHouse server and embedded chDB.
+ */
+export async function promptInitDatabase(): Promise<InitDatabase> {
+  const response = await prompts({
+    type: 'select',
+    name: 'database',
+    message: 'Choose your database',
+    choices: [
+      { title: 'ClickHouse server or Cloud', value: 'clickhouse' },
+      { title: 'chDB (embedded, no server)', value: 'chdb' },
+    ],
+    initial: 0,
+  });
+
+  return response.database ?? 'clickhouse';
 }
 
 /**
@@ -134,6 +161,40 @@ export async function promptInitStyle(): Promise<InitStyle> {
   });
 
   return response.style ?? 'queries';
+}
+
+export type InitAuthMode = 'none' | 'context';
+
+/**
+ * Choose whether generated routes include request-context auth scaffolding.
+ */
+export async function promptInitAuthMode(): Promise<InitAuthMode> {
+  const response = await prompts({
+    type: 'select',
+    name: 'auth',
+    message: 'Choose authentication scaffolding',
+    choices: [
+      { title: 'None (add later)', value: 'none' },
+      { title: 'Request context authentication', value: 'context' },
+    ],
+    initial: 0,
+  });
+
+  return response.auth ?? 'none';
+}
+
+/**
+ * Confirm scaffolding when init is run outside a Node project.
+ */
+export async function confirmWithoutPackageJson(directory: string): Promise<boolean> {
+  const response = await prompts({
+    type: 'confirm',
+    name: 'continue',
+    message: `package.json was not found in ${directory}. Continue scaffolding here?`,
+    initial: false,
+  });
+
+  return response.continue ?? false;
 }
 
 /**

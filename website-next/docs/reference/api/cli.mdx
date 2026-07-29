@@ -137,6 +137,14 @@ npx @hypequery/cli init --style datasets --all-tables --auth context
 ```
 </CodeBlock>
 
+Interactive mode first asks whether to use a ClickHouse server/Cloud or
+embedded chDB. It then asks for the selected driver's connection or storage
+details, the output directory, API style, and authentication scaffold. If the
+ClickHouse URL is left blank, the remaining credential questions are skipped
+and placeholder configuration is generated. Run the command from the project
+directory containing `package.json`; otherwise the CLI asks for confirmation
+before it writes any files.
+
 ## `hypequery dev [file]`
 
 <CodeBlock>

@@ -158,8 +158,14 @@ export async function installScaffoldDependencies(
     readCliPackageJson(),
   ]);
   if (!pkgJson) {
-    const extra = style === 'datasets' ? ', @hypequery/datasets' : '';
-    logger.warn(`package.json not found. Install @hypequery/clickhouse, @hypequery/serve${extra}, and zod manually.`);
+    const packages = [
+      '@hypequery/clickhouse',
+      '@hypequery/serve',
+      ...(style === 'datasets' ? ['@hypequery/datasets'] : []),
+      'zod',
+      ...(database === 'chdb' ? ['chdb'] : []),
+    ];
+    logger.warn(`package.json not found. Install ${packages.join(', ')} manually.`);
     return;
   }
 

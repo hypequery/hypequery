@@ -53,6 +53,9 @@ npx hypequery init --database chdb
 
 </CodeBlock>
 
+You can also run `npx hypequery init` and choose **chDB (embedded, no server)**
+from the interactive database prompt.
+
 The scaffolded `client.ts` uses the adapter instead of an HTTP connection, `chdb` is installed as a dependency automatically, and the credential prompts are skipped. Choose an on-disk session directory (e.g. `./analytics.chdb`) to persist data between runs, or stay in-memory for a throwaway runtime sandbox. After creating tables in an on-disk session, pass that same directory when refreshing types:
 
 <CodeBlock>
