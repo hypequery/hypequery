@@ -39,6 +39,7 @@ const STABLE_FAILURE_CODES = [
   'HQ_VALUE_TOO_MANY_NODES',
   'HQ_VALUE_TOO_MANY_ITEMS',
   'HQ_VALUE_TOO_LARGE',
+  'HQ_VALUE_UNSAFE_OBJECT',
 ] as const;
 
 function readFixture<T>(name: string): T {

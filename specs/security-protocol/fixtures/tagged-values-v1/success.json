@@ -258,5 +258,132 @@
     },
     "canonicalHex": "7b2224687970657175657279223a7b22656e7472696573223a5b5b22726567696f6e222c7b2224687970657175657279223a7b2262697473223a382c227369676e6564223a66616c73652c2274797065223a22696e7465676572222c2276616c7565223a2231222c2276657273696f6e223a317d7d5d2c5b22726567696f6e222c7b2224687970657175657279223a7b2262697473223a382c227369676e6564223a66616c73652c2274797065223a22696e7465676572222c2276616c7565223a2232222c2276657273696f6e223a317d7d5d5d2c2274797065223a226d6170222c2276657273696f6e223a317d7d",
     "sha256": "9cb2c26100b18e84f1a6974424ddd600ef8a0a7d113420bb882e61e9fa690f41"
+  },
+  {
+    "id": "native-float-integral",
+    "value": 100,
+    "canonicalHex": "313030",
+    "sha256": "ad57366865126e55649ecb23ae1d48887544976efea46a48eb5d85a6eeb4d306"
+  },
+  {
+    "id": "native-float-1e20",
+    "value": 100000000000000000000,
+    "canonicalHex": "313030303030303030303030303030303030303030",
+    "sha256": "c344e9487bfbd5c4e03c9fb90d62a5dde5e00b54d55c46e9f4a803aea162b80c"
+  },
+  {
+    "id": "native-float-1e21",
+    "value": 1e+21,
+    "canonicalHex": "31652b3231",
+    "sha256": "241c4643fa70b1dcde1205b71be4e3bebb17e9f880c8e1a33d0ead6c27271d3c"
+  },
+  {
+    "id": "native-float-1e-6",
+    "value": 0.000001,
+    "canonicalHex": "302e303030303031",
+    "sha256": "159fb29a827ad04b260aa6c8ab6d8637f8f2b38af5c4f3cb49d6a21205e040f8"
+  },
+  {
+    "id": "native-float-1e-7",
+    "value": 1e-7,
+    "canonicalHex": "31652d37",
+    "sha256": "5b33e02f2c5103a05d32f6ba9cb058294452bfbf393967f68bb30c1bdcbbab22"
+  },
+  {
+    "id": "native-float-min-subnormal",
+    "value": 5e-324,
+    "canonicalHex": "35652d333234",
+    "sha256": "c46e7ca1be4c8734f373a56530787288fa2058d73d07855e9247e949f811a42a"
+  },
+  {
+    "id": "native-float-max",
+    "value": 1.7976931348623157e+308,
+    "canonicalHex": "312e37393736393331333438363233313537652b333038",
+    "sha256": "c2784e1abd6317452708f3fbf9641c16b959561bc621a1d408c23a20aa2cb585"
+  },
+  {
+    "id": "string-permitted-controls",
+    "value": "line one\nline two\tcolumn\r",
+    "canonicalHex": "226c696e65206f6e655c6e6c696e652074776f5c74636f6c756d6e5c7222",
+    "sha256": "9b594976b60e2f6bd159be2c67d7fedfb81bfcd5e5791cedbe5690ac2abc7585"
+  },
+  {
+    "id": "array-empty",
+    "value": {
+      "$hypequery": {
+        "type": "array",
+        "version": 1,
+        "values": []
+      }
+    },
+    "canonicalHex": "7b2224687970657175657279223a7b2274797065223a226172726179222c2276616c756573223a5b5d2c2276657273696f6e223a317d7d",
+    "sha256": "6d724ac91452322c69323b0304ebf6e1ac42fdc61a44862e520be76032155d10"
+  },
+  {
+    "id": "tuple-empty",
+    "value": {
+      "$hypequery": {
+        "type": "tuple",
+        "version": 1,
+        "values": []
+      }
+    },
+    "canonicalHex": "7b2224687970657175657279223a7b2274797065223a227475706c65222c2276616c756573223a5b5d2c2276657273696f6e223a317d7d",
+    "sha256": "20ded50e2861b59705d0974bcdc2282f34715d5ddbebb74c1c7c3e3df87ae19c"
+  },
+  {
+    "id": "map-empty",
+    "value": {
+      "$hypequery": {
+        "type": "map",
+        "version": 1,
+        "entries": []
+      }
+    },
+    "canonicalHex": "7b2224687970657175657279223a7b22656e7472696573223a5b5d2c2274797065223a226d6170222c2276657273696f6e223a317d7d",
+    "sha256": "8653f18f098a82f3408f83f03427aad582d0437f79b245f4d00dbb1237562a50"
+  },
+  {
+    "id": "datetime64-nanoseconds-max",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime64",
+        "precision": 9,
+        "timezone": "UTC",
+        "value": "2262-04-11T23:47:16.854775807Z"
+      }
+    },
+    "canonicalHex": "7b2224687970657175657279223a7b22636c69636b686f75736554797065223a224461746554696d653634222c22707265636973696f6e223a392c2274696d657a6f6e65223a22555443222c2274797065223a226461746574696d65222c2276616c7565223a22323236322d30342d31315432333a34373a31362e3835343737353830375a222c2276657273696f6e223a317d7d",
+    "sha256": "612b88ad3689cc220ea3d9cc121844f09c6fb0c3c887c47a6bae3493b0f14f51"
+  },
+  {
+    "id": "bytes-empty",
+    "value": {
+      "$hypequery": {
+        "type": "bytes",
+        "version": 1,
+        "encoding": "base64url",
+        "value": ""
+      }
+    },
+    "canonicalHex": "7b2224687970657175657279223a7b22656e636f64696e67223a2262617365363475726c222c2274797065223a226279746573222c2276616c7565223a22222c2276657273696f6e223a317d7d",
+    "sha256": "92a36c3f7f5e8edb9cb206b8b4c4d15926581bc583d03f2b8a567a4ae208e359"
+  },
+  {
+    "id": "datetime-single-component-timezone",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime",
+        "precision": 0,
+        "timezone": "EST",
+        "value": "2026-07-13T14:30:45Z"
+      }
+    },
+    "canonicalHex": "7b2224687970657175657279223a7b22636c69636b686f75736554797065223a224461746554696d65222c22707265636973696f6e223a302c2274696d657a6f6e65223a22455354222c2274797065223a226461746574696d65222c2276616c7565223a22323032362d30372d31335431343a33303a34355a222c2276657273696f6e223a317d7d",
+    "sha256": "6bee1aad475dfbf35566bf71dc664b6f0c7a4c9dcc4ba0b5a76e9069be2cce6e"
   }
 ]

@@ -78,6 +78,20 @@ function generateRejection(generator: NonNullable<RejectionFixture['generator']>
       throw new Error(`Unknown non-finite float: ${String(generator.value)}`);
     }
     case 'repeat-string': return (generator.utf8 ?? '').repeat(generator.count ?? 0);
+    case 'unsafe-accessor': {
+      // A computed accessor rather than a plain data property. The validator
+      // must snapshot without invoking it, and reject the input outright.
+      const value = {} as Record<string, unknown>;
+      Object.defineProperty(value, '$hypequery', {
+        enumerable: true,
+        get: () => ({
+          type: 'uuid',
+          version: 1,
+          value: '01890f3e-7b7b-7cc2-98c4-dc0c0c07398f',
+        }),
+      });
+      return value;
+    }
     default: throw new Error(`Unknown fixture generator: ${generator.type}`);
   }
 }

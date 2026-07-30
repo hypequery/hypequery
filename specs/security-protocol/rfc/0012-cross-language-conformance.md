@@ -128,6 +128,20 @@ parsed JSON dictionaries) cannot construct the input; their adapters respond
 Only `unsafe-accessor` cases are host-model conditional; skipping any other
 case is a conformance failure.
 
+Skipping is permitted because the input cannot be constructed, not because the
+guarantee is optional. Every implementation MUST additionally declare, in its
+conformance report, a language-specific hostile-object suite covering its own
+conversion mechanisms — getters, proxies, `toJSON`, `__str__`, `__getattr__`,
+descriptors, and comparable hooks — together with the count of cases it
+contains. TypeScript covers at least getters, `toJSON`, custom prototypes,
+symbol keys, and sparse arrays; Python covers at least property descriptors,
+custom mappings, `__iter__`, `__str__`, `dict` subclasses, and cyclic
+structures.
+
+A report that skips the shared cases and declares no such suite is incomplete,
+not passing. Without both layers `HQ_VALUE_UNSAFE_OBJECT` would be the one
+frozen failure code no implementation is ever required to demonstrate.
+
 ## Operations and pass criteria
 
 The adapter dispatches on `family`, `role`, and in-case fields. No operation

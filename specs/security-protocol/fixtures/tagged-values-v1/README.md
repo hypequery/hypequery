@@ -34,11 +34,22 @@ Generators expand as follows:
 - `array`: creates one tagged array containing `items` copies of `value`;
 - `array-tree`: creates one tagged array containing `branches` tagged arrays,
   each containing `itemsPerBranch` copies of `value`;
-- `repeat-string`: concatenates `count` copies of the UTF-8 string `utf8`.
+- `repeat-string`: concatenates `count` copies of the UTF-8 string `utf8`;
+- `unsafe-accessor`: builds an object whose `$hypequery` member is served by a
+  computed accessor rather than a plain data property. Implementations whose
+  input model cannot express computed accessors respond `skipped`, and must
+  then declare their own hostile-object suite per RFC 0012.
 
 `error` is the required stable failure code. `phase` identifies the earliest
 stage that must reject the input. A consumer may reject earlier only when it
 returns the same code and does not partially execute or hash the value.
+
+## What these fixtures cannot express
+
+Metadata integers are accepted by value, not by lexical form: `1`, `1.0`, and
+`1e0` all denote `1` and all canonicalize to `1`. The manifest cannot carry
+that distinction — writing `1.0` into a `value` field serializes back to `1` —
+so per-language unit tests cover the coercion of an integral host float.
 
 Fixture runners must not pass `sourceUtf8` through an ordinary JSON dictionary
 parser before duplicate-key detection.
