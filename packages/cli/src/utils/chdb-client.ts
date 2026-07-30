@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import type { TypeGenerationClickHouseClient } from '@hypequery/clickhouse/cli';
+import type { TypeGenerationClickHouseClient } from '../typegen/index.js';
 
 /**
  * Minimal surface of the `chdb` package the CLI relies on. `chdb` is not a

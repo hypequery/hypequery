@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { generateClickHouseTypes } from './clickhouse.js';
 
 const generateTypes = vi.hoisted(() => vi.fn());
-vi.mock('@hypequery/clickhouse/cli', () => ({
+vi.mock('../typegen/index.js', () => ({
   clickhouseToTsType: vi.fn(),
   generateTypes,
 }));

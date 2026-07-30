@@ -7,7 +7,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { TypeGenerationClickHouseClient } from '@hypequery/clickhouse/cli';
+import type { TypeGenerationClickHouseClient } from '../typegen/index.js';
 import { getClickHouseClient } from '../utils/clickhouse-client.js';
 
 export interface DatasetGeneratorOptions {
