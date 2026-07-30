@@ -162,7 +162,7 @@ importers:
   packages/datasets:
     dependencies:
       '@hypequery/protocol':
-        specifier: ^0.9.0
+        specifier: ^0.10.0
         version: link:../protocol
       '@noble/hashes':
         specifier: ^1.8.0
@@ -296,10 +296,10 @@ importers:
   packages/serve:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.13.0
+        specifier: ^0.13.2
         version: link:../datasets
       '@hypequery/protocol':
-        specifier: ^0.9.0
+        specifier: ^0.10.0
         version: link:../protocol
       jose:
         specifier: ^5.9.6
