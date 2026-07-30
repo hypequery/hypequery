@@ -57,3 +57,20 @@ Fixtures grew from 18 success and 28 rejection cases to 32 and 33. The
 additions concentrate on float canonicalization boundaries, where the corpus
 previously held a single case (`1.5`) that agrees across languages by
 coincidence.
+
+**RFC 0002 (portable identifiers) is also accepted**, with no implementation
+change. The validation order — type, empty, length, grammar, reserved — was
+already implemented but unspecified, and it is load-bearing: the grammar check
+running before the reserved-prefix check is what keeps the case-insensitive
+comparison behind an ASCII gate, where host case-folding rules agree. The
+order is now normative, the per-segment scope of the reserved namespace is
+stated, and the identifier corpus gained boundary cases at every limit
+(segment 128 bytes, 8 segments, qualified 512 and 513 bytes) plus cases
+pinning each precedence overlap. It grew from 4 success and 8 rejection cases
+to 7 and 13.
+
+**RFC 0012 (cross-language conformance) is also accepted.** The per-case
+timeout is pinned at 5000 ms by default, and the RFC now states that a green
+run is evidence only for the families an adapter announced — cases in
+unannounced families are reported as not run, so an adapter that announces one
+family exits zero while leaving most of the corpus untouched.
