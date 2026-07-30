@@ -6,10 +6,10 @@ export type TypeGeneratorOptions = ClickHouseGeneratorOptions & ChdbGeneratorOpt
 
 type GeneratorFn = (options: TypeGeneratorOptions) => Promise<void>;
 
-// Loaded on demand. Both generators pull in `@hypequery/clickhouse/cli`, and importing
-// that eagerly puts it on the module graph of every command — a resolution failure there
-// took down even `hypequery --help`. Deferring it keeps the blast radius on the commands
-// that actually generate types.
+// Loaded on demand. The generator itself is local now, but it still reaches for a driver —
+// `@clickhouse/client` for one, the native `chdb` package for the other — and importing
+// those eagerly puts them on the module graph of every command. Deferring keeps the blast
+// radius on the commands that actually generate types, including `hypequery --help`.
 const generators: Partial<Record<DatabaseType, GeneratorFn>> = {
   clickhouse: async (options) => {
     const { generateClickHouseTypes } = await import('./clickhouse.js');

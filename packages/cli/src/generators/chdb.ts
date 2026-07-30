@@ -1,4 +1,4 @@
-import { generateTypes, type GenerateTypesOptions } from '@hypequery/clickhouse/cli';
+import { generateTypes, type GenerateTypesOptions } from '../typegen/index.js';
 import { getChdbTypeGenerationClient } from '../utils/chdb-client.js';
 
 export interface ChdbGeneratorOptions {

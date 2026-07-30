@@ -2,7 +2,7 @@ import {
   clickhouseToTsType,
   generateTypes,
   type GenerateTypesOptions,
-} from '@hypequery/clickhouse/cli';
+} from '../typegen/index.js';
 import { getClickHouseClient } from '../utils/clickhouse-client.js';
 
 export interface ClickHouseGeneratorOptions {

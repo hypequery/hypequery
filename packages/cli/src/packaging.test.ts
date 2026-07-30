@@ -77,11 +77,20 @@ describe('runtime dependency declarations', () => {
     expect(undeclared).toEqual([]);
   });
 
-  it('keeps @hypequery/clickhouse installable without opt-in', () => {
-    // It backs `hypequery init` / `hypequery generate`. As an optional peer, package
-    // managers skipped it (pnpm skips peers entirely) while the code imported it anyway.
-    expect(declaredAtRuntime.has('@hypequery/clickhouse')).toBe(true);
+  it('does not depend on @hypequery/clickhouse at all', () => {
+    // `hypequery generate` used to reach into `@hypequery/clickhouse/cli` for the type
+    // generator, which dragged the whole query builder (~1.1 MB) into every CLI install
+    // and, as an optional peer, crashed commands outright when package managers skipped
+    // it. The generator now lives in src/typegen, so the dependency is gone entirely —
+    // the query builder belongs in the *user's* project, installed by the scaffolder.
+    expect(declaredAtRuntime.has('@hypequery/clickhouse')).toBe(false);
     expect(pkg.peerDependencies?.['@hypequery/clickhouse']).toBeUndefined();
+
+    const staticClickhouseImports = sourceFiles(srcDir).filter(file =>
+      staticBareImports(file).some(specifier => packageRoot(specifier) === '@hypequery/clickhouse')
+    );
+
+    expect(staticClickhouseImports).toEqual([]);
   });
 
   it('loads @hypequery/serve lazily, since it must come from the user project', () => {
