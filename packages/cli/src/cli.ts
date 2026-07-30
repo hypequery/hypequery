@@ -24,6 +24,7 @@ import {
   logoutCommand,
   type LoginOptions,
 } from './commands/login.js';
+import { isPromptCancelled } from './utils/prompts.js';
 
 const program = new Command();
 
@@ -72,6 +73,12 @@ function runCommand<TArgs extends unknown[]>(
     try {
       await action(...args);
     } catch (error) {
+      // Ctrl+C at a prompt is a deliberate abort, not a failure: report it as
+      // the interrupt it is instead of dumping an error and exiting 1.
+      if (isPromptCancelled(error)) {
+        console.log('\nCancelled.');
+        process.exit(130);
+      }
       console.error(error instanceof Error ? error.message : error);
       process.exit(1);
     }
