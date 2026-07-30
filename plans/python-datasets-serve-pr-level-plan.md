@@ -230,10 +230,25 @@ PYC-01 are merged.
   range-checked per ClickHouse type, `Decimal` never through binary float,
   timezone-aware datetimes only, NaN/Infinity rejected, bytes/UUID/enum/
   array/map/tuple limits enforced; stable failure codes.
+- **Float serialization is the highest-risk item in this PR.** RFC 8785
+  mandates the ECMAScript `Number::toString` algorithm. Python's `repr` and
+  `json.dumps` do not implement it — they disagree on `1e20`, `1e-7`, `1e-6`,
+  and integral floats among others — so the encoder MUST carry an audited
+  shortest-round-trip serializer (vendored Ryū is compatible with the
+  zero-dependency goal) rather than delegating to the host. Required
+  evidence, all three:
+  - every RFC 8785 Appendix B vector, added as shared fixtures;
+  - the boundary corpus (`1e20`, `1e21`, `1e-6`, `1e-7`, smallest subnormal,
+    maximum finite, exponent thresholds);
+  - a randomised differential test over binary64 bit patterns, comparing
+    against the TypeScript implementation.
 - **Acceptance:** Conformance adapter passes `tagged-values-v1` success
   cases byte-identically and rejection cases code-identically, including
-  the shared fuzz seeds. Property tests (hypothesis) for round-trip and
-  range boundaries.
+  the shared fuzz seeds. Metadata integers accept integral host floats and
+  coerce them (`1.0` is `1`). Property tests (hypothesis) for round-trip and
+  range boundaries. A declared hostile-object suite covering property
+  descriptors, custom mappings, `__iter__`, `__str__`, `dict` subclasses, and
+  cyclic structures, per RFC 0012.
 - **Review:** Security review required.
 
 ### PYA-04 — Portable identifiers (RFC 0002)
