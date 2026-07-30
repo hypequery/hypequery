@@ -73,6 +73,17 @@ describe('dependency installer', () => {
     ]);
   });
 
+  it('includes chdb in manual install guidance when package.json is missing', async () => {
+    vi.mocked(readFile).mockRejectedValue(new Error('File not found'));
+
+    await installScaffoldDependencies('queries', 'chdb');
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('@hypequery/clickhouse, @hypequery/serve, zod, chdb'),
+    );
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
   it('pins sibling packages to the same canary version', () => {
     expect(resolveScaffoldPackages('0.0.0-canary-20260506195711')).toEqual([
       '@hypequery/clickhouse@0.0.0-canary-20260506195711',

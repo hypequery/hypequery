@@ -4,12 +4,15 @@ import ora from 'ora';
 import { logger } from '../utils/logger.js';
 import {
   promptClickHouseConnection,
+  promptInitDatabase,
   promptChdbStorage,
   promptOutputDirectory,
   promptInitStyle,
+  promptInitAuthMode,
   promptGenerateExample,
   promptTableSelection,
   promptDatasetTableSelection,
+  confirmWithoutPackageJson,
   confirmOverwrite,
   promptRetry,
   promptContinueWithoutDb,
@@ -139,6 +142,15 @@ async function resolveConnectionConfig(options: InitOptions): Promise<Connection
   return promptClickHouseConnection();
 }
 
+async function hasProjectPackageJson(): Promise<boolean> {
+  try {
+    await readFile(path.join(process.cwd(), 'package.json'), 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type ChdbTestResult = { ok: true } | { ok: false; reason: 'not-installed' | 'engine-error' };
 
 async function testChdbConnection(chdbPath: string | undefined): Promise<ChdbTestResult> {
@@ -208,10 +220,23 @@ async function testConnection(
 
 export async function initCommand(options: InitOptions = {}) {
   const noInteractive = options.noInteractive === true || (options as InitOptions & { interactive?: boolean }).interactive === false;
-  const database = normalizeInitDatabase(options.database);
 
   logger.newline();
   logger.header('Welcome to hypequery!');
+
+  if (!noInteractive && !(await hasProjectPackageJson())) {
+    logger.warn(`package.json not found in ${process.cwd()}`);
+    const shouldContinue = await confirmWithoutPackageJson(process.cwd());
+    if (!shouldContinue) {
+      logger.info('Setup cancelled. Run init from your project directory.');
+      return;
+    }
+    logger.newline();
+  }
+
+  const database = normalizeInitDatabase(
+    options.database ?? (noInteractive ? undefined : await promptInitDatabase()),
+  );
   logger.info(
     database === 'chdb'
       ? "Let's set up your analytics layer on embedded ClickHouse (chDB)."
@@ -253,7 +278,7 @@ export async function initCommand(options: InitOptions = {}) {
 
         const retry = await promptRetry('Try again?');
         if (retry) {
-          return initCommand(options);
+          return initCommand({ ...options, database });
         }
 
         const continueWithout = await promptContinueWithoutDb();
@@ -282,9 +307,12 @@ export async function initCommand(options: InitOptions = {}) {
   const resolvedOutputDir = path.resolve(process.cwd(), outputDir);
 
   let style = normalizeInitStyle(options.style);
-  const auth = normalizeAuthMode(options.auth);
   if (!options.style && !noInteractive) {
     style = await promptInitStyle();
+  }
+  let auth = normalizeAuthMode(options.auth);
+  if (!options.auth && !noInteractive) {
+    auth = normalizeAuthMode(await promptInitAuthMode());
   }
 
   // Step 5: Check for existing files

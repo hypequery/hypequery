@@ -2,12 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import prompts from 'prompts';
 import {
   promptClickHouseConnection,
+  promptInitDatabase,
   promptChdbStorage,
   promptOutputDirectory,
   promptInitStyle,
+  promptInitAuthMode,
   promptGenerateExample,
   promptTableSelection,
   promptDatasetTableSelection,
+  confirmWithoutPackageJson,
   confirmOverwrite,
   promptRetry,
   promptContinueWithoutDb,
@@ -31,7 +34,13 @@ describe('prompts', () => {
         password: 'secret',
       };
 
-      vi.mocked(prompts).mockResolvedValue(mockConnection);
+      vi.mocked(prompts)
+        .mockResolvedValueOnce({ host: mockConnection.host })
+        .mockResolvedValueOnce({
+          database: mockConnection.database,
+          username: mockConnection.username,
+          password: mockConnection.password,
+        });
 
       const result = await promptClickHouseConnection();
 
@@ -44,6 +53,7 @@ describe('prompts', () => {
       const result = await promptClickHouseConnection();
 
       expect(result).toBeNull();
+      expect(prompts).toHaveBeenCalledTimes(1);
     });
 
     it('should use environment variables as defaults', async () => {
@@ -56,21 +66,26 @@ describe('prompts', () => {
         CLICKHOUSE_PASSWORD: 'test_pass',
       };
 
-      vi.mocked(prompts).mockResolvedValue({
-        host: 'http://test:8123',
-        database: 'test_db',
-        username: 'test_user',
-        password: 'test_pass',
-      });
+      vi.mocked(prompts)
+        .mockResolvedValueOnce({ host: 'http://test:8123' })
+        .mockResolvedValueOnce({
+          database: 'test_db',
+          username: 'test_user',
+          password: 'test_pass',
+        });
 
       await promptClickHouseConnection();
 
-      expect(prompts).toHaveBeenCalledWith(
+      expect(prompts).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          name: 'host',
+          initial: 'http://test:8123',
+        }),
+      );
+      expect(prompts).toHaveBeenNthCalledWith(
+        2,
         expect.arrayContaining([
-          expect.objectContaining({
-            name: 'host',
-            initial: 'http://test:8123',
-          }),
           expect.objectContaining({
             name: 'database',
             initial: 'test_db',
@@ -98,23 +113,45 @@ describe('prompts', () => {
       delete process.env.CLICKHOUSE_USERNAME;
       delete process.env.CLICKHOUSE_PASSWORD;
 
-      vi.mocked(prompts).mockResolvedValue({
-        host: 'http://localhost:8123',
-        database: 'default',
-        username: 'default',
-        password: '',
-      });
+      vi.mocked(prompts)
+        .mockResolvedValueOnce({ host: 'http://localhost:8123' })
+        .mockResolvedValueOnce({
+          database: 'default',
+          username: 'default',
+          password: '',
+        });
 
       await promptClickHouseConnection();
 
-      expect(prompts).toHaveBeenCalledWith(
+      expect(prompts).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          name: 'host',
+          initial: '',
+        }),
+      );
+      expect(prompts).toHaveBeenNthCalledWith(
+        2,
         expect.arrayContaining([
-          expect.objectContaining({ initial: '' }),
           expect.objectContaining({ initial: '' }),
         ])
       );
 
       process.env = originalEnv;
+    });
+  });
+
+  describe('promptInitDatabase', () => {
+    it('returns the selected database driver', async () => {
+      vi.mocked(prompts).mockResolvedValue({ database: 'chdb' });
+
+      await expect(promptInitDatabase()).resolves.toBe('chdb');
+    });
+
+    it('defaults to ClickHouse when cancelled', async () => {
+      vi.mocked(prompts).mockResolvedValue({});
+
+      await expect(promptInitDatabase()).resolves.toBe('clickhouse');
     });
   });
 
@@ -219,6 +256,34 @@ describe('prompts', () => {
         expect.objectContaining({
           name: 'style',
           initial: 0,
+        }),
+      );
+    });
+  });
+
+  describe('promptInitAuthMode', () => {
+    it('returns context authentication when selected', async () => {
+      vi.mocked(prompts).mockResolvedValue({ auth: 'context' });
+
+      await expect(promptInitAuthMode()).resolves.toBe('context');
+    });
+
+    it('defaults to no auth when cancelled', async () => {
+      vi.mocked(prompts).mockResolvedValue({});
+
+      await expect(promptInitAuthMode()).resolves.toBe('none');
+    });
+  });
+
+  describe('confirmWithoutPackageJson', () => {
+    it('defaults to cancelling when package.json is missing', async () => {
+      vi.mocked(prompts).mockResolvedValue({});
+
+      await expect(confirmWithoutPackageJson('/tmp/project')).resolves.toBe(false);
+      expect(prompts).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('/tmp/project'),
+          initial: false,
         }),
       );
     });

@@ -42,6 +42,15 @@ Scaffolds the standard hypequery setup.
 npx hypequery init
 ```
 
+Interactive setup asks which database driver to use, whether to include
+request-context authentication scaffolding, where to write the generated
+files, and which API style to create. Selecting chDB replaces the remote
+credential questions with an embedded-storage choice.
+
+Run `init` from the project directory that contains `package.json`. If no
+package manifest is found, interactive setup asks for confirmation before
+writing files and dependency installation must be completed manually.
+
 It will:
 
 - connect to ClickHouse or start an embedded chDB session
