@@ -14,15 +14,86 @@ import {
   confirmOverwrite,
   promptRetry,
   promptContinueWithoutDb,
+  PromptCancelledError,
+  isPromptCancelled,
 } from './prompts.js';
 import { logger } from './logger.js';
 
 vi.mock('prompts');
 vi.mock('./logger.js');
 
+type PromptOptions = { onCancel?: () => void };
+
+/**
+ * Make the mocked `prompts` behave like a genuinely aborted prompt: invoke the
+ * `onCancel` callback it was handed, then resolve without the answer key.
+ */
+function mockUserCancels() {
+  vi.mocked(prompts).mockImplementation((async (_questions: unknown, options?: PromptOptions) => {
+    options?.onCancel?.();
+    return {};
+  }) as unknown as typeof prompts);
+}
+
 describe('prompts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('cancellation', () => {
+    // Ctrl+C has to abort the command. Before this was wired up, an aborted
+    // prompt was indistinguishable from an unanswered one, so every caller's
+    // `?? default` answered on the user's behalf and init scaffolded a project
+    // the user was trying to bail out of.
+    const cases: Array<[string, () => Promise<unknown>]> = [
+      ['promptClickHouseConnection', () => promptClickHouseConnection()],
+      ['promptInitDatabase', () => promptInitDatabase()],
+      ['promptChdbStorage', () => promptChdbStorage()],
+      ['promptOutputDirectory', () => promptOutputDirectory()],
+      ['promptInitStyle', () => promptInitStyle()],
+      ['promptInitAuthMode', () => promptInitAuthMode()],
+      ['confirmWithoutPackageJson', () => confirmWithoutPackageJson('/tmp/project')],
+      ['promptGenerateExample', () => promptGenerateExample()],
+      ['promptTableSelection', () => promptTableSelection(['users'])],
+      ['promptDatasetTableSelection', () => promptDatasetTableSelection(['users'])],
+      ['confirmOverwrite', () => confirmOverwrite(['file.ts'])],
+      ['promptRetry', () => promptRetry('Retry?')],
+      ['promptContinueWithoutDb', () => promptContinueWithoutDb()],
+    ];
+
+    it.each(cases)('%s rejects when the user aborts', async (_name, run) => {
+      mockUserCancels();
+
+      await expect(run()).rejects.toBeInstanceOf(PromptCancelledError);
+    });
+
+    it('aborts when credentials are cancelled after the URL was answered', async () => {
+      vi.mocked(prompts)
+        .mockImplementationOnce((async () => ({ host: 'http://localhost:8123' })) as unknown as typeof prompts)
+        .mockImplementationOnce((async (_questions: unknown, options?: PromptOptions) => {
+          options?.onCancel?.();
+          return {};
+        }) as unknown as typeof prompts);
+
+      await expect(promptClickHouseConnection()).rejects.toBeInstanceOf(PromptCancelledError);
+    });
+
+    it('identifies cancellation errors and ignores unrelated ones', () => {
+      expect(isPromptCancelled(new PromptCancelledError())).toBe(true);
+      expect(isPromptCancelled(new Error('connection refused'))).toBe(false);
+      expect(isPromptCancelled(undefined)).toBe(false);
+    });
+
+    it('hands prompts an onCancel handler', async () => {
+      vi.mocked(prompts).mockResolvedValue({ style: 'queries' });
+
+      await promptInitStyle();
+
+      expect(prompts).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ onCancel: expect.any(Function) }),
+      );
+    });
   });
 
   describe('promptClickHouseConnection', () => {
@@ -82,6 +153,7 @@ describe('prompts', () => {
           name: 'host',
           initial: 'http://test:8123',
         }),
+        expect.anything(),
       );
       expect(prompts).toHaveBeenNthCalledWith(
         2,
@@ -98,7 +170,8 @@ describe('prompts', () => {
             name: 'password',
             initial: 'test_pass',
           }),
-        ])
+        ]),
+        expect.anything(),
       );
 
       process.env = originalEnv;
@@ -129,12 +202,14 @@ describe('prompts', () => {
           name: 'host',
           initial: '',
         }),
+        expect.anything(),
       );
       expect(prompts).toHaveBeenNthCalledWith(
         2,
         expect.arrayContaining([
           expect.objectContaining({ initial: '' }),
-        ])
+        ]),
+        expect.anything(),
       );
 
       process.env = originalEnv;
@@ -148,7 +223,7 @@ describe('prompts', () => {
       await expect(promptInitDatabase()).resolves.toBe('chdb');
     });
 
-    it('defaults to ClickHouse when cancelled', async () => {
+    it('defaults to ClickHouse when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       await expect(promptInitDatabase()).resolves.toBe('clickhouse');
@@ -156,7 +231,7 @@ describe('prompts', () => {
   });
 
   describe('promptChdbStorage', () => {
-    it('defaults to an in-memory session when the prompt is cancelled', async () => {
+    it('defaults to an in-memory session when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       await expect(promptChdbStorage()).resolves.toBeUndefined();
@@ -168,7 +243,7 @@ describe('prompts', () => {
       await expect(promptChdbStorage()).resolves.toBe('./analytics.chdb');
     });
 
-    it('returns a custom path and falls back when the path prompt is cancelled', async () => {
+    it('returns a custom path and falls back when the path prompt yields no answer', async () => {
       vi.mocked(prompts)
         .mockResolvedValueOnce({ storage: 'custom' })
         .mockResolvedValueOnce({ path: './data/my.chdb' });
@@ -221,7 +296,7 @@ describe('prompts', () => {
       expect(result).toBe('analytics');
     });
 
-    it('should return default if user cancels', async () => {
+    it('should return default when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       const result = await promptOutputDirectory();
@@ -239,7 +314,7 @@ describe('prompts', () => {
       expect(result).toBe('datasets');
     });
 
-    it('should default to query style when user cancels', async () => {
+    it('should default to query style when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       const result = await promptInitStyle();
@@ -257,6 +332,7 @@ describe('prompts', () => {
           name: 'style',
           initial: 0,
         }),
+        expect.anything(),
       );
     });
   });
@@ -268,7 +344,7 @@ describe('prompts', () => {
       await expect(promptInitAuthMode()).resolves.toBe('context');
     });
 
-    it('defaults to no auth when cancelled', async () => {
+    it('defaults to no auth when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       await expect(promptInitAuthMode()).resolves.toBe('none');
@@ -276,7 +352,7 @@ describe('prompts', () => {
   });
 
   describe('confirmWithoutPackageJson', () => {
-    it('defaults to cancelling when package.json is missing', async () => {
+    it('defaults to declining when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       await expect(confirmWithoutPackageJson('/tmp/project')).resolves.toBe(false);
@@ -285,6 +361,7 @@ describe('prompts', () => {
           message: expect.stringContaining('/tmp/project'),
           initial: false,
         }),
+        expect.anything(),
       );
     });
   });
@@ -306,7 +383,7 @@ describe('prompts', () => {
       expect(result).toBe(false);
     });
 
-    it('should return false when user cancels', async () => {
+    it('should return false when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       const result = await promptGenerateExample();
@@ -322,7 +399,8 @@ describe('prompts', () => {
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           initial: true,
-        })
+        }),
+        expect.anything(),
       );
     });
   });
@@ -366,7 +444,8 @@ describe('prompts', () => {
             expect.objectContaining({ value: 'table_9' }),
             expect.objectContaining({ title: 'Skip example', value: null }),
           ]),
-        })
+        }),
+        expect.anything(),
       );
 
       const call = vi.mocked(prompts).mock.calls[0][0] as any;
@@ -385,7 +464,8 @@ describe('prompts', () => {
           choices: expect.arrayContaining([
             expect.objectContaining({ title: 'Skip example', value: null }),
           ]),
-        })
+        }),
+        expect.anything(),
       );
     });
   });
@@ -421,10 +501,11 @@ describe('prompts', () => {
             }),
           ]),
         }),
+        expect.anything(),
       );
     });
 
-    it('should default to no tables when user cancels', async () => {
+    it('should default to no tables when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       const result = await promptDatasetTableSelection(['orders']);
@@ -469,17 +550,20 @@ describe('prompts', () => {
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           message: expect.stringContaining('• file1.ts'),
-        })
+        }),
+        expect.anything(),
       );
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           message: expect.stringContaining('• file2.ts'),
-        })
+        }),
+        expect.anything(),
       );
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           message: expect.stringContaining('• file3.ts'),
-        })
+        }),
+        expect.anything(),
       );
     });
 
@@ -491,11 +575,12 @@ describe('prompts', () => {
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           initial: false,
-        })
+        }),
+        expect.anything(),
       );
     });
 
-    it('should return false when user cancels', async () => {
+    it('should return false when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       const result = await confirmOverwrite(['file.ts']);
@@ -529,7 +614,8 @@ describe('prompts', () => {
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           message: 'Custom retry message?',
-        })
+        }),
+        expect.anything(),
       );
     });
 
@@ -541,11 +627,12 @@ describe('prompts', () => {
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           initial: true,
-        })
+        }),
+        expect.anything(),
       );
     });
 
-    it('should return false when user cancels', async () => {
+    it('should return false when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       const result = await promptRetry('Retry?');
@@ -579,11 +666,12 @@ describe('prompts', () => {
       expect(prompts).toHaveBeenCalledWith(
         expect.objectContaining({
           initial: true,
-        })
+        }),
+        expect.anything(),
       );
     });
 
-    it('should return false when user cancels', async () => {
+    it('should return false when the prompt yields no answer', async () => {
       vi.mocked(prompts).mockResolvedValue({});
 
       const result = await promptContinueWithoutDb();

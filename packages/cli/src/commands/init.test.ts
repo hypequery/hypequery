@@ -91,6 +91,23 @@ describe('init command - graceful failure handling', () => {
       );
     });
 
+    it('propagates a prompt abort instead of scaffolding with defaults', async () => {
+      // Ctrl+C must reach the CLI entrypoint, which turns it into a clean
+      // "Cancelled." exit. If init swallowed it, the remaining prompts would
+      // fall back to their defaults and write a project the user abandoned.
+      const { PromptCancelledError } = await vi.importActual<typeof prompts>(
+        '../utils/prompts.js',
+      );
+      vi.mocked(prompts.promptInitDatabase).mockRejectedValue(new PromptCancelledError());
+
+      await expect(initCommand({})).rejects.toBeInstanceOf(PromptCancelledError);
+
+      expect(prompts.promptClickHouseConnection).not.toHaveBeenCalled();
+      expect(prompts.promptOutputDirectory).not.toHaveBeenCalled();
+      expect(writeFile).not.toHaveBeenCalled();
+      expect(mkdir).not.toHaveBeenCalled();
+    });
+
     it('continues scaffolding when package.json is missing and the user confirms', async () => {
       vi.mocked(readFile).mockRejectedValueOnce(new Error('File not found'));
       vi.mocked(prompts.confirmWithoutPackageJson).mockResolvedValue(true);

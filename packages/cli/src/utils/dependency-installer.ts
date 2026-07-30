@@ -82,22 +82,43 @@ function detectPackageManager(pkgJson: PackageJson | null): PackageManager {
   return 'npm';
 }
 
-function getInstallArgs(manager: PackageManager, packages: string[]) {
+export function isCanaryVersion(version: string | undefined): boolean {
+  return version?.includes('canary') === true;
+}
+
+/**
+ * Canary builds pin every hypequery package to a `0.0.0-canary-*` version, which
+ * sorts below every published semver range. Any third-party peer range on a
+ * hypequery package is therefore unsatisfiable — `chdb` declares
+ * `peerOptional @hypequery/clickhouse@">=2.1.2"` — and npm aborts the whole
+ * install with ERESOLVE, leaving the scaffold without its dependencies.
+ *
+ * Only npm needs this: pnpm (strict-peer-dependencies defaults to false), yarn
+ * and bun all install through peer conflicts rather than failing. Stable
+ * installs keep strict peer checking on every manager.
+ */
+function getPeerRelaxFlags(manager: PackageManager, canary: boolean): string[] {
+  return canary && manager === 'npm' ? ['--legacy-peer-deps'] : [];
+}
+
+function getInstallArgs(manager: PackageManager, packages: string[], canary = false) {
+  const relaxFlags = getPeerRelaxFlags(manager, canary);
+
   switch (manager) {
     case 'pnpm':
-      return ['add', ...packages];
+      return ['add', ...relaxFlags, ...packages];
     case 'yarn':
-      return ['add', ...packages];
+      return ['add', ...relaxFlags, ...packages];
     case 'bun':
-      return ['add', ...packages];
+      return ['add', ...relaxFlags, ...packages];
     case 'npm':
     default:
-      return ['install', ...packages];
+      return ['install', ...relaxFlags, ...packages];
   }
 }
 
-function formatManualCommand(manager: PackageManager, packages: string[]) {
-  return `${MANUAL_COMMANDS[manager]} ${packages.join(' ')}`;
+function formatManualCommand(manager: PackageManager, packages: string[], canary = false) {
+  return [MANUAL_COMMANDS[manager], ...getPeerRelaxFlags(manager, canary), ...packages].join(' ');
 }
 
 export function resolveScaffoldPackages(
@@ -108,7 +129,7 @@ export function resolveScaffoldPackages(
   const includeDatasets = style === 'datasets';
   const includeChdb = database === 'chdb';
 
-  if (cliVersion?.includes('canary')) {
+  if (isCanaryVersion(cliVersion)) {
     return [
       `@hypequery/clickhouse@${cliVersion}`,
       `@hypequery/serve@${cliVersion}`,
@@ -175,9 +196,10 @@ export async function installScaffoldDependencies(
     return;
   }
 
+  const canary = isCanaryVersion(cliPkgJson?.version);
   const manager = detectPackageManager(pkgJson);
   const command = manager === 'npm' ? 'npm' : manager;
-  const args = getInstallArgs(manager, missing);
+  const args = getInstallArgs(manager, missing, canary);
 
   logger.info(`Installing ${missing.join(', ')} with ${manager}...`);
   try {
@@ -198,7 +220,7 @@ export async function installScaffoldDependencies(
     logger.success(`Installed ${missing.join(', ')}`);
   } catch (error) {
     logger.warn('Failed to install hypequery packages automatically.');
-    logger.info(`Run manually: ${formatManualCommand(manager, missing)}`);
+    logger.info(`Run manually: ${formatManualCommand(manager, missing, canary)}`);
     if (error instanceof Error && error.message) {
       logger.info(error.message);
     }

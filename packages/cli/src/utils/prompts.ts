@@ -1,10 +1,47 @@
 import prompts from 'prompts';
 import { logger } from './logger.js';
 
-const noop = () => undefined;
+/**
+ * Raised when the user aborts a prompt with Ctrl+C or Esc.
+ */
+export class PromptCancelledError extends Error {
+  constructor() {
+    super('Prompt cancelled');
+    this.name = 'PromptCancelledError';
+  }
+}
 
-// Configure prompts to not exit on cancel
-prompts.override({ onCancel: noop });
+export function isPromptCancelled(error: unknown): error is PromptCancelledError {
+  return error instanceof PromptCancelledError;
+}
+
+/**
+ * Ask a question and turn an aborted prompt into a thrown PromptCancelledError.
+ *
+ * `prompts` only reports cancellation through the `onCancel` callback passed as
+ * its second argument — the resolved answers simply omit the cancelled key. So
+ * without this wrapper Ctrl+C is indistinguishable from an unanswered question,
+ * and each caller's `?? default` silently answers on the user's behalf.
+ */
+async function ask<T extends string = string>(
+  questions: prompts.PromptObject<T> | Array<prompts.PromptObject<T>>,
+): Promise<prompts.Answers<T>> {
+  let cancelled = false;
+
+  const answers = await prompts(questions, {
+    onCancel: () => {
+      cancelled = true;
+      // Returning false stops any remaining questions in the same chain.
+      return false;
+    },
+  });
+
+  if (cancelled) {
+    throw new PromptCancelledError();
+  }
+
+  return answers;
+}
 
 /**
  * Prompt for ClickHouse connection details
@@ -15,7 +52,7 @@ export async function promptClickHouseConnection(): Promise<{
   username: string;
   password: string;
 } | null> {
-  const hostResponse = await prompts({
+  const hostResponse = await ask({
     type: 'text',
     name: 'host',
     message: 'ClickHouse URL (or skip to configure later):',
@@ -28,7 +65,7 @@ export async function promptClickHouseConnection(): Promise<{
     return null;
   }
 
-  const credentials = await prompts([
+  const credentials = await ask([
     {
       type: 'text',
       name: 'database',
@@ -63,7 +100,7 @@ export type InitDatabase = 'clickhouse' | 'chdb';
  * Choose between a remote ClickHouse server and embedded chDB.
  */
 export async function promptInitDatabase(): Promise<InitDatabase> {
-  const response = await prompts({
+  const response = await ask({
     type: 'select',
     name: 'database',
     message: 'Choose your database',
@@ -83,7 +120,7 @@ export async function promptInitDatabase(): Promise<InitDatabase> {
  * or undefined for in-memory.
  */
 export async function promptChdbStorage(): Promise<string | undefined> {
-  const response = await prompts({
+  const response = await ask({
     type: 'select',
     name: 'storage',
     message: 'Where should embedded chDB store data?',
@@ -100,7 +137,7 @@ export async function promptChdbStorage(): Promise<string | undefined> {
   }
 
   if (response.storage === 'custom') {
-    const customResponse = await prompts({
+    const customResponse = await ask({
       type: 'text',
       name: 'path',
       message: 'Enter chDB data directory:',
@@ -116,7 +153,7 @@ export async function promptChdbStorage(): Promise<string | undefined> {
  * Prompt for output directory
  */
 export async function promptOutputDirectory(): Promise<string> {
-  const response = await prompts({
+  const response = await ask({
     type: 'select',
     name: 'directory',
     message: 'Where should we create your analytics files?',
@@ -133,7 +170,7 @@ export async function promptOutputDirectory(): Promise<string> {
   }
 
   if (response.directory === 'custom') {
-    const customResponse = await prompts({
+    const customResponse = await ask({
       type: 'text',
       name: 'path',
       message: 'Enter custom path:',
@@ -149,7 +186,7 @@ export async function promptOutputDirectory(): Promise<string> {
 export type InitStyle = 'queries' | 'datasets';
 
 export async function promptInitStyle(): Promise<InitStyle> {
-  const response = await prompts({
+  const response = await ask({
     type: 'select',
     name: 'style',
     message: 'Choose your dev API style',
@@ -169,7 +206,7 @@ export type InitAuthMode = 'none' | 'context';
  * Choose whether generated routes include request-context auth scaffolding.
  */
 export async function promptInitAuthMode(): Promise<InitAuthMode> {
-  const response = await prompts({
+  const response = await ask({
     type: 'select',
     name: 'auth',
     message: 'Choose authentication scaffolding',
@@ -187,7 +224,7 @@ export async function promptInitAuthMode(): Promise<InitAuthMode> {
  * Confirm scaffolding when init is run outside a Node project.
  */
 export async function confirmWithoutPackageJson(directory: string): Promise<boolean> {
-  const response = await prompts({
+  const response = await ask({
     type: 'confirm',
     name: 'continue',
     message: `package.json was not found in ${directory}. Continue scaffolding here?`,
@@ -201,7 +238,7 @@ export async function confirmWithoutPackageJson(directory: string): Promise<bool
  * Prompt for example query generation
  */
 export async function promptGenerateExample(): Promise<boolean> {
-  const response = await prompts({
+  const response = await ask({
     type: 'confirm',
     name: 'generate',
     message: 'Generate an example query?',
@@ -231,7 +268,7 @@ export async function promptTableSelection(tables: string[]): Promise<string | n
     { title: 'Skip example', value: null },
   ];
 
-  const response = await prompts({
+  const response = await ask({
     type: 'select',
     name: 'table',
     message: 'Which table should we use for the example?',
@@ -261,7 +298,7 @@ export async function promptDatasetTableSelection(
   }
 
   const defaults = new Set(defaultTables);
-  const response = await prompts({
+  const response = await ask({
     type: 'multiselect',
     name: 'tables',
     message: 'Which tables should we scaffold as datasets?',
@@ -281,7 +318,7 @@ export async function promptDatasetTableSelection(
  * Confirm overwrite of existing files
  */
 export async function confirmOverwrite(files: string[]): Promise<boolean> {
-  const response = await prompts({
+  const response = await ask({
     type: 'confirm',
     name: 'overwrite',
     message: `The following files will be overwritten:\n${files.map(f => `  • ${f}`).join('\n')}\n\nContinue?`,
@@ -295,7 +332,7 @@ export async function confirmOverwrite(files: string[]): Promise<boolean> {
  * Retry prompt for failed operations
  */
 export async function promptRetry(message: string): Promise<boolean> {
-  const response = await prompts({
+  const response = await ask({
     type: 'confirm',
     name: 'retry',
     message,
@@ -309,7 +346,7 @@ export async function promptRetry(message: string): Promise<boolean> {
  * Ask if user wants to continue without DB connection
  */
 export async function promptContinueWithoutDb(): Promise<boolean> {
-  const response = await prompts({
+  const response = await ask({
     type: 'confirm',
     name: 'continue',
     message: 'Continue setup without database connection?',

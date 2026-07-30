@@ -222,6 +222,107 @@ describe('dependency installer', () => {
     );
   });
 
+  it('relaxes npm peer resolution for canary installs', async () => {
+    // chdb declares `peerOptional @hypequery/clickhouse@">=2.1.2"`, which a
+    // 0.0.0-canary-* pin can never satisfy; without the flag npm aborts with
+    // ERESOLVE and the scaffold is left without chdb.
+    process.env.npm_config_user_agent = 'npm/10.9.4 node/v22.0.0';
+    vi.mocked(readFile)
+      .mockResolvedValueOnce(JSON.stringify({
+        name: 'fixture-app',
+        dependencies: {},
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        name: '@hypequery/cli',
+        version: '0.0.0-canary-20260506195711',
+      }));
+
+    await installScaffoldDependencies('queries', 'chdb');
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npm',
+      [
+        'install',
+        '--legacy-peer-deps',
+        '@hypequery/clickhouse@0.0.0-canary-20260506195711',
+        '@hypequery/serve@0.0.0-canary-20260506195711',
+        'zod@^3.23.8',
+        'chdb@^3.2.0',
+      ],
+      expect.objectContaining({ cwd: '/tmp/project', stdio: 'inherit' }),
+    );
+  });
+
+  it('keeps strict npm peer resolution for stable installs', async () => {
+    process.env.npm_config_user_agent = 'npm/10.9.4 node/v22.0.0';
+    vi.mocked(readFile)
+      .mockResolvedValueOnce(JSON.stringify({
+        name: 'fixture-app',
+        dependencies: {},
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        name: '@hypequery/cli',
+        version: '1.12.1',
+      }));
+
+    await installScaffoldDependencies('queries', 'chdb');
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      'npm',
+      [
+        'install',
+        '@hypequery/clickhouse',
+        '@hypequery/serve',
+        'zod@^3.23.8',
+        'chdb@^3.2.0',
+      ],
+      expect.any(Object),
+    );
+  });
+
+  it('leaves non-npm managers untouched on canary, since they do not fail on peer conflicts', async () => {
+    vi.mocked(readFile)
+      .mockResolvedValueOnce(JSON.stringify({
+        name: 'fixture-app',
+        packageManager: 'pnpm@10.0.0',
+        dependencies: {},
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        name: '@hypequery/cli',
+        version: '0.0.0-canary-20260506195711',
+      }));
+
+    await installScaffoldDependencies('queries', 'chdb');
+
+    const args = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('--legacy-peer-deps');
+    expect(args[0]).toBe('add');
+  });
+
+  it('repeats the peer flag in the manual fallback command so it can be copy-pasted', async () => {
+    process.env.npm_config_user_agent = 'npm/10.9.4 node/v22.0.0';
+    spawnMock.mockImplementation(() => {
+      const child = new EventEmitter();
+      queueMicrotask(() => child.emit('close', 1));
+      return child;
+    });
+    vi.mocked(readFile)
+      .mockResolvedValueOnce(JSON.stringify({
+        name: 'fixture-app',
+        dependencies: {},
+      }))
+      .mockResolvedValueOnce(JSON.stringify({
+        name: '@hypequery/cli',
+        version: '0.0.0-canary-20260506195711',
+      }));
+
+    await installScaffoldDependencies('queries', 'chdb');
+
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.stringContaining('npm install --legacy-peer-deps @hypequery/clickhouse@'),
+    );
+  });
+
   it('upgrades incompatible zod versions to the scaffold-compatible range', async () => {
     vi.mocked(readFile)
       .mockResolvedValueOnce(JSON.stringify({
