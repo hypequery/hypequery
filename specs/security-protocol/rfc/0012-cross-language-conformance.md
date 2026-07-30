@@ -1,7 +1,12 @@
 # RFC 0012: Cross-language conformance
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-07-30
 - Version: conformance manifest 1, adapter protocol 1
+
+Acceptance freezes conformance manifest version 1 and adapter protocol
+version 1. Changing a wire message shape or a role's pass criteria now
+requires a new protocol version.
 
 ## Summary
 
@@ -210,7 +215,24 @@ A conforming runner:
   environment;
 - reports every case as pass, fail, or skip, with the expected and actual
   code or output on failure;
+- reports the count of cases not run because their family was not announced;
+- enforces a per-case timeout defaulting to 5000 ms, overridable by the
+  operator but reported alongside the result;
 - exits zero only when no case failed.
+
+### Announced families are the scope of a claim
+
+A run exits zero when no announced case failed. Cases belonging to families the
+adapter did not announce are reported as not run — they are neither passes nor
+failures. An adapter that announces one family therefore exits zero while
+leaving most of the corpus untouched.
+
+That is correct for partial implementations and dangerous for release gates.
+A product claiming conformance for a protocol area MUST announce every family
+covering that area, and its published report MUST list the announced families
+and the not-run count. A green run is evidence only for what was announced.
+Implementations SHOULD assert their announced family list in CI, so a family
+can be added but never silently dropped.
 
 The TypeScript reference runner and reference adapter live in
 `@hypequery/protocol-conformance`. The package bundles a snapshot of the
