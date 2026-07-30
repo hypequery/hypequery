@@ -165,6 +165,9 @@ function multipartBundlePath(input: string): string {
 function validateMultipartBundlePaths(bundle: VerifiedDeploymentBundle): void {
   multipartBundlePath(bundle.manifest.deployment.path);
   for (const artifact of bundle.manifest.artifacts) multipartBundlePath(artifact.path);
+  for (const source of bundle.manifest.source?.files ?? []) {
+    multipartBundlePath(`${bundle.manifest.source!.root}/${source.path}`);
+  }
 }
 
 function partHeader(boundary: string, part: UploadPart): Uint8Array {
@@ -223,6 +226,19 @@ function uploadParts(
       byteLength: artifact.byteLength,
       sha256: artifact.sha256,
     })),
+    ...(manifest.manifest.source?.files.map(source => {
+      const bundlePath = `${manifest.manifest.source!.root}/${source.path}`;
+      return {
+        kind: 'file' as const,
+        name: 'bundle' as const,
+        filename: path.basename(source.path),
+        contentType: 'application/octet-stream',
+        absolutePath: path.join(root, ...bundlePath.split('/')),
+        bundlePath,
+        byteLength: source.byteLength,
+        sha256: source.sha256,
+      };
+    }) ?? []),
   ]);
 }
 

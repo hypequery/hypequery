@@ -60,6 +60,30 @@ function baseManifest() {
   };
 }
 
+function source() {
+  return {
+    root: 'source',
+    entrypoint: 'analytics/api.ts',
+    files: [
+      {
+        path: 'analytics/api.ts',
+        sha256: '3'.repeat(64),
+        byteLength: 20,
+      },
+      {
+        path: 'analytics/datasets/orders.ts',
+        sha256: '4'.repeat(64),
+        byteLength: 40,
+      },
+    ],
+    revision: {
+      kind: 'git',
+      commit: '5'.repeat(40),
+      dirty: false,
+    },
+  };
+}
+
 function materialize(type: string): unknown {
   const value = baseManifest();
   switch (type) {
@@ -160,6 +184,38 @@ describe('deployment bundle manifest v1', () => {
       () => validateProtocolDeploymentBundleManifest(value),
       'HQ_BUNDLE_INVALID_VALUE',
       '$.artifacts',
+    );
+  });
+
+  it('accepts an immutable multi-file source snapshot', () => {
+    const manifest = validateProtocolDeploymentBundleManifest({
+      ...baseManifest(),
+      source: source(),
+    });
+    expect(manifest.source).toEqual(source());
+    expect(Object.isFrozen(manifest.source)).toBe(true);
+    expect(Object.isFrozen(manifest.source?.files)).toBe(true);
+    expect(Object.isFrozen(manifest.source?.files[0])).toBe(true);
+    expect(Object.isFrozen(manifest.source?.revision)).toBe(true);
+  });
+
+  it('requires the source entrypoint and a collision-free bundle tree', () => {
+    expectBundleError(
+      () => validateProtocolDeploymentBundleManifest({
+        ...baseManifest(),
+        source: { ...source(), entrypoint: 'analytics/missing.ts' },
+      }),
+      'HQ_BUNDLE_INVALID_REFERENCE',
+      '$.source.entrypoint',
+    );
+    expectBundleError(
+      () => validateProtocolDeploymentBundleManifest({
+        ...baseManifest(),
+        deployment: { ...baseManifest().deployment, path: 'source' },
+        source: source(),
+      }),
+      'HQ_BUNDLE_INVALID_REFERENCE',
+      '$',
     );
   });
 

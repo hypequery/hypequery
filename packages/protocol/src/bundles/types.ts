@@ -12,18 +12,37 @@ export interface ProtocolDeploymentBundleArtifact extends ProtocolDeploymentBund
   readonly runtime: 'node' | 'python';
 }
 
+export interface ProtocolDeploymentBundleSourceRevision {
+  readonly kind: 'git';
+  readonly commit: string;
+  readonly dirty: boolean;
+}
+
+export interface ProtocolDeploymentBundleSource {
+  /** Directory within the closed bundle that contains project-relative source files. */
+  readonly root: string;
+  /** Project-relative API module used to build the deployment. */
+  readonly entrypoint: string;
+  readonly files: readonly ProtocolDeploymentBundleFile[];
+  readonly revision?: ProtocolDeploymentBundleSourceRevision;
+}
+
 export interface ProtocolDeploymentBundleManifest {
   readonly kind: 'hypequery-deployment-bundle';
   readonly version: 1;
   readonly deployment: ProtocolDeploymentBundleDeployment;
   readonly artifacts: readonly ProtocolDeploymentBundleArtifact[];
+  readonly source?: ProtocolDeploymentBundleSource;
 }
 
 export interface ProtocolDeploymentBundleLimits {
   readonly maxArtifacts: number;
+  readonly maxSourceFiles: number;
   readonly maxPathBytes: number;
   readonly maxDeploymentBytes: number;
   readonly maxArtifactBytes: number;
+  readonly maxSourceFileBytes: number;
+  readonly maxSourceBytes: number;
   readonly maxTotalBytes: number;
 }
 

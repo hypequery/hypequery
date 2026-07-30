@@ -18,6 +18,7 @@ import {
   getDeploymentRuntimeEntrypoints,
   type NodeRuntimeArtifact,
 } from '../utils/deployment-runtime-artifact.js';
+import { captureDeploymentSourceSnapshot } from '../utils/deployment-source-snapshot.js';
 import { loadApiModule } from '../utils/load-api.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -36,6 +37,7 @@ export interface BuildDeploymentOptions {
   runtimeOutput?: string;
   entrypointPrefix?: string;
   hashOutput?: string;
+  source?: boolean;
 }
 
 export interface PrepareDeploymentReleaseOptions {
@@ -204,8 +206,22 @@ export async function buildDeploymentCommand(
       }
       runtimeFiles.push({ runtime, sha256: actualSha256, bytes });
     }
-    const bundle = await writeDeploymentBundle(bundleOutput, prepared, runtimeFiles);
+    const sourceSnapshot = options.source === false
+      ? undefined
+      : await captureDeploymentSourceSnapshot(apiPath);
+    const bundle = await writeDeploymentBundle(
+      bundleOutput,
+      prepared,
+      runtimeFiles,
+      sourceSnapshot,
+    );
     logger.success(`Deployment bundle written to ${bundle.directory}`);
+    if (bundle.manifest.source) {
+      logger.info(
+        `Captured ${bundle.manifest.source.files.length} source `
+        + `${bundle.manifest.source.files.length === 1 ? 'file' : 'files'}`,
+      );
+    }
     logger.info(`Bundle identity: ${bundle.identity}`);
     logger.info(`Deployment identity: ${digest}`);
     return validated;

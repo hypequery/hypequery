@@ -85,6 +85,16 @@ function submissionFixture(
 ) {
   const preparedDeployment = prepareProtocolDeploymentContract(deployment());
   const deploymentBytes = Buffer.from(`${preparedDeployment.canonical}\n`);
+  const sourceFiles = [
+    {
+      path: 'analytics/api.ts',
+      bytes: Buffer.from("export { orders } from './orders.js';\n"),
+    },
+    {
+      path: 'analytics/orders.ts',
+      bytes: Buffer.from('export const orders = {};\n'),
+    },
+  ];
   const preparedManifest = prepareProtocolDeploymentBundleManifest({
     kind: 'hypequery-deployment-bundle',
     version: 1,
@@ -95,6 +105,15 @@ function submissionFixture(
       byteLength: deploymentBytes.byteLength,
     },
     artifacts: [],
+    source: {
+      root: 'source',
+      entrypoint: 'analytics/api.ts',
+      files: sourceFiles.map(file => ({
+        path: file.path,
+        sha256: sha256(file.bytes),
+        byteLength: file.bytes.byteLength,
+      })),
+    },
   });
   const release = prepareProtocolDeploymentReleaseEnvelope({
     kind: 'hypequery-deployment-release',
@@ -123,6 +142,13 @@ function submissionFixture(
       bundlePath: deploymentPath,
       bytes: deploymentBytes,
     },
+    ...sourceFiles.map(file => ({
+      name: 'bundle' as const,
+      filename: path.basename(file.path),
+      contentType: 'application/octet-stream',
+      bundlePath: `source/${file.path}`,
+      bytes: file.bytes,
+    })),
     ...extraParts,
   ];
   const boundary = 'hypequery-test-boundary';
@@ -158,6 +184,10 @@ describe('deployment intake', () => {
       expect(await readFile(
         path.join(submission.bundle.directory, 'deployment.json'),
       )).toEqual(fixture.deploymentBytes);
+      expect(await readFile(
+        path.join(submission.bundle.directory, 'source/analytics/orders.ts'),
+        'utf8',
+      )).toBe('export const orders = {};\n');
       return 'accepted';
     });
     const intake = createDeploymentIntake({

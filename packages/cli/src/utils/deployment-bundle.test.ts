@@ -114,6 +114,41 @@ describe('deployment bundle filesystem', () => {
     expect(verified.contract.artifacts[0]?.artifactSha256).toBe(digest);
   });
 
+  it('writes and verifies a multi-file source snapshot', async () => {
+    const parent = await temporaryDirectory();
+    const output = path.join(parent, 'bundle');
+    const prepared = prepareProtocolDeploymentContract(deployment());
+    const apiBytes = new TextEncoder().encode('export { Orders } from "./orders.js";\n');
+    const datasetBytes = new TextEncoder().encode('export const Orders = {};\n');
+
+    const written = await writeDeploymentBundle(output, prepared, [], {
+      entrypoint: 'analytics/api.ts',
+      files: [
+        { path: 'analytics/api.ts', bytes: apiBytes },
+        { path: 'analytics/orders.ts', bytes: datasetBytes },
+      ],
+      revision: {
+        kind: 'git',
+        commit: 'a'.repeat(40),
+        dirty: false,
+      },
+    });
+    const verified = await verifyDeploymentBundle(output);
+
+    expect(written.manifest.source?.entrypoint).toBe('analytics/api.ts');
+    expect(written.manifest.source?.revision).toEqual({
+      kind: 'git',
+      commit: 'a'.repeat(40),
+      dirty: false,
+    });
+    expect(verified.manifest.source?.files.map(file => file.path)).toEqual([
+      'analytics/api.ts',
+      'analytics/orders.ts',
+    ]);
+    expect(await readFile(path.join(output, 'source/analytics/orders.ts'), 'utf8'))
+      .toBe('export const Orders = {};\n');
+  });
+
   it('rejects tampered runtime bytes', async () => {
     const parent = await temporaryDirectory();
     const output = path.join(parent, 'bundle');

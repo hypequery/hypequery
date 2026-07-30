@@ -6,9 +6,12 @@ import type {
 export const DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS:
 Readonly<ProtocolDeploymentBundleLimits> = Object.freeze({
   maxArtifacts: 100,
+  maxSourceFiles: 1_000,
   maxPathBytes: 1_024,
   maxDeploymentBytes: 16 * 1_024 * 1_024,
   maxArtifactBytes: 128 * 1_024 * 1_024,
+  maxSourceFileBytes: 2 * 1_024 * 1_024,
+  maxSourceBytes: 32 * 1_024 * 1_024,
   maxTotalBytes: 256 * 1_024 * 1_024,
 });
 

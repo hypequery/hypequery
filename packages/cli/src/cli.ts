@@ -174,6 +174,7 @@ program
   .option('--runtime-output <path>', 'Bundled Node runtime path (default: beside deployment JSON)')
   .option('--entrypoint-prefix <prefix>', 'Runtime entrypoint prefix (default: queries)')
   .option('--hash-output <path>', 'Deployment identity sidecar path (default: <output>.sha256)')
+  .option('--no-source', 'Exclude project source files from the deployment bundle')
   .action(runCommand(async (api: string, options: BuildDeploymentOptions) => {
     await buildDeploymentCommand(api, options);
   }));
@@ -215,6 +216,7 @@ program
   .option('--project <project>', 'Target project identifier (advanced override)')
   .option('--environment <environment>', 'Target environment identifier (advanced override)')
   .option('--release <path>', 'Submit a prebuilt bundle with this release (legacy)')
+  .option('--no-source', 'Exclude project source files from the deployment bundle')
   .option(
     '--endpoint <url>',
     'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',

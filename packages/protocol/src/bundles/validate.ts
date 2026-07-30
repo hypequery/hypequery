@@ -6,11 +6,14 @@ import type {
   ProtocolDeploymentBundleLimits,
   ProtocolDeploymentBundleManifest,
   ProtocolDeploymentBundleOptions,
+  ProtocolDeploymentBundleSource,
+  ProtocolDeploymentBundleSourceRevision,
 } from './types.js';
 
 type DataRecord = Record<string, unknown>;
 const textEncoder = new TextEncoder();
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const GIT_COMMIT_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const PATH_SEGMENT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const WINDOWS_RESERVED_NAME = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i;
 
@@ -54,8 +57,13 @@ function requireArray(input: unknown, path: string, maxItems: number): readonly 
   return input;
 }
 
-function exactFields(value: DataRecord, required: readonly string[], path: string): void {
-  const allowed = new Set(required);
+function exactFields(
+  value: DataRecord,
+  required: readonly string[],
+  path: string,
+  optional: readonly string[] = [],
+): void {
+  const allowed = new Set([...required, ...optional]);
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) bundleError('HQ_BUNDLE_UNKNOWN_FIELD', `${path}.${key}`);
   }
@@ -74,8 +82,13 @@ function digest(value: unknown, path: string): string {
   return value;
 }
 
-function byteLength(value: unknown, path: string, maximum: number): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+function byteLength(
+  value: unknown,
+  path: string,
+  maximum: number,
+  allowEmpty = false,
+): number {
+  if (!Number.isSafeInteger(value) || (value as number) < (allowEmpty ? 0 : 1)) {
     bundleError('HQ_BUNDLE_INVALID_VALUE', path);
   }
   if ((value as number) > maximum) bundleError('HQ_BUNDLE_TOO_LARGE', path);
@@ -130,13 +143,98 @@ function validateArtifact(
   }) as unknown as ProtocolDeploymentBundleArtifact;
 }
 
+function validateSourceRevision(
+  input: unknown,
+  path: string,
+): ProtocolDeploymentBundleSourceRevision {
+  const value = requireRecord(input, path);
+  exactFields(value, ['kind', 'commit', 'dirty'], path);
+  if (value.kind !== 'git') {
+    if (typeof value.kind !== 'string') bundleError('HQ_BUNDLE_TYPE', `${path}.kind`);
+    bundleError('HQ_BUNDLE_INVALID_VALUE', `${path}.kind`);
+  }
+  if (typeof value.commit !== 'string') bundleError('HQ_BUNDLE_TYPE', `${path}.commit`);
+  if (!GIT_COMMIT_PATTERN.test(value.commit)) {
+    bundleError('HQ_BUNDLE_INVALID_VALUE', `${path}.commit`);
+  }
+  if (typeof value.dirty !== 'boolean') bundleError('HQ_BUNDLE_TYPE', `${path}.dirty`);
+  return freezeRecord({
+    kind: 'git',
+    commit: value.commit,
+    dirty: value.dirty,
+  }) as unknown as ProtocolDeploymentBundleSourceRevision;
+}
+
+function validateSource(
+  input: unknown,
+  path: string,
+  limits: Readonly<ProtocolDeploymentBundleLimits>,
+): ProtocolDeploymentBundleSource {
+  const value = requireRecord(input, path);
+  exactFields(value, ['root', 'entrypoint', 'files'], path, ['revision']);
+  const root = relativePath(value.root, `${path}.root`, limits.maxPathBytes);
+  const entrypoint = relativePath(value.entrypoint, `${path}.entrypoint`, limits.maxPathBytes);
+  const files = Object.freeze(
+    requireArray(value.files, `${path}.files`, limits.maxSourceFiles)
+      .map((inputFile, index) => {
+        const filePath = `${path}.files[${index}]`;
+        const file = requireRecord(inputFile, filePath);
+        exactFields(file, ['path', 'sha256', 'byteLength'], filePath);
+        return freezeRecord({
+          path: relativePath(file.path, `${filePath}.path`, limits.maxPathBytes),
+          sha256: digest(file.sha256, `${filePath}.sha256`),
+          byteLength: byteLength(
+            file.byteLength,
+            `${filePath}.byteLength`,
+            limits.maxSourceFileBytes,
+            true,
+          ),
+        });
+      }),
+  ) as unknown as ProtocolDeploymentBundleSource['files'];
+  if (files.length < 1 || !files.some(file => file.path === entrypoint)) {
+    bundleError('HQ_BUNDLE_INVALID_REFERENCE', `${path}.entrypoint`);
+  }
+  const paths = files.map(file => file.path);
+  if (new Set(paths).size !== paths.length
+    || new Set(paths.map(filePath => filePath.toLowerCase())).size !== paths.length) {
+    bundleError('HQ_BUNDLE_INVALID_REFERENCE', `${path}.files`);
+  }
+  const sortedPaths = [...paths].sort();
+  if (paths.some((filePath, index) => filePath !== sortedPaths[index])) {
+    bundleError('HQ_BUNDLE_INVALID_VALUE', `${path}.files`);
+  }
+  const sourceBytes = files.reduce((total, file) => total + file.byteLength, 0);
+  if (!Number.isSafeInteger(sourceBytes) || sourceBytes > limits.maxSourceBytes) {
+    bundleError('HQ_BUNDLE_TOO_LARGE', path);
+  }
+  return freezeRecord({
+    root,
+    entrypoint,
+    files,
+    ...(value.revision === undefined
+      ? {}
+      : { revision: validateSourceRevision(value.revision, `${path}.revision`) }),
+  }) as unknown as ProtocolDeploymentBundleSource;
+}
+
+function hasTreeCollision(paths: readonly string[]): boolean {
+  const normalized = new Set(paths.map(bundlePath => bundlePath.toLowerCase()));
+  return [...normalized].some((bundlePath) => {
+    const segments = bundlePath.split('/');
+    return segments.some(
+      (_, index) => index > 0 && normalized.has(segments.slice(0, index).join('/')),
+    );
+  });
+}
+
 export function validateProtocolDeploymentBundleManifest(
   input: unknown,
   options: ProtocolDeploymentBundleOptions = {},
 ): ProtocolDeploymentBundleManifest {
   const limits = resolveDeploymentBundleLimits(options);
   const value = requireRecord(input, '$');
-  exactFields(value, ['kind', 'version', 'deployment', 'artifacts'], '$');
+  exactFields(value, ['kind', 'version', 'deployment', 'artifacts'], '$', ['source']);
   if (value.kind !== 'hypequery-deployment-bundle') {
     if (typeof value.kind !== 'string') bundleError('HQ_BUNDLE_TYPE', '$.kind');
     bundleError('HQ_BUNDLE_INVALID_VALUE', '$.kind');
@@ -149,10 +247,15 @@ export function validateProtocolDeploymentBundleManifest(
   const deployment = validateDeployment(value.deployment, '$.deployment', limits);
   const artifacts = Object.freeze(requireArray(value.artifacts, '$.artifacts', limits.maxArtifacts)
     .map((artifact, index) => validateArtifact(artifact, `$.artifacts[${index}]`, limits)));
-  const paths = [deployment.path, ...artifacts.map(artifact => artifact.path)];
+  const source = value.source === undefined
+    ? undefined
+    : validateSource(value.source, '$.source', limits);
+  const sourcePaths = source?.files.map(file => `${source.root}/${file.path}`) ?? [];
+  const paths = [deployment.path, ...artifacts.map(artifact => artifact.path), ...sourcePaths];
   if (new Set(paths).size !== paths.length
-    || new Set(paths.map(bundlePath => bundlePath.toLowerCase())).size !== paths.length) {
-    bundleError('HQ_BUNDLE_INVALID_REFERENCE', '$.artifacts');
+    || new Set(paths.map(bundlePath => bundlePath.toLowerCase())).size !== paths.length
+    || hasTreeCollision(paths)) {
+    bundleError('HQ_BUNDLE_INVALID_REFERENCE', '$');
   }
   if (new Set(artifacts.map(artifact => artifact.sha256)).size !== artifacts.length) {
     bundleError('HQ_BUNDLE_INVALID_REFERENCE', '$.artifacts');
@@ -162,7 +265,8 @@ export function validateProtocolDeploymentBundleManifest(
     bundleError('HQ_BUNDLE_INVALID_VALUE', '$.artifacts');
   }
   const totalBytes = deployment.byteLength
-    + artifacts.reduce((total, artifact) => total + artifact.byteLength, 0);
+    + artifacts.reduce((total, artifact) => total + artifact.byteLength, 0)
+    + (source?.files.reduce((total, file) => total + file.byteLength, 0) ?? 0);
   if (!Number.isSafeInteger(totalBytes) || totalBytes > limits.maxTotalBytes) {
     bundleError('HQ_BUNDLE_TOO_LARGE', '$');
   }
@@ -172,5 +276,6 @@ export function validateProtocolDeploymentBundleManifest(
     version: 1,
     deployment,
     artifacts,
+    ...(source ? { source } : {}),
   }) as unknown as ProtocolDeploymentBundleManifest;
 }
