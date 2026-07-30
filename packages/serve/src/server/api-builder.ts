@@ -31,7 +31,11 @@ export const createAPImethods = <
   router: ServeRouter,
   authStrategies: AuthStrategy<TAuth>[],
   globalMiddlewares: ServeMiddleware<any, any, TContext, TAuth>[],
-  executeQuery: ExecuteQueryFunction<ServeEndpointMap<TQueries, TContext, TAuth>, TContext>,
+  executeQuery: ExecuteQueryFunction<
+    ServeEndpointMap<TQueries, TContext, TAuth>,
+    TContext,
+    TAuth
+  >,
   handler: ServeHandler,
   basePath: string,
   cacheObservability: CacheObservability,

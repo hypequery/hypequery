@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createExecuteQuery } from "./execute-query";
 import { createEndpoint } from "../endpoint";
@@ -135,6 +135,162 @@ describe("createExecuteQuery", () => {
     // The additional context should be passed through
     expect(receivedContext).toBeDefined();
     expect(receivedContext.userId).toBe("123");
+  });
+
+  it("uses a trusted in-process principal for auth, authorization, and tenancy", async () => {
+    const authStrategy = vi.fn().mockResolvedValue(null);
+    const endpoint = createEndpoint("secure", {
+      outputSchema: z.object({
+        userId: z.string(),
+        tenantId: z.string(),
+        contextUserId: z.string(),
+      }),
+      requiredRoles: ["analyst"],
+      requiredScopes: ["orders:read"],
+      query: async ({ ctx }: { ctx: any }) => ({
+        userId: ctx.auth.userId,
+        tenantId: ctx.tenantId,
+        contextUserId: ctx.contextUserId,
+      }),
+    });
+    const executeQuery = createExecuteQuery<any, any>(
+      { secure: endpoint },
+      [authStrategy],
+      ({ auth }: { auth: any }) => ({ contextUserId: auth?.userId }),
+      [],
+      {
+        extract: (auth: any) => auth.tenantId,
+        required: true,
+      },
+      {},
+      new ServeQueryLogger(),
+    );
+
+    await expect(executeQuery("secure", {
+      trustedAuth: {
+        userId: "gateway-credential",
+        tenantId: "customer-42",
+        roles: ["analyst"],
+        scopes: ["orders:read"],
+      },
+    })).resolves.toEqual({
+      userId: "gateway-credential",
+      tenantId: "customer-42",
+      contextUserId: "gateway-credential",
+    });
+    expect(authStrategy).not.toHaveBeenCalled();
+  });
+
+  it("still enforces endpoint permissions for a trusted principal", async () => {
+    const endpoint = createEndpoint("secure", {
+      outputSchema: z.object({ ok: z.boolean() }),
+      requiredScopes: ["orders:read"],
+      query: async () => ({ ok: true }),
+    });
+    const executeQuery = createExecuteQuery<any, any>(
+      { secure: endpoint },
+      [],
+      undefined,
+      [],
+      undefined,
+      {},
+      new ServeQueryLogger(),
+    );
+
+    await expect(executeQuery("secure", {
+      trustedAuth: { scopes: ["metrics:read"] },
+    })).rejects.toMatchObject({
+      type: "FORBIDDEN",
+      status: 403,
+    });
+  });
+
+  it("rejects caller context that shadows the authenticated principal", async () => {
+    const endpoint = createEndpoint("secure", {
+      outputSchema: z.object({ userId: z.string() }),
+      requiredScopes: ["orders:read"],
+      query: async ({ ctx }: { ctx: any }) => ({ userId: ctx.auth.userId }),
+    });
+    const executeQuery = createExecuteQuery<any, any>(
+      { secure: endpoint },
+      [],
+      undefined,
+      [],
+      undefined,
+      {},
+      new ServeQueryLogger(),
+    );
+
+    const trustedAuth = { userId: "real", scopes: ["orders:read"] };
+
+    // Authorization ran against `trustedAuth`; letting `context` replace ctx.auth
+    // afterwards would hand the handler a principal nothing was checked against.
+    await expect(executeQuery("secure", {
+      trustedAuth,
+      context: { auth: { userId: "spoofed" } } as any,
+    })).rejects.toMatchObject({
+      type: "VALIDATION_ERROR",
+      status: 400,
+      details: { reason: "reserved_context_keys", reserved: ["auth"] },
+    });
+
+    await expect(executeQuery("secure", {
+      trustedAuth,
+      context: { tenantId: "other-tenant" } as any,
+    })).rejects.toMatchObject({
+      type: "VALIDATION_ERROR",
+      status: 400,
+      details: { reason: "reserved_context_keys", reserved: ["tenantId"] },
+    });
+
+    await expect(executeQuery("secure", { trustedAuth }))
+      .resolves.toEqual({ userId: "real" });
+  });
+
+  it("keeps ctx.auth pinned to the principal when the context factory returns one", async () => {
+    const endpoint = createEndpoint("secure", {
+      outputSchema: z.object({ userId: z.string() }),
+      query: async ({ ctx }: { ctx: any }) => ({ userId: ctx.auth.userId }),
+    });
+    const executeQuery = createExecuteQuery<any, any>(
+      { secure: endpoint },
+      [],
+      // A context factory is server-authored, but it still must not be able to
+      // swap out the principal the pipeline authenticated.
+      () => ({ auth: { userId: "from-factory" } }) as any,
+      [],
+      undefined,
+      {},
+      new ServeQueryLogger(),
+    );
+
+    await expect(executeQuery("secure", { trustedAuth: { userId: "real" } }))
+      .resolves.toEqual({ userId: "real" });
+  });
+
+  it("treats a null trusted principal as absent and runs the auth strategies", async () => {
+    const authStrategy = vi.fn().mockResolvedValue({ userId: "from-strategy" });
+    const endpoint = createEndpoint("secure", {
+      outputSchema: z.object({ userId: z.string() }),
+      query: async ({ ctx }: { ctx: any }) => ({ userId: ctx.auth.userId }),
+    });
+    const executeQuery = createExecuteQuery<any, any>(
+      { secure: endpoint },
+      [authStrategy],
+      undefined,
+      [],
+      undefined,
+      {},
+      new ServeQueryLogger(),
+    );
+
+    await expect(executeQuery("secure", { trustedAuth: null }))
+      .resolves.toEqual({ userId: "from-strategy" });
+    expect(authStrategy).toHaveBeenCalledTimes(1);
+
+    await expect(executeQuery("secure", {}))
+      .resolves.toEqual({ userId: "from-strategy" });
+    expect(authStrategy).toHaveBeenCalledTimes(2);
   });
 
   it("emits query events to logger", async () => {

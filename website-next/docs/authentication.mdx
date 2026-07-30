@@ -374,7 +374,70 @@ replace it with `requiresAuth: false` when upgrading.
 
 Metrics use the same shape via `{ metric, auth, requiresAuth, requiredRoles, requiredScopes }`. See [Serve integration](/docs/datasets/serve-integration) for the full set of per-entry options.
 
+## Trusted principals for in-process hosts
+
+Some hosts verify the caller before Serve ever sees the request — a Cloud gateway
+that checks its own credential, or a worker running a deployment bundle. Those
+hosts already hold a verified principal and have no auth strategy of their own to
+re-run. `api.execute()` (and its `client()` / `run()` aliases) accept a
+`trustedAuth` option for exactly that case:
+
+<CodeBlock>
+```typescript
+// Only inside a host that has already verified the caller itself.
+const rows = await api.execute('revenue', {
+  input: { month: '2026-07' },
+  trustedAuth: {
+    userId: verified.sub,
+    tenantId: verified.org,
+    roles: verified.roles,
+    scopes: verified.scopes,
+  },
+});
+```
+</CodeBlock>
+
+Supplying `trustedAuth` skips **only** credential parsing — the configured auth
+strategies do not run. Everything else still applies to the principal you pass:
+
+- `requiredRoles` and `requiredScopes` are enforced, so an under-privileged
+  principal gets a `FORBIDDEN` error just as an HTTP caller would
+- `tenant.extract` runs against it, and a required tenant that cannot be
+  extracted is rejected
+- the context factory receives it as `auth`, and input/output validation,
+  middleware, and lifecycle hooks are unchanged
+- responses stay `cache-control: no-store`
+
+<Callout type="warn" title="This is a trust boundary">
+  `trustedAuth` is an assertion that *your host* authenticated the caller. Never
+  populate it from request headers, a request body, a query string, or any other
+  value the caller controls — doing so lets a client name its own principal.
+  It is unreachable from the HTTP handler by design; only in-process callers can
+  set it. Pass `null` or omit it to fall through to the configured strategies.
+</Callout>
+
+Because the principal is what authorization ran against, the pipeline owns
+`ctx.auth` and `ctx.tenantId`. A caller-supplied `context` that tries to set
+either is rejected with a `VALIDATION_ERROR` rather than silently overwriting
+them:
+
+<CodeBlock>
+```typescript
+// Rejected: `context` may not shadow the authenticated principal.
+await api.execute('revenue', {
+  trustedAuth: principal,
+  context: { auth: { userId: 'someone-else' } },
+});
+```
+</CodeBlock>
+
+Deployment runtime artifacts built by `hypequery deployment` forward
+`trustedAuth` through to `api.execute()`, so a worker hosting a bundle enforces
+the API's declared permissions and tenancy without reinterpreting its own
+gateway credential as customer auth.
+
 ## See Also
 
 - [Serve Runtime Reference](/docs/reference/api/runtime)
 - [Query Definition Reference](/docs/reference/api/query)
+- [Embedded Runtime](/docs/embedded-runtime)
