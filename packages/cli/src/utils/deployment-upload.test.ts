@@ -48,6 +48,19 @@ async function verifiedBundle() {
     directory,
     prepareProtocolDeploymentContract(deployment),
     [],
+    {
+      entrypoint: 'analytics/api.ts',
+      files: [
+        {
+          path: 'analytics/api.ts',
+          bytes: new TextEncoder().encode("export { orders } from './orders.js';\n"),
+        },
+        {
+          path: 'analytics/orders.ts',
+          bytes: new TextEncoder().encode('export const orders = {};\n'),
+        },
+      ],
+    },
   );
   return verifyDeploymentBundle(directory);
 }
@@ -116,6 +129,10 @@ describe('deployment upload transport', () => {
             path.join(submission.bundle.directory, 'deployment.json'),
             'utf8',
           )).toContain('hypequery-deployment');
+          expect(await readFile(
+            path.join(submission.bundle.directory, 'source/analytics/orders.ts'),
+            'utf8',
+          )).toBe('export const orders = {};\n');
           return 'accepted';
         },
       },
@@ -174,6 +191,8 @@ describe('deployment upload transport', () => {
     expect(body).toContain('name="release"; filename="release.json"');
     expect(body).toContain('X-HypeQuery-Bundle-Path: bundle.json');
     expect(body).toContain('X-HypeQuery-Bundle-Path: deployment.json');
+    expect(body).toContain('X-HypeQuery-Bundle-Path: source/analytics/api.ts');
+    expect(body).toContain('X-HypeQuery-Bundle-Path: source/analytics/orders.ts');
     expect(body).toContain(release.canonical);
     expect(body).toContain(await readFile(
       path.join(bundle.directory, 'deployment.json'),

@@ -37,6 +37,7 @@ export interface DeployOptions extends SubmitDeploymentOptions {
   environment?: string;
   bundleOutput?: string;
   releaseOutput?: string;
+  source?: boolean;
 }
 
 export interface SubmitDeploymentDependencies {
@@ -309,7 +310,7 @@ export async function deployCommand(
   await resolveDeploymentCredential(options.endpoint, dependencies);
 
   try {
-    await build(sourcePath, { bundleOutput: bundlePath });
+    await build(sourcePath, { bundleOutput: bundlePath, source: options.source });
   } catch (error) {
     throw withRuntimeFlagHint(error);
   }

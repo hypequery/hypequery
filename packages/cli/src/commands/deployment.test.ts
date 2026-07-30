@@ -12,6 +12,7 @@ const mockGetDeploymentRuntimeEntrypoints = vi.hoisted(() => vi.fn());
 const mockWriteDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockVerifyDeploymentBundle = vi.hoisted(() => vi.fn());
 const mockReadDeploymentRuntimeFile = vi.hoisted(() => vi.fn());
+const mockCaptureDeploymentSourceSnapshot = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/load-api.js', () => ({
   loadApiModule: mockLoadApiModule,
@@ -26,6 +27,10 @@ vi.mock('../utils/deployment-bundle.js', () => ({
   writeDeploymentBundle: mockWriteDeploymentBundle,
   verifyDeploymentBundle: mockVerifyDeploymentBundle,
   readDeploymentRuntimeFile: mockReadDeploymentRuntimeFile,
+}));
+
+vi.mock('../utils/deployment-source-snapshot.js', () => ({
+  captureDeploymentSourceSnapshot: mockCaptureDeploymentSourceSnapshot,
 }));
 
 vi.mock('../utils/logger.js', () => ({
@@ -64,11 +69,19 @@ const contract = {
   queries: [],
   artifacts: [],
 };
+const sourceSnapshot = {
+  entrypoint: 'analytics/api.ts',
+  files: [{
+    path: 'analytics/api.ts',
+    bytes: new TextEncoder().encode('export const api = {};\n'),
+  }],
+};
 
 describe('deployment commands', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetDeploymentRuntimeEntrypoints.mockReturnValue([]);
+    mockCaptureDeploymentSourceSnapshot.mockResolvedValue(sourceSnapshot);
     vi.mocked(stat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
     vi.mocked(lstat).mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
     vi.mocked(realpath).mockImplementation(async value => path.resolve(String(value)));
@@ -167,6 +180,7 @@ describe('deployment commands', () => {
       'analytics/hypequery-deployment',
       expect.objectContaining({ contract }),
       [],
+      sourceSnapshot,
     );
     expect(writeFile).not.toHaveBeenCalled();
   });
@@ -192,6 +206,7 @@ describe('deployment commands', () => {
       'dist/bundle',
       expect.objectContaining({ contract: runtimeContract }),
       [{ runtime: 'node', sha256: ARTIFACT_SHA, bytes }],
+      sourceSnapshot,
     );
   });
 
@@ -225,6 +240,21 @@ describe('deployment commands', () => {
       'analytics/hypequery-deployment',
       expect.objectContaining({ contract: runtimeContract }),
       [{ runtime: 'python', sha256: digest, bytes }],
+      sourceSnapshot,
+    );
+  });
+
+  it('can explicitly omit project source from a bundle', async () => {
+    mockLoadApiModule.mockResolvedValue({ deploymentContract: vi.fn(() => contract) });
+
+    await buildDeploymentCommand('analytics/api.ts', { source: false });
+
+    expect(mockCaptureDeploymentSourceSnapshot).not.toHaveBeenCalled();
+    expect(mockWriteDeploymentBundle).toHaveBeenCalledWith(
+      'analytics/hypequery-deployment',
+      expect.objectContaining({ contract }),
+      [],
+      undefined,
     );
   });
 

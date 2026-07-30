@@ -42,6 +42,7 @@ async function readBoundedRegularFile(
   root: string,
   relativePath: string,
   maximum: number,
+  allowEmpty = false,
 ): Promise<Uint8Array> {
   const absolutePath = path.join(root, ...relativePath.split('/'));
   let handle;
@@ -53,13 +54,13 @@ async function readBoundedRegularFile(
     if (!initialStat.isFile()) {
       throw new Error(`Bundle entry is not a regular file: ${relativePath}`);
     }
-    if (initialStat.size < 1 || initialStat.size > maximum) {
+    if (initialStat.size < (allowEmpty ? 0 : 1) || initialStat.size > maximum) {
       throw new Error(`Bundle entry exceeds its byte limit: ${relativePath}`);
     }
     handle = await open(absolutePath, constants.O_RDONLY | constants.O_NOFOLLOW);
     const stat = await handle.stat();
     if (!stat.isFile()) throw new Error(`Bundle entry is not a regular file: ${relativePath}`);
-    if (stat.size < 1 || stat.size > maximum) {
+    if (stat.size < (allowEmpty ? 0 : 1) || stat.size > maximum) {
       throw new Error(`Bundle entry exceeds its byte limit: ${relativePath}`);
     }
     return await handle.readFile();
@@ -92,6 +93,7 @@ async function verifyExactEntries(
     DEPLOYMENT_BUNDLE_MANIFEST,
     manifest.deployment.path,
     ...manifest.artifacts.map(artifact => artifact.path),
+    ...(manifest.source?.files.map(file => `${manifest.source!.root}/${file.path}`) ?? []),
   ]);
   const expectedDirectoryPaths = expectedDirectories([...expectedFiles]);
   const seenFiles = new Set<string>();
@@ -240,6 +242,19 @@ export async function verifyDeploymentBundle(
       DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxArtifactBytes,
     );
     verifyFile(bytes, artifact);
+  }
+  const source = preparedManifest.manifest.source;
+  if (source) {
+    for (const file of source.files) {
+      const bundlePath = `${source.root}/${file.path}`;
+      const bytes = await readBoundedRegularFile(
+        root,
+        bundlePath,
+        DEFAULT_PROTOCOL_DEPLOYMENT_BUNDLE_LIMITS.maxSourceFileBytes,
+        true,
+      );
+      verifyFile(bytes, { ...file, path: bundlePath });
+    }
   }
   verifyRuntimeReferences(preparedContract.contract, preparedManifest.manifest.artifacts);
   return Object.freeze({

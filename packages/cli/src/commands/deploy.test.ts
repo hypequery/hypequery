@@ -127,6 +127,7 @@ describe('deploy command', () => {
 
     expect(buildDeployment).toHaveBeenCalledWith('analytics/api.ts', {
       bundleOutput: 'analytics/hypequery-deployment',
+      source: undefined,
     });
     expect(prepareDeploymentRelease).toHaveBeenCalledWith(
       'analytics/hypequery-deployment',
@@ -183,6 +184,7 @@ describe('deploy command', () => {
 
     expect(buildDeployment).toHaveBeenCalledWith('src/api.ts', {
       bundleOutput: 'dist/cloud-bundle',
+      source: undefined,
     });
     expect(prepareDeploymentRelease).toHaveBeenCalledWith(
       'dist/cloud-bundle',

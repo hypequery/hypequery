@@ -146,6 +146,9 @@ function requireReconstructablePaths(manifest: PreparedProtocolDeploymentBundleM
   const files = [
     manifest.manifest.deployment.path,
     ...manifest.manifest.artifacts.map(artifact => artifact.path),
+    ...(manifest.manifest.source?.files.map(
+      file => `${manifest.manifest.source!.root}/${file.path}`,
+    ) ?? []),
   ];
   const fileSet = new Set(files);
   if (fileSet.has(DEPLOYMENT_BUNDLE_MANIFEST)) {
@@ -393,6 +396,10 @@ export function createDeploymentIntake<Principal>(
       const files = [
         manifest.prepared.manifest.deployment,
         ...manifest.prepared.manifest.artifacts,
+        ...(manifest.prepared.manifest.source?.files.map(file => ({
+          ...file,
+          path: `${manifest.prepared.manifest.source!.root}/${file.path}`,
+        })) ?? []),
       ];
       for (let index = 0; index < files.length; index += 1) {
         await receiveBundleFile(

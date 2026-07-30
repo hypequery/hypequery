@@ -17,4 +17,6 @@ export type {
   ProtocolDeploymentBundleLimits,
   ProtocolDeploymentBundleManifest,
   ProtocolDeploymentBundleOptions,
+  ProtocolDeploymentBundleSource,
+  ProtocolDeploymentBundleSourceRevision,
 } from './types.js';
