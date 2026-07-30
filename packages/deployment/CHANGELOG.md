@@ -1,5 +1,16 @@
 # @hypequery/deployment
 
+## 0.7.0
+
+### Minor Changes
+
+- 24e0bd5: Capture, verify, upload, and receive multi-file project source snapshots with deployment bundles, including the API entrypoint and optional Git revision provenance.
+
+### Patch Changes
+
+- Updated dependencies [24e0bd5]
+  - @hypequery/protocol@0.10.0
+
 ## 0.6.0
 
 ### Minor Changes

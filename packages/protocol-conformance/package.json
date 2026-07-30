@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/protocol-conformance",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Cross-language conformance runner and TypeScript reference adapter for the Hypequery security protocol",
   "license": "Apache-2.0",
   "type": "module",
