@@ -1,0 +1,5 @@
+# Intentionally minimal, and intentionally present.
+# Hatchling always bundles the nearest .gitignore into the sdist and offers no
+# option to suppress it. Without this file it walks up and bundles the monorepo
+# root's instead. Keep this file so the published archive ships only this note.
+dist/

@@ -1,0 +1,102 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hypequery"
+version = "0.1.0.dev0"
+description = "Type-safe ClickHouse semantic layer and serving for Python."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "Hypequery" }]
+keywords = ["clickhouse", "analytics", "semantic-layer", "datasets", "fastapi"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Database",
+  "Typing :: Typed",
+]
+
+# Definition-only use must stay framework-free. Nothing here may pull in a web
+# framework or a database driver; those are extras, enforced by importlinter.
+dependencies = ["pydantic>=2.7"]
+
+[project.optional-dependencies]
+clickhouse = ["clickhouse-connect>=0.8.0"]
+fastapi = ["fastapi>=0.115.0"]
+
+[project.urls]
+Homepage = "https://hypequery.com"
+Repository = "https://github.com/hypequery/hypequery"
+Issues = "https://github.com/hypequery/hypequery/issues"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "mypy>=1.11",
+  "ruff>=0.6",
+  "import-linter>=2.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hypequery"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",   # pycodestyle / pyflakes
+  "I",             # import sorting
+  "N",             # pep8-naming
+  "UP",            # pyupgrade
+  "B",             # bugbear
+  "A",             # builtin shadowing
+  "C4",            # comprehensions
+  "PT",            # pytest style
+  "S",             # bandit — includes S608 hardcoded-SQL, a plan-level ban
+  "RUF",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests legitimately assert and spawn subprocesses to check import hygiene.
+"tests/**" = ["S101", "S603", "S404"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests", "scripts"]
+warn_unreachable = true
+# Public signatures must not leak Any; see the PR rules in the plan.
+disallow_any_generics = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+# Import boundaries. These encode the layering the security roadmap requires:
+# protocol is the foundation, datasets builds on it, serve sits on top, and
+# neither protocol nor datasets may reach for a framework or a driver.
+[tool.importlinter]
+root_package = "hypequery"
+# Required because the forbidden-module contract below names third-party
+# packages rather than internal ones.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layered: serve -> datasets -> protocol"
+type = "layers"
+layers = ["hypequery.serve", "hypequery.datasets", "hypequery.protocol"]
+
+[[tool.importlinter.contracts]]
+name = "protocol and datasets stay framework-free and driver-free"
+type = "forbidden"
+source_modules = ["hypequery.protocol", "hypequery.datasets"]
+forbidden_modules = ["fastapi", "starlette", "uvicorn", "clickhouse_connect"]
