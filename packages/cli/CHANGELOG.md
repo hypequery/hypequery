@@ -1,5 +1,27 @@
 # @hypequery/cli
 
+## 1.13.0
+
+### Minor Changes
+
+- 0e52fd9: Complete the interactive `init` path with database-driver and authentication
+  choices, skip unused ClickHouse credential questions, and warn before
+  scaffolding outside a directory containing `package.json`.
+
+### Patch Changes
+
+- f049012: Drop the `@hypequery/clickhouse` dependency from the CLI.
+
+  `hypequery generate` reached into `@hypequery/clickhouse/cli` for the two
+  functions it needed (`generateTypes`, `clickhouseToTsType`), which pulled the
+  entire query builder — roughly 1.1 MB — into every CLI install. The generator
+  now lives in the CLI itself, so `npx @hypequery/cli` installs neither the
+  query builder nor its module graph.
+
+  Nothing changes for users. The query builder is still what the scaffolder
+  installs into _your_ project, and `@hypequery/clickhouse/cli` plus the
+  `hypequery-generate-types` bin keep working exactly as before.
+
 ## 1.12.1
 
 ### Patch Changes
