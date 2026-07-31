@@ -164,6 +164,30 @@ describe('Cloud CLI authentication', () => {
     expect(getGitBranch).not.toHaveBeenCalled();
   });
 
+  it('sends an explicit deployment environment alongside source branch context', async () => {
+    const authorizeUrl = await authorizeUrlForLogin(
+      { getGitBranch: async () => 'main' },
+      { environment: 'development' },
+    );
+
+    expect(authorizeUrl?.searchParams.get('branch')).toBe('main');
+    expect(authorizeUrl?.searchParams.get('environment')).toBe('development');
+  });
+
+  it('rejects an invalid explicit deployment environment before opening a browser', async () => {
+    const openBrowser = vi.fn();
+
+    await expect(loginCommand({
+      cloudUrl: 'https://cloud.example.test',
+      environment: 'development target',
+    }, {
+      getGitBranch: async () => 'main',
+      openBrowser,
+    })).rejects.toThrow('Invalid deployment environment');
+
+    expect(openBrowser).not.toHaveBeenCalled();
+  });
+
   it('omits branch context when HYPEQUERY_CLI_SEND_BRANCH disables it', async () => {
     vi.stubEnv('HYPEQUERY_CLI_SEND_BRANCH', '0');
     try {

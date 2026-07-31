@@ -33,6 +33,8 @@ export interface LoginOptions {
   readonly cloudUrl?: string;
   /** Commander sets this to false for `--no-branch`. */
   readonly branch?: boolean;
+  /** Stable Cloud deployment target. This always takes precedence over Git branch context. */
+  readonly environment?: string;
 }
 
 export interface LoginDependencies {
@@ -227,6 +229,19 @@ export async function loginCommand(
   const branch = branchContextEnabled(options)
     ? await (dependencies.getGitBranch ?? currentGitBranch)()
     : null;
+  let environment: string | undefined;
+  if (options.environment !== undefined) {
+    try {
+      environment = validateProtocolDeploymentReleaseTarget({
+        project: 'target',
+        environment: options.environment,
+      }).environment;
+    } catch {
+      throw new Error(
+        'Invalid deployment environment. Use letters, numbers, dots, underscores, colons, or hyphens.',
+      );
+    }
+  }
   const callback = await callbackServer(state, dependencies.timeoutMs ?? LOGIN_TIMEOUT_MS);
   const authorizeUrl = new URL('/cli/authorize', origin);
   authorizeUrl.searchParams.set('redirect_uri', callback.redirectUri);
@@ -234,6 +249,7 @@ export async function loginCommand(
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
   if (branch) authorizeUrl.searchParams.set('branch', branch);
+  if (environment) authorizeUrl.searchParams.set('environment', environment);
 
   try {
     logger.info('Opening your browser to authorize Hypequery CLI…');
