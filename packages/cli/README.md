@@ -207,13 +207,25 @@ session. The command uses an S256 PKCE loopback flow, then stores the
 target-scoped deployment token in the operating-system credential vault.
 Tokens expire after 12 hours.
 
-When run from a Git worktree, login sends the current branch name to Cloud.
+When run inside a Git repository, login sends the current branch name to Cloud.
 Cloud creates or selects the matching branch-backed deployment target under
 the project selected in the dashboard. A detached HEAD or non-Git directory
 falls back to the currently selected Cloud branch.
 
 ```bash
 npx hypequery login
+```
+
+Cloud, not the CLI, decides the final target, so login prints the project and
+environment the credential was actually issued for. `hypequery deploy` uses
+that target.
+
+Branch names can carry internal detail. Pass `--no-branch`, or set
+`HYPEQUERY_CLI_SEND_BRANCH=0`, to keep the branch local and use the currently
+selected Cloud branch instead.
+
+```bash
+npx hypequery login --no-branch
 ```
 
 Use `--cloud-url <origin>` or `HYPEQUERY_CLOUD_URL` for a self-hosted or local

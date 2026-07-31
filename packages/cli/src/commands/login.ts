@@ -1,8 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { promisify } from 'node:util';
 import open from 'open';
 import { validateProtocolDeploymentReleaseTarget } from '@hypequery/protocol';
 
@@ -15,6 +13,7 @@ import {
   saveCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
+import { currentGitBranch } from '../utils/git-branch.js';
 import { logger } from '../utils/logger.js';
 
 const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
@@ -29,10 +28,11 @@ const MAX_TOKEN_LIFETIME_MS = 13 * 60 * 60_000;
 // CLI the day Cloud rotates its token format.
 const TOKEN_PATTERN = /^hqdp_[A-Za-z0-9_-]{16,512}$/;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
-const execFileAsync = promisify(execFile);
 
 export interface LoginOptions {
   readonly cloudUrl?: string;
+  /** Commander sets this to false for `--no-branch`. */
+  readonly branch?: boolean;
 }
 
 export interface LoginDependencies {
@@ -45,23 +45,15 @@ export interface LoginDependencies {
   readonly timeoutMs?: number;
 }
 
-export async function currentGitBranch(): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync(
-      'git',
-      ['symbolic-ref', '--quiet', '--short', 'HEAD'],
-      {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-        timeout: 5_000,
-        windowsHide: true,
-      },
-    );
-    const branch = stdout.trim();
-    return branch.length > 0 ? branch : null;
-  } catch {
-    return null;
-  }
+/**
+ * Branch names carry internal detail (customer names, embargoed identifiers),
+ * so both an explicit `--no-branch` and the environment variable suppress the
+ * parameter. The flag wins because it is the more specific signal.
+ */
+function branchContextEnabled(options: LoginOptions): boolean {
+  if (options.branch === false) return false;
+  const configured = process.env.HYPEQUERY_CLI_SEND_BRANCH?.trim().toLowerCase();
+  return configured !== '0' && configured !== 'false' && configured !== 'no';
 }
 
 export interface LogoutDependencies {
@@ -229,13 +221,18 @@ export async function loginCommand(
   const state = randomBytes(24).toString('base64url');
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
+  // Resolve branch context before the loopback listener opens: shelling out to
+  // git should not hold a server socket, and a caller-supplied resolver that
+  // rejects must not leak one.
+  const branch = branchContextEnabled(options)
+    ? await (dependencies.getGitBranch ?? currentGitBranch)()
+    : null;
   const callback = await callbackServer(state, dependencies.timeoutMs ?? LOGIN_TIMEOUT_MS);
   const authorizeUrl = new URL('/cli/authorize', origin);
   authorizeUrl.searchParams.set('redirect_uri', callback.redirectUri);
   authorizeUrl.searchParams.set('code_challenge', challenge);
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
-  const branch = await (dependencies.getGitBranch ?? currentGitBranch)();
   if (branch) authorizeUrl.searchParams.set('branch', branch);
 
   try {
@@ -271,6 +268,13 @@ export async function loginCommand(
     );
     await (dependencies.saveCredential ?? saveCloudCredential)(credential);
     logger.success('Logged in to Hypequery Cloud');
+    // Cloud resolves the target, and branch context only expresses intent, so
+    // print what was actually issued rather than what was requested.
+    if (credential.target) {
+      logger.info(
+        `Deployments target ${credential.target.project} / ${credential.target.environment}`,
+      );
+    }
     logger.info(`Credential expires ${new Date(credential.expiresAt).toLocaleString()}`);
   } finally {
     callback.close();

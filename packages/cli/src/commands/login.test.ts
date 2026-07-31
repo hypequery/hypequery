@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../utils/logger.js', () => ({
   logger: {
@@ -9,7 +9,13 @@ vi.mock('../utils/logger.js', () => ({
   },
 }));
 
-import { loginCommand, logoutCommand } from './login.js';
+import { logger } from '../utils/logger.js';
+import {
+  loginCommand,
+  logoutCommand,
+  type LoginDependencies,
+  type LoginOptions,
+} from './login.js';
 
 const TOKEN_RESPONSE_NOW = Date.parse('2029-12-31T12:00:00.000Z');
 
@@ -26,7 +32,47 @@ function authorizeInBrowser(input: string) {
   return fetch(callback);
 }
 
+/**
+ * Runs a successful login against a stub Cloud and returns the authorize URL
+ * the browser was handed, so branch-context cases assert on one variable.
+ */
+async function authorizeUrlForLogin(
+  dependencies: LoginDependencies = {},
+  options: LoginOptions = {},
+): Promise<URL | undefined> {
+  let authorizeUrl: URL | undefined;
+  await loginCommand({ cloudUrl: 'https://cloud.example.test', ...options }, {
+    fetch: vi.fn(async () => new Response(JSON.stringify({
+      access_token: `hqdp_v1_${'c'.repeat(43)}`,
+      token_type: 'Bearer',
+      expires_at: '2030-01-01T00:00:00.000Z',
+      scope: 'deploy:submit',
+      deployment_endpoint:
+        'https://cloud.example.test/v1/deployments/submissions',
+      deployment_target: {
+        project: 'acme:analytics',
+        environment: 'preview-customer-retention',
+      },
+    }), { status: 200 })) as typeof fetch,
+    now: () => TOKEN_RESPONSE_NOW,
+    openBrowser: async (input) => {
+      authorizeUrl = new URL(input);
+      await authorizeInBrowser(input);
+    },
+    saveCredential: vi.fn(),
+    timeoutMs: 2_000,
+    ...dependencies,
+  });
+  return authorizeUrl;
+}
+
 describe('Cloud CLI authentication', () => {
+  beforeEach(() => {
+    vi.mocked(logger.info).mockClear();
+    vi.mocked(logger.success).mockClear();
+    vi.mocked(logger.warn).mockClear();
+  });
+
   it('completes a browser loopback PKCE flow and stores the returned token', async () => {
     let authorizeUrl: URL | undefined;
     const saveCredential = vi.fn();
@@ -99,32 +145,59 @@ describe('Cloud CLI authentication', () => {
     });
   });
 
-  it('omits branch context when Git is detached or unavailable', async () => {
-    let authorizeUrl: URL | undefined;
-    await loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
-      fetch: vi.fn(async () => new Response(JSON.stringify({
-        access_token: `hqdp_v1_${'c'.repeat(43)}`,
-        token_type: 'Bearer',
-        expires_at: '2030-01-01T00:00:00.000Z',
-        scope: 'deploy:submit',
-        deployment_endpoint:
-          'https://cloud.example.test/v1/deployments/submissions',
-        deployment_target: {
-          project: 'acme:analytics',
-          environment: 'main',
-        },
-      }), { status: 200 })) as typeof fetch,
+  it('omits branch context when the branch cannot be resolved', async () => {
+    const authorizeUrl = await authorizeUrlForLogin({
       getGitBranch: async () => null,
-      now: () => TOKEN_RESPONSE_NOW,
-      openBrowser: async (input) => {
-        authorizeUrl = new URL(input);
-        await authorizeInBrowser(input);
-      },
-      saveCredential: vi.fn(),
-      timeoutMs: 2_000,
     });
 
     expect(authorizeUrl?.searchParams.has('branch')).toBe(false);
+  });
+
+  it('omits branch context when --no-branch is passed', async () => {
+    const getGitBranch = vi.fn(async () => 'feature/customer-retention');
+    const authorizeUrl = await authorizeUrlForLogin(
+      { getGitBranch },
+      { branch: false },
+    );
+
+    expect(authorizeUrl?.searchParams.has('branch')).toBe(false);
+    expect(getGitBranch).not.toHaveBeenCalled();
+  });
+
+  it('omits branch context when HYPEQUERY_CLI_SEND_BRANCH disables it', async () => {
+    vi.stubEnv('HYPEQUERY_CLI_SEND_BRANCH', '0');
+    try {
+      const getGitBranch = vi.fn(async () => 'feature/customer-retention');
+      const authorizeUrl = await authorizeUrlForLogin({ getGitBranch });
+
+      expect(authorizeUrl?.searchParams.has('branch')).toBe(false);
+      expect(getGitBranch).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('reports the deployment target Cloud resolved for the login', async () => {
+    await authorizeUrlForLogin({
+      getGitBranch: async () => 'feature/customer-retention',
+    });
+
+    expect(logger.info).toHaveBeenCalledWith(
+      'Deployments target acme:analytics / preview-customer-retention',
+    );
+  });
+
+  it('never opens the loopback server when branch resolution fails', async () => {
+    const openBrowser = vi.fn();
+    await expect(loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
+      getGitBranch: async () => {
+        throw new Error('git exploded');
+      },
+      openBrowser,
+      timeoutMs: 2_000,
+    })).rejects.toThrow('git exploded');
+
+    expect(openBrowser).not.toHaveBeenCalled();
   });
 
   it('reports a non-object token response as an invalid Cloud response', async () => {
