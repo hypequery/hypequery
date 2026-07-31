@@ -251,6 +251,33 @@ Options:
 
 ## Non-interactive Setup
 
+### Cloud deployment targets in CI
+
+Git branch context is only a default for interactive login. Select a stable
+target explicitly when the same branch or commit deploys to more than one
+environment:
+
+```bash
+npx hypequery login --environment development
+```
+
+For CI, create a target-scoped API key in Cloud for each environment and store
+it as a separate secret. The explicit release target and its matching key make
+the destination independent of the source branch:
+
+```bash
+HYPEQUERY_API_TOKEN="$HYPEQUERY_DEV_TOKEN" npx hypequery deploy analytics/api.ts \
+  --project acme:analytics \
+  --environment development
+
+HYPEQUERY_API_TOKEN="$HYPEQUERY_PROD_TOKEN" npx hypequery deploy analytics/api.ts \
+  --project acme:analytics \
+  --environment production
+```
+
+Set `HYPEQUERY_DEPLOYMENT_ENDPOINT` for both jobs. A key is scoped to one target,
+so a production key cannot submit a development release or vice versa.
+
 For ClickHouse, `hypequery init --no-interactive` reads:
 
 - `CLICKHOUSE_URL` or deprecated `CLICKHOUSE_HOST`
