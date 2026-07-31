@@ -130,6 +130,31 @@ describe('canonical value codec', () => {
     expectProtocolError(action, fixture.error);
   });
 
+  it('accepts metadata integers by value and canonicalizes them to integer form', () => {
+    // RFC 0001 defines metadata integers by value, not lexical form: the
+    // fixture manifest cannot carry the 1-vs-1.0 distinction because
+    // JSON.stringify(1.0) writes 1. Number('1.0') defeats literal folding so
+    // this exercises an integral host float on the programmatic entry path.
+    const input = {
+      $hypequery: {
+        type: 'integer',
+        version: Number('1.0'),
+        bits: Number('8.0'),
+        signed: true,
+        value: '1',
+      },
+    };
+
+    expect(encodeCanonicalValueToString(input))
+      .toBe('{"$hypequery":{"bits":8,"signed":true,"type":"integer","value":"1","version":1}}');
+    expectProtocolError(
+      () => validateCanonicalValue({
+        $hypequery: { type: 'integer', version: 1.5, bits: 8, signed: true, value: '1' },
+      }),
+      'HQ_VALUE_INVALID_FORMAT',
+    );
+  });
+
   it('returns a detached deeply frozen snapshot', () => {
     const input = arrayValue(['original']) as {
       $hypequery: { values: string[] };

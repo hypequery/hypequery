@@ -3,13 +3,15 @@
 // the runner sends. Used by the reference adapter and the datasets adapter.
 import { createInterface } from 'node:readline';
 import { CONFORMANCE_PROTOCOL_VERSION } from '../types.js';
-import type { FixtureRole, HandlerResult } from '../types.js';
+import type { FixtureRole, HandlerResult, HostileObjectSuiteDeclaration } from '../types.js';
 
 export interface StdioAdapterOptions {
   readonly implementation?: string;
   readonly version?: string;
   readonly language?: string;
   readonly families: readonly string[];
+  /** RFC 0012 language-specific hostile-object suite declaration. */
+  readonly hostileObjectSuite?: HostileObjectSuiteDeclaration;
   readonly handle: (
     family: string,
     role: FixtureRole,
@@ -72,6 +74,9 @@ export function createStdioAdapter(options: StdioAdapterOptions): Promise<number
           version: options.version,
           language: options.language,
           families,
+          ...(options.hostileObjectSuite
+            ? { hostileObjectSuite: options.hostileObjectSuite }
+            : {}),
         });
         return;
       }

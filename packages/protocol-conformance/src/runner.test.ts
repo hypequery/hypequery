@@ -17,6 +17,10 @@ describe('runConformance', () => {
     expect(summary.failed).toBe(0);
     expect(summary.passed).toBe(4);
     expect(summary.notRun).toBe(0);
+    // The RFC 0012 hostile-object suite declaration rides the hello message
+    // into the published summary.
+    expect(summary.adapter?.hostileObjectSuite)
+      .toEqual({ count: 2, mechanisms: ['getter', 'toJSON'] });
   });
 
   it('reports cases whose family the adapter does not announce', async () => {

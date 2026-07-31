@@ -60,10 +60,7 @@
   {
     "id": "raw-array",
     "phase": "model",
-    "value": [
-      true,
-      false
-    ],
+    "value": [true, false],
     "error": "HQ_VALUE_RAW_COMPOSITE"
   },
   {
@@ -356,5 +353,35 @@
       }
     },
     "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "timezone-leading-underscore",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime",
+        "precision": 0,
+        "timezone": "_Foo/Bar",
+        "value": "2026-07-13T14:30:45Z"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "timezone-too-long",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime",
+        "precision": 0,
+        "timezone": "Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "value": "2026-07-13T14:30:45Z"
+      }
+    },
+    "error": "HQ_VALUE_TOO_LARGE"
   }
 ]

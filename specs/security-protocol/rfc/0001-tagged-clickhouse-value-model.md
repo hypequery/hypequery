@@ -274,6 +274,9 @@ scale. For example Decimal(9, 4) value `12.3400` has coefficient `123400`.
   valid, because `UTC`, `EST`, `GMT`, `CET`, `MST7MDT`, and `W-SU` are all
   real tzdb entries. Requiring a leading letter rejects offset-shaped input
   such as `+0200` while still admitting `Etc/GMT+5`.
+- Exceeding the 64-byte limit reports `HQ_VALUE_TOO_LARGE`, consistent with
+  every other byte-limit failure; all other lexical failures report
+  `HQ_VALUE_INVALID_FORMAT`.
 - Implementations MUST NOT require the identifier to resolve in the host
   timezone database. Python `zoneinfo` and JavaScript ICU disagree about
   renamed zones such as `Europe/Kiev` versus `Europe/Kyiv`, and tzdb naming
