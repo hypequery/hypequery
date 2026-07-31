@@ -146,9 +146,10 @@ function validateArtifact(
 function validateSourceRevision(
   input: unknown,
   path: string,
+  limits: Readonly<ProtocolDeploymentBundleLimits>,
 ): ProtocolDeploymentBundleSourceRevision {
   const value = requireRecord(input, path);
-  exactFields(value, ['kind', 'commit', 'dirty'], path);
+  exactFields(value, ['kind', 'commit', 'dirty'], path, ['branch']);
   if (value.kind !== 'git') {
     if (typeof value.kind !== 'string') bundleError('HQ_BUNDLE_TYPE', `${path}.kind`);
     bundleError('HQ_BUNDLE_INVALID_VALUE', `${path}.kind`);
@@ -158,10 +159,32 @@ function validateSourceRevision(
     bundleError('HQ_BUNDLE_INVALID_VALUE', `${path}.commit`);
   }
   if (typeof value.dirty !== 'boolean') bundleError('HQ_BUNDLE_TYPE', `${path}.dirty`);
+  let branch: string | undefined;
+  if (value.branch !== undefined) {
+    if (typeof value.branch !== 'string') bundleError('HQ_BUNDLE_TYPE', `${path}.branch`);
+    if (textEncoder.encode(value.branch).byteLength > limits.maxPathBytes) {
+      bundleError('HQ_BUNDLE_TOO_LARGE', `${path}.branch`);
+    }
+    const invalidCharacter = [...value.branch].some(character => {
+      const code = character.charCodeAt(0);
+      return code <= 0x20 || code === 0x7f || '~^:?*[\\'.includes(character);
+    });
+    const segments = value.branch.split('/');
+    if (!value.branch || value.branch === '@' || value.branch.startsWith('-')
+      || value.branch.startsWith('/') || value.branch.endsWith('/')
+      || value.branch.endsWith('.') || value.branch.includes('//')
+      || value.branch.includes('..') || value.branch.includes('@{')
+      || invalidCharacter
+      || segments.some(segment => segment.startsWith('.') || segment.endsWith('.lock'))) {
+      bundleError('HQ_BUNDLE_INVALID_VALUE', `${path}.branch`);
+    }
+    branch = value.branch;
+  }
   return freezeRecord({
     kind: 'git',
     commit: value.commit,
     dirty: value.dirty,
+    ...(branch ? { branch } : {}),
   }) as unknown as ProtocolDeploymentBundleSourceRevision;
 }
 
@@ -214,7 +237,7 @@ function validateSource(
     files,
     ...(value.revision === undefined
       ? {}
-      : { revision: validateSourceRevision(value.revision, `${path}.revision`) }),
+      : { revision: validateSourceRevision(value.revision, `${path}.revision`, limits) }),
   }) as unknown as ProtocolDeploymentBundleSource;
 }
 

@@ -80,6 +80,7 @@ function source() {
       kind: 'git',
       commit: '5'.repeat(40),
       dirty: false,
+      branch: 'feature/customer-retention',
     },
   };
 }
@@ -197,6 +198,27 @@ describe('deployment bundle manifest v1', () => {
     expect(Object.isFrozen(manifest.source?.files)).toBe(true);
     expect(Object.isFrozen(manifest.source?.files[0])).toBe(true);
     expect(Object.isFrozen(manifest.source?.revision)).toBe(true);
+  });
+
+  it('accepts detached revisions and rejects invalid branch provenance', () => {
+    const detached = source();
+    delete (detached.revision as { branch?: string }).branch;
+    expect(validateProtocolDeploymentBundleManifest({
+      ...baseManifest(),
+      source: detached,
+    }).source?.revision).toEqual(detached.revision);
+
+    expectBundleError(
+      () => validateProtocolDeploymentBundleManifest({
+        ...baseManifest(),
+        source: {
+          ...source(),
+          revision: { ...source().revision, branch: 'feature/../production' },
+        },
+      }),
+      'HQ_BUNDLE_INVALID_VALUE',
+      '$.source.revision.branch',
+    );
   });
 
   it('requires the source entrypoint and a collision-free bundle tree', () => {
