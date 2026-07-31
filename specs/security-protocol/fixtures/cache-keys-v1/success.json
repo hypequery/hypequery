@@ -1,0 +1,122 @@
+[
+  {
+    "id": "basic",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "QZmJzTyhPUpRooLespx4XQ",
+    "key": "hq1.1.QZmJzTyhPUpRooLespx4XQ.uDrSq4MwQ-yttsrzdpCHbiGutMxHn2LM8sf2T0boN3k"
+  },
+  {
+    "id": "namespace-separates-environment",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "staging"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "Ze61MnuVhdrTfAaVhRQAlw",
+    "key": "hq1.1.Ze61MnuVhdrTfAaVhRQAlw.yOeRV5mUwtkZ2ElBExrNWtjpiO2VC7Ite2vLVtyua7U"
+  },
+  {
+    "id": "namespace-separates-project",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "globex",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "VOSW_B4ow0Tv5VwAzLza9Q",
+    "key": "hq1.1.VOSW_B4ow0Tv5VwAzLza9Q.m3d9igKuFNjuJKT1K15y4H5VqnkqZ3YiYIrtZbeOhqI"
+  },
+  {
+    "id": "rotation-changes-key",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 2,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "QZmJzTyhPUpRooLespx4XQ",
+    "key": "hq1.2.QZmJzTyhPUpRooLespx4XQ.uDrSq4MwQ-yttsrzdpCHbiGutMxHn2LM8sf2T0boN3k"
+  },
+  {
+    "id": "secret-separates-key",
+    "secretHex": "2222222222222222222222222222222222222222222222222222222222222222",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "IOwBfU4fGoFMYm-dzKMTxw",
+    "key": "hq1.1.IOwBfU4fGoFMYm-dzKMTxw.0bhDqv_vgmO_y7t6gSX64uIh4uWj8iZX5Z5HIthWTZc"
+  },
+  {
+    "id": "long-secret",
+    "secretHex": "33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "ZIWp472wGrPSAa8KgOAQAg",
+    "key": "hq1.1.ZIWp472wGrPSAa8KgOAQAg.k3DrKZocGPEgjdpv4_Y7AYzDbFZGe-mZUxPyEakGHWM"
+  },
+  {
+    "id": "empty-preimage",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "",
+    "namespaceToken": "QZmJzTyhPUpRooLespx4XQ",
+    "key": "hq1.1.QZmJzTyhPUpRooLespx4XQ.JyTBb3tVj3hk39GNDkQdfzzacOFM7Mi28KI2JFF3x0U"
+  },
+  {
+    "id": "sensitive-preimage-not-recoverable",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"filters\":[{\"field\":\"email\",\"operator\":\"eq\",\"value\":\"ana@example.com\"}],\"tenant\":{\"value\":\"acme_corp\"}}",
+    "namespaceToken": "QZmJzTyhPUpRooLespx4XQ",
+    "key": "hq1.1.QZmJzTyhPUpRooLespx4XQ.GYbj4VYnkB6WuxsF1qI0k1PmLQiyiE1harFHqlUvREk"
+  },
+  {
+    "id": "max-key-version",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 2147483647,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "QZmJzTyhPUpRooLespx4XQ",
+    "key": "hq1.2147483647.QZmJzTyhPUpRooLespx4XQ.uDrSq4MwQ-yttsrzdpCHbiGutMxHn2LM8sf2T0boN3k"
+  },
+  {
+    "id": "underscore-identifiers",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "_internal",
+      "environment": "env_1"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "bKhwvqePL7o6XhetwgKpVg",
+    "key": "hq1.1.bKhwvqePL7o6XhetwgKpVg.W6XWDPj8eR9-Xc4b8zEOMm7HcTqAoH9fJ7Xsj5Oryl0"
+  }
+]
