@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hypequery"
+version = "0.0.1.dev0"
+description = "Name reservation — the Hypequery Python SDK (datasets + serve) is in development."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Hypequery" }]
+keywords = ["clickhouse", "analytics", "semantic-layer", "datasets"]
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Database",
+]
+
+[project.urls]
+Homepage = "https://hypequery.com"
+Repository = "https://github.com/hypequery/hypequery"
+Issues = "https://github.com/hypequery/hypequery/issues"
+
+# Metadata-only reservation: this distribution intentionally ships no modules.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true

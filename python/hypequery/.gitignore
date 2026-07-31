@@ -1,0 +1,10 @@
+# Intentionally present. Hatchling bundles the nearest .gitignore into the
+# sdist with no way to suppress it; without this file it walks up and ships the
+# monorepo root's instead. See ../reservations/README.md.
+dist/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.import_linter_cache/
+__pycache__/
