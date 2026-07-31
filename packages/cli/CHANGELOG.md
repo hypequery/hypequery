@@ -1,5 +1,11 @@
 # @hypequery/cli
 
+## 1.16.0
+
+### Minor Changes
+
+- 1fd0496: Allow Cloud login to select a stable deployment environment independently of Git branch context.
+
 ## 1.15.0
 
 ### Minor Changes
