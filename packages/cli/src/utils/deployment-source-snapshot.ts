@@ -9,6 +9,7 @@ import type {
   DeploymentBundleSourceFile,
   DeploymentBundleSourceSnapshot,
 } from './deployment-bundle.js';
+import { currentGitBranch } from './git-branch.js';
 import { findNearestTsconfig } from './load-api.js';
 
 function portableProjectPath(projectRoot: string, absolutePath: string): string {
@@ -66,7 +67,10 @@ function gitOutput(projectRoot: string, arguments_: readonly string[]): Promise<
 async function sourceRevision(
   projectRoot: string,
 ): Promise<DeploymentBundleSourceSnapshot['revision']> {
-  const commit = await gitOutput(projectRoot, ['rev-parse', 'HEAD']);
+  const [commit, branch] = await Promise.all([
+    gitOutput(projectRoot, ['rev-parse', 'HEAD']),
+    currentGitBranch(projectRoot),
+  ]);
   if (!commit || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit)) return undefined;
   const status = await gitOutput(projectRoot, ['status', '--porcelain', '--untracked-files=all']);
   if (status === undefined) return undefined;
@@ -74,6 +78,7 @@ async function sourceRevision(
     kind: 'git',
     commit,
     dirty: status.length > 0,
+    ...(branch ? { branch } : {}),
   });
 }
 

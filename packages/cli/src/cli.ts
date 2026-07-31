@@ -55,8 +55,7 @@ program
   .command('login')
   .description('Authorize this machine with Hypequery Cloud')
   .option('--cloud-url <url>', 'Cloud origin (or HYPEQUERY_CLOUD_URL)')
-  .option('--environment <environment>', 'Stable deployment target; takes precedence over the Git branch')
-  .option('--no-branch', 'Do not send the current Git branch (or HYPEQUERY_CLI_SEND_BRANCH=0)')
+  .option('--environment <environment>', 'Stable deployment target')
   .action(runCommand(async (options: LoginOptions) => {
     await loginCommand(options);
   }));

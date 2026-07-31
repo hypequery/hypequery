@@ -34,7 +34,7 @@ function authorizeInBrowser(input: string) {
 
 /**
  * Runs a successful login against a stub Cloud and returns the authorize URL
- * the browser was handed, so branch-context cases assert on one variable.
+ * the browser was handed so authorization parameters can be asserted directly.
  */
 async function authorizeUrlForLogin(
   dependencies: LoginDependencies = {},
@@ -104,9 +104,7 @@ describe('Cloud CLI authentication', () => {
     });
     const openBrowser = vi.fn(async (input: string) => {
       authorizeUrl = new URL(input);
-      expect(authorizeUrl.searchParams.get('branch')).toBe(
-        'feature/customer-retention',
-      );
+      expect(authorizeUrl.searchParams.has('branch')).toBe(false);
       const callback = new URL(
         authorizeUrl.searchParams.get('redirect_uri') as string,
       );
@@ -123,7 +121,6 @@ describe('Cloud CLI authentication', () => {
 
     await loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
       fetch: fetchMock as typeof fetch,
-      getGitBranch: async () => 'feature/customer-retention',
       now: () => TOKEN_RESPONSE_NOW,
       openBrowser,
       saveCredential,
@@ -145,32 +142,10 @@ describe('Cloud CLI authentication', () => {
     });
   });
 
-  it('omits branch context when the branch cannot be resolved', async () => {
-    const authorizeUrl = await authorizeUrlForLogin({
-      getGitBranch: async () => null,
-    });
+  it('sends an explicit deployment environment without source context', async () => {
+    const authorizeUrl = await authorizeUrlForLogin({}, { environment: 'development' });
 
     expect(authorizeUrl?.searchParams.has('branch')).toBe(false);
-  });
-
-  it('omits branch context when --no-branch is passed', async () => {
-    const getGitBranch = vi.fn(async () => 'feature/customer-retention');
-    const authorizeUrl = await authorizeUrlForLogin(
-      { getGitBranch },
-      { branch: false },
-    );
-
-    expect(authorizeUrl?.searchParams.has('branch')).toBe(false);
-    expect(getGitBranch).not.toHaveBeenCalled();
-  });
-
-  it('sends an explicit deployment environment alongside source branch context', async () => {
-    const authorizeUrl = await authorizeUrlForLogin(
-      { getGitBranch: async () => 'main' },
-      { environment: 'development' },
-    );
-
-    expect(authorizeUrl?.searchParams.get('branch')).toBe('main');
     expect(authorizeUrl?.searchParams.get('environment')).toBe('development');
   });
 
@@ -181,47 +156,18 @@ describe('Cloud CLI authentication', () => {
       cloudUrl: 'https://cloud.example.test',
       environment: 'development target',
     }, {
-      getGitBranch: async () => 'main',
       openBrowser,
     })).rejects.toThrow('Invalid deployment environment');
 
     expect(openBrowser).not.toHaveBeenCalled();
   });
 
-  it('omits branch context when HYPEQUERY_CLI_SEND_BRANCH disables it', async () => {
-    vi.stubEnv('HYPEQUERY_CLI_SEND_BRANCH', '0');
-    try {
-      const getGitBranch = vi.fn(async () => 'feature/customer-retention');
-      const authorizeUrl = await authorizeUrlForLogin({ getGitBranch });
-
-      expect(authorizeUrl?.searchParams.has('branch')).toBe(false);
-      expect(getGitBranch).not.toHaveBeenCalled();
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
-
   it('reports the deployment target Cloud resolved for the login', async () => {
-    await authorizeUrlForLogin({
-      getGitBranch: async () => 'feature/customer-retention',
-    });
+    await authorizeUrlForLogin();
 
     expect(logger.info).toHaveBeenCalledWith(
       'Deployments target acme:analytics / preview-customer-retention',
     );
-  });
-
-  it('never opens the loopback server when branch resolution fails', async () => {
-    const openBrowser = vi.fn();
-    await expect(loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
-      getGitBranch: async () => {
-        throw new Error('git exploded');
-      },
-      openBrowser,
-      timeoutMs: 2_000,
-    })).rejects.toThrow('git exploded');
-
-    expect(openBrowser).not.toHaveBeenCalled();
   });
 
   it('reports a non-object token response as an invalid Cloud response', async () => {

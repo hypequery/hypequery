@@ -50,6 +50,7 @@ export interface DeploymentBundleSourceSnapshot {
     readonly kind: 'git';
     readonly commit: string;
     readonly dirty: boolean;
+    readonly branch?: string;
   };
 }
 

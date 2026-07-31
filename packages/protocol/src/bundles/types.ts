@@ -16,6 +16,8 @@ export interface ProtocolDeploymentBundleSourceRevision {
   readonly kind: 'git';
   readonly commit: string;
   readonly dirty: boolean;
+  /** Checked-out branch at build time; absent for detached HEADs. */
+  readonly branch?: string;
 }
 
 export interface ProtocolDeploymentBundleSource {

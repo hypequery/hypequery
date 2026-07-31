@@ -13,7 +13,6 @@ import {
   saveCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
-import { currentGitBranch } from '../utils/git-branch.js';
 import { logger } from '../utils/logger.js';
 
 const DEFAULT_CLOUD_URL = 'https://cloud.hypequery.com';
@@ -31,31 +30,17 @@ const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
 export interface LoginOptions {
   readonly cloudUrl?: string;
-  /** Commander sets this to false for `--no-branch`. */
-  readonly branch?: boolean;
-  /** Stable Cloud deployment target. This always takes precedence over Git branch context. */
+  /** Stable Cloud deployment target. */
   readonly environment?: string;
 }
 
 export interface LoginDependencies {
   readonly fetch?: typeof fetch;
-  readonly getGitBranch?: () => Promise<string | null>;
   readonly openBrowser?: (url: string) => Promise<unknown>;
   readonly now?: () => number;
   readonly requestTimeoutMs?: number;
   readonly saveCredential?: typeof saveCloudCredential;
   readonly timeoutMs?: number;
-}
-
-/**
- * Branch names carry internal detail (customer names, embargoed identifiers),
- * so both an explicit `--no-branch` and the environment variable suppress the
- * parameter. The flag wins because it is the more specific signal.
- */
-function branchContextEnabled(options: LoginOptions): boolean {
-  if (options.branch === false) return false;
-  const configured = process.env.HYPEQUERY_CLI_SEND_BRANCH?.trim().toLowerCase();
-  return configured !== '0' && configured !== 'false' && configured !== 'no';
 }
 
 export interface LogoutDependencies {
@@ -223,12 +208,6 @@ export async function loginCommand(
   const state = randomBytes(24).toString('base64url');
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
-  // Resolve branch context before the loopback listener opens: shelling out to
-  // git should not hold a server socket, and a caller-supplied resolver that
-  // rejects must not leak one.
-  const branch = branchContextEnabled(options)
-    ? await (dependencies.getGitBranch ?? currentGitBranch)()
-    : null;
   let environment: string | undefined;
   if (options.environment !== undefined) {
     try {
@@ -248,7 +227,6 @@ export async function loginCommand(
   authorizeUrl.searchParams.set('code_challenge', challenge);
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
-  if (branch) authorizeUrl.searchParams.set('branch', branch);
   if (environment) authorizeUrl.searchParams.set('environment', environment);
 
   try {
@@ -284,8 +262,8 @@ export async function loginCommand(
     );
     await (dependencies.saveCredential ?? saveCloudCredential)(credential);
     logger.success('Logged in to Hypequery Cloud');
-    // Cloud resolves the target, and branch context only expresses intent, so
-    // print what was actually issued rather than what was requested.
+    // Cloud resolves the target, so print what was actually issued rather than
+    // what was requested.
     if (credential.target) {
       logger.info(
         `Deployments target ${credential.target.project} / ${credential.target.environment}`,

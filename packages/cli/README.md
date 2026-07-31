@@ -253,9 +253,10 @@ Options:
 
 ### Cloud deployment targets in CI
 
-Git branch context is only a default for interactive login. Select a stable
-target explicitly when the same branch or commit deploys to more than one
-environment:
+Login selects a stable Cloud deployment target. The deployment itself captures
+the checked-out Git branch, commit, and dirty state as source provenance; none
+of those values select or create an environment. Select the destination
+explicitly when the same branch or commit deploys to more than one environment:
 
 ```bash
 npx hypequery login --environment development
