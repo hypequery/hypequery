@@ -25,13 +25,6 @@ Or install it once:
 npm install -D @hypequery/cli
 ```
 
-Ship it to Hypequery Cloud:
-
-```bash
-npx @hypequery/cli login
-npx @hypequery/cli deploy analytics/api.ts
-```
-
 ## Commands
 
 ### `hypequery init`
@@ -156,9 +149,9 @@ semantic keys such as `dataset:orders`.
 
 Builds a closed deployment bundle for an exported HypeQuery API. The bundle
 contains canonical deployment metadata, every referenced runtime artifact, and
-a manifest that binds their exact bytes and identities. `hypequery deploy` runs
-this step for you; reach for it directly in CI pipelines that stage artifacts,
-or when you need the runtime options below.
+a manifest that binds their exact bytes and identities. It is the first step of
+a deployment pipeline, and produces the input `deployment:release` binds to a
+target.
 
 ```bash
 npx hypequery deployment:build analytics/api.ts
@@ -200,129 +193,16 @@ are still accepted for metadata-only validation.
 npx hypequery deployment:validate analytics/hypequery-deployment
 ```
 
-### `hypequery login`
-
-Authorizes the local CLI through your existing Hypequery Cloud browser
-session. The command uses an S256 PKCE loopback flow, then stores the
-target-scoped deployment token in the operating-system credential vault.
-Tokens expire after 12 hours.
-
-When run inside a Git repository, login sends the current branch name to Cloud.
-Cloud creates or selects the matching branch-backed deployment target under
-the project selected in the dashboard. A detached HEAD or non-Git directory
-falls back to the currently selected Cloud branch.
-
-```bash
-npx hypequery login
-```
-
-Cloud, not the CLI, decides the final target, so login prints the project and
-environment the credential was actually issued for. `hypequery deploy` uses
-that target.
-
-Branch names can carry internal detail. Pass `--no-branch`, or set
-`HYPEQUERY_CLI_SEND_BRANCH=0`, to keep the branch local and use the currently
-selected Cloud branch instead.
-
-```bash
-npx hypequery login --no-branch
-```
-
-Use `--cloud-url <origin>` or `HYPEQUERY_CLOUD_URL` for a self-hosted or local
-Cloud instance. HTTPS is required except for loopback development origins.
-
-Once logged in, `hypequery deploy` automatically uses the stored endpoint and
-token, and resolves the project and environment from the same stored profile.
-The deployment endpoint is returned by Cloud during the token exchange; it is
-the authenticated upload API, not the browser login endpoint. For
-non-interactive CI usage, set both `HYPEQUERY_API_TOKEN` and
-`HYPEQUERY_DEPLOYMENT_ENDPOINT` (or pass `--endpoint`).
-
-Because the CLI also loads a project `.env`, a `HYPEQUERY_API_TOKEN` left there
-takes precedence over the login flow and is rejected unless it is paired with an
-endpoint. Unset it to use `hypequery login`.
-
-Token storage requires an operating-system credential vault (Keychain,
-Credential Manager, or a Secret Service implementation such as
-gnome-keyring/KWallet). Headless environments without one should use
-`HYPEQUERY_API_TOKEN` instead of `hypequery login`.
-
-### `hypequery logout`
-
-Revokes the current Cloud token and removes it from the operating-system
-credential vault:
-
-```bash
-npx hypequery logout
-```
-
-If the stored profile is unreadable, `logout` still removes the local state and
-reports that the token was not revoked; it expires on its own.
-
-### `hypequery deploy`
-
-Builds a deployment bundle from an API module, prepares a target-bound release,
-and submits both. This is the primary Cloud workflow: sign in once, then deploy
-with one command.
-
-```bash
-npx hypequery login
-npx hypequery deploy analytics/api.ts
-```
-
-The bundle is written to `analytics/hypequery-deployment` and the release to
-`analytics/hypequery-deployment.release.json`. The target comes from the stored
-Cloud profile unless you override it:
-
-```bash
-npx hypequery deploy analytics/api.ts \
-  --project my-project \
-  --environment production
-```
-
-The deployment endpoint and token are resolved before the build, so a missing
-or expired login fails immediately rather than after bundling. The credential
-rules are the same as `hypequery deployment:submit` below.
-
-The three steps remain available individually as `deployment:build`,
-`deployment:release`, and `deployment:submit` for CI pipelines that stage
-artifacts, and for the cases `deploy` does not cover: `deploy` always builds the
-runtime artifact itself, so Python deployments and prebuilt runtime artifacts
-(`--runtime`, `--runtime-artifact`, `--runtime-file`) need `deployment:build`.
-
-Options:
-
-- `--project <project>`: target project identifier; defaults to the logged-in
-  target and must be paired with `--environment`
-- `--environment <environment>`: target environment identifier; defaults to the
-  logged-in target and must be paired with `--project`
-- `--bundle-output <directory>`: bundle directory, default
-  `analytics/hypequery-deployment`
-- `--release-output <path>`: release JSON path, default beside the bundle
-- `--endpoint <url>`: HTTPS submission endpoint; requires `HYPEQUERY_API_TOKEN`
-
-> **Deprecated:** `hypequery deploy <bundle> --release <file>` still submits a
-> prebuilt bundle and prints a deprecation warning. Use
-> `hypequery deployment:submit` instead. `--release` cannot be combined with
-> `--project`, `--environment`, `--bundle-output`, or `--release-output`.
-
 ### `hypequery deployment:release`
 
 Prepares a deterministic release request from a verified deployment bundle and
 a project/environment target. This command does not upload, authorize, or
 execute the release.
 
-After `hypequery login` the target is read from the stored Cloud profile, and
-the resolved target is printed alongside the release identity:
-
-```bash
-npx hypequery deployment:release analytics/hypequery-deployment
-```
-
-To target something other than the logged-in project and environment, pass both
-flags. A half-specified override is rejected rather than completed from the
-stored profile, so an unset shell variable fails loudly instead of silently
-retargeting the release:
+Pass the target as both flags. A half-specified target is rejected rather than
+completed from anywhere else, so an unset shell variable fails loudly instead of
+silently retargeting the release. The resolved target is printed alongside the
+release identity:
 
 ```bash
 npx hypequery deployment:release analytics/hypequery-deployment \
@@ -336,36 +216,30 @@ invalidate bundle verification.
 
 Options:
 
-- `--project <project>`: target project identifier; defaults to the logged-in
-  target and must be paired with `--environment`
-- `--environment <environment>`: target environment identifier; defaults to the
-  logged-in target and must be paired with `--project`
+- `--project <project>`: target project identifier; must be paired with
+  `--environment`
+- `--environment <environment>`: target environment identifier; must be paired
+  with `--project`
 - `--output <path>`: release JSON path, default beside the bundle
 
 ### `hypequery deployment:submit`
 
 Submits a verified deployment bundle with an already-prepared target-bound
 release. The command verifies both inputs again, requires their bundle
-identities to match, and streams only the files declared by the bundle. Use it
-when the bundle and release were produced by an earlier pipeline step; for the
-ordinary path, use `hypequery deploy`.
+identities to match, and streams only the files declared by the bundle.
 
 ```bash
 npx hypequery deployment:submit analytics/hypequery-deployment \
   --release analytics/hypequery-deployment.release.json
 ```
 
-For local development, run `hypequery login` first; the CLI reads the endpoint
-and token from its secure Cloud profile. For CI and manual credentials, set
-`HYPEQUERY_API_TOKEN` together with either `--endpoint` or
-`HYPEQUERY_DEPLOYMENT_ENDPOINT`. The CLI never combines one explicit value with
-the other value from the stored profile. Tokens are never accepted as
-command-line arguments, keeping them out of shell history. The submission
-endpoint must not contain credentials or a URL fragment, and must use HTTPS
-except for `127.0.0.1`/`localhost`, which is permitted for local Cloud
-development and warns that the token is sent in cleartext. The release identity
-is sent as the idempotency key, so an unchanged release can be submitted safely
-again.
+Set `HYPEQUERY_API_TOKEN` together with either `--endpoint` or
+`HYPEQUERY_DEPLOYMENT_ENDPOINT`. Tokens are never accepted as command-line
+arguments, keeping them out of shell history. The submission endpoint must not
+contain credentials or a URL fragment, and must use HTTPS except for
+`127.0.0.1`/`localhost`, which is permitted for local development and warns that
+the token is sent in cleartext. The release identity is sent as the idempotency
+key, so an unchanged release can be submitted safely again.
 
 This command submits immutable deployment inputs. Activation, status changes,
 promotion, and rollback remain control-plane operations.
