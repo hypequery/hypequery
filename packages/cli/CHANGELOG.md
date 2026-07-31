@@ -1,5 +1,14 @@
 # @hypequery/cli
 
+## 1.16.1
+
+### Patch Changes
+
+- 6a95ba5: Capture the checked-out Git branch alongside commit and dirty state in deployment source snapshots. Cloud login no longer reads or sends Git branch context; project and environment remain the only deployment-target inputs.
+- Updated dependencies [6a95ba5]
+  - @hypequery/protocol@0.10.1
+  - @hypequery/deployment@0.7.1
+
 ## 1.16.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/protocol",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "Public contracts and TypeScript reference implementation for portable Hypequery artifacts",
   "license": "Apache-2.0",
   "type": "module",

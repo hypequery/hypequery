@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/clickhouse",
-  "version": "2.5.3",
+  "version": "2.5.4",
   "description": "ClickHouse typescript query builder",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
