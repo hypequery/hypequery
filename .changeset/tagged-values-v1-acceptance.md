@@ -6,8 +6,9 @@
 Accept RFC 0001 (tagged ClickHouse value model) and align the reference
 implementation and conformance adapter with it.
 
-Both behaviour changes are relaxations — input that was previously rejected is
-now accepted — so existing callers producing valid values are unaffected.
+Both behaviour changes are relaxations for every real timezone identifier —
+input that was previously rejected is now accepted — so existing callers
+producing valid values are unaffected.
 
 **Canonical strings now permit tab (U+0009), line feed (U+000A), and carriage
 return (U+000D).** Every other C0 control, DEL, and the whole C1 range remain
@@ -16,6 +17,9 @@ forbidden. The previous blanket C0 ban made multi-line descriptions impossible.
 **Timezone validation now accepts single-component identifiers.** The old
 pattern required a `/`, so `EST`, `GMT`, `CET`, `MST7MDT`, and `W-SU` — all
 real tzdb entries — were rejected while only `UTC` passed via a special case.
+One edge tightens: the first component must now begin with an ASCII letter,
+so a multi-component identifier with a leading underscore such as `_Foo/Bar`
+— previously accepted, never a real tzdb entry — is now rejected.
 Validation remains lexical and never consults the host timezone database:
 Python `zoneinfo` and JavaScript ICU disagree about renamed zones such as
 `Europe/Kiev` versus `Europe/Kyiv`, and conformance must not depend on the OS
@@ -53,10 +57,18 @@ schema, event, deployment, bundle, and release families already use — plus a
 requirement that each implementation declare a language-specific
 hostile-object suite.
 
-Fixtures grew from 18 success and 28 rejection cases to 32 and 33. The
+Fixtures grew from 18 success and 28 rejection cases to 32 and 35. The
 additions concentrate on float canonicalization boundaries, where the corpus
 previously held a single case (`1.5`) that agrees across languages by
-coincidence.
+coincidence, and pin the failure code at every timezone edge: leading
+underscore, offset-shaped input, and the 64-byte cap (`HQ_VALUE_TOO_LARGE`,
+like every other byte-limit failure).
+
+The RFC 0012 language-specific hostile-object suite declaration now has a
+home in the wire protocol: an optional `hostileObjectSuite` field (`count`
+plus `mechanisms`) on the adapter `hello` message, copied by the runner into
+the run summary and rendered in reports. The reference adapter declares the
+seven mechanisms its suite covers.
 
 **RFC 0002 (portable identifiers) is also accepted**, with no implementation
 change. The validation order — type, empty, length, grammar, reserved — was

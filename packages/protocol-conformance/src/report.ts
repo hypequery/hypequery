@@ -26,5 +26,13 @@ export function formatPrettyReport(summary: RunSummary): string {
     `${summary.passed} passed, ${summary.failed} failed, ${summary.skipped} skipped`
     + (summary.notRun > 0 ? `, ${summary.notRun} not run (family not announced)` : ''),
   );
+  // RFC 0012 requires the declaration from implementations that accept host
+  // values; adapters announcing only text-input families are exempt.
+  const suite = adapter?.hostileObjectSuite;
+  if (suite) {
+    lines.push(`hostile-object suite: ${suite.count} cases (${suite.mechanisms.join(', ')})`);
+  } else if (adapter?.families.includes('tagged-values-v1')) {
+    lines.push('hostile-object suite: none declared (required by RFC 0012)');
+  }
   return lines.join('\n');
 }

@@ -10,7 +10,10 @@ rl.on('line', (line) => {
   if (trimmed === '') return;
   const message = JSON.parse(trimmed);
   if (message.type === 'hello') {
-    process.stdout.write(`${JSON.stringify({ type: 'hello', protocol: 1, families })}\n`);
+    const hostileObjectSuite = { count: 2, mechanisms: ['getter', 'toJSON'] };
+    process.stdout.write(
+      `${JSON.stringify({ type: 'hello', protocol: 1, families, hostileObjectSuite })}\n`,
+    );
     return;
   }
   if (message.type === 'end') {

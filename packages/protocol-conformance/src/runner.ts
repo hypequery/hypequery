@@ -230,6 +230,9 @@ function summarize(
       version: hello.version,
       language: hello.language,
       families: hello.families,
+      ...(hello.hostileObjectSuite
+        ? { hostileObjectSuite: hello.hostileObjectSuite }
+        : {}),
     },
     outcomes,
   };

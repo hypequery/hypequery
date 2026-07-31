@@ -90,8 +90,17 @@ The adapter answers the hello first:
 ```json
 {"type": "hello", "protocol": 1, "implementation": "@hypequery/protocol",
  "version": "0.9.0", "language": "typescript",
- "families": ["tagged-values-v1", "identifiers-v1"]}
+ "families": ["tagged-values-v1", "identifiers-v1"],
+ "hostileObjectSuite": {"count": 7,
+  "mechanisms": ["getter", "toJSON", "proxy", "custom-prototype",
+                 "symbol-key", "sparse-array", "cycle"]}}
 ```
+
+`hostileObjectSuite` is the declaration required under *Host-model conditional
+cases* below. It is optional on the wire so that adapters announcing only
+text-input families (such as `sql-portability-v1`) can omit it, but an adapter
+announcing a family that accepts host values MUST send it. The runner copies it
+into the run summary, which is how it reaches the published report.
 
 The runner only sends cases for families the adapter announced; this
 intersection is how one runner serves partial implementations, such as a
@@ -134,11 +143,14 @@ Only `unsafe-accessor` cases are host-model conditional; skipping any other
 case is a conformance failure.
 
 Skipping is permitted because the input cannot be constructed, not because the
-guarantee is optional. Every implementation MUST additionally declare, in its
-conformance report, a language-specific hostile-object suite covering its own
-conversion mechanisms — getters, proxies, `toJSON`, `__str__`, `__getattr__`,
-descriptors, and comparable hooks — together with the count of cases it
-contains. TypeScript covers at least getters, `toJSON`, custom prototypes,
+guarantee is optional. Every implementation of a family that accepts host
+values MUST additionally declare a language-specific hostile-object suite
+covering its own conversion mechanisms — getters, proxies, `toJSON`,
+`__str__`, `__getattr__`, descriptors, and comparable hooks — together with
+the count of cases it contains. The declaration is carried in the adapter's
+`hello` message as `hostileObjectSuite` and copied by the runner into the run
+summary, so it appears in the published report rather than in prose alongside
+it. TypeScript covers at least getters, `toJSON`, custom prototypes,
 symbol keys, and sparse arrays; Python covers at least property descriptors,
 custom mappings, `__iter__`, `__str__`, `dict` subclasses, and cyclic
 structures.
