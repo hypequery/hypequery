@@ -58,6 +58,9 @@ describe('Cloud CLI authentication', () => {
     });
     const openBrowser = vi.fn(async (input: string) => {
       authorizeUrl = new URL(input);
+      expect(authorizeUrl.searchParams.get('branch')).toBe(
+        'feature/customer-retention',
+      );
       const callback = new URL(
         authorizeUrl.searchParams.get('redirect_uri') as string,
       );
@@ -74,6 +77,7 @@ describe('Cloud CLI authentication', () => {
 
     await loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
       fetch: fetchMock as typeof fetch,
+      getGitBranch: async () => 'feature/customer-retention',
       now: () => TOKEN_RESPONSE_NOW,
       openBrowser,
       saveCredential,
@@ -93,6 +97,34 @@ describe('Cloud CLI authentication', () => {
       },
       token: `hqdp_v1_${'c'.repeat(43)}`,
     });
+  });
+
+  it('omits branch context when Git is detached or unavailable', async () => {
+    let authorizeUrl: URL | undefined;
+    await loginCommand({ cloudUrl: 'https://cloud.example.test' }, {
+      fetch: vi.fn(async () => new Response(JSON.stringify({
+        access_token: `hqdp_v1_${'c'.repeat(43)}`,
+        token_type: 'Bearer',
+        expires_at: '2030-01-01T00:00:00.000Z',
+        scope: 'deploy:submit',
+        deployment_endpoint:
+          'https://cloud.example.test/v1/deployments/submissions',
+        deployment_target: {
+          project: 'acme:analytics',
+          environment: 'main',
+        },
+      }), { status: 200 })) as typeof fetch,
+      getGitBranch: async () => null,
+      now: () => TOKEN_RESPONSE_NOW,
+      openBrowser: async (input) => {
+        authorizeUrl = new URL(input);
+        await authorizeInBrowser(input);
+      },
+      saveCredential: vi.fn(),
+      timeoutMs: 2_000,
+    });
+
+    expect(authorizeUrl?.searchParams.has('branch')).toBe(false);
   });
 
   it('reports a non-object token response as an invalid Cloud response', async () => {

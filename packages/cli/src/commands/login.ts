@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { promisify } from 'node:util';
 import open from 'open';
 import { validateProtocolDeploymentReleaseTarget } from '@hypequery/protocol';
 
@@ -27,6 +29,7 @@ const MAX_TOKEN_LIFETIME_MS = 13 * 60 * 60_000;
 // CLI the day Cloud rotates its token format.
 const TOKEN_PATTERN = /^hqdp_[A-Za-z0-9_-]{16,512}$/;
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+const execFileAsync = promisify(execFile);
 
 export interface LoginOptions {
   readonly cloudUrl?: string;
@@ -34,11 +37,31 @@ export interface LoginOptions {
 
 export interface LoginDependencies {
   readonly fetch?: typeof fetch;
+  readonly getGitBranch?: () => Promise<string | null>;
   readonly openBrowser?: (url: string) => Promise<unknown>;
   readonly now?: () => number;
   readonly requestTimeoutMs?: number;
   readonly saveCredential?: typeof saveCloudCredential;
   readonly timeoutMs?: number;
+}
+
+export async function currentGitBranch(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      ['symbolic-ref', '--quiet', '--short', 'HEAD'],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        timeout: 5_000,
+        windowsHide: true,
+      },
+    );
+    const branch = stdout.trim();
+    return branch.length > 0 ? branch : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface LogoutDependencies {
@@ -212,6 +235,8 @@ export async function loginCommand(
   authorizeUrl.searchParams.set('code_challenge', challenge);
   authorizeUrl.searchParams.set('code_challenge_method', 'S256');
   authorizeUrl.searchParams.set('state', state);
+  const branch = await (dependencies.getGitBranch ?? currentGitBranch)();
+  if (branch) authorizeUrl.searchParams.set('branch', branch);
 
   try {
     logger.info('Opening your browser to authorize Hypequery CLI…');
