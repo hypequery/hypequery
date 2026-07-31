@@ -38,6 +38,13 @@ export {
 } from './identifiers/index.js';
 
 export {
+  PROTOCOL_CACHE_KEY_LIMITS,
+  ProtocolCacheKeyError,
+  deriveProtocolCacheKey,
+  deriveProtocolCacheNamespaceToken,
+} from './cache-keys/index.js';
+
+export {
   DEFAULT_PROTOCOL_EXPRESSION_LIMITS,
   ProtocolExpressionError,
   validateProtocolExpression,
@@ -80,6 +87,12 @@ export type {
   ProtocolSemanticQuery,
   ProtocolTimeGrain,
 } from './expressions/index.js';
+
+export type {
+  DeriveProtocolCacheKeyOptions,
+  ProtocolCacheKeyErrorCode,
+  ProtocolCacheKeyNamespace,
+} from './cache-keys/index.js';
 
 export type {
   ProtocolIdentifier,

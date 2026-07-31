@@ -5,113 +5,235 @@
     {
       "name": "tagged-values-v1",
       "rfc": "0001",
-      "codePrefixes": ["HQ_VALUE_"],
+      "codePrefixes": [
+        "HQ_VALUE_"
+      ],
       "files": [
-        { "path": "tagged-values-v1/success.json", "role": "success" },
-        { "path": "tagged-values-v1/rejections.json", "role": "rejection" }
+        {
+          "path": "tagged-values-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "tagged-values-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     },
     {
       "name": "identifiers-v1",
       "rfc": "0002",
-      "codePrefixes": ["HQ_IDENTIFIER_"],
+      "codePrefixes": [
+        "HQ_IDENTIFIER_"
+      ],
       "files": [
-        { "path": "identifiers-v1/success.json", "role": "success" },
-        { "path": "identifiers-v1/rejections.json", "role": "rejection" }
+        {
+          "path": "identifiers-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "identifiers-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     },
     {
       "name": "expressions-v1",
       "rfc": "0003",
-      "codePrefixes": ["HQ_EXPRESSION_"],
+      "codePrefixes": [
+        "HQ_EXPRESSION_"
+      ],
       "files": [
         {
           "path": "expressions-v1/success.json",
           "role": "success",
-          "sections": ["/expressions", "/queries"]
+          "sections": [
+            "/expressions",
+            "/queries"
+          ]
         },
-        { "path": "expressions-v1/rejections.json", "role": "rejection" }
+        {
+          "path": "expressions-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     },
     {
       "name": "query-schemas-v1",
       "rfc": "0004",
-      "codePrefixes": ["HQ_SCHEMA_"],
+      "codePrefixes": [
+        "HQ_SCHEMA_"
+      ],
       "files": [
-        { "path": "query-schemas-v1/success.json", "role": "success" },
-        { "path": "query-schemas-v1/rejections.json", "role": "rejection" }
+        {
+          "path": "query-schemas-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "query-schemas-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     },
     {
       "name": "query-implementations-v1",
       "rfc": "0005",
-      "codePrefixes": ["HQ_QUERY_IMPLEMENTATION_"],
+      "codePrefixes": [
+        "HQ_QUERY_IMPLEMENTATION_"
+      ],
       "files": [
-        { "path": "query-implementations-v1/success.json", "role": "success" },
-        { "path": "query-implementations-v1/rejections.json", "role": "rejection" }
+        {
+          "path": "query-implementations-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "query-implementations-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     },
     {
       "name": "deployments-v1",
       "rfc": "0006",
-      "codePrefixes": ["HQ_DEPLOYMENT_"],
+      "codePrefixes": [
+        "HQ_DEPLOYMENT_"
+      ],
       "files": [
-        { "path": "deployments-v1/success.json", "role": "success" },
-        { "path": "deployments-v1/rejections.json", "role": "rejection" },
-        { "path": "deployments-v1/identity.json", "role": "identity" }
+        {
+          "path": "deployments-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "deployments-v1/rejections.json",
+          "role": "rejection"
+        },
+        {
+          "path": "deployments-v1/identity.json",
+          "role": "identity"
+        }
       ]
     },
     {
       "name": "deployment-bundles-v1",
       "rfc": "0007",
-      "codePrefixes": ["HQ_BUNDLE_"],
+      "codePrefixes": [
+        "HQ_BUNDLE_"
+      ],
       "files": [
-        { "path": "deployment-bundles-v1/success.json", "role": "success" },
-        { "path": "deployment-bundles-v1/rejections.json", "role": "rejection" },
-        { "path": "deployment-bundles-v1/identity.json", "role": "identity" }
+        {
+          "path": "deployment-bundles-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "deployment-bundles-v1/rejections.json",
+          "role": "rejection"
+        },
+        {
+          "path": "deployment-bundles-v1/identity.json",
+          "role": "identity"
+        }
       ]
     },
     {
       "name": "deployment-releases-v1",
       "rfc": "0008",
-      "codePrefixes": ["HQ_RELEASE_"],
+      "codePrefixes": [
+        "HQ_RELEASE_"
+      ],
       "files": [
-        { "path": "deployment-releases-v1/success.json", "role": "success" },
-        { "path": "deployment-releases-v1/rejections.json", "role": "rejection" },
-        { "path": "deployment-releases-v1/identity.json", "role": "identity" }
+        {
+          "path": "deployment-releases-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "deployment-releases-v1/rejections.json",
+          "role": "rejection"
+        },
+        {
+          "path": "deployment-releases-v1/identity.json",
+          "role": "identity"
+        }
       ]
     },
     {
       "name": "query-events-v1",
       "rfc": "0011",
-      "codePrefixes": ["HQ_EVENT_"],
+      "codePrefixes": [
+        "HQ_EVENT_"
+      ],
       "files": [
-        { "path": "query-events-v1/success.json", "role": "success" },
-        { "path": "query-events-v1/rejections.json", "role": "rejection" }
+        {
+          "path": "query-events-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "query-events-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     },
     {
       "name": "query-diagnostics-v1",
       "rfc": "0011",
-      "codePrefixes": ["HQ_DIAGNOSTICS_"],
+      "codePrefixes": [
+        "HQ_DIAGNOSTICS_"
+      ],
       "files": [
-        { "path": "query-diagnostics-v1/success.json", "role": "success" },
-        { "path": "query-diagnostics-v1/rejections.json", "role": "rejection" }
+        {
+          "path": "query-diagnostics-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "query-diagnostics-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     },
     {
       "name": "sql-portability-v1",
       "rfc": "0003",
-      "codePrefixes": ["HQ_SQL_PORT_"],
+      "codePrefixes": [
+        "HQ_SQL_PORT_"
+      ],
       "files": [
-        { "path": "sql-portability-v1/portable.json", "role": "portable" },
-        { "path": "sql-portability-v1/non-portable.json", "role": "non-portable" }
+        {
+          "path": "sql-portability-v1/portable.json",
+          "role": "portable"
+        },
+        {
+          "path": "sql-portability-v1/non-portable.json",
+          "role": "non-portable"
+        }
+      ]
+    },
+    {
+      "name": "cache-keys-v1",
+      "rfc": "0013",
+      "codePrefixes": [
+        "HQ_CACHE_KEY_"
+      ],
+      "files": [
+        {
+          "path": "cache-keys-v1/success.json",
+          "role": "success"
+        },
+        {
+          "path": "cache-keys-v1/rejections.json",
+          "role": "rejection"
+        }
       ]
     }
   ],
   "fuzz": [
-    { "path": "fuzz-seeds-v1/value-sources.json", "family": "tagged-values-v1" },
-    { "path": "fuzz-seeds-v1/structured-values.json" },
-    { "path": "fuzz-seeds-v1/sql-expressions.json", "family": "sql-portability-v1" }
+    {
+      "path": "fuzz-seeds-v1/value-sources.json",
+      "family": "tagged-values-v1"
+    },
+    {
+      "path": "fuzz-seeds-v1/structured-values.json"
+    },
+    {
+      "path": "fuzz-seeds-v1/sql-expressions.json",
+      "family": "sql-portability-v1"
+    }
   ]
 }
