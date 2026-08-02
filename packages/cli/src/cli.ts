@@ -24,6 +24,12 @@ import {
   logoutCommand,
   type LoginOptions,
 } from './commands/login.js';
+import {
+  diffCommand,
+  pullCommand,
+  type LiveSourceOptions,
+  type PullOptions,
+} from './commands/live-source.js';
 import { isPromptCancelled } from './utils/prompts.js';
 
 const program = new Command();
@@ -65,6 +71,27 @@ program
   .description('Revoke and remove the local Hypequery Cloud credential')
   .action(runCommand(async () => {
     await logoutCommand();
+  }));
+
+program
+  .command('pull')
+  .description('Download the source snapshot from the live deployment')
+  .option('-o, --output <directory>', 'New destination directory')
+  .option('--project <project>', 'Target project identifier (advanced override)')
+  .option('--environment <environment>', 'Target environment identifier (advanced override)')
+  .option('--endpoint <url>', 'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
+  .action(runCommand(async (options: PullOptions) => {
+    await pullCommand(options);
+  }));
+
+program
+  .command('diff [source]')
+  .description('Compare local source with the live deployment')
+  .option('--project <project>', 'Target project identifier (advanced override)')
+  .option('--environment <environment>', 'Target environment identifier (advanced override)')
+  .option('--endpoint <url>', 'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN')
+  .action(runCommand(async (source: string | undefined, options: LiveSourceOptions) => {
+    await diffCommand(source, options);
   }));
 
 function runCommand<TArgs extends unknown[]>(
@@ -205,6 +232,10 @@ program
     '--endpoint <url>',
     'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
   )
+  .option(
+    '--replace-restored',
+    'Intentionally replace a restored live release',
+  )
   .action(runCommand(async (bundle: string, options: SubmitDeploymentOptions) => {
     await submitDeploymentCommand(bundle, options);
   }));
@@ -221,6 +252,10 @@ program
   .option(
     '--endpoint <url>',
     'HTTPS submission endpoint; requires HYPEQUERY_API_TOKEN',
+  )
+  .option(
+    '--replace-restored',
+    'Intentionally replace a restored live release',
   )
   .action(runCommand(async (source: string, options: DeployOptions) => {
     await deployCommand(source, options);

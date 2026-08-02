@@ -67,6 +67,8 @@ export type DeploymentFetch = (
 export interface HttpDeploymentUploadTransportOptions {
   readonly endpoint: string;
   readonly token: string;
+  readonly expectedActivationRevision?: string | null;
+  readonly replaceRestored?: boolean;
   readonly timeoutMs?: number;
   readonly fetch?: DeploymentFetch;
 }
@@ -480,6 +482,15 @@ export function createHttpDeploymentUploadTransport(
             'Idempotency-Key': preparedRelease.identity,
             'X-HypeQuery-Bundle-Identity': manifest.identity,
             'X-HypeQuery-Release-Identity': preparedRelease.identity,
+            ...(options.expectedActivationRevision !== undefined
+              ? {
+                  'X-HypeQuery-Expected-Activation-Revision':
+                    options.expectedActivationRevision ?? 'none',
+                }
+              : {}),
+            ...(options.replaceRestored
+              ? { 'X-HypeQuery-Replace-Restored': 'true' }
+              : {}),
           },
           body: multipartBody(boundary, parts),
           duplex: 'half',

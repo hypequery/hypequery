@@ -429,6 +429,113 @@ describe('deploy command', () => {
     }));
   });
 
+  it('pins submission to the live activation revision', async () => {
+    const release = await releaseFile();
+    const submit = vi.fn().mockResolvedValue({
+      kind: 'hypequery-deployment-submission',
+      version: 1,
+      status: 'accepted',
+      releaseIdentity: release.identity,
+      bundleIdentity: BUNDLE_IDENTITY,
+    });
+    const createTransport = vi.fn(() => ({ submit }));
+    const currentRevision = 'c'.repeat(64);
+
+    await deployCommand('dist/bundle', {
+      release: release.path,
+    }, {
+      env: {},
+      loadCredential: async () => ({
+        cloudUrl: 'https://cloud.example.test',
+        deploymentEndpoint: 'https://cloud.example.test/v1/deployments/submissions',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        scope: 'deploy:submit deploy:read-source',
+        target: { project: 'project-1', environment: 'production' },
+        token: 'secret-token',
+      }),
+      fetchLive: async () => ({
+        target: { project: 'project-1', environment: 'production' },
+        active: {
+          revision: currentRevision,
+          releaseIdentity: 'd'.repeat(64),
+          activatedAt: '2026-08-01T10:00:00.000Z',
+          restored: false,
+          hasSource: true,
+        },
+      }),
+      createTransport,
+    });
+
+    expect(createTransport).toHaveBeenCalledWith({
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      token: 'secret-token',
+      expectedActivationRevision: currentRevision,
+    });
+  });
+
+  it('requires an explicit flag before replacing a restored release', async () => {
+    const release = await releaseFile();
+    const fetchLive = vi.fn(async () => ({
+      target: { project: 'project-1', environment: 'production' },
+      active: {
+        revision: 'c'.repeat(64),
+        releaseIdentity: 'd'.repeat(64),
+        activatedAt: '2026-08-01T10:00:00.000Z',
+        restored: true,
+        hasSource: true,
+      },
+    }));
+    const createTransport = vi.fn();
+
+    await expect(deployCommand('dist/bundle', {
+      release: release.path,
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+    }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+      fetchLive,
+      createTransport,
+    })).rejects.toThrow('--replace-restored');
+
+    expect(createTransport).not.toHaveBeenCalled();
+  });
+
+  it('sends the explicit restored-release replacement option', async () => {
+    const release = await releaseFile();
+    const submit = vi.fn().mockResolvedValue({
+      kind: 'hypequery-deployment-submission',
+      version: 1,
+      status: 'accepted',
+      releaseIdentity: release.identity,
+      bundleIdentity: BUNDLE_IDENTITY,
+    });
+    const createTransport = vi.fn(() => ({ submit }));
+    const currentRevision = 'c'.repeat(64);
+
+    await deployCommand('dist/bundle', {
+      release: release.path,
+      endpoint: 'https://cloud.example.test/v1/deployments/submissions',
+      replaceRestored: true,
+    }, {
+      env: { HYPEQUERY_API_TOKEN: 'secret-token' },
+      fetchLive: async () => ({
+        target: { project: 'project-1', environment: 'production' },
+        active: {
+          revision: currentRevision,
+          releaseIdentity: 'd'.repeat(64),
+          activatedAt: '2026-08-01T10:00:00.000Z',
+          restored: true,
+          hasSource: true,
+        },
+      }),
+      createTransport,
+    });
+
+    expect(createTransport).toHaveBeenCalledWith(expect.objectContaining({
+      expectedActivationRevision: currentRevision,
+      replaceRestored: true,
+    }));
+  });
+
   it('uses the credential stored by interactive login', async () => {
     const release = await releaseFile();
     const submit = vi.fn().mockResolvedValue({
@@ -450,6 +557,7 @@ describe('deploy command', () => {
         scope: 'deploy:submit',
         token: `hqdp_v1_${'f'.repeat(43)}`,
       }),
+      fetchLive: async () => undefined,
       createTransport,
     });
 

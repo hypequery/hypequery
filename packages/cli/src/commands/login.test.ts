@@ -46,7 +46,7 @@ async function authorizeUrlForLogin(
       access_token: `hqdp_v1_${'c'.repeat(43)}`,
       token_type: 'Bearer',
       expires_at: '2030-01-01T00:00:00.000Z',
-      scope: 'deploy:submit',
+      scope: 'deploy:submit deploy:read-source',
       deployment_endpoint:
         'https://cloud.example.test/v1/deployments/submissions',
       deployment_target: {
@@ -90,7 +90,7 @@ describe('Cloud CLI authentication', () => {
         access_token: `hqdp_v1_${'c'.repeat(43)}`,
         token_type: 'Bearer',
         expires_at: '2030-01-01T00:00:00.000Z',
-        scope: 'deploy:submit',
+        scope: 'deploy:submit deploy:read-source',
         deployment_endpoint:
           'https://cloud.example.test/v1/deployments/submissions',
         deployment_target: {
@@ -133,7 +133,7 @@ describe('Cloud CLI authentication', () => {
       deploymentEndpoint:
         'https://cloud.example.test/v1/deployments/submissions',
       expiresAt: '2030-01-01T00:00:00.000Z',
-      scope: 'deploy:submit',
+      scope: 'deploy:submit deploy:read-source',
       target: {
         project: 'acme:analytics',
         environment: 'production',
@@ -188,7 +188,7 @@ describe('Cloud CLI authentication', () => {
         access_token: `hqdp_v1_${'c'.repeat(43)}`,
         token_type: 'Bearer',
         expires_at: '2030-01-01T00:00:00.000Z',
-        scope: 'deploy:submit',
+        scope: 'deploy:submit deploy:read-source',
         deployment_endpoint: 'not a URL',
         deployment_target: {
           project: 'acme:analytics',
@@ -232,7 +232,7 @@ describe('Cloud CLI authentication', () => {
         access_token: `hqdp_v1_${'c'.repeat(43)}`,
         token_type: 'Bearer',
         expires_at: '2030-01-02T00:00:00.000Z',
-        scope: 'deploy:submit',
+        scope: 'deploy:submit deploy:read-source',
         deployment_endpoint:
           'https://cloud.example.test/v1/deployments/submissions',
         deployment_target: {
@@ -268,7 +268,7 @@ describe('Cloud CLI authentication', () => {
         deploymentEndpoint:
           'https://cloud.example.test/v1/deployments/submissions',
         expiresAt: '2030-01-01T00:00:00.000Z',
-        scope: 'deploy:submit',
+        scope: 'deploy:submit deploy:read-source',
         token: `hqdp_v1_${'e'.repeat(43)}`,
       }),
       deleteCredential,
@@ -321,7 +321,7 @@ describe('Cloud CLI authentication', () => {
         access_token: `hqdp_v2_${'c'.repeat(64)}`,
         token_type: 'Bearer',
         expires_at: '2030-01-01T00:00:00.000Z',
-        scope: 'deploy:submit',
+        scope: 'deploy:submit deploy:read-source',
         deployment_endpoint: 'https://cloud.example.test/v2/deploy/submissions',
         deployment_target: {
           project: 'acme:analytics',
@@ -346,7 +346,7 @@ describe('Cloud CLI authentication', () => {
         access_token: 'hqdp_short',
         token_type: 'Bearer',
         expires_at: '2030-01-01T00:00:00.000Z',
-        scope: 'deploy:submit',
+        scope: 'deploy:submit deploy:read-source',
         deployment_endpoint:
           'https://cloud.example.test/v1/deployments/submissions',
         deployment_target: {
@@ -367,7 +367,7 @@ describe('Cloud CLI authentication', () => {
         access_token: `hqdp_v1_${'c'.repeat(43)}`,
         token_type: 'Bearer',
         expires_at: '2030-01-01T00:00:00.000Z',
-        scope: 'deploy:submit',
+        scope: 'deploy:submit deploy:read-source',
         deployment_endpoint:
           'https://attacker.example.test/v1/deployments/submissions',
         deployment_target: {

@@ -239,15 +239,44 @@ arguments, keeping them out of shell history. The submission endpoint must not
 contain credentials or a URL fragment, and must use HTTPS except for
 `127.0.0.1`/`localhost`, which is permitted for local development and warns that
 the token is sent in cleartext. The release identity is sent as the idempotency
-key, so an unchanged release can be submitted safely again.
-
-This command submits immutable deployment inputs. Activation, status changes,
-promotion, and rollback remain control-plane operations.
+key, so an unchanged release can be submitted safely again. An accepted release
+becomes live immediately. The CLI pins the upload to the current activation
+revision, so a concurrent deploy or restore returns a conflict. If the current
+release was restored, pass `--replace-restored` to confirm that a different
+release should replace it.
 
 Options:
 
 - `--release <path>`: required target-bound release JSON
 - `--endpoint <url>`: HTTPS submission endpoint; requires `HYPEQUERY_API_TOKEN`
+- `--replace-restored`: intentionally replace a restored live release
+
+### `hypequery pull`
+
+Downloads the exact multi-file TypeScript source snapshot stored with the live
+release. Pull requires an interactive Cloud credential with source-read access;
+run `hypequery login` again if the credential predates this capability.
+
+```bash
+npx hypequery pull
+```
+
+By default the snapshot is written to a new release-specific directory under
+`.hypequery/live/<environment>/`. Use `--output <directory>` to choose another
+new directory. Pull never overwrites an existing path.
+
+### `hypequery diff [source]`
+
+Compares the local TypeScript dependency graph with the live release snapshot
+and reports added (`A`), modified (`M`), and deleted (`D`) files. The deployed
+entrypoint is used when `source` is omitted.
+
+```bash
+npx hypequery diff analytics/api.ts
+```
+
+Both commands use the target selected by `hypequery login`. Advanced and CI
+usage can pass `--project`, `--environment`, and `--endpoint` explicitly.
 
 ## Non-interactive Setup
 
