@@ -10,6 +10,7 @@ import {
 const KEYCHAIN_SERVICE = 'dev.hypequery.cli';
 const PROFILE_FILE = 'cloud-profile.json';
 export const CLOUD_DEPLOYMENT_SCOPE = 'deploy:submit';
+export const CLOUD_SOURCE_SCOPE = 'deploy:submit deploy:read-source';
 const MAX_KEYCHAIN_ACCOUNT_LENGTH = 2048;
 
 export interface StoredCloudCredential {
@@ -159,7 +160,7 @@ function parseProfile(input: string): StoredCloudProfile {
     );
     if (value.keychainAccount !== cloudUrl
       || !Number.isFinite(Date.parse(value.expiresAt))
-      || value.scope !== CLOUD_DEPLOYMENT_SCOPE) {
+      || (value.scope !== CLOUD_DEPLOYMENT_SCOPE && value.scope !== CLOUD_SOURCE_SCOPE)) {
       throw new Error('profile invariant mismatch');
     }
     target = value.target === undefined
@@ -232,7 +233,8 @@ export async function saveCloudCredential(
     cloudUrl,
   );
   if (!Number.isFinite(Date.parse(credential.expiresAt))
-    || credential.scope !== CLOUD_DEPLOYMENT_SCOPE) {
+    || (credential.scope !== CLOUD_DEPLOYMENT_SCOPE
+      && credential.scope !== CLOUD_SOURCE_SCOPE)) {
     throw new Error('Cannot store an invalid Hypequery Cloud credential.');
   }
   const keychainAccount = cloudUrl;

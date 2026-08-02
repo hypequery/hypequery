@@ -15,9 +15,10 @@ import {
 } from '../utils/deployment-upload.js';
 import { logger } from '../utils/logger.js';
 import {
-  loadCloudCredential,
   type StoredCloudCredential,
 } from '../utils/cloud-credential-store.js';
+import { resolveDeploymentCredential } from '../utils/cloud-deployment-access.js';
+import { fetchLiveDeployment } from '../utils/live-deployment.js';
 import {
   buildDeploymentCommand,
   prepareDeploymentReleaseCommand,
@@ -30,6 +31,7 @@ const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 export interface SubmitDeploymentOptions {
   release?: string;
   endpoint?: string;
+  replaceRestored?: boolean;
 }
 
 export interface DeployOptions extends SubmitDeploymentOptions {
@@ -44,6 +46,7 @@ export interface SubmitDeploymentDependencies {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly createTransport?: typeof createHttpDeploymentUploadTransport;
   readonly loadCredential?: () => Promise<StoredCloudCredential | null>;
+  readonly fetchLive?: typeof fetchLiveDeployment;
 }
 
 export interface DeployDependencies extends SubmitDeploymentDependencies {
@@ -110,56 +113,6 @@ function requiredConfiguration(
   return value;
 }
 
-interface ResolvedDeploymentCredential {
-  readonly endpoint: string;
-  readonly token: string;
-}
-
-/**
- * Resolves the submission endpoint and token. Kept separate from
- * `submitDeploymentCommand` so `deployCommand` can run it as a preflight
- * before the bundle build.
- */
-async function resolveDeploymentCredential(
-  endpointOption: string | undefined,
-  dependencies: SubmitDeploymentDependencies,
-): Promise<ResolvedDeploymentCredential> {
-  const env = dependencies.env ?? process.env;
-  let deploymentEndpoint = endpointOption ?? env.HYPEQUERY_DEPLOYMENT_ENDPOINT;
-  let token = env.HYPEQUERY_API_TOKEN;
-  const hasExplicitEndpoint = Boolean(deploymentEndpoint);
-  const hasExplicitToken = Boolean(token);
-  if (hasExplicitEndpoint !== hasExplicitToken) {
-    throw new Error(
-      hasExplicitEndpoint
-        ? 'An explicit deployment endpoint requires HYPEQUERY_API_TOKEN.'
-        : 'HYPEQUERY_API_TOKEN requires --endpoint or HYPEQUERY_DEPLOYMENT_ENDPOINT.\n\n'
-          + 'If you meant to use `hypequery login`, unset HYPEQUERY_API_TOKEN — '
-          + 'the CLI also reads it from a project .env file.',
-    );
-  }
-  if (!hasExplicitEndpoint) {
-    const credential = await (dependencies.loadCredential ?? loadCloudCredential)();
-    if (credential) {
-      if (Date.parse(credential.expiresAt) <= Date.now()) {
-        throw new Error('The stored Cloud credential has expired. Run `hypequery login` again.');
-      }
-      deploymentEndpoint = credential.deploymentEndpoint;
-      token = credential.token;
-    }
-  }
-  return {
-    endpoint: requiredConfiguration(
-      deploymentEndpoint,
-      'Missing deployment endpoint. Run `hypequery login`, pass --endpoint, or set HYPEQUERY_DEPLOYMENT_ENDPOINT.',
-    ),
-    token: requiredConfiguration(
-      token,
-      'Missing deployment credential. Run `hypequery login` or set HYPEQUERY_API_TOKEN.',
-    ),
-  };
-}
-
 export async function submitDeploymentCommand(
   bundlePath: string | undefined,
   options: SubmitDeploymentOptions = {},
@@ -206,10 +159,28 @@ export async function submitDeploymentCommand(
       'Release bundle identity does not match the verified deployment bundle.',
     );
   }
+  const live = await (dependencies.fetchLive ?? fetchLiveDeployment)({
+    endpoint: deploymentEndpoint,
+    token,
+    target: release.release.target,
+    resource: 'state',
+  });
+  if (live?.active?.restored
+    && live.active.releaseIdentity !== release.identity
+    && !options.replaceRestored) {
+    throw new Error(
+      'The live deployment is a restored release. '
+      + 'Run the command again with --replace-restored to replace it intentionally.',
+    );
+  }
   const createTransport = dependencies.createTransport ?? createHttpDeploymentUploadTransport;
   const transportOptions: HttpDeploymentUploadTransportOptions = {
     endpoint: deploymentEndpoint,
     token,
+    ...(live
+      ? { expectedActivationRevision: live.active?.revision ?? null }
+      : {}),
+    ...(options.replaceRestored ? { replaceRestored: true } : {}),
   };
   const result = await createTransport(transportOptions).submit(bundle, release);
   logger.success(
@@ -292,6 +263,7 @@ export async function deployCommand(
     return submitDeploymentCommand(sourcePath, {
       release: options.release,
       endpoint: options.endpoint,
+      replaceRestored: options.replaceRestored,
     }, dependencies);
   }
 
@@ -325,5 +297,6 @@ export async function deployCommand(
   return submit(bundlePath, {
     release: releasePath,
     endpoint: options.endpoint,
+    replaceRestored: options.replaceRestored,
   }, dependencies);
 }

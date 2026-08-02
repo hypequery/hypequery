@@ -172,6 +172,8 @@ describe('deployment upload transport', () => {
     const transport = createHttpDeploymentUploadTransport({
       endpoint: 'https://deploy.example.test/v1/releases',
       token: 'secret-token',
+      expectedActivationRevision: 'c'.repeat(64),
+      replaceRestored: true,
       fetch,
     });
 
@@ -184,6 +186,9 @@ describe('deployment upload transport', () => {
     expect(request?.headers['Idempotency-Key']).toBe(release.identity);
     expect(request?.headers['X-HypeQuery-Bundle-Identity']).toBe(bundle.identity);
     expect(request?.headers['X-HypeQuery-Release-Identity']).toBe(release.identity);
+    expect(request?.headers['X-HypeQuery-Expected-Activation-Revision'])
+      .toBe('c'.repeat(64));
+    expect(request?.headers['X-HypeQuery-Replace-Restored']).toBe('true');
     expect(request?.headers['Content-Length']).toBe(String(requestBytes?.byteLength));
     expect(request?.duplex).toBe('half');
     expect(request?.redirect).toBe('error');

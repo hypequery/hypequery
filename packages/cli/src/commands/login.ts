@@ -5,7 +5,7 @@ import open from 'open';
 import { validateProtocolDeploymentReleaseTarget } from '@hypequery/protocol';
 
 import {
-  CLOUD_DEPLOYMENT_SCOPE,
+  CLOUD_SOURCE_SCOPE,
   deleteCloudCredential,
   loadCloudCredential,
   normalizeCloudDeploymentEndpoint,
@@ -168,7 +168,7 @@ function tokenResponse(
     || value.token_type !== 'Bearer'
     || typeof value.expires_at !== 'string'
     || !Number.isFinite(Date.parse(value.expires_at))
-    || value.scope !== CLOUD_DEPLOYMENT_SCOPE
+    || value.scope !== CLOUD_SOURCE_SCOPE
     || typeof value.deployment_endpoint !== 'string'
     || value.deployment_target === undefined
   ) {
