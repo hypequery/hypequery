@@ -1,5 +1,11 @@
 # @hypequery/cli
 
+## 1.16.2
+
+### Patch Changes
+
+- 8f96a42: Add live source pull and diff commands plus restore-aware deployment drift protection.
+
 ## 1.16.1
 
 ### Patch Changes
