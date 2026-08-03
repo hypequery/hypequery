@@ -1,0 +1,127 @@
+[
+  {
+    "id": "secret-missing",
+    "secretHex": "",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_SECRET_MISSING"
+  },
+  {
+    "id": "secret-31-bytes",
+    "secretHex": "11111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_SECRET_TOO_SHORT"
+  },
+  {
+    "id": "project-with-space",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "has space",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_NAMESPACE"
+  },
+  {
+    "id": "project-leading-digit",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "1acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_NAMESPACE"
+  },
+  {
+    "id": "environment-reserved-prefix",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "__hypequery_env"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_NAMESPACE"
+  },
+  {
+    "id": "environment-empty",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": ""
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_NAMESPACE"
+  },
+  {
+    "id": "key-version-zero",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 0,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_VERSION"
+  },
+  {
+    "id": "key-version-negative",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": -1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_VERSION"
+  },
+  {
+    "id": "key-version-fractional",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1.5,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_VERSION"
+  },
+  {
+    "id": "key-version-above-max",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 2147483648,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "error": "HQ_CACHE_KEY_INVALID_VERSION"
+  },
+  {
+    "id": "preimage-too-large",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "a",
+      "count": 1048577
+    },
+    "error": "HQ_CACHE_KEY_PREIMAGE_TOO_LARGE"
+  }
+]
