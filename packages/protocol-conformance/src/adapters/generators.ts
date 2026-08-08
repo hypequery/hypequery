@@ -42,6 +42,20 @@ export function materializeTaggedValue(spec: Spec): unknown {
       throw new Error(`Unknown non-finite float: ${String(spec.value)}`);
     case 'repeat-string':
       return repeat(spec.utf8 as string, spec.count as number);
+    case 'unsafe-accessor': {
+      // `$hypequery` served by a computed accessor instead of a data
+      // property. A validator must snapshot without invoking it and reject.
+      const value: Record<string, unknown> = {};
+      Object.defineProperty(value, '$hypequery', {
+        enumerable: true,
+        get: () => ({
+          type: 'uuid',
+          version: 1,
+          value: '01890f3e-7b7b-7cc2-98c4-dc0c0c07398f',
+        }),
+      });
+      return value;
+    }
     default:
       throw new Error(`Unknown tagged-value generator: ${String(spec.type)}`);
   }

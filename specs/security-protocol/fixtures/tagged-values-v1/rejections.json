@@ -294,5 +294,94 @@
       "count": 65537
     },
     "error": "HQ_VALUE_TOO_LARGE"
+  },
+  {
+    "id": "datetime64-nanoseconds-overflow",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime64",
+        "precision": 9,
+        "timezone": "UTC",
+        "value": "2262-04-11T23:47:16.854775808Z"
+      }
+    },
+    "error": "HQ_VALUE_OUT_OF_RANGE"
+  },
+  {
+    "id": "timezone-fixed-offset",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime",
+        "precision": 0,
+        "timezone": "+02:00",
+        "value": "2026-07-13T14:30:45Z"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "control-character-vertical-tab",
+    "phase": "model",
+    "value": "before\u000bafter",
+    "error": "HQ_VALUE_CONTROL_CHARACTER"
+  },
+  {
+    "id": "value-unsafe-accessor",
+    "phase": "model",
+    "generator": {
+      "type": "unsafe-accessor"
+    },
+    "error": "HQ_VALUE_UNSAFE_OBJECT"
+  },
+  {
+    "id": "timezone-offset-shaped",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime",
+        "precision": 0,
+        "timezone": "+0200",
+        "value": "2026-07-13T14:30:45Z"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "timezone-leading-underscore",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime",
+        "precision": 0,
+        "timezone": "_Foo/Bar",
+        "value": "2026-07-13T14:30:45Z"
+      }
+    },
+    "error": "HQ_VALUE_INVALID_FORMAT"
+  },
+  {
+    "id": "timezone-too-long",
+    "phase": "model",
+    "value": {
+      "$hypequery": {
+        "type": "datetime",
+        "version": 1,
+        "clickhouseType": "DateTime",
+        "precision": 0,
+        "timezone": "Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "value": "2026-07-13T14:30:45Z"
+      }
+    },
+    "error": "HQ_VALUE_TOO_LARGE"
   }
 ]

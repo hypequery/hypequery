@@ -1,9 +1,13 @@
 # RFC 0001: Tagged ClickHouse value model
 
-- Status: Proposed
+- Status: Accepted
 - Created: 2026-07-13
+- Accepted: 2026-07-30
 - Target extension version: 1
 - Owners: Hypequery maintainers
+
+Acceptance freezes extension version 1. Changing a rule below now requires a
+new extension version, not an edit.
 
 ## Summary
 
@@ -76,9 +80,15 @@ The following values use native JSON representations:
 - JSON strings for Unicode text;
 - JSON numbers for finite binary floating-point values only.
 
-Strings MUST contain valid Unicode scalar values, MUST be preserved without
-Unicode normalization, and MUST NOT contain C0 control characters U+0000
-through U+001F, DEL U+007F, or C1 control characters U+0080 through U+009F.
+Strings MUST contain valid Unicode scalar values and MUST be preserved without
+Unicode normalization.
+
+Tab U+0009, line feed U+000A, and carriage return U+000D are permitted, so that
+descriptions and other authored prose may span lines. Every other C0 control
+character in U+0000 through U+001F, DEL U+007F, and every C1 control character
+in U+0080 through U+009F are forbidden. JCS escapes the three permitted
+controls deterministically, so canonical bytes remain unambiguous.
+
 Quotes, backslashes, comment-looking text, and other ordinary Unicode remain
 data.
 
@@ -92,6 +102,43 @@ Strict tag metadata such as `version`, `bits`, `precision`, `scale`, and enum
 `code` uses bounded native JSON integers because each field's integer meaning
 and range are fixed by its tag schema. The integer-tag requirement applies to
 semantic values, not to these closed-schema metadata fields.
+
+These metadata fields are defined **by value, not by lexical form**. A metadata
+integer MUST be a finite number that is mathematically integral, is not
+negative zero, lies within the interoperable safe-integer range, and satisfies
+its field's own range. `1`, `1.0`, and `1e0` all denote the integer `1` and are
+all accepted; each canonicalizes to `1`, so they are indistinguishable in
+canonical bytes. `1.5` is rejected with `HQ_VALUE_INVALID_FORMAT`.
+
+Lexical rejection is deliberately **not** required. JavaScript erases the
+distinction between `1` and `1.0` at parse time, so a rule keyed on lexical
+form could only be honoured by one language on the programmatic entry path:
+an implementation handed an already-constructed host value would accept `1.0`
+in JavaScript and reject it in Python, for the same logical input. Because
+every accepted spelling produces identical canonical bytes, the strictness
+would create a cross-language divergence without preventing any confusion,
+downgrade, or hash collision. Implementations MUST therefore coerce an
+integral host float to its integer value rather than rejecting it.
+
+### Number serialization is the ECMAScript algorithm
+
+RFC 8785 serializes numbers using the ECMAScript `Number::toString` algorithm.
+This is not equivalent to a host language's default float formatting, and the
+difference is silent rather than loud:
+
+| Value | Python `json.dumps` | Required by JCS |
+| --- | --- | --- |
+| `1e20` | `1e+20` | `100000000000000000000` |
+| `1e-7` | `1e-07` | `1e-7` |
+| `1e-6` | `1e-06` | `0.000001` |
+| `100.0` | `100.0` | `100` |
+
+A JavaScript implementation inherits the correct behaviour from
+`JSON.stringify`. Every other implementation MUST implement shortest
+round-trip formatting with ECMAScript's exponent thresholds and notation
+explicitly, and MUST NOT delegate to a host `repr`, `str`, or default JSON
+encoder. Conformance fixtures cover the boundaries where host formatting is
+known to diverge.
 
 Raw JSON arrays and application-created objects are not canonical values. They
 must be represented by the array, tuple, or map tags. Objects belonging to the
@@ -215,15 +262,49 @@ scale. For example Decimal(9, 4) value `12.3400` has coefficient `123400`.
 - `clickhouseType` MUST be `DateTime` or `DateTime64`.
 - `precision` MUST be `0` for `DateTime` and an integer from `0` through `9`
   for `DateTime64`.
-- `timezone` MUST be the explicit canonical IANA timezone name selected by the
-  containing schema. `UTC` is valid. Fixed-offset labels and local-process
-  defaults are forbidden.
+- `timezone` MUST be an explicit **timezone identifier** supplied by the
+  containing schema. Offset labels such as `+02:00` and local-process defaults
+  are forbidden. The value layer does not assert that the identifier names a
+  real zone; it asserts only that the identifier is syntactically safe and
+  exactly equal to the one the containing type declares.
+- Validation is lexical: one or more `/`-separated components, each matching
+  `[A-Za-z0-9_+-]+`, with the first component beginning with an ASCII letter,
+  at most 64 bytes in total, no empty component, no leading or trailing `/`,
+  and no component equal to `.` or `..`. Single-component identifiers are
+  valid, because `UTC`, `EST`, `GMT`, `CET`, `MST7MDT`, and `W-SU` are all
+  real tzdb entries. Requiring a leading letter rejects offset-shaped input
+  such as `+0200` while still admitting `Etc/GMT+5`.
+- Exceeding the 64-byte limit reports `HQ_VALUE_TOO_LARGE`, consistent with
+  every other byte-limit failure; all other lexical failures report
+  `HQ_VALUE_INVALID_FORMAT`.
+- Implementations MUST NOT require the identifier to resolve in the host
+  timezone database. Python `zoneinfo` and JavaScript ICU disagree about
+  renamed zones such as `Europe/Kiev` versus `Europe/Kyiv`, and tzdb naming
+  is explicitly documented as evolving, so a host-resolved check would make
+  conformance depend on the OS image rather than the protocol.
+- Existence is a **deployment-time** concern, not a value-layer one. The
+  deployment contract validates the identifier against the target server's
+  `system.time_zones`, which is the set ClickHouse actually supports.
 - `value` MUST be an RFC 3339 UTC instant ending in uppercase `Z`.
 - The fractional part MUST be absent at precision `0` and contain exactly
   `precision` digits otherwise. Inputs with offsets are normalized to this UTC
   form before the tag is constructed.
-- The instant MUST fit the declared ClickHouse type and precision. In
-  particular, `DateTime64(9)` has a narrower upper bound than lower precisions.
+- The instant MUST fit the **portable v1 range** for the declared type and
+  precision:
+  - `DateTime`: `1970-01-01T00:00:00Z` through `2106-02-07T06:28:15Z`.
+  - `DateTime64(P)` for `P` in `0`–`8`: `1900-01-01T00:00:00Z` through
+    `2299-12-31T23:59:59Z` plus `P` fractional nines.
+  - `DateTime64(9)`: `1900-01-01T00:00:00Z` through
+    `2262-04-11T23:47:16.854775807Z`, the largest instant representable as a
+    signed 64-bit count of nanosecond ticks since `1970-01-01T00:00:00Z`.
+
+  This is deliberately a **conservative subset**, not a restatement of
+  ClickHouse's own limits. ClickHouse documents a wider range at some
+  precisions and a narrower one at others, and those limits have moved between
+  releases. Freezing a subset that is valid across the supported server range
+  keeps artifact identity stable when a server upgrade changes the underlying
+  type. Implementations MUST use these exact bounds rather than deriving their
+  own or querying the server.
 
 The timezone is type policy and display/parse context; the canonical `value`
 identifies the instant. No implementation may infer a missing timezone.
@@ -354,11 +435,20 @@ lower limit but MUST NOT accept a larger value under extension version 1.
 | Decimal precision | 76 |
 
 Depth is `0` for a native scalar or scalar tag. Entering an array, tuple, or map
-adds one; each map key and value is traversed at that depth. Node count includes
-every scalar, scalar tag, composite tag, map key, and map value.
+tag adds one. A map entry's two-element `[key, value]` array is structural and
+does not add a further level: both members are traversed at the map's own depth.
+
+Node count includes every scalar, every scalar tag, every composite tag, and
+every map key and map value. The `values` and `entries` arrays are structural
+and are not counted separately from the tag that owns them.
 
 Implementations MUST check limits during parsing/validation rather than first
 allocating an unbounded host-language object.
+
+The encoded-input limit applies only when the implementation is given bytes or
+text. When an already-parsed host value is supplied that stage is skipped, and
+the canonical-output limit becomes the binding size constraint. Every other
+limit applies to both entry points.
 
 ## Stable failure codes
 
@@ -387,10 +477,34 @@ Version 1 conformance fixtures use these minimum codes:
 Products may attach safe source locations and expected types, but these codes
 and their meaning are part of the frozen value contract.
 
+`HQ_VALUE_UNSAFE_OBJECT` guards against host-language objects — getters,
+proxies, `toJSON`, `__str__`, `__getattr__`, descriptors, and comparable
+conversion hooks — none of which survive a JSON encoding. It is proven in two
+layers:
+
+1. The shared `unsafe-accessor` generator in the tagged-values rejection
+   manifest, which every implementation translates into a representative host
+   object. This is the same mechanism the expression, schema, event,
+   deployment, bundle, and release families already use.
+2. A language-specific suite covering the conversion mechanisms the shared
+   generator cannot describe. TypeScript covers at least getters, `toJSON`,
+   custom prototypes, symbol keys, and sparse arrays; Python covers at least
+   property descriptors, custom mappings, `__iter__`, `__str__`, `dict`
+   subclasses, and cyclic structures.
+
+RFC 0012 defines the generator and requires the language-specific suite to be
+declared. An implementation that skips the shared cases without declaring its
+own suite is incomplete, not passing.
+
 ## Security considerations
 
 - Validation must inspect plain data and must not invoke getters, proxies,
   `toJSON`, Python dunder conversion, or custom serializers.
+- Number formatting is a correctness boundary, not a cosmetic one. An
+  implementation that delegates float serialization to its host language will
+  produce different canonical bytes, and therefore different artifact
+  identities, for values that round-trip identically. This fails open: the
+  values compare equal in memory while the hashes disagree.
 - A rendered/debug representation is never executable SQL.
 - Unknown tags and fields fail closed to prevent downgrade-by-interpretation.
 - Duplicate-key detection occurs before normal object construction.

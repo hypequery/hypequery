@@ -50,6 +50,19 @@ export interface EnumeratedCase {
   readonly case: Record<string, unknown>;
 }
 
+/**
+ * RFC 0012 requires every implementation to declare a language-specific
+ * hostile-object suite covering the conversion mechanisms the shared
+ * `unsafe-accessor` generator cannot describe. The declaration travels in the
+ * adapter's `hello` message so it lands in the published run summary.
+ */
+export interface HostileObjectSuiteDeclaration {
+  /** Number of cases in the implementation's own suite. */
+  readonly count: number;
+  /** Conversion mechanisms covered, e.g. `getter`, `toJSON`, `__str__`. */
+  readonly mechanisms: readonly string[];
+}
+
 export interface AdapterHello {
   readonly type: 'hello';
   readonly protocol: number;
@@ -57,6 +70,7 @@ export interface AdapterHello {
   readonly version?: string;
   readonly language?: string;
   readonly families: readonly string[];
+  readonly hostileObjectSuite?: HostileObjectSuiteDeclaration;
 }
 
 export type HandlerResult =
@@ -90,6 +104,7 @@ export interface RunSummary {
     readonly version?: string;
     readonly language?: string;
     readonly families: readonly string[];
+    readonly hostileObjectSuite?: HostileObjectSuiteDeclaration;
   };
   readonly outcomes: readonly CaseOutcome[];
 }
