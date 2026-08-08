@@ -20,6 +20,13 @@ export const resolveCorsConfig = (
 
   const opts: CorsConfig = config === true ? {} : config;
 
+  // Credentialed CORS requires a finite, explicit origin allowlist.
+  if (opts.credentials === true && (opts.origin === undefined || opts.origin === '*')) {
+    throw new Error(
+      'CORS credentials require an explicit origin string, array, or validation function',
+    );
+  }
+
   return {
     origin: opts.origin ?? '*',
     methods: opts.methods ?? DEFAULT_METHODS,
@@ -39,8 +46,7 @@ const matchOrigin = (
   const { origin } = config;
 
   if (origin === '*') {
-    // When credentials are enabled, we must echo the origin instead of "*"
-    return config.credentials ? requestOrigin : '*';
+    return '*';
   }
 
   if (typeof origin === 'string') {

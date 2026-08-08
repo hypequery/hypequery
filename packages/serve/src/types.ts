@@ -893,7 +893,7 @@ export interface RouteRegistrationOptions<
 export interface CorsConfig {
   /**
    * Allowed origin(s).
-   * - `"*"` allows any origin (not recommended with credentials).
+   * - `"*"` allows any origin and cannot be combined with credentials.
    * - A string matches that exact origin.
    * - An array matches any origin in the list.
    * - A function receives the request origin and returns true/false.
@@ -916,6 +916,7 @@ export interface CorsConfig {
   exposedHeaders?: string[];
   /**
    * Whether to include `Access-Control-Allow-Credentials: true`.
+   * Requires an explicit origin string, array, or validation function.
    * @default false
    */
   credentials?: boolean;
