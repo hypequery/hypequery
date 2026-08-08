@@ -46,6 +46,15 @@ describe('resolveCorsConfig', () => {
       maxAge: 86400,
     });
   });
+
+  it('rejects credentialed CORS without an explicit origin allowlist', () => {
+    expect(() => resolveCorsConfig({ credentials: true })).toThrow(
+      'CORS credentials require an explicit origin',
+    );
+    expect(() => resolveCorsConfig({ origin: '*', credentials: true })).toThrow(
+      'CORS credentials require an explicit origin',
+    );
+  });
 });
 
 describe('buildCorsHeaders', () => {
@@ -54,16 +63,6 @@ describe('buildCorsHeaders', () => {
 
     expect(buildCorsHeaders(config, 'https://app.example.com')).toEqual({
       'access-control-allow-origin': '*',
-    });
-  });
-
-  it('echoes wildcard request origins when credentials are enabled', () => {
-    const config = resolveCorsConfig({ origin: '*', credentials: true })!;
-
-    expect(buildCorsHeaders(config, 'https://app.example.com')).toEqual({
-      'access-control-allow-origin': 'https://app.example.com',
-      'vary': 'Origin',
-      'access-control-allow-credentials': 'true',
     });
   });
 

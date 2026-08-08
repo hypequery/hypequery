@@ -46,6 +46,8 @@ const api = serve({
 
 CORS is a runtime-wide setting, so it applies to every endpoint the runtime serves — hand-written queries as well as auto-generated `metrics` and `datasets` endpoints.
 
+When `credentials: true`, `origin` must be an explicit origin string, allowlist, or validation function. Wildcard or omitted origins are rejected so authenticated responses cannot be exposed to arbitrary sites.
+
 ## When to use it
 
 - use CORS when your browser app calls a separate hypequery server
