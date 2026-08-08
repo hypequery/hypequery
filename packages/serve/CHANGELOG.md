@@ -1,5 +1,11 @@
 # @hypequery/serve
 
+## 0.15.1
+
+### Patch Changes
+
+- 43c4f7a: Reject credentialed CORS configurations without an explicit origin allowlist.
+
 ## 0.15.0
 
 ### Minor Changes
