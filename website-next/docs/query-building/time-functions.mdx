@@ -284,7 +284,7 @@ const dailyActive = await db.table('events')
   .select([
     toStartOfInterval('created_at', '1 day', 'date'),
   ])
-  .distinctCount('user_id', 'daily_active_users')
+  .countDistinct('user_id', 'daily_active_users')
   .groupBy(['date'])
   .orderBy('date', 'ASC')
   .execute();
@@ -453,7 +453,7 @@ const funnel = await db.table('events')
     toStartOfInterval('created_at', '1 day', 'date'),
     'event_type',
   ])
-  .distinctCount('user_id', 'unique_users')
+  .countDistinct('user_id', 'unique_users')
   .groupBy(['date', 'event_type'])
   .orderBy(['date', 'event_type'], 'ASC')
   .execute();
@@ -546,7 +546,7 @@ const hourlyTraffic = await db.table('page_views')
     toStartOfInterval('created_at', '1 hour', 'hour'),
   ])
   .count('id', 'page_views')
-  .distinctCount('user_id', 'unique_visitors')
+  .countDistinct('user_id', 'unique_visitors')
   .groupBy(['hour'])
   .orderBy('hour', 'ASC')
   .execute();

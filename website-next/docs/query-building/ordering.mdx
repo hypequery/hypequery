@@ -287,7 +287,7 @@ const uniqueCombinations = await db.table('orders')
 ```typescript
 const stats = await db.table('events')
   .select(['user_id'])
-  .distinctCount('event_type', 'unique_events')
+  .countDistinct('event_type', 'unique_events')
   .groupBy(['user_id'])
   .orderBy('unique_events', 'DESC')
   .limit(10)

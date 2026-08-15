@@ -1,17 +1,7 @@
-# hypequery (Python)
+# hypequery for Python
 
-**Status: name reservation. This release contains no working code.**
+> Name reservation only. This release contains no working SDK code.
 
-The Hypequery Python SDK is in active development. It will provide:
+The planned package will bring Hypequery’s code-first semantic datasets, metrics, relationships, multi-tenant analytics, ClickHouse execution, and FastAPI serving to Python while sharing the same language-neutral protocol as the TypeScript packages.
 
-- **Datasets** — a semantic layer: datasets, dimensions, measures,
-  relationships, and metrics defined in Python.
-- **Serve** — a strict FastAPI router for exposing those datasets over HTTP.
-
-Python and TypeScript implement the same language-neutral protocol, so both
-produce identical deployment artifacts for the supported surface.
-
-Until this ships, use the TypeScript packages:
-<https://github.com/hypequery/hypequery>
-
-Progress and issues: <https://github.com/hypequery/hypequery/issues>
+Until the Python SDK is released, use the active TypeScript packages at <https://github.com/hypequery/hypequery>.

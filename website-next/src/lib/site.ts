@@ -1,4 +1,6 @@
-const SITE_URL = 'https://www.hypequery.com';
+// The apex domain is the deployed Vercel origin. Keep every canonical, sitemap
+// entry, and structured-data URL on this host; www permanently redirects here.
+const SITE_URL = 'https://hypequery.com';
 
 function normalizePath(pathname: string) {
   if (!pathname || pathname === '/') {

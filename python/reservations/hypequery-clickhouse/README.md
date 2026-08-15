@@ -1,15 +1,13 @@
 # hypequery-clickhouse
 
-**Status: name reservation. This release contains no working code.**
+> Name reservation only. This release contains no Python code.
 
-This name is held by the Hypequery project to prevent confusion with the real
-distribution. The Python SDK ships as a single distribution:
+The official Python SDK will expose ClickHouse execution through an extra:
 
-```sh
+```bash
 pip install "hypequery[clickhouse]"
 ```
 
-Note: `@hypequery/clickhouse` on npm is the TypeScript query builder. The
-Python SDK does not port it; Python covers datasets and serving.
+For the active TypeScript ClickHouse query builder, use [`@hypequery/clickhouse`](https://www.npmjs.com/package/@hypequery/clickhouse).
 
 Project: <https://github.com/hypequery/hypequery>

@@ -64,37 +64,33 @@ The generated type will represent `tags` as `string[]` in TypeScript — an arra
 import { createQueryBuilder } from '@hypequery/clickhouse';
 import type { Schema } from './schema';
 
-const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
+const db = createQueryBuilder<Schema>({ url: 'http://localhost:8123' });
 
-// ARRAY JOIN is currently a raw SQL escape-hatch use case
-const tagCounts = await db.rawQuery<{ tags: string; event_count: string }>(
-  \`SELECT tags, count() AS event_count
-   FROM events
-   ARRAY JOIN tags
-   WHERE created_at >= ?
-   GROUP BY tags
-   ORDER BY event_count DESC
-   LIMIT 20\`,
-  ['2026-04-18 00:00:00'],
-);
-
-// tagCounts[0].tags is string, not string[]
+const tagCounts = await db
+  .table('events')
+  .arrayJoin('tags')
+  .select(['tags'])
+  .where('created_at', 'gte', '2026-04-18 00:00:00')
+  .count('tags', 'event_count')
+  .groupBy('tags')
+  .orderBy('event_count', 'DESC')
+  .limit(20)
+  .execute();
 ```
 
-After ARRAY JOIN, the `tags` column changes from `string[]` (the array) to `string` (a single element). Because ARRAY JOIN is not currently wrapped as a dedicated builder helper here, you should annotate the rawQuery result shape explicitly.
+`arrayJoin()` only accepts array-typed columns from the generated schema, so a scalar column is rejected at compile time. At runtime, ClickHouse returns one row per array element.
 
 ## LEFT ARRAY JOIN — Keep Rows With Empty Arrays
 
 Regular ARRAY JOIN drops rows where the array is empty. Use `LEFT ARRAY JOIN` when you need to preserve those rows:
 
 ```typescript
-const allEvents = await db.rawQuery<{ id: string; user_id: string; tags: string }>(
-  \`SELECT id, user_id, tags
-   FROM events
-   LEFT ARRAY JOIN tags
-   WHERE toDate(created_at) = ?\`,
-  [today],
-);
+const allEvents = await db
+  .table('events')
+  .leftArrayJoin('tags')
+  .select(['id', 'user_id', 'tags'])
+  .where('created_at', 'gte', dayStart)
+  .execute();
 ```
 
 `LEFT ARRAY JOIN` is analogous to a LEFT JOIN in standard SQL — you get at least one row per source row, even when the array is empty.
@@ -105,19 +101,17 @@ Here's a complete example — find the top tags used in events this month, with 
 
 ```typescript
 async function getTopTags(month: string) {
-  // month format: '2026-04'
   return db
-    .rawQuery<{ tags: string; uses: string; unique_users: string }>(
-      \`SELECT tags, count() AS uses, uniq(user_id) AS unique_users
-       FROM events
-       ARRAY JOIN tags
-       WHERE tags != ''
-         AND formatDateTime(created_at, '%Y-%m') = ?
-       GROUP BY tags
-       ORDER BY uses DESC
-       LIMIT 10\`,
-      [month],
-    );
+    .table('events')
+    .arrayJoin('tags')
+    .select(['tags'])
+    .where('created_at', 'gte', \`${month}-01 00:00:00\`)
+    .count('tags', 'uses')
+    .countDistinct('user_id', 'unique_users')
+    .groupBy('tags')
+    .orderBy('uses', 'DESC')
+    .limit(10)
+    .execute();
 }
 
 const topTags = await getTopTags('2026-04');
@@ -135,7 +129,7 @@ FROM events
 ARRAY JOIN tags, tag_weights
 ```
 
-This joins `tags` and `tag_weights` in parallel (both arrays must have the same length). In a hypequery project today, this is another case where raw SQL is the honest approach rather than a dedicated builder helper.
+This joins `tags` and `tag_weights` in parallel (both arrays must have the same length). For several arrays in the same clause, use a focused raw expression; the fluent `arrayJoin()` helper covers the common one-column case.
 
 ## Event Properties Pattern
 
@@ -174,4 +168,4 @@ const results = await db.rawQuery<{
 
 ## Type Implications
 
-The key TypeScript behaviour to remember: after ARRAY JOIN, the exploded column's type changes from the array type to the element type. If your schema has `tags: string[]`, the SQL result rows after `ARRAY JOIN tags` have `tags: string`. In a hypequery app today, model that explicitly in the `rawQuery<T>()` type parameter.
+The key runtime behaviour to remember: after ARRAY JOIN, ClickHouse returns the exploded column's element value on each row. The builder validates that the source column is an array; use an aliased `selectExpr()` when you also want to state a transformed result type explicitly.

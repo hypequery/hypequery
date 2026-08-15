@@ -1,7 +1,19 @@
 {
   "name": "@hypequery/react",
   "version": "0.5.0",
-  "description": "React hooks for consuming hypequery APIs",
+  "description": "Type-safe React and TanStack Query hooks for ClickHouse analytics, metrics, and datasets",
+  "keywords": [
+    "react",
+    "tanstack-query",
+    "clickhouse",
+    "analytics",
+    "semantic-layer",
+    "typescript",
+    "query-builder",
+    "orm",
+    "dashboard",
+    "embedded-analytics"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "exports": {
@@ -40,6 +52,15 @@
     "react-dom": "^18.2.0",
     "typescript": "^5.7.3",
     "vitest": "^3.2.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://hypequery.com",
+  "bugs": {
+    "url": "https://github.com/hypequery/hypequery/issues"
   },
   "publishConfig": {
     "access": "public"

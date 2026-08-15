@@ -149,7 +149,7 @@ export default function CompareIndexPage() {
             >
               <h3 className="text-2xl font-semibold text-slate-100">MooseStack alternative</h3>
               <p className="mt-4 text-sm leading-7 text-slate-300">
-                Take the typed query and API layer without the framework — no dev runtime, no scaffold, no streaming stack you didn&apos;t ask for.
+                MooseStack is end of life. Move its typed ClickHouse query and API layer while separating schema, streaming, and workflow responsibilities.
               </p>
               <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300 group-hover:text-cyan-200">
                 Open guide

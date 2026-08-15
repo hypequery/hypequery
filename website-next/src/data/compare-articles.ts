@@ -91,3 +91,82 @@ export const compareArticles: Record<string, CompareArticle> = {
     "content": "## Short answer\n\nDo you even need a query builder? Sometimes not. If you're writing a one-off backfill script, a migration, or one genuinely gnarly analytical query — window functions, ASOF joins, three nested CTEs — a raw SQL string is the clearest thing you can write, and reaching for an abstraction just adds noise. hypequery agrees with this. It ships `selectExpr`, `rawAs`, and `withCTE` precisely so you can drop to raw SQL whenever the builder gets in the way. You never have to fight it.\n\nThe case for the builder isn't \"raw SQL is bad.\" It's about the *other* SQL — the queries that live inside your application, get reused across endpoints, filtered by user input, and refactored as the schema changes. That's where raw SQL strings plus hand-written result interfaces quietly rot: rename a column and nothing fails until runtime. This page is about that practice — SQL strings wherever they live, in template literals, `.sql` files, or any client — not about any one library. (For the narrower comparison with the official transport client, see [hypequery vs @clickhouse/client](/compare/hypequery-vs-clickhouse-client), which hypequery is actually built on.)\n\nIf you'd rather just see it run, the [quick start](/docs/quick-start) goes from a live ClickHouse schema to a typed query in a few minutes.\n\n## Where raw SQL is genuinely the right call\n\nBe honest about this up front, because it's where a lot of \"just use a library\" advice goes wrong:\n\n- **One-off scripts and backfills.** A script you run once and delete doesn't benefit from types. Write the SQL, run it, move on.\n- **Migrations and DDL.** `CREATE TABLE`, `ALTER`, engine and partition tuning — this is raw SQL territory and always will be.\n- **Genuinely gnarly analytics.** A query with several window functions, an ASOF JOIN, and correlated subqueries is often clearer as SQL than as any fluent chain. hypequery doesn't have an `asofJoin` method, and it's honest about that — ASOF JOIN is raw-SQL territory.\n\nIf that's the shape of your work, you may not need a builder at all. The builder earns its place when queries are *repeated and embedded*, not throwaway.\n\n## Where hand-written SQL strings start to hurt\n\nThe problems don't show up on day one. They show up three months later, in an app with fifty queries scattered across route handlers.\n\n**Schema drift is silent.** You rename `total` to `amount` in ClickHouse. Your hand-written string `SELECT sum(total) ...` still compiles, still type-checks against your hand-written `interface OrderRow`, and still passes review. It fails at runtime, in production, when ClickHouse rejects the unknown column. Nothing in your toolchain warned you.\n\n**There's no refactoring support.** Rename a column and you're doing a project-wide string search, hoping you catch every `.sql` file and every template literal. \"Find all references\" doesn't work on strings. Neither does rename-symbol.\n\n**Reuse becomes copy-paste.** The same 20-line revenue query gets pasted into three endpoints with slightly different `WHERE` clauses. Now a fix has to land in three places, and they drift apart over time. (This exact pattern is the subject of [stop writing the same query three times](/blog/stop-writing-the-same-query-three-times).)\n\n**Interpolation is an injection risk.** The moment a raw string stops being static and starts including a runtime value, you're one careless template literal away from an injection bug:\n\n```ts\n// The bug that raw strings invite\nconst rows = await client.query({\n  query: `SELECT * FROM orders WHERE region = '${region}'`,\n});\n// region = \"x' OR '1'='1\" and you've got a problem\n```\n\nParameterization fixes this — but it's opt-in, and \"remember to parameterize every value, forever, across the whole team\" is not a safety model. It's a hope.\n\n## Before and after\n\nHere's a realistic analytics query — daily revenue by region for one tenant — written both ways. First, the raw-string version with a hand-written interface:\n\n```ts\nimport { createClient } from '@clickhouse/client';\n\nconst client = createClient({ url: process.env.CLICKHOUSE_URL! });\n\ninterface RevenueRow {\n  day: string;\n  region: string;\n  revenue: number; // wrong: ClickHouse returns this as a string\n}\n\nasync function revenueByRegion(tenantId: string) {\n  const result = await client.query({\n    query: `\n      SELECT toStartOfDay(created_at) AS day,\n             region,\n             sum(total) AS revenue\n      FROM orders\n      WHERE tenant_id = {tenantId:String}\n      GROUP BY day, region\n      ORDER BY day ASC\n    `,\n    query_params: { tenantId },\n    format: 'JSONEachRow',\n  });\n  return (await result.json()) as RevenueRow[];\n}\n```\n\nThat interface is a promise nobody enforces. `revenue` is typed as `number`, but `sum()` of a numeric column comes back from ClickHouse as a **string** in JS. Rename `total` and the string keeps compiling. The `as RevenueRow[]` cast papers over all of it.\n\nNow the same query with hypequery:\n\n```ts\nimport { createQueryBuilder } from '@hypequery/clickhouse';\nimport type { IntrospectedSchema } from './generated/schema.js';\n\nconst db = createQueryBuilder<IntrospectedSchema>({\n  url: process.env.CLICKHOUSE_URL!,\n  username: process.env.CLICKHOUSE_USERNAME!,\n  password: process.env.CLICKHOUSE_PASSWORD,\n  database: process.env.CLICKHOUSE_DATABASE!,\n});\n\nasync function revenueByRegion(tenantId: string) {\n  return db\n    .table('orders')\n    .where('tenant_id', 'eq', tenantId)\n    .select(['region'])\n    .groupByTimeInterval('created_at', '1 day')\n    .sum('total', 'revenue')\n    .groupBy('region')\n    .orderBy('created_at', 'ASC')\n    .execute();\n}\n```\n\nNo hand-written interface. The result type is inferred from the generated schema — including that `revenue` is a string, because [that's what ClickHouse actually returns](/type-safe-sql-typescript). `tenant_id` is parameterized by construction; there's no template literal to get wrong. Rename `total` in ClickHouse, re-run `hypequery generate`, and `.sum('total', ...)` stops compiling — in your editor, before the code ships.\n\n## The builder has edges, and it tells you where they are\n\nThis is the part that makes the tradeoff fair: hypequery doesn't pretend to cover every ClickHouse feature. Window functions aren't first-class builder methods. You express them with `selectExpr`, which drops a raw SQL expression into a typed `.select()`:\n\n```ts\nimport { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';\n\nconst ranked = await db\n  .table('orders')\n  .select([\n    'region',\n    selectExpr(\n      'ROW_NUMBER() OVER (PARTITION BY region ORDER BY sum(total) DESC)',\n      'rank',\n    ),\n  ])\n  .groupBy('region')\n  .execute();\n```\n\nAnd `.withCTE()` takes a raw SQL string when a subquery is easier written by hand than built. The point of these escape hatches is that adopting the builder is not an all-or-nothing bet. You get compile-time safety on the 90% of queries the builder covers cleanly, and raw SQL for the 10% where SQL is genuinely the better tool — in the same query, side by side. You never have to abandon the typed layer just because one clause is exotic.\n\n## The honest comparison\n\n| | Raw SQL strings | hypequery |\n|---|---|---|\n| Best for | One-off scripts, migrations, gnarly analytics | Reused, app-embedded queries |\n| Schema drift | Silent until runtime | Fails to compile |\n| Refactoring | String search only | Find-references, rename-symbol |\n| Result types | Hand-written, unenforced | Generated from live schema |\n| Runtime type mapping | You remember it (UInt64 → string) | Encoded in generated types |\n| Injection | Safe only if you never interpolate | Parameterized by construction |\n| Reuse | Copy-paste | Composable query definitions |\n| Exotic SQL | Native | `selectExpr` / `rawAs` / `withCTE` |\n\n## Getting started\n\nIf your queries are one-offs, keep writing SQL — that's the right tool, and hypequery would just be in the way. If they live in your app and keep changing, the [quick start](/docs/quick-start) takes you from schema introspection to a typed query and a served endpoint in a few minutes. From there, the [ClickHouse query builder](/clickhouse-query-builder) guide covers filters, joins, and aggregations against generated types, and [migrating raw SQL to hypequery](/blog/migrating-raw-sql-to-hypequery) walks through converting an existing string-based codebase one query at a time — keeping the raw-SQL escape hatch wherever it still makes sense."
   }
 };
+
+// MooseStack's maintainers announced end of life and archived the repository
+// after the original comparison was written. Keep the canonical comparison
+// explicit so search and AI retrieval do not surface the historical advice.
+compareArticles['hypequery-vs-moose'] = {
+  slug: 'hypequery-vs-moose',
+  title: 'MooseStack is EOL: hypequery vs Moose for ClickHouse',
+  description:
+    'MooseStack has reached end of life and its repository is archived. Compare the remaining architecture with hypequery, then use the migration guide to move typed ClickHouse queries and APIs.',
+  seoTitle: 'MooseStack EOL: hypequery vs Moose and Migration Guide',
+  seoDescription:
+    'MooseStack is end of life and no longer maintained. See the official statement, compare it with hypequery, and plan a TypeScript ClickHouse migration.',
+  date: '2026-08-11',
+  tags: ['ClickHouse', 'TypeScript', 'MooseStack', 'Migration'],
+  content: `## MooseStack has reached end of life
+
+The decision is no longer between two actively maintained projects. The MooseStack maintainers state that **MooseStack has reached end of life and is no longer actively maintained**, and GitHub shows the repository as archived and read-only. Read the [official MooseStack EOL statement on GitHub](https://github.com/514-labs/moosestack#readme).
+
+That means we do not recommend starting a new production analytics backend on MooseStack. Existing users should first decide which parts of Moose they actually need to replace: ClickHouse schema management, streaming ingestion, workflows, typed query APIs, or the agent-facing development harness. hypequery covers the typed ClickHouse query, semantic layer, API, React, and MCP portion; it does not attempt to replace Redpanda, Temporal, or a migration system.
+
+For a step-by-step inventory and mapping, use the [MooseStack to hypequery migration guide](/blog/migrating-moosestack-to-hypequery).
+
+## What hypequery replaces
+
+If your Moose application used typed data models and query APIs to power a TypeScript product, hypequery provides the active, narrower path:
+
+- generate TypeScript types from the ClickHouse schema that exists now;
+- move reusable analytics into typed datasets, dimensions, measures, and metrics;
+- expose those contracts through validated HTTP routes and OpenAPI;
+- consume them through typed React hooks;
+- expose governed metrics and dataset queries through MCP tools for AI agents;
+- enforce multi-tenant scope from trusted runtime context.
+
+The direction of schema ownership changes. Moose was code-first infrastructure: code declared tables and pushed schema into ClickHouse. hypequery is database-first at the physical layer and code-first at the semantic layer: your migration tool owns ClickHouse DDL, the hypequery CLI introspects the live result, and TypeScript owns the product-facing analytics contract.
+
+## What hypequery does not replace
+
+hypequery is not a streaming or workflow platform. Keep or choose dedicated tools for:
+
+- Kafka or Redpanda ingestion;
+- Temporal workflows and scheduled orchestration;
+- ClickHouse DDL migrations;
+- infrastructure provisioning and deployment of ClickHouse itself.
+
+This smaller boundary is deliberate. It lets teams migrate the application-facing analytics layer without rebuilding ingestion and infrastructure at the same time.
+
+## Current comparison
+
+| Area | MooseStack at EOL | hypequery |
+| --- | --- | --- |
+| Maintenance | End of life; repository archived | Actively developed open-source packages |
+| Physical schema | Declared in Moose code and migrated into ClickHouse | Introspected from the live ClickHouse schema |
+| Semantic model | Code-first data models and APIs | TypeScript datasets, dimensions, measures, metrics, and relationships |
+| Query builder | Moose query layer | ClickHouse-native typed builder with FINAL, LIMIT BY, percentiles, argMax, CTEs, and expressions |
+| HTTP APIs | Framework-managed query APIs | Validated Serve routes and OpenAPI inside your app |
+| React | Application-owned integration | Typed TanStack Query hooks |
+| Agents | Moose development harness and MCP | Governed dataset and metric MCP server |
+| Streaming and workflows | Redpanda and Temporal modules | Bring your existing tools |
+
+## Migration shape
+
+The safest migration is incremental:
+
+1. Freeze new Moose-specific surface and export the current ClickHouse DDL, tables, and materialized views.
+2. Assign schema migrations, ingestion, and workflows to explicit tools outside the application query layer.
+3. Generate hypequery types from the live ClickHouse schema.
+4. Port one read-only query at a time and compare generated SQL and results.
+5. Promote shared calculations into datasets and metrics.
+6. Move API consumers to Serve routes, then React hooks or MCP tools.
+7. Remove the Moose runtime only after traffic, jobs, and deployment dependencies have been accounted for.
+
+The clients can coexist during the transition, so there is no reason to combine the infrastructure and query migrations into one cutover.
+
+## Recommendation
+
+For a new TypeScript application on ClickHouse, use an actively maintained query and semantic layer rather than adopting an archived framework. hypequery is the fit when you already have or want to keep control of ClickHouse and need typed application queries, multi-tenant analytics APIs, React hooks, and MCP tools.
+
+If you need the full infrastructure scope Moose once provided, pair hypequery with the dedicated ingestion, workflow, and migration tools your team is prepared to operate. Start with the [migration guide](/blog/migrating-moosestack-to-hypequery), check the [current capability matrix](/docs/capabilities), and test the [quick start](/docs/quick-start) against one real table.`,
+};

@@ -299,12 +299,12 @@ export const comparePages: ComparePageConfig[] = [
     href: '/compare/hypequery-vs-moose',
     title: 'hypequery vs Moose (MooseStack)',
     verdict:
-      'Moose is a full framework that wants to own your analytical backend — schema, streaming, workflows, and a local dev runtime. hypequery is a library you add to an existing ClickHouse setup for typed queries and APIs without changing how you run infrastructure.',
+      'MooseStack has reached end of life and its GitHub repository is archived. Do not start a new production system on it. hypequery is the active, narrower replacement for typed ClickHouse queries, semantic metrics, APIs, React hooks, and MCP tools.',
     rows: [
       {
-        label: 'Best for',
+        label: 'Project status',
         hypequery: 'Adding typed queries and APIs to a ClickHouse you already run',
-        alternative: 'Greenfield analytical backends built inside one framework',
+        alternative: 'End of life and no longer actively maintained',
       },
       {
         label: 'Schema source',
@@ -312,31 +312,31 @@ export const comparePages: ComparePageConfig[] = [
         alternative: 'Defined in code and migrated into ClickHouse',
       },
       {
-        label: 'Footprint',
-        hypequery: 'npm library in your app — no runtime or dev server',
-        alternative: 'Framework with dev runtime, optional Redpanda and Temporal',
+        label: 'Migration boundary',
+        hypequery: 'Typed queries, semantic datasets, APIs, React hooks, and MCP',
+        alternative: 'Move DDL, Redpanda, and Temporal responsibilities separately',
       },
       {
         label: 'Scope',
-        hypequery: 'Query builder, HTTP serving, OpenAPI, React hooks',
-        alternative: 'OLAP tables, streaming ingest, workflows, ingest and query APIs',
+        hypequery: 'Actively maintained TypeScript packages inside your application',
+        alternative: 'Archived framework code can inform migration but should not be a new dependency',
       },
     ],
     faq: [
       {
         question: 'Are hypequery and Moose solving the same problem?',
         answer:
-          'They overlap on typed ClickHouse queries and APIs in TypeScript, but they take opposite positions on ownership. Moose defines your schema in code and manages migrations, streaming, and workflows as a framework. hypequery treats your existing ClickHouse as the source of truth and adds a typed query and serving layer on top.',
+          'They overlap on typed ClickHouse queries and APIs, but Moose also owned schema, streaming, workflows, and a development runtime. hypequery replaces the application-facing analytics layer; dedicated tools should own the other responsibilities.',
       },
       {
-        question: 'When should I choose Moose instead of hypequery?',
+        question: 'Should I choose MooseStack for a new project?',
         answer:
-          'Choose Moose when you are building an analytical backend from scratch and want one framework to manage ClickHouse schema, streaming ingestion with Redpanda, and orchestration with Temporal — and you are comfortable adopting its project structure and dev runtime.',
+          'No. MooseStack’s maintainers announced end of life and archived the repository. Use the historical architecture as migration context, not as a new production dependency.',
       },
       {
-        question: 'When is hypequery the better fit?',
+        question: 'Can hypequery replace every MooseStack module?',
         answer:
-          'When ClickHouse already exists in your stack with its own ingestion and migration story, and what you need is typed queries, typed HTTP endpoints, and React hooks inside the application you already have — without adopting a framework.',
+          'No. hypequery covers typed ClickHouse queries, semantic datasets, APIs, React hooks, multi-tenancy, and MCP. Keep or choose separate tools for DDL migrations, streaming ingestion, and workflow orchestration.',
       },
     ],
   },

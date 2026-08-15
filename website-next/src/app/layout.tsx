@@ -67,11 +67,17 @@ const organizationSchema = {
   '@id': absoluteUrl('/#organization').toString(),
   name: 'hypequery',
   url: absoluteUrl('/').toString(),
-  logo: absoluteUrl('/logo.png').toString(),
+  logo: {
+    '@type': 'ImageObject',
+    url: absoluteUrl('/logo.png').toString(),
+    width: 1472,
+    height: 400,
+  },
   sameAs: [
     'https://github.com/hypequery/hypequery',
     'https://www.npmjs.com/package/@hypequery/clickhouse',
-    'https://twitter.com/hypequery',
+    'https://x.com/hypequery',
+    'https://www.linkedin.com/company/110435355/',
     'https://www.newsletter.hypequery.com',
   ],
 };

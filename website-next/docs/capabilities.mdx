@@ -1,0 +1,229 @@
+---
+title: What hypequery supports today
+description: Current capability matrix for the ClickHouse TypeScript query builder, semantic datasets, Serve APIs, React hooks, and MCP tools.
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { CodeBlock } from 'fumadocs-ui/components/codeblock';
+
+# What hypequery supports today
+
+This page records the shipped surface of hypequery as of **11 August 2026**. It is a capability matrix, not a roadmap: “native” means a public typed method exists, “expression” means the feature is supported through an explicit SQL expression inside an otherwise typed query, and “semantic” means it can be declared and executed through `@hypequery/datasets`.
+
+<Callout type="info" title="Short version">
+  `argMax`, `argMin`, percentiles, median, standard deviation, variance, `final()`, `limitBy()`, array joins, `PREWHERE`, CTEs, and window expressions are supported today. The tables below show the exact public syntax.
+</Callout>
+
+## ClickHouse query builder
+
+| Capability | Status | Public TypeScript syntax |
+| --- | --- | --- |
+| Typed table and column selection | Native | `table()`, `select()`, `selectConst()` |
+| Filters | Native | `where()`, `orWhere()`, grouped predicates, null, range, list, tuple, and pattern operators |
+| `PREWHERE` | Native | `prewhere()`, `orPrewhere()` and null helpers |
+| Joins | Native | inner, left, right, full, and `leftAnyJoin()` |
+| Grouping and `HAVING` | Native | `groupBy()`, `groupByTimeInterval()`, `having()` |
+| Ordering and pagination | Native | `orderBy()`, `limit()`, `offset()` |
+| ClickHouse `LIMIT BY` | Native | `limitBy(count, field)` or multiple fields |
+| `ReplacingMergeTree` `FINAL` | Native | `final()` |
+| Array expansion | Native | `arrayJoin()`, `leftArrayJoin()` |
+| Totals and distinct results | Native | `withTotals()`, `distinct()` |
+| CTEs | Native | `withCTE()` with a builder or SQL body |
+| ClickHouse settings | Native | `settings()` |
+| Streaming | Native | `stream()`, `streamForEach()` |
+| Query SQL inspection | Native | `toSQL()`, `toSQLWithParams()` |
+| Result caching | Native | `cache()` and cache providers |
+| Window functions | Expression | `selectExpr('... OVER (...)', 'alias')` |
+
+### `FINAL`
+
+<CodeBlock>
+
+```ts
+const currentRows = await db
+  .table('orders')
+  .final()
+  .select(['id', 'status', 'updated_at'])
+  .execute();
+```
+
+</CodeBlock>
+
+### `LIMIT BY`
+
+<CodeBlock>
+
+```ts
+const topThreePerRegion = await db
+  .table('orders')
+  .select(['region', 'id', 'amount'])
+  .orderBy('amount', 'DESC')
+  .limitBy(3, 'region')
+  .execute();
+```
+
+</CodeBlock>
+
+Multiple grouping fields are accepted:
+
+```ts
+.limitBy(5, ['tenant_id', 'category'])
+```
+
+### Window functions
+
+Window functions use the public `selectExpr` escape hatch. The selected alias remains part of the inferred result type, while the expression body is trusted model code:
+
+<CodeBlock>
+
+```ts
+import { selectExpr } from '@hypequery/clickhouse';
+
+const ranked = await db
+  .table('orders')
+  .select([
+    'region',
+    'amount',
+    selectExpr(
+      'row_number() OVER (PARTITION BY region ORDER BY amount DESC)',
+      'rank',
+    ),
+  ])
+  .execute();
+```
+
+</CodeBlock>
+
+This same pattern covers `row_number`, `rank`, `dense_rank`, `lag`, `lead`, running totals, moving averages, and custom window frames.
+
+## Query-builder aggregate surface
+
+| Method | ClickHouse output |
+| --- | --- |
+| `sum(column, alias?)` | `sum(column)` |
+| `count(column, alias?)` | `count(column)` |
+| `countDistinct(column, alias?)` | distinct count |
+| `avg(column, alias?)` | `avg(column)` |
+| `min(column, alias?)` | `min(column)` |
+| `max(column, alias?)` | `max(column)` |
+| `quantile(column, level, alias?)` | `quantile(level)(column)` |
+| `argMax(column, by, alias?)` | `argMax(column, by)` |
+| `argMin(column, by, alias?)` | `argMin(column, by)` |
+| `stddev(column, alias?)` | sample standard deviation with `stddevSamp` |
+| `variance(column, alias?)` | sample variance with `varSamp` |
+
+<CodeBlock>
+
+```ts
+const statistics = await db
+  .table('orders')
+  .select(['region'])
+  .sum('amount', 'revenue')
+  .countDistinct('customer_id', 'unique_customers')
+  .quantile('amount', 0.95, 'p95_order_value')
+  .argMax('status', 'created_at', 'latest_status')
+  .stddev('amount', 'amount_stddev')
+  .variance('amount', 'amount_variance')
+  .groupBy('region')
+  .execute();
+```
+
+</CodeBlock>
+
+## Semantic datasets and metrics
+
+`@hypequery/datasets` supports direct execution through `createDatasetClient`, HTTP execution through `@hypequery/serve`, typed React consumers, generated tool schemas, and MCP.
+
+| Semantic capability | Status |
+| --- | --- |
+| String, number, boolean, and timestamp dimensions | Shipped |
+| Column aliases and trusted SQL-backed dimensions | Shipped |
+| Named measures and base metrics | Shipped |
+| Derived metric formulas | Shipped |
+| Measure-level filters | Shipped |
+| Day, week, month, quarter, and year grains | Shipped |
+| Runtime tenant isolation with fail-closed scope | Shipped |
+| Dataset queries with selected dimensions and measures | Shipped |
+| Metric queries with dimensions, filters, order, limit, and offset | Shipped |
+| One-hop `belongsTo` / `hasOne` dimension traversal | Shipped |
+| Semantic catalogs and stable contracts | Shipped |
+| OpenAI, AI SDK, and MCP tool schema generation | Shipped |
+| Semantic result caching and pagination metadata | Shipped |
+
+The semantic aggregate helpers mirror the builder surface:
+
+```ts
+measure.sum('amount')
+measure.count('id')
+measure.countDistinct('customerId')
+measure.avg('amount')
+measure.min('amount')
+measure.max('amount')
+measure.percentile('amount', 0.95)
+measure.median('amount')
+measure.argMax('status', 'createdAt')
+measure.argMin('status', 'createdAt')
+measure.stddev('amount')
+measure.variance('amount')
+```
+
+<Callout type="info" title="Percentile naming">
+  The low-level query builder calls ClickHouse’s aggregate `quantile()`. The semantic layer uses the product-facing name `percentile()` and compiles it to `quantile(level)` for ClickHouse. `median()` is percentile `0.5`.
+</Callout>
+
+## Serve, React, and MCP
+
+| Surface | Shipped capabilities |
+| --- | --- |
+| `@hypequery/serve` | In-process execution, HTTP routes, zod validation, OpenAPI, auth, roles/scopes, tenant injection, CORS, rate limiting, observability, Node and Fetch adapters |
+| `@hypequery/react` | Typed named-query hooks, metric hooks, dataset hooks, mutations, infinite queries, route manifests, per-request auth headers, one-time 401 refresh |
+| `@hypequery/mcp` | Dataset discovery, schema introspection, named metric queries, ad hoc dataset queries, generated JSON schemas, host-controlled tenant scope, stdio transport |
+
+## A complete current dataset
+
+<CodeBlock>
+
+```ts
+import {
+  dataset,
+  dimension,
+  divide,
+  measure,
+  nullIfZero,
+} from '@hypequery/datasets';
+
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    region: dimension.string(),
+    status: dimension.string(),
+    customerId: dimension.string({ column: 'customer_id' }),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+    p95OrderValue: measure.percentile('amount', 0.95),
+    latestStatus: measure.argMax('status', 'createdAt'),
+  },
+});
+
+export const revenue = Orders.metric('revenue', { measure: 'revenue' });
+export const orderCount = Orders.metric('orderCount', {
+  measure: 'orderCount',
+});
+
+export const averageOrderValue = Orders.metric('averageOrderValue', {
+  uses: { revenue, orderCount },
+  formula: ({ revenue, orderCount }) =>
+    divide(revenue, nullIfZero(orderCount)),
+});
+```
+
+</CodeBlock>
+
+## Keep this page current
+
+When a public capability is added or renamed, update this matrix in the same pull request as the implementation and package README. Use the [changelog](/docs/changelog) for release-by-release history and the [roadmap](/docs/roadmap) for work that has not shipped.

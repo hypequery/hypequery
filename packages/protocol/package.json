@@ -1,7 +1,15 @@
 {
   "name": "@hypequery/protocol",
   "version": "0.10.1",
-  "description": "Public contracts and TypeScript reference implementation for portable Hypequery artifacts",
+  "description": "Portable analytics contracts and TypeScript reference implementation for Hypequery",
+  "keywords": [
+    "hypequery",
+    "protocol",
+    "analytics",
+    "semantic-layer",
+    "typescript",
+    "canonical-json"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -33,10 +41,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hypequery/hypequery.git",
+    "url": "git+https://github.com/hypequery/hypequery.git",
     "directory": "packages/protocol"
   },
-  "homepage": "https://github.com/hypequery/hypequery/tree/main/packages/protocol",
+  "homepage": "https://hypequery.com",
   "bugs": {
     "url": "https://github.com/hypequery/hypequery/issues"
   },

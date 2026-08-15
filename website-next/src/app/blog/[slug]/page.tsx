@@ -182,12 +182,17 @@ export default async function BlogPostPage({
   const relatedLinks = getRelatedLinks(post.slug);
   const articleSchema = {
     '@context': 'https://schema.org',
-    '@type': 'Article',
+    '@type': 'BlogPosting',
+    '@id': `${articleUrl}#blog-posting`,
     headline: data.title,
     description: data.description ?? undefined,
     datePublished: publishDate ?? undefined,
     dateModified: publishDate ?? undefined,
-    mainEntityOfPage: articleUrl,
+    url: articleUrl,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': articleUrl,
+    },
     author: data.author
       ? { '@type': 'Person', name: data.author }
       : {
@@ -198,8 +203,15 @@ export default async function BlogPostPage({
         },
     publisher: {
       '@type': 'Organization',
+      '@id': absoluteUrl('/#organization').toString(),
       name: 'hypequery',
       url: absoluteUrl('/').toString(),
+      logo: {
+        '@type': 'ImageObject',
+        url: absoluteUrl('/logo.png').toString(),
+        width: 1472,
+        height: 400,
+      },
     },
   };
 

@@ -45,72 +45,62 @@ export const Orders = dataset('orders', {
   },
 });`;
 
-const tenancyCode = `// the old way — a filter you must remember, in 40 places
+const tenancyCode = `import { createDatasetClient } from '@hypequery/datasets';
+
+// the old way — a filter you must remember, in 40 places
 \`SELECT id, amount FROM orders WHERE tenant_id = '\${tenantId}'\`
 // forget it once -> you leak a tenant's data
 
-// with a dataset — declared once, applied from runtime context
-await executor.dataset(Orders, {
+// with a dataset — declared once, applied from trusted runtime context
+const analytics = createDatasetClient({ queryBuilder: db });
+
+await analytics.execute(Orders, {
   dimensions: ['id', 'amount'],
 }, { runtime: { tenant: { id: tenantId } } });
-// tenant filter injected automatically when runtime tenancy is active`;
+// tenant filter is injected automatically; missing scope fails closed`;
 
-const payoffCode = `import { createExecutor, eq, gte } from '@hypequery/datasets';
+const payoffCode = `import { createDatasetClient } from '@hypequery/datasets';
 import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
 import { db } from './client';
-import { Orders } from './datasets';
+import { Orders, revenue } from './datasets';
 
-const executor = createExecutor({ queryBuilder: db });
-const auth = async ({ request }) => ({
+const authStrategy = async ({ request }) => ({
   tenantId: request.headers['x-tenant-id'] as string,
 });
 
-const { query, serve } = initServe({
-  auth,
+const { serve } = initServe({
+  auth: authStrategy,
+  context: () => ({ db }),
+});
+
+export const analytics = createDatasetClient({ queryBuilder: db });
+
+export const api = serve({
+  queryBuilder: db,
+  metrics: { revenue },
+  datasets: { orders: Orders },
   tenant: {
     extract: (auth) => auth.tenantId,
     required: true,
   },
-  context: ({ request }) => ({
-    db,
-    executor,
-    tenantId: request.headers['x-tenant-id'] as string,
-  }),
-});
-
-export const revenueByDay = query({
-  input: z.object({
-    startDate: z.string(),
-  }),
-  query: ({ ctx, input }) =>
-    ctx.executor.dataset(Orders, {
-      dimensions: ['createdAt'],
-      measures: ['revenue'],
-      filters: [gte('createdAt', input.startDate), eq('status', 'paid')],
-    }, { runtime: { tenant: { id: ctx.tenantId } } }),
-});
-
-export const api = serve({
-  queries: { revenueByDay },
-  datasets: { orders: Orders },
-  queryBuilder: db,
 });`;
 
-const consumerCode = `// server code
-const result = await api.run('revenueByDay', {
-  input: { startDate: '2026-04-01' },
-});
+const consumerCode = `// backend or worker
+await analytics.execute(
+  revenue,
+  { dimensions: ['status'] },
+  { runtime: { tenant: { id: tenantId } } },
+);
 
 // HTTP
-await fetch('/api/analytics/revenueByDay', {
+await fetch('/api/analytics/metrics/revenue', {
   method: 'POST',
-  body: JSON.stringify({ startDate: '2026-04-01' }),
+  body: JSON.stringify({ dimensions: ['status'] }),
 });
 
 // React
-const { data } = useQuery('revenueByDay', {
-  startDate: '2026-04-01',
+const { data } = useMetric('revenue', {
+  dimensions: ['status'],
 });`;
 
 const comparisonRows = [
@@ -298,7 +288,7 @@ export default function ClickHouseSemanticLayerPage() {
         <section className="mx-auto max-w-[1280px] px-8 pt-[96px] pb-6">
           <SectionIntro title="One definition. Every consumer.">
             <p>
-              Compose query definitions around the dataset and serve them anywhere — the same definition feeds server code, a typed HTTP route, and a React hook, with types intact across the network.
+              Register the dataset and its metrics directly. The same definition feeds server code, a validated HTTP route, a typed React hook, and governed MCP tools without redefining what revenue means.
             </p>
           </SectionIntro>
           <div className="grid gap-4 lg:grid-cols-2">

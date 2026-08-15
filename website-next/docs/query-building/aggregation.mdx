@@ -1,554 +1,189 @@
 ---
 title: Aggregation
-description: Group data and calculate summaries with aggregations
+description: Group ClickHouse data with typed sums, counts, percentiles, argMax, standard deviation, variance, and time intervals.
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
-import { Pre } from 'fumadocs-ui/components/codeblock';
-
 
 # Aggregation
 
-Aggregation functions calculate summaries across groups of rows. Combine them with `groupBy()` to analyze data patterns and generate insights.
+The query builder provides typed methods for ClickHouse’s common and analytical aggregates. Chain them after `table()`, select the grouping dimensions you want back, and call `groupBy()` before execution.
 
-## Overview
+## Aggregate methods
 
-Use aggregations to:
-- Calculate totals, averages, and counts
-- Group data by one or more columns
-- Filter grouped results with `having()`
+| Method | Calculation |
+| --- | --- |
+| `sum(column, alias?)` | Sum |
+| `count(column, alias?)` | Count |
+| `countDistinct(column, alias?)` | Distinct count |
+| `avg(column, alias?)` | Average |
+| `min(column, alias?)` | Minimum |
+| `max(column, alias?)` | Maximum |
+| `quantile(column, level, alias?)` | Approximate percentile |
+| `argMax(column, by, alias?)` | Value from the row where `by` is greatest |
+| `argMin(column, by, alias?)` | Value from the row where `by` is smallest |
+| `stddev(column, alias?)` | Sample standard deviation |
+| `variance(column, alias?)` | Sample variance |
 
-<Callout type="info" title="Query builder syntax">
-  These examples use a typed standalone `db` client so the query builder stays the focus.
-</Callout>
-- Build analytics and reporting queries
+The alias is optional. Providing one keeps result names readable and makes them available to `orderBy()`.
 
-## Aggregation Functions
-
-| Function | Description | Example |
-| --- | --- | --- |
-| `sum(column, alias)` | Sum of values | `sum('total', 'revenue')` |
-| `count(column, alias)` | Count rows or non-null values | `count('id', 'user_count')` |
-| `avg(column, alias)` | Average value | `avg('price', 'avg_price')` |
-| `min(column, alias)` | Minimum value | `min('created_at', 'first_seen')` |
-| `max(column, alias)` | Maximum value | `max('created_at', 'last_seen')` |
-| `distinctCount(column, alias)` | Count of distinct values | `distinctCount('user_id', 'unique_users')` |
-
-## Sum
-
-Calculate the total of a column:
+## Revenue by region
 
 <CodeBlock>
 
-```typescript
-const revenue = await db.table('orders')
-  .sum('total', 'total_revenue')
-  .execute();
-```
-
-</CodeBlock>
-
-### Sum by Group
-
-<CodeBlock>
-
-```typescript
-const revenueByCountry = await db.table('orders')
-  .select(['country'])
-  .sum('total', 'total_revenue')
-  .groupBy(['country'])
-  .execute();
-```
-
-</CodeBlock>
-
-## Count
-
-Count rows or non-null values:
-
-<CodeBlock>
-
-```typescript
-const userCount = await db.table('users')
-  .count('id', 'total_users')
-  .execute();
-```
-
-</CodeBlock>
-
-### Count by Group
-
-<CodeBlock>
-
-```typescript
-const usersByCountry = await db.table('users')
-  .select(['country'])
-  .count('id', 'user_count')
-  .groupBy(['country'])
-  .execute();
-```
-
-</CodeBlock>
-
-<Callout type="info" title="Count All Rows">
-  Use `count('*')` or `count('some_column')` to count all rows. The column parameter is required by ClickHouse but the value doesn't matter when counting all rows.
-</Callout>
-
-## Avg
-
-Calculate the average value:
-
-<CodeBlock>
-
-```typescript
-const avgOrder = await db.table('orders')
-  .avg('total', 'average_order_value')
-  .execute();
-```
-
-</CodeBlock>
-
-### Average by Group
-
-<CodeBlock>
-
-```typescript
-const avgPriceByCategory = await db.table('products')
-  .select(['category'])
-  .avg('price', 'avg_price')
-  .groupBy(['category'])
-  .execute();
-```
-
-</CodeBlock>
-
-## Min / Max
-
-Find minimum or maximum values:
-
-<CodeBlock>
-
-```typescript
-const priceRange = await db.table('products')
-  .min('price', 'min_price')
-  .max('price', 'max_price')
-  .execute();
-```
-
-</CodeBlock>
-
-### Min/Max by Group
-
-<CodeBlock>
-
-```typescript
-const dateRanges = await db.table('events')
-  .select(['user_id'])
-  .min('created_at', 'first_event')
-  .max('created_at', 'last_event')
-  .groupBy(['user_id'])
-  .execute();
-```
-
-</CodeBlock>
-
-## Distinct Count
-
-Count unique values:
-
-<CodeBlock>
-
-```typescript
-const uniqueUsers = await db.table('events')
-  .distinctCount('user_id', 'unique_users')
-  .execute();
-```
-
-</CodeBlock>
-
-### Distinct Count by Group
-
-<CodeBlock>
-
-```typescript
-const dailyActiveUsers = await db.table('events')
-  .select([datePart('day', 'created_at', 'date')])
-  .distinctCount('user_id', 'daily_active_users')
-  .groupBy(['date'])
-  .execute();
-```
-
-</CodeBlock>
-
-## Group By
-
-Group results by one or more columns:
-
-### Single Column Group By
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select(['country'])
-  .sum('total', 'total_revenue')
+```ts
+const revenueByRegion = await db
+  .table('orders')
+  .select(['region'])
+  .sum('amount', 'revenue')
   .count('id', 'order_count')
-  .groupBy(['country'])
-  .execute();
-```
-
-</CodeBlock>
-
-### Multiple Columns Group By
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select(['country', 'status'])
-  .sum('total', 'total_revenue')
-  .groupBy(['country', 'status'])
-  .execute();
-```
-
-</CodeBlock>
-
-### Repeated `groupBy()` calls
-
-`groupBy()` is additive. If you call it more than once, hypequery appends the new grouping expressions and avoids duplicate entries.
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select(['country', 'status'])
-  .groupBy(['country'])
-  .groupBy(['status'])
-  .sum('total', 'total_revenue')
-  .execute();
-// GROUP BY country, status
-```
-
-</CodeBlock>
-
-<Callout type="tip" title="Group By Syntax">
-  All columns in `select()` must either be:
-  - Listed in `groupBy()`
-  - Wrapped in an aggregation function (sum, count, avg, etc.)
-</Callout>
-
-Aliased selected expressions count here too. If you select an expression like `toDate(created_at) AS day` and then add an aggregation, make sure the query groups by `day`.
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('events')
-  .select([rawAs('toDate(created_at)', 'day')])
-  .count('id', 'event_count')
-  .groupBy(['day'])
-  .execute();
-```
-
-</CodeBlock>
-
-If you already set an explicit `groupBy()`, adding aggregations preserves it instead of rebuilding duplicate grouping entries.
-
-## Having
-
-Filter grouped results using `having()`:
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select(['country'])
-  .sum('total', 'total_revenue')
-  .groupBy(['country'])
-  .having('total_revenue > 10000')
-  .execute();
-```
-
-</CodeBlock>
-
-## With Totals
-
-Use `withTotals()` when you want ClickHouse to include totals metadata for a grouped query.
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select(['country'])
-  .count('id', 'order_count')
-  .groupBy(['country'])
-  .withTotals()
-  .execute();
-```
-
-</CodeBlock>
-
-This maps directly to ClickHouse `GROUP BY ... WITH TOTALS`.
-
-<Callout type="info" title="Where vs Having">
-  - **WHERE**: Filters rows **before** grouping
-  - **HAVING**: Filters groups **after** aggregation
-</Callout>
-
-### Having with Multiple Conditions
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select(['country'])
-  .sum('total', 'total_revenue')
-  .count('id', 'order_count')
-  .groupBy(['country'])
-  .having('total_revenue > 10000 AND order_count > 50')
-  .execute();
-```
-
-</CodeBlock>
-
-### Having with Parameters
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select(['country'])
-  .sum('total', 'total_revenue')
-  .groupBy(['country'])
-  .having('total_revenue > ?', [10000])
-  .execute();
-```
-
-</CodeBlock>
-
-## Common Patterns
-
-### Sales by Category
-
-<CodeBlock>
-
-```typescript
-const salesByCategory = await db.table('orders')
-  .innerJoin('products', 'product_id', 'products.id')
-  .select(['products.category'])
-  .sum('orders.total', 'revenue')
-  .count('orders.id', 'order_count')
-  .avg('orders.total', 'avg_order_value')
-  .groupBy(['products.category'])
+  .avg('amount', 'average_order_value')
+  .groupBy('region')
   .orderBy('revenue', 'DESC')
   .execute();
 ```
 
 </CodeBlock>
 
-### Daily Active Users
+Multiple dimensions can be selected and grouped together:
 
-<CodeBlock>
-
-```typescript
-const dailyActive = await db.table('events')
-  .select([
-    toStartOfDay('created_at', 'date'),
-  ])
-  .distinctCount('user_id', 'active_users')
-  .groupBy(['date'])
-  .orderBy('date', 'ASC')
+```ts
+const revenueByRegionAndStatus = await db
+  .table('orders')
+  .select(['region', 'status'])
+  .sum('amount', 'revenue')
+  .groupBy(['region', 'status'])
   .execute();
 ```
 
-</CodeBlock>
+Repeated `groupBy()` calls are additive, so this is equivalent:
 
-### User Activity Summary
-
-<CodeBlock>
-
-```typescript
-const userStats = await db.table('events')
-  .select(['user_id'])
-  .count('id', 'total_events')
-  .min('created_at', 'first_event')
-  .max('created_at', 'last_event')
-  .groupBy(['user_id'])
-  .having('total_events > 10')
-  .orderBy('total_events', 'DESC')
-  .execute();
+```ts
+.groupBy('region')
+.groupBy('status')
 ```
 
-</CodeBlock>
+## Distinct counts
 
-### Revenue by Time Period
-
-<CodeBlock>
-
-```typescript
-const monthlyRevenue = await db.table('orders')
-  .select([
-    toStartOfMonth('created_at', 'month'),
-  ])
-  .sum('total', 'revenue')
-  .count('id', 'order_count')
-  .groupBy(['month'])
-  .orderBy('month', 'ASC')
-  .execute();
-```
-
-</CodeBlock>
-
-### Funnel Analysis
-
-<CodeBlock>
-
-```typescript
-const funnel = await db.table('events')
+```ts
+const activeUsers = await db
+  .table('events')
   .select(['event_type'])
-  .distinctCount('user_id', 'unique_users')
-  .groupBy(['event_type'])
-  .orderBy('unique_users', 'DESC')
+  .countDistinct('user_id', 'unique_users')
+  .groupBy('event_type')
   .execute();
 ```
 
-</CodeBlock>
+The public method is `countDistinct()`. It replaces the older `distinctCount()` spelling found in stale examples.
 
-## Grouping with Expressions
+## Percentiles and distribution statistics
 
-You can group by expressions and calculated columns:
-
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .select([
-    selectExpr('if(total > 100, \'high\', \'low\')', 'value_segment'),
-  ])
-  .sum('total', 'revenue')
-  .count('id', 'order_count')
-  .groupBy(['value_segment'])
+```ts
+const latency = await db
+  .table('requests')
+  .select(['service'])
+  .quantile('latency_ms', 0.5, 'median_latency')
+  .quantile('latency_ms', 0.95, 'p95_latency')
+  .quantile('latency_ms', 0.99, 'p99_latency')
+  .stddev('latency_ms', 'latency_stddev')
+  .variance('latency_ms', 'latency_variance')
+  .groupBy('service')
   .execute();
 ```
 
-</CodeBlock>
+`quantile()` uses ClickHouse’s approximate `quantile(level)` aggregate. `level` must be between `0` and `1`. The semantic dataset layer calls the same concept `measure.percentile()` and provides `measure.median()` as percentile `0.5`.
 
-## Multiple Aggregations
+## `argMax` and `argMin`
 
-Combine multiple aggregation functions:
+Use the arg aggregates when you need one field from the row with the latest, earliest, greatest, or smallest value of another field:
 
-<CodeBlock>
-
-```typescript
-const stats = await db.table('orders')
-  .select(['country'])
-  .sum('total', 'total_revenue')
-  .count('id', 'order_count')
-  .avg('total', 'avg_order')
-  .min('total', 'min_order')
-  .max('total', 'max_order')
-  .groupBy(['country'])
+```ts
+const accountState = await db
+  .table('account_events')
+  .select(['account_id'])
+  .argMax('status', 'created_at', 'latest_status')
+  .argMin('status', 'created_at', 'first_status')
+  .groupBy('account_id')
   .execute();
 ```
 
-</CodeBlock>
+This is a direct typed expression of `argMax(status, created_at)` and `argMin(status, created_at)` in ClickHouse.
 
-## Aggregation with Joins
+## Time intervals
 
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .innerJoin('users', 'user_id', 'users.id')
-  .select(['users.country'])
-  .sum('orders.total', 'revenue')
-  .count('orders.id', 'order_count')
-  .groupBy(['users.country'])
+```ts
+const dailyRevenue = await db
+  .table('orders')
+  .groupByTimeInterval('created_at', '1 day')
+  .sum('amount', 'revenue')
+  .orderBy('created_at', 'ASC')
   .execute();
 ```
 
-</CodeBlock>
+`groupByTimeInterval()` generates a ClickHouse time bucket and adds the corresponding grouping expression. Use the exported time-expression helpers when you need a specific alias or want to compose the expression yourself.
 
-Qualified joined columns also work directly in aggregation helpers:
+## Filter before grouping
 
-<CodeBlock>
-
-```typescript
-const results = await db.table('orders')
-  .innerJoin('users', 'user_id', 'users.id')
-  .select(['users.country'])
-  .count('users.id', 'user_count')
-  .sum('orders.total', 'total_sales')
-  .groupBy(['users.country'])
+```ts
+const completedRevenue = await db
+  .table('orders')
+  .where('status', 'eq', 'completed')
+  .where('created_at', 'gte', '2026-01-01')
+  .select(['region'])
+  .sum('amount', 'revenue')
+  .groupBy('region')
   .execute();
 ```
 
-</CodeBlock>
+`where()` filters source rows before aggregation. `having()` filters the grouped result:
 
-## Type Safety
-
-TypeScript ensures aggregations are used correctly:
-
-<CodeBlock>
-
-```typescript
-// ✅ Valid - number column aggregation
-await db.table('orders')
-  .sum('total', 'revenue')
-  .execute();
-
-// ❌ Error - can't aggregate string column
-await db.table('users')
-  .sum('name', 'total_name') // TypeScript error
-  .execute();
-
-// ✅ Valid - groupBy columns exist
-await db.table('orders')
-  .select(['country'])
-  .sum('total', 'revenue')
-  .groupBy(['country'])
-  .execute();
-
-// ❌ Error - groupBy column doesn't exist
-await db.table('orders')
-  .select(['country'])
-  .sum('total', 'revenue')
-  .groupBy(['invalid_column']) // TypeScript error
+```ts
+const largeRegions = await db
+  .table('orders')
+  .select(['region'])
+  .sum('amount', 'revenue')
+  .groupBy('region')
+  .having('revenue > ?', [10000])
   .execute();
 ```
 
-</CodeBlock>
-
-## Performance Tips
-
-<Callout type="tip" title="Aggregation Performance">
-  - Filter with `where()` **before** grouping when possible
-  - Use `distinctCount()` instead of `count(DISTINCT column)`
-  - Consider materialized views for frequently-run aggregations
-  - Use appropriate ClickHouse settings for large aggregations
+<Callout type="info" title="WHERE and HAVING">
+  Use `where()` for source-column filters whenever possible. Use `having()` when the condition depends on an aggregate result.
 </Callout>
 
-### Filter Before Grouping
+## Totals
 
-<CodeBlock>
+`withTotals()` maps to ClickHouse `GROUP BY ... WITH TOTALS`:
 
-```typescript
-// ✅ Better - filter first
-const results = await db.table('orders')
-  .where('status', 'eq', 'completed')
-  .where('created_at', 'gte', '2024-01-01')
-  .select(['country'])
-  .sum('total', 'revenue')
-  .groupBy(['country'])
-  .execute();
-
-// ❌ Slower - group everything then filter
-const results = await db.table('orders')
-  .select(['country'])
-  .sum('total', 'revenue')
-  .groupBy(['country'])
-  .having('sum(total) > 1000') // Less efficient
+```ts
+const result = await db
+  .table('orders')
+  .select(['region'])
+  .sum('amount', 'revenue')
+  .groupBy('region')
+  .withTotals()
   .execute();
 ```
 
-</CodeBlock>
+## Expressions and window aggregates
+
+For a window function, add a trusted SQL expression to the typed selection:
+
+```ts
+import { selectExpr } from '@hypequery/clickhouse';
+
+const ranked = await db
+  .table('orders')
+  .select([
+    'region',
+    'amount',
+    selectExpr(
+      'row_number() OVER (PARTITION BY region ORDER BY amount DESC)',
+      'rank',
+    ),
+  ])
+  .execute();
+```
+
+See [What hypequery supports today](/docs/capabilities) for the complete builder and semantic aggregate matrix.

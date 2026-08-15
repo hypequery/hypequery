@@ -33,6 +33,8 @@
     "smoke:semantic-consumer": "bash scripts/smoke-semantic-consumer.sh",
     "smoke:docs-snippets": "bash scripts/smoke-docs-snippets.sh",
     "smoke:consumers": "pnpm smoke:cli && pnpm smoke:cli-chdb && pnpm smoke:serve-adapters && pnpm smoke:semantic-consumer && pnpm smoke:docs-snippets",
+    "check:package-metadata": "node scripts/check-package-metadata.ts",
+    "check:seo-health": "node scripts/verify-seo-health.ts",
     "changeset": "changeset",
     "release:version": "changeset version && pnpm install --lockfile-only --no-frozen-lockfile",
     "release:publish": "changeset publish"

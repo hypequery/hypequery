@@ -1,307 +1,77 @@
 # @hypequery/react
 
-React hooks for typed Hypequery HTTP endpoints, built on TanStack Query.
+Typed React hooks for ClickHouse analytics, powered by TanStack Query.
 
-Use `@hypequery/react` with APIs created by `@hypequery/serve`. The hooks call generated routes and infer input/output types from the API type you pass in.
+`@hypequery/react` carries `@hypequery/serve` contracts into React and Next.js. Query names, inputs, metrics, dataset fields, and response rows stay inferred from the server, so frontend analytics do not drift into a second set of hand-written types.
+
+Use it for product dashboards, embedded analytics, customer reporting, and multi-tenant SaaS metrics.
 
 ## Install
 
 ```bash
 npm install @hypequery/react @tanstack/react-query
-# or
-pnpm add @hypequery/react @tanstack/react-query
 ```
 
-## Quick Start
+## Create hooks from your API
 
-Given a serve API:
+Generate a small route manifest during the build:
 
-```ts
-// server/api.ts
-import { initServe } from '@hypequery/serve';
-import { z } from 'zod';
-import { db } from './db.js';
-
-const { query, serve } = initServe({
-  context: () => ({ db }),
-  basePath: '/api/analytics',
-});
-
-const weeklyRevenue = query({
-  description: 'Weekly revenue',
-  input: z.object({ startDate: z.string() }),
-  query: ({ ctx, input }) =>
-    ctx.db
-      .table('orders')
-      .where('created_at', 'gte', input.startDate)
-      .sum('total', 'revenue')
-      .execute(),
-});
-
-export const api = serve({
-  queries: { weeklyRevenue },
-});
-
-api.route('/weeklyRevenue', api.queries.weeklyRevenue);
-
-export type AnalyticsApi = typeof api;
+```bash
+npx hypequery generate:manifest analytics/api.ts \
+  --output src/generated/hypequery-manifest.json
 ```
-
-Create hooks on the client:
-
-```tsx
-// client/analytics-hooks.ts
-import { createHooks } from '@hypequery/react';
-import type { AnalyticsApi } from '../server/api.js';
-
-export const { useQuery, useMutation } = createHooks<AnalyticsApi>({
-  baseUrl: '/api/analytics',
-  api: {} as AnalyticsApi,
-});
-```
-
-Use them inside a component:
-
-```tsx
-function RevenuePanel() {
-  const revenue = useQuery('weeklyRevenue', {
-    startDate: '2026-01-01',
-  });
-
-  if (revenue.isLoading) return <p>Loading...</p>;
-  if (revenue.error) return <p>{revenue.error.message}</p>;
-
-  return <pre>{JSON.stringify(revenue.data, null, 2)}</pre>;
-}
-```
-
-## Dataset And Metric Hooks
-
-`createAnalyticsHooks` adds convenience wrappers for semantic endpoint names. Metrics use their endpoint name directly. Dataset endpoints are addressed as `dataset:<name>` in the API type and exposed through `useDataset(name, ...)`.
 
 ```tsx
 import { createAnalyticsHooks } from '@hypequery/react';
-import type { InferApiType } from '@hypequery/serve';
-import type { api } from '../server/api.js';
+import type { AnalyticsApi } from '../server/api.js';
+import manifest from '../generated/hypequery-manifest.json';
 
-import manifest from './hypequery-manifest.json';
+export const { useMetric, useDataset } =
+  createAnalyticsHooks<AnalyticsApi>({
+    baseUrl: '/api/analytics',
+    manifest,
+    metrics: ['revenue'] as const,
+  });
+```
 
-type AnalyticsApi = InferApiType<typeof api>;
+## Build the dashboard
 
-export const { useMetric, useDataset } = createAnalyticsHooks<AnalyticsApi>({
-  baseUrl: '/api/analytics',
-  manifest,
-  metrics: ['revenue', 'averageOrderValue'] as const,
-});
-
-function Dashboard() {
+```tsx
+function RevenueByRegion() {
   const revenue = useMetric('revenue', {
-    dimensions: ['country'],
-    filters: [{ field: 'status', operator: 'eq', value: 'completed' }],
+    dimensions: ['region'],
     orderBy: [{ field: 'revenue', direction: 'desc' }],
     limit: 10,
   });
 
-  const orders = useDataset('orders', {
-    dimensions: ['status'],
-    measures: ['revenue', 'orderCount'],
-  });
+  if (revenue.isLoading) return <p>Loading revenue…</p>;
+  if (revenue.error) return <p>{revenue.error.message}</p>;
 
-  return (
-    <pre>
-      {JSON.stringify({ revenue: revenue.data, orders: orders.data }, null, 2)}
-    </pre>
-  );
+  return <RevenueChart rows={revenue.data?.data ?? []} />;
 }
 ```
 
-## Pagination
+Change the server contract and TypeScript points to the components that need updating.
 
-Semantic queries that set a `limit` return `meta.pagination = { limit, offset, hasMore }`
-(`hasMore` is exact — the server over-fetches one row rather than running a count query).
-`useInfiniteQuery`, and the `useInfiniteMetric` / `useInfiniteDataset` wrappers, build on
-this to page through results. They advance the offset automatically and request meta for you.
+## Included
 
-```tsx
-function OrdersTable() {
-  const orders = useInfiniteDataset('orders', {
-    dimensions: ['status'],
-    measures: ['revenue'],
-    limit: 50,
-  });
+- named query hooks and mutations;
+- metric and dataset hooks with selected-field inference;
+- infinite queries with semantic pagination metadata;
+- TanStack Query caching, retries, and refresh behavior;
+- static route manifests that keep server code out of browser bundles;
+- per-request auth headers and one-time `401` refresh.
 
-  return (
-    <>
-      {orders.data?.pages.flatMap((page) => page.data).map((row, i) => (
-        <Row key={i} row={row} />
-      ))}
-      <button
-        onClick={() => orders.fetchNextPage()}
-        disabled={!orders.hasNextPage || orders.isFetchingNextPage}
-      >
-        Load more
-      </button>
-    </>
-  );
-}
-```
+## Why it matters
 
-`input.limit` is the page size; `input.offset`, if provided, is the starting offset.
+The ClickHouse query, semantic metric, HTTP schema, and React component share one contract. That means fewer casts, fewer mismatched route types, and no frontend rewrite when a dashboard graduates from a prototype into a governed multi-tenant product surface.
 
-## Route Configuration
+## Learn more
 
-Hooks need to know each endpoint's HTTP method and path. There are three ways to
-supply that, in increasing precedence: a route manifest, a runtime `api` object,
-or explicit `config`.
-
-### Route manifest (recommended)
-
-`@hypequery/serve`'s `api.manifest()` returns a serializable map of every
-query/metric/dataset key to its `{ method, path }`. Export it from a server-only
-module and pass it to the hooks — this avoids importing server code into the
-browser bundle while keeping client routes in sync with the server.
-
-```ts
-// server side (server-only module)
-export const manifest = api.manifest();
-
-// client side
-const { useQuery } = createHooks<AnalyticsApi>({
-  baseUrl: '/api/analytics',
-  manifest,
-});
-```
-
-> Metric and dataset endpoints are POST routes whose paths differ from their map
-> keys (e.g. `dataset:orders` → `POST /api/analytics/datasets/orders/query`). They
-> require a `manifest` (or explicit `config`); calling them without one throws a
-> clear error rather than hitting the wrong URL.
-
-#### Generating the manifest at build time
-
-The cleanest way to keep server code out of the browser bundle is to generate a
-JSON file at build time and import that on the client.
-
-```bash
-npx hypequery generate:manifest analytics/api.ts --output src/generated/hypequery-manifest.json
-```
-
-```jsonc
-// package.json
-{
-  "scripts": {
-    "gen:manifest": "hypequery generate:manifest analytics/api.ts --output src/generated/hypequery-manifest.json",
-    "build": "npm run gen:manifest && <your client build>"
-  }
-}
-```
-
-```ts
-// client side — imports plain JSON, no server code in the bundle
-import { createAnalyticsHooks } from '@hypequery/react';
-import type { InferApiType } from '@hypequery/serve';
-import type { api } from '../analytics/api.js';
-import manifest from './generated/hypequery-manifest.json';
-
-type AnalyticsApi = InferApiType<typeof api>;
-
-const { useMetric, useDataset } = createAnalyticsHooks<AnalyticsApi>({
-  baseUrl: '/api/analytics',
-  manifest,
-});
-```
-
-The manifest is derived entirely from your serve config (`basePath`, route keys,
-and `semanticPaths`), so the generated file is deterministic and only changes when
-your API shape does — commit it or regenerate it on every build.
-
-> `baseUrl` supplies the origin/host; the per-endpoint path comes from the
-> manifest (it already includes the server's `basePath`), so there's no
-> double-prefixing. Keep `baseUrl` aligned with where the API is mounted.
-
-### Explicit config
-
-If a manifest is not available at runtime, pass route config explicitly. This
-overrides any manifest entry.
-
-```ts
-const { useQuery } = createHooks<AnalyticsApi>({
-  baseUrl: '/api/analytics',
-  config: {
-    weeklyRevenue: { method: 'POST', path: '/weeklyRevenue' },
-  },
-});
-```
-
-`path` may be relative to `baseUrl`, absolute within the same origin, or an absolute HTTP URL.
-
-## Headers & auth
-
-Pass static headers, or a function (sync or async) invoked per request — handy for
-attaching a fresh/short-lived token.
-
-```ts
-const hooks = createHooks<AnalyticsApi>({
-  baseUrl: '/api/analytics',
-  headers: async () => ({
-    authorization: `Bearer ${await getAccessToken()}`,
-  }),
-});
-```
-
-Provide `onUnauthorized` to refresh credentials on a `401` and retry the request once
-with freshly resolved headers:
-
-```ts
-const hooks = createHooks<AnalyticsApi>({
-  baseUrl: '/api/analytics',
-  headers: () => ({ authorization: `Bearer ${tokenStore.access}` }),
-  onUnauthorized: async () => {
-    await tokenStore.refresh(); // throw to abort; resolve to retry once
-  },
-});
-```
-
-## Query Options
-
-TanStack Query options can be passed as the final argument.
-
-```tsx
-const result = useQuery(
-  'weeklyRevenue',
-  { startDate: '2026-01-01' },
-  {
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  },
-);
-```
-
-For no-input queries, use `queryOptions()` when an options object might look like input.
-
-```tsx
-import { queryOptions } from '@hypequery/react';
-
-const result = useQuery('health', queryOptions({
-  staleTime: 30_000,
-}));
-```
-
-## Mutations
-
-`useMutation(name)` uses the same endpoint typing and sends requests as `POST` by default unless route config overrides it.
-
-```tsx
-const refresh = useMutation('refreshReport');
-
-refresh.mutate({ reportId: 'revenue' });
-```
-
-## Notes
-
-- This package does not define datasets. Use `@hypequery/datasets` for semantic definitions.
-- This package does not generate SQL. It calls HTTP routes exposed by `@hypequery/serve`.
-- Dataset relationship JOIN execution is not implied by the React hooks; hooks consume whatever endpoint behavior the server exposes.
+- [React quick start](https://hypequery.com/docs/react/getting-started)
+- [Using queries](https://hypequery.com/docs/react/using-queries)
+- [Advanced patterns](https://hypequery.com/docs/react/advanced-patterns)
+- [Current capabilities](https://hypequery.com/docs/capabilities)
 
 ## License
 

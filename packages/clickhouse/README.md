@@ -1,26 +1,18 @@
 # @hypequery/clickhouse
 
-Typed query builder for ClickHouse.
+The type-safe ClickHouse query builder for TypeScript.
 
-Use it when you want schema-aware queries, typed results, and a fluent API that stays close to how ClickHouse actually works.
+Generate types from your live ClickHouse schema, write fluent analytics queries, and catch broken table names, columns, joins, filters, and result shapes before production. `@hypequery/clickhouse` keeps the power of ClickHouse without the `any[]`, drifting interfaces, and stringly typed application SQL.
 
 ## Install
 
-Node:
-
 ```bash
 npm install @hypequery/clickhouse
+npm install -D @hypequery/cli
+npx hypequery generate
 ```
 
-Browser or shared client setup:
-
-```bash
-npm install @hypequery/clickhouse @clickhouse/client-web
-```
-
-`url` is the preferred connection field. `host` is still supported as a deprecated alias.
-
-## Quick Start
+## Your first typed query
 
 ```ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -33,119 +25,49 @@ const db = createQueryBuilder<IntrospectedSchema>({
   database: process.env.CLICKHOUSE_DATABASE!,
 });
 
-const recentOrders = await db
-  .table('orders')
-  .select(['id', 'user_id', 'total', 'created_at'])
-  .where('created_at', 'gte', '2026-01-01')
-  .orderBy('created_at', 'DESC')
-  .limit(20)
-  .execute();
-```
-
-## Main Path
-
-1. Generate schema types with the CLI
-2. Create a typed `db`
-3. Write and execute queries locally
-4. Promote important queries into `@hypequery/serve` when they need a shared contract or HTTP surface
-
-## Common Patterns
-
-### Aggregation
-
-```ts
 const revenueByRegion = await db
   .table('orders')
   .select(['region'])
-  .sum('total', 'revenue')
+  .where('status', 'eq', 'completed')
+  .sum('amount', 'revenue')
   .groupBy('region')
   .orderBy('revenue', 'DESC')
   .execute();
 ```
 
-### Joins
+The result type is inferred from your real ClickHouse schema and the query itself. Rename a column, regenerate types, and affected queries fail at compile time.
+
+## ClickHouse-first, not lowest-common-denominator SQL
+
+- native `PREWHERE`, `FINAL`, `LIMIT BY`, array joins, totals, settings, and CTEs;
+- typed joins, filters, groups, ordering, pagination, and streaming;
+- sums, distinct counts, percentiles, `argMax`, `argMin`, standard deviation, and variance;
+- explicit expression helpers for window functions and specialised ClickHouse SQL;
+- correct runtime types for dates, large integers, nullable values, and arrays.
 
 ```ts
-const ordersWithUsers = await db
-  .table('orders')
-  .innerJoin('users', 'user_id', 'users.id')
-  .select(['orders.id', 'users.email', 'orders.total'])
-  .where('users.status', 'eq', 'active')
-  .execute();
-```
-
-### ClickHouse-specific features
-
-```ts
-const topProductsPerCategory = await db
+const topProducts = await db
   .table('products')
+  .final()
   .select(['category', 'id', 'score'])
   .orderBy('score', 'DESC')
   .limitBy(3, 'category')
   .execute();
 ```
 
-```ts
-const explodedTags = await db
-  .table('products')
-  .select(['id', 'tags'])
-  .arrayJoin('tags')
-  .execute();
-```
+See [what hypequery supports today](https://hypequery.com/docs/capabilities) for the exact public surface.
 
-`arrayJoin()` and `leftArrayJoin()` only accept array-typed columns.
+## Grow beyond one query
 
-## Browser Use
+When analytics meaning needs to be shared, add `@hypequery/datasets` for a code-first semantic layer, `@hypequery/serve` for validated APIs, `@hypequery/react` for typed hooks, and `@hypequery/mcp` for governed AI-agent access. They all build on this query layer.
 
-In browser environments, create the ClickHouse client explicitly and inject it:
+## Learn more
 
-```ts
-import { createClient } from '@clickhouse/client-web';
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './analytics/schema.js';
-
-const client = createClient({
-  url: process.env.NEXT_PUBLIC_CLICKHOUSE_URL!,
-  username: process.env.NEXT_PUBLIC_CLICKHOUSE_USERNAME!,
-  password: process.env.NEXT_PUBLIC_CLICKHOUSE_PASSWORD ?? '',
-  database: process.env.NEXT_PUBLIC_CLICKHOUSE_DATABASE!,
-});
-
-const db = createQueryBuilder<IntrospectedSchema>({
-  client,
-});
-```
-
-## Schema Generation
-
-The usual path is through the CLI:
-
-```bash
-npm install -D @hypequery/cli
-npx hypequery generate
-```
-
-The package also ships the lower-level generator binary:
-
-```bash
-npx hypequery-generate-types
-```
-
-More details: [README-CLI.md](./README-CLI.md)
-
-## Useful Exports
-
-- SQL helpers like `raw`, `rawAs`, `selectExpr`, and `toDateTime`
-- exported time helpers like `toStartOfMinute`, `toStartOfHour`, `toStartOfDay`, `toStartOfWeek`, `toStartOfMonth`, `toStartOfQuarter`, and `toStartOfYear`
-- cache primitives like `MemoryCacheProvider`
-
-## Docs
-
-- [Query builder basics](https://hypequery.com/docs/query-building/basics)
+- [Quick start](https://hypequery.com/docs/quick-start)
+- [Query builder guide](https://hypequery.com/clickhouse-query-builder)
 - [Filtering](https://hypequery.com/docs/query-building/where)
-- [Joins](https://hypequery.com/docs/query-building/joins)
 - [Aggregation](https://hypequery.com/docs/query-building/aggregation)
-- [Connection reference](https://hypequery.com/docs/reference/connection)
+- [Schema generation](./README-CLI.md)
 
 ## License
 

@@ -1,7 +1,20 @@
 {
   "name": "@hypequery/datasets",
   "version": "0.13.2",
-  "description": "Semantic layer for defining datasets, metrics, and semantic queries",
+  "description": "Code-first TypeScript semantic layer for ClickHouse datasets, metrics, multi-tenancy, and AI agents",
+  "keywords": [
+    "semantic-layer",
+    "clickhouse",
+    "typescript",
+    "analytics",
+    "query-builder",
+    "orm",
+    "metrics",
+    "datasets",
+    "multi-tenant",
+    "mcp",
+    "ai-agents"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -53,7 +66,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hypequery/hypequery.git"
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/datasets"
   },
   "homepage": "https://hypequery.com",
   "bugs": {
