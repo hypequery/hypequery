@@ -4,8 +4,10 @@ import path from 'node:path';
 
 const requiredFiles = [
   'index.js',
+  'client.js',
   'createHooks.js',
   'errors.js',
+  'provider.js',
   'types.js',
 ];
 

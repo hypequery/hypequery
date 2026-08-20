@@ -21,6 +21,52 @@ npx hypequery generate:manifest analytics/api.ts \
   --output src/generated/hypequery-manifest.json
 ```
 
+## Configure Once With `HypequeryProvider`
+
+For hosted APIs and generated clients, create hooks without transport
+configuration. A provider supplies one client to the application and includes a
+TanStack Query provider by default.
+
+```tsx
+// client/hypequery.ts
+import { createHooks } from '@hypequery/react';
+import type { AnalyticsApi } from '../server/api.js';
+
+export const { useQuery, useMutation } = createHooks<AnalyticsApi>();
+```
+
+```tsx
+// app/providers.tsx
+'use client';
+
+import {
+  createHypequeryClient,
+  HypequeryProvider,
+} from '@hypequery/react';
+import type { ReactNode } from 'react';
+import type { AnalyticsApi } from '../server/api.js';
+import manifest from '../generated/hypequery-manifest.json';
+
+const client = createHypequeryClient<AnalyticsApi>({
+  baseUrl: 'https://acme.hypequery.cloud/v1/analytics/production',
+  manifest,
+  // Resolve a short-lived browser token. Never expose a server API key here.
+  token: async () => tokenStore.get(),
+  onUnauthorized: () => tokenStore.refresh(),
+});
+
+export function Providers({ children }: { children: ReactNode }) {
+  return <HypequeryProvider client={client}>{children}</HypequeryProvider>;
+}
+```
+
+Applications that already own a TanStack Query client can pass it through the
+`queryClient` prop so Hypequery shares the existing cache.
+
+## Create Dataset And Metric Hooks
+
+`createAnalyticsHooks` adds convenience wrappers for semantic endpoint names. Metrics use their endpoint name directly. Dataset endpoints are addressed as `dataset:<name>` in the API type and exposed through `useDataset(name, ...)`.
+
 ```tsx
 import { createAnalyticsHooks } from '@hypequery/react';
 import type { AnalyticsApi } from '../server/api.js';

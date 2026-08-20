@@ -1,4 +1,11 @@
-import { createHooks, createAnalyticsHooks, queryOptions, type QueryInput, type QueryOutput } from '../src/index.js';
+import {
+  createHooks,
+  createAnalyticsHooks,
+  createHypequeryClient,
+  queryOptions,
+  type QueryInput,
+  type QueryOutput,
+} from '../src/index.js';
 import type { Expect, Equal } from '@type-challenges/utils';
 
 type Api = {
@@ -20,6 +27,11 @@ type Api = {
 };
 
 const hooks = createHooks<Api>({ baseUrl: 'https://api.example.com' });
+const providerHooks = createHooks<Api>();
+const client = createHypequeryClient<Api>({
+  baseUrl: 'https://acme.hypequery.cloud/v1/analytics/production',
+  token: async () => 'short-lived-token',
+});
 const semantic = createAnalyticsHooks<{
   totalRevenue: {
     input: { dimensions?: string[] };
@@ -46,11 +58,13 @@ export type _StatsOutput = Expect<
 hooks.useQuery('listUsers', { search: 'Luke' });
 hooks.useQuery('listUsers', { search: 'Luke', tags: ['admin'] }, queryOptions({ enabled: true }));
 hooks.useQuery('stats');
+providerHooks.useQuery('stats');
 hooks.useQuery('stats', undefined, queryOptions({ enabled: false, staleTime: 1_000 }));
 const mutation = hooks.useMutation('createUser');
 mutation.mutate({ name: 'Leia' });
 semantic.useMetric('totalRevenue', { dimensions: ['country'] });
 semantic.useDataset('orders', { dimensions: ['country'], measures: ['revenue'] });
+client.request('stats');
 
 // Invalid usages should surface type errors
 // @ts-expect-error missing required input for listUsers
