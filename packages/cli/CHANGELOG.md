@@ -1,5 +1,14 @@
 # @hypequery/cli
 
+## 1.16.3
+
+### Patch Changes
+
+- e370da0: Refresh every npm package page with a concise README and complete HypeQuery homepage and repository metadata.
+- Updated dependencies [e370da0]
+  - @hypequery/deployment@0.7.2
+  - @hypequery/protocol@0.10.2
+
 ## 1.16.2
 
 ### Patch Changes

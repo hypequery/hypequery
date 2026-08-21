@@ -1,5 +1,13 @@
 # @hypequery/mcp
 
+## 0.5.5
+
+### Patch Changes
+
+- e370da0: Refresh every npm package page with a concise README and complete HypeQuery homepage and repository metadata.
+- Updated dependencies [e370da0]
+  - @hypequery/datasets@0.13.3
+
 ## 0.5.4
 
 ### Patch Changes
