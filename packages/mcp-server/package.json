@@ -1,7 +1,20 @@
 {
   "name": "@hypequery/mcp",
   "version": "0.5.4",
-  "description": "Model Context Protocol (MCP) server for Hypequery semantic layer",
+  "description": "Governed ClickHouse MCP server for semantic metrics, datasets, Claude, Cursor, and AI agents",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "clickhouse",
+    "semantic-layer",
+    "analytics",
+    "query-builder",
+    "orm",
+    "ai-agents",
+    "claude",
+    "cursor",
+    "typescript"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -40,7 +53,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hypequery/hypequery.git"
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/mcp-server"
   },
   "homepage": "https://hypequery.com",
   "bugs": {

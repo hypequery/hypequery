@@ -1,170 +1,135 @@
 ---
 title: Introduction
-description: Welcome to the hypequery docs. Find all the resources to get started.
+description: Build a type-safe ClickHouse analytics backend with a TypeScript query builder, semantic datasets, multi-tenant APIs, React hooks, and MCP tools.
 ---
 
-import { Book, Code2, Braces, Zap, Calendar, Github } from 'lucide-react';
-import { SiVite, SiNextdotjs, SiNodedotjs, SiX } from 'react-icons/si';
+import { Book, Braces, Github, Zap } from 'lucide-react';
 
-## What is hypequery?
+# A TypeScript semantic layer for ClickHouse
 
-hypequery is a **code-first semantic layer for ClickHouse**, built for TypeScript teams who want scalable, type-safe analytics.
+hypequery gives TypeScript teams one place to define ClickHouse analytics and reuse them in backend code, HTTP APIs, React dashboards, and MCP tools for AI agents. It is an open-source library that runs inside your application—not a hosted BI platform or a separate semantic-layer server.
 
-Instead of scattering SQL across applications, dashboards, and scripts, hypequery gives you a single, versioned place where analytics logic lives. **In code.**
+Start with the type-safe query builder when a query is local. Add a dataset when dimensions, measures, metrics, tenant isolation, and time grains become shared product meaning. Add Serve, React, or MCP only when another consumer needs the same contract.
 
-hypequery is a library, not a hosted platform. It integrates directly with your existing ClickHouse setup and runs wherever your application runs.
+## The canonical dataset
 
----
+```ts
+import { dataset, dimension, measure } from '@hypequery/datasets';
 
-hypequery consists of a number of small, opt-in packages for building type-safe analytics:
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    id: dimension.string(),
+    region: dimension.string(),
+    status: dimension.string(),
+    createdAt: dimension.timestamp({ column: 'created_at' }),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+    p95OrderValue: measure.percentile('amount', 0.95),
+    latestStatus: measure.argMax('status', 'createdAt'),
+  },
+});
 
-* **Query builder** (`@hypequery/clickhouse`)
-  Write type-safe ClickHouse queries in TypeScript
+export const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  label: 'Revenue',
+});
+```
 
-* **Datasets (semantic layer)** (`@hypequery/datasets`)
-  Define metrics, dimensions, and reusable analytics logic
+This is ordinary TypeScript: review it in a pull request, test it in CI, import it in a worker, serve it as an API, consume it with a typed React hook, or expose it as a bounded MCP tool.
 
-* **Runtime / APIs** (`@hypequery/serve`)
-  Expose queries and datasets via APIs with validation, auth, and multi-tenancy
+## The packages
 
-* **Extras**
+| Package | Role |
+| --- | --- |
+| `@hypequery/clickhouse` | Schema generation and a type-safe ClickHouse query builder |
+| `@hypequery/datasets` | Code-first semantic datasets, dimensions, measures, metrics, relationships, time grains, and tenant rules |
+| `@hypequery/serve` | Validated HTTP APIs, OpenAPI, authentication, tenancy, and runtime adapters |
+| `@hypequery/react` | Typed TanStack Query hooks for queries, metrics, and datasets |
+| `@hypequery/mcp` | Governed ClickHouse tools for Claude, Cursor, and other MCP clients |
+| `@hypequery/cli` | Scaffolding, schema generation, local docs, and deployment commands |
 
-  * `@hypequery/mcp` → Query datasets from AI models
-  * `@hypequery/react` → Hooks for frontend apps
+## Choose your starting point
 
-
----
-
-<div className="my-12">
-
-## Choose your path
-
-If you're new, follow this path:
-
-1. Start with the query builder to run type-safe queries locally
-2. Add datasets to define shared metrics and dimensions
-3. Use `serve()` when you want to expose queries as APIs
-
-## Get Started
+1. Run `npx hypequery init` if you want a working project scaffold.
+2. Use `@hypequery/clickhouse` directly if you only need typed local queries.
+3. Define `@hypequery/datasets` when analytics meaning is shared.
+4. Add `serve()`, React hooks, or MCP when the model needs to cross a process boundary.
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
 
 <a href="/docs/quick-start" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-accent transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <Zap className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-foreground mb-1">Quick Start</div>
-    <p className="text-sm text-muted-foreground">Start with either the builder-first route or the reusable-query runtime route</p>
+    <div className="font-semibold text-foreground mb-1">Quick start</div>
+    <p className="text-sm text-muted-foreground">Connect ClickHouse, generate types, and run the first query</p>
   </div>
 </a>
 
-<a href="/docs/reference/connection" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-purple-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <Book className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
+<a href="/docs/capabilities" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
+  <Book className="w-5 h-5 text-cyan-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-foreground mb-1">Connection Reference</div>
-    <p className="text-sm text-muted-foreground">Look up connection options, client setup, and ClickHouse configuration details</p>
+    <div className="font-semibold text-foreground mb-1">Current capabilities</div>
+    <p className="text-sm text-muted-foreground">Check the shipped builder, aggregate, dataset, React, and MCP surface</p>
   </div>
 </a>
-
-<a href="https://github.com/hypequery/hypequery-examples" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <Github className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">Example Apps</div>
-    <p className="text-sm text-muted-foreground">Browse full working apps and framework examples in the examples repo</p>
-  </div>
-</a>
-
-</div>
-
-## Framework Setup
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
-
-<a href="/docs/vite" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-purple-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <SiVite className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">Vite</div>
-    <p className="text-sm text-muted-foreground">See how the query-and-serve path fits into a Vite app</p>
-  </div>
-</a>
-
-<a href="/docs/nextjs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-black transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <SiNextdotjs className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">Next.js</div>
-    <p className="text-sm text-muted-foreground">Mount the runtime inside a Next.js App Router project</p>
-  </div>
-</a>
-
-<a href="/docs/nodejs" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-green-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <SiNodedotjs className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">Node.js</div>
-    <p className="text-sm text-muted-foreground">Run the runtime behind a dedicated Node.js server</p>
-  </div>
-</a>
-
-</div>
-
-Use these once you are ready to mount the runtime inside an app or server.
-
-## Explore More
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
 
 <a href="/docs/query-building/basics" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-orange-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <Braces className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-foreground mb-1">Query Building</div>
-    <p className="text-sm text-muted-foreground">Build and compose queries with the fluent API</p>
+    <div className="font-semibold text-foreground mb-1">Query builder</div>
+    <p className="text-sm text-muted-foreground">Write typed ClickHouse filters, joins, aggregations, and native clauses</p>
   </div>
 </a>
 
-<a href="/docs/reference/api/query" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-yellow-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <Code2 className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">API Reference</div>
-    <p className="text-sm text-muted-foreground">Look up the detailed API docs</p>
-  </div>
-</a>
-
-<a href="/docs/reference/clickhouse-behavior" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <Book className="w-5 h-5 text-cyan-500 mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">ClickHouse Behavior</div>
-    <p className="text-sm text-muted-foreground">Read the ClickHouse-specific behavior that matters when using the builder and runtime</p>
-  </div>
-</a>
-
-</div>
-
-## Get Help
-
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-8">
-
-<a href="https://cal.com/luke-reilly-jdi9su/hypequery-chat" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-accent transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <Calendar className="w-5 h-5 text-accent mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">15 mins call</div>
-    <p className="text-sm text-muted-foreground">Book a 15-minute call with the team</p>
-  </div>
-</a>
-
-<a href="https://github.com/hypequery/hypequery/issues" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-foreground transition-colors bg-card/50 hover:bg-card cursor-pointer">
+<a href="https://github.com/hypequery/hypequery-examples" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-foreground transition-colors bg-card/50 hover:bg-card cursor-pointer">
   <Github className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
   <div>
-    <div className="font-semibold text-foreground mb-1">Raise an issue</div>
-    <p className="text-sm text-muted-foreground">Report bugs or request features</p>
-  </div>
-</a>
-
-<a href="https://twitter.com/hypequery" target="_blank" rel="noopener" className="not-prose flex items-start gap-3 p-4 rounded-lg border border-border hover:border-cyan-500 transition-colors bg-card/50 hover:bg-card cursor-pointer">
-  <SiX className="w-5 h-5 text-foreground mt-0.5 flex-shrink-0" />
-  <div>
-    <div className="font-semibold text-foreground mb-1">Follow us on Twitter</div>
-    <p className="text-sm text-muted-foreground">Stay updated with latest news</p>
+    <div className="font-semibold text-foreground mb-1">Example apps</div>
+    <p className="text-sm text-muted-foreground">Browse complete framework and dashboard examples</p>
   </div>
 </a>
 
 </div>
 
-</div>
+## The progression in code
+
+A query can begin as a local builder chain:
+
+```ts
+const revenueByRegion = await db
+  .table('orders')
+  .select(['region'])
+  .sum('amount', 'revenue')
+  .groupBy('region')
+  .execute();
+```
+
+When it becomes reusable business meaning, promote it into the `Orders` dataset. When it needs an HTTP contract, pass the metric and dataset to Serve:
+
+```ts
+const { serve } = initServe({
+  context: () => ({ db }),
+});
+
+export const api = serve({
+  queryBuilder: db,
+  metrics: { revenue },
+  datasets: { orders: Orders },
+});
+```
+
+That API can be called in process, over HTTP, from `@hypequery/react`, or through `@hypequery/mcp`. The definition and tenant rules stay in one place.
+
+## Next steps
+
+- [Quick start](/docs/quick-start)
+- [What hypequery supports today](/docs/capabilities)
+- [Datasets overview](/docs/datasets/overview)
+- [Multi-tenant datasets](/docs/datasets/multi-tenancy)
+- [React hooks](/docs/react/getting-started)
+- [MCP for ClickHouse](/docs/mcp/overview)

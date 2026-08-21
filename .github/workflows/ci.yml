@@ -38,6 +38,8 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Verify npm package metadata
+        run: pnpm check:package-metadata
       - name: Clean existing build artifacts
         run: |
           rm -rf packages/clickhouse/dist

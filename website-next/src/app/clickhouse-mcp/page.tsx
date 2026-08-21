@@ -3,195 +3,190 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'ClickHouse MCP Server with Type-Safe Queries',
+  title: 'ClickHouse MCP Server for Governed AI Analytics',
   description:
-    'Give AI agents a fixed, tenant-safe ClickHouse tool surface instead of raw SQL access.',
+    'Give Claude, Cursor, and AI agents governed ClickHouse metrics through MCP without exposing raw SQL or database credentials.',
   alternates: {
     canonical: absoluteUrl('/clickhouse-mcp'),
   },
   openGraph: {
-    images: ogImage('ClickHouse MCP Server with Type-Safe Queries'),
+    images: ogImage('ClickHouse MCP Server for Governed AI Analytics'),
     type: 'website',
     url: absoluteUrl('/clickhouse-mcp'),
-    title: 'ClickHouse MCP Server | Structured AI Agent Access | hypequery',
+    title: 'ClickHouse MCP Server for AI Agents | hypequery',
     description:
-      'Connect AI agents to ClickHouse without exposing raw SQL. hypequery turns typed query definitions into MCP tools with tenant isolation built in.',
+      'Turn a TypeScript semantic layer into validated ClickHouse MCP tools for Claude, Cursor, and other AI agents.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ClickHouse MCP Server | Structured AI Agent Access | hypequery',
+    title: 'ClickHouse MCP Server for AI Agents | hypequery',
     description:
-      'Connect AI agents to ClickHouse without exposing raw SQL. hypequery turns typed query definitions into MCP tools with tenant isolation built in.',
+      'Give AI agents approved ClickHouse datasets and metrics instead of raw SQL access.',
   },
 };
 
-const queryCode = `import { initServe } from '@hypequery/serve';
+const datasetCode = `import { dataset, dimension, measure } from '@hypequery/datasets';
 
-const { query, serve } = initServe({
-  context: (req) => ({
-    db,
-    tenantId: req.headers["x-tenant-id"] as string,
-  }),
-})
+export const Orders = dataset('orders', {
+  source: 'orders',
+  tenantKey: 'tenant_id',
+  timeKey: 'created_at',
+  dimensions: {
+    region: dimension.string(),
+    status: dimension.string(),
+  },
+  measures: {
+    revenue: measure.sum('amount'),
+    orderCount: measure.count('id'),
+  },
+});
 
-// tenant isolation is built into the query — the agent never sees it
-export const dailyRevenue = query({
-  query: async ({ ctx }) =>
-    ctx.db.table("orders")
-      .where("tenant_id", "=", ctx.tenantId)
-      .select("order_date", "total_revenue")
-      .groupBy("order_date")
-      .execute()
-})
+export const revenue = Orders.metric('revenue', {
+  measure: 'revenue',
+  description: 'Total completed order revenue',
+});`;
 
-// expose as HTTP API — OpenAPI spec auto-generated at /openapi.json
-export const api = serve({ queries: { dailyRevenue } });`;
+const mcpCode = `import { createMCPServer } from '@hypequery/mcp';
+import { createDatasetClient } from '@hypequery/datasets';
 
-const mcpCode = `import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+const analytics = createDatasetClient({ queryBuilder: db });
 
-const server = new McpServer({ name: "clickhouse-analytics", version: "1.0.0" })
-
-server.tool(
-  "dailyRevenue",
-  "Get daily revenue for the current tenant",
-  {},
-  async () => {
-    const data = await fetch("http://localhost:3000/dailyRevenue", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({}),
-    }).then((r) => r.json())
-
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    }
-  }
-)`;
+await createMCPServer({
+  datasets: {
+    orders: {
+      ...Orders,
+      metrics: { revenue },
+    },
+  },
+  analytics,
+  tenantId: session.accountId,
+  name: 'acme-analytics',
+});`;
 
 export default function ClickHouseMcpPage() {
   return (
     <ClickhousePillarPage
       eyebrow="ClickHouse MCP"
-      title="Connect AI agents to ClickHouse — without exposing raw SQL"
-      description="This page is about choosing the tool surface an agent gets. If the model can write arbitrary SQL, your access control story is already weak. hypequery lets you expose a small set of named analytics queries instead."
-      primaryCta={{ href: '/docs/http-openapi', label: 'Open serve docs' }}
-      secondaryCta={{ href: '/blog/clickhouse-mcp-typescript', label: 'Read the full guide' }}
+      title="Give AI agents trusted ClickHouse analytics — not a database console"
+      description="@hypequery/mcp turns your TypeScript datasets and metrics into Model Context Protocol tools. Claude, Cursor, and other MCP clients can discover and query the analytics you approve while SQL and ClickHouse credentials stay inside your server."
+      primaryCta={{ href: '/docs/mcp/overview', label: 'Start with MCP' }}
+      secondaryCta={{ href: '/docs/mcp/safety', label: 'Read the safety model' }}
       stats={[
-        { label: 'Agent access model', value: 'Structured tools' },
-        { label: 'Tenant isolation', value: 'Query-level' },
-        { label: 'Works with', value: 'Claude, Cursor, custom agents' },
+        { label: 'Agent surface', value: 'Datasets + metrics' },
+        { label: 'Database access', value: 'No raw SQL' },
+        { label: 'Works with', value: 'Claude, Cursor, MCP clients' },
       ]}
       problems={[
         {
-          title: 'Raw SQL is the wrong primitive for agent access',
+          title: 'Raw SQL gives an agent too much authority',
           copy:
-            'If the model decides what to query directly, you have already handed over too much surface area. Prompt instructions are not a meaningful replacement for access control.',
+            'Prompt instructions are not an access-control layer. A general SQL tool lets the model choose tables, columns, joins, and result size at runtime.',
         },
         {
-          title: 'Agents work better with known result shapes',
+          title: 'Analytics meaning drifts between humans and agents',
           copy:
-            'A named tool returning a predictable payload is much easier to reason over than arbitrary query output that changes shape from call to call.',
+            'If every agent writes its own revenue query, it will disagree with the backend and dashboard sooner or later.',
         },
         {
-          title: 'A fixed tool surface is easier to review and audit',
+          title: 'Multi-tenant data needs trusted scope',
           copy:
-            'It is far easier to reason about five exposed analytics tools than a general database capability whose behavior depends on whatever the model asks for next.',
+            'Tenant identity must come from the host process, never from a prompt or caller-supplied filter that can widen access.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'The safer model',
-        title: 'Expose named analytics queries, not a database console',
+        eyebrow: 'One governed contract',
+        title: 'Publish the analytics definitions your product already trusts',
         description:
-          'Define a small set of queries with the same typed backend layer you would use for the rest of the app, expose them over HTTP, and register those endpoints as MCP tools. The agent only gets the capabilities you decided to publish.',
+          'Define dimensions, measures, metrics, relationships, and tenant rules once in TypeScript. The MCP server turns that catalog into a small, discoverable tool surface.',
         bullets: [
-          'Tenant isolation injected in the same request path as the rest of your analytics API',
-          'Only explicitly exposed queries are reachable by the agent',
-          'Input schemas stay next to the query definition instead of inside prompt text',
-          'The same backend query layer can serve humans, dashboards, and agents',
-          'The tool list stays small enough to review deliberately',
+          'Agents discover only the datasets and metrics you register',
+          'Fields, filters, ordering, and limits are validated before execution',
+          'Metric definitions stay identical across backend, React, and MCP',
+          'SQL is hidden by default and credentials never enter the model context',
+          'Tenant-scoped datasets fail closed without trusted server scope',
         ],
         codePanel: {
-          eyebrow: 'Query definition',
-          title: 'A served query the agent is allowed to call',
+          eyebrow: 'Semantic contract',
+          title: 'Define what the agent is allowed to understand',
           description:
-            'The useful part is that the agent never chooses the SQL. It only calls the query surface you already chose to expose.',
-          code: queryCode,
+            'The dataset is ordinary TypeScript that can be reviewed, tested, and versioned with the rest of your application.',
+          code: datasetCode,
         },
       }}
       implementationSection={{
         eyebrow: 'MCP server',
-        title: 'Register a small tool surface on top of the API',
+        title: 'Start the server with approved models and trusted tenant scope',
         description:
-          'You do not need a magical agent-specific backend. In most cases, a straightforward MCP server that forwards to a few served analytics endpoints is the better design.',
+          'The dedicated @hypequery/mcp package exposes list, schema, metric, and dataset tools over stdio. The agent never writes or receives SQL.',
         paragraphs: [
-          'That is also easier to audit. The tool list is explicit, the HTTP surface is explicit, and the backend queries are the same ones your application code can already review and test.',
-          'If you want to automate tool generation later, the OpenAPI surface makes that possible. The important architectural choice is still the same: expose named queries, not arbitrary SQL.',
+          'Use the CLI for a local single-tenant server or createMCPServer() when your host process owns tenant identity and lifecycle.',
+          'Because MCP uses the same dataset client as the rest of your application, validation and metric meaning do not fork into an agent-only implementation.',
         ],
         codePanel: {
-          eyebrow: 'MCP server',
-          title: 'A single MCP tool backed by a served analytics endpoint',
+          eyebrow: '@hypequery/mcp',
+          title: 'A governed MCP server in a few lines',
           description:
-            'Start simple. Register one or two tools against the endpoints you trust, then expand deliberately if the agent use case proves valuable.',
+            'Pass tenant scope from authenticated host state. Never ask the model to choose its own tenant.',
           code: mcpCode,
         },
       }}
       searchIntentCards={[
         {
-          title: 'What this page is really deciding',
+          title: 'ClickHouse MCP server',
           copy:
-            'Not just how to wire MCP to ClickHouse, but what the agent should be allowed to do once it gets there.',
+            'Use a semantic tool surface when agents need ClickHouse analytics but should not receive general database access.',
         },
         {
-          title: 'What the safer default looks like',
+          title: 'Semantic layer for AI agents',
           copy:
-            'A short list of named analytics tools with tenant-scoped backend definitions is much safer than a model deciding which SQL to write.',
+            'Datasets give humans, APIs, dashboards, and agents one definition for business metrics.',
         },
         {
-          title: 'Why this fits the rest of the stack',
+          title: 'MCP for multi-tenant SaaS',
           copy:
-            'The same query layer can already serve dashboards and APIs, so the MCP surface does not need its own separate data-access architecture.',
+            'The server accepts tenant identity from trusted host configuration and rejects unscoped tenant datasets.',
         },
         {
-          title: 'Where to go next',
+          title: 'Claude and Cursor analytics',
           copy:
-            'Use the serve/OpenAPI docs for the HTTP layer details and the full MCP guide for the end-to-end wiring pattern.',
+            'Any MCP-compatible client can discover approved metrics without learning your schema or credentials.',
         },
       ]}
       readingLinks={[
         {
-          href: '/blog/clickhouse-mcp-typescript',
-          title: 'ClickHouse MCP: full implementation guide',
-          description: 'Step-by-step guide to building a typed MCP server on top of hypequery with tenant isolation.',
+          href: '/docs/mcp/overview',
+          title: 'MCP quick start',
+          description: 'Install @hypequery/mcp and expose your first dataset.',
         },
         {
-          href: '/docs/http-openapi',
-          title: 'HTTP and OpenAPI docs',
-          description: 'How @hypequery/serve exposes queries as HTTP endpoints and generates the OpenAPI spec.',
+          href: '/docs/mcp/tools',
+          title: 'MCP tool catalog',
+          description: 'See exactly what agents can discover and execute.',
         },
         {
-          href: '/blog/stop-writing-the-same-query-three-times',
-          title: 'The query() API',
-          description: 'How hypequery 0.2.0 makes one query definition run in inline, HTTP, and agent contexts.',
+          href: '/docs/mcp/safety',
+          title: 'MCP safety model',
+          description: 'Credentials, SQL visibility, limits, and tenant isolation.',
         },
         {
-          href: '/clickhouse-query-builder',
-          title: 'ClickHouse query builder',
-          description: 'The typed query builder that backs the analytics layer your MCP server exposes.',
+          href: '/docs/datasets/tool-generation',
+          title: 'AI tool generation',
+          description: 'Generate tool schemas from the same semantic catalog.',
         },
       ]}
       relatedPillars={[
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
+        { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-Tenant Analytics' },
+        { href: '/clickhouse-react', label: 'ClickHouse React' },
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
-        { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
-        { href: '/clickhouse-analytics', label: 'ClickHouse Analytics' },
-        { href: '/clickhouse-multi-tenant-analytics', label: 'ClickHouse Multi-Tenant Analytics' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Define the queries you want your agent to access',
+        title: 'Give one approved metric to your first agent',
         description:
-          'Start with one or two analytics queries. Expose them via @hypequery/serve. Point your MCP server at the OpenAPI spec. Your agent has structured, tenant-safe access to ClickHouse.',
-        primaryCta: { href: '/docs/http-openapi', label: 'Open serve docs' },
-        secondaryCta: { href: '/blog/clickhouse-mcp-typescript', label: 'Read the full guide' },
+          'Install @hypequery/mcp, register a dataset and metric, then connect the stdio server to your MCP client.',
+        primaryCta: { href: '/docs/mcp/overview', label: 'Open the MCP guide' },
+        secondaryCta: { href: '/docs/mcp/safety', label: 'Review safety' },
       }}
     />
   );

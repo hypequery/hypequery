@@ -1,7 +1,19 @@
 {
   "name": "@hypequery/clickhouse",
   "version": "2.5.4",
-  "description": "ClickHouse typescript query builder",
+  "description": "Type-safe ClickHouse query builder and schema generator for TypeScript analytics",
+  "keywords": [
+    "clickhouse",
+    "typescript",
+    "query-builder",
+    "type-safe",
+    "analytics",
+    "semantic-layer",
+    "orm",
+    "olap",
+    "sql",
+    "schema-generation"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -89,7 +101,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hypequery/hypequery.git"
+    "url": "git+https://github.com/hypequery/hypequery.git",
+    "directory": "packages/clickhouse"
   },
   "homepage": "https://hypequery.com",
   "bugs": {

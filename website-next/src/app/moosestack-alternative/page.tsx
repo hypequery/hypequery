@@ -3,224 +3,219 @@ import { ClickhousePillarPage } from '@/components/clickhouse-pillar-page';
 import { absoluteUrl, ogImage } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'MooseStack Alternative — The Library Instead of the Framework',
+  title: 'MooseStack EOL Alternative for ClickHouse',
   description:
-    'Looking for a MooseStack (Moose) alternative? hypequery gives you typed ClickHouse queries and APIs as an npm library — no framework runtime, no project scaffold, no streaming stack you didn’t ask for.',
+    'MooseStack has reached end of life. Migrate typed ClickHouse queries, semantic metrics, APIs, React hooks, and MCP tools to hypequery.',
   alternates: { canonical: absoluteUrl('/moosestack-alternative') },
   openGraph: {
-    images: ogImage('MooseStack Alternative — The Library Instead of the Framework'),
+    images: ogImage('MooseStack EOL Alternative for ClickHouse'),
     type: 'website',
     url: absoluteUrl('/moosestack-alternative'),
-    title: 'MooseStack Alternative — The Library Instead of the Framework | hypequery',
+    title: 'MooseStack EOL Alternative | hypequery',
     description:
-      'Moose wants to own your analytical backend. If you just need typed queries and APIs on the ClickHouse you already run, hypequery is the lighter path.',
+      'MooseStack is no longer actively maintained. Move its application-facing ClickHouse analytics layer to actively maintained TypeScript packages.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MooseStack Alternative | hypequery',
+    title: 'MooseStack EOL Alternative | hypequery',
     description:
-      'Typed ClickHouse queries and APIs as a library, not a framework. The lightweight MooseStack alternative.',
+      'A practical replacement for MooseStack typed ClickHouse queries and APIs.',
   },
 };
 
-const generateCode = `# no scaffold, no dev runtime — just point at your ClickHouse
-npx @hypequery/cli generate --output ./src/schema.ts
+const generateCode = `# Generate types from the ClickHouse you already run
+npm install -D @hypequery/cli
+npx hypequery generate
 
-# types follow your live schema, not a schema you re-declare:
-# DateTime -> string
-# UInt64   -> string
-# Nullable -> T | null`;
+# Then migrate one read query at a time
+npx hypequery dev --open`;
 
-const queryCode = `import { createQueryBuilder, selectExpr } from '@hypequery/clickhouse';
-import type { IntrospectedSchema } from './schema';
-
-const db = createQueryBuilder<IntrospectedSchema>({
-  host: process.env.CLICKHOUSE_HOST!,
-});
-
-const dailyActive = await db
-  .table('events')
-  .select([selectExpr('toStartOfDay(timestamp)', 'day')])
-  .distinctCount('user_id', 'active_users')
-  .groupBy('day')
-  .orderBy('day', 'DESC')
+const queryCode = `const revenueByRegion = await db
+  .table('orders')
+  .select(['region'])
+  .where('status', 'eq', 'completed')
+  .sum('amount', 'revenue')
+  .groupBy('region')
+  .orderBy('revenue', 'DESC')
   .execute();`;
 
 export default function MooseStackAlternativePage() {
   return (
     <ClickhousePillarPage
-      eyebrow="MooseStack Alternative"
-      title="Looking for a MooseStack alternative?"
-      description="Moose is genuinely interesting — and it's a lot. A dev runtime, a project structure, code-owned migrations, optional Redpanda and Temporal. If what brought you here is 'I just want typed queries and APIs on the ClickHouse we already have,' hypequery is that, and only that."
-      primaryCta={{ href: '/docs/quick-start', label: 'Start with hypequery' }}
-      secondaryCta={{ href: '/compare/hypequery-vs-moose', label: 'Read the full comparison' }}
+      eyebrow="MooseStack EOL Alternative"
+      title="MooseStack is end of life. Here is the migration path."
+      description="MooseStack’s maintainers say the project is no longer actively maintained, and its GitHub repository is archived. hypequery replaces the typed ClickHouse query, semantic, API, React, and MCP layer while letting dedicated tools own schema, streaming, and workflows."
+      primaryCta={{
+        href: '/blog/migrating-moosestack-to-hypequery',
+        label: 'Open the migration guide',
+      }}
+      secondaryCta={{
+        href: 'https://github.com/514-labs/moosestack#readme',
+        label: 'Read the official EOL statement',
+      }}
       stats={[
-        { label: 'Footprint', value: 'npm library, no runtime' },
-        { label: 'Schema', value: 'Introspected, not migrated' },
-        { label: 'Best fit', value: 'Existing ClickHouse stacks' },
+        { label: 'MooseStack status', value: 'End of life' },
+        { label: 'hypequery model', value: 'Open-source TypeScript' },
+        { label: 'Migration style', value: 'Incremental' },
       ]}
       problems={[
         {
-          title: 'Moose is a framework commitment',
+          title: 'An archived framework is not a new production dependency',
           copy:
-            'Adopting Moose means its project structure, its dev server, its way of doing things. That’s a fair price for a greenfield analytical backend. It’s a strange one for adding typed queries to an app that already exists.',
+            'MooseStack can keep running while you migrate, but new features and long-term application contracts need an actively maintained home.',
         },
         {
-          title: 'It wants to own your schema',
+          title: 'Moose covered more than one job',
           copy:
-            'Moose declares tables in code and migrates ClickHouse to match. If your schema is already owned elsewhere — SQL migrations, a data team, dbt — a code-first migration tool is a second driver fighting for the wheel.',
+            'Typed queries, DDL, Redpanda ingestion, Temporal workflows, APIs, and agent tooling should not be moved in one risky cutover.',
         },
         {
-          title: 'The batteries may not be your batteries',
+          title: 'The query layer can move first',
           copy:
-            'Streaming via Redpanda and orchestration via Temporal are core Moose modules. Great if you need them. If you already have ingestion and jobs sorted, they are surface area you are carrying but not using.',
+            'Read-only ClickHouse queries and semantic metrics are the cleanest boundary to migrate and verify while existing infrastructure keeps running.',
         },
       ]}
       solutionSection={{
-        eyebrow: 'The alternative',
-        title: 'Take the typed layer, skip the framework',
+        eyebrow: 'The replacement boundary',
+        title: 'Move product analytics without rebuilding the data plane',
         description:
-          'hypequery does the part of Moose most teams actually came for — typed ClickHouse queries and typed APIs in TypeScript — as a dependency in the application you already have.',
+          'hypequery gives the application an actively maintained, type-safe ClickHouse layer. Keep or replace ingestion, workflows, and DDL on their own timelines.',
         bullets: [
-          'Generate types by introspecting your live ClickHouse — your existing schema ownership stays exactly as it is',
-          'Write composable, fully typed queries with ClickHouse-aware helpers and raw SQL escape hatches',
-          'Serve queries as validated REST endpoints with OpenAPI docs via @hypequery/serve',
-          'Consume the same contracts in React through typed hooks',
-          'Keep your dev loop: no moose dev, no framework runtime, nothing new to operate',
+          'Generate TypeScript types from the live ClickHouse schema',
+          'Port and compare read queries one endpoint at a time',
+          'Define shared dimensions, measures, metrics, and tenant rules in code',
+          'Serve validated APIs and OpenAPI from your existing application',
+          'Reuse contracts in React hooks and governed MCP tools',
         ],
         codePanel: {
           eyebrow: 'Step 1',
-          title: 'Introspect instead of migrate',
+          title: 'Start from live ClickHouse',
           description:
-            'This is the philosophical difference in one command. Moose pushes schema from code into ClickHouse. hypequery pulls types from ClickHouse into code — whoever owns the schema keeps owning it.',
+            'Physical schema stays with the migration system you choose. hypequery introspects the result and protects application queries with generated types.',
           code: generateCode,
         },
       }}
       implementationSection={{
         eyebrow: 'Step 2',
-        title: 'Typed queries in the app you already have',
+        title: 'Migrate one query, prove parity, repeat',
         description:
-          'No new project layout, no framework conventions. Queries are ordinary TypeScript in your existing codebase, typed against the schema that actually exists.',
+          'The old and new clients can coexist. Compare generated SQL and results before moving traffic, then promote shared calculations into datasets and metrics.',
         paragraphs: [
-          'If you are starting an analytical backend from nothing and want streaming, orchestration, and schema management from one tool, Moose is a coherent answer and you should read the full comparison before deciding.',
-          'But most teams reading this page aren’t greenfield. They already have a ClickHouse, they already have ingestion, and the missing piece is the typed layer between the database and the product. That’s the whole of what hypequery does — nothing more.',
+          'Use @hypequery/clickhouse for typed reads, @hypequery/datasets for shared meaning and tenant scope, and @hypequery/serve when the contract needs HTTP.',
+          'Assign Moose OLAP DDL, Redpanda, and Temporal responsibilities to explicit tools before removing the old runtime.',
         ],
         codePanel: {
-          eyebrow: 'Step 2',
-          title: 'A typical query, no framework attached',
+          eyebrow: 'Typed read',
+          title: 'A query inside your existing app',
           description:
-            'Aggregations, time bucketing, and filters — typed end to end, in a file that lives next to the rest of your application code.',
+            'The result is inferred from the live schema, while filters and aggregations remain ClickHouse-native.',
           code: queryCode,
         },
       }}
       comparisonTable={{
-        eyebrow: 'Side by side',
-        title: 'Moose vs hypequery at a glance',
+        eyebrow: 'Migration map',
+        title: 'What moves to hypequery—and what does not',
         description:
-          'Both are open source, TypeScript-first, and ClickHouse-native. The split is framework versus library — and which direction schema flows.',
-        competitorLabel: 'Moose (MooseStack)',
+          'This is a responsibility map, not a comparison between two active projects.',
+        competitorLabel: 'MooseStack at EOL',
         rows: [
           {
-            label: 'Model',
-            competitor: 'Framework — project scaffold, dev runtime, conventions',
-            hypequery: 'Library — npm install into your existing app',
+            label: 'Project status',
+            competitor: 'End of life; repository archived',
+            hypequery: 'Actively maintained open-source packages',
           },
           {
-            label: 'Schema',
-            competitor: 'Declared in code, migrated into ClickHouse',
-            hypequery: 'Introspected from the ClickHouse you already run',
+            label: 'Typed queries',
+            competitor: 'Existing Moose query code',
+            hypequery: '@hypequery/clickhouse',
           },
           {
-            label: 'Streaming ingest',
-            competitor: 'Built in via Kafka/Redpanda',
-            hypequery: 'Not included — keep your existing pipeline',
+            label: 'Semantic metrics',
+            competitor: 'Moose data models and APIs',
+            hypequery: '@hypequery/datasets',
           },
           {
-            label: 'Orchestration',
-            competitor: 'Built in via Temporal',
-            hypequery: 'Not included',
+            label: 'HTTP and frontend',
+            competitor: 'Moose query endpoints',
+            hypequery: '@hypequery/serve and @hypequery/react',
           },
           {
-            label: 'Typed query APIs',
-            competitor: 'Yes — ingest and query endpoints',
-            hypequery: 'Yes — @hypequery/serve with OpenAPI docs',
+            label: 'Agent access',
+            competitor: 'Moose development harness',
+            hypequery: 'Governed @hypequery/mcp tools',
           },
           {
-            label: 'React integration',
-            competitor: 'Bring your own',
-            hypequery: 'Typed hooks on the same query contract',
-          },
-          {
-            label: 'Local dev',
-            competitor: 'moose dev runtime spins up the stack',
-            hypequery: 'Nothing new — it is just your app',
-          },
-          {
-            label: 'Adoption cost',
-            competitor: 'New structure, new runtime, new conventions',
-            hypequery: 'One dependency and a generate command',
+            label: 'DDL, streaming, workflows',
+            competitor: 'Moose OLAP, Redpanda, and Temporal modules',
+            hypequery: 'Keep or choose dedicated tools',
           },
         ],
         footnote:
-          'Greenfield analytical backend with streaming and jobs? Moose earns its weight. Existing app, existing ClickHouse, missing types? That’s the column on the right.',
+          'Do not remove Moose until traffic, DDL, ingestion, jobs, and deployment dependencies have all been inventoried.',
       }}
       searchIntentCards={[
         {
-          title: 'MooseStack alternative for existing ClickHouse',
+          title: 'MooseStack end of life',
           copy:
-            'hypequery is built for exactly this case: ClickHouse already runs, ingestion already works, and the missing piece is typed queries and APIs. No migration of schema ownership required.',
+            'The official GitHub README states that MooseStack has reached end of life and is no longer actively maintained.',
         },
         {
-          title: 'Moose without the framework',
+          title: 'MooseStack migration guide',
           copy:
-            'The part of Moose most product teams want is Moose OLAP’s typed queries. hypequery delivers that as a standalone library, without the dev runtime, streaming, or workflow modules.',
+            'The migration guide separates physical schema, streaming, workflows, typed queries, APIs, React, and agents into safe stages.',
         },
         {
-          title: 'Typed ClickHouse queries in TypeScript',
+          title: 'Typed ClickHouse replacement',
           copy:
-            'Types generated from your live schema, a composable query builder, and compile-time safety on every column reference — the core workflow, minus the scaffold.',
+            'hypequery covers the application-facing TypeScript layer with generated schema types and ClickHouse-native queries.',
         },
         {
-          title: 'When Moose is the right call',
+          title: 'Governed AI-agent analytics',
           copy:
-            'Building from scratch and want ingest, schema, transformations, and APIs in one coherent tool? Moose is a real answer. This page is for everyone whose backend already exists.',
+            'Expose approved datasets and metrics through MCP instead of handing agents raw ClickHouse credentials.',
         },
       ]}
       readingLinks={[
         {
+          href: '/blog/migrating-moosestack-to-hypequery',
+          title: 'MooseStack migration guide',
+          description: 'The staged technical and organisational cutover.',
+        },
+        {
           href: '/compare/hypequery-vs-moose',
-          title: 'hypequery vs Moose',
-          description: 'The full comparison — schema direction, scope, and where each tool genuinely wins.',
+          title: 'hypequery vs MooseStack after EOL',
+          description: 'The current status and responsibility comparison.',
         },
         {
-          href: '/clickhouse-schema',
-          title: 'ClickHouse schema generation',
-          description: 'How live-schema introspection turns into TypeScript types that match runtime values.',
+          href: '/docs/capabilities',
+          title: 'Current hypequery capabilities',
+          description: 'The shipped builder, semantic, Serve, React, and MCP surface.',
         },
         {
-          href: '/clickhouse-rest-api',
-          title: 'ClickHouse REST API',
-          description: 'How @hypequery/serve turns query definitions into validated, documented endpoints.',
-        },
-        {
-          href: '/clickhouse-typescript',
-          title: 'ClickHouse TypeScript',
-          description: 'The broader workflow for reusable queries, HTTP APIs, and runtime type safety.',
+          href: '/docs/quick-start',
+          title: 'Quick start',
+          description: 'Test one real ClickHouse table before planning the cutover.',
         },
       ]}
       relatedPillars={[
         { href: '/clickhouse-typescript', label: 'ClickHouse TypeScript' },
-        { href: '/clickhouse-query-builder', label: 'ClickHouse Query Builder' },
-        { href: '/cube-js-alternative', label: 'Cube.js Alternative' },
-        { href: '/tinybird-alternative', label: 'Tinybird Alternative' },
+        { href: '/clickhouse-semantic-layer', label: 'ClickHouse Semantic Layer' },
+        { href: '/clickhouse-mcp', label: 'ClickHouse MCP' },
+        { href: '/clickhouse-multi-tenant-analytics', label: 'Multi-tenant Analytics' },
       ]}
       nextStep={{
         eyebrow: 'Next step',
-        title: 'Run generate against your ClickHouse and write one query',
+        title: 'Inventory Moose responsibilities, then port one read query',
         description:
-          'Ten minutes, no scaffold. If the typed layer is all you needed, you will know immediately.',
-        primaryCta: { href: '/docs/quick-start', label: 'Start with hypequery' },
-        secondaryCta: { href: '/compare/hypequery-vs-moose', label: 'Read full comparison' },
+          'Prove the typed ClickHouse path against production-shaped data before committing to the rest of the migration.',
+        primaryCta: {
+          href: '/blog/migrating-moosestack-to-hypequery',
+          label: 'Open migration guide',
+        },
+        secondaryCta: {
+          href: '/docs/quick-start',
+          label: 'Run the quick start',
+        },
       }}
     />
   );

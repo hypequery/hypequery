@@ -1,48 +1,33 @@
-# hypequery (Python)
+# hypequery for Python
 
-Type-safe ClickHouse semantic layer and serving for Python.
+A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha.** The package skeleton and toolchain are in place (PYA-01);
-> the protocol, datasets, and serve layers are being built. See
-> [`plans/python-datasets-serve-pr-level-plan.md`](../../plans/python-datasets-serve-pr-level-plan.md).
+> **Pre-alpha:** the package structure and protocol foundation are in place; the public datasets and Serve APIs are still being built. Do not use this package in production yet.
 
-## Install
+## Planned install
 
-```sh
-pip install hypequery                      # definitions only, framework-free
-pip install "hypequery[clickhouse]"        # + query execution
-pip install "hypequery[fastapi]"           # + HTTP serving
+```bash
+pip install hypequery
+pip install "hypequery[clickhouse]"
+pip install "hypequery[fastapi]"
 ```
 
-## Layout
+The SDK is organised as:
 
-| Module | Role |
-|---|---|
-| `hypequery.protocol` | Reference implementation of the language-neutral security protocol. |
-| `hypequery.datasets` | Semantic layer: datasets, dimensions, measures, relationships, metrics. |
-| `hypequery.serve` | Strict FastAPI router. Requires the `fastapi` extra. |
+- `hypequery.protocol` for the language-neutral artifact contracts;
+- `hypequery.datasets` for dimensions, measures, metrics, and relationships;
+- `hypequery.serve` for a strict FastAPI router.
 
-These are layered — `serve` → `datasets` → `protocol` — and the lower two are
-forbidden from importing a web framework or a database driver. Both rules are
-enforced in CI by `import-linter`, not by convention.
-
-## Relationship to TypeScript
-
-Python is not a port of the TypeScript runtime. Both languages implement the
-same normative protocol in [`specs/security-protocol/`](../../specs/security-protocol/)
-and are proven against the same fixtures by
-[`@hypequery/protocol-conformance`](../../packages/protocol-conformance/). Where
-the two disagree, the specification is the arbiter and the mismatch is a bug.
-
-Practical consequence: the same logical model produces byte-identical
-deployment bundles from either language.
+Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
 
 ## Development
 
-```sh
-uv sync --all-extras --dev     # create the environment
-uv run pytest                  # tests
-uv run mypy                    # strict type check
-uv run ruff check .            # lint
-uv run lint-imports            # import boundary contracts
+```bash
+uv sync --all-extras --dev
+uv run pytest
+uv run mypy
+uv run ruff check .
+uv run lint-imports
 ```
+
+See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).

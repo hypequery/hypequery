@@ -131,7 +131,7 @@ No hand-rolling API handlers for every analytics query. No manually duplicating 
 
 hypequery adds an abstraction layer, and abstraction layers have costs.
 
-**The query builder doesn't cover everything ClickHouse can do.** If you need complex window functions, non-standard ClickHouse SQL extensions, or highly optimized custom query patterns, you'll hit the edges of the builder and may need raw SQL escape hatches.
+**The query builder doesn't cover every possible ClickHouse expression.** It does cover ClickHouse-native work such as `PREWHERE`, `FINAL`, `LIMIT BY`, array joins, CTEs, settings, percentiles, and `argMax`. Window expressions use `selectExpr()`, and highly specialised SQL can still use a focused raw escape hatch. The [capability matrix](/docs/capabilities) tracks the current surface.
 
 **Schema generation is explicit.** If your ClickHouse schema changes, you need to rerun the generator. The types do not update themselves.
 

@@ -1,7 +1,15 @@
 {
   "name": "@hypequery/protocol-conformance",
   "version": "0.9.1",
-  "description": "Cross-language conformance runner and TypeScript reference adapter for the Hypequery security protocol",
+  "description": "Cross-language conformance runner for the Hypequery analytics security protocol",
+  "keywords": [
+    "hypequery",
+    "protocol",
+    "conformance",
+    "analytics",
+    "typescript",
+    "testing"
+  ],
   "license": "Apache-2.0",
   "type": "module",
   "main": "dist/index.js",
@@ -39,10 +47,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hypequery/hypequery.git",
+    "url": "git+https://github.com/hypequery/hypequery.git",
     "directory": "packages/protocol-conformance"
   },
-  "homepage": "https://github.com/hypequery/hypequery/tree/main/packages/protocol-conformance",
+  "homepage": "https://hypequery.com",
   "bugs": {
     "url": "https://github.com/hypequery/hypequery/issues"
   },

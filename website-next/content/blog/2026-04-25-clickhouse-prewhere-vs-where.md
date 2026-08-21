@@ -74,27 +74,28 @@ import type { Schema } from './schema';
 
 const db = createQueryBuilder<Schema>({ host: 'http://localhost:8123' });
 
-// Using the typed builder — straightforward and safe for most app queries
+// Ordinary filters stay in WHERE
 const withWhere = await db
   .table('events')
-  .select('event_type', 'count() as cnt')
+  .select(['event_type'])
   .where('tenant_id', 'eq', tenantId)
-  .where('toDate(created_at)', 'eq', today)
+  .where('created_at', 'gte', dayStart)
+  .count('event_type', 'cnt')
   .groupBy('event_type')
   .execute();
 
-// If you need an explicit PREWHERE clause today, use raw SQL intentionally
-const withPrewhere = await db.rawQuery(
-  \`SELECT event_type, count() AS cnt
-   FROM events
-   PREWHERE tenant_id = ?
-   WHERE toDate(created_at) = ?
-   GROUP BY event_type\`,
-  [tenantId, today],
-);
+// Move the selective tenant condition into ClickHouse PREWHERE
+const withPrewhere = await db
+  .table('events')
+  .select(['event_type'])
+  .prewhere('tenant_id', 'eq', tenantId)
+  .where('created_at', 'gte', dayStart)
+  .count('event_type', 'cnt')
+  .groupBy('event_type')
+  .execute();
 ```
 
-The important point for hypequery users is that PREWHERE is a ClickHouse SQL optimisation, not currently a dedicated builder method in this repo. Use the typed builder for ordinary filters, and reach for raw SQL when you have profiled a query and know explicit PREWHERE is worth the extra control.
+`prewhere()` uses the same typed column and operator checks as `where()`. Reach for it after profiling shows that reading a compact, selective column first will reduce IO; otherwise, `where()` is usually the clearer default.
 
 ## When PREWHERE Helps Most
 

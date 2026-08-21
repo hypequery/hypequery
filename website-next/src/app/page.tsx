@@ -15,12 +15,16 @@ import {
 const softwareSchema = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
+  '@id': absoluteUrl('/#software').toString(),
   name: 'hypequery',
   url: absoluteUrl('/').toString(),
   applicationCategory: 'DeveloperApplication',
-  operatingSystem: 'Node.js',
+  operatingSystem: 'Cross-platform',
   description:
-    'The TypeScript analytics layer for ClickHouse. Define queries, metrics, and dimensions once, then expose them as typed APIs, React hooks, or MCP tools.',
+    'Define ClickHouse metrics once in TypeScript, then reuse them across APIs, jobs, dashboards, and AI agents.',
+  softwareVersion: 'latest',
+  codeRepository: 'https://github.com/hypequery/hypequery',
+  programmingLanguage: 'TypeScript',
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -29,6 +33,7 @@ const softwareSchema = {
   softwareHelp: absoluteUrl('/docs/introduction').toString(),
   downloadUrl: 'https://www.npmjs.com/package/@hypequery/clickhouse',
   author: { '@id': absoluteUrl('/#organization').toString() },
+  publisher: { '@id': absoluteUrl('/#organization').toString() },
 };
 
 export default function Home() {

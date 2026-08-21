@@ -1,99 +1,68 @@
 # @hypequery/protocol
 
-Public contracts and the TypeScript reference implementation for portable
-Hypequery artifacts.
+`@hypequery/protocol` is the deterministic TypeScript reference implementation for Hypequery’s portable, language-neutral artifacts. It validates and canonically encodes semantic expressions, query schemas, deployment contracts, bundle manifests, release envelopes, query events, and diagnostics without connecting to a database or executing user code.
 
-## Current status
+The normative source is [`specs/security-protocol`](../../specs/security-protocol/README.md). The package is pre-stable while the draft wire contracts and conformance fixtures are reviewed; the npm version is not an artifact version.
 
-This package contains proposed version 1 tagged values, identifiers,
-expressions, query schemas and implementations, Dataset deployment contracts,
-and deployment bundle manifests. The API remains pre-stable while the
-language-neutral specifications and conformance fixtures are reviewed; these
-drafts do not yet establish a stable Cloud protocol.
+## What the protocol solves
 
-The normative source is
-[`specs/security-protocol`](../../specs/security-protocol/README.md).
+Hypequery authoring tools, deployment systems, runtimes, and implementations in different languages need to agree on four things:
 
-## Scope
+1. which values and structures are accepted;
+2. the exact canonical bytes for an accepted artifact;
+3. the stable identity derived from those bytes;
+4. the failure code returned for rejected input.
 
-The package contains deterministic, framework-independent implementations of
-accepted protocol rules. The current implementation provides strict tagged
-value validation, RFC 8785 canonical encoding, duplicate-aware decoding,
-portable logical identifiers, closed expression and schema trees, query
-implementation artifacts, and a validated deployment envelope with a
-domain-separated identity.
+This package implements those rules in TypeScript. Python and other implementations are tested against the same fixtures with `@hypequery/protocol-conformance`.
 
-It will not connect to ClickHouse, execute queries, load project source, access
-credentials or the environment, perform network or filesystem I/O, implement
-authentication or tenancy, or contain CLI, HTTP, UI, and Cloud operations.
+## Main surfaces
 
-Self-hosted Serve continues to run project source directly. Deployment bundles
-are required only by Cloud deployment and may be generated ephemerally for
-local compatibility and security diagnostics.
+- canonical tagged values and RFC 8785 encoding
+- strict simple and qualified logical identifiers
+- closed semantic expression and query envelopes
+- portable input and output schemas
+- trusted query implementation artifacts
+- dataset and named-query deployment contracts
+- closed deployment bundle manifests
+- project/environment release envelopes
+- compiled query settings, cancellation, events, and diagnostics
 
-## Public API
+The package performs no filesystem or network I/O. It does not load project source, choose credentials, connect to ClickHouse, authenticate users, resolve tenants, or host HTTP routes. Those jobs remain with the CLI, deployment package, and runtime adapters.
 
-Only the root package export is public. Deep imports from `src` or `dist` are
-unsupported. Package SemVer and protocol/artifact versions are separate; an
-installed npm version never determines an artifact's identity.
+## Canonical values
 
-The proposed tagged-value surface exports:
+The root export includes validation, encoding, decoding, hashing, errors, and the related immutable types:
 
-- `validateCanonicalValue`
-- `encodeCanonicalValue` and `encodeCanonicalValueToString`
-- `decodeCanonicalValue`
-- `hashCanonicalValue`
-- `ProtocolValueError` and stable error-code types
-- tagged-value, option, and limit types
+```ts
+import {
+  validateCanonicalValue,
+  encodeCanonicalValueToString,
+  decodeCanonicalValue,
+  hashCanonicalValue,
+  ProtocolValueError,
+} from '@hypequery/protocol';
+```
 
-The raw conformance digest is not a deployment identity or shared cache key.
-Those domains require separate, versioned, domain-separated contracts.
+Domain-specific identities remain separate. A raw canonical-value digest is not automatically a deployment, bundle, release, or cache identity.
 
-The proposed identifier surface exports strict parse, guard, split, and join
-helpers for simple and dot-qualified logical identifiers. Identifiers are
-ASCII, case-sensitive, preserved exactly, and are not SQL identifiers.
+## Portable analytics definitions
 
-The proposed expression surface exports strict validators and immutable types
-for derived formulas, comparisons, filtered aggregations, all current dataset
-aggregations, and dataset/metric query envelopes. It intentionally excludes
-caller-supplied SQL and tenant identity; consumers validate names and policy
-against a dataset contract before execution.
+Expression validators cover derived formulas, comparisons, filtered aggregates, the full dataset aggregation surface, and metric/dataset query envelopes. Runtime callers provide semantic names and values; they cannot embed SQL or tenant identity in these portable query structures.
 
-The proposed schema surface exports strict types and validation for portable
-query input/output schemas. It covers the current declarative Serve/Zod schema
-features without depending on Zod or embedding executable transforms and
-refinements. The reusable schema-value parser applies defaults and unknown
-property policy to bounded plain wire values and returns detached immutable
-values for execution adapters.
+Schema validators cover the declarative Serve/Zod features that can travel between runtimes without importing Zod or executable refinements. Schema application handles defaults and unknown properties on bounded wire values.
 
-The proposed query-implementation surface keeps trusted implementation details
-separate from public query intent. It covers Dataset SQL expressions, fixed
-semantic plans, compiled read-only ClickHouse statements with bound input or
-tenant parameters, and hashed Node/Python runtime references for Serve handlers
-that cannot be lowered portably. Validation does not execute or authorize SQL.
+## Deployment artifacts
 
-The proposed deployment surface combines complete Dataset definitions, named
-Serve queries, endpoint policy, and runtime artifact identities into one strict
-versioned envelope. Dataset and Serve adapters live in their owning packages;
-the protocol package remains deterministic and framework-independent.
-Validated envelopes can be encoded as canonical RFC 8785 bytes and identified
-with the deployment-v1 domain-separated SHA-256 digest.
+A deployment combines dataset definitions, named Serve queries, endpoint policy, and runtime artifact identities in one strict versioned envelope. Bundle manifests bind that deployment and every runtime file by path, byte length, and hash. Release envelopes bind a verified bundle to one explicit project and environment.
 
-The proposed deployment-bundle surface validates the portable manifest that
-binds a deployment identity to exact deployment and runtime artifact files. It
-provides canonical encoding and a separate bundle-v1 identity. Filesystem-safe
-writing remains in the CLI, while reusable filesystem verification and
-receiving-side intake live in `@hypequery/deployment`; this package performs no
-I/O.
+Canonical encoders and domain-separated SHA-256 identities make these artifacts reproducible across language implementations. Filesystem-safe construction and verification live in `@hypequery/deployment` and the CLI.
 
-The proposed deployment-release surface binds one verified bundle identity to
-an explicit project and environment. Its deterministic identity serves as the
-idempotency key for authenticated deployment submission without putting
-credentials, timestamps, release state, or provider behavior into the envelope.
+## Package use
 
-## Runtime compatibility
+Only the root package export is public. Package SemVer and protocol versions are deliberately separate. The package is ESM-only and must be loaded with `import`.
 
-This package is ESM-only. Consumers must load it with `import`; CommonJS
-`require()` and a dual ESM/CommonJS build are intentionally out of scope.
-Older tools that ignore the package `exports` map and attempt to require the
-`main` entry may fail with `ERR_REQUIRE_ESM`.
+Self-hosted `@hypequery/serve` can continue to run application source directly. Portable deployment bundles are needed for deployment, compatibility checks, and cross-runtime handoff—not for ordinary local query execution.
+
+## License
+
+Apache-2.0.

@@ -1,331 +1,60 @@
 # @hypequery/cli
 
-CLI for scaffolding and running the main hypequery path.
+The fastest way to start a type-safe ClickHouse analytics backend in TypeScript.
 
-Use it to:
+`@hypequery/cli` connects to ClickHouse or embedded chDB, generates schema types, scaffolds queries or semantic datasets, and runs a local API with interactive documentation. The same CLI can generate React route manifests and deploy a verified analytics bundle when you are ready.
 
-- generate schema types from ClickHouse or embedded chDB
-- scaffold `analytics/` files
-- run the local dev server with docs
-- build and validate portable deployment contracts
-
-## Quick Start
-
-Run it directly:
-
-```bash
-npx @hypequery/cli init
-npx @hypequery/cli dev
-npx @hypequery/cli generate
-```
-
-Or install it once:
+## Start here
 
 ```bash
 npm install -D @hypequery/cli
-```
-
-## Commands
-
-### `hypequery init`
-
-Scaffolds the standard hypequery setup.
-
-```bash
 npx hypequery init
+npx hypequery dev --open
 ```
 
-Interactive setup asks which database driver to use, whether to include
-request-context authentication scaffolding, where to write the generated
-files, and which API style to create. Selecting chDB replaces the remote
-credential questions with an embedded-storage choice.
+`init` checks the database, writes an `analytics/` project, generates types, and installs the packages used by the scaffold.
 
-Run `init` from the project directory that contains `package.json`. If no
-package manifest is found, interactive setup asks for confirmation before
-writing files and dependency installation must be completed manually.
-
-It will:
-
-- connect to ClickHouse or start an embedded chDB session
-- generate schema types when the database is available
-- create client and query files
-- write `.env` values for ClickHouse connections
-- update `.gitignore`, including a project-local persistent chDB directory
-- install scaffold dependencies, including `zod` and the selected database adapter
-
-Options:
-
-- `--path <path>`: output directory, default `analytics/`
-- `--style <style>`: `queries` (default) or `datasets`
-- `--database <type>`: `clickhouse` (default) or `chdb`
-- `--chdb-path <path>`: persistent chDB data directory; omit for an in-memory session
-- `--auth <mode>`: `none` (default) or `context`
-- `--all-tables`: with `--style datasets`, scaffold every table
-- `--tables <names>`: with `--style datasets`, scaffold these comma-separated tables
-- `--exclude-tables <names>`: with `--style datasets`, exclude these comma-separated tables
-- `--no-example`: skip the example query
-- `--no-interactive`: skip prompts; ClickHouse connection details come from env vars
-- `--force`: overwrite existing scaffold files
-- `--skip-connection`: skip testing the selected database before scaffolding
-
-Set `HYPEQUERY_SKIP_INSTALL=1` to skip the automatic dependency install.
-
-To scaffold against persistent embedded chDB without server credentials:
+For a semantic layer:
 
 ```bash
-npx hypequery init --database chdb --chdb-path ./analytics.chdb --no-interactive
+npx hypequery init --style datasets
 ```
 
-### `hypequery dev`
-
-Runs the local serve runtime with docs and hot reload.
+For embedded analytics without a ClickHouse server:
 
 ```bash
-npx hypequery dev
+npx hypequery init \
+  --database chdb \
+  --chdb-path ./analytics.chdb
 ```
 
-Options:
-
-- `--port <port>`: default `4000`
-- `--hostname <host>`: default `localhost`
-- `--path <path>`: analytics directory to load (`<path>/api.ts` or `<path>/queries.ts`)
-- `--no-watch`: disable file watching
-- `--open`: open the browser automatically
-- `--quiet`: reduce startup output
-
-The CLI understands TypeScript entry files directly, so `analytics/queries.ts` works without an extra runner.
-
-### `hypequery generate`
-
-Regenerates schema types from ClickHouse or embedded chDB.
-
-```bash
-npx hypequery generate
-```
-
-Options:
-
-- `--output <path>`: default `analytics/schema.ts`
-- `--path <path>`: analytics directory (derives `<path>/schema.ts`)
-- `--tables <names>`: comma-separated table list
-- `--database <type>`: `clickhouse` or `chdb`; chDB generation must be selected explicitly
-- `--chdb-path <path>`: persistent chDB data directory; omit for an in-memory session
-
-For a persistent chDB scaffold, pass the same path used by `init`:
-
-```bash
-npx hypequery generate --database chdb --chdb-path ./analytics.chdb
-```
-
-`hypequery generate:types` is an alias for `hypequery generate`.
-
-### `hypequery generate:datasets`
-
-Generates dataset (semantic layer) definitions from ClickHouse.
-
-```bash
-npx hypequery generate:datasets
-```
-
-Options:
-
-- `--output <path>`: default `src/datasets/generated.ts`
-- `--path <path>`: analytics directory (derives `<path>/datasets.ts`)
-- `--tables <names>`: comma-separated table list
-- `--exclude-tables <names>`: comma-separated tables to exclude
-
-### `hypequery generate:manifest`
-
-Generates a static React hook route manifest from an exported HypeQuery API.
-
-```bash
-npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
-```
-
-The output is the exact serializable JSON returned by `api.manifest()`, including
-semantic keys such as `dataset:orders`.
-
-### `hypequery deployment:build`
-
-Builds a closed deployment bundle for an exported HypeQuery API. The bundle
-contains canonical deployment metadata, every referenced runtime artifact, and
-a manifest that binds their exact bytes and identities. It is the first step of
-a deployment pipeline, and produces the input `deployment:release` binds to a
-target.
-
-```bash
-npx hypequery deployment:build analytics/api.ts
-```
-
-The default output is `analytics/hypequery-deployment/`. Named Serve handlers
-are bundled into a Node runtime artifact automatically. Dataset-only APIs do
-not produce a runtime artifact. For a separately built Node or Python runtime,
-provide both its expected digest and file path:
-
-```bash
-npx hypequery deployment:build analytics/api.ts \
-  --runtime python \
-  --runtime-artifact <sha256> \
-  --runtime-file dist/runtime.pyz
-```
-
-Options:
-
-- `--bundle-output <directory>`: default `analytics/hypequery-deployment`
-- `--runtime <runtime>`: `node` (default) or `python`
-- `--runtime-artifact <sha256>`: lowercase SHA-256 of a prebuilt runtime artifact
-- `--runtime-file <path>`: bytes for the prebuilt runtime artifact
-- `--entrypoint-prefix <prefix>`: default `queries`
-
-The compatibility options `--output`, `--runtime-output`, and `--hash-output`
-still emit the earlier metadata files instead of a complete bundle. They cannot
-be combined with `--bundle-output`.
-
-### `hypequery deployment:validate`
-
-Verifies a complete deployment bundle before returning any contained metadata.
-Verification rejects missing or undeclared files, symbolic links, path
-traversal, byte-length or hash mismatches, deployment identity mismatches, and
-runtime files not referenced by the deployment. Legacy deployment JSON files
-are still accepted for metadata-only validation.
-
-```bash
-npx hypequery deployment:validate analytics/hypequery-deployment
-```
-
-### `hypequery deployment:release`
-
-Prepares a deterministic release request from a verified deployment bundle and
-a project/environment target. This command does not upload, authorize, or
-execute the release.
-
-Pass the target as both flags. A half-specified target is rejected rather than
-completed from anywhere else, so an unset shell variable fails loudly instead of
-silently retargeting the release. The resolved target is printed alongside the
-release identity:
-
-```bash
-npx hypequery deployment:release analytics/hypequery-deployment \
-  --project my-project \
-  --environment production
-```
-
-The default output is `analytics/hypequery-deployment.release.json`. It is
-written beside the bundle because adding it inside the closed bundle would
-invalidate bundle verification.
-
-Options:
-
-- `--project <project>`: target project identifier; must be paired with
-  `--environment`
-- `--environment <environment>`: target environment identifier; must be paired
-  with `--project`
-- `--output <path>`: release JSON path, default beside the bundle
-
-### `hypequery deployment:submit`
-
-Submits a verified deployment bundle with an already-prepared target-bound
-release. The command verifies both inputs again, requires their bundle
-identities to match, and streams only the files declared by the bundle.
-
-```bash
-npx hypequery deployment:submit analytics/hypequery-deployment \
-  --release analytics/hypequery-deployment.release.json
-```
-
-Set `HYPEQUERY_API_TOKEN` together with either `--endpoint` or
-`HYPEQUERY_DEPLOYMENT_ENDPOINT`. Tokens are never accepted as command-line
-arguments, keeping them out of shell history. The submission endpoint must not
-contain credentials or a URL fragment, and must use HTTPS except for
-`127.0.0.1`/`localhost`, which is permitted for local development and warns that
-the token is sent in cleartext. The release identity is sent as the idempotency
-key, so an unchanged release can be submitted safely again. An accepted release
-becomes live immediately. The CLI pins the upload to the current activation
-revision, so a concurrent deploy or restore returns a conflict. If the current
-release was restored, pass `--replace-restored` to confirm that a different
-release should replace it.
-
-Options:
-
-- `--release <path>`: required target-bound release JSON
-- `--endpoint <url>`: HTTPS submission endpoint; requires `HYPEQUERY_API_TOKEN`
-- `--replace-restored`: intentionally replace a restored live release
-
-### `hypequery pull`
-
-Downloads the exact multi-file TypeScript source snapshot stored with the live
-release. Pull requires an interactive Cloud credential with source-read access;
-run `hypequery login` again if the credential predates this capability.
-
-```bash
-npx hypequery pull
-```
-
-By default the snapshot is written to a new release-specific directory under
-`.hypequery/live/<environment>/`. Use `--output <directory>` to choose another
-new directory. Pull never overwrites an existing path.
-
-### `hypequery diff [source]`
-
-Compares the local TypeScript dependency graph with the live release snapshot
-and reports added (`A`), modified (`M`), and deleted (`D`) files. The deployed
-entrypoint is used when `source` is omitted.
-
-```bash
-npx hypequery diff analytics/api.ts
-```
-
-Both commands use the target selected by `hypequery login`. Advanced and CI
-usage can pass `--project`, `--environment`, and `--endpoint` explicitly.
-
-## Non-interactive Setup
-
-### Cloud deployment targets in CI
-
-Login selects a stable Cloud deployment target. The deployment itself captures
-the checked-out Git branch, commit, and dirty state as source provenance; none
-of those values select or create an environment. Select the destination
-explicitly when the same branch or commit deploys to more than one environment:
-
-```bash
-npx hypequery login --environment development
-```
-
-For CI, create a target-scoped API key in Cloud for each environment and store
-it as a separate secret. The explicit release target and its matching key make
-the destination independent of the source branch:
-
-```bash
-HYPEQUERY_API_TOKEN="$HYPEQUERY_DEV_TOKEN" npx hypequery deploy analytics/api.ts \
-  --project acme:analytics \
-  --environment development
-
-HYPEQUERY_API_TOKEN="$HYPEQUERY_PROD_TOKEN" npx hypequery deploy analytics/api.ts \
-  --project acme:analytics \
-  --environment production
-```
-
-Set `HYPEQUERY_DEPLOYMENT_ENDPOINT` for both jobs. A key is scoped to one target,
-so a production key cannot submit a development release or vice versa.
-
-For ClickHouse, `hypequery init --no-interactive` reads:
-
-- `CLICKHOUSE_URL` or deprecated `CLICKHOUSE_HOST`
-- `CLICKHOUSE_DATABASE`
-- `CLICKHOUSE_USERNAME` or `CLICKHOUSE_USER`
-- `CLICKHOUSE_PASSWORD`
-
-## Notes
-
-- generated scaffold files use NodeNext-safe local `.js` imports
-- `CLICKHOUSE_URL` is now the preferred connection variable
-- the CLI bundles the ClickHouse driver for schema generation
-- chDB runs in memory unless `--chdb-path` is provided; persistent paths must be reused by later `generate` commands
-
-## Docs
+## The commands you will use
+
+| Command | Outcome |
+| --- | --- |
+| `hypequery init` | A working typed analytics project |
+| `hypequery dev` | Local API, docs, and hot reload |
+| `hypequery generate` | Fresh TypeScript types from ClickHouse or chDB |
+| `hypequery generate:datasets` | Dataset definitions scaffolded from tables |
+| `hypequery generate:manifest` | A browser-safe route manifest for React hooks |
+| `hypequery login` | An authenticated Cloud target |
+| `hypequery deploy` | A verified deployment of the analytics API |
+| `hypequery pull` / `diff` | Live source inspection and comparison |
+
+Non-interactive ClickHouse commands read `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, and `CLICKHOUSE_PASSWORD`.
+
+## Why use the CLI
+
+- Get correct ClickHouse runtime types instead of guessing interfaces.
+- Move from one local query to datasets, APIs, React, and MCP without changing tools.
+- Keep generated types and route manifests reproducible in CI.
+- Build closed, hash-verified deployment artifacts from the same source.
+
+## Learn more
 
 - [Quick start](https://hypequery.com/docs/quick-start)
 - [CLI reference](https://hypequery.com/docs/reference/api/cli)
+- [Current capabilities](https://hypequery.com/docs/capabilities)
 
 ## License
 

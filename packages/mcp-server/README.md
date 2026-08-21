@@ -1,293 +1,89 @@
 # @hypequery/mcp
 
-Model Context Protocol (MCP) server for Hypequery semantic layer. Exposes datasets and metrics to AI agents like Claude Desktop, Cursor, and other MCP-compatible tools.
+A governed ClickHouse MCP server for AI agents.
 
-## Features
+`@hypequery/mcp` turns your hypequery datasets and metrics into Model Context Protocol tools for Claude, Cursor, and other MCP clients. Agents can discover and query approved analytics without receiving unrestricted SQL access or database credentials.
 
-- **MCP Tools**: List datasets, introspect schemas, query metrics and datasets
-- **Natural Language**: AI-friendly prompts and responses
-- **Type-Safe**: Full TypeScript support with the Hypequery semantic layer
-- **ClickHouse Native**: Optimized for ClickHouse analytics workloads
-
-## Installation
+## Install
 
 ```bash
-npm install @hypequery/mcp
-# or
-pnpm add @hypequery/mcp
+npm install @hypequery/mcp @hypequery/datasets @hypequery/clickhouse
 ```
 
-## Quick Start
+## Expose your semantic layer
 
-### 1. Create an MCP Config File
-
-Create `mcp-config.ts`:
-
-```typescript
-import { createDatasetClient } from '@hypequery/datasets';
-import { createQueryBuilder } from '@hypequery/clickhouse';
-import { OrdersDataset, CustomersDataset } from './datasets/index.js';
-
-const revenue = OrdersDataset.metric('revenue', { measure: 'revenue' });
-const customerCount = CustomersDataset.metric('customerCount', {
-  measure: 'customerCount',
-});
-
-// Export your datasets
+```ts
+// mcp-config.ts
 export const datasets = {
   orders: {
-    ...OrdersDataset,
+    ...Orders,
     metrics: { revenue },
   },
-  customers: {
-    ...CustomersDataset,
-    metrics: { customerCount },
-  },
 };
-
-// Export the semantic runner consumed by the MCP server
-const db = createQueryBuilder({
-  url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
 
 export const analytics = createDatasetClient({ queryBuilder: db });
 ```
 
-### 2. Run the MCP Server
+Compile the config, then start the stdio server:
 
 ```bash
-npx hypequery-mcp --config ./mcp-config.js
+npx hypequery-mcp --config /absolute/path/to/mcp-config.js
 ```
 
-### 3. Configure Claude Desktop
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Add it to an MCP client:
 
 ```json
 {
   "mcpServers": {
-    "hypequery": {
+    "hypequery-clickhouse": {
       "command": "npx",
-      "args": ["hypequery-mcp", "--config", "/absolute/path/to/mcp-config.js"]
+      "args": [
+        "hypequery-mcp",
+        "--config",
+        "/absolute/path/to/mcp-config.js"
+      ]
     }
   }
 }
 ```
 
-### 4. Use with Claude
+Now an agent can ask, “Show revenue by region for the last month,” using the same metric definition as your backend and dashboard.
 
-Now you can ask Claude to query your data:
+## Tools agents receive
 
-> "Show me revenue by region for the last month"
+- `list_datasets` discovers available analytics models;
+- `get_dataset_schema` explains dimensions, measures, metrics, and relationships;
+- `query_metric` executes named KPIs;
+- `query_dataset` explores the fields you chose to publish.
 
-> "What are the top 10 customers by order count?"
+## Safer than raw SQL access
 
-> "List all available datasets"
+- Tool schemas come from your TypeScript semantic layer.
+- Filters, fields, ordering, and limits are validated.
+- ClickHouse credentials remain in the server process.
+- SQL text stays hidden by default.
+- Tenant identity comes from trusted host configuration, never the prompt.
 
-## Available Tools
+For tenant-scoped datasets, run the server programmatically with the trusted tenant ID:
 
-### `list_datasets`
-
-Lists all available datasets with their descriptions.
-
-**Example:**
-```typescript
-{
-  "name": "list_datasets"
-}
-```
-
-**Response:**
-```json
-{
-  "datasets": [
-    {
-      "name": "orders",
-      "description": "Customer orders and revenue data",
-      "dimensionCount": 5,
-      "measureCount": 4,
-      "metricCount": 4
-    }
-  ],
-  "total": 1
-}
-```
-
-### `get_dataset_schema`
-
-Gets the complete schema for a dataset.
-
-**Example:**
-```typescript
-{
-  "name": "get_dataset_schema",
-  "arguments": {
-    "dataset": "orders"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "name": "orders",
-  "dimensions": {
-    "region": { "type": "string", "label": "Region" },
-    "status": { "type": "string", "label": "Order Status" }
-  },
-  "measures": {
-    "revenue": { "aggregation": "sum", "field": "amount", "label": "Revenue" },
-    "orderCount": { "aggregation": "count", "field": "id", "label": "Order Count" }
-  },
-  "metrics": {
-    "totalRevenue": { "type": "metric", "aggregation": "revenue", "label": "Total Revenue" }
-  }
-}
-```
-
-### `query_metric`
-
-Executes a pre-defined metric query.
-
-**Example:**
-```typescript
-{
-  "name": "query_metric",
-  "arguments": {
-    "dataset": "orders",
-    "metric": "revenue",
-    "dimensions": ["region"],
-    "filters": [
-      { "field": "status", "operator": "eq", "value": "completed" }
-    ],
-    "grain": "month",
-    "orderBy": [
-      { "field": "revenue", "direction": "desc" }
-    ],
-    "limit": 10
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "data": [
-    { "region": "US", "month": "2024-01", "revenue": 125000 },
-    { "region": "EU", "month": "2024-01", "revenue": 98000 }
-  ],
-  "meta": {
-    "sql": "SELECT...",
-    "timingMs": 45,
-    "rowCount": 2
-  }
-}
-```
-
-### `query_dataset`
-
-Executes an ad-hoc dataset query with custom dimensions and measures.
-
-**Example:**
-```typescript
-{
-  "name": "query_dataset",
-  "arguments": {
-    "dataset": "orders",
-    "dimensions": ["region", "status"],
-    "measures": ["revenue", "orderCount"],
-    "limit": 100
-  }
-}
-```
-
-## Programmatic Usage
-
-You can also use the MCP server programmatically in your application:
-
-```typescript
-import { createMCPServer } from '@hypequery/mcp';
-import { createDatasetClient } from '@hypequery/datasets';
-import { datasets } from './datasets/index.js';
-
-const analytics = createDatasetClient({
-  url: process.env.CLICKHOUSE_URL,
-  username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE,
-});
-
-const server = await createMCPServer({
+```ts
+await createMCPServer({
   datasets,
   analytics,
-  name: 'my-analytics-mcp',
+  name: 'acme-analytics',
   version: '1.0.0',
-});
-
-// Server is now running via stdio transport
-```
-
-## Filter Operators
-
-- `eq`: Equal to
-- `neq`: Not equal to
-- `gt`: Greater than
-- `gte`: Greater than or equal to
-- `lt`: Less than
-- `lte`: Less than or equal to
-- `in`: In list
-- `notIn`: Not in list
-- `between`: Between two values
-- `like`: Pattern match (SQL LIKE)
-
-## Time Grains
-
-- `day`: Daily aggregation
-- `week`: Weekly aggregation
-- `month`: Monthly aggregation
-- `quarter`: Quarterly aggregation
-- `year`: Yearly aggregation
-
-## Prompts
-
-The MCP server also exposes a `dataset_guide` prompt that provides natural language guidance for querying datasets.
-
-## Environment Variables
-
-Your config file can use environment variables for database credentials:
-
-```typescript
-const analytics = createDatasetClient({
-  url: process.env.CLICKHOUSE_URL || 'http://localhost:8123',
-  username: process.env.CLICKHOUSE_USER || 'default',
-  password: process.env.CLICKHOUSE_PASSWORD,
-  database: process.env.CLICKHOUSE_DATABASE || 'default',
+  tenantId: session.accountId,
 });
 ```
 
-## Troubleshooting
+## Learn more
 
-### MCP server not connecting
-
-1. Check that the config file path is absolute, not relative
-2. Ensure the config file exports both `datasets` and `analytics`
-3. Check Claude Desktop logs for errors
-
-### Queries failing
-
-1. Verify your ClickHouse connection is working
-2. Check that dataset definitions match your database schema
-3. For trusted local debugging, start the programmatic server with `includeSql: true` and inspect `meta.sql` in responses
-
-## Related Packages
-
-- `@hypequery/datasets` - Semantic layer DSL
-- `@hypequery/clickhouse` - ClickHouse query builder
-- `@hypequery/serve` - HTTP server for analytics endpoints
+- [ClickHouse MCP overview](https://hypequery.com/clickhouse-mcp)
+- [MCP configuration](https://hypequery.com/docs/mcp/configuration)
+- [MCP tools](https://hypequery.com/docs/mcp/tools)
+- [MCP safety](https://hypequery.com/docs/mcp/safety)
+- [Current capabilities](https://hypequery.com/docs/capabilities)
 
 ## License
 
-Apache-2.0
+Apache-2.0.

@@ -1,50 +1,34 @@
-# hypequery Type Generator
+# ClickHouse TypeScript schema generator
 
-`hypequery-generate-types` introspects your ClickHouse schema and writes a TypeScript interface you can use with `createQueryBuilder()`.
+`hypequery-generate-types` reads a live ClickHouse schema and writes the `IntrospectedSchema` TypeScript interface used by `@hypequery/clickhouse`. Generated types keep table names, column names, nullable values, arrays, dates, and large integers aligned with what ClickHouse returns over HTTP.
 
-Most users should prefer:
+Most projects should use the friendlier main CLI:
 
 ```bash
+npm install -D @hypequery/cli
 npx hypequery generate
 ```
 
-This file documents the lower-level binary that ships with `@hypequery/clickhouse`.
+Use the lower-level binary when you only installed `@hypequery/clickhouse` or want direct control over the output path.
 
-## Install
+## Run it
 
 ```bash
 npm install @hypequery/clickhouse
+npx hypequery-generate-types ./analytics/schema.ts
 ```
 
-## Usage
+With no path, the command writes `generated-schema.ts` in the current directory.
 
-```bash
-npx hypequery-generate-types
-```
+## Connection settings
 
-By default it:
-
-- reads ClickHouse connection details from environment variables
-- introspects tables in the target database
-- writes `generated-schema.ts` in the current working directory
-
-Custom output path:
-
-```bash
-npx hypequery-generate-types ./src/types/db-schema.ts
-```
-
-## Environment Variables
-
-| Variable | Description |
+| Variable | Purpose |
 | --- | --- |
-| `CLICKHOUSE_URL` | Preferred ClickHouse URL |
+| `CLICKHOUSE_URL` | ClickHouse HTTP URL |
 | `CLICKHOUSE_HOST` | Deprecated alias for `CLICKHOUSE_URL` |
-| `CLICKHOUSE_USER` | ClickHouse username |
-| `CLICKHOUSE_PASSWORD` | ClickHouse password |
-| `CLICKHOUSE_DATABASE` | ClickHouse database |
-
-Example:
+| `CLICKHOUSE_USER` | Username |
+| `CLICKHOUSE_PASSWORD` | Password |
+| `CLICKHOUSE_DATABASE` | Database to introspect |
 
 ```bash
 CLICKHOUSE_URL=http://localhost:8123 \
@@ -54,7 +38,7 @@ CLICKHOUSE_DATABASE=analytics \
 npx hypequery-generate-types ./analytics/schema.ts
 ```
 
-## Using The Generated Types
+## Use the result
 
 ```ts
 import { createQueryBuilder } from '@hypequery/clickhouse';
@@ -68,10 +52,13 @@ const db = createQueryBuilder<IntrospectedSchema>({
 });
 ```
 
-## Docs
+Regenerate after schema changes so TypeScript catches application queries that need updating.
+
+## Documentation
 
 - [Quick start](https://hypequery.com/docs/quick-start)
-- [CLI reference](https://hypequery.com/docs/reference/api/cli)
+- [Connection reference](https://hypequery.com/docs/reference/connection)
+- [Query builder](https://hypequery.com/clickhouse-query-builder)
 
 ## License
 

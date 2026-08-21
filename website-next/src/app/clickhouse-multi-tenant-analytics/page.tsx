@@ -27,13 +27,17 @@ export const metadata: Metadata = {
 
 const tenantCode = `const { query, serve } = initServe({
   auth: authStrategy,
+  context: () => ({ db }),
+});
+
+const api = serve({
   tenant: {
     extract: (auth) => auth.tenantId,
     column: 'organization_id',
     mode: 'auto-inject',
     required: true,
   },
-  context: () => ({ db }),
+  queries: { accountRevenue },
 });`;
 
 const queryCode = `const accountRevenue = query({

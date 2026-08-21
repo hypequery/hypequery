@@ -1,60 +1,28 @@
-# hypequery — Manual Testing Specs
+# Manual product test journeys
 
-End-to-end, hand-to-a-model test plans for each published package. Every spec is
-self-contained, runs against a **real ClickHouse instance**, and leaves behind an
-**inspectable app** (source files, SQL dumps, OpenAPI/manifest descriptors, tool
-responses, or a running web UI) you can open and read afterward.
+These end-to-end specs test each published package against a real ClickHouse database and leave behind artifacts a reviewer can inspect: generated projects, SQL, OpenAPI, route manifests, MCP responses, or a running React UI.
 
-## Specs
+| Journey | Proves |
+| --- | --- |
+| [CLI](./cli-testing-spec.md) | Init, schema generation, and local development |
+| [Datasets](./datasets-testing-spec.md) | Semantic SQL and results against raw ClickHouse ground truth |
+| [Serve](./serve-testing-spec.md) | Queries, metrics, datasets, auth, CORS, limits, and observability |
+| [MCP](./mcp-testing-spec.md) | Agent discovery and governed analytics tools over stdio |
+| [React](./react-testing-spec.md) | Typed hooks rendering live Serve data |
+| [Type safety](./semantic-type-safety-manifest-testing.md) | Semantic inference and static route manifests |
 
-| Spec | Package | Builds |
-| --- | --- | --- |
-| [`cli-testing-spec.md`](./cli-testing-spec.md) | `@hypequery/cli` | scaffolded `analytics/` projects via `init`/`generate`/`dev` |
-| [`datasets-testing-spec.md`](./datasets-testing-spec.md) | `@hypequery/datasets` | `hq-datasets-test/` — canonical `Orders` dataset, `sql/` dump, vitest suite |
-| [`serve-testing-spec.md`](./serve-testing-spec.md) | `@hypequery/serve` | `hq-serve-test/` (+ optional Next.js) — runtime with queries/metrics/datasets, auth, CORS, rate limiting, observability |
-| [`mcp-testing-spec.md`](./mcp-testing-spec.md) | `@hypequery/mcp` | `hq-mcp-test/` — MCP config + registry + stdio driver writing tool responses to `out/` |
-| [`react-testing-spec.md`](./react-testing-spec.md) | `@hypequery/react` | `hq-react-test/` (Vite+React, + optional Next.js) — live-rendering hooks |
-| [`semantic-type-safety-manifest-testing.md`](./semantic-type-safety-manifest-testing.md) | PR #245 | focused checklist for semantic type inference, static manifests, and Turbo type-test invalidation |
+## Database setup
 
-## Real ClickHouse — no seeding
+Set `CLICKHOUSE_URL`, `CLICKHOUSE_DATABASE`, `CLICKHOUSE_USERNAME`, and `CLICKHOUSE_PASSWORD` for an existing populated database. The journeys inspect the schema, choose suitable fields, and compare semantic results with raw SQL over the same data.
 
-All specs run against **your own, already-populated ClickHouse**. There is **no seed**;
-the tests only **read**. Set `CLICKHOUSE_URL` / `CLICKHOUSE_DATABASE` /
-`CLICKHOUSE_USERNAME` / `CLICKHOUSE_PASSWORD` to point at the database you want exercised.
+Tests are read-only except the optional CLI schema-refresh journey, which creates and drops a clearly named temporary table and requires DDL privileges.
 
-The model **introspects your schema and picks suitable tables/columns** (see
-`datasets-testing-spec.md` §0.4), then:
-- builds dimensions/measures over a chosen fact-like table `T` (numeric `Nᵢ`, low-cardinality `C`, timestamp `TS`, a column `K` used as tenant key);
-- verifies dataset/metric output against **ground truth computed from raw ClickHouse SQL** over the same table — so assertions hold on whatever real data you point at, with no magic numbers.
+## Recommended order
 
-The serve, MCP, and React specs reuse that same `Target` dataset, so define it once
-(datasets spec §0.6) and import/rebuild it in the others.
+1. CLI creates the working analytics project.
+2. Datasets defines the shared test model and verifies SQL.
+3. Serve publishes the model and writes OpenAPI and route manifests.
+4. MCP queries the same model through tools.
+5. React consumes the running Serve API.
 
-> The **only** scenario that writes to ClickHouse is the CLI schema-refresh journey
-> (`cli-testing-spec.md` J2), which creates and drops a clearly-named throwaway table and
-> requires DDL privileges. Skip it if you can't create tables.
-
-## Recommended run order
-
-1. **CLI** — verifies scaffolding/codegen/dev server against your real schema.
-2. **Datasets** — introspects your schema, builds the `Target` dataset, verifies the semantic layer + SQL generation vs raw-SQL ground truth. Establishes the dataset definition reused downstream.
-3. **Serve** — exposes that dataset's metrics over HTTP; emits `out/manifest.json` and `out/openapi.json`.
-4. **MCP** — exposes the same datasets to agents over stdio.
-5. **React** — consumes the running serve API (needs the serve app from step 3 alive, and its `manifest.json`).
-
-## What each spec produces (inspect these)
-
-- **datasets:** `hq-datasets-test/sql/*.sql` (generated SQL), passing `vitest` run.
-- **serve:** `hq-serve-test/out/{openapi,describe,manifest,client-config}.json`, plus a live API at `:4000` you curl and view at `/docs`.
-- **mcp:** `hq-mcp-test/out/*.json` (every tool response + the `dataset_guide` prompt).
-- **react:** a running Vite app rendering live data + a screenshot; `tsc --noEmit` green.
-
-## Docs-accuracy findings
-
-Each spec ends with an **Appendix A** listing discrepancies found between the docs and
-actual behavior. Several first-pass findings have already been fixed in code/docs (the
-`--version` hardcode, the non-existent `npx hypequery serve` reference in
-`http-openapi.mdx`, and the CLI `generate:datasets` message's broken `createBackend`
-import) and are marked **FIXED** in the appendices. Remaining items are behaviors to
-confirm during a live run — treat any new mismatch as a doc/code bug to file, separate
-from test pass/fail.
+Treat every documentation mismatch found during a journey as a product bug. Record new findings in the journey appendix and fix the source documentation or behavior separately from the test result.

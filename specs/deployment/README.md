@@ -1,26 +1,15 @@
-# Hypequery deployment transport
+# Deployment transport specifications
 
-This directory defines authenticated transport and control-plane handoff
-contracts that consume immutable artifacts from the security protocol.
+These documents define how immutable Hypequery releases move through authenticated intake, activation, runtime startup, and named-query hosting.
 
-Unlike `specs/security-protocol`, these specifications may describe HTTP,
-authentication, authorization, idempotent persistence, and service responses.
-They must not weaken or replace the validation, identity, or closed-content
-requirements of the referenced immutable artifacts.
+They build on the identities and closed artifacts in [`specs/security-protocol`](../security-protocol/README.md). Transport, authentication, authorization, persistence, and HTTP behavior may be defined here, but they must never weaken artifact validation.
 
-Current specifications:
-
-- `0001-authenticated-deployment-submission.md` defines streaming authenticated
-  release intake;
-- `0002-target-activation.md` defines immutable target activation and
-  compare-and-swap behavior;
-- `0003-control-plane-http.md` binds submission and activation to provider-neutral
-  HTTP routes and adapters.
-- `0004-runtime-materialization.md` converts a confirmed current activation into
-  an immutable, fully revalidated runtime snapshot.
-- `0005-runtime-supervision.md` defines readiness-gated runtime startup, atomic
-  generation switching, invocation, draining, and the reference Node worker.
-- `0006-data-plane-execution.md` defines named-query route matching, policy,
-  schema application, implementation dispatch, and output validation.
-- `0007-data-plane-hosting.md` defines generation-pinned host assembly,
-  activation reconciliation, HTTP adaptation, and graceful shutdown.
+| Spec | Contract |
+| --- | --- |
+| [0001](./0001-authenticated-deployment-submission.md) | Streaming authenticated submission |
+| [0002](./0002-target-activation.md) | Immutable target activation and compare-and-swap |
+| [0003](./0003-control-plane-http.md) | Provider-neutral control-plane HTTP routes |
+| [0004](./0004-runtime-materialization.md) | Revalidated immutable runtime snapshots |
+| [0005](./0005-runtime-supervision.md) | Readiness, generation switching, invocation, and draining |
+| [0006](./0006-data-plane-execution.md) | Route policy, schemas, dispatch, and output validation |
+| [0007](./0007-data-plane-hosting.md) | Generation-pinned host assembly and shutdown |

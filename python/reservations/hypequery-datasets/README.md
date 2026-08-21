@@ -1,14 +1,11 @@
 # hypequery-datasets
 
-**Status: name reservation. This release contains no working code.**
+> Name reservation only. This release contains no Python code.
 
-This name is held by the Hypequery project to prevent confusion with the real
-distribution. The Python SDK ships as a single distribution:
+The Python semantic layer will ship as `hypequery.datasets` in the main SDK:
 
-```sh
+```bash
 pip install hypequery
 ```
-
-Datasets will be available as `hypequery.datasets`.
 
 Project: <https://github.com/hypequery/hypequery>
