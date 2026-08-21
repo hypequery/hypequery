@@ -18,8 +18,8 @@ type DatasetNamesFromApi<Api> =
     : never;
 
 type QueryKey<Name extends string, Input> = Input extends never
-  ? ['hypequery', Name]
-  : ['hypequery', Name, Input];
+  ? ['hypequery', string, Name]
+  : ['hypequery', string, Name, Input];
 
 type QueryOptions<Api, Key extends ExtractNames<Api>> = Omit<
   TanstackUseQueryOptions<

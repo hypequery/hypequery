@@ -1,4 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { createHypequeryClient } from './client.js';
@@ -42,5 +43,41 @@ describe('HypequeryProvider', () => {
         headers: expect.objectContaining({ authorization: 'Bearer browser-token' }),
       }),
     );
+  });
+
+  it('isolates cached responses when the provider client changes', async () => {
+    const firstFetch = vi.fn().mockResolvedValue(success({ message: 'First user' }));
+    const secondFetch = vi.fn().mockResolvedValue(success({ message: 'Second user' }));
+    const createClient = (fetchFn: typeof firstFetch) => createHypequeryClient<TestApi>({
+      baseUrl: 'https://acme.hypequery.cloud/v1/analytics/production',
+      fetchFn: fetchFn as unknown as typeof fetch,
+      manifest: { greeting: { method: 'GET', path: 'queries/greeting' } },
+    });
+    const firstClient = createClient(firstFetch);
+    const secondClient = createClient(secondFetch);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { useQuery } = createHooks<TestApi>();
+    let activeClient = firstClient;
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <HypequeryProvider client={activeClient} queryClient={queryClient}>
+        {children}
+      </HypequeryProvider>
+    );
+
+    const view = renderHook(
+      () => useQuery('greeting', { name: 'Luke' }),
+      { wrapper },
+    );
+    await waitFor(() => expect(view.result.current.data).toEqual({ message: 'First user' }));
+
+    activeClient = secondClient;
+    view.rerender();
+    await waitFor(() => expect(view.result.current.data).toEqual({ message: 'Second user' }));
+
+    expect(firstClient.cacheKey).not.toBe(secondClient.cacheKey);
+    expect(firstFetch).toHaveBeenCalledTimes(1);
+    expect(secondFetch).toHaveBeenCalledTimes(1);
   });
 });

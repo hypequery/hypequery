@@ -20,6 +20,11 @@ export type TokenInput = string | (() => string | undefined | Promise<string | u
 
 export interface HypequeryClientConfig<Api extends ApiContract = ApiContract> {
   baseUrl: string;
+  /**
+   * Stable cache scope for this deployment and authentication context. Omit it
+   * to create an isolated scope for this client instance.
+   */
+  cacheKey?: string;
   fetchFn?: typeof fetch;
   headers?: HeadersInput;
   /** A bearer token or per-request token resolver. Never put a server API key in browser code. */
@@ -100,8 +105,11 @@ const resolveToken = async (token?: TokenInput) =>
 
 export interface HypequeryClient<Api extends ApiContract = ApiContract> {
   readonly config: Readonly<HypequeryClientConfig<Api>>;
+  readonly cacheKey: string;
   request(name: string, input?: unknown, defaultMethod?: string, extraHeaders?: Record<string, string>): Promise<unknown>;
 }
+
+let clientSequence = 0;
 
 export function createHypequeryClient<Api extends ApiContract = ApiContract>(
   config: HypequeryClientConfig<Api>,
@@ -116,6 +124,7 @@ export function createHypequeryClient<Api extends ApiContract = ApiContract>(
     onUnauthorized,
     api,
   } = config;
+  const cacheKey = config.cacheKey ?? `client:${++clientSequence}`;
   const finalConfig = {
     ...deriveMethodConfig(api),
     ...(manifest ? normalizeMethodConfig(manifest) : {}),
@@ -187,5 +196,9 @@ export function createHypequeryClient<Api extends ApiContract = ApiContract>(
     return response.json();
   };
 
-  return Object.freeze({ config: Object.freeze({ ...config }), request });
+  return Object.freeze({
+    cacheKey,
+    config: Object.freeze({ ...config }),
+    request,
+  });
 }

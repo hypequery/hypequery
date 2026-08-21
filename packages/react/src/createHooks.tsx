@@ -64,8 +64,8 @@ export function createHooks<Api extends ApiContract>(
   }
 
   type QueryKey<Name extends ExtractNames<Api>> = QueryInput<Api, Name> extends never
-    ? ['hypequery', Name]
-    : ['hypequery', Name, QueryInput<Api, Name>];
+    ? ['hypequery', string, Name]
+    : ['hypequery', string, Name, QueryInput<Api, Name>];
 
   type QueryOptions<Name extends ExtractNames<Api>> = Omit<
     TanstackUseQueryOptions<QueryOutput<Api, Name>, HttpError, QueryOutput<Api, Name>, QueryKey<Name>>,
@@ -102,9 +102,9 @@ export function createHooks<Api extends ApiContract>(
 
     const queryKey = ((): QueryKey<Name> => {
       if (input === undefined) {
-        return ['hypequery', name] as QueryKey<Name>;
+        return ['hypequery', client.cacheKey, name] as QueryKey<Name>;
       }
-      return ['hypequery', name, input] as QueryKey<Name>;
+      return ['hypequery', client.cacheKey, name, input] as QueryKey<Name>;
     })();
 
     return useTanstackQuery({
@@ -154,7 +154,7 @@ export function createHooks<Api extends ApiContract>(
   ): UseInfiniteQueryResult<InfiniteData<QueryOutput<Api, Name>, number>, HttpError> {
     const client = useResolvedClient();
     const initialOffset = (input as { offset?: number } | undefined)?.offset ?? 0;
-    const queryKey = ['hypequery', name, input] as QueryKey<Name>;
+    const queryKey = ['hypequery', client.cacheKey, name, input] as QueryKey<Name>;
 
     return useTanstackInfiniteQuery({
       queryKey,

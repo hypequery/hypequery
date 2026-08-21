@@ -63,6 +63,11 @@ export function Providers({ children }: { children: ReactNode }) {
 Applications that already own a TanStack Query client can pass it through the
 `queryClient` prop so Hypequery shares the existing cache.
 
+Each client instance receives an isolated cache scope. Create a new client when
+the deployment, tenant, or authenticated user changes. A deterministic
+`cacheKey` may be supplied when the same security context must retain cache data
+across equivalent client instances.
+
 ## Create Dataset And Metric Hooks
 
 `createAnalyticsHooks` adds convenience wrappers for semantic endpoint names. Metrics use their endpoint name directly. Dataset endpoints are addressed as `dataset:<name>` in the API type and exposed through `useDataset(name, ...)`.
