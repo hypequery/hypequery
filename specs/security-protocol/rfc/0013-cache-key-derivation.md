@@ -1,9 +1,14 @@
 # RFC 0013: Cache key derivation
 
-- Status: Proposed
+- Status: Accepted
 - Created: 2026-07-31
+- Accepted: 2026-08-21
 - Version: cache key 1
 - Owners: Hypequery maintainers
+
+Acceptance freezes cache key version 1. Changing the namespace grammar,
+validation order, domain strings, input ordering, MAC algorithm, truncation
+lengths, or store-key format now requires a new cache-key version or scheme.
 
 ## Summary
 
@@ -90,6 +95,22 @@ An implementation MUST reject a preimage larger than 1,048,576 bytes with
 - In hosted operation the runtime holds the secret. The authoring SDK does not
   need it and SHOULD NOT be given it.
 
+## Validation order
+
+Checks MUST be applied in this order, and the first failure determines the
+reported code:
+
+1. `HQ_CACHE_KEY_SECRET_MISSING` — the secret is absent or empty.
+2. `HQ_CACHE_KEY_SECRET_TOO_SHORT` — the secret is shorter than 32 bytes.
+3. `HQ_CACHE_KEY_INVALID_NAMESPACE` — the namespace is not an RFC 0008
+   deployment target.
+4. `HQ_CACHE_KEY_INVALID_VERSION` — `keyVersion` is outside its integer range.
+5. `HQ_CACHE_KEY_PREIMAGE_TOO_LARGE` — the preimage exceeds 1,048,576 bytes.
+
+The order is normative because a request may violate multiple constraints.
+Implementations MUST reject an oversized string preimage from a safe length
+bound before allocating its UTF-8 encoding.
+
 ## Derivation
 
 Two domain-separated derivations use the same secret. Domain separation
@@ -100,12 +121,14 @@ NAMESPACE_DOMAIN = "hypequery.cache.namespace.v1"
 ENTRY_DOMAIN     = "hypequery.cache.entry.v1"
 ```
 
-Inputs are joined with a single `0x00` byte. RFC 0002 restricts project and
-environment identifiers to `[A-Za-z0-9_]`, so no input can contain `0x00` and
-the concatenation is unambiguous. An implementation MUST validate both
-identifiers under RFC 0002 before deriving, and MUST fail with
-`HQ_CACHE_KEY_INVALID_NAMESPACE` otherwise. Skipping that validation would
-reintroduce the ambiguity the separator is there to prevent.
+Inputs are joined with a single `0x00` byte. The namespace is exactly the RFC
+0008 deployment target: each token begins with an ASCII letter or digit and may
+then contain ASCII letters, digits, `.`, `_`, `:`, or `-`. That grammar excludes
+`0x00`, so the concatenation is unambiguous while accepting deployed target
+names such as `project-1`. An implementation MUST validate the namespace under
+RFC 0008 before deriving and MUST fail with `HQ_CACHE_KEY_INVALID_NAMESPACE`
+otherwise. Skipping validation would reintroduce the ambiguity the separator
+is there to prevent.
 
 ### Namespace token
 
@@ -226,9 +249,9 @@ Errors MUST NOT include the secret, the preimage, or any part of either.
 
 ## Compatibility
 
-Changing a domain string, the MAC algorithm, the truncation lengths, the key
-format, or the input ordering requires a new cache-key version and a new
-scheme literal. Package SemVer does not select this version.
+Changing the namespace grammar, validation order, a domain string, the MAC
+algorithm, truncation lengths, key format, or input ordering requires a new
+cache-key version or scheme. Package SemVer does not select this version.
 
 ## References
 
@@ -236,5 +259,5 @@ scheme literal. Package SemVer does not select this version.
 - [RFC 4648: Base-N Encodings](https://www.rfc-editor.org/rfc/rfc4648)
 - [RFC 8785: JSON Canonicalization Scheme](https://www.rfc-editor.org/rfc/rfc8785)
 - RFC 0001: Tagged ClickHouse value model
-- RFC 0002: Portable logical identifiers
+- RFC 0008: Deployment release envelope
 - RFC 0011: Query events and diagnostics

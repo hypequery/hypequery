@@ -108,15 +108,27 @@
     "key": "hq1.2147483647.QZmJzTyhPUpRooLespx4XQ.uDrSq4MwQ-yttsrzdpCHbiGutMxHn2LM8sf2T0boN3k"
   },
   {
-    "id": "underscore-identifiers",
+    "id": "deployment-target-punctuation",
     "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
     "namespace": {
-      "project": "_internal",
-      "environment": "env_1"
+      "project": "project-1",
+      "environment": "preview.eu:1"
     },
     "keyVersion": 1,
     "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
-    "namespaceToken": "bKhwvqePL7o6XhetwgKpVg",
-    "key": "hq1.1.bKhwvqePL7o6XhetwgKpVg.W6XWDPj8eR9-Xc4b8zEOMm7HcTqAoH9fJ7Xsj5Oryl0"
+    "namespaceToken": "5K9R0USPhZZ80IwqwSQTpA",
+    "key": "hq1.1.5K9R0USPhZZ80IwqwSQTpA.IoVojW5ZVqSAIc1xOKExteLniKobmndoGRIQ1SulVu4"
+  },
+  {
+    "id": "deployment-target-leading-digit",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "1acme",
+      "environment": "production"
+    },
+    "keyVersion": 1,
+    "preimageUtf8": "{\"kind\":\"dataset\",\"target\":\"orders\",\"v\":1}",
+    "namespaceToken": "nCVELIgkASbf5L3bU9HY1Q",
+    "key": "hq1.1.nCVELIgkASbf5L3bU9HY1Q.0QiWBc1mnpiVmKm8nvYnTXoppJ7SEHtJNQgW-70eDMo"
   }
 ]

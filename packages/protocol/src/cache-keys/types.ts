@@ -16,7 +16,7 @@ export type ProtocolCacheKeyErrorCode =
   | 'HQ_CACHE_KEY_INVALID_VERSION'
   | 'HQ_CACHE_KEY_PREIMAGE_TOO_LARGE';
 
-/** The `(project, environment)` pair a cache entry belongs to. */
+/** The RFC 0008 deployment target a cache entry belongs to. */
 export interface ProtocolCacheKeyNamespace {
   readonly project: string;
   readonly environment: string;

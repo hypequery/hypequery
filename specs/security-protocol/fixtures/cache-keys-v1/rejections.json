@@ -33,10 +33,10 @@
     "error": "HQ_CACHE_KEY_INVALID_NAMESPACE"
   },
   {
-    "id": "project-leading-digit",
+    "id": "project-leading-underscore",
     "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
     "namespace": {
-      "project": "1acme",
+      "project": "_acme",
       "environment": "production"
     },
     "keyVersion": 1,
@@ -44,7 +44,7 @@
     "error": "HQ_CACHE_KEY_INVALID_NAMESPACE"
   },
   {
-    "id": "environment-reserved-prefix",
+    "id": "environment-leading-underscore",
     "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
     "namespace": {
       "project": "acme",
@@ -123,5 +123,50 @@
       "count": 1048577
     },
     "error": "HQ_CACHE_KEY_PREIMAGE_TOO_LARGE"
+  },
+  {
+    "id": "precedence-secret-before-namespace",
+    "secretHex": "",
+    "namespace": {
+      "project": "has space",
+      "environment": ""
+    },
+    "keyVersion": 0,
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "a",
+      "count": 1048577
+    },
+    "error": "HQ_CACHE_KEY_SECRET_MISSING"
+  },
+  {
+    "id": "precedence-namespace-before-version",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "has space",
+      "environment": "production"
+    },
+    "keyVersion": 0,
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "a",
+      "count": 1048577
+    },
+    "error": "HQ_CACHE_KEY_INVALID_NAMESPACE"
+  },
+  {
+    "id": "precedence-version-before-preimage",
+    "secretHex": "1111111111111111111111111111111111111111111111111111111111111111",
+    "namespace": {
+      "project": "acme",
+      "environment": "production"
+    },
+    "keyVersion": 0,
+    "generator": {
+      "type": "repeat-string",
+      "utf8": "a",
+      "count": 1048577
+    },
+    "error": "HQ_CACHE_KEY_INVALID_VERSION"
   }
 ]

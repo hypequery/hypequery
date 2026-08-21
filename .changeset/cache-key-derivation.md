@@ -35,6 +35,8 @@ passed on `ok: true` alone, whatever they returned. Cache-key output is now
 compared, and a regression test asserts that a mismatched key, a mismatched
 namespace token, and empty output each fail.
 
-RFC 0013 is `Proposed`, not accepted. It needs review before PYC-04 implements
-it in Python, on the same reasoning as TSP-01: implementing a draft in a second
-language freezes it accidentally.
+RFC 0013 is accepted, freezing cache key version 1 before PYC-04 implements it
+in Python. Cache namespaces use the RFC 0008 deployment-target grammar, so
+existing targets such as `project-1` do not need a second identifier mapping.
+The error precedence is also frozen as secret, namespace, version, then
+preimage, with overlap fixtures pinning the first failure.

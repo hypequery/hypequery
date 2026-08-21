@@ -1,7 +1,7 @@
 # Cache key version 1 fixtures
 
-These draft language-neutral fixtures accompany RFC 0013. They become
-normative when the RFC is accepted.
+These language-neutral fixtures accompany accepted RFC 0013 and are normative
+for cache key version 1.
 
 ## Success manifest
 
@@ -26,6 +26,8 @@ stable `error` code. An entry may replace `preimageUtf8` with a `generator`:
 - `repeat-string`: concatenates `count` copies of the UTF-8 string `utf8`.
 
 `secretHex` is an empty string for the missing-secret case.
+The `precedence-*` cases deliberately violate several constraints at once and
+pin the RFC's required first failure.
 
 ## How these expectations were produced
 
@@ -47,6 +49,8 @@ properties the scheme exists for:
   rotation a flush rather than a silent reuse;
 - `secret-separates-key` — a different secret yields a different key even for
   an identical namespace and preimage;
+- `deployment-target-punctuation` and `deployment-target-leading-digit` — the
+  namespace accepts the RFC 0008 target grammar used by deployment releases;
 - `sensitive-preimage-not-recoverable` — a preimage containing an email
   address and a tenant identifier produces a key containing neither.
 

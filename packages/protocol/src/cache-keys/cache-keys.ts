@@ -1,6 +1,6 @@
 import { hmac } from '@noble/hashes/hmac';
 import { sha256 } from '@noble/hashes/sha2';
-import { parseProtocolIdentifier } from '../identifiers/identifiers.js';
+import { validateProtocolDeploymentReleaseTarget } from '../releases/validate.js';
 import {
   PROTOCOL_CACHE_KEY_LIMITS,
   type DeriveProtocolCacheKeyOptions,
@@ -49,8 +49,8 @@ function base64url(bytes: Uint8Array): string {
 }
 
 /**
- * Joins parts with a single 0x00 byte. RFC 0002 restricts identifiers to
- * `[A-Za-z0-9_]`, so no part can contain 0x00 and the concatenation is
+ * Joins parts with a single 0x00 byte. RFC 0008 restricts deployment target
+ * tokens to an ASCII grammar that excludes 0x00, so the concatenation is
  * injective — which is why the namespace must be validated before this runs.
  */
 function joinNulSeparated(parts: readonly Uint8Array[]): Uint8Array {
@@ -76,12 +76,19 @@ function requireSecret(secret: Uint8Array | undefined): Uint8Array {
   return secret;
 }
 
-function requireNamespacePart(value: unknown): Uint8Array {
+function requireNamespace(namespace: unknown): {
+  readonly project: Uint8Array;
+  readonly environment: Uint8Array;
+} {
   try {
-    return textEncoder.encode(parseProtocolIdentifier(value));
+    const target = validateProtocolDeploymentReleaseTarget(namespace);
+    return {
+      project: textEncoder.encode(target.project),
+      environment: textEncoder.encode(target.environment),
+    };
   } catch {
-    // Deliberately does not forward the identifier error: a namespace is not
-    // secret, but a single code keeps callers from branching on internals.
+    // Deliberately does not forward release-target validation details: a
+    // single code keeps callers from branching on namespace internals.
     cacheKeyError('HQ_CACHE_KEY_INVALID_NAMESPACE');
   }
 }
@@ -99,6 +106,12 @@ function requireKeyVersion(keyVersion: unknown): number {
 }
 
 function requirePreimage(preimage: Uint8Array | string): Uint8Array {
+  if (
+    typeof preimage === 'string'
+    && preimage.length > PROTOCOL_CACHE_KEY_LIMITS.maxPreimageBytes
+  ) {
+    cacheKeyError('HQ_CACHE_KEY_PREIMAGE_TOO_LARGE');
+  }
   const bytes = typeof preimage === 'string' ? textEncoder.encode(preimage) : preimage;
   if (bytes.byteLength > PROTOCOL_CACHE_KEY_LIMITS.maxPreimageBytes) {
     cacheKeyError('HQ_CACHE_KEY_PREIMAGE_TOO_LARGE');
@@ -116,10 +129,11 @@ export function deriveProtocolCacheNamespaceToken(
   environment: string,
 ): string {
   const key = requireSecret(secret);
+  const namespace = requireNamespace({ project, environment });
   const input = joinNulSeparated([
     textEncoder.encode(NAMESPACE_DOMAIN),
-    requireNamespacePart(project),
-    requireNamespacePart(environment),
+    namespace.project,
+    namespace.environment,
   ]);
   const mac = hmac(sha256, key, input);
   return base64url(mac.slice(0, PROTOCOL_CACHE_KEY_LIMITS.namespaceTokenBytes));
@@ -134,8 +148,7 @@ export function deriveProtocolCacheNamespaceToken(
  */
 export function deriveProtocolCacheKey(options: DeriveProtocolCacheKeyOptions): string {
   const secret = requireSecret(options.secret);
-  const project = requireNamespacePart(options.namespace?.project);
-  const environment = requireNamespacePart(options.namespace?.environment);
+  const { project, environment } = requireNamespace(options.namespace);
   const keyVersion = requireKeyVersion(options.keyVersion);
   const preimage = requirePreimage(options.preimage);
 
