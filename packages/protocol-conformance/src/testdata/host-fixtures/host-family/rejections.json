@@ -1,0 +1,7 @@
+[
+  {
+    "id": "unsafe-accessor",
+    "generator": { "type": "unsafe-accessor" },
+    "error": "HQ_HOST_UNSAFE_OBJECT"
+  }
+]

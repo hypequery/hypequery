@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { formatPrettyReport } from './report.js';
 import { runConformance } from './runner.js';
 
 const miniFixtures = fileURLToPath(new URL('./testdata/mini-fixtures/', import.meta.url));
+const hostFixtures = fileURLToPath(new URL('./testdata/host-fixtures/', import.meta.url));
 const adapter = (name: string): string[] => [
   'node',
   fileURLToPath(new URL(`./testdata/${name}`, import.meta.url)),
@@ -24,15 +24,11 @@ describe('runConformance', () => {
       .toEqual({ count: 2, mechanisms: ['getter', 'toJSON'] });
   });
 
-  it('ignores malformed hostile-object metadata from an adapter', async () => {
-    const summary = await runConformance({
+  it('rejects malformed hostile-object metadata from an adapter', async () => {
+    await expect(runConformance({
       fixturesDir: miniFixtures,
       adapterCommand: adapter('malformed-suite-adapter.mjs'),
-    });
-
-    expect(summary.adapter?.hostileObjectSuite).toBeUndefined();
-    expect(formatPrettyReport(summary))
-      .toContain('hostile-object suite: none declared (required by RFC 0012)');
+    })).rejects.toThrow('mechanisms must be unique non-empty strings');
   });
 
   it('reports cases whose family the adapter does not announce', async () => {
@@ -43,6 +39,20 @@ describe('runConformance', () => {
     // fam-b/success/b1 is not announced.
     expect(summary.notRun).toBe(1);
     expect(summary.passed).toBe(3);
+  });
+
+  it('rejects a missing hostile-object suite for a host-model family', async () => {
+    await expect(runConformance({
+      fixturesDir: hostFixtures,
+      adapterCommand: [...adapter('suite-adapter.mjs'), 'missing'],
+    })).rejects.toThrow('must declare hostileObjectSuite');
+  });
+
+  it('rejects a malformed hostile-object suite during the handshake', async () => {
+    await expect(runConformance({
+      fixturesDir: hostFixtures,
+      adapterCommand: [...adapter('suite-adapter.mjs'), 'malformed'],
+    })).rejects.toThrow('mechanisms must be unique non-empty strings');
   });
 
   it('restricts to requested families', async () => {

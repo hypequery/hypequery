@@ -28,30 +28,68 @@ export interface RunConformanceOptions {
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 
+class AdapterExitError extends Error {}
+class AdapterTimeoutError extends Error {}
+
 function parseHostileObjectSuite(
   value: unknown,
 ): HostileObjectSuiteDeclaration | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-
-  const declaration = value as Record<string, unknown>;
-  if (!Number.isSafeInteger(declaration.count) || (declaration.count as number) < 0) {
-    return undefined;
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('adapter hostileObjectSuite must be an object');
+  }
+  const suite = value as Record<string, unknown>;
+  if (!Number.isSafeInteger(suite.count) || (suite.count as number) < 1) {
+    throw new Error('adapter hostileObjectSuite count must be a positive safe integer');
   }
   if (
-    !Array.isArray(declaration.mechanisms)
-    || !declaration.mechanisms.every((mechanism) => typeof mechanism === 'string')
+    !Array.isArray(suite.mechanisms)
+    || suite.mechanisms.length === 0
+    || !suite.mechanisms.every((mechanism) => typeof mechanism === 'string' && mechanism.length > 0)
+    || new Set(suite.mechanisms).size !== suite.mechanisms.length
   ) {
-    return undefined;
+    throw new Error('adapter hostileObjectSuite mechanisms must be unique non-empty strings');
   }
-
   return {
-    count: declaration.count as number,
-    mechanisms: declaration.mechanisms,
+    count: suite.count as number,
+    mechanisms: [...suite.mechanisms] as string[],
   };
 }
 
-class AdapterExitError extends Error {}
-class AdapterTimeoutError extends Error {}
+function parseAdapterHello(
+  message: Record<string, unknown>,
+  hostModelFamilies: ReadonlySet<string>,
+): AdapterHello {
+  if (
+    message.type !== 'hello'
+    || message.protocol !== CONFORMANCE_PROTOCOL_VERSION
+    || !Array.isArray(message.families)
+    || !message.families.every((family) => typeof family === 'string' && family.length > 0)
+  ) {
+    throw new Error('adapter did not answer the handshake');
+  }
+  const families = message.families as string[];
+  const hostileObjectSuite = parseHostileObjectSuite(message.hostileObjectSuite);
+  if (families.some((family) => hostModelFamilies.has(family)) && !hostileObjectSuite) {
+    throw new Error('adapter must declare hostileObjectSuite for host-model families');
+  }
+  for (const field of ['implementation', 'version', 'language'] as const) {
+    if (message[field] !== undefined && typeof message[field] !== 'string') {
+      throw new Error(`adapter hello ${field} must be a string`);
+    }
+  }
+  return {
+    type: 'hello',
+    protocol: CONFORMANCE_PROTOCOL_VERSION,
+    families: [...families],
+    ...(typeof message.implementation === 'string'
+      ? { implementation: message.implementation }
+      : {}),
+    ...(typeof message.version === 'string' ? { version: message.version } : {}),
+    ...(typeof message.language === 'string' ? { language: message.language } : {}),
+    ...(hostileObjectSuite ? { hostileObjectSuite } : {}),
+  };
+}
 
 /** A single adapter child process with a line-oriented message queue. */
 class AdapterConnection {
@@ -116,23 +154,17 @@ class AdapterConnection {
     });
   }
 
-  async handshake(timeoutMs: number): Promise<AdapterHello> {
+  async handshake(
+    timeoutMs: number,
+    hostModelFamilies: ReadonlySet<string>,
+  ): Promise<AdapterHello> {
     this.write({
       type: 'hello',
       protocol: CONFORMANCE_PROTOCOL_VERSION,
       manifestVersion: CONFORMANCE_MANIFEST_VERSION,
     });
     const message = await this.nextMessage(timeoutMs);
-    if (message.type !== 'hello' || !Array.isArray(message.families)) {
-      throw new Error('adapter did not answer the handshake');
-    }
-    const hostileObjectSuite = parseHostileObjectSuite(message.hostileObjectSuite);
-    const hello = { ...message };
-    delete hello.hostileObjectSuite;
-    return {
-      ...hello,
-      ...(hostileObjectSuite ? { hostileObjectSuite } : {}),
-    } as unknown as AdapterHello;
+    return parseAdapterHello(message, hostModelFamilies);
   }
 
   end(): void {
@@ -151,7 +183,18 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
   const manifest = loadManifest(fixturesDir);
   const loadJson = createJsonLoader(fixturesDir);
 
-  let cases = enumerateAllCases(manifest, loadJson);
+  const allCases = enumerateAllCases(manifest, loadJson);
+  const hostModelFamilies = new Set(
+    allCases
+      .filter((c) => {
+        const generator = c.case.generator;
+        return typeof generator === 'object'
+          && generator !== null
+          && (generator as Record<string, unknown>).type === 'unsafe-accessor';
+      })
+      .map((c) => c.family),
+  );
+  let cases = allCases;
   if (options.onlyFuzz) cases = cases.filter((c) => c.role === 'fuzz');
   if (options.skipFuzz) cases = cases.filter((c) => c.role !== 'fuzz');
   if (options.families && options.families.length > 0) {
@@ -165,7 +208,13 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
   const handshakeTimeoutMs = Math.max(timeoutMs, DEFAULT_TIMEOUT_MS);
 
   let connection = new AdapterConnection(options.adapterCommand);
-  let hello = await connection.handshake(handshakeTimeoutMs);
+  let hello: AdapterHello;
+  try {
+    hello = await connection.handshake(handshakeTimeoutMs, hostModelFamilies);
+  } catch (error) {
+    connection.kill();
+    throw error;
+  }
   let announced = new Set(hello.families);
   let respawnBudget = 1;
 
@@ -227,7 +276,7 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
     connection.kill();
     connection = new AdapterConnection(options.adapterCommand);
     try {
-      hello = await connection.handshake(handshakeTimeoutMs);
+      hello = await connection.handshake(handshakeTimeoutMs, hostModelFamilies);
     } catch {
       // A replacement that cannot even complete a handshake ends the run
       // cleanly rather than throwing out of the loop.

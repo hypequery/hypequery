@@ -160,8 +160,10 @@ A tagged value has this shape:
 
 The outer object MUST contain exactly `$hypequery`. The payload MUST contain
 exactly the fields defined for its tag. Unknown fields, unknown types, and
-unknown versions fail closed. Version 1 payloads use the integer JSON number
-`1`; a string or floating representation is invalid.
+unknown versions fail closed. Version 1 payloads use a metadata number whose
+mathematical value is the integer `1`; strings and non-integral numbers are
+invalid. Consistent with the metadata rule above, lexical forms such as `1.0`
+and `1e0` are accepted and canonicalize to `1`.
 
 The tag is a data-model extension, not a JCS extension. It is validated into an
 ordinary I-JSON tree and then canonicalized normally.

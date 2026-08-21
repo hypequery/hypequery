@@ -68,7 +68,10 @@ The RFC 0012 language-specific hostile-object suite declaration now has a
 home in the wire protocol: an optional `hostileObjectSuite` field (`count`
 plus `mechanisms`) on the adapter `hello` message, copied by the runner into
 the run summary and rendered in reports. The reference adapter declares the
-seven mechanisms its suite covers.
+seven mechanisms its suite covers. The runner validates the declaration and
+requires it whenever an announced fixture family contains a host-model
+conditional case, so missing or malformed evidence cannot produce a passing
+report.
 
 **RFC 0002 (portable identifiers) is also accepted**, with no implementation
 change. The validation order — type, empty, length, grammar, reserved — was
