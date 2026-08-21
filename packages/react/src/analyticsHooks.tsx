@@ -18,8 +18,8 @@ type DatasetNamesFromApi<Api> =
     : never;
 
 type QueryKey<Name extends string, Input> = Input extends never
-  ? ['hypequery', Name]
-  : ['hypequery', Name, Input];
+  ? ['hypequery', string, Name]
+  : ['hypequery', string, Name, Input];
 
 type QueryOptions<Api, Key extends ExtractNames<Api>> = Omit<
   TanstackUseQueryOptions<
@@ -53,7 +53,7 @@ export interface CreateAnalyticsHooksConfig<
 export function createAnalyticsHooks<
   Api extends Record<string, { input: any; output: any }>,
   TMetrics extends readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[] = readonly Exclude<ExtractNames<Api>, `dataset:${string}`>[],
->(config: CreateAnalyticsHooksConfig<Api, TMetrics>) {
+>(config?: CreateAnalyticsHooksConfig<Api, TMetrics>) {
   const hooks = createHooks<Api>(config);
   type MetricName = TMetrics extends readonly (infer U)[]
     ? U extends string
