@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { formatPrettyReport } from './report.js';
 import { runConformance } from './runner.js';
 
 const miniFixtures = fileURLToPath(new URL('./testdata/mini-fixtures/', import.meta.url));
@@ -21,6 +22,17 @@ describe('runConformance', () => {
     // into the published summary.
     expect(summary.adapter?.hostileObjectSuite)
       .toEqual({ count: 2, mechanisms: ['getter', 'toJSON'] });
+  });
+
+  it('ignores malformed hostile-object metadata from an adapter', async () => {
+    const summary = await runConformance({
+      fixturesDir: miniFixtures,
+      adapterCommand: adapter('malformed-suite-adapter.mjs'),
+    });
+
+    expect(summary.adapter?.hostileObjectSuite).toBeUndefined();
+    expect(formatPrettyReport(summary))
+      .toContain('hostile-object suite: none declared (required by RFC 0012)');
   });
 
   it('reports cases whose family the adapter does not announce', async () => {

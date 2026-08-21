@@ -12,6 +12,7 @@ import {
   type AdapterHello,
   type CaseOutcome,
   type EnumeratedCase,
+  type HostileObjectSuiteDeclaration,
   type RunSummary,
 } from './types.js';
 
@@ -26,6 +27,28 @@ export interface RunConformanceOptions {
 }
 
 const DEFAULT_TIMEOUT_MS = 5_000;
+
+function parseHostileObjectSuite(
+  value: unknown,
+): HostileObjectSuiteDeclaration | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+
+  const declaration = value as Record<string, unknown>;
+  if (!Number.isSafeInteger(declaration.count) || (declaration.count as number) < 0) {
+    return undefined;
+  }
+  if (
+    !Array.isArray(declaration.mechanisms)
+    || !declaration.mechanisms.every((mechanism) => typeof mechanism === 'string')
+  ) {
+    return undefined;
+  }
+
+  return {
+    count: declaration.count as number,
+    mechanisms: declaration.mechanisms,
+  };
+}
 
 class AdapterExitError extends Error {}
 class AdapterTimeoutError extends Error {}
@@ -103,7 +126,13 @@ class AdapterConnection {
     if (message.type !== 'hello' || !Array.isArray(message.families)) {
       throw new Error('adapter did not answer the handshake');
     }
-    return message as unknown as AdapterHello;
+    const hostileObjectSuite = parseHostileObjectSuite(message.hostileObjectSuite);
+    const hello = { ...message };
+    delete hello.hostileObjectSuite;
+    return {
+      ...hello,
+      ...(hostileObjectSuite ? { hostileObjectSuite } : {}),
+    } as unknown as AdapterHello;
   }
 
   end(): void {
