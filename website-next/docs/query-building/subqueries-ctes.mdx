@@ -8,11 +8,50 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # Subqueries & CTEs
 
-hypequery provides support for Common Table Expressions (CTEs) and raw SQL capabilities that allow you to create complex queries with subqueries.
+hypequery supports typed subqueries in the `FROM` clause, Common Table Expressions (CTEs), and raw SQL escape hatches for complex queries.
 
 <Callout type="info" title="Query builder syntax">
   These examples use a typed standalone `db` client so the query builder stays the focus.
 </Callout>
+
+## Subqueries in `FROM`
+
+Pass a query builder to `db.from()` to use its result as the source of another query. The outer builder only exposes columns produced by the inner query, including aggregate aliases.
+
+<CodeBlock>
+
+```typescript
+import { rawAs } from '@hypequery/clickhouse';
+
+const totalsByUser = db
+  .table('orders')
+  .where('created_at', 'gte', '2026-06-06')
+  .select(['account_id', 'user_id'])
+  .sum('amount', 'total_amount')
+  .groupBy(['account_id', 'user_id']);
+
+const totalsByAccount = await db
+  .from(totalsByUser)
+  .select([
+    'account_id',
+    rawAs<string, 'negative_total'>(
+      'sumIf(total_amount, total_amount < 0)',
+      'negative_total',
+    ),
+    rawAs<string, 'positive_total'>(
+      'sumIf(total_amount, total_amount > 0)',
+      'positive_total',
+    ),
+  ])
+  .groupBy('account_id')
+  .execute();
+```
+
+</CodeBlock>
+
+The generated SQL nests the inner builder directly in the `FROM` clause. Parameters remain bound rather than being interpolated, and their order is preserved across the inner and outer queries.
+
+Typed methods on the outer builder reject source-table columns that the inner query did not select. SQL inside `rawAs()` remains an explicit trusted expression; provide its result type when you want the alias reflected precisely in the returned row type.
 
 ## Common Table Expressions (CTEs)
 

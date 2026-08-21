@@ -4,7 +4,7 @@ import type { SelectQueryNode, SelectionNode } from '../../types/index.js';
 
 export class AggregationFeature<
   Schema extends SchemaDefinition<Schema>,
-  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>, any, any>
 > {
   private static readonly TRAILING_ALIAS_PATTERN = /\s+AS\s+[A-Za-z_][A-Za-z0-9_]*$/i;
   private static readonly LEADING_AGGREGATE_CALL_PATTERN =

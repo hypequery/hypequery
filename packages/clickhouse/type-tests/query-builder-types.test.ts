@@ -1,4 +1,4 @@
-import { QueryBuilder } from '../src/core/query-builder.js';
+import { createQueryBuilder, QueryBuilder } from '../src/core/query-builder.js';
 import { CrossFilter } from '../src/core/cross-filter.js';
 import { JoinRelationships } from '../src/core/join-relationships.js';
 import { setupTestBuilder, setupUsersBuilder, TestSchema, TEST_SCHEMAS } from '../src/core/tests/test-utils.js';
@@ -8,6 +8,38 @@ import type { Equal, Expect } from '@type-challenges/utils';
 
 const builder = setupTestBuilder();
 type BuilderStateType = typeof builder extends QueryBuilder<any, infer S> ? S : never;
+
+const db = createQueryBuilder<TestSchema>({
+  adapter: builder.getAdapter(),
+  dialect: builder.getDialect(),
+});
+
+const totalsSubquery = builder
+  .select(['id', 'created_by'])
+  .sum('price', 'sum_value')
+  .groupBy(['id', 'created_by']);
+const queryFromSubquery = db.from(totalsSubquery)
+  .select([
+    'id',
+    'sum_value',
+    rawAs<string, 'negative_sum_value'>(
+      'sumIf(sum_value, sum_value < 0)',
+      'negative_sum_value',
+    ),
+  ]);
+type FromSubqueryResult = Awaited<ReturnType<typeof queryFromSubquery.execute>>;
+type FromSubqueryExpected = {
+  id: number;
+  sum_value: string;
+  negative_sum_value: string;
+}[];
+type AssertFromSubquery = Expect<Equal<FromSubqueryResult, FromSubqueryExpected>>;
+
+db.from(totalsSubquery).where('sum_value', 'lt', '0').groupBy('id');
+// @ts-expect-error - unselected source-table columns are not visible outside the subquery
+db.from(totalsSubquery).select(['name']);
+// @ts-expect-error - unselected source-table columns cannot be filtered outside the subquery
+db.from(totalsSubquery).where('category', 'eq', 'premium');
 
 const crossFilter = new CrossFilter();
 builder.applyCrossFilters(crossFilter);

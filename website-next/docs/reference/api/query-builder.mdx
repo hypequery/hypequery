@@ -33,6 +33,20 @@ db.table('users')
 
 Starts a query from a typed table.
 
+### `from()`
+
+<CodeBlock>
+```ts
+const totals = db.table('orders')
+  .select(['customer_id'])
+  .sum('amount', 'total_amount');
+
+db.from(totals).select(['customer_id', 'total_amount']);
+```
+</CodeBlock>
+
+Starts a query from another query builder. The nested query's output columns become the typed column scope of the outer query.
+
 ### `select()`
 
 <CodeBlock>
@@ -109,6 +123,7 @@ See [Joins](/docs/query-building/joins) for patterns and examples.
 - `raw()`
 - `rawQuery()`
 - `withCTE()`
+- `from()`
 - `toSQL()`
 - `toSQLWithParams()`
 

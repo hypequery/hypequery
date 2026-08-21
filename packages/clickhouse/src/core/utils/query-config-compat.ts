@@ -6,6 +6,7 @@ import type {
   JoinType,
   OrderDirection,
   SelectQueryNode,
+  SourceNode,
   ValueNode,
 } from '../../types/index.js';
 
@@ -28,7 +29,7 @@ export type LegacyWhereCondition = LegacyStandardWhereCondition | LegacyExpressi
 
 export type LegacyQueryConfig<T> = {
   select?: Array<keyof T | string>;
-  from?: { kind: 'table'; name: string; final?: boolean };
+  from?: SourceNode;
   where?: LegacyWhereCondition[];
   prewhere?: LegacyWhereCondition[];
   groupBy?: string[];
@@ -113,6 +114,18 @@ function collectExprParameters(expr?: ExprNode): any[] {
     default:
       return [];
   }
+}
+
+function collectQueryParameters(queryNode: SelectQueryNode<any, any>): any[] {
+  return [
+    ...(queryNode.from?.kind === 'subquery'
+      ? collectQueryParameters(queryNode.from.query)
+      : []),
+    ...(queryNode.joins?.flatMap(join => collectExprParameters(join.on)) || []),
+    ...collectExprParameters(queryNode.prewhere),
+    ...collectExprParameters(queryNode.where),
+    ...(queryNode.having?.flatMap(item => item.parameters?.map(unwrapValueNode) || []) || []),
+  ];
 }
 
 function flattenExprToLegacyConditions(
@@ -204,12 +217,7 @@ export function toLegacyQueryConfig<T, Schema>(
       alias: join.alias,
       on: join.on,
     })),
-    parameters: [
-      ...(queryNode.joins?.flatMap(join => collectExprParameters(join.on)) || []),
-      ...collectExprParameters(queryNode.prewhere),
-      ...collectExprParameters(queryNode.where),
-      ...(queryNode.having?.flatMap(item => item.parameters?.map(unwrapValueNode) || []) || []),
-    ],
+    parameters: collectQueryParameters(queryNode),
     ctes: queryNode.ctes?.map(item => item.expression),
     unionQueries: queryNode.unionQueries ? [...queryNode.unionQueries] : undefined,
     settings: queryNode.settings ? { ...queryNode.settings } : undefined,

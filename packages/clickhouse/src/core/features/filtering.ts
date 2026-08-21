@@ -30,7 +30,7 @@ function appendExpression(
 
 export class FilteringFeature<
   Schema extends SchemaDefinition<Schema>,
-  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>, any, any>
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 
