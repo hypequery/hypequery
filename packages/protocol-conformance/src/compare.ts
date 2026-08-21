@@ -131,5 +131,15 @@ function compareSuccessOutput(ec: EnumeratedCase, o: Record<string, unknown>): C
       return outcome(ec, 'fail', { expected: 'segments', actual: 'mismatch' });
     }
   }
+  if (ec.family === 'cache-keys-v1') {
+    // Reported as 'mismatch' rather than by value: a run against non-fixture
+    // inputs would otherwise print keys derived from a real secret.
+    if (o.key !== ec.case.key) {
+      return outcome(ec, 'fail', { expected: 'key', actual: 'mismatch' });
+    }
+    if (o.namespaceToken !== ec.case.namespaceToken) {
+      return outcome(ec, 'fail', { expected: 'namespaceToken', actual: 'mismatch' });
+    }
+  }
   return outcome(ec, 'pass');
 }

@@ -24,6 +24,18 @@ describe('compareCase', () => {
     expect(compareCase(ec, { ok: true, output: { segments: ['a'] } }).status).toBe('fail');
   });
 
+  it('checks the derived key and namespace token for cache-key success', () => {
+    const ec = makeCase('success', 'cache-keys-v1', { key: 'hq1.1.ns.mac', namespaceToken: 'ns' });
+    expect(compareCase(ec, { ok: true, output: { key: 'hq1.1.ns.mac', namespaceToken: 'ns' } }).status)
+      .toBe('pass');
+    // A family whose output is not compared would pass all three of these.
+    expect(compareCase(ec, { ok: true, output: { key: 'hq1.1.ns.other', namespaceToken: 'ns' } }).status)
+      .toBe('fail');
+    expect(compareCase(ec, { ok: true, output: { key: 'hq1.1.ns.mac', namespaceToken: 'other' } }).status)
+      .toBe('fail');
+    expect(compareCase(ec, { ok: true, output: {} }).status).toBe('fail');
+  });
+
   it('requires the exact rejection code', () => {
     const ec = makeCase('rejection', 'tagged-values-v1', { error: 'HQ_VALUE_TOO_LARGE' });
     expect(compareCase(ec, { ok: false, code: 'HQ_VALUE_TOO_LARGE' }).status).toBe('pass');

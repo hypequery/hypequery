@@ -4,6 +4,8 @@
 // implementation must reproduce.
 import {
   decodeCanonicalValue,
+  deriveProtocolCacheKey,
+  deriveProtocolCacheNamespaceToken,
   encodeCanonicalValue,
   hashCanonicalValue,
   parseProtocolIdentifier,
@@ -83,6 +85,7 @@ export const REFERENCE_HOSTILE_OBJECT_SUITE = {
 } as const;
 
 export const REFERENCE_FAMILIES = [
+  'cache-keys-v1',
   'tagged-values-v1',
   'identifiers-v1',
   'expressions-v1',
@@ -131,9 +134,49 @@ export function referenceHandle(
       return handleBundle(role, c);
     case 'deployment-releases-v1':
       return handleRelease(role, c);
+    case 'cache-keys-v1':
+      return handleCacheKey(role, c);
     default:
       throw new Error(`reference adapter does not support family ${family}`);
   }
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < out.length; index += 1) {
+    out[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+  return out;
+}
+
+function handleCacheKey(role: FixtureRole, c: Case): HandlerResult {
+  const generator = c.generator as { type?: string; utf8?: string; count?: number } | undefined;
+  const preimage =
+    generator?.type === 'repeat-string'
+      ? (generator.utf8 ?? '').repeat(generator.count ?? 0)
+      : ((c.preimageUtf8 as string) ?? '');
+  const namespace = c.namespace as { project: string; environment: string };
+
+  return attempt(() => {
+    const key = deriveProtocolCacheKey({
+      secret: hexToBytes(c.secretHex as string),
+      namespace,
+      keyVersion: c.keyVersion as number,
+      preimage,
+    });
+    if (role !== 'success') return { ok: true };
+    return {
+      ok: true,
+      output: {
+        key,
+        namespaceToken: deriveProtocolCacheNamespaceToken(
+          hexToBytes(c.secretHex as string),
+          namespace.project,
+          namespace.environment,
+        ),
+      },
+    };
+  });
 }
 
 function handleTaggedValue(role: FixtureRole, c: Case): HandlerResult {
