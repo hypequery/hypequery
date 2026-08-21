@@ -1,7 +1,12 @@
 # RFC 0002: Portable logical identifiers
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-07-30
 - Version: identifier extension 1
+
+Acceptance freezes identifier extension version 1. Changing the grammar,
+comparison rules, reserved namespace, limits, or validation order now requires
+a new extension version, not an edit.
 
 ## Summary
 
@@ -29,7 +34,38 @@ only, so visually equivalent Unicode spellings are rejected rather than
 normalized.
 
 The `__hypequery` prefix is reserved for protocol-defined names. A future core
-version may define such names; applications cannot claim them in version 1.
+version may define such names; applications cannot claim them in version 1. In
+a qualified identifier the reservation applies to **every** segment, not only
+the first: `orders.__hypequery_internal` is rejected.
+
+## Validation order
+
+Checks MUST be applied in this order, and the first failure determines the
+reported code:
+
+1. `HQ_IDENTIFIER_TYPE` — the input is not a JSON string.
+2. `HQ_IDENTIFIER_EMPTY` — the input has zero length.
+3. `HQ_IDENTIFIER_TOO_LONG` — a byte limit is exceeded.
+4. `HQ_IDENTIFIER_INVALID_FORMAT` — the character grammar does not match.
+5. `HQ_IDENTIFIER_RESERVED` — the reserved prefix is present.
+
+The order is normative because more than one check can apply to the same input.
+A 200-byte name beginning with `__hypequery` reports `HQ_IDENTIFIER_TOO_LONG`,
+not `HQ_IDENTIFIER_RESERVED`. A 129-byte name containing a hyphen reports
+`HQ_IDENTIFIER_TOO_LONG`, not `HQ_IDENTIFIER_INVALID_FORMAT`.
+
+Step 4 preceding step 5 is a **security property**, not a preference. The
+reserved-prefix comparison is ASCII case-insensitive; placing the grammar check
+first guarantees it only ever sees ASCII. Case-folding rules for non-ASCII
+input differ between host languages — the dotted and dotless `i` families are
+the standard example — so a reserved check reached before the ASCII gate could
+accept in one language and reject in another.
+
+For qualified identifiers the checks apply first to the whole string (type,
+emptiness, the 512-byte limit, then the segment count) and afterwards to each
+segment in order. An empty segment inside a qualified identifier reports
+`HQ_IDENTIFIER_INVALID_FORMAT` rather than `HQ_IDENTIFIER_EMPTY`, because the
+qualified string itself is not empty.
 
 ## Qualified identifiers
 
@@ -61,6 +97,14 @@ translation into those domains.
 Products may impose lower limits but cannot reinterpret accepted version 1
 identifiers.
 
+`HQ_IDENTIFIER_TOO_LONG` covers both the segment limit and the qualified limit.
+A product that needs to tell a caller which bound was exceeded may add safe
+detail alongside the code, but the code itself does not distinguish them.
+
+Because version 1 is ASCII only, byte length and character count are always
+equal. Implementations MUST still measure UTF-8 bytes, so that rejected
+non-ASCII input is measured consistently.
+
 ## Stable failure codes
 
 - `HQ_IDENTIFIER_TYPE`
@@ -77,6 +121,12 @@ calling product explicitly chooses a safe redacted presentation.
 
 - ASCII-only names avoid confusable and normalization disagreements at the
   portable artifact boundary.
+- ASCII-only names also make canonical object-key ordering language-neutral.
+  RFC 8785 sorts object properties by UTF-16 code unit; a code-point sort
+  disagrees with that only above the basic multilingual plane. Restricting
+  identifiers to ASCII means the two orderings coincide wherever an identifier
+  could influence a key, so a canonicalizer cannot produce different bytes in
+  different languages for the same model.
 - The reserved namespace prevents user data from impersonating future protocol
   fields.
 - Parsers validate limits before allocating derived structures.

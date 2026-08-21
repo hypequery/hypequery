@@ -1,7 +1,12 @@
 # RFC 0012: Cross-language conformance
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-07-30
 - Version: conformance manifest 1, adapter protocol 1
+
+Acceptance freezes conformance manifest version 1 and adapter protocol
+version 1. Changing a wire message shape or a role's pass criteria now
+requires a new protocol version.
 
 ## Summary
 
@@ -85,8 +90,23 @@ The adapter answers the hello first:
 ```json
 {"type": "hello", "protocol": 1, "implementation": "@hypequery/protocol",
  "version": "0.9.0", "language": "typescript",
- "families": ["tagged-values-v1", "identifiers-v1"]}
+ "families": ["tagged-values-v1", "identifiers-v1"],
+ "hostileObjectSuite": {"count": 7,
+  "mechanisms": ["getter", "toJSON", "proxy", "custom-prototype",
+                 "symbol-key", "sparse-array", "cycle"]}}
 ```
+
+`hostileObjectSuite` is the declaration required under *Host-model conditional
+cases* below. It is optional on the wire so that adapters announcing only
+families without host-model conditional cases (such as `sql-portability-v1`)
+can omit it. An adapter announcing any family whose fixture corpus contains an
+`unsafe-accessor` generator MUST send it. The runner rejects the handshake when
+the declaration is required but missing or malformed, and copies a valid
+declaration into the run summary.
+
+The declaration is an object with exactly the semantics shown above. `count`
+is a positive safe integer naming the number of implementation-owned hostile-
+object tests. `mechanisms` is a non-empty array of unique, non-empty strings.
 
 The runner only sends cases for families the adapter announced; this
 intersection is how one runner serves partial implementations, such as a
@@ -127,6 +147,24 @@ parsed JSON dictionaries) cannot construct the input; their adapters respond
 `skipped` with a reason. The runner reports skips distinctly from passes.
 Only `unsafe-accessor` cases are host-model conditional; skipping any other
 case is a conformance failure.
+
+Skipping is permitted because the input cannot be constructed, not because the
+guarantee is optional. Every implementation of a family with a host-model
+conditional fixture MUST additionally declare a language-specific hostile-
+object suite covering its own conversion mechanisms — getters, proxies, `toJSON`,
+`__str__`, `__getattr__`, descriptors, and comparable hooks — together with
+the count of cases it contains. The declaration is carried in the adapter's
+`hello` message as `hostileObjectSuite` and copied by the runner into the run
+summary, so it appears in the published report rather than in prose alongside
+it. TypeScript covers at least getters, `toJSON`, custom prototypes,
+symbol keys, and sparse arrays; Python covers at least property descriptors,
+custom mappings, `__iter__`, `__str__`, `dict` subclasses, and cyclic
+structures.
+
+An adapter required to declare a suite cannot complete the handshake without
+one, so a report that omits this evidence cannot pass. Without both layers
+`HQ_VALUE_UNSAFE_OBJECT` would be the one frozen failure code no implementation
+is ever required to demonstrate.
 
 ## Operations and pass criteria
 
@@ -196,7 +234,24 @@ A conforming runner:
   environment;
 - reports every case as pass, fail, or skip, with the expected and actual
   code or output on failure;
+- reports the count of cases not run because their family was not announced;
+- enforces a per-case timeout defaulting to 5000 ms, overridable by the
+  operator but reported alongside the result;
 - exits zero only when no case failed.
+
+### Announced families are the scope of a claim
+
+A run exits zero when no announced case failed. Cases belonging to families the
+adapter did not announce are reported as not run — they are neither passes nor
+failures. An adapter that announces one family therefore exits zero while
+leaving most of the corpus untouched.
+
+That is correct for partial implementations and dangerous for release gates.
+A product claiming conformance for a protocol area MUST announce every family
+covering that area, and its published report MUST list the announced families
+and the not-run count. A green run is evidence only for what was announced.
+Implementations SHOULD assert their announced family list in CI, so a family
+can be added but never silently dropped.
 
 The TypeScript reference runner and reference adapter live in
 `@hypequery/protocol-conformance`. The package bundles a snapshot of the

@@ -26,5 +26,9 @@ export function formatPrettyReport(summary: RunSummary): string {
     `${summary.passed} passed, ${summary.failed} failed, ${summary.skipped} skipped`
     + (summary.notRun > 0 ? `, ${summary.notRun} not run (family not announced)` : ''),
   );
+  const suite = adapter?.hostileObjectSuite;
+  if (suite) {
+    lines.push(`hostile-object suite: ${suite.count} cases (${suite.mechanisms.join(', ')})`);
+  }
   return lines.join('\n');
 }

@@ -60,10 +60,18 @@ function requireMetadataInteger(value: unknown, path: string): number {
   return value as number;
 }
 
+// Tab, line feed, and carriage return are permitted so authored prose can
+// span lines; JCS escapes them deterministically. Every other C0 control, DEL,
+// and the C1 range stay forbidden.
+const ALLOWED_CONTROL_CHARACTERS = new Set([0x09, 0x0a, 0x0d]);
+
 function validateUnicode(value: string, path: string, maxBytes: number): void {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
-    if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) {
+    if (
+      (code <= 0x1f && !ALLOWED_CONTROL_CHARACTERS.has(code))
+      || (code >= 0x7f && code <= 0x9f)
+    ) {
       valueError('HQ_VALUE_CONTROL_CHARACTER', path);
     }
     if (code >= 0xd800 && code <= 0xdbff) {
@@ -175,7 +183,10 @@ function validateDatetimeTag(tag: JsonRecord, path: string): void {
   }
   const timezone = requireString(tag.timezone, `${path}.timezone`);
   validateUnicode(timezone, `${path}.timezone`, 64);
-  if (timezone !== 'UTC' && !/^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+$/.test(timezone)) {
+  // Single-component identifiers are valid: UTC, EST, GMT, CET, and MST7MDT
+  // are all real tzdb entries. Existence is checked at deployment time
+  // against the server's system.time_zones, not here.
+  if (!/^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*$/.test(timezone)) {
     valueError('HQ_VALUE_INVALID_FORMAT', `${path}.timezone`);
   }
 

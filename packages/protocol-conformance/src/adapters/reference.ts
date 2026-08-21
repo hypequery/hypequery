@@ -64,6 +64,24 @@ function validationInput(c: Case, materialize: (spec: Record<string, unknown>) =
   return c.generator ? materialize(c.generator as Record<string, unknown>) : c.value;
 }
 
+/**
+ * RFC 0012 hostile-object suite declaration for the TypeScript reference
+ * implementation. The cases live in @hypequery/protocol's
+ * `src/values/codec.test.ts`; each mechanism listed here is exercised there.
+ */
+export const REFERENCE_HOSTILE_OBJECT_SUITE = {
+  count: 7,
+  mechanisms: [
+    'getter',
+    'toJSON',
+    'proxy',
+    'custom-prototype',
+    'symbol-key',
+    'sparse-array',
+    'cycle',
+  ],
+} as const;
+
 export const REFERENCE_FAMILIES = [
   'tagged-values-v1',
   'identifiers-v1',

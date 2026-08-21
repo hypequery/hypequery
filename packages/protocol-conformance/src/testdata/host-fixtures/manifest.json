@@ -1,0 +1,14 @@
+{
+  "kind": "hypequery-conformance-manifest",
+  "version": 1,
+  "families": [
+    {
+      "name": "host-family",
+      "codePrefixes": ["HQ_HOST_"],
+      "files": [
+        { "path": "host-family/rejections.json", "role": "rejection" }
+      ]
+    }
+  ],
+  "fuzz": []
+}

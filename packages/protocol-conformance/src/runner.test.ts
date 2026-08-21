@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { runConformance } from './runner.js';
 
 const miniFixtures = fileURLToPath(new URL('./testdata/mini-fixtures/', import.meta.url));
+const hostFixtures = fileURLToPath(new URL('./testdata/host-fixtures/', import.meta.url));
 const adapter = (name: string): string[] => [
   'node',
   fileURLToPath(new URL(`./testdata/${name}`, import.meta.url)),
@@ -17,6 +18,17 @@ describe('runConformance', () => {
     expect(summary.failed).toBe(0);
     expect(summary.passed).toBe(4);
     expect(summary.notRun).toBe(0);
+    // The RFC 0012 hostile-object suite declaration rides the hello message
+    // into the published summary.
+    expect(summary.adapter?.hostileObjectSuite)
+      .toEqual({ count: 2, mechanisms: ['getter', 'toJSON'] });
+  });
+
+  it('rejects malformed hostile-object metadata from an adapter', async () => {
+    await expect(runConformance({
+      fixturesDir: miniFixtures,
+      adapterCommand: adapter('malformed-suite-adapter.mjs'),
+    })).rejects.toThrow('mechanisms must be unique non-empty strings');
   });
 
   it('reports cases whose family the adapter does not announce', async () => {
@@ -27,6 +39,20 @@ describe('runConformance', () => {
     // fam-b/success/b1 is not announced.
     expect(summary.notRun).toBe(1);
     expect(summary.passed).toBe(3);
+  });
+
+  it('rejects a missing hostile-object suite for a host-model family', async () => {
+    await expect(runConformance({
+      fixturesDir: hostFixtures,
+      adapterCommand: [...adapter('suite-adapter.mjs'), 'missing'],
+    })).rejects.toThrow('must declare hostileObjectSuite');
+  });
+
+  it('rejects a malformed hostile-object suite during the handshake', async () => {
+    await expect(runConformance({
+      fixturesDir: hostFixtures,
+      adapterCommand: [...adapter('suite-adapter.mjs'), 'malformed'],
+    })).rejects.toThrow('mechanisms must be unique non-empty strings');
   });
 
   it('restricts to requested families', async () => {

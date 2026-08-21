@@ -78,6 +78,20 @@ function generateRejection(generator: NonNullable<RejectionFixture['generator']>
       throw new Error(`Unknown non-finite float: ${String(generator.value)}`);
     }
     case 'repeat-string': return (generator.utf8 ?? '').repeat(generator.count ?? 0);
+    case 'unsafe-accessor': {
+      // A computed accessor rather than a plain data property. The validator
+      // must snapshot without invoking it, and reject the input outright.
+      const value = {} as Record<string, unknown>;
+      Object.defineProperty(value, '$hypequery', {
+        enumerable: true,
+        get: () => ({
+          type: 'uuid',
+          version: 1,
+          value: '01890f3e-7b7b-7cc2-98c4-dc0c0c07398f',
+        }),
+      });
+      return value;
+    }
     default: throw new Error(`Unknown fixture generator: ${generator.type}`);
   }
 }
@@ -114,6 +128,31 @@ describe('canonical value codec', () => {
         { declaredClickHouseType: fixture.declaredClickHouseType },
       );
     expectProtocolError(action, fixture.error);
+  });
+
+  it('accepts metadata integers by value and canonicalizes them to integer form', () => {
+    // RFC 0001 defines metadata integers by value, not lexical form: the
+    // fixture manifest cannot carry the 1-vs-1.0 distinction because
+    // JSON.stringify(1.0) writes 1. Number('1.0') defeats literal folding so
+    // this exercises an integral host float on the programmatic entry path.
+    const input = {
+      $hypequery: {
+        type: 'integer',
+        version: Number('1.0'),
+        bits: Number('8.0'),
+        signed: true,
+        value: '1',
+      },
+    };
+
+    expect(encodeCanonicalValueToString(input))
+      .toBe('{"$hypequery":{"bits":8,"signed":true,"type":"integer","value":"1","version":1}}');
+    expectProtocolError(
+      () => validateCanonicalValue({
+        $hypequery: { type: 'integer', version: 1.5, bits: 8, signed: true, value: '1' },
+      }),
+      'HQ_VALUE_INVALID_FORMAT',
+    );
   });
 
   it('returns a detached deeply frozen snapshot', () => {

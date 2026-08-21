@@ -54,5 +54,43 @@
       "count": 9
     },
     "error": "HQ_IDENTIFIER_TOO_MANY_SEGMENTS"
+  },
+  {
+    "id": "qualified-bytes-513",
+    "mode": "qualified",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "error": "HQ_IDENTIFIER_TOO_LONG"
+  },
+  {
+    "id": "reserved-non-first-segment",
+    "mode": "qualified",
+    "value": "orders.__hypequery_internal",
+    "error": "HQ_IDENTIFIER_RESERVED"
+  },
+  {
+    "id": "precedence-length-before-reserved",
+    "mode": "simple",
+    "generator": {
+      "type": "repeat-string",
+      "value": "__hypequery",
+      "count": 12
+    },
+    "error": "HQ_IDENTIFIER_TOO_LONG"
+  },
+  {
+    "id": "precedence-length-before-format",
+    "mode": "simple",
+    "generator": {
+      "type": "repeat-string",
+      "value": "-",
+      "count": 129
+    },
+    "error": "HQ_IDENTIFIER_TOO_LONG"
+  },
+  {
+    "id": "precedence-format-before-reserved",
+    "mode": "simple",
+    "value": "__hypequery-internal",
+    "error": "HQ_IDENTIFIER_INVALID_FORMAT"
   }
 ]
