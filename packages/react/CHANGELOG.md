@@ -1,5 +1,11 @@
 # @hypequery/react
 
+## 0.5.1
+
+### Patch Changes
+
+- e370da0: Refresh every npm package page with a concise README and complete HypeQuery homepage and repository metadata.
+
 ## 0.5.0
 
 ### Minor Changes

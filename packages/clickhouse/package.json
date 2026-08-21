@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/clickhouse",
-  "version": "2.5.4",
+  "version": "2.5.5",
   "description": "Type-safe ClickHouse query builder and schema generator for TypeScript analytics",
   "keywords": [
     "clickhouse",
