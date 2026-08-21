@@ -1,5 +1,13 @@
 # @hypequery/deployment
 
+## 0.7.3
+
+### Patch Changes
+
+- Updated dependencies [920878a]
+- Updated dependencies [643abff]
+  - @hypequery/protocol@0.11.0
+
 ## 0.7.2
 
 ### Patch Changes
