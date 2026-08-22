@@ -1,5 +1,14 @@
 # @hypequery/cli
 
+## 1.16.4
+
+### Patch Changes
+
+- Updated dependencies [920878a]
+- Updated dependencies [643abff]
+  - @hypequery/protocol@0.11.0
+  - @hypequery/deployment@0.7.3
+
 ## 1.16.3
 
 ### Patch Changes
