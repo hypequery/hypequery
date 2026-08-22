@@ -109,8 +109,12 @@ export type {
   PredicateArg
 } from './core/utils/predicate-builder.js';
 
-// CLI utilities
-export { generateTypes } from './cli/index.js';
+// CLI utilities are intentionally NOT re-exported from this entry point. The CLI
+// module pulls in `fs/promises`, `path`, and `dotenv`, which breaks any bundler
+// that resolves this module for the browser. Node consumers still get
+// `generateTypes` from the package root via the `node` condition in package.json,
+// which resolves to `index.node.ts`. Build scripts should prefer the dedicated
+// `@hypequery/clickhouse/cli` subpath.
 
 // =============================================================================
 // DATASET API (Phase 1)

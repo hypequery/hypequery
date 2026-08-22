@@ -9,6 +9,8 @@ const distDir = path.join(rootDir, 'dist');
 const requiredFiles = [
   'index.js',
   'index.d.ts',
+  'index.node.js',
+  'index.node.d.ts',
   'core/connection.js',
   'core/query-builder.js',
   'cli/bin.js',
@@ -40,7 +42,29 @@ if (fs.existsSync(indexPath)) {
   for (const marker of requiredIndexMarkers) {
     check(indexContent.includes(marker), `dist/index.js is missing ${marker}`);
   }
-  check(!indexContent.includes('./cli/generate-types.js'), 'dist/index.js should not export CLI modules');
+  // The browser-safe root entry must not reach the CLI by ANY path. The previous
+  // check only looked for the literal './cli/generate-types.js', so a re-export
+  // one level up ('./cli/index.js') slipped through and dragged fs/promises into
+  // client bundles. Match any import/export statement targeting ./cli/ instead.
+  check(
+    !/(?:from|import)\s*\(?\s*['"]\.\/cli\//.test(indexContent),
+    'dist/index.js should not export CLI modules',
+  );
+}
+
+// The node entry is the one that may reach the CLI, and must, so root imports keep
+// resolving `generateTypes` under Node.
+const nodeIndexPath = path.join(distDir, 'index.node.js');
+if (fs.existsSync(nodeIndexPath)) {
+  const nodeIndexContent = fs.readFileSync(nodeIndexPath, 'utf8');
+  check(
+    nodeIndexContent.includes('./cli/index.js'),
+    'dist/index.node.js should re-export the CLI helpers',
+  );
+  check(
+    nodeIndexContent.includes('./index.js'),
+    'dist/index.node.js should re-export the browser-safe root entry',
+  );
 }
 
 const binPath = path.join(distDir, 'cli', 'bin.js');
