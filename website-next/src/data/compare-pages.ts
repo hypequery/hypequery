@@ -6,6 +6,7 @@ export type ComparePageConfig = {
     | 'hypequery-vs-prisma'
     | 'hypequery-vs-cube'
     | 'hypequery-vs-tinybird'
+    | 'clickhouse-cloud-vs-tinybird'
     | 'cube-vs-tinybird-vs-hypequery'
     | 'hypequery-vs-moose'
     | 'hypequery-vs-dbt'
@@ -17,6 +18,8 @@ export type ComparePageConfig = {
   href: string;
   title: string;
   verdict: string;
+  primaryLabel?: string;
+  alternativeLabel?: string;
   rows: Array<{ label: string; hypequery: string; alternative: string }>;
   faq: Array<{ question: string; answer: string }>;
 };
@@ -245,6 +248,64 @@ export const comparePages: ComparePageConfig[] = [
         question: 'When should I choose Tinybird over hypequery?',
         answer:
           'Choose Tinybird when you have no ops team to manage ClickHouse, need a fast path from raw data to a public API, and data residency or vendor lock-in are not concerns. It is also a good fit when your team is more SQL-fluent than TypeScript-fluent and you want built-in rate limiting and caching without writing any middleware.',
+      },
+    ],
+  },
+  {
+    slug: 'clickhouse-cloud-vs-tinybird',
+    href: '/compare/clickhouse-cloud-vs-tinybird',
+    title: 'ClickHouse Cloud + hypequery vs Tinybird',
+    verdict:
+      'Choose Tinybird when you want ingestion, data modelling, and hosted API endpoints as one managed product. Choose ClickHouse Cloud with hypequery when you want a managed ClickHouse database while keeping the typed query and API layer in your TypeScript application.',
+    primaryLabel: 'ClickHouse Cloud + hypequery',
+    alternativeLabel: 'Tinybird',
+    rows: [
+      {
+        label: 'Product shape',
+        hypequery: 'Managed ClickHouse database plus an open-source TypeScript application layer',
+        alternative: 'Managed analytics backend with data sources, Pipes, endpoints, and tokens',
+      },
+      {
+        label: 'Query ownership',
+        hypequery: 'Typed query definitions live and deploy with your application',
+        alternative: 'SQL or SDK resources deploy to a Tinybird Workspace',
+      },
+      {
+        label: 'TypeScript contract',
+        hypequery: 'Generated from the live ClickHouse schema and reused by the API layer',
+        alternative: 'TypeScript SDK authors platform resources; clients consume hosted endpoints',
+      },
+      {
+        label: 'API operations',
+        hypequery: 'You deploy the API and integrate your own auth, caching, and rate limits',
+        alternative: 'Tinybird hosts endpoints and provides scoped tokens and platform controls',
+      },
+      {
+        label: 'Portability',
+        hypequery: 'ClickHouse schema, SQL, and application code remain independently deployable',
+        alternative: 'Data project is version-controlled, but executes on the Tinybird runtime',
+      },
+      {
+        label: 'Best fit',
+        hypequery: 'TypeScript product teams that want direct ClickHouse control',
+        alternative: 'Teams that want the shortest managed path from ingestion to a hosted data API',
+      },
+    ],
+    faq: [
+      {
+        question: 'Is ClickHouse Cloud a direct replacement for Tinybird?',
+        answer:
+          'No. ClickHouse Cloud manages the database; Tinybird manages a broader analytics-backend workflow that includes data resources and hosted API endpoints. Adding hypequery supplies the typed query and API layer on top of ClickHouse Cloud, but your team still owns that application deployment.',
+      },
+      {
+        question: 'Does the ClickHouse Cloud option require running ClickHouse yourself?',
+        answer:
+          'No. ClickHouse Cloud operates the database service, including scaling, replication, upgrades, and backups. You operate the comparatively thin application or API process that uses hypequery.',
+      },
+      {
+        question: 'Which option is better for a TypeScript product team?',
+        answer:
+          'ClickHouse Cloud with hypequery is usually the stronger fit when analytics is part of an existing TypeScript product and schema-derived types, direct database access, and application-level control matter. Tinybird is usually stronger when the team values a bundled, hosted endpoint platform more than owning the serving layer.',
       },
     ],
   },

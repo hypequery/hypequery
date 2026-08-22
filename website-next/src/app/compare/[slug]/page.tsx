@@ -242,8 +242,12 @@ export default async function ComparePage({
           </div>
           <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr_1.3fr]">
             <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Dimension</div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">hypequery</div>
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Alternative</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-300">
+              {comparePage.primaryLabel ?? 'hypequery'}
+            </div>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              {comparePage.alternativeLabel ?? 'Alternative'}
+            </div>
             {comparePage.rows.map((row) => (
               <Fragment key={row.label}>
                 <div className="border-t border-slate-800 pt-4 text-sm font-semibold text-white">
