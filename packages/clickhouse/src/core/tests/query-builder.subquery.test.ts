@@ -124,4 +124,62 @@ describe('QueryBuilder - subquery sources', () => {
       'SELECT id FROM (SELECT id FROM test_table FINAL)'
     );
   });
+
+  it('rejects PREWHERE clauses on a derived source', () => {
+    const db = setupDb();
+    const inner = db.table('test_table').select(['id', 'optional_name']);
+    const derived = db.from(inner);
+    const expectedMessage =
+      'PREWHERE can only be applied to a table source. Apply prewhere() to the inner query before passing it to db.from().';
+
+    expect(() => Reflect.apply(derived.prewhere, derived, ['id', 'eq', 1]))
+      .toThrow(expectedMessage);
+    expect(() => Reflect.apply(derived.orPrewhere, derived, ['id', 'eq', 1]))
+      .toThrow(expectedMessage);
+    expect(() => Reflect.apply(derived.prewhereNull, derived, ['optional_name']))
+      .toThrow(expectedMessage);
+    expect(() => Reflect.apply(derived.prewhereNotNull, derived, ['optional_name']))
+      .toThrow(expectedMessage);
+
+    expect(db.from(inner.prewhere('id', 'eq', 1)).select(['id']).toSQL()).toBe(
+      'SELECT id FROM (SELECT id, optional_name FROM test_table PREWHERE id = 1)'
+    );
+  });
+
+  it('promotes nested settings for execution and lets outer settings override them', async () => {
+    let executedSettings: unknown;
+    const settingsAdapter: DatabaseAdapter = {
+      ...adapter,
+      query: async (_sql, _parameters, options) => {
+        executedSettings = options?.clickhouseSettings;
+        return [];
+      },
+    };
+    const db = createQueryBuilder<TestSchema>({
+      adapter: settingsAdapter,
+      dialect: new ClickHouseDialect(),
+    });
+    const inner = db.table('test_table')
+      .settings({ final: 1, max_execution_time: 10 })
+      .select(['id']);
+    const outer = db.from(inner)
+      .settings({ max_execution_time: 20 })
+      .select(['id']);
+
+    expect(outer.getQueryNode().settings).toEqual({
+      final: 1,
+      max_execution_time: 20,
+    });
+    expect(inner.getQueryNode().settings).toEqual({
+      final: 1,
+      max_execution_time: 10,
+    });
+
+    await outer.execute();
+
+    expect(executedSettings).toEqual({
+      final: 1,
+      max_execution_time: 20,
+    });
+  });
 });

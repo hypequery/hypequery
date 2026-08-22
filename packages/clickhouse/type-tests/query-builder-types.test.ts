@@ -72,6 +72,20 @@ db.from(totalsSubquery).where('category', 'eq', 'premium');
 db.from(totalsSubquery).select(['test_table.id']);
 // @ts-expect-error - aggregate aliases not produced by the inner query are not visible
 db.from(totalsSubquery).select(['missing_sum']);
+const derivedSource = db.from(totalsSubquery);
+// @ts-expect-error - PREWHERE is only valid for table sources
+derivedSource.prewhere('id', 'eq', 1);
+// @ts-expect-error - PREWHERE is only valid for table sources
+derivedSource.orPrewhere('id', 'eq', 1);
+// @ts-expect-error - PREWHERE null helpers are only valid for table sources
+derivedSource.prewhereNull('sum_value');
+// @ts-expect-error - PREWHERE null helpers are only valid for table sources
+derivedSource.prewhereNotNull('sum_value');
+
+builder.prewhere('id', 'eq', 1);
+builder.orPrewhere('id', 'eq', 1);
+builder.prewhereNull('optional_name');
+builder.prewhereNotNull('optional_name');
 
 const crossFilter = new CrossFilter();
 builder.applyCrossFilters(crossFilter);

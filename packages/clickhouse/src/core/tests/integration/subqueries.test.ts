@@ -91,5 +91,23 @@ describe('Integration Tests - Subqueries', () => {
         positive_sum_value: Number(row.positive_sum_value),
       }))).toEqual(expectedRows);
     });
+
+    test('applies settings inherited from the nested query', async () => {
+      const configured = db.table('orders')
+        .settings({ max_threads: 23 })
+        .select([
+          rawAs<string, 'configured_max_threads'>(
+            "getSetting('max_threads')",
+            'configured_max_threads',
+          ),
+        ])
+        .limit(1);
+
+      const result = await db.from(configured)
+        .select(['configured_max_threads'])
+        .execute();
+
+      expect(result.map(row => Number(row.configured_max_threads))).toEqual([23]);
+    });
   });
 });

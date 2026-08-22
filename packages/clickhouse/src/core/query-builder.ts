@@ -77,6 +77,9 @@ type ColumnOperatorValue<
   Op extends keyof OperatorValueMap<any, Schema>
 > = OperatorValueMap<ColumnSelectionValue<State, Column>, Schema>[Op];
 
+type TableSourceMethodThis<State extends AnyBuilderState, Builder> =
+  Extract<State['tables'], typeof SUBQUERY_SOURCE_TABLE> extends never ? Builder : never;
+
 // Union type that accepts either client type
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 type ScalarAlias<Alias extends string> = Alias extends `${string} ${string}` ? never : Alias;
@@ -269,6 +272,14 @@ export class QueryBuilder<
     return this.assignQuery(this.cloneMutable(), updater(this.query));
   }
 
+  private assertTableSource(feature: 'FINAL' | 'PREWHERE', innerMethod: 'final()' | 'prewhere()'): void {
+    if (this.query.from?.kind === 'subquery') {
+      throw new Error(
+        `${feature} can only be applied to a table source. Apply ${innerMethod} to the inner query before passing it to db.from().`
+      );
+    }
+  }
+
   private withAliasesState<
     NextState extends BuilderState<
       Schema,
@@ -436,11 +447,7 @@ export class QueryBuilder<
   }
 
   final(): this {
-    if (this.query.from?.kind === 'subquery') {
-      throw new Error(
-        'FINAL can only be applied to a table source. Apply final() to the inner query before passing it to db.from().'
-      );
-    }
+    this.assertTableSource('FINAL', 'final()');
 
     return this.updateQuery(query => ({
       ...query,
@@ -741,6 +748,10 @@ export class QueryBuilder<
     operator?: FilterOperator,
     value?: any
   ): this {
+    if (clause === 'prewhere') {
+      this.assertTableSource('PREWHERE', 'prewhere()');
+    }
+
     const normalized = normalizeFilterApplication(
       clause,
       conjunction,
@@ -831,14 +842,17 @@ export class QueryBuilder<
   }
 
   prewhere(
+    this: TableSourceMethodThis<State, this>,
     expressionBuilder: (expr: PredicateBuilder<State>) => PredicateExpression
   ): this;
   prewhere<Column extends WhereColumn<State>, Op extends keyof OperatorValueMap<any, Schema>>(
+    this: TableSourceMethodThis<State, this>,
     columnOrColumns: Column | Column[],
     operator: Op,
     value: ColumnOperatorValue<Schema, State, Column, Op>
   ): this;
   prewhere<Column extends WhereColumn<State>>(
+    this: TableSourceMethodThis<State, this>,
     columns: Column[],
     operator: 'inTuple' | 'globalInTuple',
     value: any
@@ -852,14 +866,17 @@ export class QueryBuilder<
   }
 
   orPrewhere(
+    this: TableSourceMethodThis<State, this>,
     expressionBuilder: (expr: PredicateBuilder<State>) => PredicateExpression
   ): this;
   orPrewhere<Column extends WhereColumn<State>>(
+    this: TableSourceMethodThis<State, this>,
     column: Column,
     operator: FilterOperator,
     value: any
   ): this;
   orPrewhere<Column extends WhereColumn<State>>(
+    this: TableSourceMethodThis<State, this>,
     columns: Column[],
     operator: 'inTuple' | 'globalInTuple',
     value: any
@@ -996,11 +1013,21 @@ export class QueryBuilder<
     return this.updateQuery(() => this.filtering.addCondition('where', 'OR', String(column), 'isNotNull', null));
   }
 
+  prewhereNull<Column extends WhereColumn<State>>(
+    this: TableSourceMethodThis<State, this>,
+    column: Column
+  ): this;
   prewhereNull<Column extends WhereColumn<State>>(column: Column): this {
+    this.assertTableSource('PREWHERE', 'prewhere()');
     return this.updateQuery(() => this.filtering.addCondition('prewhere', 'AND', String(column), 'isNull', null));
   }
 
+  prewhereNotNull<Column extends WhereColumn<State>>(
+    this: TableSourceMethodThis<State, this>,
+    column: Column
+  ): this;
   prewhereNotNull<Column extends WhereColumn<State>>(column: Column): this {
+    this.assertTableSource('PREWHERE', 'prewhere()');
     return this.updateQuery(() => this.filtering.addCondition('prewhere', 'AND', String(column), 'isNotNull', null));
   }
 
@@ -1308,6 +1335,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
       subquery: QueryBuilder<Schema, SubqueryState>
     ): QueryBuilder<Schema, FromSubqueryState<Schema, SubqueryState>> {
       type NextState = FromSubqueryState<Schema, SubqueryState>;
+      const subqueryNode = subquery.toQueryNode();
       const state: NextState = {
         schema: {} as Schema,
         tables: SUBQUERY_SOURCE_TABLE,
@@ -1318,7 +1346,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         scalars: {},
       };
 
-      return new QueryBuilder<Schema, NextState>(
+      const builder = new QueryBuilder<Schema, NextState>(
         subquery.getTableName(),
         state,
         runtime,
@@ -1326,9 +1354,13 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
         resolvedDialect,
         {
           kind: 'subquery',
-          query: subquery.toQueryNode(),
+          query: subqueryNode,
         },
       );
+
+      return subqueryNode.settings
+        ? builder.settings(subqueryNode.settings)
+        : builder;
     }
   };
 }
