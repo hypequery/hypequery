@@ -477,6 +477,77 @@ describe("Serve integration — metrics", () => {
       const keys = Object.keys(api.manifest());
       expect(keys).toEqual(["totalRevenue"]);
     });
+
+    it("prefers an explicit api.route() registration over the convention route", () => {
+      const api = createAPI({
+        queries: {
+          busiestRoutes: { query: async () => [] },
+        },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      // Before registering, the manifest names the auto GET convention route.
+      expect(api.manifest().busiestRoutes).toEqual({
+        method: "GET",
+        path: "/api/analytics/queries/busiestRoutes",
+      });
+
+      api.route("/busiest-routes", api.queries.busiestRoutes, { method: "POST" });
+
+      // Clients must be pointed at the route the author declared, not the one
+      // the runtime generated. Sending the convention route here made
+      // `useQuery('busiestRoutes')` issue a GET the server rejects.
+      expect(api.manifest().busiestRoutes).toEqual({
+        method: "POST",
+        path: "/api/analytics/busiest-routes",
+      });
+    });
+
+    it("applies basePath to explicitly registered routes", () => {
+      const api = createAPI({
+        basePath: "/v1/analytics",
+        queries: { ping: { query: async () => ({ ok: true }) } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      api.route("/health", api.queries.ping, { method: "POST" });
+
+      expect(api.manifest().ping).toEqual({
+        method: "POST",
+        path: "/v1/analytics/health",
+      });
+    });
+
+    it("keeps the first explicit registration when an endpoint is routed twice", () => {
+      const api = createAPI({
+        queries: { ping: { query: async () => ({ ok: true }) } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      api.route("/health", api.queries.ping, { method: "POST" });
+      api.route("/healthz", api.queries.ping, { method: "POST" });
+
+      // Both routes are live; the manifest can only name one, so it stays on the
+      // first so regenerating it is deterministic.
+      expect(api.manifest().ping).toEqual({
+        method: "POST",
+        path: "/api/analytics/health",
+      });
+    });
+
+    it("falls back to the endpoint's own method when route() omits one", () => {
+      const api = createAPI({
+        queries: { ping: { query: async () => ({ ok: true }) } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      api.route("/health", api.queries.ping);
+
+      expect(api.manifest().ping).toEqual({
+        method: "GET",
+        path: "/api/analytics/health",
+      });
+    });
   });
 
   describe("metric endpoints", () => {
