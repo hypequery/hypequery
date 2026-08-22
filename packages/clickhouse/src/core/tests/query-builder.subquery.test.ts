@@ -75,6 +75,30 @@ describe('QueryBuilder - subquery sources', () => {
     ).toEqual(['2026-06-06', 1, 'premium']);
   });
 
+  it('recursively compiles multiple subquery levels and their parameters', () => {
+    const db = setupDb();
+    const activeProducts = db.table('test_table')
+      .select(['id', 'category'])
+      .where('active', 'eq', 1);
+    const premiumProducts = db.from(activeProducts)
+      .select(['id', 'category'])
+      .where('category', 'eq', 'premium');
+
+    const { sql, parameters } = db.from(premiumProducts)
+      .select(['id'])
+      .where('id', 'gt', 10)
+      .toSQLWithParams();
+
+    expect(sql).toBe(
+      'SELECT id FROM ' +
+      '(SELECT id, category FROM ' +
+      '(SELECT id, category FROM test_table WHERE active = ?) ' +
+      'WHERE category = ?) ' +
+      'WHERE id > ?'
+    );
+    expect(parameters).toEqual([1, 'premium', 10]);
+  });
+
   it('snapshots the nested query when creating the outer builder', () => {
     const db = setupDb();
     const inner = db.table('test_table').select(['id']);

@@ -35,11 +35,43 @@ type FromSubqueryExpected = {
 }[];
 type AssertFromSubquery = Expect<Equal<FromSubqueryResult, FromSubqueryExpected>>;
 
+const allFromSubquery = db.from(totalsSubquery).select('*');
+type AllFromSubqueryResult = Awaited<ReturnType<typeof allFromSubquery.execute>>;
+type AllFromSubqueryExpected = {
+  id: number;
+  created_by: number;
+  sum_value: string;
+}[];
+type AssertAllFromSubquery = Expect<Equal<AllFromSubqueryResult, AllFromSubqueryExpected>>;
+
+const reaggregatedSubquery = db.from(totalsSubquery)
+  .select(['id'])
+  .sum('sum_value', 'combined_sum')
+  .groupBy('id');
+type ReaggregatedSubqueryResult = Awaited<ReturnType<typeof reaggregatedSubquery.execute>>;
+type ReaggregatedSubqueryExpected = { id: number; combined_sum: string }[];
+type AssertReaggregatedSubquery = Expect<
+  Equal<ReaggregatedSubqueryResult, ReaggregatedSubqueryExpected>
+>;
+
+const joinedFromSubquery = db.from(totalsSubquery)
+  .innerJoin('users', 'created_by', 'users.id')
+  .select(['id', 'sum_value', 'users.email']);
+type JoinedFromSubqueryResult = Awaited<ReturnType<typeof joinedFromSubquery.execute>>;
+type JoinedFromSubqueryExpected = { id: number; sum_value: string; email: string }[];
+type AssertJoinedFromSubquery = Expect<
+  Equal<JoinedFromSubqueryResult, JoinedFromSubqueryExpected>
+>;
+
 db.from(totalsSubquery).where('sum_value', 'lt', '0').groupBy('id');
 // @ts-expect-error - unselected source-table columns are not visible outside the subquery
 db.from(totalsSubquery).select(['name']);
 // @ts-expect-error - unselected source-table columns cannot be filtered outside the subquery
 db.from(totalsSubquery).where('category', 'eq', 'premium');
+// @ts-expect-error - the original table qualifier is not in scope for an unaliased derived source
+db.from(totalsSubquery).select(['test_table.id']);
+// @ts-expect-error - aggregate aliases not produced by the inner query are not visible
+db.from(totalsSubquery).select(['missing_sum']);
 
 const crossFilter = new CrossFilter();
 builder.applyCrossFilters(crossFilter);
