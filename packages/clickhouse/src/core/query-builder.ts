@@ -130,6 +130,11 @@ const ADVANCED_IN_OPERATORS = new Set<FilterOperator>([
 export interface ExecuteOptions {
   queryId?: string;
   cache?: CacheOptions | false;
+  abortSignal?: AbortSignal;
+}
+
+export interface StreamOptions {
+  abortSignal?: AbortSignal;
 }
 
 export interface ClickHouseConnectionOptions extends Omit<BaseClickHouseClientConfigOptions, 'host'> {
@@ -687,16 +692,19 @@ export class QueryBuilder<
     return executeWithCache(this, options);
   }
 
-  async stream(): Promise<ReadableStream<State['output'][]>> {
-    return this.executor.stream();
+  async stream(options?: StreamOptions): Promise<ReadableStream<State['output'][]>> {
+    return this.executor.stream(options);
   }
 
   /**
    * Processes each row in a stream with the provided callback function
    * @param callback Function to call for each row in the stream
    */
-  async streamForEach<R = void>(callback: (row: State['output']) => R | Promise<R>): Promise<void> {
-    const stream = await this.stream();
+  async streamForEach<R = void>(
+    callback: (row: State['output']) => R | Promise<R>,
+    options?: StreamOptions
+  ): Promise<void> {
+    const stream = await this.stream(options);
     const reader = stream.getReader();
 
     try {

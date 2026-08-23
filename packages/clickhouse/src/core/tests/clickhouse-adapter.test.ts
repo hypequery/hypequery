@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { Readable } from 'stream';
 import { ClickHouseAdapter } from '../adapters/clickhouse-adapter.js';
 import { createQueryBuilder } from '../query-builder.js';
 
@@ -149,5 +150,78 @@ describe('ClickHouseAdapter shutdown', () => {
     });
 
     await expect(db.close()).resolves.toBeUndefined();
+  });
+});
+
+describe('ClickHouseAdapter abort signals', () => {
+  it('forwards the abort signal to the ClickHouse client on query', async () => {
+    const controller = new AbortController();
+    const clientQueryMock = vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue([]),
+    });
+
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+    });
+
+    await adapter.query('SELECT 1', [], { abortSignal: controller.signal });
+
+    expect(clientQueryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ abort_signal: controller.signal }),
+    );
+  });
+
+  it('forwards the abort signal to the ClickHouse client on stream', async () => {
+    const controller = new AbortController();
+    const clientQueryMock = vi.fn().mockResolvedValue({
+      stream: () => Readable.from(['{"id":1}\n']),
+    });
+
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+    });
+
+    await adapter.stream('SELECT 1', [], { abortSignal: controller.signal });
+
+    expect(clientQueryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ abort_signal: controller.signal }),
+    );
+  });
+
+  it('forwards the abort signal to the ClickHouse client on insert', async () => {
+    const controller = new AbortController();
+    const clientInsertMock = vi.fn().mockResolvedValue({
+      query_id: 'insert-1',
+      executed: true,
+    });
+
+    const adapter = new ClickHouseAdapter({
+      client: { insert: clientInsertMock } as any,
+    });
+
+    await adapter.insert('events', [{ id: 1 }], { abortSignal: controller.signal });
+
+    expect(clientInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ abort_signal: controller.signal }),
+    );
+  });
+
+  it('rejects an aborted query through the builder', async () => {
+    const controller = new AbortController();
+    const clientQueryMock = vi.fn().mockImplementation(({ abort_signal }: { abort_signal?: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        abort_signal?.addEventListener('abort', () => reject(new Error('The user aborted a request.')));
+      }));
+
+    const db = createQueryBuilder<{ events: { id: 'UInt32' } }>({
+      adapter: new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      }),
+    });
+
+    const pending = db.table('events').select(['id']).execute({ abortSignal: controller.signal });
+    controller.abort();
+
+    await expect(pending).rejects.toThrow('The user aborted a request.');
   });
 });

@@ -135,7 +135,7 @@ export async function executeWithCache<
       return respondFromCache(entry, 'hit');
     }
     runtime.stats.misses += 1;
-    return fetchAndStore('miss');
+    return fetchAndStore('miss', options?.abortSignal);
   }
 
   if (mode === 'stale-while-revalidate') {
@@ -147,13 +147,13 @@ export async function executeWithCache<
       return respondFromCache(entry, 'stale-hit');
     }
     runtime.stats.misses += 1;
-    return fetchAndStore('miss');
+    return fetchAndStore('miss', options?.abortSignal);
   }
 
   if (mode === 'network-first') {
     try {
       runtime.stats.misses += 1;
-      return await fetchAndStore('miss');
+      return await fetchAndStore('miss', options?.abortSignal);
     } catch (error) {
       if (mergedOptions.staleIfError && entry && staleAcceptable) {
         return respondFromCache(entry, 'stale-hit');
@@ -164,14 +164,17 @@ export async function executeWithCache<
 
   return runWithoutCache('bypass');
 
-  async function fetchAndStore(cacheStatus: CacheStatus): Promise<State['output'][]> {
-    if (mergedOptions.dedupe !== false && runtime.inFlight.has(key)) {
+  async function fetchAndStore(cacheStatus: CacheStatus, abortSignal?: AbortSignal): Promise<State['output'][]> {
+    // A caller-supplied signal makes the result abortable, so it must not be shared with other callers.
+    const dedupe = mergedOptions.dedupe !== false && !abortSignal;
+    if (dedupe && runtime.inFlight.has(key)) {
       return runtime.inFlight.get(key)! as Promise<State['output'][]>;
     }
 
     const promise = (async () => {
       const rows = await builder.getExecutor().execute({
         queryId: options?.queryId,
+        abortSignal,
         logContext: { cacheStatus, cacheKey: key, cacheMode: mode }
       });
 
@@ -198,7 +201,7 @@ export async function executeWithCache<
       return rows;
     })();
 
-    if (mergedOptions.dedupe !== false) {
+    if (dedupe) {
       runtime.inFlight.set(key, promise);
       promise.finally(() => runtime.inFlight.delete(key));
     }
@@ -208,6 +211,7 @@ export async function executeWithCache<
 
   function scheduleRevalidation() {
     runtime.stats.revalidations += 1;
+    // Background refresh serves later callers, so it must outlive the aborting one.
     fetchAndStore('revalidate').catch(() => undefined);
   }
 
@@ -217,6 +221,7 @@ export async function executeWithCache<
     }
     return builder.getExecutor().execute({
       queryId: options?.queryId,
+      abortSignal: options?.abortSignal,
       logContext: { cacheStatus, cacheMode: mode }
     });
   }

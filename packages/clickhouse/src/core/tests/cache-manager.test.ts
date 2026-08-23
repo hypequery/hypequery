@@ -401,3 +401,78 @@ describe('Cache manager integration', () => {
     }
   });
 });
+
+describe('Cache manager abort signals', () => {
+  const signalMock = vi.fn();
+  const signalAdapter: DatabaseAdapter = {
+    name: 'test',
+    query: (sql, params = [], options) => signalMock(sql, params, options?.abortSignal),
+    render: (sql, params = []) => substituteParameters(sql, params)
+  };
+
+  beforeEach(() => {
+    signalMock.mockReset();
+  });
+
+  it('never joins an abortable caller to another caller in-flight fetch', async () => {
+    const rows = [{ id: 1, email: 'user-1', active: 1 }];
+    const resolvers: Array<() => void> = [];
+    signalMock.mockImplementation(() => new Promise(resolve => {
+      resolvers.push(() => resolve(rows));
+    }));
+
+    const db = createQueryBuilder<TestSchema>({
+      adapter: signalAdapter,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 5_000,
+        provider: new MemoryCacheProvider({ maxEntries: 10 })
+      }
+    });
+
+    const controller = new AbortController();
+    const query = db.table('users').select(['id']);
+    const pending = Promise.all([query.execute(), query.execute({ abortSignal: controller.signal })]);
+
+    await flushPromises();
+    expect(signalMock).toHaveBeenCalledTimes(2);
+
+    resolvers.forEach(resolve => resolve());
+    await pending;
+  });
+
+  it('runs background revalidation without the aborting caller signal', async () => {
+    let callCount = 0;
+    signalMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
+
+    const db = createQueryBuilder<TestSchema>({
+      adapter: signalAdapter,
+      cache: {
+        mode: 'stale-while-revalidate',
+        ttlMs: 100,
+        staleTtlMs: 1_000,
+        provider: new MemoryCacheProvider({ maxEntries: 10 })
+      }
+    });
+
+    const query = db.table('users').select(['id']);
+    const nowSpy = vi.spyOn(Date, 'now');
+    let currentTime = 0;
+    nowSpy.mockImplementation(() => currentTime);
+
+    try {
+      await query.execute();
+
+      currentTime = 200;
+      const controller = new AbortController();
+      await query.execute({ abortSignal: controller.signal });
+      controller.abort();
+
+      await flushPromises();
+      expect(signalMock).toHaveBeenCalledTimes(2);
+      expect(signalMock.mock.calls[1][2]).toBeUndefined();
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+});

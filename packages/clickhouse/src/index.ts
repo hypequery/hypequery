@@ -10,7 +10,8 @@ export { ClickHouseDialect } from './core/dialects/clickhouse-dialect.js';
 export type {
   DatabaseAdapter,
   InsertExecutionOptions,
-  InsertResultSummary
+  InsertResultSummary,
+  QueryExecutionOptions
 } from './core/adapters/database-adapter.js';
 export type { SqlDialect } from './core/dialects/sql-dialect.js';
 
@@ -19,7 +20,8 @@ export type {
   ClickHouseConfig,
   ClickHouseClientConfig,
   CreateQueryBuilderConfig,
-  ExecuteOptions
+  ExecuteOptions,
+  StreamOptions
 } from './core/query-builder.js';
 export { isClientConfig } from './core/query-builder.js';
 

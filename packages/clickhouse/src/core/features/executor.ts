@@ -5,7 +5,12 @@ import { substituteParameters } from '../utils.js';
 
 interface ExecutorRunOptions {
   queryId?: string;
+  abortSignal?: AbortSignal;
   logContext?: Partial<QueryLog>;
+}
+
+interface ExecutorStreamOptions {
+  abortSignal?: AbortSignal;
 }
 
 export class ExecutorFeature<
@@ -44,6 +49,7 @@ export class ExecutorFeature<
       const rows = await adapter.query<State['output']>(sql, parameters, {
         clickhouseSettings: queryNode.settings,
         queryId: options?.queryId,
+        abortSignal: options?.abortSignal,
       });
       const endTime = Date.now();
 
@@ -78,7 +84,7 @@ export class ExecutorFeature<
     }
   }
 
-  async stream(): Promise<ReadableStream<State['output'][]>> {
+  async stream(options?: ExecutorStreamOptions): Promise<ReadableStream<State['output'][]>> {
     const adapter = this.builder.getAdapter();
     const queryNode = this.builder.toQueryNode();
     const { sql, parameters } = this.toSQLWithParams();
@@ -97,6 +103,7 @@ export class ExecutorFeature<
       }
       const webStream = await adapter.stream<State['output']>(sql, parameters, {
         clickhouseSettings: queryNode.settings,
+        abortSignal: options?.abortSignal,
       });
 
       const endTime = Date.now();

@@ -13,6 +13,7 @@ import { InsertExecutorFeature } from './features/insert-executor.js';
 
 export interface InsertExecuteOptions {
   queryId?: string;
+  abortSignal?: AbortSignal;
 }
 
 /**

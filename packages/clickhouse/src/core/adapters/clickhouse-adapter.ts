@@ -61,6 +61,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
       format: 'JSONEachRow',
       clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
       query_id: options?.queryId,
+      abort_signal: options?.abortSignal,
     });
     return result.json<T>();
   }
@@ -72,6 +73,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
       format: 'JSONEachRow',
       clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
       query_id: options?.queryId,
+      abort_signal: options?.abortSignal,
     });
     const stream = result.stream();
     return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream);
@@ -96,6 +98,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
         ...options?.clickhouseSettings,
       },
       query_id: options?.queryId,
+      abort_signal: options?.abortSignal,
     });
     return {
       queryId: result.query_id,
