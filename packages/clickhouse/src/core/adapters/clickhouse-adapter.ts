@@ -104,6 +104,10 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     };
   }
 
+  async close(): Promise<void> {
+    await this.client.close();
+  }
+
   render(sql: string, params: unknown[] = []): string {
     return substituteParameters(sql, params);
   }
