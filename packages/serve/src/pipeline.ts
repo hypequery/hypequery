@@ -34,6 +34,7 @@ import {
 } from './auth.js';
 import { type ResolvedCorsConfig, handleCorsRequest } from './cors.js';
 import { resolveLocalAuthRequirement } from './auth-requirement.js';
+import { coerceQueryInput } from './query-coercion.js';
 
 const safeInvokeHook = async <T>(
   name: string,
@@ -59,6 +60,15 @@ const createErrorResponse = (
   headers: headers ?? {},
   body: { error: { type, message, ...(details ? { details } : {}) } },
 });
+
+/**
+ * True when {@link buildContextInput} sourced the input from the query string
+ * rather than a body. Query values are always strings, so they need coercing
+ * against the schema before validation; JSON bodies already carry types.
+ */
+const inputCameFromQuery = (request: ServeRequest) =>
+  (request.body === undefined || request.body === null) &&
+  Boolean(request.query && Object.keys(request.query).length > 0);
 
 const buildContextInput = (request: ServeRequest) => {
   if (request.body !== undefined && request.body !== null) {
@@ -507,6 +517,10 @@ export const executeEndpoint = async <
           mode: activeTenantConfig.mode,
         });
       }
+    }
+
+    if (inputCameFromQuery(request)) {
+      context.input = coerceQueryInput(endpoint.inputSchema, context.input);
     }
 
     const validationResult = validateInput(endpoint.inputSchema, context.input);
