@@ -1,5 +1,11 @@
 # @hypequery/clickhouse Changelog
 
+## 2.6.0
+
+### Minor Changes
+
+- 309a971: Add type-safe subqueries in the `FROM` clause with `db.from(queryBuilder)`, preserving nested parameters and exposing only the subquery output columns to the outer builder.
+
 ## 2.5.6
 
 ### Patch Changes
