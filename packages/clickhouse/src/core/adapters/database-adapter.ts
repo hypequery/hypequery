@@ -24,6 +24,8 @@ export interface DatabaseAdapter {
   readonly name: string;
   readonly namespace?: string;
   query<T>(sql: string, params?: unknown[], options?: QueryExecutionOptions): Promise<T[]>;
+  /** Releases connections held by the adapter. Callers must not reuse it afterwards. */
+  close?(): Promise<void>;
   stream?<T>(sql: string, params?: unknown[], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>>;
   /**
    * Inserts rows that have already been normalized for JSONEachRow-compatible

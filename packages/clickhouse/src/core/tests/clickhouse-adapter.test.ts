@@ -117,3 +117,37 @@ describe('ClickHouseAdapter', () => {
     expect(clientInsertMock).not.toHaveBeenCalled();
   });
 });
+
+describe('ClickHouseAdapter shutdown', () => {
+  it('closes the underlying ClickHouse client', async () => {
+    const clientCloseMock = vi.fn().mockResolvedValue(undefined);
+    const adapter = new ClickHouseAdapter({
+      client: { close: clientCloseMock } as any,
+    });
+
+    await adapter.close();
+
+    expect(clientCloseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the adapter through the query builder handle', async () => {
+    const clientCloseMock = vi.fn().mockResolvedValue(undefined);
+    const db = createQueryBuilder<{ events: { id: 'UInt32' } }>({
+      adapter: new ClickHouseAdapter({
+        client: { close: clientCloseMock } as any,
+      }),
+    });
+
+    await db.close();
+
+    expect(clientCloseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves when the adapter does not implement close', async () => {
+    const db = createQueryBuilder<{ events: { id: 'UInt32' } }>({
+      adapter: { name: 'no-close', query: async () => [] },
+    });
+
+    await expect(db.close()).resolves.toBeUndefined();
+  });
+});

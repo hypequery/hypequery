@@ -1265,6 +1265,14 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
       return resolvedAdapter.query<TResult>(sql, params, options);
     },
     /**
+     * Closes the underlying connection pool for graceful shutdown. A client
+     * passed in through config is closed too, and the builder must not be used
+     * afterwards.
+     */
+    async close(): Promise<void> {
+      await resolvedAdapter.close?.();
+    },
+    /**
      * Starts a type-safe insert into the given table.
      *
      * Row shapes are derived from the schema: `Nullable(...)` columns are
