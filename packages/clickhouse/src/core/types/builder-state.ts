@@ -6,29 +6,32 @@ export type SchemaDefinition<Schema extends Record<string, any> = Record<string,
   [K in keyof Schema]: Record<string, ColumnType>;
 };
 
+export const SUBQUERY_SOURCE_TABLE = '__hypequery_internal_subquery_source__' as const;
+
 export type BuilderState<
   Schema extends SchemaDefinition<Schema>,
   VisibleTables extends string,
   OutputRow,
   BaseTable extends keyof Schema,
   Aliases extends Partial<Record<string, keyof Schema>> = {},
-  Scalars extends Record<string, unknown> = {}
+  Scalars extends Record<string, unknown> = {},
+  BaseShape extends Record<string, unknown> = Schema[BaseTable]
 > = {
   schema: Schema;
   tables: VisibleTables;
   output: OutputRow;
   baseTable: BaseTable;
-  base: Schema[BaseTable];
+  base: BaseShape;
   aliases: Aliases;
   scalars: Scalars;
 };
 
-export type AnyBuilderState = BuilderState<any, any, any, any, any>;
+export type AnyBuilderState = BuilderState<any, any, any, any, any, any, any>;
 
 export type BaseRow<State extends AnyBuilderState> = Simplify<{
   [K in keyof State['base']]: State['base'][K] extends ColumnType
   ? InferColumnType<State['base'][K]>
-  : never;
+  : State['base'][K];
 }>;
 
 export type WidenTables<
@@ -40,7 +43,8 @@ export type WidenTables<
   State['output'],
   State['baseTable'],
   State['aliases'],
-  State['scalars']
+  State['scalars'],
+  State['base']
 >;
 
 export type UpdateOutput<
@@ -52,7 +56,8 @@ export type UpdateOutput<
   Output,
   State['baseTable'],
   State['aliases'],
-  State['scalars']
+  State['scalars'],
+  State['base']
 >;
 
 export type InitialState<
@@ -87,7 +92,8 @@ export type AddAlias<
   State['output'],
   State['baseTable'],
   State['aliases'] & Record<Alias, Table>,
-  State['scalars']
+  State['scalars'],
+  State['base']
 >;
 
 export type AddScalar<
@@ -100,7 +106,21 @@ export type AddScalar<
   State['output'],
   State['baseTable'],
   State['aliases'],
-  State['scalars'] & Record<Alias, Value>
+  State['scalars'] & Record<Alias, Value>,
+  State['base']
+>;
+
+export type FromSubqueryState<
+  Schema extends SchemaDefinition<Schema>,
+  SubqueryState extends BuilderState<Schema, string, any, keyof Schema, any, any, any>
+> = BuilderState<
+  Schema,
+  typeof SUBQUERY_SOURCE_TABLE,
+  SubqueryState['output'],
+  SubqueryState['baseTable'],
+  {},
+  {},
+  SubqueryState['output']
 >;
 
 export type InsertState<

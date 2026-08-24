@@ -1,4 +1,4 @@
-import { QueryBuilder } from '../src/core/query-builder.js';
+import { createQueryBuilder, QueryBuilder } from '../src/core/query-builder.js';
 import { CrossFilter } from '../src/core/cross-filter.js';
 import { JoinRelationships } from '../src/core/join-relationships.js';
 import { setupTestBuilder, setupUsersBuilder, TestSchema, TEST_SCHEMAS } from '../src/core/tests/test-utils.js';
@@ -8,6 +8,84 @@ import type { Equal, Expect } from '@type-challenges/utils';
 
 const builder = setupTestBuilder();
 type BuilderStateType = typeof builder extends QueryBuilder<any, infer S> ? S : never;
+
+const db = createQueryBuilder<TestSchema>({
+  adapter: builder.getAdapter(),
+  dialect: builder.getDialect(),
+});
+
+const totalsSubquery = builder
+  .select(['id', 'created_by'])
+  .sum('price', 'sum_value')
+  .groupBy(['id', 'created_by']);
+const queryFromSubquery = db.from(totalsSubquery)
+  .select([
+    'id',
+    'sum_value',
+    rawAs<string, 'negative_sum_value'>(
+      'sumIf(sum_value, sum_value < 0)',
+      'negative_sum_value',
+    ),
+  ]);
+type FromSubqueryResult = Awaited<ReturnType<typeof queryFromSubquery.execute>>;
+type FromSubqueryExpected = {
+  id: number;
+  sum_value: string;
+  negative_sum_value: string;
+}[];
+type AssertFromSubquery = Expect<Equal<FromSubqueryResult, FromSubqueryExpected>>;
+
+const allFromSubquery = db.from(totalsSubquery).select('*');
+type AllFromSubqueryResult = Awaited<ReturnType<typeof allFromSubquery.execute>>;
+type AllFromSubqueryExpected = {
+  id: number;
+  created_by: number;
+  sum_value: string;
+}[];
+type AssertAllFromSubquery = Expect<Equal<AllFromSubqueryResult, AllFromSubqueryExpected>>;
+
+const reaggregatedSubquery = db.from(totalsSubquery)
+  .select(['id'])
+  .sum('sum_value', 'combined_sum')
+  .groupBy('id');
+type ReaggregatedSubqueryResult = Awaited<ReturnType<typeof reaggregatedSubquery.execute>>;
+type ReaggregatedSubqueryExpected = { id: number; combined_sum: string }[];
+type AssertReaggregatedSubquery = Expect<
+  Equal<ReaggregatedSubqueryResult, ReaggregatedSubqueryExpected>
+>;
+
+const joinedFromSubquery = db.from(totalsSubquery)
+  .innerJoin('users', 'created_by', 'users.id')
+  .select(['id', 'sum_value', 'users.email']);
+type JoinedFromSubqueryResult = Awaited<ReturnType<typeof joinedFromSubquery.execute>>;
+type JoinedFromSubqueryExpected = { id: number; sum_value: string; email: string }[];
+type AssertJoinedFromSubquery = Expect<
+  Equal<JoinedFromSubqueryResult, JoinedFromSubqueryExpected>
+>;
+
+db.from(totalsSubquery).where('sum_value', 'lt', '0').groupBy('id');
+// @ts-expect-error - unselected source-table columns are not visible outside the subquery
+db.from(totalsSubquery).select(['name']);
+// @ts-expect-error - unselected source-table columns cannot be filtered outside the subquery
+db.from(totalsSubquery).where('category', 'eq', 'premium');
+// @ts-expect-error - the original table qualifier is not in scope for an unaliased derived source
+db.from(totalsSubquery).select(['test_table.id']);
+// @ts-expect-error - aggregate aliases not produced by the inner query are not visible
+db.from(totalsSubquery).select(['missing_sum']);
+const derivedSource = db.from(totalsSubquery);
+// @ts-expect-error - PREWHERE is only valid for table sources
+derivedSource.prewhere('id', 'eq', 1);
+// @ts-expect-error - PREWHERE is only valid for table sources
+derivedSource.orPrewhere('id', 'eq', 1);
+// @ts-expect-error - PREWHERE null helpers are only valid for table sources
+derivedSource.prewhereNull('sum_value');
+// @ts-expect-error - PREWHERE null helpers are only valid for table sources
+derivedSource.prewhereNotNull('sum_value');
+
+builder.prewhere('id', 'eq', 1);
+builder.orPrewhere('id', 'eq', 1);
+builder.prewhereNull('optional_name');
+builder.prewhereNotNull('optional_name');
 
 const crossFilter = new CrossFilter();
 builder.applyCrossFilters(crossFilter);

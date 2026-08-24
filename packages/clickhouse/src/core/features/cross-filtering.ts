@@ -16,7 +16,7 @@ function isFilterCondition<Schema extends SchemaDefinition<Schema>>(
 
 export class CrossFilteringFeature<
   Schema extends SchemaDefinition<Schema>,
-  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>>
+  State extends BuilderState<Schema, string, any, keyof Schema, Partial<Record<string, keyof Schema>>, any, any>
 > {
   constructor(private builder: QueryBuilder<Schema, State>) { }
 

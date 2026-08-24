@@ -1,4 +1,4 @@
-import type { CompiledQuery, SelectQueryNode } from '../../types/index.js';
+import type { CompiledQuery, SelectQueryNode, SourceNode } from '../../types/index.js';
 import { SQLFormatter } from '../formatters/sql-formatter.js';
 import { formatIntervalLiteral } from '../utils/sql-literals.js';
 import type { CompileQueryContext, SqlDialect } from './sql-dialect.js';
@@ -16,7 +16,12 @@ export class ClickHouseDialect implements SqlDialect {
     }
 
     parts.push(`SELECT ${this.formatter.formatSelect(query)}`);
-    parts.push(`FROM ${this.formatter.formatFrom(query.from ?? { kind: 'table', name: context.tableName })}`);
+    const compiledSource = this.compileSource(
+      query.from ?? { kind: 'table', name: context.tableName },
+      context,
+    );
+    parts.push(`FROM ${compiledSource.query}`);
+    parameters.push(...compiledSource.parameters);
 
     if (query.arrayJoins?.length) {
       parts.push(this.formatter.formatArrayJoins(query));
@@ -82,5 +87,20 @@ export class ClickHouseDialect implements SqlDialect {
     return Object.entries(settings)
       .map(([key, value]) => `${key}=${value}`)
       .join(', ');
+  }
+
+  private compileSource(source: SourceNode, context: CompileQueryContext): CompiledQuery {
+    if (source.kind === 'table') {
+      return {
+        query: this.formatter.formatFrom(source),
+        parameters: [],
+      };
+    }
+
+    const compiled = this.compileQuery(source.query, context);
+    return {
+      query: `(${compiled.query})`,
+      parameters: compiled.parameters,
+    };
   }
 }

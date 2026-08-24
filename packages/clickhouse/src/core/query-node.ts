@@ -4,7 +4,22 @@ import type {
   InsertQueryNode,
   QueryConfig,
   SelectQueryNode,
+  SourceNode,
 } from '../types/index.js';
+
+function cloneSourceNode(source: SourceNode): SourceNode {
+  switch (source.kind) {
+    case 'table':
+      return { ...source };
+    case 'subquery':
+      return {
+        kind: 'subquery',
+        query: cloneSelectQueryNode(source.query),
+      };
+    default:
+      throw new Error(`Unsupported source kind: ${String((source as { kind?: string }).kind)}`);
+  }
+}
 
 function cloneConditionValue(value: ConditionValueNode): ConditionValueNode {
   if (typeof value === 'string') {
@@ -55,7 +70,7 @@ export function createSelectQueryNode<TOutput, TSchema>(
 ): SelectQueryNode<TOutput, TSchema> {
   return {
     kind: 'select-query',
-    from: config.from ? { ...config.from } : undefined,
+    from: config.from ? cloneSourceNode(config.from) : undefined,
     select: config.select ? config.select.map(item => ({ ...item })) : undefined,
     arrayJoins: config.arrayJoins ? config.arrayJoins.map(item => ({ ...item })) : undefined,
     prewhere: cloneExprNode(config.prewhere),

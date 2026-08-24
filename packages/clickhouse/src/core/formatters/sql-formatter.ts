@@ -34,6 +34,8 @@ export class SQLFormatter {
     switch (source.kind) {
       case 'table':
         return `${source.name}${source.final ? ' FINAL' : ''}`;
+      case 'subquery':
+        throw new Error('Subquery sources must be compiled by the SQL dialect.');
       default:
         throw new Error(`Unsupported source kind: ${String((source as { kind?: string }).kind)}`);
     }

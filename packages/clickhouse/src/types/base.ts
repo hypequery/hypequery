@@ -91,7 +91,12 @@ export interface TableSourceNode {
   final?: boolean;
 }
 
-export type SourceNode = TableSourceNode;
+export interface SubquerySourceNode {
+  kind: 'subquery';
+  query: SelectQueryNode<any, any>;
+}
+
+export type SourceNode = TableSourceNode | SubquerySourceNode;
 
 export interface GroupByItemNode {
   kind: 'group-by-item';

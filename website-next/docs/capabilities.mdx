@@ -8,7 +8,7 @@ import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
 # What hypequery supports today
 
-This page records the shipped surface of hypequery as of **11 August 2026**. It is a capability matrix, not a roadmap: “native” means a public typed method exists, “expression” means the feature is supported through an explicit SQL expression inside an otherwise typed query, and “semantic” means it can be declared and executed through `@hypequery/datasets`.
+This page records the shipped surface of hypequery as of **21 August 2026**. It is a capability matrix, not a roadmap: “native” means a public typed method exists, “expression” means the feature is supported through an explicit SQL expression inside an otherwise typed query, and “semantic” means it can be declared and executed through `@hypequery/datasets`.
 
 <Callout type="info" title="Short version">
   `argMax`, `argMin`, percentiles, median, standard deviation, variance, `final()`, `limitBy()`, array joins, `PREWHERE`, CTEs, and window expressions are supported today. The tables below show the exact public syntax.
@@ -29,6 +29,7 @@ This page records the shipped surface of hypequery as of **11 August 2026**. It 
 | Array expansion | Native | `arrayJoin()`, `leftArrayJoin()` |
 | Totals and distinct results | Native | `withTotals()`, `distinct()` |
 | CTEs | Native | `withCTE()` with a builder or SQL body |
+| Subqueries in `FROM` | Native | `from(queryBuilder)` with the nested output as the outer typed column scope |
 | ClickHouse settings | Native | `settings()` |
 | Streaming | Native | `stream()`, `streamForEach()` |
 | Query SQL inspection | Native | `toSQL()`, `toSQLWithParams()` |
