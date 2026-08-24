@@ -1,5 +1,4 @@
 ---
-layout: ../../../layouts/DocsLayout.astro
 title: Next.js
 description: Mount hypequery in a Next.js App Router project.
 ---
@@ -68,6 +67,43 @@ export default async function Page() {
 </CodeBlock>
 
 Use `force-dynamic` on Server Components or pages that query ClickHouse during render. Without it, Next.js may try to prerender the page at build time and fail or time out when the database is unavailable.
+
+</Step>
+
+<Step>
+
+### Call the API from client components
+
+Client components cannot import the serve API as a value — doing so bundles `initServe` and
+`@hypequery/clickhouse` for the browser and fails the build with `Can't resolve 'fs/promises'`.
+Generate the route manifest as static JSON instead:
+
+<CodeBlock>
+```bash
+npx hypequery generate:manifest analytics/queries.ts --output analytics/hypequery-manifest.json
+```
+</CodeBlock>
+
+<CodeBlock>
+```typescript
+// lib/analytics.ts
+import { createAnalyticsHooks } from '@hypequery/react';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/queries';
+import manifest from '@/analytics/hypequery-manifest.json';
+
+type Api = InferApiType<typeof api>;
+
+export const { useQuery, useMetric, useDataset } = createAnalyticsHooks<Api>({
+  baseUrl: '/api/analytics',
+  manifest,
+});
+```
+</CodeBlock>
+
+Both `api` and `InferApiType` are imported with `import type`, so they are erased at build time and
+only the manifest JSON survives into the client bundle. See the [React guide](/docs/react/getting-started)
+for provider setup.
 
 </Step>
 
