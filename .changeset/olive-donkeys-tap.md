@@ -1,5 +1,5 @@
 ---
-"@hypequery/serve": minor
+"@hypequery/serve": patch
 ---
 
 Type query resolvers with zod's **output** type instead of its input type.
@@ -29,7 +29,7 @@ Caller-facing types are unchanged and still use `SchemaInput`: `InferApiType`,
 Over the wire a defaulted field really is optional, so `@hypequery/react` and
 anything driving `api.execute()` keep the types they had.
 
-Marked minor rather than patch: resolvers are now typed more precisely, so code
-written against the previous (incorrect) type may surface new errors — most
-often a now-redundant `?? fallback`, which is safe to delete. Code that already
-handled the value correctly keeps compiling.
+Resolvers are now typed more precisely, so code written against the previous
+(incorrect) type may surface new errors — most often a now-redundant
+`?? fallback`, which is safe to delete. Code that already handled the value
+correctly keeps compiling, and no runtime behaviour changes.
