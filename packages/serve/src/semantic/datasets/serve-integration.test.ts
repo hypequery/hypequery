@@ -503,6 +503,27 @@ describe("Serve integration — metrics", () => {
       });
     });
 
+    it("keeps explicit routes scoped to the matching endpoint identity", () => {
+      const api = createAPI({
+        queries: {
+          orders: { query: async () => [] },
+        },
+        datasets: { orders: Orders },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      api.route("/custom-orders", api.queries["dataset:orders"], { method: "POST" });
+
+      expect(api.manifest().orders).toEqual({
+        method: "GET",
+        path: "/api/analytics/queries/orders",
+      });
+      expect(api.manifest()["dataset:orders"]).toEqual({
+        method: "POST",
+        path: "/api/analytics/custom-orders",
+      });
+    });
+
     it("applies basePath to explicitly registered routes", () => {
       const api = createAPI({
         basePath: "/v1/analytics",
