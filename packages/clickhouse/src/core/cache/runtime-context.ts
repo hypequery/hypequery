@@ -7,6 +7,8 @@ import type {
   CacheStats
 } from './types.js';
 import { defaultSerialize, defaultDeserialize } from './serialization.js';
+import type { SharedFetch } from './shared-fetch.js';
+import { CacheMutationCoordinator } from './mutation-coordinator.js';
 
 const DEFAULT_CACHE_OPTIONS: Required<Pick<CacheOptions, 'mode' | 'ttlMs' | 'staleTtlMs' | 'staleIfError' | 'dedupe'>> & Pick<CacheOptions, 'cacheTimeMs'> = {
   mode: 'no-store',
@@ -23,7 +25,8 @@ export interface QueryRuntimeContext {
   versionTag: string;
   serialize: CacheSerializeFn;
   deserialize: CacheDeserializeFn;
-  inFlight: Map<string, Promise<unknown>>;
+  inFlight: Map<string, SharedFetch>;
+  mutations: CacheMutationCoordinator;
   stats: CacheStats;
   parsedValues: Map<string, ParsedValueEntry>;
 }
@@ -79,6 +82,7 @@ export function buildRuntimeContext(config: CacheRuntimeConfig): QueryRuntimeCon
     serialize: config.serialize,
     deserialize: config.deserialize,
     inFlight: new Map(),
+    mutations: new CacheMutationCoordinator(),
     stats: createCacheStats(),
     parsedValues: new Map()
   };

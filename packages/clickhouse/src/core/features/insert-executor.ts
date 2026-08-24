@@ -10,6 +10,7 @@ import {
 
 interface InsertExecutorRunOptions {
   queryId?: string;
+  abortSignal?: AbortSignal;
 }
 
 function normalizeInsertValue(value: unknown): unknown {
@@ -152,6 +153,7 @@ export class InsertExecutorFeature<
       const result = await adapter.insert(tableName, rows, {
         clickhouseSettings: queryNode.settings,
         queryId: options?.queryId,
+        abortSignal: options?.abortSignal,
         columns: queryNode.columns,
       });
       const endTime = Date.now();

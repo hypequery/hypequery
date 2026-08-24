@@ -401,3 +401,430 @@ describe('Cache manager integration', () => {
     }
   });
 });
+
+describe('Cache manager abort signals', () => {
+  const signalMock = vi.fn();
+  const signalAdapter: DatabaseAdapter = {
+    name: 'test',
+    query: (sql, params = [], options) => signalMock(sql, params, options?.abortSignal),
+    render: (sql, params = []) => substituteParameters(sql, params)
+  };
+  const observedSignal = (call: number): AbortSignal => signalMock.mock.calls[call][2];
+
+  const cachedBuilder = (mode: 'cache-first' | 'network-first' = 'cache-first') =>
+    createQueryBuilder<TestSchema>({
+      adapter: signalAdapter,
+      cache: {
+        mode,
+        ttlMs: 100,
+        staleTtlMs: 1_000,
+        staleIfError: true,
+        provider: new MemoryCacheProvider({ maxEntries: 10 })
+      }
+    });
+
+  const rows = [{ id: 1, email: 'user-1', active: 1 }];
+
+  beforeEach(() => {
+    signalMock.mockReset();
+  });
+
+  it('shares one fetch between abortable and plain callers', async () => {
+    let resolveQuery: (() => void) | undefined;
+    signalMock.mockImplementation(() => new Promise(resolve => {
+      resolveQuery = () => resolve(rows);
+    }));
+
+    const query = cachedBuilder().table('users').select(['id']);
+    const controller = new AbortController();
+    const pending = Promise.all([query.execute(), query.execute({ abortSignal: controller.signal })]);
+
+    await flushPromises();
+    expect(signalMock).toHaveBeenCalledTimes(1);
+
+    resolveQuery?.();
+    expect(await pending).toEqual([rows, rows]);
+  });
+
+  it('keeps the shared fetch running while another caller still waits', async () => {
+    let resolveQuery: (() => void) | undefined;
+    signalMock.mockImplementation(() => new Promise(resolve => {
+      resolveQuery = () => resolve(rows);
+    }));
+
+    const query = cachedBuilder().table('users').select(['id']);
+    const controller = new AbortController();
+    const waiting = query.execute();
+    const abortable = query.execute({ abortSignal: controller.signal });
+    await flushPromises();
+
+    controller.abort(new Error('caller went away'));
+    await expect(abortable).rejects.toThrow('caller went away');
+    expect(observedSignal(0).aborted).toBe(false);
+
+    resolveQuery?.();
+    expect(await waiting).toEqual(rows);
+  });
+
+  it('cancels the shared fetch once every waiter aborts', async () => {
+    signalMock.mockImplementation((_sql: string, _params: unknown[], abortSignal?: AbortSignal) =>
+      new Promise((_resolve, reject) => {
+        abortSignal?.addEventListener('abort', () => reject(new Error('aborted upstream')));
+      }));
+
+    const query = cachedBuilder().table('users').select(['id']);
+    const first = new AbortController();
+    const second = new AbortController();
+    const pending = [
+      query.execute({ abortSignal: first.signal }).catch(error => error),
+      query.execute({ abortSignal: second.signal }).catch(error => error)
+    ];
+    await flushPromises();
+
+    first.abort(new Error('first gone'));
+    expect(observedSignal(0).aborted).toBe(false);
+
+    second.abort(new Error('second gone'));
+    expect(observedSignal(0).aborted).toBe(true);
+
+    const [firstError, secondError] = await Promise.all(pending);
+    expect(firstError.message).toBe('first gone');
+    expect(secondError.message).toBe('second gone');
+  });
+
+  it('starts a fresh fetch for callers arriving after the shared fetch was cancelled', async () => {
+    let calls = 0;
+    let cancelledFetchSettled: (() => void) | undefined;
+    const cancelledFetch = new Promise<void>(resolve => {
+      cancelledFetchSettled = resolve;
+    });
+    signalMock.mockImplementation((_sql: string, _params: unknown[], abortSignal?: AbortSignal) => {
+      calls += 1;
+      if (calls === 1) {
+        return new Promise((_resolve, reject) => {
+          abortSignal?.addEventListener('abort', () => {
+            setTimeout(() => {
+              reject(new Error('aborted upstream'));
+              cancelledFetchSettled?.();
+            }, 0);
+          });
+        });
+      }
+      return Promise.resolve(rows);
+    });
+
+    const query = cachedBuilder().table('users').select(['id']);
+    const first = new AbortController();
+    const second = new AbortController();
+    const pending = [
+      query.execute({ abortSignal: first.signal }).catch(error => error),
+      query.execute({ abortSignal: second.signal }).catch(error => error)
+    ];
+    await flushPromises();
+
+    first.abort(new Error('first gone'));
+    second.abort(new Error('second gone'));
+
+    const fresh = query.execute();
+
+    expect(await fresh).toEqual(rows);
+    expect(signalMock).toHaveBeenCalledTimes(2);
+    await Promise.all(pending);
+    await cancelledFetch;
+    await flushPromises();
+  });
+
+  it('runs background revalidation beyond the aborting caller', async () => {
+    let callCount = 0;
+    signalMock.mockImplementation(() => Promise.resolve([{ id: ++callCount, email: `user-${callCount}`, active: 1 }]));
+
+    const query = cachedBuilder('cache-first').table('users').select(['id']);
+    const nowSpy = vi.spyOn(Date, 'now');
+    let currentTime = 0;
+    nowSpy.mockImplementation(() => currentTime);
+
+    try {
+      await query.execute();
+
+      currentTime = 200;
+      const controller = new AbortController();
+      await query.execute({ abortSignal: controller.signal });
+      controller.abort(new Error('caller went away'));
+
+      await flushPromises();
+      expect(signalMock).toHaveBeenCalledTimes(2);
+      expect(observedSignal(1).aborted).toBe(false);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it('rejects a pre-aborted sole caller without fetching or writing the cache', async () => {
+    signalMock.mockImplementation(() => Promise.resolve(rows));
+
+    const query = cachedBuilder().table('users').select(['id']);
+    const controller = new AbortController();
+    controller.abort(new Error('caller went away'));
+
+    await expect(query.execute({ abortSignal: controller.signal }))
+      .rejects.toThrow('caller went away');
+    expect(signalMock).not.toHaveBeenCalled();
+
+    // The cache must not have been populated by the aborted execution.
+    expect(await query.execute()).toEqual(rows);
+    expect(signalMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a pre-aborted caller even when a fresh cache entry exists', async () => {
+    signalMock.mockImplementation(() => Promise.resolve(rows));
+
+    const query = cachedBuilder().table('users').select(['id']);
+    await query.execute();
+
+    const controller = new AbortController();
+    controller.abort(new Error('caller went away'));
+
+    await expect(query.execute({ abortSignal: controller.signal }))
+      .rejects.toThrow('caller went away');
+    expect(signalMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects when the caller aborts during an asynchronous cache lookup', async () => {
+    const reason = new Error('caller went away');
+    let startLookup: (() => void) | undefined;
+    const lookupStarted = new Promise<void>(resolve => {
+      startLookup = resolve;
+    });
+    let finishLookup: ((entry: CacheEntry) => void) | undefined;
+    const provider: CacheProvider = {
+      get: vi.fn(() => {
+        startLookup?.();
+        return new Promise<CacheEntry>(resolve => {
+          finishLookup = resolve;
+        });
+      }),
+      set: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined),
+    };
+    const db = createQueryBuilder<TestSchema>({
+      adapter: signalAdapter,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 1_000,
+        provider,
+      },
+    });
+    const query = db.table('users').select(['id']);
+    const controller = new AbortController();
+
+    const pending = query.execute({ abortSignal: controller.signal });
+    await lookupStarted;
+    controller.abort(reason);
+
+    await expect(pending).rejects.toBe(reason);
+
+    // Let the non-abortable provider operation settle so the test leaves no work behind.
+    finishLookup?.({
+      value: JSON.stringify(rows),
+      createdAt: Date.now(),
+      ttlMs: 1_000,
+      staleTtlMs: 0,
+      cacheTimeMs: 1_000,
+      rowCount: rows.length,
+    });
+    await flushPromises();
+    expect(signalMock).not.toHaveBeenCalled();
+  });
+
+  it('writes replacement rows after an abandoned cache write settles', async () => {
+    const oldRows = [{ id: 1, email: 'old', active: 1 }];
+    const replacementRows = [{ id: 2, email: 'replacement', active: 1 }];
+    signalMock
+      .mockResolvedValueOnce(oldRows)
+      .mockResolvedValueOnce(replacementRows);
+
+    const store = new Map<string, CacheEntry>();
+    let setCalls = 0;
+    let releaseFirstWrite: (() => void) | undefined;
+    let markFirstWriteStarted: (() => void) | undefined;
+    const firstWriteStarted = new Promise<void>(resolve => {
+      markFirstWriteStarted = resolve;
+    });
+    const provider: CacheProvider = {
+      get: vi.fn(async key => store.get(key) ?? null),
+      set: vi.fn(async (key, entry) => {
+        setCalls += 1;
+        if (setCalls === 1) {
+          markFirstWriteStarted?.();
+          await new Promise<void>(resolve => {
+            releaseFirstWrite = resolve;
+          });
+        }
+        store.set(key, entry);
+      }),
+      delete: vi.fn(async key => {
+        store.delete(key);
+      }),
+    };
+    const db = createQueryBuilder<TestSchema>({
+      adapter: signalAdapter,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 1_000,
+        provider,
+      },
+    });
+    const query = db.table('users').select(['id']);
+    const controller = new AbortController();
+
+    const abandoned = query.execute({ abortSignal: controller.signal });
+    await firstWriteStarted;
+    controller.abort(new Error('first caller left'));
+    await expect(abandoned).rejects.toThrow('first caller left');
+
+    const replacement = query.execute();
+    await flushPromises();
+    expect(signalMock).toHaveBeenCalledTimes(2);
+    expect(setCalls).toBe(1);
+
+    releaseFirstWrite?.();
+
+    await expect(replacement).resolves.toEqual(replacementRows);
+    expect(setCalls).toBe(2);
+    await expect(query.execute()).resolves.toEqual(replacementRows);
+    expect(signalMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['key', 'tag', 'namespace'] as const)(
+    'does not let an abandoned cache write defeat %s invalidation',
+    async invalidationKind => {
+      const oldRows = [{ id: 1, email: 'old', active: 1 }];
+      const replacementRows = [{ id: 2, email: 'replacement', active: 1 }];
+      signalMock
+        .mockResolvedValueOnce(oldRows)
+        .mockResolvedValueOnce(replacementRows);
+
+      const store = new Map<string, CacheEntry>();
+      const mutationOrder: string[] = [];
+      let releaseWrite: (() => void) | undefined;
+      let markWriteStarted: (() => void) | undefined;
+      const writeStarted = new Promise<void>(resolve => {
+        markWriteStarted = resolve;
+      });
+      const deleteKey = vi.fn(async (key: string) => {
+        mutationOrder.push('key-invalidation');
+        store.delete(key);
+      });
+      const deleteTag = vi.fn(async () => {
+        mutationOrder.push('tag-invalidation');
+        store.clear();
+      });
+      const clearNamespace = vi.fn(async () => {
+        mutationOrder.push('namespace-invalidation');
+        store.clear();
+      });
+      let setCalls = 0;
+      const provider: CacheProvider = {
+        get: vi.fn(async key => store.get(key) ?? null),
+        set: vi.fn(async (key, entry) => {
+          setCalls += 1;
+          if (setCalls === 1) {
+            markWriteStarted?.();
+            await new Promise<void>(resolve => {
+              releaseWrite = resolve;
+            });
+          }
+          mutationOrder.push(setCalls === 1 ? 'old-write' : 'replacement-write');
+          store.set(key, entry);
+        }),
+        delete: deleteKey,
+        deleteByTag: deleteTag,
+        clearNamespace,
+      };
+      const db = createQueryBuilder<TestSchema>({
+        adapter: signalAdapter,
+        cache: {
+          namespace: 'test-namespace',
+          mode: 'cache-first',
+          ttlMs: 1_000,
+          provider,
+        },
+      });
+      const query = db.table('users').select(['id']).cache({
+        key: 'test-key',
+        tags: ['users'],
+      });
+      const controller = new AbortController();
+
+      const abandoned = query.execute({ abortSignal: controller.signal });
+      await writeStarted;
+      controller.abort(new Error('caller left'));
+      await expect(abandoned).rejects.toThrow('caller left');
+
+      let invalidation: Promise<void>;
+      if (invalidationKind === 'key') {
+        invalidation = db.cache.invalidateKey('test-key');
+      } else if (invalidationKind === 'tag') {
+        invalidation = db.cache.invalidateTags(['users']);
+      } else {
+        invalidation = db.cache.clear();
+      }
+      await flushPromises();
+
+      const replacement = query.execute();
+      await flushPromises();
+
+      expect(deleteKey).toHaveBeenCalledTimes(0);
+      expect(deleteTag).toHaveBeenCalledTimes(0);
+      expect(clearNamespace).toHaveBeenCalledTimes(0);
+      expect(setCalls).toBe(1);
+
+      releaseWrite?.();
+      await expect(replacement).resolves.toEqual(replacementRows);
+      await invalidation;
+
+      expect(deleteKey).toHaveBeenCalledTimes(invalidationKind === 'key' ? 1 : 0);
+      expect(deleteTag).toHaveBeenCalledTimes(invalidationKind === 'tag' ? 1 : 0);
+      expect(clearNamespace).toHaveBeenCalledTimes(invalidationKind === 'namespace' ? 1 : 0);
+      expect(mutationOrder).toEqual([
+        'old-write',
+        `${invalidationKind}-invalidation`,
+        'replacement-write',
+      ]);
+      await expect(query.execute()).resolves.toEqual(replacementRows);
+      expect(signalMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it('rejects an aborted network-first execution instead of serving stale rows', async () => {
+    let callCount = 0;
+    signalMock.mockImplementation((_sql: string, _params: unknown[], abortSignal?: AbortSignal) => {
+      callCount += 1;
+      if (callCount === 1) {
+        return Promise.resolve([{ id: 1, email: 'cached', active: 1 }]);
+      }
+      return new Promise((_resolve, reject) => {
+        abortSignal?.addEventListener('abort', () => reject(new Error('aborted upstream')));
+      });
+    });
+
+    const query = cachedBuilder('network-first').table('users').select(['id']);
+    const nowSpy = vi.spyOn(Date, 'now');
+    let currentTime = 0;
+    nowSpy.mockImplementation(() => currentTime);
+
+    try {
+      await query.execute();
+
+      currentTime = 200;
+      const controller = new AbortController();
+      const pending = query.execute({ abortSignal: controller.signal });
+      await flushPromises();
+      controller.abort(new Error('caller went away'));
+
+      await expect(pending).rejects.toThrow('caller went away');
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+});

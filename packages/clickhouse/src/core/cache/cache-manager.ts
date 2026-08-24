@@ -3,6 +3,8 @@ import type { AnyBuilderState, SchemaDefinition } from '../types/builder-state.j
 import type { CacheEntry, CacheOptions, CacheStatus } from './types.js';
 import { computeCacheKey } from './key.js';
 import { mergeCacheOptions } from './runtime-context.js';
+import { joinSharedFetch, type SharedFetch } from './shared-fetch.js';
+import { raceWithAbort, throwIfAborted } from '../utils/abort.js';
 import { logger } from '../utils/logger.js';
 
 function isCacheable(options: CacheOptions): boolean {
@@ -66,6 +68,8 @@ export async function executeWithCache<
   builder: QueryBuilder<Schema, State>,
   options?: ExecuteOptions
 ): Promise<State['output'][]> {
+  throwIfAborted(options?.abortSignal);
+
   const runtime = builder.getRuntimeContext();
   const provider = runtime.provider;
   const normalizedExecuteCache = options?.cache === false
@@ -93,7 +97,7 @@ export async function executeWithCache<
     tableName
   });
 
-  const entry = await activeProvider.get(key);
+  const entry = await raceWithAbort(activeProvider.get(key), options?.abortSignal);
   if (!entry) {
     runtime.parsedValues.delete(key);
   }
@@ -103,12 +107,16 @@ export async function executeWithCache<
   const serialize = mergedOptions.serialize || runtime.serialize;
 
   const respondFromCache = async (cacheEntry: CacheEntry, status: CacheStatus): Promise<State['output'][]> => {
+    throwIfAborted(options?.abortSignal);
     const memoized = runtime.parsedValues.get(key);
     let rows: State['output'][];
     if (memoized && memoized.createdAt === cacheEntry.createdAt) {
       rows = memoized.rows as State['output'][];
     } else {
-      rows = await deserialize(cacheEntry.value) as State['output'][];
+      rows = await raceWithAbort(
+        Promise.resolve().then(() => deserialize(cacheEntry.value)),
+        options?.abortSignal
+      ) as State['output'][];
       runtime.parsedValues.set(key, { createdAt: cacheEntry.createdAt, rows, tags: cacheEntry.tags });
     }
     const cacheAge = Date.now() - cacheEntry.createdAt;
@@ -117,7 +125,7 @@ export async function executeWithCache<
     } else if (status === 'stale-hit') {
       runtime.stats.staleHits += 1;
     }
-    await logCacheHit({
+    await raceWithAbort(logCacheHit({
       sql,
       parameters,
       status,
@@ -126,7 +134,7 @@ export async function executeWithCache<
       rowCount: cacheEntry.rowCount ?? rows.length,
       ageMs: cacheAge,
       queryId: options?.queryId
-    });
+    }), options?.abortSignal);
     return rows;
   };
 
@@ -135,7 +143,7 @@ export async function executeWithCache<
       return respondFromCache(entry, 'hit');
     }
     runtime.stats.misses += 1;
-    return fetchAndStore('miss');
+    return fetchAndStore('miss', options?.abortSignal);
   }
 
   if (mode === 'stale-while-revalidate') {
@@ -147,14 +155,18 @@ export async function executeWithCache<
       return respondFromCache(entry, 'stale-hit');
     }
     runtime.stats.misses += 1;
-    return fetchAndStore('miss');
+    return fetchAndStore('miss', options?.abortSignal);
   }
 
   if (mode === 'network-first') {
     try {
       runtime.stats.misses += 1;
-      return await fetchAndStore('miss');
+      return await fetchAndStore('miss', options?.abortSignal);
     } catch (error) {
+      // An abort is a caller decision, not a network failure staleIfError should mask.
+      if (options?.abortSignal?.aborted) {
+        throw error;
+      }
       if (mergedOptions.staleIfError && entry && staleAcceptable) {
         return respondFromCache(entry, 'stale-hit');
       }
@@ -164,18 +176,50 @@ export async function executeWithCache<
 
   return runWithoutCache('bypass');
 
-  async function fetchAndStore(cacheStatus: CacheStatus): Promise<State['output'][]> {
-    if (mergedOptions.dedupe !== false && runtime.inFlight.has(key)) {
-      return runtime.inFlight.get(key)! as Promise<State['output'][]>;
+  async function fetchAndStore(cacheStatus: CacheStatus, abortSignal?: AbortSignal): Promise<State['output'][]> {
+    // A pre-aborted creator would otherwise start a zero-waiter fetch nobody can cancel.
+    throwIfAborted(abortSignal);
+    if (mergedOptions.dedupe === false) {
+      return runFetch(cacheStatus, abortSignal);
     }
 
-    const promise = (async () => {
+    // A cancelled fetch lingers in the map until its promise settles.
+    let shared = runtime.inFlight.get(key);
+    if (!shared || shared.controller.signal.aborted) {
+      const controller = new AbortController();
+      const created: SharedFetch = {
+        promise: runFetch(cacheStatus, controller.signal),
+        controller,
+        abortableWaiters: 0,
+        pinnedWaiters: 0
+      };
+      runtime.inFlight.set(key, created);
+      created.promise
+        .catch(() => undefined)
+        .finally(() => {
+          if (runtime.inFlight.get(key) === created) {
+            runtime.inFlight.delete(key);
+          }
+        });
+      shared = created;
+    }
+
+    return joinSharedFetch<State['output'][]>(shared, abortSignal);
+  }
+
+  function runFetch(cacheStatus: CacheStatus, abortSignal?: AbortSignal): Promise<State['output'][]> {
+    return (async () => {
       const rows = await builder.getExecutor().execute({
         queryId: options?.queryId,
+        abortSignal,
         logContext: { cacheStatus, cacheKey: key, cacheMode: mode }
       });
+      throwIfAborted(abortSignal);
 
-      const encoded = await serialize(rows);
+      const encoded = await raceWithAbort(
+        Promise.resolve().then(() => serialize(rows)),
+        abortSignal
+      );
       const ttlMs = mergedOptions.ttlMs ?? 0;
       const staleTtlMs = mergedOptions.staleTtlMs ?? 0;
       const cacheTimeMs = mergedOptions.cacheTimeMs ?? ttlMs + staleTtlMs;
@@ -193,21 +237,24 @@ export async function executeWithCache<
         sqlFingerprint: key
       };
 
-      await activeProvider.set(key, newEntry);
+      const write = runtime.mutations.enqueueWrite({
+        key,
+        namespace,
+        tags: newEntry.tags || []
+      }, async () => {
+        // A queued write whose caller was cancelled before it started is safe to skip.
+        throwIfAborted(abortSignal);
+        await activeProvider.set(key, newEntry);
+      });
+      await raceWithAbort(write, abortSignal);
       runtime.parsedValues.set(key, { createdAt: newEntry.createdAt, rows, tags: newEntry.tags });
       return rows;
     })();
-
-    if (mergedOptions.dedupe !== false) {
-      runtime.inFlight.set(key, promise);
-      promise.finally(() => runtime.inFlight.delete(key));
-    }
-
-    return promise;
   }
 
   function scheduleRevalidation() {
     runtime.stats.revalidations += 1;
+    // Background refresh serves later callers, so it must outlive the aborting one.
     fetchAndStore('revalidate').catch(() => undefined);
   }
 
@@ -217,6 +264,7 @@ export async function executeWithCache<
     }
     return builder.getExecutor().execute({
       queryId: options?.queryId,
+      abortSignal: options?.abortSignal,
       logContext: { cacheStatus, cacheMode: mode }
     });
   }

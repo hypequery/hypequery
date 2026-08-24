@@ -91,6 +91,7 @@ describe('dialect seam', () => {
       {
         clickhouseSettings: { max_execution_time: 10 },
         queryId: undefined,
+        abortSignal: expect.any(AbortSignal),
       },
     );
     expect(renderMock).toHaveBeenCalledWith(

@@ -3,11 +3,13 @@ import type { ClickHouseSettings, ClickHouseSummary } from '@clickhouse/client-c
 export interface QueryExecutionOptions {
   clickhouseSettings?: ClickHouseSettings;
   queryId?: string;
+  abortSignal?: AbortSignal;
 }
 
 export interface InsertExecutionOptions {
   clickhouseSettings?: ClickHouseSettings;
   queryId?: string;
+  abortSignal?: AbortSignal;
   /** Explicit column subset; adapters must preserve it so omitted columns take table DEFAULTs. */
   columns?: string[];
 }

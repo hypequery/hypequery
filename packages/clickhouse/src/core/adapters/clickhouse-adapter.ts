@@ -14,6 +14,8 @@ import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
 import { getAutoClientModule } from '../env/auto-client.js';
 import type { AutoClientModule } from '../env/auto-client.js';
 import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
+import { consumeResultWithAbort } from '../utils/abortable-result.js';
+import { throwIfAborted } from '../utils/abort.js';
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
@@ -55,26 +57,31 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 
   async query<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<T[]> {
+    // The ClickHouse clients never check an already-aborted signal, so fail before sending anything.
+    throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
     const result = await this.client.query({
       query: finalSQL,
       format: 'JSONEachRow',
       clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
       query_id: options?.queryId,
+      abort_signal: options?.abortSignal,
     });
-    return result.json<T>();
+    return consumeResultWithAbort(options?.abortSignal, result, () => result.json<T>());
   }
 
   async stream<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>> {
+    throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
     const result = await this.client.query({
       query: finalSQL,
       format: 'JSONEachRow',
       clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
       query_id: options?.queryId,
+      abort_signal: options?.abortSignal,
     });
     const stream = result.stream();
-    return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream);
+    return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream, options?.abortSignal);
   }
 
   async insert<T extends Record<string, unknown>>(
@@ -82,6 +89,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     rows: T[],
     options?: InsertExecutionOptions
   ): Promise<InsertResultSummary> {
+    throwIfAborted(options?.abortSignal);
     assertSafeInsertIdentifiers(table, options?.columns);
     const result = await this.client.insert({
       table,
@@ -96,6 +104,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
         ...options?.clickhouseSettings,
       },
       query_id: options?.queryId,
+      abort_signal: options?.abortSignal,
     });
     return {
       queryId: result.query_id,
