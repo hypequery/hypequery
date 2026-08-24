@@ -3,6 +3,7 @@ import type {
   AuthStrategy,
   HypeQueryAPI,
   RouteManifest,
+  RouteManifestEntry,
   ServeEndpoint,
   ServeEndpointMap,
   ServeMiddleware,
@@ -44,6 +45,22 @@ export const createAPImethods = <
   ) => ProtocolDeploymentContract,
   runtimeEntrypoints: readonly string[],
 ): HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> => {
+  /**
+   * Routes registered through `api.route()`, keyed by endpoint identity.
+   *
+   * `route()` adds a route to the router but leaves `queryEntries` holding the
+   * auto-registered `/queries/<key>` convention endpoint. Both routes stay live,
+   * but the manifest can only name one, and clients should be pointed at the one
+   * the author declared explicitly. First registration wins, so calling `route()`
+   * twice for the same endpoint keeps the manifest stable. Object identity is
+   * required because entries such as `orders` and `dataset:orders` may have the
+   * same `endpoint.key` while representing different operations.
+   */
+  const explicitRoutes = new WeakMap<
+    ServeEndpoint<any, any, TContext, TAuth>,
+    RouteManifestEntry
+  >();
+
   const api: HypeQueryAPI<ServeEndpointMap<TQueries, TContext, TAuth>, TContext, TAuth> = {
     queries: queryEntries,
     queryLogger,
@@ -56,7 +73,7 @@ export const createAPImethods = <
         string,
         ServeEndpoint<any, any, TContext, TAuth>,
       ][]) {
-        manifest[key] = {
+        manifest[key] = explicitRoutes.get(endpoint) ?? {
           method: endpoint.method,
           // queryEntries store the pre-basePath route; re-apply so the manifest
           // carries the full request path clients should call.
@@ -105,6 +122,14 @@ export const createAPImethods = <
       };
 
       router.register(registeredEndpoint);
+
+      if (!explicitRoutes.has(endpoint)) {
+        explicitRoutes.set(endpoint, {
+          method,
+          path: applyBasePath(basePath, normalizedPath),
+        });
+      }
+
       return api;
     },
 
