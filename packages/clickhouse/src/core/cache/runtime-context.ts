@@ -8,6 +8,7 @@ import type {
 } from './types.js';
 import { defaultSerialize, defaultDeserialize } from './serialization.js';
 import type { SharedFetch } from './shared-fetch.js';
+import type { CacheWriteQueue } from './write-queue.js';
 
 const DEFAULT_CACHE_OPTIONS: Required<Pick<CacheOptions, 'mode' | 'ttlMs' | 'staleTtlMs' | 'staleIfError' | 'dedupe'>> & Pick<CacheOptions, 'cacheTimeMs'> = {
   mode: 'no-store',
@@ -25,6 +26,7 @@ export interface QueryRuntimeContext {
   serialize: CacheSerializeFn;
   deserialize: CacheDeserializeFn;
   inFlight: Map<string, SharedFetch>;
+  writes: CacheWriteQueue;
   stats: CacheStats;
   parsedValues: Map<string, ParsedValueEntry>;
 }
@@ -80,6 +82,7 @@ export function buildRuntimeContext(config: CacheRuntimeConfig): QueryRuntimeCon
     serialize: config.serialize,
     deserialize: config.deserialize,
     inFlight: new Map(),
+    writes: new Map(),
     stats: createCacheStats(),
     parsedValues: new Map()
   };

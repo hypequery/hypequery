@@ -636,6 +636,65 @@ describe('Cache manager abort signals', () => {
     expect(signalMock).not.toHaveBeenCalled();
   });
 
+  it('writes replacement rows after an abandoned cache write settles', async () => {
+    const oldRows = [{ id: 1, email: 'old', active: 1 }];
+    const replacementRows = [{ id: 2, email: 'replacement', active: 1 }];
+    signalMock
+      .mockResolvedValueOnce(oldRows)
+      .mockResolvedValueOnce(replacementRows);
+
+    const store = new Map<string, CacheEntry>();
+    let setCalls = 0;
+    let releaseFirstWrite: (() => void) | undefined;
+    let markFirstWriteStarted: (() => void) | undefined;
+    const firstWriteStarted = new Promise<void>(resolve => {
+      markFirstWriteStarted = resolve;
+    });
+    const provider: CacheProvider = {
+      get: vi.fn(async key => store.get(key) ?? null),
+      set: vi.fn(async (key, entry) => {
+        setCalls += 1;
+        if (setCalls === 1) {
+          markFirstWriteStarted?.();
+          await new Promise<void>(resolve => {
+            releaseFirstWrite = resolve;
+          });
+        }
+        store.set(key, entry);
+      }),
+      delete: vi.fn(async key => {
+        store.delete(key);
+      }),
+    };
+    const db = createQueryBuilder<TestSchema>({
+      adapter: signalAdapter,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 1_000,
+        provider,
+      },
+    });
+    const query = db.table('users').select(['id']);
+    const controller = new AbortController();
+
+    const abandoned = query.execute({ abortSignal: controller.signal });
+    await firstWriteStarted;
+    controller.abort(new Error('first caller left'));
+    await expect(abandoned).rejects.toThrow('first caller left');
+
+    const replacement = query.execute();
+    await flushPromises();
+    expect(signalMock).toHaveBeenCalledTimes(2);
+    expect(setCalls).toBe(1);
+
+    releaseFirstWrite?.();
+
+    await expect(replacement).resolves.toEqual(replacementRows);
+    expect(setCalls).toBe(2);
+    await expect(query.execute()).resolves.toEqual(replacementRows);
+    expect(signalMock).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects an aborted network-first execution instead of serving stale rows', async () => {
     let callCount = 0;
     signalMock.mockImplementation((_sql: string, _params: unknown[], abortSignal?: AbortSignal) => {

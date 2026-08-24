@@ -4,6 +4,7 @@ import type { CacheEntry, CacheOptions, CacheStatus } from './types.js';
 import { computeCacheKey } from './key.js';
 import { mergeCacheOptions } from './runtime-context.js';
 import { joinSharedFetch, type SharedFetch } from './shared-fetch.js';
+import { enqueueCacheWrite } from './write-queue.js';
 import { raceWithAbort, throwIfAborted } from '../utils/abort.js';
 import { logger } from '../utils/logger.js';
 
@@ -237,7 +238,12 @@ export async function executeWithCache<
         sqlFingerprint: key
       };
 
-      await raceWithAbort(activeProvider.set(key, newEntry), abortSignal);
+      const write = enqueueCacheWrite(runtime.writes, key, async () => {
+        // A queued write whose caller was cancelled before it started is safe to skip.
+        throwIfAborted(abortSignal);
+        await activeProvider.set(key, newEntry);
+      });
+      await raceWithAbort(write, abortSignal);
       runtime.parsedValues.set(key, { createdAt: newEntry.createdAt, rows, tags: newEntry.tags });
       return rows;
     })();
