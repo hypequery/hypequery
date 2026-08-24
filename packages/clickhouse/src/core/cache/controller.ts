@@ -6,14 +6,20 @@ export class CacheController {
   constructor(private context: QueryRuntimeContext) { }
 
   async invalidateKey(key: string): Promise<void> {
+    const provider = this.context.provider;
+    if (provider) {
+      await this.context.mutations.invalidate(
+        scope => scope.key === key,
+        () => provider.delete(key)
+      );
+    }
     this.context.parsedValues.delete(key);
-    if (!this.context.provider) return;
-    await this.context.provider.delete(key);
   }
 
   async invalidateTags(tags: string[]): Promise<void> {
     if (!tags.length) return;
-    const deleteByTag = this.context.provider?.deleteByTag;
+    const provider = this.context.provider;
+    const deleteByTag = provider?.deleteByTag;
     if (!deleteByTag) {
       logger.warn('Cache provider does not support tag invalidation. Tags ignored.', {
         namespace: this.context.namespace,
@@ -22,13 +28,25 @@ export class CacheController {
       this.removeParsedValuesByTags(tags);
       return;
     }
-    await Promise.all(tags.map(tag => deleteByTag.call(this.context.provider, this.context.namespace, tag)));
+    const target = new Set(tags);
+    await this.context.mutations.invalidate(
+      scope => scope.namespace === this.context.namespace
+        && scope.tags.some(tag => target.has(tag)),
+      async () => {
+        await Promise.all(tags.map(tag => deleteByTag.call(provider, this.context.namespace, tag)));
+      }
+    );
     this.removeParsedValuesByTags(tags);
   }
 
   async clear(): Promise<void> {
-    if (this.context.provider?.clearNamespace) {
-      await this.context.provider.clearNamespace(this.context.namespace);
+    const provider = this.context.provider;
+    const clearNamespace = provider?.clearNamespace;
+    if (clearNamespace) {
+      await this.context.mutations.invalidate(
+        scope => scope.namespace === this.context.namespace,
+        () => clearNamespace.call(provider, this.context.namespace)
+      );
     }
     this.context.parsedValues.clear();
   }

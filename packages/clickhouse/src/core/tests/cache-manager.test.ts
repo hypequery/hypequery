@@ -695,6 +695,107 @@ describe('Cache manager abort signals', () => {
     expect(signalMock).toHaveBeenCalledTimes(2);
   });
 
+  it.each(['key', 'tag', 'namespace'] as const)(
+    'does not let an abandoned cache write defeat %s invalidation',
+    async invalidationKind => {
+      const oldRows = [{ id: 1, email: 'old', active: 1 }];
+      const replacementRows = [{ id: 2, email: 'replacement', active: 1 }];
+      signalMock
+        .mockResolvedValueOnce(oldRows)
+        .mockResolvedValueOnce(replacementRows);
+
+      const store = new Map<string, CacheEntry>();
+      const mutationOrder: string[] = [];
+      let releaseWrite: (() => void) | undefined;
+      let markWriteStarted: (() => void) | undefined;
+      const writeStarted = new Promise<void>(resolve => {
+        markWriteStarted = resolve;
+      });
+      const deleteKey = vi.fn(async (key: string) => {
+        mutationOrder.push('key-invalidation');
+        store.delete(key);
+      });
+      const deleteTag = vi.fn(async () => {
+        mutationOrder.push('tag-invalidation');
+        store.clear();
+      });
+      const clearNamespace = vi.fn(async () => {
+        mutationOrder.push('namespace-invalidation');
+        store.clear();
+      });
+      let setCalls = 0;
+      const provider: CacheProvider = {
+        get: vi.fn(async key => store.get(key) ?? null),
+        set: vi.fn(async (key, entry) => {
+          setCalls += 1;
+          if (setCalls === 1) {
+            markWriteStarted?.();
+            await new Promise<void>(resolve => {
+              releaseWrite = resolve;
+            });
+          }
+          mutationOrder.push(setCalls === 1 ? 'old-write' : 'replacement-write');
+          store.set(key, entry);
+        }),
+        delete: deleteKey,
+        deleteByTag: deleteTag,
+        clearNamespace,
+      };
+      const db = createQueryBuilder<TestSchema>({
+        adapter: signalAdapter,
+        cache: {
+          namespace: 'test-namespace',
+          mode: 'cache-first',
+          ttlMs: 1_000,
+          provider,
+        },
+      });
+      const query = db.table('users').select(['id']).cache({
+        key: 'test-key',
+        tags: ['users'],
+      });
+      const controller = new AbortController();
+
+      const abandoned = query.execute({ abortSignal: controller.signal });
+      await writeStarted;
+      controller.abort(new Error('caller left'));
+      await expect(abandoned).rejects.toThrow('caller left');
+
+      let invalidation: Promise<void>;
+      if (invalidationKind === 'key') {
+        invalidation = db.cache.invalidateKey('test-key');
+      } else if (invalidationKind === 'tag') {
+        invalidation = db.cache.invalidateTags(['users']);
+      } else {
+        invalidation = db.cache.clear();
+      }
+      await flushPromises();
+
+      const replacement = query.execute();
+      await flushPromises();
+
+      expect(deleteKey).toHaveBeenCalledTimes(0);
+      expect(deleteTag).toHaveBeenCalledTimes(0);
+      expect(clearNamespace).toHaveBeenCalledTimes(0);
+      expect(setCalls).toBe(1);
+
+      releaseWrite?.();
+      await expect(replacement).resolves.toEqual(replacementRows);
+      await invalidation;
+
+      expect(deleteKey).toHaveBeenCalledTimes(invalidationKind === 'key' ? 1 : 0);
+      expect(deleteTag).toHaveBeenCalledTimes(invalidationKind === 'tag' ? 1 : 0);
+      expect(clearNamespace).toHaveBeenCalledTimes(invalidationKind === 'namespace' ? 1 : 0);
+      expect(mutationOrder).toEqual([
+        'old-write',
+        `${invalidationKind}-invalidation`,
+        'replacement-write',
+      ]);
+      await expect(query.execute()).resolves.toEqual(replacementRows);
+      expect(signalMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
   it('rejects an aborted network-first execution instead of serving stale rows', async () => {
     let callCount = 0;
     signalMock.mockImplementation((_sql: string, _params: unknown[], abortSignal?: AbortSignal) => {
