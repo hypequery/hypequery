@@ -1,4 +1,5 @@
 import { Readable } from 'stream';
+import { abortReason } from './abort.js';
 
 type StreamReaderResult = { done: boolean; value?: any };
 
@@ -93,6 +94,7 @@ async function normalizeChunk<T>(chunk: any, flush: () => T[], append: (value: s
 async function createChunkReader(nodeStream: NodeJS.ReadableStream): Promise<StreamReader> {
   const iterator = nodeStream[Symbol.asyncIterator]?.();
   let webReader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let closePromise: Promise<void> | undefined;
 
   const readNext = async () => {
     if (iterator) {
@@ -109,15 +111,20 @@ async function createChunkReader(nodeStream: NodeJS.ReadableStream): Promise<Str
     return { done: Boolean(result.done), value: result.value } satisfies StreamReaderResult;
   };
 
-  const close = async () => {
-    if (iterator && typeof iterator.return === 'function') {
-      try {
-        await iterator.return();
-      } catch { }
-    }
-    if (typeof (nodeStream as Readable).destroy === 'function') {
-      (nodeStream as Readable).destroy();
-    }
+  const close = () => {
+    closePromise ??= (async () => {
+      // A pending iterator.next() prevents iterator.return() from settling.
+      // Destroy first so cancellation always releases the connection stream.
+      if (typeof (nodeStream as Readable).destroy === 'function') {
+        (nodeStream as Readable).destroy();
+      }
+      if (iterator && typeof iterator.return === 'function') {
+        try {
+          await iterator.return();
+        } catch { }
+      }
+    })();
+    return closePromise;
   };
 
   return { readNext, close };
@@ -125,16 +132,20 @@ async function createChunkReader(nodeStream: NodeJS.ReadableStream): Promise<Str
 
 async function createWebStreamReader<T>(webStream: ReadableStream<T>): Promise<StreamReader> {
   const reader = webStream.getReader();
+  let closePromise: Promise<void> | undefined;
 
   const readNext = async () => {
     const result = await reader.read();
     return { done: Boolean(result.done), value: result.value } satisfies StreamReaderResult;
   };
 
-  const close = async () => {
-    try {
-      await reader.cancel();
-    } catch { }
+  const close = () => {
+    closePromise ??= (async () => {
+      try {
+        await reader.cancel();
+      } catch { }
+    })();
+    return closePromise;
   };
 
   return { readNext, close };
@@ -175,7 +186,8 @@ export function createJsonEachRowStream<T>(
       // The underlying clients stop honoring the signal once response headers
       // arrive, so aborting must both error the consumer and drop the source.
       const fail = () => {
-        controller.error(abortSignal.reason ?? new Error('The query was aborted.'));
+        detachAbort();
+        controller.error(abortReason(abortSignal));
         ensureReader().then(reader => reader.close()).catch(() => undefined);
       };
       if (abortSignal.aborted) {
@@ -206,6 +218,8 @@ export function createJsonEachRowStream<T>(
         }
       } catch (error) {
         detachAbort();
+        const reader = await ensureReader();
+        await reader.close();
         throw error;
       }
     },

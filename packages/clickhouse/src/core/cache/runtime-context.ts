@@ -7,6 +7,7 @@ import type {
   CacheStats
 } from './types.js';
 import { defaultSerialize, defaultDeserialize } from './serialization.js';
+import type { SharedFetch } from './shared-fetch.js';
 
 const DEFAULT_CACHE_OPTIONS: Required<Pick<CacheOptions, 'mode' | 'ttlMs' | 'staleTtlMs' | 'staleIfError' | 'dedupe'>> & Pick<CacheOptions, 'cacheTimeMs'> = {
   mode: 'no-store',
@@ -26,18 +27,6 @@ export interface QueryRuntimeContext {
   inFlight: Map<string, SharedFetch>;
   stats: CacheStats;
   parsedValues: Map<string, ParsedValueEntry>;
-}
-
-/**
- * One deduplicated execution shared by every caller of the same cache key. The
- * fetch is cancelled only once no waiter is left, so one caller's abort cannot
- * cancel or reject another's.
- */
-export interface SharedFetch {
-  promise: Promise<unknown>;
-  controller: AbortController;
-  abortableWaiters: number;
-  pinnedWaiters: number;
 }
 
 export interface ParsedValueEntry {

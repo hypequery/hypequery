@@ -290,6 +290,43 @@ describe('ClickHouseAdapter abort signals', () => {
     await vi.waitFor(() => expect(source.destroyed).toBe(true));
   });
 
+  it('destroys the source stream when aborting an actively pending read', async () => {
+    const controller = new AbortController();
+    const source = new Readable({ read() { /* stays open */ } });
+    const clientQueryMock = vi.fn().mockResolvedValue({
+      stream: () => source,
+    });
+
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+    });
+
+    const stream = await adapter.stream('SELECT 1', [], { abortSignal: controller.signal });
+    const pendingRead = stream.getReader().read();
+    await new Promise(resolve => setImmediate(resolve));
+
+    controller.abort(new Error('caller went away'));
+
+    await expect(pendingRead).rejects.toThrow('caller went away');
+    await vi.waitFor(() => expect(source.destroyed).toBe(true));
+  });
+
+  it('destroys the source stream when parsing a chunk fails', async () => {
+    const source = new Readable({ read() { /* stays open */ } });
+    source.push('{not-json}\n');
+    const clientQueryMock = vi.fn().mockResolvedValue({
+      stream: () => source,
+    });
+    const adapter = new ClickHouseAdapter({
+      client: { query: clientQueryMock } as any,
+    });
+
+    const stream = await adapter.stream('SELECT 1');
+
+    await expect(stream.getReader().read()).rejects.toThrow();
+    expect(source.destroyed).toBe(true);
+  });
+
   it('rejects an aborted query through the builder', async () => {
     const controller = new AbortController();
     const clientQueryMock = vi.fn().mockImplementation(({ abort_signal }: { abort_signal?: AbortSignal }) =>

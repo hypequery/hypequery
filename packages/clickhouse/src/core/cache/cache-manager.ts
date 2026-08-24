@@ -3,44 +3,9 @@ import type { AnyBuilderState, SchemaDefinition } from '../types/builder-state.j
 import type { CacheEntry, CacheOptions, CacheStatus } from './types.js';
 import { computeCacheKey } from './key.js';
 import { mergeCacheOptions } from './runtime-context.js';
-import type { SharedFetch } from './runtime-context.js';
+import { joinSharedFetch, type SharedFetch } from './shared-fetch.js';
+import { raceWithAbort, throwIfAborted } from '../utils/abort.js';
 import { logger } from '../utils/logger.js';
-
-function abortError(signal: AbortSignal): unknown {
-  return signal.reason ?? new Error('The query was aborted.');
-}
-
-function joinSharedFetch<T>(shared: SharedFetch, abortSignal?: AbortSignal): Promise<T> {
-  if (!abortSignal) {
-    shared.pinnedWaiters += 1;
-    return shared.promise as Promise<T>;
-  }
-  if (abortSignal.aborted) {
-    return Promise.reject(abortError(abortSignal));
-  }
-
-  shared.abortableWaiters += 1;
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => {
-      shared.abortableWaiters -= 1;
-      if (shared.abortableWaiters === 0 && shared.pinnedWaiters === 0) {
-        shared.controller.abort(abortSignal.reason);
-      }
-      reject(abortError(abortSignal));
-    };
-    abortSignal.addEventListener('abort', onAbort, { once: true });
-    shared.promise.then(
-      value => {
-        abortSignal.removeEventListener('abort', onAbort);
-        resolve(value as T);
-      },
-      error => {
-        abortSignal.removeEventListener('abort', onAbort);
-        reject(error);
-      }
-    );
-  });
-}
 
 function isCacheable(options: CacheOptions): boolean {
   const ttl = options.ttlMs ?? 0;
@@ -103,7 +68,7 @@ export async function executeWithCache<
   builder: QueryBuilder<Schema, State>,
   options?: ExecuteOptions
 ): Promise<State['output'][]> {
-  options?.abortSignal?.throwIfAborted();
+  throwIfAborted(options?.abortSignal);
 
   const runtime = builder.getRuntimeContext();
   const provider = runtime.provider;
@@ -132,7 +97,7 @@ export async function executeWithCache<
     tableName
   });
 
-  const entry = await activeProvider.get(key);
+  const entry = await raceWithAbort(activeProvider.get(key), options?.abortSignal);
   if (!entry) {
     runtime.parsedValues.delete(key);
   }
@@ -142,12 +107,16 @@ export async function executeWithCache<
   const serialize = mergedOptions.serialize || runtime.serialize;
 
   const respondFromCache = async (cacheEntry: CacheEntry, status: CacheStatus): Promise<State['output'][]> => {
+    throwIfAborted(options?.abortSignal);
     const memoized = runtime.parsedValues.get(key);
     let rows: State['output'][];
     if (memoized && memoized.createdAt === cacheEntry.createdAt) {
       rows = memoized.rows as State['output'][];
     } else {
-      rows = await deserialize(cacheEntry.value) as State['output'][];
+      rows = await raceWithAbort(
+        Promise.resolve().then(() => deserialize(cacheEntry.value)),
+        options?.abortSignal
+      ) as State['output'][];
       runtime.parsedValues.set(key, { createdAt: cacheEntry.createdAt, rows, tags: cacheEntry.tags });
     }
     const cacheAge = Date.now() - cacheEntry.createdAt;
@@ -156,7 +125,7 @@ export async function executeWithCache<
     } else if (status === 'stale-hit') {
       runtime.stats.staleHits += 1;
     }
-    await logCacheHit({
+    await raceWithAbort(logCacheHit({
       sql,
       parameters,
       status,
@@ -165,7 +134,7 @@ export async function executeWithCache<
       rowCount: cacheEntry.rowCount ?? rows.length,
       ageMs: cacheAge,
       queryId: options?.queryId
-    });
+    }), options?.abortSignal);
     return rows;
   };
 
@@ -209,7 +178,7 @@ export async function executeWithCache<
 
   async function fetchAndStore(cacheStatus: CacheStatus, abortSignal?: AbortSignal): Promise<State['output'][]> {
     // A pre-aborted creator would otherwise start a zero-waiter fetch nobody can cancel.
-    abortSignal?.throwIfAborted();
+    throwIfAborted(abortSignal);
     if (mergedOptions.dedupe === false) {
       return runFetch(cacheStatus, abortSignal);
     }
@@ -245,8 +214,12 @@ export async function executeWithCache<
         abortSignal,
         logContext: { cacheStatus, cacheKey: key, cacheMode: mode }
       });
+      throwIfAborted(abortSignal);
 
-      const encoded = await serialize(rows);
+      const encoded = await raceWithAbort(
+        Promise.resolve().then(() => serialize(rows)),
+        abortSignal
+      );
       const ttlMs = mergedOptions.ttlMs ?? 0;
       const staleTtlMs = mergedOptions.staleTtlMs ?? 0;
       const cacheTimeMs = mergedOptions.cacheTimeMs ?? ttlMs + staleTtlMs;
@@ -264,7 +237,7 @@ export async function executeWithCache<
         sqlFingerprint: key
       };
 
-      await activeProvider.set(key, newEntry);
+      await raceWithAbort(activeProvider.set(key, newEntry), abortSignal);
       runtime.parsedValues.set(key, { createdAt: newEntry.createdAt, rows, tags: newEntry.tags });
       return rows;
     })();

@@ -494,12 +494,20 @@ describe('Cache manager abort signals', () => {
 
   it('starts a fresh fetch for callers arriving after the shared fetch was cancelled', async () => {
     let calls = 0;
+    let cancelledFetchSettled: (() => void) | undefined;
+    const cancelledFetch = new Promise<void>(resolve => {
+      cancelledFetchSettled = resolve;
+    });
     signalMock.mockImplementation((_sql: string, _params: unknown[], abortSignal?: AbortSignal) => {
       calls += 1;
       if (calls === 1) {
         return new Promise((_resolve, reject) => {
-          abortSignal?.addEventListener('abort', () =>
-            setTimeout(() => reject(new Error('aborted upstream')), 0));
+          abortSignal?.addEventListener('abort', () => {
+            setTimeout(() => {
+              reject(new Error('aborted upstream'));
+              cancelledFetchSettled?.();
+            }, 0);
+          });
         });
       }
       return Promise.resolve(rows);
@@ -522,6 +530,8 @@ describe('Cache manager abort signals', () => {
     expect(await fresh).toEqual(rows);
     expect(signalMock).toHaveBeenCalledTimes(2);
     await Promise.all(pending);
+    await cancelledFetch;
+    await flushPromises();
   });
 
   it('runs background revalidation beyond the aborting caller', async () => {
@@ -577,6 +587,53 @@ describe('Cache manager abort signals', () => {
     await expect(query.execute({ abortSignal: controller.signal }))
       .rejects.toThrow('caller went away');
     expect(signalMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects when the caller aborts during an asynchronous cache lookup', async () => {
+    const reason = new Error('caller went away');
+    let startLookup: (() => void) | undefined;
+    const lookupStarted = new Promise<void>(resolve => {
+      startLookup = resolve;
+    });
+    let finishLookup: ((entry: CacheEntry) => void) | undefined;
+    const provider: CacheProvider = {
+      get: vi.fn(() => {
+        startLookup?.();
+        return new Promise<CacheEntry>(resolve => {
+          finishLookup = resolve;
+        });
+      }),
+      set: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined),
+    };
+    const db = createQueryBuilder<TestSchema>({
+      adapter: signalAdapter,
+      cache: {
+        mode: 'cache-first',
+        ttlMs: 1_000,
+        provider,
+      },
+    });
+    const query = db.table('users').select(['id']);
+    const controller = new AbortController();
+
+    const pending = query.execute({ abortSignal: controller.signal });
+    await lookupStarted;
+    controller.abort(reason);
+
+    await expect(pending).rejects.toBe(reason);
+
+    // Let the non-abortable provider operation settle so the test leaves no work behind.
+    finishLookup?.({
+      value: JSON.stringify(rows),
+      createdAt: Date.now(),
+      ttlMs: 1_000,
+      staleTtlMs: 0,
+      cacheTimeMs: 1_000,
+      rowCount: rows.length,
+    });
+    await flushPromises();
+    expect(signalMock).not.toHaveBeenCalled();
   });
 
   it('rejects an aborted network-first execution instead of serving stale rows', async () => {
