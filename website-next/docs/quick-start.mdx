@@ -328,7 +328,7 @@ Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/ser
   <Tab value="npm" label="npm">
     <CodeBlock>
       ```bash
-      npm install @hypequery/serve zod
+      npm install @hypequery/serve zod@^3
       npm install @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
@@ -337,7 +337,7 @@ Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/ser
   <Tab value="pnpm" label="pnpm">
     <CodeBlock>
       ```bash
-      pnpm add @hypequery/serve zod
+      pnpm add @hypequery/serve zod@^3
       pnpm add @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
@@ -346,7 +346,7 @@ Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/ser
   <Tab value="yarn" label="yarn">
     <CodeBlock>
       ```bash
-      yarn add @hypequery/serve zod
+      yarn add @hypequery/serve zod@^3
       yarn add @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
@@ -355,12 +355,19 @@ Both routes stay in-process until you need an HTTP boundary. Add `@hypequery/ser
   <Tab value="bun" label="bun">
     <CodeBlock>
       ```bash
-      bun add @hypequery/serve zod
+      bun add @hypequery/serve zod@^3
       bun add @hypequery/react @tanstack/react-query
       ```
     </CodeBlock>
   </Tab>
 </Tabs>
+
+<Callout type="warn" title="zod 3 is required">
+  `@hypequery/serve` and `@hypequery/datasets` build their validation types against zod 3. Installing
+  a bare `zod` today resolves zod 4, whose schema types are structurally incompatible — your first
+  `query({ input: z.object(...) })` will fail to compile with `Type 'ZodObject<...>' is missing the
+  following properties from type 'ZodType<any, any, any>'`. Pin `zod@^3`.
+</Callout>
 
 ### From Route 1: serve a named query
 

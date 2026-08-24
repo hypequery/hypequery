@@ -57,6 +57,14 @@
     "@noble/hashes": "^1.8.0",
     "zod": "^3.22.4"
   },
+  "peerDependencies": {
+    "zod": "^3.22.4"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@hypequery/protocol-conformance": "workspace:^",
     "@types/node": "^18.19.80",
