@@ -150,6 +150,24 @@ describe('generate command', () => {
       expect(logger.success).toHaveBeenCalledWith('Found 0 tables');
       expect(mockSpinner.succeed).toHaveBeenCalledWith('Generated types for 0 tables');
     });
+
+    it('reports the filtered count when --tables is used', async () => {
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(79);
+
+      await generateCommand({ tables: 'ontime' });
+
+      // Previously both lines said 79, so a correct filter looked broken.
+      expect(logger.success).toHaveBeenCalledWith('Found 79 tables, filtering to 1');
+      expect(mockSpinner.succeed).toHaveBeenCalledWith('Generated types for 1 table');
+    });
+
+    it('pluralises the generated-table count', async () => {
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(79);
+
+      await generateCommand({ tables: 'ontime,trips' });
+
+      expect(mockSpinner.succeed).toHaveBeenCalledWith('Generated types for 2 tables');
+    });
   });
 
   describe('Error paths', () => {

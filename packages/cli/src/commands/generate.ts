@@ -78,7 +78,11 @@ export async function generateCommand(options: GenerateOptions = {}) {
       `Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType === 'chdb' ? 'embedded chDB' : dbType}`,
     );
 
-    logger.success(`Found ${tableCount} tables`);
+    logger.success(
+      parsedTables
+        ? `Found ${tableCount} tables, filtering to ${parsedTables.length}`
+        : `Found ${tableCount} tables`,
+    );
 
     // Generate types
     const typeSpinner = ora('Generating types...').start();
@@ -91,7 +95,13 @@ export async function generateCommand(options: GenerateOptions = {}) {
       chdbPath,
     });
 
-    typeSpinner.succeed(`Generated types for ${tableCount} tables`);
+    // Report what was written, not what was discovered. With `--tables` these
+    // differ, and reporting the discovered count reads as though the filter
+    // was ignored.
+    const generatedCount = parsedTables?.length ?? tableCount;
+    typeSpinner.succeed(
+      `Generated types for ${generatedCount} ${generatedCount === 1 ? 'table' : 'tables'}`,
+    );
 
     logger.success(`Updated ${path.relative(process.cwd(), outputPath)}`);
 

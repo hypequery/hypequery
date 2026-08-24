@@ -322,4 +322,14 @@ ${tables.map((table) => `  ${table.name}: ${tableToPascalCase(table.name)}Datase
 
   // Write the file
   await fs.writeFile(path.resolve(options.outputPath), output);
+
+  // Returned so the CLI can report what it actually generated, and print an
+  // example that matches the file rather than a hardcoded placeholder.
+  return {
+    tables: tables.map((table) => table.name),
+    exports: tables.map((table) => ({
+      table: table.name,
+      exportName: `${tableToPascalCase(table.name)}Dataset`,
+    })),
+  };
 }

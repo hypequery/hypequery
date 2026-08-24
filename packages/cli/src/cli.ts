@@ -175,7 +175,7 @@ addTypeGenerationOptions(program.command('generate:types'))
 program
   .command('generate:datasets')
   .description('Generate dataset definitions from ClickHouse schema')
-  .option('-o, --output <path>', 'Output file (default: src/datasets/generated.ts)')
+  .option('-o, --output <path>', 'Output file (default: analytics/datasets.ts)')
   .option('--path <path>', 'Analytics directory (derives <path>/datasets.ts)')
   .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
   .option('--exclude-tables <names>', 'Exclude specific tables (comma-separated)')

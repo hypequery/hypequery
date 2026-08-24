@@ -198,14 +198,14 @@ Real-world goal: "scaffold a semantic dataset layer from my schema."
 ### T3.1 — Default output
 **Pre:** valid connection; ensure `@hypequery/datasets` resolvable (run from a project that installed it, or after T1.6).
 **Run:** `hq generate:datasets`
-**Expect:** header `hypequery generate datasets`; `Connected to ClickHouse`; `Found T tables`; `Generated dataset definitions for T tables`; `Created src/datasets/generated.ts` (note default is `src/datasets/generated.ts`, NOT `analytics/`). Prints "Next steps" + an example-usage block. Exit 0.
+**Expect:** header `hypequery generate datasets`; `Connected to ClickHouse`; `Found T tables`; `Generated dataset definitions for T tables`; `Created analytics/datasets.ts` (default is now `analytics/datasets.ts`, matching `hypequery generate`'s `analytics/schema.ts`). Prints "Next steps" + an example-usage block whose import path and dataset name match the file just written — not a hardcoded `./datasets/generated` / `datasets.orders`. Exit 0.
 
 ### T3.2 — `--path` and `--output`
 - `hq generate:datasets --path analytics` → writes `analytics/datasets.ts`.
 - `hq generate:datasets --output ds/all.ts` → writes `ds/all.ts`.
 
 ### T3.3 — `--tables` / `--exclude-tables`
-- `hq generate:datasets --tables E` → only the `E` dataset; success line says `for 1 tables`.
+- `hq generate:datasets --tables E` → only the `E` dataset; discovery line says `Found T tables, filtering to 1` and the success line says `for 1 table` (singular).
 - `hq generate:datasets --exclude-tables E2` → all tables except `E2`.
 
 ### T3.4 — No matching tables
