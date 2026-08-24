@@ -3,7 +3,44 @@ import type { AnyBuilderState, SchemaDefinition } from '../types/builder-state.j
 import type { CacheEntry, CacheOptions, CacheStatus } from './types.js';
 import { computeCacheKey } from './key.js';
 import { mergeCacheOptions } from './runtime-context.js';
+import type { SharedFetch } from './runtime-context.js';
 import { logger } from '../utils/logger.js';
+
+function abortError(signal: AbortSignal): unknown {
+  return signal.reason ?? new Error('The query was aborted.');
+}
+
+function joinSharedFetch<T>(shared: SharedFetch, abortSignal?: AbortSignal): Promise<T> {
+  if (!abortSignal) {
+    shared.pinnedWaiters += 1;
+    return shared.promise as Promise<T>;
+  }
+  if (abortSignal.aborted) {
+    return Promise.reject(abortError(abortSignal));
+  }
+
+  shared.abortableWaiters += 1;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      shared.abortableWaiters -= 1;
+      if (shared.abortableWaiters === 0 && shared.pinnedWaiters === 0) {
+        shared.controller.abort(abortSignal.reason);
+      }
+      reject(abortError(abortSignal));
+    };
+    abortSignal.addEventListener('abort', onAbort, { once: true });
+    shared.promise.then(
+      value => {
+        abortSignal.removeEventListener('abort', onAbort);
+        resolve(value as T);
+      },
+      error => {
+        abortSignal.removeEventListener('abort', onAbort);
+        reject(error);
+      }
+    );
+  });
+}
 
 function isCacheable(options: CacheOptions): boolean {
   const ttl = options.ttlMs ?? 0;
@@ -66,6 +103,8 @@ export async function executeWithCache<
   builder: QueryBuilder<Schema, State>,
   options?: ExecuteOptions
 ): Promise<State['output'][]> {
+  options?.abortSignal?.throwIfAborted();
+
   const runtime = builder.getRuntimeContext();
   const provider = runtime.provider;
   const normalizedExecuteCache = options?.cache === false
@@ -155,6 +194,10 @@ export async function executeWithCache<
       runtime.stats.misses += 1;
       return await fetchAndStore('miss', options?.abortSignal);
     } catch (error) {
+      // An abort is a caller decision, not a network failure staleIfError should mask.
+      if (options?.abortSignal?.aborted) {
+        throw error;
+      }
       if (mergedOptions.staleIfError && entry && staleAcceptable) {
         return respondFromCache(entry, 'stale-hit');
       }
@@ -165,13 +208,38 @@ export async function executeWithCache<
   return runWithoutCache('bypass');
 
   async function fetchAndStore(cacheStatus: CacheStatus, abortSignal?: AbortSignal): Promise<State['output'][]> {
-    // A caller-supplied signal makes the result abortable, so it must not be shared with other callers.
-    const dedupe = mergedOptions.dedupe !== false && !abortSignal;
-    if (dedupe && runtime.inFlight.has(key)) {
-      return runtime.inFlight.get(key)! as Promise<State['output'][]>;
+    // A pre-aborted creator would otherwise start a zero-waiter fetch nobody can cancel.
+    abortSignal?.throwIfAborted();
+    if (mergedOptions.dedupe === false) {
+      return runFetch(cacheStatus, abortSignal);
     }
 
-    const promise = (async () => {
+    // A cancelled fetch lingers in the map until its promise settles.
+    let shared = runtime.inFlight.get(key);
+    if (!shared || shared.controller.signal.aborted) {
+      const controller = new AbortController();
+      const created: SharedFetch = {
+        promise: runFetch(cacheStatus, controller.signal),
+        controller,
+        abortableWaiters: 0,
+        pinnedWaiters: 0
+      };
+      runtime.inFlight.set(key, created);
+      created.promise
+        .catch(() => undefined)
+        .finally(() => {
+          if (runtime.inFlight.get(key) === created) {
+            runtime.inFlight.delete(key);
+          }
+        });
+      shared = created;
+    }
+
+    return joinSharedFetch<State['output'][]>(shared, abortSignal);
+  }
+
+  function runFetch(cacheStatus: CacheStatus, abortSignal?: AbortSignal): Promise<State['output'][]> {
+    return (async () => {
       const rows = await builder.getExecutor().execute({
         queryId: options?.queryId,
         abortSignal,
@@ -200,13 +268,6 @@ export async function executeWithCache<
       runtime.parsedValues.set(key, { createdAt: newEntry.createdAt, rows, tags: newEntry.tags });
       return rows;
     })();
-
-    if (dedupe) {
-      runtime.inFlight.set(key, promise);
-      promise.finally(() => runtime.inFlight.delete(key));
-    }
-
-    return promise;
   }
 
   function scheduleRevalidation() {

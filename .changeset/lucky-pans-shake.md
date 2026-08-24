@@ -11,4 +11,6 @@ const controller = new AbortController();
 const rows = await db.table('events').select(['id']).execute({ abortSignal: controller.signal });
 ```
 
-Abortable executions never join another caller's deduplicated in-flight query, and background `stale-while-revalidate` refreshes keep running after the caller aborts.
+Deduplicated executions stay deduplicated: callers of the same cache key share one query, each caller's abort rejects only that caller, and the shared query is cancelled once no waiter is left. Background `stale-while-revalidate` refreshes keep running after the caller that triggered them aborts.
+
+Cancellation stays active across the whole request lifecycle: an already-aborted signal rejects before any HTTP request or cache write happens, aborting while a result body is still being read rejects with the signal's reason and closes the result set, and aborting mid-stream errors the consumer stream and destroys the underlying connection stream.

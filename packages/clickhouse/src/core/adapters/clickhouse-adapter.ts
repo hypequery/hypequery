@@ -36,6 +36,55 @@ function deriveNamespace(config: ClickHouseConfig): string {
   return `${endpoint || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
 }
 
+function abortError(signal: AbortSignal): unknown {
+  return signal.reason ?? new Error('The query was aborted.');
+}
+
+interface CloseableResult {
+  close(): void | Promise<void>;
+}
+
+function closeResult(result: CloseableResult): void {
+  try {
+    void Promise.resolve(result.close()).catch(() => undefined);
+  } catch {
+    // Destroying an already-consumed stream is fine to ignore.
+  }
+}
+
+// The Node client detaches the caller's signal once response headers arrive, so
+// keep our own bridge alive while the body is consumed.
+function consumeWithAbort<T>(
+  signal: AbortSignal | undefined,
+  result: CloseableResult,
+  consume: () => Promise<T>
+): Promise<T> {
+  if (!signal) {
+    return consume();
+  }
+  if (signal.aborted) {
+    closeResult(result);
+    return Promise.reject(abortError(signal));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      closeResult(result);
+      reject(abortError(signal));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    consume().then(
+      value => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      error => {
+        signal.removeEventListener('abort', onAbort);
+        reject(error);
+      }
+    );
+  });
+}
+
 function jsonOutputSettings(settings?: ClickHouseSettings): ClickHouseSettings {
   return {
     // Matches generated Int64+ result types and prevents JSON.parse precision loss.
@@ -55,6 +104,8 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 
   async query<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<T[]> {
+    // The ClickHouse clients never check an already-aborted signal, so fail before sending anything.
+    options?.abortSignal?.throwIfAborted();
     const finalSQL = substituteParameters(sql, params);
     const result = await this.client.query({
       query: finalSQL,
@@ -63,10 +114,11 @@ export class ClickHouseAdapter implements DatabaseAdapter {
       query_id: options?.queryId,
       abort_signal: options?.abortSignal,
     });
-    return result.json<T>();
+    return consumeWithAbort(options?.abortSignal, result, () => result.json<T>());
   }
 
   async stream<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>> {
+    options?.abortSignal?.throwIfAborted();
     const finalSQL = substituteParameters(sql, params);
     const result = await this.client.query({
       query: finalSQL,
@@ -76,7 +128,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
       abort_signal: options?.abortSignal,
     });
     const stream = result.stream();
-    return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream);
+    return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream, options?.abortSignal);
   }
 
   async insert<T extends Record<string, unknown>>(
@@ -84,6 +136,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     rows: T[],
     options?: InsertExecutionOptions
   ): Promise<InsertResultSummary> {
+    options?.abortSignal?.throwIfAborted();
     assertSafeInsertIdentifiers(table, options?.columns);
     const result = await this.client.insert({
       table,

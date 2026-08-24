@@ -23,9 +23,21 @@ export interface QueryRuntimeContext {
   versionTag: string;
   serialize: CacheSerializeFn;
   deserialize: CacheDeserializeFn;
-  inFlight: Map<string, Promise<unknown>>;
+  inFlight: Map<string, SharedFetch>;
   stats: CacheStats;
   parsedValues: Map<string, ParsedValueEntry>;
+}
+
+/**
+ * One deduplicated execution shared by every caller of the same cache key. The
+ * fetch is cancelled only once no waiter is left, so one caller's abort cannot
+ * cancel or reject another's.
+ */
+export interface SharedFetch {
+  promise: Promise<unknown>;
+  controller: AbortController;
+  abortableWaiters: number;
+  pinnedWaiters: number;
 }
 
 export interface ParsedValueEntry {
