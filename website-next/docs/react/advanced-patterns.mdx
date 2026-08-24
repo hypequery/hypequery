@@ -18,7 +18,7 @@ By default, `useQuery` and `useMutation` issue `GET` requests. Override HTTP met
 <Pre>
 ```ts
 import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/queries';
 
 type Api = InferApiType<typeof api>;
@@ -47,32 +47,55 @@ export const { useQuery, useMutation } = createHooks<Api>({
 
 Instead of manually maintaining HTTP method configuration, let the server tell the client which methods to use.
 
-### Option A: Shared Server Module (Next.js / Remix)
+### Option A: Static Manifest (Next.js / Remix / any bundler)
 
-When your React code can import the server bundle (e.g., Next.js App Router), pass the `api` directly:
+Generate the route manifest as JSON at build time and import it:
+
+<CodeBlock>
+<Pre>
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+</Pre>
+</CodeBlock>
 
 <CodeBlock>
 <Pre>
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
-import { api } from '@/analytics/queries';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/api';
+import manifest from '@/analytics/hypequery-manifest.json';
 
 type Api = InferApiType<typeof api>;
 
 export const { useQuery, useMutation } = createHooks<Api>({
   baseUrl: '/api/hypequery',
-  api, // ✅ Method metadata extracted automatically
+  manifest, // ✅ Method metadata, no server code in the bundle
 });
 ```
 </Pre>
 </CodeBlock>
 
-The `api` object contains method metadata from your route definitions. This keeps client and server configuration in sync automatically.
+The manifest carries the method and full path for every query, metric, and dataset key, so client and
+server stay in sync without the client importing anything from the server.
+
+<Callout type="warn" title="Passing `api` directly does not work in a client module">
+  An earlier version of this page suggested `createHooks({ api })` with a value import of `api`.
+  That only holds if the module is server-only. `lib/analytics.ts` is imported by client components,
+  so a value import of `api` bundles `initServe` and `@hypequery/clickhouse` for the browser — and
+  in Next.js App Router it fails the build with `Can't resolve 'fs/promises'`.
+
+  Use the static manifest above, or the config endpoint in Option B. Reserve `api` and
+  `api.manifest()` for server-side code.
+</Callout>
 
 <Callout type="info">
-  Passing `api` (or `manifest: api.manifest()`) is **required** when you use semantic `metrics`/`datasets` endpoints with `useMetric`/`useDataset`. Their POST paths differ from their map keys, so the hooks need the resolved routes. `extractClientConfig(api)` in Option B includes these routes too.
+  A `manifest` (or an explicit `config` entry) is **required** when you use semantic
+  `metrics`/`datasets` endpoints with `useMetric`/`useDataset`. Their POST paths differ from their map
+  keys, so the hooks need the resolved routes. `extractClientConfig(api)` in Option B includes these
+  routes too.
 </Callout>
 
 ### Option B: Config Endpoint (SPAs / Vite)
@@ -100,7 +123,7 @@ export function GET() {
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
+import type { InferApiType } from '@hypequery/serve';
 import type { api } from '@/analytics/queries';
 
 type Api = InferApiType<typeof api>;

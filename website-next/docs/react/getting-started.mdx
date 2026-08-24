@@ -35,8 +35,8 @@ Use `InferApiType` to automatically extract types from your API definition:
 ```ts
 // lib/analytics.ts
 import { createHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
-import type { api } from '@/analytics/queries';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/api';
 
 // Automatic type inference - no manual type definition needed!
 type Api = InferApiType<typeof api>;
@@ -49,6 +49,10 @@ export const { useQuery, useMutation } = createHooks<Api>({
 </CodeBlock>
 
 This eliminates the need to manually define and maintain a separate type for your API.
+
+Both `@hypequery/serve` imports here are `import type`, so they are erased at build time and no
+server code reaches the client bundle. Keep it that way — this module is imported by client
+components.
 
 ### Option 2: Manual Type Definition
 
@@ -79,16 +83,29 @@ export const { useQuery, useMutation } = createHooks<Api>({
 
 When your API registers `metrics` or `datasets`, use `createAnalyticsHooks` instead of `createHooks`. It returns everything `createHooks` does, plus `useMetric`, `useDataset`, `useInfiniteMetric`, and `useInfiniteDataset`.
 
-Semantic endpoints are POST routes whose paths differ from their map keys (e.g. the `orders` dataset lives at `POST /datasets/orders/query`). Pass a `manifest` from the serve API's `api.manifest()` so the hooks can resolve those routes:
+Semantic endpoints are POST routes whose paths differ from their map keys (e.g. the `orders` dataset lives at `POST /datasets/orders/query`), so the hooks need a `manifest` to resolve them.
+
+Generate the manifest as static JSON and import **the type** of your API, never its value:
+
+<CodeBlock>
+<Pre>
+```bash
+npx hypequery generate:manifest analytics/api.ts --output analytics/hypequery-manifest.json
+```
+</Pre>
+</CodeBlock>
 
 <CodeBlock>
 <Pre>
 ```ts
 // lib/analytics.ts
 import { createAnalyticsHooks } from '@hypequery/react';
-import { InferApiType } from '@hypequery/serve';
-import { api } from '@/analytics/queries';
+import type { InferApiType } from '@hypequery/serve';
+import type { api } from '@/analytics/api';
+import manifest from '@/analytics/hypequery-manifest.json';
 
+// `import type` is erased at build time, so the server module — and the
+// ClickHouse client it constructs — never reaches the browser bundle.
 type Api = InferApiType<typeof api>;
 
 export const {
@@ -100,15 +117,36 @@ export const {
   useInfiniteDataset,
 } = createAnalyticsHooks<Api>({
   baseUrl: '/api',
-  // Required for metric/dataset endpoints — resolves each key's method + path.
-  manifest: api.manifest(),
+  manifest,
 });
 ```
 </Pre>
 </CodeBlock>
 
+Re-run `generate:manifest` whenever you add or re-route an endpoint. Wire it into your build (`"prebuild": "hypequery generate:manifest …"`) so it cannot drift.
+
+<Callout type="warn" title="Do not import the serve API as a value here">
+  This module is imported by client components, so anything it imports as a *value* is bundled for
+  the browser. Calling `manifest: api.manifest()` requires a value import of `api`, which pulls
+  `initServe` and `@hypequery/clickhouse` into the client graph. In a Next.js App Router project that
+  fails the build outright:
+
+  <CodeBlock>
+  <Pre>
+  ```text
+  ./node_modules/@hypequery/clickhouse/dist/cli/generate-types.js:2:1
+  Error: Module not found: Can't resolve 'fs/promises'
+  ```
+  </Pre>
+  </CodeBlock>
+
+  `api.manifest()` is a **server-side** API. Use it in your build step, in a config endpoint, or
+  anywhere else that only runs on the server — not in the module that exports your hooks.
+</Callout>
+
 <Callout type="info">
-  `api.manifest()` is safe to JSON-serialize, so you can also fetch it from a small endpoint at runtime when your client can't import the server module — see <a href="/docs/react/advanced-patterns#auto-config-from-server">Auto-config from server</a>. Without a manifest (or an explicit <code>config</code> entry), `useMetric`/`useDataset` throw a clear error rather than calling the wrong URL.
+  `api.manifest()` output is plain JSON, so you can also serve it from a small endpoint and fetch it
+  at runtime when a static file does not suit your setup — see <a href="/docs/react/advanced-patterns#auto-config-from-server">Auto-config from server</a>. Without a manifest (or an explicit <code>config</code> entry), `useMetric`/`useDataset` throw a clear error rather than calling the wrong URL.
 </Callout>
 
 ## Provider Setup
