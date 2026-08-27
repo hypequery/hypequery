@@ -37,6 +37,7 @@ Issues = "https://github.com/hypequery/hypequery/issues"
 
 [dependency-groups]
 dev = [
+  "hypothesis>=6.100",
   "pytest>=8.0",
   "mypy>=1.11",
   "ruff>=0.6",
