@@ -130,6 +130,35 @@ Common examples:
 
 One important caveat: JavaScript numbers can lose precision for larger decimal values even when ClickHouse stored them exactly.
 
+## 64-bit integer encoding and strict read-only users
+
+The built-in adapter requests quoted JSON values for `Int64` and wider integer
+types. This prevents precision loss beyond JavaScript's safe integer range and
+keeps runtime values aligned with the generated `string` types.
+
+A ClickHouse user with `readonly = 1` can reject that request when its effective
+profile does not already enable quoted integers. For such a connection, opt into
+the profile's existing behavior explicitly:
+
+```ts
+const db = createQueryBuilder<IntrospectedSchema>({
+  url: process.env.CLICKHOUSE_URL!,
+  username: process.env.CLICKHOUSE_USERNAME!,
+  password: process.env.CLICKHOUSE_PASSWORD ?? '',
+  integerJsonEncoding: 'server-default',
+});
+```
+
+`server-default` omits the adapter-owned
+`output_format_json_quote_64bit_integers` setting rather than sending `0`. It
+does not probe the server or retry the query, and explicit `clickhouse_settings`
+are still passed through unchanged.
+
+The tradeoff is that the server may return wide integers as JavaScript numbers.
+Values beyond `2^53` can then lose precision and may not match the generated
+`string` types. When possible, configuring the read-only user's ClickHouse
+profile to quote wide integers preserves the default precision-safe behavior.
+
 ## Practical guidance
 
 If you are deciding where something belongs, the usual rules are:
