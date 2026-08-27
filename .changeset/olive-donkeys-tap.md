@@ -1,5 +1,5 @@
 ---
-"@hypequery/serve": patch
+"@hypequery/serve": minor
 ---
 
 Type query resolvers with zod's **output** type instead of its input type.
