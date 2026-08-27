@@ -18,9 +18,12 @@ export type { SqlDialect } from './core/dialects/sql-dialect.js';
 // Re-export types for convenience
 export type {
   ClickHouseConfig,
+  ClickHouseAdapterConfig,
+  ClickHouseAdapterOptions,
   ClickHouseClientConfig,
   CreateQueryBuilderConfig,
   ExecuteOptions,
+  IntegerJsonEncoding,
   StreamOptions
 } from './core/query-builder.js';
 export { isClientConfig } from './core/query-builder.js';

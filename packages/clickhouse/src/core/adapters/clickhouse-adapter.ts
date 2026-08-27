@@ -6,7 +6,10 @@ import type {
 } from './database-adapter.js';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
-import type { ClickHouseConfig } from '../query-builder.js';
+import type {
+  ClickHouseAdapterConfig,
+  IntegerJsonEncoding,
+} from '../query-builder.js';
 import { isClientConfig } from '../query-builder.js';
 import { substituteParameters } from '../utils.js';
 import { getConnectionEndpoint } from '../utils/connection-endpoint.js';
@@ -16,7 +19,6 @@ import type { AutoClientModule } from '../env/auto-client.js';
 import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
 import { consumeResultWithAbort } from '../utils/abortable-result.js';
 import { throwIfAborted } from '../utils/abort.js';
-import { logger } from '../utils/logger.js';
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 
 type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
@@ -24,22 +26,23 @@ type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 /**
  * The node and web clients return structurally different `ResultSet`s (the web
  * one lacks `log_error` and `Symbol.dispose`). Naming the union keeps it intact
- * through the readonly-retry wrapper, which would otherwise infer only the first
- * member and reject the other.
+ * through the readonly-guidance wrapper, which would otherwise infer only the
+ * first member and reject the other.
  */
 type QueryResultSet =
   | Awaited<ReturnType<NodeClickHouseClient['query']>>
   | Awaited<ReturnType<WebClickHouseClient['query']>>;
 
-function createClickHouseClient(config: ClickHouseConfig): ClickHouseClient {
+function createClickHouseClient(config: ClickHouseAdapterConfig): ClickHouseClient {
   if (isClientConfig(config)) {
     return config.client;
   }
   const clientModule: AutoClientModule = getAutoClientModule();
-  return clientModule.createClient(config);
+  const { integerJsonEncoding: _adapterOption, ...clientConfig } = config;
+  return clientModule.createClient(clientConfig);
 }
 
-function deriveNamespace(config: ClickHouseConfig): string {
+function deriveNamespace(config: ClickHouseAdapterConfig): string {
   if ('client' in config && config.client) {
     return 'client';
   }
@@ -83,13 +86,13 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   private client: ClickHouseClient;
   /** Connection-level settings, so they can outrank the adapter's own defaults. */
   private readonly configSettings?: ClickHouseSettings;
-  /** Cleared when the server rejects the adapter-owned default. */
-  private quote64BitDefaultEnabled = true;
+  private readonly integerJsonEncoding: IntegerJsonEncoding;
 
-  constructor(private config: ClickHouseConfig) {
+  constructor(config: ClickHouseAdapterConfig) {
     this.namespace = deriveNamespace(config);
     this.client = createClickHouseClient(config);
     this.configSettings = config.clickhouse_settings;
+    this.integerJsonEncoding = config.integerJsonEncoding ?? 'quoted';
   }
 
   /**
@@ -98,7 +101,7 @@ export class ClickHouseAdapter implements DatabaseAdapter {
    * 64-bit-quoting flag, so a connection-level value could not override it.
    */
   private querySettings(optionSettings?: ClickHouseSettings): QuerySettingsAttempt {
-    const adapterDefaultApplied = this.quote64BitDefaultEnabled
+    const adapterDefaultApplied = this.integerJsonEncoding === 'quoted'
       && !hasQuote64BitSetting(this.configSettings)
       && !hasQuote64BitSetting(optionSettings);
 
@@ -114,14 +117,12 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 
   /**
-   * Retries only when this request included the adapter-owned default and the
-   * server specifically rejected it. Eligibility is captured before sending so
-   * overlapping initial requests can each retry after the shared default is
-   * disabled for future requests.
+   * Converts only rejections of the adapter-owned precision setting into an
+   * actionable configuration error. Caller-owned settings and unrelated
+   * readonly failures retain their original error identity.
    */
-  private async withReadonlyFallback<T>(
+  private async withReadonlyGuidance<T>(
     optionSettings: ClickHouseSettings | undefined,
-    abortSignal: AbortSignal | undefined,
     send: (settings: ClickHouseSettings) => Promise<T>,
   ): Promise<T> {
     const attempt = this.querySettings(optionSettings);
@@ -131,23 +132,14 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     } catch (error) {
       if (!attempt.adapterDefaultApplied || !isReadonlyQuote64BitError(error)) throw error;
 
-      // The ClickHouse clients do not check an already-aborted signal. The
-      // caller may have cancelled while the first request was being rejected.
-      throwIfAborted(abortSignal);
-
-      const shouldWarn = this.quote64BitDefaultEnabled;
-      this.quote64BitDefaultEnabled = false;
-      if (shouldWarn) {
-        logger.warn(
-          `ClickHouse rejected '${QUOTE_64BIT}' under readonly mode; retrying without it. ` +
-          `Int64 and larger values will be returned as JSON numbers, which loses precision ` +
-          `beyond 2^53. Set '${QUOTE_64BIT}' explicitly in clickhouse_settings to silence this.`,
-        );
-      }
-
-      const retrySettings = { ...attempt.settings };
-      delete retrySettings[QUOTE_64BIT];
-      return await send(retrySettings);
+      throw new Error(
+        `ClickHouse rejected HypeQuery's precision-safe setting (${QUOTE_64BIT}=1) ` +
+        `because this connection uses readonly = 1. Set ` +
+        `integerJsonEncoding: 'server-default' in the HypeQuery adapter or query-builder ` +
+        `configuration to omit it. The server may then return Int64 and wider values as ` +
+        `JSON numbers, which lose precision beyond 2^53.`,
+        { cause: error },
+      );
     }
   }
 
@@ -155,9 +147,8 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     // The ClickHouse clients never check an already-aborted signal, so fail before sending anything.
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
-    const result = await this.withReadonlyFallback<QueryResultSet>(
+    const result = await this.withReadonlyGuidance<QueryResultSet>(
       options?.clickhouseSettings,
-      options?.abortSignal,
       clickhouseSettings =>
         this.client.query({
           query: finalSQL,
@@ -179,11 +170,8 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   async stream<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>> {
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
-    // The settings error surfaces from client.query(), before any row is read,
-    // so retrying here cannot replay a partially consumed stream.
-    const result = await this.withReadonlyFallback<QueryResultSet>(
+    const result = await this.withReadonlyGuidance<QueryResultSet>(
       options?.clickhouseSettings,
-      options?.abortSignal,
       clickhouseSettings =>
         this.client.query({
           query: finalSQL,
@@ -235,6 +223,6 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 }
 
-export function createClickHouseAdapter(config: ClickHouseConfig): DatabaseAdapter {
+export function createClickHouseAdapter(config: ClickHouseAdapterConfig): DatabaseAdapter {
   return new ClickHouseAdapter(config);
 }
