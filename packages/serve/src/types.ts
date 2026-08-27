@@ -229,9 +229,23 @@ export type ServeMiddleware<
   next: () => Promise<TResult>
 ) => Promise<TResult>;
 
+/**
+ * What a *caller* sends. Use for anything crossing the wire or handed to
+ * `api.execute()` — a field with `.default()` is genuinely optional there.
+ */
 export type SchemaInput<T extends ZodTypeAny | undefined> = T extends ZodTypeAny
   ? T["_input"]
   : unknown;
+
+/**
+ * What zod produced after parsing. Use for anything running *after* validation —
+ * resolvers, handlers, and middlewares. `pipeline.ts` assigns
+ * `context.input = validationResult.data` before composing middlewares, so by
+ * then `.default()` is filled in, `.transform()` has run, and `.coerce` has
+ * converted. Typing those positions as {@link SchemaInput} makes defaulted
+ * fields look `| undefined` and forces callers to re-supply a default the
+ * schema already guarantees.
+ */
 export type SchemaOutput<T extends ZodTypeAny | undefined> = T extends ZodTypeAny
   ? T["_output"]
   : unknown;
@@ -419,14 +433,14 @@ export interface ServeEndpoint<
   inputSchema?: TInputSchema;
   outputSchema: TOutputSchema;
   handler: EndpointHandler<
-    SchemaInput<TInputSchema>,
+    SchemaOutput<TInputSchema>,
     TResult,
     TContext,
     TAuth
   >;
-  query?: ExecutableQuery<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
+  query?: ExecutableQuery<SchemaOutput<TInputSchema>, TResult, TContext, TAuth>;
   middlewares: ServeMiddleware<
-    SchemaInput<TInputSchema>,
+    SchemaOutput<TInputSchema>,
     SchemaOutput<TOutputSchema>,
     TContext,
     TAuth
@@ -455,7 +469,7 @@ export interface ServeQueryConfig<
   TResult = SchemaOutput<TOutputSchema>
 > {
   key?: string;
-  query: ExecutableQuery<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
+  query: ExecutableQuery<SchemaOutput<TInputSchema>, TResult, TContext, TAuth>;
   method?: HttpMethod;
   name?: string;
   summary?: string;
@@ -464,7 +478,7 @@ export interface ServeQueryConfig<
   inputSchema?: TInputSchema;
   outputSchema?: TOutputSchema;
   middlewares?: ServeMiddleware<
-    SchemaInput<TInputSchema>,
+    SchemaOutput<TInputSchema>,
     SchemaOutput<TOutputSchema>,
     TContext,
     TAuth
@@ -489,7 +503,9 @@ export interface StandaloneQueryDefinition<
   TAuth extends AuthContext = AuthContext,
   TResult = SchemaOutput<TOutputSchema>
 > extends ServeQueryConfig<TInputSchema, TOutputSchema, TContext, TAuth, TResult> {
-  run: QueryResolver<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
+  // `run` executes post-validation, so it sees parsed output. `execute` is the
+  // caller-facing entry point and takes the raw input the schema accepts.
+  run: QueryResolver<SchemaOutput<TInputSchema>, TResult, TContext, TAuth>;
   execute(options?: DirectQueryExecuteOptions<SchemaInput<TInputSchema>, TContext>): Promise<TResult>;
 }
 
@@ -515,7 +531,7 @@ export interface QueryObjectConfig<
   requiredRoles?: string[];
   requiredScopes?: string[];
   custom?: Record<string, unknown>;
-  query: QueryResolver<SchemaInput<TInputSchema>, TResult, TContext, TAuth>;
+  query: QueryResolver<SchemaOutput<TInputSchema>, TResult, TContext, TAuth>;
 }
 
 export type ServeQueriesMap<
@@ -1271,9 +1287,9 @@ export interface QueryProcedureBuilder<
   require(): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   custom(custom: Record<string, unknown>): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
   use(
-    ...middlewares: ServeMiddleware<SchemaInput<TInputSchema>, SchemaOutput<TOutputSchema>, TContext, TAuth>[]
+    ...middlewares: ServeMiddleware<SchemaOutput<TInputSchema>, SchemaOutput<TOutputSchema>, TContext, TAuth>[]
   ): QueryProcedureBuilder<TContext, TAuth, TInputSchema, TOutputSchema>;
-  query<TExecutable extends ExecutableQuery<SchemaInput<TInputSchema>, any, TContext, TAuth>>(
+  query<TExecutable extends ExecutableQuery<SchemaOutput<TInputSchema>, any, TContext, TAuth>>(
     executable: TExecutable
   ): ServeQueryConfig<
     TInputSchema,
