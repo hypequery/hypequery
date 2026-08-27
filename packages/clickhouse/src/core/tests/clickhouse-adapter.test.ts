@@ -345,4 +345,154 @@ describe('ClickHouseAdapter abort signals', () => {
 
     await expect(pending).rejects.toThrow('The user aborted a request.');
   });
+
+  describe('readonly connections', () => {
+    const QUOTE_64BIT = 'output_format_json_quote_64bit_integers';
+
+    /** What @clickhouse/client throws under `readonly = 1`. */
+    const readonlyError = () =>
+      Object.assign(
+        new Error(`Cannot modify '${QUOTE_64BIT}' setting in readonly mode. `),
+        { code: '164', type: 'READONLY' },
+      );
+
+    it('omits the adapter-owned quoting setting in server-default mode', async () => {
+      const clientQueryMock = vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue([]),
+      });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+        integerJsonEncoding: 'server-default',
+      });
+
+      await adapter.query('SELECT 1');
+
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+      expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toEqual({});
+    });
+
+    it('supports server-default mode through createQueryBuilder', async () => {
+      const clientQueryMock = vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue([]),
+      });
+      const db = createQueryBuilder<{ events: { id: 'UInt64' } }>({
+        client: { query: clientQueryMock } as any,
+        integerJsonEncoding: 'server-default',
+      });
+
+      await db.rawQuery('SELECT id FROM events');
+
+      expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toEqual({});
+    });
+
+    it('preserves explicit settings in server-default mode', async () => {
+      const clientQueryMock = vi.fn().mockResolvedValue({
+        json: vi.fn().mockResolvedValue([]),
+      });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+        integerJsonEncoding: 'server-default',
+        clickhouse_settings: { max_execution_time: 30 },
+      });
+
+      await adapter.query('SELECT 1', [], {
+        clickhouseSettings: { final: 1 },
+      });
+
+      expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toEqual({
+        max_execution_time: 30,
+        final: 1,
+      });
+    });
+
+    it('returns actionable guidance instead of retrying the adapter setting', async () => {
+      const cause = readonlyError();
+      const clientQueryMock = vi.fn().mockRejectedValue(cause);
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      });
+
+      let error: unknown;
+      try {
+        await adapter.query('SELECT 1');
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain("integerJsonEncoding: 'server-default'");
+      expect((error as Error).cause).toBe(cause);
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves readonly errors caused by another setting', async () => {
+      const error = Object.assign(
+        new Error("Cannot modify 'max_execution_time' setting in readonly mode."),
+        { code: '164', type: 'READONLY' },
+      );
+      const clientQueryMock = vi.fn().mockRejectedValue(error);
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      });
+
+      await expect(adapter.query('SELECT 1')).rejects.toBe(error);
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves errors for a caller-owned quoting setting', async () => {
+      const error = readonlyError();
+      const clientQueryMock = vi.fn().mockRejectedValue(error);
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      });
+
+      await expect(adapter.query('SELECT 1', [], {
+        clickhouseSettings: { [QUOTE_64BIT]: 0 },
+      })).rejects.toBe(error);
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets connection-level clickhouse_settings override the adapter default', async () => {
+      const jsonMock = vi.fn().mockResolvedValue([]);
+      const clientQueryMock = vi.fn().mockResolvedValue({ json: jsonMock });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+        clickhouse_settings: { [QUOTE_64BIT]: 0, max_execution_time: 30 },
+      });
+
+      await adapter.query('SELECT 1');
+
+      // Explicit config wins because the adapter default has lower precedence.
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+      expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toEqual({
+        [QUOTE_64BIT]: 0,
+        max_execution_time: 30,
+      });
+    });
+
+    it('keeps per-query settings ahead of connection-level ones', async () => {
+      const jsonMock = vi.fn().mockResolvedValue([]);
+      const clientQueryMock = vi.fn().mockResolvedValue({ json: jsonMock });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+        clickhouse_settings: { max_execution_time: 30 },
+      });
+
+      await adapter.query('SELECT 1', [], {
+        clickhouseSettings: { max_execution_time: 5 },
+      });
+
+      expect(clientQueryMock.mock.calls[0][0].clickhouse_settings).toEqual({
+        [QUOTE_64BIT]: 1,
+        max_execution_time: 5,
+      });
+    });
+  });
 });

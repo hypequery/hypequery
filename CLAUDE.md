@@ -17,7 +17,7 @@ pnpm + Turbo monorepo. `pnpm-workspace.yaml` is the authoritative workspace list
 | `packages/protocol` / `packages/protocol-conformance` | Security protocol + cross-language conformance runner |
 | `packages/deployment` | Deployment contracts and tooling |
 | `packages/tsconfig` | Shared tsconfig presets — new packages extend this |
-| `website-next/` | Next.js + Fumadocs site. Docs live in `website-next/content/docs/` |
+| `website-next/` | Next.js + Fumadocs site. Docs live in `website-next/docs/` |
 | `testing/` | Manual, model-executable E2E test specs (see `testing/README.md`) |
 | `specs/` | RFCs, decisions, and conformance fixtures (`specs/security-protocol/`) |
 | `plans/` | Design docs / implementation plans |
@@ -43,11 +43,12 @@ pnpm smoke:consumers    # all consumer smoke tests (scripts/smoke-*.sh)
 
 ## Known-stale tooling
 
-- The TypeDoc docs pipeline (`pnpm docs:api` / `docs:mdx` / `fix:mdx`, scripts in `packages/clickhouse/scripts/`) still writes to the deleted `website/` directory. Don't run it expecting docs updates; docs are hand-maintained in `website-next/content/docs/` until the pipeline is repointed.
+- The TypeDoc docs pipeline (`pnpm docs:api` / `docs:mdx` / `fix:mdx`, scripts in `packages/clickhouse/scripts/`) still writes to the deleted `website/` directory. Don't run it expecting docs updates; docs are hand-maintained in `website-next/docs/` until the pipeline is repointed.
 
 ## API & architecture policies
 
 - **Never delete a shipped export.** If a released API is superseded, restore/keep it with a `@deprecated` JSDoc tag pointing at the replacement. Removal happens only in a planned major.
+- **Keep utility logic in focused files.** Reusable or independently testable pure helpers belong in the nearest `utils/` directory (or a focused domain helper module), not as top-level functions inside adapters, controllers, builders, or other feature files. Keep only behavior that depends on an owning class's state as class methods, and do not accumulate unrelated helpers in a generic `utils.ts` file.
 - **New builders must mirror QueryBuilder's architecture** (state + node + features design), not merely be immutable. Study `packages/clickhouse`'s query builder before adding a builder elsewhere.
 - **Dataset client docs and examples lead with `createDatasetClient({ queryBuilder })`.** `createBackend` is documented as advanced-only, never the primary path.
 

@@ -158,6 +158,28 @@ export interface ClickHouseClientConfig extends ClickHouseConnectionOptions {
  */
 export type ClickHouseConfig = ClickHouseConnectionOptions | ClickHouseClientConfig;
 
+export type IntegerJsonEncoding = 'quoted' | 'server-default';
+
+/** Options owned by HypeQuery's built-in ClickHouse adapter. */
+export interface ClickHouseAdapterOptions {
+  /**
+   * Controls whether the adapter requests precision-safe JSON strings for
+   * `Int64` and wider values.
+   *
+   * - `quoted` (default) sends `output_format_json_quote_64bit_integers: 1`.
+   * - `server-default` omits that adapter-owned setting, which is required for
+   *   strict `readonly = 1` connections whose profile does not already enable
+   *   it. Such servers may return wide integers as precision-losing numbers.
+   *
+   * Explicit connection-level and per-query ClickHouse settings remain
+   * authoritative in either mode.
+   */
+  integerJsonEncoding?: IntegerJsonEncoding;
+}
+
+/** Configuration accepted by HypeQuery's built-in ClickHouse adapter. */
+export type ClickHouseAdapterConfig = ClickHouseConfig & ClickHouseAdapterOptions;
+
 /**
  * Type guard to check if a config is a client-based configuration.
  */
@@ -1237,7 +1259,7 @@ export type SelectQB<
 > = QueryBuilder<Schema, BuilderState<Schema, Tables, Output, BaseTable, {}>>;
 
 export type CreateQueryBuilderConfig =
-  | (ClickHouseConfig & {
+  | (ClickHouseAdapterConfig & {
     cache?: CacheConfig;
     adapter?: DatabaseAdapter;
     dialect?: SqlDialect;
@@ -1256,7 +1278,7 @@ export function createQueryBuilder<Schema extends SchemaDefinition<Schema>>(
     adapter?: DatabaseAdapter;
     dialect?: SqlDialect;
   };
-  const resolvedAdapter = adapter ?? createClickHouseAdapter(config as ClickHouseConfig);
+  const resolvedAdapter = adapter ?? createClickHouseAdapter(config as ClickHouseAdapterConfig);
   const resolvedDialect = dialect ?? new ClickHouseDialect();
   const namespace = cacheConfig?.namespace || resolvedAdapter.namespace || resolvedAdapter.name;
   const { runtime, cacheController } = initializeCacheRuntime(cacheConfig, namespace);

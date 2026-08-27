@@ -6,80 +6,115 @@ import type {
 } from './database-adapter.js';
 import type { ClickHouseClient as NodeClickHouseClient } from '@clickhouse/client';
 import type { ClickHouseClient as WebClickHouseClient } from '@clickhouse/client-web';
-import type { ClickHouseConfig } from '../query-builder.js';
-import { isClientConfig } from '../query-builder.js';
+import type {
+  ClickHouseAdapterConfig,
+  IntegerJsonEncoding,
+} from '../query-builder.js';
 import { substituteParameters } from '../utils.js';
-import { getConnectionEndpoint } from '../utils/connection-endpoint.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
-import { getAutoClientModule } from '../env/auto-client.js';
-import type { AutoClientModule } from '../env/auto-client.js';
 import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
 import { consumeResultWithAbort } from '../utils/abortable-result.js';
 import { throwIfAborted } from '../utils/abort.js';
+import {
+  createClickHouseClient,
+  deriveClickHouseNamespace,
+  type ClickHouseClient,
+} from '../utils/clickhouse-adapter-config.js';
+import {
+  buildIntegerJsonSettings,
+  createReadonlyIntegerJsonError,
+} from '../utils/integer-json-encoding.js';
 import type { ClickHouseSettings } from '@clickhouse/client-common';
 
-type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
-
-function createClickHouseClient(config: ClickHouseConfig): ClickHouseClient {
-  if (isClientConfig(config)) {
-    return config.client;
-  }
-  const clientModule: AutoClientModule = getAutoClientModule();
-  return clientModule.createClient(config);
-}
-
-function deriveNamespace(config: ClickHouseConfig): string {
-  if ('client' in config && config.client) {
-    return 'client';
-  }
-  const endpoint = getConnectionEndpoint(config);
-  const database = 'database' in config ? config.database : 'default';
-  const username = 'username' in config ? config.username : 'default';
-  return `${endpoint || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
-}
-
-function jsonOutputSettings(settings?: ClickHouseSettings): ClickHouseSettings {
-  return {
-    // Matches generated Int64+ result types and prevents JSON.parse precision loss.
-    output_format_json_quote_64bit_integers: 1,
-    ...settings,
-  };
-}
+/**
+ * The node and web clients return structurally different `ResultSet`s (the web
+ * one lacks `log_error` and `Symbol.dispose`). Naming the union keeps it intact
+ * through the readonly-guidance wrapper, which would otherwise infer only the
+ * first member and reject the other.
+ */
+type QueryResultSet =
+  | Awaited<ReturnType<NodeClickHouseClient['query']>>
+  | Awaited<ReturnType<WebClickHouseClient['query']>>;
 
 export class ClickHouseAdapter implements DatabaseAdapter {
   readonly name = 'clickhouse';
   readonly namespace?: string;
   private client: ClickHouseClient;
+  /** Connection-level settings, so they can outrank the adapter's own defaults. */
+  private readonly configSettings?: ClickHouseSettings;
+  private readonly integerJsonEncoding: IntegerJsonEncoding;
 
-  constructor(private config: ClickHouseConfig) {
-    this.namespace = deriveNamespace(config);
+  constructor(config: ClickHouseAdapterConfig) {
+    this.namespace = deriveClickHouseNamespace(config);
     this.client = createClickHouseClient(config);
+    this.configSettings = config.clickhouse_settings;
+    this.integerJsonEncoding = config.integerJsonEncoding ?? 'quoted';
+  }
+
+  /**
+   * Converts only rejections of the adapter-owned precision setting into an
+   * actionable configuration error. Caller-owned settings and unrelated
+   * readonly failures retain their original error identity.
+   */
+  private async withReadonlyGuidance<T>(
+    optionSettings: ClickHouseSettings | undefined,
+    send: (settings: ClickHouseSettings) => Promise<T>,
+  ): Promise<T> {
+    const attempt = buildIntegerJsonSettings(
+      this.integerJsonEncoding,
+      this.configSettings,
+      optionSettings,
+    );
+
+    try {
+      return await send(attempt.settings);
+    } catch (error) {
+      const guidanceError = createReadonlyIntegerJsonError(
+        error,
+        attempt.adapterDefaultApplied,
+      );
+      throw guidanceError ?? error;
+    }
   }
 
   async query<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<T[]> {
     // The ClickHouse clients never check an already-aborted signal, so fail before sending anything.
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
-    const result = await this.client.query({
-      query: finalSQL,
-      format: 'JSONEachRow',
-      clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
-      query_id: options?.queryId,
-      abort_signal: options?.abortSignal,
-    });
-    return consumeResultWithAbort(options?.abortSignal, result, () => result.json<T>());
+    const result = await this.withReadonlyGuidance<QueryResultSet>(
+      options?.clickhouseSettings,
+      clickhouseSettings =>
+        this.client.query({
+          query: finalSQL,
+          format: 'JSONEachRow',
+          clickhouse_settings: clickhouseSettings,
+          query_id: options?.queryId,
+          abort_signal: options?.abortSignal,
+        }),
+    );
+    // The web client types `json()` as the union of every format's shape; with
+    // `format: 'JSONEachRow'` it is always a row array.
+    return consumeResultWithAbort(
+      options?.abortSignal,
+      result,
+      () => result.json<T>() as Promise<T[]>,
+    );
   }
 
   async stream<T>(sql: string, params: unknown[] = [], options?: QueryExecutionOptions): Promise<ReadableStream<T[]>> {
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
-    const result = await this.client.query({
-      query: finalSQL,
-      format: 'JSONEachRow',
-      clickhouse_settings: jsonOutputSettings(options?.clickhouseSettings),
-      query_id: options?.queryId,
-      abort_signal: options?.abortSignal,
-    });
+    const result = await this.withReadonlyGuidance<QueryResultSet>(
+      options?.clickhouseSettings,
+      clickhouseSettings =>
+        this.client.query({
+          query: finalSQL,
+          format: 'JSONEachRow',
+          clickhouse_settings: clickhouseSettings,
+          query_id: options?.queryId,
+          abort_signal: options?.abortSignal,
+        }),
+    );
     const stream = result.stream();
     return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream, options?.abortSignal);
   }
@@ -122,6 +157,6 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   }
 }
 
-export function createClickHouseAdapter(config: ClickHouseConfig): DatabaseAdapter {
+export function createClickHouseAdapter(config: ClickHouseAdapterConfig): DatabaseAdapter {
   return new ClickHouseAdapter(config);
 }
