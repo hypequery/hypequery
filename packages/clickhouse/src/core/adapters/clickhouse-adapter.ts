@@ -10,18 +10,21 @@ import type {
   ClickHouseAdapterConfig,
   IntegerJsonEncoding,
 } from '../query-builder.js';
-import { isClientConfig } from '../query-builder.js';
 import { substituteParameters } from '../utils.js';
-import { getConnectionEndpoint } from '../utils/connection-endpoint.js';
 import { createJsonEachRowStream } from '../utils/streaming-helpers.js';
-import { getAutoClientModule } from '../env/auto-client.js';
-import type { AutoClientModule } from '../env/auto-client.js';
 import { assertSafeInsertIdentifiers } from '../utils/insert-identifiers.js';
 import { consumeResultWithAbort } from '../utils/abortable-result.js';
 import { throwIfAborted } from '../utils/abort.js';
+import {
+  createClickHouseClient,
+  deriveClickHouseNamespace,
+  type ClickHouseClient,
+} from '../utils/clickhouse-adapter-config.js';
+import {
+  buildIntegerJsonSettings,
+  createReadonlyIntegerJsonError,
+} from '../utils/integer-json-encoding.js';
 import type { ClickHouseSettings } from '@clickhouse/client-common';
-
-type ClickHouseClient = NodeClickHouseClient | WebClickHouseClient;
 
 /**
  * The node and web clients return structurally different `ResultSet`s (the web
@@ -33,53 +36,6 @@ type QueryResultSet =
   | Awaited<ReturnType<NodeClickHouseClient['query']>>
   | Awaited<ReturnType<WebClickHouseClient['query']>>;
 
-function createClickHouseClient(config: ClickHouseAdapterConfig): ClickHouseClient {
-  if (isClientConfig(config)) {
-    return config.client;
-  }
-  const clientModule: AutoClientModule = getAutoClientModule();
-  const { integerJsonEncoding: _adapterOption, ...clientConfig } = config;
-  return clientModule.createClient(clientConfig);
-}
-
-function deriveNamespace(config: ClickHouseAdapterConfig): string {
-  if ('client' in config && config.client) {
-    return 'client';
-  }
-  const endpoint = getConnectionEndpoint(config);
-  const database = 'database' in config ? config.database : 'default';
-  const username = 'username' in config ? config.username : 'default';
-  return `${endpoint || 'unknown-host'}|${database || 'default'}|${username || 'default'}`;
-}
-
-const QUOTE_64BIT = 'output_format_json_quote_64bit_integers';
-
-/**
- * Only attribute a readonly failure to the adapter default when ClickHouse
- * names that exact setting. Code 164 can also come from caller-owned settings
- * and forbidden operations, which must not disable precision-safe results.
- */
-function isReadonlyQuote64BitError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const { code, type } = error as { code?: unknown; type?: unknown };
-  const message = (error as { message?: unknown }).message;
-  if (typeof message !== 'string' || !message.includes(QUOTE_64BIT)) return false;
-
-  return code === '164'
-    || code === 164
-    || type === 'READONLY'
-    || /in readonly mode/i.test(message);
-}
-
-function hasQuote64BitSetting(settings?: ClickHouseSettings): boolean {
-  return settings !== undefined && Object.prototype.hasOwnProperty.call(settings, QUOTE_64BIT);
-}
-
-interface QuerySettingsAttempt {
-  settings: ClickHouseSettings;
-  adapterDefaultApplied: boolean;
-}
-
 export class ClickHouseAdapter implements DatabaseAdapter {
   readonly name = 'clickhouse';
   readonly namespace?: string;
@@ -89,31 +45,10 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   private readonly integerJsonEncoding: IntegerJsonEncoding;
 
   constructor(config: ClickHouseAdapterConfig) {
-    this.namespace = deriveNamespace(config);
+    this.namespace = deriveClickHouseNamespace(config);
     this.client = createClickHouseClient(config);
     this.configSettings = config.clickhouse_settings;
     this.integerJsonEncoding = config.integerJsonEncoding ?? 'quoted';
-  }
-
-  /**
-   * Precedence: adapter default < connection `clickhouse_settings` < per-query
-   * settings. Previously the adapter's default was applied last for the
-   * 64-bit-quoting flag, so a connection-level value could not override it.
-   */
-  private querySettings(optionSettings?: ClickHouseSettings): QuerySettingsAttempt {
-    const adapterDefaultApplied = this.integerJsonEncoding === 'quoted'
-      && !hasQuote64BitSetting(this.configSettings)
-      && !hasQuote64BitSetting(optionSettings);
-
-    return {
-      adapterDefaultApplied,
-      settings: {
-        // Matches generated Int64+ result types and prevents JSON.parse precision loss.
-        ...(adapterDefaultApplied ? { [QUOTE_64BIT]: 1 } : {}),
-        ...this.configSettings,
-        ...optionSettings,
-      },
-    };
   }
 
   /**
@@ -125,21 +60,20 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     optionSettings: ClickHouseSettings | undefined,
     send: (settings: ClickHouseSettings) => Promise<T>,
   ): Promise<T> {
-    const attempt = this.querySettings(optionSettings);
+    const attempt = buildIntegerJsonSettings(
+      this.integerJsonEncoding,
+      this.configSettings,
+      optionSettings,
+    );
 
     try {
       return await send(attempt.settings);
     } catch (error) {
-      if (!attempt.adapterDefaultApplied || !isReadonlyQuote64BitError(error)) throw error;
-
-      throw new Error(
-        `ClickHouse rejected HypeQuery's precision-safe setting (${QUOTE_64BIT}=1) ` +
-        `because this connection uses readonly = 1. Set ` +
-        `integerJsonEncoding: 'server-default' in the HypeQuery adapter or query-builder ` +
-        `configuration to omit it. The server may then return Int64 and wider values as ` +
-        `JSON numbers, which lose precision beyond 2^53.`,
-        { cause: error },
+      const guidanceError = createReadonlyIntegerJsonError(
+        error,
+        attempt.adapterDefaultApplied,
       );
+      throw guidanceError ?? error;
     }
   }
 
