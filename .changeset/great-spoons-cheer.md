@@ -14,9 +14,11 @@ Cannot modify 'output_format_json_quote_64bit_integers' setting in readonly mode
 Two changes:
 
 - **Best-effort setting.** When ClickHouse rejects the setting with error code
-  164 (`READONLY`), the adapter drops it, warns once, and retries. The flag stays
-  off for the life of the adapter, so a read-only connection pays one extra round
-  trip in total rather than failing outright. Unrelated errors are not retried.
+  164 (`READONLY`) and names the adapter-owned setting, the adapter drops it,
+  warns once, and retries. The flag stays off for the life of the adapter, so
+  later queries do not pay another round trip. Queries already in flight during
+  discovery may each retry. Unrelated errors and caller-owned settings are not
+  retried.
 - **Connection settings now outrank the adapter's default.** Precedence is
   adapter default < connection `clickhouse_settings` < per-query settings.
   Previously the adapter applied its own value last for this flag, so a

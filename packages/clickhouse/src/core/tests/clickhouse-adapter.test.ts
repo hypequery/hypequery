@@ -377,6 +377,43 @@ describe('ClickHouseAdapter abort signals', () => {
       expect(clientQueryMock.mock.calls[1][0].clickhouse_settings).toEqual({});
     });
 
+    it('retries every overlapping request that sent the adapter default', async () => {
+      const jsonMock = vi.fn().mockResolvedValue([]);
+      let initialRequestCount = 0;
+      let releaseInitialRequests!: () => void;
+      const initialRequestsStarted = new Promise<void>(resolve => {
+        releaseInitialRequests = resolve;
+      });
+      const clientQueryMock = vi.fn().mockImplementation(async (
+        { clickhouse_settings: settings }: { clickhouse_settings: Record<string, unknown> },
+      ) => {
+        if (QUOTE_64BIT in settings) {
+          initialRequestCount += 1;
+          if (initialRequestCount === 2) releaseInitialRequests();
+          await initialRequestsStarted;
+          throw readonlyError();
+        }
+        return { json: jsonMock };
+      });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      });
+
+      await expect(Promise.all([
+        adapter.query('SELECT 1'),
+        adapter.query('SELECT 2'),
+      ])).resolves.toEqual([[], []]);
+
+      expect(clientQueryMock).toHaveBeenCalledTimes(4);
+      expect(clientQueryMock.mock.calls.filter(
+        ([request]) => QUOTE_64BIT in request.clickhouse_settings,
+      )).toHaveLength(2);
+      expect(clientQueryMock.mock.calls.filter(
+        ([request]) => !(QUOTE_64BIT in request.clickhouse_settings),
+      )).toHaveLength(2);
+    });
+
     it('remembers the fallback so later queries do not retry', async () => {
       const jsonMock = vi.fn().mockResolvedValue([]);
       const clientQueryMock = vi
@@ -406,6 +443,70 @@ describe('ClickHouseAdapter abort signals', () => {
       });
 
       await expect(adapter.query('SELECT 1')).rejects.toThrow('connection refused');
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not disable quoting for a readonly error caused by another setting', async () => {
+      const error = Object.assign(
+        new Error("Cannot modify 'max_execution_time' setting in readonly mode."),
+        { code: '164', type: 'READONLY' },
+      );
+      const clientQueryMock = vi
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValue({ json: vi.fn().mockResolvedValue([]) });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      });
+
+      await expect(adapter.query('SELECT 1')).rejects.toBe(error);
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+
+      await adapter.query('SELECT 2');
+
+      expect(clientQueryMock.mock.calls[1][0].clickhouse_settings).toEqual({
+        [QUOTE_64BIT]: 1,
+      });
+    });
+
+    it('does not retry or disable a caller-owned quoting setting', async () => {
+      const error = readonlyError();
+      const clientQueryMock = vi
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValue({ json: vi.fn().mockResolvedValue([]) });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      });
+
+      await expect(adapter.query('SELECT 1', [], {
+        clickhouseSettings: { [QUOTE_64BIT]: 0 },
+      })).rejects.toBe(error);
+      expect(clientQueryMock).toHaveBeenCalledTimes(1);
+
+      await adapter.query('SELECT 2');
+
+      expect(clientQueryMock.mock.calls[1][0].clickhouse_settings).toEqual({
+        [QUOTE_64BIT]: 1,
+      });
+    });
+
+    it('does not retry after the caller aborts the failed request', async () => {
+      const controller = new AbortController();
+      const clientQueryMock = vi.fn().mockImplementationOnce(() => {
+        controller.abort(new Error('caller went away'));
+        return Promise.reject(readonlyError());
+      });
+
+      const adapter = new ClickHouseAdapter({
+        client: { query: clientQueryMock } as any,
+      });
+
+      await expect(adapter.query('SELECT 1', [], {
+        abortSignal: controller.signal,
+      })).rejects.toThrow('caller went away');
       expect(clientQueryMock).toHaveBeenCalledTimes(1);
     });
 

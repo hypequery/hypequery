@@ -52,16 +52,29 @@ function deriveNamespace(config: ClickHouseConfig): string {
 const QUOTE_64BIT = 'output_format_json_quote_64bit_integers';
 
 /**
- * ClickHouse rejects *any* session-setting change under `readonly = 1` with
- * error code 164. Detect that so the adapter can drop the settings it injects
- * itself and retry, rather than failing every query on a read-only connection.
+ * Only attribute a readonly failure to the adapter default when ClickHouse
+ * names that exact setting. Code 164 can also come from caller-owned settings
+ * and forbidden operations, which must not disable precision-safe results.
  */
-function isReadonlySettingsError(error: unknown): boolean {
+function isReadonlyQuote64BitError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const { code, type } = error as { code?: unknown; type?: unknown };
-  if (code === '164' || code === 164 || type === 'READONLY') return true;
   const message = (error as { message?: unknown }).message;
-  return typeof message === 'string' && /in readonly mode/i.test(message);
+  if (typeof message !== 'string' || !message.includes(QUOTE_64BIT)) return false;
+
+  return code === '164'
+    || code === 164
+    || type === 'READONLY'
+    || /in readonly mode/i.test(message);
+}
+
+function hasQuote64BitSetting(settings?: ClickHouseSettings): boolean {
+  return settings !== undefined && Object.prototype.hasOwnProperty.call(settings, QUOTE_64BIT);
+}
+
+interface QuerySettingsAttempt {
+  settings: ClickHouseSettings;
+  adapterDefaultApplied: boolean;
 }
 
 export class ClickHouseAdapter implements DatabaseAdapter {
@@ -70,19 +83,13 @@ export class ClickHouseAdapter implements DatabaseAdapter {
   private client: ClickHouseClient;
   /** Connection-level settings, so they can outrank the adapter's own defaults. */
   private readonly configSettings?: ClickHouseSettings;
-  /** Cleared the first time the server rejects it, so we retry at most once. */
-  private quote64BitIntegers = true;
+  /** Cleared when the server rejects the adapter-owned default. */
+  private quote64BitDefaultEnabled = true;
 
   constructor(private config: ClickHouseConfig) {
     this.namespace = deriveNamespace(config);
     this.client = createClickHouseClient(config);
     this.configSettings = config.clickhouse_settings;
-
-    // An explicit connection-level value is authoritative; never override or
-    // second-guess it.
-    if (this.configSettings && QUOTE_64BIT in this.configSettings) {
-      this.quote64BitIntegers = false;
-    }
   }
 
   /**
@@ -90,34 +97,57 @@ export class ClickHouseAdapter implements DatabaseAdapter {
    * settings. Previously the adapter's default was applied last for the
    * 64-bit-quoting flag, so a connection-level value could not override it.
    */
-  private querySettings(optionSettings?: ClickHouseSettings): ClickHouseSettings {
+  private querySettings(optionSettings?: ClickHouseSettings): QuerySettingsAttempt {
+    const adapterDefaultApplied = this.quote64BitDefaultEnabled
+      && !hasQuote64BitSetting(this.configSettings)
+      && !hasQuote64BitSetting(optionSettings);
+
     return {
-      // Matches generated Int64+ result types and prevents JSON.parse precision loss.
-      ...(this.quote64BitIntegers ? { [QUOTE_64BIT]: 1 } : {}),
-      ...this.configSettings,
-      ...optionSettings,
+      adapterDefaultApplied,
+      settings: {
+        // Matches generated Int64+ result types and prevents JSON.parse precision loss.
+        ...(adapterDefaultApplied ? { [QUOTE_64BIT]: 1 } : {}),
+        ...this.configSettings,
+        ...optionSettings,
+      },
     };
   }
 
   /**
-   * Runs `send`, and if the server rejects it purely because we asked to change
-   * a setting on a `readonly = 1` connection, drops our own default and retries
-   * once. The flag stays off for the life of the adapter, so a read-only
-   * connection pays this at most one round trip.
+   * Retries only when this request included the adapter-owned default and the
+   * server specifically rejected it. Eligibility is captured before sending so
+   * overlapping initial requests can each retry after the shared default is
+   * disabled for future requests.
    */
-  private async withReadonlyFallback<T>(send: () => Promise<T>): Promise<T> {
-    try {
-      return await send();
-    } catch (error) {
-      if (!this.quote64BitIntegers || !isReadonlySettingsError(error)) throw error;
+  private async withReadonlyFallback<T>(
+    optionSettings: ClickHouseSettings | undefined,
+    abortSignal: AbortSignal | undefined,
+    send: (settings: ClickHouseSettings) => Promise<T>,
+  ): Promise<T> {
+    const attempt = this.querySettings(optionSettings);
 
-      this.quote64BitIntegers = false;
-      logger.warn(
-        `ClickHouse rejected '${QUOTE_64BIT}' under readonly mode; retrying without it. ` +
-        `Int64 and larger values will be returned as JSON numbers, which loses precision ` +
-        `beyond 2^53. Set '${QUOTE_64BIT}' explicitly in clickhouse_settings to silence this.`,
-      );
-      return await send();
+    try {
+      return await send(attempt.settings);
+    } catch (error) {
+      if (!attempt.adapterDefaultApplied || !isReadonlyQuote64BitError(error)) throw error;
+
+      // The ClickHouse clients do not check an already-aborted signal. The
+      // caller may have cancelled while the first request was being rejected.
+      throwIfAborted(abortSignal);
+
+      const shouldWarn = this.quote64BitDefaultEnabled;
+      this.quote64BitDefaultEnabled = false;
+      if (shouldWarn) {
+        logger.warn(
+          `ClickHouse rejected '${QUOTE_64BIT}' under readonly mode; retrying without it. ` +
+          `Int64 and larger values will be returned as JSON numbers, which loses precision ` +
+          `beyond 2^53. Set '${QUOTE_64BIT}' explicitly in clickhouse_settings to silence this.`,
+        );
+      }
+
+      const retrySettings = { ...attempt.settings };
+      delete retrySettings[QUOTE_64BIT];
+      return await send(retrySettings);
     }
   }
 
@@ -125,14 +155,17 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     // The ClickHouse clients never check an already-aborted signal, so fail before sending anything.
     throwIfAborted(options?.abortSignal);
     const finalSQL = substituteParameters(sql, params);
-    const result = await this.withReadonlyFallback<QueryResultSet>(() =>
-      this.client.query({
-        query: finalSQL,
-        format: 'JSONEachRow',
-        clickhouse_settings: this.querySettings(options?.clickhouseSettings),
-        query_id: options?.queryId,
-        abort_signal: options?.abortSignal,
-      }),
+    const result = await this.withReadonlyFallback<QueryResultSet>(
+      options?.clickhouseSettings,
+      options?.abortSignal,
+      clickhouseSettings =>
+        this.client.query({
+          query: finalSQL,
+          format: 'JSONEachRow',
+          clickhouse_settings: clickhouseSettings,
+          query_id: options?.queryId,
+          abort_signal: options?.abortSignal,
+        }),
     );
     // The web client types `json()` as the union of every format's shape; with
     // `format: 'JSONEachRow'` it is always a row array.
@@ -148,14 +181,17 @@ export class ClickHouseAdapter implements DatabaseAdapter {
     const finalSQL = substituteParameters(sql, params);
     // The settings error surfaces from client.query(), before any row is read,
     // so retrying here cannot replay a partially consumed stream.
-    const result = await this.withReadonlyFallback<QueryResultSet>(() =>
-      this.client.query({
-        query: finalSQL,
-        format: 'JSONEachRow',
-        clickhouse_settings: this.querySettings(options?.clickhouseSettings),
-        query_id: options?.queryId,
-        abort_signal: options?.abortSignal,
-      }),
+    const result = await this.withReadonlyFallback<QueryResultSet>(
+      options?.clickhouseSettings,
+      options?.abortSignal,
+      clickhouseSettings =>
+        this.client.query({
+          query: finalSQL,
+          format: 'JSONEachRow',
+          clickhouse_settings: clickhouseSettings,
+          query_id: options?.queryId,
+          abort_signal: options?.abortSignal,
+        }),
     );
     const stream = result.stream();
     return createJsonEachRowStream<T>(stream as NodeJS.ReadableStream, options?.abortSignal);
