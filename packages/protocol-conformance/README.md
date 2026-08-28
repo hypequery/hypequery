@@ -40,7 +40,8 @@ gates should also pass `--expect-families` with the complete expected adapter
 family set. The run then fails during the handshake if a family was added or
 dropped without updating the gate. When both options are present, their family
 sets must match so the gate cannot assert a family while filtering out its
-cases:
+cases. Every expected family must also retain at least one case after
+`--skip-fuzz` or `--only-fuzz` filtering:
 
 ```bash
 hypequery-protocol-conformance run \

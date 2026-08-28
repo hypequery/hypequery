@@ -52,3 +52,16 @@ export function assertSelectedFamilies(
     );
   }
 }
+
+/** Ensures filtering cannot leave an asserted family without executable cases. */
+export function assertExpectedFamiliesHaveCases(
+  expectedFamilies: readonly string[],
+  effectiveCaseFamilies: ReadonlySet<string>,
+): void {
+  const untested = expectedFamilies
+    .filter((family) => !effectiveCaseFamilies.has(family))
+    .sort();
+  if (untested.length > 0) {
+    throw new Error(`expected families have no selected cases: ${untested.join(', ')}`);
+  }
+}

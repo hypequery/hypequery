@@ -6,6 +6,7 @@ import { createInterface, type Interface } from 'node:readline';
 import { compareCase } from './compare.js';
 import {
   assertExpectedFamilies,
+  assertExpectedFamiliesHaveCases,
   assertSelectedFamilies,
   validateExpectedFamilies,
 } from './family-expectations.js';
@@ -215,6 +216,12 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
   if (options.families && options.families.length > 0) {
     const requested = new Set(options.families);
     cases = cases.filter((c) => requested.has(c.family));
+  }
+  if (options.expectedFamilies) {
+    assertExpectedFamiliesHaveCases(
+      options.expectedFamilies,
+      new Set(cases.map((conformanceCase) => conformanceCase.family)),
+    );
   }
 
   // The handshake covers process spawn plus the adapter's first write, which

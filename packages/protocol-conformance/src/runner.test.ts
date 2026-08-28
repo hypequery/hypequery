@@ -112,6 +112,15 @@ describe('runConformance', () => {
     })).rejects.toThrow('selected fam-a');
   });
 
+  it('rejects an expected family with no cases after role filters', async () => {
+    await expect(runConformance({
+      fixturesDir: miniFixtures,
+      expectedFamilies: ['fam-a', 'fam-b'],
+      onlyFuzz: true,
+      adapterCommand: adapter('good-adapter.mjs'),
+    })).rejects.toThrow('expected families have no selected cases: fam-a, fam-b');
+  });
+
   it('fails cases when the adapter never answers', async () => {
     const summary = await runConformance({
       fixturesDir: miniFixtures,
