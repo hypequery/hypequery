@@ -29,6 +29,13 @@ class FrozenMapping(Mapping[_Key, _Value], Generic[_Key, _Value]):
     def __len__(self) -> int:
         return len(self._values)
 
+    def __copy__(self) -> FrozenMapping[_Key, _Value]:
+        return self
+
+    def __deepcopy__(self, memo: dict[int, object]) -> FrozenMapping[_Key, _Value]:
+        memo[id(self)] = self
+        return self
+
     def __setattr__(self, name: str, value: object) -> NoReturn:
         raise TypeError("FrozenMapping is immutable")
 

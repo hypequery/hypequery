@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from copy import deepcopy
 from typing import assert_type, cast
 
 import pytest
@@ -320,6 +321,20 @@ def test_definition_containers_are_immutable_snapshots() -> None:
     frozen_object = cast(Mapping[str, object], cast(tuple[object, ...], definition.value)[1])
     with pytest.raises(AttributeError):
         cast(list[object], frozen_object["nested"]).append(3)
+
+
+def test_immutable_definitions_support_deep_copy() -> None:
+    dataset = Dataset(
+        name="orders",
+        source="orders",
+        dimensions={"id": dimension("string")},
+    )
+    definition = in_list("status", ["complete", {"nested": [1, 2]}])
+
+    assert deepcopy(dataset) == dataset
+    assert dataset.model_copy(deep=True) == dataset
+    assert deepcopy(definition) == definition
+    assert definition.model_copy(deep=True) == definition
 
 
 def test_public_api_types_are_specific() -> None:
