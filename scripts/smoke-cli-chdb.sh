@@ -90,8 +90,8 @@ const datasets = await readFile('analytics/datasets.ts', 'utf8');
 
 for (const generated of [schema, regeneratedSchema]) {
   assert.match(generated, /events:\s*\{/);
-  assert.match(generated, /'id': 'UInt64'/);
-  assert.match(generated, /'name': 'String'/);
+  assert.match(generated, /'id': (["'])UInt64\1/);
+  assert.match(generated, /'name': (["'])String\1/);
 }
 assert.match(client, /chdbAdapter\(\{ session \}\)/);
 assert.ok(client.includes(`new Session(${JSON.stringify(dbPath)})`));
