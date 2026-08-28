@@ -71,7 +71,7 @@ jobs:
   conformance:
     # RFC 0012 gate: once Python announces a fixture family, that family must
     # remain byte- and error-code-identical to the shared protocol corpus.
-    name: conformance (tagged-values-v1)
+    name: conformance (tagged-values-v1, identifiers-v1)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -91,9 +91,9 @@ jobs:
       - run: uv sync --project python/hypequery --dev
       - run: pnpm --filter @hypequery/protocol build
       - run: pnpm --filter @hypequery/protocol-conformance build
-      - name: Run Python against the shared tagged-value fixtures
+      - name: Run Python against the declared shared fixture families
         run: >-
           node packages/protocol-conformance/dist/bin/conformance.js run
           --fixtures specs/security-protocol/fixtures
-          --families tagged-values-v1
+          --families tagged-values-v1,identifiers-v1
           -- uv run --project python/hypequery python -m hypequery.protocol.adapter
