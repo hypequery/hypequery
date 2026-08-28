@@ -91,9 +91,5 @@ jobs:
       - run: uv sync --project python/hypequery --dev
       - run: pnpm --filter @hypequery/protocol build
       - run: pnpm --filter @hypequery/protocol-conformance build
-      - name: Run Python against the declared shared fixture families
-        run: >-
-          node packages/protocol-conformance/dist/bin/conformance.js run
-          --fixtures specs/security-protocol/fixtures
-          --families tagged-values-v1,identifiers-v1
-          -- uv run --project python/hypequery python -m hypequery.protocol.adapter
+      - name: Run Python against the expected shared fixture families
+        run: pnpm conformance:python

@@ -65,13 +65,14 @@ uv run ruff check .
 uv run lint-imports
 ```
 
-From the repository root, run the shared cross-language gate with:
+From the repository root, run the Python shared-fixture gate with:
 
-```bash
-node packages/protocol-conformance/dist/bin/conformance.js run \
-  --fixtures specs/security-protocol/fixtures \
-  --families tagged-values-v1,identifiers-v1 \
-  -- uv run --project python/hypequery python -m hypequery.protocol.adapter
+```console
+pnpm conformance:python
 ```
+
+This command asserts the adapter's exact expected family list before running
+the cases. `pnpm conformance` runs this Python gate together with the
+TypeScript reference and SQL-portability adapters.
 
 See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).

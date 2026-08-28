@@ -4,6 +4,11 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 import { compareCase } from './compare.js';
+import {
+  assertExpectedFamilies,
+  assertSelectedFamilies,
+  validateExpectedFamilies,
+} from './family-expectations.js';
 import { createJsonLoader, loadManifest, resolveFixturesDir } from './fs.js';
 import { enumerateAllCases } from './manifest.js';
 import {
@@ -21,6 +26,8 @@ export interface RunConformanceOptions {
   readonly fixturesDir?: string;
   /** Restrict to these families (intersected with what the adapter announces). */
   readonly families?: readonly string[];
+  /** Fail setup unless the adapter announces exactly these fixture families. */
+  readonly expectedFamilies?: readonly string[];
   readonly timeoutMs?: number;
   readonly skipFuzz?: boolean;
   readonly onlyFuzz?: boolean;
@@ -183,6 +190,14 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
   const manifest = loadManifest(fixturesDir);
   const loadJson = createJsonLoader(fixturesDir);
 
+  if (options.expectedFamilies) {
+    validateExpectedFamilies(
+      options.expectedFamilies,
+      new Set(manifest.families.map((family) => family.name)),
+    );
+    assertSelectedFamilies(options.families, options.expectedFamilies);
+  }
+
   const allCases = enumerateAllCases(manifest, loadJson);
   const hostModelFamilies = new Set(
     allCases
@@ -211,6 +226,7 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
   let hello: AdapterHello;
   try {
     hello = await connection.handshake(handshakeTimeoutMs, hostModelFamilies);
+    assertExpectedFamilies(hello.families, options.expectedFamilies);
   } catch (error) {
     connection.kill();
     throw error;
@@ -277,6 +293,7 @@ export async function runConformance(options: RunConformanceOptions): Promise<Ru
     connection = new AdapterConnection(options.adapterCommand);
     try {
       hello = await connection.handshake(handshakeTimeoutMs, hostModelFamilies);
+      assertExpectedFamilies(hello.families, options.expectedFamilies);
     } catch {
       // A replacement that cannot even complete a handshake ends the run
       // cleanly rather than throwing out of the loop.

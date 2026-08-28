@@ -61,6 +61,11 @@ jobs:
           fi
       - name: Run unit tests
         run: pnpm test
+      - name: Setup uv for Python conformance
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
       - name: Run protocol conformance suite
         run: pnpm conformance
       - name: Run ClickHouse integration tests

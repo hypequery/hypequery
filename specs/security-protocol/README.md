@@ -21,7 +21,8 @@ A disagreement between an implementation and an accepted specification is a bug.
 
 - `decisions/` records accepted governance and architecture decisions.
 - `rfc/` contains proposals and versioned contract definitions.
-- `fixtures/` contains language-neutral conformance cases.
+- `fixtures/` contains language-neutral conformance cases and their [update
+  runbook](./fixtures/README.md).
 - schemas are introduced with the specifications that own them.
 
 ## Boundary

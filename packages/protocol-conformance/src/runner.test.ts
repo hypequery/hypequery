@@ -65,6 +65,53 @@ describe('runConformance', () => {
     expect(summary.passed).toBe(3);
   });
 
+  it('asserts the exact adapter family set without depending on order', async () => {
+    const summary = await runConformance({
+      fixturesDir: miniFixtures,
+      expectedFamilies: ['fam-b', 'fam-a'],
+      adapterCommand: adapter('good-adapter.mjs'),
+    });
+    expect(summary.failed).toBe(0);
+    expect(summary.notRun).toBe(0);
+  });
+
+  it('rejects silently dropped or unexpectedly added adapter families', async () => {
+    await expect(runConformance({
+      fixturesDir: miniFixtures,
+      expectedFamilies: ['fam-a', 'fam-b'],
+      adapterCommand: [...adapter('good-adapter.mjs'), 'fam-a'],
+    })).rejects.toThrow('announced fam-a');
+
+    await expect(runConformance({
+      fixturesDir: miniFixtures,
+      expectedFamilies: ['fam-a'],
+      adapterCommand: adapter('good-adapter.mjs'),
+    })).rejects.toThrow('announced fam-a, fam-b');
+  });
+
+  it('rejects expected families that are duplicated or absent from the manifest', async () => {
+    await expect(runConformance({
+      fixturesDir: miniFixtures,
+      expectedFamilies: ['fam-a', 'fam-a'],
+      adapterCommand: adapter('good-adapter.mjs'),
+    })).rejects.toThrow('unique non-empty strings');
+
+    await expect(runConformance({
+      fixturesDir: miniFixtures,
+      expectedFamilies: ['fam-c'],
+      adapterCommand: adapter('good-adapter.mjs'),
+    })).rejects.toThrow('absent from the manifest: fam-c');
+  });
+
+  it('rejects a release gate that filters out an expected adapter family', async () => {
+    await expect(runConformance({
+      fixturesDir: miniFixtures,
+      families: ['fam-a'],
+      expectedFamilies: ['fam-a', 'fam-b'],
+      adapterCommand: adapter('good-adapter.mjs'),
+    })).rejects.toThrow('selected fam-a');
+  });
+
   it('fails cases when the adapter never answers', async () => {
     const summary = await runConformance({
       fixturesDir: miniFixtures,
