@@ -1,5 +1,11 @@
 # @hypequery/protocol-conformance
 
+## 0.10.2
+
+### Patch Changes
+
+- 1727a8b: Add deterministic portable-identifier fuzz seeds to the shared conformance corpus.
+
 ## 0.10.1
 
 ### Patch Changes
