@@ -44,7 +44,10 @@ describe('generate datasets command', () => {
     exitHandler = mockProcessExit();
     vi.clearAllMocks();
     vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
-    mockGenerateDatasets.mockResolvedValue(undefined);
+    mockGenerateDatasets.mockResolvedValue({
+      tables: ['orders'],
+      exports: [{ table: 'orders', exportName: 'OrdersDataset' }],
+    });
   });
 
   afterEach(() => {
@@ -80,6 +83,44 @@ describe('generate datasets command', () => {
         includeTables: ['orders', 'customers'],
         excludeTables: ['orders_archive'],
       }),
+    );
+  });
+
+  it('defaults output to analytics/datasets.ts, beside generate\'s schema.ts', async () => {
+    await generateDatasetsCommand({});
+
+    expect(mockGenerateDatasets).toHaveBeenCalledWith(
+      expect.objectContaining({ outputPath: expect.stringContaining('analytics/datasets.ts') }),
+    );
+  });
+
+  it('reports the number of tables generated, not the number discovered', async () => {
+    // 10 tables exist; only one is generated.
+    mockGenerateDatasets.mockResolvedValue({
+      tables: ['orders'],
+      exports: [{ table: 'orders', exportName: 'OrdersDataset' }],
+    });
+
+    await generateDatasetsCommand({ tables: 'orders' });
+
+    expect(mockLogger.success).toHaveBeenCalledWith('Found 10 tables, filtering to 1');
+  });
+
+  it('prints an example that matches the file it wrote', async () => {
+    mockGenerateDatasets.mockResolvedValue({
+      tables: ['trips'],
+      exports: [{ table: 'trips', exportName: 'TripsDataset' }],
+    });
+
+    await generateDatasetsCommand({ output: 'src/analytics/datasets.ts', tables: 'trips' });
+
+    // Real import path, real table name — previously both were hardcoded to
+    // './datasets/generated' and `datasets.orders`, neither of which existed.
+    expect(mockLogger.indent).toHaveBeenCalledWith(
+      "import { datasets } from './src/analytics/datasets';",
+    );
+    expect(mockLogger.indent).toHaveBeenCalledWith(
+      "const rowCount = datasets['trips'].metric('rowCount', { measure: 'totalCount' });",
     );
   });
 

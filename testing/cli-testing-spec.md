@@ -176,7 +176,7 @@ Real-world goal: "my ClickHouse schema changed — refresh my types."
 
 ### T2.5 — `--tables` subset
 **Run:** `hq generate --tables E,E2`
-**Expect:** only `E` and `E2` interfaces present in output; a third table is absent. Note the `Found N tables` count reflects total tables, while generation is restricted.
+**Expect:** only `E` and `E2` interfaces present in output; a third table is absent. The discovery line says `Found N tables, applying --tables filter`, where `N` reflects total tables, and the success line says `Generated types for 2 tables`. Repeat with a duplicate and nonexistent name (`E,E,missing`); the success line must report `1 table`, matching the generated file.
 
 ### T2.6 — Connection error guidance
 **Pre:** point `CLICKHOUSE_URL` at a dead port, e.g. `http://localhost:9` .
@@ -198,14 +198,14 @@ Real-world goal: "scaffold a semantic dataset layer from my schema."
 ### T3.1 — Default output
 **Pre:** valid connection; ensure `@hypequery/datasets` resolvable (run from a project that installed it, or after T1.6).
 **Run:** `hq generate:datasets`
-**Expect:** header `hypequery generate datasets`; `Connected to ClickHouse`; `Found T tables`; `Generated dataset definitions for T tables`; `Created src/datasets/generated.ts` (note default is `src/datasets/generated.ts`, NOT `analytics/`). Prints "Next steps" + an example-usage block. Exit 0.
+**Expect:** header `hypequery generate datasets`; `Connected to ClickHouse`; `Found T tables`; `Generated dataset definitions for T tables`; `Created analytics/datasets.ts` (default is now `analytics/datasets.ts`, matching `hypequery generate`'s `analytics/schema.ts`). Prints "Next steps" + an example-usage block whose import path and dataset name match the file just written — not a hardcoded `./datasets/generated` / `datasets.orders`. Exit 0.
 
 ### T3.2 — `--path` and `--output`
 - `hq generate:datasets --path analytics` → writes `analytics/datasets.ts`.
 - `hq generate:datasets --output ds/all.ts` → writes `ds/all.ts`.
 
 ### T3.3 — `--tables` / `--exclude-tables`
-- `hq generate:datasets --tables E` → only the `E` dataset; success line says `for 1 tables`.
+- `hq generate:datasets --tables E` → only the `E` dataset; discovery line says `Found T tables, filtering to 1` and the success line says `for 1 table` (singular).
 - `hq generate:datasets --exclude-tables E2` → all tables except `E2`.
 
 ### T3.4 — No matching tables

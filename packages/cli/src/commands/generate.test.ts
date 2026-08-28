@@ -60,7 +60,9 @@ describe('generate command', () => {
     vi.mocked(findFiles.findSchemaFile).mockResolvedValue(null);
     vi.mocked(detectDb.getTableCount).mockResolvedValue(10);
     vi.mocked(detectDb.detectDatabase).mockResolvedValue('clickhouse');
-    mockGenerateTypes.mockResolvedValue(undefined);
+    mockGenerateTypes.mockResolvedValue(
+      Array.from({ length: 10 }, (_, index) => `table_${index + 1}`),
+    );
 
     process.env.CLICKHOUSE_HOST = 'localhost';
   });
@@ -135,6 +137,9 @@ describe('generate command', () => {
 
     it('displays correct table count', async () => {
       vi.mocked(detectDb.getTableCount).mockResolvedValue(25);
+      mockGenerateTypes.mockResolvedValue(
+        Array.from({ length: 25 }, (_, index) => `table_${index + 1}`),
+      );
 
       await generateCommand({});
 
@@ -144,11 +149,45 @@ describe('generate command', () => {
 
     it('handles zero tables', async () => {
       vi.mocked(detectDb.getTableCount).mockResolvedValue(0);
+      mockGenerateTypes.mockResolvedValue([]);
 
       await generateCommand({});
 
       expect(logger.success).toHaveBeenCalledWith('Found 0 tables');
       expect(mockSpinner.succeed).toHaveBeenCalledWith('Generated types for 0 tables');
+    });
+
+    it('reports the filtered count when --tables is used', async () => {
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(79);
+      mockGenerateTypes.mockResolvedValue(['ontime']);
+
+      await generateCommand({ tables: 'ontime' });
+
+      // Previously both lines said 79, so a correct filter looked broken.
+      expect(logger.success).toHaveBeenCalledWith('Found 79 tables, applying --tables filter');
+      expect(mockSpinner.succeed).toHaveBeenCalledWith('Generated types for 1 table');
+    });
+
+    it('pluralises the generated-table count', async () => {
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(79);
+      mockGenerateTypes.mockResolvedValue(['ontime', 'trips']);
+
+      await generateCommand({ tables: 'ontime,trips' });
+
+      expect(mockSpinner.succeed).toHaveBeenCalledWith('Generated types for 2 tables');
+    });
+
+    it('reports only tables actually generated for duplicate or missing names', async () => {
+      vi.mocked(detectDb.getTableCount).mockResolvedValue(79);
+      mockGenerateTypes.mockResolvedValue(['ontime']);
+
+      await generateCommand({ tables: 'ontime,ontime,missing' });
+
+      expect(mockGenerateTypes).toHaveBeenCalledWith(
+        expect.objectContaining({ includeTables: ['ontime', 'ontime', 'missing'] }),
+      );
+      expect(logger.success).toHaveBeenCalledWith('Found 79 tables, applying --tables filter');
+      expect(mockSpinner.succeed).toHaveBeenCalledWith('Generated types for 1 table');
     });
   });
 

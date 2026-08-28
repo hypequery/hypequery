@@ -22,5 +22,5 @@ export async function generateClickHouseTypes(options: ClickHouseGeneratorOption
     ...(options.excludeTables ? { excludeTables: options.excludeTables } : {}),
   };
 
-  await generateTypes(options.outputPath, generatorOptions);
+  return generateTypes(options.outputPath, generatorOptions);
 }

@@ -78,20 +78,29 @@ export async function generateCommand(options: GenerateOptions = {}) {
       `Connected to ${dbType === 'clickhouse' ? 'ClickHouse' : dbType === 'chdb' ? 'embedded chDB' : dbType}`,
     );
 
-    logger.success(`Found ${tableCount} tables`);
+    logger.success(
+      parsedTables
+        ? `Found ${tableCount} tables, applying --tables filter`
+        : `Found ${tableCount} tables`,
+    );
 
     // Generate types
     const typeSpinner = ora('Generating types...').start();
     activeSpinner = typeSpinner;
     failureMessage = 'Failed to generate types';
 
-    await generator({
+    const generatedTables = await generator({
       outputPath,
       includeTables: parsedTables,
       chdbPath,
     });
 
-    typeSpinner.succeed(`Generated types for ${tableCount} tables`);
+    // The generator returns what it actually wrote after applying filters.
+    // Requested names may contain duplicates or tables that do not exist.
+    const generatedCount = generatedTables.length;
+    typeSpinner.succeed(
+      `Generated types for ${generatedCount} ${generatedCount === 1 ? 'table' : 'tables'}`,
+    );
 
     logger.success(`Updated ${path.relative(process.cwd(), outputPath)}`);
 

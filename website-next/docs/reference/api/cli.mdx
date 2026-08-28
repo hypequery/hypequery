@@ -277,7 +277,7 @@ npx hypequery generate:datasets [options]
 Scaffolds [dataset (semantic layer)](/docs/datasets/overview) definitions from a remote ClickHouse schema, so you don't have to hand-write dimensions and measures for every table. This standalone command currently uses `CLICKHOUSE_*` configuration. For chDB, `hypequery init --database chdb --style datasets` can generate dataset definitions during the initial scaffold, but `generate:datasets` does not currently accept the chDB driver or session path.
 
 **Options:**
-- **`-o, --output <file>`** – Where to write the generated datasets. Defaults to `src/datasets/generated.ts`
+- **`-o, --output <file>`** – Where to write the generated datasets. Defaults to `analytics/datasets.ts`, alongside `hypequery generate`'s `analytics/schema.ts`
 - **`--path <dir>`** – Analytics directory to write into (derives `<dir>/datasets.ts`). Takes effect when `--output` is not set
 - **`--tables <names>`** – Comma-separated list of tables to include. By default all tables are scaffolded
 - **`--exclude-tables <names>`** – Comma-separated list of tables to exclude
@@ -290,7 +290,7 @@ The generator connects to ClickHouse with your `CLICKHOUSE_*` env vars, introspe
 
 <CodeBlock>
 ```bash
-# Generate datasets for all tables (writes src/datasets/generated.ts)
+# Generate datasets for all tables (writes analytics/datasets.ts)
 npx @hypequery/cli generate:datasets
 
 # Generate into your analytics folder for specific tables
@@ -310,7 +310,18 @@ These variables are read whenever the CLI talks to a remote ClickHouse server (e
 | `CLICKHOUSE_PASSWORD` | Password or token |
 | `CLICKHOUSE_HOST` / `CLICKHOUSE_USERNAME` / `CLICKHOUSE_PASS` | Backward-compatible aliases also detected by the CLI |
 
-Set these in your `.env` (the default ClickHouse `init` flow will scaffold this file for you) or export them in CI/CD before running remote-driver CLI commands.
+Set these in an env file (the default ClickHouse `init` flow will scaffold `.env` for you) or export them in CI/CD before running remote-driver CLI commands.
+
+The CLI reads the same cascade Next.js and Vite use, most specific first:
+
+1. `.env.$NODE_ENV.local`
+2. `.env.local`
+3. `.env.$NODE_ENV`
+4. `.env`
+
+Earlier files win, and a variable already present in the real environment beats
+every file. So a Next.js project that keeps its ClickHouse credentials in
+`.env.local` works with the CLI without duplicating them into `.env`.
 
 ## Troubleshooting
 

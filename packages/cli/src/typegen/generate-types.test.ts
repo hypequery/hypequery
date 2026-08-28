@@ -96,14 +96,17 @@ describe('generateTypes', () => {
     // `nested/` does not exist yet — the generator is responsible for it.
     const outputPath = path.join(dir, 'nested', 'schema.ts');
 
-    await generateTypes(outputPath, {
-      client: fakeClient({ users: usersAndEvents.users }),
+    const generatedTables = await generateTypes(outputPath, {
+      client: fakeClient(usersAndEvents),
       generatedBy: 'hypequery',
       includeUsageExample: false,
+      includeTables: ['users', 'users', 'missing'],
     });
 
     const written = await readFile(outputPath, 'utf8');
     expect(written).toContain('export interface IntrospectedSchema');
     expect(written).toContain('export interface UsersRecord');
+    expect(written).not.toContain('export interface EventsRecord');
+    expect(generatedTables).toEqual(['users']);
   });
 });

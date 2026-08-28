@@ -38,6 +38,11 @@ export interface GenerateTypesOptions {
   includeUsageExample?: boolean;
 }
 
+interface GeneratedTypeDefinitions {
+  contents: string;
+  tableNames: string[];
+}
+
 /**
  * Capitalize the first letter of a string.
  */
@@ -60,10 +65,10 @@ async function describeTable(
 /**
  * Generates the TypeScript type definition source from a ClickHouse client.
  */
-export async function generateTypeDefinitions(
+async function buildTypeDefinitions(
   client: TypeGenerationClickHouseClient,
   options: Omit<GenerateTypesOptions, 'client'> = {}
-): Promise<string> {
+): Promise<GeneratedTypeDefinitions> {
   const {
     includeTables = [],
     excludeTables = [],
@@ -148,21 +153,41 @@ export interface IntrospectedSchema {`;
 `;
   }
 
-  return typeDefinitions;
+  return {
+    contents: typeDefinitions,
+    tableNames: tables.map((table) => table.name),
+  };
+}
+
+/**
+ * Generates the TypeScript type definition source from a ClickHouse client.
+ */
+export async function generateTypeDefinitions(
+  client: TypeGenerationClickHouseClient,
+  options: Omit<GenerateTypesOptions, 'client'> = {}
+): Promise<string> {
+  const generated = await buildTypeDefinitions(client, options);
+  return generated.contents;
 }
 
 /**
  * Generates TypeScript type definitions from the ClickHouse database schema and
  * writes them to `outputPath`, creating the containing directory if needed.
+ * Returns the names of the tables represented in the generated file.
  */
-export async function generateTypes(outputPath: string, options: GenerateTypesOptions): Promise<void> {
+export async function generateTypes(
+  outputPath: string,
+  options: GenerateTypesOptions
+): Promise<string[]> {
   const { client, ...definitionOptions } = options;
-  const typeDefinitions = await generateTypeDefinitions(client, definitionOptions);
+  const generated = await buildTypeDefinitions(client, definitionOptions);
 
   // Ensure the output directory exists
   const outputDir = path.dirname(path.resolve(outputPath));
   await fs.mkdir(outputDir, { recursive: true });
 
   // Write the file
-  await fs.writeFile(path.resolve(outputPath), typeDefinitions);
+  await fs.writeFile(path.resolve(outputPath), generated.contents);
+
+  return generated.tableNames;
 }
