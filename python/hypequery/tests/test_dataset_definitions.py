@@ -99,9 +99,7 @@ def test_constructs_typescript_equivalent_logical_model() -> None:
             "revenue": measure(sum("amount")),
             "orderCount": measure(count("id")),
             "uniqueCustomers": measure(count_distinct("customerId")),
-            "completedRevenue": measure(
-                sum("amount"), filters=(eq("status", "completed"),)
-            ),
+            "completedRevenue": measure(sum("amount"), filters=(eq("status", "completed"),)),
         },
         relationships={
             "customer": belongs_to(
@@ -307,7 +305,5 @@ def test_public_api_types_are_specific() -> None:
     assert_type(measure(sum("amount")), Measure)
     assert_type(eq("status", "complete"), Filter)
     assert_type(desc("amount"), Order)
-    assert_type(
-        belongs_to(customers, from_field="customerId", to_field="id"), Relationship
-    )
+    assert_type(belongs_to(customers, from_field="customerId", to_field="id"), Relationship)
     assert_type(divide("revenue", "orders"), FormulaBinary)

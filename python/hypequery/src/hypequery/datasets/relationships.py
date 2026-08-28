@@ -51,9 +51,7 @@ def _relationship(
     )
 
 
-def belongs_to(
-    target: RelationshipTarget, *, from_field: str, to_field: str
-) -> Relationship:
+def belongs_to(target: RelationshipTarget, *, from_field: str, to_field: str) -> Relationship:
     """Define a many-to-one relationship with a foreign key on this dataset."""
 
     return _relationship("belongsTo", target, from_field=from_field, to_field=to_field)

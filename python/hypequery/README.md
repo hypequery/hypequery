@@ -97,9 +97,7 @@ Orders = Dataset(
         "revenue": measure(sum("amount")),
         "orderCount": measure(count("id")),
         "uniqueCustomers": measure(count_distinct("customerId")),
-        "completedRevenue": measure(
-            sum("amount"), filters=(eq("status", "completed"),)
-        ),
+        "completedRevenue": measure(sum("amount"), filters=(eq("status", "completed"),)),
     },
     relationships={
         "customer": belongs_to(
