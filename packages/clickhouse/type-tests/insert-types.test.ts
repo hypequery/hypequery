@@ -1,5 +1,5 @@
 import { createQueryBuilder } from '../src/index.js';
-import type { InsertJsonValue, InsertRow, InsertResultSummary } from '../src/index.js';
+import type { InsertJsonValue, InsertRow, InsertResultSummary, InsertValue } from '../src/index.js';
 import type { TestSchema } from '../src/core/tests/test-utils.js';
 import type { Equal, Expect } from '@type-challenges/utils';
 
@@ -66,6 +66,17 @@ type ExpectedGeneratedTypesInsert = {
 type AssertGeneratedTypesInsert = Expect<Equal<
   GeneratedTypesInsert,
   ExpectedGeneratedTypesInsert
+>>;
+
+type NamedTupleInsert = InsertValue<
+  'Array(Tuple(port UInt16, metadata Tuple(id UInt64, note Nullable(String))))'
+>;
+type AssertNamedTupleInsert = Expect<Equal<
+  NamedTupleInsert,
+  Array<{
+    port: number;
+    metadata: { id: string | number | bigint; note: string | null };
+  }>
 >>;
 
 // --- Valid inserts.

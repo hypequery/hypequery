@@ -57,6 +57,44 @@ type _MapTupleValuesInferPositionally = Expect<
     Record<string, [string, string | null]>
   >
 >;
+type _NamedTupleInfersAsObject = Expect<
+  Equal<
+    InferClickHouseType<'Tuple(port UInt16, protocol LowCardinality(String), note Nullable(String))'>,
+    { port: number; protocol: string; note: string | null }
+  >
+>;
+type _NestedNamedTupleInfersRecursively = Expect<
+  Equal<
+    InferClickHouseType<'Array(Tuple(meta Tuple(id UInt64, tags Array(String)), active Bool))'>,
+    Array<{ meta: { id: string; tags: string[] }; active: boolean }>
+  >
+>;
+type _PrettyPrintedNamedTupleInfersAsObject = Expect<
+  Equal<
+    InferClickHouseType<`Array(Tuple(
+      installed_version String,
+      path Nullable(String)))`>,
+    Array<{ installed_version: string; path: string | null }>
+  >
+>;
+type _BacktickQuotedTupleNameInfersAsProperty = Expect<
+  Equal<
+    InferClickHouseType<'Tuple(`display name` String, count UInt32)'>,
+    { 'display name': string; count: number }
+  >
+>;
+type _EscapedBacktickTupleNameInfersAsProperty = Expect<
+  Equal<
+    InferClickHouseType<'Tuple(`tick\\`name` UInt32)'>,
+    { 'tick`name': number }
+  >
+>;
+type _QuotedParenthesisDoesNotBreakTupleSplitting = Expect<
+  Equal<
+    InferClickHouseType<"Tuple(status Enum8('unmatched (' = 1, 'ok' = 2), count UInt32)">,
+    { status: string; count: number }
+  >
+>;
 
 // Validate TableColumn helper emits both qualified + bare column unions
 type ExpectedColumns =

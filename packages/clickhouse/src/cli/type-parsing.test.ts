@@ -193,6 +193,35 @@ describe('ClickHouse Type Parsing - Edge Cases', () => {
     it('handles Nullable(Tuple(String, Int32))', () => {
       expect(clickhouseToTsType('Nullable(Tuple(String, Int32))')).toBe('[string, number] | null');
     });
+
+    it('renders named tuples as objects with recursively inferred fields', () => {
+      expect(
+        clickhouseToTsType('Array(Tuple(port UInt16, protocol LowCardinality(String), note Nullable(String)))')
+      ).toBe('Array<{ port: number; protocol: string; note: string | null }>');
+      expect(
+        clickhouseToTsType('Tuple(meta Tuple(id UInt64, tags Array(String)), active Bool)')
+      ).toBe('{ meta: { id: string; tags: Array<string> }; active: boolean }');
+    });
+
+    it('handles the multiline named tuple spelling returned by DESCRIBE TABLE', () => {
+      expect(clickhouseToTsType(`Array(Tuple(
+    installed_version String,
+    path Nullable(String)))`)).toBe(
+        'Array<{ installed_version: string; path: string | null }>'
+      );
+    });
+
+    it('quotes and unescapes named tuple fields that are not TypeScript identifiers', () => {
+      expect(clickhouseToTsType("Tuple(`display name` String, `tick\\`name` UInt32)")).toBe(
+        '{ "display name": string; "tick`name": number }'
+      );
+    });
+
+    it('ignores parentheses inside quoted enum labels when splitting tuple fields', () => {
+      expect(clickhouseToTsType("Tuple(Enum8('unmatched (' = 1, 'ok' = 2), UInt32)")).toBe(
+        '[string, number]'
+      );
+    });
   });
 
   describe('Map Types with Nullable Values', () => {
