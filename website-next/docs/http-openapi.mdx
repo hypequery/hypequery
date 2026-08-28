@@ -418,5 +418,10 @@ so validation reports the real problem. `?limit=abc` still fails with
 the runtime invented. Constraints apply as normal — `?limit=5000` is coerced to
 `5000` and then rejected by `.max(100)`.
 
+An explicit `z.preprocess(...)` is a coercion boundary. Its callback receives the
+raw query value and owns conversion for the schema subtree it wraps. This keeps
+existing preprocessors predictable; use `z.coerce.*` inside that subtree or
+return the converted value from the callback when conversion is required.
+
 `POST` bodies are untouched. JSON already carries types, so a body value of
 `"5"` stays the string `"5"`.

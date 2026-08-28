@@ -28,5 +28,8 @@ passes through unchanged so validation still reports the genuine error —
 `?limit=abc` continues to fail with `expected number, received string`, and
 `?limit=5000` is coerced and then correctly rejected by `.max(100)`.
 
+Explicit `z.preprocess(...)` callbacks receive the raw query value and own
+coercion for the schema subtree they wrap.
+
 POST bodies are unaffected; JSON already carries types, so a body value of `"5"`
 stays a string.

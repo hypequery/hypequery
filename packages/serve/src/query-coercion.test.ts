@@ -91,6 +91,27 @@ describe("coerceQueryInput", () => {
     });
   });
 
+  it("lets a root preprocessor own coercion for its subtree", () => {
+    let received: unknown;
+    const schema = z.preprocess((value) => {
+      received = value;
+      if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        return value;
+      }
+      const input = value as Record<string, unknown>;
+      return {
+        ...input,
+        limit: typeof input.limit === "string" ? Number(input.limit) : input.limit,
+      };
+    }, z.object({ limit: z.number() }));
+
+    expect(parse(schema, { limit: "8" })).toMatchObject({
+      success: true,
+      data: { limit: 8 },
+    });
+    expect(received).toEqual({ limit: "8" });
+  });
+
   it("does not invent a zero bigint for an empty query value", () => {
     const schema = z.object({ id: z.bigint() });
 
