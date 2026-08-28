@@ -67,3 +67,33 @@ jobs:
       - run: uv build
       - name: Audit archive contents
         run: uv run python scripts/audit_artifacts.py dist
+
+  conformance:
+    # RFC 0012 gate: once Python announces a fixture family, that family must
+    # remain byte- and error-code-identical to the shared protocol corpus.
+    name: conformance (tagged-values-v1)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+      - uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081 # v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: python/hypequery/uv.lock
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project python/hypequery --dev
+      - run: pnpm --filter @hypequery/protocol build
+      - run: pnpm --filter @hypequery/protocol-conformance build
+      - name: Run Python against the shared tagged-value fixtures
+        run: >-
+          node packages/protocol-conformance/dist/bin/conformance.js run
+          --fixtures specs/security-protocol/fixtures
+          --families tagged-values-v1
+          -- uv run --project python/hypequery python -m hypequery.protocol.adapter

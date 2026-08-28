@@ -20,6 +20,23 @@ The SDK is organised as:
 
 Python and TypeScript implement the same specifications and run against the same conformance fixtures. The goal is identical semantic and deployment artifacts across both languages, not a line-for-line port of the TypeScript runtime.
 
+## Canonical protocol values
+
+RFC 0001 tagged values and exact RFC 8785 canonical JSON are available from
+`hypequery.protocol`:
+
+```python
+from hypequery.protocol import encode_canonical_value, integer_value
+
+value = integer_value(42, bits=64, signed=True)
+canonical_bytes = encode_canonical_value(value)
+```
+
+Python-native `int`, `Decimal`, `date`, timezone-aware `datetime`, `UUID`, and
+`bytes` values use explicit constructors so type meaning is fixed before an
+artifact is hashed. Validation never calls custom serializers or conversion
+hooks.
+
 ## Development
 
 ```bash
@@ -28,6 +45,15 @@ uv run pytest
 uv run mypy
 uv run ruff check .
 uv run lint-imports
+```
+
+From the repository root, run the shared cross-language gate with:
+
+```bash
+node packages/protocol-conformance/dist/bin/conformance.js run \
+  --fixtures specs/security-protocol/fixtures \
+  --families tagged-values-v1 \
+  -- uv run --project python/hypequery python -m hypequery.protocol.adapter
 ```
 
 See the [implementation plan](../../plans/python-datasets-serve-pr-level-plan.md) and [security protocol](../../specs/security-protocol/README.md).

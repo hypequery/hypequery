@@ -14,6 +14,10 @@ Each entry in `success.json` contains:
 
 The hash is a fixture integrity check, not a deployment digest or cache key.
 
+The success corpus includes every finite, non-negative-zero number from RFC
+8785 Appendix B. RFC 0001 is intentionally stricter than JCS for negative zero,
+NaN, and infinities, so those Appendix B cases live in the rejection corpus.
+
 ## Rejection manifest
 
 Entries in `rejections.json` use one of:
