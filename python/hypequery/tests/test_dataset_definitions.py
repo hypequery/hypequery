@@ -337,6 +337,20 @@ def test_immutable_definitions_support_deep_copy() -> None:
     assert definition.model_copy(deep=True) == definition
 
 
+def test_definition_update_copies_cannot_bypass_validation() -> None:
+    dataset = Dataset(
+        name="orders",
+        source="orders",
+        dimensions={"id": dimension("string")},
+    )
+    definition = in_list("status", ["complete"])
+
+    with pytest.raises(TypeError, match="construct a new validated model"):
+        dataset.model_copy(update={"dimensions": {"late": dimension("string")}})
+    with pytest.raises(TypeError, match="construct a new validated model"):
+        definition.model_copy(update={"value": ["mutable"]})
+
+
 def test_public_api_types_are_specific() -> None:
     customers = _customers()
 
