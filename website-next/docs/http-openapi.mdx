@@ -377,3 +377,51 @@ api.route('/weekly', api.queries.weeklyRevenue);
 ```
 </Pre>
 </CodeBlock>
+
+### Input on GET routes
+
+`GET` endpoints read their input from the query string. Query strings carry no
+types — every value arrives as a string — so hypequery coerces each value toward
+what your schema declares before validating it.
+
+<CodeBlock>
+<Pre>
+```typescript
+const busiestRoutes = query({
+  input: z.object({
+    minTrips: z.number().int().default(500),
+    limit: z.number().int().max(100).default(10),
+    verbose: z.boolean().optional(),
+  }),
+  query: async ({ input }) => { /* ... */ },
+});
+```
+</Pre>
+</CodeBlock>
+
+<CodeBlock>
+<Pre>
+```bash
+curl '/api/analytics/queries/busiestRoutes?minTrips=500&limit=8&verbose=true'
+# input === { minTrips: 500, limit: 8, verbose: true }
+```
+</Pre>
+</CodeBlock>
+
+Numbers, booleans, bigints, and dates are converted; strings and enums are left
+alone. A repeated key (`?ids=1&ids=2`) becomes an array, and a single occurrence
+of a key typed as `z.array(...)` is wrapped into one.
+
+Coercion is conservative: anything it cannot convert is passed through unchanged
+so validation reports the real problem. `?limit=abc` still fails with
+`expected number, received string` rather than a misleading error about a value
+the runtime invented. Constraints apply as normal — `?limit=5000` is coerced to
+`5000` and then rejected by `.max(100)`.
+
+An explicit `z.preprocess(...)` is a coercion boundary. Its callback receives the
+raw query value and owns conversion for the schema subtree it wraps. This keeps
+existing preprocessors predictable; use `z.coerce.*` inside that subtree or
+return the converted value from the callback when conversion is required.
+
+`POST` bodies are untouched. JSON already carries types, so a body value of
+`"5"` stays the string `"5"`.

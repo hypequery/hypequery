@@ -370,3 +370,89 @@ describe("toFetchHandler", () => {
     expect(body).toEqual({ ok: true });
   });
 });
+
+describe("GET query-param coercion", () => {
+  const busiestRoutes = {
+    inputSchema: z.object({
+      minTrips: z.number().int().default(500),
+      limit: z.number().int().max(100).default(10),
+      verbose: z.boolean().optional(),
+    }),
+    query: async ({ input }: { input: Record<string, unknown> }) => input,
+  };
+
+  it("accepts typed values from a query string", async () => {
+    const api = createAPI({ queries: { busiestRoutes } });
+
+    // Previously: 400 VALIDATION_ERROR, "expected number, received string".
+    const response = await api.handler(
+      createRequest({
+        path: "/queries/busiestRoutes",
+        query: { minTrips: "500", limit: "8", verbose: "true" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ minTrips: 500, limit: 8, verbose: true });
+  });
+
+  it("still applies schema defaults for omitted params", async () => {
+    const api = createAPI({ queries: { busiestRoutes } });
+
+    const response = await api.handler(
+      createRequest({ path: "/queries/busiestRoutes", query: { limit: "3" } }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ minTrips: 500, limit: 3 });
+  });
+
+  it("still rejects values that violate the schema", async () => {
+    const api = createAPI({ queries: { busiestRoutes } });
+
+    // Coercion succeeds; `.max(100)` is what rejects it. The caller gets the
+    // real constraint error, not a type error about strings.
+    const response = await api.handler(
+      createRequest({ path: "/queries/busiestRoutes", query: { limit: "5000" } }),
+    );
+
+    expect(response.status).toBe(400);
+    expect((response.body as { error: { type: string } }).error.type).toBe(
+      "VALIDATION_ERROR",
+    );
+  });
+
+  it("reports a genuine type error when a value cannot be coerced", async () => {
+    const api = createAPI({ queries: { busiestRoutes } });
+
+    const response = await api.handler(
+      createRequest({ path: "/queries/busiestRoutes", query: { limit: "abc" } }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(
+      (response.body as { error: { details: { issues: Array<{ path: string[] }> } } })
+        .error.details.issues[0],
+    ).toMatchObject({ expected: "number", path: ["limit"] });
+  });
+
+  it("leaves JSON bodies untouched", async () => {
+    const api = createAPI({
+      queries: {
+        echo: {
+          inputSchema: z.object({ value: z.union([z.string(), z.number()]) }),
+          query: async ({ input }: { input: { value: string | number } }) => input,
+        },
+      },
+    });
+    api.route("/echo", api.queries.echo, { method: "POST" });
+
+    // A body already carries types: "5" must stay a string, not become 5.
+    const response = await api.handler(
+      createRequest({ method: "POST", path: "/echo", body: { value: "5" } }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ value: "5" });
+  });
+});
