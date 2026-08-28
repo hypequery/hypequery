@@ -1,5 +1,11 @@
 # @hypequery/protocol-conformance
 
+## 0.10.3
+
+### Patch Changes
+
+- 754c304: Add exact adapter-family assertions for release-grade conformance gates.
+
 ## 0.10.2
 
 ### Patch Changes
