@@ -1,4 +1,4 @@
-"""Stable public errors for the Hypequery value protocol."""
+"""Stable public errors for the Hypequery security protocol."""
 
 from __future__ import annotations
 
@@ -26,6 +26,15 @@ ProtocolValueErrorCode: TypeAlias = Literal[
     "HQ_VALUE_UNSAFE_OBJECT",
 ]
 
+ProtocolIdentifierErrorCode: TypeAlias = Literal[
+    "HQ_IDENTIFIER_TYPE",
+    "HQ_IDENTIFIER_EMPTY",
+    "HQ_IDENTIFIER_TOO_LONG",
+    "HQ_IDENTIFIER_INVALID_FORMAT",
+    "HQ_IDENTIFIER_RESERVED",
+    "HQ_IDENTIFIER_TOO_MANY_SEGMENTS",
+]
+
 
 class ProtocolValueError(TypeError):
     """A safe, stable RFC 0001 validation failure."""
@@ -43,3 +52,19 @@ def value_error(code: ProtocolValueErrorCode, path: str = "$") -> NoReturn:
     """Raise a protocol error without attaching input data to its message."""
 
     raise ProtocolValueError(code, path)
+
+
+class ProtocolIdentifierError(TypeError):
+    """A safe, stable RFC 0002 validation failure."""
+
+    code: ProtocolIdentifierErrorCode
+
+    def __init__(self, code: ProtocolIdentifierErrorCode) -> None:
+        super().__init__(code)
+        self.code = code
+
+
+def identifier_error(code: ProtocolIdentifierErrorCode) -> NoReturn:
+    """Raise an identifier error without attaching the rejected input."""
+
+    raise ProtocolIdentifierError(code)

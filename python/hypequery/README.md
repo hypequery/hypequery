@@ -37,6 +37,24 @@ Python-native `int`, `Decimal`, `date`, timezone-aware `datetime`, `UUID`, and
 artifact is hashed. Validation never calls custom serializers or conversion
 hooks.
 
+## Portable identifiers
+
+RFC 0002 simple and qualified logical identifiers are ASCII-only, preserve
+their exact spelling, and carry distinct static types after validation:
+
+```python
+from hypequery.protocol import (
+    parse_protocol_qualified_identifier,
+    split_protocol_qualified_identifier,
+)
+
+name = parse_protocol_qualified_identifier("orders.customer.country")
+segments = split_protocol_qualified_identifier(name)
+```
+
+These names are safe protocol nodes, not SQL identifiers, filenames, or URLs;
+adapters must still quote or sanitize them for their destination domain.
+
 ## Development
 
 ```bash
@@ -52,7 +70,7 @@ From the repository root, run the shared cross-language gate with:
 ```bash
 node packages/protocol-conformance/dist/bin/conformance.js run \
   --fixtures specs/security-protocol/fixtures \
-  --families tagged-values-v1 \
+  --families tagged-values-v1,identifiers-v1 \
   -- uv run --project python/hypequery python -m hypequery.protocol.adapter
 ```
 

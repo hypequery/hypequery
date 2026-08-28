@@ -1,0 +1,17 @@
+[
+  { "id": "identifier-null", "mode": "simple", "value": null },
+  { "id": "identifier-control-character", "mode": "simple", "value": "order\u0000id" },
+  { "id": "identifier-sql-shaped", "mode": "simple", "value": "orders;DROP_TABLE_users" },
+  { "id": "identifier-cyrillic-confusable", "mode": "simple", "value": "аdmin" },
+  { "id": "identifier-combining-mark", "mode": "simple", "value": "café" },
+  { "id": "identifier-fullwidth-dot", "mode": "qualified", "value": "orders．customer" },
+  { "id": "identifier-lone-high-surrogate", "mode": "simple", "value": "\ud800" },
+  { "id": "identifier-lone-low-surrogate", "mode": "simple", "value": "\udc00" },
+  { "id": "identifier-surrogate-pair", "mode": "simple", "value": "\ud83d\ude00" },
+  { "id": "identifier-reserved-mixed-case", "mode": "simple", "value": "__HyPeQuErY_admin" },
+  { "id": "identifier-qualified-leading-dot", "mode": "qualified", "value": ".orders" },
+  { "id": "identifier-qualified-trailing-dot", "mode": "qualified", "value": "orders." },
+  { "id": "identifier-qualified-repeated-dot", "mode": "qualified", "value": "orders..customer" },
+  { "id": "identifier-long-segment", "mode": "simple", "generator": { "type": "repeat-string", "value": "a", "count": 10000 } },
+  { "id": "identifier-many-segments", "mode": "qualified", "generator": { "type": "qualified-segments", "segment": "a", "count": 1000 } }
+]

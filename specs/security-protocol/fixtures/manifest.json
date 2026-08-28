@@ -229,6 +229,10 @@
       "family": "tagged-values-v1"
     },
     {
+      "path": "fuzz-seeds-v1/identifiers.json",
+      "family": "identifiers-v1"
+    },
+    {
       "path": "fuzz-seeds-v1/structured-values.json"
     },
     {

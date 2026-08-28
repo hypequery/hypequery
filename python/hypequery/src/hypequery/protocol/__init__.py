@@ -1,8 +1,4 @@
-"""Language-neutral Hypequery security-protocol primitives.
-
-RFC 0001 tagged values and exact RFC 8785 canonical JSON are available now.
-Portable identifiers are added by PYA-04.
-"""
+"""Language-neutral Hypequery security-protocol primitives."""
 
 from __future__ import annotations
 
@@ -19,7 +15,23 @@ from .constructors import (
     tuple_value,
     uuid_value,
 )
-from .errors import ProtocolValueError, ProtocolValueErrorCode
+from .errors import (
+    ProtocolIdentifierError,
+    ProtocolIdentifierErrorCode,
+    ProtocolValueError,
+    ProtocolValueErrorCode,
+)
+from .identifiers import (
+    PROTOCOL_IDENTIFIER_LIMITS,
+    ProtocolIdentifier,
+    ProtocolQualifiedIdentifier,
+    is_protocol_identifier,
+    is_protocol_qualified_identifier,
+    join_protocol_qualified_identifier,
+    parse_protocol_identifier,
+    parse_protocol_qualified_identifier,
+    split_protocol_qualified_identifier,
+)
 from .limits import DEFAULT_CANONICAL_VALUE_LIMITS, CanonicalValueLimits
 from .values import (
     CanonicalValue,
@@ -32,8 +44,13 @@ from .values import (
 
 __all__ = [
     "DEFAULT_CANONICAL_VALUE_LIMITS",
+    "PROTOCOL_IDENTIFIER_LIMITS",
     "CanonicalValue",
     "CanonicalValueLimits",
+    "ProtocolIdentifier",
+    "ProtocolIdentifierError",
+    "ProtocolIdentifierErrorCode",
+    "ProtocolQualifiedIdentifier",
     "ProtocolValueError",
     "ProtocolValueErrorCode",
     "TaggedValue",
@@ -48,7 +65,13 @@ __all__ = [
     "enum_value",
     "hash_canonical_value",
     "integer_value",
+    "is_protocol_identifier",
+    "is_protocol_qualified_identifier",
+    "join_protocol_qualified_identifier",
     "map_value",
+    "parse_protocol_identifier",
+    "parse_protocol_qualified_identifier",
+    "split_protocol_qualified_identifier",
     "tuple_value",
     "uuid_value",
     "validate_canonical_value",

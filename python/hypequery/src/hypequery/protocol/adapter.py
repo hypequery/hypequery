@@ -9,7 +9,12 @@ from collections.abc import Iterator, Mapping
 
 from hypequery import __version__
 
-from .errors import ProtocolValueError
+from .errors import ProtocolIdentifierError, ProtocolValueError
+from .identifiers import (
+    parse_protocol_identifier,
+    parse_protocol_qualified_identifier,
+    split_protocol_qualified_identifier,
+)
 from .values import (
     decode_canonical_value,
     encode_canonical_value,
@@ -17,7 +22,7 @@ from .values import (
     validate_canonical_value,
 )
 
-FAMILIES = ("tagged-values-v1",)
+FAMILIES = ("tagged-values-v1", "identifiers-v1")
 HOSTILE_OBJECT_SUITE = {
     "count": 7,
     "mechanisms": [
@@ -54,7 +59,7 @@ def _integer(generator: dict[str, object], key: str) -> int:
     return value
 
 
-def _materialize(generator: dict[str, object]) -> object:
+def _materialize_tagged_value(generator: dict[str, object]) -> object:
     kind = generator.get("type")
     if kind == "nested-array":
         value = generator.get("leaf")
@@ -79,7 +84,22 @@ def _materialize(generator: dict[str, object]) -> object:
     raise RuntimeError(f"unknown tagged-value generator: {kind!r}")
 
 
-def _handle(role: str, case: dict[str, object]) -> dict[str, object]:
+def _materialize_identifier(generator: dict[str, object]) -> str:
+    kind = generator.get("type")
+    if kind == "repeat-string":
+        value = generator.get("value")
+        if type(value) is not str:
+            raise RuntimeError("generator field 'value' must be a string")
+        return value * _integer(generator, "count")
+    if kind == "qualified-segments":
+        segment = generator.get("segment")
+        if type(segment) is not str:
+            raise RuntimeError("generator field 'segment' must be a string")
+        return ".".join([segment] * _integer(generator, "count"))
+    raise RuntimeError(f"unknown identifier generator: {kind!r}")
+
+
+def _handle_tagged_value(role: str, case: dict[str, object]) -> dict[str, object]:
     try:
         if role == "success":
             # The runner's wire JSON has already erased JavaScript's distinction
@@ -107,7 +127,7 @@ def _handle(role: str, case: dict[str, object]) -> dict[str, object]:
             declared_type = declared if type(declared) is str else None
             if type(generator) is dict:
                 validate_canonical_value(
-                    _materialize(generator),
+                    _materialize_tagged_value(generator),
                     declared_clickhouse_type=declared_type,
                 )
             else:
@@ -118,6 +138,41 @@ def _handle(role: str, case: dict[str, object]) -> dict[str, object]:
         return {"ok": True}
     except ProtocolValueError as error:
         return {"ok": False, "code": error.code}
+
+
+def _handle_identifier(role: str, case: dict[str, object]) -> dict[str, object]:
+    mode = case.get("mode")
+    if mode not in ("simple", "qualified"):
+        raise RuntimeError("identifier case mode must be 'simple' or 'qualified'")
+    simple = mode == "simple"
+
+    try:
+        if role == "success":
+            value = case.get("value")
+            if simple:
+                segments = [parse_protocol_identifier(value)]
+            else:
+                parsed = parse_protocol_qualified_identifier(value)
+                segments = list(split_protocol_qualified_identifier(parsed))
+            return {"ok": True, "output": {"segments": segments}}
+
+        generator = case.get("generator")
+        value = _materialize_identifier(generator) if type(generator) is dict else case.get("value")
+        if simple:
+            parse_protocol_identifier(value)
+        else:
+            parse_protocol_qualified_identifier(value)
+        return {"ok": True}
+    except ProtocolIdentifierError as error:
+        return {"ok": False, "code": error.code}
+
+
+def _handle(family: str, role: str, case: dict[str, object]) -> dict[str, object]:
+    if family == "tagged-values-v1":
+        return _handle_tagged_value(role, case)
+    if family == "identifiers-v1":
+        return _handle_identifier(role, case)
+    raise RuntimeError(f"unsupported fixture family: {family!r}")
 
 
 def main() -> int:
@@ -159,7 +214,7 @@ def main() -> int:
             response = {
                 "type": "result",
                 "seq": message.get("seq"),
-                **_handle(str(message.get("role")), fixture_case),
+                **_handle(family, str(message.get("role")), fixture_case),
             }
         elif message_type == "end":
             return 0
