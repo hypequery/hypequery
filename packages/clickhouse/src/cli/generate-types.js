@@ -95,8 +95,7 @@ export interface IntrospectedSchema {`;
     const columns = await columnsQuery.json();
     typeDefinitions += `\n  ${table.name}: {`;
     for (const column of columns) {
-      const clickHouseType = column.type.replace(/'/g, "\\'"); // Escape single quotes, e.g. `DateTime('UTC')`
-      typeDefinitions += `\n    '${column.name}': '${clickHouseType}';`;
+      typeDefinitions += `\n    '${column.name}': ${JSON.stringify(column.type)};`;
     }
     typeDefinitions += '\n  };';
   }
@@ -114,7 +113,7 @@ export interface IntrospectedSchema {`;
 
     typeDefinitions += `export interface ${capitalizeFirstLetter(table.name)}Record {`;
     for (const column of columns) {
-      const tsType = clickhouseToTsType(column.type).replace(/'/g, '');
+      const tsType = clickhouseToTsType(column.type);
       typeDefinitions += `\n  '${column.name}': ${tsType};`;
     }
     typeDefinitions += '\n}\n\n';

@@ -1,4 +1,8 @@
-import type { ParseTopLevelArgs } from './type-helpers.js';
+import type {
+  AreAllTuplePartsNamed,
+  ParseNamedTupleFields,
+  ParseTopLevelArgs,
+} from './type-helpers.js';
 
 export type ClickHouseInteger =
   | 'Int8' | 'Int16' | 'Int32' | 'Int64' | 'Int128' | 'Int256'
@@ -80,7 +84,11 @@ export type InferClickHouseType<T extends string, Depth extends number = 0> =
   : unknown[]
   : T extends `Tuple(${infer U})`
   ? ParseTopLevelArgs<U> extends infer Parts extends string[]
-    ? { [K in keyof Parts]: InferClickHouseType<Parts[K] & ClickHouseType, Add1<Depth>> }
+    ? AreAllTuplePartsNamed<Parts> extends true
+      ? ParseNamedTupleFields<Parts> extends infer Fields extends Record<string, string>
+        ? { [K in keyof Fields]: InferClickHouseType<Fields[K] & ClickHouseType, Add1<Depth>> }
+        : never
+      : { [K in keyof Parts]: InferClickHouseType<Parts[K] & ClickHouseType, Add1<Depth>> }
     : unknown[]
   : T extends `Nullable(${infer U})`
   ? U extends ClickHouseType

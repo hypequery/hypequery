@@ -10,7 +10,11 @@ import type {
   ClickHouseBoolean,
   ClickHouseType,
 } from './clickhouse-types.js';
-import type { ParseTopLevelArgs } from './type-helpers.js';
+import type {
+  AreAllTuplePartsNamed,
+  ParseNamedTupleFields,
+  ParseTopLevelArgs,
+} from './type-helpers.js';
 import type { ColumnType } from './schema.js';
 import type { Simplify } from '../core/types/type-helpers.js';
 
@@ -67,7 +71,11 @@ type InsertValueOf<T extends string, Depth extends number> =
   : unknown[]
   : T extends `Tuple(${infer U})`
   ? ParseTopLevelArgs<U> extends infer Parts extends string[]
-    ? { [K in keyof Parts]: InsertValue<Parts[K] & ClickHouseType, Add1<Depth>> }
+    ? AreAllTuplePartsNamed<Parts> extends true
+      ? ParseNamedTupleFields<Parts> extends infer Fields extends Record<string, string>
+        ? { [K in keyof Fields]: InsertValue<Fields[K] & ClickHouseType, Add1<Depth>> }
+        : never
+      : { [K in keyof Parts]: InsertValue<Parts[K] & ClickHouseType, Add1<Depth>> }
     : unknown[]
   : T extends `Nullable(${infer U})`
   ? U extends ClickHouseType

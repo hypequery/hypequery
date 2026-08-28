@@ -2,8 +2,29 @@ function splitTopLevelArgs(value) {
   const parts = [];
   let current = '';
   let depth = 0;
+  let quote = null;
+  let escaped = false;
 
   for (const char of value) {
+    if (quote) {
+      current += char;
+
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (char === "'" || char === '"' || char === '`') {
+      quote = char;
+      current += char;
+      continue;
+    }
+
     if (char === '(') {
       depth += 1;
       current += char;
@@ -30,6 +51,61 @@ function splitTopLevelArgs(value) {
   }
 
   return parts;
+}
+
+function decodeClickHouseEscape(char) {
+  switch (char) {
+    case 'b': return '\b';
+    case 'f': return '\f';
+    case 'n': return '\n';
+    case 'r': return '\r';
+    case 't': return '\t';
+    case '0': return '\0';
+    default: return char;
+  }
+}
+
+function parseBacktickTuplePart(part) {
+  let name = '';
+  let escaped = false;
+
+  for (let index = 1; index < part.length; index += 1) {
+    const char = part[index];
+
+    if (escaped) {
+      name += decodeClickHouseEscape(char);
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (char === '`') {
+      const type = part.slice(index + 1);
+      return /^\s+\S/s.test(type) ? { name, type: type.trim() } : null;
+    }
+
+    name += char;
+  }
+
+  return null;
+}
+
+function parseNamedTuplePart(value) {
+  const part = value.trim();
+  if (part.startsWith('`')) {
+    return parseBacktickTuplePart(part);
+  }
+
+  const match = /^([A-Za-z_][A-Za-z0-9_]*)\s+(.+)$/s.exec(part);
+  return match ? { name: match[1], type: match[2].trim() } : null;
+}
+
+function formatTypeScriptProperty(name) {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : JSON.stringify(name);
 }
 
 function unwrapType(type, wrapperName) {
@@ -102,28 +178,35 @@ function getPrimitiveTsType(type) {
 }
 
 export const clickhouseToTsType = (type) => {
-  const wrappedArrayType = unwrapType(type, 'Array');
+  const normalizedType = type.trim();
+  const wrappedArrayType = unwrapType(normalizedType, 'Array');
   if (wrappedArrayType) {
     return `Array<${clickhouseToTsType(wrappedArrayType)}>`;
   }
 
-  const wrappedNullableType = unwrapType(type, 'Nullable');
+  const wrappedNullableType = unwrapType(normalizedType, 'Nullable');
   if (wrappedNullableType) {
     return `${clickhouseToTsType(wrappedNullableType)} | null`;
   }
 
-  const wrappedLowCardinalityType = unwrapType(type, 'LowCardinality');
+  const wrappedLowCardinalityType = unwrapType(normalizedType, 'LowCardinality');
   if (wrappedLowCardinalityType) {
     return clickhouseToTsType(wrappedLowCardinalityType);
   }
 
-  const wrappedTupleType = unwrapType(type, 'Tuple');
+  const wrappedTupleType = unwrapType(normalizedType, 'Tuple');
   if (wrappedTupleType) {
     const tupleParts = splitTopLevelArgs(wrappedTupleType);
+    const namedParts = tupleParts.map(parseNamedTuplePart);
+    if (namedParts.length > 0 && namedParts.every(part => part !== null)) {
+      return `{ ${namedParts
+        .map(part => `${formatTypeScriptProperty(part.name)}: ${clickhouseToTsType(part.type)}`)
+        .join('; ')} }`;
+    }
     return `[${tupleParts.map(clickhouseToTsType).join(', ')}]`;
   }
 
-  const wrappedMapType = unwrapType(type, 'Map');
+  const wrappedMapType = unwrapType(normalizedType, 'Map');
   if (wrappedMapType) {
     const mapParts = splitTopLevelArgs(wrappedMapType);
     if (mapParts.length === 2) {
@@ -134,7 +217,7 @@ export const clickhouseToTsType = (type) => {
     return 'Record<string, unknown>';
   }
 
-  const primitiveType = getPrimitiveTsType(type);
+  const primitiveType = getPrimitiveTsType(normalizedType);
   if (primitiveType) return primitiveType;
 
   // Unsupported or more complex ClickHouse types currently preserve the historical fallback.
