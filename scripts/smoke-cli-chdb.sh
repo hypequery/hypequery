@@ -37,16 +37,22 @@ import { Session } from 'chdb';
 
 const dbPath = path.resolve('analytics.chdb');
 const seedSession = new Session(dbPath);
+// `versions` is a named tuple on purpose. DESCRIBE TABLE pretty-prints wide
+// types across several lines, and named tuples come back from JSONEachRow as
+// objects rather than positional arrays — both of which the generator has to
+// get right. Only a real engine can confirm either, so this column is what
+// keeps the mocked unit tests honest.
 await seedSession.queryAsync(`
   CREATE TABLE events (
     id UInt64,
     name String,
-    created_at DateTime
+    created_at DateTime,
+    versions Array(Tuple(installed_version String, path Nullable(String)))
   ) ENGINE = MergeTree
   ORDER BY id
 `);
 await seedSession.queryAsync(
-  "INSERT INTO events VALUES (1, 'smoke', now())",
+  "INSERT INTO events VALUES (1, 'smoke', now(), [('1.0.0', NULL)])",
 );
 seedSession.close();
 NODE
@@ -92,6 +98,13 @@ for (const generated of [schema, regeneratedSchema]) {
   assert.match(generated, /events:\s*\{/);
   assert.match(generated, /'id': (["'])UInt64\1/);
   assert.match(generated, /'name': (["'])String\1/);
+  // Matches whether or not DESCRIBE pretty-printed the type: a multi-line
+  // spelling is serialized with escaped newlines, so it stays on one line here.
+  assert.match(generated, /'versions': "Array\(Tuple\(/);
+  assert.match(
+    generated,
+    /'versions': Array<\{ installed_version: string; path: string \| null \}>;/,
+  );
 }
 assert.match(client, /chdbAdapter\(\{ session \}\)/);
 assert.ok(client.includes(`new Session(${JSON.stringify(dbPath)})`));
@@ -122,6 +135,20 @@ import path from 'node:path';
 const { db, session } = await import(path.resolve('compiled/analytics/client.js'));
 const rows = await db.rawQuery('SELECT count() AS count FROM events');
 assert.equal(String(rows[0].count), '1');
+
+// The generated record type says named tuples are objects. That is only true
+// while the server serializes them that way, so assert the shape rather than
+// trusting the setting default.
+const [row] = await db.rawQuery('SELECT versions FROM events LIMIT 1');
+assert.ok(Array.isArray(row.versions), 'versions should be an array');
+assert.ok(
+  row.versions[0] !== null &&
+    typeof row.versions[0] === 'object' &&
+    !Array.isArray(row.versions[0]),
+  `named tuples must arrive as objects, got ${JSON.stringify(row.versions[0])}`,
+);
+assert.equal(row.versions[0].installed_version, '1.0.0');
+assert.equal(row.versions[0].path, null);
 session.close();
 NODE
 )
