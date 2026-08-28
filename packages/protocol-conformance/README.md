@@ -35,6 +35,21 @@ hypequery-protocol-conformance run \
 hypequery-protocol-conformance list
 ```
 
+`--families` selects cases but deliberately permits partial adapters. Release
+gates should also pass `--expect-families` with the complete expected adapter
+family set. The run then fails during the handshake if a family was added or
+dropped without updating the gate. When both options are present, their family
+sets must match so the gate cannot assert a family while filtering out its
+cases. Every expected family must also retain at least one case after
+`--skip-fuzz` or `--only-fuzz` filtering:
+
+```bash
+hypequery-protocol-conformance run \
+  --families tagged-values-v1,identifiers-v1 \
+  --expect-families tagged-values-v1,identifiers-v1 \
+  -- python -m hypequery.protocol.adapter
+```
+
 Exit code `0` means every case passed, `1` means conformance failures, and `2` means the runner or adapter protocol could not be set up correctly.
 
 ## Adapter shape
@@ -50,6 +65,22 @@ The exported `createStdioAdapter` helper handles the loop. Your handler maps `(f
 ```
 
 The package includes a pinned fixture snapshot, so a pinned package version is also a pinned conformance target. Pass `--fixtures` to test local or newer specifications.
+
+## Repository gates
+
+With Node.js, pnpm, and `uv` installed, build the workspaces and run the
+TypeScript reference, SQL-portability, and Python adapters against the same
+local fixtures:
+
+```bash
+pnpm build
+pnpm conformance
+```
+
+The Python leg asserts its exact announced family set, so removing a supported
+family cannot turn cases into a green “not run” result. See the [fixture update
+runbook](../../specs/security-protocol/fixtures/README.md) when changing a
+fixture family or adding an implementation.
 
 ## License
 

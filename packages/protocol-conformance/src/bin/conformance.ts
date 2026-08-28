@@ -66,6 +66,14 @@ async function main(): Promise<number> {
   const families = typeof options.families === 'string'
     ? options.families.split(',').map((f) => f.trim()).filter(Boolean)
     : undefined;
+  const expectedFamiliesOption = options['expect-families'];
+  if (expectedFamiliesOption === true) {
+    process.stderr.write('error: --expect-families requires a comma-separated value\n');
+    return 2;
+  }
+  const expectedFamilies = typeof expectedFamiliesOption === 'string'
+    ? expectedFamiliesOption.split(',').map((f) => f.trim()).filter(Boolean)
+    : undefined;
 
   let summary;
   try {
@@ -73,6 +81,7 @@ async function main(): Promise<number> {
       adapterCommand,
       fixturesDir,
       families,
+      expectedFamilies,
       timeoutMs: typeof options['timeout-ms'] === 'string' ? Number(options['timeout-ms']) : undefined,
       skipFuzz: options['skip-fuzz'] === true,
       onlyFuzz: options['only-fuzz'] === true,
