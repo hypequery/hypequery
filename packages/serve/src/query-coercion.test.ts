@@ -77,6 +77,56 @@ describe("coerceQueryInput", () => {
     );
   });
 
+  it("preserves raw query values for preprocessors", () => {
+    const schema = z.object({
+      tags: z.preprocess(
+        (value) => typeof value === "string" ? value.split(",") : value,
+        z.array(z.string()),
+      ),
+    });
+
+    expect(parse(schema, { tags: "a,b" })).toMatchObject({
+      success: true,
+      data: { tags: ["a", "b"] },
+    });
+  });
+
+  it("does not invent a zero bigint for an empty query value", () => {
+    const schema = z.object({ id: z.bigint() });
+
+    for (const id of ["", "  "]) {
+      const result = parse(schema, { id });
+      expect(result.success).toBe(false);
+      expect((result as { error: z.ZodError }).error.issues[0]).toMatchObject({
+        code: "invalid_type",
+        expected: "bigint",
+        received: "string",
+        path: ["id"],
+      });
+    }
+  });
+
+  it("coerces through branded and readonly wrappers", () => {
+    const schema = z.object({
+      id: z.number().brand<"UserId">(),
+      page: z.number().readonly(),
+    });
+
+    expect(parse(schema, { id: "5", page: "2" })).toMatchObject({
+      success: true,
+      data: { id: 5, page: 2 },
+    });
+  });
+
+  it("coerces values declared by an object catchall schema", () => {
+    const schema = z.object({}).catchall(z.number());
+
+    expect(parse(schema, { first: "1", second: "2" })).toMatchObject({
+      success: true,
+      data: { first: 1, second: 2 },
+    });
+  });
+
   it("leaves strings and enums alone", () => {
     const schema = z.object({ name: z.string(), status: z.enum(["a", "b"]) });
 

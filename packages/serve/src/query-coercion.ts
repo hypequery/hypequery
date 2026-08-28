@@ -23,9 +23,10 @@ const defOf = (schema: unknown): ZodDefLike | undefined =>
 const typeNameOf = (schema: unknown): string | undefined => defOf(schema)?.typeName;
 
 /**
- * Strips the wrappers that do not change what a query value should be coerced
- * to. `ZodPipeline` unwraps to its input side, since that is what validation
- * receives.
+ * Strips wrappers that do not change what a query value should be coerced to.
+ * `ZodPipeline` unwraps to its input side, since that is what validation
+ * receives. Preprocess effects stay wrapped so their callback sees the raw wire
+ * value as declared by the schema.
  */
 function unwrap(schema: unknown, depth = 0): unknown {
   if (!schema || depth > 10) return schema;
@@ -36,9 +37,15 @@ function unwrap(schema: unknown, depth = 0): unknown {
     case "ZodNullable":
     case "ZodDefault":
     case "ZodCatch":
+    case "ZodReadonly":
       return unwrap(def.innerType, depth + 1);
-    case "ZodEffects":
+    case "ZodBranded":
+      return unwrap(def.type, depth + 1);
+    case "ZodEffects": {
+      const effect = def.effect as { type?: unknown } | undefined;
+      if (effect?.type === "preprocess") return schema;
       return unwrap(def.schema, depth + 1);
+    }
     case "ZodPipeline":
       return unwrap(def.in, depth + 1);
     default:
@@ -54,6 +61,7 @@ function coerceScalar(target: unknown, value: string): unknown {
       return Number.isFinite(parsed) ? parsed : value;
     }
     case "ZodBigInt": {
+      if (value.trim() === "") return value;
       try {
         return BigInt(value);
       } catch {
@@ -109,17 +117,24 @@ export function coerceQueryInput(schema: ZodTypeAny | undefined, raw: unknown): 
     const objectSchema = unwrap(schema);
     if (typeNameOf(objectSchema) !== "ZodObject") return raw;
 
-    const shapeFactory = defOf(objectSchema)?.shape;
+    const objectDef = defOf(objectSchema);
+    const shapeFactory = objectDef?.shape;
     const shape = (typeof shapeFactory === "function" ? shapeFactory() : shapeFactory) as
       | Record<string, ZodTypeAny>
       | undefined;
     if (!shape) return raw;
+    const catchall = typeNameOf(objectDef?.catchall) === "ZodNever"
+      ? undefined
+      : objectDef?.catchall as ZodTypeAny | undefined;
 
     const coerced: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
     for (const [key, value] of Object.entries(coerced)) {
-      // Unknown keys are left for the schema to strip or reject.
-      if (!(key in shape)) continue;
-      coerced[key] = coerceValue(shape[key], value);
+      const target = Object.prototype.hasOwnProperty.call(shape, key)
+        ? shape[key]
+        : catchall;
+      // Untyped unknown keys are left for the schema to strip or reject.
+      if (!target) continue;
+      coerced[key] = coerceValue(target, value);
     }
     return coerced;
   } catch {
