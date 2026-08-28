@@ -1,5 +1,11 @@
 # @hypequery/protocol-conformance
 
+## 0.10.1
+
+### Patch Changes
+
+- e341d94: Expand the tagged-values-v1 fixture snapshot to cover every RFC 8785 Appendix B number.
+
 ## 0.10.0
 
 ### Minor Changes
