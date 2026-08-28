@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Literal, TypeAlias, cast
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_serializer, field_validator, model_validator
 
 from ._base import DefinitionModel
 from .dimensions import Dimension
+from .immutability import freeze_mapping
 from .measures import Measure
 from .query_helpers import FilterOperator
 from .relationships import Relationship
@@ -42,7 +44,7 @@ class DatasetLimits(DefinitionModel):
     max_result_size: int | None = Field(default=None, ge=0)
 
 
-DefinitionMap: TypeAlias = dict[str, Dimension | Measure | FilterDefinition | Relationship]
+DefinitionMap: TypeAlias = Mapping[str, Dimension | Measure | FilterDefinition | Relationship]
 
 
 class Dataset(DefinitionModel):
@@ -53,10 +55,10 @@ class Dataset(DefinitionModel):
     source: str
     tenant_key: str | None = None
     time_key: str | None = None
-    dimensions: dict[str, Dimension]
-    measures: dict[str, Measure] = Field(default_factory=dict)
-    filters: dict[str, FilterDefinition] = Field(default_factory=dict)
-    relationships: dict[str, Relationship] = Field(default_factory=dict)
+    dimensions: Mapping[str, Dimension]
+    measures: Mapping[str, Measure] = Field(default_factory=dict)
+    filters: Mapping[str, FilterDefinition] = Field(default_factory=dict)
+    relationships: Mapping[str, Relationship] = Field(default_factory=dict)
     limits: DatasetLimits | None = None
 
     @model_validator(mode="before")
@@ -98,6 +100,10 @@ class Dataset(DefinitionModel):
         field_name = getattr(info, "field_name", "value")
         return validate_non_empty(value, field=str(field_name))
 
+    @field_serializer("dimensions", "measures", "filters", "relationships")
+    def _serialize_definition_map(self, value: Mapping[str, object]) -> dict[str, object]:
+        return dict(value)
+
     @model_validator(mode="after")
     def _valid_definition_names(self) -> Dataset:
         maps: tuple[DefinitionMap, ...] = (
@@ -110,4 +116,8 @@ class Dataset(DefinitionModel):
             validate_identifier_map(definitions)
         if self.source in self.relationships:
             raise ValueError("relationship name must not match the dataset source")
+        object.__setattr__(self, "dimensions", freeze_mapping(self.dimensions))
+        object.__setattr__(self, "measures", freeze_mapping(self.measures))
+        object.__setattr__(self, "filters", freeze_mapping(self.filters))
+        object.__setattr__(self, "relationships", freeze_mapping(self.relationships))
         return self

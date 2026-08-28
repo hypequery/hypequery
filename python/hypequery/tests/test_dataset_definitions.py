@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-from typing import assert_type
+from collections.abc import Mapping
+from typing import assert_type, cast
 
 import pytest
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 
 from hypequery.datasets import (
     Aggregation,
@@ -295,6 +296,30 @@ def test_filter_values_reject_functions_and_non_finite_numbers() -> None:
         Filter.model_validate({"field": "status", "operator": "eq", "value": callback})
     with pytest.raises(ValidationError):
         Filter.model_validate({"field": "amount", "operator": "eq", "value": float("nan")})
+
+
+def test_definition_containers_are_immutable_snapshots() -> None:
+    dimensions = {"id": dimension("string")}
+    dataset = Dataset(name="orders", source="orders", dimensions=dimensions)
+    dimensions["late"] = dimension("string")
+
+    assert set(dataset.dimensions) == {"id"}
+    with pytest.raises(TypeError):
+        cast(dict[str, Dimension], dataset.dimensions)["late"] = dimension("string")
+
+    source_values: list[JsonValue] = ["complete", {"nested": [1, 2]}]
+    definition = in_list("status", source_values)
+    source_values.append("late")
+
+    assert definition.model_dump(mode="json")["value"] == [
+        "complete",
+        {"nested": [1, 2]},
+    ]
+    with pytest.raises(AttributeError):
+        cast(list[object], definition.value).append("late")
+    frozen_object = cast(Mapping[str, object], cast(tuple[object, ...], definition.value)[1])
+    with pytest.raises(AttributeError):
+        cast(list[object], frozen_object["nested"]).append(3)
 
 
 def test_public_api_types_are_specific() -> None:

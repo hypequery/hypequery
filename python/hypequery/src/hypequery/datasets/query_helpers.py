@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Literal, TypeAlias
 
-from pydantic import JsonValue, field_validator
+from pydantic import JsonValue, field_serializer, field_validator
 
 from ._base import DefinitionModel
+from .immutability import freeze_json_value, thaw_json_value
 from .validation import validate_qualified_identifier
 
 FilterOperator: TypeAlias = Literal[
@@ -20,12 +21,21 @@ class Filter(DefinitionModel):
 
     field: str
     operator: FilterOperator
-    value: JsonValue
+    value: object
 
     @field_validator("field")
     @classmethod
     def _valid_field(cls, value: str) -> str:
         return validate_qualified_identifier(value)
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def _frozen_value(cls, value: object) -> object:
+        return freeze_json_value(value)
+
+    @field_serializer("value")
+    def _serialize_value(self, value: object) -> object:
+        return thaw_json_value(value)
 
 
 class Order(DefinitionModel):
