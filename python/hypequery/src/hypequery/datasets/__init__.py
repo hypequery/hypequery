@@ -1,13 +1,120 @@
-"""Semantic layer: datasets, dimensions, measures, relationships, and metrics.
-
-Mirrors the semantics of the TypeScript ``@hypequery/datasets`` package. The
-spellings are Pythonic; the meanings are not negotiable — the same logical
-model must produce the same catalog, contract hash, and bundle bytes in either
-language.
-
-Populated by train PY-B.
-"""
+"""Strict, Pythonic semantic dataset definition models."""
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from .aggregations import (
+    Aggregation,
+    AggregationType,
+    arg_max,
+    arg_min,
+    avg,
+    count,
+    count_distinct,
+    max,  # noqa: A004
+    median,
+    min,  # noqa: A004
+    percentile,
+    stddev,
+    sum,  # noqa: A004
+    variance,
+)
+from .dataset import Dataset, DatasetLimits, FilterDefinition
+from .dimensions import Dimension, DimensionType, dimension
+from .formulas import (
+    Formula,
+    FormulaBinary,
+    FormulaCall,
+    FormulaInput,
+    FormulaLiteral,
+    FormulaReference,
+    add,
+    ceil,
+    coalesce,
+    divide,
+    floor,
+    multiply,
+    null_if_zero,
+    round,  # noqa: A004
+    subtract,
+)
+from .measures import Measure, measure
+from .query_helpers import (
+    Filter,
+    FilterOperator,
+    Order,
+    OrderDirection,
+    asc,
+    between,
+    desc,
+    eq,
+    gt,
+    gte,
+    in_list,
+    like,
+    lt,
+    lte,
+    neq,
+    not_in_list,
+)
+from .relationships import Relationship, RelationshipKind, belongs_to, has_many, has_one
+
+__all__ = [
+    "Aggregation",
+    "AggregationType",
+    "Dataset",
+    "DatasetLimits",
+    "Dimension",
+    "DimensionType",
+    "Filter",
+    "FilterDefinition",
+    "FilterOperator",
+    "Formula",
+    "FormulaBinary",
+    "FormulaCall",
+    "FormulaInput",
+    "FormulaLiteral",
+    "FormulaReference",
+    "Measure",
+    "Order",
+    "OrderDirection",
+    "Relationship",
+    "RelationshipKind",
+    "add",
+    "arg_max",
+    "arg_min",
+    "asc",
+    "avg",
+    "belongs_to",
+    "between",
+    "ceil",
+    "coalesce",
+    "count",
+    "count_distinct",
+    "desc",
+    "dimension",
+    "divide",
+    "eq",
+    "floor",
+    "gt",
+    "gte",
+    "has_many",
+    "has_one",
+    "in_list",
+    "like",
+    "lt",
+    "lte",
+    "max",
+    "measure",
+    "median",
+    "min",
+    "multiply",
+    "neq",
+    "not_in_list",
+    "null_if_zero",
+    "percentile",
+    "round",
+    "stddev",
+    "subtract",
+    "sum",
+    "variance",
+]

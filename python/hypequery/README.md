@@ -2,7 +2,9 @@
 
 A Python semantic layer for ClickHouse datasets, metrics, multi-tenant analytics, and FastAPI serving.
 
-> **Pre-alpha:** the package structure and protocol foundation are in place; the public datasets and Serve APIs are still being built. Do not use this package in production yet.
+> **Pre-alpha:** the protocol foundation and dataset definition API are in place;
+> execution and Serve APIs are still being built. Do not use this package in
+> production yet.
 
 ## Planned install
 
@@ -54,6 +56,66 @@ segments = split_protocol_qualified_identifier(name)
 
 These names are safe protocol nodes, not SQL identifiers, filenames, or URLs;
 adapters must still quote or sanitize them for their destination domain.
+
+## Dataset definitions
+
+Definitions use strict, frozen Pydantic models. Helper spellings are Pythonic,
+while serialized aggregation and relationship values preserve the same logical
+meaning as `@hypequery/datasets`:
+
+```python
+from hypequery.datasets import (
+    Dataset,
+    DatasetLimits,
+    belongs_to,
+    count,
+    count_distinct,
+    dimension,
+    eq,
+    measure,
+    sum,
+)
+
+Customers = Dataset(
+    name="customers",
+    source="customers",
+    dimensions={"id": dimension("string")},
+)
+
+Orders = Dataset(
+    name="orders",
+    source="orders",
+    tenant_key="tenant_id",
+    time_key="created_at",
+    dimensions={
+        "id": dimension("string"),
+        "customerId": dimension("string", column="customer_id"),
+        "status": dimension("string"),
+        "amount": dimension("number"),
+    },
+    measures={
+        "revenue": measure(sum("amount")),
+        "orderCount": measure(count("id")),
+        "uniqueCustomers": measure(count_distinct("customerId")),
+        "completedRevenue": measure(
+            sum("amount"), filters=(eq("status", "completed"),)
+        ),
+    },
+    relationships={
+        "customer": belongs_to(
+            lambda: Customers,
+            from_field="customerId",
+            to_field="id",
+        )
+    },
+    limits=DatasetLimits(max_dimensions=5, max_filters=10),
+)
+```
+
+Relationship callbacks are invoked once by the helper. Models retain only the
+target dataset name, so `model_dump()` and `model_dump_json()` never serialize
+Python functions. Formula helpers likewise build immutable symbolic data; the
+portable RFC 0003 expression compiler is a separate roadmap step.
 
 ## Development
 
