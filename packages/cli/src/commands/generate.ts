@@ -80,7 +80,7 @@ export async function generateCommand(options: GenerateOptions = {}) {
 
     logger.success(
       parsedTables
-        ? `Found ${tableCount} tables, filtering to ${parsedTables.length}`
+        ? `Found ${tableCount} tables, applying --tables filter`
         : `Found ${tableCount} tables`,
     );
 
@@ -89,16 +89,15 @@ export async function generateCommand(options: GenerateOptions = {}) {
     activeSpinner = typeSpinner;
     failureMessage = 'Failed to generate types';
 
-    await generator({
+    const generatedTables = await generator({
       outputPath,
       includeTables: parsedTables,
       chdbPath,
     });
 
-    // Report what was written, not what was discovered. With `--tables` these
-    // differ, and reporting the discovered count reads as though the filter
-    // was ignored.
-    const generatedCount = parsedTables?.length ?? tableCount;
+    // The generator returns what it actually wrote after applying filters.
+    // Requested names may contain duplicates or tables that do not exist.
+    const generatedCount = generatedTables.length;
     typeSpinner.succeed(
       `Generated types for ${generatedCount} ${generatedCount === 1 ? 'table' : 'tables'}`,
     );

@@ -16,8 +16,10 @@ all of them, so existing `.env`-only setups are unaffected.
 **Reports the number of tables generated, not discovered.** `generate --tables
 ontime` against a 79-table database printed `Found 79 tables` and `Generated
 types for 79 tables` while correctly generating exactly one. The filter worked;
-the message made it look broken. Both commands now say
-`Found 79 tables, filtering to 1` and `Generated types for 1 table`.
+the message made it look broken. The generator now reports the tables it actually
+wrote, so duplicate or nonexistent requested names cannot inflate the count. The
+command says `Found 79 tables, applying --tables filter` and `Generated types for
+1 table`.
 
 **`generate:datasets` defaults to `analytics/datasets.ts`.** It previously wrote
 `src/datasets/generated.ts` while its sibling `generate` wrote

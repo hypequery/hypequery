@@ -176,7 +176,7 @@ Real-world goal: "my ClickHouse schema changed — refresh my types."
 
 ### T2.5 — `--tables` subset
 **Run:** `hq generate --tables E,E2`
-**Expect:** only `E` and `E2` interfaces present in output; a third table is absent. Note the `Found N tables` count reflects total tables, while generation is restricted.
+**Expect:** only `E` and `E2` interfaces present in output; a third table is absent. The discovery line says `Found N tables, applying --tables filter`, where `N` reflects total tables, and the success line says `Generated types for 2 tables`. Repeat with a duplicate and nonexistent name (`E,E,missing`); the success line must report `1 table`, matching the generated file.
 
 ### T2.6 — Connection error guidance
 **Pre:** point `CLICKHOUSE_URL` at a dead port, e.g. `http://localhost:9` .

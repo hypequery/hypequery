@@ -22,5 +22,5 @@ export async function generateChdbTypes(options: ChdbGeneratorOptions) {
     ...(options.excludeTables ? { excludeTables: options.excludeTables } : {}),
   };
 
-  await generateTypes(options.outputPath, generatorOptions);
+  return generateTypes(options.outputPath, generatorOptions);
 }

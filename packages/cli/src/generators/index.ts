@@ -4,7 +4,7 @@ import type { ChdbGeneratorOptions } from './chdb.js';
 
 export type TypeGeneratorOptions = ClickHouseGeneratorOptions & ChdbGeneratorOptions;
 
-type GeneratorFn = (options: TypeGeneratorOptions) => Promise<void>;
+type GeneratorFn = (options: TypeGeneratorOptions) => Promise<string[]>;
 
 // Loaded on demand. The generator itself is local now, but it still reaches for a driver —
 // `@clickhouse/client` for one, the native `chdb` package for the other — and importing
@@ -13,11 +13,11 @@ type GeneratorFn = (options: TypeGeneratorOptions) => Promise<void>;
 const generators: Partial<Record<DatabaseType, GeneratorFn>> = {
   clickhouse: async (options) => {
     const { generateClickHouseTypes } = await import('./clickhouse.js');
-    await generateClickHouseTypes(options);
+    return generateClickHouseTypes(options);
   },
   chdb: async (options) => {
     const { generateChdbTypes } = await import('./chdb.js');
-    await generateChdbTypes(options);
+    return generateChdbTypes(options);
   },
 };
 

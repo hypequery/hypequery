@@ -15,11 +15,11 @@ vi.mock('../utils/clickhouse-client.js', () => ({
 describe('generateClickHouseTypes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    generateTypes.mockResolvedValue(undefined);
+    generateTypes.mockResolvedValue(['users']);
   });
 
   it('delegates ClickHouse type generation to the shared package implementation', async () => {
-    await generateClickHouseTypes({
+    const generatedTables = await generateClickHouseTypes({
       outputPath: 'analytics/schema.ts',
       includeTables: ['users'],
       excludeTables: ['events'],
@@ -32,5 +32,6 @@ describe('generateClickHouseTypes', () => {
       includeTables: ['users'],
       excludeTables: ['events'],
     });
+    expect(generatedTables).toEqual(['users']);
   });
 });
