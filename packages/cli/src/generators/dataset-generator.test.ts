@@ -57,9 +57,10 @@ describe('generateDatasets', () => {
     const tsconfigPath = path.join(workdir, 'tsconfig.json');
     const repoRoot = path.resolve(__dirname, '../../../..');
 
-    await generateDatasets({ outputPath });
+    const result = await generateDatasets({ outputPath });
 
     const generated = await readFile(outputPath, 'utf8');
+    expect(result.contents).toBe(generated);
     expect(generated).toContain("totalCount: measure.count('id'");
     expect(generated).toContain("totalAmount: measure.sum('amount'");
     expect(generated).toContain("avgAmount: measure.avg('amount'");
@@ -135,6 +136,33 @@ describe('generateDatasets', () => {
     await expect(readFile(outputPath, 'utf8')).resolves.toContain(
       "export const EventsDataset = dataset('events'",
     );
+  });
+
+  it('can render definitions without writing the output file', async () => {
+    const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
+      if (query === 'SHOW TABLES') {
+        return { json: async () => [{ name: 'events' }] };
+      }
+      if (query === 'DESCRIBE TABLE events') {
+        return {
+          json: async () => [
+            { name: 'id', type: 'UInt64', default_type: '', default_expression: '' },
+          ],
+        };
+      }
+      throw new Error(`Unexpected query: ${query}`);
+    });
+    const workdir = await mkdtemp(path.join(tmpdir(), 'hq-dataset-render-only-'));
+    const outputPath = path.join(workdir, 'datasets.ts');
+
+    const result = await generateDatasets({
+      outputPath,
+      client: { query: injectedQuery },
+      writeOutput: false,
+    });
+
+    expect(result.contents).toContain("export const EventsDataset = dataset('events'");
+    await expect(readFile(outputPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('never turns customer_id naming into active tenant enforcement', async () => {
