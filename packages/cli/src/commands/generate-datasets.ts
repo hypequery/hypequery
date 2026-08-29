@@ -36,6 +36,12 @@ function toImportSpecifier(relativePath: string): string {
   return normalized.startsWith('.') ? normalized : `./${normalized}`;
 }
 
+function refuseOverwrite(relativeOutput: string): void {
+  logger.warn(`Refusing to overwrite existing dataset definitions: ${relativeOutput}`);
+  logger.info('Run again with --diff to inspect changes or --force to replace the file.');
+  process.exitCode = 1;
+}
+
 function parseTableList(value: string | undefined): string[] | undefined {
   const parsed = value
     ?.split(',')
@@ -132,12 +138,22 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       process.exitCode = 1;
       return;
     } else if (currentContents !== undefined && !options.force) {
-      logger.warn(`Refusing to overwrite existing dataset definitions: ${relativeOutput}`);
-      logger.info('Run again with --diff to inspect changes or --force to replace the file.');
-      process.exitCode = 1;
+      refuseOverwrite(relativeOutput);
       return;
     } else {
-      await writeGeneratedFileAtomically(outputPath, generated.contents);
+      try {
+        // Without --force this is an exclusive create, so a file written
+        // between the read above and here is refused rather than clobbered.
+        await writeGeneratedFileAtomically(outputPath, generated.contents, {
+          overwrite: options.force === true,
+        });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+          refuseOverwrite(relativeOutput);
+          return;
+        }
+        throw error;
+      }
       logger.success(
         currentContents === undefined
           ? `Created ${relativeOutput}`

@@ -288,7 +288,7 @@ Scaffolds [dataset (semantic layer)](/docs/datasets/overview) definitions from a
 
 **What it does:**
 
-The generator connects to ClickHouse with your `CLICKHOUSE_*` env vars and renders a `datasets` export containing a `dataset(...)` definition per table with inferred dimensions and measures. It creates a missing output file, but refuses to overwrite an existing customized file unless you pass `--force`; replacements are written atomically. Use `--check` in CI or `--diff` to review schema-driven changes without writing. Review and customize the output, then import it into your application or `api.ts`.
+The generator connects to ClickHouse with your `CLICKHOUSE_*` env vars and renders a `datasets` export containing a `dataset(...)` definition per table with inferred dimensions and measures. It creates a missing output file, but refuses to overwrite an existing customized file unless you pass `--force`. Without `--force` the output is created exclusively, so a file another process wrote in the meantime is refused rather than clobbered; with `--force` the replacement is atomic and keeps the existing file's permissions. Use `--check` in CI or `--diff` to review schema-driven changes without writing. Review and customize the output, then import it into your application or `api.ts`.
 
 Column names such as `tenant_id`, `organization_id`, or `customer_id` are reported as possible tenant-key candidates — all of them, not just the first match — but the generator never enables `tenantKey` from a name match. Tenant isolation is a security policy: add it explicitly only after configuring trusted runtime tenant scope in your application or Serve API.
 

@@ -203,7 +203,23 @@ describe('generate datasets command', () => {
     expect(mockWriteGeneratedFileAtomically).toHaveBeenCalledWith(
       expect.stringContaining('analytics/datasets.ts'),
       'generated datasets\n',
+      { overwrite: false },
     );
+  });
+
+  it('refuses to replace a file created after the output was read', async () => {
+    // The exclusive create loses the race, which is the point: nothing is
+    // clobbered.
+    mockWriteGeneratedFileAtomically.mockRejectedValue(
+      Object.assign(new Error('Refusing to overwrite existing file'), { code: 'EEXIST' }),
+    );
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts' });
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Refusing to overwrite existing dataset definitions: analytics/datasets.ts',
+    );
+    expect(process.exitCode).toBe(1);
   });
 
   it('refuses to replace an existing customized file by default', async () => {
@@ -226,6 +242,7 @@ describe('generate datasets command', () => {
     expect(mockWriteGeneratedFileAtomically).toHaveBeenCalledWith(
       expect.stringContaining('analytics/datasets.ts'),
       'generated datasets\n',
+      { overwrite: true },
     );
     expect(mockLogger.success).toHaveBeenCalledWith('Updated analytics/datasets.ts');
     expect(process.exitCode).toBeUndefined();
