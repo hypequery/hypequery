@@ -425,9 +425,9 @@ type DatasetDimensionDefinitionByName<
 // row. Filter fields stay `string` because a dataset's `filters` map is widened
 // to `SemanticFiltersDefinition` and does not preserve literal keys.
 //
-// Measure and metric values are `string`, not `number`: ClickHouse serializes
-// aggregate results (UInt64, Decimal, ...) as strings over JSON, and the query
-// builder's AggregationType makes the same choice.
+// Measure and metric values are `string | null`, not `number`: semantic query
+// execution normalizes every non-null aggregate to a string while preserving
+// SQL NULL.
 // ---------------------------------------------------------------------------
 
 /** Dimension names declared by a dataset. */
@@ -491,7 +491,7 @@ type PeriodSelection<TQuery> = TQuery extends { by: TimeGrain }
 /** A broad typed result row for a dataset, independent of projection. */
 export type DatasetRow<TDataset extends DatasetInstance<any, any, any, any>> =
   & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
-  & { [K in DatasetMeasureNames<TDataset>]?: string }
+  & { [K in DatasetMeasureNames<TDataset>]?: string | null }
   & { period?: string };
 
 /** A projection-aware typed result row for a dataset query. */
@@ -500,7 +500,7 @@ export type DatasetRowFor<
   TQuery = DatasetQueryFor<TDataset>,
 > =
   & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
-  & { [K in SelectedDatasetMeasures<TDataset, TQuery>]?: string }
+  & { [K in SelectedDatasetMeasures<TDataset, TQuery>]?: string | null }
   & PeriodSelection<TQuery>;
 
 export interface DatasetQueryResultFor<
@@ -531,7 +531,7 @@ export type MetricRow<
   TMetricName extends string,
 > =
   & { [K in DatasetDimensionNames<TDataset>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
-  & { [K in TMetricName]?: string }
+  & { [K in TMetricName]?: string | null }
   & { period?: string };
 
 /** A projection-aware typed result row for a metric query. */
@@ -541,7 +541,7 @@ export type MetricRowFor<
   TQuery = MetricQueryFor<TDataset, TMetricName>,
 > =
   & { [K in SelectedDimensions<TDataset, TQuery>]?: InferDimensionType<DatasetQueryableDimensions<TDataset>[K]> }
-  & { [K in TMetricName]?: string }
+  & { [K in TMetricName]?: string | null }
   & PeriodSelection<TQuery>;
 
 export interface MetricResultFor<

@@ -47,8 +47,8 @@ const datasetResult = hooks.useDataset('orders', {
 });
 const datasetRow = datasetResult.data?.data[0];
 const datasetCountry: string | undefined = datasetRow?.country;
-// Measure values are strings: ClickHouse serializes aggregates as strings over JSON.
-const datasetRevenue: string | undefined = datasetRow?.revenue;
+// Measure values are normalized strings, with SQL NULL preserved.
+const datasetRevenue: string | null | undefined = datasetRow?.revenue;
 void datasetCountry;
 void datasetRevenue;
 
@@ -76,7 +76,7 @@ const metricResult = hooks.useMetric('totalRevenue', {
   dimensions: ['country'] as const,
 });
 const metricRow = metricResult.data?.data[0];
-const metricValue: string | undefined = metricRow?.totalRevenue;
+const metricValue: string | null | undefined = metricRow?.totalRevenue;
 const metricCountry: string | undefined = metricRow?.country;
 void metricValue;
 void metricCountry;
@@ -92,7 +92,7 @@ const infiniteDatasetResult = hooks.useInfiniteDataset('orders', {
 });
 const infiniteDatasetRow = infiniteDatasetResult.data?.pages[0]?.data[0];
 const infiniteDatasetCountry: string | undefined = infiniteDatasetRow?.country;
-const infiniteDatasetRevenue: string | undefined = infiniteDatasetRow?.revenue;
+const infiniteDatasetRevenue: string | null | undefined = infiniteDatasetRow?.revenue;
 void infiniteDatasetCountry;
 void infiniteDatasetRevenue;
 
@@ -115,7 +115,7 @@ const infiniteMetricResult = hooks.useInfiniteMetric('totalRevenue', {
   limit: 50,
 });
 const infiniteMetricRow = infiniteMetricResult.data?.pages[0]?.data[0];
-const infiniteMetricValue: string | undefined = infiniteMetricRow?.totalRevenue;
+const infiniteMetricValue: string | null | undefined = infiniteMetricRow?.totalRevenue;
 const infiniteMetricCountry: string | undefined = infiniteMetricRow?.country;
 void infiniteMetricValue;
 void infiniteMetricCountry;

@@ -74,11 +74,10 @@ async function assertDatasetProjection() {
   });
   const row = result.data[0]!;
 
-  // Dimensions keep their declared type; measure values are strings because
-  // ClickHouse serializes aggregate results (UInt64, Decimal, ...) as strings
-  // over JSON — matching the query builder's AggregationType.
+  // Dimensions keep their declared type; non-null measure values are strings,
+  // while SQL NULL remains null.
   type _Country = Assert<Equal<typeof row.country, string | undefined>>;
-  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | null | undefined>>;
 
   // @ts-expect-error measure values are strings, not numbers
   const revenueAsNumber: number | undefined = row.revenue;
@@ -123,12 +122,12 @@ async function assertEveryAggregationEmitsString() {
   });
   const row = result.data[0]!;
 
-  type _Sum = Assert<Equal<typeof row.revenue, string | undefined>>;
-  type _Count = Assert<Equal<typeof row.orderCount, string | undefined>>;
-  type _CountDistinct = Assert<Equal<typeof row.uniqueCustomers, string | undefined>>;
-  type _Avg = Assert<Equal<typeof row.averageOrderValue, string | undefined>>;
-  type _Min = Assert<Equal<typeof row.smallestOrder, string | undefined>>;
-  type _Max = Assert<Equal<typeof row.largestOrder, string | undefined>>;
+  type _Sum = Assert<Equal<typeof row.revenue, string | null | undefined>>;
+  type _Count = Assert<Equal<typeof row.orderCount, string | null | undefined>>;
+  type _CountDistinct = Assert<Equal<typeof row.uniqueCustomers, string | null | undefined>>;
+  type _Avg = Assert<Equal<typeof row.averageOrderValue, string | null | undefined>>;
+  type _Min = Assert<Equal<typeof row.smallestOrder, string | null | undefined>>;
+  type _Max = Assert<Equal<typeof row.largestOrder, string | null | undefined>>;
 }
 
 async function assertMeasuresOnlyProjection() {
@@ -136,7 +135,7 @@ async function assertMeasuresOnlyProjection() {
     measures: ['revenue'] as const,
   });
   const row = result.data[0]!;
-  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | null | undefined>>;
 
   // @ts-expect-error dimensions are not exposed when omitted
   void row.country;
@@ -147,8 +146,8 @@ async function assertOmittedMeasuresExposeAllMeasures() {
     dimensions: ['country'] as const,
   });
   const row = result.data[0]!;
-  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
-  type _OrderCount = Assert<Equal<typeof row.orderCount, string | undefined>>;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | null | undefined>>;
+  type _OrderCount = Assert<Equal<typeof row.orderCount, string | null | undefined>>;
 }
 
 async function assertPeriodProjection() {
@@ -166,7 +165,7 @@ async function assertMetricProjection() {
   });
   const row = result.data[0]!;
   type _Country = Assert<Equal<typeof row.country, string | undefined>>;
-  type _Revenue = Assert<Equal<typeof row.revenue, string | undefined>>;
+  type _Revenue = Assert<Equal<typeof row.revenue, string | null | undefined>>;
 
   // @ts-expect-error metric values are strings, not numbers
   const revenueAsNumber: number | undefined = row.revenue;
@@ -191,12 +190,12 @@ async function assertMetricPeriodProjection() {
 function assertBroadRowTypes() {
   const datasetRow = {} as DatasetRow<typeof Orders>;
   type _NumberDimension = Assert<Equal<typeof datasetRow.amount, number | undefined>>;
-  type _Revenue = Assert<Equal<typeof datasetRow.revenue, string | undefined>>;
-  type _OrderCount = Assert<Equal<typeof datasetRow.orderCount, string | undefined>>;
+  type _Revenue = Assert<Equal<typeof datasetRow.revenue, string | null | undefined>>;
+  type _OrderCount = Assert<Equal<typeof datasetRow.orderCount, string | null | undefined>>;
   type _Period = Assert<Equal<typeof datasetRow.period, string | undefined>>;
 
   const metricRow = {} as MetricRow<typeof Orders, 'revenue'>;
-  type _MetricValue = Assert<Equal<typeof metricRow.revenue, string | undefined>>;
+  type _MetricValue = Assert<Equal<typeof metricRow.revenue, string | null | undefined>>;
   type _MetricCountry = Assert<Equal<typeof metricRow.country, string | undefined>>;
 }
 
