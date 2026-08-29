@@ -1,6 +1,6 @@
 {
   "name": "@hypequery/protocol-conformance",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "Cross-language conformance runner for the Hypequery analytics security protocol",
   "keywords": [
     "hypequery",
