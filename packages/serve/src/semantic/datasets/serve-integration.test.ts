@@ -589,9 +589,11 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("data");
+      // The driver returns numbers; the semantic result contract normalizes
+      // every non-null measure value to a string on the way out.
       expect(semanticBody(response).data).toEqual([
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
+        { country: "US", totalRevenue: "5000" },
+        { country: "DE", totalRevenue: "3000" },
       ]);
     });
 
@@ -1501,8 +1503,8 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).data).toEqual([
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
+        { country: "US", totalRevenue: "5000" },
+        { country: "DE", totalRevenue: "3000" },
       ]);
 
       // Builder methods should have been called
@@ -1708,8 +1710,8 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).data).toEqual([
-        { country: "US", revenue: 5000, count: 12 },
-        { country: "DE", revenue: 3000, count: 8 },
+        { country: "US", revenue: "5000", count: "12" },
+        { country: "DE", revenue: "3000", count: "8" },
       ]);
       expect(factory._calls['table'][0]).toEqual(['orders']);
       expect(factory._calls['select'][0][0]).toContain('country');
@@ -1768,9 +1770,10 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(200);
+      // Dimensions keep their driver shape; only measures are normalized.
       expect(semanticBody(response).data).toEqual([
-        { period: "2025-01-01", countryCode: "US", revenue: 5000 },
-        { period: "2025-01-01", countryCode: "DE", revenue: 3000 },
+        { period: "2025-01-01", countryCode: "US", revenue: "5000" },
+        { period: "2025-01-01", countryCode: "DE", revenue: "3000" },
       ]);
       const selectArgs = factory._calls['select'][0][0];
       expect(selectArgs).toContain('toStartOfMonth(created_at) AS period');
@@ -1803,7 +1806,7 @@ describe("Serve integration — metrics", () => {
 
       expect(response.status).toBe(200);
       expect(semanticBody(response).data).toEqual([
-        { countryCode: "US", revenue: 5000 },
+        { countryCode: "US", revenue: "5000" },
       ]);
       expect(factory._calls['where']).toContainEqual(['created_at', 'gte', '2025-01-01']);
     });
