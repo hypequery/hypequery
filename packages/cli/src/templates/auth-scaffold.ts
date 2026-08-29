@@ -5,6 +5,13 @@
 export type AuthTemplateMode = 'none' | 'context';
 
 /**
+ * Tenant column the context-auth scaffold configures as its trusted runtime
+ * tenant scope. Generated datasets must use the same column for their
+ * `tenantKey`, otherwise tenant-scoped requests fail at runtime.
+ */
+export const CONTEXT_AUTH_TENANT_COLUMN = 'tenant_id';
+
+/**
  * Type guards that pull a trusted `HostUser` off the underlying request. The
  * host framework is expected to have already authenticated the request and
  * attached the user to `request.raw.user`.
@@ -43,6 +50,6 @@ export const contextAuthConfig = `  auth: fromContext(({ request }) => {
   }),
   tenant: {
     extract: (auth: { tenantId?: string }) => auth.tenantId,
-    column: 'tenant_id',
+    column: '${CONTEXT_AUTH_TENANT_COLUMN}',
     mode: 'auto-inject',
   },`;

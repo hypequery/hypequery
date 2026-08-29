@@ -211,7 +211,7 @@ export declare const measure: {
     await writeFile(path.join(analyticsDir, 'schema.ts'), `export interface IntrospectedSchema {}
 `);
     await writeFile(path.join(analyticsDir, 'client.ts'), generateClientTemplate());
-    await writeFile(path.join(analyticsDir, 'datasets.ts'), generateDatasetsPlaceholderTemplate());
+    await writeFile(path.join(analyticsDir, 'datasets.ts'), generateDatasetsPlaceholderTemplate({ auth }));
     await writeFile(path.join(analyticsDir, 'api.ts'), generateApiTemplate({ auth }));
 
     const result = await runTypeCheck(projectDir);

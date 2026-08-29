@@ -133,14 +133,14 @@ describe('generate datasets command', () => {
       warnings: [{
         kind: 'tenant-key-candidate',
         table: 'orders',
-        column: 'customer_id',
+        columns: ['customer_id'],
         message: 'Review customer_id before enabling tenant scope.',
       }],
     });
 
     await generateDatasetsCommand({ tables: 'orders' });
 
-    expect(mockLogger.warn).toHaveBeenCalledWith('Review generated dataset security candidates:');
+    expect(mockLogger.warn).toHaveBeenCalledWith('Review generated dataset tenant isolation:');
     expect(mockLogger.indent).toHaveBeenCalledWith(
       '• Review customer_id before enabling tenant scope.',
     );

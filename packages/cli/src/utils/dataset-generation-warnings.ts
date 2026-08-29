@@ -9,7 +9,7 @@ export function logDatasetGenerationWarnings(
   }
 
   logger.newline();
-  logger.warn('Review generated dataset security candidates:');
+  logger.warn('Review generated dataset tenant isolation:');
   for (const warning of warnings) {
     logger.indent(`• ${warning.message}`);
   }
