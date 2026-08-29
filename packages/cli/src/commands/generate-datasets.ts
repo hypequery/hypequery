@@ -11,6 +11,7 @@ import { logger } from '../utils/logger.js';
 import { getTableCount } from '../utils/detect-database.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
+import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
 
 export interface GenerateDatasetsOptions {
   output?: string;
@@ -88,6 +89,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
 
     const relativeOutput = path.relative(process.cwd(), outputPath);
     logger.success(`Created ${relativeOutput}`);
+    logDatasetGenerationWarnings(generated?.warnings);
 
     logger.newline();
     logger.header('Next steps:');

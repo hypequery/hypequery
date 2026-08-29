@@ -17,6 +17,13 @@ export interface DatasetGeneratorOptions {
   client?: TypeGenerationClickHouseClient;
 }
 
+export interface DatasetGenerationWarning {
+  kind: 'tenant-key-candidate';
+  table: string;
+  column: string;
+  message: string;
+}
+
 interface ColumnInfo {
   name: string;
   type: string;
@@ -77,9 +84,12 @@ function isTimestampColumn(column: ColumnInfo): boolean {
 }
 
 /**
- * Check if a column is likely a tenant ID column
+ * Check if a column name is worth presenting as a possible tenant key.
+ *
+ * A naming match is never enough to activate tenant enforcement. `tenantKey`
+ * is a security boundary that must be chosen explicitly by the application.
  */
-function isTenantColumn(column: ColumnInfo): boolean {
+function isTenantKeyCandidate(column: ColumnInfo): boolean {
   const name = column.name.toLowerCase();
 
   return (
@@ -118,7 +128,7 @@ function isIdentifierColumn(column: ColumnInfo): boolean {
     name.endsWith('_id') ||
     originalName.endsWith('Id') ||
     name.includes('uuid') ||
-    isTenantColumn(column)
+    isTenantKeyCandidate(column)
   );
 }
 
@@ -180,7 +190,7 @@ function generateLabel(columnName: string): string {
 async function generateDatasetForTable(
   client: TypeGenerationClickHouseClient,
   tableName: string
-): Promise<string> {
+): Promise<{ code: string; warnings: DatasetGenerationWarning[] }> {
   // Get column information
   const columnsQuery = await client.query({
     query: `DESCRIBE TABLE ${tableName}`,
@@ -192,8 +202,19 @@ async function generateDatasetForTable(
   const timestampColumns = columns.filter(isTimestampColumn);
   const timeKeyColumn = timestampColumns.find((c) => c.name === 'created_at') || timestampColumns[0];
 
-  // Determine tenantKey
-  const tenantColumn = columns.find(isTenantColumn);
+  // Surface possible tenant keys for review, but never turn a column-name
+  // heuristic into an active security policy.
+  const tenantCandidate = columns.find(isTenantKeyCandidate);
+  const warnings: DatasetGenerationWarning[] = tenantCandidate
+    ? [{
+        kind: 'tenant-key-candidate',
+        table: tableName,
+        column: tenantCandidate.name,
+        message:
+          `Dataset "${tableName}" has possible tenant key "${tenantCandidate.name}". ` +
+          'Review it and add tenantKey explicitly only after configuring trusted runtime tenant scope.',
+      }]
+    : [];
 
   // Generate dimensions
   const dimensionLines: string[] = [];
@@ -245,8 +266,9 @@ async function generateDatasetForTable(
     configLines.push(`  timeKey: '${timeKeyColumn.name}',`);
   }
 
-  if (tenantColumn) {
-    configLines.push(`  tenantKey: '${tenantColumn.name}', // Auto-detected tenant isolation column`);
+  if (tenantCandidate) {
+    configLines.push(`  // Possible tenant key: '${tenantCandidate.name}'.`);
+    configLines.push(`  // Add tenantKey explicitly only after configuring trusted runtime tenant scope.`);
   }
 
   configLines.push(`  dimensions: {`);
@@ -256,10 +278,13 @@ async function generateDatasetForTable(
   configLines.push(...measureLines);
   configLines.push(`  },`);
 
-  return `export const ${datasetName}Dataset = dataset('${tableName}', {
+  return {
+    code: `export const ${datasetName}Dataset = dataset('${tableName}', {
 ${configLines.join('\n')}
 });
-`;
+`,
+    warnings,
+  };
 }
 
 /**
@@ -293,10 +318,12 @@ export async function generateDatasets(options: DatasetGeneratorOptions) {
 
   // Generate dataset definitions
   const datasetDefinitions: string[] = [];
+  const warnings: DatasetGenerationWarning[] = [];
 
   for (const table of tables) {
-    const datasetCode = await generateDatasetForTable(client, table.name);
-    datasetDefinitions.push(datasetCode);
+    const generated = await generateDatasetForTable(client, table.name);
+    datasetDefinitions.push(generated.code);
+    warnings.push(...generated.warnings);
   }
 
   // Build the complete output file
@@ -331,5 +358,6 @@ ${tables.map((table) => `  ${table.name}: ${tableToPascalCase(table.name)}Datase
       table: table.name,
       exportName: `${tableToPascalCase(table.name)}Dataset`,
     })),
+    warnings,
   };
 }

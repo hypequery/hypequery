@@ -67,6 +67,8 @@ describe('generateDatasets', () => {
     expect(generated).toContain("avgDurationSeconds: measure.avg('durationSeconds'");
     expect(generated).toContain("paymentType: dimension.string({ column: 'payment_type'");
     expect(generated).toContain("status: dimension.string({ label: 'Status' })");
+    expect(generated).toContain("// Possible tenant key: 'tenant_id'.");
+    expect(generated).not.toContain("tenantKey: 'tenant_id'");
     expect(generated).not.toContain("totalProductId: measure.sum('productId'");
     expect(generated).not.toContain("avgProductId: measure.avg('productId'");
     expect(generated).not.toContain("totalTripId: measure.sum('tripId'");
@@ -133,5 +135,37 @@ describe('generateDatasets', () => {
     await expect(readFile(outputPath, 'utf8')).resolves.toContain(
       "export const EventsDataset = dataset('events'",
     );
+  });
+
+  it('never turns customer_id naming into active tenant enforcement', async () => {
+    mockQuery.mockImplementation(async ({ query }: { query: string }) => {
+      if (query === 'SHOW TABLES') {
+        return { json: async () => [{ name: 'orders' }] };
+      }
+      if (query === 'DESCRIBE TABLE orders') {
+        return {
+          json: async () => [
+            { name: 'id', type: 'UInt64', default_type: '', default_expression: '' },
+            { name: 'customer_id', type: 'UInt64', default_type: '', default_expression: '' },
+          ],
+        };
+      }
+      throw new Error(`Unexpected query: ${query}`);
+    });
+    const workdir = await mkdtemp(path.join(tmpdir(), 'hq-dataset-tenant-candidate-'));
+    const outputPath = path.join(workdir, 'datasets.ts');
+
+    const result = await generateDatasets({ outputPath });
+    const generated = await readFile(outputPath, 'utf8');
+
+    expect(generated).toContain("// Possible tenant key: 'customer_id'.");
+    expect(generated).not.toContain("tenantKey: 'customer_id'");
+    expect(result.warnings).toEqual([
+      expect.objectContaining({
+        kind: 'tenant-key-candidate',
+        table: 'orders',
+        column: 'customer_id',
+      }),
+    ]);
   });
 });

@@ -39,6 +39,7 @@ import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { installScaffoldDependencies } from '../utils/dependency-installer.js';
+import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
 
 export interface InitOptions {
   path?: string;
@@ -509,7 +510,7 @@ export interface IntrospectedSchema {
     );
 
     if (shouldGenerateDatasets) {
-      await generateDatasets({
+      const generated = await generateDatasets({
         outputPath: datasetsPath,
         includeTables: options.allTables ? undefined : datasetTables,
         excludeTables: excludedDatasetTables,
@@ -517,6 +518,7 @@ export interface IntrospectedSchema {
           ? { client: getChdbTypeGenerationClient(chdbPath) }
           : {}),
       });
+      logDatasetGenerationWarnings(generated?.warnings);
       generatedAnyDatasets = true;
       generatedSelectedDataset = selectedTable !== null && (
         options.allTables === true ||
