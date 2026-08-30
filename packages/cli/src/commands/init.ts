@@ -34,11 +34,14 @@ import { generateEnvTemplate, appendToEnv } from '../templates/env.js';
 import { generateClientTemplate } from '../templates/client.js';
 import { generateQueriesTemplate, type AuthTemplateMode } from '../templates/queries.js';
 import { generateApiTemplate } from '../templates/api.js';
+import { CONTEXT_AUTH_TENANT_COLUMN } from '../templates/auth-scaffold.js';
 import { generateDatasetsPlaceholderTemplate } from '../templates/datasets.js';
 import { appendToGitignore } from '../templates/gitignore.js';
 import { getTypeGenerator } from '../generators/index.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { installScaffoldDependencies } from '../utils/dependency-installer.js';
+import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
+import { formatRegenerateDatasetsCommand } from '../utils/regenerate-datasets-command.js';
 
 export interface InitOptions {
   path?: string;
@@ -509,23 +512,32 @@ export interface IntrospectedSchema {
     );
 
     if (shouldGenerateDatasets) {
-      await generateDatasets({
+      const generated = await generateDatasets({
         outputPath: datasetsPath,
         includeTables: options.allTables ? undefined : datasetTables,
         excludeTables: excludedDatasetTables,
+        // Context auth scaffolds a trusted runtime tenant scope on that column,
+        // so datasets must declare the matching tenantKey or every tenant-scoped
+        // request fails. This is explicit configuration, not a name heuristic.
+        ...(auth === 'context' ? { tenantColumn: CONTEXT_AUTH_TENANT_COLUMN } : {}),
         ...(database === 'chdb'
           ? { client: getChdbTypeGenerationClient(chdbPath) }
           : {}),
       });
+      logDatasetGenerationWarnings(generated?.warnings);
       generatedAnyDatasets = true;
       generatedSelectedDataset = selectedTable !== null && (
         options.allTables === true ||
         datasetTables?.includes(selectedTable) === true
       );
     } else {
-      await writeFile(datasetsPath, generateDatasetsPlaceholderTemplate());
+      await writeFile(datasetsPath, generateDatasetsPlaceholderTemplate({ auth }));
       if (hasValidConnection) {
-        logger.info('Skipped dataset generation. Run `hypequery generate:datasets --path ' + outputDir + ' --tables table1,table2` when ready.');
+        logger.info(
+          'Skipped dataset generation. Run `'
+          + formatRegenerateDatasetsCommand({ outputDir, auth, tables: 'table1,table2' })
+          + '` when ready.',
+        );
       }
     }
     logger.success(`Created datasets file (${path.relative(process.cwd(), datasetsPath)})`);
@@ -580,7 +592,7 @@ export interface IntrospectedSchema {
   if (hasValidConnection) {
     if (style === 'datasets' && !generatedAnyDatasets) {
       logger.info('Next:');
-      logger.indent(`hypequery generate:datasets --path ${outputDir} --tables table1,table2`);
+      logger.indent(formatRegenerateDatasetsCommand({ outputDir, auth, tables: 'table1,table2' }));
       logger.newline();
     } else if (style === 'datasets' && !generatedSelectedDataset) {
       logger.info('Next:');

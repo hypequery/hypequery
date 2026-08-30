@@ -281,10 +281,17 @@ Scaffolds [dataset (semantic layer)](/docs/datasets/overview) definitions from a
 - **`--path <dir>`** – Analytics directory to write into (derives `<dir>/datasets.ts`). Takes effect when `--output` is not set
 - **`--tables <names>`** – Comma-separated list of tables to include. By default all tables are scaffolded
 - **`--exclude-tables <names>`** – Comma-separated list of tables to exclude
+- **`--tenant-column <column>`** – Set `tenantKey` to this column on every table that has it. Only pass this once a trusted runtime tenant scope is configured
 
 **What it does:**
 
 The generator connects to ClickHouse with your `CLICKHOUSE_*` env vars, introspects the matching tables, and writes a `datasets` export containing a `dataset(...)` definition per table with inferred dimensions and measures. Review and customize the output, then import it into your application or `api.ts`.
+
+Column names such as `tenant_id`, `organization_id`, or `customer_id` are reported as possible tenant-key candidates — all of them, not just the first match — but the generator never enables `tenantKey` from a name match. Tenant isolation is a security policy: add it explicitly only after configuring trusted runtime tenant scope in your application or Serve API.
+
+To turn isolation on, pass `--tenant-column <column>`: every table that has that column gets a matching `tenantKey`, and tables that don't are reported as warnings. `hypequery init --auth context` does this for you, scaffolding an `api.ts` with a trusted tenant runtime on `tenant_id` and generating datasets with `tenantKey: 'tenant_id'`.
+
+Regeneration replaces the whole file, so **pass `--tenant-column` again on every refresh of a tenant-scoped project**. Without it the new file has no `tenantKey` and tenant-scoped requests fail until you restore it. `init` prints the exact command to reuse.
 
 **Example:**
 

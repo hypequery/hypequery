@@ -11,12 +11,14 @@ import { logger } from '../utils/logger.js';
 import { getTableCount } from '../utils/detect-database.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
+import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
 
 export interface GenerateDatasetsOptions {
   output?: string;
   path?: string;
   tables?: string;
   excludeTables?: string;
+  tenantColumn?: string;
 }
 
 /**
@@ -78,6 +80,9 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       outputPath,
       includeTables: parsedTables,
       excludeTables: excludedTables,
+      // Regeneration replaces the whole file, so a tenant boundary configured at
+      // init has to be restated here or it is dropped on every refresh.
+      tenantColumn: options.tenantColumn,
     });
 
     const generatedTables = generated?.tables ?? parsedTables ?? [];
@@ -88,6 +93,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
 
     const relativeOutput = path.relative(process.cwd(), outputPath);
     logger.success(`Created ${relativeOutput}`);
+    logDatasetGenerationWarnings(generated?.warnings);
 
     logger.newline();
     logger.header('Next steps:');

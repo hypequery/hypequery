@@ -15,7 +15,30 @@ export interface DatasetGeneratorOptions {
   includeTables?: string[];
   excludeTables?: string[];
   client?: TypeGenerationClickHouseClient;
+  /**
+   * Tenant column the caller has already configured as a trusted runtime tenant
+   * scope (for example the `tenant.column` of a scaffolded context-auth API).
+   *
+   * Only an explicit value here activates `tenantKey`; column-name heuristics
+   * never do. Tables that lack the column are reported as warnings instead of
+   * being silently left unscoped.
+   */
+  tenantColumn?: string;
 }
+
+export type DatasetGenerationWarning =
+  | {
+      kind: 'tenant-key-candidate';
+      table: string;
+      columns: string[];
+      message: string;
+    }
+  | {
+      kind: 'tenant-column-missing';
+      table: string;
+      column: string;
+      message: string;
+    };
 
 interface ColumnInfo {
   name: string;
@@ -77,9 +100,12 @@ function isTimestampColumn(column: ColumnInfo): boolean {
 }
 
 /**
- * Check if a column is likely a tenant ID column
+ * Check if a column name is worth presenting as a possible tenant key.
+ *
+ * A naming match is never enough to activate tenant enforcement. `tenantKey`
+ * is a security boundary that must be chosen explicitly by the application.
  */
-function isTenantColumn(column: ColumnInfo): boolean {
+function isTenantKeyCandidate(column: ColumnInfo): boolean {
   const name = column.name.toLowerCase();
 
   return (
@@ -118,7 +144,7 @@ function isIdentifierColumn(column: ColumnInfo): boolean {
     name.endsWith('_id') ||
     originalName.endsWith('Id') ||
     name.includes('uuid') ||
-    isTenantColumn(column)
+    isTenantKeyCandidate(column)
   );
 }
 
@@ -179,8 +205,9 @@ function generateLabel(columnName: string): string {
  */
 async function generateDatasetForTable(
   client: TypeGenerationClickHouseClient,
-  tableName: string
-): Promise<string> {
+  tableName: string,
+  tenantColumn?: string
+): Promise<{ code: string; warnings: DatasetGenerationWarning[] }> {
   // Get column information
   const columnsQuery = await client.query({
     query: `DESCRIBE TABLE ${tableName}`,
@@ -192,8 +219,38 @@ async function generateDatasetForTable(
   const timestampColumns = columns.filter(isTimestampColumn);
   const timeKeyColumn = timestampColumns.find((c) => c.name === 'created_at') || timestampColumns[0];
 
-  // Determine tenantKey
-  const tenantColumn = columns.find(isTenantColumn);
+  // A tenant column is only honoured when the caller configured one explicitly.
+  // Column-name matches are reported for review and never become policy.
+  const resolvedTenantColumn = tenantColumn
+    ? columns.find((column) => column.name === tenantColumn)?.name
+    : undefined;
+  // Report every match, not just the first — picking the right tenant boundary
+  // needs the full set (e.g. both `organization_id` and `customer_id`).
+  const tenantCandidates = columns.filter(isTenantKeyCandidate).map((column) => column.name);
+  const warnings: DatasetGenerationWarning[] = [];
+
+  if (tenantColumn && !resolvedTenantColumn) {
+    warnings.push({
+      kind: 'tenant-column-missing',
+      table: tableName,
+      column: tenantColumn,
+      message:
+        `Dataset "${tableName}" has no "${tenantColumn}" column, so tenant isolation was not applied. ` +
+        'Tenant-scoped requests against it will fail until you set tenantKey to the correct column.',
+    });
+  }
+
+  if (!resolvedTenantColumn && tenantCandidates.length > 0) {
+    const quoted = tenantCandidates.map((name) => `"${name}"`).join(', ');
+    warnings.push({
+      kind: 'tenant-key-candidate',
+      table: tableName,
+      columns: tenantCandidates,
+      message:
+        `Dataset "${tableName}" has ${tenantCandidates.length === 1 ? 'possible tenant key' : 'possible tenant keys'} ${quoted}. ` +
+        'Review them and add tenantKey explicitly only after configuring trusted runtime tenant scope.',
+    });
+  }
 
   // Generate dimensions
   const dimensionLines: string[] = [];
@@ -245,8 +302,14 @@ async function generateDatasetForTable(
     configLines.push(`  timeKey: '${timeKeyColumn.name}',`);
   }
 
-  if (tenantColumn) {
-    configLines.push(`  tenantKey: '${tenantColumn.name}', // Auto-detected tenant isolation column`);
+  if (resolvedTenantColumn) {
+    configLines.push(`  tenantKey: '${resolvedTenantColumn}',`);
+  } else if (tenantCandidates.length > 0) {
+    const quoted = tenantCandidates.map((name) => `'${name}'`).join(', ');
+    configLines.push(
+      `  // Possible tenant ${tenantCandidates.length === 1 ? 'key' : 'keys'}: ${quoted}.`,
+    );
+    configLines.push(`  // Add tenantKey explicitly only after configuring trusted runtime tenant scope.`);
   }
 
   configLines.push(`  dimensions: {`);
@@ -256,10 +319,13 @@ async function generateDatasetForTable(
   configLines.push(...measureLines);
   configLines.push(`  },`);
 
-  return `export const ${datasetName}Dataset = dataset('${tableName}', {
+  return {
+    code: `export const ${datasetName}Dataset = dataset('${tableName}', {
 ${configLines.join('\n')}
 });
-`;
+`,
+    warnings,
+  };
 }
 
 /**
@@ -293,10 +359,12 @@ export async function generateDatasets(options: DatasetGeneratorOptions) {
 
   // Generate dataset definitions
   const datasetDefinitions: string[] = [];
+  const warnings: DatasetGenerationWarning[] = [];
 
   for (const table of tables) {
-    const datasetCode = await generateDatasetForTable(client, table.name);
-    datasetDefinitions.push(datasetCode);
+    const generated = await generateDatasetForTable(client, table.name, options.tenantColumn);
+    datasetDefinitions.push(generated.code);
+    warnings.push(...generated.warnings);
   }
 
   // Build the complete output file
@@ -331,5 +399,6 @@ ${tables.map((table) => `  ${table.name}: ${tableToPascalCase(table.name)}Datase
       table: table.name,
       exportName: `${tableToPascalCase(table.name)}Dataset`,
     })),
+    warnings,
   };
 }

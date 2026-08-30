@@ -47,6 +47,7 @@ describe('generate datasets command', () => {
     mockGenerateDatasets.mockResolvedValue({
       tables: ['orders'],
       exports: [{ table: 'orders', exportName: 'OrdersDataset' }],
+      warnings: [],
     });
   });
 
@@ -86,6 +87,22 @@ describe('generate datasets command', () => {
     );
   });
 
+  it('forwards an explicit tenant column so regeneration keeps tenantKey', async () => {
+    await generateDatasetsCommand({ path: 'analytics', tenantColumn: 'tenant_id' });
+
+    expect(mockGenerateDatasets).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantColumn: 'tenant_id' }),
+    );
+  });
+
+  it('leaves tenant isolation off when no tenant column is given', async () => {
+    await generateDatasetsCommand({ path: 'analytics' });
+
+    expect(mockGenerateDatasets).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantColumn: undefined }),
+    );
+  });
+
   it('defaults output to analytics/datasets.ts, beside generate\'s schema.ts', async () => {
     await generateDatasetsCommand({});
 
@@ -110,6 +127,7 @@ describe('generate datasets command', () => {
     mockGenerateDatasets.mockResolvedValue({
       tables: ['trips'],
       exports: [{ table: 'trips', exportName: 'TripsDataset' }],
+      warnings: [],
     });
 
     await generateDatasetsCommand({ output: 'src/analytics/datasets.ts', tables: 'trips' });
@@ -121,6 +139,26 @@ describe('generate datasets command', () => {
     );
     expect(mockLogger.indent).toHaveBeenCalledWith(
       "const rowCount = datasets['trips'].metric('rowCount', { measure: 'totalCount' });",
+    );
+  });
+
+  it('surfaces tenant-key candidates without claiming they were enabled', async () => {
+    mockGenerateDatasets.mockResolvedValue({
+      tables: ['orders'],
+      exports: [{ table: 'orders', exportName: 'OrdersDataset' }],
+      warnings: [{
+        kind: 'tenant-key-candidate',
+        table: 'orders',
+        columns: ['customer_id'],
+        message: 'Review customer_id before enabling tenant scope.',
+      }],
+    });
+
+    await generateDatasetsCommand({ tables: 'orders' });
+
+    expect(mockLogger.warn).toHaveBeenCalledWith('Review generated dataset tenant isolation:');
+    expect(mockLogger.indent).toHaveBeenCalledWith(
+      '• Review customer_id before enabling tenant scope.',
     );
   });
 
