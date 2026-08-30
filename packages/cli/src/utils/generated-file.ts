@@ -82,11 +82,20 @@ export async function writeGeneratedFileAtomically(
     `.${path.basename(resolvedPath)}.${process.pid}.${randomUUID()}.tmp`,
   );
 
+  // Read the destination's mode first: the temporary file must never be created
+  // more permissively than the file it replaces, or its contents are briefly
+  // exposed to other local users in a shared directory.
+  const existingMode = await readExistingMode(resolvedPath);
+
   try {
-    await writeFile(temporaryPath, contents);
-    // rename() swaps in a new inode, so a mode the user customized on the
-    // destination has to be carried over explicitly or it is silently reset.
-    const existingMode = await readExistingMode(resolvedPath);
+    await writeFile(
+      temporaryPath,
+      contents,
+      existingMode !== undefined ? { mode: existingMode } : {},
+    );
+    // open() also applies the umask, and rename() swaps in a new inode, so the
+    // destination's exact mode has to be restored explicitly or a customized
+    // mode is silently reset.
     if (existingMode !== undefined) {
       await chmod(temporaryPath, existingMode);
     }
