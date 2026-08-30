@@ -240,6 +240,21 @@ export interface MetricResultMeta {
     offset: number;
     hasMore: boolean;
   };
+  /**
+   * Present when the dataset's `limits.maxResultSize` bounded a query that set
+   * no limit of its own. Surfaced rather than applied silently: a caller must
+   * be able to tell a bounded answer from a complete one, and `pagination`
+   * then reports whether rows were actually left behind.
+   *
+   * A limit *above* the ceiling is rejected by query validation, so it never
+   * reaches here.
+   */
+  resultLimit?: {
+    /** The declared ceiling that supplied the limit. */
+    maxResultSize: number;
+    /** The limit actually executed. */
+    applied: number;
+  };
   /** Result-cache observability. Present when the call went through the cache. */
   cache?: SemanticCacheMetaInfo;
 }
@@ -288,7 +303,31 @@ export interface DatasetLimits {
   maxDimensions?: number;
   maxMeasures?: number;
   maxFilters?: number;
+  /**
+   * Ceiling on the rows one query may return. Enforced by the dataset client,
+   * so it holds for direct library calls as well as HTTP endpoints; a query
+   * that requests more is capped and says so in `meta.resultLimit`.
+   */
   maxResultSize?: number;
+}
+
+/**
+ * Result-cache policy declared on the dataset itself.
+ *
+ * TTL is a property of the data, not of the call site: whether a result is
+ * still-filling or already final is known by whoever defined the model, not by
+ * a caller three packages away. A call may still shorten the window — pass a
+ * smaller `ttlMs`, or bypass the cache entirely — but it can never extend one
+ * past `maxTtlMs`.
+ */
+export interface DatasetCachePolicy {
+  /** TTL applied when the caller and client supply none. */
+  ttlMs?: number;
+  /**
+   * Ceiling on any caller- or client-supplied TTL, and on the
+   * stale-while-revalidate window layered on top of it.
+   */
+  maxTtlMs?: number;
 }
 
 export interface BaseMetricConfig<
@@ -319,6 +358,7 @@ export interface DatasetConfig<
   filters?: SemanticFiltersDefinition;
   relationships?: TRelationships;
   limits?: DatasetLimits;
+  cache?: DatasetCachePolicy;
 }
 
 export interface DatasetInstance<
@@ -337,6 +377,7 @@ export interface DatasetInstance<
   filters: SemanticFiltersDefinition;
   relationships: TRelationships;
   limits?: DatasetLimits;
+  cache?: DatasetCachePolicy;
   metric<TName extends string>(
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures>,

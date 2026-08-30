@@ -187,6 +187,7 @@ export type {
   SemanticFiltersDefinition,
   DatasetConfig,
   DatasetLimits,
+  DatasetCachePolicy,
   DatasetInstance,
   AnyDatasetInstance,
   BaseMetricConfig,
