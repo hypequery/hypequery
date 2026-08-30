@@ -179,6 +179,10 @@ program
   .option('--path <path>', 'Analytics directory (derives <path>/datasets.ts)')
   .option('--tables <names>', 'Only generate for specific tables (comma-separated)')
   .option('--exclude-tables <names>', 'Exclude specific tables (comma-separated)')
+  .option(
+    '--tenant-column <column>',
+    'Set tenantKey to this column on tables that have it (requires a trusted runtime tenant scope)',
+  )
   .action(runCommand(async (options: GenerateDatasetsOptions) => {
     await generateDatasetsCommand(options);
   }));

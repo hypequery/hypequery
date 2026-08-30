@@ -18,6 +18,7 @@ export interface GenerateDatasetsOptions {
   path?: string;
   tables?: string;
   excludeTables?: string;
+  tenantColumn?: string;
 }
 
 /**
@@ -79,6 +80,9 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       outputPath,
       includeTables: parsedTables,
       excludeTables: excludedTables,
+      // Regeneration replaces the whole file, so a tenant boundary configured at
+      // init has to be restated here or it is dropped on every refresh.
+      tenantColumn: options.tenantColumn,
     });
 
     const generatedTables = generated?.tables ?? parsedTables ?? [];

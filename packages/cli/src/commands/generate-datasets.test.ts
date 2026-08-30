@@ -87,6 +87,22 @@ describe('generate datasets command', () => {
     );
   });
 
+  it('forwards an explicit tenant column so regeneration keeps tenantKey', async () => {
+    await generateDatasetsCommand({ path: 'analytics', tenantColumn: 'tenant_id' });
+
+    expect(mockGenerateDatasets).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantColumn: 'tenant_id' }),
+    );
+  });
+
+  it('leaves tenant isolation off when no tenant column is given', async () => {
+    await generateDatasetsCommand({ path: 'analytics' });
+
+    expect(mockGenerateDatasets).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantColumn: undefined }),
+    );
+  });
+
   it('defaults output to analytics/datasets.ts, beside generate\'s schema.ts', async () => {
     await generateDatasetsCommand({});
 

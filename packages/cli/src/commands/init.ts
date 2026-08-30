@@ -41,6 +41,7 @@ import { getTypeGenerator } from '../generators/index.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { installScaffoldDependencies } from '../utils/dependency-installer.js';
 import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
+import { formatRegenerateDatasetsCommand } from '../utils/regenerate-datasets-command.js';
 
 export interface InitOptions {
   path?: string;
@@ -532,7 +533,11 @@ export interface IntrospectedSchema {
     } else {
       await writeFile(datasetsPath, generateDatasetsPlaceholderTemplate({ auth }));
       if (hasValidConnection) {
-        logger.info('Skipped dataset generation. Run `hypequery generate:datasets --path ' + outputDir + ' --tables table1,table2` when ready.');
+        logger.info(
+          'Skipped dataset generation. Run `'
+          + formatRegenerateDatasetsCommand({ outputDir, auth, tables: 'table1,table2' })
+          + '` when ready.',
+        );
       }
     }
     logger.success(`Created datasets file (${path.relative(process.cwd(), datasetsPath)})`);
@@ -587,7 +592,7 @@ export interface IntrospectedSchema {
   if (hasValidConnection) {
     if (style === 'datasets' && !generatedAnyDatasets) {
       logger.info('Next:');
-      logger.indent(`hypequery generate:datasets --path ${outputDir} --tables table1,table2`);
+      logger.indent(formatRegenerateDatasetsCommand({ outputDir, auth, tables: 'table1,table2' }));
       logger.newline();
     } else if (style === 'datasets' && !generatedSelectedDataset) {
       logger.info('Next:');
