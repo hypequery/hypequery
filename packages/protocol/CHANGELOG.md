@@ -1,5 +1,11 @@
 # @hypequery/protocol
 
+## 0.11.1
+
+### Patch Changes
+
+- 5d45045: Add a default export condition so CommonJS-targeting transforms can resolve the package entry point.
+
 ## 0.11.0
 
 ### Minor Changes
