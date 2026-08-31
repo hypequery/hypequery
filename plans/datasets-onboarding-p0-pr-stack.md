@@ -1,7 +1,7 @@
 # Datasets Onboarding P0 PR Stack
 
-Date: 2026-08-29
-Status: Open for review
+Date: 2026-08-29 (updated 2026-08-31)
+Status: PRs #428 and #429 merged; PR #430 open against `main`
 Scope: The three P0 items from the datasets onboarding UX and DX review
 
 ## Outcome
@@ -14,15 +14,15 @@ This stack makes generated datasets safe to adopt and maintain:
 
 ## Stack and Merge Order
 
-| Order | PR | Branch | Base | Commit |
-| --- | --- | --- | --- | --- |
-| 1 | [#428 — Require explicit dataset tenant isolation](https://github.com/hypequery/hypequery/pull/428) | `codex/datasets-onboarding-tenant-safety` | `main` | `f70ad6b1` |
-| 2 | [#429 — Normalize semantic result values](https://github.com/hypequery/hypequery/pull/429) | `codex/datasets-onboarding-result-contract` | PR #428 branch | `265f5810` |
-| 3 | [#430 — Protect dataset regeneration](https://github.com/hypequery/hypequery/pull/430) | `codex/datasets-onboarding-safe-regeneration` | PR #429 branch | `56ffa057` |
+| Order | PR | Branch | Status |
+| --- | --- | --- | --- |
+| 1 | [#428 — Require explicit dataset tenant isolation](https://github.com/hypequery/hypequery/pull/428) | `codex/datasets-onboarding-tenant-safety` | Merged as `61954e4a`, released in `@hypequery/cli@1.18.1` |
+| 2 | [#429 — Normalize semantic result values](https://github.com/hypequery/hypequery/pull/429) | `codex/datasets-onboarding-result-contract` | Merged as `6c1bcb63`, released in `@hypequery/datasets@0.13.6` |
+| 3 | [#430 — Protect dataset regeneration](https://github.com/hypequery/hypequery/pull/430) | `codex/datasets-onboarding-safe-regeneration` | Open, based on `main` |
 
-Merge the PRs in this order. After each parent merges, retarget the next PR to
-`main` if GitHub does not do so automatically, and confirm that its diff still
-contains only its intended commit or commits.
+PRs #428 and #429 were squash-merged and released, so their changesets were
+consumed on `main` and no longer live in this branch. PR #430 now carries only
+the safe-regeneration change and its own changeset.
 
 ## P0-1: Explicit Tenant Isolation
 
@@ -82,7 +82,8 @@ PR #430:
 - Renders definitions before touching the destination.
 - Creates missing files but refuses to replace changed existing files by
   default.
-- Adds `--force` for explicit atomic replacement.
+- Adds `--force` for explicit atomic replacement that preserves, and never
+  loosens, the destination's permissions.
 - Adds non-writing `--check` for CI drift detection.
 - Adds non-writing `--diff` for reviewing generated changes.
 - Avoids rewriting files whose generated contents are already current.
@@ -93,25 +94,23 @@ PR #430:
 Acceptance criteria:
 
 - Default regeneration cannot overwrite customized definitions.
-- Forced writes replace the file atomically.
+- Forced writes replace the file atomically, and a permission change that lands
+  while the replacement is written is not undone by a stale snapshot.
 - CI can detect missing or stale generated definitions without mutation.
 - Users can inspect schema-driven changes before accepting them.
 
 ## Validation Snapshot
 
-The following local checks passed while creating the stack:
+The following local checks passed after merging `main` into PR #430:
 
-- Full `@hypequery/cli` suite: 573 passed, 1 skipped.
-- `@hypequery/datasets` unit suite: 307 passed.
-- `@hypequery/react` suite: 51 passed.
+- Full `@hypequery/cli` suite: 587 passed, 1 skipped.
 - Dataset, Serve, and React semantic type tests.
 - Dependency-aware builds for the CLI, datasets, Serve, and React packages.
-- CLI, datasets, and React lint checks.
-- `git diff --check` for each stack branch.
+- CLI lint check.
 
-The ClickHouse integration expectations were updated, but that suite was not
-run locally because the Docker daemon was unavailable. It remains a required CI
-or Docker-capable local check before merging PR #429.
+The ClickHouse integration expectations updated by PR #429 were not run locally
+because the Docker daemon was unavailable; that suite shipped with #429 and is
+covered by CI.
 
 ## Release Notes
 

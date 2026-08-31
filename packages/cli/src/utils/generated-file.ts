@@ -38,6 +38,21 @@ export async function readGeneratedFile(filePath: string): Promise<string | unde
 }
 
 /**
+ * Tightest of the permission bits observed on a destination, ignoring the
+ * observations where it did not exist.
+ *
+ * A `chmod` that lands between two observations must not be undone by the
+ * earlier snapshot, and the safe direction is always the more restrictive one:
+ * the replacement is never more permissive than anything the destination was
+ * seen to be.
+ */
+function mostRestrictiveMode(...modes: Array<number | undefined>): number | undefined {
+  const observed = modes.filter((mode): mode is number => mode !== undefined);
+
+  return observed.length > 0 ? observed.reduce((tightest, mode) => tightest & mode) : undefined;
+}
+
+/**
  * Permission bits of an existing file, or undefined when it does not exist.
  */
 async function readExistingMode(filePath: string): Promise<number | undefined> {
@@ -93,11 +108,23 @@ export async function writeGeneratedFileAtomically(
       contents,
       existingMode !== undefined ? { mode: existingMode } : {},
     );
+
+    // The destination can be chmod'ed — or created — while the contents above
+    // are being written. Renaming with only the pre-write snapshot would undo
+    // that, replacing a file just tightened to 0600 with a 0644 one, so the
+    // tighter of the two observations wins.
+    const destinationMode = mostRestrictiveMode(
+      existingMode,
+      await readExistingMode(resolvedPath),
+    );
+
     // open() also applies the umask, and rename() swaps in a new inode, so the
     // destination's exact mode has to be restored explicitly or a customized
-    // mode is silently reset.
-    if (existingMode !== undefined) {
-      await chmod(temporaryPath, existingMode);
+    // mode is silently reset. A chmod landing after this read still races the
+    // rename — rename() cannot be made conditional on the destination's mode —
+    // but the window is now two syscalls rather than the whole write.
+    if (destinationMode !== undefined) {
+      await chmod(temporaryPath, destinationMode);
     }
     await rename(temporaryPath, resolvedPath);
   } catch (error) {
