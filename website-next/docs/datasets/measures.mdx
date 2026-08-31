@@ -6,7 +6,7 @@ description: Define aggregations such as revenue, counts, averages, minimums, an
 import { Callout } from 'fumadocs-ui/components/callout';
 import { CodeBlock } from 'fumadocs-ui/components/codeblock';
 
-Measures are aggregations over fields in a dataset. Callers can request values such as revenue, order count, average order amount, minimum value, or maximum value. Measure and metric result columns are returned as strings to match ClickHouse's JSON serialization; convert numeric values at the application boundary when needed.
+Measures are aggregations over fields in a dataset. Callers can request values such as revenue, order count, average order amount, minimum value, or maximum value. Measure and metric result columns are returned as `string | null`: every non-null aggregate is normalized to a string across ClickHouse result types and execution backends, while SQL `NULL` remains `null`. Convert numeric values at the application boundary when needed.
 
 The object key is the semantic API name. The first argument is the backing field to aggregate. If that field is a dimension, hypequery uses the dimension mapping to resolve the ClickHouse column.
 

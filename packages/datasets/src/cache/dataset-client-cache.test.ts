@@ -248,7 +248,7 @@ describe('DatasetClient result caching', () => {
 
     expect(executions).toHaveBeenCalledTimes(1);
     expect(overrideExecutions).toHaveBeenCalledTimes(1);
-    expect(overridden.data).toEqual([{ revenue: 999 }]);
+    expect(overridden.data).toEqual([{ revenue: '999' }]);
     expect(overridden.meta?.cache).toBeUndefined();
   });
 
@@ -268,12 +268,12 @@ describe('DatasetClient result caching', () => {
     const hitA = await onReplica(replicaA, 'replica-a');
     expect(replicaAExecutions).toHaveBeenCalledTimes(1);
     expect(hitA.meta?.cache).toMatchObject({ hit: true });
-    expect(hitA.data).toEqual([{ revenue: 1 }]);
+    expect(hitA.data).toEqual([{ revenue: '1' }]);
 
     // A different scope never sees replica A's entries.
     const missB = await onReplica(replicaB, 'replica-b');
     expect(replicaBExecutions).toHaveBeenCalledTimes(1);
-    expect(missB.data).toEqual([{ revenue: 2 }]);
+    expect(missB.data).toEqual([{ revenue: '2' }]);
   });
 
   it('client-level cache.scope separates clients sharing one store', async () => {
@@ -297,7 +297,7 @@ describe('DatasetClient result caching', () => {
 
     expect(executionsA).toHaveBeenCalledTimes(1);
     expect(executionsB).toHaveBeenCalledTimes(1);
-    expect(fromB.data).toEqual([{ revenue: 2 }]);
+    expect(fromB.data).toEqual([{ revenue: '2' }]);
   });
 
   it('caches metric and dataset queries on backend-only clients', async () => {

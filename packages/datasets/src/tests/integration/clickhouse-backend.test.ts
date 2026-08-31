@@ -137,10 +137,6 @@ function joinedUserNames(rows: Array<Record<string, unknown>>): Set<unknown> {
   return new Set(rows.map((row) => row['user.userName']));
 }
 
-function normalizeCount(value: unknown): number {
-  return Number(value);
-}
-
 describe('datasets ClickHouse integration', () => {
   it('executes a dataset query with dimensions, filters, measures, ordering, and pagination', async () => {
     const analytics = createClient();
@@ -153,13 +149,9 @@ describe('datasets ClickHouse integration', () => {
       limit: 2,
     });
 
-    expect(result.data.map((row) => ({
-      ...row,
-      orderCount: normalizeCount(row.orderCount),
-      uniqueUsers: normalizeCount(row.uniqueUsers),
-    }))).toEqual([
-      { status: 'pending', revenue: 62.25, orderCount: 1, uniqueUsers: 1 },
-      { status: 'completed', revenue: 51, orderCount: 2, uniqueUsers: 2 },
+    expect(result.data).toEqual([
+      { status: 'pending', revenue: '62.25', orderCount: '1', uniqueUsers: '1' },
+      { status: 'completed', revenue: '51', orderCount: '2', uniqueUsers: '2' },
     ]);
     expect(result.meta?.timingMs).toEqual(expect.any(Number));
     expect(result.meta?.sql).toContain('FROM orders');
@@ -176,11 +168,11 @@ describe('datasets ClickHouse integration', () => {
     });
 
     expect(result.data).toEqual([
-      { period: '2023-01-10 00:00:00', revenue: 21, completedRevenue: 21, highValueRevenue: 21 },
-      { period: '2023-01-11 00:00:00', revenue: 15, completedRevenue: 15, highValueRevenue: 0 },
-      { period: '2023-01-12 00:00:00', revenue: 62.25, completedRevenue: 0, highValueRevenue: 62.25 },
-      { period: '2023-01-13 00:00:00', revenue: 30, completedRevenue: 30, highValueRevenue: 30 },
-      { period: '2023-01-14 00:00:00', revenue: 16.5, completedRevenue: 0, highValueRevenue: 0 },
+      { period: '2023-01-10 00:00:00', revenue: '21', completedRevenue: '21', highValueRevenue: '21' },
+      { period: '2023-01-11 00:00:00', revenue: '15', completedRevenue: '15', highValueRevenue: '0' },
+      { period: '2023-01-12 00:00:00', revenue: '62.25', completedRevenue: '0', highValueRevenue: '62.25' },
+      { period: '2023-01-13 00:00:00', revenue: '30', completedRevenue: '30', highValueRevenue: '30' },
+      { period: '2023-01-14 00:00:00', revenue: '16.5', completedRevenue: '0', highValueRevenue: '0' },
     ]);
     expect(result.meta?.sql).toContain('toStartOfDay(created_at) AS period');
   });
@@ -207,10 +199,10 @@ describe('datasets ClickHouse integration', () => {
     });
 
     expect(baseResult.data).toEqual([
-      { status: 'completed', revenue: 66 },
+      { status: 'completed', revenue: '66' },
     ]);
     expect(derivedResult.data).toEqual([
-      { status: 'pending', averageOrderValueMetric: 62.25 },
+      { status: 'pending', averageOrderValueMetric: '62.25' },
     ]);
     expect(derivedResult.meta?.sql).toContain('WITH base AS');
   });
@@ -230,11 +222,8 @@ describe('datasets ClickHouse integration', () => {
       },
     );
 
-    expect(result.data.map((row) => ({
-      ...row,
-      orderCount: normalizeCount(row.orderCount),
-    }))).toEqual([
-      { revenue: 66, orderCount: 3 },
+    expect(result.data).toEqual([
+      { revenue: '66', orderCount: '3' },
     ]);
     expect(result.meta).toMatchObject({
       tenant: 'completed',
@@ -253,9 +242,9 @@ describe('datasets ClickHouse integration', () => {
 
     // Every order maps to a user, so no LEFT JOIN misses here.
     expect(result.data).toEqual([
-      { 'user.userName': 'jane_smith', revenue: 92.25 },
-      { 'user.userName': 'john_doe', revenue: 36 },
-      { 'user.userName': 'bob_jones', revenue: 16.5 },
+      { 'user.userName': 'jane_smith', revenue: '92.25' },
+      { 'user.userName': 'john_doe', revenue: '36' },
+      { 'user.userName': 'bob_jones', revenue: '16.5' },
     ]);
     expect(result.meta?.sql).toContain('LEFT ANY JOIN users AS user ON orders.user_id = user.id');
     expect(result.meta?.sql).toContain('user.user_name AS `user.userName`');
@@ -274,8 +263,8 @@ describe('datasets ClickHouse integration', () => {
 
     // Active users (john_doe, jane_smith) own orders 1-4; bob_jones' order is excluded.
     expect(result.data).toEqual([
-      { status: 'completed', revenue: 66 },
-      { status: 'pending', revenue: 62.25 },
+      { status: 'completed', revenue: '66' },
+      { status: 'pending', revenue: '62.25' },
     ]);
     expect(result.meta?.sql).toContain('user.status = ?');
   });
@@ -297,8 +286,8 @@ describe('datasets ClickHouse integration', () => {
     const revenueByUser = new Map(
       result.data.map((row) => [row['user.userName'], row.revenue]),
     );
-    expect(revenueByUser.get('jane_smith')).toBe(92.25);
-    expect(revenueByUser.get('john_doe')).toBe(36);
+    expect(revenueByUser.get('jane_smith')).toBe('92.25');
+    expect(revenueByUser.get('john_doe')).toBe('36');
     expect(revenueByUser.has('bob_jones')).toBe(false);
     expect(result.data.reduce((total, row) => total + Number(row.revenue), 0)).toBe(144.75);
     expect(result.meta?.sql).toContain(
@@ -354,7 +343,7 @@ describe('datasets ClickHouse integration', () => {
     });
 
     // Latest order (2023-01-14) has total 16.5; earliest (2023-01-10) has 21.
-    expect(result.data).toEqual([{ latestTotal: 16.5, firstTotal: 21 }]);
+    expect(result.data).toEqual([{ latestTotal: '16.5', firstTotal: '21' }]);
     expect(result.meta?.sql).toContain('argMax(total, created_at) AS latestTotal');
     expect(result.meta?.sql).toContain('argMin(total, created_at) AS firstTotal');
   });
@@ -367,11 +356,11 @@ describe('datasets ClickHouse integration', () => {
     });
 
     // totals [15, 16.5, 21, 30, 62.25]
-    const row = result.data[0] as Record<string, number>;
-    expect(row.medianTotal).toBe(21);
-    expect(row.p95Total).toBeCloseTo(55.8, 2);
-    expect(row.totalVariance).toBeCloseTo(380.7, 2);
-    expect(row.totalStddev).toBeCloseTo(Math.sqrt(380.7), 2);
+    const row = result.data[0] as Record<string, unknown>;
+    expect(row.medianTotal).toBe('21');
+    expect(Number(row.p95Total)).toBeCloseTo(55.8, 2);
+    expect(Number(row.totalVariance)).toBeCloseTo(380.7, 2);
+    expect(Number(row.totalStddev)).toBeCloseTo(Math.sqrt(380.7), 2);
     expect(result.meta?.sql).toContain('quantile(0.5)(total) AS medianTotal');
     expect(result.meta?.sql).toContain('stddevSamp(total) AS totalStddev');
   });
@@ -386,9 +375,9 @@ describe('datasets ClickHouse integration', () => {
     });
 
     expect(result.data).toEqual([
-      { status: 'cancelled', latestTotal: 16.5 },
-      { status: 'completed', latestTotal: 30 },
-      { status: 'pending', latestTotal: 62.25 },
+      { status: 'cancelled', latestTotal: '16.5' },
+      { status: 'completed', latestTotal: '30' },
+      { status: 'pending', latestTotal: '62.25' },
     ]);
   });
 
@@ -454,7 +443,7 @@ describe('datasets ClickHouse integration', () => {
       const clickhouse = await analytics.execute(NullableOrders, {
         measures: ['latestAmount'],
       });
-      expect(clickhouse.data).toEqual([{ latestAmount: 10 }]);
+      expect(clickhouse.data).toEqual([{ latestAmount: '10' }]);
 
       const inMemory = await createDatasetClient({
         backend: createInMemoryBackend({ nullable_orders: nullableRows }),

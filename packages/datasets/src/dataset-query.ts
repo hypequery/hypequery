@@ -24,6 +24,7 @@ import {
   buildRelationshipBuilderContext,
   qualifyBaseColumn,
 } from './utils/relationship-builder-plan.js';
+import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
 
 function toResultMeta(
   qb: QueryBuilderLike,
@@ -118,8 +119,16 @@ export async function runDatasetQuery(
   });
   const rows = await qb.execute();
   const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-  return {
+  const serializedData = serializeSemanticMeasureValues(
     data,
-    meta: { ...toResultMeta(qb, Date.now() - start, options.context), rowCount: data.length, pagination },
+    query.measures ?? Object.keys(ds.measures),
+  );
+  return {
+    data: serializedData,
+    meta: {
+      ...toResultMeta(qb, Date.now() - start, options.context),
+      rowCount: serializedData.length,
+      pagination,
+    },
   };
 }
