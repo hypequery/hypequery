@@ -3,17 +3,19 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ProtocolExpressionError, validateProtocolExpression, validateProtocolSemanticQuery } from './index.js';
 
-interface FixtureEntry { id: string; value: unknown }
+type ExpressionGenerator =
+  | { type: 'nested-not'; depth: number }
+  | { type: 'logical-tree'; lastGroupItems: number }
+  | { type: 'logical-operands'; count: number }
+  | { type: 'unsafe-accessor' };
+
+interface FixtureEntry { id: string; value?: unknown; generator?: ExpressionGenerator }
 interface SuccessFixtures { expressions: FixtureEntry[]; queries: FixtureEntry[] }
 interface RejectionFixture {
   id: string;
   mode: 'expression' | 'query';
   value?: unknown;
-  generator?:
-    | { type: 'nested-not'; depth: number }
-    | { type: 'logical-tree' }
-    | { type: 'logical-operands'; count: number }
-    | { type: 'unsafe-accessor' };
+  generator?: ExpressionGenerator;
   error: string;
 }
 
@@ -51,7 +53,7 @@ function nestedPredicate(wrappers: number): unknown {
   return value;
 }
 
-function materialize(fixture: RejectionFixture): unknown {
+function materialize(fixture: FixtureEntry): unknown {
   if (!fixture.generator) return fixture.value;
   const generator = fixture.generator;
   switch (generator.type) {
@@ -65,8 +67,10 @@ function materialize(fixture: RejectionFixture): unknown {
     case 'logical-operands':
       return { kind: 'logical', operator: 'and', operands: Array.from({ length: generator.count }, literal) };
     case 'logical-tree': {
-      const groups = Array.from({ length: 10 }, () => ({
-        kind: 'logical', operator: 'and', operands: Array.from({ length: 100 }, literal),
+      const groups = Array.from({ length: 10 }, (_, groupIndex) => ({
+        kind: 'logical',
+        operator: 'and',
+        operands: Array.from({ length: groupIndex === 9 ? generator.lastGroupItems : 100 }, literal),
       }));
       return { kind: 'logical', operator: 'and', operands: groups };
     }
@@ -99,12 +103,14 @@ describe('portable dataset expressions', () => {
       .toEqual([...FAILURE_CODES].sort());
   });
 
-  it.each(success.expressions)('accepts $id', ({ value }) => {
-    expect(validateProtocolExpression(value)).toEqual(value);
+  it.each(success.expressions)('accepts $id', fixture => {
+    const input = materialize(fixture);
+    expect(validateProtocolExpression(input)).toEqual(input);
   });
 
-  it.each(success.queries)('accepts $id', ({ value }) => {
-    expect(validateProtocolSemanticQuery(value)).toEqual(value);
+  it.each(success.queries)('accepts $id', fixture => {
+    const input = materialize(fixture);
+    expect(validateProtocolSemanticQuery(input)).toEqual(input);
   });
 
   it.each(rejections)('rejects $id with its stable code', fixture => {
@@ -122,6 +128,7 @@ describe('portable dataset expressions', () => {
     ]);
     expect(ids.filter(id => id.startsWith('call-')).sort()).toEqual([
       'call-ceil', 'call-coalesce', 'call-floor', 'call-nullIfZero', 'call-round',
+      'call-round-one-argument',
     ]);
     expect(ids.filter(id => id.startsWith('comparison-')).sort()).toEqual([
       'comparison-between', 'comparison-eq', 'comparison-gt', 'comparison-gte',
@@ -132,11 +139,11 @@ describe('portable dataset expressions', () => {
       .toEqual([
         'aggregate-argMax', 'aggregate-argMin', 'aggregate-avg', 'aggregate-count',
         'aggregate-countDistinct', 'aggregate-max', 'aggregate-min',
-        'aggregate-percentile', 'aggregate-stddev', 'aggregate-sum-filtered',
-        'aggregate-variance',
+        'aggregate-percentile', 'aggregate-stddev', 'aggregate-sum-empty-filters',
+        'aggregate-sum-filtered', 'aggregate-variance',
       ]);
     const grains = success.queries
-      .map(fixture => (fixture.value as { by?: string }).by)
+      .map(fixture => (fixture.value as { by?: string } | undefined)?.by)
       .filter((grain): grain is string => grain !== undefined);
     expect([...new Set(grains)].sort()).toEqual(['day', 'month', 'quarter', 'week', 'year']);
   });

@@ -94,10 +94,13 @@ export function materializeExpression(spec: Spec): unknown {
       return {
         kind: 'logical',
         operator: 'and',
-        operands: Array.from({ length: 10 }, () => ({
+        operands: Array.from({ length: 10 }, (_, groupIndex) => ({
           kind: 'logical',
           operator: 'and',
-          operands: Array.from({ length: 100 }, () => ({ ...EXPR_LITERAL })),
+          operands: Array.from(
+            { length: groupIndex === 9 ? spec.lastGroupItems as number : 100 },
+            () => ({ ...EXPR_LITERAL }),
+          ),
         })),
       };
     case 'unsafe-accessor': {
