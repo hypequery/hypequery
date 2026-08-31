@@ -255,6 +255,39 @@ describe('dataset definition validation', () => {
       ).toThrow(/never references it/);
     });
 
+    it('counts a dependency referenced through a backtick-quoted identifier', () => {
+      expect(
+        defineWith({
+          dimensions: {
+            ...baseDimensions,
+            net: dimension.number({
+              sql: '`amount` - discount',
+              dependencies: ['orders.amount', 'orders.discount'],
+            }),
+          },
+        }),
+      ).not.toThrow();
+    });
+
+    it('counts a dependency referenced through a double-quoted identifier', () => {
+      expect(
+        defineWith({
+          dimensions: {
+            ...baseDimensions,
+            doubled: dimension.number({ sql: '"amount" * 2', dependencies: ['orders.amount'] }),
+          },
+        }),
+      ).not.toThrow();
+    });
+
+    it('treats a terminator inside a quoted identifier as non-syntax', () => {
+      expect(
+        defineWith({
+          dimensions: { ...baseDimensions, odd: dimension.string({ sql: '`odd;name`' }) },
+        }),
+      ).not.toThrow();
+    });
+
     it('applies the same checks to measures', () => {
       expect(
         defineWith({

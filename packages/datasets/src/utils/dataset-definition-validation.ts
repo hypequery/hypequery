@@ -122,8 +122,12 @@ function validateRawSql(
   // string literal is data rather than syntax. An unterminated quote is itself a
   // rejection: left as data, an open quote would hide everything after it.
   let code: string;
+  let referenceable: string;
   try {
     code = stripSqlLiterals(sql);
+    // A quoted identifier is a column reference, so the dependency check below
+    // needs its text even though the terminator check above must not see it.
+    referenceable = stripSqlLiterals(sql, { keepQuotedIdentifiers: true });
   } catch {
     fail(datasetName, `${kind} "${name}" sql has an unterminated quoted literal.`);
   }
@@ -143,7 +147,7 @@ function validateRawSql(
     // regex syntax would either throw at construction or match something else.
     const segments = dependency.split(QUALIFIED_SEPARATOR);
     const column = segments[segments.length - 1] ?? '';
-    if (column.length === 0 || !new RegExp(`\\b${escapeRegExp(column)}\\b`).test(code)) {
+    if (column.length === 0 || !new RegExp(`\\b${escapeRegExp(column)}\\b`).test(referenceable)) {
       fail(
         datasetName,
         `${kind} "${name}" declares dependency "${dependency}", but its sql expression never ` +

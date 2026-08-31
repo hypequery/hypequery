@@ -165,6 +165,25 @@ describe('stripSqlLiterals', () => {
     expect(stripSqlLiterals('amount - discount')).toBe('amount - discount');
   });
 
+  it('keeps quoted-identifier text when asked, blanking only the delimiters', () => {
+    expect(stripSqlLiterals('`amount` - discount', { keepQuotedIdentifiers: true })).toBe(
+      ' amount  - discount',
+    );
+  });
+
+  it('still blanks string literals when keeping quoted identifiers', () => {
+    // `'a;b'` is 5 characters, so 5 spaces; `` `col` `` keeps its text as ` col `.
+    expect(stripSqlLiterals("concat('a;b', `col`)", { keepQuotedIdentifiers: true })).toBe(
+      'concat(     ,  col )',
+    );
+  });
+
+  it('preserves length in both modes', () => {
+    const sql = '`amount` - "other"';
+    expect(stripSqlLiterals(sql, { keepQuotedIdentifiers: true })).toHaveLength(sql.length);
+    expect(stripSqlLiterals(sql)).toHaveLength(sql.length);
+  });
+
   it('throws on an unterminated literal', () => {
     expect(() => stripSqlLiterals("name' ; DROP")).toThrow(/Unterminated ' literal/);
   });
