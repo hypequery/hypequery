@@ -27,7 +27,7 @@ import type {
   MeasureDefinition,
   RelationshipDefinition,
 } from '../types.js';
-import { isSafeSQLIdentifier } from '../sql-utils.js';
+import { escapeRegExp, isSafeSQLIdentifier, stripSqlLiterals } from '../sql-utils.js';
 
 type AnyDimensions = Record<string, DimensionDefinition>;
 type AnyMeasures = Record<string, MeasureDefinition>;
@@ -77,6 +77,28 @@ function assertSafeColumn(
 }
 
 /**
+ * Validates a semantic name — a dimension or measure key.
+ *
+ * These are not physical columns, but they are identifiers: they appear in query
+ * inputs, generated tool schemas, and protocol artifacts, where the strict
+ * identifier grammar applies. Rejecting here beats failing later during artifact
+ * production, which is far from the definition that caused it.
+ */
+function assertSafeName(
+  datasetName: string,
+  kind: 'dimension' | 'measure',
+  name: string,
+): void {
+  if (!isSafeSQLIdentifier(name)) {
+    fail(
+      datasetName,
+      `${kind} name "${name}" must contain only letters, numbers and underscores, and start ` +
+      'with a letter or underscore, so it stays a valid identifier in generated artifacts.',
+    );
+  }
+}
+
+/**
  * Checks a raw `sql` expression and the dependencies declared alongside it.
  *
  * The dependency check runs in the direction that fails silently: a declared
@@ -96,21 +118,32 @@ function validateRawSql(
     fail(datasetName, `${kind} "${name}" declares an empty sql expression.`);
   }
 
-  if (STATEMENT_BREAKERS.test(sql)) {
+  // Quoted spans are blanked first, so a terminator or comment opener *inside* a
+  // string literal is data rather than syntax. An unterminated quote is itself a
+  // rejection: left as data, an open quote would hide everything after it.
+  let code: string;
+  try {
+    code = stripSqlLiterals(sql);
+  } catch {
+    fail(datasetName, `${kind} "${name}" sql has an unterminated quoted literal.`);
+  }
+
+  if (STATEMENT_BREAKERS.test(code)) {
     fail(
       datasetName,
       `${kind} "${name}" sql must be a single expression without statement terminators or ` +
-      'comments (";", "--", "/*").',
+      'comments (";", "--", "/*") outside a quoted literal.',
     );
   }
 
   for (const dependency of dependencies ?? []) {
     // Dependencies are qualified identifiers (`analytics.orders.amount`); the
     // expression references the column itself, so the final segment is what has
-    // to appear in it.
+    // to appear in it. Escaped before it becomes a pattern: a raw value carrying
+    // regex syntax would either throw at construction or match something else.
     const segments = dependency.split(QUALIFIED_SEPARATOR);
     const column = segments[segments.length - 1] ?? '';
-    if (column.length === 0 || !new RegExp(`\\b${column}\\b`).test(sql)) {
+    if (column.length === 0 || !new RegExp(`\\b${escapeRegExp(column)}\\b`).test(code)) {
       fail(
         datasetName,
         `${kind} "${name}" declares dependency "${dependency}", but its sql expression never ` +
@@ -131,6 +164,12 @@ function validateDimensions(datasetName: string, dimensions: AnyDimensions): voi
       );
     }
 
+    // The name is a semantic identifier in its own right — it appears in
+    // protocol artifacts and query inputs — so it is checked whether or not an
+    // explicit column stands in for it below. Without this, the check silently
+    // depended on the column being omitted.
+    assertSafeName(datasetName, 'dimension', name);
+
     if (definition.sql !== undefined) {
       validateRawSql(datasetName, 'dimension', name, definition.sql, definition.dependencies);
       continue;
@@ -147,6 +186,8 @@ function validateMeasures(
   dimensions: AnyDimensions,
 ): void {
   for (const [name, definition] of Object.entries(measures)) {
+    assertSafeName(datasetName, 'measure', name);
+
     if (definition.sql !== undefined) {
       validateRawSql(datasetName, 'measure', name, definition.sql, definition.dependencies);
     }

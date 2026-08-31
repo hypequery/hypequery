@@ -186,6 +186,75 @@ describe('dataset definition validation', () => {
       ).toThrow(/never references it/);
     });
 
+    it('accepts a terminator inside a quoted literal', () => {
+      expect(
+        defineWith({
+          dimensions: { ...baseDimensions, tag: dimension.string({ sql: "concat(name, '; ')" }) },
+        }),
+      ).not.toThrow();
+    });
+
+    it('accepts a comment opener inside a quoted literal', () => {
+      expect(
+        defineWith({
+          dimensions: {
+            ...baseDimensions,
+            clean: dimension.string({ sql: "replaceAll(note, '--', '')" }),
+          },
+        }),
+      ).not.toThrow();
+    });
+
+    it('handles a doubled-quote escape inside a literal', () => {
+      expect(
+        defineWith({
+          dimensions: { ...baseDimensions, tag: dimension.string({ sql: "concat(a, 'it''s;')" }) },
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects an unterminated literal rather than treating the rest as data', () => {
+      expect(
+        defineWith({
+          dimensions: { ...baseDimensions, evil: dimension.string({ sql: "name' ; DROP TABLE t" }) },
+        }),
+      ).toThrow(/unterminated quoted literal/);
+    });
+
+    it('does not count a dependency that appears only inside a literal', () => {
+      expect(
+        defineWith({
+          dimensions: {
+            ...baseDimensions,
+            label: dimension.string({ sql: "'amount'", dependencies: ['orders.amount'] }),
+          },
+        }),
+      ).toThrow(/never references it/);
+    });
+
+    it('reports a dependency carrying regex syntax instead of throwing a SyntaxError', () => {
+      expect(
+        defineWith({
+          dimensions: {
+            ...baseDimensions,
+            net: dimension.number({ sql: 'amount', dependencies: ['orders.amount('] }),
+          },
+        }),
+      ).toThrow(/declares dependency "orders\.amount\(", but its sql expression never references it/);
+    });
+
+    it('does not let regex metacharacters in a dependency match something else', () => {
+      // "a+" would match "aaa" if the value reached the pattern unescaped.
+      expect(
+        defineWith({
+          dimensions: {
+            ...baseDimensions,
+            net: dimension.number({ sql: 'aaa', dependencies: ['orders.a+'] }),
+          },
+        }),
+      ).toThrow(/never references it/);
+    });
+
     it('applies the same checks to measures', () => {
       expect(
         defineWith({
@@ -206,6 +275,28 @@ describe('dataset definition validation', () => {
       expect(
         defineWith({ measures: { latest: measure.argMax('amount', 'created_at)') } }),
       ).toThrow(/measure "latest" argField "created_at\)" is not a safe column identifier/);
+    });
+  });
+
+  describe('semantic names', () => {
+    it('rejects a dimension name that is not a safe identifier', () => {
+      expect(
+        defineWith({ dimensions: { ...baseDimensions, 'bad-name': dimension.string() } }),
+      ).toThrow(/dimension name "bad-name" must contain only letters/);
+    });
+
+    it('rejects a bad dimension name even when an explicit column stands in for it', () => {
+      expect(
+        defineWith({
+          dimensions: { ...baseDimensions, 'bad-name': dimension.string({ column: 'good_col' }) },
+        }),
+      ).toThrow(/dimension name "bad-name" must contain only letters/);
+    });
+
+    it('rejects a measure name that is not a safe identifier', () => {
+      expect(defineWith({ measures: { 'bad-name': measure.sum('amount') } })).toThrow(
+        /measure name "bad-name" must contain only letters/,
+      );
     });
   });
 
