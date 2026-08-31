@@ -16,6 +16,9 @@ const mockLogger = vi.hoisted(() => ({
   raw: vi.fn(),
 }));
 const mockGenerateDatasets = vi.hoisted(() => vi.fn());
+const mockReadGeneratedFile = vi.hoisted(() => vi.fn());
+const mockWriteGeneratedFileAtomically = vi.hoisted(() => vi.fn());
+const mockFormatGeneratedFileDiff = vi.hoisted(() => vi.fn());
 
 vi.mock('../utils/detect-database.js');
 vi.mock('../utils/logger.js', () => ({
@@ -23,6 +26,13 @@ vi.mock('../utils/logger.js', () => ({
 }));
 vi.mock('../generators/dataset-generator.js', () => ({
   generateDatasets: mockGenerateDatasets,
+}));
+vi.mock('../utils/generated-file.js', () => ({
+  readGeneratedFile: mockReadGeneratedFile,
+  writeGeneratedFileAtomically: mockWriteGeneratedFileAtomically,
+}));
+vi.mock('../utils/generated-file-diff.js', () => ({
+  formatGeneratedFileDiff: mockFormatGeneratedFileDiff,
 }));
 vi.mock('ora', () => ({
   default: vi.fn(() => ({
@@ -48,12 +58,18 @@ describe('generate datasets command', () => {
       tables: ['orders'],
       exports: [{ table: 'orders', exportName: 'OrdersDataset' }],
       warnings: [],
+      contents: 'generated datasets\n',
     });
+    mockReadGeneratedFile.mockResolvedValue(undefined);
+    mockWriteGeneratedFileAtomically.mockResolvedValue(undefined);
+    mockFormatGeneratedFileDiff.mockReturnValue('--- datasets.ts\n+++ datasets.ts (generated)');
+    process.exitCode = undefined;
   });
 
   afterEach(() => {
     exitHandler.restore();
     delete process.env.CLICKHOUSE_URL;
+    process.exitCode = undefined;
   });
 
   it('derives datasets output from path when provided', async () => {
@@ -116,6 +132,8 @@ describe('generate datasets command', () => {
     mockGenerateDatasets.mockResolvedValue({
       tables: ['orders'],
       exports: [{ table: 'orders', exportName: 'OrdersDataset' }],
+      warnings: [],
+      contents: 'generated datasets\n',
     });
 
     await generateDatasetsCommand({ tables: 'orders' });
@@ -128,6 +146,7 @@ describe('generate datasets command', () => {
       tables: ['trips'],
       exports: [{ table: 'trips', exportName: 'TripsDataset' }],
       warnings: [],
+      contents: 'generated trips\n',
     });
 
     await generateDatasetsCommand({ output: 'src/analytics/datasets.ts', tables: 'trips' });
@@ -152,6 +171,7 @@ describe('generate datasets command', () => {
         columns: ['customer_id'],
         message: 'Review customer_id before enabling tenant scope.',
       }],
+      contents: 'generated datasets\n',
     });
 
     await generateDatasetsCommand({ tables: 'orders' });
@@ -172,5 +192,117 @@ describe('generate datasets command', () => {
       'CLICKHOUSE_URL=https://clickhouse.example.com:8443/analytics',
     );
     expect(mockLogger.indent).not.toHaveBeenCalledWith(expect.stringContaining('secret'));
+  });
+
+  it('renders first and atomically writes a new output file', async () => {
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts' });
+
+    expect(mockGenerateDatasets).toHaveBeenCalledWith(expect.objectContaining({
+      writeOutput: false,
+    }));
+    expect(mockWriteGeneratedFileAtomically).toHaveBeenCalledWith(
+      expect.stringContaining('analytics/datasets.ts'),
+      'generated datasets\n',
+      { overwrite: false },
+    );
+  });
+
+  it('refuses to replace a file created after the output was read', async () => {
+    // The exclusive create loses the race, which is the point: nothing is
+    // clobbered.
+    mockWriteGeneratedFileAtomically.mockRejectedValue(
+      Object.assign(new Error('Refusing to overwrite existing file'), { code: 'EEXIST' }),
+    );
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts' });
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Refusing to overwrite existing dataset definitions: analytics/datasets.ts',
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('refuses to replace an existing customized file by default', async () => {
+    mockReadGeneratedFile.mockResolvedValue('customized datasets\n');
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts' });
+
+    expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      'Refusing to overwrite existing dataset definitions: analytics/datasets.ts',
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('atomically replaces a changed file with --force', async () => {
+    mockReadGeneratedFile.mockResolvedValue('old datasets\n');
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts', force: true });
+
+    expect(mockWriteGeneratedFileAtomically).toHaveBeenCalledWith(
+      expect.stringContaining('analytics/datasets.ts'),
+      'generated datasets\n',
+      { overwrite: true },
+    );
+    expect(mockLogger.success).toHaveBeenCalledWith('Updated analytics/datasets.ts');
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('does not rewrite an output file that is already current', async () => {
+    mockReadGeneratedFile.mockResolvedValue('generated datasets\n');
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts' });
+
+    expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
+    expect(mockLogger.success).toHaveBeenCalledWith('Unchanged analytics/datasets.ts');
+  });
+
+  it('supports a non-writing CI check', async () => {
+    mockReadGeneratedFile.mockResolvedValue('old datasets\n');
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts', check: true });
+
+    expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Generated dataset definitions are out of date: analytics/datasets.ts',
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('passes a non-writing CI check when definitions are current', async () => {
+    mockReadGeneratedFile.mockResolvedValue('generated datasets\n');
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts', check: true });
+
+    expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
+    expect(mockLogger.success).toHaveBeenCalledWith(
+      'Dataset definitions are up to date: analytics/datasets.ts',
+    );
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('prints a non-writing diff and exits non-zero when regeneration differs', async () => {
+    mockReadGeneratedFile.mockResolvedValue('old datasets\n');
+
+    await generateDatasetsCommand({ output: 'analytics/datasets.ts', diff: true });
+
+    expect(mockFormatGeneratedFileDiff).toHaveBeenCalledWith(
+      'old datasets\n',
+      'generated datasets\n',
+      'analytics/datasets.ts',
+    );
+    expect(mockLogger.raw).toHaveBeenCalledWith('--- datasets.ts\n+++ datasets.ts (generated)');
+    expect(mockWriteGeneratedFileAtomically).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('rejects force combined with non-writing modes', async () => {
+    await generateDatasetsCommand({ force: true, check: true });
+
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      '--force cannot be combined with --check or --diff.',
+    );
+    expect(mockGenerateDatasets).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 });
