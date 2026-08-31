@@ -47,6 +47,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@hypequery/clickhouse": "workspace:*",
     "@types/node": "^20.11.30",
     "typescript": "^5.7.3",
     "vitest": "^3.2.6"

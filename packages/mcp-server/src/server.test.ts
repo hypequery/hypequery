@@ -4,6 +4,8 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HypequeryMCPServer } from './server.js';
+import { MCP_PACKAGE_VERSION } from './version.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { DatasetClient } from '@hypequery/datasets';
 
@@ -53,6 +55,10 @@ describe('HypequeryMCPServer', () => {
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
+    expect(vi.mocked(Server)).toHaveBeenCalledWith(
+      expect.objectContaining({ version: MCP_PACKAGE_VERSION }),
+      expect.anything(),
+    );
   });
 
   it('should create server instance with custom name and version', () => {
@@ -102,6 +108,14 @@ describe('HypequeryMCPServer', () => {
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
+  });
+
+  it('should reject unsafe query limit configuration', () => {
+    expect(() => new HypequeryMCPServer({
+      datasets: {},
+      analytics: mockAnalytics,
+      queryLimits: { maxOffset: 10_001 },
+    })).toThrow('maxOffset must be an integer between 1 and 10000');
   });
 
   it('should start server successfully', async () => {

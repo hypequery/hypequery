@@ -45,6 +45,25 @@ export interface QueryDatasetArgs {
 export interface QueryToolOptions {
   tenantId?: string;
   includeSql?: boolean;
+  limits?: MCPQueryLimits;
+}
+
+/** Server-side ceilings applied in addition to Dataset limits. */
+export interface MCPQueryLimits {
+  /** Rows used when a tool call omits `limit`. Defaults to 100. */
+  defaultResultSize?: number;
+  /** Maximum explicit or default row limit. Cannot exceed 10,000. */
+  maxResultSize?: number;
+  /** Maximum pagination offset. Cannot exceed 10,000. */
+  maxOffset?: number;
+  /** Maximum selected dimensions. Cannot exceed 50. */
+  maxDimensions?: number;
+  /** Maximum selected measures. Cannot exceed 50. */
+  maxMeasures?: number;
+  /** Maximum filters. Cannot exceed 100. */
+  maxFilters?: number;
+  /** Maximum order clauses. Cannot exceed 50. */
+  maxOrderBy?: number;
 }
 
 export interface SchemaToolOptions {
@@ -202,3 +221,8 @@ export interface QueryResultResponse {
  */
 export const MAX_QUERY_LIMIT = 10000;
 export const DEFAULT_QUERY_LIMIT = 100;
+export const MAX_QUERY_OFFSET = 10000;
+export const MAX_QUERY_DIMENSIONS = 50;
+export const MAX_QUERY_MEASURES = 50;
+export const MAX_QUERY_FILTERS = 100;
+export const MAX_QUERY_ORDER_BY = 50;

@@ -217,6 +217,9 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
+      '@hypequery/clickhouse':
+        specifier: workspace:*
+        version: link:../clickhouse
       '@types/node':
         specifier: ^20.11.30
         version: 20.19.31

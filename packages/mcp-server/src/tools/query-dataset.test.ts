@@ -72,6 +72,7 @@ describe('queryDatasetTool', () => {
         measures: [],
         filters: [],
         orderBy: [],
+        limit: 100,
       },
       {
         runtime: {
@@ -368,5 +369,31 @@ describe('queryDatasetTool', () => {
       }),
       expect.anything()
     );
+  });
+
+  it('should use the lower Dataset result limit as the default', async () => {
+    const analytics = createMockAnalytics({ data: [], meta: {} });
+    const dataset = { limits: { maxResultSize: 25 } };
+
+    await queryDatasetTool({ orders: dataset }, analytics, {
+      dataset: 'orders',
+      measures: ['revenue'],
+    });
+
+    expect(analytics.execute).toHaveBeenCalledWith(
+      dataset,
+      expect.objectContaining({ limit: 25 }),
+      expect.anything(),
+    );
+  });
+
+  it('should reject an explicit limit above the Dataset ceiling', async () => {
+    const analytics = createMockAnalytics({ data: [], meta: {} });
+
+    await expect(queryDatasetTool(
+      { orders: { limits: { maxResultSize: 25 } } },
+      analytics,
+      { dataset: 'orders', measures: ['revenue'], limit: 26 },
+    )).rejects.toThrow('Invalid limit: 26. Max: 25');
   });
 });

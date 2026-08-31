@@ -2,13 +2,13 @@
 
 ## Overview
 
-Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6 test files.
+Comprehensive test suite for `@hypequery/mcp` with **95 passing tests** across 8 test files.
 
 ## Test Coverage
 
-### 1. Tools (42 tests)
+### 1. Tools (64 tests)
 
-#### `list-datasets.test.ts` (6 tests)
+#### `list-datasets.test.ts` (8 tests)
 - ✅ Empty dataset list handling
 - ✅ Multiple datasets with descriptions
 - ✅ Config-based descriptions
@@ -16,7 +16,7 @@ Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6
 - ✅ Datasets without dimensions/metrics
 - ✅ Large dataset collections (100+)
 
-#### `introspect.test.ts` (8 tests)
+#### `introspect.test.ts` (14 tests)
 - ✅ Missing dataset parameter validation
 - ✅ Dataset not found errors
 - ✅ Complete schema extraction (dimensions, metrics, relationships)
@@ -25,7 +25,7 @@ Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6
 - ✅ Default column/label inference
 - ✅ Empty examples array handling
 
-#### `query-metric.test.ts` (12 tests)
+#### `query-metric.test.ts` (14 tests)
 - ✅ Parameter validation (dataset, metric)
 - ✅ Dataset/metric not found errors
 - ✅ Simple metric queries
@@ -36,19 +36,29 @@ Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6
 - ✅ Metric lookup (direct property vs metrics object)
 - ✅ Empty result sets
 
-#### `query-dataset.test.ts` (12 tests)
+#### `query-dataset.test.ts` (16 tests)
 - ✅ Parameter validation
 - ✅ Dataset not found errors
-- ✅ At least one dimension/metric requirement
+- ✅ At least one dimension/measure requirement
 - ✅ Dimension-only queries
-- ✅ Metric-only queries
-- ✅ Combined dimension + metric queries
+- ✅ Measure-only queries
+- ✅ Combined dimension + measure queries
 - ✅ Complex filters
 - ✅ Time grain aggregation
 - ✅ OrderBy with multiple fields
 - ✅ Limit support
 - ✅ Multi-dimensional queries
 - ✅ Empty result handling
+
+#### `query-limits.test.ts` (7 tests)
+- ✅ Default and configured result limits
+- ✅ Dataset limit intersection
+- ✅ Offset and collection ceilings
+- ✅ Invalid server configuration
+
+#### `query-sql.integration.test.ts` (5 tests)
+- ✅ SQL redaction for dataset and metric results
+- ✅ Explicit trusted SQL debugging
 
 ### 2. Prompts (13 tests)
 
@@ -67,9 +77,9 @@ Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6
 - ✅ Example workflow
 - ✅ Message structure validation
 
-### 3. Server (14 tests)
+### 3. Server (18 tests)
 
-#### `server.test.ts` (14 tests)
+#### `server.test.ts` (18 tests)
 - ✅ Server instantiation with default config
 - ✅ Custom name and version
 - ✅ Empty datasets support
@@ -85,16 +95,13 @@ Comprehensive test suite for `@hypequery/mcp` with **65 passing tests** across 6
 
 ## Test Statistics
 
-- **Total Tests:** 65
-- **Test Files:** 6
-- **Lines of Test Code:** ~1,477
+- **Total Tests:** 95
+- **Test Files:** 8
 - **Pass Rate:** 100%
-- **Test Execution Time:** ~42ms
-- **Total Runtime:** ~500ms (including setup)
 
 ## Test Framework
 
-- **Runner:** Vitest 2.1.9
+- **Runner:** Vitest 3.2.6
 - **Mocking:** Vitest built-in mocking
 - **Assertions:** Vitest expect API
 
@@ -172,7 +179,7 @@ it('should execute metric query with dimensions', async () => {
 
 ## Next Steps
 
-1. ✅ **Unit Tests** - Complete (65 tests)
+1. ✅ **Unit Tests** - Complete (95 tests)
 2. ⏭️ **Integration Tests** - Test with real MCP clients
 3. ⏭️ **E2E Tests** - Full workflow with ClickHouse
 4. ⏭️ **Performance Tests** - Load testing with large datasets

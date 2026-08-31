@@ -19,7 +19,15 @@ import { getDatasetSchemaTool } from './tools/introspect.js';
 import { queryMetricTool } from './tools/query-metric.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
-import type { DatasetRegistry } from './types.js';
+import {
+  DEFAULT_QUERY_LIMIT,
+  MAX_QUERY_LIMIT,
+  MAX_QUERY_OFFSET,
+  type DatasetRegistry,
+  type MCPQueryLimits,
+} from './types.js';
+import { MCP_PACKAGE_VERSION } from './version.js';
+import { resolveQueryLimits } from './tools/utils/query-limits.js';
 
 export interface MCPServerConfig {
   /**
@@ -54,6 +62,9 @@ export interface MCPServerConfig {
    * explicitly enabled for trusted debugging.
    */
   includeSql?: boolean;
+
+  /** Server-side query ceilings applied in addition to Dataset limits. */
+  queryLimits?: MCPQueryLimits;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -93,12 +104,13 @@ export class HypequeryMCPServer {
 
   constructor(config: MCPServerConfig) {
     validateTenantConfig(config);
+    resolveQueryLimits(undefined, config.queryLimits);
     this.config = config;
 
     this.server = new Server(
       {
         name: config.name ?? 'hypequery-mcp-server',
-        version: config.version ?? '0.1.0',
+        version: config.version ?? MCP_PACKAGE_VERSION,
       },
       {
         capabilities: {
@@ -190,11 +202,19 @@ export class HypequeryMCPServer {
                 description: 'Sort order (optional)',
               },
               limit: {
-                type: 'number',
+                type: 'integer',
+                minimum: 1,
+                maximum: this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
+                default: Math.min(
+                  this.config.queryLimits?.defaultResultSize ?? DEFAULT_QUERY_LIMIT,
+                  this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
+                ),
                 description: 'Maximum number of rows to return (optional)',
               },
               offset: {
-                type: 'number',
+                type: 'integer',
+                minimum: 0,
+                maximum: this.config.queryLimits?.maxOffset ?? MAX_QUERY_OFFSET,
                 description: 'Number of rows to skip before returning results (optional)',
               },
             },
@@ -255,11 +275,19 @@ export class HypequeryMCPServer {
                 description: 'Sort order (optional)',
               },
               limit: {
-                type: 'number',
+                type: 'integer',
+                minimum: 1,
+                maximum: this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
+                default: Math.min(
+                  this.config.queryLimits?.defaultResultSize ?? DEFAULT_QUERY_LIMIT,
+                  this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
+                ),
                 description: 'Maximum number of rows to return (optional)',
               },
               offset: {
-                type: 'number',
+                type: 'integer',
+                minimum: 0,
+                maximum: this.config.queryLimits?.maxOffset ?? MAX_QUERY_OFFSET,
                 description: 'Number of rows to skip before returning results (optional)',
               },
             },
@@ -290,7 +318,11 @@ export class HypequeryMCPServer {
               this.config.datasets,
               this.config.analytics,
               args,
-              { tenantId: this.config.tenantId, includeSql: this.config.includeSql },
+              {
+                tenantId: this.config.tenantId,
+                includeSql: this.config.includeSql,
+                limits: this.config.queryLimits,
+              },
             );
 
           case 'query_dataset':
@@ -298,7 +330,11 @@ export class HypequeryMCPServer {
               this.config.datasets,
               this.config.analytics,
               args,
-              { tenantId: this.config.tenantId, includeSql: this.config.includeSql },
+              {
+                tenantId: this.config.tenantId,
+                includeSql: this.config.includeSql,
+                limits: this.config.queryLimits,
+              },
             );
 
           default:

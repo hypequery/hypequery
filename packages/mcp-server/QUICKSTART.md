@@ -4,7 +4,7 @@ Get the Hypequery MCP server running with Claude Desktop in under 5 minutes.
 
 ## Option 1: Instant Test (No Setup Required)
 
-Use ClickHouse's built-in `system.numbers` table:
+Use ClickHouse's finite built-in `numbers(100)` table function:
 
 ```bash
 # 1. Build the MCP server
@@ -100,7 +100,7 @@ Expected: `4950`
 **Queries failing?**
 - Ensure ClickHouse is running (`clickhouse-client`)
 - Check credentials in config
-- Try the `system.numbers` example first
+- Try the finite `numbers(100)` example first
 
 **Need help?**
 - See `TESTING.md` for detailed troubleshooting

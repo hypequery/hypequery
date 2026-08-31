@@ -1,7 +1,7 @@
 /**
  * Minimal MCP Config for Instant Testing
  *
- * Uses ClickHouse's built-in system.numbers table - no setup required!
+ * Uses ClickHouse's finite numbers(100) table function - no setup required!
  * Perfect for testing the MCP server without creating any tables.
  *
  * Usage:
@@ -21,9 +21,10 @@ const db = createQueryBuilder({
 
 const analytics = createDatasetClient({ queryBuilder: db });
 
-// Define a dataset over system.numbers (built-in ClickHouse table)
+// Define a dataset over a finite built-in ClickHouse table function.
 const NumbersDataset = dataset('system_numbers', {
-  source: 'system.numbers',
+  source: 'numbers(100)',
+  limits: { maxResultSize: 100 },
   dimensions: {
     number: dimension.number({ label: 'Number' }),
   },

@@ -311,8 +311,8 @@ const analytics = createDatasetClient({
   database: 'default',
 });
 
-const TestDataset = dataset('system.numbers', {
-  source: 'system.numbers',
+const TestDataset = dataset('system_numbers', {
+  source: 'numbers(100)',
   dimensions: {
     number: dimension.number({ label: 'Number' }),
   },
@@ -334,6 +334,7 @@ export const datasets = {
 export { analytics };
 ```
 
-This uses ClickHouse's built-in `system.numbers` table, so no setup needed!
+This uses ClickHouse's finite built-in `numbers(100)` table function, so no
+setup is needed and an aggregate cannot scan an infinite source.
 
 Test query: "Show me the sum of numbers limit 10"
