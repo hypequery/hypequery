@@ -24,6 +24,8 @@ export interface DatasetGeneratorOptions {
    * being silently left unscoped.
    */
   tenantColumn?: string;
+  /** Whether to write the output file. Defaults to true; false renders only. */
+  writeOutput?: boolean;
 }
 
 export type DatasetGenerationWarning =
@@ -384,12 +386,14 @@ ${tables.map((table) => `  ${table.name}: ${tableToPascalCase(table.name)}Datase
 
   const output = header + datasetDefinitions.join('\n') + footer;
 
-  // Ensure output directory exists
-  const outputDir = path.dirname(path.resolve(options.outputPath));
-  await fs.mkdir(outputDir, { recursive: true });
+  if (options.writeOutput !== false) {
+    // Ensure output directory exists
+    const outputDir = path.dirname(path.resolve(options.outputPath));
+    await fs.mkdir(outputDir, { recursive: true });
 
-  // Write the file
-  await fs.writeFile(path.resolve(options.outputPath), output);
+    // Write the file
+    await fs.writeFile(path.resolve(options.outputPath), output);
+  }
 
   // Returned so the CLI can report what it actually generated, and print an
   // example that matches the file rather than a hardcoded placeholder.
@@ -400,5 +404,6 @@ ${tables.map((table) => `  ${table.name}: ${tableToPascalCase(table.name)}Datase
       exportName: `${tableToPascalCase(table.name)}Dataset`,
     })),
     warnings,
+    contents: output,
   };
 }
