@@ -1,21 +1,15 @@
-import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-interface PackageJson {
-  exports?: {
-    '.'?: Record<string, string>;
-  };
-}
-
-const packageJson = JSON.parse(
-  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-) as PackageJson;
+const require = createRequire(import.meta.url);
 
 describe('package exports', () => {
-  it('provides a fallback for resolvers without the import condition', () => {
-    const rootExport = packageJson.exports?.['.'];
+  it('resolves and loads the package under require conditions', () => {
+    const entryPath = require.resolve('@hypequery/protocol');
+    const protocol = require('@hypequery/protocol') as Record<string, unknown>;
 
-    expect(rootExport?.default).toBe('./dist/index.js');
-    expect(Object.keys(rootExport ?? {})).toEqual(['types', 'import', 'default']);
+    expect(entryPath).toBe(fileURLToPath(new URL('../dist/index.js', import.meta.url)));
+    expect(protocol.validateCanonicalValue).toBeTypeOf('function');
   });
 });
