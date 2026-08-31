@@ -1,0 +1,763 @@
+{
+  "_meta": {
+    "com.hypequery/activationRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "com.hypequery/deploymentIdentity": "2d71d44577daffdc952ef55d640ece588a74fc6493f0857c5851325745af890a",
+    "com.hypequery/toolMode": "catalog"
+  },
+  "tools": [
+    {
+      "name": "get_dataset_schema",
+      "title": "Get dataset schema",
+      "description": "Get the agent-safe dimensions, measures, metrics, filters, relationships, and limits for an analytics dataset.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dataset": {
+            "type": "string",
+            "enum": [
+              "orders"
+            ]
+          }
+        },
+        "required": [
+          "dataset"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "timeDimension": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "boolean",
+                    "number",
+                    "string",
+                    "timestamp"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "filterable": {
+                  "type": "boolean"
+                },
+                "groupable": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "filterable",
+                "groupable"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "measures": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "metrics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "dimensions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "filters": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "grains": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "dimensions",
+                "filters",
+                "grains"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "boolean",
+                    "number",
+                    "string",
+                    "timestamp"
+                  ]
+                },
+                "operators": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "type",
+                "operators"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "relationships": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                },
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "target",
+                "fields"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "limits": {
+            "type": "object",
+            "properties": {
+              "maxDimensions": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "maxMeasures": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "maxFilters": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "maxResultSize": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "timeDimension",
+          "dimensions",
+          "measures",
+          "metrics",
+          "filters",
+          "relationships",
+          "limits"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_datasets",
+      "title": "List datasets",
+      "description": "List the analytics datasets available to the authenticated principal.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "datasets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "dimensionCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "measureCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "metricCount": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "dimensionCount",
+                "measureCount",
+                "metricCount"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "datasets",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "query_dataset",
+      "title": "Query dataset",
+      "description": "Query a governed analytics dataset using approved dimensions, measures, filters, time grains, sorting, and pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dataset": {
+            "type": "string",
+            "enum": [
+              "orders"
+            ]
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "orderId",
+                "region",
+                "status"
+              ]
+            },
+            "maxItems": 4
+          },
+          "measures": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "orderCount",
+                "revenue"
+              ]
+            },
+            "maxItems": 2
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "const": "createdAt"
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "between",
+                        "eq",
+                        "gt",
+                        "gte",
+                        "lt",
+                        "lte",
+                        "neq"
+                      ]
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "field",
+                    "operator",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": [
+                        "region",
+                        "status"
+                      ]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "eq",
+                        "in",
+                        "neq",
+                        "notIn"
+                      ]
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "field",
+                    "operator",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 3
+          },
+          "grain": {
+            "type": "string",
+            "enum": [
+              "day",
+              "month",
+              "quarter",
+              "week",
+              "year"
+            ]
+          },
+          "orderBy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "enum": [
+                    "createdAt",
+                    "orderCount",
+                    "orderId",
+                    "period",
+                    "region",
+                    "revenue",
+                    "status"
+                  ]
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ]
+                }
+              },
+              "required": [
+                "field",
+                "direction"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 7
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "default": 0
+          }
+        },
+        "required": [
+          "dataset"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "dimensions"
+            ]
+          },
+          {
+            "required": [
+              "measures"
+            ]
+          }
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "maxItems": 100
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "rowCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "limit",
+                  "offset",
+                  "hasMore"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "rowCount"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "query_metric",
+      "title": "Query metric",
+      "description": "Query a verified metric using its approved dimensions, filters, time grains, sorting, and pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "dataset": {
+            "type": "string",
+            "enum": [
+              "orders"
+            ]
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "totalRevenue"
+            ]
+          },
+          "dimensions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "createdAt",
+                "region",
+                "status"
+              ]
+            },
+            "maxItems": 3
+          },
+          "filters": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "const": "createdAt"
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "between",
+                        "eq",
+                        "gt",
+                        "gte",
+                        "lt",
+                        "lte",
+                        "neq"
+                      ]
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "field",
+                    "operator",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "enum": [
+                        "region",
+                        "status"
+                      ]
+                    },
+                    "operator": {
+                      "type": "string",
+                      "enum": [
+                        "eq",
+                        "in",
+                        "neq",
+                        "notIn"
+                      ]
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "field",
+                    "operator",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 3
+          },
+          "grain": {
+            "type": "string",
+            "enum": [
+              "day",
+              "month",
+              "quarter",
+              "week",
+              "year"
+            ]
+          },
+          "orderBy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "enum": [
+                    "createdAt",
+                    "period",
+                    "region",
+                    "status",
+                    "totalRevenue"
+                  ]
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "asc",
+                    "desc"
+                  ]
+                }
+              },
+              "required": [
+                "field",
+                "direction"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 5
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 100
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000,
+            "default": 0
+          }
+        },
+        "required": [
+          "dataset",
+          "metric"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "maxItems": 100
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "rowCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "offset": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "limit",
+                  "offset",
+                  "hasMore"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "rowCount"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}
