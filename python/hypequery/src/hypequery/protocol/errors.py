@@ -35,6 +35,22 @@ ProtocolIdentifierErrorCode: TypeAlias = Literal[
     "HQ_IDENTIFIER_TOO_MANY_SEGMENTS",
 ]
 
+ProtocolExpressionErrorCode: TypeAlias = Literal[
+    "HQ_EXPRESSION_TYPE",
+    "HQ_EXPRESSION_UNKNOWN_FIELD",
+    "HQ_EXPRESSION_UNKNOWN_KIND",
+    "HQ_EXPRESSION_INVALID_IDENTIFIER",
+    "HQ_EXPRESSION_INVALID_VALUE",
+    "HQ_EXPRESSION_INVALID_OPERATOR",
+    "HQ_EXPRESSION_INVALID_ARITY",
+    "HQ_EXPRESSION_INVALID_AGGREGATION",
+    "HQ_EXPRESSION_INVALID_QUERY",
+    "HQ_EXPRESSION_TOO_DEEP",
+    "HQ_EXPRESSION_TOO_MANY_NODES",
+    "HQ_EXPRESSION_TOO_MANY_ITEMS",
+    "HQ_EXPRESSION_UNSAFE_OBJECT",
+]
+
 
 class ProtocolValueError(TypeError):
     """A safe, stable RFC 0001 validation failure."""
@@ -68,3 +84,21 @@ def identifier_error(code: ProtocolIdentifierErrorCode) -> NoReturn:
     """Raise an identifier error without attaching the rejected input."""
 
     raise ProtocolIdentifierError(code)
+
+
+class ProtocolExpressionError(TypeError):
+    """A safe, stable RFC 0003 validation failure."""
+
+    code: ProtocolExpressionErrorCode
+    path: str
+
+    def __init__(self, code: ProtocolExpressionErrorCode, path: str = "$") -> None:
+        super().__init__(f"{code} at {path}")
+        self.code = code
+        self.path = path
+
+
+def expression_error(code: ProtocolExpressionErrorCode, path: str = "$") -> NoReturn:
+    """Raise an expression error without attaching input data to its message."""
+
+    raise ProtocolExpressionError(code, path)

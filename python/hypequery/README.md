@@ -57,6 +57,35 @@ segments = split_protocol_qualified_identifier(name)
 These names are safe protocol nodes, not SQL identifiers, filenames, or URLs;
 adapters must still quote or sanitize them for their destination domain.
 
+## Portable expressions
+
+RFC 0003 expression and semantic-query validators return detached, deeply
+immutable dataclass models. The function, operator, aggregation, and grain
+registries are closed, and products may lower—but not raise—the protocol's
+depth, node-count, and collection limits:
+
+```python
+from hypequery.protocol import expression_to_data, validate_protocol_expression
+
+expression = validate_protocol_expression(
+    {
+        "kind": "binary",
+        "operator": "divide",
+        "left": {"kind": "reference", "name": "revenue"},
+        "right": {
+            "kind": "call",
+            "function": "nullIfZero",
+            "args": [{"kind": "reference", "name": "orders"}],
+        },
+    }
+)
+portable_data = expression_to_data(expression)
+```
+
+Validation accepts strict plain data only. It never invokes mapping hooks,
+serializers, callbacks, or arbitrary functions, and raw SQL is not an
+expression node.
+
 ## Dataset definitions
 
 Definitions use strict, frozen Pydantic models. Helper spellings are Pythonic,
@@ -112,8 +141,14 @@ Orders = Dataset(
 
 Relationship callbacks are invoked once by the helper. Models retain only the
 target dataset name, so `model_dump()` and `model_dump_json()` never serialize
-Python functions. Formula helpers likewise build immutable symbolic data; the
-portable RFC 0003 expression compiler is a separate roadmap step.
+Python functions. Formula helpers likewise build immutable symbolic data and
+`compile_formula()` lowers that data through the RFC 0003 validator:
+
+```python
+from hypequery.datasets import compile_formula, divide, null_if_zero
+
+average = compile_formula(divide("revenue", null_if_zero("orders")))
+```
 
 ## Development
 
