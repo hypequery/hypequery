@@ -79,7 +79,10 @@ import {
   buildMetricQuerySignature,
 } from './cache/query-signature.js';
 import { resolveResultLimit, withResultLimit } from './utils/result-limits.js';
-import { resolveDatasetCacheRuntime } from './utils/dataset-cache-policy.js';
+import {
+  resolveDatasetCacheRuntime,
+  type ClientCacheDefaults,
+} from './utils/dataset-cache-policy.js';
 import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
 import {
   validateQualifiedFilter,
@@ -644,6 +647,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   private backend?: SemanticBackend;
   private readonly queryCache: SemanticQueryCache;
   private readonly cacheEnabledByDefault: boolean;
+  private readonly cacheDefaults: ClientCacheDefaults;
   private readonly defaultCacheScope?: string;
 
   constructor(options: CreateDatasetClientOptions) {
@@ -664,6 +668,12 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     this.queryCache = new SemanticQueryCache(options.cache);
     this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
     this.defaultCacheScope = options.cache?.scope;
+    // Kept so a dataset's declared ceiling can clamp the client default too; the
+    // cache would otherwise fill a missing TTL from it after clamping has run.
+    this.cacheDefaults = {
+      ttlMs: options.cache?.ttlMs,
+      staleWhileRevalidateMs: options.cache?.staleWhileRevalidateMs,
+    };
   }
 
   getCacheStats(): SemanticCacheStats {
@@ -920,7 +930,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     ds: AnyDatasetInstance,
     context?: ExecutionContext,
   ): ExecutionContext | undefined {
-    const cache = resolveDatasetCacheRuntime(ds.cache, context?.cache);
+    const cache = resolveDatasetCacheRuntime(ds.cache, context?.cache, this.cacheDefaults);
     if (cache === context?.cache) {
       return context;
     }

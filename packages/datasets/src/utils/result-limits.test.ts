@@ -143,6 +143,13 @@ const CeilingOnly = dataset('ceiling_only', {
   cache: { maxTtlMs: 5_000 },
 });
 
+const SixtySecondCeiling = dataset('sixty_second_ceiling', {
+  source: 'orders',
+  dimensions: { status: dimension.string() },
+  measures: { revenue: measure.sum('amount') },
+  cache: { maxTtlMs: 60_000 },
+});
+
 describe('declared cache policy', () => {
   it('caches on the declared TTL with no client-level cache configured', async () => {
     const { factory, executions } = createRecordingFactory();
@@ -194,6 +201,59 @@ describe('declared cache policy', () => {
 
     await analytics.execute(CachedDaily, { dimensions: ['status'] }, { cache: false });
     await analytics.execute(CachedDaily, { dimensions: ['status'] }, { cache: false });
+
+    expect(executions).toHaveBeenCalledTimes(2);
+  });
+
+  it('clamps the client default TTL when the dataset declares only a ceiling', async () => {
+    vi.useFakeTimers();
+    try {
+      const { factory, executions } = createRecordingFactory();
+      // Client wants an hour; the dataset ceiling is five seconds.
+      const analytics = createDatasetClient({
+        queryBuilder: factory,
+        cache: { ttlMs: 3_600_000 },
+      });
+
+      await analytics.execute(CeilingOnly, { dimensions: ['status'] });
+      vi.advanceTimersByTime(10_000);
+      await analytics.execute(CeilingOnly, { dimensions: ['status'] });
+
+      expect(executions).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('bounds total age, not each window separately', async () => {
+    vi.useFakeTimers();
+    try {
+      const { factory } = createRecordingFactory();
+      const analytics = createDatasetClient({ queryBuilder: factory });
+      // Both windows at the ceiling would allow 120s of servable age.
+      const call = { cache: { ttlMs: 60_000, staleWhileRevalidateMs: 60_000 } };
+
+      await analytics.execute(SixtySecondCeiling, { dimensions: ['status'] }, call);
+      vi.advanceTimersByTime(90_000);
+      const result = await analytics.execute(
+        SixtySecondCeiling,
+        { dimensions: ['status'] },
+        call,
+      );
+
+      expect(result.meta?.cache?.hit).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not start caching just because a ceiling is declared', async () => {
+    const { factory, executions } = createRecordingFactory();
+    // A ceiling with no TTL anywhere is a maximum, not a default.
+    const analytics = createDatasetClient({ queryBuilder: factory });
+
+    await analytics.execute(CeilingOnly, { dimensions: ['status'] });
+    await analytics.execute(CeilingOnly, { dimensions: ['status'] });
 
     expect(executions).toHaveBeenCalledTimes(2);
   });
