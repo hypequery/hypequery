@@ -69,6 +69,7 @@ import {
   validateTenantRuntime,
 } from './utils/tenant-runtime.js';
 import { applyPagination, overfetchLimit } from './utils/pagination.js';
+import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
 import {
   SemanticQueryCache,
   type SemanticCacheOptions,
@@ -463,7 +464,17 @@ export class MetricQueryEngine {
       const rows = await activeBuilderFactory.rawQuery<T>(sql, params);
       const timingMs = Date.now() - start;
       const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-      return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), rowCount: data.length, pagination } };
+      const serializedData = serializeSemanticMeasureValues(data, [ref.name]);
+      return {
+        data: serializedData,
+        meta: {
+          sql,
+          timingMs,
+          tenant: getRuntimeTenantId(context),
+          rowCount: serializedData.length,
+          pagination,
+        },
+      };
     }
 
     // Base metrics: fully use the builder's execute()
@@ -472,7 +483,17 @@ export class MetricQueryEngine {
     const rows = await builder.execute<T>();
     const timingMs = Date.now() - start;
     const { data, pagination } = applyPagination(rows, query.limit, query.offset);
-    return { data, meta: { sql, timingMs, tenant: getRuntimeTenantId(context), rowCount: data.length, pagination } };
+    const serializedData = serializeSemanticMeasureValues(data, [ref.name]);
+    return {
+      data: serializedData,
+      meta: {
+        sql,
+        timingMs,
+        tenant: getRuntimeTenantId(context),
+        rowCount: serializedData.length,
+        pagination,
+      },
+    };
   }
 
   private buildBaseQuery(
@@ -846,9 +867,12 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
         if (!validation.valid) {
           throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
         }
-        return this.backend.execute<TRow>(
+        return (this.backend.execute<TRow>(
           this.planMetric(metric, boundedQuery, context),
-        ) as Promise<MetricResult<TRow>>;
+        ) as Promise<MetricResult<TRow>>).then((result) => ({
+          ...result,
+          data: serializeSemanticMeasureValues(result.data, [getMetricRef(metric).name]),
+        }));
       }
 
       return this.run<TRow>(metric, boundedQuery, context);
@@ -896,9 +920,16 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
 
     const run = (): Promise<DatasetQueryResult<TRow>> => {
       if (this.backend) {
-        return this.backend.execute<TRow>(
+        return (this.backend.execute<TRow>(
           this.planDataset(ds, boundedQuery, context),
-        ) as Promise<DatasetQueryResult<TRow>>;
+        ) as Promise<DatasetQueryResult<TRow>>).then((result) => ({
+          ...result,
+          data: serializeSemanticMeasureValues(
+            result.data,
+            // Same measures either way; boundedQuery differs only in `limit`.
+            boundedQuery.measures ?? Object.keys(ds.measures),
+          ),
+        }));
       }
       return runDatasetQuery(ds, boundedQuery, {
         builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),

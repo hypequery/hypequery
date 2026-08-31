@@ -55,8 +55,8 @@ const datasetResult = hooks.useDataset('orders', {
   measures: ['revenue'] as const,
 });
 const datasetRow = datasetResult.data?.data[0];
-// Measure values are strings: ClickHouse serializes aggregates as strings over JSON.
-const datasetRevenue: string | undefined = datasetRow?.revenue;
+// Measure values are normalized strings, with SQL NULL preserved.
+const datasetRevenue: string | null | undefined = datasetRow?.revenue;
 void datasetRevenue;
 
 // @ts-expect-error measure values are strings, not numbers
@@ -76,8 +76,8 @@ const groupedDatasetResult = hooks.useDataset('orders', {
 });
 const groupedDatasetRow = groupedDatasetResult.data?.data[0];
 const groupedCountry: string | undefined = groupedDatasetRow?.country;
-const groupedRevenue: string | undefined = groupedDatasetRow?.revenue;
-const groupedOrderCount: string | undefined = groupedDatasetRow?.orderCount;
+const groupedRevenue: string | null | undefined = groupedDatasetRow?.revenue;
+const groupedOrderCount: string | null | undefined = groupedDatasetRow?.orderCount;
 const groupedPeriod: string | undefined = groupedDatasetRow?.period;
 void groupedCountry;
 void groupedRevenue;
@@ -99,7 +99,7 @@ const metricResult = hooks.useMetric('revenue', {
   dimensions: ['country'] as const,
 });
 const metricRow = metricResult.data?.data[0];
-const metricRevenue: string | undefined = metricRow?.revenue;
+const metricRevenue: string | null | undefined = metricRow?.revenue;
 const metricCountry: string | undefined = metricRow?.country;
 
 // @ts-expect-error metric values are strings, not numbers

@@ -82,7 +82,8 @@ describe('Public exports', () => {
       measures: ['revenue'],
     });
 
-    expect(result.data).toEqual([{ country: 'US', revenue: 100 }]);
+    // Measures come back normalized to string | null by the semantic result contract.
+    expect(result.data).toEqual([{ country: 'US', revenue: '100' }]);
     expect(queries[0]).toContain('SELECT country, SUM(amount) AS revenue FROM orders');
     expect(queries[0]).toContain('GROUP BY country');
 
