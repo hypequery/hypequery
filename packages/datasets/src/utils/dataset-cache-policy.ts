@@ -55,27 +55,26 @@ export function resolveDatasetCacheRuntime(
 
   const resolved: SemanticCacheRuntime = { ...callerCache };
 
-  if (policy.maxTtlMs === undefined) {
-    // No ceiling: the policy only contributes a default TTL.
-    if (requestedTtl !== undefined) {
-      resolved.ttlMs = requestedTtl;
-    }
+  if (requestedTtl === undefined) {
+    // No layer asked for caching. The ceiling does not create it, and there is
+    // no default left downstream for it to fall back to.
     return resolved;
   }
 
-  if (requestedTtl === undefined || requestedTtl <= 0) {
-    // Nothing asked for caching; the ceiling does not create it.
-    return resolved;
-  }
+  // Set unconditionally once any layer supplied a value, including an explicit
+  // `0`. Returning without it would leave the cache to re-derive a TTL from the
+  // client default, turning "do not cache this dataset" into the client's TTL.
+  resolved.ttlMs =
+    policy.maxTtlMs === undefined ? requestedTtl : Math.min(requestedTtl, policy.maxTtlMs);
 
-  const ttlMs = Math.min(requestedTtl, policy.maxTtlMs);
-  resolved.ttlMs = ttlMs;
-  // Always set explicitly, including to 0: leaving it undefined would let the
-  // client's own stale window be applied on top of an already-clamped TTL.
-  resolved.staleWhileRevalidateMs = Math.min(
-    requestedStale ?? 0,
-    Math.max(0, policy.maxTtlMs - ttlMs),
-  );
+  if (policy.maxTtlMs !== undefined && resolved.ttlMs > 0) {
+    // Set explicitly for the same reason: an undefined stale window would be
+    // filled from the client default and layered on an already-clamped TTL.
+    resolved.staleWhileRevalidateMs = Math.min(
+      requestedStale ?? 0,
+      Math.max(0, policy.maxTtlMs - resolved.ttlMs),
+    );
+  }
 
   return resolved;
 }

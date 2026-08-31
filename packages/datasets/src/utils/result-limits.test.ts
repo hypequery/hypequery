@@ -143,6 +143,13 @@ const CeilingOnly = dataset('ceiling_only', {
   cache: { maxTtlMs: 5_000 },
 });
 
+const OptedOut = dataset('opted_out', {
+  source: 'orders',
+  dimensions: { status: dimension.string() },
+  measures: { revenue: measure.sum('amount') },
+  cache: { ttlMs: 0, maxTtlMs: 60_000 },
+});
+
 const SixtySecondCeiling = dataset('sixty_second_ceiling', {
   source: 'orders',
   dimensions: { status: dimension.string() },
@@ -245,6 +252,20 @@ describe('declared cache policy', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('honours an explicit ttlMs of 0 over a positive client default', async () => {
+    const { factory, executions } = createRecordingFactory();
+    // The dataset opts out; the client would otherwise cache for an hour.
+    const analytics = createDatasetClient({
+      queryBuilder: factory,
+      cache: { ttlMs: 3_600_000 },
+    });
+
+    await analytics.execute(OptedOut, { dimensions: ['status'] });
+    await analytics.execute(OptedOut, { dimensions: ['status'] });
+
+    expect(executions).toHaveBeenCalledTimes(2);
   });
 
   it('does not start caching just because a ceiling is declared', async () => {
