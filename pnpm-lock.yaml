@@ -298,7 +298,7 @@ importers:
   packages/serve:
     dependencies:
       '@hypequery/datasets':
-        specifier: ^0.13.5
+        specifier: ^0.13.6
         version: link:../datasets
       '@hypequery/protocol':
         specifier: ^0.11.0
