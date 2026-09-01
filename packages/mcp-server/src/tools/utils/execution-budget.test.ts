@@ -3,6 +3,7 @@ import { formatMCPToolError, MCPExecutionBudgetError } from '../../errors.js';
 import {
   assertWithinBudget,
   executeWithinBudget,
+  MIN_RESPONSE_BYTES,
   resolveExecutionBudget,
   serializeWithinBudget,
 } from './execution-budget.js';
@@ -22,7 +23,9 @@ describe('execution budgets', () => {
     expect(() => resolveExecutionBudget({ timeoutMs: 0 }))
       .toThrow('timeoutMs must be an integer between 1 and 120000');
     expect(() => resolveExecutionBudget({ maxResponseBytes: 10_485_761 }))
-      .toThrow('maxResponseBytes must be an integer between 1 and 10485760');
+      .toThrow(`maxResponseBytes must be an integer between ${MIN_RESPONSE_BYTES} and 10485760`);
+    expect(() => resolveExecutionBudget({ maxResponseBytes: MIN_RESPONSE_BYTES - 1 }))
+      .toThrow(`maxResponseBytes must be an integer between ${MIN_RESPONSE_BYTES} and 10485760`);
   });
 
   it('propagates request cancellation with a stable classification', async () => {
@@ -74,7 +77,7 @@ describe('execution budgets', () => {
   });
 
   it('enforces the UTF-8 serialized response byte ceiling', () => {
-    const budget = resolveExecutionBudget({ maxResponseBytes: 3 });
+    const budget = { timeoutMs: 30_000, maxResponseBytes: 3 };
 
     expect(() => serializeWithinBudget('é', budget)).toThrowError(
       expect.objectContaining({
@@ -100,7 +103,7 @@ describe('execution budgets', () => {
 
     expect(() => assertWithinBudget(
       response,
-      resolveExecutionBudget({ maxResponseBytes: 20 }),
+      { timeoutMs: 30_000, maxResponseBytes: 20 },
     )).toThrowError(expect.objectContaining({ code: 'MCP_RESULT_TOO_LARGE' }));
   });
 });

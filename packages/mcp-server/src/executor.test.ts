@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DatasetClient } from '@hypequery/datasets';
 import { HypequeryMCPExecutor } from './executor.js';
+import { MIN_RESPONSE_BYTES } from './tools/utils/execution-budget.js';
 
 describe('HypequeryMCPExecutor', () => {
   const analytics = {
@@ -78,7 +79,7 @@ describe('HypequeryMCPExecutor', () => {
     const executor = new HypequeryMCPExecutor({
       datasets,
       analytics: oversizedAnalytics,
-      executionBudget: { maxResponseBytes: 200 },
+      executionBudget: { maxResponseBytes: MIN_RESPONSE_BYTES },
     });
 
     await expect(executor.callTool('query_dataset', {
@@ -93,5 +94,11 @@ describe('HypequeryMCPExecutor', () => {
         },
       },
     });
+    const response = await executor.callTool('query_dataset', {
+      dataset: 'orders',
+      dimensions: ['region'],
+    });
+    expect(Buffer.byteLength(JSON.stringify(response), 'utf8'))
+      .toBeLessThanOrEqual(MIN_RESPONSE_BYTES);
   });
 });
