@@ -109,7 +109,7 @@ class ProtocolAggregateExpression:
     aggregation: ProtocolAggregation
     field: ProtocolQualifiedIdentifier
     arg_field: ProtocolQualifiedIdentifier | None = None
-    level: float | None = None
+    level: int | float | None = None
     filters: tuple[ProtocolExpression, ...] | None = None
     kind: Literal["aggregate"] = dataclass_field(init=False, default="aggregate")
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal, TypeAlias, cast
 
 from pydantic import SerializeAsAny, field_validator
@@ -60,7 +61,19 @@ def _formula_data(value: Formula) -> dict[str, object]:
     if isinstance(value, FormulaReference):
         return {"kind": "reference", "name": value.name}
     if isinstance(value, FormulaLiteral):
-        literal = float(value.value) if type(value.value) is int else value.value
+        literal = value.value
+        if type(literal) is int:
+            try:
+                number = float(literal)
+            except OverflowError as error:
+                raise ValueError(
+                    "formula integer literal must be exactly representable as a protocol number"
+                ) from error
+            if not math.isfinite(number) or int(number) != literal:
+                raise ValueError(
+                    "formula integer literal must be exactly representable as a protocol number"
+                )
+            literal = number
         return {"kind": "literal", "value": literal}
     if isinstance(value, FormulaBinary):
         return {

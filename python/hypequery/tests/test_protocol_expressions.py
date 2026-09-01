@@ -99,6 +99,20 @@ def test_semantic_query_model_preserves_absent_and_empty_collections() -> None:
     }
 
 
+@pytest.mark.parametrize("level", [0, 1, 0.0, 1.0])
+def test_percentile_level_preserves_numeric_representation(level: int | float) -> None:
+    source = {
+        "kind": "aggregate",
+        "aggregation": "percentile",
+        "field": "amount",
+        "level": level,
+    }
+
+    data = expression_to_data(validate_protocol_expression(source))
+    assert data == source
+    assert type(data["level"]) is type(level)
+
+
 def test_depth_boundary_matches_standalone_and_query_predicates() -> None:
     accepted = _predicate(14)
     rejected = _predicate(15)

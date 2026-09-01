@@ -229,6 +229,16 @@ def test_formula_helpers_compile_to_portable_expression_ast() -> None:
     assert_type(compile_formula(add("revenue", 1)), ProtocolExpression)
 
 
+def test_formula_compilation_rejects_inexact_integer_literals() -> None:
+    with pytest.raises(ValueError, match="exactly representable"):
+        compile_formula(2**53 + 1)
+
+    assert expression_to_data(compile_formula(2**53)) == {
+        "kind": "literal",
+        "value": float(2**53),
+    }
+
+
 @pytest.mark.parametrize(
     "definition",
     [

@@ -279,12 +279,12 @@ def _validate_aggregate(
         expression_error("HQ_EXPRESSION_INVALID_AGGREGATION", path)
     if is_arg and "filters" in value:
         expression_error("HQ_EXPRESSION_INVALID_AGGREGATION", f"{path}.filters")
-    level: float | None = None
+    level: int | float | None = None
     if is_percentile:
         raw_level = value["level"]
         if type(raw_level) not in (int, float):
             expression_error("HQ_EXPRESSION_INVALID_AGGREGATION", f"{path}.level")
-        level = float(cast(int | float, raw_level))
+        level = cast(int | float, raw_level)
         if not math.isfinite(level) or not 0 <= level <= 1:
             expression_error("HQ_EXPRESSION_INVALID_AGGREGATION", f"{path}.level")
     filters: tuple[ProtocolExpression, ...] | None = None
