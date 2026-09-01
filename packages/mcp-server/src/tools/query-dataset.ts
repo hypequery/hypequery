@@ -8,6 +8,11 @@ import type { DatasetClient, DatasetQuery } from '@hypequery/datasets';
 import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, QueryToolOptions } from '../types.js';
 import { parseToolArgs, queryDatasetArgsSchema, toMetricFilters } from './args.js';
 import { applyQueryLimits } from './utils/query-limits.js';
+import {
+  executeWithinBudget,
+  resolveExecutionBudget,
+  serializeWithinBudget,
+} from './utils/execution-budget.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
@@ -33,6 +38,7 @@ export async function queryDatasetTool(
   }
 
   const pagination = applyQueryLimits(dataset, validatedArgs, options.limits);
+  const executionBudget = resolveExecutionBudget(options.executionBudget);
 
   // Build the query with proper types
   const query: DatasetQuery = {
@@ -51,11 +57,17 @@ export async function queryDatasetTool(
     query.offset = pagination.offset;
   }
 
-  const result = await analytics.execute(dataset as any, query, {
-    runtime: {
-      tenant: options.tenantId ? { id: options.tenantId } : undefined,
-    },
-  });
+  const result = await executeWithinBudget(
+    signal => analytics.execute(dataset as any, query, {
+      runtime: {
+        tenant: options.tenantId ? { id: options.tenantId } : undefined,
+      },
+      abortSignal: signal,
+      cache: false,
+    }),
+    executionBudget,
+    options.signal,
+  );
 
   // Format the response with proper types
   const response: QueryResultResponse = {
@@ -72,7 +84,7 @@ export async function queryDatasetTool(
     content: [
       {
         type: 'text' as const,
-        text: JSON.stringify(response, null, 2),
+        text: serializeWithinBudget(response, executionBudget),
       },
     ],
   };

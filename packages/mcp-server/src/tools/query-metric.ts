@@ -8,6 +8,11 @@ import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
 import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, QueryToolOptions } from '../types.js';
 import { parseToolArgs, queryMetricArgsSchema, toMetricFilters } from './args.js';
 import { applyQueryLimits } from './utils/query-limits.js';
+import {
+  executeWithinBudget,
+  resolveExecutionBudget,
+  serializeWithinBudget,
+} from './utils/execution-budget.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
@@ -40,6 +45,7 @@ export async function queryMetricTool(
   }
 
   const pagination = applyQueryLimits(dataset, validatedArgs, options.limits);
+  const executionBudget = resolveExecutionBudget(options.executionBudget);
 
   // Build the query with proper types
   const query: MetricQuery = {
@@ -58,11 +64,17 @@ export async function queryMetricTool(
   }
 
   // Execute the query
-  const result = await analytics.execute(metric, query, {
-    runtime: {
-      tenant: options.tenantId ? { id: options.tenantId } : undefined,
-    },
-  });
+  const result = await executeWithinBudget(
+    signal => analytics.execute(metric, query, {
+      runtime: {
+        tenant: options.tenantId ? { id: options.tenantId } : undefined,
+      },
+      abortSignal: signal,
+      cache: false,
+    }),
+    executionBudget,
+    options.signal,
+  );
 
   // Format the response with proper types
   const response: QueryResultResponse = {
@@ -79,7 +91,7 @@ export async function queryMetricTool(
     content: [
       {
         type: 'text' as const,
-        text: JSON.stringify(response, null, 2),
+        text: serializeWithinBudget(response, executionBudget),
       },
     ],
   };

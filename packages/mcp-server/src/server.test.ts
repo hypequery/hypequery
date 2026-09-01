@@ -159,6 +159,14 @@ describe('HypequeryMCPServer', () => {
     expect(datasetProperties?.limit.maximum).toBe(6);
   });
 
+  it('should reject unsafe execution budget configuration', () => {
+    expect(() => new HypequeryMCPServer({
+      datasets: {},
+      analytics: mockAnalytics,
+      executionBudget: { timeoutMs: 120_001 },
+    })).toThrow('timeoutMs must be an integer between 1 and 120000');
+  });
+
   it('should start server successfully', async () => {
     const server = new HypequeryMCPServer({
       datasets: mockDatasets,
@@ -242,11 +250,13 @@ describe('HypequeryMCPServer', () => {
         dimensions: ['region'],
         measures: ['revenue'],
       }),
-      {
+      expect.objectContaining({
+        abortSignal: expect.any(AbortSignal),
+        cache: false,
         runtime: {
           tenant: { id: 'tenant-123' },
         },
-      },
+      }),
     );
   });
 

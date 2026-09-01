@@ -19,10 +19,19 @@ import { getDatasetSchemaTool } from './tools/introspect.js';
 import { queryMetricTool } from './tools/query-metric.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
-import type { DatasetRegistry, MCPQueryLimits } from './types.js';
+import {
+  DEFAULT_QUERY_LIMIT,
+  MAX_QUERY_LIMIT,
+  MAX_QUERY_OFFSET,
+  type DatasetRegistry,
+  type MCPExecutionBudget,
+  type MCPQueryLimits,
+} from './types.js';
 import { MCP_PACKAGE_VERSION } from './version.js';
 import { advertiseDatasetQueryLimits } from './tools/utils/query-schema.js';
 import { resolveQueryLimits } from './tools/utils/query-limits.js';
+import { resolveExecutionBudget } from './tools/utils/execution-budget.js';
+import { formatMCPToolError } from './errors.js';
 
 export interface MCPServerConfig {
   /**
@@ -60,6 +69,9 @@ export interface MCPServerConfig {
 
   /** Server-side query ceilings applied in addition to Dataset limits. */
   queryLimits?: MCPQueryLimits;
+
+  /** Query deadline and serialized-result byte ceilings. */
+  executionBudget?: MCPExecutionBudget;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -100,6 +112,7 @@ export class HypequeryMCPServer {
   constructor(config: MCPServerConfig) {
     validateTenantConfig(config);
     resolveQueryLimits(undefined, config.queryLimits);
+    resolveExecutionBudget(config.executionBudget);
     this.config = config;
 
     this.server = new Server(
@@ -322,7 +335,7 @@ export class HypequeryMCPServer {
     });
 
     // Handle tool calls
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       const { name, arguments: args } = request.params;
 
       try {
@@ -346,6 +359,8 @@ export class HypequeryMCPServer {
                 tenantId: this.config.tenantId,
                 includeSql: this.config.includeSql,
                 limits: this.config.queryLimits,
+                executionBudget: this.config.executionBudget,
+                signal: extra?.signal,
               },
             );
 
@@ -358,6 +373,8 @@ export class HypequeryMCPServer {
                 tenantId: this.config.tenantId,
                 includeSql: this.config.includeSql,
                 limits: this.config.queryLimits,
+                executionBudget: this.config.executionBudget,
+                signal: extra?.signal,
               },
             );
 
@@ -369,7 +386,7 @@ export class HypequeryMCPServer {
           content: [
             {
               type: 'text' as const,
-              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+              text: formatMCPToolError(error),
             },
           ],
           isError: true,

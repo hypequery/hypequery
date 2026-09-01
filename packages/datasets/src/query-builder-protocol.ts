@@ -68,7 +68,7 @@ export interface QueryBuilderLike {
 
   // Terminal operations
   toSQLWithParams(): { sql: string; parameters: unknown[] };
-  execute<T = Record<string, unknown>>(): Promise<T[]>;
+  execute<T = Record<string, unknown>>(options?: { abortSignal?: AbortSignal }): Promise<T[]>;
 }
 
 export interface QueryBuilderJoinCondition {
@@ -80,7 +80,11 @@ export interface QueryBuilderJoinCondition {
 /** A query builder factory (what `createQueryBuilder(config)` returns). */
 export interface QueryBuilderFactoryLike {
   table(name: string): QueryBuilderLike;
-  rawQuery<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]>;
+  rawQuery<T = Record<string, unknown>>(
+    sql: string,
+    params?: unknown[],
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<T[]>;
 }
 
 /**

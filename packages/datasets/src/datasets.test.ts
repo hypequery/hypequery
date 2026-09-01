@@ -479,6 +479,20 @@ describe("dataset query helpers", () => {
     expect(result.meta?.sql).toContain('SUM(amount) AS revenue');
   });
 
+  it("forwards semantic cancellation to query-builder execution", async () => {
+    const baseFactory = createDatasetQueryBuilderFactory([{ revenue: 42 }]);
+    const builder = baseFactory.table('orders');
+    const execute = vi.spyOn(builder, 'execute');
+    const abortSignal = new AbortController().signal;
+
+    await runDatasetQuery(Orders, { measures: ['revenue'] }, {
+      builderFactory: { ...baseFactory, table: () => builder },
+      context: { ...TENANT_CONTEXT, abortSignal },
+    });
+
+    expect(execute).toHaveBeenCalledWith({ abortSignal });
+  });
+
   it("reports hasMore via over-fetch and trims the extra row", async () => {
     const result = await runDatasetQuery(Orders, {
       measures: ['revenue'],

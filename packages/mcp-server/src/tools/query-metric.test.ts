@@ -86,11 +86,13 @@ describe('queryMetricTool', () => {
         orderBy: [],
         limit: 100,
       },
-      {
+      expect.objectContaining({
+        abortSignal: expect.any(AbortSignal),
+        cache: false,
         runtime: {
           tenant: undefined,
         },
-      }
+      })
     );
   });
 

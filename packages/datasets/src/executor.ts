@@ -461,7 +461,9 @@ export class MetricQueryEngine {
     if (spec.__type === 'derived_metric_spec') {
       // Derived metrics: build CTE via builder, outer query via string, execute via rawQuery
       const { sql, params } = this.buildDerivedSQLViaBuilder(ref, spec, buildQuery, grain, context);
-      const rows = await activeBuilderFactory.rawQuery<T>(sql, params);
+      const rows = await activeBuilderFactory.rawQuery<T>(sql, params, {
+        abortSignal: context?.abortSignal,
+      });
       const timingMs = Date.now() - start;
       const { data, pagination } = applyPagination(rows, query.limit, query.offset);
       const serializedData = serializeSemanticMeasureValues(data, [ref.name]);
@@ -480,7 +482,7 @@ export class MetricQueryEngine {
     // Base metrics: fully use the builder's execute()
     const builder = this.buildBaseQuery(ref, spec, ref.dataset, buildQuery, grain, context);
     const { sql } = builder.toSQLWithParams();
-    const rows = await builder.execute<T>();
+    const rows = await builder.execute<T>({ abortSignal: context?.abortSignal });
     const timingMs = Date.now() - start;
     const { data, pagination } = applyPagination(rows, query.limit, query.offset);
     const serializedData = serializeSemanticMeasureValues(data, [ref.name]);
@@ -711,7 +713,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
    * the common uncached path.
    */
   private isCacheable(context?: ExecutionContext): boolean {
-    if (context?.cache === false || context?.cache?.mode === 'bypass') {
+    if (context?.abortSignal || context?.cache === false || context?.cache?.mode === 'bypass') {
       return false;
     }
     const builderOverride = context?.runtime?.builderFactory;

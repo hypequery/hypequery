@@ -117,7 +117,7 @@ export async function runDatasetQuery(
     ...options,
     executionLimit: overfetchLimit(query.limit),
   });
-  const rows = await qb.execute();
+  const rows = await qb.execute({ abortSignal: options.context?.abortSignal });
   const { data, pagination } = applyPagination(rows, query.limit, query.offset);
   const serializedData = serializeSemanticMeasureValues(
     data,

@@ -56,9 +56,13 @@ const result = await analytics.execute(
   },
   {
     runtime: { tenant: session.accountId },
+    abortSignal: request.signal,
   },
 );
 ```
+
+Passing an `AbortSignal` cancels the semantic query and forwards cancellation to
+the backing query builder/database request.
 
 The same definition can become:
 

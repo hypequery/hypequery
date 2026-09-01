@@ -2,11 +2,11 @@
 
 ## Overview
 
-Comprehensive test suite for `@hypequery/mcp` with **101 passing tests** across 10 test files.
+Comprehensive test suite for `@hypequery/mcp` with **107 passing tests** across 11 test files.
 
 ## Test Coverage
 
-### 1. Tools (68 tests)
+### 1. Tools (73 tests)
 
 #### `list-datasets.test.ts` (8 tests)
 - ✅ Empty dataset list handling
@@ -61,6 +61,12 @@ Comprehensive test suite for `@hypequery/mcp` with **101 passing tests** across 
 - ✅ Per-dataset effective limit advertisement
 - ✅ Metric schemas omit measure limits
 
+#### `execution-budget.test.ts` (5 tests)
+- ✅ Safe deadline and response-byte defaults
+- ✅ Request cancellation propagation
+- ✅ Cooperative and non-cooperative query deadlines
+- ✅ UTF-8 serialized result byte ceilings
+
 #### `query-sql.integration.test.ts` (5 tests)
 - ✅ SQL redaction for dataset and metric results
 - ✅ Explicit trusted SQL debugging
@@ -106,7 +112,7 @@ Comprehensive test suite for `@hypequery/mcp` with **101 passing tests** across 
 ## Test Statistics
 
 - **Total Tests:** 101
-- **Test Files:** 10
+- **Test Files:** 11
 - **Pass Rate:** 100%
 
 ## Test Framework
@@ -155,7 +161,7 @@ pnpm dev
 
 - **Comprehensive:** Tests cover happy paths, error cases, and edge cases
 - **Isolated:** Each test uses mocks to avoid external dependencies
-- **Fast:** Entire suite runs in under 50ms
+- **Fast:** The isolated suite completes in seconds
 - **Maintainable:** Clear test names and organized by feature
 - **Documented:** Tests serve as usage examples
 
