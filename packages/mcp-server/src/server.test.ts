@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HypequeryMCPServer } from './server.js';
 import { MCP_PACKAGE_VERSION } from './version.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { DatasetClient } from '@hypequery/datasets';
 
 const requestHandlers = vi.hoisted(() => new Map<unknown, (request: any) => unknown>());
@@ -116,6 +116,34 @@ describe('HypequeryMCPServer', () => {
       analytics: mockAnalytics,
       queryLimits: { maxOffset: 10_001 },
     })).toThrow('maxOffset must be an integer between 1 and 10000');
+  });
+
+  it('advertises configured collection ceilings in query tool schemas', async () => {
+    new HypequeryMCPServer({
+      datasets: mockDatasets,
+      analytics: mockAnalytics,
+      queryLimits: {
+        maxDimensions: 2,
+        maxMeasures: 3,
+        maxFilters: 4,
+        maxOrderBy: 5,
+      },
+    });
+
+    const handler = requestHandlers.get(ListToolsRequestSchema);
+    const result = await handler?.({ params: {} }) as {
+      tools: Array<{ name: string; inputSchema: { properties: Record<string, any> } }>;
+    };
+    const metric = result.tools.find(tool => tool.name === 'query_metric');
+    const dataset = result.tools.find(tool => tool.name === 'query_dataset');
+
+    expect(metric?.inputSchema.properties.dimensions.maxItems).toBe(2);
+    expect(metric?.inputSchema.properties.filters.maxItems).toBe(4);
+    expect(metric?.inputSchema.properties.orderBy.maxItems).toBe(5);
+    expect(dataset?.inputSchema.properties.dimensions.maxItems).toBe(2);
+    expect(dataset?.inputSchema.properties.measures.maxItems).toBe(3);
+    expect(dataset?.inputSchema.properties.filters.maxItems).toBe(4);
+    expect(dataset?.inputSchema.properties.orderBy.maxItems).toBe(5);
   });
 
   it('should start server successfully', async () => {

@@ -19,13 +19,7 @@ import { getDatasetSchemaTool } from './tools/introspect.js';
 import { queryMetricTool } from './tools/query-metric.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
-import {
-  DEFAULT_QUERY_LIMIT,
-  MAX_QUERY_LIMIT,
-  MAX_QUERY_OFFSET,
-  type DatasetRegistry,
-  type MCPQueryLimits,
-} from './types.js';
+import type { DatasetRegistry, MCPQueryLimits } from './types.js';
 import { MCP_PACKAGE_VERSION } from './version.js';
 import { resolveQueryLimits } from './tools/utils/query-limits.js';
 
@@ -124,6 +118,7 @@ export class HypequeryMCPServer {
   }
 
   private setupHandlers() {
+    const queryLimits = resolveQueryLimits(undefined, this.config.queryLimits);
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
@@ -166,10 +161,12 @@ export class HypequeryMCPServer {
               dimensions: {
                 type: 'array',
                 items: { type: 'string' },
+                maxItems: queryLimits.maxDimensions,
                 description: 'Dimensions to group by (optional)',
               },
               filters: {
                 type: 'array',
+                maxItems: queryLimits.maxFilters,
                 items: {
                   type: 'object',
                   properties: {
@@ -191,6 +188,7 @@ export class HypequeryMCPServer {
               },
               orderBy: {
                 type: 'array',
+                maxItems: queryLimits.maxOrderBy,
                 items: {
                   type: 'object',
                   properties: {
@@ -204,17 +202,14 @@ export class HypequeryMCPServer {
               limit: {
                 type: 'integer',
                 minimum: 1,
-                maximum: this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
-                default: Math.min(
-                  this.config.queryLimits?.defaultResultSize ?? DEFAULT_QUERY_LIMIT,
-                  this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
-                ),
+                maximum: queryLimits.maxResultSize,
+                default: queryLimits.defaultResultSize,
                 description: 'Maximum number of rows to return (optional)',
               },
               offset: {
                 type: 'integer',
                 minimum: 0,
-                maximum: this.config.queryLimits?.maxOffset ?? MAX_QUERY_OFFSET,
+                maximum: queryLimits.maxOffset,
                 description: 'Number of rows to skip before returning results (optional)',
               },
             },
@@ -234,15 +229,18 @@ export class HypequeryMCPServer {
               dimensions: {
                 type: 'array',
                 items: { type: 'string' },
+                maxItems: queryLimits.maxDimensions,
                 description: 'Dimensions to select',
               },
               measures: {
                 type: 'array',
                 items: { type: 'string' },
+                maxItems: queryLimits.maxMeasures,
                 description: 'Measures to calculate',
               },
               filters: {
                 type: 'array',
+                maxItems: queryLimits.maxFilters,
                 items: {
                   type: 'object',
                   properties: {
@@ -264,6 +262,7 @@ export class HypequeryMCPServer {
               },
               orderBy: {
                 type: 'array',
+                maxItems: queryLimits.maxOrderBy,
                 items: {
                   type: 'object',
                   properties: {
@@ -277,17 +276,14 @@ export class HypequeryMCPServer {
               limit: {
                 type: 'integer',
                 minimum: 1,
-                maximum: this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
-                default: Math.min(
-                  this.config.queryLimits?.defaultResultSize ?? DEFAULT_QUERY_LIMIT,
-                  this.config.queryLimits?.maxResultSize ?? MAX_QUERY_LIMIT,
-                ),
+                maximum: queryLimits.maxResultSize,
+                default: queryLimits.defaultResultSize,
                 description: 'Maximum number of rows to return (optional)',
               },
               offset: {
                 type: 'integer',
                 minimum: 0,
-                maximum: this.config.queryLimits?.maxOffset ?? MAX_QUERY_OFFSET,
+                maximum: queryLimits.maxOffset,
                 description: 'Number of rows to skip before returning results (optional)',
               },
             },
