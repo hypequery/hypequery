@@ -99,6 +99,7 @@ export interface MCPToolResponse {
     type: 'text';
     text: string;
   }>;
+  structuredContent?: Record<string, unknown>;
   isError?: boolean;
   [key: string]: unknown;  // Allow additional properties for MCP protocol
 }
@@ -218,6 +219,12 @@ export interface QueryResultMeta {
     limit: number;
     offset: number;
     hasMore: boolean;
+  };
+  /** Cache outcome for agent observability. */
+  cache?: {
+    status: 'hit' | 'miss' | 'bypass';
+    ageMs?: number;
+    stale?: boolean;
   };
 }
 

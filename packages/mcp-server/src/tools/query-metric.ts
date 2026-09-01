@@ -5,15 +5,17 @@
  */
 
 import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
-import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, QueryToolOptions } from '../types.js';
+import type { DatasetRegistry, MCPToolResponse, QueryToolOptions } from '../types.js';
 import { parseToolArgs, toMetricFilters } from './args.js';
 import { buildMCPQuerySchemas } from './utils/canonical-query-schemas.js';
 import { applyQueryLimits } from './utils/query-limits.js';
 import {
+  assertWithinBudget,
   executeWithinBudget,
   resolveExecutionBudget,
-  serializeWithinBudget,
 } from './utils/execution-budget.js';
+import { buildMCPQueryResult } from './utils/query-result.js';
+import { createMCPToolResponse } from './utils/tool-response.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
@@ -79,22 +81,8 @@ export async function queryMetricTool(
   );
 
   // Format the response with proper types
-  const response: QueryResultResponse = {
-    data: result.data,
-    meta: {
-      ...(options.includeSql ? { sql: result.meta?.sql } : {}),
-      timingMs: result.meta?.timingMs,
-      rowCount: result.data.length,
-      ...(result.meta?.pagination ? { pagination: result.meta.pagination } : {}),
-    },
-  };
-
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: serializeWithinBudget(response, executionBudget),
-      },
-    ],
-  };
+  const response = buildMCPQueryResult(result, options.includeSql);
+  const toolResponse = createMCPToolResponse(response);
+  assertWithinBudget(toolResponse, executionBudget);
+  return toolResponse;
 }

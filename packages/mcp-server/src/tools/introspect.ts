@@ -18,6 +18,7 @@ import type {
   RelationshipSchema,
   SchemaToolOptions,
 } from '../types.js';
+import { createMCPToolResponse } from './utils/tool-response.js';
 
 function isDatasetInstance(value: unknown): value is Parameters<typeof getDatasetCatalog>[0] {
   return !!value && typeof value === 'object' && (value as { __type?: unknown }).__type === 'dataset';
@@ -202,12 +203,5 @@ export async function getDatasetSchemaTool(
     }
   }
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify(schema, null, 2),
-      },
-    ],
-  };
+  return createMCPToolResponse(schema);
 }

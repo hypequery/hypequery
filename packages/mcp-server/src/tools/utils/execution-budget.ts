@@ -96,7 +96,22 @@ export function serializeWithinBudget(
   value: unknown,
   budget: EffectiveExecutionBudget,
 ): string {
-  const serialized = JSON.stringify(value, null, 2);
+  const serialized = JSON.stringify(value);
+  assertSerializedWithinBudget(serialized, budget);
+  return serialized;
+}
+
+export function assertWithinBudget(
+  value: unknown,
+  budget: EffectiveExecutionBudget,
+): void {
+  assertSerializedWithinBudget(JSON.stringify(value), budget);
+}
+
+function assertSerializedWithinBudget(
+  serialized: string,
+  budget: EffectiveExecutionBudget,
+): void {
   const size = Buffer.byteLength(serialized, 'utf8');
   if (size > budget.maxResponseBytes) {
     throw new MCPExecutionBudgetError(
@@ -104,5 +119,4 @@ export function serializeWithinBudget(
       `The serialized result is ${size} bytes; maximum is ${budget.maxResponseBytes} bytes`,
     );
   }
-  return serialized;
 }

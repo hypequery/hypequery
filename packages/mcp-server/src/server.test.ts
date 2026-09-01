@@ -290,6 +290,7 @@ describe('HypequeryMCPServer', () => {
 
     const redactedBody = JSON.parse((redactedResult as any).content[0].text);
     expect(redactedBody.meta.sql).toBeUndefined();
+    expect((redactedResult as any).structuredContent.meta.sql).toBeUndefined();
 
     requestHandlers.clear();
     new HypequeryMCPServer({
@@ -311,6 +312,8 @@ describe('HypequeryMCPServer', () => {
 
     const debugBody = JSON.parse((debugResult as any).content[0].text);
     expect(debugBody.meta.sql).toBe('SELECT SUM(amount) AS revenue FROM orders');
+    expect((debugResult as any).structuredContent.meta.sql)
+      .toBe('SELECT SUM(amount) AS revenue FROM orders');
   });
 });
 

@@ -66,6 +66,7 @@ describe('getDatasetSchemaTool', () => {
 
     const result = await getDatasetSchemaTool(datasets, { dataset: 'orders' });
     const schema = JSON.parse(result.content[0].text);
+    expect(result.structuredContent).toEqual(schema);
 
     expect(schema.name).toBe('orders');
     expect(schema.description).toBe('Order data');

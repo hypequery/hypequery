@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { formatMCPToolError, MCPExecutionBudgetError } from '../../errors.js';
 import {
+  assertWithinBudget,
   executeWithinBudget,
   resolveExecutionBudget,
   serializeWithinBudget,
@@ -87,6 +88,19 @@ describe('execution budgets', () => {
       'MCP_QUERY_TIMEOUT',
       'deadline exceeded',
     ))).toBe('Error [MCP_QUERY_TIMEOUT]: deadline exceeded');
-    expect(formatMCPToolError(new Error('query failed'))).toBe('Error: query failed');
+    expect(formatMCPToolError(new Error('query failed')))
+      .toBe('Error [MCP_EXECUTION_FAILED]: Query execution failed');
+  });
+
+  it('accounts for the complete structured and fallback MCP response', () => {
+    const response = {
+      content: [{ type: 'text', text: '{"data":"value"}' }],
+      structuredContent: { data: 'value' },
+    };
+
+    expect(() => assertWithinBudget(
+      response,
+      resolveExecutionBudget({ maxResponseBytes: 20 }),
+    )).toThrowError(expect.objectContaining({ code: 'MCP_RESULT_TOO_LARGE' }));
   });
 });

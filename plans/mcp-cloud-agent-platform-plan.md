@@ -445,6 +445,15 @@ MCP client protocol test covers initialization, discovery, tool calls, and
 prompts through an injected in-memory transport and executor. No HTTP behavior
 is included.
 
+**CORE-05 implementation status:** Implemented on the joined `CORE-02` and
+`CORE-04` foundations. Every tool now declares an output schema, title, and
+read-only/idempotent annotations and returns structured content with compact
+text fallback. Query envelopes include row count, timing, pagination, and cache
+outcome. Stable error envelopes classify correctable input, authorization,
+stale-contract, budget, and redacted internal failures. Protocol tests exercise
+both success and error output-schema validation through a real MCP SDK client;
+SQL remains opt-in for trusted debugging.
+
 ### Deployment bridge PRs
 
 | PR | Depends on | Deliverable and merge gate |
@@ -552,9 +561,9 @@ identifiers above are the actual PR boundaries.
   from `@hypequery/datasets`.
 - [ ] **MCP-105:** Make generated schemas exact: field/operator enums, integer
   bounds, closed objects, dataset-specific limits, and at-least-one selection.
-- [ ] **MCP-106:** Return MCP `structuredContent` and declare output schemas while
+- [x] **MCP-106:** Return MCP `structuredContent` and declare output schemas while
   retaining concise text fallback for clients that need it.
-- [ ] **MCP-107:** Add MCP tool titles and read-only/idempotent annotations.
+- [x] **MCP-107:** Add MCP tool titles and read-only/idempotent annotations.
 - [ ] **DATA-101:** Add dataset metadata needed by agents: description, examples,
   synonyms, format/unit, currency, timezone, freshness, owner, sensitivity, and
   default dimensions/time grain. Verified questions are handled in `CORE-13`.
@@ -562,7 +571,7 @@ identifiers above are the actual PR boundaries.
   and named metrics instead of object spreading.
 - [ ] **MCP-108:** Split introspection into safe and trusted-debug projections;
   hide physical SQL/source/tenant details by default.
-- [ ] **MCP-109:** Normalize stable error codes and classify retryable,
+- [x] **MCP-109:** Normalize stable error codes and classify retryable,
   correctable-input, unauthorized, stale-contract, budget, and internal errors.
 - [x] **MCP-110:** Fix package version reporting, examples, test documentation,
   and the unsafe `system.numbers` quickstart.

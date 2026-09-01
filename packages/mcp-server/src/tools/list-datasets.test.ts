@@ -16,6 +16,7 @@ describe('listDatasetsTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.datasets).toEqual([]);
     expect(data.total).toBe(0);
+    expect(result.structuredContent).toEqual(data);
   });
 
   it('should list datasets with descriptions', async () => {
