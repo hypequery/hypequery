@@ -22,7 +22,7 @@ def test_adapter_announces_pinned_families_and_hostile_suite() -> None:
         check=True,
     )
     hello = cast(dict[str, object], json.loads(completed.stdout.splitlines()[0]))
-    assert hello["families"] == ["tagged-values-v1", "identifiers-v1"]
+    assert hello["families"] == ["tagged-values-v1", "identifiers-v1", "expressions-v1"]
     suite = cast(dict[str, object], hello["hostileObjectSuite"])
     assert suite["count"] == 7
     assert suite["mechanisms"] == [

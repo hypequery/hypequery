@@ -71,7 +71,7 @@ jobs:
   conformance:
     # RFC 0012 gate: once Python announces a fixture family, that family must
     # remain byte- and error-code-identical to the shared protocol corpus.
-    name: conformance (tagged-values-v1, identifiers-v1)
+    name: conformance (tagged-values-v1, identifiers-v1, expressions-v1)
     runs-on: ubuntu-latest
     defaults:
       run:

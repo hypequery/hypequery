@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal, TypeAlias, cast
 
 from pydantic import SerializeAsAny, field_validator
+
+from hypequery.protocol import ProtocolExpression, validate_protocol_expression
 
 from ._base import DefinitionModel
 from .validation import validate_qualified_identifier
@@ -52,6 +55,44 @@ def _operand(value: FormulaInput) -> Formula:
     if type(value) is str:
         return FormulaReference(name=value)
     return FormulaLiteral(value=cast(bool | int | float | None, value))
+
+
+def _formula_data(value: Formula) -> dict[str, object]:
+    if isinstance(value, FormulaReference):
+        return {"kind": "reference", "name": value.name}
+    if isinstance(value, FormulaLiteral):
+        literal = value.value
+        if type(literal) is int:
+            try:
+                number = float(literal)
+            except OverflowError as error:
+                raise ValueError(
+                    "formula integer literal must be exactly representable as a protocol number"
+                ) from error
+            if not math.isfinite(number) or int(number) != literal:
+                raise ValueError(
+                    "formula integer literal must be exactly representable as a protocol number"
+                )
+            literal = number
+        return {"kind": "literal", "value": literal}
+    if isinstance(value, FormulaBinary):
+        return {
+            "kind": "binary",
+            "operator": value.operator,
+            "left": _formula_data(cast(Formula, value.left)),
+            "right": _formula_data(cast(Formula, value.right)),
+        }
+    return {
+        "kind": "call",
+        "function": value.name,
+        "args": [_formula_data(cast(Formula, item)) for item in value.args],
+    }
+
+
+def compile_formula(value: FormulaInput) -> ProtocolExpression:
+    """Compile a symbolic dataset formula into the validated portable AST."""
+
+    return validate_protocol_expression(_formula_data(_operand(value)))
 
 
 def divide(left: FormulaInput, right: FormulaInput) -> FormulaBinary:

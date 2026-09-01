@@ -28,6 +28,7 @@ from hypequery.datasets import (
     between,
     ceil,
     coalesce,
+    compile_formula,
     count,
     count_distinct,
     desc,
@@ -58,7 +59,7 @@ from hypequery.datasets import (
     sum,  # noqa: A004
     variance,
 )
-from hypequery.protocol import ProtocolIdentifierError
+from hypequery.protocol import ProtocolExpression, ProtocolIdentifierError, expression_to_data
 
 
 def _customers() -> Dataset:
@@ -202,6 +203,40 @@ def test_formula_helpers_build_serializable_symbolic_data() -> None:
     assert isinstance(add("left", "right"), FormulaBinary)
     assert isinstance(null_if_zero("orders"), FormulaCall)
     json.dumps(data)
+
+
+def test_formula_helpers_compile_to_portable_expression_ast() -> None:
+    expression = compile_formula(round(divide("revenue", null_if_zero("orders")), 2))
+
+    assert expression_to_data(expression) == {
+        "kind": "call",
+        "function": "round",
+        "args": [
+            {
+                "kind": "binary",
+                "operator": "divide",
+                "left": {"kind": "reference", "name": "revenue"},
+                "right": {
+                    "kind": "call",
+                    "function": "nullIfZero",
+                    "args": [{"kind": "reference", "name": "orders"}],
+                },
+            },
+            {"kind": "literal", "value": 2.0},
+        ],
+    }
+
+    assert_type(compile_formula(add("revenue", 1)), ProtocolExpression)
+
+
+def test_formula_compilation_rejects_inexact_integer_literals() -> None:
+    with pytest.raises(ValueError, match="exactly representable"):
+        compile_formula(2**53 + 1)
+
+    assert expression_to_data(compile_formula(2**53)) == {
+        "kind": "literal",
+        "value": float(2**53),
+    }
 
 
 @pytest.mark.parametrize(
