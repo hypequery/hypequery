@@ -1079,6 +1079,32 @@ describe("MetricQueryEngine", () => {
   });
 
   describe("createDatasetClient()", () => {
+    it("forwards semantic cancellation to backend execution", async () => {
+      const execute = vi.fn().mockResolvedValue({ data: [] });
+      const analytics = createDatasetClient({ backend: { execute } });
+      const abortSignal = new AbortController().signal;
+
+      await analytics.execute(Orders, { measures: ["revenue"] }, {
+        ...TENANT_CONTEXT,
+        abortSignal,
+      });
+      await analytics.execute(avgOrderValue, {}, {
+        ...TENANT_CONTEXT,
+        abortSignal,
+      });
+
+      expect(execute).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        { abortSignal },
+      );
+      expect(execute).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        { abortSignal },
+      );
+    });
+
     it("executes all-tenant dataset queries across tenants", async () => {
       const analytics = createDatasetClient({
         backend: createInMemoryBackend({

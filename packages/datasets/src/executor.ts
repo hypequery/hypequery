@@ -871,6 +871,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
         }
         return (this.backend.execute<TRow>(
           this.planMetric(metric, boundedQuery, context),
+          { abortSignal: context?.abortSignal },
         ) as Promise<MetricResult<TRow>>).then((result) => ({
           ...result,
           data: serializeSemanticMeasureValues(result.data, [getMetricRef(metric).name]),
@@ -924,6 +925,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       if (this.backend) {
         return (this.backend.execute<TRow>(
           this.planDataset(ds, boundedQuery, context),
+          { abortSignal: context?.abortSignal },
         ) as Promise<DatasetQueryResult<TRow>>).then((result) => ({
           ...result,
           data: serializeSemanticMeasureValues(

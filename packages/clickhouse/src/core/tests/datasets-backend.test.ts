@@ -115,18 +115,21 @@ const Products = dataset('products', {
 
 function createTestBackend(mockData: any[] = []) {
   const queries: string[] = [];
+  const abortSignals: Array<AbortSignal | undefined> = [];
 
   return {
     backend: createBackend({
       adapter: {
         name: 'test',
-        query: async (sql: string) => {
+        query: async (sql: string, _params, options) => {
           queries.push(sql);
+          abortSignals.push(options?.abortSignal);
           return mockData;
         },
       },
     }),
     queries,
+    abortSignals,
   };
 }
 
@@ -135,6 +138,16 @@ function createTestBackend(mockData: any[] = []) {
 // =============================================================================
 
 describe('ClickHouse Backend - Base Aggregations', () => {
+  it('forwards cancellation to the backing ClickHouse query', async () => {
+    const { backend, abortSignals } = createTestBackend([]);
+    const analytics = createDatasetClient({ backend });
+    const abortSignal = new AbortController().signal;
+
+    await analytics.execute(Orders, { measures: ['revenue'] }, { abortSignal });
+
+    expect(abortSignals).toEqual([abortSignal]);
+  });
+
   it('generates SUM aggregation', async () => {
     const { backend, queries } = createTestBackend([{ country: 'US', revenue: 1000 }]);
     const analytics = createDatasetClient({ backend });

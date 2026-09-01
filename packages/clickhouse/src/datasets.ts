@@ -535,14 +535,17 @@ export function createBackend<Schema extends SchemaDefinition<Schema>>(
     /**
      * Execute a semantic plan and return results
      */
-    async execute<T = Record<string, unknown>>(plan: PlanNode): Promise<SemanticBackendResult<T>> {
+    async execute<T = Record<string, unknown>>(
+      plan: PlanNode,
+      options?: { abortSignal?: AbortSignal },
+    ): Promise<SemanticBackendResult<T>> {
       const start = Date.now();
 
       if (plan.kind === 'aggregate') {
         // Base metrics: use query builder for full safety
         const query = buildAggregateQuery(queryBuilder, plan);
         const { sql } = query.toSQLWithParams();
-        const data = await query.execute() as T[];
+        const data = await query.execute({ abortSignal: options?.abortSignal }) as T[];
 
         return {
           data,
@@ -556,7 +559,9 @@ export function createBackend<Schema extends SchemaDefinition<Schema>>(
 
       // Derived metrics: CTE query with formulas
       const { sql, parameters } = buildDerivedSQL(queryBuilder, plan);
-      const data = await queryBuilder.rawQuery<T>(sql, parameters);
+      const data = await queryBuilder.rawQuery<T>(sql, parameters, {
+        abortSignal: options?.abortSignal,
+      });
       const tenant = plan.input.kind === 'aggregate' && plan.input.tenant?.operator === 'eq'
         ? plan.input.tenant.value
         : undefined;
