@@ -92,6 +92,45 @@ function validateTenantConfig(config: MCPServerConfig) {
   }
 }
 
+type JsonObject = Record<string, unknown>;
+
+function advertiseDatasetQueryLimits(
+  schema: JsonObject,
+  datasets: DatasetRegistry,
+  configured: MCPQueryLimits | undefined,
+  includeMeasures: boolean,
+): JsonObject {
+  const entries = Object.entries(datasets);
+  if (entries.length === 0) return schema;
+  const properties = schema.properties as Record<string, JsonObject>;
+
+  return {
+    type: 'object',
+    anyOf: entries.map(([name, dataset]) => {
+      const limits = resolveQueryLimits(dataset, configured);
+      return {
+        ...schema,
+        properties: {
+          ...properties,
+          dataset: { ...properties.dataset, enum: [name] },
+          dimensions: { ...properties.dimensions, maxItems: limits.maxDimensions },
+          ...(includeMeasures ? {
+            measures: { ...properties.measures, maxItems: limits.maxMeasures },
+          } : {}),
+          filters: { ...properties.filters, maxItems: limits.maxFilters },
+          orderBy: { ...properties.orderBy, maxItems: limits.maxOrderBy },
+          limit: {
+            ...properties.limit,
+            maximum: limits.maxResultSize,
+            default: limits.defaultResultSize,
+          },
+          offset: { ...properties.offset, maximum: limits.maxOffset },
+        },
+      };
+    }),
+  };
+}
+
 export class HypequeryMCPServer {
   private server: Server;
   private config: MCPServerConfig;
@@ -120,8 +159,8 @@ export class HypequeryMCPServer {
   private setupHandlers() {
     const queryLimits = resolveQueryLimits(undefined, this.config.queryLimits);
     // List available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      const tools = [
         {
           name: 'list_datasets',
           description: 'List all available datasets in the semantic layer',
@@ -290,8 +329,35 @@ export class HypequeryMCPServer {
             required: ['dataset'],
           },
         },
-      ],
-    }));
+      ];
+      return {
+        tools: tools.map(tool => {
+          if (tool.name === 'query_metric') {
+            return {
+              ...tool,
+              inputSchema: advertiseDatasetQueryLimits(
+                tool.inputSchema,
+                this.config.datasets,
+                this.config.queryLimits,
+                false,
+              ),
+            };
+          }
+          if (tool.name === 'query_dataset') {
+            return {
+              ...tool,
+              inputSchema: advertiseDatasetQueryLimits(
+                tool.inputSchema,
+                this.config.datasets,
+                this.config.queryLimits,
+                true,
+              ),
+            };
+          }
+          return tool;
+        }),
+      };
+    });
 
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {

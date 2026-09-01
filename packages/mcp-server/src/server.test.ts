@@ -120,7 +120,12 @@ describe('HypequeryMCPServer', () => {
 
   it('advertises configured collection ceilings in query tool schemas', async () => {
     new HypequeryMCPServer({
-      datasets: mockDatasets,
+      datasets: {
+        orders: {
+          ...mockDatasets.orders,
+          limits: { maxDimensions: 1, maxFilters: 2, maxResultSize: 6 },
+        },
+      },
       analytics: mockAnalytics,
       queryLimits: {
         maxDimensions: 2,
@@ -132,18 +137,26 @@ describe('HypequeryMCPServer', () => {
 
     const handler = requestHandlers.get(ListToolsRequestSchema);
     const result = await handler?.({ params: {} }) as {
-      tools: Array<{ name: string; inputSchema: { properties: Record<string, any> } }>;
+      tools: Array<{
+        name: string;
+        inputSchema: { anyOf: Array<{ properties: Record<string, any> }> };
+      }>;
     };
     const metric = result.tools.find(tool => tool.name === 'query_metric');
     const dataset = result.tools.find(tool => tool.name === 'query_dataset');
+    const metricProperties = metric?.inputSchema.anyOf[0].properties;
+    const datasetProperties = dataset?.inputSchema.anyOf[0].properties;
 
-    expect(metric?.inputSchema.properties.dimensions.maxItems).toBe(2);
-    expect(metric?.inputSchema.properties.filters.maxItems).toBe(4);
-    expect(metric?.inputSchema.properties.orderBy.maxItems).toBe(5);
-    expect(dataset?.inputSchema.properties.dimensions.maxItems).toBe(2);
-    expect(dataset?.inputSchema.properties.measures.maxItems).toBe(3);
-    expect(dataset?.inputSchema.properties.filters.maxItems).toBe(4);
-    expect(dataset?.inputSchema.properties.orderBy.maxItems).toBe(5);
+    expect(metricProperties?.dataset.enum).toEqual(['orders']);
+    expect(metricProperties?.dimensions.maxItems).toBe(1);
+    expect(metricProperties?.filters.maxItems).toBe(2);
+    expect(metricProperties?.orderBy.maxItems).toBe(5);
+    expect(metricProperties?.limit.maximum).toBe(6);
+    expect(datasetProperties?.dimensions.maxItems).toBe(1);
+    expect(datasetProperties?.measures.maxItems).toBe(3);
+    expect(datasetProperties?.filters.maxItems).toBe(2);
+    expect(datasetProperties?.orderBy.maxItems).toBe(5);
+    expect(datasetProperties?.limit.maximum).toBe(6);
   });
 
   it('should start server successfully', async () => {
