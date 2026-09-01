@@ -223,7 +223,7 @@ function handleExpression(role: FixtureRole, c: Case, section?: string): Handler
   const validate = isQuery ? validateProtocolSemanticQuery : validateProtocolExpression;
   if (role === 'success') {
     return attempt(() => {
-      validate(c.value);
+      validate(validationInput(c, materializeExpression));
       return ACCEPT;
     });
   }

@@ -475,7 +475,7 @@ describe("dataset query helpers", () => {
       context: TENANT_CONTEXT,
     });
 
-    expect(result.data).toEqual([{ revenue: 42 }]);
+    expect(result.data).toEqual([{ revenue: '42' }]);
     expect(result.meta?.sql).toContain('SUM(amount) AS revenue');
   });
 
@@ -986,8 +986,8 @@ describe("MetricQueryEngine", () => {
       }, TENANT_CONTEXT);
 
       expect(result.data).toEqual([
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
+        { country: "US", totalRevenue: "5000" },
+        { country: "DE", totalRevenue: "3000" },
       ]);
       expect(result.meta.sql).toBeDefined();
       expect(result.meta.timingMs).toBeGreaterThanOrEqual(0);
@@ -1144,8 +1144,8 @@ describe("MetricQueryEngine", () => {
       }, TENANT_CONTEXT);
 
       expect(result.data).toEqual([
-        { country: "US", totalRevenue: 5000 },
-        { country: "DE", totalRevenue: 3000 },
+        { country: "US", totalRevenue: "5000" },
+        { country: "DE", totalRevenue: "3000" },
       ]);
       expect(result.meta.sql).toContain("SUM(amount) AS totalRevenue");
     });

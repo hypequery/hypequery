@@ -183,6 +183,9 @@ program
     '--tenant-column <column>',
     'Set tenantKey to this column on tables that have it (requires a trusted runtime tenant scope)',
   )
+  .option('--force', 'Replace an existing output file when generated contents differ')
+  .option('--check', 'Exit with an error when the output file is missing or out of date')
+  .option('--diff', 'Print generated changes without writing them')
   .action(runCommand(async (options: GenerateDatasetsOptions) => {
     await generateDatasetsCommand(options);
   }));

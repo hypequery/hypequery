@@ -1,5 +1,29 @@
 # @hypequery/cli
 
+## 1.18.3
+
+### Patch Changes
+
+- 906edde: Protect generated dataset customizations by refusing implicit overwrites, writing replacements atomically with `--force`, and adding non-writing `--check` and `--diff` modes.
+
+  Writes without `--force` are exclusive creates, so a file written concurrently is refused instead of clobbered. `--force` replacements preserve the existing file's permissions and never loosen them: the destination's mode is re-read after the replacement is written, and the tighter of the two observations is applied.
+
+## 1.18.2
+
+### Patch Changes
+
+- Updated dependencies [5d45045]
+  - @hypequery/protocol@0.11.1
+  - @hypequery/deployment@0.7.4
+
+## 1.18.1
+
+### Patch Changes
+
+- 61954e4: Stop dataset scaffolding from automatically enabling tenant isolation based on column-name heuristics. Generated files and CLI output now present every possible tenant key for explicit review instead.
+
+  Add `generate:datasets --tenant-column <column>`, which sets `tenantKey` on every table that has the column. `hypequery init --auth context` uses it for the scaffold it generates and prints the matching regeneration command, so refreshing a tenant-scoped project no longer drops `tenantKey`.
+
 ## 1.18.0
 
 ### Minor Changes

@@ -12,6 +12,8 @@ import { getTableCount } from '../utils/detect-database.js';
 import { generateDatasets } from '../generators/dataset-generator.js';
 import { redactConnectionUrl } from '../utils/redact-connection-url.js';
 import { logDatasetGenerationWarnings } from '../utils/dataset-generation-warnings.js';
+import { formatGeneratedFileDiff } from '../utils/generated-file-diff.js';
+import { readGeneratedFile, writeGeneratedFileAtomically } from '../utils/generated-file.js';
 
 export interface GenerateDatasetsOptions {
   output?: string;
@@ -19,6 +21,9 @@ export interface GenerateDatasetsOptions {
   tables?: string;
   excludeTables?: string;
   tenantColumn?: string;
+  force?: boolean;
+  check?: boolean;
+  diff?: boolean;
 }
 
 /**
@@ -29,6 +34,12 @@ function toImportSpecifier(relativePath: string): string {
   const withoutExtension = relativePath.replace(/\.tsx?$/, '');
   const normalized = withoutExtension.split(path.sep).join('/');
   return normalized.startsWith('.') ? normalized : `./${normalized}`;
+}
+
+function refuseOverwrite(relativeOutput: string): void {
+  logger.warn(`Refusing to overwrite existing dataset definitions: ${relativeOutput}`);
+  logger.info('Run again with --diff to inspect changes or --force to replace the file.');
+  process.exitCode = 1;
 }
 
 function parseTableList(value: string | undefined): string[] | undefined {
@@ -57,6 +68,12 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
   const parsedTables = parseTableList(options.tables);
   const excludedTables = parseTableList(options.excludeTables);
 
+  if (options.force && (options.check || options.diff)) {
+    logger.error('--force cannot be combined with --check or --diff.');
+    process.exitCode = 1;
+    return;
+  }
+
   logger.newline();
   logger.header('hypequery generate datasets');
 
@@ -83,6 +100,7 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       // Regeneration replaces the whole file, so a tenant boundary configured at
       // init has to be restated here or it is dropped on every refresh.
       tenantColumn: options.tenantColumn,
+      writeOutput: false,
     });
 
     const generatedTables = generated?.tables ?? parsedTables ?? [];
@@ -91,9 +109,57 @@ export async function generateDatasetsCommand(options: GenerateDatasetsOptions =
       `Generated dataset definitions for ${generatedCount} ${generatedCount === 1 ? 'table' : 'tables'}`,
     );
 
-    const relativeOutput = path.relative(process.cwd(), outputPath);
-    logger.success(`Created ${relativeOutput}`);
     logDatasetGenerationWarnings(generated?.warnings);
+
+    const relativeOutput = path.relative(process.cwd(), outputPath);
+    const currentContents = await readGeneratedFile(outputPath);
+    const contentsMatch = currentContents === generated.contents;
+
+    if (contentsMatch) {
+      logger.success(
+        options.check || options.diff
+          ? `Dataset definitions are up to date: ${relativeOutput}`
+          : `Unchanged ${relativeOutput}`,
+      );
+      if (options.check || options.diff) {
+        return;
+      }
+    } else if (options.diff) {
+      logger.raw(formatGeneratedFileDiff(currentContents ?? '', generated.contents, relativeOutput));
+      logger.error(`Generated dataset definitions differ: ${relativeOutput}`);
+      process.exitCode = 1;
+      return;
+    } else if (options.check) {
+      logger.error(
+        currentContents === undefined
+          ? `Dataset definitions are missing: ${relativeOutput}`
+          : `Generated dataset definitions are out of date: ${relativeOutput}`,
+      );
+      process.exitCode = 1;
+      return;
+    } else if (currentContents !== undefined && !options.force) {
+      refuseOverwrite(relativeOutput);
+      return;
+    } else {
+      try {
+        // Without --force this is an exclusive create, so a file written
+        // between the read above and here is refused rather than clobbered.
+        await writeGeneratedFileAtomically(outputPath, generated.contents, {
+          overwrite: options.force === true,
+        });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+          refuseOverwrite(relativeOutput);
+          return;
+        }
+        throw error;
+      }
+      logger.success(
+        currentContents === undefined
+          ? `Created ${relativeOutput}`
+          : `Updated ${relativeOutput}`,
+      );
+    }
 
     logger.newline();
     logger.header('Next steps:');

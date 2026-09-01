@@ -11,6 +11,7 @@ import type {
   SemanticGrainPlan,
   SemanticJoinPlan,
 } from './semantic-plan.js';
+import { serializeSemanticMeasureValues } from './utils/semantic-result-serialization.js';
 
 export type InMemoryTable = Array<Record<string, unknown>>;
 export type InMemoryTables = Record<string, InMemoryTable>;
@@ -327,22 +328,6 @@ function measureColumns(plan: PlanNode): string[] {
     : plan.metrics.map((metric) => metric.name);
 }
 
-function serializeMeasures(rows: InMemoryTable, measures: string[]): InMemoryTable {
-  return rows.map((row) => {
-    const next = { ...row };
-    for (const name of measures) {
-      if (typeof next[name] === 'number' && !Number.isFinite(next[name])) {
-        // ClickHouse JSON output serializes nan/inf as null
-        // (output_format_json_quote_denormals defaults to 0).
-        next[name] = null;
-      } else if (next[name] != null) {
-        next[name] = String(next[name]);
-      }
-    }
-    return next;
-  });
-}
-
 /**
  * @deprecated The plan/backend execution path is frozen (bug fixes only); this
  * backend remains as the test harness for that path. New code should use
@@ -411,7 +396,7 @@ export function createInMemoryBackend(tables: InMemoryTables): SemanticBackend {
 
   async function execute<T = Record<string, unknown>>(plan: PlanNode): Promise<SemanticBackendResult<T>> {
     const start = Date.now();
-    const data = serializeMeasures(executeNode(plan), measureColumns(plan));
+    const data = serializeSemanticMeasureValues(executeNode(plan), measureColumns(plan));
 
     return {
       data: data as T[],

@@ -1,7 +1,13 @@
 # RFC 0003: Portable dataset expressions and semantic queries
 
-- Status: Proposed
+- Status: Accepted
+- Accepted: 2026-08-31
 - Version: expression extension 1
+
+Acceptance freezes expression extension version 1. Changing a node's meaning,
+the closed operator/function/aggregation registries, query shape, limits,
+validation accounting, or failure-code precedence now requires a new extension
+version, not an edit.
 
 ## Summary
 
@@ -44,6 +50,14 @@ Aggregate `filters`, when present, are combined with AND by current dataset
 adapters. An adapter MUST reject a filter expression it cannot faithfully
 lower; it MUST NOT approximate it.
 
+Aggregate filters and semantic-query filters are **predicate positions**. A
+predicate is a `comparison`, or a `logical` tree whose leaves are all
+predicates. Other expression kinds remain valid in formulas and standalone
+expression validation but MUST be rejected in predicate positions.
+
+An empty aggregate `filters` array is valid. `argMax` and `argMin` still forbid
+the field entirely, including an empty array.
+
 ## Semantic query envelope
 
 A dataset query has `kind: "dataset"`, a simple `dataset` identifier, and may
@@ -58,6 +72,11 @@ dimensions. `hasMany` remains discoverable metadata but is not executable.
 
 `limit` and `offset` are non-negative safe integers.
 The supported grains are `day`, `week`, `month`, `quarter`, and `year`.
+
+`dimensions` and `orderBy[].field` contain qualified identifiers. `measures`,
+`dataset`, and `metric` contain simple identifiers. Every query collection is
+optional and, when present, may be empty. A metric query MUST reject a
+`measures` field as unknown rather than silently ignoring it.
 
 ## Dataset feature coverage
 
@@ -109,6 +128,26 @@ a successor extension before it can cross the portable boundary.
 Products may impose lower limits. They cannot raise these limits while claiming
 expression extension 1 conformance.
 
+### Limit accounting
+
+The root expression has depth 1 and every child expression adds 1. Each
+expression object counts as one expression node. Arrays, order records,
+identifier strings, and the canonical-value tree inside a `literal` do not
+count as expression nodes; canonical values independently obey RFC 0001's
+limits.
+
+A semantic-query envelope consumes one node from the shared node budget. Its
+top-level filters each start at expression depth 1, so a predicate has the same
+depth boundary when validated alone or in a query. All query filters share the
+query's node budget. Aggregate filters begin one level below their aggregate
+and share its node budget.
+
+The 100-item limit applies independently to every `args`, `operands`, aggregate
+`filters`, query `dimensions`, `measures`, `filters`, and `orderBy` collection.
+The `expressions-v1` fixtures pin both sides of all three boundaries: depth 16
+is accepted and 17 rejected, 1,000 nodes are accepted and 1,001 rejected, and
+100 items are accepted and 101 rejected.
+
 ## Stable failure codes
 
 - `HQ_EXPRESSION_TYPE`
@@ -124,6 +163,21 @@ expression extension 1 conformance.
 - `HQ_EXPRESSION_TOO_MANY_NODES`
 - `HQ_EXPRESSION_TOO_MANY_ITEMS`
 - `HQ_EXPRESSION_UNSAFE_OBJECT`
+
+## Validation order
+
+Validation is deterministic and the first failing check determines the stable
+code. For every object, implementations check safe plain-data structure first,
+then depth and shared node count, then `kind`, exact fields, and node-specific
+values in document order. For every array, implementations check safe dense
+plain-data structure and the collection limit before validating members from
+index 0 upward. Binary and comparison children are validated left before
+right.
+
+Predicate-position validation first validates the expression normally. A
+well-formed non-predicate then reports `HQ_EXPRESSION_INVALID_AGGREGATION` for
+an aggregate filter or `HQ_EXPRESSION_INVALID_QUERY` for a query filter;
+ordinary expression failures retain their more specific code.
 
 ## Security and compatibility
 

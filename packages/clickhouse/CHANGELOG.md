@@ -1,5 +1,12 @@
 # @hypequery/clickhouse Changelog
 
+## 2.9.1
+
+### Patch Changes
+
+- Updated dependencies [5d45045]
+  - @hypequery/protocol@0.11.1
+
 ## 2.9.0
 
 ### Minor Changes

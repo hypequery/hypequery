@@ -8,6 +8,7 @@
     { "id": "binary-divide", "value": { "kind": "binary", "operator": "divide", "left": { "kind": "reference", "name": "revenue" }, "right": { "kind": "literal", "value": 1.5 } } },
     { "id": "call-nullIfZero", "value": { "kind": "call", "function": "nullIfZero", "args": [{ "kind": "reference", "name": "orders" }] } },
     { "id": "call-coalesce", "value": { "kind": "call", "function": "coalesce", "args": [{ "kind": "reference", "name": "revenue" }, { "kind": "literal", "value": 0.5 }] } },
+    { "id": "call-round-one-argument", "value": { "kind": "call", "function": "round", "args": [{ "kind": "reference", "name": "revenue" }] } },
     { "id": "call-round", "value": { "kind": "call", "function": "round", "args": [{ "kind": "reference", "name": "revenue" }, { "kind": "literal", "value": 2.0 }] } },
     { "id": "call-floor", "value": { "kind": "call", "function": "floor", "args": [{ "kind": "reference", "name": "revenue" }] } },
     { "id": "call-ceil", "value": { "kind": "call", "function": "ceil", "args": [{ "kind": "reference", "name": "revenue" }] } },
@@ -25,6 +26,7 @@
     { "id": "logical-or", "value": { "kind": "logical", "operator": "or", "operands": [{ "kind": "literal", "value": true }, { "kind": "literal", "value": false }] } },
     { "id": "logical-not", "value": { "kind": "logical", "operator": "not", "operand": { "kind": "literal", "value": false } } },
     { "id": "aggregate-sum-filtered", "value": { "kind": "aggregate", "aggregation": "sum", "field": "amount", "filters": [{ "kind": "comparison", "operator": "eq", "left": { "kind": "reference", "name": "status" }, "right": { "kind": "literal", "value": "paid" } }] } },
+    { "id": "aggregate-sum-empty-filters", "value": { "kind": "aggregate", "aggregation": "sum", "field": "amount", "filters": [] } },
     { "id": "aggregate-count", "value": { "kind": "aggregate", "aggregation": "count", "field": "id" } },
     { "id": "aggregate-countDistinct", "value": { "kind": "aggregate", "aggregation": "countDistinct", "field": "customer_id" } },
     { "id": "aggregate-avg", "value": { "kind": "aggregate", "aggregation": "avg", "field": "amount" } },
@@ -35,11 +37,15 @@
     { "id": "aggregate-percentile", "value": { "kind": "aggregate", "aggregation": "percentile", "field": "amount", "level": 0.95 } },
     { "id": "aggregate-median-normalized", "value": { "kind": "aggregate", "aggregation": "percentile", "field": "amount", "level": 0.5 } },
     { "id": "aggregate-stddev", "value": { "kind": "aggregate", "aggregation": "stddev", "field": "amount" } },
-    { "id": "aggregate-variance", "value": { "kind": "aggregate", "aggregation": "variance", "field": "amount" } }
+    { "id": "aggregate-variance", "value": { "kind": "aggregate", "aggregation": "variance", "field": "amount" } },
+    { "id": "limit-depth-16", "generator": { "type": "nested-not", "depth": 15 } },
+    { "id": "limit-nodes-1000", "generator": { "type": "logical-tree", "lastGroupItems": 89 } },
+    { "id": "limit-items-100", "generator": { "type": "logical-operands", "count": 100 } }
   ],
   "queries": [
     { "id": "dataset-all-query-features", "value": { "kind": "dataset", "dataset": "orders", "dimensions": ["status", "customer.country"], "measures": ["revenue", "orders"], "filters": [{ "kind": "comparison", "operator": "eq", "left": { "kind": "reference", "name": "status" }, "right": { "kind": "literal", "value": "paid" } }], "orderBy": [{ "field": "customer.country", "direction": "asc" }, { "field": "revenue", "direction": "desc" }], "limit": 100, "offset": 0, "by": "quarter", "includeMeta": true } },
     { "id": "metric-all-query-features", "value": { "kind": "metric", "dataset": "orders", "metric": "average_order_value", "dimensions": ["customer.country"], "filters": [], "orderBy": [{ "field": "period", "direction": "asc" }], "limit": 25, "offset": 50, "by": "week", "includeMeta": false } },
+    { "id": "query-safe-integer-maximum", "value": { "kind": "dataset", "dataset": "orders", "limit": 9007199254740991, "offset": 9007199254740991 } },
     { "id": "grain-day", "value": { "kind": "dataset", "dataset": "orders", "by": "day" } },
     { "id": "grain-month", "value": { "kind": "dataset", "dataset": "orders", "by": "month" } },
     { "id": "grain-year", "value": { "kind": "dataset", "dataset": "orders", "by": "year", "limit": 0 } }
