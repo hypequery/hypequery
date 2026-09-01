@@ -6,6 +6,18 @@
  */
 
 export { HypequeryMCPServer, createMCPServer, type MCPServerConfig } from './server.js';
+export {
+  HypequeryMCPExecutor,
+  createMCPExecutor,
+  type MCPExecutorConfig,
+  type MCPToolExecutor,
+} from './executor.js';
+export {
+  HypequeryMCPProtocolServer,
+  createMCPProtocolServer,
+  type MCPProtocolServerOptions,
+} from './protocol-server.js';
+export { connectMCPServerStdio, startStdioMCPServer } from './stdio.js';
 export { listDatasetsTool } from './tools/list-datasets.js';
 export { getDatasetSchemaTool } from './tools/introspect.js';
 export { queryMetricTool } from './tools/query-metric.js';

@@ -436,6 +436,15 @@ Schemas, with exact enums, bounds, closed objects, selection validation, and a
 deterministic manifest hash. Legacy metadata-only MCP registries retain a
 generic compatibility validator until `CORE-08` replaces that input shape.
 
+**CORE-04 implementation status:** Implemented on top of `CORE-03`.
+`HypequeryMCPExecutor` now owns transport-independent tool and prompt behavior;
+`HypequeryMCPProtocolServer` binds an injected executor to any MCP SDK transport;
+and stdio is isolated in a thin adapter. Existing server names, tool names,
+stdio startup, tenant behavior, and query validation remain compatible. A real
+MCP client protocol test covers initialization, discovery, tool calls, and
+prompts through an injected in-memory transport and executor. No HTTP behavior
+is included.
+
 ### Deployment bridge PRs
 
 | PR | Depends on | Deliverable and merge gate |
@@ -537,7 +546,7 @@ identifiers above are the actual PR boundaries.
 - [ ] **MCP-102:** Add hard budgets for timeout, cancellation, response bytes,
   offset, dimensions, measures, filters, order fields, tool count, and catalog
   description bytes.
-- [ ] **MCP-103:** Refactor the MCP package around a public transport-neutral
+- [x] **MCP-103:** Refactor the MCP package around a public transport-neutral
   server/tool executor; keep stdio as an adapter.
 - [ ] **MCP-104:** Replace hand-written query schemas with catalog-derived schemas
   from `@hypequery/datasets`.

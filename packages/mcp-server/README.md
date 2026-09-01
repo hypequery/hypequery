@@ -98,6 +98,39 @@ client to the backing ClickHouse request. Budget failures use the stable
 `MCP_REQUEST_CANCELLED`, `MCP_QUERY_TIMEOUT`, and `MCP_RESULT_TOO_LARGE`
 classifications.
 
+## Embed in another MCP transport
+
+The semantic executor is independent of stdio and network lifecycle. A hosted
+gateway can inject its own MCP transport without reimplementing Hypequery's
+tools, prompts, catalog schemas, or validation:
+
+```ts
+import {
+  createMCPExecutor,
+  createMCPProtocolServer,
+} from '@hypequery/mcp';
+
+const executor = createMCPExecutor({
+  datasets,
+  analytics,
+  tenantId: trustedPrincipal.tenantId,
+});
+
+const server = createMCPProtocolServer({
+  executor,
+  name: 'acme-hosted-analytics',
+  version: '1.0.0',
+});
+
+await server.connect(hostTransport);
+```
+
+`hostTransport` can be an MCP SDK in-memory, stdio, or hosted transport. This
+package does not create an HTTP endpoint; authentication, routing, and network
+lifecycle remain responsibilities of the host. For an explicit local adapter,
+use `startStdioMCPServer(config)`. The existing `createMCPServer(config)` and
+`HypequeryMCPServer.start()` APIs remain available for compatibility.
+
 ## Learn more
 
 - [ClickHouse MCP overview](https://hypequery.com/clickhouse-mcp)
