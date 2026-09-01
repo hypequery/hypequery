@@ -6,8 +6,10 @@ import { divide, nullIfZero } from './formulas.js';
 import { measure } from './measure.js';
 import { eq, like } from './query-helpers.js';
 import {
+  escapeRegExp,
   isSafeSQLIdentifier,
   quoteSQLIdentifier,
+  stripSqlLiterals,
   validateSQLIdentifier,
 } from './sql-utils.js';
 
@@ -133,5 +135,66 @@ describe('metric validation through dataset()', () => {
       uses: { revenue, customers },
       formula: ({ revenue: revenueInput, customers: customersInput }) => divide(revenueInput, nullIfZero(customersInput)),
     })).toThrow('referenced metric "customers" belongs to dataset "customers", expected "orders"');
+  });
+});
+
+describe('stripSqlLiterals', () => {
+  it('blanks a single-quoted literal but keeps surrounding code', () => {
+    // The 4-character literal `'; '` becomes 4 spaces; everything else survives.
+    expect(stripSqlLiterals("concat(name, '; ')")).toBe('concat(name,     )');
+  });
+
+  it('preserves length so offsets survive', () => {
+    const sql = "replaceAll(note, '--', '')";
+    expect(stripSqlLiterals(sql)).toHaveLength(sql.length);
+  });
+
+  it('treats a doubled quote as an escape, not a close', () => {
+    expect(stripSqlLiterals("a || 'it''s' || b")).toBe('a ||         || b');
+  });
+
+  it('treats a backslash as escaping the next character', () => {
+    expect(stripSqlLiterals("'it\\'s'")).toBe('       ');
+  });
+
+  it('blanks double-quoted and backtick-quoted identifiers', () => {
+    expect(stripSqlLiterals('"col" + `other`')).toBe('      +        ');
+  });
+
+  it('leaves an expression with no literals untouched', () => {
+    expect(stripSqlLiterals('amount - discount')).toBe('amount - discount');
+  });
+
+  it('keeps quoted-identifier text when asked, blanking only the delimiters', () => {
+    expect(stripSqlLiterals('`amount` - discount', { keepQuotedIdentifiers: true })).toBe(
+      ' amount  - discount',
+    );
+  });
+
+  it('still blanks string literals when keeping quoted identifiers', () => {
+    // `'a;b'` is 5 characters, so 5 spaces; `` `col` `` keeps its text as ` col `.
+    expect(stripSqlLiterals("concat('a;b', `col`)", { keepQuotedIdentifiers: true })).toBe(
+      'concat(     ,  col )',
+    );
+  });
+
+  it('preserves length in both modes', () => {
+    const sql = '`amount` - "other"';
+    expect(stripSqlLiterals(sql, { keepQuotedIdentifiers: true })).toHaveLength(sql.length);
+    expect(stripSqlLiterals(sql)).toHaveLength(sql.length);
+  });
+
+  it('throws on an unterminated literal', () => {
+    expect(() => stripSqlLiterals("name' ; DROP")).toThrow(/Unterminated ' literal/);
+  });
+});
+
+describe('escapeRegExp', () => {
+  it('escapes regex metacharacters', () => {
+    expect(new RegExp(escapeRegExp('amount(')).test('amount(')).toBe(true);
+  });
+
+  it('stops a metacharacter from matching something else', () => {
+    expect(new RegExp(`^${escapeRegExp('a+')}$`).test('aaa')).toBe(false);
   });
 });
