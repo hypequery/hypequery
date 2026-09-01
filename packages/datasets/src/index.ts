@@ -87,6 +87,21 @@ export {
   toAISDKTools,
   toMcpTools,
 } from './tools.js';
+
+// Canonical semantic query schemas shared by Serve, MCP, and agent adapters.
+export {
+  buildDatasetInputSchema,
+  buildMetricInputSchema,
+  buildCanonicalSemanticQuerySchemas,
+  toSemanticJsonSchema,
+  DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS,
+} from './semantic-query-schema.js';
+export type {
+  CanonicalSemanticQuerySchemas,
+  SemanticQuerySchemaLimits,
+  SemanticQuerySchemaOptions,
+  SemanticQuerySchemaSource,
+} from './semantic-query-schema.js';
 export type {
   AISDKToolDefinition,
   DatasetToolAnalytics,

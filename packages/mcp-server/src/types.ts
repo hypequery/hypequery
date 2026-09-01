@@ -8,6 +8,7 @@ import type {
   TimeGrain,
   MetricOrderBy,
 } from '@hypequery/datasets';
+import type { ZodTypeAny } from 'zod';
 
 /**
  * Registry of datasets - maps dataset names to dataset instances
@@ -48,6 +49,8 @@ export interface QueryToolOptions {
   limits?: MCPQueryLimits;
   executionBudget?: MCPExecutionBudget;
   signal?: AbortSignal;
+  /** Canonical catalog-derived validator supplied by the owning server. */
+  inputSchema?: ZodTypeAny;
 }
 
 /** Per-query wall-clock and serialized-response ceilings. */

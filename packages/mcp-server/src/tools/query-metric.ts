@@ -6,7 +6,8 @@
 
 import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
 import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, QueryToolOptions } from '../types.js';
-import { parseToolArgs, queryMetricArgsSchema, toMetricFilters } from './args.js';
+import { parseToolArgs, toMetricFilters } from './args.js';
+import { buildMCPQuerySchemas } from './utils/canonical-query-schemas.js';
 import { applyQueryLimits } from './utils/query-limits.js';
 import {
   executeWithinBudget,
@@ -20,7 +21,8 @@ export async function queryMetricTool(
   args: unknown,
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
-  const validatedArgs = parseToolArgs(queryMetricArgsSchema, 'query_metric', args);
+  const inputSchema = options.inputSchema ?? buildMCPQuerySchemas(datasets).queryMetric;
+  const validatedArgs = parseToolArgs(inputSchema, 'query_metric', args);
   const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy } = validatedArgs;
 
   if (!datasetName) {

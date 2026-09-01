@@ -655,7 +655,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
+      expect(semanticBody(response).error.message).toBe('Request validation failed');
     });
 
     it("clamps metric limit to maxLimit instead of rejecting", async () => {
@@ -1554,7 +1554,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain('does not allow operator "like"');
+      expect(semanticBody(response).error.message).toBe('Request validation failed');
       expect(factory._calls['where']).toBeUndefined();
     });
 
@@ -2092,7 +2092,7 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain("at least one dimension or measure");
+      expect(semanticBody(response).error.message).toBe('Request validation failed');
     });
 
     it("throws when a dataset route key collides with an existing query key", () => {

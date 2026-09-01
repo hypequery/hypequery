@@ -1,4 +1,14 @@
-import { add, dataset, dimension, measure, eq, between, desc, createDatasetClient } from './index.js';
+import {
+  add,
+  between,
+  buildCanonicalSemanticQuerySchemas,
+  createDatasetClient,
+  dataset,
+  desc,
+  dimension,
+  eq,
+  measure,
+} from './index.js';
 import type {
   BaseMetricRef,
   DatasetClient,
@@ -61,6 +71,12 @@ const averageRevenueMetric = Orders.metric('averageRevenueMetric', {
   formula: ({ revenue, completedRevenue }) => add(revenue, completedRevenue),
 });
 const customerCountMetric = Customers.metric('customerCountMetric', { measure: 'customerCount' });
+
+const canonicalSchemas = buildCanonicalSemanticQuerySchemas({
+  orders: { ...Orders, metrics: { revenueMetric } },
+});
+canonicalSchemas.queryDataset.parse({ dataset: 'orders', measures: ['revenue'] });
+const _manifestHash: string = canonicalSchemas.manifestHash;
 const _statusFilter = eq('status', 'completed');
 const _createdAtRange = between('createdAt', '2025-01-01', '2025-01-31');
 const _revenueSort = desc('revenueMetric');

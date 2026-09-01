@@ -13,19 +13,18 @@ import {
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { DatasetClient } from '@hypequery/datasets';
+import {
+  type CanonicalSemanticQuerySchemas,
+  type DatasetClient,
+} from '@hypequery/datasets';
 import { listDatasetsTool } from './tools/list-datasets.js';
 import { getDatasetSchemaTool } from './tools/introspect.js';
 import { queryMetricTool } from './tools/query-metric.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
-import {
-  type DatasetRegistry,
-  type MCPExecutionBudget,
-  type MCPQueryLimits,
-} from './types.js';
+import type { DatasetRegistry, MCPExecutionBudget, MCPQueryLimits } from './types.js';
 import { MCP_PACKAGE_VERSION } from './version.js';
-import { advertiseDatasetQueryLimits } from './tools/utils/query-schema.js';
+import { buildMCPQuerySchemas } from './tools/utils/canonical-query-schemas.js';
 import { resolveQueryLimits } from './tools/utils/query-limits.js';
 import { resolveExecutionBudget } from './tools/utils/execution-budget.js';
 import { formatMCPToolError } from './errors.js';
@@ -105,12 +104,14 @@ function validateTenantConfig(config: MCPServerConfig) {
 export class HypequeryMCPServer {
   private server: Server;
   private config: MCPServerConfig;
+  private querySchemas: CanonicalSemanticQuerySchemas;
 
   constructor(config: MCPServerConfig) {
     validateTenantConfig(config);
     resolveQueryLimits(undefined, config.queryLimits);
     resolveExecutionBudget(config.executionBudget);
     this.config = config;
+    this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {});
 
     this.server = new Server(
       {
@@ -128,11 +129,15 @@ export class HypequeryMCPServer {
     this.setupHandlers();
   }
 
+  /** Stable hash of the catalog-derived query tool input manifest. */
+  getManifestHash(): string {
+    return this.querySchemas.manifestHash;
+  }
+
   private setupHandlers() {
-    const queryLimits = resolveQueryLimits(undefined, this.config.queryLimits);
     // List available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      const tools = [
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+      tools: [
         {
           name: 'list_datasets',
           description: 'List all available datasets in the semantic layer',
@@ -158,178 +163,15 @@ export class HypequeryMCPServer {
         {
           name: 'query_metric',
           description: 'Execute a metric query with optional dimensions, filters, time grain, and sorting',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              dataset: {
-                type: 'string',
-                description: 'Name of the dataset containing the metric',
-              },
-              metric: {
-                type: 'string',
-                description: 'Name of the metric to query',
-              },
-              dimensions: {
-                type: 'array',
-                items: { type: 'string' },
-                maxItems: queryLimits.maxDimensions,
-                description: 'Dimensions to group by (optional)',
-              },
-              filters: {
-                type: 'array',
-                maxItems: queryLimits.maxFilters,
-                items: {
-                  type: 'object',
-                  properties: {
-                    field: { type: 'string' },
-                    operator: {
-                      type: 'string',
-                      enum: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like']
-                    },
-                    value: {},
-                  },
-                  required: ['field', 'operator', 'value'],
-                },
-                description: 'Filters to apply (optional)',
-              },
-              grain: {
-                type: 'string',
-                enum: ['day', 'week', 'month', 'quarter', 'year'],
-                description: 'Time grain for time-series queries (optional)',
-              },
-              orderBy: {
-                type: 'array',
-                maxItems: queryLimits.maxOrderBy,
-                items: {
-                  type: 'object',
-                  properties: {
-                    field: { type: 'string' },
-                    direction: { type: 'string', enum: ['asc', 'desc'] },
-                  },
-                  required: ['field', 'direction'],
-                },
-                description: 'Sort order (optional)',
-              },
-              limit: {
-                type: 'integer',
-                minimum: 1,
-                maximum: queryLimits.maxResultSize,
-                default: queryLimits.defaultResultSize,
-                description: 'Maximum number of rows to return (optional)',
-              },
-              offset: {
-                type: 'integer',
-                minimum: 0,
-                maximum: queryLimits.maxOffset,
-                description: 'Number of rows to skip before returning results (optional)',
-              },
-            },
-            required: ['dataset', 'metric'],
-          },
+          inputSchema: this.querySchemas.queryMetricJsonSchema,
         },
         {
           name: 'query_dataset',
           description: 'Execute an ad-hoc dataset query with custom dimensions and measures',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              dataset: {
-                type: 'string',
-                description: 'Name of the dataset to query',
-              },
-              dimensions: {
-                type: 'array',
-                items: { type: 'string' },
-                maxItems: queryLimits.maxDimensions,
-                description: 'Dimensions to select',
-              },
-              measures: {
-                type: 'array',
-                items: { type: 'string' },
-                maxItems: queryLimits.maxMeasures,
-                description: 'Measures to calculate',
-              },
-              filters: {
-                type: 'array',
-                maxItems: queryLimits.maxFilters,
-                items: {
-                  type: 'object',
-                  properties: {
-                    field: { type: 'string' },
-                    operator: {
-                      type: 'string',
-                      enum: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'notIn', 'between', 'like']
-                    },
-                    value: {},
-                  },
-                  required: ['field', 'operator', 'value'],
-                },
-                description: 'Filters to apply (optional)',
-              },
-              grain: {
-                type: 'string',
-                enum: ['day', 'week', 'month', 'quarter', 'year'],
-                description: 'Time grain for time-series queries (optional)',
-              },
-              orderBy: {
-                type: 'array',
-                maxItems: queryLimits.maxOrderBy,
-                items: {
-                  type: 'object',
-                  properties: {
-                    field: { type: 'string' },
-                    direction: { type: 'string', enum: ['asc', 'desc'] },
-                  },
-                  required: ['field', 'direction'],
-                },
-                description: 'Sort order (optional)',
-              },
-              limit: {
-                type: 'integer',
-                minimum: 1,
-                maximum: queryLimits.maxResultSize,
-                default: queryLimits.defaultResultSize,
-                description: 'Maximum number of rows to return (optional)',
-              },
-              offset: {
-                type: 'integer',
-                minimum: 0,
-                maximum: queryLimits.maxOffset,
-                description: 'Number of rows to skip before returning results (optional)',
-              },
-            },
-            required: ['dataset'],
-          },
+          inputSchema: this.querySchemas.queryDatasetJsonSchema,
         },
-      ];
-      return {
-        tools: tools.map(tool => {
-          if (tool.name === 'query_metric') {
-            return {
-              ...tool,
-              inputSchema: advertiseDatasetQueryLimits(
-                tool.inputSchema,
-                this.config.datasets,
-                this.config.queryLimits,
-                false,
-              ),
-            };
-          }
-          if (tool.name === 'query_dataset') {
-            return {
-              ...tool,
-              inputSchema: advertiseDatasetQueryLimits(
-                tool.inputSchema,
-                this.config.datasets,
-                this.config.queryLimits,
-                true,
-              ),
-            };
-          }
-          return tool;
-        }),
-      };
-    });
+      ],
+    }));
 
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
@@ -358,6 +200,7 @@ export class HypequeryMCPServer {
                 limits: this.config.queryLimits,
                 executionBudget: this.config.executionBudget,
                 signal: extra?.signal,
+                inputSchema: this.querySchemas.queryMetric,
               },
             );
 
@@ -372,6 +215,7 @@ export class HypequeryMCPServer {
                 limits: this.config.queryLimits,
                 executionBudget: this.config.executionBudget,
                 signal: extra?.signal,
+                inputSchema: this.querySchemas.queryDataset,
               },
             );
 

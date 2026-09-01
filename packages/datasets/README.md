@@ -72,6 +72,12 @@ The same definition can become:
 - an OpenAI, AI SDK, or MCP tool schema;
 - a stable semantic contract for CI and deployment.
 
+`buildCanonicalSemanticQuerySchemas()` compiles the same catalog into strict
+dataset and metric Zod validators, JSON Schemas, and a deterministic manifest
+hash. It accepts either live local Dataset definitions or an already-normalized
+catalog from a hosted activation, so Serve and MCP do not maintain separate
+field or operator lists.
+
 ## Analytics teams actually need
 
 - sums, counts, distinct counts, averages, min, and max;
