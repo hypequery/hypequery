@@ -127,6 +127,7 @@ export function dataset<
     filters,
     relationships,
     limits: config.limits,
+    cache: config.cache,
     metric,
   };
 

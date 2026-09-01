@@ -79,6 +79,11 @@ import {
   buildDatasetQuerySignature,
   buildMetricQuerySignature,
 } from './cache/query-signature.js';
+import { resolveResultLimit, withResultLimit } from './utils/result-limits.js';
+import {
+  resolveDatasetCacheRuntime,
+  type ClientCacheDefaults,
+} from './utils/dataset-cache-policy.js';
 import { isQualifiedField, resolveQualifiedField } from './utils/relationship-fields.js';
 import {
   validateQualifiedFilter,
@@ -663,6 +668,7 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
   private backend?: SemanticBackend;
   private readonly queryCache: SemanticQueryCache;
   private readonly cacheEnabledByDefault: boolean;
+  private readonly cacheDefaults: ClientCacheDefaults;
   private readonly defaultCacheScope?: string;
 
   constructor(options: CreateDatasetClientOptions) {
@@ -683,6 +689,12 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     this.queryCache = new SemanticQueryCache(options.cache);
     this.cacheEnabledByDefault = (options.cache?.ttlMs ?? 0) > 0;
     this.defaultCacheScope = options.cache?.scope;
+    // Kept so a dataset's declared ceiling can clamp the client default too; the
+    // cache would otherwise fill a missing TTL from it after clamping has run.
+    this.cacheDefaults = {
+      ttlMs: options.cache?.ttlMs,
+      staleWhileRevalidateMs: options.cache?.staleWhileRevalidateMs,
+    };
   }
 
   getCacheStats(): SemanticCacheStats {
@@ -840,40 +852,52 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
     query: MetricQuery,
     context?: ExecutionContext,
   ): Promise<MetricResult<TRow>> {
+    const ds = getMetricRef(metric).dataset as AnyDatasetInstance;
+
+    // Same ceiling and same cache policy as a dataset query: a metric is a
+    // named query over the dataset, not a way around what it declared.
+    const resultLimit = resolveResultLimit(query.limit, ds.limits);
+    const boundedQuery: MetricQuery =
+      resultLimit.limit === query.limit ? query : { ...query, limit: resultLimit.limit };
+    const cacheRuntime = this.datasetCacheContext(ds, context);
+
     const run = (): Promise<MetricResult<TRow>> => {
       if (this.backend) {
-        const validation = validateQuery(metric, query, context);
+        const validation = validateQuery(metric, boundedQuery, context);
         if (!validation.valid) {
           throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
         }
         return (this.backend.execute<TRow>(
-          this.planMetric(metric, query, context),
+          this.planMetric(metric, boundedQuery, context),
         ) as Promise<MetricResult<TRow>>).then((result) => ({
           ...result,
           data: serializeSemanticMeasureValues(result.data, [getMetricRef(metric).name]),
         }));
       }
 
-      return this.run<TRow>(metric, query, context);
+      return this.run<TRow>(metric, boundedQuery, context);
     };
 
-    if (!this.isCacheable(context)) {
-      return run();
+    if (!this.isCacheable(cacheRuntime)) {
+      return withResultLimit(run(), resultLimit.meta);
     }
 
     // Validate semantic rules before cache lookup so invalid queries and
     // missing tenant runtime cannot be served from cache. Avoid this.validate()
     // here because it dry-builds SQL, which is unnecessary on cache hits and
     // invalid for backend-only clients.
-    const validation = validateQuery(metric, query, context);
+    const validation = validateQuery(metric, boundedQuery, context);
     if (!validation.valid) {
       throw new Error(`Invalid metric query: ${validation.errors.join('; ')}`);
     }
 
-    return this.queryCache.through(
-      buildMetricQuerySignature(metric, query, this.signatureContext(context)),
-      run,
-      context?.cache,
+    return withResultLimit(
+      this.queryCache.through(
+        buildMetricQuerySignature(metric, boundedQuery, this.signatureContext(cacheRuntime)),
+        run,
+        cacheRuntime?.cache,
+      ),
+      resultLimit.meta,
     );
   }
 
@@ -887,33 +911,61 @@ export class DatasetClientImpl extends MetricQueryEngine implements DatasetClien
       throw new Error(`Invalid dataset query: ${validation.errors.join('; ')}`);
     }
 
+    // Bound before the signature is built, so an unbounded call and an explicit
+    // call at the ceiling produce the same rows and share one cache entry.
+    const resultLimit = resolveResultLimit(query.limit, ds.limits);
+    const boundedQuery: DatasetQuery =
+      resultLimit.limit === query.limit ? query : { ...query, limit: resultLimit.limit };
+    const cacheRuntime = this.datasetCacheContext(ds, context);
+
     const run = (): Promise<DatasetQueryResult<TRow>> => {
       if (this.backend) {
         return (this.backend.execute<TRow>(
-          this.planDataset(ds, query, context),
+          this.planDataset(ds, boundedQuery, context),
         ) as Promise<DatasetQueryResult<TRow>>).then((result) => ({
           ...result,
           data: serializeSemanticMeasureValues(
             result.data,
-            query.measures ?? Object.keys(ds.measures),
+            // Same measures either way; boundedQuery differs only in `limit`.
+            boundedQuery.measures ?? Object.keys(ds.measures),
           ),
         }));
       }
-      return runDatasetQuery(ds, query, {
+      return runDatasetQuery(ds, boundedQuery, {
         builderFactory: resolveBuilderFactory(context, this.getBuilderFactory()),
         context,
       }) as Promise<DatasetQueryResult<TRow>>;
     };
 
-    if (!this.isCacheable(context)) {
-      return run();
+    if (!this.isCacheable(cacheRuntime)) {
+      return withResultLimit(run(), resultLimit.meta);
     }
 
-    return this.queryCache.through(
-      buildDatasetQuerySignature(ds, query, this.signatureContext(context)),
-      run,
-      context?.cache,
+    // Annotated outside the cache: the ceiling is derived from the query, not
+    // from the rows, so it must not be stored in or read back from an entry.
+    return withResultLimit(
+      this.queryCache.through(
+        buildDatasetQuerySignature(ds, boundedQuery, this.signatureContext(cacheRuntime)),
+        run,
+        cacheRuntime?.cache,
+      ),
+      resultLimit.meta,
     );
+  }
+
+  /**
+   * Folds the dataset's declared cache policy into the call's context, so both
+   * the cacheability decision and the lookup see the same resolved TTL.
+   */
+  private datasetCacheContext(
+    ds: AnyDatasetInstance,
+    context?: ExecutionContext,
+  ): ExecutionContext | undefined {
+    const cache = resolveDatasetCacheRuntime(ds.cache, context?.cache, this.cacheDefaults);
+    if (cache === context?.cache) {
+      return context;
+    }
+    return { ...context, cache };
   }
 
   private toDatasetSQL(
