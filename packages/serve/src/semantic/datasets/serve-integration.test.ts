@@ -680,6 +680,23 @@ describe("Serve integration — metrics", () => {
       expect(semanticBody(response).meta.pagination?.limit).toBe(50);
     });
 
+    it("accepts metric limits and offsets above canonical agent defaults", async () => {
+      const api = createAPI({
+        metrics: { revenue: { metric: totalRevenue, maxLimit: 20_000 } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/metrics/revenue",
+          method: "POST",
+          body: { dimensions: ["country"], limit: 15_000, offset: 15_000 },
+        })
+      );
+
+      expect(response.status).toBe(200);
+    });
+
     it("applies a default limit to unbounded metric queries", async () => {
       const api = createAPI({
         metrics: { totalRevenue },
@@ -1871,6 +1888,28 @@ describe("Serve integration — metrics", () => {
       // Limit is capped to maxLimit (50); the executor over-fetches one extra
       // row (51) for pagination, while returned data stays within the cap.
       expect(factory._calls['limit']).toContainEqual([51]);
+    });
+
+    it("accepts dataset limits and offsets above canonical agent defaults", async () => {
+      const api = createAPI({
+        datasets: { orders: { dataset: Orders, maxLimit: 20_000 } },
+        queryBuilder: createMockBuilderFactory(),
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {
+            dimensions: ["country"],
+            measures: ["revenue"],
+            limit: 15_000,
+            offset: 15_000,
+          },
+        })
+      );
+
+      expect(response.status).toBe(200);
     });
 
     it("includes dataset meta when X-Include-Meta header is set", async () => {

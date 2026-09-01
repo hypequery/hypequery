@@ -77,6 +77,12 @@ export function createDatasetEndpoint<TAuth extends AuthContext>(
   // this dataset's contract, so OpenAPI/docs and clients see the valid fields.
   const datasetQueryInputSchema = buildDatasetInputSchema(ds, {
     includeMeta: true,
+    enforceResultLimit: false,
+    maxOffset: undefined,
+    maxDimensions: undefined,
+    maxMeasures: undefined,
+    maxFilters: undefined,
+    maxOrderBy: undefined,
   });
 
   const metadata: EndpointMetadata = {

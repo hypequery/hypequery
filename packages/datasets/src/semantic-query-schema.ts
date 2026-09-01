@@ -28,6 +28,8 @@ export interface SemanticQuerySchemaOptions extends SemanticQuerySchemaLimits {
   includeMeta?: boolean;
   /** Require at least one dimension or measure for dataset queries. */
   requireSelection?: boolean;
+  /** Validate result limits in the schema. Disable when a consumer clamps them. */
+  enforceResultLimit?: boolean;
 }
 
 export const DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS = Object.freeze({
@@ -111,7 +113,9 @@ function queryShape(
   const orderable = metricName
     ? [...dimensions, metricName, ...(catalog.timeKey ? ['period'] : [])]
     : catalog.orderableFields;
-  const maxResultSize = lowerLimit(catalog.limits?.maxResultSize, limits.maxResultSize);
+  const maxResultSize = options.enforceResultLimit === false
+    ? undefined
+    : lowerLimit(catalog.limits?.maxResultSize, limits.maxResultSize);
   const grainField = options.grainField ?? 'by';
 
   return {

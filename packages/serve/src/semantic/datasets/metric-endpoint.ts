@@ -129,6 +129,12 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
   const effectiveMaxLimit = resolved.maxLimit ?? ds.limits?.maxResultSize ?? 1000;
   const metricQueryInputSchema = buildMetricInputSchema(ds, contract.name, {
     includeMeta: true,
+    enforceResultLimit: false,
+    maxOffset: undefined,
+    maxDimensions: undefined,
+    maxMeasures: undefined,
+    maxFilters: undefined,
+    maxOrderBy: undefined,
   });
 
   const metadata: EndpointMetadata = {

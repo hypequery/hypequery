@@ -52,4 +52,25 @@ describe('MCP canonical query schemas', () => {
       dimensions: ['status'],
     }).success).toBe(true);
   });
+
+  it('keeps exact schemas when a registry also contains a legacy entry', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('amount') },
+    });
+    const schemas = buildMCPQuerySchemas({
+      orders: Orders,
+      legacy: { dimensions: { arbitrary: {} }, metrics: {} },
+    });
+
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'orders',
+      dimensions: ['missing'],
+    }).success).toBe(false);
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'legacy',
+      dimensions: ['arbitrary'],
+    }).success).toBe(true);
+  });
 });
