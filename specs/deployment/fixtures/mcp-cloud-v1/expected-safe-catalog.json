@@ -1,0 +1,121 @@
+{
+  "datasets": [
+    {
+      "name": "orders",
+      "description": "orders analytics dataset.",
+      "timeDimension": "createdAt",
+      "dimensions": [
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "label": "Created at",
+          "description": "UTC timestamp when the order was created.",
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "orderId",
+          "type": "number",
+          "label": "Order ID",
+          "description": "Unique order identifier.",
+          "filterable": false,
+          "groupable": true
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "label": "Region",
+          "description": "Commercial region assigned to the order.",
+          "filterable": true,
+          "groupable": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "label": "Status",
+          "description": "Current order status.",
+          "filterable": true,
+          "groupable": true
+        }
+      ],
+      "measures": [
+        {
+          "name": "orderCount",
+          "label": "Order count",
+          "description": "Number of orders."
+        },
+        {
+          "name": "revenue",
+          "label": "Revenue",
+          "description": "Sum of order amount in USD."
+        }
+      ],
+      "metrics": [
+        {
+          "name": "totalRevenue",
+          "label": "Total revenue",
+          "description": "Total order revenue in USD.",
+          "dimensions": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "filters": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "grains": [
+            "day",
+            "month",
+            "quarter",
+            "week",
+            "year"
+          ]
+        }
+      ],
+      "filters": [
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "operators": [
+            "between",
+            "eq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "neq"
+          ]
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "operators": [
+            "eq",
+            "in",
+            "neq",
+            "notIn"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "operators": [
+            "eq",
+            "in",
+            "neq",
+            "notIn"
+          ]
+        }
+      ],
+      "relationships": [],
+      "limits": {
+        "maxDimensions": 4,
+        "maxMeasures": 2,
+        "maxFilters": 3,
+        "maxResultSize": 100
+      }
+    }
+  ]
+}

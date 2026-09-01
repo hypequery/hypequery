@@ -13,3 +13,8 @@ They build on the identities and closed artifacts in [`specs/security-protocol`]
 | [0005](./0005-runtime-supervision.md) | Readiness, generation switching, invocation, and draining |
 | [0006](./0006-data-plane-execution.md) | Route policy, schemas, dispatch, and output validation |
 | [0007](./0007-data-plane-hosting.md) | Generation-pinned host assembly and shutdown |
+
+Architecture decisions shared by Core and Cloud are recorded under
+[`decisions/`](./decisions/README.md). The language-neutral MCP/Cloud vertical
+slice used by those decisions lives under
+[`fixtures/mcp-cloud-v1/`](./fixtures/mcp-cloud-v1/README.md).

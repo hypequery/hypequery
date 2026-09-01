@@ -1,0 +1,77 @@
+[
+  {
+    "id": "total-revenue",
+    "question": "What is our total revenue?",
+    "expectedTool": "query_metric",
+    "expectedArguments": {
+      "dataset": "orders",
+      "metric": "totalRevenue",
+      "limit": 100
+    },
+    "expectedRows": [
+      {
+        "totalRevenue": 175
+      }
+    ]
+  },
+  {
+    "id": "revenue-by-region",
+    "question": "Break down total revenue by region.",
+    "expectedTool": "query_metric",
+    "expectedArguments": {
+      "dataset": "orders",
+      "metric": "totalRevenue",
+      "dimensions": [
+        "region"
+      ],
+      "orderBy": [
+        {
+          "field": "region",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    },
+    "expectedRows": [
+      {
+        "region": "eu",
+        "totalRevenue": 125
+      },
+      {
+        "region": "us",
+        "totalRevenue": 50
+      }
+    ]
+  },
+  {
+    "id": "orders-by-status",
+    "question": "How many orders are in each status?",
+    "expectedTool": "query_dataset",
+    "expectedArguments": {
+      "dataset": "orders",
+      "dimensions": [
+        "status"
+      ],
+      "measures": [
+        "orderCount"
+      ],
+      "orderBy": [
+        {
+          "field": "status",
+          "direction": "asc"
+        }
+      ],
+      "limit": 100
+    },
+    "expectedRows": [
+      {
+        "status": "cancelled",
+        "orderCount": 1
+      },
+      {
+        "status": "completed",
+        "orderCount": 2
+      }
+    ]
+  }
+]

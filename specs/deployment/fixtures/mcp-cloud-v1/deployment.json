@@ -1,0 +1,211 @@
+{
+  "kind": "hypequery-deployment",
+  "version": 1,
+  "datasets": [
+    {
+      "name": "orders",
+      "source": "analytics.orders",
+      "tenant": {
+        "kind": "required",
+        "field": "tenant_id"
+      },
+      "timeField": "createdAt",
+      "dimensions": [
+        {
+          "name": "amount",
+          "type": "number",
+          "source": {
+            "kind": "column",
+            "column": "amount"
+          },
+          "filterable": false,
+          "groupable": false,
+          "label": "Amount",
+          "description": "Order amount in USD."
+        },
+        {
+          "name": "createdAt",
+          "type": "timestamp",
+          "source": {
+            "kind": "column",
+            "column": "created_at"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Created at",
+          "description": "UTC timestamp when the order was created."
+        },
+        {
+          "name": "orderId",
+          "type": "number",
+          "source": {
+            "kind": "column",
+            "column": "order_id"
+          },
+          "filterable": false,
+          "groupable": true,
+          "label": "Order ID",
+          "description": "Unique order identifier."
+        },
+        {
+          "name": "region",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "region"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Region",
+          "description": "Commercial region assigned to the order."
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "source": {
+            "kind": "column",
+            "column": "status"
+          },
+          "filterable": true,
+          "groupable": true,
+          "label": "Status",
+          "description": "Current order status."
+        }
+      ],
+      "measures": [
+        {
+          "name": "orderCount",
+          "aggregation": "count",
+          "field": "orderId",
+          "filters": [],
+          "label": "Order count",
+          "description": "Number of orders."
+        },
+        {
+          "name": "revenue",
+          "aggregation": "sum",
+          "field": "amount",
+          "filters": [],
+          "label": "Revenue",
+          "description": "Sum of order amount in USD."
+        }
+      ],
+      "filters": [
+        {
+          "name": "createdAt",
+          "field": "createdAt",
+          "operators": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "between"
+          ],
+          "label": "Created at",
+          "description": "Filter orders by their UTC creation timestamp."
+        },
+        {
+          "name": "region",
+          "field": "region",
+          "operators": [
+            "eq",
+            "neq",
+            "in",
+            "notIn"
+          ],
+          "label": "Region",
+          "description": "Filter orders by commercial region."
+        },
+        {
+          "name": "status",
+          "field": "status",
+          "operators": [
+            "eq",
+            "neq",
+            "in",
+            "notIn"
+          ],
+          "label": "Status",
+          "description": "Filter orders by status."
+        }
+      ],
+      "metrics": [
+        {
+          "name": "totalRevenue",
+          "kind": "metric",
+          "expression": {
+            "kind": "aggregate",
+            "aggregation": "sum",
+            "field": "amount"
+          },
+          "dimensions": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "filters": [
+            "createdAt",
+            "region",
+            "status"
+          ],
+          "grains": [
+            "day",
+            "week",
+            "month",
+            "quarter",
+            "year"
+          ],
+          "label": "Total revenue",
+          "description": "Total order revenue in USD.",
+          "endpoint": {
+            "access": {
+              "kind": "authenticated",
+              "roles": [
+                "analytics_reader"
+              ],
+              "scopes": [
+                "datasets:query"
+              ]
+            },
+            "tenant": {
+              "kind": "required",
+              "mode": "auto-inject",
+              "column": "tenant_id"
+            },
+            "maxLimit": 100,
+            "path": "/api/analytics/metrics/totalRevenue"
+          }
+        }
+      ],
+      "relationships": [],
+      "limits": {
+        "maxDimensions": 4,
+        "maxMeasures": 2,
+        "maxFilters": 3,
+        "maxResultSize": 100
+      },
+      "endpoint": {
+        "access": {
+          "kind": "authenticated",
+          "roles": [
+            "analytics_reader"
+          ],
+          "scopes": [
+            "datasets:query"
+          ]
+        },
+        "tenant": {
+          "kind": "required",
+          "mode": "auto-inject",
+          "column": "tenant_id"
+        },
+        "maxLimit": 100,
+        "path": "/api/analytics/datasets/orders/query"
+      }
+    }
+  ],
+  "queries": [],
+  "artifacts": []
+}

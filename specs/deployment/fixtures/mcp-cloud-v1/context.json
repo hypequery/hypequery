@@ -1,0 +1,27 @@
+{
+  "target": {
+    "project": "prj_acme-analytics",
+    "environment": "production"
+  },
+  "activationRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "releaseIdentity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "bundleIdentity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "deploymentIdentity": "2d71d44577daffdc952ef55d640ece588a74fc6493f0857c5851325745af890a",
+  "principal": {
+    "subject": "user_ada",
+    "roles": [
+      "analytics_reader"
+    ],
+    "scopes": [
+      "datasets:query",
+      "mcp:discover",
+      "mcp:invoke"
+    ],
+    "claims": {
+      "tenantId": "tenant_acme"
+    }
+  },
+  "resolvedTenant": {
+    "id": "tenant_acme"
+  }
+}
