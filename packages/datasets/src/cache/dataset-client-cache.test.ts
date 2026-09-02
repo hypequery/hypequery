@@ -162,6 +162,17 @@ describe('DatasetClient result caching', () => {
     expect(executions).toHaveBeenCalledTimes(2);
   });
 
+  it('an abortable call bypasses the result cache so cancellation reaches execution', async () => {
+    const { factory, executions } = createCountingFactory();
+    const analytics = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });
+    const context = { abortSignal: new AbortController().signal };
+
+    await analytics.execute(Orders, { measures: ['revenue'] }, context);
+    await analytics.execute(Orders, { measures: ['revenue'] }, context);
+
+    expect(executions).toHaveBeenCalledTimes(2);
+  });
+
   it('partitions cache entries per tenant scope', async () => {
     const { factory, executions } = createCountingFactory();
     const analytics = createDatasetClient({ queryBuilder: factory, cache: { ttlMs: 60_000 } });

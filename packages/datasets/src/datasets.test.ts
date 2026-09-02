@@ -479,6 +479,20 @@ describe("dataset query helpers", () => {
     expect(result.meta?.sql).toContain('SUM(amount) AS revenue');
   });
 
+  it("forwards semantic cancellation to query-builder execution", async () => {
+    const baseFactory = createDatasetQueryBuilderFactory([{ revenue: 42 }]);
+    const builder = baseFactory.table('orders');
+    const execute = vi.spyOn(builder, 'execute');
+    const abortSignal = new AbortController().signal;
+
+    await runDatasetQuery(Orders, { measures: ['revenue'] }, {
+      builderFactory: { ...baseFactory, table: () => builder },
+      context: { ...TENANT_CONTEXT, abortSignal },
+    });
+
+    expect(execute).toHaveBeenCalledWith({ abortSignal });
+  });
+
   it("reports hasMore via over-fetch and trims the extra row", async () => {
     const result = await runDatasetQuery(Orders, {
       measures: ['revenue'],
@@ -1065,6 +1079,32 @@ describe("MetricQueryEngine", () => {
   });
 
   describe("createDatasetClient()", () => {
+    it("forwards semantic cancellation to backend execution", async () => {
+      const execute = vi.fn().mockResolvedValue({ data: [] });
+      const analytics = createDatasetClient({ backend: { execute } });
+      const abortSignal = new AbortController().signal;
+
+      await analytics.execute(Orders, { measures: ["revenue"] }, {
+        ...TENANT_CONTEXT,
+        abortSignal,
+      });
+      await analytics.execute(avgOrderValue, {}, {
+        ...TENANT_CONTEXT,
+        abortSignal,
+      });
+
+      expect(execute).toHaveBeenNthCalledWith(
+        1,
+        expect.anything(),
+        { abortSignal },
+      );
+      expect(execute).toHaveBeenNthCalledWith(
+        2,
+        expect.anything(),
+        { abortSignal },
+      );
+    });
+
     it("executes all-tenant dataset queries across tenants", async () => {
       const analytics = createDatasetClient({
         backend: createInMemoryBackend({

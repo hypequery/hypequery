@@ -171,6 +171,11 @@ const runtimeContext: ExecutionContext = {
   },
 };
 
+const abortableContext: ExecutionContext = {
+  abortSignal: new AbortController().signal,
+};
+void abortableContext;
+
 const _legacyTenantRuntimeContext: ExecutionContext = {
   runtime: {
     tenant: { id: 'tenant-1' },

@@ -78,6 +78,10 @@ await createMCPServer({
     maxResultSize: 1_000,
     maxOffset: 10_000,
   },
+  executionBudget: {
+    timeoutMs: 30_000,
+    maxResponseBytes: 1_048_576,
+  },
 });
 ```
 
@@ -85,6 +89,12 @@ Every query receives a server-side limit even when the agent omits one. The
 effective ceiling is the lowest applicable server or Dataset limit. Dimensions,
 measures, filters, ordering, and pagination offsets also have hard package
 ceilings that server configuration may lower but cannot raise.
+
+Query calls also have a hard wall-clock deadline and UTF-8 response-byte
+ceiling. Client cancellation and local deadlines propagate through the semantic
+client to the backing ClickHouse request. Budget failures use the stable
+`MCP_REQUEST_CANCELLED`, `MCP_QUERY_TIMEOUT`, and `MCP_RESULT_TOO_LARGE`
+classifications.
 
 ## Learn more
 

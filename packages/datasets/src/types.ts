@@ -282,6 +282,8 @@ export interface SemanticExecutionRuntime {
 
 export interface ExecutionContext {
   runtime?: SemanticExecutionRuntime;
+  /** Cancels the in-flight semantic query and its backing database request. */
+  abortSignal?: AbortSignal;
   /**
    * Per-call result-cache controls. `false` bypasses the cache entirely;
    * `{ ttlMs }` opts this call into caching (or overrides the client default).

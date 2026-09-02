@@ -18,6 +18,7 @@ export type {
   QueryMetricArgs,
   QueryDatasetArgs,
   QueryToolOptions,
+  MCPExecutionBudget,
   MCPQueryLimits,
   SchemaToolOptions,
   GetDatasetSchemaArgs,
@@ -32,6 +33,11 @@ export type {
   QueryResultMeta,
 } from './types.js';
 export {
+  MCPExecutionBudgetError,
+  formatMCPToolError,
+  type MCPExecutionErrorCode,
+} from './errors.js';
+export {
   MAX_QUERY_LIMIT,
   DEFAULT_QUERY_LIMIT,
   MAX_QUERY_OFFSET,
@@ -39,5 +45,9 @@ export {
   MAX_QUERY_MEASURES,
   MAX_QUERY_FILTERS,
   MAX_QUERY_ORDER_BY,
+  DEFAULT_QUERY_TIMEOUT_MS,
+  MAX_QUERY_TIMEOUT_MS,
+  DEFAULT_RESPONSE_BYTES,
+  MAX_RESPONSE_BYTES,
 } from './types.js';
 export { MCP_PACKAGE_VERSION } from './version.js';

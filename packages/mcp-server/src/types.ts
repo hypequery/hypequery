@@ -46,6 +46,16 @@ export interface QueryToolOptions {
   tenantId?: string;
   includeSql?: boolean;
   limits?: MCPQueryLimits;
+  executionBudget?: MCPExecutionBudget;
+  signal?: AbortSignal;
+}
+
+/** Per-query wall-clock and serialized-response ceilings. */
+export interface MCPExecutionBudget {
+  /** Maximum query duration in milliseconds. Defaults to 30 seconds. */
+  timeoutMs?: number;
+  /** Maximum UTF-8 bytes in the serialized query response. Defaults to 1 MiB. */
+  maxResponseBytes?: number;
 }
 
 /** Server-side ceilings applied in addition to Dataset limits. */
@@ -226,3 +236,7 @@ export const MAX_QUERY_DIMENSIONS = 50;
 export const MAX_QUERY_MEASURES = 50;
 export const MAX_QUERY_FILTERS = 100;
 export const MAX_QUERY_ORDER_BY = 50;
+export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
+export const MAX_QUERY_TIMEOUT_MS = 120_000;
+export const DEFAULT_RESPONSE_BYTES = 1_048_576;
+export const MAX_RESPONSE_BYTES = 10_485_760;

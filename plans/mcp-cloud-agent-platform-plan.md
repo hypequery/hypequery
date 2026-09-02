@@ -421,6 +421,13 @@ effective default/Dataset/server limits, bounded offsets and query collections,
 package-derived server version metadata, finite examples, focused tests, and a
 release changeset.
 
+**CORE-02 implementation status:** Implemented on top of `CORE-01`, including a
+shared deadline/response-byte budget, MCP cancellation propagation through the
+semantic client to ClickHouse, hard timeout settlement for non-cooperative
+executors, classified budget errors, focused tests, and release changesets.
+`MCP-102` remains open for the later tool-count and catalog-description byte
+ceilings; its query-execution and query-input portions are complete.
+
 ### Deployment bridge PRs
 
 | PR | Depends on | Deliverable and merge gate |

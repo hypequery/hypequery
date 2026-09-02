@@ -127,6 +127,9 @@ export interface SemanticBackendResult<T = Record<string, unknown>> {
  * implementing a backend.
  */
 export interface SemanticBackend {
-  execute<T = Record<string, unknown>>(plan: PlanNode): Promise<SemanticBackendResult<T>>;
+  execute<T = Record<string, unknown>>(
+    plan: PlanNode,
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<SemanticBackendResult<T>>;
   explain?(plan: PlanNode): Promise<{ sql?: string }>;
 }
