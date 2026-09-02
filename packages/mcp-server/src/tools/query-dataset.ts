@@ -21,7 +21,7 @@ export async function queryDatasetTool(
   args: unknown,
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
-  const inputSchema = options.inputSchema ?? buildMCPQuerySchemas(datasets).queryDataset;
+  const inputSchema = options.inputSchema ?? buildMCPQuerySchemas(datasets, options.limits).queryDataset;
   const validatedArgs = parseToolArgs(inputSchema, 'query_dataset', args);
   const { dataset: datasetName, dimensions, measures, filters, grain, orderBy } = validatedArgs;
 

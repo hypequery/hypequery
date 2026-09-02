@@ -117,7 +117,7 @@ function buildDatasetTools(
     return {
       name: `query_${semanticToolNamePart(datasetName)}`,
       description: `Query the ${datasetName} analytics dataset.`,
-      parameters: toSemanticJsonSchema(schema),
+      parameters: toSemanticJsonSchema(schema, { requireSelection: true }),
       async execute(input: Record<string, unknown>, context?: ExecutionContext): Promise<unknown> {
         const query = parseCanonicalToolInput(schema, input, `${datasetName} query`) as DatasetQuery;
         const result = await analytics.execute(dataset, query, context);

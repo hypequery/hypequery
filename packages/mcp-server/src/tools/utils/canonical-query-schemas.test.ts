@@ -51,6 +51,49 @@ describe('MCP canonical query schemas', () => {
       dataset: 'orders',
       dimensions: ['status'],
     }).success).toBe(true);
+    expect(schemas.queryDataset.safeParse({
+      dimensions: ['status'],
+    }).success).toBe(false);
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+    }).success).toBe(false);
+  });
+
+  it('applies configured MCP limits to exact runtime and advertised schemas', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('amount') },
+    });
+    const schemas = buildMCPQuerySchemas(
+      { orders: Orders },
+      {
+        defaultResultSize: 7,
+        maxResultSize: 10,
+        maxOffset: 2,
+        maxDimensions: 1,
+      },
+    );
+
+    expect(schemas.queryDataset.parse({
+      dataset: 'orders',
+      dimensions: ['status'],
+    })).toMatchObject({ limit: 7 });
+    expect(schemas.queryDataset.safeParse({
+      dataset: 'orders',
+      dimensions: ['status', 'status'],
+    }).success).toBe(false);
+    expect(schemas.queryDatasetJsonSchema.properties).toMatchObject({
+      dimensions: { maxItems: 1 },
+      limit: { maximum: 10, default: 7 },
+      offset: { maximum: 2 },
+    });
+  });
+
+  it('does not silently downgrade malformed Dataset instances to legacy validation', () => {
+    expect(() => buildMCPQuerySchemas({
+      broken: { __type: 'dataset' },
+    })).toThrow();
   });
 
   it('keeps exact schemas when a registry also contains a legacy entry', () => {

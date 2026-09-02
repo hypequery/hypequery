@@ -13,6 +13,7 @@ import type { JsonSchema } from './tools.js';
 import { compareStrings, stableStringify, uniqueSorted } from './utils/canonical-json.js';
 
 export interface SemanticQuerySchemaLimits {
+  defaultResultSize?: number;
   maxResultSize?: number;
   maxOffset?: number;
   maxDimensions?: number;
@@ -116,7 +117,13 @@ function queryShape(
   const maxResultSize = options.enforceResultLimit === false
     ? undefined
     : lowerLimit(catalog.limits?.maxResultSize, limits.maxResultSize);
+  const defaultResultSize = options.defaultResultSize === undefined
+    ? undefined
+    : lowerLimit(options.defaultResultSize, maxResultSize);
   const grainField = options.grainField ?? 'by';
+  const limitSchema = maxResultSize === undefined
+    ? z.number().int().positive()
+    : z.number().int().positive().max(maxResultSize);
 
   return {
     dimensions: boundedArray(
@@ -137,9 +144,9 @@ function queryShape(
       field: fieldEnum(orderable),
       direction: z.enum(['asc', 'desc']),
     }).strict(), limits.maxOrderBy),
-    limit: (maxResultSize === undefined
-      ? z.number().int().positive()
-      : z.number().int().positive().max(maxResultSize)).optional(),
+    limit: defaultResultSize === undefined
+      ? limitSchema.optional()
+      : limitSchema.default(defaultResultSize),
     offset: (limits.maxOffset === undefined
       ? z.number().int().nonnegative()
       : z.number().int().nonnegative().max(limits.maxOffset)).optional(),
@@ -188,11 +195,15 @@ function withSelectors(
   );
 }
 
-export function toSemanticJsonSchema(schema: ZodTypeAny): JsonSchema {
+export function toSemanticJsonSchema(
+  schema: ZodTypeAny,
+  options: { requireSelection?: boolean } = {},
+): JsonSchema {
   const converted = zodToJsonSchema(schema, { target: 'jsonSchema7', $refStrategy: 'none' });
   const { $schema: _schema, ...jsonSchema } = converted;
   const result = jsonSchema as JsonSchema;
-  return result.anyOf && !result.type ? { ...result, type: 'object' } : result;
+  const objectSchema = result.anyOf && !result.type ? { ...result, type: 'object' } : result;
+  return options.requireSelection ? addSelectionRequirement(objectSchema) : objectSchema;
 }
 
 function addSelectionRequirement(schema: JsonSchema): JsonSchema {
@@ -247,10 +258,9 @@ export function buildCanonicalSemanticQuerySchemas(
     dataset: z.never(),
     metric: z.never(),
   });
-  const rawDatasetJsonSchema = toSemanticJsonSchema(queryDataset);
-  const queryDatasetJsonSchema = options.requireSelection === false
-    ? rawDatasetJsonSchema
-    : addSelectionRequirement(rawDatasetJsonSchema);
+  const queryDatasetJsonSchema = toSemanticJsonSchema(queryDataset, {
+    requireSelection: options.requireSelection !== false,
+  });
   const queryMetricJsonSchema = toSemanticJsonSchema(queryMetric);
   const manifestHash = bytesToHex(sha256(new TextEncoder().encode(stableStringify({
     query_dataset: queryDatasetJsonSchema,

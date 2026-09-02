@@ -3,7 +3,11 @@ import { readFileSync } from 'node:fs';
 import { dataset } from './dataset.js';
 import { dimension } from './field.js';
 import { measure } from './measure.js';
-import { buildCanonicalSemanticQuerySchemas } from './semantic-query-schema.js';
+import {
+  buildCanonicalSemanticQuerySchemas,
+  buildDatasetInputSchema,
+  toSemanticJsonSchema,
+} from './semantic-query-schema.js';
 import { getDatasetCatalog, type DatasetCatalog } from './catalog.js';
 import type { MetricFilter } from './types.js';
 
@@ -75,6 +79,17 @@ describe('canonical semantic query schemas', () => {
     expect(properties?.filters.maxItems).toBe(3);
     expect(properties?.limit).toMatchObject({ type: 'integer', maximum: 500 });
     expect(properties?.offset).toMatchObject({ type: 'integer', maximum: 10_000 });
+  });
+
+  it('can apply a consumer-specific default result size', () => {
+    const schema = buildDatasetInputSchema(Orders, {
+      defaultResultSize: 25,
+      maxResultSize: 50,
+    });
+
+    expect(schema.parse({ dimensions: ['status'] })).toMatchObject({ limit: 25 });
+    expect(toSemanticJsonSchema(schema).properties?.limit)
+      .toMatchObject({ maximum: 50, default: 25 });
   });
 
   it('emits exact dataset/metric pairs and a deterministic manifest hash', () => {

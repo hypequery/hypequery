@@ -81,6 +81,9 @@ describe('semantic dataset tools', () => {
       'revenue',
     ]);
     expect(tool.parameters.properties?.limit.maximum).toBe(500);
+    expect(tool.parameters.allOf).toEqual(expect.arrayContaining([
+      expect.objectContaining({ anyOf: expect.any(Array) }),
+    ]));
 
     const result = await tool.execute({
       dataset: 'orders',
@@ -188,6 +191,7 @@ describe('semantic dataset tools', () => {
 
     expect(datasetTools.map(tool => tool.name)).toEqual(['query_orders']);
     expect(datasetTools[0].parameters.required).toBeUndefined();
+    expect(datasetTools[0].parameters.allOf).toBeDefined();
     expect(metricTools.map(tool => tool.name)).toEqual(['query_totalRevenue']);
     expect(metricTools[0].parameters.properties?.measures).toBeUndefined();
   });

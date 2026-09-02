@@ -6,8 +6,10 @@ import {
   type DatasetCatalogSource,
 } from '@hypequery/datasets';
 import { z, type ZodTypeAny } from 'zod';
-import type { DatasetRegistry } from '../../types.js';
+import type { DatasetRegistry, MCPQueryLimits } from '../../types.js';
 import { queryDatasetArgsSchema, queryMetricArgsSchema } from '../args.js';
+import { resolveQueryLimits } from './query-limits.js';
+import { advertiseDatasetQueryLimits } from './query-schema.js';
 
 function withLegacyDirectMetrics(
   datasets: DatasetRegistry,
@@ -37,7 +39,9 @@ function withLegacyDirectMetrics(
  */
 export function buildMCPQuerySchemas(
   datasets: DatasetRegistry,
+  configured?: MCPQueryLimits,
 ): CanonicalSemanticQuerySchemas {
+  const limits = resolveQueryLimits(undefined, configured);
   const entries = Object.entries(datasets).sort(([left], [right]) => (
     left < right ? -1 : left > right ? 1 : 0
   ));
@@ -64,30 +68,37 @@ export function buildMCPQuerySchemas(
   const metricJsonSchemas: CanonicalSemanticQuerySchemas['queryMetricJsonSchema'][] = [];
 
   for (const [name, dataset] of entries) {
-    try {
+    if (isCanonicalSchemaSource(dataset)) {
       const exact = buildCanonicalSemanticQuerySchemas(
         withLegacyDirectMetrics({ [name]: dataset }),
-        { grainField: 'grain' },
+        { grainField: 'grain', ...limits },
       );
       datasetSchemas.push(exact.queryDataset);
       metricSchemas.push(exact.queryMetric);
       datasetJsonSchemas.push(exact.queryDatasetJsonSchema);
       metricJsonSchemas.push(exact.queryMetricJsonSchema);
-    } catch {
+    } else {
       // Keep compatibility local to the legacy entry. A registry-wide fallback
       // would erase exact contracts for every valid Dataset beside it.
-      const datasetSelector = entries.length === 1
-        ? z.literal(name).optional()
-        : z.literal(name);
-      const metricSelector = entries.length === 1
-        ? z.literal(name).optional()
-        : z.literal(name);
-      const queryDataset = queryDatasetArgsSchema.extend({ dataset: datasetSelector });
-      const queryMetric = queryMetricArgsSchema.extend({ dataset: metricSelector });
+      const queryDataset = queryDatasetArgsSchema.extend({ dataset: z.literal(name) });
+      const queryMetric = queryMetricArgsSchema.extend({
+        dataset: z.literal(name),
+        metric: z.string().min(1),
+      });
       datasetSchemas.push(queryDataset);
       metricSchemas.push(queryMetric);
-      datasetJsonSchemas.push(toSemanticJsonSchema(queryDataset));
-      metricJsonSchemas.push(toSemanticJsonSchema(queryMetric));
+      datasetJsonSchemas.push(advertiseDatasetQueryLimits(
+        toSemanticJsonSchema(queryDataset),
+        { [name]: dataset },
+        configured,
+        true,
+      ));
+      metricJsonSchemas.push(advertiseDatasetQueryLimits(
+        toSemanticJsonSchema(queryMetric),
+        { [name]: dataset },
+        configured,
+        false,
+      ));
     }
   }
 
@@ -107,6 +118,13 @@ export function buildMCPQuerySchemas(
     queryMetricJsonSchema,
     manifestHash,
   });
+}
+
+function isCanonicalSchemaSource(dataset: unknown): dataset is DatasetCatalogSource {
+  if (!dataset || typeof dataset !== 'object') return false;
+  const source = dataset as Record<string, unknown>;
+  return source.__type === 'dataset'
+    || ('requiresTenant' in source && 'supportedGrains' in source && 'orderableFields' in source);
 }
 
 function unionSchemas(schemas: ZodTypeAny[]): ZodTypeAny {

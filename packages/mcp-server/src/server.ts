@@ -111,7 +111,7 @@ export class HypequeryMCPServer {
     resolveQueryLimits(undefined, config.queryLimits);
     resolveExecutionBudget(config.executionBudget);
     this.config = config;
-    this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {});
+    this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {}, config.queryLimits);
 
     this.server = new Server(
       {
