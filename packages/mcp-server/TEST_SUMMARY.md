@@ -2,11 +2,11 @@
 
 ## Overview
 
-Comprehensive test suite for `@hypequery/mcp` with **95 passing tests** across 8 test files.
+Comprehensive test suite for `@hypequery/mcp` with **101 passing tests** across 10 test files.
 
 ## Test Coverage
 
-### 1. Tools (64 tests)
+### 1. Tools (68 tests)
 
 #### `list-datasets.test.ts` (8 tests)
 - ✅ Empty dataset list handling
@@ -50,11 +50,16 @@ Comprehensive test suite for `@hypequery/mcp` with **95 passing tests** across 8
 - ✅ Multi-dimensional queries
 - ✅ Empty result handling
 
-#### `query-limits.test.ts` (7 tests)
+#### `query-limits.test.ts` (8 tests)
 - ✅ Default and configured result limits
 - ✅ Dataset limit intersection
 - ✅ Offset and collection ceilings
 - ✅ Invalid server configuration
+
+#### `query-schema.test.ts` (3 tests)
+- ✅ Empty registry fallback
+- ✅ Per-dataset effective limit advertisement
+- ✅ Metric schemas omit measure limits
 
 #### `query-sql.integration.test.ts` (5 tests)
 - ✅ SQL redaction for dataset and metric results
@@ -77,9 +82,9 @@ Comprehensive test suite for `@hypequery/mcp` with **95 passing tests** across 8
 - ✅ Example workflow
 - ✅ Message structure validation
 
-### 3. Server (18 tests)
+### 3. Server (19 tests)
 
-#### `server.test.ts` (18 tests)
+#### `server.test.ts` (19 tests)
 - ✅ Server instantiation with default config
 - ✅ Custom name and version
 - ✅ Empty datasets support
@@ -93,10 +98,15 @@ Comprehensive test suite for `@hypequery/mcp` with **95 passing tests** across 8
 - ✅ Config structure support
 - ✅ Nested metric definitions
 
+### 4. Examples (1 test)
+
+#### `examples.test.ts` (1 test)
+- ✅ Finite no-setup configuration loads as a valid Dataset
+
 ## Test Statistics
 
-- **Total Tests:** 95
-- **Test Files:** 8
+- **Total Tests:** 101
+- **Test Files:** 10
 - **Pass Rate:** 100%
 
 ## Test Framework
@@ -179,7 +189,7 @@ it('should execute metric query with dimensions', async () => {
 
 ## Next Steps
 
-1. ✅ **Unit Tests** - Complete (95 tests)
+1. ✅ **Unit Tests** - Complete (101 tests)
 2. ⏭️ **Integration Tests** - Test with real MCP clients
 3. ⏭️ **E2E Tests** - Full workflow with ClickHouse
 4. ⏭️ **Performance Tests** - Load testing with large datasets

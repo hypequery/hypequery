@@ -37,6 +37,14 @@ function positiveInteger(value: number | undefined, fallback: number, maximum: n
   return resolved;
 }
 
+function nonNegativeInteger(value: number | undefined, fallback: number, maximum: number, name: string): number {
+  const resolved = value ?? fallback;
+  if (!Number.isSafeInteger(resolved) || resolved < 0 || resolved > maximum) {
+    throw new Error(`${name} must be an integer between 0 and ${maximum}`);
+  }
+  return resolved;
+}
+
 function datasetLimits(dataset: unknown): DatasetLimits | undefined {
   if (!dataset || typeof dataset !== 'object' || Array.isArray(dataset)) return undefined;
   const limits = (dataset as { limits?: unknown }).limits;
@@ -79,7 +87,7 @@ export function resolveQueryLimits(
   return Object.freeze({
     defaultResultSize,
     maxResultSize,
-    maxOffset: positiveInteger(configured.maxOffset, MAX_QUERY_OFFSET, MAX_QUERY_OFFSET, 'maxOffset'),
+    maxOffset: nonNegativeInteger(configured.maxOffset, MAX_QUERY_OFFSET, MAX_QUERY_OFFSET, 'maxOffset'),
     maxDimensions: lowerLimit(
       positiveInteger(configured.maxDimensions, MAX_QUERY_DIMENSIONS, MAX_QUERY_DIMENSIONS, 'maxDimensions'),
       datasetPositiveInteger(semantic?.maxDimensions, 'maxDimensions'),

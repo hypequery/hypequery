@@ -115,7 +115,7 @@ describe('HypequeryMCPServer', () => {
       datasets: {},
       analytics: mockAnalytics,
       queryLimits: { maxOffset: 10_001 },
-    })).toThrow('maxOffset must be an integer between 1 and 10000');
+    })).toThrow('maxOffset must be an integer between 0 and 10000');
   });
 
   it('advertises configured collection ceilings in query tool schemas', async () => {

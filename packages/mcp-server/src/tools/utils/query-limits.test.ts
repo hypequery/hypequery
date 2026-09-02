@@ -32,6 +32,13 @@ describe('query limits', () => {
       .toThrow('Invalid offset: 11. Max: 10');
   });
 
+  it('allows a zero offset ceiling to disable pagination', () => {
+    expect(applyQueryLimits({}, { offset: 0 }, { maxOffset: 0 }))
+      .toEqual({ limit: 100, offset: 0 });
+    expect(() => applyQueryLimits({}, { offset: 1 }, { maxOffset: 0 }))
+      .toThrow('Invalid offset: 1. Max: 0');
+  });
+
   it('enforces Dataset collection limits', () => {
     expect(() => applyQueryLimits(
       { limits: { maxDimensions: 1, maxMeasures: 1, maxFilters: 1 } },
@@ -59,7 +66,9 @@ describe('query limits', () => {
     expect(() => resolveQueryLimits({}, { defaultResultSize: 0 }))
       .toThrow('defaultResultSize must be an integer between 1 and 10000');
     expect(() => resolveQueryLimits({}, { maxOffset: 10_001 }))
-      .toThrow('maxOffset must be an integer between 1 and 10000');
+      .toThrow('maxOffset must be an integer between 0 and 10000');
+    expect(() => resolveQueryLimits({}, { maxOffset: -1 }))
+      .toThrow('maxOffset must be an integer between 0 and 10000');
     expect(() => resolveQueryLimits({ limits: { maxResultSize: 0 } }))
       .toThrow('Dataset maxResultSize must be a positive integer');
     expect(() => resolveQueryLimits({ limits: { maxFilters: Number.NaN } }))
