@@ -20,9 +20,6 @@ import { queryMetricTool } from './tools/query-metric.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
 import {
-  DEFAULT_QUERY_LIMIT,
-  MAX_QUERY_LIMIT,
-  MAX_QUERY_OFFSET,
   type DatasetRegistry,
   type MCPExecutionBudget,
   type MCPQueryLimits,

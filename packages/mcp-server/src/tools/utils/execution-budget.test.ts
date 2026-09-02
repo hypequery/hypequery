@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { formatMCPToolError, MCPExecutionBudgetError } from '../../errors.js';
 import {
   executeWithinBudget,
   resolveExecutionBudget,
@@ -38,6 +39,21 @@ describe('execution budgets', () => {
     });
   });
 
+  it('does not invoke an operation for a request that is already cancelled', async () => {
+    const request = new AbortController();
+    const operation = vi.fn(() => Promise.resolve('unexpected'));
+    request.abort();
+
+    await expect(executeWithinBudget(
+      operation,
+      resolveExecutionBudget({ timeoutMs: 1_000 }),
+      request.signal,
+    )).rejects.toMatchObject({
+      code: 'MCP_REQUEST_CANCELLED',
+    });
+    expect(operation).not.toHaveBeenCalled();
+  });
+
   it('aborts slow queries at the configured deadline', async () => {
     await expect(executeWithinBudget(
       waitForAbort,
@@ -64,5 +80,13 @@ describe('execution budgets', () => {
         code: 'MCP_RESULT_TOO_LARGE',
       }),
     );
+  });
+
+  it('formats classified and generic tool errors', () => {
+    expect(formatMCPToolError(new MCPExecutionBudgetError(
+      'MCP_QUERY_TIMEOUT',
+      'deadline exceeded',
+    ))).toBe('Error [MCP_QUERY_TIMEOUT]: deadline exceeded');
+    expect(formatMCPToolError(new Error('query failed'))).toBe('Error: query failed');
   });
 });

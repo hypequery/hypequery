@@ -61,10 +61,9 @@ export async function executeWithinBudget<T>(
   const cancel = () => controller.abort(cancellationError);
 
   if (requestSignal?.aborted) {
-    cancel();
-  } else {
-    requestSignal?.addEventListener('abort', cancel, { once: true });
+    throw cancellationError;
   }
+  requestSignal?.addEventListener('abort', cancel, { once: true });
   const timeout = setTimeout(() => controller.abort(timeoutError), budget.timeoutMs);
   let removeBudgetAbortListener = () => {};
   const budgetAbort = new Promise<never>((_, reject) => {
