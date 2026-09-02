@@ -45,7 +45,7 @@ const OrdersDataset = dataset('orders', {
 // Exports for MCP Server
 // =============================================================================
 
-const totalRevenue = OrdersDataset.metric('totalRevenue', { measure: 'totalRevenue' });
+const totalRevenue = OrdersDataset.metric('totalRevenue', { measure: 'revenue' });
 const totalOrders = OrdersDataset.metric('totalOrders', { measure: 'totalOrders' });
 
 export const datasets = {

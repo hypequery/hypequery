@@ -7,6 +7,7 @@
 import type { DatasetClient, MetricQuery } from '@hypequery/datasets';
 import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, QueryToolOptions } from '../types.js';
 import { parseToolArgs, queryMetricArgsSchema, toMetricFilters } from './args.js';
+import { applyQueryLimits } from './utils/query-limits.js';
 
 export async function queryMetricTool(
   datasets: DatasetRegistry,
@@ -15,7 +16,7 @@ export async function queryMetricTool(
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
   const validatedArgs = parseToolArgs(queryMetricArgsSchema, 'query_metric', args);
-  const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy, limit, offset } = validatedArgs;
+  const { dataset: datasetName, metric: metricName, dimensions, filters, grain, orderBy } = validatedArgs;
 
   if (!datasetName) {
     throw new Error('dataset parameter is required');
@@ -38,22 +39,22 @@ export async function queryMetricTool(
     throw new Error(`Metric not found: ${metricName} in dataset ${datasetName}`);
   }
 
+  const pagination = applyQueryLimits(dataset, validatedArgs, options.limits);
+
   // Build the query with proper types
   const query: MetricQuery = {
     dimensions: dimensions || [],
     filters: toMetricFilters(filters),
     orderBy: orderBy || [],
+    limit: pagination.limit,
   };
 
   if (grain) {
     query.by = grain;
   }
 
-  if (limit !== undefined) {
-    query.limit = limit;
-  }
-  if (offset !== undefined) {
-    query.offset = offset;
+  if (pagination.offset !== undefined) {
+    query.offset = pagination.offset;
   }
 
   // Execute the query

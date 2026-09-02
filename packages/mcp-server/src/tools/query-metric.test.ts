@@ -84,6 +84,7 @@ describe('queryMetricTool', () => {
         dimensions: [],
         filters: [],
         orderBy: [],
+        limit: 100,
       },
       {
         runtime: {
@@ -335,5 +336,23 @@ describe('queryMetricTool', () => {
     const data = JSON.parse(result.content[0].text);
     expect(data.data).toEqual([]);
     expect(data.meta.rowCount).toBe(0);
+  });
+
+  it('should apply configured limits below the package defaults', async () => {
+    const analytics = createMockAnalytics({ data: [], meta: {} });
+    const datasets = { orders: { revenue: { type: 'sum' } } };
+
+    await queryMetricTool(
+      datasets,
+      analytics,
+      { dataset: 'orders', metric: 'revenue' },
+      { limits: { defaultResultSize: 20, maxResultSize: 50 } },
+    );
+
+    expect(analytics.execute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ limit: 20 }),
+      expect.anything(),
+    );
   });
 });

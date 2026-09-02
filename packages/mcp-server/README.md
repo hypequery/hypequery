@@ -73,8 +73,18 @@ await createMCPServer({
   name: 'acme-analytics',
   version: '1.0.0',
   tenantId: session.accountId,
+  queryLimits: {
+    defaultResultSize: 100,
+    maxResultSize: 1_000,
+    maxOffset: 10_000,
+  },
 });
 ```
+
+Every query receives a server-side limit even when the agent omits one. The
+effective ceiling is the lowest applicable server or Dataset limit. Dimensions,
+measures, filters, ordering, and pagination offsets also have hard package
+ceilings that server configuration may lower but cannot raise.
 
 ## Learn more
 

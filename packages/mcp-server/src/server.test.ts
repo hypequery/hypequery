@@ -4,7 +4,9 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HypequeryMCPServer } from './server.js';
-import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { MCP_PACKAGE_VERSION } from './version.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import type { DatasetClient } from '@hypequery/datasets';
 
 const requestHandlers = vi.hoisted(() => new Map<unknown, (request: any) => unknown>());
@@ -53,6 +55,10 @@ describe('HypequeryMCPServer', () => {
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
+    expect(vi.mocked(Server)).toHaveBeenCalledWith(
+      expect.objectContaining({ version: MCP_PACKAGE_VERSION }),
+      expect.anything(),
+    );
   });
 
   it('should create server instance with custom name and version', () => {
@@ -102,6 +108,55 @@ describe('HypequeryMCPServer', () => {
     });
 
     expect(server).toBeInstanceOf(HypequeryMCPServer);
+  });
+
+  it('should reject unsafe query limit configuration', () => {
+    expect(() => new HypequeryMCPServer({
+      datasets: {},
+      analytics: mockAnalytics,
+      queryLimits: { maxOffset: 10_001 },
+    })).toThrow('maxOffset must be an integer between 0 and 10000');
+  });
+
+  it('advertises configured collection ceilings in query tool schemas', async () => {
+    new HypequeryMCPServer({
+      datasets: {
+        orders: {
+          ...mockDatasets.orders,
+          limits: { maxDimensions: 1, maxFilters: 2, maxResultSize: 6 },
+        },
+      },
+      analytics: mockAnalytics,
+      queryLimits: {
+        maxDimensions: 2,
+        maxMeasures: 3,
+        maxFilters: 4,
+        maxOrderBy: 5,
+      },
+    });
+
+    const handler = requestHandlers.get(ListToolsRequestSchema);
+    const result = await handler?.({ params: {} }) as {
+      tools: Array<{
+        name: string;
+        inputSchema: { anyOf: Array<{ properties: Record<string, any> }> };
+      }>;
+    };
+    const metric = result.tools.find(tool => tool.name === 'query_metric');
+    const dataset = result.tools.find(tool => tool.name === 'query_dataset');
+    const metricProperties = metric?.inputSchema.anyOf[0].properties;
+    const datasetProperties = dataset?.inputSchema.anyOf[0].properties;
+
+    expect(metricProperties?.dataset.enum).toEqual(['orders']);
+    expect(metricProperties?.dimensions.maxItems).toBe(1);
+    expect(metricProperties?.filters.maxItems).toBe(2);
+    expect(metricProperties?.orderBy.maxItems).toBe(5);
+    expect(metricProperties?.limit.maximum).toBe(6);
+    expect(datasetProperties?.dimensions.maxItems).toBe(1);
+    expect(datasetProperties?.measures.maxItems).toBe(3);
+    expect(datasetProperties?.filters.maxItems).toBe(2);
+    expect(datasetProperties?.orderBy.maxItems).toBe(5);
+    expect(datasetProperties?.limit.maximum).toBe(6);
   });
 
   it('should start server successfully', async () => {

@@ -14,6 +14,7 @@ import { createMCPServer } from './server.js';
 import { pathToFileURL } from 'url';
 import { resolve } from 'path';
 import { format } from 'util';
+import { MCP_PACKAGE_VERSION } from './version.js';
 
 function routeConsoleOutputToStderr(): void {
   const write = (...args: unknown[]) => {
@@ -66,7 +67,7 @@ async function main() {
       datasets,
       analytics,
       name: 'hypequery-mcp-server',
-      version: '0.1.0',
+      version: MCP_PACKAGE_VERSION,
     });
 
     // Keep the process running

@@ -7,6 +7,7 @@
 import type { DatasetClient, DatasetQuery } from '@hypequery/datasets';
 import type { DatasetRegistry, MCPToolResponse, QueryResultResponse, QueryToolOptions } from '../types.js';
 import { parseToolArgs, queryDatasetArgsSchema, toMetricFilters } from './args.js';
+import { applyQueryLimits } from './utils/query-limits.js';
 
 export async function queryDatasetTool(
   datasets: DatasetRegistry,
@@ -15,7 +16,7 @@ export async function queryDatasetTool(
   options: QueryToolOptions = {},
 ): Promise<MCPToolResponse> {
   const validatedArgs = parseToolArgs(queryDatasetArgsSchema, 'query_dataset', args);
-  const { dataset: datasetName, dimensions, measures, filters, grain, orderBy, limit, offset } = validatedArgs;
+  const { dataset: datasetName, dimensions, measures, filters, grain, orderBy } = validatedArgs;
 
   if (!datasetName) {
     throw new Error('dataset parameter is required');
@@ -31,23 +32,23 @@ export async function queryDatasetTool(
     throw new Error('At least one dimension or measure must be specified');
   }
 
+  const pagination = applyQueryLimits(dataset, validatedArgs, options.limits);
+
   // Build the query with proper types
   const query: DatasetQuery = {
     dimensions: dimensions || [],
     measures: measures || [],
     filters: toMetricFilters(filters),
     orderBy: orderBy || [],
+    limit: pagination.limit,
   };
 
   if (grain) {
     query.by = grain;
   }
 
-  if (limit !== undefined) {
-    query.limit = limit;
-  }
-  if (offset !== undefined) {
-    query.offset = offset;
+  if (pagination.offset !== undefined) {
+    query.offset = pagination.offset;
   }
 
   const result = await analytics.execute(dataset as any, query, {

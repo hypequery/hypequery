@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { SEMANTIC_FILTER_OPERATORS, type MetricFilter } from '@hypequery/datasets';
-import { MAX_QUERY_LIMIT } from '../types.js';
+import {
+  MAX_QUERY_DIMENSIONS,
+  MAX_QUERY_FILTERS,
+  MAX_QUERY_LIMIT,
+  MAX_QUERY_MEASURES,
+  MAX_QUERY_OFFSET,
+  MAX_QUERY_ORDER_BY,
+} from '../types.js';
 
 const filterSchema = z.object({
   field: z.string().min(1),
@@ -14,12 +21,12 @@ const orderBySchema = z.object({
 }).strict();
 
 const baseQuerySchema = z.object({
-  dimensions: z.array(z.string().min(1)).optional(),
-  filters: z.array(filterSchema).optional(),
+  dimensions: z.array(z.string().min(1)).max(MAX_QUERY_DIMENSIONS).optional(),
+  filters: z.array(filterSchema).max(MAX_QUERY_FILTERS).optional(),
   grain: z.enum(['day', 'week', 'month', 'quarter', 'year']).optional(),
-  orderBy: z.array(orderBySchema).optional(),
-  limit: z.number().int().nonnegative().max(MAX_QUERY_LIMIT).optional(),
-  offset: z.number().int().nonnegative().optional(),
+  orderBy: z.array(orderBySchema).max(MAX_QUERY_ORDER_BY).optional(),
+  limit: z.number().int().positive().max(MAX_QUERY_LIMIT).optional(),
+  offset: z.number().int().nonnegative().max(MAX_QUERY_OFFSET).optional(),
 }).strict();
 
 export const queryMetricArgsSchema = baseQuerySchema.extend({
@@ -29,7 +36,7 @@ export const queryMetricArgsSchema = baseQuerySchema.extend({
 
 export const queryDatasetArgsSchema = baseQuerySchema.extend({
   dataset: z.string().min(1).optional(),
-  measures: z.array(z.string().min(1)).optional(),
+  measures: z.array(z.string().min(1)).max(MAX_QUERY_MEASURES).optional(),
 });
 
 function formatZodError(error: z.ZodError): string {

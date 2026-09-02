@@ -311,29 +311,29 @@ const analytics = createDatasetClient({
   database: 'default',
 });
 
-const TestDataset = dataset('system.numbers', {
-  source: 'system.numbers',
+const TestDataset = dataset('system_one', {
+  source: 'system.one',
+  limits: { maxResultSize: 1 },
   dimensions: {
-    number: dimension.number({ label: 'Number' }),
+    dummy: dimension.number({ label: 'Dummy Value' }),
   },
   measures: {
-    count: measure.count('number', { label: 'Count' }),
-    sum: measure.sum('number', { label: 'Sum' }),
+    rowCount: measure.count('dummy', { label: 'Row Count' }),
   },
 });
 
-const count = TestDataset.metric('count', { measure: 'count' });
-const sum = TestDataset.metric('sum', { measure: 'sum' });
+const rowCount = TestDataset.metric('rowCount', { measure: 'rowCount' });
 
 export const datasets = {
-  numbers: {
+  one: {
     ...TestDataset,
-    metrics: { count, sum },
+    metrics: { rowCount },
   },
 };
 export { analytics };
 ```
 
-This uses ClickHouse's built-in `system.numbers` table, so no setup needed!
+This uses ClickHouse's finite built-in `system.one` table, so no setup is needed
+and an aggregate cannot scan an infinite source.
 
-Test query: "Show me the sum of numbers limit 10"
+Test query: "How many rows are in the one dataset?"

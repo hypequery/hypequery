@@ -19,7 +19,10 @@ import { getDatasetSchemaTool } from './tools/introspect.js';
 import { queryMetricTool } from './tools/query-metric.js';
 import { queryDatasetTool } from './tools/query-dataset.js';
 import { datasetGuidePrompt } from './prompts/dataset-guide.js';
-import type { DatasetRegistry } from './types.js';
+import type { DatasetRegistry, MCPQueryLimits } from './types.js';
+import { MCP_PACKAGE_VERSION } from './version.js';
+import { advertiseDatasetQueryLimits } from './tools/utils/query-schema.js';
+import { resolveQueryLimits } from './tools/utils/query-limits.js';
 
 export interface MCPServerConfig {
   /**
@@ -54,6 +57,9 @@ export interface MCPServerConfig {
    * explicitly enabled for trusted debugging.
    */
   includeSql?: boolean;
+
+  /** Server-side query ceilings applied in addition to Dataset limits. */
+  queryLimits?: MCPQueryLimits;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -93,12 +99,13 @@ export class HypequeryMCPServer {
 
   constructor(config: MCPServerConfig) {
     validateTenantConfig(config);
+    resolveQueryLimits(undefined, config.queryLimits);
     this.config = config;
 
     this.server = new Server(
       {
         name: config.name ?? 'hypequery-mcp-server',
-        version: config.version ?? '0.1.0',
+        version: config.version ?? MCP_PACKAGE_VERSION,
       },
       {
         capabilities: {
@@ -112,9 +119,10 @@ export class HypequeryMCPServer {
   }
 
   private setupHandlers() {
+    const queryLimits = resolveQueryLimits(undefined, this.config.queryLimits);
     // List available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      const tools = [
         {
           name: 'list_datasets',
           description: 'List all available datasets in the semantic layer',
@@ -154,10 +162,12 @@ export class HypequeryMCPServer {
               dimensions: {
                 type: 'array',
                 items: { type: 'string' },
+                maxItems: queryLimits.maxDimensions,
                 description: 'Dimensions to group by (optional)',
               },
               filters: {
                 type: 'array',
+                maxItems: queryLimits.maxFilters,
                 items: {
                   type: 'object',
                   properties: {
@@ -179,6 +189,7 @@ export class HypequeryMCPServer {
               },
               orderBy: {
                 type: 'array',
+                maxItems: queryLimits.maxOrderBy,
                 items: {
                   type: 'object',
                   properties: {
@@ -190,11 +201,16 @@ export class HypequeryMCPServer {
                 description: 'Sort order (optional)',
               },
               limit: {
-                type: 'number',
+                type: 'integer',
+                minimum: 1,
+                maximum: queryLimits.maxResultSize,
+                default: queryLimits.defaultResultSize,
                 description: 'Maximum number of rows to return (optional)',
               },
               offset: {
-                type: 'number',
+                type: 'integer',
+                minimum: 0,
+                maximum: queryLimits.maxOffset,
                 description: 'Number of rows to skip before returning results (optional)',
               },
             },
@@ -214,15 +230,18 @@ export class HypequeryMCPServer {
               dimensions: {
                 type: 'array',
                 items: { type: 'string' },
+                maxItems: queryLimits.maxDimensions,
                 description: 'Dimensions to select',
               },
               measures: {
                 type: 'array',
                 items: { type: 'string' },
+                maxItems: queryLimits.maxMeasures,
                 description: 'Measures to calculate',
               },
               filters: {
                 type: 'array',
+                maxItems: queryLimits.maxFilters,
                 items: {
                   type: 'object',
                   properties: {
@@ -244,6 +263,7 @@ export class HypequeryMCPServer {
               },
               orderBy: {
                 type: 'array',
+                maxItems: queryLimits.maxOrderBy,
                 items: {
                   type: 'object',
                   properties: {
@@ -255,19 +275,51 @@ export class HypequeryMCPServer {
                 description: 'Sort order (optional)',
               },
               limit: {
-                type: 'number',
+                type: 'integer',
+                minimum: 1,
+                maximum: queryLimits.maxResultSize,
+                default: queryLimits.defaultResultSize,
                 description: 'Maximum number of rows to return (optional)',
               },
               offset: {
-                type: 'number',
+                type: 'integer',
+                minimum: 0,
+                maximum: queryLimits.maxOffset,
                 description: 'Number of rows to skip before returning results (optional)',
               },
             },
             required: ['dataset'],
           },
         },
-      ],
-    }));
+      ];
+      return {
+        tools: tools.map(tool => {
+          if (tool.name === 'query_metric') {
+            return {
+              ...tool,
+              inputSchema: advertiseDatasetQueryLimits(
+                tool.inputSchema,
+                this.config.datasets,
+                this.config.queryLimits,
+                false,
+              ),
+            };
+          }
+          if (tool.name === 'query_dataset') {
+            return {
+              ...tool,
+              inputSchema: advertiseDatasetQueryLimits(
+                tool.inputSchema,
+                this.config.datasets,
+                this.config.queryLimits,
+                true,
+              ),
+            };
+          }
+          return tool;
+        }),
+      };
+    });
 
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -290,7 +342,11 @@ export class HypequeryMCPServer {
               this.config.datasets,
               this.config.analytics,
               args,
-              { tenantId: this.config.tenantId, includeSql: this.config.includeSql },
+              {
+                tenantId: this.config.tenantId,
+                includeSql: this.config.includeSql,
+                limits: this.config.queryLimits,
+              },
             );
 
           case 'query_dataset':
@@ -298,7 +354,11 @@ export class HypequeryMCPServer {
               this.config.datasets,
               this.config.analytics,
               args,
-              { tenantId: this.config.tenantId, includeSql: this.config.includeSql },
+              {
+                tenantId: this.config.tenantId,
+                includeSql: this.config.includeSql,
+                limits: this.config.queryLimits,
+              },
             );
 
           default:

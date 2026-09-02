@@ -416,6 +416,11 @@ owner approval remains the merge gate while the decisions have Proposed status.
 | **CORE-08 — First-class dataset and metric publishing API** | `CORE-07` | Add a supported registry/publishing builder that associates named metrics without object spreading. Preserve the current registry shape as a compatibility input and migrate examples. Merge with type tests, alias/collision tests, and unchanged query behavior. |
 | **CORE-09 — Local `hypequery mcp` command and live conformance** | `CORE-05`, `CORE-08` | Load the same Serve/dataset entrypoint as local development, start the stdio adapter, accept explicit trusted tenant configuration, add a connection self-test, and run a real MCP SDK client against ClickHouse. No Cloud endpoint behavior. Merge when all tools pass the tenant-scoped vertical slice. |
 
+**CORE-01 implementation status:** Implemented on top of `ARCH-01`, including
+effective default/Dataset/server limits, bounded offsets and query collections,
+package-derived server version metadata, finite examples, focused tests, and a
+release changeset.
+
 ### Deployment bridge PRs
 
 | PR | Depends on | Deliverable and merge gate |
@@ -511,7 +516,7 @@ identifiers above are the actual PR boundaries.
 
 **Goal:** A production-worthy tool core before network exposure.
 
-- [ ] **MCP-101:** Apply a non-optional effective row limit. Use the most
+- [x] **MCP-101:** Apply a non-optional effective row limit. Use the most
   restrictive of the server default, dataset limit, endpoint policy, and Cloud
   plan limit.
 - [ ] **MCP-102:** Add hard budgets for timeout, cancellation, response bytes,
@@ -535,7 +540,7 @@ identifiers above are the actual PR boundaries.
   hide physical SQL/source/tenant details by default.
 - [ ] **MCP-109:** Normalize stable error codes and classify retryable,
   correctable-input, unauthorized, stale-contract, budget, and internal errors.
-- [ ] **MCP-110:** Fix package version reporting, examples, test documentation,
+- [x] **MCP-110:** Fix package version reporting, examples, test documentation,
   and the unsafe `system.numbers` quickstart.
 
 **Exit criteria**

@@ -4,7 +4,7 @@ Get the Hypequery MCP server running with Claude Desktop in under 5 minutes.
 
 ## Option 1: Instant Test (No Setup Required)
 
-Use ClickHouse's built-in `system.numbers` table:
+Use ClickHouse's finite built-in `system.one` table:
 
 ```bash
 # 1. Build the MCP server
@@ -13,7 +13,7 @@ pnpm install
 pnpm build
 
 # 2. Test standalone
-node dist/bin.js --config examples/system-numbers-config.js
+node dist/bin.js --config examples/system-one-config.js
 ```
 
 You should see: `Hypequery MCP Server started`
@@ -44,7 +44,7 @@ Edit your Claude Desktop config:
       "args": [
         "/YOUR/ABSOLUTE/PATH/packages/mcp-server/dist/bin.js",
         "--config",
-        "/YOUR/ABSOLUTE/PATH/packages/mcp-server/examples/system-numbers-config.js"
+        "/YOUR/ABSOLUTE/PATH/packages/mcp-server/examples/system-one-config.js"
       ]
     }
   }
@@ -69,9 +69,9 @@ You should see:
 {
   "datasets": [
     {
-      "name": "numbers",
+      "name": "one",
       "dimensionCount": 1,
-      "metricCount": 4
+      "metricCount": 1
     }
   ]
 }
@@ -79,10 +79,10 @@ You should see:
 
 Then try:
 ```
-What is the sum of the first 100 numbers?
+How many rows are in the one dataset?
 ```
 
-Expected: `4950`
+Expected: `1`
 
 ## Next Steps
 
@@ -100,7 +100,7 @@ Expected: `4950`
 **Queries failing?**
 - Ensure ClickHouse is running (`clickhouse-client`)
 - Check credentials in config
-- Try the `system.numbers` example first
+- Try the finite `system.one` example first
 
 **Need help?**
 - See `TESTING.md` for detailed troubleshooting
