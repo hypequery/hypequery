@@ -136,7 +136,7 @@ function buildMetricTools(
 
   for (const [datasetName, dataset] of Object.entries(datasets)) {
     for (const [metricName, metric] of Object.entries(dataset.metrics ?? {})) {
-      const schema = buildMetricInputSchema(dataset, metricName);
+      const schema = buildMetricInputSchema(dataset, metricName, {}, metric.contract());
       tools.push({
         name: `query_${semanticToolNamePart(metricName)}`,
         description: `Query the ${metricName} metric from the ${datasetName} dataset.`,

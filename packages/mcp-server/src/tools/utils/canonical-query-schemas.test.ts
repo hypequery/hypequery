@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { dataset, dimension, measure } from '@hypequery/datasets';
+import {
+  buildCanonicalSemanticQuerySchemas,
+  dataset,
+  dimension,
+  measure,
+} from '@hypequery/datasets';
 import { ListToolsResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { buildMCPQuerySchemas } from './canonical-query-schemas.js';
+import { resolveQueryLimits } from './query-limits.js';
 
 describe('MCP canonical query schemas', () => {
   it('uses one catalog compiler for advertised schemas and runtime parsing', () => {
@@ -88,6 +94,28 @@ describe('MCP canonical query schemas', () => {
       limit: { maximum: 10, default: 7 },
       offset: { maximum: 2 },
     });
+  });
+
+  it('reuses the canonical schema structure and manifest hash for exact registries', () => {
+    const Orders = dataset('orders', {
+      source: 'orders',
+      dimensions: { status: dimension.string() },
+      measures: { revenue: measure.sum('amount') },
+    });
+    const totalRevenue = Orders.metric('totalRevenue', { measure: 'revenue' });
+    const registry = {
+      archivedOrders: { ...Orders, metrics: { totalRevenue } },
+      orders: { ...Orders, metrics: { totalRevenue } },
+    };
+    const canonical = buildCanonicalSemanticQuerySchemas(registry, {
+      grainField: 'grain',
+      ...resolveQueryLimits(),
+    });
+    const mcp = buildMCPQuerySchemas(registry);
+
+    expect(mcp.queryDatasetJsonSchema).toEqual(canonical.queryDatasetJsonSchema);
+    expect(mcp.queryMetricJsonSchema).toEqual(canonical.queryMetricJsonSchema);
+    expect(mcp.manifestHash).toBe(canonical.manifestHash);
   });
 
   it('does not silently downgrade malformed Dataset instances to legacy validation', () => {

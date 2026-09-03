@@ -98,6 +98,7 @@ export {
 } from './semantic-query-schema.js';
 export type {
   CanonicalSemanticQuerySchemas,
+  SemanticMetricQueryContract,
   SemanticQuerySchemaLimits,
   SemanticQuerySchemaOptions,
   SemanticQuerySchemaSource,

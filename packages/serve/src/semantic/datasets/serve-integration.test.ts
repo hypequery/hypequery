@@ -802,7 +802,12 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toContain('already grained by "month"');
+      expect(semanticBody(response).error.message).toBe('Request validation failed');
+      expect(semanticBody(response).error.details?.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: ['by'] }),
+        ]),
+      );
     });
 
     it("works with derived metrics", async () => {
@@ -1737,6 +1742,28 @@ describe("Serve integration — metrics", () => {
       expect(factory._calls['groupBy'][0][0]).toContain('country');
     });
 
+    it("preserves omitted measures as the all-measures dataset query", async () => {
+      const factory = createMockBuilderFactory([
+        { revenue: 5000, count: 12 },
+      ]);
+      const api = createAPI({
+        datasets: { orders: Orders },
+        queryBuilder: factory,
+      });
+
+      const response = await api.handler(
+        createRequest({
+          path: "/datasets/orders/query",
+          method: "POST",
+          body: {},
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(factory._calls['sum']).toContainEqual(['amount', 'revenue']);
+      expect(factory._calls['count']).toContainEqual(['id', 'count']);
+    });
+
     it("returns request validation errors for invalid dataset fields", async () => {
       const api = createAPI({
         datasets: { orders: Orders },
@@ -2131,7 +2158,8 @@ describe("Serve integration — metrics", () => {
       );
 
       expect(response.status).toBe(400);
-      expect(semanticBody(response).error.message).toBe('Request validation failed');
+      expect(semanticBody(response).error.message)
+        .toContain('must select at least one dimension or measure');
     });
 
     it("throws when a dataset route key collides with an existing query key", () => {

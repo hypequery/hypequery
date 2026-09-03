@@ -62,6 +62,13 @@ export function buildMCPQuerySchemas(
     });
   }
 
+  if (entries.every(([, dataset]) => isCanonicalSchemaSource(dataset))) {
+    return buildCanonicalSemanticQuerySchemas(
+      withLegacyDirectMetrics(datasets),
+      { grainField: 'grain', ...limits },
+    );
+  }
+
   const datasetSchemas: ZodTypeAny[] = [];
   const metricSchemas: ZodTypeAny[] = [];
   const datasetJsonSchemas: CanonicalSemanticQuerySchemas['queryDatasetJsonSchema'][] = [];

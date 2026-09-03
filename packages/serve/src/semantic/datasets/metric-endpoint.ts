@@ -135,7 +135,7 @@ export function createMetricEndpoint<TAuth extends AuthContext>(
     maxMeasures: undefined,
     maxFilters: undefined,
     maxOrderBy: undefined,
-  });
+  }, contract);
 
   const metadata: EndpointMetadata = {
     path: '', // filled by router.register

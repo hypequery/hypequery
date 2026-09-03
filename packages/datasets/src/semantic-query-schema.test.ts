@@ -106,6 +106,11 @@ describe('canonical semantic query schemas', () => {
       dataset: 'orders',
       metric: 'missing',
     }).success).toBe(false);
+    expect(first.queryDataset.safeParse({
+      dataset: 'orders',
+      measures: ['revenue'],
+      orderBy: [{ field: 'totalRevenue', direction: 'desc' }],
+    }).success).toBe(false);
     expect(first.manifestHash).toMatch(/^[a-f0-9]{64}$/);
     expect(second.manifestHash).toBe(first.manifestHash);
   });
@@ -209,6 +214,62 @@ describe('canonical semantic query schemas', () => {
       dataset: 'orders',
       measures: ['revenue'],
       filters: [{ field: 'status', operator: 'like', value: '%' }],
+    }).success).toBe(false);
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+      metric: 'totalRevenue',
+      dimensions: ['status'],
+    }).success).toBe(true);
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+      metric: 'totalRevenue',
+      dimensions: ['orderId'],
+    }).success).toBe(false);
+  });
+
+  it('restricts fixed-grain metrics to their declared grain', () => {
+    const dailyRevenue = totalRevenue.by('day');
+    const schemas = buildCanonicalSemanticQuerySchemas({
+      orders: { ...Orders, metrics: { dailyRevenue } },
+    }, { grainField: 'grain' });
+
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+      metric: 'dailyRevenue',
+      grain: 'day',
+    }).success).toBe(true);
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+      metric: 'dailyRevenue',
+      grain: 'month',
+    }).success).toBe(false);
+  });
+
+  it('honors metric-specific filters and grains from hosted catalogs', () => {
+    const catalog = getDatasetCatalog(registry.orders);
+    catalog.metrics.totalRevenue = {
+      ...catalog.metrics.totalRevenue,
+      dimensions: ['status'],
+      filters: ['status'],
+      grains: ['day'],
+    };
+    const schemas = buildCanonicalSemanticQuerySchemas({ orders: catalog }, { grainField: 'grain' });
+
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+      metric: 'totalRevenue',
+      filters: [{ field: 'status', operator: 'eq', value: 'paid' }],
+      grain: 'day',
+    }).success).toBe(true);
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+      metric: 'totalRevenue',
+      filters: [{ field: 'createdAt', operator: 'eq', value: '2026-01-01' }],
+    }).success).toBe(false);
+    expect(schemas.queryMetric.safeParse({
+      dataset: 'orders',
+      metric: 'totalRevenue',
+      grain: 'month',
     }).success).toBe(false);
   });
 });

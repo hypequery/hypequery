@@ -7,6 +7,7 @@ import {
   getQueryableRelationshipFields,
   type DatasetCatalog,
   type DatasetCatalogSource,
+  type MetricCatalogEntry,
 } from './catalog.js';
 import { SEMANTIC_FILTER_OPERATORS } from './constants.js';
 import type { JsonSchema } from './tools.js';
@@ -33,6 +34,12 @@ export interface SemanticQuerySchemaOptions extends SemanticQuerySchemaLimits {
   enforceResultLimit?: boolean;
 }
 
+/** Metric-specific query capabilities used when they are not embedded in the Dataset source. */
+export type SemanticMetricQueryContract = Pick<
+  MetricCatalogEntry,
+  'dimensions' | 'filters' | 'grains' | 'grain'
+>;
+
 export const DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS = Object.freeze({
   maxResultSize: 10_000,
   maxOffset: 10_000,
@@ -53,10 +60,14 @@ export interface CanonicalSemanticQuerySchemas {
 /** A live local Dataset or an already-normalized catalog from a hosted contract. */
 export type SemanticQuerySchemaSource = DatasetCatalogSource | DatasetCatalog;
 
+function isDatasetCatalog(source: SemanticQuerySchemaSource): source is DatasetCatalog {
+  return 'requiresTenant' in source && 'supportedGrains' in source && 'orderableFields' in source;
+}
+
 function resolveCatalog(source: SemanticQuerySchemaSource): DatasetCatalog {
-  return 'requiresTenant' in source && 'supportedGrains' in source && 'orderableFields' in source
-    ? source as DatasetCatalog
-    : getDatasetCatalog(source as DatasetCatalogSource);
+  return isDatasetCatalog(source)
+    ? source
+    : getDatasetCatalog(source);
 }
 
 function lowerLimit(...values: Array<number | undefined>): number | undefined {
@@ -76,15 +87,10 @@ function boundedArray(item: ZodTypeAny, maximum?: number): ZodTypeAny {
   return (maximum === undefined ? array : array.max(maximum)).optional();
 }
 
-function filterSchema(catalog: DatasetCatalog, metric: boolean): ZodTypeAny {
+function filterSchema(catalog: DatasetCatalog, fields: string[]): ZodTypeAny {
   const filterValue = z.unknown().refine(value => value !== undefined, 'Required');
-  const declaredFilters = Object.keys(catalog.filters);
-  const localFields = metric && declaredFilters.length === 0
-    ? Object.keys(catalog.dimensions)
-    : declaredFilters;
   const relationshipFields = new Set(getQueryableRelationshipFields(catalog));
-  const fields = uniqueSorted([...localFields, ...relationshipFields]);
-  const variants: ZodTypeAny[] = fields.map((field) => z.object({
+  const variants: ZodTypeAny[] = uniqueSorted(fields).map((field) => z.object({
     field: z.literal(field),
     operator: relationshipFields.has(field)
       ? z.enum(SEMANTIC_FILTER_OPERATORS)
@@ -107,13 +113,33 @@ function queryShape(
   catalog: DatasetCatalog,
   metricName: string | undefined,
   options: SemanticQuerySchemaOptions,
+  metric?: SemanticMetricQueryContract,
+  localRelationshipFields: string[] = [],
 ): Record<string, ZodTypeAny> {
   const limits = { ...DEFAULT_SEMANTIC_QUERY_SCHEMA_LIMITS, ...options };
   const relationshipFields = getQueryableRelationshipFields(catalog);
-  const dimensions = [...Object.keys(catalog.dimensions), ...relationshipFields];
+  const dimensions = metric
+    ? uniqueSorted([...metric.dimensions, ...localRelationshipFields])
+    : uniqueSorted([...Object.keys(catalog.dimensions), ...relationshipFields]);
+  const declaredFilters = Object.keys(catalog.filters);
+  const filterFields = metric
+    ? uniqueSorted([...metric.filters, ...localRelationshipFields])
+    : metricName
+      ? uniqueSorted([
+          ...(declaredFilters.length > 0 ? declaredFilters : Object.keys(catalog.dimensions)),
+          ...relationshipFields,
+        ])
+      : uniqueSorted([...declaredFilters, ...relationshipFields]);
+  const grains = metric
+    ? metric.grain ? [metric.grain] : metric.grains
+    : catalog.supportedGrains;
   const orderable = metricName
-    ? [...dimensions, metricName, ...(catalog.timeKey ? ['period'] : [])]
-    : catalog.orderableFields;
+    ? uniqueSorted([...dimensions, metricName, ...(grains.length > 0 ? ['period'] : [])])
+    : uniqueSorted([
+        ...dimensions,
+        ...Object.keys(catalog.measures),
+        ...(catalog.supportedGrains.length > 0 ? ['period'] : []),
+      ]);
   const maxResultSize = options.enforceResultLimit === false
     ? undefined
     : lowerLimit(catalog.limits?.maxResultSize, limits.maxResultSize);
@@ -137,7 +163,7 @@ function queryShape(
       ),
     }),
     filters: boundedArray(
-      filterSchema(catalog, metricName !== undefined),
+      filterSchema(catalog, filterFields),
       lowerLimit(catalog.limits?.maxFilters, limits.maxFilters),
     ),
     orderBy: boundedArray(z.object({
@@ -150,7 +176,7 @@ function queryShape(
     offset: (limits.maxOffset === undefined
       ? z.number().int().nonnegative()
       : z.number().int().nonnegative().max(limits.maxOffset)).optional(),
-    [grainField]: fieldEnum(catalog.supportedGrains).optional(),
+    [grainField]: fieldEnum(grains).optional(),
     ...(options.includeMeta ? { includeMeta: z.boolean().optional() } : {}),
   };
 }
@@ -171,8 +197,20 @@ export function buildMetricInputSchema(
   dataset: SemanticQuerySchemaSource,
   metricName: string,
   options: SemanticQuerySchemaOptions = {},
+  metricContract?: SemanticMetricQueryContract,
 ): ZodTypeAny {
-  return z.object(queryShape(resolveCatalog(dataset), metricName, options)).strict();
+  const catalog = resolveCatalog(dataset);
+  const metric = metricContract ?? catalog.metrics[metricName];
+  const localRelationshipFields = isDatasetCatalog(dataset)
+    ? []
+    : getQueryableRelationshipFields(catalog);
+  return z.object(queryShape(
+    catalog,
+    metricName,
+    options,
+    metric,
+    localRelationshipFields,
+  )).strict();
 }
 
 function unionSchemas(schemas: ZodTypeAny[], emptyShape: Record<string, ZodTypeAny>): ZodTypeAny {
@@ -246,7 +284,7 @@ export function buildCanonicalSemanticQuerySchemas(
     const catalog = resolveCatalog(dataset);
     for (const metricName of Object.keys(catalog.metrics).sort(compareStrings)) {
       metricSchemas.push(withSelectors(
-        buildMetricInputSchema(dataset, metricName, options),
+        buildMetricInputSchema(dataset, metricName, options, catalog.metrics[metricName]),
         { dataset: z.literal(datasetName), metric: z.literal(metricName) },
         false,
       ));

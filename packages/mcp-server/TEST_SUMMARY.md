@@ -2,11 +2,11 @@
 
 ## Overview
 
-Comprehensive test suite for `@hypequery/mcp` with **114 passing tests** across 12 test files.
+Comprehensive test suite for `@hypequery/mcp` with **115 passing tests** across 12 test files.
 
 ## Test Coverage
 
-### 1. Tools (80 tests)
+### 1. Tools (81 tests)
 
 #### `list-datasets.test.ts` (8 tests)
 - ✅ Empty dataset list handling
@@ -69,12 +69,13 @@ Comprehensive test suite for `@hypequery/mcp` with **114 passing tests** across 
 - ✅ UTF-8 serialized result byte ceilings
 - ✅ Stable classified error formatting
 
-#### `canonical-query-schemas.test.ts` (5 tests)
+#### `canonical-query-schemas.test.ts` (6 tests)
 - ✅ Shared advertised and runtime query contracts
 - ✅ Legacy registry compatibility remains entry-local
 - ✅ Configured MCP limits and defaults
 - ✅ Malformed Dataset entries fail closed
 - ✅ Deterministic manifest hashing
+- ✅ Canonical MCP and Dataset manifests have identical structure and identity
 
 #### `query-sql.integration.test.ts` (5 tests)
 - ✅ SQL redaction for dataset and metric results
@@ -120,7 +121,7 @@ Comprehensive test suite for `@hypequery/mcp` with **114 passing tests** across 
 
 ## Test Statistics
 
-- **Total Tests:** 114
+- **Total Tests:** 115
 - **Test Files:** 12
 - **Pass Rate:** 100%
 
@@ -204,7 +205,7 @@ it('should execute metric query with dimensions', async () => {
 
 ## Next Steps
 
-1. ✅ **Unit Tests** - Complete (114 tests)
+1. ✅ **Unit Tests** - Complete (115 tests)
 2. ⏭️ **Integration Tests** - Test with real MCP clients
 3. ⏭️ **E2E Tests** - Full workflow with ClickHouse
 4. ⏭️ **Performance Tests** - Load testing with large datasets
