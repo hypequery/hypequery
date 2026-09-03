@@ -19,7 +19,7 @@ export {
 } from './protocol-server.js';
 export { connectMCPServerStdio, startStdioMCPServer } from './stdio.js';
 export { listDatasetsTool } from './tools/list-datasets.js';
-export { getDatasetSchemaTool } from './tools/introspect.js';
+export { getDatasetSchemaTool, getTrustedDatasetSchema } from './tools/introspect.js';
 export { queryMetricTool } from './tools/query-metric.js';
 export { queryDatasetTool } from './tools/query-dataset.js';
 export { datasetGuidePrompt } from './prompts/dataset-guide.js';

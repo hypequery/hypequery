@@ -3,6 +3,12 @@
  */
 
 import type {
+  AgentCatalogDataset,
+  AgentCatalogDimension,
+  AgentCatalogFilter,
+  AgentCatalogMeasure,
+  AgentCatalogMetric,
+  AgentCatalogRelationship,
   AnyDatasetInstance,
   MetricFilter,
   TimeGrain,
@@ -80,6 +86,7 @@ export interface MCPQueryLimits {
 }
 
 export interface SchemaToolOptions {
+  /** @deprecated Agent-facing introspection is always safe. Use getTrustedDatasetSchema separately. */
   includeSql?: boolean;
 }
 
@@ -107,83 +114,32 @@ export interface MCPToolResponse {
 /**
  * Dataset schema response structure
  */
-export interface DatasetSchema {
-  name: string;
-  description: string;
-  source: string;
-  timeKey: string | null;
-  tenantKey: string | null;
-  dimensions: Record<string, DimensionSchema>;
-  measures: Record<string, MeasureSchema>;
-  metrics: Record<string, MetricSchema>;
-  filters: Record<string, FilterSchema>;
-  relationships: Record<string, RelationshipSchema>;
-  limits?: {
-    maxDimensions?: number;
-    maxMeasures?: number;
-    maxFilters?: number;
-    maxResultSize?: number;
-  };
-}
+export type DatasetSchema = AgentCatalogDataset;
 
 /**
  * Dimension schema in response
  */
-export interface DimensionSchema {
-  type: string;
-  column: string | null;
-  sql: string | null;
-  label: string;
-  description: string;
-  examples: string[];
-  filterable: boolean;
-  groupable: boolean;
-}
+export type DimensionSchema = AgentCatalogDimension;
 
 /**
  * Measure schema in response
  */
-export interface MeasureSchema {
-  aggregation: string;
-  field: string;
-  sql: string | null;
-  label: string;
-  description: string;
-}
+export type MeasureSchema = AgentCatalogMeasure;
 
 /**
  * Filter schema in response
  */
-export interface FilterSchema {
-  field: string;
-  label: string;
-  description: string;
-  operators: string[] | null;
-}
+export type FilterSchema = AgentCatalogFilter;
 
 /**
  * Metric schema in response
  */
-export interface MetricSchema {
-  type: string;
-  aggregation: string;
-  label: string;
-  description: string;
-  format: string | null;
-}
+export type MetricSchema = AgentCatalogMetric;
 
 /**
  * Relationship schema in response
  */
-export interface RelationshipSchema {
-  type: string;
-  target: string;
-  from?: string;
-  to?: string;
-  queryable?: boolean;
-  fields?: string[];
-  description: string;
-}
+export type RelationshipSchema = AgentCatalogRelationship;
 
 /**
  * Dataset list item
