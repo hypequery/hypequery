@@ -1,290 +1,42 @@
 /**
- * MCP Server for Hypequery Semantic Layer
+ * Backwards-compatible Hypequery MCP server facade.
  *
- * Exposes datasets and metrics via Model Context Protocol (MCP)
- * for use with Claude Desktop, Cursor, and other MCP-compatible tools.
+ * New integrations can compose HypequeryMCPExecutor with
+ * HypequeryMCPProtocolServer and supply their own transport. Existing callers
+ * can continue to construct this class and call start() for stdio.
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import {
-  type CanonicalSemanticQuerySchemas,
-  type DatasetClient,
-} from '@hypequery/datasets';
-import { listDatasetsTool } from './tools/list-datasets.js';
-import { getDatasetSchemaTool } from './tools/introspect.js';
-import { queryMetricTool } from './tools/query-metric.js';
-import { queryDatasetTool } from './tools/query-dataset.js';
-import { datasetGuidePrompt } from './prompts/dataset-guide.js';
-import type { DatasetRegistry, MCPExecutionBudget, MCPQueryLimits } from './types.js';
-import { MCP_PACKAGE_VERSION } from './version.js';
-import { buildMCPQuerySchemas } from './tools/utils/canonical-query-schemas.js';
-import { resolveQueryLimits } from './tools/utils/query-limits.js';
-import { resolveExecutionBudget } from './tools/utils/execution-budget.js';
-import { formatMCPToolError } from './errors.js';
+import { HypequeryMCPExecutor, type MCPServerConfig } from './executor.js';
+import { HypequeryMCPProtocolServer } from './protocol-server.js';
 
-export interface MCPServerConfig {
-  /**
-   * Dataset registry - map of dataset names to instances
-   */
-  datasets: DatasetRegistry;
+export type { MCPServerConfig } from './executor.js';
 
-  /**
-   * Semantic analytics for running metric and dataset queries
-   */
-  analytics: DatasetClient;
-
-  /**
-   * Server name (shown in MCP client)
-   */
-  name?: string;
-
-  /**
-   * Server version
-   */
-  version?: string;
-
-  /**
-   * Trusted tenant id used to scope tenant-keyed datasets.
-   */
-  tenantId?: string;
-
-  /**
-   * Include generated SQL in query tool responses.
-   *
-   * Defaults to false so agent-facing responses do not expose SQL text unless
-   * explicitly enabled for trusted debugging.
-   */
-  includeSql?: boolean;
-
-  /** Server-side query ceilings applied in addition to Dataset limits. */
-  queryLimits?: MCPQueryLimits;
-
-  /** Query deadline and serialized-result byte ceilings. */
-  executionBudget?: MCPExecutionBudget;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object';
-}
-
-function getTenantKey(dataset: unknown): string | undefined {
-  if (!isRecord(dataset)) {
-    return undefined;
-  }
-
-  const config = dataset.config;
-  const configTenantKey = isRecord(config) ? config.tenantKey : undefined;
-  const tenantKey = dataset.tenantKey ?? configTenantKey;
-  return typeof tenantKey === 'string' && tenantKey.length > 0 ? tenantKey : undefined;
-}
-
-function validateTenantConfig(config: MCPServerConfig) {
-  if (config.tenantId) {
-    return;
-  }
-
-  const tenantScopedDatasets = Object.entries(config.datasets ?? {})
-    .filter(([, ds]) => getTenantKey(ds))
-    .map(([name]) => name);
-
-  if (tenantScopedDatasets.length > 0) {
-    throw new Error(
-      `MCP server tenantId is required for tenant-scoped datasets: ${tenantScopedDatasets.join(', ')}`,
-    );
-  }
-}
-
-export class HypequeryMCPServer {
-  private server: Server;
-  private config: MCPServerConfig;
-  private querySchemas: CanonicalSemanticQuerySchemas;
-
+export class HypequeryMCPServer extends HypequeryMCPProtocolServer {
   constructor(config: MCPServerConfig) {
-    validateTenantConfig(config);
-    resolveQueryLimits(undefined, config.queryLimits);
-    resolveExecutionBudget(config.executionBudget);
-    this.config = config;
-    this.querySchemas = buildMCPQuerySchemas(config.datasets ?? {}, config.queryLimits);
-
-    this.server = new Server(
-      {
-        name: config.name ?? 'hypequery-mcp-server',
-        version: config.version ?? MCP_PACKAGE_VERSION,
-      },
-      {
-        capabilities: {
-          tools: {},
-          prompts: {},
-        },
-      }
-    );
-
-    this.setupHandlers();
-  }
-
-  /** Stable hash of the catalog-derived query tool input manifest. */
-  getManifestHash(): string {
-    return this.querySchemas.manifestHash;
-  }
-
-  private setupHandlers() {
-    // List available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
-        {
-          name: 'list_datasets',
-          description: 'List all available datasets in the semantic layer',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'get_dataset_schema',
-          description: 'Get the schema (dimensions, measures, named metrics, filters, relationships) for a specific dataset',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              dataset: {
-                type: 'string',
-                description: 'Name of the dataset to introspect',
-              },
-            },
-            required: ['dataset'],
-          },
-        },
-        {
-          name: 'query_metric',
-          description: 'Execute a metric query with optional dimensions, filters, time grain, and sorting',
-          inputSchema: this.querySchemas.queryMetricJsonSchema,
-        },
-        {
-          name: 'query_dataset',
-          description: 'Execute an ad-hoc dataset query with custom dimensions and measures',
-          inputSchema: this.querySchemas.queryDatasetJsonSchema,
-        },
-      ],
-    }));
-
-    // Handle tool calls
-    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-      const { name, arguments: args } = request.params;
-
-      try {
-        switch (name) {
-          case 'list_datasets':
-            return await listDatasetsTool(this.config.datasets);
-
-          case 'get_dataset_schema':
-            return await getDatasetSchemaTool(
-              this.config.datasets,
-              args,
-              { includeSql: this.config.includeSql },
-            );
-
-          case 'query_metric':
-            return await queryMetricTool(
-              this.config.datasets,
-              this.config.analytics,
-              args,
-              {
-                tenantId: this.config.tenantId,
-                includeSql: this.config.includeSql,
-                limits: this.config.queryLimits,
-                executionBudget: this.config.executionBudget,
-                signal: extra?.signal,
-                inputSchema: this.querySchemas.queryMetric,
-              },
-            );
-
-          case 'query_dataset':
-            return await queryDatasetTool(
-              this.config.datasets,
-              this.config.analytics,
-              args,
-              {
-                tenantId: this.config.tenantId,
-                includeSql: this.config.includeSql,
-                limits: this.config.queryLimits,
-                executionBudget: this.config.executionBudget,
-                signal: extra?.signal,
-                inputSchema: this.querySchemas.queryDataset,
-              },
-            );
-
-          default:
-            throw new Error(`Unknown tool: ${name}`);
-        }
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: formatMCPToolError(error),
-            },
-          ],
-          isError: true,
-        };
-      }
-    });
-
-    // List available prompts
-    this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-      prompts: [
-        {
-          name: 'dataset_guide',
-          description: 'Guide for querying datasets with natural language',
-          arguments: [
-            {
-              name: 'dataset',
-              description: 'Name of the dataset to get guidance for',
-              required: false,
-            },
-          ],
-        },
-      ],
-    }));
-
-    // Get prompt content
-    this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-
-      if (name === 'dataset_guide') {
-        return datasetGuidePrompt(this.config.datasets, args?.dataset);
-      }
-
-      throw new Error(`Unknown prompt: ${name}`);
+    const executor = new HypequeryMCPExecutor(config);
+    super({
+      executor,
+      name: config.name,
+      version: config.version,
     });
   }
 
   /**
-   * Start the MCP server with stdio transport
+   * Start with the legacy stdio transport.
+   *
+   * @deprecated Prefer connect(transport) or startStdioMCPServer(config).
    */
-  async start() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-
-    // Log to stderr (stdout is used for MCP protocol)
-    console.error('Hypequery MCP Server started');
-  }
-
-  /**
-   * Stop the MCP server
-   */
-  async stop() {
-    await this.server.close();
+  async start(): Promise<void> {
+    const { connectMCPServerStdio } = await import('./stdio.js');
+    await connectMCPServerStdio(this);
   }
 }
 
 /**
- * Create and start an MCP server
+ * Create and start a backwards-compatible stdio MCP server.
+ *
+ * @deprecated Prefer createMCPExecutor with createMCPProtocolServer, or
+ * startStdioMCPServer for an explicit stdio lifecycle.
  */
 export async function createMCPServer(config: MCPServerConfig): Promise<HypequeryMCPServer> {
   const server = new HypequeryMCPServer(config);

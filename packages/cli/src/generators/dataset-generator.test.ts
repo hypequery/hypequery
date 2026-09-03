@@ -9,6 +9,7 @@ import { generateDatasets } from './dataset-generator.js';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TSC_TIMEOUT_MS = 30_000;
 
 const mockQuery = vi.fn();
 
@@ -105,7 +106,7 @@ describe('generateDatasets', () => {
       ['--project', tsconfigPath],
       { cwd: repoRoot },
     );
-  }, 15_000);
+  }, TSC_TIMEOUT_MS);
 
   it('uses an injected introspection client', async () => {
     const injectedQuery = vi.fn(async ({ query }: { query: string }) => {
