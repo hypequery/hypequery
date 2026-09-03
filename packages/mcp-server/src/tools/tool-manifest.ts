@@ -3,6 +3,19 @@ import type { ListToolsResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 
 type ObjectSchema = Tool['outputSchema'] & Record<string, unknown>;
 
+const semanticMetadataProperties = {
+  examples: { type: 'array', items: { type: 'string' } },
+  synonyms: { type: 'array', items: { type: 'string' } },
+  format: { type: 'string' },
+  unit: { type: 'string' },
+  currency: { type: 'string' },
+  timezone: { type: 'string' },
+  sensitivity: {
+    type: 'string',
+    enum: ['public', 'internal', 'confidential', 'restricted'],
+  },
+};
+
 const errorEnvelopeSchema = {
   type: 'object',
   additionalProperties: false,
@@ -82,6 +95,22 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
   properties: {
     name: { type: 'string' },
     description: { type: 'string' },
+    ...semanticMetadataProperties,
+    freshness: {
+      type: 'object',
+      additionalProperties: false,
+      properties: { maxAgeSeconds: { type: 'integer', minimum: 1 } },
+      required: ['maxAgeSeconds'],
+    },
+    owner: { type: 'string' },
+    defaults: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        dimensions: { type: 'array', items: { type: 'string' } },
+        timeGrain: { type: 'string', enum: ['day', 'week', 'month', 'quarter', 'year'] },
+      },
+    },
     timeDimension: { type: ['string', 'null'] },
     dimensions: {
       type: 'array',
@@ -93,6 +122,7 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
           type: { type: 'string', enum: ['boolean', 'number', 'string', 'timestamp'] },
           label: { type: 'string' },
           description: { type: 'string' },
+          ...semanticMetadataProperties,
           filterable: { type: 'boolean' },
           groupable: { type: 'boolean' },
         },
@@ -108,6 +138,7 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
           name: { type: 'string' },
           label: { type: 'string' },
           description: { type: 'string' },
+          ...semanticMetadataProperties,
         },
         required: ['name'],
       },
@@ -121,6 +152,7 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
           name: { type: 'string' },
           label: { type: 'string' },
           description: { type: 'string' },
+          ...semanticMetadataProperties,
           dimensions: { type: 'array', items: { type: 'string' } },
           filters: { type: 'array', items: { type: 'string' } },
           grains: { type: 'array', items: { type: 'string' } },
@@ -137,6 +169,9 @@ export const DATASET_SCHEMA_OUTPUT_SCHEMA = resultSchema({
         properties: {
           name: { type: 'string' },
           type: { type: 'string', enum: ['boolean', 'number', 'string', 'timestamp'] },
+          label: { type: 'string' },
+          description: { type: 'string' },
+          ...semanticMetadataProperties,
           operators: { type: 'array', items: { type: 'string' } },
         },
         required: ['name', 'type', 'operators'],

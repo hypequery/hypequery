@@ -22,6 +22,7 @@ import type {
   MetricHandle,
   MetricRef,
 } from './types.js';
+import { toProtocolSemanticMetadata } from './utils/protocol-semantic-metadata.js';
 
 type ProtocolReferenceExpression = Extract<ProtocolExpression, { readonly kind: 'reference' }>;
 type ProtocolLiteralExpression = Extract<ProtocolExpression, { readonly kind: 'literal' }>;
@@ -186,6 +187,7 @@ function metricContract(
     ...(grain !== undefined ? { grain } : {}),
     ...(ref.label !== undefined ? { label: ref.label } : {}),
     ...(ref.description !== undefined ? { description: ref.description } : {}),
+    ...toProtocolSemanticMetadata(ref),
     endpoint,
   };
   return result;
@@ -239,7 +241,23 @@ export function buildProtocolDatasetContract(
 
   const contract = {
     name: dataset.name,
+    ...(dataset.description !== undefined ? { description: dataset.description } : {}),
+    ...toProtocolSemanticMetadata(dataset),
     source: dataset.source,
+    ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
+    ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
+    ...(dataset.defaults !== undefined
+      ? {
+          defaults: {
+            ...(dataset.defaults.dimensions !== undefined
+              ? { dimensions: [...dataset.defaults.dimensions].sort().map(parseProtocolIdentifier) }
+              : {}),
+            ...(dataset.defaults.timeGrain !== undefined
+              ? { timeGrain: dataset.defaults.timeGrain }
+              : {}),
+          },
+        }
+      : {}),
     tenant: dataset.tenantKey
       ? { kind: 'required', field: dataset.tenantKey }
       : { kind: 'not-required' },
@@ -258,6 +276,7 @@ export function buildProtocolDatasetContract(
       groupable: dimension.groupable !== false,
       ...(dimension.label !== undefined ? { label: dimension.label } : {}),
       ...(dimension.description !== undefined ? { description: dimension.description } : {}),
+      ...toProtocolSemanticMetadata(dimension),
     })).sort(byName),
     measures: Object.entries(dataset.measures).map(([name, measure]) => ({
       name,
@@ -277,6 +296,7 @@ export function buildProtocolDatasetContract(
       filters: (measure.filters ?? []).map(filterExpression),
       ...(measure.label !== undefined ? { label: measure.label } : {}),
       ...(measure.description !== undefined ? { description: measure.description } : {}),
+      ...toProtocolSemanticMetadata(measure),
     })).sort(byName),
     filters: Object.entries(dataset.filters).map(([name, filter]) => ({
       name,
@@ -284,6 +304,7 @@ export function buildProtocolDatasetContract(
       operators: [...(filter.operators ?? SEMANTIC_FILTER_OPERATORS)],
       ...(filter.label !== undefined ? { label: filter.label } : {}),
       ...(filter.description !== undefined ? { description: filter.description } : {}),
+      ...toProtocolSemanticMetadata(filter),
     })).sort(byName),
     metrics,
     relationships: Object.entries(dataset.relationships).map(([name, relationship]) => ({

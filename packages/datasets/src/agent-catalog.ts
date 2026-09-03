@@ -9,10 +9,17 @@ import type {
   ContractDataset,
   SemanticContract,
 } from './contract.js';
-import type { DatasetLimits, FieldType } from './types.js';
+import type {
+  DatasetDefaults,
+  DatasetFreshness,
+  DatasetLimits,
+  FieldType,
+  SemanticMetadata,
+} from './types.js';
 import { compareStrings, uniqueSorted } from './utils/canonical-json.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 
-export interface AgentCatalogDimension {
+export interface AgentCatalogDimension extends SemanticMetadata {
   name: string;
   type: FieldType;
   label?: string;
@@ -21,13 +28,13 @@ export interface AgentCatalogDimension {
   groupable: boolean;
 }
 
-export interface AgentCatalogMeasure {
+export interface AgentCatalogMeasure extends SemanticMetadata {
   name: string;
   label?: string;
   description?: string;
 }
 
-export interface AgentCatalogMetric {
+export interface AgentCatalogMetric extends SemanticMetadata {
   name: string;
   label?: string;
   description?: string;
@@ -37,9 +44,11 @@ export interface AgentCatalogMetric {
   grain?: string;
 }
 
-export interface AgentCatalogFilter {
+export interface AgentCatalogFilter extends SemanticMetadata {
   name: string;
   type: FieldType;
+  label?: string;
+  description?: string;
   operators: string[];
 }
 
@@ -49,9 +58,12 @@ export interface AgentCatalogRelationship {
   fields: string[];
 }
 
-export interface AgentCatalogDataset {
+export interface AgentCatalogDataset extends SemanticMetadata {
   name: string;
   description: string;
+  freshness?: DatasetFreshness;
+  owner?: string;
+  defaults?: DatasetDefaults;
   timeDimension: string | null;
   dimensions: AgentCatalogDimension[];
   measures: AgentCatalogMeasure[];
@@ -64,6 +76,13 @@ export interface AgentCatalogDataset {
 export interface AgentSafeCatalog {
   datasets: AgentCatalogDataset[];
 }
+
+export interface AgentCatalogProjectionOptions {
+  /** Maximum UTF-8 bytes in the complete safe catalog. Defaults to 256 KiB. */
+  maxCatalogBytes?: number;
+}
+
+export const DEFAULT_AGENT_CATALOG_MAX_BYTES = 256 * 1024;
 
 export type AgentCatalogDatasetRegistry = Readonly<
   Record<string, DatasetCatalogSource | DatasetCatalog>
@@ -110,6 +129,15 @@ function datasetDescription(name: string, description?: string): string {
   return description ?? `${name} analytics dataset.`;
 }
 
+function snapshotDefaults(defaults: DatasetDefaults): DatasetDefaults {
+  return {
+    ...(defaults.dimensions !== undefined
+      ? { dimensions: uniqueSorted(defaults.dimensions) }
+      : {}),
+    ...(defaults.timeGrain !== undefined ? { timeGrain: defaults.timeGrain } : {}),
+  };
+}
+
 function localCatalogToAgentDataset(catalog: DatasetCatalog): AgentCatalogDataset {
   const dimensions = Object.entries(catalog.dimensions)
     .filter(([, dimension]) => dimension.filterable || dimension.groupable)
@@ -118,6 +146,7 @@ function localCatalogToAgentDataset(catalog: DatasetCatalog): AgentCatalogDatase
       name,
       type: dimension.type,
       ...optionalText(dimension),
+      ...snapshotSemanticMetadata(dimension),
       filterable: dimension.filterable,
       groupable: dimension.groupable,
     }));
@@ -130,19 +159,28 @@ function localCatalogToAgentDataset(catalog: DatasetCatalog): AgentCatalogDatase
 
   return {
     name: catalog.name,
-    description: datasetDescription(catalog.name),
+    description: datasetDescription(catalog.name, catalog.description),
+    ...snapshotSemanticMetadata(catalog),
+    ...(catalog.freshness !== undefined ? { freshness: { ...catalog.freshness } } : {}),
+    ...(catalog.owner !== undefined ? { owner: catalog.owner } : {}),
+    ...(catalog.defaults !== undefined ? { defaults: snapshotDefaults(catalog.defaults) } : {}),
     timeDimension: catalog.timeKey !== undefined && dimensionNames.has(catalog.timeKey)
       ? catalog.timeKey
       : null,
     dimensions,
     measures: Object.entries(catalog.measures)
       .sort(([left], [right]) => compareStrings(left, right))
-      .map(([name, measure]) => ({ name, ...optionalText(measure) })),
+      .map(([name, measure]) => ({
+        name,
+        ...optionalText(measure),
+        ...snapshotSemanticMetadata(measure),
+      })),
     metrics: Object.entries(catalog.metrics)
       .sort(([left], [right]) => compareStrings(left, right))
       .map(([name, metric]) => ({
         name,
         ...optionalText(metric),
+        ...snapshotSemanticMetadata(metric),
         dimensions: uniqueSorted(metric.dimensions.filter(name => dimensionNames.has(name))),
         filters: uniqueSorted(metric.filters.filter(name => filterNames.has(name))),
         grains: uniqueSorted(metric.grains),
@@ -154,6 +192,8 @@ function localCatalogToAgentDataset(catalog: DatasetCatalog): AgentCatalogDatase
       .map(([name, filter]) => ({
         name,
         type: filter.valueType as FieldType,
+        ...optionalText(filter),
+        ...snapshotSemanticMetadata(filter),
         operators: uniqueSorted(filter.operators ?? []),
       })),
     relationships: Object.entries(catalog.relationships)
@@ -176,6 +216,7 @@ function semanticContractDatasetToAgentDataset(dataset: ContractDataset): AgentC
       name,
       type: dimension.type,
       ...optionalText(dimension),
+      ...snapshotSemanticMetadata(dimension),
       filterable: dimension.filterable,
       groupable: dimension.groupable,
     }));
@@ -188,19 +229,28 @@ function semanticContractDatasetToAgentDataset(dataset: ContractDataset): AgentC
 
   return {
     name: dataset.name,
-    description: datasetDescription(dataset.name),
+    description: datasetDescription(dataset.name, dataset.description),
+    ...snapshotSemanticMetadata(dataset),
+    ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
+    ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
+    ...(dataset.defaults !== undefined ? { defaults: snapshotDefaults(dataset.defaults) } : {}),
     timeDimension: dataset.timeKey !== undefined && dimensionNames.has(dataset.timeKey)
       ? dataset.timeKey
       : null,
     dimensions,
     measures: Object.entries(dataset.measures)
       .sort(([left], [right]) => compareStrings(left, right))
-      .map(([name, measure]) => ({ name, ...optionalText(measure) })),
+      .map(([name, measure]) => ({
+        name,
+        ...optionalText(measure),
+        ...snapshotSemanticMetadata(measure),
+      })),
     metrics: Object.entries(dataset.metrics)
       .sort(([left], [right]) => compareStrings(left, right))
       .map(([name, metric]) => ({
         name,
         ...optionalText(metric),
+        ...snapshotSemanticMetadata(metric),
         dimensions: uniqueSorted(metric.dimensions.filter(name => dimensionNames.has(name))),
         filters: uniqueSorted(metric.filters.filter(name => filterNames.has(name))),
         grains: uniqueSorted(metric.grains),
@@ -212,6 +262,8 @@ function semanticContractDatasetToAgentDataset(dataset: ContractDataset): AgentC
       .map(([name, filter]) => ({
         name,
         type: filter.valueType as FieldType,
+        ...optionalText(filter),
+        ...snapshotSemanticMetadata(filter),
         operators: uniqueSorted(filter.operators),
       })),
     relationships: Object.entries(dataset.relationships)
@@ -236,6 +288,7 @@ function protocolDatasetToAgentDataset(
       name: dimension.name,
       type: dimension.type,
       ...optionalText(dimension),
+      ...snapshotSemanticMetadata(dimension),
       filterable: dimension.filterable,
       groupable: dimension.groupable,
     }))
@@ -252,18 +305,27 @@ function protocolDatasetToAgentDataset(
 
   return {
     name: dataset.name,
-    description: datasetDescription(dataset.name),
+    description: datasetDescription(dataset.name, dataset.description),
+    ...snapshotSemanticMetadata(dataset),
+    ...(dataset.freshness !== undefined ? { freshness: { ...dataset.freshness } } : {}),
+    ...(dataset.owner !== undefined ? { owner: dataset.owner } : {}),
+    ...(dataset.defaults !== undefined ? { defaults: snapshotDefaults(dataset.defaults) } : {}),
     timeDimension: dataset.timeField !== undefined && dimensionNames.has(String(dataset.timeField))
       ? String(dataset.timeField)
       : null,
     dimensions,
     measures: dataset.measures
-      .map(measure => ({ name: measure.name, ...optionalText(measure) }))
+      .map(measure => ({
+        name: measure.name,
+        ...optionalText(measure),
+        ...snapshotSemanticMetadata(measure),
+      }))
       .sort((left, right) => compareStrings(left.name, right.name)),
     metrics: dataset.metrics
       .map(metric => ({
         name: metric.name,
         ...optionalText(metric),
+        ...snapshotSemanticMetadata(metric),
         dimensions: uniqueSorted(metric.dimensions.filter(name => dimensionNames.has(String(name)))),
         filters: uniqueSorted(metric.filters.filter(name => filterNames.has(String(name)))),
         grains: uniqueSorted(metric.grains),
@@ -277,6 +339,8 @@ function protocolDatasetToAgentDataset(
         return type === undefined ? undefined : {
           name: filter.name,
           type,
+          ...optionalText(filter),
+          ...snapshotSemanticMetadata(filter),
           operators: uniqueSorted(filter.operators),
         };
       })
@@ -307,32 +371,44 @@ function isSemanticContract(source: AgentCatalogSource): source is SemanticContr
 }
 
 /** Build the deterministic logical catalog that may safely be shown to an agent. */
-export function projectAgentSafeCatalog(source: AgentCatalogSource): AgentSafeCatalog {
+export function projectAgentSafeCatalog(
+  source: AgentCatalogSource,
+  options: AgentCatalogProjectionOptions = {},
+): AgentSafeCatalog {
+  let catalog: AgentSafeCatalog;
   if (isProtocolDeploymentContract(source)) {
     const datasets = new Map(source.datasets.map(dataset => [dataset.name, dataset]));
-    return {
+    catalog = {
       datasets: source.datasets
         .map(dataset => protocolDatasetToAgentDataset(dataset, datasets))
         .sort((left, right) => compareStrings(left.name, right.name)),
     };
-  }
-
-  if (isSemanticContract(source)) {
-    return {
+  } else if (isSemanticContract(source)) {
+    catalog = {
       datasets: Object.values(source.datasets)
         .map(semanticContractDatasetToAgentDataset)
         .sort((left, right) => compareStrings(left.name, right.name)),
     };
+  } else {
+    catalog = {
+      datasets: Object.entries(source)
+        .map(([, dataset]) => (
+          'requiresTenant' in dataset ? dataset : getDatasetCatalog(dataset)
+        ))
+        .map(localCatalogToAgentDataset)
+        .sort((left, right) => compareStrings(left.name, right.name)),
+    };
   }
 
-  return {
-    datasets: Object.entries(source)
-      .map(([, dataset]) => (
-        'requiresTenant' in dataset ? dataset : getDatasetCatalog(dataset)
-      ))
-      .map(localCatalogToAgentDataset)
-      .sort((left, right) => compareStrings(left.name, right.name)),
-  };
+  const maxBytes = options.maxCatalogBytes ?? DEFAULT_AGENT_CATALOG_MAX_BYTES;
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    throw new RangeError('maxCatalogBytes must be a positive safe integer.');
+  }
+  const byteLength = new TextEncoder().encode(JSON.stringify(catalog)).byteLength;
+  if (byteLength > maxBytes) {
+    throw new RangeError(`Agent-safe catalog exceeds the ${maxBytes}-byte limit.`);
+  }
+  return catalog;
 }
 
 /**

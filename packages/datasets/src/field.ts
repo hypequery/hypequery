@@ -17,6 +17,7 @@
  */
 
 import type { DimensionDefinition, DimensionOptions, FieldType } from './types.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 
 function createFieldHelper<T extends FieldType>(fieldType: T) {
   return <TOptions extends DimensionOptions | undefined = undefined>(
@@ -26,6 +27,7 @@ function createFieldHelper<T extends FieldType>(fieldType: T) {
     fieldType,
     label: opts?.label,
     description: opts?.description,
+    ...snapshotSemanticMetadata(opts ?? {}),
     column: opts?.column,
     sql: opts?.sql,
     dependencies: opts?.dependencies,
