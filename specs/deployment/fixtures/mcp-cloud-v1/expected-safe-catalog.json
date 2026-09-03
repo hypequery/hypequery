@@ -78,6 +78,8 @@
         {
           "name": "createdAt",
           "type": "timestamp",
+          "label": "Created at",
+          "description": "Filter orders by their UTC creation timestamp.",
           "operators": [
             "between",
             "eq",
@@ -91,6 +93,8 @@
         {
           "name": "region",
           "type": "string",
+          "label": "Region",
+          "description": "Filter orders by commercial region.",
           "operators": [
             "eq",
             "in",
@@ -101,6 +105,8 @@
         {
           "name": "status",
           "type": "string",
+          "label": "Status",
+          "description": "Filter orders by status.",
           "operators": [
             "eq",
             "in",

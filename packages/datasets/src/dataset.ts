@@ -58,6 +58,8 @@ import {
   validateDerivedMetric,
 } from './utils/dataset-validation.js';
 import { validateDatasetDefinition } from './utils/dataset-definition-validation.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
+import { validateSemanticMetadata } from './utils/semantic-metadata-validation.js';
 
 export function dataset<
   TDatasetName extends string,
@@ -91,12 +93,13 @@ export function dataset<
     metricName: TName,
     metricConfig: BaseMetricConfig<TMeasures> | DerivedMetricConfig<TDatasetName>,
   ): BaseMetricRef<TDatasetName, TName, ThisDataset> | DerivedMetricRef<TDatasetName, TName, ThisDataset> {
+    validateSemanticMetadata(ds.name, `metrics.${metricName}`, metricConfig);
     if (isDerivedMetricConfig(metricConfig)) {
       validateDerivedMetric(ds, metricName, metricConfig);
       const derivedSpec = createDerivedMetricSpec(metricConfig);
       return createMetricRef(
         ds, metricName, derivedSpec,
-        metricConfig.label, metricConfig.description,
+        metricConfig.label, metricConfig.description, metricConfig,
       );
     }
 
@@ -113,6 +116,7 @@ export function dataset<
       ds, metricName, spec,
       metricConfig.label ?? measure.label,
       metricConfig.description ?? measure.description,
+      { ...measure, ...metricConfig },
     );
   }
 
@@ -120,6 +124,11 @@ export function dataset<
     __type: 'dataset',
     name,
     source: config.source,
+    description: config.description,
+    ...snapshotSemanticMetadata(config),
+    freshness: config.freshness,
+    owner: config.owner,
+    defaults: config.defaults,
     tenantKey: config.tenantKey,
     timeKey: config.timeKey,
     dimensions,

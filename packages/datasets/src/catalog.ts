@@ -6,12 +6,16 @@ import type {
   RelationshipDefinition,
   SemanticFilterDefinition,
   DatasetLimits,
+  DatasetDefaults,
+  DatasetFreshness,
+  SemanticMetadata,
   TimeGrain,
 } from './types.js';
 import { SEMANTIC_FILTER_OPERATORS, SUPPORTED_TIME_GRAINS } from './constants.js';
 import { listQueryableRelationshipFields } from './utils/relationship-fields.js';
+import { snapshotSemanticMetadata } from './utils/semantic-metadata.js';
 
-export interface DimensionCatalogEntry {
+export interface DimensionCatalogEntry extends SemanticMetadata {
   type: DimensionDefinition['fieldType'];
   column?: string;
   sql?: string;
@@ -21,7 +25,7 @@ export interface DimensionCatalogEntry {
   groupable: boolean;
 }
 
-export interface MeasureCatalogEntry {
+export interface MeasureCatalogEntry extends SemanticMetadata {
   aggregation: MeasureDefinition['aggregation'];
   field: string;
   /** Second column for argMax/argMin. */
@@ -34,7 +38,7 @@ export interface MeasureCatalogEntry {
   filterCount: number;
 }
 
-export interface FilterCatalogEntry {
+export interface FilterCatalogEntry extends SemanticMetadata {
   field: string;
   label?: string;
   description?: string;
@@ -42,7 +46,7 @@ export interface FilterCatalogEntry {
   valueType?: DimensionDefinition['fieldType'];
 }
 
-export interface MetricCatalogEntry {
+export interface MetricCatalogEntry extends SemanticMetadata {
   kind: ReturnType<MetricHandle['contract']>['kind'];
   dataset: string;
   valueType: 'number';
@@ -65,9 +69,13 @@ export interface RelationshipCatalogEntry {
   fields: string[];
 }
 
-export interface DatasetCatalog {
+export interface DatasetCatalog extends SemanticMetadata {
   name: string;
+  description?: string;
   source: string;
+  freshness?: DatasetFreshness;
+  owner?: string;
+  defaults?: DatasetDefaults;
   tenantKey?: string;
   timeKey?: string;
   dimensions: Record<string, DimensionCatalogEntry>;
@@ -94,6 +102,7 @@ function dimensionToCatalog(dimension: DimensionDefinition): DimensionCatalogEnt
     sql: dimension.sql,
     label: dimension.label,
     description: dimension.description,
+    ...snapshotSemanticMetadata(dimension),
     filterable: dimension.filterable !== false,
     groupable: dimension.groupable !== false,
   };
@@ -108,6 +117,7 @@ function measureToCatalog(measure: MeasureDefinition): MeasureCatalogEntry {
     sql: measure.sql,
     label: measure.label,
     description: measure.description,
+    ...snapshotSemanticMetadata(measure),
     filterCount: measure.filters?.length ?? 0,
   };
 }
@@ -120,6 +130,7 @@ function filterToCatalog(
     field: filter.field,
     label: filter.label,
     description: filter.description,
+    ...snapshotSemanticMetadata(filter),
     operators: filter.operators ? [...filter.operators] : [...SEMANTIC_FILTER_OPERATORS],
     valueType: dimensions[filter.field]?.fieldType,
   };
@@ -133,6 +144,7 @@ function metricToCatalog(metric: MetricHandle): MetricCatalogEntry {
     valueType: contract.valueType,
     label: contract.label,
     description: contract.description,
+    ...snapshotSemanticMetadata(contract),
     dimensions: contract.dimensions,
     measures: contract.measures,
     filters: contract.filters,
@@ -178,7 +190,12 @@ export function getDatasetCatalog(dataset: DatasetCatalogSource): DatasetCatalog
 
   return {
     name: dataset.name,
+    description: dataset.description,
+    ...snapshotSemanticMetadata(dataset),
     source: dataset.source,
+    freshness: dataset.freshness,
+    owner: dataset.owner,
+    defaults: dataset.defaults,
     tenantKey: dataset.tenantKey,
     timeKey: dataset.timeKey,
     dimensions: Object.fromEntries(

@@ -79,6 +79,60 @@ The returned object is plain JSON-compatible metadata.
 ```
 </CodeBlock>
 
+The full catalog above is a trusted developer/debug view: it intentionally
+contains physical source, column, SQL, and tenancy details. Do not place it in
+model context. Use `projectAgentSafeCatalog()` for agent discovery; it removes
+those physical details, hides dimensions that are neither filterable nor
+groupable, and enforces a UTF-8 byte budget over the complete result.
+
+<CodeBlock>
+```typescript
+import { projectAgentSafeCatalog } from '@hypequery/datasets';
+
+const safeCatalog = projectAgentSafeCatalog(
+  { orders: Orders },
+  { maxCatalogBytes: 128 * 1024 },
+);
+```
+</CodeBlock>
+
+For an authenticated support surface, `projectTrustedDebugCatalog()` accepts an
+explicit `{ authorized: true }` proof supplied only after the owning application
+has made its authorization decision. The trusted projection is not registered
+as an agent-facing MCP tool.
+
+## Agent metadata
+
+Datasets, dimensions, measures, filters, and metrics accept optional `examples`,
+`synonyms`, `format`, `unit`, `currency`, `timezone`, and `sensitivity` metadata.
+Datasets also accept a description, freshness expectation, owner, and safe query
+defaults:
+
+<CodeBlock>
+```typescript
+const Orders = dataset('orders', {
+  source: 'analytics.orders',
+  description: 'Governed order analytics.',
+  examples: ['Revenue by region', 'Weekly order volume'],
+  synonyms: ['purchases'],
+  timezone: 'UTC',
+  freshness: { maxAgeSeconds: 300 },
+  owner: 'analytics@example.com',
+  sensitivity: 'internal',
+  defaults: { dimensions: ['region'], timeGrain: 'week' },
+  timeKey: 'createdAt',
+  dimensions: {
+    createdAt: dimension.timestamp({ format: 'date-time', timezone: 'UTC' }),
+    region: dimension.string({ examples: ['EMEA', 'NA'], synonyms: ['market'] }),
+  },
+});
+```
+</CodeBlock>
+
+Metadata is validated and size-bounded when defined, normalized into stable
+ordering, and carried through semantic contracts and portable deployment
+contracts. Verified question/answer fixtures are intentionally a separate API.
+
 Relationship entries carry `queryable` and `fields` — the qualified `<relationship>.<dimension>` names a one-hop query may reference. To-one relationships (`belongsTo`, `hasOne`) are queryable; `hasMany` entries report `queryable: false` with an empty field list. See [Relationships](/docs/datasets/relationships) for the query semantics.
 
 When a filter definition does not specify `operators`, the catalog exposes the default semantic operators from `SEMANTIC_FILTER_OPERATORS`:
